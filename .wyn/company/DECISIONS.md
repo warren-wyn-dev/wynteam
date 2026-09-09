@@ -1,1341 +1,522 @@
-# Founder Decisions Log
-
-เอกสารนี้บันทึกการตัดสินใจถาวรของ Founder เมื่อ Founder ให้ feedback ในลักษณะ เช่น "จำไว้", "ต่อไปให้ทำแบบนี้", "ไม่เอาแบบนี้", "เปลี่ยนวิธีทำ", "อยากให้ WYN เป็นแบบนี้" ทีม AI ต้องบันทึกไว้ที่นี่ทันทีและห้าม override โดยไม่แจ้ง Founder
-
-## รูปแบบการบันทึก
-
-```
-### [YYYY-MM-DD] หัวข้อการตัดสินใจ
-- บริบท:
-- คำตัดสินใจของ Founder:
-- ผลกระทบ:
-- อ้างอิง (task/PR ถ้ามี):
-```
-
-## รายการการตัดสินใจ
-
-### [2026-09-03] WYN-105 ลดสโคปจาก "ระบบ 3 ธีมสี" เหลือ "เปลี่ยนพื้นหลังเป็นสีขาว" เท่านั้น
-
-- บริบท: AI Product Manager เขียน full spec ของ WYN-105 (ระบบเลือกธีม 3 แบบ: ขาวนวล/ขาวบริสุทธิ์/ดำ) แล้วพบว่าใหญ่กว่าที่ backlog เดิมประเมินไว้มาก — สีทั้งแอปอ้างอิงผ่าน `WynColors` static const โดยตรง ไม่ผ่าน `Theme.of(context)` เลย ต้องไล่แก้เกือบทุกไฟล์ UI ในโปรเจกต์ถึงจะสลับธีมได้จริง จึงถามยืนยันแนวทางกับ Founder ก่อนเริ่ม Design/Coding
-- คำตัดสินใจของ Founder: **ไม่ต้องทำระบบสลับธีม/หน้าตั้งค่าธีมเลย** — ต้องการแค่ "เปลี่ยนสีพื้นหลังแอปเป็นสีขาว เหมือนกับแอปอื่นๆ" เท่านั้น (คือธีม "ขาวบริสุทธิ์" ในสโคปเดิม แต่ไม่ต้องมีตัวเลือกให้สลับ ไม่ต้องมีธีมดำ ไม่ต้อง sync ข้ามอุปกรณ์)
-- ผลกระทบ: งานลดขนาดจาก "refactor สถาปัตยกรรมสีทั้งแอป" เหลือแค่เปลี่ยนค่า `WynColors.paper` (ปัจจุบัน `0xFFFAF9F6` off-white/cream) เป็นสีขาวบริสุทธิ์ (`0xFFFFFFFF`) จุดเดียว — เพราะ `paper` เป็น token กลางที่ทุกหน้าจอ (background/surface/card) อ้างอิงร่วมกันอยู่แล้ว ตรวจ contrast กับ `hairline`(`#E8E6E0`)/`faint`(`#C7C4BC`) แล้วพบว่าเปลี่ยนเป็นขาวบริสุทธิ์ทำให้ contrast **เพิ่มขึ้น** เล็กน้อย (เส้นคั่น/ข้อความจางเห็นชัดขึ้น ไม่ใช่จางลง) จึงไม่มีความเสี่ยงด้าน accessibility — ระบบ 3 ธีม/dark mode เต็มรูปแบบตาม Product spec เดิม (`.wyn/docs/product/wyn-105-theme-system.md`) เก็บไว้เป็น**งานอนาคตแยกต่างหาก นอกรอบ Beta2 นี้** ไม่ใช่สโคปที่ต้องทำตอนนี้
-- อ้างอิง: `.wyn/tasks/backlog/WYN-105.md`, `.wyn/docs/product/wyn-105-theme-system.md` (เก็บไว้อ้างอิงสำหรับงานอนาคต)
-
-### [2026-09-01] WYNOS Version Control Policy — กำหนด Baseline และกติกา Rollback
-- บริบท: Founder ส่งกติกา Version Control อย่างเป็นทางการสำหรับ WYNOS ผ่านข้อความ "WYNOS VERSION CONTROL POLICY" ระบุ Baseline ปัจจุบัน กติกาการอัปเดต Version และกติกา Rollback
-- คำตัดสินใจของ Founder:
-  1. **Baseline**: โค้ด/ฟีเจอร์/UI-UX/DB schema/API/config ทั้งหมดที่มีอยู่ ณ ตอนนี้ คือ **WYNOS v1.0.0 Beta1** — ห้ามถือว่าเป็นเวอร์ชันอื่นจนกว่า Owner จะสั่ง
-  2. **Version ใหม่ต้องมาจาก Owner เท่านั้น** — ทีม AI ห้ามเปลี่ยน version number เอง, ห้ามเพิ่ม feature ใหญ่ที่ไม่ได้สั่ง, ห้ามลบ feature เดิมโดยไม่ได้สั่ง, ต้องรักษาความสามารถเดิมไว้เว้นแต่ Owner สั่งเปลี่ยน
-  3. **ห้าม Rollback เองโดยเด็ดขาดไม่ว่ากรณีใด** — เมื่อพบปัญหา (build fail, runtime error, feature/UI พัง, migration พัง, API พัง, security/performance regression) ให้ หยุดการเปลี่ยนแปลงที่ไม่จำเป็น → วิเคราะห์ → รายงานสาเหตุ/ผลกระทบ → เสนอทางแก้ → รอคำสั่ง Owner เท่านั้นก่อน rollback จริง (คำสั่งต้องชัดเจน เช่น "Rollback WYNOS กลับไป v1.0.0 Beta1")
-  4. **Version Integrity**: ต้องตรวจสอบ version ปัจจุบันก่อนเริ่มงานทุกครั้ง และเมื่อมี version ใหม่ต้องบันทึกและรักษาประวัติ version เดิมไว้ ห้ามเขียนทับ/ทำลาย version history
-- ผลกระทบ: สร้างไฟล์นโยบายถาวร `.wyn/company/VERSION_CONTROL.md` (มีตาราง Version History เริ่มจาก v1.0.0 Beta1) และเพิ่มเป็นไฟล์บังคับอ่านก่อนเริ่มงานใน `AGENTS.md` ข้อ 7 — ทุกบทบาท AI (โดยเฉพาะ AI Deploy & DevOps และ AI Debug Engineer) ต้องยึดกติกานี้เมื่อเจอปัญหาหลัง deploy: ห้ามสั่ง rollback อัตโนมัติแม้ระบบพังก็ตาม ต้องรายงานแล้วรอ Owner
-- อ้างอิง (task/PR ถ้ามี): `.wyn/company/VERSION_CONTROL.md`, `RELEASE_NOTES.md`
-
-### [2026-08-24] WYNOS Visual Refresh (WYN-071) — 3 การตัดสินใจก่อนเริ่ม Design
-- บริบท: Founder ส่ง spec "ออกแบบ UI/UX สำหรับ WYNOS" ผ่าน `/product` (ธีมสว่าง, multi-image Drop, Profile tab ใหม่ ฯลฯ) — AI Product Manager ตรวจโค้ดปัจจุบันแล้วพบว่าธีมสว่างมีอยู่แล้วจริงใน DS-001 (แค่ยังไม่ fix เป็นค่าเริ่มต้น) จึงถามยืนยัน 4 จุดผ่าน popup ก่อนส่งต่อ AI Design
-- คำตัดสินใจของ Founder:
-  1. **Theme Mode**: Fix เป็น **Light เสมอ** (ไม่ตาม dark mode ของเครื่องผู้ใช้อีกต่อไป) — เปลี่ยน `main.dart`'s `themeMode: ThemeMode.system` → `ThemeMode.light`
-  2. **Multi-image Drop (1–9 รูป)**: ทำเป็นส่วนหนึ่งของงานนี้เลย (ไม่เลื่อนเป็นงานแยก) แม้เป็น schema change ระดับกลางที่กระทบทุกจุดที่เคยสมมติว่า Drop มีรูปเดียว
-  3. **Profile Tab "Replies"/"Likes"**: เปิดเป็น**สาธารณะ เหมือน Twitter/X** (ไม่ใช่เจ้าของโปรไฟล์เท่านั้นตามที่ AI Product Manager แนะนำไว้เป็นทางเลือก privacy-safer กว่า) — Founder ยืนยันเลือกสาธารณะ
-  4. **ภาพอ้างอิง**: Founder จะแนบภาพใหม่อีกครั้ง (เซสชันนี้ไม่เห็นไฟล์ภาพที่ spec อ้างถึง) — รองาน Design จนกว่าจะได้ภาพ
-- ผลกระทบ: `.wyn/tasks/backlog/WYN-071-wynos-visual-refresh.md` ปรับจาก "รอคำตอบ" เป็น requirement ที่ชัดเจนแล้วสำหรับ R2 (Theme fix)/R3 (multi-image)/R5 (Replies/Likes สาธารณะ) — ยังรอแค่ภาพอ้างอิง (R1) ก่อนเริ่ม AI Design จริง — Replies/Likes แบบสาธารณะเป็นการเปิดเผยพฤติกรรมผู้ใช้แบบใหม่ ต้องมี Design ที่สื่อสารชัดเจนกับผู้ใช้ว่าข้อมูลเหล่านี้เห็นได้จากคนอื่น (เช่น first-time notice) เพื่อไม่ขัดกับ WYN Mission เรื่องความเป็นส่วนตัว
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-071-wynos-visual-refresh.md`
-
-### [2026-08-13] WYN Core Product & Target Users
-- บริบท: Founder ตอบคำถามเริ่มต้นผ่านคำสั่ง `/product` เพื่อเริ่มกำหนด WYN Vision และ Tech Stack
-- คำตัดสินใจของ Founder:
-  - Core Product: โซเชียลมีเดียทั่วไป (general social media platform)
-  - Target Users: วัยรุ่น / Gen Z
-  - Platform และ Tech Stack: มอบหมายให้ AI Product Manager เสนอคำแนะนำ แล้วรอ Founder อนุมัติ
-- ผลกระทบ: ใช้เป็นฐานในการร่าง Vision/Mission และคำแนะนำ Platform/Tech Stack ใน WYN-001 อัปเดตใน `.wyn/company/CONTEXT.md`
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/active/WYN-001-vision-and-tech-stack.md`
-
-### [2026-08-13] WYN Vision/Mission และ Platform/Tech Stack — อนุมัติแล้ว
-- บริบท: Founder ตอบ "ยืนยัน" ต่อร่าง Vision/Mission และคำแนะนำ Platform/Tech Stack ที่ AI Product Manager เสนอใน WYN-001
-- คำตัดสินใจของ Founder:
-  - อนุมัติถ้อยคำ Vision และ Mission ตามร่างทั้งหมด (ไม่มีแก้ไข)
-  - อนุมัติ Platform: Mobile-first — React Native (Expo) + TypeScript
-  - อนุมัติ Backend: Supabase (PostgreSQL + Auth + Storage + Realtime + Edge Functions)
-- ผลกระทบ: `.wyn/company/CONTEXT.md` อัปเดตเป็นค่าสุดท้ายแล้ว WYN-001 เสร็จสมบูรณ์ AI Design และ AI Coding ใช้ข้อมูลนี้เป็นฐานอ้างอิงได้ทันที การเปลี่ยน Platform/Tech Stack ในอนาคตต้องขออนุมัติใหม่ (Major Architecture)
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/completed/WYN-001-vision-and-tech-stack.md`
-
-### [2026-08-13] เปลี่ยน Frontend Framework เป็น Flutter (Dart)
-- บริบท: หลัง WYN-001 อนุมัติ React Native/Expo ไปแล้ว Founder แจ้งตรงว่า "โค้ดที่ใช้เขียนแอป ภาษา Dart กับ Flutter"
-- คำตัดสินใจของ Founder: ใช้ **Flutter (ภาษา Dart)** เป็น mobile framework หลักของ WYN แทนที่ React Native (Expo) + TypeScript ที่เคยอนุมัติไว้
-- ผลกระทบ:
-  - `.wyn/company/CONTEXT.md` (Technology Stack, Architecture) อัปเดตเป็น Flutter/Dart แล้ว
-  - Backend ยังคงเป็น Supabase เหมือนเดิม (มี `supabase_flutter` package รองรับ Flutter โดยตรง ไม่กระทบ)
-  - AI Coding ต้องใช้ Dart/Flutter convention (ตัวแปร, class, widget เป็นภาษาอังกฤษตาม `AGENTS.md`) เมื่อเริ่ม implement
-  - `.wyn/company/APPROVALS.md` รายการเดิมถูกทำเครื่องหมายว่าส่วน frontend ถูกแทนที่แล้ว (audit trail ยังคงไว้ ไม่ลบของเดิม)
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/completed/WYN-001-vision-and-tech-stack.md`, `.wyn/company/APPROVALS.md`
-
-### [2026-08-13] วิธีการถามคำถาม Founder ต้องใช้ Popup พร้อมตัวเลือกคำตอบ
-- บริบท: Founder แจ้งว่า "เวลาจะถามคำถามอะไรให้ตอบ เด้งเป็นหน้าป็อบอัพ พร้อมคำตอบด้วย" และยืนยันให้บันทึกเป็นกติกาถาวร
-- คำตัดสินใจของ Founder: ทุกครั้งที่ AI role ต้องถามคำถาม/ขอการตัดสินใจ/ขออนุมัติจาก Founder ให้ใช้ popup แบบเลือกคำตอบเป็นค่าเริ่มต้น แทนการพิมพ์ถามเป็นข้อความเปล่า ๆ ยกเว้นคำถามเชิงบรรยายที่ใส่เป็นตัวเลือกไม่ได้ตามธรรมชาติ
-- ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "วิธีการถามคำถาม Founder") ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป
-- อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
-
-### [2026-08-13] Authentication Methods สำหรับ WYN V0.1
-- บริบท: AI Product Manager เริ่ม WYN-002 (Authentication & Onboarding) และเสนอวิธียืนยันตัวตนให้ Founder อนุมัติผ่าน popup
-- คำตัดสินใจของ Founder: อนุมัติให้ WYN V0.1 รองรับ **Social Login (Google + Apple) และ Phone Number + OTP** เท่านั้น ไม่มี Email + Password
-- ผลกระทบ: กำหนดเป็น requirement ใน `.wyn/tasks/backlog/WYN-002-authentication-onboarding.md` และเป็นฐานให้ AI Design/AI Coding ใช้อ้างอิงเมื่อเริ่มงาน การเปลี่ยนแปลง authentication architecture ในอนาคตต้องขออนุมัติใหม่
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-002-authentication-onboarding.md`
-
-### [2026-08-13] Deployment Target สำหรับ WYN V0.1 — Internal Testing
-- บริบท: WYN-002 ผ่าน QA รอบ 3 (PASS) แล้ว AI Deploy & DevOps ถามผ่าน popup ว่าควร deploy ไปที่ไหนเป็นอันดับแรก
-- คำตัดสินใจของ Founder: เลือก **Internal Testing** (ทีมภายในเท่านั้น) — TestFlight (iOS) + Firebase App Distribution หรือ Google Play Internal Testing Track (Android) ไม่ใช่ public store release ในตอนนี้
-- ผลกระทบ: `.wyn/tasks/approved/WYN-002-authentication-onboarding.md` และ `.wyn/logs/deployments/2026-08-13-wyn-002-readiness.md` ใช้เป้าหมายนี้เป็นฐานวางแผน deployment การเปลี่ยนเป็น public release ในอนาคตต้องขออนุมัติใหม่
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-002-authentication-onboarding.md`
-
-### [2026-08-13] Feature ถัดไปคือ User Profile — ขอบเขต Display Name + Bio + Avatar
-- บริบท: หลัง WYN-002 ผ่าน QA, AI Product Manager ถาม Founder ผ่าน popup ว่า feature ถัดไปควรเป็นอะไร
-- คำตัดสินใจของ Founder: เลือก **User Profile** เป็น feature ถัดไป (WYN-003) และเลือกให้มีครบทั้ง 3 อย่างตั้งแต่รอบแรก: ชื่อแสดง (Display Name), Bio, และรูปโปรไฟล์ (Avatar upload) — ไม่แบ่งเป็นเฟสย่อย
-- ผลกระทบ: กำหนดเป็น requirement ใน `.wyn/tasks/backlog/WYN-003-user-profile.md` ต้องเพิ่ม Supabase Storage bucket สำหรับ avatar และขยาย `profiles` table
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-003-user-profile.md`
-
-### [2026-08-13] ต้องส่ง Push Notification ทุกครั้งที่ถามคำถาม Founder
-- บริบท: Founder ถามว่าเวลาถามคำถามหรือให้ Founder ตอบอะไร มีเสียงแจ้งเตือนได้ไหม — ทดลองส่ง push notification ให้ดูแล้ว Founder ยืนยันให้บันทึกเป็นกติกาถาวร
-- คำตัดสินใจของ Founder: ทุกครั้งที่ AI role ถามคำถามหรือรอคำตอบ/การตัดสินใจจาก Founder ให้ส่ง push notification แจ้งเตือนไปด้วยเสมอ (นอกเหนือจาก popup ที่มีอยู่แล้ว)
-- ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "วิธีการถามคำถาม Founder") และ `AGENTS.md` ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป
-- อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
-
-### [2026-08-13] Feature ถัดไปคือ Feed & Post — ขอบเขต Global Feed + ข้อความ/รูป + Like + Comment + ลบโพสต์
-- บริบท: หลัง WYN-002/WYN-003 ผ่าน QA, AI Product Manager ถาม Founder ผ่าน popup ว่า feature ถัดไปควรเป็นอะไร
-- คำตัดสินใจของ Founder: เลือก **Feed & Post** เป็น feature ถัดไป (WYN-004) พร้อมขอบเขตครบตั้งแต่รอบแรก:
-  - Post เนื้อหา: ข้อความ + รูปภาพ
-  - Feed: Global Feed (เห็นโพสต์ทุกคน เพราะยังไม่มีระบบ Follow)
-  - Interactions: มีทั้ง Like และ Comment
-  - ผู้ใช้ลบโพสต์ของตัวเองได้
-- ผลกระทบ: กำหนดเป็น requirement ใน `.wyn/tasks/backlog/WYN-004-feed-and-post.md` ต้องสร้างตาราง `posts`/`likes`/`comments` ใหม่ พร้อม Storage bucket สำหรับรูปโพสต์ และเปลี่ยน `HomeScreen` จาก placeholder เป็น Feed จริง
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-004-feed-and-post.md`
-
-### [2026-08-14] แทนที่ Product Structure เดิมทั้งหมดด้วย "WYN V0.1 — CORE APP FEATURE PROMPT" (Home / Drop / Pop / Profile)
-- บริบท: Founder ส่ง spec ใหม่ทั้งฉบับ ("WYN V0.1 — CORE APP FEATURE PROMPT") ที่นิยาม WYN V0.1 ใหม่ทั้งหมดเป็น Bottom Navigation 4 เมนู: Home (Search + Feed รวม Drop/Pop), Drop (โพสต์รูปภาพ ระบบแยกต่างหาก), Pop (โพสต์คลิปสั้นแนวตั้งแบบ TikTok), Profile — พร้อมระบบ Social เต็มรูปแบบ (Like, Comment, Share, Save, Follow, Notification, Search) ต่างจากขอบเขตที่สร้างไปแล้วมาก: WYN-004 (Feed & Post) ที่เพิ่งพัฒนาเสร็จเป็น **Feed เดียวรวมโพสต์ข้อความ+รูปภาพ** ไม่ได้แยก Drop/Pop เป็นคนละแท็บ และยังไม่มี Share/Save/Follow/Notification/Search เลย ถามยืนยันผ่าน popup ว่าจะทำอย่างไรกับของเดิม
-- คำตัดสินใจของ Founder: **แทนที่ทิศทาง Product เดิมทั้งหมด** ด้วย spec ใหม่นี้ — เริ่ม `/product` ใหม่ตาม "WYN V0.1 — CORE APP FEATURE PROMPT" ตั้งแต่ต้น (ไม่ใช่แค่เพิ่มเป็น roadmap ระยะยาวที่ยังไม่ทำ) ขอบเขต V0.1 ใหม่ตามที่ Founder ระบุคือ: Login/Register/Home/Search/Drop/Create Drop/Upload Image/Pop/Create Pop/Upload Video/Profile/Like/Comment/Share/Save/Follow/Notifications เท่านั้น — ห้ามทำ Shop/ZOKY/Payment/Cart/Order/Live/AI/Creator Monetization/Ads/Advanced Recommendation Algorithm จนกว่าจะได้รับคำสั่งใหม่ Color Direction: Blue + White + Soft Gray, ไม่ใช้ Liquid Glass, ห้ามลอก Layout ของ Instagram/TikTok โดยตรง
-- ผลกระทบ: WYN-002 (Auth) และ WYN-003 (Profile) ยังใช้ได้เป็นฐานอยู่ (ตรงกับ Register/Login/Logout/Edit Profile ใน spec ใหม่) แต่ WYN-004 (Feed & Post) ที่เพิ่งผ่าน Coding+Debug และรอ QA รอบ 2 อยู่ **จะถูกแทนที่/แยกออกเป็น Drop กับ Pop** ตาม spec ใหม่ — ต้องรัน `/product` ใหม่เพื่อวาง roadmap V0.1 ใหม่ทั้งหมดก่อนเริ่ม Design/Coding ของ Drop/Pop/Search/Notification/Follow/Share/Save งานที่ค้างอยู่ (QA รอบ 2 ของ WYN-004 debug fix) จะทำให้เสร็จตามที่ Founder สั่งไว้ก่อน (Merge PR #23 + QA รอบ 2) เพื่อปิด loop เดิมให้เรียบร้อยก่อนเปลี่ยนทิศทาง
-- อ้างอิง (task/PR ถ้ามี): PR #21-23 (WYN-004), จะสร้าง `.wyn/tasks/backlog/` ใหม่สำหรับ Drop/Pop/Search/Notification/Follow/Share/Save หลัง `/product` รอบใหม่เสร็จ
-
-### [2026-08-14] ขอบเขต WYN-005 (Drop) รอบแรก และกติกาที่ใช้ร่วมทั้ง roadmap V0.1 ใหม่
-- บริบท: AI Product Manager วาง roadmap ใหม่ (`.wyn/docs/product/wyn-v0.1-roadmap.md`) และ spec ของ WYN-005 (Drop) แล้วถามยืนยัน 4 คำถามผ่าน popup ก่อนส่งต่อ AI Design
-- คำตัดสินใจของ Founder (ทั้งหมดตามที่แนะนำ):
-  1. เริ่มพัฒนาที่ **WYN-005 (Drop)** ก่อนฟีเจอร์อื่นทั้งหมดใน roadmap ใหม่
-  2. **Hashtag/Mention ใน WYN-005 รอบแรก**: ทำแค่ "พิมพ์ในแคปชันได้ ระบบจำ/บันทึกได้" เท่านั้น ส่วนการแตะ hashtag/mention แล้วไปหน้าค้นหา/โปรไฟล์ ทำทีหลังผูกกับ WYN-009 (Search) ไม่ทำใน WYN-005
-  3. **Follow ใช้ได้กับทั้ง Drop และ Pop** (ไม่ใช่แค่ Pop ตามที่ spec เดิมระบุไว้ไม่ชัด) — ระบบ Follow เดียว (WYN-008) ใช้ร่วมกันทั้งแอป
-  4. **Home Feed (WYN-007) เป็น Global ก่อน** (เห็นโพสต์ของทุกคน เหมือน WYN-004 เดิม) ยังไม่กรองตาม Follow จนกว่าจะมีการตัดสินใจเพิ่มเติมในอนาคต
-- ผลกระทบ: อัปเดตขอบเขตใน `.wyn/tasks/backlog/WYN-005-drop-post-image.md` และ `.wyn/docs/product/wyn-v0.1-roadmap.md` ให้ตรงกับคำตัดสินใจนี้ แล้วส่งต่อ AI Design (`/design`) เพื่อออกแบบหน้าจอของ WYN-005
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-005-drop-post-image.md`, `.wyn/docs/product/wyn-v0.1-roadmap.md`
-
-### [2026-08-14] อนุญาตให้ทีม AI ทำงานต่อเนื่องอัตโนมัติตาม roadmap โดยไม่ต้องหยุดถามทีละ task
-- บริบท: Founder จะเข้านอน ขอให้ทีม AI ทำงานต่อเนื่องได้เองโดยไม่ต้องรอถามทุกขั้นตอน ถามยืนยันขอบเขตผ่าน popup ก่อนว่าจะทำแค่ WYN-005 ให้เสร็จแล้วหยุด หรือทำต่อเนื่องทั้ง roadmap
-- คำตัดสินใจของ Founder: **ทำงานต่อเนื่องตาม roadmap ทั้งหมดโดยอัตโนมัติ** — เริ่มจาก merge PR #28 → QA WYN-005 → เข้า Debug ถ้า FAIL จนกว่าจะ PASS → ต่อด้วย WYN-006 (Pop) และ task ถัดไปตามลำดับใน `.wyn/docs/product/wyn-v0.1-roadmap.md` โดยไม่ต้องหยุดขอ AskUserQuestion ทีละขั้นตอนอีก **จนกว่า Founder จะกลับมา**
-- ผลกระทบ: กติกาถาวรอื่น ๆ ยังใช้อยู่เหมือนเดิม (ห้าม force-push ที่เป็นอันตราย, ห้ามเปลี่ยน Major Architecture/Vision/Security โดยไม่ขออนุมัติ, ต้องบันทึกทุกอย่างลง PR/DECISIONS.md/CONTEXT.md ให้ตรวจย้อนหลังได้) — สิ่งที่เปลี่ยนคือ **ไม่ต้องรอ Founder ตอบ popup ก่อน merge PR/เริ่ม task ถัดไปในช่วงนี้** จนกว่าจะมีคำสั่งเปลี่ยนแปลงจาก Founder หรือเจอสถานการณ์ที่ต้องขออนุมัติตาม RULES.md จริง ๆ (เช่น ต้องเปลี่ยน Vision/Business Model/Security Architecture) ซึ่งกรณีนั้นยังต้องหยุดรอ Founder เหมือนเดิม
-- อ้างอิง (task/PR ถ้ามี): PR #28 เป็นต้นไป
-
-### [2026-08-14] ชะตากรรมของโค้ด/สคีมา WYN-004 เดิม เมื่อเริ่ม WYN-007 (Home)
-- บริบท: WYN-005 (Drop) และ WYN-006 (Pop) ผ่าน QA แล้ว ทำให้ Home (WYN-007) เริ่มได้ ต้องตัดสินใจว่าจะทำอย่างไรกับโค้ด/ตาราง WYN-004 (`FeedScreen`/`PostRepository`/`PostCard`, ตาราง `posts`/`likes`/`comments`) ที่ไม่มี route ใดชี้ไปแล้วตั้งแต่ WYN-005 แทนที่ด้วย `RootShell` — เรื่องนี้ค้างมาตั้งแต่ WYN-005 Coding Output ที่ระบุว่า "รอ Founder/Product ตัดสินใจ"
-- คำตัดสินใจของ AI Product Manager (ทำเองได้ตามอำนาจที่ RULES.md ให้ไว้ ไม่ใช่ Major Architecture change): แยกเป็น 2 ส่วน —
-  1. **ลบโค้ด Dart ทิ้ง** (`app/lib/features/feed/` ทั้งโฟลเดอร์ + test ที่เกี่ยวข้อง) มอบหมายให้ AI Coding ทำระหว่าง implement WYN-007 — เหตุผล: ไม่มี client ไหนอ้างอิงแล้ว, Home ใหม่ query `drops`/`pops` ตรง ๆ ไม่ใช้ `posts` เดิม, git history เก็บโค้ดเดิมไว้ครบถ้าต้องอ้างอิงย้อนหลัง
-  2. **ไม่ลบตาราง `posts`/`likes`/`comments` ออกจาก schema เอง** เพราะเป็น "โครงสร้างฐานข้อมูลแบบทำลายล้าง" ที่ต้องขออนุมัติ Founder ก่อนเสมอตาม RULES.md — บันทึกคำขออนุมัติไว้ที่ `.wyn/company/APPROVALS.md` (สถานะ: รออนุมัติ) แทน ไม่ดำเนินการเองจนกว่า Founder จะตอบ
-- ผลกระทบ: `app/lib/features/feed/` จะถูกลบใน PR ของ WYN-007 Coding แต่ `supabase/schema.sql` ยังคงตาราง WYN-004 ไว้เหมือนเดิมจนกว่าจะมีคำตอบจาก Founder ที่ `.wyn/company/APPROVALS.md`
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-007-home-feed.md`, `.wyn/company/APPROVALS.md`
-
-### [2026-08-14] ต้องรายงานความคืบหน้างานเป็นเปอร์เซ็นต์เป็นระยะ
-- บริบท: Founder ขอให้ระบบแจ้งความคืบหน้าของงานที่มอบหมายไปเป็นระยะ พร้อมบอกเป็นเปอร์เซ็นต์ ไม่ใช่รอจนงานเสร็จสมบูรณ์ค่อยแจ้งทีเดียว
-- คำตัดสินใจของ Founder: ทุก AI role ต้องรายงานความคืบหน้าเป็นเปอร์เซ็นต์เมื่อเสร็จ milestone ย่อยที่มีความหมาย (เช่น Product spec เสร็จ, Design เสร็จ, Coding เสร็จ, QA ผ่าน/ไม่ผ่าน) ไม่ใช่แค่ตอนเริ่มกับตอนจบงานทั้งก้อน
-- ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "การรายงานความคืบหน้างาน") ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป
-- อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
-
-### [2026-08-14] ระงับการพัฒนาฟีเจอร์ Pop (คลิปสั้น) ไว้ก่อน — ไม่ใช่การยกเลิก
-- บริบท: Founder แจ้งให้ระงับการพัฒนาฟีเจอร์ Pop (WYN-006 และงานต่อยอดที่เกี่ยวข้อง) ไว้ก่อน เพื่อหันไปทำ WYN CLUB (ฟีเจอร์ Community/กลุ่ม) แทน
-- คำตัดสินใจของ Founder: **ระงับ (suspend) ไม่ใช่ยกเลิก (cancel)** — Pop ที่มีอยู่แล้ว (WYN-006, ผ่าน QA แล้ว) **ยังคงอยู่ในแอปตามปกติ** ไม่ต้องถอดออกจาก Bottom Navigation หรือปิดการใช้งาน สิ่งที่เปลี่ยนคือ **ไม่เริ่ม/ไม่ทำงานพัฒนาใหม่ที่เกี่ยวกับ Pop ต่อ** จนกว่าจะได้รับคำสั่งให้กลับมาทำต่อ
-- ผลกระทบ: หยุดพิจารณา task ที่เกี่ยวกับ Pop โดยตรงในรอบ roadmap ถัดไป (เช่น ปรับปรุง Pop เพิ่มเติม) จนกว่า Founder จะสั่งให้กลับมาทำต่อ — โค้ด/schema/route ของ Pop ที่มีอยู่แล้วไม่ถูกแตะต้อง
-- อ้างอิง (task/PR ถ้ามี): ไม่มี PR เกี่ยวข้อง (เป็นการหยุดงานอนาคต ไม่ใช่ rollback งานเดิม)
-
-### [2026-08-14] เพิ่มฟีเจอร์ใหม่ WYN CLUB (Community/กลุ่มความสนใจ) เข้า roadmap — ทำเฉพาะ Core System รอบแรก
-- บริบท: Founder ส่ง spec ฉบับเต็มสำหรับ "WYN CLUB" — พื้นที่ Community/กลุ่มตามความสนใจภายใน WYN (คล้าย Facebook Groups แต่ออกแบบ UI/UX เป็นเอกลักษณ์ของ WYN เอง) ครอบคลุม 19 หัวข้อ: สร้าง/เข้าร่วม Club, Club Page, โพสต์ใน Club, ระบบสมาชิก/Role (Owner/Admin/Moderator/Member), ระบบ Admin จัดการ Club, Pinned Post, กฎ Club, Discovery/Explore, Search integration, Notification integration, Profile integration, Home integration, และ data structure (Club/ClubMember/ClubPost) — Founder ระบุชัดว่า **ใน Version แรกทำเฉพาะ Core Club System ก่อน อย่าใส่ฟีเจอร์อนาคต** (Events/Marketplace/Live/Chat/Poll ฯลฯ) และห้ามเปลี่ยนโครงสร้างเดิมของ Home/Drop/Pop/Profile/Navigation ที่ทำไว้แล้ว
-- คำตัดสินใจของ Founder: เพิ่ม WYN CLUB เป็นฟีเจอร์ใหม่ในระบบ โดย **ไม่สร้าง Bottom Navigation tab ใหม่** — Club อยู่ภายในหน้า Home (คงโครงสร้าง Home | Drop | Pop | ZOKY | Profile เดิม) ทำเฉพาะ Core Club System ในรอบแรก
-- ผลกระทบ: AI Product Manager จะแบ่งขอบเขตเป็น task ใหม่ตาม pattern เดิมของ roadmap (Core system ก่อน แล้วค่อยทำ Discovery/Search/Notification/Home integration เป็น task ต่อยอดทีหลัง เหมือนที่ Drop/Pop ได้ Home+Search+Notification integration เป็นงานแยกทีหลัง) — งานนี้มาแทนที่/แซงคิว WYN-010 (Share formalization) ในลำดับความสำคัญของ roadmap แต่ไม่กระทบ WYN-012 (Notification) ที่กำลังทำอยู่ตอนนี้ ให้ทำ WYN-012 ให้เสร็จสมบูรณ์ (ผ่าน QA) ก่อนแล้วค่อยเริ่ม WYN CLUB
-- อ้างอิง (task/PR ถ้ามี): จะสร้าง `.wyn/tasks/backlog/WYN-014-club-core.md` เป็นต้นไปหลัง WYN-012 เสร็จ
-
-### [2026-08-14] ขยาย WYN เป็น WYN Platform — เพิ่ม ZOKY Marketplace / ZOKY Sellers by WYN / WYN Admin / Shared Backend
-- บริบท: หลัง WYN CLUB (WYN-014/WYN-015) ผ่าน QA ครบและ merge เข้า `main` แล้ว Founder ส่ง "WYN PLATFORM — MASTER DEVELOPMENT PROMPT" ฉบับเต็ม (38 หัวข้อ) กำหนดทิศทางใหม่ให้ WYN ขยายจาก Social app เดียวเป็น **WYN Platform** ที่ประกอบด้วย 5 ส่วน: (1) WYN Social (ของเดิม), (2) ZOKY Marketplace (E-commerce ใหม่), (3) ZOKY Sellers by WYN (แอป/ระบบสำหรับร้านค้า), (4) WYN Admin (หลังบ้านกลางของทั้ง Platform), (5) Shared Backend — พร้อมกติกาบังคับ: ห้ามลบ/ทำลายฟีเจอร์ WYN เดิม, ห้ามเปลี่ยน Navigation เดิมโดยไม่จำเป็น, ห้ามเขียนระบบซ้ำถ้า reuse ได้, Mobile-first, ออกแบบให้ขยายได้ในอนาคต (เผื่อ ZOKY Food/Rider/Delivery ภายหลัง แต่ **ยังไม่ทำรอบนี้** — โฟกัส Marketplace ก่อน), พัฒนาเป็น Phase ตามลำดับ (Phase 1 ตรวจสอบของเดิม → Phase 2-3 ZOKY Marketplace Customer → Phase 4 ZOKY Sellers → Phase 5 เชื่อมระบบ → Phase 6 WYN Admin → Phase 7-8 เชื่อม Admin + Finance/Fees/Analytics/Moderation) ตัว master prompt เองระบุ GitHub structure ตัวอย่างเป็น JS/TS-style monorepo (`apps/customer`, `apps/sellers`, `apps/admin`, `packages/ui` ฯลฯ) ซึ่ง**ไม่ตรงกับ stack จริงของโปรเจกต์**ที่เป็น Flutter (Dart) แอปเดียว + Supabase — AI Product Manager ตรวจสอบ repo จริงแล้วพบว่าไม่มี monorepo tooling ใด ๆ (ไม่มี Melos/workspace), ไม่มี routing package (ใช้ `Navigator.push`/`MaterialPageRoute` + `IndexedStack` ธรรมดา), ไม่มี state management library (ใช้ StatefulWidget + Repository pattern เรียก Supabase ตรง ๆ ต่อ feature)
-- คำตัดสินใจของ AI Product Manager (ทำได้เองตาม RULES.md เพราะเป็น "วางแผน/Plan" ไม่ใช่การเปลี่ยน Major Architecture ของ stack เดิม — ยังคง Flutter+Supabase เหมือนเดิมทุกประการ ไม่ได้เปลี่ยน tech stack หรือ business model หลักของ WYN Social แต่อย่างใด เป็นการ**ต่อยอด**ตามคำสั่งตรงของ Founder):
-  1. **ZOKY Marketplace (Customer)** รอบแรกนี้จะพัฒนาเป็น **feature module ใหม่ภายในแอป Flutter เดียวเดิม** (`app/lib/features/zoky/`) ไม่สร้างแอปแยก — ตรงตามกติกา "ห้ามเขียนระบบซ้ำ", "Mobile-first" และ "ห้ามเปลี่ยน Architecture เดิมโดยไม่จำเป็น" ของ Founder เอง
-  2. **Navigation**: เพิ่ม Bottom Navigation tab ที่ 5 ชื่อ "ZOKY" ต่อจาก Home/Drop/Pop/Profile เดิม (ไม่แทรกกลาง ไม่ลบ/ย้ายตำแหน่งของเดิม) ตรงตามกติกา "ห้ามเปลี่ยน Navigation เดิมโดยไม่จำเป็น" และ Section 3 ของ master prompt ที่ระบุตรงว่า "เพิ่ม: ZOKY"
-  3. **Backend**: ใช้ Supabase project เดียวกัน เพิ่ม table domain ใหม่ (stores/products/product_variants/categories/carts/cart_items/orders/order_items/reviews ฯลฯ) เข้า `supabase/schema.sql` ไฟล์เดิม ไม่แยก database ใหม่ — reuse RLS/security-definer RPC pattern ที่พิสูจน์แล้วจาก WYN Social (โดยเฉพาะ RPC-over-raw-RLS จาก WYN-014 สำหรับ permission graph ของ Seller/Order status transition)
-  4. **Task numbering**: ใช้ prefix ใหม่ **ZOKY-XXX** แยกจาก WYN-XXX เดิม เพื่อให้ติดตามงานสองสายผลิตภัณฑ์ (WYN Social vs ZOKY Marketplace) แยกกันชัดเจนใน `.wyn/tasks/`/CONTEXT.md/METRICS.md แต่ยังอยู่ใน governance/workflow เดียวกันทั้งหมด (Product→Design→Code→QA→Debug, PR-per-role, Thai/English convention เดิมทุกประการ)
-  5. **ขอบเขตรอบนี้ (ตาม Phase 1-3 ของ master prompt)**: ทำเฉพาะ ZOKY Marketplace **Customer-facing** (Home/Search/Product Detail/Store/Cart/Checkout/Order/Review) ก่อน — **ยังไม่ทำ** ZOKY Sellers by WYN (Phase 4), WYN Admin (Phase 6), Finance/Analytics/Moderation เต็มรูปแบบ (Phase 8), หรือ ZOKY Food/Rider/Delivery ตามที่ master prompt ระบุชัดว่ายังไม่ต้องทำ — จะประเมินสถาปัตยกรรม "แอปแยก vs feature module" ของ Seller/Admin อีกครั้งเมื่อถึง Phase 4/6 จริง ไม่ตัดสินใจล่วงหน้าตอนนี้
-  6. **ค่าธรรมเนียม (ZOKY_MARKETPLACE_FEE)**: เก็บเป็นค่า configuration ที่แก้ไขได้ (ไม่ hard-code หลายจุด) ตามที่ master prompt ระบุไว้ตรง ๆ ค่าเริ่มต้น 10% ต่อ Order — จะออกแบบรายละเอียดที่ layer ไหน (DB config table vs Dart constant) ตอนเขียน task spec ของ Checkout/Order
-- ผลกระทบ: จะสร้าง `.wyn/docs/product/zoky-platform-roadmap.md` (แจกแจง Phase และ task ZOKY-001 เป็นต้นไป) และ `.wyn/tasks/backlog/ZOKY-001-...md` (task แรก) ตามหลัง entry นี้ทันที — WYN Social ทั้งหมด (Home/Drop/Pop/Club/Profile/Search/Notification) **ไม่ถูกแตะต้อง** ยังทำงานเหมือนเดิมทุกประการ — งาน WYN-010 (Share formalization) และคำขออนุมัติค้างเรื่องลบตาราง `posts`/`likes`/`comments` (WYN-004 เดิม) ใน `.wyn/company/APPROVALS.md` ยังคงค้างอยู่เหมือนเดิม ไม่ได้ถูกยกเลิกหรือแทนที่ด้วยงานนี้
-- อ้างอิง (task/PR ถ้ามี): จะสร้าง `.wyn/docs/product/zoky-platform-roadmap.md`, `.wyn/tasks/backlog/ZOKY-001-marketplace-foundation.md`
-
-### [2026-08-15] ZOKY Marketplace Customer-facing scope (Phase 2-3) เสร็จสมบูรณ์ครบวงจร — หยุดรอ Founder ก่อนเริ่ม Phase 4
-- บริบท: ตามคำสั่ง Founder "ทำจนเสร็จให้หมดทุกอย่างเลยนะ พอดีจะนอนแล้ว" (2026-08-15) ทีม AI ทำงานต่อเนื่องอัตโนมัติจน ZOKY-003 (Cart & Checkout & Order) และ ZOKY-004 (Review) ผ่าน QA และ merge เข้า `main` ครบทั้งคู่ — ZOKY-004 ใช้เวลา 2 รอบ QA (รอบ 1 FAIL เพราะพบช่องโหว่ security ระดับ Critical ใน `reviews`' update RLS policy, Debug แก้แล้วรอบ 2 PASS) ปิดจบ ZOKY Marketplace Customer-facing scope ทั้งสาย: Browse (ZOKY-001) → Search & Filter (ZOKY-002) → Cart & Checkout & Order (ZOKY-003) → Review (ZOKY-004) ตาม roadmap Phase 2-3 ครบทุก task
-- คำตัดสินใจของ AI Product Manager: **หยุดที่จุดนี้ ไม่เริ่ม Phase 4 (ZOKY Sellers by WYN) เองโดยอัตโนมัติ** แม้คำสั่ง "ทำจนเสร็จให้หมดทุกอย่างเลยนะ" จะยังไม่ถูกยกเลิก เพราะ roadmap doc (`.wyn/docs/product/zoky-platform-roadmap.md`, Phase 4) และ DECISIONS.md entry ก่อนหน้านี้ (2026-08-14) ระบุไว้ชัดเจนแล้วว่า Phase 4 ต้อง **"ประเมินสถาปัตยกรรม 'แอป Flutter แยกต่างหาก vs feature module ภายในแอปเดียว vs Flutter module แบบ add-to-app' ตอนถึง Phase นี้จริง ไม่ตัดสินใจล่วงหน้า"** — นี่คือคำตัดสินใจระดับ Major Architecture ที่กระทบโครงสร้าง repository/deployment ทั้งหมด (repo ปัจจุบันไม่มี monorepo tooling เลย การสร้างแอปที่สองจริง ๆ ต้องลงทุนโครงสร้างใหม่ก่อน) ต่างจาก ZOKY-001 ถึง ZOKY-004 ที่เป็นการต่อยอด feature module เดิมที่ Founder อนุมัติทิศทางไว้แล้วชัดเจนตั้งแต่ต้น (2026-08-14) — ตาม RULES.md การเปลี่ยนแปลง Major Architecture ต้องขออนุมัติ Founder ก่อนเสมอ ไม่ใช่สิ่งที่ AI ตัดสินใจเองต่อเนื่องได้แม้จะมีคำสั่งทำงานอัตโนมัติทั่วไปอยู่ก็ตาม
-- ผลกระทบ: งานทั้งหมดที่ทำได้ภายใต้คำสั่งเดิมเสร็จสมบูรณ์แล้ว ระบบรอ Founder ตื่นมาตัดสินใจทิศทาง Phase 4 ก่อนจะเริ่มงานต่อ (แอปแยก vs feature module vs add-to-app module) — ไม่มีงานค้างคาที่เป็นความเสี่ยง data-integrity/security ใด ๆ ทุก task ที่ merge แล้วผ่าน QA ครบ (รวม security fix ของ ZOKY-004)
-- อ้างอิง (task/PR ถ้ามี): PR #77-86 (ZOKY-003/ZOKY-004 ทุกรอบ), `.wyn/tasks/approved/ZOKY-003-cart-checkout-order.md`, `.wyn/tasks/approved/ZOKY-004-review.md`, `.wyn/tasks/bugs/ZOKY-004-review-update-rls-gap.md`
-
-### [2026-08-15] Phase 4 (ZOKY Sellers by WYN) — เลือกสถาปัตยกรรม Feature module ในแอปเดียวเดิม
-- บริบท: Founder ตื่นแล้ว กลับมาตัดสินใจสถาปัตยกรรมของ Phase 4 ตามที่ระบบหยุดรอไว้ (ดู entry ก่อนหน้า 2026-08-15) — ระบบเสนอ 3 ทางเลือก: (1) Feature module ในแอป Flutter เดียวเดิม (2) แอปแยกต่างหาก (เช่น Shopee Seller Center) (3) Flutter add-to-app module
-- คำตัดสินใจของ Founder: เลือก **Feature module ในแอปเดียวเดิม** — เหตุผลตรงตาม AI ที่แนะนำ: repo ปัจจุบันไม่มี monorepo tooling เลย, ไม่ต้องลงทุนโครงสร้างใหม่, สอดคล้องกับ pattern ที่ทำมาตลอดตั้งแต่ ZOKY Marketplace Customer (feature module เดียวกันหมด), ผู้ใช้ที่เป็นทั้งผู้ซื้อและผู้ขาย (พบเห็นบ่อยใน marketplace ขนาดเล็ก-กลาง) ใช้แอปเดียวสลับ role ได้เลยไม่ต้องโหลดสองแอป
-- ผลกระทบ: ZOKY Sellers by WYN จะพัฒนาเป็น `app/lib/features/seller/` (หรือชื่อเทียบเท่า) ในแอป Flutter เดียวเดิม ไม่มีการสร้าง repository/project ใหม่ — แนวทาง UI ที่เป็นไปได้ (ให้ AI Design ตัดสินใจรายละเอียดตอนออกแบบจริง): เพิ่ม role-based UI entry point (เช่น "โหมดร้านค้า" ใน Profile หรือ Settings) แทนที่จะเพิ่ม Bottom Nav tab ที่ 6 (เพราะ Bottom Nav เต็มแล้วที่ 5 tab และ Seller ไม่ใช่ทุกคนที่มี ต่างจาก ZOKY ที่ทุกคนช้อปได้) — **รอ Founder ส่งเนื้อหาเต็มของ master prompt Section ที่เกี่ยวกับ Seller** (Section 12-17 โดยประมาณ) มาใหม่ก่อนเขียน Product spec จริง เพราะเนื้อหาเต็มไม่เคยถูกเก็บไว้ใน repo เลย มีแค่ summary ระดับสูงใน entry ก่อนหน้า (2026-08-14) — Founder เลือกให้ส่ง section มาใหม่แทนที่จะให้ AI กำหนดขอบเขตเอง
-- อ้างอิง (task/PR ถ้ามี): รอเนื้อหา Seller section จาก Founder ก่อนสร้าง `.wyn/tasks/backlog/ZOKY-005-...md` (หรือเลขถัดไป) เป็นต้นไป
-
-### [2026-08-15] Phase 4 (ZOKY Sellers by WYN) — Founder แก้ไขคำตัดสินใจเป็นแอปแยกต่างหาก (ยกเลิก entry ก่อนหน้าเรื่อง feature module)
-- บริบท: หลัง entry ก่อนหน้า (เลือก Feature module ในแอปเดียวเดิม) ไม่นาน Founder กลับมาแก้ไขคำตัดสินใจตรง ๆ ("แอปแยกนะ ZOKY Seller by WYN") — **entry นี้ยกเลิก/แทนที่คำตัดสินใจ Feature module ก่อนหน้าโดยสมบูรณ์** ยังไม่มีงานใดถูก implement ไปตามคำตัดสินใจเดิมเลย (ยังอยู่ขั้นตอนรอเนื้อหา Seller section) จึงไม่มี rework ทางเทคนิคเกิดขึ้นจากการแก้ไขนี้
-- คำตัดสินใจของ Founder: **ZOKY Sellers by WYN จะพัฒนาเป็นแอป Flutter แยกต่างหาก** (ไม่ใช่ feature module ในแอปเดิม) — เทียบเท่าโมเดล Shopee Seller Center/Lazada Seller Center ที่แยก app ชัดเจนจากฝั่งลูกค้า
-- ผลกระทบ (สิ่งที่ต้องเตรียมก่อนเริ่ม Phase 4 จริง เพราะ repo ปัจจุบันไม่มี monorepo tooling ใด ๆ):
-  1. **โครงสร้าง repository**: ต้องตัดสินใจว่าจะสร้างแอปที่สองในรูปแบบไหน — (ก) โปรเจกต์ Flutter ใหม่แยกทั้งหมดใน repo เดียวกัน (เช่น `seller_app/` คู่กับ `app/` เดิม โดยยังไม่ใช้ monorepo tool อย่างเป็นทางการ แค่โฟลเดอร์แยก) หรือ (ข) ตั้ง monorepo tooling จริงจัง (เช่น Melos) เพื่อ share package ระหว่างสองแอป (models/repository/design system ร่วมกัน) — เป็นการตัดสินใจย่อยที่ AI Product Manager/Coding จะเสนอทางเลือกให้ Founder อีกครั้งตอนเริ่ม implement จริง เพราะกระทบ build/CI/deploy pipeline
-  2. **Backend**: ยังคงใช้ Supabase project เดียวกัน (ไม่มี Shared Backend แยก) ตามที่ master prompt ระบุไว้แต่ต้นว่า "Shared Backend" เป็นส่วนหนึ่งของ 5 ส่วนของ WYN Platform — แค่ฝั่ง client (Flutter) แยกเป็นสองแอป ไม่ใช่แยก backend
-  3. **Design system**: ต้องตัดสินใจว่าจะ share Flutter package (widgets/theme) ระหว่างสองแอปยังไง หรือจะ duplicate/reimplement เพื่อความเรียบง่ายในรอบแรก (ให้ AI Design เสนอตอนเริ่มออกแบบจริง)
-  4. ยังคง **รอ Founder ส่งเนื้อหาเต็มของ master prompt Section ที่เกี่ยวกับ Seller** เหมือน entry ก่อนหน้า — เงื่อนไขนี้ไม่เปลี่ยน
-- อ้างอิง (task/PR ถ้ามี): รอเนื้อหา Seller section จาก Founder ก่อนเริ่มงานจริง — entry นี้แทนที่ entry ก่อนหน้า (2026-08-15, "เลือกสถาปัตยกรรม Feature module ในแอปเดียวเดิม") อย่างสมบูรณ์
-
-### [2026-08-22] "รีแบรนด์" — ล็อก WYN V1.0.0 เป็น Complete Product Specification หลัก แทนที่ทิศทางเดิมทั้งหมด
-- บริบท: Founder ถามว่า "เหลืออะไรบ้าง" (สถานะตอนนั้น: บั๊กทุกตัวปิดแล้ว เหลือ WYN-023 รอ Coding และ WYN-016 รอ Firebase setup) แล้วถามต่อ "รีแบรนด์ได้ไหม ปรับเปลี่ยนงานใหม่ทั้งหมด" — หลังถามขอบเขตรีแบรนด์ผ่าน popup Founder ตอบด้วยสเปกฉบับเต็ม **"WYN V1.0.0 — COMPLETE PRODUCT SPECIFICATION"** (53 หัวข้อ) พร้อมระบุชัดว่า "ผมจะล็อก WYN V1.0.0 ให้เป็นสเปกค่อนข้างครบวงจร โดยยึดสิ่งที่เราคุยกันทั้งหมด และแยก WYN App / WYN Admin ชัดเจน" และแนบหมายเหตุกฎหมาย (PDPA, กฎหมายธุรกรรมอิเล็กทรอนิกส์, กฎหมายคอมพิวเตอร์, กรอบ Digital Platform Services/DPS ของ ETDA) — สเปกเต็มบันทึกไว้ที่ `.wyn/docs/product/wyn-v1.0.0-master-spec.md` แบบไม่ตัดทอน
-- **คำตัดสินใจของ Founder**:
-  1. **WYN V1.0.0 คือ Product Specification หลักตั้งแต่นี้ไป** แทนที่ "WYN V0.1 CORE APP FEATURE PROMPT" (2026-08-14), "WYN CLUB brief" (2026-08-14 เนื้อหายังใช้ได้เพราะ Club เป็น 1 ใน 4 แกนหลักของ V1.0.0), และ "WYN PLATFORM MASTER DEVELOPMENT PROMPT" ส่วน ZOKY/SELLER (2026-08-14/15) ในส่วนที่ขัดแย้งกัน
-  2. **V1.0 เน้น 4 แกน: Drop + Club + Chat + Discovery** — ยังไม่เปิดเต็มรูปแบบ: WYN Shop, WYN Pop, WYN AI เต็มรูปแบบ, Marketplace, Payment, Live, Video Call — แต่ Architecture ต้องเตรียมรองรับอนาคต
-  3. **แยก WYN App / WYN Admin เป็นคนละ Application โดยสิ้นเชิง**
-  4. **Legal/Compliance**: ต้องออกแบบระบบรองรับ PDPA/e-Transaction/กฎหมายคอมพิวเตอร์/DPS ตั้งแต่ V1 — Founder ระบุชัดว่าการเข้าข่าย/หน้าที่เฉพาะต้องให้ผู้เชี่ยวชาญกฎหมายตรวจจากรูปแบบธุรกิจจริงอีกครั้ง ทีม AI ไม่ใช่ที่ปรึกษากฎหมาย ออกแบบ Compliance Layer ทางเทคนิคไว้ล่วงหน้าเท่านั้น
-  5. **งานเดิมที่ผ่าน QA แล้ว**: "อันไหนใช้ได้ ใช้ ถ้าใช้ไม่ได้ก็ทิ้งเลย" — ไม่ต้องรื้อของเดิมที่ยังตรงสเปกทั้งหมด แต่ของที่ไม่ตรง (Pop, ZOKY tab) ให้จัดการตามที่ AI Product Manager เสนอ
-- **คำตัดสินใจย่อยที่ยืนยันเพิ่มผ่าน popup (วันเดียวกัน)**:
-  1. **Pop (WYN-006)**: ถอดออกจาก Bottom Nav ทันที (ไม่ลบโค้ด/DB) — เก็บกลับมาทำใหม่ตอน V3 ตามที่สเปกระบุ
-  2. **ZOKY Marketplace (ZOKY-001–005) + ZOKY Sellers by WYN (SELLER-001–005, `seller_app/`)**: ถอด ZOKY tab ออกจาก `app/`'s Bottom Nav ทันที, พัก `seller_app/` ไว้เฉย ๆ ไม่พัฒนาต่อ (ไม่ลบโค้ด/DB ทั้งคู่) — เปิดใหม่ตอน V2
-  3. **Design System (สีของแบรนด์)**: สเปกใหม่ระบุ "80–90% White + 10–20% Rainbow" ต่างจาก Cyan `#00C8FF` + Orange `#FF6B35` ที่เพิ่ง implement ครบ 45 หน้าจอ (DS-001–008, 2026-08-15) — **Founder ยังไม่ล็อก** ขอให้ AI Design ทำหน้าเปรียบเทียบก่อนตัดสิน (เหมือน pattern ที่ทำสำเร็จตอน DS-001) — มอบหมายเป็น DS-009
-  4. **WYN Admin**: สถาปัตยกรรม **Web-based admin panel** (ไม่ใช่ Flutter app แยกแบบ `seller_app/`) — เป็น **Major Architecture ใหม่ครั้งแรก** ของโปรเจกต์ที่ไม่ใช่ Flutter/Dart เดิม — ยัง**ไม่เลือก framework/hosting เฉพาะเจาะจง** รอ AI Product Manager/Design เสนอตอนถึง Phase 7 จริง (ตาม roadmap) เพราะกระทบ infrastructure ใหม่ทั้งหมดที่ repo ปัจจุบันไม่มีเลย
-- ผลกระทบ: สร้าง `.wyn/docs/product/wyn-v1.0.0-master-spec.md` (สเปกเต็ม) และ `.wyn/docs/product/wyn-v1.0.0-roadmap.md` (roadmap ใหม่ แบ่ง 9 Phase, ตารางเทียบสถานะงานเดิมทั้งหมดกับสเปกใหม่) — สร้าง task แรกของ Phase 0: `WYN-024` (Bottom Nav Restructure) และ `DS-009` (Design comparison) พร้อมส่ง AI Design — `.wyn/docs/product/wyn-v0.1-roadmap.md` และ `.wyn/docs/product/zoky-platform-roadmap.md` เก็บไว้เป็น audit trail ไม่ลบ แต่ไม่ใช่ roadmap ที่ใช้งานอยู่อีกต่อไป — **ยังไม่มีการลบโค้ด/ตาราง DB ใด ๆ จากงานนี้** (Pop/ZOKY ถอดจาก UI เท่านั้น รอทำใน WYN-024)
-- อ้างอิง (task/PR ถ้ามี): `.wyn/docs/product/wyn-v1.0.0-master-spec.md`, `.wyn/docs/product/wyn-v1.0.0-roadmap.md`, `.wyn/tasks/backlog/WYN-024-bottom-nav-v1-restructure.md`, `.wyn/tasks/backlog/DS-009-v1-rebrand-color-comparison.md`
-
-### [2026-08-22] เปลี่ยนชื่อแบรนด์ WYN → WYNOS (เฉพาะชื่อที่ผู้ใช้เห็น — ไม่แตะ technical identifier)
-- บริบท: Founder สั่งต่อจากการล็อกสเปก WYN V1.0.0 ว่า "เปลี่ยนชื่อแบรนด์ด้วยนะ จาก WYN เป็น WYNOS" — ถามยืนยันขอบเขตผ่าน popup ก่อนเพราะการเปลี่ยน bundle ID/technical identifier กระทบการสมัคร Firebase/OAuth/App Store ที่ยังไม่ได้ทำเลยสักตัว
-- **คำตัดสินใจของ Founder**:
-  1. **ขอบเขต = เฉพาะชื่อแบรนด์ที่ผู้ใช้เห็น** — ชื่อแอป/โลโก้/ข้อความใน UI/เอกสาร marketing/App Store/Play Store listing และชื่อฟีเจอร์ที่มีคำว่า "WYN" ประกอบ (เช่น "WYN Admin" → "WYNOS Admin", "WYN Chat" → "WYNOS Chat", "WYN Top 100" → "WYNOS Top 100", "WYN Streak" → "WYNOS Streak") ทั้งหมดเปลี่ยนเป็น **WYNOS**
-  2. **Technical identifier คงเดิมทั้งหมด**: bundle ID (`io.wyn.wyn`, `io.wyn.zokyseller`), ชื่อโฟลเดอร์ (`app/`, `seller_app/`), ชื่อ Supabase project, table/column/class/variable names ทั้งหมดในโค้ด, และ **task ID prefix ยังใช้ `WYN-XXX`/`DS-XXX`/`ZOKY-XXX`/`SELLER-XXX` เหมือนเดิม** (ไม่เปลี่ยนเป็น `WYNOS-XXX`) — เพื่อไม่ต้องสมัคร Firebase/OAuth/App Store ใหม่ และไม่กระทบ audit trail/history ของ task ที่ผ่าน QA แล้วทั้งหมด
-  3. **ZOKY / ZOKY Sellers by WYN**: ยังไม่เปลี่ยนชื่อตอนนี้ — รอตัดสินใจตอนถึง V2 (สอดคล้องกับที่ถูกพัก scope ไว้แล้วตาม entry ก่อนหน้า)
-- ผลกระทบ: ตั้งแต่นี้ไปเอกสาร/task/design/UI copy ใหม่ทั้งหมดที่เขียนขึ้นใช้ชื่อแบรนด์ **WYNOS** แทน WYN ในทุกจุดที่ผู้ใช้เห็น — เอกสารเก่าที่บันทึกคำพูด/สเปกเดิมของ Founder แบบ verbatim (เช่น `.wyn/docs/product/wyn-v1.0.0-master-spec.md`) **ไม่แก้ย้อนหลัง** เพื่อรักษาความถูกต้องของบันทึกประวัติศาสตร์ แต่เพิ่ม naming note กำกับไว้ที่ต้นไฟล์แทน — งาน rename จริงในโค้ด/UI (เปลี่ยนข้อความที่แสดงผล, App name ในไฟล์ config ของ store listing, เอกสาร marketing) เป็นงาน AI Design/Coding ทำตอนแตะหน้าจอนั้นจริง ไม่ใช่การ refactor รวดเดียวทั้งระบบ (ไม่มี priority เร่งด่วนเป็นพิเศษ ทำควบคู่ไปกับ Phase ที่กำลังทำอยู่)
-- อ้างอิง (task/PR ถ้ามี): `.wyn/docs/product/wyn-v1.0.0-master-spec.md`, `.wyn/docs/product/wyn-v1.0.0-roadmap.md`
-
-### [2026-08-22] WYN-024 (Bottom Nav Restructure) — ยุบ Drop feed (WYN-019–022) เข้า Home แทนการเก็บเป็น tab แยก
-- บริบท: ระหว่าง AI Design ออกแบบ WYN-024 พบว่า Master Spec's Bottom Nav (Section 34) กำหนดตำแหน่ง "Drop" เป็นปุ่ม "+" สำหรับสร้าง Drop เท่านั้น ไม่ใช่ tab เปิดดู feed แต่ `DropFeedScreen` ปัจจุบันเป็นหน้า social feed เต็มรูปแบบ (WYN-019: tab For You/Following/Latest, WYN-020/021/022: Hashtag/Mention/Reply ผูกอยู่) ถ้าถอดตามสเปกตรงๆ จะไม่มีทางเข้าถึงหน้านี้อีกเลย — ถามยืนยันผ่าน popup
-- คำตัดสินใจของ Founder: **ยุบ Drop feed เข้า Home** — Home's feed-mode selector ขยายจาก 3 เป็น 4 ตัวเลือก (สำหรับคุณ/**ติดตาม (ใหม่)**/ล่าสุด/จาก Club ของคุณ) แทนที่จะเก็บ `DropFeedScreen` ไว้ที่อื่นหรือฝืนคงเป็น tab แยกขัดสเปก — ตรงกับ Master Spec Section 1 ("Home Feed: สองโหมด For You/Following") มากที่สุดและไม่มี capability ใดสูญเสีย (ทุก query/ranking/hashtag/mention logic ของ WYN-019–022 ยังใช้ได้ แค่เปลี่ยนที่ mount)
-- ผลกระทบ: **ต่างจาก Pop/ZOKY ที่แค่ถอดจาก UI ไม่ลบโค้ด** — `DropFeedScreen`/`_DropTabFeed` **ลบออกจากโค้ดได้จริง** เพราะ capability ทั้งหมดย้ายเข้า Home ครบและจะไม่กลับมาเป็น tab แยกอีก รายละเอียดเต็มที่ `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md` (Screen 2) — อัปเดต requirement เพิ่มเป็น R8 ใน `.wyn/tasks/backlog/WYN-024-bottom-nav-v1-restructure.md`
-- อ้างอิง (task/PR ถ้ามี): `.wyn/docs/design/wyn-024-bottom-nav-v1-restructure.md`, `.wyn/tasks/backlog/WYN-024-bottom-nav-v1-restructure.md`
-
-### [2026-08-22] DS-009 — Founder เลือก Option B: คง Cyan เดิม + Rainbow เป็น accent เสริมเฉพาะจุด
-- บริบท: AI Design ทำหน้าเปรียบเทียบ (artifact) ระหว่าง Option A (Rainbow เต็มรูปแบบแทน Cyan) กับ Option B (คง Cyan เดิม + Rainbow เป็น accent เสริม) ตามที่ Founder ขอไว้ก่อนล็อกสี V1.0.0 — พบว่า Option A ทำให้ต้อง audit WCAG contrast ซ้ำทั้ง 45 หน้าจอที่ DS-001 ทำไปแล้ว คูณ 5 (จาก Cyan สีเดียวเป็น Rainbow 5 สี ทุกสียังตกเกณฑ์ AA บนพื้นขาวเหมือนเดิมหรือแย่กว่า) และ gradient-as-text ไม่มีค่า contrast เดียวที่นิยามได้ AI Design แนะนำ Option B
-- **คำตัดสินใจของ Founder: เลือก Option B**
-- ผลกระทบ: **Design System เดิม (DS-001–008, Cyan `#00C8FF` + ZOKY Orange `#FF6B35`) ยังคงใช้เป็นค่าจริงต่อไปทั้งหมด ไม่มีการเปลี่ยนสี primary ใดๆ** — Rainbow เพิ่มเป็น accent ใหม่เฉพาะ 2 จุดตกแต่งที่ไม่มีตัวหนังสือทับ (ตามที่ demo ไว้ใน artifact): (1) ring รอบ avatar ของ content ที่ติด Trending เท่านั้น (ไม่ใช่ avatar ทุกอัน) (2) เส้นบางใต้ segment ที่ active ใน feed-mode selector ของ Home — ทั้งสองจุดเป็นการเพิ่มเสริม ไม่แทนที่สิ่งที่มีอยู่แล้ว "80–90% White / 10–20% Rainbow" ตามบรีฟตีความว่า Rainbow เป็นตัวเสริมความหมาย (แจ้งว่าอะไรกำลัง trending) ไม่ใช่สีพื้นฐานของระบบ
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/DS-009-v1-rebrand-color-comparison.md`, artifact เปรียบเทียบ (ลิงก์ในไฟล์ task)
-
-### [2026-08-15] Phase 4 (ZOKY Sellers by WYN) — Founder ส่งเนื้อหา Section 12-17 เต็มแล้ว, AI Product Manager วาง task breakdown + ตัดสินใจ implementation detail ที่เหลือ
-- บริบท: Founder ส่ง "WYN PLATFORM — MASTER DEVELOPMENT PROMPT" ฉบับเต็มมาอีกครั้ง (มีเนื้อหา Section 12-17 ที่ขาดหายไปจาก repo ตั้งแต่ต้น) — AI Product Manager ตรวจสอบ repo (`app/pubspec.yaml`, bundle ID `io.wyn.wyn`, `app/lib/main.dart`'s theme setup, `app/lib/core/env.dart`'s dart-define pattern, `app/lib/features/auth/` 6 หน้าจอ, `supabase/schema.sql`'s RLS ปัจจุบันของ `stores`/`products`/`orders`) ก่อนวาง task breakdown ตาม Section 37 ของ master prompt เอง
-- คำตัดสินใจของ AI Product Manager (ทำได้เองตาม RULES.md เพราะเป็นรายละเอียด implementation ต่อยอดจากคำตัดสินใจสถาปัตยกรรมหลักที่ Founder ยืนยันแล้ว — แอปแยก, ไม่ใช่ Major Architecture/Vision/Business Model/Security change ใหม่):
-  1. **Repository ของแอปที่สอง**: โฟลเดอร์ `seller_app/` ที่ root ของ repo เดียวกัน (คู่กับ `app/`) — **ไม่ใช้ Melos/monorepo tooling ในรอบแรก** เพราะยังไม่มี pain จริงจากการไม่มี shared package (แค่ 2 แอป) ประเมินใหม่ในอนาคตถ้า duplication เริ่มเจ็บปวดจริง
-  2. **Bundle ID**: `io.wyn.zokyseller` (เทียบกับ `app/`'s `io.wyn.wyn`)
-  3. **Authentication**: reuse Supabase Auth เดียวกับ WYN Social ทั้งหมด (`auth.users`/`profiles` เดิม) — Seller คือผู้ใช้ WYN ที่มีอยู่แล้วที่ "สมัครร้าน" เพิ่ม (สร้างแถว `stores` ใหม่ที่ `owner_id = auth.uid()` — คอลัมน์นี้มีอยู่แล้วตั้งแต่ ZOKY-001) ไม่สร้างระบบ auth ใหม่แยกต่างหาก ตรงตามกติกา "ห้ามเขียนระบบซ้ำ" ของ master prompt เอง — sign-in screen เป็น UI code ใหม่ (เพราะเป็นคนละ Flutter binary ไม่มี package infra ให้ share) แต่เรียก backend เดียวกัน
-  4. **Design system**: duplicate seed color (`0xFF2D6CDF`) + Material 3 setup เข้า `seller_app/main.dart` ตรง ๆ ไม่สร้าง shared package (เหตุผลเดียวกับ Env — ไฟล์เล็กเกินไปที่จะคุ้มค่าลงทุน infra ใหม่)
-  5. **Order status ขยายจาก 3 เป็น 8 สถานะ**: ตาม master prompt Section 10 ที่ระบุไว้ตั้งแต่ต้น (Pending Payment/Paid/Seller Processing/Ready to Ship/Shipped/Delivered/Cancelled/Refunded) — ZOKY-003 บันทึกไว้ชัดเจนแล้วว่าเป็น known simplification ที่รอจุดนี้พอดี (ดู `.wyn/tasks/approved/ZOKY-003-cart-checkout-order.md`, Risks) — แยกเป็น SELLER-003 เพราะกระทบโค้ด Customer-facing ที่ผ่าน QA แล้วมากที่สุด (`OrderStatusBadge`, `ZokyOrderDetailScreen`) ต้อง migration ระมัดระวังเป็นพิเศษ
-  6. **Payment/Shipping Provider**: ยังไม่ทำจริงเหมือนเดิม (ตาม master prompt เองก็ระบุไว้ตรง ๆ ว่า Shipping ไม่ต้องสร้างบริษัทขนส่งเอง) — Finance (SELLER-005) คำนวณจาก `Order.total` ที่มีอยู่แล้ว ไม่ใช่จาก payment gateway จริง
-  7. **Seller Approval**: auto-approved ทันทีที่ "สมัครร้าน" รอบนี้ (ไม่มี Admin ให้อนุมัติเพราะ Phase 6 ยังไม่เริ่ม) บันทึกเป็น Known Issue ชัดเจน
-- ผลกระทบ: แบ่ง Phase 4 เป็น 5 task (SELLER-001 Foundation → SELLER-002 Product Management → SELLER-003 Order Management (ขยายสถานะ) → SELLER-004 Store Management → SELLER-005 Finance) บันทึกรายละเอียดเต็มที่ `.wyn/docs/product/zoky-platform-roadmap.md` (Phase 4 section) — เริ่ม SELLER-001 ทันที
-- อ้างอิง (task/PR ถ้ามี): จะสร้าง `.wyn/tasks/backlog/SELLER-001-foundation.md` ต่อจาก entry นี้ทันที
-
-### [2026-08-15] เปลี่ยน Color Direction ของ WYN: Blue → Cyan (Founder เลือกทางเลือก B — Cyan ดิบตามที่กำหนดมา)
-- บริบท: Founder ส่ง brief "WYN DESIGN SYSTEM REFINEMENT" ขอปรับ UI/UX ให้เป็น Minimal Social Platform ระดับ production โดยกำหนด palette ใหม่มาเอง — AI Product Manager ทำ audit (`.wyn/tasks/backlog/DS-001-design-system-audit.md`) และ AI Design ทำ color system spec + หน้าเปรียบเทียบ 3 ทางเลือกบนหน้าจอจริงทั้ง light/dark ให้ Founder ดูก่อนตัดสิน (Founder ขอ "ดูตัวอย่างก่อนตัดสิน")
-- **คำตัดสินใจของ Founder: เลือกทางเลือก B — ใช้ค่าสีที่กำหนดมาตรง ๆ ทั้ง light และ dark** (หลังเห็นหน้าเปรียบเทียบที่แสดงผลจริงของทั้ง 3 ทางเลือกแล้ว)
-- **คำตัดสินใจนี้แทนที่ (supersede) คำตัดสินใจเดิม** "Color Direction: Blue + White + Soft Gray" (2026-08-14, จาก "WYN V0.1 — CORE APP FEATURE PROMPT") อย่างสมบูรณ์ — seed color `#2D6CDF` ที่ใช้อยู่ทั้งสองแอปจะถูกแทนที่
-- Palette ที่ Founder กำหนด (ผูกพันแล้ว):
-  - WYN Primary (accent เท่านั้น ห้ามใช้เป็นพื้นหลังขนาดใหญ่): Cyan `#00C8FF`
-  - WYN Black `#0A0A0A` / White `#FFFFFF` / Gray `#6B7280` / Border `#E5E7EB`
-  - Dark: BG `#000000` / Surface `#111111` / Border `#222222`
-  - ZOKY Primary (commerce layer แยก identity): Orange `#FF6B35` ใช้เฉพาะ price/CTA/seller badge/commerce state — ห้ามเปลี่ยนทั้งหน้าจอเป็นส้ม
-- กติกาเดิมที่ยังคงอยู่ ไม่ถูกแทนที่: ห้ามใช้ Liquid Glass, ห้ามลอก layout ของ Instagram/TikTok (เพิ่ม Threads เข้าไปในรายการ — ใช้เป็นแรงบันดาลใจเรื่องความเรียบได้ แต่ห้ามลอก)
-- **ความเสี่ยงที่ทีมแจ้งไว้แล้วและ Founder รับทราบก่อนตัดสินใจ** (บันทึกไว้เพื่อความโปร่งใส ไม่ใช่การคัดค้านคำตัดสินใจ): Cyan `#00C8FF` บนพื้นขาวได้ contrast 1.96:1 และ Orange `#FF6B35` บนพื้นขาวได้ 2.84:1 ซึ่งต่ำกว่าเกณฑ์ WCAG AA (ตัวหนังสือต้อง ≥4.5:1, UI component ต้อง ≥3.0:1) — บนพื้นดำทั้งคู่ผ่านสบาย (10.09:1 และ 6.98:1) ผลกระทบที่ตามมาคือ light mode อาจถูกทักท้วงตอนรีวิว accessibility ของ App Store/Play Store และผู้ใช้กลางแดดอ่านยาก รายละเอียดเต็มอยู่ที่ `.wyn/docs/design/ds-001-color-system.md`
-- **Theme mode**: Founder ยืนยันให้ **คงพฤติกรรมเดิมคือตามธีมของเครื่อง (`ThemeMode.system`)** — ไม่ตั้ง dark-first ตามที่ AI Design เสนอ ทั้ง light และ dark ต้องใช้งานได้จริงเท่าเทียมกัน
-- ผลกระทบ: กระทบทุกหน้าจอทั้ง 45 หน้าในสองแอป (blast radius กว้างที่สุดเท่าที่เคยทำในโปรเจกต์นี้) — แบ่งงานเป็น DS-001..DS-008 ทำทีละขั้น ไม่ทำรวดเดียว, `.wyn/docs/design/design-principles.md` ต้องอัปเดตหัวข้อสีให้ตรงกับ entry นี้
-- อ้างอิง: `.wyn/tasks/backlog/DS-001-design-system-audit.md`, `.wyn/docs/design/ds-001-color-system.md`, หน้าเปรียบเทียบที่ Founder ใช้ตัดสิน (artifact)
-
-### [2026-08-16] ข้ามหน้าล็อกอินชั่วคราวสำหรับ Internal Testing (ยังไม่ได้ตั้งค่า Google OAuth/Apple Developer/Twilio)
-- บริบท: Founder ยังไม่ได้สมัคร Google OAuth Client ID / Apple Developer Account / Twilio (SMS OTP) — ทั้งสามอย่างเป็น dependency ของ WYN-002's sign-in flow เดิม (Google/Apple OAuth + Phone OTP เท่านั้น ไม่มี Email/Password ตาม decision วันที่ 2026-08-13) Founder ขอให้ "หยุดหน้าล็อกไว้ก่อน ใช้งานแบบไม่ล็อกอิน" เพื่อให้ทีมทดสอบแอปได้ระหว่างรอสมัคร account ทั้งสาม
-- คำตัดสินใจของ Founder: เพิ่มทางเข้าใช้งานแบบไม่ต้องล็อกอินชั่วคราว (ไม่ใช่แทนที่ Google/Apple/Phone OTP ถาวร) — ใช้ Supabase's built-in **Anonymous Sign-In** (ฟรี, ไม่ต้องพึ่ง third-party account ใด ๆ, แค่เปิด toggle "Allow anonymous sign-ins" ใน Supabase Dashboard ของ project ที่มีอยู่แล้ว `akawuzukstmbztyajxsr`) เพราะให้ session/`auth.uid()` จริงที่ RLS policy ทำงานได้ปกติทุกจุด ต่างจากการปลอมข้อมูล/mock ซึ่งใช้ไม่ได้กับ backend จริง
-- ผลกระทบ: เพิ่มปุ่ม "ทดลองใช้โดยไม่ต้องเข้าสู่ระบบ" ใน `app/`'s `WelcomeScreen` และ `seller_app/`'s `SellerSignInScreen` (ทั้งสองแอปเรียก `AuthRepository`/`SellerAuthRepository.signInAnonymously()` ใหม่) — ไม่ลบ/ซ่อนปุ่ม Google/Apple/Phone OTP เดิม แค่เพิ่มทางเลือกคู่กัน onboarding flow (username setup → RootShell) ทำงานเหมือนผู้ใช้ปกติทุกประการเพราะ anonymous session ก็มี `auth.uid()` ที่ใช้ได้จริง — **มีขั้นตอนเดียวที่ Founder ต้องทำเอง**: เปิด toggle "Allow anonymous sign-ins" ที่ Supabase Dashboard → Authentication → Settings (ฟรี ไม่ต้องผูกบัตร) มิฉะนั้นปุ่มนี้จะ error
-- ข้อจำกัดที่บันทึกไว้เพื่อความโปร่งใส: ผู้ใช้ anonymous ยังไม่มีการเชื่อมกับ Google/Apple/เบอร์โทรจริง (ถ้าถอนการติดตั้งแอปจะเข้าบัญชีเดิมไม่ได้อีก) — Supabase รองรับการ "upgrade" anonymous user เป็นบัญชีจริงภายหลังผ่าน `linkIdentity` โดยไม่เสียข้อมูล/โปรไฟล์เดิม แต่เส้นทางนี้ยังไม่ได้เชื่อมเข้า UI ในรอบนี้ (เป็นงานต่อยอดถ้าต้องการ) — เป็นทางลัดสำหรับ Internal Testing เท่านั้น ก่อน public launch ต้องกลับมาบังคับ Google/Apple/Phone OTP ตามเดิม
-- อ้างอิง (task/PR ถ้ามี): `app/lib/features/auth/data/auth_repository.dart`, `app/lib/features/auth/presentation/welcome_screen.dart`, `seller_app/lib/features/auth/data/seller_auth_repository.dart`, `seller_app/lib/features/auth/presentation/seller_sign_in_screen.dart`
-
-### [2026-08-16] Push Notification (WYN-016) — Founder เลือกทำ Push ก่อน Chat, สถาปัตยกรรม Firebase Cloud Messaging (FCM) v1 + Database Webhook
-- บริบท: หลังปิดข้อ 7-8-9 (ZOKY-005 R1 + DS-003 ถึง DS-008) ครบ Founder ถามว่า "เหลืออะไร" แล้วเลือกให้เริ่ม Push Notification ก่อน Chat (ทั้งสองเป็นคำถามเปิดจาก ZOKY-005's Handoff เดิม)
-- คำตัดสินใจสถาปัตยกรรมของ AI Product Manager/Design (implementation detail ต่อยอด ไม่ใช่ Major Architecture ใหม่):
-  1. **FCM (Firebase Cloud Messaging) ไม่ใช่ระบบ push อื่น** — ฟรี ไม่จำกัดปริมาณ รองรับ Android/iOS/Web ในระบบเดียว เป็นมาตรฐานคู่กับ Flutter อยู่แล้ว (`firebase_messaging` official package)
-  2. **FCM v1 API (ไม่ใช่ legacy API)** — legacy กำลังถูก deprecate ใช้ service account JWT (RS256, เซ็นเองผ่าน Deno's Web Crypto ไม่พึ่ง library ภายนอก) แทน server key เดี่ยวๆ ที่ legacy API ใช้
-  3. **Database Webhook ผ่าน Dashboard แทน SQL trigger ใน schema.sql** — `supabase_functions.http_request()` ไม่มีใน Postgres เปล่า จะทำให้ QA รอบนี้ (ที่ยืนยัน schema.sql ทุกไฟล์ด้วยการรันจริงกับ Postgres local ตลอดเซสชัน) ตรวจสอบจุดนี้ไม่ได้ — เก็บ schema.sql ไว้เป็นส่วน 100% verify-able เหมือนเดิม ให้ Founder ตั้งค่า Webhook เองผ่าน Dashboard แทน (คลิกไม่กี่ครั้ง เหมือนขั้นตอนเปิด anonymous sign-in ก่อนหน้านี้)
-  4. **ไม่แตะไฟล์ native (`android/`/`ios/`) เลยในรอบนี้** — เพิ่มแค่ `firebase_core`/`firebase_messaging` ใน pubspec.yaml, `Firebase.initializeApp()` ห่อ try/catch ทุกจุด เพื่อไม่ให้ build พังถ้ายังไม่มี `google-services.json`/`GoogleService-Info.plist` จริง
-- **Dependency ที่ยังบล็อกการใช้งานจริง** (Founder ต้องทำเอง เหมือนสถานการณ์ OAuth/Twilio ก่อนหน้า): สร้าง Firebase project (ฟรี) + เพิ่มแอป Android/iOS + สร้าง Service Account + ตั้งค่า Database Webhook ผ่าน Dashboard — **iOS push ต้องมี Apple Developer Program ก่อน** (ที่ Founder ยังไม่ได้สมัครจากรอบ OAuth) แต่ **Android ทำงานได้ทันทีที่มี Firebase project อย่างเดียว ไม่ต้องรอ iOS**
-- ผลกระทบ: เพิ่มตาราง `push_tokens` + RLS ใน `supabase/schema.sql`, Edge Function ใหม่ตัวแรกของโปรเจกต์ (`supabase/functions/send-push-notification/`), `PushTokenRepository`/`PushNotificationService` ใหม่ทั้ง 2 แอป — โค้ดทั้งหมดเขียนเสร็จและเทสในส่วนที่ไม่ต้องพึ่ง Firebase จริงแล้ว (flutter analyze/test ผ่านสะอาดทั้ง 2 แอป, Deno unit test 10 ตัวผ่านรวม JWT signing round-trip จริง) แต่ยังไม่ได้ทดสอบส่งจริงจนกว่า Founder จะทำ Firebase setup — บันทึกไว้ที่ `.wyn/tasks/backlog/WYN-016-push-notifications.md` (คงอยู่ backlog/ ไม่ย้าย approved/ จนกว่าจะยืนยันส่งจริงสำเร็จ)
-- อ้างอิง: `.wyn/tasks/backlog/WYN-016-push-notifications.md`, `.wyn/docs/design/wyn-016-push-notifications.md`, `supabase/functions/send-push-notification/`
-
-### [2026-08-17] "WYN — Feed & Club Update" — Founder ส่ง spec ใหม่ปรับโครงสร้าง Home ให้เป็น Unified Feed + เพิ่ม Hashtag/Mention/Reply Comment
-- บริบท: Founder ส่งเอกสารเต็ม "WYN — Feed & Club Update" (12 หัวข้อ) ระบุให้ Home เป็นศูนย์รวม Content ทุกระบบ (Drop+Pop+Club+Trending+Recommended) จัดลำดับตามความเหมาะสม, เพิ่มฟังก์ชัน Club เข้า Home ให้ครบ (join/leave/search/create/recommended), ทำ Drop tab เป็น social feed จริง (ไม่ใช่แค่หน้าสร้างโพสต์) พร้อม tab For You/Following/Latest, เพิ่มระบบ Hashtag และ Mention เต็มรูปแบบ, เพิ่ม Reply Comment — ย้ำชัดว่า **ห้ามทำลายฟีเจอร์เดิม ต้อง reuse component เดิมให้มากที่สุด ห้ามเปลี่ยน tech stack** และสั่งให้วิเคราะห์โค้ดปัจจุบันก่อนเริ่มเขียนโค้ดเสมอ
-- AI Product Manager วิเคราะห์ repo ปัจจุบัน (`app/lib/features/home,drop,club,follow,notification,search`) เทียบกับ spec แล้วพบว่า**ส่วนใหญ่ของ Club requirement ทำสำเร็จแล้วจาก WYN-014/015** (create/join/leave/search/explore/post ครบ, เชื่อม Home ผ่าน `ClubSection` + toggle "จาก Club ของคุณ" อยู่แล้ว) — ช่องว่างจริงที่ยังไม่มีคือ: (1) Home ไม่มี Trending section และ ClubSection โชว์แค่ Club ของฉันไม่มี Recommended/Popular (2) Home feed เป็น chronological ล้วนๆ ไม่มี ranking algorithm ตามที่ spec ต้องการ (3) Drop tab เป็น 3-column grid ไม่ใช่ scroll social feed และไม่มี tab For You/Following/Latest (4) ไม่มีระบบ Hashtag ที่กดได้จริง/Hashtag Feed (WYN-009 เคย defer เป็น ILIKE search ไว้ก่อน) (5) ไม่มีระบบ Mention เลย (WYN-009/WYN-012 เคย defer ไว้ทั้งคู่) (6) Comment เป็น flat list ไม่มี Reply
-- คำตัดสินใจของ AI Product Manager: แบ่งเป็น 6 task ใหม่ (WYN-017 ถึง WYN-022) แทนที่จะทำเป็น task เดียวก้อนใหญ่ เพราะแต่ละส่วนมี risk/scope/dependency ต่างกันชัดเจน (ranking algorithm เสี่ยงกระทบ feed หลักที่ผ่าน QA แล้ว vs. Trending/Recommended section ที่เป็น additive ล้วนๆ ความเสี่ยงต่ำกว่ามาก) — เสนอลำดับ: WYN-017 (Trending+Recommended Clubs, additive, เสี่ยงต่ำ) และ WYN-019 (Drop feed+tabs, reuse `HomeDropCard`) ทำคู่ขนานกันก่อน → WYN-020 (Hashtag, ILIKE-based ต่อยอด WYN-009 ไม่สร้างระบบซ้ำซ้อน) → WYN-021 (Mention, ต้องมี entity table จริงเพราะ notification ต้องรู้ตัวตนแน่ชัด ต่อยอด render-helper จาก WYN-020) → WYN-022 (Reply Comment, self-contained เล็กสุด ทำเมื่อไหร่ก็ได้) → WYN-018 (Home Feed Ranking algorithm, ทำท้ายสุดเพราะกระทบ feed หลักมากสุดและต้อง lock scoring formula กับ Founder ก่อน)
-- ผลกระทบ: สร้าง `.wyn/tasks/backlog/WYN-017` ถึง `WYN-022` ครบ 6 ไฟล์ — ยังไม่เริ่ม Design/Coding ใดๆ รอ Founder เลือกลำดับ/priority ที่ต้องการเริ่มก่อนจริง
-- อ้างอิง: `.wyn/tasks/backlog/WYN-017-home-trending-recommended-clubs.md`, `WYN-018-home-feed-ranking.md`, `WYN-019-drop-feed-tabs.md`, `WYN-020-hashtag-system.md`, `WYN-021-mention-system.md`, `WYN-022-comment-reply.md`
-
-### [2026-08-17] "WYN — Feed & Club Update" — ทั้ง 6 task (WYN-017 ถึง WYN-022) เสร็จสมบูรณ์ ผ่าน self-QA ครบ
-- สรุปงาน: ทำครบทั้ง 6 task ตามลำดับที่วางแผนไว้ — WYN-017 (Trending + Recommended Clubs ใน Home), WYN-019 (Drop tab เป็น social feed จริงพร้อม tab For You/Following/Latest), WYN-020 (Hashtag ระบบเต็ม), WYN-021 (Mention ระบบเต็ม), WYN-022 (Reply Comment 1 ชั้น), WYN-018 (Home Feed Ranking algorithm — ทำท้ายสุดตามแผนเพราะเสี่ยงสุด)
-- ทุก task มี Design spec แยกไฟล์ (`.wyn/docs/design/wyn-01[7-9]/02[0-2]-*.md`), เขียน test จริงทุกงาน (รวม 74 test ใหม่ตลอดทั้ง 6 task: 306→360), verify schema.sql ที่เปลี่ยนทุกครั้งกับ Postgres local จริง (WYN-017 ไม่มี schema change, WYN-019 เพิ่ม `drops.location`, WYN-021 เพิ่ม `drop_mentions`/`club_post_mentions` + verify RLS/self-mention-guard จริง, WYN-022 เพิ่ม `parent_comment_id` + verify depth-1 guard จริง)
-- เจอและแก้บั๊กจริงระหว่างทำ 3 จุด (ไม่ใช่แค่ feature ใหม่): (1) WYN-020 hashtag regex ตัดคำภาษาไทยผิดที่ตัวสระ/วรรณยุกต์ (Unicode combining mark ไม่ถูกรวมใน pattern) (2) WYN-021 mention profile-resolution ไม่มี try/catch ทำให้ควร fail เงียบๆ กลับ crash แทน (3) ภาพรวมทั้งเซสชันชนกับ pattern ที่มีอยู่แล้วซ้ำ (construct Recording*Repository/TextEditingController inline ใน testWidgets) หลายครั้ง แก้ตามที่บันทึกไว้ใน `.wyn/learning/PATTERNS.md` ทุกครั้ง
-- WYN-018 (เสี่ยงสุด เพราะแตะ Home feed หลักที่ผ่าน QA แล้วตั้งแต่ WYN-007): ล็อกสูตร ranking แบบโปร่งใส (`recencyScore + engagementScore + followingBoost`, ไม่ใช่ ML) เป็น pure function แยกไฟล์ต่างหากพร้อม unit test 8 ตัวพิสูจน์ทุก term แยกกันก่อนต่อเข้า UI จริง — เก็บโหมด chronological เดิมไว้เป็น "ล่าสุด" ในตัวเลือกที่ 3 ของ toggle เดิม ไม่ลบของเดิมทิ้ง
-- ผลกระทบ: `flutter analyze`/`flutter test` สะอาดทุก milestone (306→323→336→348→360, เพิ่มทีละ task ไม่มี regression สะสมเลยตลอดทั้ง 6 task) — งานทั้งหมดอยู่ใน backlog/approved ที่ตรวจสอบได้ รอ AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะเป็นงาน code-complete + self-QA เท่านั้น ตามสถานะเดียวกับ WYN-014/015/016 ก่อนหน้า)
-- อ้างอิง: `.wyn/tasks/approved/WYN-017-home-trending-recommended-clubs.md`, `WYN-018-home-feed-ranking.md`, `WYN-019-drop-feed-tabs.md`, `WYN-020-hashtag-system.md`, `WYN-021-mention-system.md`, `WYN-022-comment-reply.md`
-
-### [2026-08-17] Merge PR #124 เข้า `main` + ทำ follow-up ที่ WYN-018 เองระบุไว้ (Drop's For You tab ใช้สูตร ranking เดียวกับ Home)
-- บริบท: Founder สั่ง "Merge เลย" ให้รวมงานค้าง 25 commits (WYN-016, WYN-017–022, DS-001–008, SELLER-001–005) เข้า `main` — เปิด PR #124, ตรวจ CI แล้วพบว่า repo นี้ไม่มี GitHub Actions test suite รันบน PR เลย (ตรงกับที่ session นี้ verify เองมาตลอดด้วย `flutter analyze`/`flutter test`/Postgres local จริง) สถานะ failure ที่เห็นเป็นแค่ Vercel preview deployment โดน rate-limit ของแผนบัญชี ไม่เกี่ยวกับคุณภาพโค้ด จึง merge ผ่าน (`merge` method, ยังไม่ลบ branch เดิม) จากนั้น Founder สั่งต่อ "อันไหนที่ทำได้ ทำเลย เริ่มจาก หน้า Home กับ หน้า Drop ก่อน" — เลือกงานที่ทำได้จริงโดยไม่ต้องรอ Founder ตั้งค่าอะไรเพิ่ม (ต่างจาก Push/OAuth ที่ยังบล็อกอยู่) และตรงกับ "Home กับ Drop" ตามที่สั่ง: WYN-018's design doc เอง (`## Non-goals / explicit follow-ups`) ระบุไว้ชัดเจนแล้วว่า "Drop tab's For You tab ยังใช้ chronological ordering... แนะนำเป็น follow-up ถัดไปทันที"
-- สิ่งที่ทำ: เพิ่ม `DropRepository.fetchRankedFeed` (bounded top-210 window, reuse `rankingScore`/`HomeFeedItem.fromDrop` ตัวเดียวกับที่ Home's "สำหรับคุณ" ใช้ ไม่สร้างสูตรที่สอง) เปลี่ยน `DropFeedScreen`'s For You tab จาก `fetchFeed` (chronological) เป็น `fetchRankedFeed` — Following/Latest tab ไม่แตะเลย ไม่มี schema change เพราะ ranking ใช้ column ที่มีอยู่แล้วทั้งหมด เพิ่ม `RecordingDropRepository.rankedFeedDrops`/`fetchRankedFeedCalls` (default เป็นค่าเดียวกับ `feedDrops` ถ้าไม่ระบุ ตาม pattern เดียวกับ `RecordingHomeRepository` — ไม่ต้องแก้ test เดิมสักจุด) และ test ใหม่ 2 ตัวใน `drop_feed_screen_test.dart` ยืนยันว่า For You เรียก `fetchRankedFeed` จริงและ Latest ยังคง chronological เหมือนเดิม — เจอ Timer-leak anti-pattern ที่เคยบันทึกไว้ใน `.wyn/learning/PATTERNS.md` อีกครั้ง (สร้าง `RecordingDropRepository` inline ใน `testWidgets` แทนที่จะเป็น `setUp()`) แก้ตามที่บันทึกไว้ทันที
-- ผลกระทบ: `flutter analyze` สะอาด, `flutter test` ผ่านครบ 362/362 (360→362, +2 ไม่มี regression) — WYN-018's design doc อัปเดตส่วน follow-up เป็น "Done" แล้ว
-- อ้างอิง: PR #124 (merged), `app/lib/features/drop/data/drop_repository.dart`, `app/lib/features/drop/presentation/drop_feed_screen.dart`, `.wyn/docs/design/wyn-018-home-feed-ranking.md`
-
-### [2026-08-17] QA อิสระรอบแรกจริงของ WYN-017–022 (Feed & Club Update) — 5 PASS, 1 FAIL (Major security gap พบใน WYN-021)
-- บริบท: ทั้ง 6 task (WYN-017 ถึง WYN-022) ถูก merge เข้า `main` (PR #124) และย้ายเข้า `.wyn/tasks/approved/` โดยมีสถานะแค่ "coded + self-verified (QA — PASS)" เท่านั้น — คือ session เดียวกับที่เขียนโค้ดเซ็น QA ให้ตัวเอง ไม่เคยผ่าน AI QA & Security อิสระจริงเลย ขัดกับ `WORKFLOW.md`'s "ห้ามข้าม QA สำหรับงานที่จะขึ้น production เด็ดขาด" — มอบหมายให้ AI QA & Security ทำ QA อิสระรอบแรกจริงของทั้ง 6 task
-- สิ่งที่ทำ: (1) Re-sync ไป `origin/main` tip เอง (commit `8d338cb`, พบว่า branch ที่ใช้งานอยู่แล้วตรงกับ tip พอดี) (2) รัน `flutter analyze`/`flutter test` อิสระเอง (Flutter 3.47.0 ติดตั้งอยู่แล้วที่ `/home/user/flutter`) ยืนยัน 362/362 ตรงกับที่ Coding รายงานทุกตัวเลข ไม่เชื่อเฉยๆ (3) ตั้ง local Postgres 16 harness เอง (stub `auth`/`storage` schema, `auth.uid()`, `storage.foldername()`, grants ให้ role `authenticated`/`anon` มิเรอร์สิ่งที่ Supabase platform ทำอัตโนมัติ) แล้ว load `supabase/schema.sql` ทั้งไฟล์สำเร็จ (`ON_ERROR_STOP=1`) (4) ไล่ Requirements/Design Components/Acceptance Criteria ของทั้ง 6 task แยกกันครบทุกหัวข้อเทียบกับ `.wyn/docs/design/wyn-01[7-9]/02[0-2]-*.md` (5) ทำ red→green regression proof อิสระ 3 จุด กับ Postgres/Dart จริง: **WYN-018's ranking formula** (inject บั๊ก 2 จุดใน `rankingScore()` จริง → 4/8 test fail ตรงจุด → revert 100% → 8/8 ผ่านอีกครั้ง), **WYN-021's self-mention guard** (ยืนยัน 0 notification จริงกับ Postgres), **WYN-022's reply depth-1 guard** (reply-to-top-level สำเร็จ → reply-to-reply ถูกบล็อกจริงจาก trigger → disable trigger แล้วพิสูจน์ว่าไม่มี trigger จะสำเร็จ → enable กลับมาบล็อกได้ปกติ)
-- **พบ Major security finding ใน WYN-021**: `club_post_mentions`'s select RLS policy เป็น `using (true)` (ทุก authenticated user อ่านได้หมด) แทนที่จะ gate ด้วย club membership เหมือน sibling table 3 ตัวในไฟล์เดียวกัน (`club_posts`/`club_post_likes`/`club_post_comments` ทั้งหมด gate ด้วย `club_role(...) is not null` ถูกต้อง) — พิสูจน์ด้วย Postgres จริง: seed private club ที่ `outsider` ไม่ใช่สมาชิกเลย (ไม่มีแม้แต่ pending), ยืนยัน `outsider` อ่าน `club_posts.content` ไม่ได้ (0 rows, ถูกต้อง) แต่อ่าน `club_post_mentions` ได้ตรงๆ (เห็นทั้ง `club_post_id` ที่พิสูจน์ว่าโพสต์ private นี้มีอยู่จริง และ `mentioned_user_id` ที่รู้ว่าใครถูกแท็ก) — exploitable ผ่าน raw PostgREST API ตรงๆ ด้วย JWT ของ user ธรรมดาคนไหนก็ได้ ไม่ต้องพึ่ง Flutter app เลย (`drop_mentions`'s เทียบเคียง `using (true)` ไม่ใช่ปัญหา เพราะ `drops` เป็น global-public content อยู่แล้วโดยตั้งใจ)
-- ผลกระทบ: **WYN-017/018/019/020/022 — PASS** (ย้ายสถานะจาก self-verified เป็น QA อิสระ PASS จริง ยังอยู่ใน `.wyn/tasks/approved/` เหมือนเดิม) — **WYN-021 — FAIL (Major)** ย้ายออกจาก `approved/` ไป `.wyn/tasks/review/` พร้อม bug report เต็มที่ `.wyn/tasks/bugs/WYN-021-club-post-mentions-rls-gap.md` (fix ที่เสนอ: mirror select policy ของ `club_post_likes`/`club_post_comments` ให้ `club_post_mentions` ตรงๆ ความเสี่ยง regression ต่ำมาก) ส่งต่อ AI Debug Engineer ทันที — งาน deploy ยังคงถูกระงับเหมือนเดิมจนกว่า WYN-021 จะผ่าน QA รอบ 2
-- อ้างอิง: `.wyn/tasks/approved/WYN-017-home-trending-recommended-clubs.md`, `WYN-018-home-feed-ranking.md`, `WYN-019-drop-feed-tabs.md`, `WYN-020-hashtag-system.md`, `WYN-022-comment-reply.md`, `.wyn/tasks/review/WYN-021-mention-system.md`, `.wyn/tasks/bugs/WYN-021-club-post-mentions-rls-gap.md`
-
-### [2026-08-17] WYN-021 (Mention System) — QA อิสระรอบ 2 PASS, ปิดบั๊ก `club_post_mentions` RLS gap, Feed & Club Update ครบทั้ง 6 task ใน `approved/` แล้ว
-- บริบท: AI Debug Engineer แก้ Major security gap ที่ QA รอบ 1 พบ (`club_post_mentions`'s select RLS policy เป็น `using (true)` แทนที่จะ gate ด้วย club membership) เสร็จแล้วที่ commit `8ee326e` — มอบหมายให้ AI QA & Security ทำ QA รอบ 2 อิสระ ตรวจสอบเองทั้งหมดไม่เชื่อรายงานของ Debug เฉยๆ ตามกติกา WORKFLOW.md
-- สิ่งที่ทำ: (1) อ่าน diff จริงของ `8ee326e` ยืนยัน policy shape ตรงกับ `club_post_likes`/`club_post_comments` เป๊ะ (2) รัน `supabase/tests/wyn_021_club_post_mentions_rls_test.sh` ที่ Debug สร้างไว้เอง — 5/5 PASS (3) **ทำ red→green proof อิสระคนละมุมกับ Debug/รอบ 1**: สร้าง harness+fixture ใหม่ทั้งหมดเอง ทดสอบ **pending member** และ **banned member** (ต่างจากเคส "zero-membership outsider" เดิม) — พิสูจน์ว่า pre-fix ทั้งสองสถานะรั่วเหมือนกัน (revert policy ชั่วคราวในไฟล์สำเนา ไม่แตะ repo จริง) และ post-fix ทั้งคู่ถูกบล็อกถูกต้อง ยืนยันว่า fix ครอบคลุมทุกสถานะสมาชิกที่ไม่ใช่ approved ไม่ใช่แค่เคสเดียว (4) ยืนยัน `drop_mentions`'s `using (true)` ไม่ถูกแตะและยังถูกต้อง (global-public content, ไม่ใช่ bug) (5) รัน `flutter analyze`/`flutter test` อิสระเอง — clean/362/362 ตรงกับที่ Debug รายงาน (6) ไล่ Requirements(R1-R5)/Design Components/Acceptance Criteria(5 ข้อ) ของ WYN-021 ใหม่ทั้งหมดครบทุกข้อ ไม่ใช่แค่จุดที่แก้
-- ผลลัพธ์: **WYN-021 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว ปิด `.wyn/tasks/bugs/WYN-021-club-post-mentions-rls-gap.md` เป็น closed (resolved + verified) — **ทำให้ WYN-017 ถึง WYN-022 (Feed & Club Update) ครบทั้ง 6 task อยู่ใน `approved/` พร้อมกันแล้ว** พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะ session นี้เป็น QA เท่านั้น)
-- อ้างอิง: `.wyn/tasks/approved/WYN-021-mention-system.md` (ดู "Independent QA — Round 2" section), `.wyn/tasks/bugs/WYN-021-club-post-mentions-rls-gap.md`, commit `8ee326e` บน branch `claude/website-testing-44ac9u`
-
-### [2026-08-22] WYN-024 feed-mode SegmentedButton — AI Design ตัดสินใจเปลี่ยนเป็น scroll แนวนอน แทนไอคอน+tooltip/ย่อข้อความ/dropdown
-- บริบท: หลัง QA รอบ 3-4 พบว่า "สำหรับคุณ" (default tab) และ "จาก Club ของคุณ" ยังอ่านไม่ออกที่ทุกความกว้างหน้าจอจริงแม้ Debug แก้ไปแล้ว 1 รอบ (ถอด checkmark icon + บีบ padding) เพราะ root cause จริงคือ SegmentedButton แบ่งความกว้างเท่ากันทุก segment ไม่ใช่ปัญหาความยาว label เพียงอย่างเดียว — ไม่ใช่สิ่งที่ Debug แก้ต่อได้ด้วยเทคนิค ต้องเป็นการตัดสินใจของ Design
-- ทางเลือกที่พิจารณา: (A) ยุบเป็นไอคอน+tooltip ตามสเปกเดิม — ปฏิเสธ เพราะ 4 โหมด feed เป็น concept นามธรรม ไม่มีไอคอนที่สื่อความหมายชัดเจนพอ (B) ย่อข้อความ label — ปฏิเสธ เพราะวัดแล้วไม่พอแม้แต่ "สำหรับคุณ" ที่สั้นอยู่แล้ว (C) เปลี่ยนเป็น dropdown — ปฏิเสธ เพราะเปลี่ยน interaction paradigm ใหญ่เกินความจำเป็น (D) **scroll แนวนอน ให้แต่ละ segment ได้ความกว้างตามเนื้อหาจริง — เลือก** เพราะคง label เต็มทุกตัว ไม่เปลี่ยน interaction pattern หลัก และเป็น pattern มาตรฐานของ mobile UI
-- อำนาจการตัดสินใจ: ไม่ต้องขอ Founder popup เพราะเป็นการตัดสินใจ interaction pattern ของ component เดียว ไม่ใช่หัวข้อในรายการ "อำนาจของ Founder" ตาม RULES.md (ต่างจาก DS-009 ที่เป็นการเปลี่ยน Design System ทั้งระบบ) — อยู่ในขอบเขต "ออกแบบ (Design)" ที่ AI Team ทำได้เอง
-- ผลกระทบ: ต้องอัปเดต DS-009's Rainbow indicator strip ให้ track ตำแหน่งจริงของ segment แทนการหารความกว้างเท่ากัน (เดิมสมมติ equal-width division ซึ่งจะไม่ true อีกต่อไป)
-- อ้างอิง: `.wyn/docs/design/wyn-024-segmented-feed-mode-scrollable.md`, `.wyn/tasks/backlog/WYN-024-segmented-feed-mode-scrollable.md`, `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md`
-
-### [2026-08-22] WYN-024 + DS-009 — QA รอบ 5 PASS ปิดงานทั้งคู่ ย้ายเข้า approved/ พร้อม deploy
-- บริบท: ปิด saga ของ SegmentedButton label truncation ที่ผ่าน QA/Debug มาแล้ว 4 รอบ (round 1: overflow crash, round 2: wrap ballooning + inline-dot deviation, round 3: checkmark/padding partial fix, round 4: escalate ไป Design) — AI Design ตัดสินใจเปลี่ยนเป็น scroll แนวนอน → AI Coding implement → QA รอบ 5 ยืนยันอิสระ PASS ทุกจุด (4 segment × 6 ความกว้างจอ 320-430px, real interaction, wide-screen no-regression)
-- ผลลัพธ์: **WYN-024 (Bottom Nav V1.0.0 Restructure) และ DS-009 (Rainbow Accent) — PASS ทั้งคู่** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — บั๊กทั้ง 2 ไฟล์ (`WYN-024-active-segment-label-truncation.md`, `WYN-024-segmented-button-active-label-illegible-all-segments.md`) ปิดสถานะ CLOSED — พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง
-- อ้างอิง: `.wyn/tasks/approved/WYN-024-bottom-nav-v1-restructure.md`, `.wyn/tasks/approved/DS-009-v1-rebrand-color-comparison.md`, `.wyn/tasks/approved/WYN-024-segmented-feed-mode-scrollable.md`, `.wyn/tasks/bugs/WYN-024-segmented-button-active-label-illegible-all-segments.md`, commit `1eb8e79` บน branch `claude/remaining-items-r10hl0`
-
-### [2026-08-22] เริ่ม Phase 1 — Safety & Trust Foundation (WYN-026 ถึง WYN-030) และขอบเขต Moderation UI ก่อน WYN Admin (Phase 7)
-- บริบท: Founder สั่งเริ่ม Phase 1 (Safety & Trust Foundation) ตาม `.wyn/docs/product/wyn-v1.0.0-roadmap.md` — Phase 0 (WYN-024 + DS-009) ผ่าน QA รอบ 5 และ approved ครบแล้ว จึงเริ่ม Phase 1 ได้ตามลำดับที่วางไว้ AI Product Manager พบว่า WYN-029 (Moderation Queue + Action) มีช่องว่างสำคัญ: WYN Admin (เว็บสำหรับดู/จัดการ Report) อยู่ใน Phase 7 ซึ่งยังไม่เริ่ม ถ้าไม่มีหน้าจอใดให้มนุษย์ดำเนินการกับ Report เลยในรอบนี้ Phase 1 จะมีแค่ข้อมูล (data model) แต่บังคับใช้จริงไม่ได้จนกว่าจะถึง Phase 7 — ถามยืนยันผ่าน popup ก่อนร่าง spec ของ WYN-029/WYN-030
-- คำตัดสินใจของ Founder: เลือก **"ทำหน้าจอ Moderation ขั้นต่ำในแอปเดิม"** — สร้างหน้าจอเรียบง่ายในแอป Flutter เดิม มองเห็น/ใช้งานได้เฉพาะบัญชีที่ตั้ง `platform_role = moderator/admin` เท่านั้น ใช้จริงได้ทันทีตั้งแต่ Phase 1 (ไม่ต้องพึ่ง Supabase SQL editor ในการดำเนินการทุกครั้ง) — ภายหลังจะถูกแทนที่ด้วย WYN Admin (เว็บ) ตอน Phase 7 ตามแผนเดิม
-- ผลกระทบ: WYN-029 ต้องมี Requirement เพิ่มเติมนอกเหนือจาก Master Spec ข้อ 25 (Moderation) คือหน้าจอ "Moderation Queue" ขั้นต่ำในแอป Flutter ที่ gate ด้วย `platform_role` บน `profiles` (คอลัมน์ใหม่ ตั้งค่าได้เฉพาะทาง DB โดย Founder ในรอบนี้ ยังไม่มี UI ให้ตั้งเองในแอป) — WYN-030 (Appeal) มี action จริงให้ appeal ต่อได้ตั้งแต่ Phase 1 ไม่ต้องรอ Phase 7 — เมื่อถึง Phase 7 WYN Admin's Report Center (WYN-053) จะมาแทนที่หน้าจอขั้นต่ำนี้ (ตัดสินใจตอนนั้นว่าจะเก็บหรือถอดหน้าจอเดิมออกจากแอป consumer)
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-026-report-system.md`, `.wyn/tasks/backlog/WYN-027-block-system.md`, `.wyn/tasks/backlog/WYN-028-mute-system.md`, `.wyn/tasks/backlog/WYN-029-moderation-queue.md`, `.wyn/tasks/backlog/WYN-030-appeal-system.md`
-
-### [2026-08-22] WYN-026 (Report System) — QA รอบ 1 PASS
-- บริบท: AI Coding ส่งมอบ WYN-026 (ตาราง `reports` + RPC `submit_report()` + `ReportSheet` component ต่อสาย 6 entry point) — AI QA & Security ตรวจแบบพยายาม break จริงจัง ไม่เชื่อตัวเลขที่ Coding รายงานเฉย ๆ
-- สิ่งที่ทำ: (1) รัน `flutter analyze`/`flutter test` อิสระเอง — สะอาด 0 issues, 369/369 ผ่าน ตรงกับที่ Coding รายงาน (2) **รัน SQL ของจริงบน Postgres 16 จริงในเครื่อง** (ติดตั้ง stub schema จำลอง `auth.uid()`/`profiles`/`drops`/ฯลฯ แล้ว apply บล็อก SQL ของ WYN-026 จาก `schema.sql` ตรง ๆ ไม่ใช่แค่อ่านโค้ด) ทดสอบ 16 เคส: submit สำเร็จ, รายงานซ้ำ target เดิมถูกบล็อก (unique constraint), รายงานตัวเองถูกบล็อกทั้ง user/drop, target ไม่มีจริงถูกปฏิเสธ, category='other' ไม่กรอก detail (ทั้ง null และเว้นวรรคล้วน) ถูกปฏิเสธ, category ผิดจากที่กำหนดถูกปฏิเสธ, target_type='message' ถูกปฏิเสธ (สำรองไว้ Phase 2), **RLS**: reporter เห็นแค่ report ของตัวเอง, raw insert ข้าม RPC ถูกปฏิเสธ, **ผู้ถูกรายงานเห็น report ตัวเองเป็น 0 แถวจริง (พิสูจน์ privacy guarantee ด้วยข้อมูลจริงไม่ใช่แค่อ่าน policy)**, พยายามปลอม reporter_id เป็นคนอื่นถูกปฏิเสธ, raw update ไม่มีสิทธิ์ (0 rows), รายงานซ้ำได้ใหม่หลังเคสเดิมถูกปิด (dismissed) — **ทุกเคสผ่านตามที่ออกแบบไว้ ไม่พบช่องโหว่** (3) เขียน widget test ชั่วคราวพิสูจน์ double-submit safety ของปุ่ม "ส่งรายงาน" (tap 2 ครั้งรัวไม่มี pump คั่น) — ส่ง RPC แค่ 1 ครั้งจริง (4) เขียน widget test ชั่วคราวพิสูจน์ `HomeDropCard` ไม่มี gesture collision ระหว่างจุดแตะ avatar/ชื่อ (เปิดโปรไฟล์), ปุ่ม More ใหม่ (เปิดเมนู อย่างเดียว), และรูปภาพ (เปิด Drop Detail) — จุดนี้เคยถูก QA รอบก่อนหน้า (WYN-013/WYN-015) บันทึกไว้ว่าเป็น "จุดเสี่ยงชนกันมากที่สุด" และยังไม่มี regression test ถาวร จึงตรวจเองอิสระ (5) ทดสอบ `ReportSheet` ที่ textScale 130% บนจอเล็ก (360×640) และจอเตี้ย (700×420) — ไม่ overflow, ปุ่มส่งยัง reachable (6) cross-check ค่า wire string ของ Dart enum (`ReportCategory`/`ReportTargetType`) กับ SQL check constraint ตรงกันทุกตัวอักษร (7) ไล่ตรวจทุก entry point ทั้ง 6 จุดยืนยันว่าไม่มีทางเห็นปุ่ม Report บนเนื้อหา/โปรไฟล์ตัวเองเลย ลบ widget test ชั่วคราวทั้งหมดทิ้งหลังพิสูจน์เสร็จ (ไม่ commit)
-- พบ 1 ข้อสังเกต **Minor ไม่ block**: สถานะ "รายงานแล้ว" โผล่ให้เห็นตอนเปิด `ReportSheet` เท่านั้น (query `hasOpenReport` ทำงานถูกต้องจริง กันส่งซ้ำได้จริงทั้ง client/server) แต่ปุ่ม/รายการเมนูที่ entry point เอง (เช่น "More" บนการ์ด, รายการในเมนู 3 จุด) ยังไม่เปลี่ยนข้อความ/สีเป็น "รายงานแล้ว" ล่วงหน้าแบบที่ AC บรรยายไว้ตรง ๆ — Coding เปิดเผยไว้เองใน Known Issues แล้ว ไม่ใช่การซ่อนปัญหา เสนอเป็น fast-follow ถ้า Founder ต้องการ (ต้อง query เพิ่มต่อแถวใน feed/grid หนาแน่นซึ่งมีต้นทุน performance ต้องชั่งน้ำหนัก)
-- ผลลัพธ์: **WYN-026 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะ session นี้เป็น QA เท่านั้น) — เป็น task แรกของ Phase 1 (Safety & Trust Foundation) ที่ผ่าน QA
-- อ้างอิง: `.wyn/tasks/approved/WYN-026-report-system.md`, commit `f701c0d` บน branch `claude/phase-1-safety-trust-481y98`
-
-### [2026-08-22] WYN-027 (Block System) — AI Coding เจอและแก้บั๊ก RLS self-referential trap ระหว่าง implement
-- บริบท: ระหว่างเขียน INSERT policy ของ `drop_likes`/`drop_comments`/`drop_comment_likes`/`pop_likes`/`pop_comments`/`pop_comment_likes` ให้เช็คว่าผู้โพสต์กับผู้กดไลก์/คอมเมนต์ไม่ได้ block กันอยู่ ใช้ pattern แรกเป็น inline `NOT EXISTS` subquery เช็คตาราง author ผ่าน join — ตอนทดสอบจริงบน Postgres 16 local (ไม่ใช่แค่อ่านโค้ดเฉย ๆ) พบว่าเคสที่ควรถูกบล็อกกลับผ่านได้
-- Root cause: ตารางที่ subquery join เข้าไปเช็ค (เช่น `drops` เพื่อดู `author_id`) มี RLS SELECT policy ของมันเองที่ **กรอง block ทั้งสองทิศทางออกไปแล้ว** — เมื่อ subquery ของ policy อื่น (INSERT บน `drop_likes`) พยายาม join เข้าไปดูแถวของ `drops` ที่ author ถูก block อยู่ RLS ของ `drops` จะซ่อนแถวนั้นจาก subquery เองด้วย (เพราะ subquery รันในบริบทเดียวกับ query หลักที่ auth.uid() เดียวกัน) ทำให้ `NOT EXISTS (...)` เจอ 0 แถวเสมอ (เพราะแถวที่ตรงเงื่อนไข "เป็น author ที่ถูก block" ถูก RLS ซ่อนไปพอดี) ผลคือ negated check ผ่านเสมอ **อนุญาตให้ Like/Comment ข้าม block relationship ได้ทั้งที่ไม่ควร** — เป็นกับดักเฉพาะ pattern "NOT EXISTS ที่ join ตารางซึ่งมี RLS filter บนเงื่อนไขเดียวกัน" เท่านั้น ไม่กระทบ SELECT policy ธรรมดาหรือ INSERT policy ที่ join ผ่านตารางไม่มี RLS filter ทับซ้อน
-- การยืนยันว่าเป็นบั๊กจริง ไม่ใช่ test artifact: รัน isolated fresh-database test ซ้ำแยกต่างหาก เห็นผลเดิมทุกครั้ง และเทียบกับ `club_post_likes`/`club_post_comments` ที่ใช้ pattern บวก (`exists()` ตรงๆ ไม่ negate) ซึ่ง**ไม่เจอบั๊กนี้** — ยืนยันว่าโครงสร้าง negated-subquery-against-RLS-filtered-table คือสาเหตุจริง ไม่ใช่ปัญหาอื่น
-- การแก้ไข: เพิ่ม security-definer helper function 4 ตัว (`drop_author_id`/`pop_author_id`/`drop_comment_author_id`/`pop_comment_author_id`) ที่ bypass RLS ดึง author id ตรงๆ (pattern เดียวกับ `club_role()` ที่มีอยู่แล้วในระบบ) แล้วเปลี่ยน INSERT policy ทั้ง 6 ตัวจาก inline subquery เป็นเรียก `is_blocked_either_way(auth.uid(), helper_function(id))` แทน — ยืนยัน fix ด้วยการรัน fresh-database test ซ้ำครบ T1-T11 (รวม regression เนื้อหา Club ที่ใช้ positive-exists pattern เดิมไม่ต้องแก้)
-- ผลกระทบต่อ pattern ในอนาคต: **ทุกครั้งที่เขียน RLS policy ที่ join ข้ามตารางเพื่อเช็คเงื่อนไขแบบ negate (NOT EXISTS/NOT IN) กับตารางที่มี RLS ของตัวเองบนเงื่อนไขเดียวกัน ต้องใช้ security-definer helper function แทน inline subquery เสมอ** — บันทึกไว้เป็น pattern สำหรับ WYN-028 (Mute) และงานในอนาคตที่ต้องเช็ค relationship ข้ามตาราง
-- อ้างอิง: `supabase/schema.sql` (comment อธิบาย root cause ไว้ในโค้ดตรงจุด helper function ทั้ง 4 ตัว), `.wyn/tasks/approved/WYN-027-block-system.md` (Coding Output section)
-
-### [2026-08-22] WYN-027 (Block System) — QA รอบ 1 PASS
-- บริบท: AI Coding ส่งมอบ WYN-027 (ตาราง `blocks` + RPC `block_relationship()`/`block_user()`/`unblock_user()` + RLS block-aware บน 6 SELECT policy และ 9 INSERT policy ครอบ Drop/Pop/Club/Follow/Mention) — AI QA & Security ตรวจแบบพยายาม break จริงจัง ไม่เชื่อตัวเลขหรือผลการทดสอบที่ Coding รายงานเฉย ๆ แม้ Coding จะรายงานว่าได้ทดสอบ SQL จริงมาแล้ว 11 เคสก็ตาม (QA ต้องพิสูจน์เองอิสระเสมอ)
-- สิ่งที่ทำ: (1) รัน `flutter analyze`/`flutter test` อิสระเอง — สะอาด 0 issues, 382/382 ผ่าน ตรงกับที่ Coding รายงาน (2) **สร้างฐานข้อมูล PostgreSQL 16 ใหม่ทั้งหมดของ QA เอง ไม่ reuse ของ Coding** ติดตั้ง stub schema จำลอง Supabase (`auth.uid()`/`auth.users`/`storage.buckets`/`storage.objects`) แล้ว apply `schema.sql` ตัวจริง**ทั้งไฟล์ 3850 บรรทัด** (ไม่ตัดเฉพาะช่วง WYN-027 เหมือนรอบก่อน เพราะ WYN-027 แก้ policy ของตารางที่มีอยู่ก่อนแล้วจำนวนมาก ต้องมี dependency ครบเหมือนโปรดักชันจริง) และรันทุก query ผ่าน role `authenticated` ที่ `SET ROLE` ออกจาก superuser จริง พร้อม grant สิทธิ์ table-level ให้ authenticated เอง (เลียนแบบสิ่งที่ Supabase platform ทำให้อัตโนมัติ ซึ่งไม่มีอยู่ใน schema.sql ของ project) — ป้องกันความผิดพลาดที่พบบ่อยของการทดสอบ RLS คือรันเป็น superuser/table owner แล้ว bypass RLS โดยไม่รู้ตัว ทำให้ผลทดสอบเป็นบวกลวง (3) ทดสอบผู้ใช้ A/B/C/D (C/D เป็นบุคคลที่สามใช้พิสูจน์ regression) ครบ 30 เคส ครอบทั้ง 8 ข้อใน Acceptance Criteria: เนื้อหา Drop/Pop หายสองทิศทางแต่เนื้อหาตัวเองยังเห็นได้, comment ของฝ่ายที่ถูก block บนโพสต์บุคคลที่สามถูกซ่อนจากอีกฝ่ายจริง, Follow relationship ถูกลบทั้งสองทิศทางทันทีที่ Block (ทดสอบคู่ C/D แยกจาก fixture เดิมเพื่อพิสูจน์ไม่ได้ผูกกับข้อมูลเฉพาะ), พยายาม Follow ระหว่าง Block อยู่ถูกปฏิเสธทั้งสองทิศทาง, mention ระหว่าง Block ถูกปฏิเสธทั้งสองทิศทางและ**นับแถวจริงใน `notifications` ยืนยันว่าไม่มี notification ถูกสร้างเลย** (ไม่ใช่แค่อ่าน trigger logic), Unblock คืนการมองเห็นแต่ Follow ไม่กลับมาอัตโนมัติ, self-block ถูกปฏิเสธด้วย exception ชัดเจน, ปุ่ม Block ไม่มีทางโผล่บนโปรไฟล์ตัวเองยืนยันจาก code path จริง (4) **ยืนยันซ้ำอิสระว่าบั๊ก RLS self-referential trap ที่ Coding เจอและแก้ไปแล้วนั้นถูกแก้จริง ไม่ใช่แค่เชื่อรายงาน** — ทดสอบ INSERT policy ทั้ง 6 ตัวที่ใช้ helper function ทั้งสองทิศทาง (ผู้ block พยายาม like/comment เนื้อหาของผู้ถูก block และกลับกัน) ทุกเคสถูกปฏิเสธถูกต้อง พร้อม control เคสคู่ไม่ block กัน (C กับ A) ยังทำงานปกติ พิสูจน์ว่า fix ไม่ over-block (5) **ยืนยันอิสระคำกล่าวอ้างของ Coding ว่า `club_post_likes`/`club_post_comments`'s positive-`exists()` pattern ไม่ต้องแก้นั้นถูกต้องจริง** โดยสร้าง club/membership/club_post ทดสอบเองแยกต่างหาก ไม่ใช่แค่เชื่อคำอธิบายในโค้ด (6) ทดสอบ security เพิ่มเติมนอกเหนือ AC: raw insert/delete เข้า `blocks` table ข้าม RPC ถูกปฏิเสธทั้งคู่, **unblock spoofing** (B พยายามเรียก `unblock_user()` ยกเลิก block ของ A→B ที่ B ไม่ได้สร้างเอง) เป็น silent no-op จริงเพราะ RPC ใช้ `auth.uid()` เป็น blocker เสมอไม่รับ parameter จาก client, mutual-block edge case (A/B block กันทั้งคู่) ไม่ error ไม่ duplicate แถว relationship รายงาน `mutual` ถูกต้องทั้งสองฝั่ง, idempotent re-block ไม่ error ไม่ duplicate, privacy ของ `blocks` table (เห็นได้เฉพาะผู้ block เอง — B/C มองไม่เห็นว่า A block ใครไว้เลย), FK constraint name `blocks_blocked_id_fkey` ตรงกับที่ `BlockRepository.fetchBlockedUsers()` ใช้ใน PostgREST embed syntax เป๊ะ (จุดที่ถ้าไม่ตรงกันฟีเจอร์ Blocked List จะพังทั้งหมดแม้ RLS จะถูกต้อง — เป็นความเสี่ยงที่ทดสอบ RLS อย่างเดียวจับไม่ได้), `profiles` SELECT policy ยังไม่ถูกแตะต้องผิดที่ (ยังเห็นโปรไฟล์พื้นฐานของคนที่ Block กันอยู่ได้ตามที่ Design ต้องการ) (7) เขียน widget test ชั่วคราวพิสูจน์ double-tap safety บนปุ่ม "เลิกบล็อก" ของ `BlockedListScreen` — dialog barrier จาก `showDialog` แรกกันการแตะซ้ำได้เองตามธรรมชาติ ลบทิ้งหลังพิสูจน์เสร็จ (ไม่ commit)
-- พบ 1 ข้อสังเกต **Minor ไม่ block**: เขียน widget test ชั่วคราวพิสูจน์ว่าเมนู "บล็อก" ใน `ViewProfileScreen`'s More menu **ไม่มีทางโผล่ได้เลยในสภาพแวดล้อม widget test ปัจจุบัน** เพราะ `_blockRepository`/`_reportRepository` ถูก hardcode เป็น `BlockRepository(Supabase.instance.client)`/`ReportRepository(Supabase.instance.client)` ตรงๆ ภายใน state แทนที่จะ inject ผ่าน constructor เหมือน repository อื่นทุกตัวบนหน้าจอนี้ (`profileRepository`/`followRepository`/`dropRepository`/ฯลฯ) — `_loadBlockRelationship()` ยิง network จริงที่ fail เงียบๆ ในสภาพแวดล้อม test ทำให้ `_blockRelationship` เป็น null ตลอดไป ปัญหาเดียวกันกระทบ `report_sheet.dart`'s `showReportSheet()`/`_offerBlockAfterReport()` ที่ hardcode `BlockRepository`/`ProfileRepository` เช่นกัน — **ไม่ใช่ functional bug ในโปรดักชันจริง** (โค้ดอ่านแล้วถูกต้องตาม pattern เดียวกับ `_loadFollowStatus` ที่พิสูจน์แล้วว่าใช้งานได้จริงมาตั้งแต่ WYN-008/013 และชั้น RLS/RPC ที่ขับเคลื่อนมันถูกพิสูจน์แล้วว่าถูกต้อง 100% ผ่าน SQL จริงในข้อข้างต้น) **แต่เป็นช่องว่างที่ Blocked persona banner/More menu บน ViewProfileScreen และ block-offer SnackBar บน ReportSheet ไม่มี automated regression test ถาวรเลย** ต่างจาก `BlockedListScreen`/`block_dialogs`/`BlockRelationship` ที่ Coding ออกแบบให้ inject ได้ตั้งแต่แรกและมี test ครบ 13 เคส — เสนอเป็น fast-follow ให้ inject repository เหล่านี้แบบเดียวกับ `clubRepository` (optional constructor param) เพื่อปิดช่องว่างนี้ในอนาคต ไม่ block การอนุมัติรอบนี้เพราะความถูกต้องของ enforcement จริงพิสูจน์แล้วที่ชั้น RLS/RPC ซึ่งสำคัญกว่าชั้น UI ที่แค่สะท้อนสถานะ
-- ผลลัพธ์: **WYN-027 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง (ยังไม่ deploy เพราะ session นี้เป็น QA เท่านั้น) — เป็น task ที่สองของ Phase 1 (Safety & Trust Foundation) ที่ผ่าน QA ต่อจาก WYN-026
-- อ้างอิง: `.wyn/tasks/approved/WYN-027-block-system.md` (QA Output section)
-
-### [2026-08-22] WYN-028 (Mute System) — AI Coding แก้ gap ที่ WYN-027 QA พบไปพร้อมกันตอน implement
-- บริบท: WYN-027 QA รอบ 1 พบว่า `ViewProfileScreen`'s `_reportRepository`/`_blockRepository` hardcode `Supabase.instance.client` ตรงๆ ภายใน state (ต่างจาก repository อื่นทุกตัวบนหน้าจอเดียวกันที่ inject ผ่าน constructor) ทำให้ More menu/Blocked persona banner ไม่มีทางถูกทดสอบด้วย widget test อัตโนมัติเลย — เสนอไว้เป็น fast-follow ไม่ block การอนุมัติตอนนั้น ตอนนี้ AI Coding ต้องเพิ่ม `_muteRepository` ตัวที่ 3 เข้าคลาสเดียวกันสำหรับ WYN-028 พอดี
-- การตัดสินใจ: แทนที่จะเพิ่ม `_muteRepository` แบบ hardcode ซ้ำรอยเดิมเป็นตัวที่ 3 (ซึ่งจะทำให้ gap เดิมแย่ลงแทนที่จะดีขึ้น) Coding เลือกแก้ทั้ง 3 ตัวพร้อมกัน — เปลี่ยน `reportRepository`/`blockRepository`/`muteRepository` เป็น optional constructor param บน `ViewProfileScreen` (`this.reportRepository`, `this.blockRepository`, `this.muteRepository`) ที่ default ไปสร้างจาก `Supabase.instance.client` เองผ่าน `late final` field ถ้าไม่มีการส่งมา — pattern เดียวกับ `clubRepository`/`clubPostRepository` ที่มีอยู่แล้วในคลาสเดียวกัน ไม่ใช่การคิด pattern ใหม่
-- ขอบเขตการแก้: จำกัดเฉพาะ `view_profile_screen.dart` เท่านั้น (ไฟล์ที่กำลังแก้อยู่แล้วสำหรับ WYN-028) — **ไม่แตะ** `report_sheet.dart`'s `showReportSheet()`/`_offerBlockAfterReport()` ที่มี hardcoding แบบเดียวกัน เพราะเป็นไฟล์คนละจุด ไม่เกี่ยวกับ Mute โดยตรง ตามหลัก "การเปลี่ยนแปลงเฉพาะส่วนที่จำเป็น หลีกเลี่ยง refactor ที่ไม่เกี่ยวข้อง" ใน RULES.md — เหลือเป็น fast-follow แยกต่างหากถ้า Founder ต้องการปิด gap ที่เหลือ
-- ผลลัพธ์: เขียน `test/view_profile_mute_test.dart` ทดสอบ More menu integration ของทั้ง Mute (ใหม่) ได้จริงเป็นครั้งแรก รวมถึงพิสูจน์ย้อนกลับว่า Block's More menu item ("บล็อก" แสดง/ไม่แสดงตาม `_blockRelationship`) ก็ทดสอบได้แล้วเช่นกันเป็นผลพลอยได้ — ปิด gap ที่ WYN-027 QA พบไปในตัวโดยไม่ต้องรอ task แยก
-- อ้างอิง: `.wyn/tasks/backlog/WYN-028-mute-system.md` (Coding Output section), `app/lib/features/profile/presentation/view_profile_screen.dart`, `app/test/view_profile_mute_test.dart`
-
-### [2026-08-22] Merge policy — merge เข้า main ทันทีทุกครั้งที่งานเสร็จ ไม่ต้องรอถามอนุมัติแยกแต่ละครั้ง
-- บริบท: งานของ Phase 1 (WYN-026/027/028) สะสมอยู่บน branch `claude/phase-1-safety-trust-481y98` มาหลายรอบโดยไม่ได้ merge เข้า main เลย (รอ AI Deploy & DevOps ตามขั้นตอนปกติ) ทำให้ Founder เปิด GitHub แล้วหางานไม่เจอเพราะดูอยู่ที่ branch `main`
-- คำตัดสินใจของ Founder: **"ทำงานเสร็จทุกครั้ง merge เลย"** — ทุกครั้งที่งานเสร็จ (โดยเฉพาะเมื่อผ่าน QA แล้ว) ให้ merge เข้า main ทันที ไม่ต้องรอถามอนุมัติแยกทีละครั้ง
-- ผลกระทบ: เปลี่ยนจากเดิมที่ AI Deploy & DevOps รอคำสั่ง merge/deploy แยกทุกครั้ง เป็นการ merge PR เข้า main ทันทีที่ task ผ่าน QA PASS (ยังคง**ไม่ข้าม QA gate** — งานที่ยังไม่ผ่าน QA ยังต้องผ่าน QA ก่อนเสมอ ตามกติกา "ห้ามอนุมัติงานที่ยังไม่ได้ทดสอบจริงเด็ดขาด" ที่เป็นกติกาแยกกันคนละเรื่องกับจังหวะ merge) — แปลว่าเมื่อ WYN-028 ผ่าน QA จะ merge branch ทั้งหมด (WYN-026+027+028) เข้า main ทันทีในรอบเดียวกัน ไม่รอคำสั่งแยก
-- อ้างอิง: -
-
-### [2026-08-22] WYN-028 (Mute System) — QA รอบ 1 PASS
-- บริบท: AI Coding ส่งมอบ WYN-028 (ตาราง `mutes` ไม่มี RPC + `home_feed` view filter + toggle ใน More menu) — AI QA & Security ตรวจแบบพยายาม break จริงจัง ไม่เชื่อรายงานของ Coding เฉยๆ
-- สิ่งที่ทำ: (1) รัน `flutter analyze`/`flutter test` อิสระเอง — สะอาด 0 issues, 395/395 ผ่าน ตรงกับที่ Coding รายงาน (2) สร้างฐานข้อมูล PostgreSQL 16 ใหม่ทั้งหมดของ QA เอง apply `schema.sql` ตัวจริงทั้งไฟล์ รันผ่าน role `authenticated` (ไม่ bypass RLS) ทดสอบครบทั้ง 9 ข้อ Acceptance Criteria ด้วยผู้ใช้ทดสอบ A/B/C/D — ทุกข้อผ่าน รวม Profile/Search/Club/Follow/Interaction/Notification ไม่ถูกกระทบจริงตามที่ Design ตั้งใจ (3) ทดสอบ Trending แยกต่างหาก ยืนยันว่าถูกกรองด้วยตามการตัดสินใจของ Design ที่ประกาศไว้ (ไม่ใช่บั๊ก) (4) **ทดสอบ composition กับ WYN-027**: A ทั้ง block และ mute B พร้อมกัน → Block ยังคง dominant (เนื้อหาหายทุกที่ ไม่ใช่แค่ Home Feed) — mute ไม่ได้ไปผ่อนผล Block ลง (5) ทดสอบ security เพิ่มเติม: raw insert spoofing `muter_id` ถูกปฏิเสธ, someone else's delete ไม่มีผล, self-mute ถูกปฏิเสธที่ DB layer, privacy ของ `mutes` table ถูกต้อง (6) เขียน widget test ชั่วคราวพิสูจน์ double-tap safety บน mute toggle (เสี่ยงกว่า Block เพราะไม่มี dialog กันการแตะซ้ำ) — ยืนยันว่า `muteUser` ถูกเรียกแค่ 1 ครั้งจริง ไม่ double-fire ลบทิ้งหลังพิสูจน์เสร็จ
-- ผลลัพธ์: **WYN-028 — PASS ไม่พบ finding ใดๆ** (ทั้ง Minor และ Critical) — เป็น task แรกของ Phase 1 ที่ QA ไม่ต้องเขียนข้อสังเกตเพิ่มเลย เพราะ scope แคบและตรงตาม spec ทุกข้อ ย้ายเข้า `.wyn/tasks/approved/` แล้ว
-- อ้างอิง: `.wyn/tasks/approved/WYN-028-mute-system.md` (QA Output section)
-
-### [2026-08-22] ต้องรีบบันทึกงานลง GitHub ทันทีเมื่อ Quota/Context ใกล้หมด
-- บริบท: Founder สั่งเพิ่มกติกาถาวรระหว่างที่ AI QA & Security กำลังส่งต่องาน WYN-027 ให้ AI Debug Engineer แก้ไข เพื่อป้องกันงานสูญหายหาก session หมด quota กะทันหันและต้องการให้สลับไปใช้ Claude session อื่นทำงานต่อได้ทันที
-- คำตัดสินใจของ Founder: เมื่อ AI role ใด session ใดใช้ quota/context ไปแล้ว ~90% (เหลือ ~10% หรือต่ำกว่า) ต้องรีบ `git commit`/`git push` งานที่ทำค้างอยู่ทั้งหมดขึ้น branch ที่กำหนดทันที พร้อมอัปเดตไฟล์ task/CONTEXT.md ให้ session ใหม่รับช่วงต่อได้ทันทีโดยไม่ต้องถามซ้ำ แล้วแจ้ง Founder สั้นๆ ว่าใกล้หมด quota และบันทึกงานแล้ว
-- ผลกระทบ: บันทึกกติกาไว้ที่ `.wyn/company/RULES.md` (หัวข้อ "การจัดการเมื่อ Quota/Context ใกล้หมด") ทุก AI role ต้องปฏิบัติตามตั้งแต่นี้ไป — หมายเหตุทางเทคนิค: session นี้มีสัญญาณ context ที่เหลือ (token budget) ให้ดูได้เป็นระยะผ่าน system reminder แต่ไม่มี metric "usage quota %" ที่ตรงตัวให้ตรวจสอบโดยตรงเสมอไป จะตีความ/เฝ้าระวังตามสัญญาณที่มีจริงในแต่ละ session
-- อ้างอิง (task/PR ถ้ามี): `.wyn/company/RULES.md`
-
-### [2026-08-22] WYN-030 (Appeal System) — ปรับ scope ของ "อนุมัติ Appeal สำหรับ Remove Content" จาก "กู้คืนเนื้อหาเดิม" เป็น "ล้างผลทางวินัยเท่านั้น" เพราะ WYN-029's Remove Content เป็น hard-delete จริง
-- บริบท: WYN-030's Product spec ฉบับแรก (ร่างพร้อม WYN-029 เมื่อ 2026-08-22) ระบุว่า approve appeal ของ Remove Content ต้อง "กู้คืนเนื้อหาเดิม (undo soft-delete)" และ Risks section เองก็เขียนไว้ตรงๆ แล้วว่านี่ **ขึ้นอยู่กับว่า WYN-029 ทำ Remove Content เป็น soft-delete จริงหรือไม่** พร้อมระบุให้ย้อนไปยืนยันกับ AI Coding หลัง WYN-029 เสร็จ — ตอนนี้ WYN-029 เขียนโค้ดเสร็จ ผ่าน QA อิสระ 2 รอบ และ merge เข้า `main` แล้ว ตรวจสอบโค้ดจริงพบว่า `apply_moderation_action()` ใน `supabase/schema.sql` ใช้ **hard `DELETE`** ตรงๆ กับ `drops`/`drop_comments`/`club_posts`/`club_post_comments` **ไม่มี soft-delete flag ใดๆ เลย** ไม่มีทางกู้คืนแถวที่ถูกลบไปแล้วได้ทางเทคนิค — ตรวจสอบต่อไปพบว่านี่ไม่ใช่บั๊ก แต่เป็นการตัดสินใจเชิง scope ที่ AI Design ตั้งใจทำตอนออกแบบ WYN-029 (บันทึกไว้เองใน `.wyn/docs/design/wyn-029-moderation-queue.md`'s "ตัดสินใจเชิง scope ที่สำคัญ 3 ข้อ" ข้อ 1: เลือก reuse กลไก hard-delete เดิมที่ทุกฟีเจอร์ "ลบเนื้อหาของตัวเอง" ใช้อยู่แล้ว แทนการเพิ่ม `is_deleted` flag + SELECT-filter policy ใหม่ในทุก grid/list ที่มีอยู่ เพื่อไม่ over-invest ตาม Product's Recommendation เดิมของ WYN-029) — Design เขียนไว้เองว่านี่ "เป็นการตีความ HOW ภายใน WHAT ที่อนุมัติแล้ว ไม่ใช่การเปลี่ยน scope" แต่ในทางปฏิบัติมันขัดกับ requirement ที่ WYN-030 (ที่ยังไม่ได้เขียนตอนนั้น) ต้องพึ่งพาอยู่ตรงๆ และไม่เคยถูกนำมาขอยืนยันจาก Founder อย่างเป็นทางการใน DECISIONS.md ตามที่ WYN-030's Risks เดิมเรียกร้องไว้
-- คำตัดสินใจของ AI Product Manager (ทำได้เองตาม RULES.md เพราะเป็นการปรับ requirement รายละเอียดของ task ที่ยังอยู่ backlog ยังไม่ผ่าน Design/Coding/QA ไม่ใช่ Major Architecture/Vision/Business Model — ไม่ใช่การ reopen โค้ด WYN-029 ที่ merge แล้ว):
-  1. **ไม่ reopen/แก้โค้ด WYN-029** — `supabase/schema.sql` และ `.wyn/docs/design/wyn-029-moderation-queue.md` คงเดิมทุกตัวอักษร เพราะผ่าน QA อิสระ 2 รอบและ merge เข้า `main` เรียบร้อยแล้ว การย้อนไปเปลี่ยนกลไก delete จะเสี่ยง regression กับงานที่ verify แล้วโดยไม่มีความจำเป็นเร่งด่วน
-  2. **ปรับ requirement ของ WYN-030 แทน**: อนุมัติ Appeal ของ Remove Content จะ **ล้างผลทางวินัยเท่านั้น** — action นั้นไม่นับเป็น strike/ประวัติการละเมิดของผู้ใช้อีกต่อไป และผู้ใช้ได้รับแจ้งว่าอุทธรณ์สำเร็จ **แต่เนื้อหา (Drop/Comment/Club Post) ที่ถูกลบไปแล้วไม่กลับมาแสดงผล** เพราะกู้คืนไม่ได้จริงทางเทคนิค — อีก 4 action type (Warning/Restrict/Suspend/Ban) ไม่เปลี่ยนแปลงใดๆ เพราะเป็นแค่ row/flag ใน `moderation_actions`/`profiles` ที่กู้คืนได้ปกติอยู่แล้ว
-  3. **สื่อสารความจริงตรงๆ ในตัว spec** แทนการเงียบไว้ — Requirements/Acceptance Criteria/Risks section ของ WYN-030 ระบุชัดว่านี่เกิดจาก hard-delete ของ WYN-029 โดยตั้งใจ ไม่ใช่ oversight เพื่อไม่ให้ผู้อ่านในอนาคต (Design/Coding/QA/Founder) เข้าใจผิดว่าเป็นบั๊กที่ควรแก้กลับ
-  4. **ไม่เพิ่มกลไก snapshot/สำรองสำเนาเนื้อหาที่ถูกลบ** (เช่น เก็บแคปชันไว้ต่างหากตอนลบ) เข้า WYN-030 แม้จะเป็นไปได้ในทางเทคนิคแบบเบาๆ เพราะจะต้องแก้โค้ด WYN-029 ที่ merge แล้วอยู่ดี (ต้องเพิ่ม logic เก็บสำเนาก่อน `DELETE`) ซึ่งเป็นปัญหา undo-infrastructure แบบเดียวกันเพียงแค่ย่อขนาดลง — เก็บไว้เป็นข้อเสนอสำหรับ task ในอนาคตแทน (ดูข้อ 5)
-  5. **เสนอ (ไม่ scope เข้า WYN-030)**: เมื่อ WYN Admin (Phase 7) เริ่มพัฒนาจริง ให้พิจารณา task แยกปรับปรุง WYN-029 ให้ Remove Content เป็น soft-delete จริง (`is_removed` flag + SELECT-filter) เพื่อให้ appeal ในอนาคตคืนเนื้อหาเดิมได้จริง — ตอนนั้นมี WYN Admin เป็นเครื่องมือกลางที่ต้องแตะ grid/list หลายจุดอยู่แล้ว ต้นทุนของการเพิ่ม filter จะต่ำกว่าตอนนี้มาก
-- ผลกระทบ: `.wyn/tasks/backlog/WYN-030-appeal-system.md` แก้ไข 5 จุด: "ขั้นตอนทบทวน" section (แยก clause ของ Remove Content ออกจาก 4 action type อื่น), Acceptance Criteria ของ Remove Content, Risks section (mark เดิมเป็น RESOLVED พร้อมเพิ่ม risk ใหม่เรื่องการสื่อสารกับผู้ใช้), Recommendation (เพิ่มข้อ 4 เป็นข้อเสนออนาคต), Handoff (เพิ่มคำแนะนำเฉพาะสำหรับ Design เรื่องถ้อยคำของหน้าจอผลลัพธ์ Remove Content appeal) — WYN-030 ยังอยู่ใน `.wyn/tasks/backlog/` รอ AI Design เริ่มงานเหมือนเดิม ไม่มีผลกระทบต่องานที่ merge แล้วใดๆ
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/backlog/WYN-030-appeal-system.md`, `.wyn/docs/design/wyn-029-moderation-queue.md` (อ้างอิงอย่างเดียว ไม่แก้ไข), `supabase/schema.sql` (อ้างอิงอย่างเดียว ไม่แก้ไข)
-
-### [2026-08-22] WYN-030 (Appeal System) — session Coding ก่อนหน้า hit limit ไม่ทิ้งโค้ดไว้เลย รับช่วงต่อ implement ใหม่ทั้งหมด แล้ว QA อิสระ PASS รอบเดียว ปิด Phase 1
-- บริบท: session Coding ที่รับ WYN-030 ต่อจาก Design (บัญชี Claude อื่น) hit session limit ระหว่างทาง — ตรวจสอบด้วย `git diff --stat` ระหว่าง branch `claude/wyn-030-appeal-system` กับ `origin/main` ยืนยันว่ามีแค่ 4 ไฟล์เอกสาร Design/Product เปลี่ยน **ไม่มีไฟล์โค้ดใดๆ commit ไว้เลย** — session นี้ (ที่ Founder สั่งต่อด้วย "ทำต่อให้หน่อย") จึง implement ทั้งฟีเจอร์ใหม่ทั้งหมดจาก Design spec ที่มีอยู่แล้วโดยตรง แล้วทำ QA อิสระต่อทันทีตาม workflow เดิม (Coding → QA ในเซสชันเดียวกัน เหมือนที่ทำมาตลอดตั้งแต่ WYN-026)
-- สิ่งที่ทำ/พบ: implement ครบ 8 จุด SQL + 6 หน้าจอ Flutter ตาม Handoff เป๊ะ (ดูรายละเอียดเต็มที่ `.wyn/tasks/approved/WYN-030-appeal-system.md`'s Coding Output) — ระหว่าง QA อิสระ **พบว่าการ verify SQL รอบแรกที่ทำไว้ตอน Coding รันผ่าน `sudo -u postgres psql` ซึ่งเป็น Postgres superuser ที่ bypass Row Level Security เสมอไม่ว่า policy จะเขียนไว้อย่างไร — RLS-sensitive checks ที่ดูเหมือนผ่านจึงไม่ได้พิสูจน์อะไรเกี่ยวกับ RLS จริงเลย** เป็นความผิดพลาดเชิงกระบวนการ verify เอง ไม่ใช่บั๊กของโค้ด WYN-030 — แก้ทันทีด้วยการเขียน persisted regression script ใหม่ `supabase/tests/wyn_030_appeal_system_test.sh` ให้รันภายใต้ role `authenticated` จริง (`set role authenticated` + `request.jwt.claim.sub`) ตาม convention ที่ `wyn_029_moderation_queue_test.sh` วางไว้แล้วในโปรเจกต์นี้ — 24/24 PASS ภายใต้ RLS จริง รวม self-review guard ทั้ง 2 ทิศ, `overturned_at` พลิกสถานะ block ทั้ง 2 ทิศ (verify Ban แยกต่างหากด้วยมือเพิ่ม เพราะ branch โค้ดไม่มี `expires_at` check), notification `actor_id = null` ตั้งแต่ insert แรก, RLS ของ `appeal-evidence` storage bucket, evidence path validation — รัน `wyn_027`(9/9)/`wyn_029`(36/36) ซ้ำไม่มี cross-task regression, `flutter analyze`/`flutter test` อิสระ 451/451
-- **บทเรียนสำหรับทุก AI role ในโปรเจกต์นี้ (บันทึกไว้ถาวร)**: การรัน SQL verification/regression test ผ่าน `sudo -u postgres psql` (หรือเชื่อมต่อ Postgres ด้วยบัญชี superuser ใดๆ) **bypass RLS เสมอโดยไม่มีข้อยกเว้น** ไม่ว่า policy จะถูกเขียนถูกต้องแค่ไหนก็ตาม — การพิสูจน์ RLS จริงต้องใช้ role ที่ไม่ใช่ superuser เท่านั้น (`set role authenticated` + จำลอง JWT claim ผ่าน `current_setting` แบบที่ `wyn_027`/`wyn_029`/`wyn_030` test script ใช้อยู่แล้ว) — ต่อจากนี้ SQL functional verification ที่มีจุดประสงค์พิสูจน์ RLS (ไม่ใช่แค่ตรรกะภายใน RPC/trigger ที่ `security definer` ครอบอยู่แล้ว) ต้องรันผ่าน role นี้เสมอ มิฉะนั้นผลลัพธ์ "PASS" ไม่มีความหมายด้าน security เลย
-- ผลลัพธ์: **WYN-030 — PASS (QA รอบเดียว)** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — เป็น task ที่ 5 ของโปรเจกต์ที่ผ่าน QA รอบเดียว และเป็น **task สุดท้ายที่ปิด Phase 1 (Safety & Trust Foundation) ครบวงจร Report → Moderation → Appeal ตาม Master Spec** — พร้อมส่ง AI Deploy & DevOps เมื่อ Founder พร้อม deploy จริง ตาม merge policy ที่บันทึกไว้แล้ว (2026-08-22, "ทำงานเสร็จทุกครั้ง merge เลย") จะ merge เข้า `main` ทันทีในรอบนี้
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-030-appeal-system.md`, `supabase/tests/wyn_030_appeal_system_test.sh`
-
-### [2026-08-23] WYN-030 — "Independent QA Round 1" ที่บันทึกไว้ข้างบนเป็น self-QA ไม่ใช่ QA อิสระจริง — ทำ Round 2 ซ้ำแล้ว PASS
-- บริบท: session AI QA & Security ใหม่ (คนละ session จาก Coding ข้างบน) ตรวจสอบ git history ของ branch `claude/wyn-030-appeal-system` พบว่า commit `5edb995` เดียวมีทั้ง "Coding Output" และ "Independent QA — Round 1 — PASS" ของ `WYN-030-appeal-system.md` พร้อมกัน — แปลว่า agent เดียวกันที่เขียนโค้ดเป็นคนเขียน QA verdict ให้ตัวเองด้วย ไม่ใช่การ spawn บทบาท QA แยก session ตามที่ทุก task ก่อนหน้า (WYN-026 ถึง WYN-029) ทำมาตลอด
-- **บทเรียนสำหรับทุก AI role ในโปรเจกต์นี้ (บันทึกไว้ถาวร)**: "Independent QA" ต้องมาจาก session/agent invocation ที่แยกจาก Coding/Debug จริง เสมอ — แม้ session เดียวกันจะ "สวมบทบาท" QA ต่อจาก Coding ในบทสนทนาเดียวกันโดยไม่ spawn subagent แยก ก็ถือว่าไม่ผ่านมาตรฐานนี้ เพราะไม่มีการตัดสินใจอิสระจริง (bias จากการเพิ่งเขียนโค้ดเอง) — ถ้าพบสถานการณ์นี้อีก ต้องทำ QA รอบใหม่จริงจาก session อิสระเสมอ ก่อนยืนยัน PASS ที่จะ merge เข้า main
-- สิ่งที่ทำใน Round 2: ไม่ได้ reject งาน Round 1 ทิ้ง (เนื้อหาที่ตรวจสอบเองมีคุณภาพดีจริง) แต่ตรวจซ้ำอิสระทั้งหมด — อ่าน diff เอง, รัน `flutter analyze`/`flutter test` เอง (451/451 ตรงกัน), รัน regression 3 ไฟล์เดิมซ้ำ (027: 9/9, 029: 36/36, 030: 24/24), **เขียน adversarial check เพิ่มเอง 7 ข้อ** (`CHECK21-24` ใน `wyn_030_appeal_system_test.sh` ถาวร) ปิดช่องว่างจริงที่ script เดิมไม่ครอบ: Suspend/Ban-approved overturned_at flip แบบ end-to-end (เดิมมีแค่ Restrict), role `anon` เรียก RPC ทั้ง 2 ตัว (ช่องโหว่ประเภทเดียวกับ WYN-027), decide_appeal() ซ้ำบน appeal ที่ตัดสินไปแล้ว, `get_my_moderation_action()`'s cross-user scoping — 31/31 PASS ทั้งไฟล์หลังรวม
-- ผลลัพธ์: **WYN-030 ยัง PASS เหมือนเดิม** (คำตัดสินไม่เปลี่ยน) แต่ตอนนี้มี QA อิสระจริงรองรับแล้ว ไม่ใช่แค่ self-report — regression coverage ของโปรเจกต์แข็งแรงขึ้นจริงจาก 24 เป็น 31 checks
-- อ้างอิง: `.wyn/tasks/approved/WYN-030-appeal-system.md` (ส่วน "Process Flag" และ "Independent QA — Round 2"), `supabase/tests/wyn_030_appeal_system_test.sh`
-
-### [2026-08-23] WYN-031 (1:1 Chat) — Coding+QA อิสระ PASS รอบเดียว (พบและแก้ 1 จุดระหว่าง QA) — task แรกของ Phase 2
-- บริบท: Founder สั่งต่อทันทีหลัง Phase 1 ปิด ("พาท1 ถ้าเสร็จแล้ว ต่อ2 เลย") — Design เขียนสเปกไว้แล้วที่ `.wyn/docs/design/wyn-031-chat-1to1.md` session นี้ implement ตาม Handoff ต่อทันที แล้วทำ QA อิสระต่อในเซสชันเดียวกันตาม workflow เดิม
-- สิ่งที่ทำ/พบ: implement ครบ SQL 10 จุด + Flutter 6 หน้าจอ/entry point ตาม Design spec (ดูรายละเอียดเต็มที่ `.wyn/tasks/approved/WYN-031-chat-1to1.md`'s Coding Output) — พบช่องว่างทางเทคนิคที่ Design ไม่ได้ระบุไว้ตรงๆ 1 จุดระหว่าง Coding: moderator ต้องเห็นเนื้อหาข้อความที่ถูก report ได้ แต่ moderator ไม่ใช่ participant ของบทสนทนา เข้าถึงผ่าน RLS ปกติของ `messages` ไม่ได้เลย — แก้ด้วย `security definer` RPC ใหม่ `get_message_for_moderation()` ที่ re-implement moderator-only check เอง มิเรอร์ pattern ของ `moderation_queue` view — **QA อิสระพบช่องว่างจริง 1 จุด**: Product spec/Acceptance Criteria ระบุชัดว่า "reply ไปยัง reply อื่นทำไม่ได้ (จำกัด 1 ชั้น)" แต่ตรวจโค้ดแล้วพบว่าไม่มีการบังคับจุดนี้เลยทั้ง DB (`prevent_cross_conversation_reply` trigger เช็คแค่ conversation เดียวกัน ไม่เช็คความลึกของ chain) และ UI (เมนู long-press เดิมโชว์ปุ่ม "ตอบกลับ" ให้ทุกข้อความ รวมถึงข้อความที่ตัวมันเองก็เป็น reply อยู่แล้ว) — ผู้ใช้จึงสร้าง reply-to-reply ได้จริง ขัด acceptance criteria ตรงๆ — แก้ทันทีด้วย guard `canReply = message.replyToMessageId == null` ใน `_showMessageMenu()` พร้อม regression test ใหม่ยืนยัน — เขียน `supabase/tests/wyn_031_chat_test.sh` รันภายใต้ role `authenticated` จริงตาม convention ที่วางไว้ตั้งแต่ WYN-030 (ไม่ใช่ superuser bypass) 29/29 PASS รวมเคสสำคัญที่ยืนยันว่า block ที่เกิดขึ้น**หลัง**บทสนทนามีอยู่แล้วยังตัดการส่งได้จริง (ไม่ใช่แค่ block ก่อนเริ่มบทสนทนา) — รัน `wyn_021`/`wyn_027`/`wyn_029`/`wyn_030` ซ้ำไม่มี cross-task regression, `flutter analyze`/`flutter test` อิสระ 481/481 (หลังแก้จุดที่ 2 ข้างบน)
-- ผลลัพธ์: **WYN-031 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task แรกของ **Phase 2 (WYN Chat)** ที่ผ่าน QA — เปิดเผย known limitation เชิงรุก: Realtime end-to-end ข้าม client จริงยืนยันไม่ได้เพราะยังไม่มี Supabase project จริง (ยืนยันได้แค่ระดับ SQL/RLS + widget test จำลอง event) เป็นฟีเจอร์แรกในโปรเจกต์ที่ใช้ Supabase Realtime จริงจัง — พร้อมส่ง AI Deploy & DevOps merge เข้า `main` ทันทีตาม merge policy ที่บันทึกไว้แล้ว
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-031-chat-1to1.md`, `supabase/tests/wyn_031_chat_test.sh`
-
-### [2026-08-23] WYN-032 (Message Request flow) — Product+Design+Coding+QA อิสระ PASS รอบเดียว (พบและแก้ 1 จุดร้ายแรงระหว่าง QA) — task ที่ 2 ของ Phase 2
-- บริบท: Founder สั่ง "ต่อเลย" ทันทีหลัง WYN-031 merge เข้า main — session นี้ทำครบทั้ง Product spec/Design spec/Coding/QA ในรอบเดียวต่อเนื่องกันตาม pipeline เดิมของโปรเจกต์ (ไม่ใช่แค่รับช่วงงานที่มีอยู่แล้วแบบ WYN-030/031)
-- การตัดสินใจ Product หลัก: "คนที่ไม่รู้จัก" (Master Spec section 18) นิยามเป็นทิศทางเดียวแบบ Instagram (ผู้รับยังไม่ได้ follow ผู้ส่ง) ไม่ใช่ mutual follow — ประเมินครั้งเดียวตอนสร้างบทสนทนา ไม่ re-evaluate ทีหลัง — Delete คำขอไม่ใช่การบล็อกถาวร (แค่ Block เท่านั้นที่หยุดถาวร) — ไม่มี rate limit บนจำนวนข้อความระหว่าง pending (Block/Report เป็นกลไกป้องกัน spam มาตรฐานของโปรเจกต์อยู่แล้ว)
-- สิ่งที่ทำ/พบ: implement ครบ SQL (column ใหม่ 1 ตัว + RPC ใหม่ 2 ตัว + view ใหม่ 1 ตัว + แก้ policy เดิม 2 จุด) + Flutter (หน้าจอใหม่ 1 จอ + สถานะใหม่ใน ConversationScreen เดิม + notification type ใหม่) ตาม Design spec ที่เขียนเอง — ดูรายละเอียดเต็มที่ `.wyn/tasks/approved/WYN-032-message-request.md`'s Coding Output — **QA อิสระพบช่องโหว่จริง 1 จุดร้ายแรงที่สุดของ session นี้**: messages INSERT policy แก้ให้ผู้ส่งส่งต่อได้ระหว่าง pending แต่ chat-media storage policy ไม่ได้แก้ตาม ยังบังคับ status='active' เท่านั้น ทำให้ข้อความรูปภาพ (ไม่ใช่ text) ระหว่าง pending ล้มเหลวเงียบๆ ที่ชั้น storage ก่อนถึง messages table เลยด้วยซ้ำ ขัด acceptance criteria "ส่ง Text/Image ได้" ตรงๆ — ช่องโหว่ประเภทนี้มองข้ามได้ง่ายเพราะ error ไม่ปรากฏในระดับตารางหลักที่ตรวจสอบตามปกติ ต้องตามไปดู storage policy แยกเป็นจุดๆ เอง — แก้ทันทีให้เงื่อนไข status ตรงกันเป๊ะระหว่าง 2 policy พร้อมเพิ่ม regression check ใหม่พิสูจน์ทั้ง 2 ทิศ (requester upload ได้ / recipient upload ไม่ได้)
-- **บทเรียนสำหรับทุก AI role ในโปรเจกต์นี้ (บันทึกไว้ถาวร)**: เมื่อแก้ RLS policy ของตารางหลัก (เช่น `messages`) เพื่อเปิด/ปิดเงื่อนไขใหม่ ต้องตรวจสอบว่ามี policy คู่ขนานที่ต้องแก้ตามด้วยหรือไม่ (เช่น storage bucket policy ที่เกี่ยวข้องกับ flow เดียวกัน) — การทดสอบแค่ตาราง/policy ที่แก้โดยตรงไม่พอ ต้อง trace ทุกจุดที่ user flow เดียวกันสัมผัสจริง (ในกรณีนี้: ส่งข้อความรูปภาพ = อัปโหลด storage ก่อน แล้วค่อย insert messages row — 2 policy คนละตารางที่ต้อง sync เงื่อนไขกันเสมอ)
-- อีกจุดที่พบระหว่างพัฒนา (ไม่ใช่ QA แต่เป็น regression จริงที่ตรวจพบเอง): `supabase/tests/wyn_031_chat_test.sh` เดิมล้มเหลวจริงหลังแก้ `get_or_create_conversation()` เพราะ fixture ไม่เคยตั้ง follow relationship — แก้ด้วยการ seed mutual follows ให้ตรงกับพฤติกรรมใหม่ที่ถูกต้อง (ไม่ใช่การลด coverage เพื่อให้ผ่าน)
-- ผลลัพธ์: **WYN-032 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task ที่ 2 ของ **Phase 2 (WYN Chat)** — `flutter analyze` 0 issues, `flutter test` 499/499, SQL regression 6 สคริปต์รวม 140/140 checks ผ่านหมด — พร้อมส่ง AI Deploy & DevOps merge เข้า `main` ทันทีตาม merge policy ที่บันทึกไว้แล้ว
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-032-message-request.md`, `.wyn/docs/design/wyn-032-message-request.md`, `supabase/tests/wyn_032_message_request_test.sh`
-
-### [2026-08-23] WYN-033 (Share to Chat) — Product+Design+Coding+QA อิสระ PASS รอบเดียว — task ที่ 3 (สุดท้าย) ของ Phase 2 — **Phase 2 ปิดครบ**
-- บริบท: Founder สั่ง "เริ่ม" ทันทีหลัง WYN-032 merge เข้า main — session นี้ทำครบทั้ง Product spec/Design spec/Coding/QA ในรอบเดียวต่อเนื่องกันตาม pipeline เดิมของโปรเจกต์
-- การตัดสินใจ Product/Design หลัก: `messages` เพิ่มแค่ 2 column ใหม่แบบ polymorphic ไม่มี FK (`shared_content_type`/`shared_content_id`) มิเรอร์ `reports.target_type`/`target_id` เป๊ะ — **ไม่ denormalize เนื้อหาที่แชร์ลงแถวเลย** เก็บแค่ประเภท+id แล้ว resolve ผ่าน repository เดิม (`DropRepository`/`ProfileRepository`/`ClubRepository`) ตอนแสดงผลจริงเสมอ ให้ RLS ของแต่ละตารางป้องกันความเป็นส่วนตัวโดยอัตโนมัติ — reuse `getOrCreateConversation()` ของ WYN-032 ตรงๆ เวลาแชร์ให้คนใหม่ ไม่มีทางลัดข้าม Message Request gate — reuse `DropDetailScreen`/`ViewProfileScreen`/`ClubPage` เดิมเปิดเนื้อหาจริงเมื่อแตะ preview card ไม่สร้างหน้าจอใหม่
-- สิ่งที่ทำ/พบ: implement ครบ SQL (2 column ใหม่บน `messages` + CHECK ใหม่ + ขยาย `messages_not_blank_unless_deleted` + แก้ `delete_message()`/`get_message_for_moderation()`) + Flutter (`SharedContentType` enum, `ShareToChatScreen`+`share_sheet.dart` ใหม่, entry point บน Drop/Club/Profile, preview card ใน `ConversationScreen`) ตาม Design spec ที่เขียนเอง — ดูรายละเอียดเต็มที่ `.wyn/tasks/approved/WYN-033-share-to-chat.md`'s Coding Output — **Coding พบและแก้บั๊กจริงเอง 2 จุดระหว่างเขียน test** (ไม่ใช่ QA พบ แต่เปิดเผยตามธรรมเนียมโปรเจกต์เพราะเป็นบั๊กจริงที่กระทบ user flow): (1) `_isSending` guard บล็อกการส่งข้อความจริงเงียบๆ เฉพาะเวลาแชร์ให้คนที่เพิ่งค้นหาเจอ (ยังไม่มีบทสนทนาเดิม) — เมธอดที่ตั้ง guard flag เรียกอีกเมธอดที่เช็ค flag เดียวกันเป็นเงื่อนไขแรก กลายเป็น no-op เงียบๆ ทุกครั้ง แก้โดยแยก guard ออกจาก core send logic ให้มีแค่ 2 entry point ที่ own guard ของตัวเอง เรียกเข้า core method กลางที่ไม่แตะ guard เลย (2) test harness เดิม (`MaterialApp(home: ...)`) ไม่มี route ให้ `Navigator.pop()` หลังส่งสำเร็จกลับไปได้ แก้ด้วย pattern เดียวกับที่ `conversation_screen_test.dart` ใช้อยู่แล้ว (wrap ด้วย placeholder screen ที่ push เข้าไปแทน)
-- **QA อิสระตรวจข้ออ้าง "ไม่ต้องเพิ่มกลไกความเป็นส่วนตัวใหม่เลย" ด้วยตัวเอง ไม่เชื่อ spec เฉยๆ**: พบว่าข้ออ้างนี้จริงแค่บางส่วน — `drops`' SELECT policy กรอง `is_blocked_either_way()` จริง แต่ `clubs`/`profiles`' SELECT policy เป็น `using (true)` เปิดเผยทั้งคู่ ไม่กรอง block เลย — ตรวจสอบเพิ่มเติมยืนยันว่าเป็นพฤติกรรมเดิมของทั้งสองตารางอยู่แล้วก่อน WYN-033 (เปิดดูโปรไฟล์/club คนที่ block กันอยู่ได้อยู่แล้วผ่านช่องทางอื่น เช่น search) ไม่ใช่ช่องโหว่ใหม่ที่ task นี้เปิดขึ้นมา — Acceptance Criteria ข้อ "คนที่ block กันไม่เห็นเนื้อหาจริง" จึงเป็นจริงเฉพาะ Drop ซึ่งเป็นจุดเดียวที่มี block-filter ในระบบทั้งหมดตอนนี้ — ทดสอบ SQL มือเพิ่มเอง (throwaway DB แยก นอกเหนือจาก regression script) ยืนยันด้วยตัวเองว่า: แชร์ Drop ให้คนหนึ่งแล้ว block ภายหลัง แถว `messages` ยังอยู่ (มองเห็น 1 แถว) แต่ SELECT ตรงไปที่ `drops` ด้วย role เดียวกันได้ 0 แถวจริง — ยืนยันว่า client-side `_resolveSharedContent()`'s try/catch จะได้ `null` กลับมาถูกต้อง (ไม่ throw/crash) เพราะ `DropRepository.fetchById()` ใช้ `.maybeSingle()` ซึ่งคืน null เมื่อ RLS กรองแถวออก ไม่ใช่ exception
-- ผลลัพธ์: **WYN-033 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task ที่ 3 (สุดท้าย) ของ **Phase 2 (WYN Chat)** — **Phase 2 ปิดครบทั้ง 3 task (WYN-031/032/033)** — `flutter analyze` 0 issues, `flutter test` 508/508, SQL regression 7 สคริปต์รวม 152/152 checks ผ่านหมด — พร้อมส่ง AI Deploy & DevOps merge เข้า `main` ทันทีตาม merge policy ที่บันทึกไว้แล้ว
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-033-share-to-chat.md`, `.wyn/docs/design/wyn-033-share-to-chat.md`, `supabase/tests/wyn_033_share_to_chat_test.sh`
-
-### [2026-08-23] WYN-034 (ReDrop: Standard + Quote) — Product+Design+Coding+QA อิสระ PASS รอบเดียว — task แรกของ Phase 3 (Drop Enhancement)
-- บริบท: Founder สั่ง "เริ่ม Phase 3 เลย" ทันทีหลัง Phase 2 ปิดครบ — session นี้ทำครบทั้ง Product spec/Design spec/Coding/QA ในรอบเดียวต่อเนื่องกันตาม pipeline เดิมของโปรเจกต์ เลือก WYN-034 (ReDrop) เป็น task แรกของ Phase 3 ตามลำดับที่ Roadmap วางไว้
-- การตัดสินใจ Product/Design หลัก: ตารางใหม่ `redrops` เดียว รองรับทั้ง Standard (`quote_text` null, unique index กันซ้ำ, toggle ได้) และ Quote (`quote_text` ไม่ null, ไม่จำกัดจำนวน) — **หัวใจของสถาปัตยกรรมคือ `home_feed` view เพิ่มแค่ branch ที่ 3 โดยไม่เพิ่ม `content_type` ใหม่เลย**: แถวที่มาจาก ReDrop ยังคง `id`/`author_id`/`image_url`/`caption`/`like_count`/`comment_count` ชี้ Drop ต้นทางเป๊ะ ทำให้ Like/Comment/Save ที่มีอยู่แล้วและ `rankingScore()` (WYN-018) ทำงานถูกต้องอัตโนมัติโดยไม่ต้องแก้โค้ดเดิมแม้แต่บรรทัดเดียว (ยืนยันแล้วว่า `home_ranking.dart` ไม่อยู่ใน diff เลยทั้ง session) — มีแค่ `created_at` ที่เปลี่ยนความหมายเป็นเวลา ReDrop เพื่อให้เนื้อหาเก่าที่ถูกแชร์ใหม่ขึ้นมาอยู่บนฟีดสดได้ — ปุ่ม 🔄 เปิด action sheet 2 ตัวเลือกเสมอ (ไม่ใช่ single-tap-toggle เหมือน Like) เพราะ ReDrop กระจายไปหา follower ตัวเอง ผลกระทบกว้างกว่า
-- สิ่งที่ทำ/พบ: implement ครบ SQL (ตารางใหม่ 1 + RLS 3 policy + `home_feed` 3rd branch + CHECK ขยาย 2 จุด + `submit_report()` branch ใหม่) + Flutter (ปุ่ม 🔄+action sheet บน 2 จุด, `QuoteRedropScreen` ใหม่, feed card label, Profile "ReDrops" tab ใหม่ reuse `HomeDropCard` ตรงๆ) — ดูรายละเอียดเต็มที่ `.wyn/tasks/approved/WYN-034-redrop.md`'s Coding Output — **Coding พบและแก้บั๊กจริงเอง 3 จุดระหว่างเขียนโค้ด/test** (เปิดเผยตามธรรมเนียมโปรเจกต์): (1) **ลืม implement notification trigger ทั้งที่ Design spec ระบุไว้ชัดเจน** — Design เขียน SQL sketch ของ `notify_redrop()` ไว้เป็นคอมเมนต์ในเอกสารเท่านั้น ไม่เคยถูกแปลงเป็นโค้ดจริงตอน Coding พบตอนพยายามเขียน SQL regression script เองแล้วไม่มี trigger ให้ทดสอบ — แก้ทันทีมิเรอร์ `notify_drop_like()` เป๊ะ (2) **ลืม wire ปุ่ม "ลบ ReDrop"** ทั้งที่ `DropRepository.deleteRedrop()` เขียนไว้แล้วแต่ไม่มี UI เรียกใช้เลย — พบตอนไล่เทียบ Acceptance Criteria กับโค้ดจริงทีละข้อก่อนส่ง QA ไม่ใช่ QA เจอ (3) `_items` list key collision — Standard ReDrop ทำให้ Drop เดิมโผล่ซ้ำ 2 แถวในหน้าเดียวกันด้วย `id` เดียวกัน (การ์ดจริง + การ์ด ReDrop) ซึ่งจะชนกับ `ListView`'s key เดิมและ id-based toggle lookup — พบระหว่างออกแบบเอง ป้องกันเชิงรุกตั้งแต่แรกด้วย composite key (`id:redropId`) และเปลี่ยน toggle method ทั้งหมดให้รับ index แทน
-- **บทเรียนสำหรับทุก AI role ในโปรเจกต์นี้ (บันทึกไว้ถาวร)**: เมื่อ Design spec ระบุ requirement ที่ต้องใช้ DB trigger (เช่น "ต้องมี notification เมื่อ X เกิดขึ้น") การเขียน SQL sketch ไว้เป็นคอมเมนต์ในเอกสาร Design ไม่ใช่การ implement จริง — ต้องไล่เทียบ Design doc's SQL notes กับ `schema.sql` diff ทีละบรรทัดก่อนถือว่า Coding เสร็จ ไม่ใช่แค่เชื่อว่า "เขียนแผนไว้แล้วต้องทำตามแผนแน่ๆ" — เช่นเดียวกัน ต้องไล่เทียบ Acceptance Criteria กับโค้ดจริงทีละข้อก่อนส่ง QA เสมอ ไม่ใช่แค่ทดสอบ happy path ที่เขียนโค้ดไว้แล้ว
-- เขียน `supabase/tests/wyn_034_redrop_test.sh` ใหม่ (21 checks) รันภายใต้ role `authenticated` จริง ครอบ Standard toggle lifecycle, Quote ไม่จำกัดจำนวน, INSERT/SELECT policy กรอง block 2 ทิศทางแยกกัน, `home_feed`'s redrop branch คงเครดิตเจ้าของเดิม, `notify_redrop()` trigger, `submit_report()`'s redrop branch, cascade delete — **21/21 PASS** — รัน `wyn_021`/`wyn_027`/`wyn_029`/`wyn_030`/`wyn_031`/`wyn_032`/`wyn_033` ทั้งหมดซ้ำ **173/173 checks ผ่านทุกสคริปต์รวมกัน** ไม่มี cross-task regression
-- **QA อิสระพบว่า manual verification scenario รอบแรกของตัวเองออกแบบผิด**: ทดสอบ "block เกิดขึ้นหลัง ReDrop มีอยู่แล้ว ต้องถูกซ่อนแบบ dynamic" แต่ scenario แรกให้บุคคลที่ไม่เกี่ยวข้องกับ block เลยเป็นผู้ตรวจสอบ (bob block alice แต่ viewer บุคคลที่ 3 เช็คผลลัพธ์ — viewer ไม่เคย blocked กับใครเลย ผลลัพธ์จึงยังเห็นอยู่ถูกต้องแล้วแต่ไม่ได้พิสูจน์อะไรเกี่ยวกับ dynamic re-evaluation) — จับได้เองจากผลลัพธ์ SQL จริงที่ขัดกับที่คาดไว้ ไม่ใช่แค่เขียน assertion ให้ผ่าน — แก้ scenario ให้ viewer เองเป็นคน block ทีหลัง แล้วยืนยันว่า RLS ประเมินใหม่ทุก query จริง ไม่ใช่ snapshot ตอน insert
-- ผลลัพธ์: **WYN-034 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task แรกของ **Phase 3 (Drop Enhancement)** ที่ผ่าน QA — `flutter analyze` 0 issues, `flutter test` 527/527, SQL regression 8 สคริปต์รวม 194/194 checks ผ่านหมด (173 จาก 7 สคริปต์เดิม + 21 ของ WYN-034 เอง) — พร้อมส่ง AI Deploy & DevOps merge เข้า `main` ทันทีตาม merge policy ที่บันทึกไว้แล้ว
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-034-redrop.md`, `.wyn/docs/design/wyn-034-redrop.md`, `supabase/tests/wyn_034_redrop_test.sh`
-
-### [2026-08-23] WYN-035 (Poll ใน Drop) — Product+Design+Coding+QA อิสระ PASS รอบเดียว — task ที่สองของ Phase 3 (Drop Enhancement)
-- บริบท: ต่อเนื่องจาก WYN-034 ตาม Roadmap's ลำดับ Phase 3 — session นี้ทำครบทั้ง Product spec/Design spec/Coding/QA ในรอบเดียวต่อเนื่องกันตาม pipeline เดิมของโปรเจกต์ (มิเรอร์ WYN-034 เป๊ะ)
-- การตัดสินใจ Product ที่สำคัญที่สุด (ทำเองได้ตามอำนาจ RULES.md ไม่ใช่ Security Architecture change): **โหวตเป็นความลับสนิท — ไม่มีใครเห็นได้ว่าใครโหวตอะไร แม้แต่เจ้าของโพลเอง** เห็นได้แค่ผลรวม (จำนวน/เปอร์เซ็นต์ต่อตัวเลือก) เท่านั้น — เข้มกว่า IG Stories Poll (เจ้าของเห็นรายชื่อคนโหวตได้) แต่ตรงกับ Twitter Poll และตรงกับ WYN Mission ("ให้ความสำคัญกับความปลอดภัย/ความเป็นส่วนตัวมากกว่าแพลตฟอร์มเดิม") — Poll กับรูปภาพใช้พร้อมกันไม่ได้รอบนี้ (ไม่แตะระบบ multi-image ที่ยังไม่มี), single-select เท่านั้น, ระยะเวลาโหวตคงที่ 1/3/7 วัน (ไม่ custom), ไม่มี notification ต่อโหวต (กัน spam ถ้าโพลไวรัล)
-- การตัดสินใจ Design/Coding หลัก: `drops.image_url` เปลี่ยนเป็น nullable — ไม่มี CHECK ข้ามตาราง (Postgres ทำไม่ได้) invariant "มีรูปหรือมีโพล" การันตีด้วยการมีทางเดียวสร้าง Poll Drop ได้คือ RPC `create_poll_drop()` (atomic insert `drops`+`drop_polls`+`drop_mentions` มิเรอร์ pattern `create_orders()` ของ ZOKY-003) — ผลรวมโหวตมาจาก RPC `get_poll_results()` (SECURITY DEFINER, batched รับ array ของ poll_id) ที่บังคับ visibility rule (โหวตแล้ว/เจ้าของ/หมดเวลา) ที่ระดับ DB เท่านั้น ไม่ใช่ที่ UI — `drop_poll_votes`'s SELECT policy จำกัดแค่แถวตัวเอง ไม่มี raw insert/update policy ที่ข้าม validation (ผ่าน trigger `validate_poll_vote()` แทน)
-- สิ่งที่ทำ/พบ: implement ครบ SQL (ตารางใหม่ 2 + RLS + trigger validate + RPC 2 ตัว + view ขยาย 2 ตัว) + Flutter (`PollCard`/`PollPlaceholderTile` widget ใหม่, Poll composer ใน `CreateDropScreen`, batch fetch helper ต่อกับ fetch method เดิมทุกจุดใน `DropRepository`/`HomeRepository`) — ดูรายละเอียดเต็มที่ `.wyn/tasks/approved/WYN-035-poll-in-drop.md`'s Coding Output — **Coding พบและแก้บั๊กจริงเอง 1 จุดระหว่างเขียนโค้ด/test** (เปิดเผยตามธรรมเนียมโปรเจกต์): `get_poll_results()`'s RETURNS TABLE column ชื่อ `poll_id` บดบัง table column ชื่อเดียวกันในทุก subquery ภายในฟังก์ชัน (Postgres "column reference is ambiguous" error จริง) — พบทันทีตอนรัน SQL regression script ครั้งแรก ไม่ใช่ QA เจอ — แก้ด้วยการ alias ตารางทุกจุดที่อ้างถึง
-- เขียน `supabase/tests/wyn_035_poll_in_drop_test.sh` ใหม่ (23 checks รวม CHECK23 ที่ QA เพิ่มทีหลัง) รันภายใต้ role `authenticated` จริง ครอบ atomic creation, input validation ครบ, vote lifecycle+เปลี่ยนใจ, permission gate ทั้งหมด (เจ้าของ/block/restricted ทั้งตอนโหวตและตอนสร้าง), **privacy พิสูจน์ด้วย SELECT ตรงเห็นแค่แถวตัวเอง**, visibility rule ครบ 4 เคส, cascade delete, regression รูปภาพปกติ — **23/23 PASS** — รัน `wyn_021` ถึง `wyn_034` ทั้ง 8 สคริปต์เดิมซ้ำ **196/196 checks ผ่านทุกสคริปต์รวมกัน** ไม่มี cross-task regression
-- **QA อิสระพบ 2 gap เพิ่มเติมก่อนอนุมัติ**: (1) ไม่มี live test ยืนยันผู้ใช้ Restricted สร้าง Poll Drop ไม่ได้ (RPC มีเช็คอยู่แล้วในโค้ด แต่ไม่เคยพิสูจน์ด้วย SQL จริง มีแค่ทดสอบตอนโหวต ไม่ใช่ตอนสร้าง) — เพิ่ม CHECK23 ยืนยันด้วย role จริง **PASS ทันที** (โค้ดถูกต้องอยู่แล้ว แค่ไม่เคยพิสูจน์) (2) `valid_poll_options()` validate ความยาวตัวเลือกแบบ trim แล้ว แต่ RPC insert ค่าที่ยังไม่ trim ลง DB จริง — ถ้ามีใครเรียก RPC ตรงๆ ข้าม client's `.trim()` จะมี whitespace หัวท้ายติดไปด้วยทั้งที่ validation ผ่าน — ไม่ใช่ security hole แค่ data quality แต่แก้ง่ายราคาถูก จึงแก้ทันทีแทนที่จะปล่อยเป็น Minor (เพิ่ม server-side trim ใน RPC ก่อน validate/insert) — รัน SQL ทั้ง 9 สคริปต์ซ้ำหลังแก้ **196/196 ยังผ่านหมด**
-- ผลลัพธ์: **WYN-035 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task ที่สองของ **Phase 3 (Drop Enhancement)** ที่ผ่าน QA — `flutter analyze` 0 issues, `flutter test` 553/553 (527 เดิม + 26 ใหม่) — merge เข้า `main` แล้วผ่าน PR #143 ตาม merge policy ที่บันทึกไว้แล้ว
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-035-poll-in-drop.md`, `.wyn/docs/design/wyn-035-poll-in-drop.md`, `supabase/tests/wyn_035_poll_in_drop_test.sh`, PR #143, `.wyn/logs/deployments/2026-08-23-wyn-035-merge-to-main.md`
-
-### [2026-08-23] WYN-036 (Draft System) — Product+Design+Coding+QA อิสระ PASS รอบเดียว (พบและแก้ 1 บั๊กจริงระหว่าง QA) — task ที่สามของ Phase 3 (Drop Enhancement)
-- บริบท: ต่อเนื่องจาก WYN-035 ตาม Roadmap's ลำดับ Phase 3 — Founder สั่ง "WYN-036 ต่อเลย" — session นี้ทำครบทั้ง Product spec/Design spec/Coding/QA ในรอบเดียวต่อเนื่องกันตาม pipeline เดิมของโปรเจกต์ (มิเรอร์ WYN-034/WYN-035 เป๊ะ)
-- การตัดสินใจ Product/สถาปัตยกรรมที่สำคัญที่สุด: **Draft เป็นตารางแยกเต็มรูปแบบ (`drop_drafts`) ไม่ใช่ `drops` row เลย** ไม่แตะ `home_feed`/Search/Notifications/Reports/ระบบเดิมใดๆ แม้แต่บรรทัดเดียว มิเรอร์แนวทางลด blast radius ที่ WYN-034/WYN-035 วางไว้ — RLS 4 policy จำกัดทุกอย่างไว้ที่ `auth.uid() = author_id` เท่านั้น ไม่มี exception ให้ใครเห็นเลยแม้แต่คนเดียว (ต่างจาก ReDrop/Poll ที่ piggyback SELECT บนตารางอื่น) — ทางเข้าเดียวของ Save Draft คือ dialog ตอนกด X/back เท่านั้น ไม่มีปุ่มแยก (ลด UI clutter, ตัดสินใจโดย Product) — ไม่มี auto-save ระหว่างพิมพ์ (ยอมรับความเสี่ยงเพื่อความเรียบง่าย)
-- สิ่งที่ทำ/พบ: implement ครบ SQL (`drop_drafts` + `valid_draft_poll_options()` + RLS 4 policy) + Flutter (`DropDraft` model, `DraftGridTile`/`ProfileDraftsTab` widget ใหม่ reuse `PollPlaceholderTile` ของ WYN-035, `CreateDropScreen` เพิ่ม `draft` prefill + `PopScope`-driven close-intercept dialog) — ดูรายละเอียดเต็มที่ `.wyn/tasks/approved/WYN-036-draft-system.md`'s Coding Output
-- **QA อิสระพบบั๊กจริง 1 จุดก่อนอนุมัติ**: การสลับโหมด (`SegmentedButton`) ไม่เคย clear `_imageBytes`/`_existingImageUrl` เดิมตอนสลับไปโหมดโพล — `_share()` gate ด้วย mode ถูกต้องอยู่แล้ว (publish ไม่รั่ว) แต่ `_saveDraftAndClose()` ไม่ gate เลย ทำให้บันทึก Draft แบบโพลหลังสลับโหมดจากรูปได้จริงพร้อมอัปโหลดรูปทิ้งเปล่าๆ + `image_url` ปนเข้าไปในแถวที่ควรเป็นโพลล้วน — ยืนยันด้วย regression test ที่ **fail จริงกับโค้ดเดิม, pass หลังแก้** (gate ด้วย `_mode == _ComposeMode.image`) ก่อนสรุปว่าแก้จริง ไม่ใช่แค่เชื่อว่าแก้แล้ว — เจอ gotcha เดิมซ้ำด้วย (`RecordingXRepository` สร้างข้างใน `testWidgets` body แทน `setUpAll` ทำให้ full suite fail แม้รันแยกไฟล์ผ่าน) แก้ตามธรรมเนียมเดิม
-- เขียน `supabase/tests/wyn_036_draft_system_test.sh` ใหม่ (15 checks) รันภายใต้ role `authenticated` จริง ครอบ insert/update ในที่เดิม, คนอื่นอ่าน/แก้/ลบไม่ได้ (0-row no-op), Restricted ยัง Draft ได้, validation หลวมกว่า Poll จริงตามเจตนา, cascade delete, regression Drop/Poll ปกติ — **15/15 PASS** — รัน `wyn_021` ถึง `wyn_035` ทั้ง 9 สคริปต์เดิมซ้ำ **196/196 checks ผ่านทุกสคริปต์รวมกัน** ไม่มี cross-task regression
-- ผลลัพธ์: **WYN-036 — PASS** (หลังแก้บั๊กที่ QA พบ) ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task ที่สามของ **Phase 3 (Drop Enhancement)** ที่ผ่าน QA — `flutter analyze` 0 issues, `flutter test` 576/576 (553 เดิม + 23 ใหม่) — merge เข้า `main` แล้วผ่าน PR #145 ตาม merge policy ที่บันทึกไว้แล้ว
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-036-draft-system.md`, `.wyn/docs/design/wyn-036-draft-system.md`, `supabase/tests/wyn_036_draft_system_test.sh`, PR #145, `.wyn/logs/deployments/2026-08-23-wyn-036-merge-to-main.md`
-
-### [2026-08-23] WYN-037 (Edit/Delete Drop) — Product+Design+Coding+QA อิสระ PASS รอบเดียว (พบและแก้ 2 บั๊กจริงระหว่าง QA จุดหนึ่งเป็น self-referential RLS) — task ที่สี่ของ Phase 3 (Drop Enhancement)
-- บริบท: ต่อเนื่องจาก WYN-036 ตาม Roadmap's ลำดับ Phase 3 — Founder สั่ง "WYN-037 ต่อเลย" — session นี้ทำครบทั้ง Product spec/Design spec/Coding/QA ในรอบเดียวต่อเนื่องกันตาม pipeline เดิมของโปรเจกต์
-- การตัดสินใจสถาปัตยกรรมที่สำคัญที่สุด: **เปลี่ยนกลไก Delete ทั้งระบบจาก hard delete เป็น soft delete** — ไม่มี raw client UPDATE/DELETE บน `drops` เลยแม้แต่จุดเดียว ทุกการแก้ไข/ลบ/กู้คืนผ่าน RPC 3 ตัว (SECURITY DEFINER) เท่านั้น: `edit_drop()` (กรอบเวลา 30 นาที ตาม Master Spec ตัวอย่างตรงๆ), `soft_delete_drop()`, `restore_drop()` (กรอบเวลา 30 วัน — ตัวเลขที่ Product กำหนดเองมิเรอร์ retention ของถังขยะทั่วไป) — ลบ policy DELETE ตรงของผู้ใช้เองทิ้งไปเลย (moderation's hard-delete ของ WYN-029 ไม่กระทบ เพราะเป็นคนละ SECURITY DEFINER function อยู่แล้ว) — ขยาย SELECT policy ของ `drops` จุดเดียว (`deleted_at is null or auth.uid() = author_id`) ก็ครอบคลุมการซ่อน Home Feed/Search/Profile/ReDrop ได้ทั้งหมดโดยไม่ต้องแก้ view เลย เพราะทุก view เป็น `security_invoker = true`
-- **QA อิสระพบบั๊กจริง 2 จุดก่อนอนุมัติ**: (1) แก้ไขคำถามโพลให้ว่างเปล่าได้ทั้งที่มีตัวเลือก/ผลโหวตอยู่แล้ว — แก้ด้วย flag `isPollQuestion` บังคับห้ามว่างเปล่า (2) **จุดที่ร้ายแรงกว่า**: `drop_comments`'s INSERT policy fix ที่ Coding เขียนไว้ (`not exists (select ... from drops where deleted_at is not null)`) **ใช้งานไม่ได้จริงเลยสักครั้ง** เพราะ subquery ถูกกรองด้วย RLS ของ `drops` เองซ้อนอีกชั้น — สำหรับคนแปลกหน้า แถวที่ถูกลบจะมองไม่เห็นอยู่แล้วเสมอ ทำให้ `not exists()` เป็น true เสมอไม่ว่าจะลบจริงหรือไม่ เช็คนี้เลย**ไม่เคยบล็อกใครได้จริง** — ยืนยันด้วยการ reproduce ตรงใน psql (insert สำเร็จจริงแม้ Drop ถูกลบไปแล้ว) ก่อนสรุปว่าเป็นบั๊กจริง แก้ด้วยฟังก์ชันใหม่ `internal.is_drop_deleted()` (SECURITY DEFINER, bypass RLS ตรงๆ มิเรอร์ `internal.drop_author_id()` เดิม) — ทั้งสองจุดยืนยันด้วย regression test ที่ fail จริงกับโค้ดเดิม (แม้จะมี "fix" อยู่แล้วในจุดที่ 2 ก็ตาม) แล้ว pass หลังแก้จริง
-- เขียน `supabase/tests/wyn_037_edit_delete_drop_test.sh` ใหม่ (23 checks รวม CHECK10c ที่ QA เพิ่มทีหลัง) รันภายใต้ role `authenticated` จริง ครอบ edit ในกรอบเวลา/เกินกรอบเวลา/คนอื่นแก้ไม่ได้, soft delete ซ่อนจากทุกคนแต่เจ้าของยังเห็น, restore ในกรอบ/เกินกรอบเวลา, ReDrop และ comment ของ Drop ที่ถูกลบหายไปด้วย, Restricted ทำได้ปกติ — **23/23 PASS** — รัน `wyn_021` ถึง `wyn_036` ทั้ง 10 สคริปต์เดิมซ้ำ **235/235 checks ผ่านทุกสคริปต์รวมกัน** ไม่มี cross-task regression (พบ regression 2 จุดใน `wyn_034`/`wyn_035`'s เช็คเดิมที่เคยพึ่ง DELETE policy ที่ถูกลบไปแล้ว แก้โดยเปลี่ยนไปเรียก `soft_delete_drop()` แทนพร้อมปรับ expected value)
-- ผลลัพธ์: **WYN-037 — PASS** (หลังแก้ 2 บั๊กจริงที่ QA พบ) ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task ที่สี่ของ **Phase 3 (Drop Enhancement)** ที่ผ่าน QA — `flutter analyze` 0 issues, `flutter test` 597/597 (576 เดิม + 21 ใหม่) — merge เข้า `main` แล้วผ่าน PR #147 ตาม merge policy ที่บันทึกไว้แล้ว
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-037-edit-delete-drop.md`, `.wyn/docs/design/wyn-037-edit-delete-drop.md`, `supabase/tests/wyn_037_edit_delete_drop_test.sh`, PR #147, `.wyn/logs/deployments/2026-08-23-wyn-037-merge-to-main.md`
-
-### [2026-08-23] เปลี่ยนชื่อแอปจาก "WYN" เป็น "Wynos"
-- Founder ยืนยันชื่อแอปใหม่: **Wynos** อ่านว่า "ไวนอส" (Why-nos ตามกฎการอ่าน "Wy-" ขึ้นต้นคำในภาษาอังกฤษ เช่น Wyoming/Wyatt/wry ที่อ่าน /waɪ/ เสมอ)
-- **สถานะตอนนี้: บันทึกการตัดสินใจไว้ใน `CONTEXT.md` เท่านั้น ยังไม่ได้ไล่เปลี่ยนชื่อในโค้ด/pubspec.yaml/README/เอกสารอื่นๆ ทั้งระบบ** — เอกสารเดิมทั้งหมด (task file/design doc/deployment log ของ WYN-0XX ทุกใบ, ชื่อ AI Company, task ID convention "WYN-0XX") ยังใช้ "WYN" ต่อไปตามเดิมจนกว่า Founder จะสั่งให้ไล่เปลี่ยนทั้งระบบ (เป็นงานใหญ่ กระทบหลายไฟล์ ต้องคุยขอบเขตก่อนเริ่ม)
-- อ้างอิง: `.wyn/company/CONTEXT.md` (บรรทัด "App Name")
-
-### [2026-08-23] WYN-038 — View Counting System (Drop) — PASS
-- Master Spec section 6 "VIEW SYSTEM" ระบุกว้างๆ ว่าต้องมี Unique Viewer logic/Rate limiting/Bot detection/Suspicious traffic detection — Product ตัดสินใจจำกัดขอบเขตแค่ **Drop เท่านั้น** เพราะ Pop ถูกถอดออกจาก Bottom Nav ตั้งแต่ WYN-024 ไม่มีผู้ใช้เข้าถึงได้จริงแล้ว การลงทุนแก้ `pops.view_count`/`increment_pop_view_count()` เดิม (ที่ WYN-006's QA เคยพบว่าไม่มี rate-limit ไว้แล้ว) ตอนนี้จะไม่มีผลกับผู้ใช้จริง — ไม่แตะ Pop เลยในรอบนี้
-- **Bot detection เต็มรูปแบบทำไม่ได้จริง** (ไม่มี CAPTCHA/device fingerprint/IP tracking ในระบบ Flutter+Supabase ล้วนๆ) — Product ยอมรับ scope reduction ใช้ 3 กลไกแทน: self-view exclusion (เจ้าของดู Drop ตัวเองไม่นับ), rate-limit ต่อบัญชี (20 View record ใหม่/60 วินาที), velocity-cap ต่อ Drop (50 View record ใหม่/10 วินาที) — ทั้งสามเป็น SQL ล้วนๆ ไม่ต้องมี infra เพิ่ม เกินโควตาแล้ว **no-op เงียบๆ ไม่ error กระเด็นไปหา client**
-- **Unique Viewer = lifetime dedup ต่อคนต่อ Drop** (นับครั้งแรกครั้งเดียวตลอดไป ไม่ใช่รายวัน) — จุดที่นับว่าเป็น View คือเปิด `DropDetailScreen` เท่านั้น (การ์ดเลื่อนผ่านใน Home Feed ไม่นับ) มิเรอร์แนวคิดเดียวกับที่ Pop นับตอนวิดีโอเริ่มเล่นจริง
-- **จุดตัดสินใจด้าน privacy ที่สำคัญที่สุดของ task นี้ (Design เสนอ, Coding/QA ยืนยันแล้ว)**: ตาราง `drop_views` **ห้ามเปิด SELECT policy แบบ select-all-authenticated เหมือน `drop_likes`** เพราะ "ใครดู Drop ไหนบ้าง" ต่างจาก Like ตรงที่ผู้ใช้ไม่ได้ตั้งใจเปิดเผย (มิเรอร์บทเรียนจาก `WYN-029-moderation-actor-identity-leak.md`) — SELECT policy จำกัดแค่ `auth.uid() = viewer_id` แทน แล้วแยกฟังก์ชัน `drop_view_count()` (SECURITY DEFINER, bypass RLS นับทุกแถวจริง คืนแค่ตัวเลขไม่คืน viewer identity) ให้ `home_feed`/`saved_feed` เรียกแทน `null::bigint` เดิม — ได้ทั้งเลขถูกต้องสำหรับทุกคนและไม่มีใครเห็น raw viewer list ของคนอื่นได้เลย
-- **Independent QA ติดตั้ง Flutter SDK เองสำเร็จ** (Coding's sandbox ไม่มี SDK เลย รายงานแค่ตัวเลขประมาณการไว้ก่อน) รัน `flutter analyze`/`flutter test` จริงพบ **3 บั๊กจริงในไฟล์ test** (ไม่ใช่โค้ด production) แก้ครบแล้วทั้งหมด: fixture ของ `drop_comment_delete_test.dart` ชนกับ optimistic view-count bump ใหม่, Semantics test ใหม่ต้องใช้ substring match เพราะ interaction row ไม่มี semantics boundary (gap เดิมตั้งแต่ WYN-005/008/013 ไม่ใช่ของใหม่), `RecordingDropRepository()` inline leak GoTrue timer ผิด convention เดิม — `flutter analyze` 0 issues, `flutter test` **607/607**, SQL `wyn_038_view_counting_test.sh` ใหม่ **29/29 PASS** + รันซ้ำ 11 สคริปต์เดิมทั้งหมดผ่านหมดไม่มี cross-task regression
-- **Gap ที่ยอมรับเป็น fast-follow ไม่ block**: `Drop.viewCount` เป็นค่าจริงเฉพาะทาง Home Feed/Saved Feed (ผ่าน `HomeFeedItem.toDrop()`) — ทาง Profile grid/Search/Notification ยังคืน 0 เสมอเพราะ query select ไม่ได้ขอคอลัมน์นี้ (DB เก็บค่าถูกต้องเสมอ ไม่ใช่ bug ด้านข้อมูล แค่ยังไม่ได้ query ครบทุกจุด) — Acceptance Criteria ของ Product ไม่ได้ระบุ entry point อื่นนอกเหนือ Home Feed/Drop Detail จึงยอมรับได้
-- ผลลัพธ์: **WYN-038 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — task ที่ห้าของ **Phase 3 (Drop Enhancement)** ที่ผ่าน QA เป็น Dependency ตรงของ WYN-041 (Trending Engine v2, Phase 4)
-- อ้างอิง: `.wyn/tasks/approved/WYN-038-view-counting-system.md`, `.wyn/docs/design/wyn-038-view-counting-system.md`, `supabase/tests/wyn_038_view_counting_test.sh`
-
-### [2026-08-23] WYN-039 — Private Account + Follow Request — PASS (last task of Phase 3)
-- Master Spec section 10/11 ระบุ Private Account + Follow System ไว้กว้างๆ — Product ตีความเป็น 6 requirement ชัดเจน (Account type toggle, Follow Request flow, Remove Follower, Content Visibility Gating, `follows` SELECT policy review, Notification ใหม่) พร้อมเจตนาปิดสโคป DM Permissions/Mention/Comment-level privacy ไว้สำหรับ WYN-045 (Phase 5) เหมือนที่ WYN-032 เคยเพิ่ม `message_request` notification type ไปก่อน WYN-043 แล้วโดยไม่รอ
-- **จุดตัดสินใจสถาปัตยกรรมที่สำคัญที่สุด**: แยกตาราง `follow_requests` ใหม่ทั้งหมด ไม่แตะ `follows` เดิม (WYN-008) เลย — ต่างจาก `conversations.status` (WYN-031→032) เพราะ `follows` มี call site ใช้งานมานานกว่ามาก ความเสี่ยง retrofit สูงกว่า — และ **gate เนื้อหาที่จุดเดียวคือ RLS ของ `drops`** (ต่อยอด pattern Block ของ WYN-027 ตรงๆ) ทำให้ `home_feed`/`saved_feed`/Search/Hashtag/ReDrop/`drop_comments`/`drop_polls` inherit การ gate อัตโนมัติทุกจุดโดยไม่ต้องแก้แยกทีละที่
-- **ช่องโหว่จริง 2 จุดที่ Coding พบและปิดเองระหว่างเขียนโค้ด (ก่อนถึง QA)**: (1) `follows`' INSERT policy เดิมไม่เคยเช็ค privacy ของ target เลย — ถ้าไม่แก้ ผู้ใช้ข้าม Follow Request flow ได้ทั้งหมดด้วยการ insert ตรง (2) `get_poll_results()` (WYN-035, SECURITY DEFINER) bypass RLS ของ `drops` โดยสมบูรณ์ — คนแปลกหน้าที่รู้ `poll_id` ของ Poll-in-Drop จากบัญชี Private จะยังเห็นผลโหวตได้แม้ Drop ต้นฉบับถูกซ่อนแล้ว ทั้งสองจุดปิดแล้วพร้อม SQL regression check ใหม่
-- **Regression จริงที่ Coding พบเองจากการรัน SQL suite เดิมซ้ำ**: Postgres ตัด policy identifier ที่ยาวเกิน 63 ตัวอักษรให้เหลือ prefix เดียวกันระหว่างชื่อ policy เก่า (ก่อน WYN-037) กับชื่อปัจจุบัน (หลัง WYN-037 เพิ่มเงื่อนไข soft-delete) ทำให้ `drop policy` แรกที่เขียนไปแมตช์ผิดตัวแบบเงียบๆ (ไม่ error) และลบเงื่อนไข soft-delete ของ WYN-037 ไปโดยไม่ตั้งใจ — จับได้จากการรัน `wyn_037_edit_delete_drop_test.sh` ซ้ำแล้วเจอ CHECK4b/CHECK9 fail จริง แก้แล้วทุกสคริปต์ผ่านหมด
-- **Independent QA พบ gap จริงเพิ่มอีก 1 จุด (Major แต่ไม่ใช่ security)**: Requirement 3 ("Remove Follower") หายไปทั้งข้อตั้งแต่ Design จนถึง Coding ทั้งที่ Product spec ระบุไว้ชัดเจนพร้อม schema-level detail ของปัญหา — ไม่ใช่แค่บั๊กเล็กน้อยแต่เป็น Acceptance Criteria ข้อหนึ่งที่ไม่มีอยู่จริงในระบบเลย พบตอน QA ไล่เทียบ Acceptance Criteria ทุกข้อกับโค้ดจริง (ไม่ใช่แค่เชื่อ Coding Output ที่อ้างว่า "ครบทุกข้อ" ซึ่งไม่จริง) — แก้แล้วในรอบเดียวกัน (DELETE policy ใหม่แบบ permissive เพิ่มเติมบน `follows`, ปุ่ม "ลบ" ใหม่ใน `FollowListScreen`) บันทึกบทเรียนไว้ที่ `.wyn/learning/MISTAKES.md` แล้ว
-- **Follower/Following "จำนวน" กับ "รายชื่อ" แยกกลไกกัน**: จำนวนเห็นได้เสมอผ่าน `follower_count()`/`following_count()` (SECURITY DEFINER, มิเรอร์ `drop_view_count()` ของ WYN-038) ส่วนรายชื่อจริงถูกจำกัดผ่าน `follows`' SELECT policy ใหม่ (คู่กรณีเห็น edge ตัวเองเสมอ + บุคคลที่สามเห็นได้เฉพาะเมื่อทั้งสองฝั่งเปิดให้ดู)
-- `flutter analyze` 0 issues, `flutter test` **632/632** (626 หลัง Coding รอบแรก + 6 ใหม่จาก QA's Remove Follower fix), SQL `wyn_039_private_account_test.sh` ใหม่ **28/28 PASS** + รันซ้ำ 12 สคริปต์เดิมทั้งหมดผ่านหมดไม่มี cross-task regression
-- ผลลัพธ์: **WYN-039 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — **task สุดท้ายของ Phase 3 (Drop Enhancement) ปิดครบ** ตาม roadmap ขั้นต่อไปคือ Phase 4 (Discovery & Trending Engine, WYN-040 ถึง WYN-042)
-- อ้างอิง: `.wyn/tasks/approved/WYN-039-private-account-follow-request.md`, `.wyn/docs/design/wyn-039-private-account-follow-request.md`, `supabase/tests/wyn_039_private_account_test.sh`, `.wyn/learning/MISTAKES.md`
-
-### [2026-08-23] WYN-044 — Notification Settings (เปิด/ปิดรายหมวด) — PASS หลัง Debug รอบเดียว — task ที่สองของ Phase 5
-- บริบท: ต่อเนื่องจาก WYN-043 ตาม Roadmap's Phase 5 (Notification & Settings Expansion) — ปิด gap ของ Master Spec section 21 ที่ยังไม่มีทางปิดการแจ้งเตือนรายประเภทได้เลย
-- การตัดสินใจ Product ที่สำคัญที่สุด: แม็ป notification type ที่มีอยู่จริง 21 ตัวเข้า 7 หมวดของ Master Spec เอง (Master Spec ให้แค่ตัวอย่างกว้างๆ ไม่ได้ระบุ mapping ละเอียด) — ReDrop→`likes`, Mention บน Drop→`comments`, ทุกประเภทของ Club (Join/Like/Comment/Mention)→`club` หมวดเดียว — **จงใจไม่ gate** moderation/appeal (บัญชีต้องรับรู้เสมอ ปิดไม่ได้เพื่อความปลอดภัย) และ ZOKY order (นอกสโคป, ZOKY พักอยู่) — Opt-out model (ไม่มีแถว = เปิดทุกหมวด, ไม่บังคับตั้งค่าตอน signup)
-- สถาปัตยกรรม: ตาราง `notification_settings` ใหม่ + helper กลาง `internal.notification_enabled()` ที่ trigger/RPC เดิม 16 จุดเรียกก่อน insert ทุกครั้ง (Coding พบเพิ่มจุดที่ 16 เอง — `get_or_create_conversation()`'s `message_request` insert — ที่ตกหล่นจากรายการมอบหมายเดิมแต่ตรงกับ mapping ของ Product spec)
-- **QA รอบ 1 — FAIL**: `flutter analyze`/`flutter test` เต็มชุดที่ยังไม่มีใครรันจริงมาก่อน (ติดตั้ง Flutter SDK เองสำเร็จ) พบ 7/7 เทสต์ของหน้าจอใหม่ fail ด้วย GoTrue timer leak (ไม่สร้าง repository ใน `setUpAll` ตาม convention เดิมที่ไฟล์พี่น้องในงานเดียวกันทำถูก) — พบเพิ่มระหว่าง adversarial probe: `internal.notification_enabled()` มี grant เกินจำเป็นเปิดช่องให้ user อื่นอ่าน preference คนอื่นได้ (Low) และ invalid category fail-open เงียบ (Minor)
-- **Debug แก้ครบ 3 จุด**: ย้าย repository construction เข้า `setUpAll`, **พบเองว่าลบแค่ grant ไม่พอต้อง `revoke ... from public` ชัดเจน** (PostgreSQL grant EXECUTE ให้ PUBLIC เป็น default — บั๊กคลาสเดียวกับ WYN-027's RPC exposure) และเพิ่ม guard raise สำหรับ invalid category
-- **QA รอบ 2 — PASS**: ยืนยันทั้ง 3 fix อิสระ **รวม red→green ย้อนกลับไปโหลด schema.sql ก่อนแก้พิสูจน์บั๊กเดิมกลับมาจริง** — พบ edge case เล็กเพิ่ม (category = `NULL` ยังไม่ raise เพราะ PL/pgSQL's 3-valued logic) ไม่ exploitable (permission check ปิดกั้นก่อนเข้าฟังก์ชันเสมอ) — orchestrator แก้ทันทีเป็น fast-follow (`is null or ... not in`) แทนเปิด QA รอบ 3
-- `flutter analyze` 0 issues, `flutter test` **678/678**, SQL `wyn_044_notification_settings_test.sh` **22/22 checks PASS** + รันซ้ำ 18 สคริปต์เดิมทั้งหมดผ่านหมดไม่มี cross-task regression
-- ผลลัพธ์: **WYN-044 — PASS** (task แรกของ Phase 5 ที่ QA เจอบั๊กจริงต้องเข้ารอบ Debug ต่างจาก WYN-043 ที่ผ่านรอบเดียว) ย้ายเข้า `.wyn/tasks/approved/` แล้ว รอ AI Deploy & DevOps เมื่อมี infra จริง
-- อ้างอิง: `.wyn/tasks/approved/WYN-044-notification-settings.md`, `.wyn/docs/design/wyn-044-notification-settings.md`, `.wyn/tasks/bugs/WYN-044-notification-settings-test-timer-leak-and-preference-leak.md`, `supabase/tests/wyn_044_notification_settings_test.sh`
-
-### [2026-08-23] WYN-045 — Settings: DM/Mention/Comment Permission — PASS รอบเดียว — Phase 5 ปิดครบ
-- บริบท: ปิดหนี้ deferred scope ที่ WYN-039's spec file บันทึกไว้ตรงๆ ("DM Permissions, Mention, Comment ไม่อยู่ในสโคปนี้ ทำใน WYN-045") — task สุดท้ายของ Phase 5
-- การตัดสินใจ Product ที่สำคัญที่สุด: 3 การตั้งค่าใหม่ (`dm_permission`/`mention_permission`/`comment_permission`) ใช้ vocabulary เดียวกัน (`everyone`/`people_i_follow`/`no_one`) — "คนที่ฉันติดตาม" หมายถึงเจ้าของการตั้งค่าเป็นฝ่ายติดตามอยู่เสมอ (ทิศทางเดียวกับที่ `active` vs `pending` ของ DM เดิมใช้อยู่แล้ว) — **DM "คนที่ฉันติดตาม" เปลี่ยนพฤติกรรมจาก "เข้าคิว pending request" เป็น "ปฏิเสธทันที"** (ต่างจาก Instagram ที่ยังส่งได้เสมอแค่ซ่อน) ตัดสินใจเพื่อให้ 3 ระดับมีความหมายต่างกันชัดเจน — Account/Security/Data/Legal section ของ Master Spec section 35 **ตัดสินใจไม่ทำ** (ไม่มี password auth จริง, ไม่มี session infra, ทับซ้อน WYN-046/047 Phase 6) ไม่สร้าง section ว่างล่วงหน้าตาม pattern เดิมของไฟล์
-- สถาปัตยกรรม: gate ที่ `get_or_create_conversation()` (เฉพาะสาขา "ไม่มีบทสนทนาเดิม" — บทสนทนาเก่าไม่ถูกกระทบย้อนหลัง), `drop_mentions`/`club_post_mentions`'s INSERT policy + `create_poll_drop()`'s RPC (ต้อง gate ทั้ง 2 เส้นทางไม่งั้นเลี่ยงได้), `drop_comments`/`pop_comments`'s INSERT policy ล่าสุดเท่านั้น (ไม่แตะ `club_post_comments` เพราะ Club membership เป็น trust model ของตัวเอง)
-- **Merge note**: Coding agent ทำงานคู่ขนานกับ Debug Engineer ของ WYN-044 บน base commit คนละอัน — ตอน merge กลับ `schema.sql` conflict จริงตรงจุดที่ debug fix แก้ (`internal.notification_enabled`) เพราะ WYN-045 ต่อท้ายพอดี แก้ด้วยมือ (เก็บ debug fix ไว้ + ต่อด้วย WYN-045 section) แล้วรัน regression ทั้งหมดซ้ำอิสระ 678/678 test ผ่าน
-- **QA รอบเดียว PASS**: ตรวจจุดเสี่ยงสูงสุดตามที่ Design เตือนไว้ (`create_poll_drop()`'s mention bypass path) ผ่านจริง, DM existing-conversation immunity ผ่านจริง, Club independence ผ่านจริง — **พบ gap coverage 1 จุด** (`club_post_mentions` gating ถูกต้องจริงแต่ไม่มี regression test ถาวรครอบ มีแค่ QA ทดสอบ adhoc) ไม่ block เพราะ implementation ถูกต้อง — orchestrator เพิ่ม CHECK14a/b ปิด gap ทันทีหลัง PASS แทนเปิด QA รอบใหม่
-- `flutter analyze` 0 issues, `flutter test` **678/678**, SQL `wyn_045_privacy_controls_test.sh` **20 checks + CHECK14a/b เพิ่มทีหลัง PASS หมด** + รันซ้ำ 18 สคริปต์เดิมทั้งหมด (รวม `wyn_044` เวอร์ชันหลัง debug fix) ผ่านหมดไม่มี cross-task regression
-- ผลลัพธ์: **WYN-045 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — **Phase 5 (Notification & Settings Expansion) ปิดครบทั้ง 3 task** (WYN-043/044/045) ตาม roadmap ขั้นต่อไปคือ Phase 6 (Legal & Compliance Layer, WYN-046 ถึง WYN-048)
-- อ้างอิง: `.wyn/tasks/approved/WYN-045-settings-privacy-controls.md`, `.wyn/docs/design/wyn-045-settings-privacy-controls.md`, `supabase/tests/wyn_045_privacy_controls_test.sh`
-
-### [2026-08-24] WYN-046 — Platform Documents + Acceptance Flow — PASS รอบเดียว — task แรกของ Phase 6
-- บริบท: เริ่ม Phase 6 (Legal & Compliance Layer) — สร้างโครงสร้างเทคนิคสำหรับเอกสารข้อกำหนด 6 ประเภท (Master Spec section 27) + บังคับยอมรับก่อนใช้งาน (section 28)
-- **การตัดสินใจ Product ที่สำคัญที่สุด**: ขอบเขตจำกัดเฉพาะ "ระบบ" เท่านั้น ไม่ใช่ "เนื้อหากฎหมายจริง" ตรงตามที่ roadmap ระบุไว้เอง ("ทีม AI ออกแบบ Compliance Layer ทางเทคนิคเท่านั้น...เนื้อหาเอกสารกฎหมายจริงต้องให้ผู้เชี่ยวชาญกฎหมายตรวจสอบก่อนเผยแพร่จริง") — เนื้อหาที่ seed เป็น placeholder ล้วนๆ (ย่อหน้า disclaimer เดียวกันทุกฉบับ + โครงหัวข้อ ไม่มีเนื้อหาเชิงกฎหมายจริง) — **บันทึก APPROVAL_REQUIRED ใหม่ที่ `.wyn/company/APPROVALS.md`** ขอให้ Founder ปรึกษาผู้เชี่ยวชาญกฎหมายไทยเรื่องเนื้อหาจริง + วิเคราะห์ประเภท DPS ก่อน deploy จริง (ไม่เร่งด่วนเพราะยังไม่มี production)
-- สถาปัตยกรรม: `platform_documents` (versioned, select-all-authenticated, ไม่มี insert/update/delete policy ให้ client เลยแม้แต่ admin/moderator) + `user_document_acceptances` (RLS มิเรอร์ `notification_settings` ของ WYN-044, เก็บแค่เวอร์ชันล่าสุดที่ยอมรับพอสำหรับ re-prompt เมื่อเอกสารอัปเดต) — Acceptance Gate ใหม่ใน `AuthGate` วางตำแหน่งหลัง moderation check (Suspended/Banned ยังเจอ `AccountRestrictedScreen` ก่อนเสมอ) ก่อน username check (ใช้ได้ทั้งผู้ใช้ใหม่/เดิม) — **fail-open โดยตั้งใจ** (Product's Risks) ต่างจาก compliance gate ทั่วไปที่มักเลือก fail-closed เพราะยังไม่มีผู้ใช้จริงให้ fail-closed ปกป้องอะไรจริงจัง
-- **QA รอบเดียว PASS ไม่มีข้อบกพร่องแม้แต่ Minor** — เป็น task แรกของ Phase 6 ที่สะอาดที่สุดเท่าที่เคยมี — QA อ่าน `auth_gate.dart`'s `build()` ทั้งฟังก์ชันบรรทัดต่อบรรทัดยืนยัน gate ordering เอง (จุดเสี่ยงสูงสุดของ task) + เขียน widget test ชั่วคราวเพิ่มเองครอบเคสที่ delivered suite ไม่มี + adversarial SQL พบว่า RLS แน่นกว่าที่ spec ขอด้วยซ้ำ (`anon` ไม่มี grant ระดับตารางเลย ไม่ใช่แค่ RLS กรอง)
-- `flutter analyze` 0 issues, `flutter test` **699/699**, SQL `wyn_046_platform_documents_test.sh` **9/9 checks PASS** + รันซ้ำ 18 สคริปต์เดิมทั้งหมดผ่านหมดไม่มี cross-task regression
-- ผลลัพธ์: **WYN-046 — PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — **ห้าม deploy ให้ผู้ใช้จริงยอมรับเอกสารชุดนี้เป็นทางการจนกว่าจะมีเนื้อหาจริงจากผู้เชี่ยวชาญกฎหมาย** ตาม APPROVAL_REQUIRED ที่บันทึกไว้ — ขั้นต่อไปตาม roadmap คือ WYN-047 (Data rights — PDPA)
-- อ้างอิง: `.wyn/tasks/approved/WYN-046-platform-documents-acceptance.md`, `.wyn/docs/design/wyn-046-platform-documents-acceptance.md`, `.wyn/company/APPROVALS.md`, `supabase/tests/wyn_046_platform_documents_test.sh`
-
-### [2026-08-24] WYN-047 — Data Rights (PDPA Export + Account Deletion) — PASS + พบและปิด Major finding (Ban Evasion) ทันที — task ที่สองของ Phase 6
-- บริบท: สร้างกลไก Data Export + Account Deletion ที่ Master Spec section 28 ระบุไว้ — Data Access/Correction/content-level Deletion มีอยู่แล้วจริง (Edit Profile, ลบ Drop/Comment/Unfollow/Unsave เดิม) ไม่ต้องสร้างใหม่
-- **การตัดสินใจสถาปัตยกรรมที่สำคัญที่สุด**: Account Deletion **ลบถาวรทันทีไม่มี grace period** (ต่างจาก Drop's 30-day soft-delete ของ WYN-037) เพราะไม่มี cron/scheduled-job infrastructure ในระบบเลย (เหตุผลเดียวกับที่ WYN-030/043 เคยใช้) — `delete_my_account()` ลบ `auth.users` ตรงๆ ให้ FK cascade ที่มีอยู่แล้ว 88 จุดทำงานลบทุกอย่างที่เกี่ยวข้อง — ต้องพิมพ์ยืนยัน "ลบบัญชี" + AlertDialog ชั้นสองก่อนเรียก RPC จริง (friction สูงกว่าการลบ Drop เพราะย้อนกลับไม่ได้เด็ดขาด)
-- `export_my_data()` **ไม่รวม** ประวัติ Moderation/Report โดยเจตนา (ป้องกันรั่วไหลตัวตนผู้รายงานที่ WYN-026/029 ตั้งใจปกปิดไว้)
-- **QA พบ Major finding ใหม่ที่ไม่มีใครคาดไว้**: ผู้ใช้ที่ถูก Restrict/Suspend/Ban เรียก `delete_my_account()` ได้สำเร็จ (ไม่มี guard) ลบ `moderation_actions`/`appeals` ของตัวเองทิ้งไปพร้อมบัญชีแล้วสมัครใหม่แบบไม่มีประวัติ (ban evasion) — QA seed ข้อมูลครอบ **44 หมวด** (มากกว่า 37 checks เดิมของ Coding) เจอจุดนี้ระหว่างตรวจแบบ adversarial เข้มข้นเป็นพิเศษเพราะเป็น destructive RPC — **orchestrator แก้ทันทีเป็น fast-follow** (ไม่รอ QA รอบใหม่): เพิ่ม guard เรียก `internal.is_posting_blocked()` เดิม (ฟังก์ชันเดียวกับที่ gate การโพสต์/คอมเมนต์อยู่แล้ว) ปฏิเสธการลบถ้ามี Restrict/Suspend ที่ยังไม่หมดอายุหรือ Ban ถาวร — ผู้ใช้ที่ Suspend หมดอายุแล้วยังลบได้ปกติ — เพิ่ม CHECK38-42 ยืนยันครบทั้ง 2 ทิศทาง
-- พบเพิ่ม 2 finding รอง (ไม่ block, deferred เป็น backlog เล็ก): export ขาด Likes/ข้อมูล ZOKY (Minor), สมมติฐาน `auth.identities`/`auth.sessions`/`auth.refresh_tokens` cascade อัตโนมัติยัง verify กับ Supabase จริงไม่ได้เพราะยังไม่มี (ต้อง confirm ตอน Deploy)
-- `flutter analyze` 0 issues, `flutter test` **714/714**, SQL `wyn_047_data_rights_test.sh` **42 checks PASS** (37 เดิม + 5 ที่เพิ่มปิด ban evasion) + รันซ้ำ 19 สคริปต์เดิมทั้งหมดผ่านหมดไม่มี cross-task regression
-- ผลลัพธ์: **WYN-047 — PASS** (พบ Major finding แต่ปิดได้ในรอบเดียวกันไม่ต้องเข้า Debug Engineer แยก) ย้ายเข้า `.wyn/tasks/approved/` แล้ว — **Phase 6 เหลือ WYN-048 (Consent management, Audit log foundation, Security incident workflow) เป็น task สุดท้าย**
-- อ้างอิง: `.wyn/tasks/approved/WYN-047-data-rights.md`, `.wyn/docs/design/wyn-047-data-rights.md`, `supabase/tests/wyn_047_data_rights_test.sh`
-
-### [2026-08-24] WYN-048 — Audit Log Foundation + Security Incident Runbook — FAIL รอบแรกพบช่องโหว่ Major, แก้ทันที — Phase 6 ปิดครบ
-- บริบท: task สุดท้ายของ Phase 6 — ไม่มี UI ใหม่ (Product ตัดสินใจข้าม AI Design ไปตรง AI Coding เพราะไม่มีอะไรให้ออกแบบ) แก้ 5 ฟังก์ชันที่ approved แล้วก่อนหน้า (`apply_moderation_action`/`decide_appeal`/`send_system_notification`/`delete_my_account`/`export_my_data`) เพิ่ม audit logging เข้าไป
-- **การตัดสินใจสถาปัตยกรรมที่สำคัญที่สุด**: ตาราง `audit_log`'s `actor_id`/`target_id` **ไม่มี FK/cascade เลยโดยเจตนา** — ตรงข้ามกับทุกตารางอื่นในสคีมาที่ cascade จาก `profiles`/`auth.users` เป็น pattern มาตรฐาน เพราะจุดประสงค์หลักของ audit log คือต้อง "จำ" เหตุการณ์การลบบัญชีได้แม้บัญชีนั้นจะหายไปแล้ว — ถ้า cascade ตามปกติ แถวที่บันทึกเหตุการณ์ `account_deleted` จะหายไปพร้อมกับการลบที่มันบันทึกไว้ทันที ขัดกับจุดประสงค์ทั้งหมดของตาราง
-- **Consent Management ไม่มี requirement ใหม่** — ยืนยันแล้วว่า WYN-044/045/046 ครอบคลุมครบแล้ว (Notification/Privacy toggle + Document acceptance) ไม่มี consent ประเภทอื่นที่ WYN ต้องขอ (ไม่มี Marketing/Analytics tracking แยก)
-- **Security Incident Response เป็นเอกสาร (`incident-response-runbook.md`) ไม่ใช่โค้ด** — เหตุผลเดียวกับที่ WYN-043 เลื่อน Trending engine ออก: ยังไม่มี production/Admin panel ให้ automation เกาะ การสร้างกระบวนการที่ใช้งานได้จริงตอนนี้คือ runbook พร้อมใช้ทันทีเมื่อมีเหตุจริง (Detect→Contain→Assess ใช้ `audit_log`→Notify→Remediate→Post-mortem)
-- **Coding พบและแก้ gotcha เอง**: `export_my_data()` ต้องเปลี่ยนจาก `language sql`/`stable` เป็น `plpgsql`/`volatile` เพราะ SQL function resolve forward reference ตอน CREATE FUNCTION ทันที (พิสูจน์ empirically จริง) ต่างจาก plpgsql ที่ defer ไปตอนเรียกจริง
-- **QA รอบแรก — FAIL**: พบ `internal.log_audit_event()` เรียกตรงได้โดย authenticated ธรรมดา (ไม่มี `revoke execute ... from public`) — **ช่องโหว่คลาสเดียวกับที่เจอใน WYN-044 round 1 เป๊ะ** (fix pattern มีอยู่ในไฟล์เดียวกันเป็นตัวอย่างแล้วแต่ไม่ถูกนำมาใช้กับฟังก์ชันใหม่) — พิสูจน์ exploit จริง: authenticated user forge แถว `audit_log` ปลอมแปลงเหตุการณ์ให้คนอื่นได้ — **orchestrator แก้ทันทีเป็น fast-follow** (ไม่เปิด Debug Engineer แยกเพราะเป็น one-line fix ความเสี่ยงต่ำ): เพิ่ม `revoke` + CHECK14 มิเรอร์ `wyn_044`'s CHECK20 เป๊ะ
-- ทุกจุดอื่น (RLS ของ `audit_log` เอง, account-deletion-survives guarantee, พฤติกรรม 5 ฟังก์ชันเดิมไม่เปลี่ยน, runbook ใช้งานได้จริง) QA ยืนยันผ่านหมดตั้งแต่รอบแรก
-- SQL `wyn_048_audit_log_test.sh` **28 checks เดิม + CHECK14 ที่เพิ่ม = 29 checks PASS** + รันซ้ำ 20 สคริปต์เดิมทั้งหมดผ่านหมดไม่มี cross-task regression บน 5 ฟังก์ชันที่แก้
-- ผลลัพธ์: **WYN-048 — PASS หลังปิดช่องโหว่ Major** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — **Phase 6 (Legal & Compliance Layer) ปิดครบทั้ง 3 task** (WYN-046/047/048) ตาม roadmap ขั้นต่อไปคือ Phase 7 (WYN Admin, Web) เริ่มจาก WYN-049
-- อ้างอิง: `.wyn/tasks/approved/WYN-048-consent-audit-security-incident.md`, `.wyn/tasks/bugs/WYN-048-log-audit-event-missing-revoke.md`, `.wyn/docs/security/incident-response-runbook.md`, `supabase/tests/wyn_048_audit_log_test.sh`
-
-### [2026-08-24] เริ่ม Phase 7 — WYN Admin (Web) — อนุมัติ Web Stack (Major Architecture)
-- บริบท: Phase 6 ปิดครบแล้ว (WYN-046/047/048) Founder สั่ง "Phase 7 ต่อเลย" — AI Product Manager ร่าง WYN-049 (Admin Foundation) พบว่าต้องเลือก web stack ก่อนเริ่ม Coding จริง ตามที่ Founder เคยระบุไว้แล้วตั้งแต่ 2026-08-22 ว่า "ยังไม่เลือก framework/hosting เฉพาะเจาะจง รอ AI Product Manager/Design เสนอตอนถึง Phase 7 จริง" — เป็น Major Architecture ใหม่ครั้งแรกของโปรเจกต์ที่ไม่ใช่ Flutter/Dart จึงถามอนุมัติผ่าน popup ก่อนเริ่ม Coding ตามกติกา RULES.md
-- คำตัดสินใจของ Founder: อนุมัติ **Next.js 14+ (App Router) + TypeScript + Tailwind CSS + shadcn/ui** เชื่อมต่อ Supabase ผ่าน `@supabase/ssr` deploy บน **Vercel** (เชื่อมต่อกับ GitHub repo นี้อยู่แล้วจริง) ตามที่ AI Product Manager เสนอ — ไม่เลือกทางเลือกอื่น (Remix/SvelteKit/Vite+React ธรรมดา) ที่เสนอไว้เป็นทางเลือก
-- ผลกระทบ: WYN Admin จะอยู่ในไดเรกทอรีใหม่ `admin/` ที่ root (เทียบเท่า `app/`/`seller_app/`) เชื่อมต่อ Supabase project เดียวกับ WYN Social/ZOKY (Shared Backend, ตัดสินใจไว้แล้ว 2026-08-14) แต่ไม่แตะ `supabase/schema.sql`/`app/`/`seller_app/` เลยในระดับ Foundation — service-role key (ถ้าต้องใช้) ต้องรันเฉพาะฝั่ง server (Server Components/Route Handlers) เท่านั้น ห้ามหลุดไปฝั่ง client เด็ดขาด (ระบุเป็น Acceptance Criteria ของ WYN-049 ตรงๆ)
-- อ้างอิง: `.wyn/tasks/backlog/WYN-049-admin-foundation.md` (หัวข้อ Recommendation มีเหตุผลเต็มของการเลือก stack)
-
-### [2026-08-24] WYN-056 — Club Discovery Visual Refresh ตามภาพ mockup ของ Founder — AI Design ทำเองได้ตามอำนาจ ไม่ใช่ Major Architecture
-- บริบท: Founder ส่งภาพ mockup "WYNOS" high-fidelity Club UI concept เต็มรูปแบบ (3 หน้าจอ: CLUB hero+แนะนำ+กำลังฮิต, สร้าง Club, สำรวจ Club) พร้อม text brief ขอ redesign หน้า Club ให้พรีเมียม/มีชีวิตชีวาขึ้น ผ่าน `/design`
-- AI Design ตรวจสอบกับ design system ที่อนุมัติแล้ว (DS-001 Cyan Option B, DS-009 Rainbow 2 จุด, WYN-014/015/017/024) พบว่าทิศทางสี (พื้นดำ+Cyan `#00C8FF`) **ตรงกับที่ Founder อนุมัติไว้แล้วตั้งแต่ 2026-08-15 อยู่แล้ว ไม่ใช่ทิศทางใหม่** — จุดที่ขัดกับกติกาตายตัว (glassmorphism, rainbow จุดที่ 3, top row ซ้ำกับ Bottom Nav ที่เพิ่งลบออกจาก Home ใน WYN-024) ถูกปรับให้สอดคล้องกับกติกาเดิมโดยไม่ต้องขออนุมัติใหม่ (เป็นการยึดกติกาที่อนุมัติแล้ว ไม่ใช่การเปลี่ยนกติกา)
-- การตัดสินใจของ AI Design (อยู่ในอำนาจ "ออกแบบ" ตาม RULES.md ไม่ต้องขออนุมัติ Founder ล่วงหน้า เพราะไม่แตะ Vision/Business Model/Architecture หลัก/Security/DB แบบทำลายล้าง): เนื้อหา hero + แถวแนะนำ + แถวกำลังฮิตของภาพ ย้ายไปรวมอยู่ใน `ExploreClubsScreen` (เปิดจากปุ่ม "สำรวจ Club" เดิม) แทนที่จะแตะ Home's `ClubSection` ที่ผ่าน QA แล้ว (WYN-017) — Explore section ล่างเปลี่ยนจาก list แถวเต็มความกว้างเป็น grid 2 คอลัมน์ — เพิ่ม widget ใหม่ 2 ตัว (`ClubRecommendedCard`/`ClubRankedRow`) ใช้ `club.coverUrl` (field มีอยู่แล้วในสคีมาแต่ยังไม่เคยใช้แสดงผล) เป็นครั้งแรก
-- ผลกระทบ: ไม่แตะ schema/RLS/permission logic ใดๆ, ไม่แตะ Home/ClubPage/Search tab ที่ผ่าน QA แล้ว — เป็น visual-refresh ล้วนบน Club system เดิม ไม่ต้องเปิด Product task แยก
-- อ้างอิง: `.wyn/docs/design/wyn-056-club-discovery-visual-refresh.md`, `.wyn/tasks/backlog/WYN-056-club-discovery-visual-refresh.md`
-
-### [2026-08-24] WYN-056 — Coding + QA เสร็จ — PASS หลังพบและแก้บั๊กจริง 2 จุด (session นี้ติดตั้ง Flutter SDK เองเพื่อทดสอบจริง)
-- บริบท: ต่อจาก Design (ด้านบน) — AI Coding implement ตาม spec แล้วส่งต่อ AI QA & Security ทันที (Founder อนุมัติให้ทำต่อเนื่องผ่าน popup) session เดียวกันนี้พบว่าไม่มี Flutter SDK ติดตั้งอยู่ ซึ่งขัดกับกติกา "ห้ามอนุมัติงานที่ยังไม่ได้ทดสอบจริง" — จึงดาวน์โหลด/ติดตั้ง Flutter 3.47.1 (stable) เองในเครื่อง session เพื่อรัน `flutter analyze`/`flutter test` จริงแทนการอนุมัติจากการอ่านโค้ดเฉยๆ
-- **พบบั๊กจริง 2 จุดจากการทดสอบจริง** (ไม่ใช่แค่ static review): (1) `ClubRankedRow` มี `RenderFlex` overflow แนวนอนจริงสูงสุด 52px เมื่อวัดด้วยเนื้อหาจริง (ชื่อ/จำนวนสมาชิก/ปุ่ม Join ยาว) — คนใช้จริงจะเห็นแถบเหลือง-ดำ/เนื้อหาโดนตัด (2) `PopupMenuButton<void>` ผิด generic type (ควรเป็น `<String>`) จับได้จาก `flutter analyze`'s `void_checks` lint — แก้ทั้งสองจุดทันทีในฐานะ fast-follow เล็กๆ (ตามแนวทางเดียวกับ WYN-048) ไม่เปิด Debug Engineer แยกเพราะเป็น layout/type fix ความเสี่ยงต่ำ ไม่กระทบ logic/security
-- **พบและแก้ปัญหา test infrastructure เพิ่มเติม**: test ใหม่ของ WYN-056 สร้าง `RecordingClubRepository` inline ใน `testWidgets` (ผิดจาก convention เดิมของ `club_page_test.dart` ที่สร้างใน `setUp()`) ทำให้ GoTrueClient's auto-refresh Timer ของ fake ติดอยู่ใน FakeAsync zone ของ test แล้วชน "pending timer" assertion ของ flutter_test เวอร์ชันใหม่ — แก้โดยย้ายไปสร้างใน `setUp()` ตาม pattern เดิม และแก้ test "double-submit" ที่ออกแบบผิด (fake ที่ resolve เร็วเกินไปจน tap สองครั้งไม่ได้ race กันจริง) เป็น fake ที่มี delay จริงแทน
-- ผลลัพธ์สุดท้าย: `flutter analyze` สะอาด, `flutter test` เต็ม suite **724/724 ผ่าน** (รวม test ใหม่ 7 เคสของ WYN-056 ที่พิสูจน์ grid render, empty state, category filter, search filter, double-submit guard จริง, สถานะ "รออนุมัติ", ไม่ overflow ที่ textScaler 1.3) — **Final Status: PASS**
-- ข้อสังเกต Minor ไม่ block (บันทึกไว้ในไฟล์ task): เมนู "รายงาน Club" บนการ์ดใหม่แค่เปิด `ClubPage` เฉยๆ ไม่ได้เปิด report sheet ตรงๆ (label สื่อว่าทำได้ทันทีแต่ต้องกดอีกทีในหน้า Club); `CreateClubScreen`'s character limit ยังเป็น 50/500 เดิม ไม่ใช่ 30/150 ตามภาพ mockup เป๊ะ (ตัดสินใจไม่ลดขีดจำกัดเดิมโดยไม่มีเหตุผลรองรับ); ไม่มี screenshot จริงของ Light mode (ไม่มีเครื่องมือ render ใน session นี้ ตรวจแค่ระดับโค้ดว่าไม่ hardcode สี)
-- ย้าย task เข้า `.wyn/tasks/approved/WYN-056-club-discovery-visual-refresh.md` แล้ว รอ AI Deploy & DevOps เมื่อมี infra จริง (Supabase project จริง + native platform config ตามที่บันทึกไว้ในหลาย task ก่อนหน้า)
-- อ้างอิง: commit `f024acb` (Coding), `09be6e0`/`f21b05c` (QA fixes) บน branch `claude/wynos-mobile-ui-design-caztyr`, `.wyn/tasks/approved/WYN-056-club-discovery-visual-refresh.md`
-
-### [2026-08-24] Club — ตัดฟิลด์ "รูปโปรไฟล์ Club" (Icon) ออกจากฟอร์มสร้าง/แก้ไข Club เหลือแค่รูปปก
-- บริบท: Founder ดูฟอร์ม "สร้าง Club" (`CreateClubScreen`, WYN-014) ที่มีทั้งตัวเลือกรูปปก (Cover) และรูปโปรไฟล์ (Icon) แล้วแจ้งว่า "คลับ เพิ่มได้แค่รูปปกก็พอ ไม่ต้องใส่โปรไฟล์ด้วย"
-- คำตัดสินใจของ Founder: ตัดตัวเลือกอัปโหลด "รูปโปรไฟล์ Club" (Icon) ออกจากฟอร์ม ให้เหลือแค่รูปปก (Cover) อย่างเดียว
-- ผลกระทบ: ตัด icon picker ออกจากทั้ง `CreateClubScreen` และ `EditClubInfoScreen` (สอดคล้องกัน ไม่ใช่แค่ตอนสร้าง) — **ไม่ใช่ destructive DB change**: ไม่ลบคอลัมน์ `icon_url`/`ClubRepository.uploadClubIcon`/`Club.iconUrl` ออกจาก schema/โค้ด (Club ที่เคยมี icon อยู่แล้วก่อนหน้ายังแสดงผลได้ปกติ, ทุกจุดที่แสดง avatar ของ Club — `ClubMiniCard`/`ClubDiscoveryCard`/`ClubPage` header/`ClubRecommendedCard`/`ClubRankedRow` — มี fallback เป็นตัวอักษรแรกของชื่อ Club อยู่แล้วเมื่อ `iconUrl == null` จึงไม่ต้องแก้ไขจุดแสดงผลใดๆ) Club ใหม่ทุกอันหลังจากนี้จะไม่มี icon เป็นค่าเริ่มต้น แสดงเป็นตัวอักษรแรกของชื่อเสมอ
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/approved/WYN-014-club-core.md`, `.wyn/tasks/approved/WYN-056-club-discovery-visual-refresh.md`, commit ถัดไปบน branch `claude/wynos-mobile-ui-design-caztyr`
-
-### [2026-08-24] WYN-056 merge เข้า main (PR #166) + เริ่ม/ปิด WYN-057/058 ต่อเนื่องในรอบเดียวกัน — เลื่อนเลข Phase 8 อีกครั้ง
-- บริบท: Founder ให้ merge branch `claude/wynos-mobile-ui-design-caztyr` (WYN-056 + icon-removal follow-up) เข้า `main` แล้วให้ทำหน้าอื่นของ Club ต่อ (Create Club, Club Page) ที่ยังไม่ได้ redesign ตามภาพ mockup
-- ดำเนินการ: สร้าง/merge PR #166 เข้า `main` สำเร็จ (`deb0b9f`) แล้ว reset branch เดิมกลับไปที่ `main` ล่าสุดตามกติกา "PR ที่ merge แล้วต้องเริ่มงานใหม่จาก main" — ทำ WYN-057 (Create Club: cover picker เป็นกรอบเส้นประ + ไอคอนกล้องในวงกลม + คำแนะนำอัตราส่วน 16:9 แทนกล่องเทาเรียบๆ, widget ใหม่ `DashedRectBorderPainter` ใน `core/widgets/`) และ WYN-058 (Club Page: ปุ่ม Join สถานะ "เข้าร่วม" ยกเป็น `FilledButton` พื้น cyan เต็มให้เด่นเท่าปุ่ม CTA ของ WYN-056, สถานะ "รออนุมัติ" เปลี่ยนสีจาก `primary` เป็น `outline` ให้ตรงกับ "เข้าร่วมแล้ว" เพราะเป็น disabled state เหมือนกัน) ทั้งสอง task ไม่มี mockup ต้นฉบับจาก Founder โดยตรง (โดยเฉพาะ Club Page) เป็นการต่อยอดภาษาภาพเดียวกับ WYN-056 ด้วยเหตุผล
-- **เลขงาน WYN-057/058 ชนกับที่เพิ่งเลื่อน Phase 8 ไปเมื่อครู่**: แก้ไข `wyn-v1.0.0-roadmap.md` อีกรอบ เลื่อน Phase 8 (Analytics scaffolding) จาก WYN-057/058/059 → **WYN-059/060/061**
-- ทดสอบจริงด้วย Flutter SDK ที่ติดตั้งไว้แล้วในเครื่อง session นี้ (จาก WYN-056): `flutter analyze` สะอาด, `flutter test` เต็ม suite **725/725 ผ่าน** (เพิ่ม widget test ใหม่ยืนยัน dashed placeholder + hint text ของ WYN-057, ยืนยันชนิด/สีปุ่มจริงของ WYN-058 ทั้ง 3 สถานะ)
-- ผลกระทบ: ไม่แตะ schema/RLS/repository logic ใดๆ ทั้งสอง task — visual polish ล้วน
-- อ้างอิง: PR #166 (WYN-056, merged), `.wyn/docs/design/wyn-057-058-club-create-and-page-visual-polish.md`, `.wyn/tasks/approved/WYN-057-create-club-visual-refresh.md`, `.wyn/tasks/approved/WYN-058-club-page-visual-refresh.md`
-
-### [2026-08-24] P0 — Google/Apple Sign-In พังบน Web production ทันทีหลัง deploy จริงครั้งแรก — แก้แล้ว แต่ deploy ซ้ำติด Vercel quota
-- บริบท: หลัง deploy จริงครั้งแรกขึ้น https://web-neon-sigma-66.vercel.app (ดู entry ก่อนหน้า) Founder แจ้ง "มันพังแล้ว ซ่อมด่วน" พร้อม screenshot — กด "เข้าสู่ระบบด้วย Google" แล้ว Safari ขึ้น error "ที่อยู่ของหน้าเว็บไม่ถูกต้อง" ทันที ไม่ไปถึงหน้า Google เลย
-- Root Cause: `AuthRepository.signInWithGoogle()`/`signInWithApple()` (`app/lib/features/auth/data/auth_repository.dart`) hardcode `redirectTo: 'io.wyn.app://login-callback'` (custom URL scheme สำหรับแอป native เท่านั้น) ใช้ทุก platform รวมถึง Web — เขียนไว้ตั้งแต่ WYN-002 ตอนที่ยังไม่มี Flutter Web เลย ไม่เคยถูกทบทวนตอนเพิ่ม Web support
-- Fix: ใช้ `kIsWeb` เช็ค — บน Web ส่ง `redirectTo: null` ให้ supabase_flutter fallback ไปใช้ origin ของหน้าเว็บเอง (อยู่ใน Supabase's `uri_allow_list` อยู่แล้ว) บน native ยังใช้ custom scheme เดิม — ดูรายละเอียดเต็มที่ `.wyn/tasks/bugs/WYN-P0-google-signin-broken-on-web.md`
-- `flutter analyze` สะอาด, `flutter test` 725/725 ผ่าน (ไม่มี test อัตโนมัติที่ทดสอบ OAuth redirect ได้ตรงๆ เพราะเป็น real browser redirect — ต้องพิสูจน์ด้วยการเปิดจริงเท่านั้น)
-- **Deploy ซ้ำติดปัญหาใหม่**: `vercel deploy --prod` ล้มเหลวด้วย `"Resource is limited - try again in 24 hours (more than 100, code: api-deployments-free-per-day)"` — Vercel account เป็น **Hobby (free) plan** ซึ่ง cap ที่ 100 deployments/วัน และ repo นี้ตั้ง auto-preview-deploy ทุก push ทุก branch (เห็น Vercel project แยกต่างหากผุดขึ้นเป็นสิบๆ ตัวจาก preview ของแต่ละ branch ใน session นี้) ทำให้ quota หมดเร็วมาก — **นี่คือคอขวดที่ Founder ต้องตัดสินใจ**: (1) อัปเกรด Vercel plan เป็น Pro (จ่ายเงิน ปลด limit ทันที) หรือ (2) ปิด auto-preview-deploy สำหรับ branch ที่ไม่ใช่ main เพื่อประหยัด quota ไว้ใช้กับ production deploy จริงๆ (ทำได้ฟรี แค่ปรับ config แต่ไม่ปลด limit ของวันนี้) — โค้ด fix พร้อม/tested/merge-ready แล้ว รอแค่ deploy quota เปิดหรือ Founder ตัดสินใจ
-- อ้างอิง: `.wyn/tasks/bugs/WYN-P0-google-signin-broken-on-web.md`
-
-### [2026-08-24] Phone Login ซ่อนชั่วคราวจากหน้า Auth — ยังไม่ได้ตั้งค่า Twilio
-- บริบท: Founder ทดสอบปุ่ม "ใช้เบอร์โทรศัพท์แทน" บน production แล้วใช้งานไม่ได้ ("มันกลับมา") ตรวจสอบพบว่า Supabase project ยังไม่เปิด Phone provider เลย (`external_phone_enabled: false`) และไม่มีการตั้งค่า Twilio/SMS provider ใดๆ เลย (`sms_twilio_account_sid`/`sms_twilio_auth_token` ว่างหมด) — ไม่ใช่บั๊กโค้ด เป็นเพราะ infra ยังไม่พร้อม (Twilio เป็นสิ่งที่ Founder ต้องตั้งเอง ตามที่บันทึกไว้ใน roadmap ตั้งแต่แรก)
-- คำตัดสินใจของ Founder: ซ่อนปุ่ม "ใช้เบอร์โทรศัพท์แทน" ออกจากหน้า login ไปก่อนชั่วคราว ระหว่างที่ยังไม่ได้ตั้งค่า Twilio (เลือกจาก popup ตัวเลือก "ซ่อนปุ่มนี้ไว้ก่อนชั่วคราว")
-- ผลกระทบ: เพิ่ม flag `_phoneLoginEnabled = false` ใน `AuthMethodScreen` (`app/lib/features/auth/presentation/auth_method_screen.dart`) ซ่อนปุ่มด้วย `if` เฉยๆ ไม่ลบโค้ด `PhoneEntryScreen`/`OtpVerificationScreen`/`AuthRepository.sendPhoneOtp` ออก (พร้อมกลับมาเปิดได้ทันทีแค่พลิก flag เป็น `true` เมื่อ Twilio พร้อม) — อัปเดต `widget_test.dart` ให้ตรงกับสถานะใหม่ (`findsNothing` แทน `findsOneWidget`)
-- `flutter analyze` สะอาด, `flutter test` 725/725 ผ่าน
-- อ้างอิง: `app/lib/features/auth/presentation/auth_method_screen.dart`, `app/test/widget_test.dart`
-
-### [2026-08-29] เปลี่ยน Color Direction ของ WYN Social (`app/`): Cyan → Sapphire + เพิ่ม Fraunces/Inter (design-reference re-brand)
-- บริบท: Founder อัปโหลดชุด reference design ใหม่ทั้งแอป (`/design-reference/`, ไฟล์ `00-prototype.tsx` ถึง `22-empty-states.tsx` + `README.md` + `SPEC.md`) เป็นต้นแบบ React/TSX สำหรับหน้าตา+พฤติกรรมของทุกหน้าจอ WYN Social — เริ่มงานจริงหน้าแรก (Notifications, `02-notifications.tsx`) พบว่า `SPEC.md` Section 1 (Design Tokens) กำหนด palette ใหม่ทั้งหมด (`ink #12120F`/`paper #FAF9F6`/`canvas #EDEBE5`/`graphite #8A8880`/`faint #C7C4BC`/`hairline #E8E6E0` + accent เดียว `sapphire #1B3A6B`) ซึ่งขัดกับมติ "Blue → Cyan" (2026-08-15, Cyan `#00C8FF`) ที่ผูกพันอยู่เดิม โดยตรง — เป็น "การเปลี่ยนแปลงวิสัยทัศน์" ตาม RULES.md จึงหยุดถาม Founder ก่อนแตะโค้ดหน้าไหนทั้งสิ้น (ผ่าน popup คำถามตรงๆ ว่าจะใช้ Sapphire ใหม่หรือคง Cyan เดิม)
-- **คำตัดสินใจของ Founder**: ใช้ **Sapphire ตาม reference ใหม่ แทนที่ Cyan ทั้งระบบ** (ไม่ใช่แค่ปรับ layout/spacing โดยคง Cyan ไว้) และเพิ่ม dependency `google_fonts` เพื่อใช้ **Fraunces (serif, display/wordmark/headline เท่านั้น) + Inter (sans, ทุกอย่างอื่น) จริง** ตามที่ `SPEC.md` Section 2 กำหนด แทนที่ system font เดิม (ทั้งสองคำถามถามแยกกันผ่าน popup ก่อนเริ่มเขียนโค้ด)
-- **คำตัดสินใจนี้แทนที่ (supersede) คำตัดสินใจเดิม "เปลี่ยน Color Direction ของ WYN: Blue → Cyan" (2026-08-15) สำหรับขอบเขต `app/` (WYN Social) เท่านั้น** — `seller_app/`'s ZOKY Orange theme (`wyn_zoky_theme.dart`) **ไม่ถูกแตะ** เพราะ design-reference ชุดนี้เป็น social screens ล้วน (README ระบุ "E-commerce/shop screens specifically are out of scope for now" ตรงๆ) — ZOKY Orange (`#FF6B35`) ใน `app/`'s เอง (ผ่าน `ZokyAccentTheme`, สำหรับหน้าที่มี ZOKY marketplace อยู่ใน WYN Social) ก็ไม่ถูกแตะเช่นกัน คงไว้ตามมติเดิม
-- Palette ใหม่ที่ผูกพันแล้ว (ขอบเขต `app/` เท่านั้น, คัดลอกตรงจาก `/design-reference/SPEC.md` Section 1 เป๊ะ): `ink #12120F` / `paper #FAF9F6` / `canvas #EDEBE5` (กรอบมือถือใน mockup เท่านั้น ไม่ใช้ในแอปจริง) / `graphite #8A8880` / `faint #C7C4BC` / `hairline #E8E6E0` / `sapphire #1B3A6B` (accent เดียวของทั้งแอป, ห้ามเพิ่ม hue ใหม่โดยไม่ถาม Founder ก่อน) — sapphire ใช้ alpha ได้ที่เดียวคือ avatar ring 20% (`#1B3A6B33`)
-- **ข้อยกเว้นที่ Founder อนุมัติแยกต่างหาก** (ถามผ่าน popup ระหว่างทำหน้า Notifications): `02-notifications.tsx` กำหนดสี type-badge icon เพิ่มอีก 2 สีนอกเหนือจาก Section 1 (`#3A5A40` เขียวมะกอกสำหรับ comment, `#8A6D3A` น้ำตาล/ทองสำหรับ repost) — Founder อนุมัติให้ใช้ตาม `.tsx` เป๊ะ จำกัดขอบเขตเฉพาะ badge ไอคอน 18px บนแถวการแจ้งเตือนเท่านั้น ไม่ใช่ accent สีที่สองของแอป
-- ผลกระทบ: กระทบ `app/lib/core/design/wyn_colors.dart`/`wyn_typography.dart`/`wyn_theme.dart` (ColorScheme + TextTheme ที่ทุกหน้าจอใน `app/` อ้างอิงผ่าน `Theme.of(context)`) และ `app/pubspec.yaml` (dependency ใหม่) — ยืนยันด้วย `flutter analyze` สะอาด + `flutter test` เต็ม suite 790/790 ผ่านหลังแก้ (ไม่มี regression ข้าม 45 หน้าจอเดิม) — งานจริงแต่ละหน้าจะทำทีละหน้าตามลำดับใน `/design-reference/README.md`เริ่มจาก Notifications
-- อ้างอิง: `/design-reference/README.md`, `/design-reference/SPEC.md`, `/design-reference/02-notifications.tsx`, มติเดิมที่ถูก supersede บางส่วน (2026-08-15, ด้านบน)
-
-### [2026-08-30] ปรับ Typography ของ WYNOS Web App (`app/`) ใหม่ทั้งระบบ: กลับไปใช้ System Font แทน Fraunces+Inter — supersede มติ 2026-08-29 บางส่วน
-
-- บริบท: Founder ขอ "ปรับ Typography ของ WYNOS Web App ใหม่ทั้งระบบ" ให้ได้มาตรฐาน production + รู้สึกเหมือน native app บน iPhone/iPad Safari โดยเฉพาะ พร้อม spec ละเอียด (font stack แบบ system font, typography scale ใหม่, กติกาต่อ UI role แต่ละแบบ) — ระหว่างตรวจโค้ดก่อนแก้ พบว่า `app/lib/core/design/wyn_typography.dart` เพิ่งเปลี่ยนไปใช้ **Fraunces (wordmark/headline) + Inter (ทุกอย่างอื่น) ผ่าน `google_fonts`** เมื่อวานนี้เอง (มติ 2026-08-29 ด้านบน, ถามผ่าน popup และ Founder เลือก Fraunces+Inter แทน system font เดิมตอนนั้นโดยเจตนา) — คำขอวันนี้ขัดกับมติเมื่อวานตรงๆ (กลับทิศทางฟอนต์ 180 องศา) จึงหยุดถาม Founder อีกครั้งผ่าน popup ก่อนแตะโค้ด (ตาม RULES.md, เป็นการเปลี่ยนแปลงสถาปัตยกรรม/แบรนด์)
-- **คำตัดสินใจของ Founder**: เปลี่ยนกลับเป็น System Font ทั้งระบบ (รวม wordmark ด้วย, ไม่ใช่แค่ body/UI text) — เลือก "เปลี่ยนกลับเป็น System Font ทั้งระบบ" ไม่ใช่ตัวเลือก "system font เฉพาะ UI คง Fraunces ไว้สำหรับ wordmark" หรือ "ไม่แตะฟอนต์ แก้แค่ scale"
-- **ข้อจำกัดทางเทคนิคที่ค้นพบระหว่างทำ (สำคัญ ต้องรู้ก่อนอ่านผลลัพธ์)**: "WYNOS Web App" คือ Flutter Web build ของ `app/` (deploy จริงที่ `web-neon-sigma-66.vercel.app` — ดู CONTEXT.md) ไม่ใช่เว็บแบบ HTML/CSS ธรรมดา คำขอเดิมเขียนด้วย CSS `font-family` stack (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif`) ซึ่งใช้กับ Flutter ตรงๆ ไม่ได้ — Flutter Web renderer ปัจจุบัน (CanvasKit/Skwasm, Flutter 3.47.1, ไม่มี HTML renderer แล้วตั้งแต่หลายเวอร์ชันก่อนหน้านี้) วาดตัวอักษรผ่าน Skia ในแซนด์บ็อกซ์ WASM ซึ่ง**ไม่มีสิทธิ์เข้าถึงฟอนต์ระบบที่เครื่องผู้เข้าชมติดตั้งไว้เลย** (ข้อจำกัดของ browser sandbox เอง ไม่ใช่ข้อจำกัดของ Flutter) ดังนั้นผู้เข้าชมเว็บทุกคนไม่ว่าจะใช้ Safari บน iPhone, Chrome บน Android, หรือ Windows/macOS จะเห็น **Roboto ที่ฝังมากับตัว Flutter engine เอง** เหมือนกันหมด ไม่ใช่ SF Pro/Segoe UI ของเครื่องจริงๆ (ทางเดียวที่จะได้ SF Pro/Segoe UI จริงบนเว็บคือเปลี่ยนไปใช้ HTML renderer ซึ่งถูกลบออกจาก Flutter SDK เวอร์ชันนี้ไปแล้ว ไม่ใช่ตัวเลือกที่ทำได้) — สิ่งที่ทำได้จริงและตรงตามเจตนาของคำขอ (ไม่มีฟอนต์เสียเงิน/ดาวน์โหลด, ไม่มี `@font-face`, ไม่มี Google Fonts) คือ**ลบ `google_fonts` dependency และไม่ตั้งค่า `fontFamily` เลยทั้งไฟล์** ปล่อยให้ Flutter's `Typography.material2021` เลือก default ตาม `defaultTargetPlatform` เอง — วิธีนี้ตรงกับที่ `seller_app/lib/core/design/wyn_typography.dart` ทำอยู่แล้วมาตลอด (ไม่เคยถูกแตะ, ไม่เคยมี `google_fonts`) และตรงกับที่ `.wyn/docs/design/ds-001-color-system.md` Section 5 เขียนไว้ตั้งแต่แรกเช่นกัน — บน **native iOS/macOS build จริง** (ยังไม่ได้แจกจ่าย ดู CONTEXT.md) วิธีนี้จะได้ San Francisco จริงเพราะ Skia ที่รันแบบ native เข้าถึง CoreText ของ OS ได้
-- Typography scale ใหม่ (mapping จาก spec 12 role ของ Founder ไปยัง 12-role `TextTheme` ของ Flutter เดิม เพื่อให้ `Theme.of(context).textTheme.xxx` call site ทั้งหมดทำงานต่อได้โดยไม่ต้องแก้ทีละจุด) — ตารางเต็มอยู่ที่ `.wyn/docs/design/ds-001-color-system.md` Section 5 (อัปเดตพร้อมกันรอบนี้): Page Title 24/700, Section Title 20/700, Username(`titleSmall`) 15/600, Post Body(`bodyLarge`) 16/400 (ไม่เปลี่ยน ตรงอยู่แล้ว), Comment(`bodyMedium`+`bodySmall` รวมเป็น role เดียว) 15/400, Button(`labelLarge`, M3 default ของปุ่มทุกปุ่ม) 15/600, Bottom Nav(`labelMedium`, M3 `NavigationBar` default) 13/500, Metadata/counts(`labelSmall`) 13/500, Shop Price(`titleLarge`) 22/700
-- **Input ≥16px บังคับทั่วแอป** (กันปัญหา iOS Safari auto-zoom ตอน focus ตามที่ Founder ระบุเจาะจง) — เจอ 8 จุดที่ `TextField`/`TextFormField` ประกาศ `style`/`hintStyle` แบบ hardcode ต่ำกว่า 16px เอง (ไม่ผ่าน `TextTheme`) แก้ตรงๆ ทั้ง 8 จุด: ช่องค้นหา Club/Search/Follow list/New Message, ช่องพิมพ์ข้อความแชท, ช่องคอมเมนต์ใต้โพสต์, ตัวเลือกโพล, และ `LabeledField` (shared component ของ Edit Profile + Create Club)
-- **ขอบเขตที่แตะจริง**: เฉพาะ `app/` (WYN Social Flutter Web) — `seller_app/` ไม่ถูกแตะเลย (ตามมติ 2026-08-29 เดิมที่ scope เฉพาะ `app/` อยู่แล้ว, `seller_app/` ไม่เคยมี `google_fonts` ตั้งแต่แรก) และ `admin/` (Next.js admin dashboard, ใช้ `next/font`) ก็ไม่ถูกแตะ เพราะไม่ใช่ "WYNOS Web App" ที่ user ทั่วไปเข้าใช้ (ดู CONTEXT.md: WYNOS Web App = Flutter Web build ของ `app/` เท่านั้น)
-- **ขอบเขตที่ตั้งใจไม่แตะ (ความเสี่ยงที่ประเมินแล้วว่าไม่คุ้ม โดยไม่มี Flutter build จริงให้ดูผลบน iPhone Safari จริง)**: มี local helper function (`_textStyle`, เดิมชื่อ `_interStyle`) กระจายอยู่ใน 14 ไฟล์ ใช้ font-size เป็นตัวเลขทศนิยมเฉพาะจุด (11, 11.5, 12.5, 13.5, 14.5, 17 ฯลฯ) ที่ไม่ตรงกับ scale ใหม่ — นี่คือปัญหา "font-family กระจัดกระจายในแต่ละ Component" ที่ Founder ถามหาโดยตรง (audit เจอแล้ว, list เต็มอยู่ใน commit message) แต่**ตั้งใจไม่ไล่รวมเป็น token กลางหรือปัดขนาดให้ตรง scale ในรอบนี้** เพราะเป็นการเปลี่ยนตัวเลข pixel จริงหลายสิบจุดข้าม 14 ไฟล์ ไม่มี Flutter/browser จริงให้ตรวจ layout เทียบ (sandbox นี้ไม่มี GUI) เสี่ยงต่อ "spacing เพี้ยน" ที่ Founder สั่งห้ามไว้ตรงๆ — สิ่งที่ทำแทนคือรีเนมฟังก์ชันจาก `_interStyle` เป็น `_textStyle` (ไม่กระทบพฤติกรรม) และ swap ฟอนต์ให้ทุกจุดพร้อมกัน (ปลอดภัย, verified ผ่าน `flutter analyze`+`flutter test`) — งานรวม token กลาง/ปรับตัวเลขที่เหลือควรเป็น task แยกที่มี QA เห็นภาพจริงบนอุปกรณ์ก่อน merge
-- ผลกระทบ: `app/lib/core/design/wyn_typography.dart` (เขียนใหม่ทั้งไฟล์), `app/pubspec.yaml` (ลบ `google_fonts`), 20 ไฟล์ที่เรียก `WynTypography.fraunces(` (เปลี่ยนชื่อเป็น `WynTypography.screenTitle(`, ค่า fontSize เดิมต่อจุดไม่เปลี่ยน), 23 ไฟล์ที่เรียก `GoogleFonts.inter(` ตรงๆ (เปลี่ยนเป็น `TextStyle(` ธรรมดา, ค่าเดิมไม่เปลี่ยนยกเว้น 8 จุด input ที่บังคับ ≥16px ตามด้านบน), `.wyn/docs/design/ds-001-color-system.md` Section 5 (อัปเดตตารางให้ตรงกับโค้ดจริง) — ยืนยันด้วย `flutter analyze` สะอาด (0 issues) + `flutter test` เต็ม suite (834/834 ผ่าน, ไม่มี regression) ทั้งสองรอบ (ก่อน/หลังแก้ 8 จุด input)
-- อ้างอิง: มติเดิมที่ถูก supersede บางส่วน (2026-08-29, ด้านบน — เฉพาะส่วนฟอนต์เท่านั้น สี Sapphire ยังคงอยู่ ไม่ถูกแตะ), `.wyn/docs/design/ds-001-color-system.md` Section 5, `seller_app/lib/core/design/wyn_typography.dart` (precedent เดิมที่ไม่เคยเปลี่ยน)
-
-### [2026-08-30] ส่วนต่อ: ปัดขนาด scattered `_textStyle`/`screenTitle` ที่เหลือให้ตรง Typography Scale (Founder สั่งให้ทำให้เสร็จก่อน deploy)
-
-- บริบท: มติก่อนหน้า (ด้านบน วันเดียวกัน) ตั้งใจ **ไม่แตะ** จุด `_textStyle`/`screenTitle` ที่กระจาย 14+ ไฟล์ (ใช้ pixel เฉพาะจุดแบบ 11/11.5/12.5/13.5/14.5/17/18/21 ที่ไม่ตรง scale ใหม่) เพราะตอนนั้นประเมินว่าเสี่ยงเกินไปที่จะแก้หลายสิบจุดโดยไม่มี Flutter GUI ให้ตรวจ layout จริง — Founder สั่งกลับมาว่า "ทำให้เสร็จทุกงานก่อน ค่อย deploy" จึงทำต่อจนครบ
-- วิธีทำ: ไล่ทีละจุดตาม **context จริง** ของแต่ละที่ (ไม่ใช่ปัดตัวเลขแบบสุ่มสี่สุ่มห้า) แล้วจับเข้า role ที่ถูกต้องตาม scale ใหม่ — Username/ชื่อในแถว → 15, ข้อความอ่านจริง (คอมเมนต์/บั๊บเบิลแชท/คำอธิบาย) → 15 (พร้อมปรับ height เป็น 1.45), metadata/ตัวนับ/eyebrow label/chip แคบๆ → 13 (พื้นล่างสุด ไม่มีอะไรต่ำกว่านี้อีกแล้วทั้งแอป), ปุ่ม CTA หลัก (FilledButton "โพสต์"/"บันทึก"/"สร้าง Club"/"ติดตาม") → 15/600 ตรงตาม Button spec, ชื่อ nav-bar แบบ compact (เดิม ~17-18px ผ่าน `WynTypography.screenTitle`) → 16 (ยึดกติกาเดิมของแอปเองใน DS-001 Section 5 ข้อ 1 "hierarchy จากน้ำหนัก ไม่ใช่ขนาด" แทนที่จะกระโดดไป 20px ซึ่งเสี่ยง overflow ใน AppBar แถวแคบ) และมีบางจุดที่ควรใหญ่ขึ้นแทนเล็กลง: หัวข้อหน้าการแจ้งเตือน 19→24 (Page Title), ชื่อโปรไฟล์ตัวใหญ่ 17→20, ตัวเลขสถิติในโปรไฟล์ (จำนวนโพสต์/ผู้ติดตาม) 16→24 (Important Number/Statistic ตรงตาม spec), หัวข้อ empty-state 18→20 (Section Title) — พบและแก้เพิ่ม 2 จุด `hintStyle` ที่พลาดไปตอนแก้รอบแรก (ช่องค้นหา Club, ช่องคอมเมนต์ใต้โพสต์) ให้เป็น 16px ด้วยเหตุผลเดียวกับ 8 จุด input ที่แก้ไปแล้ว (Safari zoom)
-- **ข้อยกเว้นที่ตั้งใจไม่แตะ** (ตรวจ context แล้วยืนยันว่าเป็นข้อจำกัดทางกายภาพจริง ไม่ใช่ความมักง่าย): badge ตัวเลขนับ (แจ้งเตือน/ตะกร้าสินค้า บน bottom nav/cart icon) คงไว้ที่ 10px เพราะอยู่ในวงกลม fixed ขนาด 16×16px เท่านั้น (มาตรฐานเดียวกับ badge ของ native iOS/Android), ตัวอักษรย่อใน Avatar placeholder (28/12px) ที่คำนวณสัดส่วนตาม radius ของวงกลมนั้นๆ, ป้าย duration วิดีโอ/ลำดับรูปภาพ/ราคาที่ลอยทับ thumbnail ในตาราง grid (padding แนวตั้งแค่ 1px ในกล่องกลมเล็กๆ) — ทั้งหมดนี้เป็น pattern เดียวกับที่ปล่อยผ่านไปแล้วในไฟล์อื่นตอนรอบแรก (`pop_grid_tile.dart`)
-- ผลกระทบ: 29 ไฟล์ใน `app/lib/` (ทั้งกลุ่ม 14 ไฟล์เดิมที่มี `_textStyle` และไฟล์อื่นๆ ที่พบเพิ่มระหว่าง audit ทั่วแอป เช่น grid tile ต่างๆ, order status badge) — ยืนยันด้วย `flutter analyze` สะอาด (0 issues) + `flutter test` เต็ม suite 834/834 ผ่าน ไม่มี regression
-- สถานะ: งาน Typography ของ `app/` เสร็จสมบูรณ์ตามที่ Founder ขอแล้ว พร้อม deploy — ยังไม่ได้ deploy จริง (รอคำสั่ง)
-
-### [2026-08-30] เพิ่มโลโก้ WYNOS จริง (แทน Flutter placeholder icon) — web/Android/iOS
-
-- บริบท: Founder ส่งไฟล์โลโก้จริง (ตัว "W" สีขาวเส้น outline บนพื้นสี่เหลี่ยมมุมโค้งสีเข้ม/ดำเกือบดำ, ภาพ preview 1024×1024 มีขอบขาวรอบไอคอนแบบ mockup) ก่อนหน้านี้ทุก platform ยังใช้ไอคอน Flutter template เริ่มต้น (โลโก้ Flutter สีฟ้า) เพราะไม่เคยมีใครใส่โลโก้จริงมาก่อน
-- **สิ่งที่ทำ**: crop ภาพให้เหลือเฉพาะสี่เหลี่ยมมุมโค้งเข้ม (ตัด margin ขาวรอบๆ ออกทั้งหมด ตามขอบเขตจริงที่วัดได้ 220,220–802,802 จากภาพ 1024×1024) แล้ว resize ให้เต็มขอบภาพ (edge-to-edge, ไม่มีขอบขาวเหลือ) เป็นทุกขนาดที่แต่ละ platform ต้องการ:
-  - **Web** (`app/web/`): `favicon.png` (64×64), `icons/Icon-192.png`, `icons/Icon-512.png`, `icons/Icon-maskable-192.png`, `icons/Icon-maskable-512.png` — ใช้ภาพเดียวกันทั้ง regular และ maskable variant (ไม่มีต้นฉบับแบบ full-bleed แยกสำหรับ maskable โดยเฉพาะ ยอมรับ trade-off นี้แทนที่จะไปตัดต่อดัดแปลงโลโก้เพิ่มเอง) — อัปเดต `manifest.json`'s `background_color`/`theme_color` จาก Flutter default `#0175C2` เป็น `#12120F` (ink, สีเดียวกับพื้นหลังโลโก้ และตรงกับ WynColors.ink ที่ใช้ทั้งแอปอยู่แล้ว)
-  - **Android** (`app/android/.../mipmap-*/ic_launcher.png`): ทั้ง 5 ความหนาแน่น (mdpi 48 / hdpi 72 / xhdpi 96 / xxhdpi 144 / xxxhdpi 192)
-  - **iOS** (`app/ios/Runner/Assets.xcassets/AppIcon.appiconset/`): ครบทั้ง 15 ไฟล์ตาม `Contents.json` เดิม (iPhone/iPad ทุก size/scale + 1024×1024 marketing icon, บันทึกเป็น RGB ไม่มี alpha channel ตามข้อกำหนดของ Apple)
-- **แก้ `app/.gitignore`**: `/web/*` เดิม wipe ทุกอย่างใน `web/` ทิ้งตอน CI รัน `flutter create . --platforms web` ทุกครั้งที่ deploy (ยกเว้น `flutter_bootstrap.js`/`index.html`/`manifest.json` ที่มี exception อยู่แล้ว) — ถ้าไม่เพิ่ม exception ให้ `favicon.png`/`icons/` ด้วย ไฟล์โลโก้ที่เพิ่งใส่จะหายกลับไปเป็นไอคอน Flutter default ทันทีที่ deploy รอบถัดไป จึงเพิ่ม `!/web/favicon.png`, `!/web/icons/`, และไฟล์ทั้ง 4 ใน `icons/` เข้า exception list (pattern เดียวกับที่มีอยู่แล้วสำหรับ 3 ไฟล์เดิม)
-- ยืนยันด้วย `git add` (เช็คว่า gitignore exception ทำงานจริง ไม่ใช่แค่เขียนไฟล์ทิ้งไว้เฉยๆ) + `flutter analyze` สะอาด
-- **ยังไม่ได้แตะ**: wordmark ตัวอักษร "WYN" (Text widget ธรรมดา ไม่ใช่รูปภาพ) ในหน้า Onboarding — เป็นคนละส่วนกับ app icon/favicon ที่ Founder ส่งมารอบนี้ ถ้าต้องการเปลี่ยนด้วยต้องสั่งแยก
-
-### [2026-08-30] แก้ไข: กลับไปใช้โลโก้พื้นหลังสีดำ (ไม่ใช่โปร่งใสทั้งหมด)
-
-- Founder ส่งไฟล์โลโก้เวอร์ชันที่ 2 มา (พื้นหลังดำล้วน ไม่มี noise texture, มุมโปร่งใสสะอาดกว่าเวอร์ชันแรก) พร้อมสั่ง "ลบพื้นหลัง เป็นโปร่งใสให้ละ" — เข้าใจผิดว่าต้องการลบสี่เหลี่ยมดำออกทั้งหมดเหลือแค่ตัว W ลอยบนพื้นโปร่งใส (ทำแล้วส่งไฟล์ให้ดู) — Founder แก้กลับ: "ไม่ใช่ โลโก้พื้นหลังสีดำ ตัว W สีขาว" คือต้องการแค่ "พื้นหลัง" ของ**ไฟล์ภาพ** (มุมสี่เหลี่ยมมุมโค้งรอบนอก) เป็นโปร่งใส ไม่ใช่ลบพื้นดำของตัวโลโก้เอง
-- แก้ไข: re-generate app icon ทั้ง web/Android/iOS จากไฟล์โลโก้เวอร์ชันที่ 2 (สะอาดกว่าเวอร์ชันแรกที่ครอปมาจาก mockup screenshot) — สี่เหลี่ยมมุมโค้งดำ + ตัว W ขาว + มุมนอกโปร่งใส เหมือนเดิม เพียงแต่ใช้ source ไฟล์ที่ดีกว่า, 1024×1024 marketing icon ของ iOS ยังคง flatten เป็น RGB ทึบ (ไม่มี alpha) ตามข้อกำหนด ApStore
-- ไฟล์เวอร์ชัน "ตัว W ล้วน โปร่งใสทั้งหมด" ที่ส่งให้ดูก่อนหน้านี้ **ไม่ได้ใช้กับ app icon** — เก็บไว้เป็นไฟล์แยกเผื่อใช้เป็น wordmark ในตัวแอปภายหลัง (ยังไม่ได้ใช้จริงที่ไหน)
-- ยืนยันด้วย `flutter analyze` สะอาด
-
-### [2026-08-30] แก้ push notification ให้ครอบคลุมครบ 24 ประเภท (เดิมมีแค่ 13)
-
-- บริบท: Founder ถามสถานะระบบแจ้งเตือน ("เพิ่มระบบแจ้งเตือนได้ไหม ระบบแจ้งเตือนตอนนี้ดีขนาดไหน") — ตรวจโค้ดทั้งหมดพบว่า in-app notification (23 ประเภท จริงคือ 24 นับรวม system) สมบูรณ์ดี, notification settings (WYN-044) บังคับที่ระดับ DB ถูกต้อง แต่ push notification (WYN-016, เขียนไว้ตั้งแต่ 2026-08-16) แม้ code ครบสมบูรณ์ก็จริง แต่ **message text + deep-link ครอบคลุมแค่ 13 ประเภทแรกที่มีตอน WYN-016 เขียน** — อีก 11 ประเภทที่เพิ่มมาทีหลัง (mention ×2 WYN-021, redrop WYN-034, moderation ×2 WYN-029, appeal ×2 WYN-030, message request WYN-032, follow request ×2 WYN-039, system WYN-043) ไม่เคยถูกเพิ่มเข้าไปเลยทั้งฝั่ง Edge Function และฝั่ง client deep-link — ถ้า push ประเภทเหล่านี้ถูกส่งจริง (หลัง Firebase setup) ผู้ใช้จะเห็นแค่ข้อความทั่วไป "คุณมีการแจ้งเตือนใหม่" และกดแล้วไม่เปิดหน้าไหนเลย — Founder สั่งแก้ทันที
-- **แก้ที่ `supabase/functions/send-push-notification/`**:
-  - `_lib.ts`: เพิ่ม `reason`/`moderation_action_id`/`moderation_action_type`/`conversation_id` เข้า `NotificationRow` interface (คอลัมน์เหล่านี้มีอยู่แล้วใน `notifications` table ตั้งแต่ WYN-029/030/032 — payload จาก webhook มีอยู่แล้ว แค่ type ไม่เคยรับรู้), `actor_id` เปลี่ยนเป็น nullable ให้ตรงกับ DB จริง (null สำหรับ moderation_warning/moderation_content_removed/system — เดิม type ระบุ non-null ผิด เป็น latent bug ที่ไม่เคยถูกจับเพราะไม่เคยมี push จริงส่งออกมาเทสต์), เพิ่ม 9 case ใหม่ใน `messageFor()` (ข้อความ Thai copy ตรงกับ `notification_list_screen.dart`'s `_messageFor` เป๊ะทุกตัวอักษร รวม appeal_approved's 5 แบบข้อความตาม action type), `buildDataPayload()` เพิ่ม `conversation_id`/`moderation_action_id` (ให้ client deep-link ได้) และแก้ให้ omit `actor_id` เมื่อเป็น null แทนที่จะส่ง string `"null"` ที่ผิด
-  - `index.ts`: guard การ query `profiles` ตอน `actor_id` เป็น null (เดิมจะยิง `profiles?id=eq.null` ซึ่ง Postgrest ปฏิเสธ — degrade ได้แค่เงียบๆ ไม่ crash แต่แก้ให้ถูกต้องแทน), ส่ง `row.reason`/`row.moderation_action_type` เข้า `messageFor()`
-  - `_lib.test.ts`: เพิ่ม test ครบทุก case ใหม่ (9 ข้อความ + buildDataPayload สำหรับ null actor_id/conversation_id) — ยืนยันด้วย `deno check`/`deno lint` สะอาด (jsr.io ใช้ไม่ได้ในสภาพแวดล้อมนี้แม้จะอยู่ใน noProxy list ก็ตาม — 403 ตรงๆ จาก network เอง ไม่ใช่ proxy — เลยรันตรรกะเดียวกันผ่านสคริปต์ยืนยันแยกที่ import ตรงจาก `_lib.ts` ไม่ผ่าน jsr package ยืนยัน 20/20 ผ่านหมด แทนการรัน `deno test` ตรงๆ)
-- **แก้ที่ `app/lib/features/push/presentation/push_notification_service.dart`**: เพิ่ม 11 case เข้า `_openFromPushData` (รวม mention_drop/mention_club_post ที่ไม่เคยมีมาก่อนเลยแม้ตอน WYN-021 จะเพิ่ม message text ฝั่ง Edge Function ไปแล้วก็ตาม — เป็นอีกช่องโหว่ที่เจอเพิ่มระหว่างตรวจ) mirror `NotificationListScreen._openNotification` เป๊ะ: redrop/mention_drop → เปิด Drop เดิม, mention_club_post → เปิด Club Post เดิม, moderation 4 ประเภท → `MyModerationActionScreen`, message_request → fetch profile ก่อนแล้วเปิด `ConversationScreen` (push payload มีแค่ actor_id ไม่มี username เหมือน in-app ที่มี WynNotification row ให้), follow_request → `FollowRequestListScreen`, follow_request_accepted → เปิดโปรไฟล์ actor, system → no-op (ข้อความเต็มอยู่ใน push body แล้ว)
-- ยืนยันด้วย `flutter analyze` สะอาด + `flutter test` เต็ม suite **834/834 ผ่าน** (ไม่มี regression)
-- **ยังไม่เปลี่ยน**: `seller_app/`'s push service ไม่ถูกแตะ (มีแค่ 4 ประเภท order เท่านั้น ครบอยู่แล้ว ไม่มี mention/moderation/follow-request concept) — Firebase setup ยังบล็อกการทดสอบ push จริงเหมือนเดิม ไม่เปลี่ยนสถานะ รอ Founder เหมือนเดิม
-
-### [2026-08-30] แก้สี heart/like icon ให้เป็นสีแดงสม่ำเสมอทั้งแอป
-
-- บริบท: Founder ส่งภาพชี้ว่า heart icon (ถูกใจ) สีไม่ตรงกันระหว่างหน้า — หน้า Home feed แดง แต่หน้า Post Detail กับ badge ในหน้า Notification เป็นสีน้ำเงิน (sapphire) — ต้องการสีแดงเดียวทั้งแอป
-- ตรวจโค้ดพบว่า `Colors.red` เป็น convention หลักอยู่แล้วใน 5 จุด (home_drop_card/home_pop_card/pop_comment_sheet/pop_clip_view/club_post_detail_screen) แต่มี 5 จุดหลุดไปใช้ `WynColors.sapphire` แทน (club_post_card.dart, drop_detail_screen.dart ×2 จุด [ปุ่มถูกใจหลัก + ถูกใจคอมเมนต์], drop_image_viewer.dart, และ notification badge ของ `_badgeFor()`) — แก้ให้ตรงกับ convention ส่วนใหญ่ (`Colors.red`) ทั้งหมด
-- **หมายเหตุ**: notification badge (`_badgeFor`, comment เดิมในโค้ดบอกว่า like/follow ใช้ sapphire ตาม `02-notifications.tsx` ที่ Founder เคยอนุมัติไว้ตอน 2026-08-29) — คำสั่งวันนี้ (ระบุชัดเจนพร้อมภาพ) ทับมติเดิมเฉพาะจุด like badge เท่านั้น ไม่แตะ follow badge (ไอคอนคนละแบบ ไม่ใช่หัวใจ ไม่อยู่ในขอบเขตคำขอ)
-- **ไม่แตะ**: `double_tap_like.dart` (หัวใจสีขาวเป็น animation overlay ตอน double-tap รูปภาพ, ไม่ใช่ปุ่มค้าง ถูกออกแบบให้ขาวเพื่อเห็นชัดบนรูปทุกแบบ), `trending_tile.dart`/`drop_grid_tile.dart` (หัวใจสีขาวคู่กับตัวเลขยอดถูกใจที่ลอยทับ thumbnail ใน grid, เป็นสถิติสาธารณะ ไม่ใช่สถานะ "คุณถูกใจ" ส่วนตัว)
-- ยืนยันด้วย `flutter analyze` สะอาด + `flutter test` เต็ม suite 834/834 ผ่าน
-
-### [2026-08-30] Apple Developer Program — ยังไม่สมัคร (งบไม่พอตอนนี้)
-
-- บริบท: ระหว่างคุยเรื่อง emoji/font บน iOS ไม่ตรงกับ Apple native (ข้อจำกัดของ Flutter Web ที่อธิบายไว้แล้วในมติเดียวกันวันนี้ก่อนหน้า) Founder ถามราคา Apple Developer Program → ตอบไปว่า $99 USD/ปี (~3,300-3,500 บาท) → **Founder ตอบตรงๆ ว่า "แพงจ่ายไม่ไหว"**
-- **คำตัดสินใจ**: ยังไม่สมัคร Apple Developer Program ตอนนี้ — ผลคือ iOS native build (TestFlight/App Store), iOS push notification, และ SF Pro/Apple Emoji บน iOS ยังใช้งานไม่ได้ต่อไปอีกระยะ (ไม่มีกำหนดเวลา) — WYNOS ยังอยู่ในรูปแบบ Web App (PWA) บน iOS Safari เท่านั้น
-- แนะนำทางเลือกที่ถูกกว่าไปแล้ว: Google Play Developer ($25 ครั้งเดียว จ่ายครั้งเดียวไม่ต้องต่ออายุ) — ยังไม่มีคำสั่งให้ดำเนินการ รอ Founder ตัดสินใจเพิ่มเติม
-- ไม่กระทบโค้ด ไม่มีการเปลี่ยนแปลงทางเทคนิคจากมตินี้ — บันทึกไว้เป็น known constraint เท่านั้น
-
-### [2026-08-30] เพิ่ม Header จริงให้ Home (wordmark + ปุ่มแชท) ให้ตรงกับ design-reference
-
-- บริบท: Founder ส่งภาพ 3 รูปเทียบ "หน้าตอนนี้" (Home บนแอปจริง) กับ "หน้าที่อยากได้" (`design-reference/01-home.tsx`) พร้อมถาม "ทำไมไม่ตรงกัน" และสั่งให้เปลี่ยนไอคอนวงสีเหลือง (search icon ใน mockup) เป็นปุ่มแชท
-- ตรวจโค้ดพบสาเหตุจริง: `HomeFeedScreen` ไม่เคยมี header row เลย (ไม่มี hamburger, ไม่มี wordmark "WYNOS") — มีแค่ไอคอนแชทลอย (floating overlay, Positioned ใน Stack) มุมขวาบน ซึ่งเป็นทางเลือกที่ตั้งใจทำตอน WYN-031 เพื่อเลี่ยง AppBar เพราะตอนนั้น ClubSection/Trending/feed-mode toggle ยังเป็น fixed-height Column ที่เกือบ overflow อยู่แล้วบนจอเล็ก — เหตุผลนั้นหมดอายุไปแล้วตั้งแต่ 2026-08-24 (ClubSection/Trending ย้ายเป็น sliver ในตัว scroll แล้ว)
-- **แก้**: เพิ่ม header row จริง (ไม่ใช่ overlay ลอย) ให้ `HomeFeedScreen` — wordmark "WYNOS" กลาง + ปุ่มแชทขวา (แทนที่ search icon ของ reference ตรงตามที่สั่ง, ใช้ปลายทางเดิม `_openChatInbox`) — **ไม่ใส่ hamburger ซ้าย**: 5 ปลายทางของแอปอยู่ใน Bottom Nav ครบอยู่แล้ว (Settings เข้าถึงได้จาก Profile) ไม่มีเมนูจริงให้ hamburger เปิด การใส่ปุ่มที่กดแล้วไม่ทำอะไรจะแย่กว่าการไม่ใส่
-- **ผลข้างเคียงที่ต้องแก้ตาม**: การเพิ่ม header กินพื้นที่แนวตั้งจริง ทำให้ "จาก Club ของคุณ" ตอนไม่มีโพสต์ (`FromYourClubsFeed`'s empty/error state) overflow บนจอเตี้ย (ยืนยันด้วย `flutter test` บน viewport มาตรฐาน 800×600 — RenderFlex overflow 34px) — แก้ด้วยการห่อ empty/error state ด้วย widget ใหม่ `_CenterOrScroll` (LayoutBuilder + SingleChildScrollView + ConstrainedBox) ให้ scroll แทน overflow เมื่อพื้นที่ไม่พอ แทนที่จะพยายามบีบ header ให้เล็กจนเสีย touch target (ต่ำกว่ามาตรฐาน accessibility 44/48dp)
-- อัปเดต test 2 ไฟล์ (`root_shell_test.dart`, `home_feed_screen_test.dart`) ให้ scroll เข้าหา element ที่อาจอยู่นอกจอก่อน assert/tap ตาม layout ใหม่ที่ตั้งใจให้เป็นแบบนี้ (มี header จริงแล้ว = เนื้อหาด้านล่างเห็นน้อยลงโดยธรรมชาติ ไม่ใช่บั๊ก)
-- ยืนยันด้วย `flutter analyze` สะอาด + `flutter test` เต็ม suite 863/863 ผ่าน
-
-### [2026-09-01] WYN-072: WYNOS wordmark ในหน้า Onboarding, พักปุ่ม Apple Sign-In, เพิ่ม Guest Browsing (Anonymous Sign-In ต่อเข้า UI จริงครั้งแรก)
-
-- บริบท: Founder ส่งภาพหน้าจอ Welcome/เข้าสู่ระบบ วงไว้ 3 จุด: (1) wordmark ยังเป็น "WYN" ไม่ใช่ "WYNOS" (2) อยากมีทางเข้าชมแอปได้เลยไม่ต้องล็อกอิน (3) พักปุ่ม "เข้าสู่ระบบด้วย Apple" ไว้ก่อน ใช้ Google เท่านั้น — AI Design ตรวจโค้ด+RLS แล้วยืนยันผ่าน popup กับ Founder 2 รอบ (ขอบเขตงาน + guest ควรเจออะไรก่อนถึง Home) ก่อนเขียนสเปค แล้ว Founder อนุมัติให้ implement ตรงในโค้ดจริงเลย ข้ามการรีวิว mockup เพิ่มเติม
-- **คำตัดสินใจ**:
-  1. Wordmark หน้า Welcome/หัวข้อหน้าเข้าสู่ระบบ: `"WYN"` → `"WYNOS"` (ตรงกับ brand copy convention เดิมที่ wyn-024 วางไว้แล้วแต่ Onboarding ยังไม่เคยถูกแก้)
-  2. ปุ่ม "เข้าสู่ระบบด้วย Apple" ซ่อนไว้ชั่วคราวด้วย flag `_appleLoginEnabled = false` (pattern เดียวกับ `_phoneLoginEnabled` เดิม) — เหตุผลเดียวกับที่ Apple Developer Program ยังไม่สมัคร (มติ 2026-08-30) `signInWithApple()` ใน `AuthRepository` ไม่ถูกลบ พร้อมเปิดกลับทันทีที่มี Apple Developer Program
-  3. **Guest Browsing**: ตรวจ RLS ใน `supabase/schema.sql` แล้วพบว่าตารางหลักทุกตัวบังคับ role `authenticated` เท่านั้นถึงจะอ่านได้ — ไม่มีทาง "ไม่มี session เลย" อ่าน feed ได้จริงโดยไม่แก้ RLS (ซึ่งเป็น Security/Auth Architecture ต้องขออนุมัติแยก) จึงใช้ **Anonymous Sign-In ที่มีอยู่แล้ว** (`AuthRepository.signInAnonymously()`, อนุมัติไว้ 2026-08-16 สำหรับทีมทดสอบ แต่ไม่เคยต่อเข้า UI จริงมาก่อน) — เพิ่มปุ่ม "เข้าชม WYNOS ได้เลย" ในหน้าเข้าสู่ระบบ, `AuthGate` ข้าม Username Setup ให้ guest (เช็ค `session.user.isAnonymous`) เข้า `RootShell`/Home ได้ทันที
-  4. Founder ยืนยันเอง (ตอบ popup): "ปุ่มกดเยี่ยมชมได้เลย ดูโพสต์ได้ แต่หน้าสำคัญเช่นโปรไฟล์ ควรล็อกอิน" — AI Design ตีความต่อยอดเป็น gate เดียวกัน 7 จุด (โปรไฟล์/สร้าง Drop/แจ้งเตือน/แชท/Like-Comment-Save-ReDrop-Poll vote/Follow/Club create-join) โดยระบุชัดว่ามีแค่ "โปรไฟล์" ที่ Founder สั่งตรง ที่เหลือเป็นการตีความ — รอบ implement นี้ (AI Coding) **ทำจริงเฉพาะ 4 จุดที่รวมศูนย์อยู่ใน `root_shell.dart`/`home_feed_screen.dart`** (แท็บโปรไฟล์, ปุ่ม "+" สร้าง Drop, แท็บแจ้งเตือน, ปุ่มแชทใน Home header) ผ่าน helper เดียว `requireRealAccount()` (`app/lib/features/auth/presentation/widgets/guest_gate.dart`) — ส่วน Like/Comment/Save/ReDrop/Poll vote/Follow/Club create-join ที่กระจายอยู่หลายสิบไฟล์ทั่วแอป **ยังไม่ได้ gate ในรอบนี้** (ดูรายละเอียดเหตุผลและสถานะที่ `.wyn/tasks/backlog/WYN-072-onboarding-polish-guest-browsing.md`)
-- **หมายเหตุความปลอดภัยสำคัญ**: gate ที่เพิ่มเป็น **UI-level เท่านั้น ไม่ใช่ security boundary** — RLS ปัจจุบันอนุญาต role `authenticated` เขียนข้อมูลได้ปกติไม่ว่าจะเป็น anonymous session หรือไม่ (ไม่แยก `is_anonymous` เลย) ดังนั้น guest ที่ยิง API ตรง (ไม่ผ่าน UI ที่ gate ไว้) ยังคง Like/Comment/Post ได้จริงในทางเทคนิค — ถ้า Founder ต้องการบังคับที่ระดับ RLS ต้องขออนุมัติแยกเป็น Security Architecture change
-- ผลกระทบ: `welcome_screen.dart`, `auth_method_screen.dart`, `auth_gate.dart`, `root_shell.dart`, `home_feed_screen.dart`, ไฟล์ใหม่ `guest_gate.dart`, test 3 ไฟล์ (`widget_test.dart`, `auth_gate_test.dart` เพิ่ม test guest bypass, ยังไม่ได้แก้ `root_shell_test.dart`/`home_feed_screen_test.dart`/`auth_method_screen_test.dart` ถ้ามี — QA ต้องตรวจ)
-- **ยังไม่ยืนยัน**: `flutter analyze`/`flutter test` — ไม่มี Flutter SDK ในสภาพแวดล้อมที่เขียนโค้ดรอบนี้ ต้องให้ QA/CI รันยืนยันจริงก่อน deploy รวมถึงยืนยัน `User.isAnonymous` เป็นชื่อ field ที่ถูกต้องจริงใน `gotrue` 2.7.1 (อ้างอิงจาก naming convention มาตรฐานของ Supabase SDK ไม่ได้ verify ผ่าน compile จริง)
-- อ้างอิง: `.wyn/docs/design/wyn-072-onboarding-polish-guest-browsing.md`, `.wyn/tasks/backlog/WYN-072-onboarding-polish-guest-browsing.md`
-
-### [2026-09-01] WYN-072 deploy จริงขึ้น production — เจอและแก้ schema drift ซ้ำรอยเดิมของ WYN-071 P0 + พบ deployment log gap
-
-- Founder สั่ง "Deploy เลย" หลัง WYN-072 ผ่าน QA 2 รอบ — ก่อน deploy AI Deploy & DevOps เช็ค `git log` ของ `supabase/schema.sql` แล้วพบ 3 commit (2026-08-29/30) ที่เขียนไว้ในข้อความ commit เองว่า "ต้อง run เข้า production ก่อนถึงจะ live" แต่ไม่มีบันทึกว่าเคย apply จริง — เช็คกับ production ตรงๆ (ไม่เดา) ผ่าน Supabase Management API พบว่า **`profiles.is_verified` และ `home_feed` view เวอร์ชันใหม่ (`liked_by`/`top_reply`) ยังไม่มีจริงใน production** เป็นปัญหาเดียวกับ WYN-071 P0 incident (2026-08-25) เป๊ะ
-- **Sandbox บล็อกการ apply schema เข้า production เองอัตโนมัติ** (safety classifier ปฏิเสธคำสั่งที่เตรียมเขียนเข้า production DB) — เปลี่ยนมาให้ Founder run SQL เองผ่าน Supabase Dashboard SQL Editor แทน (session เตรียม SQL ที่ตรวจสอบแล้วให้) — ครั้งแรกพัง (`42P16`: `CREATE OR REPLACE VIEW` เปลี่ยนตำแหน่ง column เดิมไม่ได้ ต้องต่อท้ายเท่านั้น) เพราะ column order จริงใน production ไม่ตรงกับที่ `schema.sql` สมมติไว้ — แก้โดย query ลำดับ column จริงจาก production ก่อน แล้วย้าย column ใหม่ 4 ตัวไปต่อท้ายแทนการแทรกกลาง (ปลอดภัย เพราะแอปอ่านด้วยชื่อ column ไม่ใช่ตำแหน่ง) — รอบสองสำเร็จ ยืนยันซ้ำกับ production แล้วก่อน deploy โค้ดจริง
-- **พบเพิ่มระหว่างตรวจ**: `.wyn/logs/deployments/` ไม่มี entry บันทึก real deploy หลัง 2026-08-25 เลย แต่เช็ค GitHub Actions run history ตรงๆ พบว่ามี **deploy สำเร็จจริง 7 ครั้ง** ระหว่าง 2026-08-25–31 ที่ไม่เคยถูกบันทึกไว้ (WYN-071 docs, restyle gaps 3 จุด, push notification fix, Home restyle ก้อนใหญ่, explainer banner, Home header, liked-by fix) — เป็น **documentation gap ไม่ใช่ deployment gap** บันทึกไว้กันสับสนในอนาคต: **ต้องเชื่อ GitHub Actions run history เป็น ground truth เวลาเช็คว่า deploy จริงไปหรือยัง ไม่ใช่แค่เชื่อโฟลเดอร์ `.wyn/logs/deployments/`**
-- ผลลัพธ์: deploy สำเร็จ (`deploy-web.yml` run 33503100073, PR #193 merge เข้า `main` @ `33150ae`) production verification ผ่านทุกจุด (index.html/main.dart.js/manifest.json/flutter_bootstrap.js HTTP 200, REST query คอลัมน์ใหม่ของ home_feed ไม่ error) — **สรุปว่า Home feed ของ production น่าจะพังอยู่ประมาณ 2 วัน** (ตั้งแต่ deploy run 20 เมื่อ 2026-08-30 ที่มีโค้ดพึ่ง column ใหม่ จนถึงตอนแก้ schema วันนี้) ก่อนจะถูกแก้ไปพร้อมกับ WYN-072 รอบนี้
-- อ้างอิง: `.wyn/logs/deployments/2026-09-01-wyn-072-real-deploy.md`, `.wyn/tasks/completed/WYN-072-onboarding-polish-guest-browsing.md`
-
-### [2026-09-02] WYNOS Go-To-Market — ยืนยันทิศทางเริ่มต้น (organic-first, web-first)
-
-- บริบท: หลังเสนอ `.wyn/docs/product/wynos-gtm-roadmap.md` (5 phase) Founder ตอบคำถามผ่าน popup 3 ข้อ
-- **คำตัดสินใจ**:
-  1. **งบการตลาด**: ยังไม่มีงบเลยตอนนี้ — เริ่มจาก organic channel ก่อน (Phase 1-2 ของ roadmap ที่ไม่ใช้เงิน) ค่อยกลับมาคุยเรื่องงบตอนใกล้ Phase 3
-  2. **Native mobile app**: เน้น **web-first ต่อไปก่อน** — ยังไม่เร่งทำ native build (iOS/Android) จนกว่าจะเห็นสัญญาณดีจาก closed beta
-  3. **เริ่มงานจริง**: **ยังไม่เริ่ม** Phase 1 closed beta และยังไม่ให้ AI Design เริ่ม WYN-077/078 — Founder ขออ่านแผนเต็มก่อนตัดสินใจ
-- ผลกระทบ: WYN-077 (Basic Product Analytics) และ WYN-078 (Invite-Only Access Gate) ค้างสถานะ `backlog` ต่อไป ไม่ส่งต่อ AI Design จนกว่า Founder จะสั่งต่อ — ไม่มีโค้ด/production ใดถูกแตะต้องจากรอบนี้
-- อ้างอิง (task/PR ถ้ามี): `.wyn/docs/product/wynos-gtm-roadmap.md`, `.wyn/tasks/backlog/WYN-077-basic-product-analytics.md`, `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md`
-
-### [2026-09-02] WYN-077 (Analytics) — Founder อนุมัติแนวทาง เก็บเองใน Supabase, เริ่มงานทันที
-
-- คำตัดสินใจของ Founder: เก็บ analytics event เองใน Supabase table ใหม่ (ไม่ใช้ third-party เช่น PostHog/Firebase) — ไม่มีข้อมูลผู้ใช้ไหลออกนอกระบบ, ตอบคำถามที่ AI Product Manager ถามไว้ใน `.wyn/tasks/backlog/WYN-077-basic-product-analytics.md` (ก่อนย้ายไป active) — สั่ง "เริ่มเลย"
-- ผลกระทบ: WYN-077 ย้ายจาก `.wyn/tasks/backlog/` ไป `.wyn/tasks/active/` สถานะ `active` พร้อมส่งต่อ AI Design ทันที — ไม่กระทบ WYN-078 (ยังอยู่ backlog รอคำสั่งแยก) และไม่กระทบ Phase 1 closed beta (Founder ยังไม่สั่งเริ่ม)
-- อ้างอิง (task/PR ถ้ามี): `.wyn/tasks/active/WYN-077-basic-product-analytics.md`
-
-### [2026-09-02] Wynos V1.0.0 Beta2 — Founder ส่งรายการแก้ไข 28 ข้อ (PDF), แบ่งเป็น backlog 4 phase
-
-- บริบท: Founder แนบไฟล์ `Wynos_V1.0.0_Beta2.pdf` (export จาก Apple Notes, 21 หน้าจริง) ระบุจุดที่ต้องแก้/เพิ่ม 28 ข้อ พร้อมภาพหน้าจอวงสีอธิบายประกอบเกือบทุกข้อ สั่งให้สรุปเป็นงานก่อน ถามถ้าสงสัย แล้วค่อยเริ่มทำ
-- AI ถามคำถามคืน 4 ข้อ (ผ่าน popup) — Founder ตอบและมอบให้ AI ตัดสินใจแทนในบางจุด:
-  1. **นิยาม "เพื่อน" (ข้อ 2 — post audience selector)**: Founder ขอให้ AI แนะนำ → เสนอ **mutual follow = เพื่อน** (ไม่สร้างระบบคำขอเป็นเพื่อนแยก), "เพื่อนที่สนิท" เป็นรายชื่อเลือกเองจาก mutual-follow list (แบบ IG Close Friends) — ยังไม่ได้ผ่าน Founder ยืนยันรอบสุดท้ายเป็นข้อความตรงๆ (ถามแบบ "แนะนำหน่อย") ถือเป็นข้อเสนอที่ AI จะเดินหน้าตามนี้จนกว่าจะมีคำทักท้วง บันทึกไว้ที่ `.wyn/tasks/backlog/WYN-097.md`
-  2. **Location API สำหรับเช็คอินสถานที่ (ข้อ 3)**: Founder ถาม "Google API ฟรีไหม" → ตอบว่าไม่ฟรี 100% (เครดิตฟรี $200/เดือนแต่ต้องผูกบัตร) → เสนอ LocationIQ/Geoapify (free tier ไม่ต้องผูกบัตร) เป็นทางเลือกเริ่มต้นแทน — **ยังไม่ได้เลือก provider สุดท้าย รอ Founder ยืนยันก่อนเริ่ม implement จริง** (`.wyn/tasks/backlog/WYN-098.md`)
-  3. **ขอบเขต "สร้าง Club" (ข้อ 7 — ไอคอน 3 ขีด)**: Founder เลือกชัดเจน "สร้างฟีเจอร์ 'สร้าง Club' แบบเต็ม" — **นี่คือฟีเจอร์ใหม่ขนาดใหญ่ กระทบ data model มาก** (Club core มีอยู่แล้วบางส่วนจาก WYN-014/015 แต่ไม่มีทาง "สร้าง Club" เอง) บันทึกที่ `.wyn/tasks/backlog/WYN-100.md` — ต้องให้ AI Product Manager ตรวจของเดิมให้ครบก่อนเขียน spec เต็ม กันสร้างซ้ำซ้อน
-  4. **สูตร trending hashtag (ข้อ 10)**: Founder ให้ AI เสนอสูตร → เสนอ `(likes×1 + comments×2 + reposts×3 + views×0.1) / (ชั่วโมงที่ผ่านมา+2)^1.5` (engagement-weighted + time-decay) เป็น draft แรก ปรับ weight ได้ภายหลัง — บันทึกที่ `.wyn/tasks/backlog/WYN-101.md`
-- **แบ่งงานเป็น backlog 29 ไฟล์ (WYN-077 ถึง WYN-105)** ครอบคลุมครบ 28 ข้อ (ข้อ 5 แยกเป็น 2 งาน: WYN-078 บั๊กพื้นหลังไม่เต็มจอ กับ WYN-105 ระบบธีมสี 3 แบบ) จัดเป็น 4 phase ตามความเสี่ยง/dependency:
-  - **Phase 0** (WYN-077): เปลี่ยนคำ Drop→โพสต์, ReDrop→รีโพสต์ ทั่วแอป (UI string เท่านั้น ไม่แตะชื่อ field/table/class เดิม)
-  - **Phase 1** (WYN-078 ถึง WYN-088, 11 งาน): bug fix ด่วนเสี่ยงต่ำ ไม่ต้องผ่าน Design spec เต็มรูปแบบ
-  - **Phase 2** (WYN-089 ถึง WYN-096, 8 งาน): รีดีไซน์ UI ต้องผ่าน AI Design ก่อน
-  - **Phase 3** (WYN-097 ถึง WYN-105, 9 งาน): ฟีเจอร์ใหม่/ของใหญ่ ต้องผ่าน AI Product Manager spec เต็มก่อน (2 งานยังรอ Founder ตัดสินใจเพิ่มก่อนเริ่ม coding จริง: WYN-098 provider แผนที่, WYN-095 ตำแหน่งปุ่มติดตาม/ส่งข้อความ/bio ที่ Founder เองบอกว่า "นึกไม่ออก")
-- Founder ยืนยัน **"เริ่ม Phase 0/1 ได้เลย"** (2026-09-02) — เข้าสู่ AI Coding รอบนี้สำหรับ WYN-077 ถึง WYN-088 (12 งาน) โดยตรง (Recommendation ของแต่ละ backlog file เองระบุไว้แล้วว่า "ทำได้ทันที ไม่ต้อง Design spec")
-- อ้างอิง: `.wyn/tasks/backlog/WYN-077.md` ถึง `WYN-105.md`, PDF ต้นฉบับที่ Founder แนบมา (`Wynos_V1.0.0_Beta2.pdf`)
-
-### [2026-09-02] พบปัญหา: schema.sql โหลดสดเข้า PostgreSQL ว่างเปล่าไม่ผ่าน (pre-existing, บล็อก SQL regression testing ทั้งระบบ)
-
-- บริบท: ระหว่างทำ WYN-079 (เพิ่ม DELETE policy ให้ `feed_signals`) พยายามรัน `supabase/tests/wyn_063_unified_home_feed_test.sh` เพื่อยืนยัน schema.sql ยังโหลดผ่านปกติ พบว่า **รันไม่ผ่านตั้งแต่ก่อนถึงส่วนที่แก้เลย**: `psql:.../schema.sql:7365: ERROR: cannot change name of view column "comment_count" to "liked_by"`
-- ยืนยันด้วย `git stash` (เอาการเปลี่ยนแปลงของ WYN-079 ออกชั่วคราว) แล้วรันซ้ำ — **error เดิมทุกตัวอักษร** พิสูจน์ว่าไม่เกี่ยวกับงาน WYN-079 เลย เป็นปัญหาที่มีอยู่ก่อนแล้วใน `main`/branch นี้
-- root cause: มี `create or replace view public.home_feed` สะสมอยู่ **7 จุด** ในไฟล์ (บรรทัด 456/3982/5965/6381/7033/7156/10464 — migration history สะสมทับกันมาเรื่อยๆ) อย่างน้อย 1 คู่ในนั้นพยายามเปลี่ยนตำแหน่ง/ชื่อคอลัมน์ (`comment_count`→`liked_by`) ซึ่ง PostgreSQL's `CREATE OR REPLACE VIEW` ไม่ยอมให้ทำ (ต้องใช้ `ALTER VIEW ... RENAME COLUMN` แทน หรือ `DROP VIEW` แล้ว `CREATE` ใหม่) — เป็น error class เดียวกับ P0 incident ที่เจอใน **production จริง** ตอน WYN-071 (2026-08-25, `liked_by`/`top_reply` columns) และ WYN-072 (2026-09-01, `profiles.is_verified`/`home_feed` view) ที่บันทึกไว้แล้วในมติก่อนหน้า — **แต่ทั้งสองครั้งนั้นแก้ที่ production database ตรงๆ ผ่าน Supabase Management API ไม่เคยแก้ไฟล์ `schema.sql` เองให้ history สอดคล้องกัน** จึงยังเหลือปัญหานี้ค้างอยู่ในไฟล์จนถึงตอนนี้
-- ผลกระทบ: **`supabase/tests/*.sh` ทุกไฟล์ที่โหลด `schema.sql` เต็มไฟล์เข้า Postgres ว่างเปล่า (ไม่ใช่แค่ `wyn_063_unified_home_feed_test.sh`) ใช้งานไม่ได้จนกว่าจะแก้** — บล็อก SQL regression testing ทั้งระบบ ไม่ใช่แค่งานใดงานหนึ่ง เป็นความเสี่ยงที่ QA/Coding รอบถัดๆ ไปจะเจอปัญหาเดียวกันซ้ำถ้าไม่รู้ล่วงหน้า
-- **ยังไม่แก้** — ไม่อยู่ในสโคปของ WYN-079 (Phase 1 quick fix เล็กๆ) และการไล่แก้ history ของ view ที่สะสมมา 7 รอบเป็นงานที่เสี่ยงถ้าไม่เข้าใจทุกจุดที่เปลี่ยนแปลงจริง ควรเป็นงานแยกต่างหากที่ AI Deploy & DevOps หรือ Coding รอบถัดไปตรวจ column order จริงจาก production (เหมือนวิธีที่เคยแก้ P0 incident 2 ครั้งก่อนหน้า) แล้ว consolidate ทั้ง 7 นิยามให้เหลือ path เดียวที่โหลดสดได้จริง โดยไม่กระทบ production ที่ใช้งานอยู่
-- Workaround ที่ใช้ระหว่างนี้: เขียน SQL regression test แบบ standalone/minimal (สร้างเฉพาะตาราง+policy ที่เกี่ยวข้องจริงในงานนั้นๆ ไม่โหลด schema.sql เต็มไฟล์) ดูตัวอย่างที่ `supabase/tests/wyn_079_feed_signals_unhide_test.sh` — ใช้ได้ชั่วคราวแต่ไม่ครอบคลุมเท่าการทดสอบ schema.sql จริงทั้งไฟล์
-
-### [2026-09-02] พบและแก้บั๊ก: `setState(() => _loadFuture = _load())` คืนค่า Future จริง (masked by tester.takeException() ในเทสเดิม)
-
-- บริบท: ระหว่างทำ WYN-081 (เพิ่ม pull-to-refresh หลายหน้า) เขียนเทสใหม่ที่เรียก `RefreshIndicator.onRefresh()` ตรงๆ (ไม่ผ่าน `tester.takeException()`) แล้วเจอ `setState() callback argument returned a Future` assertion จริง
-- root cause: `_loadFuture = _load()` เป็น assignment expression ซึ่งใน Dart ประเมินค่าเป็นค่าที่ assign (คือตัว `Future` เอง ไม่ใช่ `void`) — เขียนเป็น arrow-body closure `() => _loadFuture = _load()` ส่งเข้า `setState()` จึงทำให้ closure นั้น **return Future จริงๆ** ซึ่ง Flutter's `setState()` มี debug assertion ดักไว้ตรงๆ
-- พบ pattern นี้ซ้ำใน **5 จุด**: `view_profile_screen.dart`, `club_page.dart`, `my_moderation_action_screen.dart` (ทั้ง 3 มีมาก่อน WYN-081) + 2 จุดใหม่ที่เขียนซ้ำ pattern เดิมโดยไม่ทันสังเกตระหว่างทำ WYN-081 เอง (`explore_clubs_screen.dart`, `my_clubs_screen.dart`)
-- **ทำไมไม่เคยมีใครเจอมาก่อน**: เทสเดิมที่ใช้งาน `_reload()` จริง (เช่นหลัง join club, หลังแก้โปรไฟล์) เรียก `tester.takeException()` หลัง `pumpAndSettle()` เสมอ (ตามธรรมเนียม pattern "harmless expected exception" ของโปรเจกต์นี้ เช่น `NetworkImageLoadException` ตอน test โหลดรูป) — การเรียก `takeException()` แบบไม่เจาะจงประเภท exception ไปกลืน assertion error ตัวนี้ไปด้วยแบบเงียบๆ ไม่มีใครสังเกต เพราะเทสยัง PASS ปกติ
-- **แก้แล้วทั้ง 5 จุด**: เปลี่ยนจาก arrow-body (`() => x = y`) เป็น block-body (`() { x = y; }`) — semantic เดิมทุกประการ แค่ทำให้ closure return `void` จริงแทนที่จะ return ค่า assignment โดยไม่ตั้งใจ
-- **บทเรียน**: `tester.takeException()` แบบไม่เจาะจงประเภท เป็นดาบสองคม — กลืน exception ที่ "รู้อยู่แล้วว่าไม่เป็นไร" (เช่น network image ใน test env) ได้จริง แต่ก็กลืนบั๊กจริงไปด้วยแบบไม่รู้ตัว ควรระวังเวลาเขียนเทสใหม่ที่ต้องเรียก callback ตรงๆ (ไม่ผ่าน gesture simulation) — การไม่เรียก `takeException()` แบบไม่เจาะจงจะช่วยให้เทสจับบั๊กประเภทนี้ได้ไวขึ้น
-
-### [2026-09-02] WYN-083: Founder ย้อนมติ WYN-038 — นับวิว Drop ต้องรวมเจ้าของโพสต์ + ไม่ dedup
-
-- บริบท: Founder ข้อ 21/28 ของ Wynos V1.0.0 Beta2 — "การนับวิว จะนับตั้งแต่วินาทีแรก ที่มีคนเห็น รวมถึงเจ้าของโพสต์ด้วย นับไม่จำกัด" — ตรงข้ามกับมติเดิมของ WYN-038 (Product spec เดิม) ที่ตั้งใจ exclude self-view และ dedup แบบ unique-viewer lifetime
-- **คำตัดสินใจใหม่**: `drop_views` เปลี่ยนจาก "unique-viewer ledger" (primary key `(drop_id, viewer_id)`) เป็น "view-event log" ธรรมดา (surrogate `id` primary key, ไม่มี dedup) — `record_drop_view()` ไม่ exclude เจ้าของโพสต์อีกต่อไป — ทำให้ Drop's view-counting กลับมาเหมือน Pop's `increment_pop_view_count()` (WYN-006) ที่ไม่เคยมี dedup/self-exclusion ตั้งแต่ต้นอยู่แล้ว
-- **สิ่งที่ยังคงไว้ไม่เปลี่ยน**: rate-limit (20 req/60s/account) และ velocity-cap (50 req/10s/โพสต์) กันบอทปั่นวิว — ตีความ "นับไม่จำกัด" ว่าหมายถึงไม่ cap ยอดสะสมที่ถูกต้อง ไม่ใช่คำสั่งให้เปิดช่องให้บอทยิงรัวไม่จำกัด (ยังไม่ได้ถาม Founder ยืนยันเรื่องนี้ตรงๆ — เป็นการตีความของ AI Coding)
-- **"นับตั้งแต่วินาทีแรกที่มีคนเห็น" ตีความว่า** = นับทันทีไม่มีดีเลย์เทียม (พฤติกรรมเดิมทำอยู่แล้ว) **ไม่ใช่** = นับตั้งแต่โพสต์ปรากฏในฟีดตอน scroll ผ่าน (ยังคงนับเฉพาะตอนเปิด DropDetailScreen เหมือนเดิม) — ถ้า Founder หมายถึงแบบหลังจริงๆ ต้องแจ้งกลับมาเป็นงานแยก (ฟีเจอร์ใหญ่กว่า ต้องมี scroll-visibility detection ใหม่)
-- **Migration risk**: `drop_views` มีข้อมูลจริงอยู่แล้วใน production (ตาราง live ตั้งแต่ WYN-038 deploy) — เปลี่ยน primary key ต้องใช้ `alter table` ที่รักษาข้อมูลเดิม ไม่ใช่ drop+recreate — ยังไม่ได้ apply เข้า production (รอ AI Deploy & DevOps)
-- อ้างอิง: `.wyn/tasks/review/WYN-083-view-count-owner-uncapped.md`
-
-### [2026-09-02] Wynos V1.0.0 Beta2 — Phase 0/1 ทำครบทั้ง 12 งานแล้ว (WYN-077 ถึง WYN-088), ส่งต่อ QA
-
-- Founder สั่ง "เริ่ม Phase 0/1 ได้เลย" (2026-09-02) — ทำครบทั้ง 12 งานในรอบเดียว แต่ละงาน: อ่าน spec → เช็ค codebase เดิม → แก้เล็กที่สุด/ปลอดภัยที่สุด → เขียน/แก้เทส พิสูจน์ red→green จริงทุกงาน → `flutter analyze`/`flutter test` ผ่านสะอาดหลังทุก commit → commit+push แยกทีละงาน (ไม่รวบ) → ย้ายไฟล์ task จาก `backlog/` ไป `review/` พร้อม "Coding Output" section
-- **ผลลัพธ์รวม**: `flutter analyze` สะอาดตลอด, `flutter test` ไต่จาก 871 (ก่อนเริ่ม) → **887 ผ่านหมด** (16 เทสใหม่/แก้จากเดิม), ไม่มี regression หลงเหลือ
-- **สรุปแต่ละงาน** (รายละเอียดเต็มอยู่ใน `.wyn/tasks/review/WYN-0XX-*.md` แต่ละไฟล์):
-  - WYN-077: เปลี่ยนคำ Drop→โพสต์, ReDrop→รีโพสต์ ทั่วแอป+push notification text (ไม่แตะชื่อ field/table/class เดิม)
-  - WYN-078: เพิ่ม `SystemChrome.setSystemUIOverlayStyle` ให้พื้นหลังเต็มจอจริง
-  - WYN-079: เพิ่มปุ่ม "เลิกทำ" (Undo) หลังกด "ไม่สนใจโพสต์นี้" — เพิ่ม DELETE policy ให้ `feed_signals`
-  - WYN-080: ค้นหาต้องกดยืนยัน (ไอคอน/Enter) ไม่ใช่ auto-search ทุกตัวอักษร
-  - WYN-081: เพิ่ม pull-to-refresh ให้หน้าโปรไฟล์ (3 tab) + Club/Top100 อีกหลายหน้า
-  - WYN-082: เพิ่ม dialog ยืนยันก่อนออกจากระบบ
-  - WYN-083: **ย้อนมติเดิมของ WYN-038** — นับวิวรวมเจ้าของโพสต์+ไม่ dedup (ดูมติแยกด้านบน) — **ต้อง migrate `drop_views` primary key บน production ด้วยความระมัดระวัง (มีข้อมูลจริงอยู่แล้ว)**
-  - WYN-084: เอา `Padding(bottom: viewInsets.bottom)` ซ้ำซ้อนออกจากช่องพิมพ์แชท (double keyboard-compensation bug)
-  - WYN-085: เอาปุ่มกระดิ่งแจ้งเตือนออกจากหน้าโปรไฟล์คนอื่น (เคย push ไปหน้าที่ไม่มีปุ่มย้อนกลับ ทำให้ผู้ใช้ติดค้าง)
-  - WYN-086: สลับลำดับ caption มาอยู่เหนือรูป/Poll ใน `HomeDropCard` และ `DropDetailScreen` (Poll เองยังไม่สลับ — นอกสโคปที่ระบุ)
-  - WYN-087: เพิ่มเวลาสัมพัทธ์ต่อท้าย "รีโพสต์โดย @username" — ใช้ข้อมูลที่มีอยู่แล้ว (`r.created_at`) ไม่ต้องแก้ schema
-  - WYN-088: ซ่อนไอคอนดวงตา/ยอดวิวจาก Home feed (Drop+Pop) แต่ยังโชว์ปกติทุกจุดอื่น (โปรไฟล์/hashtag feed) ผ่าน parameter `showViewCount` ใหม่
-- **ปัญหาที่พบระหว่างทำแต่ไม่ได้แก้ (นอกสโคป Phase 1, บันทึกแยกไว้แล้วในมติก่อนหน้า)**: schema.sql โหลดสดเข้า Postgres ว่างเปล่าไม่ผ่าน (บล็อก SQL regression suite เต็มรูปแบบ), `setState()`+Future bug pattern (แก้ไปแล้ว 5 จุดระหว่าง WYN-081)
-- **ยังไม่ยืนยันบนอุปกรณ์จริง**: ทุกงานผ่านแค่ widget test ในนี้ (ไม่มี simulator/emulator ในสภาพแวดล้อมนี้) — AI QA & Security ต้องทดสอบ UI จริงบน iOS/Android ก่อนอนุมัติ deploy โดยเฉพาะ WYN-084 (keyboard behavior จริง) และ WYN-083 (migration ต้องเช็ค column order จริงจาก production ก่อน apply เหมือนที่เคยทำ WYN-071/072)
-- **Phase 2/3 ยังไม่เริ่ม** (WYN-089–105, รอ Founder อนุมัติแยกตามที่ตกลงกันไว้ตอนสรุปงาน — Phase 2 ต้องผ่าน AI Design ก่อน, Phase 3 ต้องผ่าน AI Product Manager spec เต็มก่อน)
-- อ้างอิง: `.wyn/tasks/review/WYN-077-*.md` ถึง `WYN-088-*.md` (12 ไฟล์)
-
-### [2026-09-02] WYN-098: Founder เลือก LocationIQ เป็น location-data provider สำหรับระบบเช็คอินสถานที่
-
-- บริบท: ระหว่างเขียน Product full spec ของ WYN-098 (Phase 3 ของ Wynos V1.0.0 Beta2) AI Product Manager ถาม Founder ตรงๆ ผ่าน popup ว่าจะเลือก provider ตัวไหนระหว่าง **LocationIQ** กับ **Geoapify** (ทั้งคู่เป็นทางเลือกฟรีไม่ต้องผูกบัตรเครดิตที่เสนอไว้ตั้งแต่มติก่อนหน้า แทนที่ Google Maps Platform ที่ต้องผูกบัตรแม้มีเครดิตฟรี $200/เดือน — ดูมติ "Wynos V1.0.0 Beta2 — Founder ส่งรายการแก้ไข 28 ข้อ" ด้านบน)
-- **Founder เลือก LocationIQ** — นี่คือคำตัดสินใจสุดท้าย ไม่ใช่คำถามเปิดอีกต่อไป
-- ผลกระทบ: WYN-098's Product spec ทั้งฉบับออกแบบอิงกับ LocationIQ โดยตรง (endpoint `/v1/autocomplete`/`/v1/search` สำหรับ forward geocoding, `/v1/reverse` สำหรับ reverse geocoding) — API key ต้องเก็บเป็น secret ผ่าน Supabase Edge Function ใหม่เท่านั้น (ห้ามฝังในแอป Flutter) มิเรอร์ pattern `send-push-notification` ของ WYN-016 — **ยังบล็อกด้วย Founder/DevOps action**: ต้องสมัคร LocationIQ account จริงแล้วให้ API key มาก่อนถึงจะทดสอบ end-to-end จริงได้ (implement UI/data-model ทำได้ทันทีไม่ต้องรอ)
-- อ้างอิง: `.wyn/tasks/backlog/WYN-098.md`, `.wyn/docs/product/wyn-098-location-checkin.md`
-
-### [2026-09-02] Phase 3 AI PM full-spec pass เสร็จ — Founder ยืนยัน 2 จุดที่ scope เปลี่ยนจากที่ตัดสินใจไว้เดิม
-
-- บริบท: AI Product Manager ทำ full-spec pass ให้ WYN-097, 099–105 (ไม่รวม WYN-098 ที่แยกทำไปแล้ว) ตรวจโค้ด/schema จริงก่อนเขียนทุกฉบับ พบ 2 จุดที่ premise เดิมที่ Founder ใช้ตัดสินใจคลาดเคลื่อนจากความจริงของโค้ด ถามยืนยันกลับผ่าน popup แล้ว
-- **WYN-100 (เมนู 3 ขีด + สร้าง Club)**: ระบบ "สร้าง Club" มีอยู่แล้วครบเต็มรูปแบบตั้งแต่ WYN-014 (ผ่าน QA แล้ว) ต่างจากที่ backlog เดิมสื่อไว้ว่ายังไม่มี — สโคปจริงที่เหลือคือแค่เพิ่มไอคอน hamburger ที่ Home (เปิด `SideMenu` ที่มีอยู่แล้ว) บวกเพิ่มแถว "สร้าง Club" เข้าไปในเมนูนั้น **Founder ยืนยันให้เดินหน้าตามสโคปจริงนี้** (เล็กกว่าที่ตัดสินใจไว้เดิมมาก) — ดูรายละเอียดเต็มที่ `.wyn/docs/product/wyn-100-club-menu-create-club.md`
-- **WYN-105 (ระบบ 3 ธีมสี)**: งานใหญ่กว่าที่ backlog เดิมประเมินไว้มาก เพราะโค้ดสีทั้งแอปอ้างอิงแบบ static const ไม่ผ่าน `Theme.of(context)` ต้องไล่แก้เกือบทุกไฟล์ UI **Founder เห็นด้วยให้เลื่อนไปทำท้ายสุดของรอบ Beta2** (ตรงกับ Priority note เดิมของ backlog file อยู่แล้ว "ต้องทำท้ายๆ เพื่อลดการชนกับงาน UI อื่นที่ยังไม่นิ่ง") — ดูรายละเอียดเต็มที่ `.wyn/docs/product/wyn-105-theme-system.md`
-- อ้างอิง: `.wyn/docs/product/wyn-100-club-menu-create-club.md`, `.wyn/docs/product/wyn-105-theme-system.md`, `.wyn/tasks/backlog/WYN-100.md`, `.wyn/tasks/backlog/WYN-105.md`
-- **WYN-097 (นิยาม "เพื่อน")**: Product full spec ถามยืนยันครั้งสุดท้ายก่อนส่ง AI Design — **Founder ยืนยัน "เพื่อน" = mutual follow (ติดตามกันสองทาง) ไม่มีระบบคำขอเป็นเพื่อนแยกต่างหาก** ตามที่ AI เคยเสนอไว้ 2026-09-02 ก่อนหน้า — ตอนนี้เป็นมติสุดท้าย ไม่ใช่ข้อเสนอที่รอยืนยันอีกต่อไป — อ้างอิง `.wyn/docs/product/wyn-097-audience-friends.md`
-
-### [2026-09-02] WYN-095: Founder เลือก Mockup A — และพบว่าพรีวิวรอบแรกใช้สีผิด (Cyan แทน Sapphire)
-
-- บริบท: หลัง AI Design เสนอ 3 mockup (A/B/C) ให้ Founder เลือกผ่าน popup, Founder ตอบ "ขอดูตัวอย่าง" แทนการเลือกจากคำอธิบายข้อความ/ASCII diagram เฉยๆ — AI สร้าง HTML mockup จริงส่งให้ดู (Artifact) แทน
-- **บั๊กที่พบ**: พรีวิวรอบแรกใช้สี Cyan `#00C8FF` จาก DS-001 (มติ 2026-08-15) ซึ่ง**ถูก re-brand ทับไปแล้วตั้งแต่ 2026-08-29** ("เปลี่ยน Color Direction ของ WYN: Cyan → Sapphire") — โค้ดจริงในแอปตอนนี้ใช้ **Sapphire `#1B3A6B`** เป็น accent เดียว (`app/lib/core/design/wyn_colors.dart`) ไม่ใช่ Cyan อีกต่อไป AI Design's ตัว design doc เอง (`wyn-095-profile-layout-redesign.md`) เขียนอ้างอิง `WynColors.sapphire` ถูกต้องอยู่แล้วตลอด — ที่ผิดคือแค่สีในไฟล์ HTML พรีวิวที่สร้างขึ้นมาใหม่ต่างหาก (ไม่ได้เช็คโค้ดจริงก่อนเลือกสี ใช้ DS-001 เก่าแทน)
-- **Founder ทักท้วงเรื่องสีทันที** ("เลือก A แต่โทนสี ตรงตามดีไซน์เดิม") — แก้พรีวิวใหม่ให้ใช้ token จริงจาก `wyn_colors.dart` (sapphire/paper/ink/graphite/hairline) แล้วส่งให้ดูซ้ำก่อนถือว่าอนุมัติ
-- **Founder เลือก Mockup A** (กะทัดรัด, ปุ่มคู่เต็มแถว, bio ก่อนปุ่ม) — เขียน Final Spec เต็มลงใน `.wyn/docs/design/wyn-095-profile-layout-redesign.md` แล้ว พร้อมส่ง AI Coding
-- **บทเรียนสำหรับ AI Design ทุกงานถัดไปที่ต้องสร้างภาพพรีวิว**: ต้องอ่านค่าสีจริงจาก `app/lib/core/design/wyn_colors.dart` (หรือไฟล์ token ที่ implement จริง) เสมอ **ไม่ใช้ค่าจากเอกสาร design system เก่าที่อาจถูก re-brand ทับไปแล้วโดยไม่รู้ตัว** — เอกสาร `.wyn/docs/design/` เก่าอาจไม่ได้อัปเดตตามหลัง code เปลี่ยน (เหมือนที่ DS-001 ยังพูดถึง Cyan ทั้งที่โค้ดเปลี่ยนเป็น Sapphire ไปแล้ว 2 สัปดาห์ก่อนหน้า) — โค้ดจริงคือความจริงสูงสุด ไม่ใช่เอกสารที่เขียนไว้ก่อนหน้า
-- อ้างอิง: `.wyn/docs/design/wyn-095-profile-layout-redesign.md`, `.wyn/tasks/backlog/WYN-095.md`, `app/lib/core/design/wyn_colors.dart`
-
-### [2026-09-02] พบข้อจำกัดใหม่ของ sandbox: การ decode รูปจริงผ่าน widget tree ค้าง (hang) ภายใต้ AutomatedTestWidgetsFlutterBinding
-
-- บริบท: ระหว่างทำ WYN-094 (upload progress indicator) พยายามเขียน widget test ที่ tap ปุ่มเลือกรูปจริง (`image_picker`) แล้วดูแถบ progress ขึ้น — เทสค้าง (timeout 10 นาที, stack `dart:isolate _RawReceivePort._handleMessage`) ซ้ำหลายรอบ
-- **ไล่ debug จนแยกสาเหตุได้ชัดเจน** (isolate ทีละชั้นด้วยไฟล์เทสแยกต่างหาก + `Timeout` สั้นๆ กันเสียเวลารอบละ 10 นาที): ไม่ใช่บั๊กของโค้ด WYN-094 เอง และไม่ใช่แค่ `image_picker` อย่างที่คิดตอนแรก — **สาเหตุจริงคือการ decode รูปภาพที่ valid จริงๆ ผ่าน widget tree (`Image.memory`/`PaintingBinding.instantiateImageCodecWithSize`) ค้างในสภาพแวดล้อม sandbox นี้ (software rendering)** — ยืนยันด้วยการทดสอบสลับ: bytes ปลอมที่ decode ไม่ผ่าน → fail เร็ว (exception ปกติ), bytes จริงที่ decode ผ่านได้ → ค้างตลอด
-- **สิ่งที่ยังใช้งานได้ปกติ ไม่ค้าง**: การสร้างรูปด้วย `ui.PictureRecorder()`/`Canvas`/`toImage()`/`toByteData()` (ใช้ใน `square_crop_test.dart`/`image_dimensions_test.dart` มาก่อนแล้ว), การเรียก `ImagePicker()`/`ImagePickerPlatform` fake ตรงๆ นอก widget tree (plain `test()`), การ tap ปุ่มอื่นที่ไม่ใช่ปุ่มเลือกรูป — ทั้งหมดนี้เร็วและไม่ค้าง
-- **Workaround ที่ใช้**: เพิ่ม `@visibleForTesting` seam (`debugInitialImagesBytes`) ให้ `CreateDropScreen` เพื่อ seed `_imagesBytes` ตรงๆ แทนการเลือกรูปจริงผ่าน UI ในเทส — ใช้ bytes ปลอม (decode ไม่ผ่าน) คู่กับ `tester.takeException()` (pattern เดียวกับที่ใช้กับ `NetworkImageLoadException` อยู่แล้วในไฟล์นี้) เพื่อไม่ให้เทสพัง — วิธีนี้พิสูจน์ logic ของ WYN-094 (progress bar/percentage/visibility) ได้ครบ แต่ **ไม่ครอบคลุม flow "เลือกรูปจริงจาก UI"** อันนั้นต้องพึ่ง AI QA & Security ทดสอบบนอุปกรณ์จริงแทน
-- **สำหรับ AI Coding งานถัดไปที่ต้องเทส flow ที่มีรูปภาพจริงผ่าน widget test**: อย่าเสียเวลาไล่ debug ปัญหาเดิมซ้ำ — ถ้าเทสค้างแบบไม่มี error message ชัดเจน (โดยเฉพาะ stack `dart:isolate _RawReceivePort._handleMessage`) ให้สงสัยเรื่องนี้ก่อน แล้วใช้ pattern เดียวกัน (seed bytes ตรงๆ ผ่าน `@visibleForTesting` param หรือคล้ายกัน แทนการพึ่ง `Image`/`ImageProvider` ที่ decode รูปจริงผ่าน widget tree)
-- อ้างอิง: `.wyn/tasks/review/WYN-094-upload-progress-indicator.md`, `app/test/create_drop_screen_test.dart`
-
-### [2026-09-02] Wynos V1.0.0 Beta2 — Phase 2/3 batch ทำเสร็จ 8 งาน (WYN-089/090/093/094/095/101/102/103), ส่งต่อ QA
-
-- Founder สั่ง "ส่งที่พร้อมไป AI Coding/Design เลย" — AI Coding ทำ 8 งานที่ AI Design/AI Product Manager ปล่อยผ่านมาแล้วในรอบเดียว (รอบแรก agent ตัวหนึ่งชน session rate limit กลางทาง หลัง WYN-090/089/093 เสร็จ — session หลักรับช่วงทำต่อจนครบ ไม่มีงานหาย เพราะ commit แยกทีละงานตามวินัยเดิม)
-- **ผลลัพธ์รวม**: `flutter analyze` สะอาดตลอด, `flutter test` ไต่จาก 905 (ก่อนเริ่ม) → **917 ผ่านหมด** ไม่มี regression หลงเหลือ
-- **สรุปแต่ละงาน** (รายละเอียดเต็มใน `.wyn/tasks/review/WYN-0XX-*.md` แต่ละไฟล์):
-  - WYN-090: ตัดแท็บ "ล่าสุด" ออกจาก Home เหลือ 3 แท็บ
-  - WYN-089: ไอคอนรีโพสต์เปลี่ยนสีเมื่อผู้ใช้เคยรีโพสต์แล้ว (`HomeDropCard`)
-  - WYN-093: รูปในฟีดยึดสัดส่วนจริง (dynamic-height/aspect-fit) แทน fixed-height crop
-  - WYN-095: รีดีไซน์ header หน้าโปรไฟล์ตาม Mockup A ที่ Founder เลือก (avatar+สถิติแถวเดียวกัน, ปุ่ม Follow/Message แบ่งครึ่งเต็มแถว) — ระหว่างเลือก mockup พบและแก้บั๊กสำคัญ: พรีวิวรอบแรกใช้สี Cyan ที่ล้าสมัย (DS-001 ถูก re-brand เป็น Sapphire ไปแล้ว) ดู entry แยกด้านบน
-  - WYN-094: progress bar ระหว่างอัปโหลดรูป คำนวณจากจำนวนรูปที่ upload เสร็จจริง (ไม่ใช่ค่าเดา) — ค้นพบข้อจำกัด sandbox สำคัญเรื่อง image decode ผ่าน widget tree ค้าง ดู entry แยกด้านบน
-  - WYN-103: จำกัด 9 รูปให้สอดคล้องกันทั้ง `CreateDropScreen`/`CreateClubPostScreen` (เดิม 10) + SnackBar แจ้งเตือนเมื่อครบ + CHECK constraint เสริมที่ DB (ยังไม่ apply production)
-  - WYN-101: สูตรจัดอันดับแฮชแท็กกำลังนิยมเปลี่ยนเป็น engagement-weighted + time-decay แทนนับความถี่ดิบ, เอา "N โพสต์" ออกจาก UI
-  - WYN-102: ซ่อน Pop จากทุกจุดที่ผู้ใช้เข้าถึงได้ (Search tab, Home feed/Trending/Top100/Saved tab ผ่าน query filter, notification tap) โดยไม่ลบโค้ด/schema แม้แต่บรรทัดเดียว — ระหว่างทำพบ 2 จุดที่ product spec เองพลาดไป (`saved_feed` view, ReDrop ของ Pop) และปิดเพิ่มเอง
-- **บทเรียนสำคัญที่บันทึกแยกไว้แล้วด้านบน**: (1) WYN-095 — พรีวิวสีต้องอ่านจากไฟล์ token จริง (`wyn_colors.dart`) ไม่ใช่เอกสาร design system เก่าที่อาจล้าสมัย (2) WYN-094 — image decode ผ่าน widget tree ค้างใน sandbox นี้ (ไม่ใช่แค่ `image_picker`) ใช้ `@visibleForTesting` seed-bytes seam แทนเสมอ
-- **สิ่งที่ยังไม่ apply เข้า production**: CHECK constraint 2 จุดใหม่ของ WYN-103 (`club_posts_image_urls_length` 10→9, `drop_images_position_max_9`) — รอ AI Deploy & DevOps ตรวจ column/data จริงก่อน apply ตามวินัยเดิม
-- **ยังไม่ยืนยันบนอุปกรณ์จริง**: ทุกงานผ่านแค่ widget test (ไม่มี simulator/emulator ในสภาพแวดล้อมนี้) — โดยเฉพาะ WYN-094 (upload progress ผ่านการเลือกรูปจริง), WYN-103 (compression จริงข้าม platform), WYN-102 (Home feed/Trending ไม่มี Pop ปนจริงบนอุปกรณ์)
-- **คงเหลือใน Phase 2/3**: WYN-091 (ครึ่งหลัง restyle การ์ด)/WYN-092/WYN-096 ยังบล็อกด้วยภาพอ้างอิงจาก PDF ที่ไม่มีในเซสชันนี้ — WYN-097/098/099/100/104 ผ่าน AI Design แล้ว "ready for AI Coding" รอหยิบขึ้นทำรอบถัดไป — WYN-105 เลื่อนไปท้ายสุดของรอบตามที่ Founder ยืนยัน
-- อ้างอิง: `.wyn/tasks/review/WYN-089-*.md` ถึง `WYN-103-*.md` (8 ไฟล์)
-
-### [2026-09-03] QA ปิด Phase 2 ครบ 8/8 — WYN-081 (round 2)/WYN-091/WYN-092/WYN-096 ทั้งหมด PASS
-
-- บริบท: worktree นี้ถูกสร้างขึ้นจาก `origin/main` ผิดพลาด (ปัญหาเดิมที่เคยเจอซ้ำในเซสชันนี้ — ได้ commit `c00e0db` ที่มี "WYNOS First Login Onboarding" ปนมาจาก main แทนที่จะเป็น `claude/wynos-beta2-phase2-handoff-w4mi5m` @ `40cafac`) — ตรวจพบก่อนเริ่มงานจริงตามที่สั่งไว้ แก้ด้วย `git fetch` + `git reset --hard origin/claude/wynos-beta2-phase2-handoff-w4mi5m` (ปลอดภัย เพราะ worktree ยังไม่มี commit ของตัวเองตอนตรวจพบ) แล้วยืนยัน `git merge-base --is-ancestor 40cafac HEAD` เป็น YES ก่อนเริ่ม QA จริง
-- **WYN-081 (QA round 2)**: ยืนยันบั๊ก `ExploreClubsScreen._reload()`'s arrow-body `setState` ที่ AI Debug Engineer แก้ไปแล้วถูกต้องจริง — รัน `test/explore_clubs_screen_test.dart` แยกอิสระ ยืนยัน "QA (WYN-081)" test เขียว, re-audit ทั่ว `app/lib` ทั้งหมด (ไม่จำกัดแค่ 3 feature เดิม) ด้วย `grep -rn "setState(() =>"` (250+ จุด) + ตรวจทุก field `Future<T>` ในโปรเจกต์ (7 ไฟล์) ยืนยัน**ไม่พบจุดที่ 7 ของบั๊กคลาสเดียวกัน**
-- **WYN-091**: `NewPostsPill` แสดง literal คงที่ "มีโพสต์ใหม่" (ไม่มีเลข) ถูกต้อง, `Semantics.label` ยังมี `$count` สำหรับ screen reader ครบ
-- **WYN-092 (งานใหญ่ที่สุด)**: ตรวจ merge-reconciliation ของ `public.home_feed` view **ไม่เชื่อ comment เฉยๆ** — diff บรรทัดต่อบรรทัดกับนิยามก่อนหน้า (WYN-098's) ยืนยันเหมือนกันทุกตัวอักษรยกเว้น `image_count` ที่เพิ่มมาเป็นคอลัมน์สุดท้าย, จากนั้น**เปิด local PostgreSQL 16 จริงในเครื่อง sandbox** (`pg_ctlcluster 16 main start`), extract โค้ด SQL ของนิยาม view ตัวจริงจาก `schema.sql` บรรทัด 11821-12053 แบบ byte-for-byte มารันตรงกับตารางขั้นต่ำที่สร้างเอง — `CREATE VIEW` สำเร็จ, insert ข้อมูลทดสอบจริงแล้ว query ยืนยัน `image_count`/`audience`/`location` ถูกต้องพร้อมกันครบทุก branch (drop/pop/redrop) — เป็นการพิสูจน์เชิงประจักษ์ (ไม่ใช่แค่ทฤษฎี) ว่า merge ที่ orchestrating session ทำมาถูกต้องจริง — รัน `supabase/tests/wyn_092_home_feed_image_count_test.sh` ผ่านครบ 5/5 checks ด้วย
-- **WYN-096**: padding action bar เปลี่ยนจาก `space1`→`space3` ถูกต้องทั้ง `HomeDropCard`/`HomePopCard`, ยืนยัน WYN-076's `Colors.red` liked-heart override ยังอยู่ครบ ไม่ถูกย้อนกลับ
-- **ผลรวม**: `flutter analyze` สะอาด, `flutter test` **1011/1011 ผ่านหมด** (ตรงกับที่ merge commit อ้างไว้) — ทั้ง 4 task ย้ายเข้า `.wyn/tasks/approved/` แล้ว **Phase 2 (WYN-089 ถึง WYN-096) ปิดครบ 8/8**
-- Postgres cluster ที่เปิดขึ้นมาทดสอบ WYN-092 เป็น local/throwaway ในเครื่อง sandbox นี้เท่านั้น (สร้าง/ลบ database ทดสอบเองแล้ว dropdb หลังใช้เสร็จ) ไม่แตะ production ใดๆ
-- อ้างอิง: `.wyn/tasks/approved/WYN-081-pull-to-refresh.md`, `.wyn/tasks/approved/WYN-091-text-post-card-and-new-posts-badge.md`, `.wyn/tasks/approved/WYN-092-home-feed-multi-image-peek-carousel.md`, `.wyn/tasks/approved/WYN-096-home-feed-action-bar-alignment.md`
-
-### [2026-09-03] QA PASS — WYN-105 (พื้นหลังขาวบริสุทธิ์) ปิด backlog Wynos Beta2 ครบ 29/29
-
-- บริบท: worktree นี้ก็ spawn ผิดสาขาซ้ำอีกเช่นเคย (อยู่บน `c00e0db`/`origin/main` แทน `aad25ea` บน `claude/wynos-beta2-phase2-handoff-w4mi5m`) — ตรวจพบและแก้ก่อนเริ่มงานจริงด้วย `git fetch` + `git reset --hard origin/claude/wynos-beta2-phase2-handoff-w4mi5m` (ปลอดภัย ไม่มี commit ของตัวเองก่อนหน้า) ยืนยัน `git log` ว่า HEAD = `aad25ea` ตรงตามที่คาดแล้วจึงเริ่ม QA
-- ตรวจไม่เชื่อคำอ้างของ Coding Output เฉยๆ: grep อิสระทั้ง repo หา `FAF9F6` (case-insensitive) ยืนยันไม่มี hardcode หลงเหลือใน `app/` เลย (มีแค่ doc comment ที่จงใจอ้างค่าเดิมเป็นประวัติ), คำนวณ WCAG contrast ratio จริงด้วย Python (ไม่เชื่อคำอ้างว่า "contrast เพิ่มขึ้น" เฉยๆ) ยืนยันเพิ่มขึ้นจริงทุกคู่สี (`hairline` 1.1854→1.2480, `faint` 1.6552→1.7427, `ink` 17.8225→18.7644, `graphite` 3.3726→3.5509), `git show aad25ea` ยืนยัน diff เป็น 1 บรรทัดเปลี่ยนค่า + doc comment เท่านั้น ไม่มี token อื่นถูกแตะ
-- พบ Flutter SDK ติดตั้งอยู่แล้วที่ `/home/user/flutter` (Flutter 3.47.2 stable) ในเครื่อง sandbox นี้ — รัน `flutter analyze`/`flutter test` จริงแทนการเชื่อรายงานเดิม: `flutter analyze` สะอาด, `flutter test` **1011/1011 ผ่านหมด** ตรงเป๊ะกับตัวเลขที่ Coding Output อ้างไว้
-- **ผลลัพธ์**: WYN-105 — **PASS** ย้ายเข้า `.wyn/tasks/approved/` แล้ว — เป็น**งานสุดท้ายของ backlog Wynos Beta2 ทั้งหมด (29/29)**
-- ข้อจำกัดที่ทราบและยอมรับได้ (ไม่ block): ยังไม่มี visual confirmation บนอุปกรณ์/browser จริง (ไม่มี device/simulator ในสภาพแวดล้อมนี้) — ความเสี่ยงต่ำมากเพราะเป็นการเปลี่ยนค่าคงที่สี 1 ตัว ไม่กระทบ layout/logic แนะนำให้ Founder ตรวจ visual sanity หนึ่งครั้งบนอุปกรณ์จริงหลัง deploy (ไม่ block deploy)
-- อ้างอิง: `.wyn/tasks/approved/WYN-105-white-background.md`
-
-### [2026-09-03] Wynos V1.0.0 Beta2 (29 งาน) deploy ขึ้น production สำเร็จสมบูรณ์
-
-- บริบท: หลัง backlog Beta2 ปิดครบ 29/29 (QA PASS ทั้งหมด) Founder สั่ง "พร้อม" ให้เดินหน้า deploy — เปิด PR #216 (`claude/wynos-beta2-phase2-handoff-w4mi5m` → `main`) merge สำเร็จ (พบ+แก้ merge conflict จริง 2 รอบ เพราะมีงานคู่ขนานอื่นเข้า `main` ระหว่างทาง: "WYNOS First Login Onboarding", "multi-account switching")
-- **Web deploy**: AI Deploy & DevOps subagent ไม่มีสิทธิ์ trigger GitHub Actions เอง (ติด Anthropic session-type policy block) แต่ orchestrating session เองมีสิทธิ์เข้าถึง `mcp__github__actions_run_trigger` — trigger `deploy-web.yml` run #40 สำเร็จ ยืนยันด้วย curl จริง: `main.dart.js` เปลี่ยนขนาดจาก 4,135,619 → 4,228,301 bytes พร้อม timestamp สด — **live ที่ https://wynos.online แล้ว**
-- **Database migration**: session ไม่มี Supabase Management API credentials เลย (ต่างจาก session ก่อนหน้าที่เคยมี) — เตรียม SQL migration เต็มรูปแบบ ทดสอบกับ local PostgreSQL จำลอง (idempotency + data-preservation) แล้วส่งให้ Founder รันเองผ่าน Supabase Dashboard SQL Editor ตามวินัยเดิมของโปรเจกต์ (ห้าม AI เขียน production DB โดยตรง)
-- **Production incident ระหว่าง Founder รัน migration**: `drop_images_position_max_9`/`club_posts_image_urls_length` (WYN-103, จำกัดรูปเหลือ 9) ชนกับโพสต์เก่าจริงที่มีรูปเกิน 9 รูปอยู่แล้ว (ก่อนแอปบังคับ limit) — local-Postgres validation ของ Deploy agent ไม่ได้ seed ข้อมูลที่ละเมิดกติกาใหม่ไว้ทดสอบ จึงไม่เจอปัญหานี้ล่วงหน้า แก้โดยเปลี่ยนทั้ง 2 constraint เป็น `check (...) not valid` (บังคับกับแถวใหม่เท่านั้น ไม่แตะข้อมูลเดิม) — Founder รันซ้ำสำเร็จ "Success. No rows returned" บันทึกบทเรียนไว้ที่ `.wyn/learning/MISTAKES.md`
-- **ผลลัพธ์**: Wynos V1.0.0 Beta2 ครบทั้ง 3 ขา (code merge + DB migration + web deploy) — **สมบูรณ์ 100%**
-- **ยังไม่ทำ (ไม่ใช่ blocker)**: WYN-098's Edge Function `location-search` ยังไม่ deploy จริง (ต้องมี Supabase CLI credentials ที่ไม่มีใน sandbox) และยังใช้งานไม่ได้จนกว่า Founder จะให้ `LOCATIONIQ_API_KEY` — โค้ดอื่นทั้งหมด live ปกติ, native iOS/Android build/distribution ยังนอกสโคปเหมือนเดิม (รอ Firebase config + distribution channel)
-- อ้างอิง: `.wyn/logs/deployments/2026-09-03-wyn-077-105-beta2-real-deploy.md`, `.wyn/logs/deployments/2026-09-03-wyn-077-105-beta2-production-migration.sql`, PR #216/#219, GitHub Actions run #40 (`33711417505`)
-
-### [2026-09-03] Founder Decisions — WYNOS v1.0.0 Beta3 (Deep Polish) 4 ข้อ
-
-- บริบท: ระหว่างงาน Beta3 (`claude/wynos-beta3-polish-performance-aes6ld`) Founder ตรวจงาน UI ผ่านหน้าเปรียบเทียบ ก่อน/หลัง และตัดสินใจ 4 เรื่องตามลำดับ บันทึกไว้ที่นี่เพราะ 3 ใน 4 เปลี่ยนพฤติกรรมที่ผู้ใช้เห็น และข้อสุดท้ายเป็นการ **ยืนยันให้คงของเดิม** ซึ่งมีค่าเท่ากับการสั่งเปลี่ยน
-- **(1) Club Cover Image — "ลบเฉพาะที่หน้า Club page"**: แถบบนสุดของ `ClubPage` แสดงพื้นหลัง ink+sapphire ที่ระบบสร้างเองเสมอ ไม่สลับไปเป็น `club.cover_url` อีก (เดิมหัว Club เป็นคนละดีไซน์กันขึ้นกับว่าเจ้าของเผอิญอัปรูปไว้ไหม และชื่อ Club หายไปในกรณีที่อัป) — **ไม่แตะ** cover picker ในหน้าสร้าง/แก้ไข Club, การ์ด Club ใน Explore/แถวแนะนำที่นำด้วยรูปปก, และ **ไม่ลบอะไรออกจากฐานข้อมูล** ย้อนกลับได้ด้วยการแก้โค้ดจุดเดียว
-- **(2) "รูปต้องเรียงกันเป็นการ์ด แล้วรูปที่ 2 โผล่นิดเดียว"**: Post Detail เดิมเป็น `PageView` เต็มความกว้างทีละรูป — ตอนนี้ทั้ง Feed และ Detail สร้างจาก `PostImageCarousel` ตัวเดียวกัน (การ์ด 82% ของแถว · 4:5 · มุมโค้ง 16 · ระยะห่าง 8) บนจอ 390pt รูปที่ 2 โผล่ราว 62pt — Feed ไม่เปลี่ยนรูปทรงเลยแม้แต่ค่าเดียว
-- **(3) "ให้ snap ทีละการ์ดเลย"**: แถวการ์ดเดิมเลื่อนอิสระ (WYN-092) จอดโดยมีการ์ดค้างครึ่งขอบได้ — เพิ่ม `_CardSnapPhysics` snap ไปที่ผลคูณของ stride (การ์ด+ระยะห่าง) ใช้กับทั้งสองหน้าพร้อมกัน · ปัดเด็ดขาดเลื่อน 1 การ์ดเสมอไม่ว่าจะแรงแค่ไหน · ไม่ใช้ `PageScrollPhysics` (snap ทีละ viewport เต็ม) และไม่ใช้ `PageView` + `viewportFraction` (ต้องยัดระยะห่างเข้าไปใน fraction ทำให้ความกว้างการ์ดเพี้ยนจาก 82% ที่ design ระบุ)
-- **(4) "โปรไฟล์ ก็ต้องคล้ายฟีด" → ตรวจแล้วเหมือนอยู่แล้ว + "คง Grid ไว้"**: แท็บหลักทั้งสามของ Profile (โพสต์/รีโพสต์/ถูกใจ) เป็น `ListView` ของ `HomeDropCard` **ตัวเดียวกับ Feed** มาตั้งแต่ WYN-013 แล้ว — **AI รายงานผิดในรอบแรกว่า Profile เป็น Grid** (วาด mockup ผิดและเขียนผิดในเอกสาร แก้ทั้งสองที่แล้ว) ช่องที่ยังไม่เหมือนจริง ๆ คือ *พฤติกรรม*: โพสต์หลายรูปบนโปรไฟล์ยังยิง request รูปทีละการ์ด (N+1 ที่เอาออกจาก Home ไปแล้ว) แก้ด้วยการ batch รูปทั้งหน้าใน `DropRepository._fetchViewerState` ครอบคลุม Profile โพสต์+ถูกใจ · Search แท็บโพสต์ · hashtag feed · Draft · `fetchById` — จากนั้น Founder ยืนยันว่า **Grid ที่เหลือ (Search แท็บโพสต์ · Saved · Draft) ให้คงไว้** ไม่เปลี่ยนเป็นการ์ดแบบฟีด เพราะเป็น Content Overview คนละหน้าที่กับ Content Flow (ตรงกับข้อ 4 ของบรีฟ Beta3: "ไม่ต้องทำให้ทุกหน้าเหมือนกัน 100% ให้แต่ละบริบทเหมาะสมกับหน้าที่")
-- **สถานะ ณ เวลาบันทึก**: `flutter analyze` สะอาด · `flutter test` 1,107 ผ่านหมด · `flutter build web --release` สำเร็จ · `supabase/tests` 27/33 เท่า baseline Beta2 พอดี (Beta3 ไม่แตะ SQL เลย) · **push ขึ้น feature branch แล้ว ยังไม่เปิด PR ยังไม่ merge ยังไม่ deploy ไม่แตะ production** ตามข้อ 37 ของบรีฟ
-- อ้างอิง: `.wyn/docs/qa/wynos-v1.0.0-beta3-{system-map,ux-audit,performance,security-audit,final-readiness,future-ideas}.md`
-
-### [2026-09-03] WYN-106: Founder อนุมัติ Button System หน้า Home + แก้ touch target ปุ่มปิดแบนเนอร์
-
-- บริบท: Founder ขอ "ออกแบบ UX UI ปุ่มต่างๆ ขอโทนสีเดิมทั้งหมด เริ่มจากหน้าจอ Home" — AI Design รวบรวม
-  ปุ่มทุกแบบที่มีอยู่จริงบนหน้า Home เป็น 6 ประเภท (Primary Pill / Secondary Outline / Icon /
-  Text Tab / Icon+Count / Dismiss Icon) ใช้ token สีเดิมทั้งหมด (sapphire/ink/graphite/faint/hairline
-  จาก `wyn_colors.dart` — ไม่ใช่ `ds-001-color-system.md` เก่าที่ล้าสมัยตามบทเรียน 2026-09-02) ไม่มีการ
-  เสนอสี/ทรงใหม่ — ส่ง Artifact preview ("Home Button System") ให้ Founder ตรวจ
-- ตรวจพบ 1 gap จริงระหว่าง audit: ปุ่ม X ปิด `HomeExplainerBanner` มีพื้นที่กดจริง ~19×19px ต่ำกว่า
-  เกณฑ์ขั้นต่ำของระบบเอง (`WynSpacing.touchTargetMin` 44×44px, DS-001 §6/DS-008 §1) — หลุดจาก audit
-  เดิมของ DS-008 (คนละรอบ/คนละไฟล์)
-- **Founder ตัดสินใจ (ผ่าน popup)**: "อนุมัติ ส่ง AI Coding แก้เลย" — อนุมัติภาพรวมทั้งหมด และให้แก้
-  จุด touch target ทันที ไม่ต้องรอ — ส่งต่อ AI Coding แล้ว (`.wyn/tasks/active/WYN-106-home-button-system.md`)
-- ข้อสังเกตรอง (ไม่เร่งด่วน ยังไม่ตัดสินใจ): ไอคอน "⋯" more-options ใน `home_drop_card.dart` ไม่ระบุ
-  size/color ชัดเจนตาม `design-reference/SPEC.md` §4.6 (ควรเป็น 16px, faint) — touch target ผ่านอยู่แล้ว
-  ไม่กระทบ accessibility เก็บไว้เป็น known note รอ Founder ตัดสินใจภายหลังว่าคุ้มแก้หรือไม่
-- อ้างอิง: `.wyn/docs/design/wyn-106-home-button-system.md`, `.wyn/tasks/active/WYN-106-home-button-system.md`
-
-### [2026-09-03] Founder Decision — ต้องเห็นรูป (mockup/preview) ก่อนทุกครั้ง ก่อนสั่งเขียนโค้ด
-
-- Founder พูดตรงๆ ระหว่างงาน WYN-106: **"ขอดูรูปก่อน เขียนโค้ดนะ"** — นับเป็นกติกาถาวรตาม RULES.md
-  หมวด "Founder Feedback" (ระบุแนวทางที่ต้องทำต่อไป)
-- **กติกาที่บังคับใช้จากนี้**: งานดีไซน์/UI ใดๆ ที่จะนำไปสู่การแก้โค้ดจริง **ต้องมีภาพ (Artifact/mockup)
-  ให้ Founder ดูและอนุมัติก่อนเสมอ** ห้ามส่งต่อ AI Coding จากแค่คำอธิบายเป็นข้อความ/ตาราง state ล้วนๆ
-  โดยไม่มีภาพประกอบ แม้จะเป็นการเปลี่ยนแปลงเล็กน้อยก็ตาม — ต่อยอดจากบทเรียนเดิม 2026-09-02 (WYN-095,
-  "ต้องอ่านค่าสีจริงจาก wyn_colors.dart เวลาสร้างพรีวิว") ให้ครอบคลุมกว้างขึ้นเป็น "ต้องมีพรีวิวก่อนเขียน
-  โค้ดทุกครั้ง" ไม่ใช่แค่เรื่องสีที่ถูกต้อง
-- ผลกับงานที่ทำไปแล้ว: WYN-106's touch-target fix (ปุ่ม X ปิดแบนเนอร์) มีการโชว์ Artifact "Home Button
-  System" (มีภาพ before/after ของจุดนี้อยู่แล้วในตัว) ก่อนอนุมัติ — เข้าเกณฑ์นี้พอดี ไม่ต้องแก้ย้อนหลัง
-  ส่วนการยืนยันเรื่องตัดไอคอน "เข้าชม" ออกจากแถวปุ่ม (พบว่าทำไปแล้วตั้งแต่ WYN-088 ไม่มีโค้ดใหม่ที่ต้อง
-  เขียน) ไม่กระทบกติกานี้เช่นกันเพราะไม่มีการเขียนโค้ดเกิดขึ้นจริง
-- อ้างอิง: ข้อความ Founder ตรงในเซสชัน WYN-106, `.wyn/docs/design/wyn-106-home-button-system.md`
-
-### [2026-09-03] WYN-107: Founder อนุมัติเปลี่ยนการ์ดโพสต์หน้า Home เป็นโครงสองคอลัมน์
-
-- บริบท: Founder ส่งภาพหน้าฟีด Threads + ไฟล์ `design-reference/01-home.tsx` มาแล้วเขียนกำกับว่า
-  **"ปุ่มควรขยับ ให้ตรงชื่อ"** (วงแดงที่แถวปุ่มในภาพพรีวิว) — ตรวจแล้วพบว่าไฟล์อ้างอิงกำหนด `Post` ไว้เป็น
-  **2 คอลัมน์** (avatar ซ้าย / ชื่อ+ข้อความ+รูป+ปุ่ม+คอมเมนต์ อยู่คอลัมน์ขวาแนวเดียวกันหมด) แต่ตอน
-  implement ทำเป็น stack เต็มความกว้าง (ทุก section ชิดขอบจอ 12px) จึงไม่ตรงกับที่ออกแบบไว้ตั้งแต่ต้น
-- **ไม่ใช่การละเมิดกติกา "ห้ามลอก Threads" (2026-08-14)** — โครงนี้มาจากไฟล์อ้างอิงของ WYN เองที่
-  อนุมัติไว้แล้ว 2026-08-29 ไม่ใช่การลอกโครงหน้าจอคู่แข่ง
-- **Founder ตัดสินใจ**: ดู Artifact เทียบก่อน/หลังแล้วตอบ **"ชอบแบบนี้"** ชี้ที่แผงโครงสองคอลัมน์ →
-  อนุมัติให้เปลี่ยน · ระยะขอบการ์ด 12 → 24 · แนวเนื้อหาเริ่มที่ 78 · รูปเข้าคอลัมน์เดียวกับข้อความ
-  ล้นเฉพาะขอบขวา · การ์ดรูปหลายใบ 236 โผล่ 68 บนจอ 390 (ผลจากการเปลี่ยนฐานที่คูณ 82% ไม่ใช่การแก้ค่า)
-- **6 จุดในไฟล์อ้างอิงที่ห้ามทำตาม** เพราะถูกสั่งเปลี่ยนไปแล้วทีหลัง: สีหัวใจ (แดง ไม่ใช่ sapphire) ·
-  แถวปุ่ม 3 ปุ่ม (ไม่ใช่ 4) · แท็บ 3 อัน (ไม่ใช่ 4) · ไอคอนขวาบนเป็นแชท (ไม่ใช่แว่นขยาย) · ฟอนต์ระบบ
-  (ไม่ใช่ Fraunces/Inter) · พื้นขาว `#FFFFFF` (ไม่ใช่ครีม `#FAF9F6`) — บันทึกไว้เพราะถ้าลอกไฟล์เป๊ะ
-  จะย้อนคำสั่ง Founder 6 เรื่องกลับโดยไม่ตั้งใจ
-- **Founder ตอบ 2 ข้อที่ค้างแล้ว (ผ่าน popup)**:
-  - **(1) `HomePopCard` แก้ด้วย** — "ให้ทั้งฟีดหน้าตาเหมือนกัน" → **เป็นข้อยกเว้นของกติกา "ห้ามแก้ไฟล์
-    Pop โดยตรง" (DS-001 Risk R3 / DECISIONS 2026-08-14) เฉพาะไฟล์ `home_pop_card.dart` ไฟล์เดียว**
-    เพราะเป็นไฟล์ของฟีด Home ที่การ์ดปนอยู่กับการ์ด Drop — ไฟล์ Pop อื่น (`pop_clip_view.dart`,
-    `pop_comment_sheet.dart`, `pop_single_clip_screen.dart`) ยังอยู่ใต้กติกาเดิม ห้ามแตะ
-  - **(2) ทรงหัวใจ = แบบ B (lucide)** — ต้นเหตุที่หัวใจในแอปไม่ตรงกับแบบที่อนุมัติไว้คือ
-    `01-home.tsx` ใช้ไอคอนจาก `lucide-react` แต่ตอน implement ใช้ `Icons.favorite` ของ Material
-    ซึ่งเป็นคนละทรง → แยกเป็น **WYN-108** (`WynHeartIcon` แบบ `CustomPainter` ไม่เพิ่ม dependency
-    ไล่เปลี่ยน 13 จุดทั้งแอป) ทำหลัง WYN-107 merge เพราะแตะไฟล์การ์ดเดียวกัน
-- อ้างอิง: `.wyn/docs/design/wyn-107-home-feed-two-column-layout.md`,
-  `.wyn/tasks/active/WYN-107-home-feed-two-column-layout.md`, `design-reference/01-home.tsx`
-
-## [2026-09-04] WYN-109: ฟีด Home อ่านอัตราส่วนรูปจากตาราง `drops` ไม่แก้ view `home_feed`
-
-**เดิม**: จะ `create or replace view home_feed` เพื่อเพิ่มคอลัมน์ `image_aspect_ratio`
-**ล้มจริงบน production**: `ERROR 42P16: cannot change name of view column "created_at" to
-"author_is_verified"` — `create or replace view` ต่อท้ายคอลัมน์ได้อย่างเดียว และ view จริงบน
-production มีลำดับคอลัมน์ไม่ตรงกับ `supabase/schema.sql` (SCHEMA-004)
-
-**ตัดสินใจ**: **ไม่แก้ view เลย ทั้งตอนนี้และตลอดไป** เปลี่ยนเป็นให้
-`HomeRepository._fetchAspectRatios()` อ่านคอลัมน์จากตาราง `drops` ตรง ๆ แบบ batch โดยเสียบเข้า
-`Future.wait` ชุดเดิมของ `_fetchViewerState` (ขนานกับอีก 6 query ที่หน้าฟีดจ่ายอยู่แล้ว → ไม่เพิ่ม
-round-trip) แล้วส่งค่าเข้า `HomeFeedItem.fromMap` ทางพารามิเตอร์ — pattern เดียวกับ `imageUrls`
-
-**เหตุผล**:
-1. ไม่ต้องแตะโครงสร้าง production ที่มองไม่เห็นนิยามจริง — ความเสี่ยงหายทั้งก้อน
-2. WYN-109 เลิกขึ้นกับ SCHEMA-004 (ซึ่งยัง open และยังไม่รู้สาเหตุ)
-3. ต้นทุน runtime แทบเป็นศูนย์ และมี fallback 4:5 ทุกเส้นทางถ้า query ล้ม
-
-**ผลพ่วง**: `supabase/schema.sql` ต้องไม่มีคอลัมน์นี้ในนิยาม view ด้วย (revert แล้ว + ใส่คอมเมนต์
-อธิบาย) เพื่อให้ไฟล์ schema ยังบรรยายฐานข้อมูลจริง ไม่ใช่เจตนาที่ไม่มีวันเกิด
-
-**SQL ที่รันจริงบน production**: `supabase/migrations_wyn109a_column_only.sql` (Founder รันเอง
-2026-09-04 ผล `Success. No rows returned`) — เพิ่มคอลัมน์ในตาราง `drops` + CHECK constraint
-เท่านั้น ไม่แตะ view · `supabase/migrations_wyn109_image_aspect_ratio.sql` = ไฟล์ที่ล้ม ห้ามรัน
-
-**แก้ไข 2026-09-05**: ~~ยังไม่ครอบคลุม: หน้า Saved ยังวาด 4:5 ทุกรูป~~ ตรวจซ้ำแล้วไม่จริง — Saved (`SavedGridTile`/`SavedPostRow`) ใช้ thumbnail สี่เหลี่ยมจัตุรัสตายตัวเสมอ ไม่เคยอ่าน `image_aspect_ratio` เลย เป็น convention เดียวกับ `DropGridTile` ที่ Founder เคยอนุมัติให้ Saved คงเป็น Grid ไว้แล้ว (ดูรายการ 2026-09-02 ด้านบนเรื่อง Grid ที่เหลือ) ไม่ใช่ gap ของงานนี้
-
-อ้างอิง: `.wyn/tasks/bugs/SCHEMA-004-production-view-drift.md`,
-`.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`
-
-## [2026-09-06] WYN-112: "สมัครเยอะแต่ไม่มีคนโพสต์" — วินิจฉัยว่าเป็นปัญหา activation/traffic ไม่ใช่ฟีดว่าง
-
-**บริบท**: Founder ถามว่ามีคนสมัครเยอะแต่ไม่มีคนโพสต์อะไรเลย ทำไงดี — AI Product Manager เริ่มจากสมมติฐาน "empty feed" ตาม Phase 1 ของ `.wyn/docs/product/wynos-gtm-roadmap.md` (เดิม) แต่ Founder แก้ไขว่า **มีโพสต์อยู่จริง เป็นของ Founder เองทั้งหมด** — ซักถามต่อพบข้อมูลสำคัญ 3 ข้อ:
-1. ผู้ใช้ที่สมัครแล้ว **เงียบสนิทจริง ไม่ทำอะไรเลยแม้แต่ like/comment/follow** (ไม่ใช่แค่ไม่โพสต์)
-2. ไม่เคยมีรายงานว่าปุ่ม "โพสต์" ใช้งานไม่ได้/หาไม่เจอ (ลดความเป็นไปได้ที่จะเป็นบั๊ก UI ตรงๆ แต่ไม่ตัดทิ้งทั้งหมดเพราะผู้ใช้ที่เงียบแล้วเลิกใช้เลยก็ไม่มีทางบ่นอยู่ดี)
-3. คนกลุ่มนี้มาจาก **แชร์ลิงก์ในกลุ่ม/โซเชียลกว้างๆ** ไม่ใช่การเชิญคนรู้จักตรงๆ ตามที่ Phase 1 ของ roadmap แนะนำไว้แต่แรก — **Founder ระบุว่าไม่มีเครือข่ายคนรู้จักให้เชิญแบบ personal ได้ จึงจำเป็นต้องใช้วิธีแชร์วงกว้างแทน** (ข้อจำกัดจริง ไม่ใช่ทางเลือก)
-
-**คำตัดสินใจ**:
-- ไม่แนะนำให้เริ่ม WYN-078 (Invite-Only Access Gate) ตอนนี้ — ระบบ invite ต้องมี user ที่ engage แล้วจริงเป็นคนแจกต่อ ตอนนี้ยังไม่มีคนกลุ่มแกนที่ active เลย จะไม่มีใครแจก invite ได้อยู่ดี
-- แนะนำ Founder ปรับวิธีแชร์วงกว้าง: เลือกแค่ 1-2 ชุมชน niche ที่ตรงเป้าหมายที่สุดต่อครั้ง (ไม่กระจายหลายกลุ่มพร้อมกัน) + โพสต์เล่าเรื่องจริงว่าทำไมสร้างแอปนี้ (ไม่ใช่แปะลิงก์ลอยๆ) + ตอบทุก comment เอง
-- **Founder อนุมัติให้ดึงข้อมูล WYN-077 analytics (deploy แล้วตั้งแต่ 2026-09-02) มาสรุป funnel จริงก่อนตัดสินใจขั้นต่อไป** — สร้าง `WYN-112` (`.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`) ส่งต่อ AI Debug Engineer/AI Deploy & DevOps ดึงข้อมูลจริงจาก Supabase production (ไม่ใช่งาน AI Product Manager ทำเอง เพราะต้องเข้าถึง production DB)
-
-**พบ ID collision ระหว่างทาง**: `WYN-078` ถูกใช้ซ้ำ 2 งานที่ไม่เกี่ยวกันเลย — `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md` กับ `.wyn/tasks/approved/WYN-078-background-full-screen-fix.md` (ปิดงานไปแล้ว) — เป็น class เดียวกับ ID collision ที่เคยพบและแก้เมื่อ 2026-08-25 แต่เกิดซ้ำอีก ยังไม่ได้แก้ไข บันทึกไว้เป็นข้อสังเกตใน WYN-112 ให้ Founder พิจารณาเปลี่ยนเลขงานใดงานหนึ่ง (แนะนำเปลี่ยน invite-only-access-gate เพราะยัง backlog อยู่)
-
-**ผลกระทบ**: ไม่มีโค้ด/production ใดถูกแตะจากการปรึกษารอบนี้ — รอผลข้อมูล funnel จาก WYN-112 ก่อนวางแผนขั้นต่อไป (จะเป็นการแก้ onboarding ในแอป หรือปรับวิธีหาคนเข้ามาต่อ ขึ้นกับว่าจุดหลุดอยู่ตรงไหนจริง)
-
-อ้างอิง: `.wyn/docs/product/wynos-gtm-roadmap.md`, `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md`
-
-## [2026-09-06] WYN-112: ผล Admin Dashboard จริง — sample เล็กเกินฟันธง แต่เจอ 2 gap ที่ชัดเจนพอสรุปได้แล้ว
-
-**บริบท**: Founder เปิด WYN Admin Dashboard ส่วน "การเติบโตและ Retention" ส่งภาพหน้าจอมาตามที่ WYN-112 ขอไว้ ตัวเลขที่เห็น: สมัครใหม่ 24 ชม.ล่าสุด = 0, สมัครสำเร็จ = 1 คน (อัตรา 0%), Activation = 0 คน, D1 Retention = 0%, D7 Retention = 0%, ช่องทางยอดนิยม 7 วันล่าสุด = "ยังไม่มีข้อมูลช่องทาง"
-
-**การวิเคราะห์**: ฐานข้อมูลเล็กเกินกว่าจะฟันธงเปอร์เซ็นต์ทางสถิติได้จริงตามที่ Risk ของ WYN-112 เตือนไว้ล่วงหน้าแล้ว (สมัครสำเร็จแค่ 1 คนในช่วงที่วัด) — **ไม่สรุปเกินข้อมูลที่มี** แต่พบ 2 ข้อเท็จจริงที่ไม่ขึ้นกับ sample size เลย:
-1. **ไม่เคยติด UTM parameter ในลิงก์ที่แชร์เลยสักครั้ง** — ต่อให้มีคนสมัครเพิ่มอีกกี่ร้อยคนก็ยังตอบไม่ได้ว่าช่องทางไหนได้ผล จนกว่าจะเริ่มติด UTM ตั้งแต่ลิงก์รอบต่อไป
-2. **signup หยุดไหลเข้าสนิทใน 24 ชม.ล่าสุด** — คำถามเร่งด่วนกว่าเรื่อง onboarding ในแอปตอนนี้คือ "หยุดแชร์ลิงก์ไปหรือยัง" เพราะถ้าไม่มีคนเข้าใหม่จะไม่มีทาง sample เพิ่มพอให้วิเคราะห์ได้อีกเลย
-
-ตัวเลข Activation/Retention 0% ของคนกลุ่มเดียว **สอดคล้องทิศทางเดิมที่ Founder รายงาน** (เงียบสนิทไม่ทำ action) แต่ n=1 ยืนยันทางสถิติไม่ได้ เป็นแค่สัญญาณที่ไม่ขัดแย้งกับสมมติฐานเดิมเท่านั้น
-
-**คำแนะนำ**: ก่อนตัดสินใจลงทุนแก้ onboarding ในแอป (ยังไม่มีข้อมูลพอยืนยันว่าคือจุดที่ควรแก้จริง) แนะนำ Founder ทำ 2 อย่างพร้อมกันในรอบแชร์ถัดไป: (1) ติด UTM parameter ทุกลิงก์ที่แชร์ (2) แชร์เจาะจง 1-2 ชุมชน niche ตามที่ `wynos-gtm-roadmap.md` Phase 1 แนะนำไว้เดิม เพื่อให้ได้ sample ใหม่มากพอ (~20-50 signup) ก่อนกลับมาวิเคราะห์ funnel รอบต่อไป — ยังไม่ได้ตัดสินใจเรื่อง Guided Onboarding/Cold-start Feed Seeding (2 แนวทางที่เสนอไว้ก่อนหน้า) จนกว่าจะมีข้อมูลใหม่ที่ฟันธงได้จริง
-
-**สถานะ**: WYN-112 ยังคง active — บล็อกที่ Founder action (แชร์ลิงก์รอบใหม่พร้อม UTM) ไม่ใช่งานที่ AI role ใดทำแทนได้
-
-อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/docs/product/wynos-gtm-roadmap.md`
-
-## [2026-09-06] WYN-113: Founder เลือกทำ OG/Twitter Card meta tags ก่อน จากการวิเคราะห์แอปทั้งระบบ
-
-**บริบท**: Founder ขอให้วิเคราะห์แอป WYNOS ทั้งระบบว่าควรเพิ่ม/แก้ฟีเจอร์หรือ UX/UI อะไรบ้าง — อ่านเอกสาร QA ที่มีอยู่แล้ว (`wynos-v1.0.0-beta3-{ux-audit,security-audit,future-ideas,final-readiness}.md`) และ git log ล่าสุดก่อน พบว่าฟีเจอร์หลักครบแล้ว งานส่วนใหญ่ในบรีฟ Beta3 ถูกปิดไปแล้วจริงผ่านงานตามหลัง (WYN-106 ถึง WYN-111 ปิดเมื่อเช้าวันนี้เอง) — สิ่งที่เหลือค้างคือรายการ `future-ideas.md` (A-1 ถึง A-7, B-1 ถึง B-5) ที่ยังไม่มีใครสั่งทำ
-
-**พบเพิ่มเอง (ไม่มีในเอกสารเดิม)**: ตรวจ `app/web/index.html` แล้วพบว่าไม่มี Open Graph/Twitter Card meta tag เลย — เชื่อมโยงตรงกับปัญหา activation ที่กำลังสืบอยู่ใน WYN-112 (ลิงก์ที่แชร์ไม่มี preview card อาจเป็นส่วนหนึ่งที่ทำให้อัตราคนคลิกลิงก์ต่ำ)
-
-**เสนอ 4 ตัวเลือกให้ Founder ผ่าน popup**: (1) OG/Twitter Card meta tags, (2) แก้ share link ให้ชี้โดเมนจริง (ค้างจาก security audit A-7), (3) Crash reporter/error monitoring (ค้างจาก A-6), (4) ยังไม่ทำอะไรเพิ่ม รอผล WYN-112 ก่อน — **Founder เลือกข้อ 1**
-
-**ผลลัพธ์**: สร้าง `WYN-113` (`.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`) เต็มรูปแบบ ส่งต่อ AI Design แล้ว — งานอื่นอีก 3 ตัวเลือกยังไม่ได้ทำ เก็บไว้เป็นตัวเลือกถัดไปถ้า Founder ต้องการ
-
-อ้างอิง: `.wyn/tasks/backlog/WYN-113-og-share-preview-cards.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-future-ideas.md`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md`
-
-## [2026-09-06] WYN-113: AI Design ส่งมอคอัพ Share Preview ให้ Founder ดูก่อนเขียนโค้ด
-
-**บริบท**: ต่อจาก Product spec ของ WYN-113 (OG/Twitter Card meta tags) — AI Design ทำมอคอัพจริงเป็น Artifact (ไม่ใช่แค่คำอธิบาย) ตามกติกา Founder 2026-09-03 ("ต้องเห็นรูปก่อนเขียนโค้ดทุกครั้ง") ก่อนส่งต่อ AI Coding
-
-**สิ่งที่ทำ**: เสนอ 2 ตัวเลือกโทนสีสำหรับรูป preview 1200×630 — ใช้เฉพาะ 5 token จริงจาก `wyn_colors.dart` (ink/paper/sapphire/graphite/hairline) ไม่มีสีใหม่ ไม่มีฟอนต์แบรนด์ใหม่ (คงฟอนต์ระบบตามที่ยืนยันไว้แล้วสำหรับแอป 2026-09-03/WYN-107):
-- **A — Paper**: พื้นขาวเหมือนแอปทุกหน้าจอ
-- **B — Ink (แนะนำโดย AI Design)**: พื้นเข้ม สะดุดตากว่าในฟีดที่ส่วนใหญ่เป็นการ์ดขาว
-
-พร้อมเสนอ copy ภาษาไทยแทนข้อความอังกฤษเทคนิคเดิม: `og:title` "WYNOS — สร้างชุมชนของคุณเอง", `og:description` "แชร์ Drop โพสต์ Pop คลิปสั้น ตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว"
-
-**สถานะ**: ส่ง Artifact ให้ Founder ดูแล้ว **ยังไม่ส่งต่อ AI Coding** — รอ Founder เลือกโทนสี + อนุมัติ/แก้ข้อความก่อน
-
-อ้างอิง: `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
-
-## [2026-09-06] WYN-113: Founder เลือกโทนสี A + แก้ copy — ตัด Pop ออก เพราะซ่อนจากผู้ใช้แล้ว (WYN-102)
-
-**บริบท**: หลัง AI Design เสนอ 2 ตัวเลือกสีสำหรับ share preview card (A-Paper / B-Ink แนะนำ) Founder เลือก **A (Paper)** — ตรงข้ามกับที่ AI Design แนะนำ — และแก้ copy `og:description` เอง 2 จุด: (1) ตัด "Pop คลิปสั้น" ออกทั้งหมด (2) เปลี่ยน "Drop" เป็น "โพสต์รูป"
-
-**ทำไมสำคัญ**: การตัด Pop ออกจาก copy **ตรงกับมติเดิมของโปรเจกต์เป๊ะ** — WYN-102 (2026-09-02) ซ่อน Pop จากทุกจุดที่ผู้ใช้เข้าถึงได้ในแอปแล้ว (Search/Home feed/Trending/Top100/Saved/notification) โดยไม่ลบโค้ด — การโฆษณาฟีเจอร์ที่คนหาไม่เจอจริงในแอปจะสร้างความสับสน/ผิดหวังให้คนที่คลิกลิงก์เข้ามา Founder จับจุดนี้ได้แม่นแม้ AI Design จะลืมเช็คย้อนกับ WYN-102 ตอนร่าง copy ครั้งแรก — เป็นบทเรียนสำหรับงานหน้า: **ก่อนเขียน marketing copy ที่พูดถึงฟีเจอร์ ต้องเช็คด้วยว่าฟีเจอร์นั้นเปิดให้ผู้ใช้เห็นจริงในปัจจุบันหรือไม่**
-
-**ข้อความสุดท้าย**: `og:title` "WYNOS — สร้างชุมชนของคุณเอง", `og:description` "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — อัปเดต mockup ให้ตรงแล้ว
-
-**สถานะ**: พร้อมส่งต่อ AI Coding แล้ว
-
-อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
-
-## [2026-09-06] WYN-113: Implement เสร็จ — ส่งต่อ AI QA & Security
-
-**บริบท**: ต่อจาก Product + Design spec ที่ Founder อนุมัติแล้ว (โทนสี A-Paper, copy ที่ตัด Pop ออก) — AI Coding เพิ่ม 9 meta tags (`og:*`/`twitter:*`) ใน `app/web/index.html` และรูป preview 1200×630 (`app/web/og-image.png`, render จาก HTML จริงด้วย headless Chromium ที่มีอยู่ใน sandbox — ใช้โลโก้จริงและ token สีจริง ไม่มีการเพิ่มสีใหม่) พบและแก้ gotcha เพิ่มเติมระหว่างทาง: `app/web/*` ถูก `.gitignore` ทั้งโฟลเดอร์เป็นค่าเริ่มต้น (ต้องเพิ่ม negation รายไฟล์ตาม pattern เดิมของ index.html/favicon.png — เคยเป็นสาเหตุที่ `firebase-messaging-sw.js` เกือบหายไปมาก่อน) — เพิ่ม `!/web/og-image.png` แล้ว
-
-**ข้อจำกัดที่ระบุไว้ตรงๆ**: sandbox ของ session นี้ไม่มี Flutter SDK ติดตั้ง จึงรัน `flutter analyze`/`flutter build web --release` จริงไม่ได้ — ยืนยันได้แค่ว่า diff จำกัดอยู่ที่ `app/web/`/`app/.gitignore` เท่านั้น (ไม่แตะ Dart code) และ `index.html` ผ่าน HTML well-formedness check ด้วย Python `html.parser` — **AI QA & Security ต้องรัน `flutter build web --release` จริงอย่างน้อย 1 ครั้ง** ก่อน PASS ตามวินัยเดิมของโปรเจกต์ (แยก "ยืนยันเองได้" กับ "ต้องรอคนอื่นยืนยัน" ตาม WORKFLOW.md)
-
-**สถานะ**: Implementation เสร็จ ส่งต่อ AI QA & Security แล้ว — ยังไม่ deploy ไม่แตะ production
-
-อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, commit `e2d1e40`
-
-## [2026-09-06] WYN-113: Founder เปลี่ยนจาก A กลับเป็น B (Ink) รอบสุดท้าย
-
-**บริบท**: หลังยืนยัน Option A (Paper) ไปแล้วก่อนหน้านี้ Founder ดู mockup อีกรอบแล้วขอเปลี่ยนเป็น **B (Ink)** — "เอาสีดำดีกว่า จะได้เด่นๆ" ตรงกับเหตุผลที่ AI Design เสนอ B ไว้ตั้งแต่แรก (การ์ดพื้นเข้มสะดุดตากว่าในฟีด Facebook/LINE ที่ส่วนใหญ่เป็นการ์ดขาว)
-
-**ผลกระทบ**: regenerate เฉพาะไฟล์ `app/web/og-image.png` เป็นพื้น ink + โลโก้/wordmark สีขาว — **ไม่แตะ `index.html`** เลย เพราะ meta tag path/ข้อความไม่เปลี่ยน (commit `93d4db0`) — copy (`og:title`/`og:description`) ยังเป็นเวอร์ชันเดิมที่ยืนยันไปแล้วก่อนหน้า
-
-**สถานะสุดท้ายของ WYN-113**: โทนสี **B (Ink)** + copy "โพสต์รูป แชร์เรื่องราว และตั้ง Club กับคนที่ชอบเหมือนกัน ทั้งหมดในที่เดียว" — โค้ดพร้อม 100% ส่งต่อ AI QA & Security แล้ว ยังไม่ deploy
-
-อ้างอิง: `.wyn/tasks/active/WYN-113-og-share-preview-cards.md`, `.wyn/docs/design/wyn-113-og-share-preview-cards.md`, commit `93d4db0`, Artifact https://claude.ai/code/artifact/5c4b7b86-7dd2-466b-bcf0-7bc382fd1a1e
-
-## [2026-09-06] WYN-113: QA PASS — ตรวจจริงไม่ใช่แค่เชื่อคำอ้าง Coding, ย้ายเข้า approved/
-
-**บริบท**: AI QA & Security ตรวจ WYN-113 (OG/Twitter Card meta tags + og-image.png) อย่างจริงจังก่อนอนุมัติ ไม่เชื่อ Coding Output เฉยๆ:
-- เปิด `index.html` จริงด้วย headless Chromium แล้ว dump DOM ยืนยันว่า browser parse meta tag ทั้ง 9 ตัวถูกต้อง ข้อความไทยไม่ mojibake
-- ตรวจ md5sum เทียบ git blob กับ working tree ยืนยันว่าไฟล์ที่ Founder เห็นในมอคอัพตรงกับไฟล์ที่จะ deploy จริง 100%
-- ยืนยัน `og-image.png` ถูก track ใน git จริง (ไม่โดน `.gitignore` บล็อกอย่างที่เคยเกือบเกิดกับ `firebase-messaging-sw.js`), เป็น PNG 1200×630 ถูกต้อง ไม่มี metadata/secret แปลกปลอม
-- Secret scan ทั้ง diff ไม่พบ credential ใดๆ, scope check ยืนยันไม่แตะ Dart/schema/RLS เลยแม้แต่บรรทัดเดียว
-
-**ข้อจำกัดที่ระบุไว้ตรงๆ (ไม่ใช่ blocker)**: sandbox นี้ไม่มี Flutter SDK เหมือนที่ Coding เจอ — `flutter analyze`/`flutter test` จะรันอัตโนมัติผ่าน `ci.yml` ก็ต่อเมื่อเปิด PR หรือ push เข้า `main` เท่านั้น (ตรวจพบว่า `ci.yml` ไม่รันกับ push ธรรมดาเข้า feature branch) — และการทดสอบ Facebook Sharing Debugger/Twitter Card Validator จริงทำได้แค่หลัง deploy เท่านั้น (URL ต้อง live ก่อน) ทั้งสองข้อบันทึกไว้เป็น "ต้องยืนยันในขั้นถัดไป" ตาม WORKFLOW.md ไม่ใช่เหตุผลให้ FAIL เพราะความเสี่ยงต่ำมาก (static content ล้วน, ตรวจได้ครบทุกจุดที่ทำได้จริงแล้ว)
-
-**ผลลัพธ์**: **PASS** — ย้าย `.wyn/tasks/active/WYN-113-og-share-preview-cards.md` → `.wyn/tasks/approved/`
-
-อ้างอิง: `.wyn/tasks/approved/WYN-113-og-share-preview-cards.md`
-
-## [2026-09-06] WYN-113: Deploy สำเร็จ ยืนยัน production จริงด้วย curl — ปิดงานสมบูรณ์
-
-**บริบท**: PR #267 (WYN-113) เปิดโดย AI Deploy & DevOps — Founder merge เข้า `main` เองผ่าน GitHub UI เร็วกว่าที่ Flutter CI job บน PR จะรันเสร็จด้วยซ้ำ ตรวจย้อนหลังพบว่า CI บน `main` (run #192, หลัง merge) เขียวครบทุก job รวม Flutter จริง จึง trigger `deploy-web.yml` (run #87) ทันที ผล **success**
-
-**Production verification จริง (ไม่ใช่แค่เชื่อ workflow log)**: session นี้มี network egress ถึง `wynos.online` จริง จึง curl ตรวจตรงๆ 2 จุด:
-1. `curl https://wynos.online/` — เห็น meta tag ทั้ง 9 ตัวถูกต้องครบ ข้อความไทยไม่เพี้ยน
-2. `curl https://wynos.online/og-image.png` — **md5sum ตรงกับไฟล์ที่ commit เป๊ะ** (`76b00bbf...`) ยืนยันว่ารูปที่ deploy จริงไม่ใช่ไฟล์เก่า/ไฟล์ผิด
-
-ตรงตามวินัยที่บันทึกไว้ตั้งแต่เหตุการณ์ Vercel 2026-09-02 ("CI เขียว + deploy workflow รายงาน success ไม่เท่ากับ production ใช้งานได้จริง") — รอบนี้ AI ยืนยันได้เองครบทั้งสองขา เพราะเนื้อหาที่ต้องตรวจ (raw meta tag + ไฟล์รูป) ตรวจสอบได้เชิงกลไก 100% ไม่ต้องอาศัยการรับรู้ของมนุษย์เหมือนงาน UI/UX ทั่วไป — task จึงย้ายตรงเข้า `completed/` ได้ทันทีโดยไม่ต้องรอ Founder ทดลองใช้เพิ่ม
-
-**เหลือทำ (ไม่ blocking)**: Founder อาจลองวางลิงก์ใน Facebook Sharing Debugger เองเพื่อดู preview การ์ดด้วยตาจริง
-
-**สถานะ**: WYN-113 **completed** ครบทั้ง Product → Design → Coding → QA → Deploy → Production Verification ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
-
-อ้างอิง: `.wyn/tasks/completed/WYN-113-og-share-preview-cards.md`, `.wyn/logs/deployments/2026-09-06-wyn-113-og-share-preview-deploy.md`, PR #267, deploy-web.yml run #87
-
-## [2026-09-06] WYN-114: แก้ share link โดเมนปลอม — พบว่าแอปไม่มี path routing เลย ขอบเขตต้องแบ่ง 2 ระดับ
-
-**บริบท**: ต่อจากการวิเคราะห์แอปก่อนหน้า (ค้างจาก Beta3 security audit item A-7) Founder อนุมัติให้แก้ share link 5 จุด (`dropShareLink`/`popShareLink`/`clubShareLink`/`clubPostShareLink`/`profileShareLink`) ที่ยังชี้โดเมนปลอม `https://wyn.app/...`
-
-**พบข้อเท็จจริงใหม่ระหว่างตรวจโค้ด**: `app/lib/main.dart` มี `MaterialApp(home: const AuthGate())` ตายตัว **ไม่มี GoRouter ไม่มี path-based routing ใดๆ เลย** — จุดเดียวที่อ่าน `Uri.base` คือ `analytics_repository.dart` สำหรับ UTM query parameter เท่านั้น ไม่เกี่ยวกับ path — แปลว่าต่อให้เปลี่ยนโดเมนเป็น `wynos.online` จริง การเปิดลิงก์ที่แชร์มา (เช่น `/drop/abc123`) **จะไม่พาไปที่โพสต์นั้นเลย** จะ boot แอปแล้วโชว์หน้า `AuthGate`/home เหมือนเปิด `wynos.online` เฉยๆ เสมอ
-
-**การตัดสินใจ**: แบ่งงานเป็น 2 ระดับแทนที่จะทำแบบเข้าใจผิดว่า "แก้โดเมนแล้วจบ":
-- **Tier 1** (ขอบเขตเดิมที่อนุมัติ): แก้แค่ string โดเมนใน 5 จุด — P1 ทำได้ทันที ความเสี่ยงต่ำมาก แม้ไม่ใช่ deep-link จริงแต่ดีกว่าเดิมชัดเจน (จาก "เปิดไม่ได้เลย" เป็น "เปิดได้แต่ไปหน้าแรก")
-- **Tier 2** (ขอบเขตใหม่ที่เพิ่งค้นพบว่าจำเป็น): เพิ่ม path-based deep-linking จริงให้ลิงก์พาไปที่โพสต์/Club/โปรไฟล์ที่แชร์มาจริงๆ — งานใหญ่กว่าที่คิด แตะ core navigation ต้องผ่าน AI Design ก่อน (UX ตอน resolve target, error state) — **ยังไม่อนุมัติ แยกเป็นการตัดสินใจต่างหาก**
-
-สร้าง `WYN-114` (`.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`) บันทึกทั้งสอง Tier ไว้ — Tier 1 ส่งตรง AI Coding ได้เลย (ไม่ผ่าน Design เพราะไม่มี UI เปลี่ยน)
-
-อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `app/lib/main.dart`, `.wyn/docs/qa/wynos-v1.0.0-beta3-security-audit.md` (item A-7 เดิม)
-
-## [2026-09-06] WYN-114: QA FAIL — Vercel ไม่มี SPA rewrite เลย ทุก path 404 จริง
-
-**บริบท**: QA ตรวจ WYN-114 Tier 1 (แก้โดเมน share link 5 จุด) ด้วยการ curl production จริงแทนที่จะเชื่อสมมติฐานในเอกสาร Product spec (ที่เขียนไว้ว่า "จะ boot แอปแล้วโชว์หน้า AuthGate เหมือนเปิด wynos.online เฉยๆ") — **พบว่าสมมติฐานนั้นผิด**: `curl https://wynos.online/drop/test123` ได้ **HTTP 404 ตรงจาก Vercel** (`x-vercel-error: NOT_FOUND`) ไม่ถึงขั้น Flutter app boot ด้วยซ้ำ
-
-**Root cause**: โปรเจกต์ deploy ด้วย `vercel deploy` ตรงๆ ไม่มี `vercel.json`/rewrite config ใดๆ เลย — Vercel static hosting เช็ค path ตรงกับไฟล์จริงเท่านั้น ไม่มี catch-all ไปที่ `index.html` ปัญหานี้**มีอยู่ก่อน WYN-114 แล้ว** (ทดสอบ path สุ่มอื่นก็ 404 เหมือนกันหมด) แต่เพิ่งกระทบผู้ใช้จริงตอนนี้เพราะ share link เพิ่งชี้โดเมนจริง
-
-**ผลกระทบต่อ WYN-114**: โค้ด Dart ที่แก้ (5 จุด) ถูกต้อง 100% ไม่ต้องแก้เพิ่ม — แต่ **acceptance criteria ของงาน ("ลิงก์เปิดเว็บได้จริง") ยังไม่จริง** เพราะติดปัญหาคนละชั้น (hosting config ไม่ใช่โค้ดแอป) สร้าง bug report `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md` พร้อม root cause + แนวทางแก้ (`vercel.json` catch-all rewrite) + คำเตือนเรื่อง regression risk สำคัญ (rewrite ต้องไม่ทำให้ static asset จริงอย่าง `og-image.png` ที่ WYN-113 เพิ่ง deploy ไปพังไปด้วย)
-
-**บทเรียน**: การวิเคราะห์โค้ด client-side อย่างเดียว (แม้จะละเอียดแค่ไหน) ไม่พอสำหรับฟีเจอร์ที่พึ่งพา URL/hosting — ต้องทดสอบกับ production จริงเสมอเมื่อทำได้ (ตามที่ session นี้มี network egress) ไม่ใช่แค่อ่านโค้ดแล้วเดาพฤติกรรม
-
-**สถานะ**: WYN-114 **FAIL** ส่งต่อ AI Debug Engineer
-
-อ้างอิง: `.wyn/tasks/backlog/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
-
-## [2026-09-06] WYN-114: Debug Engineer แก้ Vercel 404 ด้วย vercel.json rewrite — ส่งกลับ QA
-
-**บริบท**: ต่อจาก QA FAIL ของ WYN-114 (ทุก path บน `wynos.online` นอกจาก `/` ได้ 404 จาก Vercel) AI Debug Engineer reproduce ซ้ำอิสระยืนยันตรงกับ QA แล้วเพิ่ม `app/web/vercel.json` (catch-all rewrite `/(.*)  → /index.html`, มาตรฐาน SPA hosting) + `!/web/vercel.json` ใน `.gitignore` (ใช้กลไกเดียวกับ `og-image.png`/`favicon.png` — `flutter build web` copy ไฟล์ทุกไฟล์ใน `web/` เข้า `build/web/` verbatim อัตโนมัติ ไม่ต้องแก้ `deploy-web.yml` เพิ่ม)
-
-**ข้อจำกัดที่ระบุไว้ตรงๆ**: Vercel's "filesystem check ก่อน rewrite เสมอ" (ป้องกันไม่ให้ rewrite ทับ static asset จริงอย่าง `og-image.png`) เป็นพฤติกรรมมาตรฐานตามเอกสาร แต่**ยังไม่ได้พิสูจน์เชิงประจักษ์ในรอบนี้** เพราะ sandbox ไม่มี Vercel CLI ผูก credential — ต้อง verify จริงหลัง deploy
-
-**บทเรียนที่บันทึกเพิ่ม**: การวิเคราะห์ของ Product spec ที่อ่านแค่โค้ด client-side (`main.dart`) ไม่พอสำหรับปัญหาที่พึ่งพา URL/hosting — ควร curl ทดสอบ production จริงก่อนเขียนสเปกเมื่อทำได้ (บันทึกที่ `.wyn/learning/LESSONS_LEARNED.md`/`MISTAKES.md`)
-
-**สถานะ**: ส่งกลับ AI QA & Security พร้อม manual verification checklist 2 ชุด (path ที่ควรเป็น 200 ใหม่ + static asset ที่ต้องยังเป็นไฟล์จริงเหมือนเดิม) — ต้อง deploy ก่อนถึงจะ verify ได้จริง
-
-อ้างอิง: `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`, `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md`
-
-## [2026-09-06] WYN-114: QA PASS (มีเงื่อนไข) หลังยืนยันด้วยเอกสารทางการของ Vercel — ส่งต่อ Deploy
-
-**บริบท**: QA ตรวจ fix ของ Debug Engineer (`app/web/vercel.json`) ซ้ำ ไม่หยุดแค่ตรวจโค้ด static แต่ไล่แก้ข้อสงสัยที่ Debug Engineer เองระบุไว้ว่า "ยังพิสูจน์เองไม่ได้" (rewrite อาจทับ static asset จริงอย่าง `og-image.png`) ด้วยการ **WebFetch เอกสารทางการของ Vercel โดยตรง** (`vercel.json` reference doc อัปเดตล่าสุด 2026-08-14) พบข้อความยืนยันชัดเจน: *"precedence is given to the filesystem prior to rewrites being applied"* — ปิดข้อสงสัยหลักได้เกือบสมบูรณ์โดยไม่ต้องรอ deploy จริง
-
-**ผลลัพธ์**: PASS แบบมีเงื่อนไข — โค้ด/config ถูกต้องครบ + ความเสี่ยงหลักมีเอกสารทางการรองรับแล้ว แต่ยังต้องยืนยันด้วยตาจริงหลัง deploy ตาม curl checklist 2 ชุดที่ Debug Engineer เตรียมไว้ (ถือเป็นข้อบังคับ ไม่ใช่ทางเลือก — ถ้า static asset จุดใดพัง ต้อง P0 rollback ทันที)
-
-**บทเรียน**: เมื่อเจอข้อสงสัยที่ "เอกสารบอกว่าปลอดภัย แต่ยังไม่พิสูจน์" และมีเครื่องมือค้นเอกสารทางการจริง (WebFetch) ให้ใช้เพื่อยืนยันก่อนปล่อยผ่านเป็นข้อสงสัยค้างคา แทนที่จะพึ่งแค่ "โดยทั่วไปควรจะ..." เฉยๆ
-
-**สถานะ**: WYN-114 approved — ส่งต่อ AI Deploy & DevOps
-
-อ้างอิง: `.wyn/tasks/approved/WYN-114-share-link-real-domain.md`, `.wyn/tasks/bugs/WYN-114-vercel-404-no-spa-rewrite.md`
-
-## [2026-09-06] WYN-114: Deploy สำเร็จ ยืนยัน production ครบทั้ง 2 เงื่อนไขด้วย curl จริง — ปิดงานสมบูรณ์
-
-**บริบท**: PR #271 (WYN-114) เจอ merge conflict จริงระหว่างทางกับ PR #269 (อีก session, ฟีเจอร์ "add to home screen" ที่แก้ `app/.gitignore` ตำแหน่งเดียวกัน) — merge `main` เข้ามาแก้เอง เก็บทั้งสองส่วนไว้ ไม่มีอะไรหาย แล้ว merge PR + trigger `deploy-web.yml` (run #89) สำเร็จ
-
-**Production verification ครบทั้ง 2 เงื่อนไขที่ QA กำหนดไว้เป็นข้อบังคับ**:
-1. ลิงก์ที่แก้แล้ว (`/drop/x`, `/pop/x`, `/club/x`, `/club-post/x`, `/@x`) — **ทุกจุดได้ HTTP 200 จริง** (จากเดิม 404) ตรวจ body ยืนยันเป็น Flutter app จริง ไม่ใช่ error page
-2. Static asset เดิม (`og-image.png`/`favicon.png`/`manifest.json`) — **ไม่ถูกกระทบเลย** `og-image.png`'s md5sum ตรงกับไฟล์ที่ commit เป๊ะ (`76b00bbf...`) ยืนยันว่า Vercel's filesystem-before-rewrite precedence ทำงานตามเอกสารจริง ไม่ใช่แค่ทฤษฎี
-
-**สถานะ**: WYN-114 **completed** ครบทั้ง Product → Coding → QA FAIL → Debug Engineer → QA PASS → Deploy → Production Verification (curl จริงทั้ง 2 เงื่อนไข) — ไม่มี rollback ต้องทำ ไม่มี migration ค้าง
-
-อ้างอิง: `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/logs/deployments/2026-09-06-wyn-114-share-link-vercel-rewrite-deploy.md`, PR #271, deploy-web.yml run #89
-
-## [2026-09-06] ID Collision รอบใหม่: WYN-114 ถูกใช้ 2 ครั้งพร้อมกันโดยคนละ session — แก้แล้ว, เชื่อมเข้ากับ WYN-112 โดยตรง
-
-**บริบท**: ระหว่างที่ session นี้ (`session_013hvSGovkwhxpPFbFEKAvAu`) กำลังแก้/deploy WYN-114 (share link โดเมนผิด + Vercel ไม่มี SPA rewrite) อยู่ อีก session หนึ่ง (`session_014LEtwe8NjiPLcc9cqJEkuq`, ทำ product planning ให้ฟีเจอร์ Club) เจอบั๊กเดียวกันโดยบังเอิญระหว่างตรวจโค้ด แล้วบันทึกเป็น task ใหม่ด้วยเลขเดียวกัน "WYN-114" — เป็น ID collision class เดียวกับที่เคยเกิดกับ `WYN-077` (2026-09-02) และ `WYN-078` (2026-09-06 รอบเช้า) ทั้งสองครั้งมาก่อน แต่รอบนี้เกิดขึ้น**ระหว่างที่ทั้งสอง session กำลังแก้ปัญหาเดียวกันจริงๆ พร้อมกัน** ไม่ใช่แค่บังเอิญเลขซ้ำ
-
-**สิ่งที่อีก session ค้นพบเพิ่มที่สำคัญมาก**: เชื่อมบั๊กนี้เข้ากับ `WYN-112` (activation funnel investigation ที่ active อยู่) โดยตรง — ถ้าลิงก์ที่ Founder แชร์ต่อเนื่องมาตลอด 4 รอบที่ signup=0 นั้นมาจากปุ่ม "Share" ในแอป (ไม่ใช่พิมพ์ `wynos.online` เอง) นี่คือคำตอบที่สมบูรณ์ของปริศนาทั้งเรื่อง เพราะลิงก์เดิมชี้ไปโดเมนที่ไม่มี DNS จริง คนคลิกแล้วไปไม่ถึง WYNOS เลยสักคนไม่ว่าจะคลิกกี่ครั้ง — ส่งคำถามนี้ให้ Founder ผ่าน popup ไปแล้ว (จากอีก session) ยังไม่มีคำตอบ ณ เวลาที่บันทึกนี้
-
-**การแก้ ID collision**: เปลี่ยนงานที่อีก session สร้าง (`.wyn/tasks/backlog/WYN-114-fix-share-links-deep-linking.md`, ยังเป็นแค่ backlog ยังไม่เริ่มทำ) เป็น **`WYN-119`** (ไม่ใช้ `WYN-115`–`118` เพราะถูกจองไว้แล้วสำหรับ Club growth roadmap ใน `wyn-club-growth-roadmap.md`) — ตาม `WYN-114` ตัวที่เสร็จและ deploy แล้ว (`.wyn/tasks/completed/`) ไม่ควรเปลี่ยนเลข ตรงหลักการเดิมที่เคยแนะนำไว้กับ `WYN-078`
-
-**Scope ที่แท้จริงตอนนี้**: WYN-114 (โดเมน + Vercel SPA rewrite) **เสร็จและ deploy แล้ว** — WYN-119 (deep-linking จริงฝั่ง Flutter client + UTM tagging บนปุ่ม Share) **ยังเป็น backlog** ลดความสำคัญจาก P0 เหลือ P1 เพราะส่วนที่ทำให้ลิงก์ "ใช้งานไม่ได้เลย" แก้ไปแล้ว
-
-**บทเรียนเพิ่มเติม (ต่อยอดจาก ID collision เดิม)**: การที่หลาย session ทำงานพร้อมกันบนโค้ดเบสเดียวกันโดยไม่รู้จักกัน มีโอกาสค้นพบปัญหาเดียวกันซ้ำได้จริง (ไม่ใช่แค่เลข task ชนกันเฉยๆ) — ครั้งนี้เป็นประโยชน์ (อีก session ช่วยยืนยัน root cause + เชื่อมกับ WYN-112 ที่ session นี้เองยังไม่ได้เชื่อมจนกว่าจะเห็น note) แต่ก็เสี่ยงทำงานซ้ำซ้อนถ้าไม่ reconcile กันหลัง merge — DECISIONS.md/CONTEXT.md ยังเป็นกลไกเดียวที่ session อื่นจะเห็นงานที่ทำคู่ขนานอยู่ ต้องอ่านให้ครบก่อนเริ่มงานทุกครั้งตามที่ AGENTS.md บังคับไว้อยู่แล้ว
-
-**สถานะ**: `WYN-112` อัปเดตแล้วให้สะท้อนว่า WYN-114 แก้เสร็จ และคำถามสำคัญที่สุด (ลิงก์แชร์มาจากปุ่ม Share หรือพิมพ์เอง) ยังรอคำตอบ — เป็นกุญแจตัดสินว่า WYN-112 จบด้วยคำตอบนี้เลย หรือต้องกลับไปแผนเดิม (link shortener)
-
-อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/backlog/WYN-119-share-link-deep-linking.md`, `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/docs/product/wyn-club-growth-roadmap.md`, commit `1d22996`
-
-## [2026-09-06] ปิดประเด็นทั้งหมด: WYN-112 confirmed & closed, WYN-114 deployed, WYN-119 reconciled (2 session แก้ปัญหาเดียวกันคู่ขนานลงเอยตรงกัน)
-
-**สรุปสถานการณ์**: ระหว่างที่ session นี้ (`session_013hvSGovkwhxpPFbFEKAvAu`) กำลังปิด PR แก้ ID collision ของตัวเอง อีก session (`session_014LEtwe8NjiPLcc9cqJEkuq`) ก็ merge การแก้ไขของตัวเองเข้า `main` พร้อมกันพอดี — ทั้งสอง session **เลือกเลข `WYN-119` ตรงกันโดยไม่ได้คุยกัน** (บังเอิญ ไม่ใช่ race ที่ป้องกันไว้) และอีก session มีข้อมูลใหม่ที่สำคัญที่สุด: **Founder ยืนยันแล้วว่าลิงก์ที่แชร์ต่อเนื่องมาจากปุ่ม "Share" ในแอปจริง** — ปิดคำถามที่ session นี้เพิ่งจะถามพอดี
-
-**การ merge**: รับเวอร์ชันของอีก session สำหรับ `WYN-112` ทั้งไฟล์ (สมบูรณ์กว่า มี Founder confirmation จริง) และลบไฟล์ `WYN-119-share-link-deep-linking.md` ของ session นี้ทิ้ง เก็บ `WYN-119-club-deep-linking.md` ของอีก session ไว้เป็นตัวจริง (เนื้อหาเทียบเท่ากัน แต่ของเขาอยู่ status `active` แล้วและอ้างอิงข้อมูลที่ครบกว่า) — รับ Club growth roadmap ใหม่ (`WYN-115`–`118`) เข้ามาด้วยเพราะไม่ชนอะไร
-
-**สถานะสุดท้ายที่แท้จริงตอนนี้**:
-- **WYN-112**: root cause ยืนยันแล้ว 100% (Founder confirm ใช้ปุ่ม Share) — คือบั๊กเดียวกับ WYN-114 — **แก้และ deploy จริงแล้ว** รอแค่ Founder แชร์ลิงก์ใหม่ (ลิงก์เก่าที่แชร์ไปด้วย `wyn.app` ยังใช้ไม่ได้ ต้องแชร์ใหม่หลัง fix) แล้วดู signup กลับมาไหมใน WYN Admin Dashboard
-- **WYN-114**: completed, deployed, production-verified (ทำโดย session นี้)
-- **WYN-119**: real deep-linking (Tier 2) — backlog/active รอ AI Design ทำต่อ ไม่ block การดูผล WYN-112
-- **WYN-115–118**: Club growth roadmap ใหม่ (Poll/Re-engagement/Owner Insights/Events) — รอ Founder เลือกลำดับ
-
-**บทเรียนสุดท้าย**: การเลือกเลข `WYN-119` ตรงกันโดยบังเอิญของทั้ง 2 session (แม้จะไม่ได้คุยกัน) เป็นเรื่องดีที่ไม่กลายเป็น collision ซ้ำซ้อน แต่เป็นโชคมากกว่าความแน่นอน — ยืนยันอีกครั้งว่าจำเป็นต้องมีกลไกกลางแบบ "next-id" ที่ป้องกันการชนกันจริงจัง ไม่ใช่หวังให้ session อ่าน DECISIONS.md ทันเวลาเสมอไป (บันทึกไว้เป็นข้อเสนอปรับปรุง process แยกต่างหาก ไม่ใช่ scope ของงานใดงานหนึ่ง)
-
-อ้างอิง: `.wyn/tasks/active/WYN-112-activation-funnel-investigation.md`, `.wyn/tasks/active/WYN-119-club-deep-linking.md`, `.wyn/tasks/completed/WYN-114-share-link-real-domain.md`, `.wyn/docs/product/wyn-club-growth-roadmap.md`
-
-## [2026-09-06] Founder สั่งปิดระบบแชท 1-on-1 ชั่วคราว เหลือเฉพาะ @warren ↔ @wynos_online (ก่อนเปิดใช้งานจริง)
-
-**คำสั่ง Founder (ตรงตัว)**: "ปิดระบบ แชทไม่ให้คนใช้ทั่วไป ยกเว้น @warren กับ @wynos_online จะเอาไว้ทดสอบ ก่อนเปิดใช้งานจริง"
-
-**ขอบเขตที่ยืนยันแล้วผ่าน AskUserQuestion 2 รอบ** (คำถามแรกที่ถามกว้างเกินไป Founder ตอบ "งง" ต้องถามใหม่แบบยกตัวอย่างเป็นรูปธรรม):
-
-1. **การจับคู่ที่อนุญาต**: เฉพาะคู่ @warren ↔ @wynos_online เท่านั้น — ไม่ใช่ "ใครก็คุยกับ 2 บัญชีนี้ได้" ผู้ใช้ทั่วไปแม้แต่จะแชทกับ @warren เองก็ถูกบล็อกด้วย (คำตอบ Founder: "ไม่ได้เลย — เอแชทกับใครไม่ได้ทั้งนั้นช่วงปิดระบบ")
-2. **UX**: chat entry points (ไอคอน/ปุ่ม) ยังคงแสดงปกติ ไม่ซ่อน แต่เข้าไปแล้วเจอข้อความ "ระบบแชทปิดปรับปรุงชั่วคราว"
-3. **บทสนทนาเก่า**: ผู้ใช้ทั่วไปที่มีประวัติแชทเก่าอยู่แล้ว (กับคนอื่นที่ไม่ใช่ 2 บัญชีทดสอบ) ต้อง**ซ่อนทั้งหมด**ระหว่าง lockdown ไม่ใช่แค่ปิดการส่งข้อความใหม่
-
-**สถานะ**: บันทึกเป็น requirement แล้วที่ `.wyn/tasks/backlog/WYN-122-chat-lockdown-testers-only.md` — ต้องบังคับใช้ที่ backend/RLS (Founder ระบุชัดเจน ไม่ใช่แค่ซ่อน UI) เป็น **data-driven toggle** ที่เปิดกลับได้โดยไม่ต้อง deploy client ใหม่ (เพราะเป็นสถานะชั่วคราวก่อนเปิดใช้งานจริง) — ห้ามลบ/แก้ข้อมูลบทสนทนา/ข้อความเก่าใดๆ (ซ่อนด้วย RLS เท่านั้น reversible 100%)
-
-**ความเสี่ยงหลักที่ต้องระวัง**: (1) resolve `profiles.id` ของ @warren/@wynos_online ผิดจะปิดแชทของ Founder เองไปด้วย ต้อง verify ให้ตรง 100% ก่อน deploy (2) เป็นเรื่องชั่วคราว มีความเสี่ยงลืม toggle กลับตอนใกล้เปิดใช้งานจริง — ต้องมี task/reminder แยกติดตามเรื่องนี้ตอนใกล้ launch
-
-**Handoff**: ส่งต่อ AI Design → AI Coding → AI QA & Security (เข้มงวดเป็นพิเศษเพราะแตะ RLS ตารางข้อมูลจริง) → AI Deploy & DevOps ตาม WORKFLOW.md ปกติ ไม่ข้าม QA แม้ Founder จะเร่งด่วน
-
-อ้างอิง: `.wyn/tasks/backlog/WYN-122-chat-lockdown-testers-only.md`
-## [2026-09-06] Task-tracking cleanup: 9 bug/QA reports were stale (already fixed, header never updated) + WYN-078 ID collision resolved
-
-**บริบท**: Founder ขอให้ไปแก้บั๊กที่ยังค้างใน `.wyn/tasks/bugs/` และ `.wyn/tasks/qa/` (5 รายการที่พบใน branch `claude/home-button-ux-ui-design-cbjkzm` บวก SCHEMA-002 บวก WYN-081/WYN-102 ใน `qa/`) ตรวจแล้วพบว่า **ทั้งหมดถูกแก้และผ่าน QA ไปแล้วจริง** ในโค้ดปัจจุบันบน `main` — ไฟล์ tracking แค่ไม่เคยอัปเดต `Status:` header ให้ตรงกับเนื้อหา "ปิดแล้ว"/"Resolution" ที่มีอยู่ท้ายไฟล์เอง
-
-**สิ่งที่ตรวจสอบและยืนยัน**:
-- WYN-108, WYN-109 (×3: insert-sends-missing-column / compose-preview-fixed-aspect / detail-gallery-ignores-aspect-ratio), WYN-110-redundant-load-more-fetches — อ่านโค้ดจริงพบ fix ตรงกับที่ report บรรยาย ทุกไฟล์มีบันทึก "ปิดแล้ว 2026-09-04/05" พร้อม commit hash และ QA รอบ 2 (`.wyn/docs/qa/wyn-106-107-108-109-home-cards-qa-round2.md`, `.wyn/docs/qa/wyn-110-111-round2-qa.md`) อยู่ท้ายไฟล์แล้ว แค่ header ไม่เคย sync → ย้าย `bugs/` → `completed/`, แก้ header
-- WYN-110-homedropcard-320px-action-row-overflow — fix (`FittedBox` + `home_drop_card_overflow_test.dart`) มีอยู่จริงในโค้ด แต่ยังไม่มี QA รอบใหม่ยืนยันซ้ำ (QA รอบ 2 ที่มีอยู่ตรวจ**ก่อน**ที่ fix นี้จะถูกเขียน) → ย้าย `bugs/` → `qa/` (ไม่ใช่ `completed/`) รอ AI QA & Security ตรวจซ้ำจริง
-- SCHEMA-002 — รันเทสต์จริง (`wyn_077_basic_product_analytics_test.sh`, `wyn_050_admin_dashboard_test.sh`) ที่โหลด `schema.sql` เต็มไฟล์เป็นขั้นตอนแรก ทั้งคู่ผ่านหมดจาก DB ใหม่ล้วน ยืนยันว่า fix ที่มี comment "SCHEMA-002 (Beta2 audit, 2026-09-03)" กำกับไว้ใน `schema.sql` (บรรทัด ~5724) ใช้งานได้จริง ไม่ได้แค่มี comment เฉยๆ → ย้าย `bugs/` → `completed/`
-- WYN-081 (qa/) — โค้ดปัจจุบันมี fix อยู่แล้ว และ `git log --all --follow` พบว่าไฟล์นี้ถูกแก้แค่ครั้งเดียวในประวัติ ไม่เคยมีเวอร์ชัน arrow-body ที่บั๊กอธิบายจริงในสิ่งที่ commit ไว้เลย → ย้าย `qa/` → `completed/`
-- WYN-102 (qa/) — header ในไฟล์เขียนว่า "closed" ถูกต้องอยู่แล้ว วางผิดโฟลเดอร์เฉยๆ → ย้าย `qa/` → `completed/` เท่านั้น ไม่แก้เนื้อหา
-
-**ไม่มีการแก้โค้ด production ใดๆ ในรอบนี้** — เป็นแค่การซิงค์ tracking ให้ตรงกับความจริง ป้องกันไม่ให้มีคนสั่ง AI Debug Engineer ไปแก้ซ้ำสิ่งที่แก้ไปแล้ว
-
-**WYN-078 ID collision** (พบตั้งแต่ WYN-112, ดู entry ด้านบน) — แก้แล้ว: เปลี่ยนเลข `.wyn/tasks/backlog/WYN-078-invite-only-access-gate.md` เป็น `WYN-113` (เลขถัดจาก WYN-112 ล่าสุด) ตามคำแนะนำเดิม เพราะยัง backlog อยู่ ไม่ใช่งานที่เสร็จแล้วเหมือน `WYN-078-background-full-screen-fix.md` ที่คงเลขเดิมไว้ อัปเดต reference ใน `.wyn/docs/product/wynos-gtm-roadmap.md` (เอกสารวางแผนไปข้างหน้า) ให้ตรง ส่วน entry ประวัติศาสตร์เดิมใน `CONTEXT.md`/`DECISIONS.md` คงข้อความเดิมไว้ตามกติกา "ไม่แก้ย้อนหลัง"
-
-**ยังไม่แตะ เพราะรอ Founder**: WYN-P0 (Google/Apple sign-in web) ติด Vercel free-tier 100 deploy/วัน ต้องให้ Founder ตัดสินใจอัพเกรด plan หรือปิด auto-preview-deploy; WYN-112 (activation funnel) รอ Founder เปิด WYN Admin Dashboard ส่วน "การเติบโต" แล้วส่งตัวเลขกลับมา
-
-อ้างอิง: `.wyn/tasks/completed/WYN-108-comment-heart-size-regression.md`, `.wyn/tasks/completed/WYN-109-*.md`, `.wyn/tasks/completed/WYN-110-redundant-load-more-fetches.md`, `.wyn/tasks/qa/WYN-110-homedropcard-320px-action-row-overflow.md`, `.wyn/tasks/completed/SCHEMA-002-home-feed-view-column-drift.md`, `.wyn/tasks/completed/WYN-081-explore-clubs-reload-future-assertion.md`, `.wyn/tasks/completed/WYN-102-push-notification-pop-access-leak.md`, `.wyn/tasks/backlog/WYN-113-invite-only-access-gate.md`
-
-## [2026-09-06] WYN-114: fixed -- share links across the app went nowhere; WYN-115: invite-followers-to-club queued for Design
-
-**บริบท**: Founder ทดสอบเปิดลิงก์คลับที่ก็อปจากปุ่มแชร์จริง (`https://wynos.online/club/<id>`) แล้วไม่เด้งไปหน้าคลับ ตรวจแล้วพบว่าเป็นบั๊กกว้างกว่าที่คิด (ดูรายละเอียดเต็มที่ `.wyn/tasks/qa/WYN-114-share-links-no-deep-link.md`):
-
-1. `dropShareLink`/`popShareLink`/`clubShareLink`/`clubPostShareLink`/`profileShareLink` ทั้ง 5 ฟังก์ชัน hardcode โดเมนผิด (`wyn.app` แทนที่จะเป็น `wynos.online`) — แก้แล้ว
-2. แอปไม่เคยมีระบบ deep-link/URL routing เลยตั้งแต่ต้น (`main.dart` เป็น `MaterialApp(home: const AuthGate())` ตรงๆ ไม่มี route table เลย) — เพิ่ม `DeepLinkService` ใหม่ (`app/lib/core/navigation/deep_link_service.dart`) อ่าน `Uri.base.path` ตอน `RootShell` แรก mount (เฉพาะเว็บ, `kIsWeb`) แล้ว navigate ไปหน้าที่ถูกต้อง (drop/pop/club/club-post/profile) ตามแพทเทิร์นเดียวกับ `PushNotificationService`'s `_openDrop`/`_openClub`/ฯลฯ ที่มีอยู่แล้ว
-
-**ข้อจำกัดของ session นี้**: sandbox นี้ไม่มี Flutter SDK ติดตั้งเลย รัน `flutter analyze`/`flutter test` ไม่ได้จริง — ตรวจความถูกต้องด้วยการอ่าน source cross-reference ทุกจุดแทน (import/constructor/method ตรงกับของจริงทุกไฟล์) เขียน `app/test/deep_link_service_test.dart` ไว้ให้แล้วแต่ยังไม่เคยรันจริงสักครั้ง — **ต้องให้ AI QA & Security รัน `flutter analyze && flutter test` เต็ม suite ก่อน merge/deploy เด็ดขาด** (ไฟล์ task อยู่ที่ `.wyn/tasks/qa/` ไม่ใช่ `completed/` ด้วยเหตุนี้)
-
-**Known follow-up ที่ไม่ได้แก้รอบนี้**: deep-link ยังไม่ทำงานถ้าคนที่ยังไม่ login เป็นคนกดลิงก์ (เห็น Welcome เฉยๆ ลิงก์หายไปเลย ไม่มี "จำไว้พาไปหลัง login"), native mobile (iOS/Android) ยังไม่รับ path พวกนี้เลยเพราะต้องตั้งค่า Associated Domains/App Links ที่ platform-level (รอ Founder เหมือนกรณี Apple Sign-In)
-
-**WYN-115**: Founder พูดต่อว่าฟังก์ชันเชิญเข้าคลับควรเลือกเชิญจากคนที่ติดตามตัวเองได้ตรงๆ (ตอนนี้ปุ่ม "ชวนเพื่อนเข้ากลุ่ม" เปิดแค่ share sheet ทั่วไป ไม่มีตัวเลือก "ดู follower list แล้วเลือกชวน" เลย) — ข้อมูลที่ต้องใช้ (`FollowRepository.fetchFollowers()`) มีอยู่แล้ว ไม่ต้องเขียน query ใหม่ แต่เป็นงาน UI ใหม่ (ต้องมีหน้าจอ/bottom sheet เลือก follower) — **ไม่เขียนโค้ดทันทีเพราะกติกาถาวรของ Founder เอง** (`.wyn/company/DECISIONS.md`, [2026-09-03] "ขอดูรูปก่อน เขียนโค้ดนะ" — งาน UI ต้องมี mockup ให้อนุมัติก่อนเสมอ) — สร้าง `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md` ไว้แทน ส่งต่อ AI Design ก่อนเมื่อ Founder พร้อมให้เริ่ม
-
-อ้างอิง: `.wyn/tasks/qa/WYN-114-share-links-no-deep-link.md`, `.wyn/tasks/backlog/WYN-115-invite-followers-to-club.md`, `app/lib/core/navigation/deep_link_service.dart`
-
-## [2026-09-06] WYN-115: AI Design เสร็จ — ส่ง mockup ให้ Founder อนุมัติก่อนส่งต่อ AI Coding
-
-Design spec เต็มที่ `.wyn/docs/design/wyn-115-invite-followers-to-club.md` — ตัดสินใจหลัก: reuse ของเดิมทั้งหมด (ไม่คิด pattern ใหม่) —
-- เพิ่มแถวที่ 4 "เชิญจากผู้ติดตาม" บนสุดของ `showShareSheet` เดิม เฉพาะตอนแชร์ Club
-- หน้าจอใหม่ `InviteToClubScreen` copy โครง `FollowListScreen` (avatar/ชื่อ/@username/ช่องค้นหา/infinite scroll) ทั้งหมด เปลี่ยนแค่ trailing button เป็น "เชิญ"/"เชิญแล้ว"
-- ส่งคำเชิญผ่าน "แชร์เข้า Chat" เดิม (`ChatRepository`/`SharedContentType.club`, WYN-033) ไม่สร้าง infra ใหม่
-- ตอบ Requirement "เลือกทีละคนหรือหลายคน" ด้วย single-tap-to-invite ต่อเนื่อง (ไม่ auto-close หน้าจอ ต่างจาก `ShareToChatScreen` ที่ pop กลับทันที เพราะเจตนาใช้งานต่างกัน)
-- ตั้งใจไม่กรอง follower ที่เป็นสมาชิกคลับอยู่แล้วออกจาก list ใน v1 (ดูเหตุผลเต็มในเอกสาร)
-
-ส่ง Artifact preview (phone mockup 3 เฟรม: sheet ก่อน/หลังแก้ + หน้าจอใหม่ทั้ง 3 สถานะปุ่ม) ให้ Founder ตรวจตามกติกา "ขอดูรูปก่อน เขียนโค้ดนะ" (2026-09-03) — ย้าย `.wyn/tasks/backlog/WYN-115-...md` → `active/` ยังไม่ส่งต่อ AI Coding จนกว่า Founder จะอนุมัติ
-
-อ้างอิง: `.wyn/docs/design/wyn-115-invite-followers-to-club.md`, `.wyn/tasks/active/WYN-115-invite-followers-to-club.md`
-
-## [2026-09-06] WYN-115: Founder เลือกแหล่งรายชื่อเชิญ = Followers + Following ทั้งสองทาง
-
-Founder ถามเทียบกับ Instagram/X ก่อนอนุมัติ mockup ว่าเชิญจากรายชื่อไหน — AI Design ตอบตามที่รู้จริง (ไม่เดา): Instagram Close Friends ใช้ follower (คนที่ follow เรา), X Communities invite ใช้ following (คนที่เรา follow) ไม่มีมาตรฐานเดียวกันในอุตสาหกรรม เสนอ 3 ทางเลือกให้ Founder ตัดสินใจผ่าน popup
-
-**Founder เลือก: รวมทั้งสองทาง (Followers + Following, dedupe คนซ้ำ)** — ตรงกับ pattern ของ Instagram Group Chat "Add People"
-
-ผลกระทบ: `InviteToClubScreen` (ยังไม่เขียนโค้ด) ต้อง merge ผล `FollowRepository.fetchFollowers()` + `fetchFollowing()` ฝั่ง client แทนที่จะใช้ query เดียว — อัปเดต spec แล้วทั้ง `.wyn/tasks/active/WYN-115-invite-followers-to-club.md` และ `.wyn/docs/design/wyn-115-invite-followers-to-club.md` พร้อม republish mockup Artifact ให้สะท้อนการตัดสินใจนี้ — ยังรอ Founder อนุมัติรอบสุดท้ายก่อนส่งต่อ AI Coding
-
-อ้างอิง: `.wyn/tasks/active/WYN-115-invite-followers-to-club.md`, `.wyn/docs/design/wyn-115-invite-followers-to-club.md`
-
-## [2026-09-06] WYN-115: AI Coding implement เสร็จ — ส่งต่อ AI QA & Security
-
-Implement ตาม design spec ที่ Founder อนุมัติแล้วครบ: `showShareSheet` เพิ่มตัวเลือก "เชิญจากผู้ติดตาม" (เงื่อนไขเฉพาะ Club), `InviteToClubScreen` ใหม่ (merge `fetchFollowers()`+`fetchFollowing()` dedupe ตาม Founder Decision), ส่งคำเชิญผ่าน `ChatRepository`/`SharedContentType.club` เดิมจาก WYN-033 — ไม่แตะ schema/RLS/Edge Function ใดๆ
-
-พบและแก้ 1 จุดระหว่างเขียน: parameter nullable (`followRepository`/`clubName`) ที่ใช้สร้าง `InviteToClubScreen` (ต้องการ non-null) ข้าม type promotion ผ่าน closure ของ `onTap` ไม่ได้อัตโนมัติ ต้องใส่ `!` ตรงจุดใช้งาน (ปลอดภัยเพราะ ListTile นั้นสร้างขึ้นเฉพาะตอนเช็คแล้วว่าทั้งคู่ไม่ null)
-
-**sandbox นี้ไม่มี Flutter SDK เลย รัน `flutter analyze`/`flutter test` ไม่ได้จริง** — ตรวจสอบด้วยการอ่าน source cross-reference ทุกจุดแทน (import/constructor/method ตรงกับของจริงทุกไฟล์ที่แตะ) เขียน regression test ไว้ครบ (`invite_to_club_screen_test.dart`, `share_sheet_test.dart`) แต่ยังไม่เคยรันจริงสักครั้ง — ไฟล์ task ยังอยู่ที่ `active/` ไม่ใช่ `completed/`/`approved/` ด้วยเหตุนี้ ส่งต่อ AI QA & Security แล้ว ต้องรัน suite เต็มก่อนอนุมัติ deploy
-
-อ้างอิง: `.wyn/tasks/active/WYN-115-invite-followers-to-club.md` ("AI Coding Output"), `app/lib/features/chat/presentation/share_sheet.dart`, `app/lib/features/club/presentation/invite_to_club_screen.dart`
-
-## [2026-09-06] WYN-115: QA PASS (1259/1259) -- caught + fixed 2 real bugs by actually running CI
-
-AI QA & Security ตรวจ WYN-115 เต็มรูปแบบ ตัดสินใจสำคัญ: **แทนที่จะตรวจแค่อ่าน source (sandbox นี้ไม่มี Flutter SDK) ใช้ `mcp__github__actions_run_trigger` สั่ง `.github/workflows/ci.yml` รันจริงผ่าน `workflow_dispatch`** บน branch `claude/consultation-8azkvp` ได้ผลทดสอบจริงจาก Flutter 3.47.1 (เวอร์ชันเดียวกับ production build) แทนที่จะอนุมัติงานที่ไม่เคยถูกทดสอบจริง (ขัดกติกา "ห้ามอนุมัติงานที่ยังไม่ได้ทดสอบจริงเด็ดขาด")
-
-รันทั้งหมด 3 รอบ พบและแก้บั๊กจริง 2 จุดที่การอ่านโค้ดอย่างเดียวจะไม่มีทางเจอ:
-1. `flutter analyze` FAIL รอบแรก — `!` ที่ไม่จำเป็นใน `share_sheet.dart` (Dart promote type ผ่าน closure ได้เองอยู่แล้ว)
-2. `flutter test` FAIL รอบสอง (10 tests) — Timer leak ใน `share_sheet_test.dart` (สร้าง Recording repo ใน `onPressed` closure แทนที่จะเป็น `setUp()`, bug class เดียวกับ WYN-072) + `DeepLinkService._handle()` เรียก `Supabase.instance.client` แบบไม่มีเงื่อนไขทั้งที่บาง path ไม่ต้องใช้เลย (บั๊กจริงใน production code ด้วย ไม่ใช่แค่ test)
-
-รอบ 3: **`flutter analyze` 0 issues, `flutter test` 1259/1259 ผ่านหมด** (run [34041885759](https://github.com/warren-wyn-dev/wynteam/actions/runs/34041885759)) — Admin/Edge Functions/schema ordering ผ่านครบ ไม่มี regression ข้าม package — ตรวจ security เพิ่มเติม (authorization ของ 2 entry point, ไม่มี secret hardcode, RLS เดิมไม่เปลี่ยน) ไม่พบช่องโหว่ — **Final Status: PASS** ย้าย task ไป `.wyn/tasks/approved/` ส่งต่อ AI Deploy & DevOps
-
-อ้างอิง: `.wyn/tasks/approved/WYN-123-invite-followers-to-club.md` ("QA & Security Report" — renamed จาก WYN-115 ตอน merge เข้า main เพราะชนกับ WYN-115-club-poll ของอีก session ดู entry ถัดไป)
-
-## [2026-09-06] Merge conflicts + 2 more ID collisions found while merging WYN-123/WYN-119 work into main
-
-ตอน merge branch นี้ (WYN-115 เดิม/เชิญ follower เข้าคลับ + WYN-114 เดิม/deep-link) เข้ากับ `main` ที่เดินหน้าไปไกลมากระหว่างทาง (มี WYN-114 ถึง WYN-122 จากหลาย session อื่น merge เข้าไปแล้ว) พบ real merge conflict จริง (ไม่ใช่แค่ auto-merge) ที่ comment เหนือ `*ShareLink()` ทั้ง 5 ฟังก์ชัน (ทั้งสองฝั่งแก้โดเมน `wyn.app`→`wynos.online` อย่างอิสระต่อกัน) และที่ `DECISIONS.md` เอง (append-only ทั้งคู่) — แก้โดยรวม comment ทั้งสองเวอร์ชันเข้าด้วยกัน (Tier 1 เสร็จแล้ว + Tier 2 partial) และเก็บ log ทั้งสองฝั่งไว้ครบ
-
-**พบ ID collision เพิ่มอีก 2 รายการ** (รวมเป็น 4 ครั้งที่เจอในโปรเจกต์นี้: `WYN-078`, ครั้งที่บันทึกไว้ 2026-08-25, และตอนนี้อีก 2):
-1. `WYN-114` ของ session นี้ (โดเมน + `DeepLinkService`) ชนกับ `WYN-114` ของอีก session (โดเมน + `app/web/vercel.json` SPA rewrite, deploy จริงไปแล้ว) — retire `WYN-114` ของ session นี้ทิ้ง เพราะส่วนโดเมนซ้ำกับที่ deploy แล้ว ส่วน `DeepLinkService` (routing จริง ที่ไม่มีใครทำ) พับเข้า `WYN-119` (task ของอีก session ที่สาม ที่นิยาม "Tier 2" นี้ไว้พอดีแต่ยังไม่ได้ coding) เป็น partial implementation (รองรับแค่ authenticated user ยังไม่รองรับ guest ตาม Requirement 2 ของ WYN-119 — ต้องมี Design pass เรื่อง guest-browsing/AuthGate ก่อนถึงจะปิดงานนั้นได้)
-2. `WYN-115` ของ session นี้ (เชิญ follower เข้าคลับ) ชนกับ `WYN-115-club-poll` ของอีก session (merge เข้า main ไปแล้ว) — เปลี่ยนเป็น `WYN-123` (เลขถัดจาก 122 ที่ใช้ล่าสุดตอน merge)
-
-**สาเหตุร่วม**: หลาย AI session ทำงานพร้อมกันบน branch แยกกัน ไม่เห็นเลข ID ที่ session อื่นใช้ไปแล้วจนกว่าจะ merge เข้า main — เป็นความเสี่ยงเชิงโครงสร้างที่ยังไม่มีกลไกป้องกัน (เช่น central "next available ID" lock/registry) ทั้ง 4 ครั้งที่เจอมาล้วนแก้ได้ตอน merge โดยไม่มีอะไรเสียหาย แต่ยิ่งมี session พร้อมกันมากขึ้นเรื่อยๆ ความถี่ของ collision ก็จะเพิ่มตาม — ควรพิจารณาแก้ที่ระดับ process จริงจัง ไม่ใช่แก้เฉพาะหน้าทุกครั้งที่เจอ
-
-อ้างอิง: `.wyn/tasks/active/WYN-119-club-deep-linking.md` ("Partial Coding Output"), `.wyn/tasks/approved/WYN-123-invite-followers-to-club.md` ("Note — Renamed from WYN-115")
-
-## [2026-09-06] WYN-123 + WYN-119 (partial) deploy สำเร็จขึ้น production จริง
-
-Merge เข้า `main` ผ่าน PR #282 (`b3d150f`) หลังแก้ merge conflict + ID collision (ดู entry ก่อนหน้า) — `deploy-web.yml` run #93 success ครบทุก step ยืนยัน production ด้วย curl จริง: `/`, `/club/<id>`, `/drop/<id>`, `/@user` ตอบ HTTP 200 (`text/html`) ถูกต้อง, static asset เดิม (`og-image.png`/`favicon.png`/`manifest.json`) ไม่ถูก SPA rewrite ทับ (regression check ผ่าน), `main.dart.js` เป็น build ใหม่จริง
-
-**ยังไม่ปิด task เป็น completed** — ตามกติกา "Production Verification คือใครยืนยัน ยืนยันอะไร" (`.wyn/company/WORKFLOW.md`) curl พิสูจน์ได้แค่ "เว็บขึ้น ไม่พัง" ไม่ใช่ "ฟีเจอร์ใหม่ทำงานถูกต้องจริงในเบราว์เซอร์" (กด "เชิญจากผู้ติดตาม" → เห็นรายชื่อ → กดเชิญ → คนถูกเชิญได้รับข้อความจริง) — รอ Founder ทดลองใช้จริงก่อน
-
-รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-06-wyn-123-invite-followers-deep-link-deploy.md`
-
-## [2026-09-06] Staged Rollout สำหรับ WYNOS — Founder อนุมัติให้ทำทั้ง 2 ทาง + ส่งต่อ AI Design
-
-Founder ถาม (ปรึกษา): deploy WYNOS ตอนนี้อัปเดตทุกเครื่องพร้อมกัน อยากให้อัปเดตไปหาบัญชีนักพัฒนาก่อน รอพอใจค่อยปล่อยผู้ใช้ทั่วไป — AI Product Manager ตรวจสอบแล้วพบว่า WYNOS เป็น Flutter Web (PWA) endpoint เดียวจริง (deploy ขึ้น Vercel production project เดียวผ่าน `deploy-web.yml`) ไม่มี native app store distribution ที่ active และไม่มีกลไกแบ่งกลุ่มผู้ใช้ใดๆ ในระบบตอนนี้ (ไม่มี feature flag/allowlist/percentage rollout)
-
-เสนอ 2 ทางเลือก:
-1. ทางลัด process-only (ไม่ต้องเขียนโค้ด) — ใช้ Vercel Preview Deployment ที่มีอยู่แล้วเป็น staging ให้ทีมทดสอบก่อน promote ขึ้น production ทุกครั้ง
-2. ระบบ account allowlist/feature-flag ถาวร — endpoint production เดียวกัน เช็คว่า user เป็น "บัญชีนักพัฒนา" (ตาม email/user id ที่ Founder กำหนด) ก่อนเปิดฟีเจอร์ใหม่ให้เห็น ผู้ใช้ทั่วไปยังเห็นของเดิมจนกว่า Founder จะสั่งเปิด
-
-**คำตัดสินใจของ Founder**: ทำทั้ง 2 ทางคู่ขนาน (ทางเลือกที่ 1 ใช้ได้ทันทีระหว่างรอทางเลือกที่ 2 สร้างเสร็จ) และ**อนุมัติให้ส่งต่อ AI Design ออกแบบระบบ account allowlist/feature-flag ทันที**
-
-Task เดิมชื่อ `WYN-124-staged-rollout-developer-first.md` — **เปลี่ยนชื่อเป็น `WYN-125` ตอน merge เข้า main** เพราะชนกับ `WYN-124-club-invite-notification` ของอีก session ที่ merge เข้า main ไปก่อนแล้ว (ดู entry ถัดไปเรื่อง ID collision)
-
-## [2026-09-06] ID collision: WYN-124 ชนกันอีกครั้ง (ครั้งที่ 5) — Staged Rollout เปลี่ยนเป็น WYN-125
-
-Session นี้ (staged rollout / developer account allowlist) กำหนด ID เป็น `WYN-124` ตอนเริ่มงาน (เลขถัดจาก WYN-123 ที่เห็นตอนนั้น) โดยไม่รู้ว่าอีก session กำลังทำ "Club Invite Notification" อยู่พร้อมกันบน branch แยก และใช้เลข `WYN-124` เดียวกัน — session นั้น merge เข้า `main` ก่อน (ผ่าน QA, อยู่ใน `.wyn/tasks/approved/WYN-124-club-invite-notification.md` แล้ว) ตอนที่ session นี้พยายาม merge งานของตัวเองเข้า main ทีหลัง
-
-**การแก้ไข**: rename ทุกอย่างของ session นี้จาก `WYN-124`/`wyn-124`/`wyn124`/`wyn_124` เป็น `WYN-125`/`wyn-125`/`wyn125`/`wyn_125` ทั้งหมด (task file, design doc, schema.sql section, ทั้ง 2 GitHub Actions workflow, regression test, comment ใน `DeveloperAccessService`) ก่อน merge เข้า main — เนื้อหา/logic ไม่เปลี่ยนเลย เปลี่ยนแค่หมายเลข ID
-
-อ้างอิง pattern การแก้ไขเดิม: entry "[2026-09-06] Merge conflicts + 2 more ID collisions..." ด้านบน (ครั้งที่ 3-4) — สาเหตุร่วมเดิมคือหลาย session ทำงานพร้อมกันไม่เห็นเลขที่ session อื่นใช้ไปแล้วจนกว่าจะ merge เข้า main ยังไม่มีกลไกป้องกันเชิงโครงสร้าง (central ID registry) เหมือนที่เคยบันทึกไว้ว่าควรพิจารณา
-
-## [2026-09-06] WYN-125 (เดิมชื่อ WYN-124): AI QA & Security ตรวจ Developer Account Allowlist — PASS, ส่งต่อ AI Deploy & DevOps
-
-ตรวจ commit `742e7b2` (schema `developer_accounts`/`is_developer_account()` + 2 GitHub Actions workflows + `DeveloperAccessService` + regression test) จริงทุกข้อ ไม่เชื่อผลที่ AI Coding รายงานเฉยๆ:
-- รัน `supabase/tests/wyn_125_developer_accounts_test.sh` (เดิมชื่อ `wyn_124_...`) เองบน Postgres 16 local → PASS 20/20 checks (RLS lockdown จริง 0 policy ทั้ง `authenticated`/`anon`, grant execute ยืนยันด้วย `has_function_privilege` และรอดจากการ revoke PUBLIC default, fail-closed ทุก edge case)
-- รัน `supabase/tests/*.sh` ทั้ง 38 ไฟล์เอง → 37/38 PASS, ยืนยันซ้ำด้วย `git worktree` ที่ commit `fc4f264` (ก่อน task นี้) ว่า `wyn_038_view_counting_test.sh` fail เหมือนกันทุกตัวเลข → เป็น pre-existing จริง ไม่เกี่ยวกับงานนี้
-- รัน `flutter analyze` (0 issues) และ `flutter test` (1293/1293) เองจริงด้วย Flutter 3.47.1
-- เทียบ workflow ใหม่ 2 ตัวกับ `wyn122-apply-chat-lockdown-schema.yml`/`wyn122-toggle-chat-lockdown.yml` แบบ side-by-side — pattern สอดคล้องกัน ไม่มี secret hardcode, resolve username→id ก่อนเสมอ
-
-ไม่พบบั๊กใดๆ ที่ต้องแก้ — **Final Status: PASS** ส่งต่อ AI Deploy & DevOps รัน `wyn125-apply-developer-accounts-schema.yml` (เดิมชื่อ `wyn124-...`) ก่อน แล้วค่อยรัน `wyn125-manage-developer-accounts.yml` (action: add) เพิ่มบัญชีนักพัฒนาชุดแรกหลังยืนยัน username กับ Founder
-
-รายละเอียดเต็ม: `.wyn/tasks/active/WYN-125-staged-rollout-developer-first.md` (section "AI QA & Security Output")
-
-## [2026-09-06] P0: real Club pages broken in production right after WYN-123 deploy -- fixed same day
-
-Founder รายงานทันทีหลัง deploy run #93 ว่ากด Club จริงในแอปแล้วเจอ "โหลด Club ไม่สำเร็จ" ทุกครั้ง — ตรวจสอบพบว่าไม่เกี่ยวกับ WYN-123 (เชิญ follower เข้าคลับ) เลยโดยตรง แต่เป็นผลข้างเคียงจากการ merge:
-
-**Root cause**: `ClubPage._load()` เรียก `ClubRepository.isClubMuted()` ทุกครั้งที่โหลด Club (สำหรับสมาชิกที่ approved) ซึ่ง query ตาราง `public.club_notification_mutes` — ตารางนี้เพิ่มโดย `WYN-116` (Club Re-engagement Notifications, merge เข้า main ไปแล้วผ่าน PR #281 ก่อนหน้านี้ ผ่าน QA แล้วด้วย) **แต่ไม่เคยมีการรัน migration จริงบน production เลย** (ต่างจาก `WYN-122` ที่มี `wyn122-apply-chat-lockdown-schema.yml` ของตัวเองโดยเฉพาะ) — `deploy-web.yml` run #93 (WYN-123) เป็น deploy รอบแรกที่ ship client code ที่ query ตารางนี้จริง จึงเป็นรอบแรกที่บั๊กนี้แสดงผล แม้ WYN-123 เองจะไม่เกี่ยวกับโค้ดจุดนี้เลยก็ตาม
-
-**การวินิจฉัย**: สร้าง `diag-wyn116-schema-check.yml` (read-only) ยืนยันด้วย Supabase Management API ตรงว่า `club_notification_mutes` ไม่มีอยู่จริงใน production (`[]`) ก่อนจะสรุปสาเหตุ ไม่เดา
-
-**การแก้ไข**: สร้าง `wyn116-apply-club-reengagement-schema.yml` รันจริง (Founder สั่ง "ทำต่อ" ให้แก้ปัญหาทันที) — apply ส่วน WYN-116 ทั้งหมดจาก `schema.sql` แบบ copy-paste เป๊ะ (ขยาย check constraint ของ `notifications.type`, สร้างตาราง+RLS 3 policy, สร้าง 2 function/trigger) เป็นการเปลี่ยนแปลงแบบ additive ล้วนๆ ไม่มีอะไรถูกลบ/ทำลาย ตรงกับสิ่งที่ผ่าน QA ของ WYN-116 ไปแล้วทุกประการ — ยืนยันสำเร็จด้วยการรัน query เดิมที่เคย fail ซ้ำ (`isClubMuted()`-equivalent) แล้วได้ผลลัพธ์ว่างเปล่าปกติแทนที่จะ error
-
-**บทเรียน**: task ที่แก้ schema.sql (`create table`/`alter table`/function ใหม่) **ต้องมี workflow apply-to-production ของตัวเองเสมอ** (ตาม pattern ที่ `WYN-122` วางไว้ถูกต้องแล้ว) ก่อนที่ client code ที่พึ่งพา schema นั้นจะถูก deploy — ไม่งั้นจะเกิดเหตุการณ์แบบนี้ซ้ำได้ทุกครั้งที่มี PR อื่นบังเอิญเป็น deploy แรกที่ ship client code ที่ query schema ที่ยังไม่ apply จริง ควรตรวจสอบ task อื่นที่ค้างอยู่ใน `approved/` ว่ามีจุดเดียวกันอีกหรือไม่ (ยังไม่ได้ตรวจในรอบนี้ เพราะขอบเขตอยู่ที่แก้ P0 นี้ก่อน)
-
-อ้างอิง: `.github/workflows/diag-wyn116-schema-check.yml`, `.github/workflows/wyn116-apply-club-reengagement-schema.yml`, `.wyn/tasks/approved/WYN-116-club-reengagement-notifications.md`
-
-## [2026-09-06] ตามบทเรียนของ WYN-116 P0: เจอช่องโหว่เดียวกันอีก 2 จุด (WYN-115, WYN-117) + แก้ WYN-123 ให้ตรงทิศทางที่ Founder ต้องการ
-
-หลังแก้ P0 ของ WYN-116 เสร็จ Founder ให้ลองเปิด Club จริงอีกครั้งเพื่อยืนยัน — Club โหลดได้แล้ว แต่เจอ 2 อาการใหม่ทันที: (1) "โหลดโพสต์ไม่สำเร็จ" ทุกโพสต์ในคลับ และ (2) "เชิญไม่สำเร็จ" กับทุกคนยกเว้น @warren
-
-**อาการ (1) เป็นช่องโหว่เดียวกับ WYN-116 เป๊ะ แต่คนละ task**: `ClubPostRepository.fetchPosts()` (และพี่น้องมันทั้งหมด) embed `club_post_polls(...)` ในทุก query เสมอ ไม่ใช่แค่โพสต์โพลล์ — ตรวจสอบพบว่า `WYN-115` (Club Poll, merge+QA ผ่านไปแล้วก่อนหน้านี้) ก็ไม่เคยมี workflow apply-to-production ของตัวเองเหมือนกัน สร้าง `diag-p0-followup-check.yml` ยืนยันก่อนว่า `club_post_polls`/`club_post_poll_votes` ไม่มีอยู่จริง แล้วสร้าง `wyn115-apply-club-poll-schema.yml` แก้ — รันสำเร็จ ยืนยันด้วย query เดิมที่เคย fail ซ้ำ
+Y��x-���jם��i��+��j[h��ܢ����t��赩h��n�X�z�H���[�\�X�\�[ۜ���.`8.+x. x.*�.,�.(�.&x.-x.bx.&�.,x.&x.%�.-�. x. x.,�.(�.%x.,x.%8.*�.-8.&x.`�."8.%�.,�.)�.(�. �.+x.!���[�\�8.`8.(x.-�.b8.+H��[�\�8.`�.*�.bH�YY�X��8.`�.&x.)x.,x. x.*x.$�.,8.`8."�.b8.&H�."8.,�.a8.)�.bH��.%x.b8.+x.a8.&�.`�.*�.bx.%�.,�.`x.&�.&�.&x.-x.bH��.a8.(x.b8.`8.+x.,�.`x.&�.&�.&x.-x.bH��.`8.&�.)x.-x.b8.(�.&x.)�.-8.&8.-x.%�.,ȋ�.+x.(�.,�. x.`�.*�.bH�S�8.`8.&�.a�.&x.`x.&�.&�.&x.-x.bH�8.%�.-x.(HRH8.%x.bx.+x.!�.&�.,x.&x.%�.-�. x.a8.)�.bx.%�.-x.b8.&x.-x.b8.%�.,x.&x.%�.-x.`x.)x.,8.*�.bx.,�.(Hݙ\��YH8.`�.%8.(�.a8.(x.b8.`x."8.bx.!���[�\�����8.(�..x.&�.`x.&�.&�. x.,�.(�.&�.,x.&x.%�.-�. B�������VVVKSSKQH8.*�.,x.)�. �.bx.+x. x.,�.(�.%x.,x.%8.*�.-8.&x.`�."�H8.&�.(�.-8.&�.%΂�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\���H8.'8.)x. x.(�.,8.%�.&���H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN������8.(�.,�.(�. x.,�.(�. x.,�.(�.%x.,x.%8.*�.-8.&x.`�."�����̌��LKL�H�S�LLH8.)x.%8.*�.`�.!8.&�."8.,�. H�.(�.,8.&�.&��8.&8.-x.(x.*�.-H�8.`8.*�.)x.-�.+H�.`8.&�.)x.-x.b8.(�.&x.'�.-�.bx.&x.*�.)x.,x.!�.`8.&�.a�.&x.*�.-x. �.,�.)Ȉ8.`8.%�.b8.,�.&x.,x.bx.&B��H8.&�.(�.-8.&�.%ΈRH��X�X[�Y�\�8.`8. �.-x.(�.&H�[�X�8. �.+x.!��S�LLH
+8.(�.,8.&�.&�.`8.)x.-�.+x. x.&8.-x.(H�8.`x.&�.&��8. �.,�.)�.&x.)�.)K�. �.,�.)�.&�.(�.-8.*�..8.%�.&8.-8.c�.%8.,�H8.`x.)x.bx.)�.'�.&�.)�.b8.,�.`�.*�.#x.b8. x.)�.b8.,�.%�.-x.b�X����8.`8.%8.-8.(x.&�.(�.,8.`8.(x.-8.&x.a8.)�.bx.(x.,�. H8�%8.*�.-x.%�.,x.bx.!�.`x.+x.&�.+x.bx.,�.!�.+x.-8.!�.'8.b8.,�.&H�[���ܜ��]X��ۜ�8.`�.%8.(�.%x.(�.!�8.a8.(x.b8.'8.b8.,�.&H[YK�ي�۝^
+X8.`8.)x.(�8.%x.bx.+x.!�.a8.)x.b8.`x. x.bx.`8. x.-�.+x.&�.%�..8. x.a8.'�.)x.cRH8.`�.&x.`�.&�.(�.`8."8. x.%x.c8.%�.-�.!�."8.,8.*�.)x.,x.&�.&8.-x.(x.a8.%8.bx."8.(�.-8.!�8."8.-�.!�.%�.,�.(x.(�.-�.&x.(�.,x.&x.`x.&x.)�.%�.,�.!�. x.,x.&���[�\�8. x.b8.+x.&x.`8.(�.-8.b8.(H\�Yۋ���[�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��
+��.a8.(x.b8.%x.bx.+x.!�.%�.,�.(�.,8.&�.&�.*�.)x.,x.&�.&8.-x.(K�.*�.&x.bx.,�.%x.,x.bx.!�.!8.b8.,�.&8.-x.(x.`8.)x.(���8�%8.%x.bx.+x.!�. x.,�.(�.`x.!8.b�.`8.&�.)x.-x.b8.(�.&x.*�.-x.'�.-�.bx.&x.*�.)x.,x.!�.`x.+x.&�.`8.&�.a�.&x.*�.-x. �.,�.)�8.`8.*�.(x.-�.+x.&x. x.,x.&�.`x.+x.&�.+x.-�.b8.&x.a��8.`8.%�.b8.,�.&x.,x.bx.&H
+8.!8.-�.+x.&8.-x.(H�. �.,�.)�.&�.(�.-8.*�..8.%�.&8.-8.c�8.`�.&x.*�.`�.!8.&�.`8.%8.-8.(H8.`x.%x.b8.a8.(x.b8.%x.bx.+x.!�.(x.-x.%x.,x.)�.`8.)x.-�.+x. x.`�.*�.bx.*�.)x.,x.&�8.a8.(x.b8.%x.bx.+x.!�.(x.-x.&8.-x.(x.%8.,�8.a8.(x.b8.%x.bx.+x.!��[��8. �.bx.,�.(x.+x..8.&�. x.(�.$�.c
+B�H8.'8.)x. x.(�.,8.%�.&��8.!�.,�.&x.)x.%8. �.&x.,�.%8."8.,�. H��Y�X�܈8.*�.%�.,�.&�.,x.%x.(�. x.(�.(�.(x.*�.-x.%�.,x.bx.!�.`x.+x.&Ȉ8.`8.*�.)x.-�.+x.`x.!8.b8.`8.&�.)x.-x.b8.(�.&x.!8.b8.,��[���ܜ˜\\�
+8.&�.,x."8."8..8.&�.,x.&H���Q�Q��ٙ�]�]K�ܙX[JH8.`8.&�.a�.&x.*�.-x. �.,�.)�.&�.(�.-8.*�..8.%�.&8.-8.c
+��������
+H8."8..8.%8.`8.%8.-x.(�.)�8�%8.`8.'�.(�.,�.,\\�8.`8.&�.a�.&H��[�8. x.)x.,�.!�.%�.-x.b8.%�..8. x.*�.&x.bx.,�."8.+H
+�X��ܛ�[���\��X�K��\�
+H8.+x.bx.,�.!�.+x.-8.!�.(�.b8.)�.(x. x.,x.&x.+x.(�..x.b8.`x.)x.bx.)�8.%x.(�.)�."�۝�\�8. x.,x.&�Z\�[�X
+�NM�L
+K��Z[�
+������
+H8.`x.)x.bx.)�.'�.&�.)�.b8.,�.`8.&�.)x.-x.b8.(�.&x.`8.&�.a�.&x. �.,�.)�.&�.(�.-8.*�..8.%�.&8.-8.c8.%�.,�.`�.*�.bH�۝�\�
+��.`8.'�.-8.b8.(x. �.-�.bx.&J��8.`8.)x.a�. x.&x.bx.+x.(�
+8.`8.*�.bx.&x.!8.,x.b8.&K�. �.bx.+x.!8.)�.,�.(x."8.,�.!�.`8.*�.a�.&x."�.,x.%8. �.-�.bx.&H8.a8.(x.b8.`�."�.b8."8.,�.!�.)x.!�H8."8.-�.!�.a8.(x.b8.(x.-x.!8.)�.,�.(x.`8.*�.-x.b8.(�.!�.%8.bx.,�.&HX��\��X�[]H8�%8.(�.,8.&�.&��8.&8.-x.(K�\��[�H8.`8.%x.a�.(x.(�..x.&�.`x.&�.&�.%x.,�.(H��X��X�8.`8.%8.-8.(H
+��[��������X���[�LLK][YK\�\�[K�Y
+H8.`8. x.a�.&�.a8.)�.bx.`8.&�.a�.&J��.!�.,�.&x.+x.&x.,�.!8.%x.`x.(�. x.%x.b8.,�.!�.*�.,�. H8.&x.+x. x.(�.+x.&��]L�8.&x.-x.bJ��8.a8.(x.b8.`�."�.b8.*�.`�.!8.&�.%�.-x.b8.%x.bx.+x.!�.%�.,�.%x.+x.&x.&x.-x.bB�H8.+x.bx.,�.!�.+x.-8.!Έ��[��\���ؘX������S�LLK�Y��[��������X���[�LLK][YK\�\�[K�Y
+8.`8. x.a�.&�.a8.)�.bx.+x.bx.,�.!�.+x.-8.!�.*�.,�.*�.(�.,x.&�.!�.,�.&x.+x.&x.,�.!8.%JB�����̌��LKLWH�S����\��[ۈ�۝���X�H8�%8. x.,�.*�.&x.%�\�[[�H8.`x.)x.,8. x.%x.-8. x.,����X�H8.&�.(�.-8.&�.%Έ��[�\�8.*�.b8.!�. x.%x.-8. x.,��\��[ۈ�۝��8.+x.(�.b8.,�.!�.`8.&�.a�.&x.%�.,�.!�. x.,�.(�.*�.,�.*�.(�.,x.&��S���8.'8.b8.,�.&x. �.bx.+x.!8.)�.,�.(H��S����T��Sӈ�ӕ���P�H�8.(�.,8.&�..�\�[[�H8.&�.,x."8."8..8.&�.,x.&H8. x.%x.-8. x.,�. x.,�.(�.+x.,x.&�.`8.%8.%H�\��[ۈ8.`x.)x.,8. x.%x.-8. x.,����X�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\���K�
+���\�[[�J���8.`�.!8.bx.%�.'�.-x.`8."8.+x.(�.c�RKUV����[XK�TK��ۙ�Y�8.%�.,x.bx.!�.*�.(x.%8.%�.-x.b8.(x.-x.+x.(�..x.b8.$�8.%x.+x.&x.&x.-x.bH8.!8.-�.+H
+���S����K���]LJ��8�%8.*�.bx.,�.(x.%�.-�.+x.)�.b8.,�.`8.&�.a�.&x.`8.)�.+x.(�.c8."�.,x.&x.+x.-�.b8.&x."8.&x. x.)�.b8.,��ۙ\�8."8.,8.*�.,x.b8.!��
+���\��[ۈ8.`�.*�.(x.b8.%x.bx.+x.!�.(x.,�."8.,�. H�ۙ\�8.`8.%�.b8.,�.&x.,x.bx.&J��8�%8.%�.-x.(HRH8.*�.bx.,�.(x.`8.&�.)x.-x.b8.(�.&H�\��[ۈ�[X�\�8.`8.+x.!�8.*�.bx.,�.(x.`8.'�.-8.b8.(H�X]\�H8.`�.*�.#x.b8.%�.-x.b8.a8.(x.b8.a8.%8.bx.*�.,x.b8.!�8.*�.bx.,�.(x.)x.&��X]\�H8.`8.%8.-8.(x.`�.%8.(�.a8.(x.b8.a8.%8.bx.*�.,x.b8.!�8.%x.bx.+x.!�.(�.,x. x.*x.,�.!8.)�.,�.(x.*�.,�.(x.,�.(�.%�.`8.%8.-8.(x.a8.)�.bx.`8.)�.bx.&x.`x.%x.b�ۙ\�8.*�.,x.b8.!�.`8.&�.)x.-x.b8.(�.&B�ˈ
+��.*�.bx.,�.(H���X��8.`8.+x.!�.`�.%8.(�.`8.%8.a�.%8. �.,�.%8.a8.(x.b8.)�.b8.,�. x.(�.$�.-x.`�.%
+��8�%8.`8.(x.-�.b8.+x.'�.&�.&�.,x.#x.*�.,�
+�Z[�Z[�[�[YH\��܋�X]\�K�RH8.'�.,x.!�ZYܘ][ۈ8.'�.,x.!�TH8.'�.,x.!��X�\�]K�\��ܛX[��H�Yܙ\��[ۊH8.`�.*�.bH8.*�.(�..8.%8. x.,�.(�.`8.&�.)x.-x.b8.(�.&x.`x.&�.)x.!�.%�.-x.b8.a8.(x.b8."8.,�.`8.&�.a�.&H8���8.)�.-8.`8.!8.(�.,�.,8.*�.c8���8.(�.,�.(�.!�.,�.&x.*�.,�.`8.*�.%x..�.'8.)x. x.(�.,8.%�.&�8���8.`8.*�.&x.+x.%�.,�.!�.`x. x.bH8���8.(�.+x.!8.,�.*�.,x.b8.!��ۙ\�8.`8.%�.b8.,�.&x.,x.bx.&x. x.b8.+x.&H���X��8."8.(�.-8.!�
+8.!8.,�.*�.,x.b8.!�.%x.bx.+x.!�."�.,x.%8.`8."8.&H8.`8."�.b8.&H����X���S���8. x.)x.,x.&�.a8.&��K���]LH�B��
+���\��[ۈ[�Yܚ]J���8.%x.bx.+x.!�.%x.(�.)�."8.*�.+x.&��\��[ۈ8.&�.,x."8."8..8.&�.,x.&x. x.b8.+x.&x.`8.(�.-8.b8.(x.!�.,�.&x.%�..8. x.!8.(�.,x.bx.!�8.`x.)x.,8.`8.(x.-�.b8.+x.(x.-H�\��[ۈ8.`�.*�.(x.b8.%x.bx.+x.!�.&�.,x.&x.%�.-�. x.`x.)x.,8.(�.,x. x.*x.,�.&�.(�.,8.)�.,x.%x.-�\��[ۈ8.`8.%8.-8.(x.a8.)�.bH8.*�.bx.,�.(x.`8. �.-x.(�.&x.%�.,x.&��.%�.,�.)x.,�.(��\��[ۈ\�ܞB�H8.'8.)x. x.(�.,8.%�.&��8.*�.(�.bx.,�.!�.a8.'�.)x.c8.&x.`�.(�.&�.,�.(�.%�.,�.)�.(���[����\[�KՑT��Sӗ��ӕ���Y
+8.(x.-x.%x.,�.(�.,�.!��\��[ۈ\�ܞH8.`8.(�.-8.b8.(x."8.,�. H�K���]LJH8.`x.)x.,8.`8.'�.-8.b8.(x.`8.&�.a�.&x.a8.'�.)x.c8.&�.,x.!�.!8.,x.&�.+x.b8.,�.&x. x.b8.+x.&x.`8.(�.-8.b8.(x.!�.,�.&x.`�.&HQ�S�˛Y8. �.bx.+H�8�%8.%�..8. x.&�.%�.&�.,�.%�RH
+8.`�.%8.(�.`8."x.'�.,�.,RH\�H	�]���8.`x.)x.,RHX�Y�[��[�Y\�H8.%x.bx.+x.!�.(�.-�.%8. x.%x.-8. x.,�.&x.-x.bx.`8.(x.-�.b8.+x.`8."8.+x.&�.,x.#x.*�.,�.*�.)x.,x.!�\�N�8.*�.bx.,�.(x.*�.,x.b8.!����X��8.+x.,x.%x.`�.&x.(x.,x.%x.-8.`x.(x.bx.(�.,8.&�.&�.'�.,x.!�. x.a�.%x.,�.(H8.%x.bx.+x.!�.(�.,�.(�.!�.,�.&x.`x.)x.bx.)�.(�.+H�ۙ\��H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[����\[�KՑT��Sӗ��ӕ���Y�SPT�Wӓ�T˛Y�����̌��LL�H�S����\�X[�Y��\�
+�S�L�JH8�%�8. x.,�.(�.%x.,x.%8.*�.-8.&x.`�."8. x.b8.+x.&x.`8.(�.-8.b8.(H\�Yۂ�H8.&�.(�.-8.&�.%Έ��[�\�8.*�.b8.!��X��.+x.+x. x.`x.&�.&�RK�V8.*�.,�.*�.(�.,x.&��S��Ȉ8.'8.b8.,�.&H���X�
+8.&8.-x.(x.*�.)�.b8.,�.!�][KZ[XY�H���ٚ[HX�8.`�.*�.(x.b8.+�.)x.+�H8�%RH��X�X[�Y�\�8.%x.(�.)�."8.`�.!8.bx.%8.&�.,x."8."8..8.&�.,x.&x.`x.)x.bx.)�.'�.&�.)�.b8.,�.&8.-x.(x.*�.)�.b8.,�.!�.(x.-x.+x.(�..x.b8.`x.)x.bx.)�."8.(�.-8.!�.`�.&H�LH
+8.`x.!8.b8.(�.,x.!�.a8.(x.b�^8.`8.&�.a�.&x.!8.b8.,�.`8.(�.-8.b8.(x.%x.bx.&JH8."8.-�.!�.%�.,�.(x.(�.-�.&x.(�.,x.&H8."8..8.%8.'8.b8.,�.&H�\8. x.b8.+x.&x.*�.b8.!�.%x.b8.+HRH\�Yۂ�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\���K�
+��[YH[�J����^8.`8.&�.a�.&H
+��Y�8.`8.*�.(x.+J��
+8.a8.(x.b8.%x.,�.(H\��[�H8. �.+x.!�.`8.!8.(�.-�.b8.+x.!�.'8..x.bx.`�."�.bx.+x.-x. x.%x.b8.+x.a8.&�H8�%8.`8.&�.)x.-x.b8.(�.&HXZ[��\�	��[YS[�N�[YS[�K��\�[X8���[YS[�K�Y����
+��][KZ[XY�H��
+x�$�H8.(�..x.&�J���8.%�.,�.`8.&�.a�.&x.*�.b8.)�.&x.*�.&x.-�.b8.!�. �.+x.!�.!�.,�.&x.&x.-x.bx.`8.)x.(�
+8.a8.(x.b8.`8.)x.-�.b8.+x.&x.`8.&�.a�.&x.!�.,�.&x.`x.(�. JH8.`x.(x.bx.`8.&�.a�.&H��[XH�[��H8.(�.,8.%8.,x.&�. x.)x.,�.!�.%�.-x.b8. x.(�.,8.%�.&�.%�..8. x."8..8.%8.%�.-x.b8.`8.!8.(�.*�.(x.(x.%x.-8.)�.b8.,���8.(x.-x.(�..x.&�.`8.%8.-x.(�.)ˈ
+���ٚ[HX���\Y\ȋȓZ�\Ȋ���8.`8.&�.-8.%8.`8.&�.a�.&J��.*�.,�.&8.,�.(�.$�.,8.`8.*�.(x.-�.+x.&H�]\��
+��
+8.a8.(x.b8.`�."�.b8.`8."8.bx.,�. �.+x.!�.`�.&�.(�.a8.'�.)x.c8.`8.%�.b8.,�.&x.,x.bx.&x.%x.,�.(x.%�.-x.bRH��X�X[�Y�\�8.`x.&x.,8.&x.,�.a8.)�.bx.`8.&�.a�.&x.%�.,�.!�.`8.)x.-�.+x. H�]�X�K\�Y�\�8. x.)�.b8.,�H8�%��[�\�8.(�.-�.&x.(�.,x.&x.`8.)x.-�.+x. x.*�.,�.&8.,�.(�.$�.,��
+��.(8.,�.'�.+x.bx.,�.!�.+x.-8.!ʊ����[�\�8."8.,8.`x.&x.&�.(8.,�.'�.`�.*�.(x.b8.+x.-x. x.!8.(�.,x.bx.!�
+8.`8."�.*�."�.,x.&x.&x.-x.bx.a8.(x.b8.`8.*�.a�.&x.a8.'�.)x.c8.(8.,�.'�.%�.-x.b�X�8.+x.bx.,�.!�.%�.-�.!�H8�%8.(�.+x.!�.,�.&H\�Yۈ8."8.&x. x.)�.b8.,�."8.,8.a8.%8.bx.(8.,�.'��H8.'8.)x. x.(�.,8.%�.&����[��\���ؘX������S�L�K]�[���]�\�X[\�Y��\��Y8.&�.(�.,x.&�."8.,�. H�.(�.+x.!8.,�.%x.+x.&��8.`8.&�.a�.&H�\]Z\�[Y[�8.%�.-x.b8."�.,x.%8.`8."8.&x.`x.)x.bx.)�.*�.,�.*�.(�.,x.&���
+[YH�^
+KԌ�
+][KZ[XY�JKԍH
+�\Y\��Z�\�8.*�.,�.&8.,�.(�.$�.,
+H8�%8.(�.,x.!�.(�.+x.`x.!8.b8.(8.,�.'�.+x.bx.,�.!�.+x.-8.!�
+�JH8. x.b8.+x.&x.`8.(�.-8.b8.(HRH\�Yۈ8."8.(�.-8.!�8�%�\Y\��Z�\�8.`x.&�.&�.*�.,�.&8.,�.(�.$�.,8.`8.&�.a�.&x. x.,�.(�.`8.&�.-8.%8.`8.'8.(�.'�.)8.%x.-8. x.(�.(�.(x.'8..x.bx.`�."�.bx.`x.&�.&�.`�.*�.(x.b8.%x.bx.+x.!�.(x.-H\�Yۈ8.%�.-x.b8.*�.-�.b8.+x.*�.,�.(�."�.,x.%8.`8."8.&x. x.,x.&�.'8..x.bx.`�."�.bx.)�.b8.,�. �.bx.+x.(x..x.)x.`8.*�.)x.b8.,�.&x.-x.bx.`8.*�.a�.&x.a8.%8.bx."8.,�. x.!8.&x.+x.-�.b8.&H
+8.`8."�.b8.&H�\��][YH��X�JH8.`8.'�.-�.b8.+x.a8.(x.b8. �.,x.%8. x.,x.&��S�Z\��[ۈ8.`8.(�.-�.b8.+x.!�.!8.)�.,�.(x.`8.&�.a�.&x.*�.b8.)�.&x.%x.,x.)H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\���ؘX������S�L�K]�[���]�\�X[\�Y��\��Y�����̌��LLL�H�S��ܙH��X�	�\��]\�\�H8.&�.(�.-8.&�.%Έ��[�\�8.%x.+x.&�.!8.,�.%�.,�.(x.`8.(�.-8.b8.(x.%x.bx.&x.'8.b8.,�.&x.!8.,�.*�.,x.b8.!����X�8.`8.'�.-�.b8.+x.`8.(�.-8.b8.(x. x.,�.*�.&x.%�S��\�[ۈ8.`x.)x.,X��X�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\���H�ܙH��X��8.`�."�.`8."�.-x.(�.)x.(x.-x.`8.%8.-x.(�.%�.,x.b8.)�.a8.&�
+�[�\�[���X[YYXH]�ܛJB�H\��]\�\�Έ8.)�.,x.(�.(�..8.b8.&H��[���H]�ܛH8.`x.)x.,X��X�Έ8.(x.+x.&�.*�.(x.,�.(�.`�.*�.bHRH��X�X[�Y�\�8.`8.*�.&x.+x.!8.,�.`x.&x.,8.&x.,�8.`x.)x.bx.)�.(�.+H��[�\�8.+x.&x..8.(x.,x.%x.-�H8.'8.)x. x.(�.,8.%�.&��8.`�."�.bx.`8.&�.a�.&x.$8.,�.&x.`�.&x. x.,�.(�.(�.b8.,�.!��\�[ۋ�Z\��[ۈ8.`x.)x.,8.!8.,�.`x.&x.,8.&x.,�]�ܛK�X��X��8.`�.&H�S�LH8.+x.,x.&�.`8.%8.%x.`�.&H��[����\[�K��ӕV�Y�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\����X�]�K��S�LK]�\�[ۋX[�]X�\�X�˛Y�����̌��LLL�H�S��\�[ۋ�Z\��[ۈ8.`x.)x.,]�ܛK�X��X��8�%8.+x.&x..8.(x.,x.%x.-8.`x.)x.bx.)H8.&�.(�.-8.&�.%Έ��[�\�8.%x.+x.&��.(�.-�.&x.(�.,x.&H�8.%x.b8.+x.(�.b8.,�.!��\�[ۋ�Z\��[ۈ8.`x.)x.,8.!8.,�.`x.&x.,8.&x.,�]�ܛK�X��X��8.%�.-x.bRH��X�X[�Y�\�8.`8.*�.&x.+x.`�.&H�S�LB�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\���H8.+x.&x..8.(x.,x.%x.-8.%�.bx.+x.(�.!8.,��\�[ۈ8.`x.)x.,Z\��[ۈ8.%x.,�.(x.(�.b8.,�.!�.%�.,x.bx.!�.*�.(x.%
+8.a8.(x.b8.(x.-x.`x. x.bx.a8. �B�H8.+x.&x..8.(x.,x.%x.-]�ܛN�[ؚ[KY�\��8�%�XX��]]�H
+^�H
+�\T�ܚ\�H8.+x.&x..8.(x.,x.%x.-�X��[���\X�\�H
+��ܙT�S
+�]]
+��ܘY�H
+��X[[YH
+�Y�H�[��[ۜ�B�H8.'8.)x. x.(�.,8.%�.&����[����\[�K��ӕV�Y8.+x.,x.&�.`8.%8.%x.`8.&�.a�.&x.!8.b8.,�.*�..8.%8.%�.bx.,�.(�.`x.)x.bx.)��S�LH8.`8.*�.(�.a�."8.*�.(x.&�..x.(�.$�.cRH\�Yۈ8.`x.)x.,RH��[��8.`�."�.bx. �.bx.+x.(x..x.)x.&x.-x.bx.`8.&�.a�.&x.$8.,�.&x.+x.bx.,�.!�.+x.-8.!�.a8.%8.bx.%�.,x.&x.%�.-H8. x.,�.(�.`8.&�.)x.-x.b8.(�.&H]�ܛK�X��X��8.`�.&x.+x.&x.,�.!8.%x.%x.bx.+x.!�. �.+x.+x.&x..8.(x.,x.%x.-8.`�.*�.(x.b
+XZ�܈\��]X�\�JB�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\������\]Y��S�LK]�\�[ۋX[�]X�\�X�˛Y�����̌��LLL�H8.`8.&�.)x.-x.b8.(�.&H��۝[���[Y]�ܚ�8.`8.&�.a�.&H�]\�
+\�
+B�H8.&�.(�.-8.&�.%Έ8.*�.)x.,x.!��S�LH8.+x.&x..8.(x.,x.%x.-�XX��]]�K�^�8.a8.&�.`x.)x.bx.)���[�\�8.`x."8.bx.!�.%x.(�.!�.)�.b8.,��.`�.!8.bx.%8.%�.-x.b8.`�."�.bx.`8. �.-x.(�.&x.`x.+x.&�8.(8.,�.*x.,�\�8. x.,x.&��]\���H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.`�."�.bH
+���]\�
+8.(8.,�.*x.,�\�
+J��8.`8.&�.a�.&H[ؚ[H��[Y]�ܚ�8.*�.)x.,x. x. �.+x.!��S�8.`x.%�.&x.%�.-x.b�XX��]]�H
+^�H
+�\T�ܚ\8.%�.-x.b8.`8.!8.(�.+x.&x..8.(x.,x.%x.-8.a8.)�.bB�H8.'8.)x. x.(�.,8.%�.&���H��[����\[�K��ӕV�Y
+X�����H�X��\��]X�\�JH8.+x.,x.&�.`8.%8.%x.`8.&�.a�.&H�]\��\�8.`x.)x.bx.)H�X��[�8.(�.,x.!�.!8.!�.`8.&�.a�.&H�\X�\�H8.`8.*�.(x.-�.+x.&x.`8.%8.-8.(H
+8.(x.-H�\X�\�Wٛ]\�X��Y�H8.(�.+x.!�.(�.,x.&��]\�8.`�.%8.(�.%x.(�.!�8.a8.(x.b8. x.(�.,8.%�.&�B�HRH��[��8.%x.bx.+x.!�.`�."�.bH\�ћ]\��۝�[�[ۈ
+8.%x.,x.)�.`x.&�.(��\���Y�]8.`8.&�.a�.&x.(8.,�.*x.,�.+x.,x.!�. x.)8.*x.%x.,�.(HQ�S�˛Y
+H8.`8.(x.-�.b8.+x.`8.(�.-8.b8.(H[\[Y[��H��[����\[�K�T�ՐS˛Y8.(�.,�.(�. x.,�.(�.`8.%8.-8.(x.%�..x. x.%�.,�.`8.!8.(�.-�.b8.+x.!�.*�.(x.,�.(�.)�.b8.,�.*�.b8.)�.&H��۝[�8.%�..x. x.`x.%�.&x.%�.-x.b8.`x.)x.bx.)�
+]Y]�Z[8.(�.,x.!�.!8.!�.a8.)�.bH8.a8.(x.b8.)x.&�. �.+x.!�.`8.%8.-8.(JB�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\������\]Y��S�LK]�\�[ۋX[�]X�\�X�˛Y��[����\[�K�T�ՐS˛Y�����̌��LLL�H8.)�.-8.&8.-x. x.,�.(�.%�.,�.(x.!8.,�.%�.,�.(H��[�\�8.%x.bx.+x.!�.`�."�.bH�\8.'�.(�.bx.+x.(x.%x.,x.)�.`8.)x.-�.+x. x.!8.,�.%x.+x.&��H8.&�.(�.-8.&�.%Έ��[�\�8.`x."8.bx.!�.)�.b8.,��.`8.)�.)x.,�."8.,8.%�.,�.(x.!8.,�.%�.,�.(x.+x.,8.a8.(�.`�.*�.bx.%x.+x.&�8.`8.%8.bx.!�.`8.&�.a�.&x.*�.&x.bx.,�.&�.a�.+x.&�.+x.,x.'�8.'�.(�.bx.+x.(x.!8.,�.%x.+x.&�.%8.bx.)�.(��8.`x.)x.,8.(�.-�.&x.(�.,x.&x.`�.*�.bx.&�.,x.&x.%�.-�. x.`8.&�.a�.&x. x.%x.-8. x.,�.%�.,�.)�.(H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.%�..8. x.!8.(�.,x.bx.!�.%�.-x.bRH��H8.%x.bx.+x.!�.%�.,�.(x.!8.,�.%�.,�.(K�. �.+x. x.,�.(�.%x.,x.%8.*�.-8.&x.`�."�. �.+x.+x.&x..8.(x.,x.%x.-8."8.,�. H��[�\�8.`�.*�.bx.`�."�.bH�\8.`x.&�.&�.`8.)x.-�.+x. x.!8.,�.%x.+x.&�.`8.&�.a�.&x.!8.b8.,�.`8.(�.-8.b8.(x.%x.bx.&H8.`x.%�.&x. x.,�.(�.'�.-8.(x.'�.c8.%�.,�.(x.`8.&�.a�.&x. �.bx.+x.!8.)�.,�.(x.`8.&�.)x.b8.,�8.a�8.(�. x.`8.)�.bx.&x.!8.,�.%�.,�.(x.`8."�.-8.!�.&�.(�.(�.(�.,�.(�.%�.-x.b8.`�.*�.b8.`8.&�.a�.&x.%x.,x.)�.`8.)x.-�.+x. x.a8.(x.b8.a8.%8.bx.%x.,�.(x.&8.(�.(�.(x."�.,�.%x.-�H8.'8.)x. x.(�.,8.%�.&��8.&�.,x.&x.%�.-�. x. x.%x.-8. x.,�.a8.)�.bx.%�.-x.b��[����\[�KԕST˛Y
+8.*�.,x.)�. �.bx.+H�.)�.-8.&8.-x. x.,�.(�.%�.,�.(x.!8.,�.%�.,�.(H��[�\��H8.%�..8. HRH��H8.%x.bx.+x.!�.&�.#�.-8.&�.,x.%x.-8.%x.,�.(x.%x.,x.bx.!�.`x.%x.b8.&x.-x.bx.a8.&H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[����\[�KԕST˛Y�����̌��LLL�H]][�X�][ۈY]��8.*�.,�.*�.(�.,x.&��S���B�H8.&�.(�.-8.&�.%ΈRH��X�X[�Y�\�8.`8.(�.-8.b8.(H�S�L�
+]][�X�][ۈ	�ۘ��\�[��H8.`x.)x.,8.`8.*�.&x.+x.)�.-8.&8.-x.(�.-�.&x.(�.,x.&x.%x.,x.)�.%x.&x.`�.*�.bH��[�\�8.+x.&x..8.(x.,x.%x.-8.'8.b8.,�.&H�\�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.+x.&x..8.(x.,x.%x.-8.`�.*�.bH�S���H8.(�.+x.!�.(�.,x.&�
+�����X[��[�
+����H
+�\JH8.`x.)x.,ۙH�[X�\�
+��
+��8.`8.%�.b8.,�.&x.,x.bx.&H8.a8.(x.b8.(x.-H[XZ[
+�\���ܙ�H8.'8.)x. x.(�.,8.%�.&��8. x.,�.*�.&x.%8.`8.&�.a�.&H�\]Z\�[Y[�8.`�.&H��[��\���ؘX������S�L�X]][�X�][ۋ[ۘ��\�[�˛Y8.`x.)x.,8.`8.&�.a�.&x.$8.,�.&x.`�.*�.bHRH\�Yۋ�RH��[��8.`�."�.bx.+x.bx.,�.!�.+x.-8.!�.`8.(x.-�.b8.+x.`8.(�.-8.b8.(x.!�.,�.&H8. x.,�.(�.`8.&�.)x.-x.b8.(�.&x.`x.&�.)x.!�]][�X�][ۈ\��]X�\�H8.`�.&x.+x.&x.,�.!8.%x.%x.bx.+x.!�. �.+x.+x.&x..8.(x.,x.%x.-8.`�.*�.(x.b�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\���ؘX������S�L�X]][�X�][ۋ[ۘ��\�[�˛Y�����̌��LLL�H\�[Y[�\��]8.*�.,�.*�.(�.,x.&��S���H8�%[�\��[\�[�H8.&�.(�.-8.&�.%Έ�S�L�8.'8.b8.,�.&HPH8.(�.+x.&��
+T��H8.`x.)x.bx.)�RH\�H	�]���8.%�.,�.(x.'8.b8.,�.&H�\8.)�.b8.,�.!8.)�.(�\�H8.a8.&�.%�.-x.b8.a8.*�.&x.`8.&�.a�.&x.+x.,x.&x.%8.,x.&�.`x.(�. B�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.`8.)x.-�.+x. H
+��[�\��[\�[�ʊ�
+8.%�.-x.(x.(8.,�.(�.`�.&x.`8.%�.b8.,�.&x.,x.bx.&JH8�%\��Y�
+S��H
+��\�X�\�H\\��X�][ۈ8.*�.(�.-�.+H����H^H[�\��[\�[���X��
+[���Y
+H8.a8.(x.b8.`�."�.bX�X��ܙH�[X\�H8.`�.&x.%x.+x.&x.&x.-x.bB�H8.'8.)x. x.(�.,8.%�.&����[��\����\�ݙY��S�L�X]][�X�][ۋ[ۘ��\�[�˛Y8.`x.)x.,��[������\�[Y[��̌��LLL�]�[�L�\�XY[�\�˛Y8.`�."�.bx.`8.&�.bx.,�.*�.(x.,�.(�.&x.-x.bx.`8.&�.a�.&x.$8.,�.&x.)�.,�.!�.`x.'8.&H\�[Y[�8. x.,�.(�.`8.&�.)x.-x.b8.(�.&x.`8.&�.a�.&HX�X��[X\�H8.`�.&x.+x.&x.,�.!8.%x.%x.bx.+x.!�. �.+x.+x.&x..8.(x.,x.%x.-8.`�.*�.(x.b�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\����\�ݙY��S�L�X]][�X�][ۋ[ۘ��\�[�˛Y�����̌��LLL�H�X]\�H8.%�.,x.%8.a8.&�.!8.-�.+H\�\��ٚ[H8�%8. �.+x.&�.`8. �.%H\�^H�[YH
+��[�
+�]�]\��H8.&�.(�.-8.&�.%Έ8.*�.)x.,x.!��S�L�8.'8.b8.,�.&HPKRH��X�X[�Y�\�8.%�.,�.(H��[�\�8.'8.b8.,�.&H�\8.)�.b8.,��X]\�H8.%�.,x.%8.a8.&�.!8.)�.(�.`8.&�.a�.&x.+x.,8.a8.(H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.`8.)x.-�.+x. H
+��\�\��ٚ[J��8.`8.&�.a�.&H�X]\�H8.%�.,x.%8.a8.&�
+�S�L�H8.`x.)x.,8.`8.)x.-�.+x. x.`�.*�.bx.(x.-x.!8.(�.&�.%�.,x.bx.!��8.+x.(�.b8.,�.!�.%x.,x.bx.!�.`x.%x.b8.(�.+x.&�.`x.(�. N�8."�.-�.b8.+x.`x.*�.%8.!�
+\�^H�[YJK�[�8.`x.)x.,8.(�..x.&�.`�.&�.(�.a8.'�.)x.c
+]�]\�\�Y
+H8�%8.a8.(x.b8.`x.&�.b8.!�.`8.&�.a�.&x.`8.'�.*�.(�.b8.+x.(��H8.'8.)x. x.(�.,8.%�.&��8. x.,�.*�.&x.%8.`8.&�.a�.&H�\]Z\�[Y[�8.`�.&H��[��\���ؘX������S�L�]\�\�\�ٚ[K�Y8.%x.bx.+x.!�.`8.'�.-8.b8.(H�\X�\�H�ܘY�H�X��]8.*�.,�.*�.(�.,x.&�]�]\�8.`x.)x.,8. �.(�.,�.(��ٚ[\�X�B�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\���ؘX������S�L�]\�\�\�ٚ[K�Y�����̌��LLL�H8.%x.bx.+x.!�.*�.b8.!�\���Y�X�][ۈ8.%�..8. x.!8.(�.,x.bx.!�.%�.-x.b8.%�.,�.(x.!8.,�.%�.,�.(H��[�\��H8.&�.(�.-8.&�.%Έ��[�\�8.%�.,�.(x.)�.b8.,�.`8.)�.)x.,�.%�.,�.(x.!8.,�.%�.,�.(x.*�.(�.-�.+x.`�.*�.bH��[�\�8.%x.+x.&�.+x.,8.a8.(�8.(x.-x.`8.*�.-x.(�.!�.`x."8.bx.!�.`8.%x.-�.+x.&x.a8.%8.bx.a8.*�.(H8�%8.%�.%8.)x.+x.!�.*�.b8.!�\���Y�X�][ۈ8.`�.*�.bx.%8..x.`x.)x.bx.)���[�\�8.(�.-�.&x.(�.,x.&x.`�.*�.bx.&�.,x.&x.%�.-�. x.`8.&�.a�.&x. x.%x.-8. x.,�.%�.,�.)�.(H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.%�..8. x.!8.(�.,x.bx.!�.%�.-x.bRH��H8.%�.,�.(x.!8.,�.%�.,�.(x.*�.(�.-�.+x.(�.+x.!8.,�.%x.+x.&��. x.,�.(�.%x.,x.%8.*�.-8.&x.`�."8."8.,�. H��[�\�8.`�.*�.bx.*�.b8.!�\���Y�X�][ۈ8.`x."8.bx.!�.`8.%x.-�.+x.&x.a8.&�.%8.bx.)�.(�.`8.*�.(x.+H
+8.&x.+x. x.`8.*�.&x.-�.+x."8.,�. H�\8.%�.-x.b8.(x.-x.+x.(�..x.b8.`x.)x.bx.)�B�H8.'8.)x. x.(�.,8.%�.&��8.&�.,x.&x.%�.-�. x. x.%x.-8. x.,�.a8.)�.bx.%�.-x.b��[����\[�KԕST˛Y
+8.*�.,x.)�. �.bx.+H�.)�.-8.&8.-x. x.,�.(�.%�.,�.(x.!8.,�.%�.,�.(H��[�\��H8.`x.)x.,Q�S�˛Y8.%�..8. HRH��H8.%x.bx.+x.!�.&�.#�.-8.&�.,x.%x.-8.%x.,�.(x.%x.,x.bx.!�.`x.%x.b8.&x.-x.bx.a8.&H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[����\[�KԕST˛Y�����̌��LLL�H�X]\�H8.%�.,x.%8.a8.&�.!8.-�.+H�YY	���8�%8. �.+x.&�.`8. �.%H�ؘ[�YY
+�8. �.bx.+x.!8.)�.,�.(K�.(�..x.&�
+�Z�H
+���[Y[�
+�8.)x.&�.`�.'�.*�.%x.c�H8.&�.(�.-8.&�.%Έ8.*�.)x.,x.!��S�L���S�L�8.'8.b8.,�.&HPKRH��X�X[�Y�\�8.%�.,�.(H��[�\�8.'8.b8.,�.&H�\8.)�.b8.,��X]\�H8.%�.,x.%8.a8.&�.!8.)�.(�.`8.&�.a�.&x.+x.,8.a8.(H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.`8.)x.-�.+x. H
+���YY	���
+��8.`8.&�.a�.&H�X]\�H8.%�.,x.%8.a8.&�
+�S�L
+H8.'�.(�.bx.+x.(x. �.+x.&�.`8. �.%x.!8.(�.&�.%x.,x.bx.!�.`x.%x.b8.(�.+x.&�.`x.(�. N��H��8.`8.&x.-�.bx.+x.*�.,��8. �.bx.+x.!8.)�.,�.(H
+�8.(�..x.&�.(8.,�.'��H�YY��ؘ[�YY
+8.`8.*�.a�.&x.`�.'�.*�.%x.c8.%�..8. x.!8.&H8.`8.'�.(�.,�.,8.(�.,x.!�.a8.(x.b8.(x.-x.(�.,8.&�.&�����B�H[�\�X�[ۜΈ8.(x.-x.%�.,x.bx.!�Z�H8.`x.)x.,��[Y[��H8.'8..x.bx.`�."�.bx.)x.&�.`�.'�.*�.%x.c8. �.+x.!�.%x.,x.)�.`8.+x.!�.a8.%8.bB�H8.'8.)x. x.(�.,8.%�.&��8. x.,�.*�.&x.%8.`8.&�.a�.&H�\]Z\�[Y[�8.`�.&H��[��\���ؘX������S�LY�YYX[�\���Y8.%x.bx.+x.!�.*�.(�.bx.,�.!�.%x.,�.(�.,�.!�����Z�\����[Y[��8.`�.*�.(x.b8.'�.(�.bx.+x.(H�ܘY�H�X��]8.*�.,�.*�.(�.,x.&�.(�..x.&�.`�.'�.*�.%x.c8.`x.)x.,8.`8.&�.)x.-x.b8.(�.&H�YT�ܙY[�8."8.,�. HX�Z�\�8.`8.&�.a�.&H�YY8."8.(�.-8.!H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\���ؘX������S�LY�YYX[�\���Y�����̌��LLMH8.`x.%�.&x.%�.-x.b��X���X�\�H8.`8.%8.-8.(x.%�.,x.bx.!�.*�.(x.%8.%8.bx.)�.(���S���H8�%�ԑHT�PUT�H��T�
+�YH�������ٚ[JB�H8.&�.(�.-8.&�.%Έ��[�\�8.*�.b8.!��X�8.`�.*�.(x.b8.%�.,x.bx.!�."x.&�.,x.&�
+��S���H8�%�ԑHT�PUT�H��T�H8.%�.-x.b8.&x.-8.(�.,�.(H�S���H8.`�.*�.(x.b8.%�.,x.bx.!�.*�.(x.%8.`8.&�.a�.&H���H�]�Y�][ۈ8.`8.(x.&x..N��YH
+�X\��
+��YY8.(�.)�.(H����
+K��
+8.`�.'�.*�.%x.c8.(�..x.&�.(8.,�.'�8.(�.,8.&�.&�.`x.(�. x.%x.b8.,�.!�.*�.,�. JK�
+8.`�.'�.*�.%x.c8.!8.)x.-8.&�.*�.,x.bx.&x.`x.&x.)�.%x.,x.bx.!�.`x.&�.&�Z���K�ٚ[H8�%8.'�.(�.bx.+x.(x.(�.,8.&�.&����X[8.`8.%x.a�.(x.(�..x.&�.`x.&�.&�
+Z�K��[Y[��\�K�]�K������Y�X�][ۋ�X\��
+H8.%x.b8.,�.!�."8.,�. x. �.+x.&�.`8. �.%x.%�.-x.b8.*�.(�.bx.,�.!�.a8.&�.`x.)x.bx.)�.(x.,�. N��S�L
+�YY	���
+H8.%�.-x.b8.`8.'�.-8.b8.!�.'�.,x.$�.&x.,�.`8.*�.(�.a�."8.`8.&�.a�.&H
+���YY8.`8.%8.-x.(�.)�.(�.)�.(x.`�.'�.*�.%x.c8. �.bx.+x.!8.)�.,�.(J�.(�..x.&�.(8.,�.'���8.a8.(x.b8.a8.%8.bx.`x.(�. H����8.`8.&�.a�.&x.!8.&x.)x.,8.`x.%�.a�.&�8.`x.)x.,8.(�.,x.!�.a8.(x.b8.(x.-H�\�K��]�Kћ���ӛ�Y�X�][ۋ��X\��8.`8.)x.(�8.%�.,�.(x.(�.-�.&x.(�.,x.&x.'8.b8.,�.&H�\8.)�.b8.,�."8.,8.%�.,�.+x.(�.b8.,�.!�.a8.(�. x.,x.&�. �.+x.!�.`8.%8.-8.(B�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��
+��.`x.%�.&x.%�.-x.b8.%�.-8.*8.%�.,�.!���X�8.`8.%8.-8.(x.%�.,x.bx.!�.*�.(x.%
+��8.%8.bx.)�.(��X�8.`�.*�.(x.b8.&x.-x.bH8�%8.`8.(�.-8.b8.(H���X�8.`�.*�.(x.b8.%x.,�.(H��S���H8�%�ԑHT�PUT�H��T�8.%x.,x.bx.!�.`x.%x.b8.%x.bx.&H
+8.a8.(x.b8.`�."�.b8.`x.!8.b8.`8.'�.-8.b8.(x.`8.&�.a�.&H��YX\8.(�.,8.(�.,8.(�.,�.)�.%�.-x.b8.(�.,x.!�.a8.(x.b8.%�.,�H8. �.+x.&�.`8. �.%H��H8.`�.*�.(x.b8.%x.,�.(x.%�.-x.b��[�\�8.(�.,8.&�..8.!8.-�.+N���[�ԙY�\�\���YK��X\������ܙX]H���\�Y[XY�K���ܙX]H��\�Y�Y[���ٚ[K�Z�K���[Y[���\�K��]�Kћ���ӛ�Y�X�][ۜ�8.`8.%�.b8.,�.&x.,x.bx.&H8�%8.*�.bx.,�.(x.%�.,���֓��K�^[Y[���\��ܙ\��]�K�RK�ܙX]܈[ۙ]^�][ۋ�Y��Y�[��Y�X��[Y[�][ۈ[�ܚ]H8."8.&x. x.)�.b8.,�."8.,8.a8.%8.bx.(�.,x.&�.!8.,�.*�.,x.b8.!�.`�.*�.(x.b��܈\�X�[ێ��YH
+��]H
+��ٝܘ^K8.a8.(x.b8.`�."�.bH\]ZY�\��8.*�.bx.,�.(x.)x.+x. H^[�]8. �.+x.!�[��Yܘ[K�Z���8.`�.%8.(�.%x.(�.!H8.'8.)x. x.(�.,8.%�.&���S�L�
+]]
+H8.`x.)x.,�S�L�
+�ٚ[JH8.(�.,x.!�.`�."�.bx.a8.%8.bx.`8.&�.a�.&x.$8.,�.&x.+x.(�..x.b
+8.%x.(�.!�. x.,x.&��Y�\�\����[�����]�Y]�ٚ[H8.`�.&H�X�8.`�.*�.(x.b
+H8.`x.%x.b�S�L
+�YY	���
+H8.%�.-x.b8.`8.'�.-8.b8.!�.'8.b8.,�.&H��[���X�Y�8.`x.)x.,8.(�.+HPH8.(�.+x.&��8.+x.(�..x.b
+��."8.,8.%�..x. x.`x.%�.&x.%�.-x.b�.`x.(�. x.+x.+x. x.`8.&�.a�.&H��8. x.,x.&��
+��8.%x.,�.(H�X�8.`�.*�.(x.b8�%8.%x.bx.+x.!�.(�.,x.&H���X�8.`�.*�.(x.b8.`8.'�.-�.b8.+x.)�.,�.!���YX\��H8.`�.*�.(x.b8.%�.,x.bx.!�.*�.(x.%8. x.b8.+x.&x.`8.(�.-8.b8.(H\�Yۋ���[��8. �.+x.!�������X\��ӛ�Y�X�][ۋћ�����\�K��]�H8.!�.,�.&x.%�.-x.b8.!8.bx.,�.!�.+x.(�..x.b
+PH8.(�.+x.&��8. �.+x.!��S�LX�Y��^
+H8."8.,8.%�.,�.`�.*�.bx.`8.*�.(�.a�."8.%x.,�.(x.%�.-x.b��[�\�8.*�.,x.b8.!�.a8.)�.bx. x.b8.+x.&H
+Y\��H�̌�
+�PH8.(�.+x.&��H8.`8.'�.-�.b8.+x.&�.-8.%��8.`8.%8.-8.(x.`�.*�.bx.`8.(�.-x.(�.&�.(�.bx.+x.(�. x.b8.+x.&x.`8.&�.)x.-x.b8.(�.&x.%�.-8.*8.%�.,�.!H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN��̌KL��
+�S�L
+K8."8.,8.*�.(�.bx.,�.!���[��\���ؘX�����8.`�.*�.(x.b8.*�.,�.*�.(�.,x.&�������X\��ӛ�Y�X�][ۋћ�����\�K��]�H8.*�.)x.,x.!����X�8.(�.+x.&�.`�.*�.(x.b8.`8.*�.(�.a�."�����̌��LLMH8. �.+x.&�.`8. �.%H�S�LH
+��
+H8.(�.+x.&�.`x.(�. H8.`x.)x.,8. x.%x.-8. x.,�.%�.-x.b8.`�."�.bx.(�.b8.)�.(x.%�.,x.bx.!���YX\��H8.`�.*�.(x.b�H8.&�.(�.-8.&�.%ΈRH��X�X[�Y�\�8.)�.,�.!���YX\8.`�.*�.(x.b
+��[��������X���[�]��K\��YX\�Y
+H8.`x.)x.,�X�8. �.+x.!��S�LH
+��
+H8.`x.)x.bx.)�.%�.,�.(x.(�.-�.&x.(�.,x.&H8.!8.,�.%�.,�.(x.'8.b8.,�.&H�\8. x.b8.+x.&x.*�.b8.!�.%x.b8.+HRH\�Yۂ�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\�
+8.%�.,x.bx.!�.*�.(x.%8.%x.,�.(x.%�.-x.b8.`x.&x.,8.&x.,�N��K�8.`8.(�.-8.b8.(x.'�.,x.$�.&x.,�.%�.-x.b
+���S�LH
+��
+J��8. x.b8.+x.&x.'�.-x.`8."8.+x.(�.c8.+x.-�.b8.&x.%�.,x.bx.!�.*�.(x.%8.`�.&H��YX\8.`�.*�.(x.b���
+��\�Y��Y[�[ۈ8.`�.&H�S�LH8.(�.+x.&�.`x.(�. J���8.%�.,�.`x.!8.b�.'�.-8.(x.'�.c8.`�.&x.`x.!8.&�."�.,x.&x.a8.%8.bH8.(�.,8.&�.&�."8.,��.&�.,x.&x.%�.-�. x.a8.%8.bH�8.`8.%�.b8.,�.&x.,x.bx.&H8.*�.b8.)�.&x. x.,�.(�.`x.%x.,\�Y��Y[�[ۈ8.`x.)x.bx.)�.a8.&�.*�.&x.bx.,�.!8.bx.&x.*�.,��.`�.&�.(�.a8.'�.)x.c8.%�.,�.%�.-x.*�.)x.,x.!�.'8..x. x. x.,x.&��S�LH
+�X\��
+H8.a8.(x.b8.%�.,�.`�.&H�S�LB�ˈ
+������8.`�."�.bx.a8.%8.bx. x.,x.&�.%�.,x.bx.!���8.`x.)x.,�
+��
+8.a8.(x.b8.`�."�.b8.`x.!8.b�8.%x.,�.(x.%�.-x.b�X�8.`8.%8.-8.(x.(�.,8.&�..8.a8.)�.bx.a8.(x.b8."�.,x.%
+H8�%8.(�.,8.&�.&�����8.`8.%8.-x.(�.)�
+�S�L
+H8.`�."�.bx.(�.b8.)�.(x. x.,x.&x.%�.,x.bx.!�.`x.+x.&�
+���YH�YY
+�S�L�H8.`8.&�.a�.&H�ؘ[8. x.b8.+x.&J��
+8.`8.*�.a�.&x.`�.'�.*�.%x.c8. �.+x.!�.%�..8. x.!8.&H8.`8.*�.(x.-�.+x.&H�S�L8.`8.%8.-8.(JH8.(�.,x.!�.a8.(x.b8. x.(�.+x.!�.%x.,�.(H����8."8.&x. x.)�.b8.,�."8.,8.(x.-x. x.,�.(�.%x.,x.%8.*�.-8.&x.`�."8.`8.'�.-8.b8.(x.`8.%x.-8.(x.`�.&x.+x.&x.,�.!8.%B�H8.'8.)x. x.(�.,8.%�.&��8.+x.,x.&�.`8.%8.%x. �.+x.&�.`8. �.%x.`�.&H��[��\���ؘX������S�LKY��\��Z[XY�K�Y8.`x.)x.,��[��������X���[�]��K\��YX\�Y8.`�.*�.bx.%x.(�.!�. x.,x.&�.!8.,�.%x.,x.%8.*�.-8.&x.`�."8.&x.-x.bH8.`x.)x.bx.)�.*�.b8.!�.%x.b8.+HRH\�Yۈ
+�\�Yۘ
+H8.`8.'�.-�.b8.+x.+x.+x. x.`x.&�.&�.*�.&x.bx.,�."8.+x. �.+x.!��S�LB�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\���ؘX������S�LKY��\��Z[XY�K�Y��[��������X���[�]��K\��YX\�Y�����̌��LLMH8.+x.&x..8.#x.,�.%x.`�.*�.bx.%�.-x.(HRH8.%�.,�.!�.,�.&x.%x.b8.+x.`8.&x.-�.b8.+x.!�.+x.,x.%x.`�.&x.(x.,x.%x.-8.%x.,�.(H��YX\8.`�.%8.(�.a8.(x.b8.%x.bx.+x.!�.*�.(�..8.%8.%�.,�.(x.%�.-x.)x.,\�H8.&�.(�.-8.&�.%Έ��[�\�8."8.,8.`8. �.bx.,�.&x.+x.&H8. �.+x.`�.*�.bx.%�.-x.(HRH8.%�.,�.!�.,�.&x.%x.b8.+x.`8.&x.-�.b8.+x.!�.a8.%8.bx.`8.+x.!�.`�.%8.(�.a8.(x.b8.%x.bx.+x.!�.(�.+x.%�.,�.(x.%�..8. x. �.,x.bx.&x.%x.+x.&H8.%�.,�.(x.(�.-�.&x.(�.,x.&x. �.+x.&�.`8. �.%x.'8.b8.,�.&H�\8. x.b8.+x.&x.)�.b8.,�."8.,8.%�.,�.`x.!8.b�S�LH8.`�.*�.bx.`8.*�.(�.a�."8.`x.)x.bx.)�.*�.(�..8.%8.*�.(�.-�.+x.%�.,�.%x.b8.+x.`8.&x.-�.b8.+x.!�.%�.,x.bx.!���YX\�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��
+��.%�.,�.!�.,�.&x.%x.b8.+x.`8.&x.-�.b8.+x.!�.%x.,�.(H��YX\8.%�.,x.bx.!�.*�.(x.%8.`�.%8.(�.+x.,x.%x.`�.&x.(x.,x.%x.-
+��8�%8.`8.(�.-8.b8.(x."8.,�. HY\��H�̎8���PH�S�LH8���8.`8. �.bx.,�X�Y�8.%�.bx.,��RS8."8.&x. x.)�.b8.,�."8.,T��8���8.%x.b8.+x.%8.bx.)�.(��S�L�
+�
+H8.`x.)x.,\��8.%�.,x.%8.a8.&�.%x.,�.(x.)x.,�.%8.,x.&�.`�.&H��[��������X���[�]��K\��YX\�Y8.`�.%8.(�.a8.(x.b8.%x.bx.+x.!�.*�.(�..8.%8. �.+H\��\�\�]Y\�[ۈ8.%�.-x.)x.,8. �.,x.bx.&x.%x.+x.&x.+x.-x. H
+��."8.&x. x.)�.b8.,���[�\�8."8.,8. x.)x.,x.&�.(x.,����H8.'8.)x. x.(�.,8.%�.&��8. x.%x.-8. x.,�.%�.,�.)�.(�.+x.-�.b8.&H8.a�8.(�.,x.!�.`�."�.bx.+x.(�..x.b8.`8.*�.(x.-�.+x.&x.`8.%8.-8.(H
+8.*�.bx.,�.(H�ܘ�K\\�8.%�.-x.b8.`8.&�.a�.&x.+x.,x.&x.%x.(�.,�.(�8.*�.bx.,�.(x.`8.&�.)x.-x.b8.(�.&HXZ�܈\��]X�\�K՚\�[ۋ��X�\�]H8.`�.%8.(�.a8.(x.b8. �.+x.+x.&x..8.(x.,x.%x.-8.%x.bx.+x.!�.&�.,x.&x.%�.-�. x.%�..8. x.+x.(�.b8.,�.!�.)x.!���P�T�SӔ˛Y��ӕV�Y8.`�.*�.bx.%x.(�.)�."8.(�.bx.+x.&x.*�.)x.,x.!�.a8.%8.bJH8�%8.*�.-8.b8.!�.%�.-x.b8.`8.&�.)x.-x.b8.(�.&x.!8.-�.+H
+��.a8.(x.b8.%x.bx.+x.!�.(�.+H��[�\�8.%x.+x.&��\8. x.b8.+x.&HY\��H��.`8.(�.-8.b8.(H\��8.%�.,x.%8.a8.&�.`�.&x."�.b8.)�.!�.&x.-x.bJ��8."8.&x. x.)�.b8.,�."8.,8.(x.-x.!8.,�.*�.,x.b8.!�.`8.&�.)x.-x.b8.(�.&x.`x.&�.)x.!�."8.,�. H��[�\�8.*�.(�.-�.+x.`8."8.+x.*�.%�.,�.&x. x.,�.(�.$�.c8.%�.-x.b8.%x.bx.+x.!�. �.+x.+x.&x..8.(x.,x.%x.-8.%x.,�.(H�ST˛Y8."8.(�.-8.!�8.a�
+8.`8."�.b8.&H8.%x.bx.+x.!�.`8.&�.)x.-x.b8.(�.&H�\�[ۋН\�[�\��[�[��X�\�]H\��]X�\�JH8."�.-�.b8.!�. x.(�.$�.-x.&x.,x.bx.&x.(�.,x.!�.%x.bx.+x.!�.*�.(�..8.%8.(�.+H��[�\�8.`8.*�.(x.-�.+x.&x.`8.%8.-8.(B�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN��̎8.`8.&�.a�.&x.%x.bx.&x.a8.&����̌��LLMH8."�.,8.%x.,�. x.(�.(�.(x. �.+x.!�.`�.!8.bx.%�.*�.!8.-x.(x.,��S�L8.`8.%8.-8.(H8.`8.(x.-�.b8.+x.`8.(�.-8.b8.(H�S�L�
+�YJB�H8.&�.(�.-8.&�.%Έ�S�LH
+��
+H8.`x.)x.,�S�L�
+�
+H8.'8.b8.,�.&HPH8.`x.)x.bx.)�8.%�.,�.`�.*�.bH�YH
+�S�L�H8.`8.(�.-8.b8.(x.a8.%8.bH8.%x.bx.+x.!�.%x.,x.%8.*�.-8.&x.`�."8.)�.b8.,�."8.,8.%�.,�.+x.(�.b8.,�.!�.a8.(�. x.,x.&�.`�.!8.bx.%�.%x.,�.(�.,�.!��S�L
+�YY�ܙY[�����\��]ܞX����\�8.%x.,�.(�.,�.!�����Z�\����[Y[��
+H8.%�.-x.b8.a8.(x.b8.(x.-H��]H8.`�.%8."�.-x.bx.a8.&�.`x.)x.bx.)�.%x.,x.bx.!�.`x.%x.b�S�LH8.`x.%�.&x.%�.-x.b8.%8.bx.)�.(�����[8�%8.`8.(�.-�.b8.+x.!�.&x.-x.bx.!8.bx.,�.!�.(x.,�.%x.,x.bx.!�.`x.%x.b�S�LH��[���]]8.%�.-x.b8.(�.,8.&�..8.)�.b8.,��.(�.+H��[�\����X�8.%x.,x.%8.*�.-8.&x.`�."��H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!�RH��X�X[�Y�\�
+8.%�.,�.`8.+x.!�.a8.%8.bx.%x.,�.(x.+x.,�.&x.,�."8.%�.-x.b�ST˛Y8.`�.*�.bx.a8.)�.bH8.a8.(x.b8.`�."�.bXZ�܈\��]X�\�H�[��JN�8.`x.(�. x.`8.&�.a�.&H�8.*�.b8.)�.&H8�%�K�
+��.)x.&�.`�.!8.bx.%\�8.%�.-8.bx.!ʊ�
+\�X�ٙX]\�\�ٙYY�8.%�.,x.bx.!�.`�.'�.)x.`8.%8.+x.(�.c
+�\�8.%�.-x.b8.`8. x.-x.b8.(�.)�. �.bx.+x.!�H8.(x.+x.&�.*�.(x.,�.(�.`�.*�.bHRH��[��8.%�.,�.(�.,8.*�.)�.b8.,�.!�[\[Y[��S�L�8�%8.`8.*�.%x..8.'8.)N�8.a8.(x.b8.(x.-H�Y[�8.a8.*�.&x.+x.bx.,�.!�.+x.-8.!�.`x.)x.bx.)��YH8.`�.*�.(x.b]Y\�H������8.%x.(�.!�8.a�8.a8.(x.b8.`�."�.bH���8.`8.%8.-8.(K�]\�ܞH8.`8. x.a�.&�.`�.!8.bx.%8.`8.%8.-8.(x.a8.)�.bx.!8.(�.&�.%�.bx.,�.%x.bx.+x.!�.+x.bx.,�.!�.+x.-8.!�.(�.bx.+x.&x.*�.)x.,x.!��
+��.a8.(x.b8.)x.&�.%x.,�.(�.,�.!�����Z�\����[Y[��8.+x.+x. x."8.,�. H��[XH8.`8.+x.!ʊ�8.`8.'�.(�.,�.,8.`8.&�.a�.&H�.`�.!8.(�.!�.*�.(�.bx.,�.!�.$8.,�.&x. �.bx.+x.(x..x.)x.`x.&�.&�.%�.,�.)x.,�.(�.)x.bx.,�.!Ȉ8.%�.-x.b8.%x.bx.+x.!�. �.+x.+x.&x..8.(x.,x.%x.-��[�\�8. x.b8.+x.&x.`8.*�.(x.+x.%x.,�.(H�ST˛Y8�%8.&�.,x.&x.%�.-�. x.!8.,�. �.+x.+x.&x..8.(x.,x.%x.-8.a8.)�.bx.%�.-x.b��[����\[�K�T�ՐS˛Y
+8.*�.%�.,�.&x.,�8.(�.+x.+x.&x..8.(x.,x.%x.-
+H8.`x.%�.&H8.a8.(x.b8.%8.,�.`8.&x.-8.&x. x.,�.(�.`8.+x.!�."8.&x. x.)�.b8.,���[�\�8."8.,8.%x.+x.&��H8.'8.)x. x.(�.,8.%�.&��\�X�ٙX]\�\�ٙYY�8."8.,8.%�..x. x.)x.&�.`�.&H�8. �.+x.!��S�L���[��8.`x.%x.b�\X�\�K���[XK��[8.(�.,x.!�.!8.!�.%x.,�.(�.,�.!��S�L8.a8.)�.bx.`8.*�.(x.-�.+x.&x.`8.%8.-8.(x."8.&x. x.)�.b8.,�."8.,8.(x.-x.!8.,�.%x.+x.&�."8.,�. H��[�\�8.%�.-x.b��[����\[�K�T�ՐS˛Y�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\���ؘX������S�L�Z�YKY�YY�Y��[����\[�K�T�ՐS˛Y�����̌��LLMH8.%x.bx.+x.!�.(�.,�.(�.!�.,�.&x.!8.)�.,�.(x.!8.-�.&�.*�.&x.bx.,�.!�.,�.&x.`8.&�.a�.&x.`8.&�.+x.(�.c8.`8."�.a�.&x.%x.c8.`8.&�.a�.&x.(�.,8.(�.,�H8.&�.(�.-8.&�.%Έ��[�\�8. �.+x.`�.*�.bx.(�.,8.&�.&�.`x."8.bx.!�.!8.)�.,�.(x.!8.-�.&�.*�.&x.bx.,�. �.+x.!�.!�.,�.&x.%�.-x.b8.(x.+x.&�.*�.(x.,�.(�.a8.&�.`8.&�.a�.&x.(�.,8.(�.,8.'�.(�.bx.+x.(x.&�.+x. x.`8.&�.a�.&x.`8.&�.+x.(�.c8.`8."�.a�.&x.%x.c8.a8.(x.b8.`�."�.b8.(�.+x."8.&x.!�.,�.&x.`8.*�.(�.a�."8.*�.(x.&�..x.(�.$�.c8.!8.b8.+x.(�.`x."8.bx.!�.%�.-x.`8.%8.-x.(�.)H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.%�..8. HRH��H8.%x.bx.+x.!�.(�.,�.(�.!�.,�.&x.!8.)�.,�.(x.!8.-�.&�.*�.&x.bx.,�.`8.&�.a�.&x.`8.&�.+x.(�.c8.`8."�.a�.&x.%x.c8.`8.(x.-�.b8.+x.`8.*�.(�.a�."Z[\�ۙH8.(�.b8.+x.(�.%�.-x.b8.(x.-x.!8.)�.,�.(x.*�.(x.,�.(�
+8.`8."�.b8.&H��X��X�8.`8.*�.(�.a�."\�Yۈ8.`8.*�.(�.a�."��[��8.`8.*�.(�.a�."PH8.'8.b8.,�.&K�.a8.(x.b8.'8.b8.,�.&JH8.a8.(x.b8.`�."�.b8.`x.!8.b8.%x.+x.&x.`8.(�.-8.b8.(x. x.,x.&�.%x.+x.&x."8.&�.!�.,�.&x.%�.,x.bx.!�. x.bx.+x.&B�H8.'8.)x. x.(�.,8.%�.&��8.&�.,x.&x.%�.-�. x. x.%x.-8. x.,�.a8.)�.bx.%�.-x.b��[����\[�KԕST˛Y
+8.*�.,x.)�. �.bx.+H�. x.,�.(�.(�.,�.(�.!�.,�.&x.!8.)�.,�.(x.!8.-�.&�.*�.&x.bx.,�.!�.,�.&H�H8.%�..8. HRH��H8.%x.bx.+x.!�.&�.#�.-8.&�.,x.%x.-8.%x.,�.(x.%x.,x.bx.!�.`x.%x.b8.&x.-x.bx.a8.&H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[����\[�KԕST˛Y�����̌��LLMH8.(�.,8.!�.,x.&�. x.,�.(�.'�.,x.$�.&x.,�.'�.-x.`8."8.+x.(�.c�
+8.!8.)x.-8.&�.*�.,x.bx.&JH8.a8.)�.bx. x.b8.+x.&H8�%8.a8.(x.b8.`�."�.b8. x.,�.(�.(�. x.`8.)x.-8. B�H8.&�.(�.-8.&�.%Έ��[�\�8.`x."8.bx.!�.`�.*�.bx.(�.,8.!�.,x.&�. x.,�.(�.'�.,x.$�.&x.,�.'�.-x.`8."8.+x.(�.c�
+�S�L�8.`x.)x.,8.!�.,�.&x.%x.b8.+x.(�.+x.%8.%�.-x.b8.`8. x.-x.b8.(�.)�. �.bx.+x.!�H8.a8.)�.bx. x.b8.+x.&H8.`8.'�.-�.b8.+x.*�.,x.&x.a8.&�.%�.,��S��P�
+8.'�.-x.`8."8.+x.(�.c��[][�]K�. x.)x..8.b8.(JH8.`x.%�.&B�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��
+��.(�.,8.!�.,x.&�
+�\�[�
+H8.a8.(x.b8.`�."�.b8.(�. x.`8.)x.-8. H
+�[��[
+J��8�%�8.%�.-x.b8.(x.-x.+x.(�..x.b8.`x.)x.bx.)�
+�S�L�8.'8.b8.,�.&HPH8.`x.)x.bx.)�H
+��.(�.,x.!�.!8.!�.+x.(�..x.b8.`�.&x.`x.+x.&�.%x.,�.(x.&�. x.%x.-
+��8.a8.(x.b8.%x.bx.+x.!�.%�.+x.%8.+x.+x. x."8.,�. H���H�]�Y�][ۈ8.*�.(�.-�.+x.&�.-8.%8. x.,�.(�.`�."�.bx.!�.,�.&H8.*�.-8.b8.!�.%�.-x.b8.`8.&�.)x.-x.b8.(�.&x.!8.-�.+H
+��.a8.(x.b8.`8.(�.-8.b8.(K�.a8.(x.b8.%�.,�.!�.,�.&x.'�.,x.$�.&x.,�.`�.*�.(x.b8.%�.-x.b8.`8. x.-x.b8.(�.)�. x.,x.&��8.%x.b8.+J��8."8.&x. x.)�.b8.,�."8.,8.a8.%8.bx.(�.,x.&�.!8.,�.*�.,x.b8.!�.`�.*�.bx. x.)x.,x.&�.(x.,�.%�.,�.%x.b8.+B�H8.'8.)x. x.(�.,8.%�.&��8.*�.(�..8.%8.'�.-8."8.,�.(�.$�.,�\��8.%�.-x.b8.`8. x.-x.b8.(�.)�. x.,x.&��8.`�.%8.(�.%x.(�.!�.`�.&x.(�.+x.&���YX\8.%�.,x.%8.a8.&�
+8.`8."�.b8.&H8.&�.(�.,x.&�.&�.(�..8.!��8.`8.'�.-8.b8.(x.`8.%x.-8.(JH8."8.&x. x.)�.b8.,���[�\�8."8.,8.*�.,x.b8.!�.`�.*�.bx. x.)x.,x.&�.(x.,�.%�.,�.%x.b8.+H8�%8.`�.!8.bx.%���[XKܛ�]H8. �.+x.!��8.%�.-x.b8.(x.-x.+x.(�..x.b8.`x.)x.bx.)�.a8.(x.b8.%�..x. x.`x.%x.,8.%x.bx.+x.!H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN�8.a8.(x.b8.(x.-H�8.`8. x.-x.b8.(�.)�. �.bx.+x.!�
+8.`8.&�.a�.&x. x.,�.(�.*�.(�..8.%8.!�.,�.&x.+x.&x.,�.!8.%H8.a8.(x.b8.`�."�.b���X��8.!�.,�.&x.`8.%8.-8.(JB�����̌��LLMH8.`8.'�.-8.b8.(x.'�.-x.`8."8.+x.(�.c8.`�.*�.(x.b�S��P�
+��[][�]K�. x.)x..8.b8.(x.!8.)�.,�.(x.*�.&x.`�."
+H8.`8. �.bx.,���YX\8�%8.%�.,�.`8."x.'�.,�.,�ܙH�\�[H8.(�.+x.&�.`x.(�. B�H8.&�.(�.-8.&�.%Έ��[�\�8.*�.b8.!��X�8."x.&�.,x.&�.`8.%x.a�.(x.*�.,�.*�.(�.,x.&���S��P��8�%8.'�.-�.bx.&x.%�.-x.b��[][�]K�. x.)x..8.b8.(x.%x.,�.(x.!8.)�.,�.(x.*�.&x.`�."8.(8.,�.(�.`�.&H�S�
+8.!8.)x.bx.,�.(��X�X����ܛ�\�8.`x.%x.b8.+x.+x. x.`x.&�.&�RK�V8.`8.&�.a�.&x.`8.+x. x.)x.,x. x.*x.$�.c8. �.+x.!��S�8.`8.+x.!�H8.!8.(�.+x.&�.!8.)x..8.(HNH8.*�.,x.)�. �.bx.+N�8.*�.(�.bx.,�.!��.`8. �.bx.,�.(�.b8.)�.(H�X��X�Y�K8.`�.'�.*�.%x.c8.`�.&H�X�8.(�.,8.&�.&�.*�.(x.,�."�.-8. Kԛ�H
+�ۙ\��YZ[��[�\�]܋�Y[X�\�K8.(�.,8.&�.&�YZ[�8."8.,x.%8. x.,�.(��X�[��Y��8. x.#��X�\��ݙ\�K�^ܙK�X\��[�Yܘ][ۋ��Y�X�][ۈ[�Yܘ][ۋ�ٚ[H[�Yܘ][ۋ�YH[�Yܘ][ۋ8.`x.)x.,]H��X�\�H
+�X���X�Y[X�\���X���
+H8�%��[�\�8.(�.,8.&�..8."�.,x.%8.)�.b8.,�
+��.`�.&H�\��[ۈ8.`x.(�. x.%�.,�.`8."x.'�.,�.,�ܙH�X��\�[H8. x.b8.+x.&H8.+x.(�.b8.,�.`�.*�.b8.'�.-x.`8."8.+x.(�.c8.+x.&x.,�.!8.%J��
+]�[���X\��]X�K�]�K��]��8.+�.)x.+�H8.`x.)x.,8.*�.bx.,�.(x.`8.&�.)x.-x.b8.(�.&x.`�.!8.(�.!�.*�.(�.bx.,�.!�.`8.%8.-8.(x. �.+x.!��YK�������ٚ[KӘ]�Y�][ۈ8.%�.-x.b8.%�.,�.a8.)�.bx.`x.)x.bx.)H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.`8.'�.-8.b8.(H�S��P�8.`8.&�.a�.&x.'�.-x.`8."8.+x.(�.c8.`�.*�.(x.b8.`�.&x.(�.,8.&�.&�8.`�.%8.(�
+��.a8.(x.b8.*�.(�.bx.,�.!����H�]�Y�][ۈX�8.`�.*�.(x.b
+��8�%�X�8.+x.(�..x.b8.(8.,�.(�.`�.&x.*�.&x.bx.,��YH
+8.!8.!�.`�.!8.(�.!�.*�.(�.bx.,�.!��YH������H�ٚ[H8.`8.%8.-8.(JH8.%�.,�.`8."x.'�.,�.,�ܙH�X��\�[H8.`�.&x.(�.+x.&�.`x.(�. B�H8.'8.)x. x.(�.,8.%�.&��RH��X�X[�Y�\�8."8.,8.`x.&�.b8.!�. �.+x.&�.`8. �.%x.`8.&�.a�.&H\��8.`�.*�.(x.b8.%x.,�.(H]\��8.`8.%8.-8.(x. �.+x.!���YX\
+�ܙH�\�[H8. x.b8.+x.&H8.`x.)x.bx.)�.!8.b8.+x.(�.%�.,�\��ݙ\�K��X\��ӛ�Y�X�][ۋ��YH[�Yܘ][ۈ8.`8.&�.a�.&H\��8.%x.b8.+x.(�.+x.%8.%�.-x.*�.)x.,x.!�8.`8.*�.(x.-�.+x.&x.%�.-x.b����8.a8.%8.bH�YJ��X\��
+ӛ�Y�X�][ۈ[�Yܘ][ۈ8.`8.&�.a�.&x.!�.,�.&x.`x.(�. x.%�.-x.*�.)x.,x.!�H8�%8.!�.,�.&x.&x.-x.bx.(x.,�.`x.%�.&x.%�.-x.b�.`x."�.!�.!8.-8.)��S�LL
+�\�H�ܛX[^�][ۊH8.`�.&x.)x.,�.%8.,x.&�.!8.)�.,�.(x.*�.,�.!8.,x.#x. �.+x.!���YX\8.`x.%x.b8.a8.(x.b8. x.(�.,8.%�.&��S�LL�
+��Y�X�][ۊH8.%�.-x.b8. x.,�.)x.,x.!�.%�.,�.+x.(�..x.b8.%x.+x.&x.&x.-x.bH8.`�.*�.bx.%�.,��S�LL�8.`�.*�.bx.`8.*�.(�.a�."8.*�.(x.&�..x.(�.$�.c
+8.'8.b8.,�.&HPJH8. x.b8.+x.&x.`x.)x.bx.)�.!8.b8.+x.(�.`8.(�.-8.b8.(H�S��P��H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN�8."8.,8.*�.(�.bx.,�.!���[��\���ؘX������S�LMX�X�X�ܙK�Y8.`8.&�.a�.&x.%x.bx.&x.a8.&�.*�.)x.,x.!��S�LL�8.`8.*�.(�.a�."�����̌��LLMH8. �.(�.,�.(��S�8.`8.&�.a�.&H�S�]�ܛH8�%8.`8.'�.-8.b8.(H���HX\��]X�H����H�[\���H�S���S�YZ[���\�Y�X��[��H8.&�.(�.-8.&�.%Έ8.*�.)x.,x.!��S��P�
+�S�LM��S�LMJH8.'8.b8.,�.&HPH8.!8.(�.&�.`x.)x.,Y\��H8.`8. �.bx.,�XZ[�8.`x.)x.bx.)���[�\�8.*�.b8.!���S�U�ԓH8�%PT�T�U�S�QS���T�8."x.&�.,x.&�.`8.%x.a�.(H
+�8.*�.,x.)�. �.bx.+JH8. x.,�.*�.&x.%8.%�.-8.*8.%�.,�.!�.`�.*�.(x.b8.`�.*�.bH�S�8. �.(�.,�.(�."8.,�. H���X[\8.`8.%8.-x.(�.)�.`8.&�.a�.&H
+���S�]�ܛJ��8.%�.-x.b8.&�.(�.,8. x.+x.&�.%8.bx.)�.(�H8.*�.b8.)�.&N�
+JH�S����X[
+8. �.+x.!�.`8.%8.-8.(JK
+�H���HX\��]X�H
+KX��[Y\��H8.`�.*�.(x.b
+K
+�H���H�[\���H�S�
+8.`x.+x.&��.(�.,8.&�.&�.*�.,�.*�.(�.,x.&�.(�.bx.,�.&x.!8.bx.,�K
+
+H�S�YZ[�
+8.*�.)x.,x.!�.&�.bx.,�.&x. x.)x.,�.!�. �.+x.!�.%�.,x.bx.!�]�ܛJK
+JH�\�Y�X��[�8�%8.'�.(�.bx.+x.(x. x.%x.-8. x.,�.&�.,x.!�.!8.,x.&��8.*�.bx.,�.(x.)x.&��.%�.,�.)x.,�.(�.'�.-x.`8."8.+x.(�.c�S�8.`8.%8.-8.(K8.*�.bx.,�.(x.`8.&�.)x.-x.b8.(�.&H�]�Y�][ۈ8.`8.%8.-8.(x.`�.%8.(�.a8.(x.b8."8.,�.`8.&�.a�.&K8.*�.bx.,�.(x.`8. �.-x.(�.&x.(�.,8.&�.&�."�.bx.,�.%�.bx.,��]\�H8.a8.%8.bK[ؚ[KY�\��8.+x.+x. x.`x.&�.&�.`�.*�.bx. �.(�.,�.(�.a8.%8.bx.`�.&x.+x.&x.,�.!8.%H
+8.`8.'8.-�.b8.+H���H���ԚY\��[]�\�H8.(8.,�.(�.*�.)x.,x.!�8.`x.%x.b
+��.(�.,x.!�.a8.(x.b8.%�.,�.(�.+x.&�.&x.-x.bJ��8�%8.`�.'�. x.,x.*�X\��]X�H8. x.b8.+x.&JK8.'�.,x.$�.&x.,�.`8.&�.a�.&H\�H8.%x.,�.(x.)x.,�.%8.,x.&�
+\�HH8.%x.(�.)�."8.*�.+x.&�. �.+x.!�.`8.%8.-8.(H8���\�H�L����HX\��]X�H�\��Y\�8���\�H���H�[\��8���\�HH8.`8."�.-�.b8.+x.(x.(�.,8.&�.&�8���\�H��S�YZ[�8���\�H�N8.`8."�.-�.b8.+x.(HYZ[�
+��[�[��KљY\��[�[]X���[�\�][ۊH8.%x.,x.)�X\�\���\8.`8.+x.!�.(�.,8.&�..�]X���X�\�H8.%x.,x.)�.+x.(�.b8.,�.!�.`8.&�.a�.&H����\�[H[ۛܙ\�
+\���\��Y\�\���[\��\��YZ[�X��Y�\��ZX8.+�.)x.+�H8."�.-�.b8.!ʊ�.a8.(x.b8.%x.(�.!�. x.,x.&��X��8."8.(�.-8.!�. �.+x.!�.`�.&�.(�.`8."8. x.%x.c
+��.%�.-x.b8.`8.&�.a�.&H�]\�
+\�
+H8.`x.+x.&�.`8.%8.-x.(�.)�
+��\X�\�H8�%RH��X�X[�Y�\�8.%x.(�.)�."8.*�.+x.&��\�8."8.(�.-8.!�.`x.)x.bx.)�.'�.&�.)�.b8.,�.a8.(x.b8.(x.-H[ۛܙ\���[��8.`�.%8.a�
+8.a8.(x.b8.(x.-HY[����ܚ��X�JK8.a8.(x.b8.(x.-H��][��X��Y�H
+8.`�."�.bH�]�Y�]܋�\��X]\�X[Y�T��]X
+�[�^Y�X��8.&8.(�.(�.(x.%8.,�K8.a8.(x.b8.(x.-H�]HX[�Y�[Y[�X��\�H
+8.`�."�.bH�]Y�[�Y�]
+��\��]ܞH]\��8.`8.(�.-x.(�. H�\X�\�H8.%x.(�.!�8.a�8.%x.b8.+H�X]\�JB�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!�RH��X�X[�Y�\�
+8.%�.,�.a8.%8.bx.`8.+x.!�.%x.,�.(H�ST˛Y8.`8.'�.(�.,�.,8.`8.&�.a�.&H�.)�.,�.!�.`x.'8.&K�[��8.a8.(x.b8.`�."�.b8. x.,�.(�.`8.&�.)x.-x.b8.(�.&HXZ�܈\��]X�\�H8. �.+x.!��X��8.`8.%8.-8.(H8�%8.(�.,x.!�.!8.!��]\���\X�\�H8.`8.*�.(x.-�.+x.&x.`8.%8.-8.(x.%�..8. x.&�.(�.,8. x.,�.(�8.a8.(x.b8.a8.%8.bx.`8.&�.)x.-x.b8.(�.&HX��X��8.*�.(�.-�.+H�\�[�\��[�[8.*�.)x.,x. x. �.+x.!��S����X[8.`x.%x.b8.+x.(�.b8.,�.!�.`�.%8.`8.&�.a�.&x. x.,�.(ʊ�.%x.b8.+x.(�.+x.%
+��.%x.,�.(x.!8.,�.*�.,x.b8.!�.%x.(�.!�. �.+x.!���[�\�N��K�
+�����HX\��]X�H
+�\��Y\�J��8.(�.+x.&�.`x.(�. x.&x.-x.bx."8.,8.'�.,x.$�.&x.,�.`8.&�.a�.&H
+���X]\�H[�[H8.`�.*�.(x.b8.(8.,�.(�.`�.&x.`x.+x.&��]\�8.`8.%8.-x.(�.)�.`8.%8.-8.(J��
+\�X�ٙX]\�\�ޛ��K�
+H8.a8.(x.b8.*�.(�.bx.,�.!�.`x.+x.&�.`x.(�. H8�%8.%x.(�.!�.%x.,�.(x. x.%x.-8. x.,��.*�.bx.,�.(x.`8. �.-x.(�.&x.(�.,8.&�.&�."�.bx.,ȋ�[ؚ[KY�\���8.`x.)x.,�.*�.bx.,�.(x.`8.&�.)x.-x.b8.(�.&H\��]X�\�H8.`8.%8.-8.(x.`�.%8.(�.a8.(x.b8."8.,�.`8.&�.a�.&H�8. �.+x.!���[�\�8.`8.+x.!��
+���]�Y�][ۊ���8.`8.'�.-8.b8.(H���H�]�Y�][ۈX�8.%�.-x.bH8."�.-�.b8.+H����H�8.%x.b8.+x."8.,�. H�YK�������ٚ[H8.`8.%8.-8.(H
+8.a8.(x.b8.`x.%�.(�. x. x.)x.,�.!�8.a8.(x.b8.)x.&��.(�.bx.,�.(�.%x.,�.`x.*�.&x.b8.!�. �.+x.!�.`8.%8.-8.(JH8.%x.(�.!�.%x.,�.(x. x.%x.-8. x.,��.*�.bx.,�.(x.`8.&�.)x.-x.b8.(�.&H�]�Y�][ۈ8.`8.%8.-8.(x.`�.%8.(�.a8.(x.b8."8.,�.`8.&�.a�.&H�8.`x.)x.,�X�[ۈ�8. �.+x.!�X\�\���\8.%�.-x.b8.(�.,8.&�..8.%x.(�.!�.)�.b8.,��.`8.'�.-8.b8.(N����H��ˈ
+���X��[�
+���8.`�."�.bH�\X�\�H�ڙX�8.`8.%8.-x.(�.)�. x.,x.&H8.`8.'�.-8.b8.(HX�H�XZ[�8.`�.*�.(x.b
+�ܙ\����X�����X�ݘ\�X[����]Y�ܚY\���\����\��][\��ܙ\���ܙ\��][\�ܙ]�Y]��8.+�.)x.+�H8.`8. �.bx.,��\X�\�K���[XK��[8.a8.'�.)x.c8.`8.%8.-8.(H8.a8.(x.b8.`x.(�. H]X�\�H8.`�.*�.(x.b8�%�]\�H����X�\�]KYY�[�\���]\��8.%�.-x.b8.'�.-8.*�..x."8.&x.c8.`x.)x.bx.)�."8.,�. H�S����X[
+8.`�.%8.(�.`8."x.'�.,�.,��[ݙ\�\�]�T��8."8.,�. H�S�LM8.*�.,�.*�.(�.,x.&�\�Z\��[ۈܘ\8. �.+x.!��[\��ܙ\��]\��[��][ۊB��
+��\���[X�\�[�ʊ��8.`�."�.bH�Y�^8.`�.*�.(x.b
+�����KV
+��8.`x.(�. x."8.,�. H�S�V8.`8.%8.-8.(H8.`8.'�.-�.b8.+x.`�.*�.bx.%x.-8.%8.%x.,�.(x.!�.,�.&x.*�.+x.!�.*�.,�.(�.'8.)x.-8.%x.(8.,x.$�.$x.c
+�S����X[�����HX\��]X�JH8.`x.(�. x. x.,x.&x."�.,x.%8.`8."8.&x.`�.&H��[��\������ӕV�Y�QU�P�˛Y8.`x.%x.b8.(�.,x.!�.+x.(�..x.b8.`�.&H�ݙ\��[��K��ܚٛ��8.`8.%8.-x.(�.)�. x.,x.&x.%�.,x.bx.!�.*�.(x.%
+��X�8���\�Y۸�����x���Px���X�Y��\\�\��KZK�[��\��۝�[�[ۈ8.`8.%8.-8.(x.%�..8. x.&�.(�.,8. x.,�.(�B�K�
+��. �.+x.&�.`8. �.%x.(�.+x.&�.&x.-x.bH
+8.%x.,�.(H\�HKL�8. �.+x.!�X\�\���\
+J���8.%�.,�.`8."x.'�.,�.,���HX\��]X�H
+���\��Y\�Y�X�[�ʊ�
+�YK��X\�����X�]Z[��ܙK��\���X���]�ܙ\�ԙ]�Y]�H8. x.b8.+x.&H8�%
+��.(�.,x.!�.a8.(x.b8.%�.,ʊ����H�[\���H�S�
+\�H
+K�S�YZ[�
+\�H�K�[�[��K�[�[]X���[�\�][ۈ8.`8.%x.a�.(x.(�..x.&�.`x.&�.&�
+\�H
+K8.*�.(�.-�.+H���H���ԚY\��[]�\�H8.%x.,�.(x.%�.-x.bX\�\���\8.(�.,8.&�..8."�.,x.%8.)�.b8.,�.(�.,x.!�.a8.(x.b8.%x.bx.+x.!�.%�.,�8�%8."8.,8.&�.(�.,8.`8.(x.-8.&x.*�.%�.,�.&�.,x.%x.(�. x.(�.(�.(H�.`x.+x.&�.`x.(�. H���X]\�H[�[H�8. �.+x.!��[\��YZ[�8.+x.-x. x.!8.(�.,x.bx.!�.`8.(x.-�.b8.+x.%�.-�.!�\�H͈8."8.(�.-8.!�8.a8.(x.b8.%x.,x.%8.*�.-8.&x.`�."8.)x.b8.)�.!�.*�.&x.bx.,�.%x.+x.&x.&x.-x.bB���
+��.!8.b8.,�.&8.(�.(�.(x.`8.&x.-x.(�.(H
+���W�PT��UP�WёQJJ���8.`8. x.a�.&�.`8.&�.a�.&x.!8.b8.,��ۙ�Y�\�][ۈ8.%�.-x.b8.`x. x.bx.a8. �.a8.%8.bH
+8.a8.(x.b\�X��H8.*�.)x.,�.(�."8..8.%
+H8.%x.,�.(x.%�.-x.bX\�\���\8.(�.,8.&�..8.a8.)�.bx.%x.(�.!�8.a�8.!8.b8.,�.`8.(�.-8.b8.(x.%x.bx.&HL	H8.%x.b8.+Hܙ\�8�%8."8.,8.+x.+x. x.`x.&�.&�.(�.,�.(�.)x.,8.`8.+x.-x.(�.%8.%�.-x.b^Y\�8.a8.*�.&H
+��ۙ�Y�X�H��\��ۜ�[�
+H8.%x.+x.&x.`8. �.-x.(�.&H\���X�8. �.+x.!��X���]�ܙ\��H8.'8.)x. x.(�.,8.%�.&��8."8.,8.*�.(�.bx.,�.!���[��������X�ޛ��K\]�ܛK\��YX\�Y
+8.`x."8. x.`x."8.!�\�H8.`x.)x.,\�����KLH8.`8.&�.a�.&x.%x.bx.&x.a8.&�H8.`x.)x.,��[��\���ؘX����֓��KLKK���Y
+\��8.`x.(�. JH8.%x.,�.(x.*�.)x.,x.!�[��H8.&x.-x.bx.%�.,x.&x.%�.-H8�%�S����X[8.%�.,x.bx.!�.*�.(x.%
+�YK�������X���ٚ[K��X\��ӛ�Y�X�][ۊH
+��.a8.(x.b8.%�..x. x.`x.%x.,8.%x.bx.+x.!ʊ�8.(�.,x.!�.%�.,�.!�.,�.&x.`8.*�.(x.-�.+x.&x.`8.%8.-8.(x.%�..8. x.&�.(�.,8. x.,�.(�8�%8.!�.,�.&H�S�LL
+�\�H�ܛX[^�][ۊH8.`x.)x.,8.!8.,�. �.+x.+x.&x..8.(x.,x.%x.-8.!8.bx.,�.!�.`8.(�.-�.b8.+x.!�.)x.&�.%x.,�.(�.,�.!�����Z�\����[Y[��
+�S�L8.`8.%8.-8.(JH8.`�.&H��[����\[�K�T�ՐS˛Y8.(�.,x.!�.!8.!�.!8.bx.,�.!�.+x.(�..x.b8.`8.*�.(x.-�.+x.&x.`8.%8.-8.(H8.a8.(x.b8.a8.%8.bx.%�..x. x.(�. x.`8.)x.-8. x.*�.(�.-�.+x.`x.%�.&x.%�.-x.b8.%8.bx.)�.(�.!�.,�.&x.&x.-x.bB�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN�8."8.,8.*�.(�.bx.,�.!���[��������X�ޛ��K\]�ܛK\��YX\�Y��[��\���ؘX����֓��KLK[X\��]X�KY��[�][ۋ�Y�����̌��LLMWH���HX\��]X�H�\��Y\�Y�X�[�����H
+\�H�L�H8.`8.*�.(�.a�."8.*�.(x.&�..x.(�.$�.c8.!8.(�.&�.)�.!�."8.(�8�%8.*�.(�..8.%8.(�.+H��[�\�8. x.b8.+x.&x.`8.(�.-8.b8.(H\�H�H8.&�.(�.-8.&�.%Έ8.%x.,�.(x.!8.,�.*�.,x.b8.!���[�\��.%�.,�."8.&x.`8.*�.(�.a�."8.`�.*�.bx.*�.(x.%8.%�..8. x.+x.(�.b8.,�.!�.`8.)x.(�.&x.,8.'�.+x.%8.-x."8.,8.&x.+x.&x.`x.)x.bx.)Ȉ
+���LLMJH8.%�.-x.(HRH8.%�.,�.!�.,�.&x.%x.b8.+x.`8.&x.-�.b8.+x.!�.+x.,x.%x.`�.&x.(x.,x.%x.-8."8.&H���KL�
+�\�	��X���]	�ܙ\�H8.`x.)x.,���KL
+�]�Y]�H8.'8.b8.,�.&HPH8.`x.)x.,Y\��H8.`8. �.bx.,�XZ[�8.!8.(�.&�.%�.,x.bx.!�.!8..x.b8�%���KL8.`�."�.bx.`8.)�.)x.,��8.(�.+x.&�PH
+8.(�.+x.&�H�RS8.`8.'�.(�.,�.,8.'�.&�."�.b8.+x.!�.`�.*�.)�.b�X�\�]H8.(�.,8.%8.,x.&�ܚ]X�[8.`�.&H�]�Y]��	�\]H���X�KX�Y�8.`x. x.bx.`x.)x.bx.)�.(�.+x.&��T��H8.&�.-8.%8."8.&����HX\��]X�H�\��Y\�Y�X�[�����H8.%�.,x.bx.!�.*�.,�.(�������H
+���KLJH8����X\��	��[\�
+���KL�H8����\�	��X���]	�ܙ\�
+���KL�H8����]�Y]�
+���KL
+H8.%x.,�.(H��YX\\�H�L�8.!8.(�.&�.%�..8. H\�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!�RH��X�X[�Y�\��
+��.*�.(�..8.%8.%�.-x.b8."8..8.%8.&x.-x.bH8.a8.(x.b8.`8.(�.-8.b8.(H\�H
+���H�[\���H�S�H8.`8.+x.!�.`�.%8.(�.+x.,x.%x.`�.&x.(x.,x.%x.-
+��8.`x.(x.bx.!8.,�.*�.,x.b8.!��.%�.,�."8.&x.`8.*�.(�.a�."8.`�.*�.bx.*�.(x.%8.%�..8. x.+x.(�.b8.,�.!�.`8.)x.(�.&x.,�8."8.,8.(�.,x.!�.a8.(x.b8.%�..x. x.(�. x.`8.)x.-8. H8.`8.'�.(�.,�.,��YX\��
+��[��������X�ޛ��K\]�ܛK\��YX\�Y\�H
+H8.`x.)x.,P�T�SӔ˛Y[��H8. x.b8.+x.&x.*�.&x.bx.,�.&x.-x.bH
+���LLM
+H8.(�.,8.&�..8.a8.)�.bx."�.,x.%8.`8."8.&x.`x.)x.bx.)�.)�.b8.,�\�H8.%x.bx.+x.!�
+���.&�.(�.,8.`8.(x.-8.&x.*�.%�.,�.&�.,x.%x.(�. x.(�.(�.(H	�.`x.+x.&��]\�8.`x.(�. x.%x.b8.,�.!�.*�.,�. H���X]\�H[�[H8.(8.,�.(�.`�.&x.`x.+x.&�.`8.%8.-x.(�.)����]\�[�[H8.`x.&�.&�Y]�X\	�8.%x.+x.&x.%�.-�.!�\�H8.&x.-x.bx."8.(�.-8.!�8.a8.(x.b8.%x.,x.%8.*�.-8.&x.`�."8.)x.b8.)�.!�.*�.&x.bx.,����8�%8.&x.-x.b8.!8.-�.+x.!8.,�.%x.,x.%8.*�.-8.&x.`�."8.(�.,8.%8.,x.&�XZ�܈\��]X�\�H8.%�.-x.b8. x.(�.,8.%�.&�.`�.!8.(�.!�.*�.(�.bx.,�.!��\��]ܞK�\�[Y[�8.%�.,x.bx.!�.*�.(x.%
+�\�8.&�.,x."8."8..8.&�.,x.&x.a8.(x.b8.(x.-H[ۛܙ\���[��8.`8.)x.(�8. x.,�.(�.*�.(�.bx.,�.!�.`x.+x.&�.%�.-x.b8.*�.+x.!�."8.(�.-8.!�8.a�8.%x.bx.+x.!�.)x.!�.%�..8.&x.`�.!8.(�.!�.*�.(�.bx.,�.!�.`�.*�.(x.b8. x.b8.+x.&JH8.%x.b8.,�.!�."8.,�. H���KLH8.%�.-�.!����KL8.%�.-x.b8.`8.&�.a�.&x. x.,�.(�.%x.b8.+x.(�.+x.%�X]\�H[�[H8.`8.%8.-8.(x.%�.-x.b��[�\�8.+x.&x..8.(x.,x.%x.-8.%�.-8.*8.%�.,�.!�.a8.)�.bx.`x.)x.bx.)�."�.,x.%8.`8."8.&x.%x.,x.bx.!�.`x.%x.b8.%x.bx.&H
+���LLM
+H8�%8.%x.,�.(H�ST˛Y8. x.,�.(�.`8.&�.)x.-x.b8.(�.&x.`x.&�.)x.!�XZ�܈\��]X�\�H8.%x.bx.+x.!�. �.+x.+x.&x..8.(x.,x.%x.-��[�\�8. x.b8.+x.&x.`8.*�.(x.+H8.a8.(x.b8.`�."�.b8.*�.-8.b8.!�.%�.-x.bRH8.%x.,x.%8.*�.-8.&x.`�."8.`8.+x.!�.%x.b8.+x.`8.&x.-�.b8.+x.!�.a8.%8.bx.`x.(x.bx."8.,8.(x.-x.!8.,�.*�.,x.b8.!�.%�.,�.!�.,�.&x.+x.,x.%x.`�.&x.(x.,x.%x.-8.%�.,x.b8.)�.a8.&�.+x.(�..x.b8. x.a�.%x.,�.(B�H8.'8.)x. x.(�.,8.%�.&��8.!�.,�.&x.%�.,x.bx.!�.*�.(x.%8.%�.-x.b8.%�.,�.a8.%8.bx.(8.,�.(�.`�.%x.bx.!8.,�.*�.,x.b8.!�.`8.%8.-8.(x.`8.*�.(�.a�."8.*�.(x.&�..x.(�.$�.c8.`x.)x.bx.)�8.(�.,8.&�.&�.(�.+H��[�\�8.%x.-�.b8.&x.(x.,�.%x.,x.%8.*�.-8.&x.`�."8.%�.-8.*8.%�.,�.!�\�H8. x.b8.+x.&x."8.,8.`8.(�.-8.b8.(x.!�.,�.&x.%x.b8.+H
+8.`x.+x.&�.`x.(�. H���X]\�H[�[H��Y]�X\[�[JH8�%8.a8.(x.b8.(x.-x.!�.,�.&x.!8.bx.,�.!�.!8.,�.%�.-x.b8.`8.&�.a�.&x.!8.)�.,�.(x.`8.*�.-x.b8.(�.!�]KZ[�Yܚ]K��X�\�]H8.`�.%8.a�8.%�..8. H\��8.%�.-x.bY\��H8.`x.)x.bx.)�.'8.b8.,�.&HPH8.!8.(�.&�
+8.(�.)�.(H�X�\�]H�^8. �.+x.!����KL
+B�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN�����N�
+���KL�֓��KL8.%�..8. x.(�.+x.&�K��[��\����\�ݙY֓��KL�X�\�X�X���][ܙ\��Y��[��\����\�ݙY֓��KL\�]�Y]˛Y��[��\���؝Y��֓��KL\�]�Y]�]\]K\��Y�\�Y�����̌��LLMWH\�H
+���H�[\���H�S�H8�%8.`8.)x.-�.+x. x.*�.%�.,�.&�.,x.%x.(�. x.(�.(�.(H�X]\�H[�[H8.`�.&x.`x.+x.&�.`8.%8.-x.(�.)�.`8.%8.-8.(B�H8.&�.(�.-8.&�.%Έ��[�\�8.%x.-�.b8.&x.`x.)x.bx.)�8. x.)x.,x.&�.(x.,�.%x.,x.%8.*�.-8.&x.`�."8.*�.%�.,�.&�.,x.%x.(�. x.(�.(�.(x. �.+x.!�\�H8.%x.,�.(x.%�.-x.b8.(�.,8.&�.&�.*�.(�..8.%8.(�.+x.a8.)�.bH
+8.%8..H[��H8. x.b8.+x.&x.*�.&x.bx.,����LLMJH8�%8.(�.,8.&�.&�.`8.*�.&x.+H�8.%�.,�.!�.`8.)x.-�.+x. N�
+JH�X]\�H[�[H8.`�.&x.`x.+x.&��]\�8.`8.%8.-x.(�.)�.`8.%8.-8.(H
+�H8.`x.+x.&�.`x.(�. x.%x.b8.,�.!�.*�.,�. H
+8.`8."�.b8.&H��YH�[\��[�\�H
+�H�]\�Y]�X\[�[B�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.`8.)x.-�.+x. H
+���X]\�H[�[H8.`�.&x.`x.+x.&�.`8.%8.-x.(�.)�.`8.%8.-8.(J��8�%8.`8.*�.%x..8.'8.)x.%x.(�.!�.%x.,�.(HRH8.%�.-x.b8.`x.&x.,8.&x.,Έ�\�8.&�.,x."8."8..8.&�.,x.&x.a8.(x.b8.(x.-H[ۛܙ\���[��8.`8.)x.(�8.a8.(x.b8.%x.bx.+x.!�.)x.!�.%�..8.&x.`�.!8.(�.!�.*�.(�.bx.,�.!�.`�.*�.(x.b8.*�.+x.%8.!8.)x.bx.+x.!�. x.,x.&�]\��8.%�.-x.b8.%�.,�.(x.,�.%x.)x.+x.%8.%x.,x.bx.!�.`x.%x.b���HX\��]X�H�\��Y\�
+�X]\�H[�[H8.`8.%8.-x.(�.)�. x.,x.&x.*�.(x.%
+K8.'8..x.bx.`�."�.bx.%�.-x.b8.`8.&�.a�.&x.%�.,x.bx.!�.'8..x.bx."�.-�.bx.+x.`x.)x.,8.'8..x.bx. �.,�.(�
+8.'�.&�.`8.*�.a�.&x.&�.b8.+x.(�.`�.&HX\��]X�H8. �.&x.,�.%8.`8.)x.a�. Kx. x.)x.,�.!�H8.`�."�.bx.`x.+x.&�.`8.%8.-x.(�.)�.*�.)x.,x.&���H8.a8.%8.bx.`8.)x.(�.a8.(x.b8.%x.bx.+x.!�.`�.*�.)x.%8.*�.+x.!�.`x.+x.&H8.'8.)x. x.(�.,8.%�.&�����H�[\���H�S�8."8.,8.'�.,x.$�.&x.,�.`8.&�.a�.&H\�X�ٙX]\�\���[\��
+8.*�.(�.-�.+x."�.-�.b8.+x.`8.%�.-x.(�.&�.`8.%�.b8.,�H8.`�.&x.`x.+x.&��]\�8.`8.%8.-x.(�.)�.`8.%8.-8.(H8.a8.(x.b8.(x.-x. x.,�.(�.*�.(�.bx.,�.!��\��]ܞK��ڙX�8.`�.*�.(x.b8�%8.`x.&x.)�.%�.,�.!�RH8.%�.-x.b8.`8.&�.a�.&x.a8.&�.a8.%8.bH
+8.`�.*�.bHRH\�Yۈ8.%x.,x.%8.*�.-8.&x.`�."8.(�.,�.(�.)x.,8.`8.+x.-x.(�.%8.%x.+x.&x.+x.+x. x.`x.&�.&�."8.(�.-8.!�N�8.`8.'�.-8.b8.(H��KX�\�YRH[��H�[�
+8.`8."�.b8.&H�.`�.*�.(x.%8.(�.bx.,�.&x.!8.bx.,��8.`�.&H�ٚ[H8.*�.(�.-�.+H�][���H8.`x.%�.&x.%�.-x.b8."8.,8.`8.'�.-8.b8.(H���H�]�X�8.%�.-x.b�
+8.`8.'�.(�.,�.,���H�]�8.`8.%x.a�.(x.`x.)x.bx.)�.%�.-x.bHX�8.`x.)x.,�[\�8.a8.(x.b8.`�."�.b8.%�..8. x.!8.&x.%�.-x.b8.(x.-H8.%x.b8.,�.!�."8.,�. H���H8.%�.-x.b8.%�..8. x.!8.&x."�.bx.+x.&�.a8.%8.bJH8�%
+��.(�.+H��[�\�8.*�.b8.!�.`8.&x.-�.bx.+x.*�.,�.`8.%x.a�.(x. �.+x.!�X\�\���\�X�[ۈ8.%�.-x.b8.`8. x.-x.b8.(�.)�. x.,x.&��[\���
+�X�[ۈL�LM�8.`�.%8.(�.&�.(�.,8.(x.,�.$�H8.(x.,�.`�.*�.(x.b8. x.b8.+x.&x.`8. �.-x.(�.&H��X��X�8."8.(�.-8.!�8.`8.'�.(�.,�.,8.`8.&x.-�.bx.+x.*�.,�.`8.%x.a�.(x.a8.(x.b8.`8.!8.(�.%�..x. x.`8. x.a�.&�.a8.)�.bx.`�.&H�\�8.`8.)x.(�8.(x.-x.`x.!8.b�[[X\�H8.(�.,8.%8.,x.&�.*�..x.!�.`�.&H[��H8. x.b8.+x.&x.*�.&x.bx.,�
+���LLM
+H8�%��[�\�8.`8.)x.-�.+x. x.`�.*�.bx.*�.b8.!��X�[ۈ8.(x.,�.`�.*�.(x.b8.`x.%�.&x.%�.-x.b8."8.,8.`�.*�.bHRH8. x.,�.*�.&x.%8. �.+x.&�.`8. �.%x.`8.+x.!H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN�8.(�.+x.`8.&x.-�.bx.+x.*�.,��[\��X�[ۈ8."8.,�. H��[�\�8. x.b8.+x.&x.*�.(�.bx.,�.!���[��\���ؘX����֓��KLKK���Y
+8.*�.(�.-�.+x.`8.)x. �.%�.,x.%8.a8.&�H8.`8.&�.a�.&x.%x.bx.&x.a8.&����̌��LLMWH\�H
+���H�[\���H�S�H8�%��[�\�8.`x. x.bx.a8. �.!8.,�.%x.,x.%8.*�.-8.&x.`�."8.`8.&�.a�.&x.`x.+x.&�.`x.(�. x.%x.b8.,�.!�.*�.,�. H
+8.(�. x.`8.)x.-8. H[��H8. x.b8.+x.&x.*�.&x.bx.,�.`8.(�.-�.b8.+x.!��X]\�H[�[JB�H8.&�.(�.-8.&�.%Έ8.*�.)x.,x.!�[��H8. x.b8.+x.&x.*�.&x.bx.,�
+8.`8.)x.-�.+x. H�X]\�H[�[H8.`�.&x.`x.+x.&�.`8.%8.-x.(�.)�.`8.%8.-8.(JH8.a8.(x.b8.&x.,�.&H��[�\�8. x.)x.,x.&�.(x.,�.`x. x.bx.a8. �.!8.,�.%x.,x.%8.*�.-8.&x.`�."8.%x.(�.!�8.a�
+�.`x.+x.&�.`x.(�. x.&x.,���H�[\��H�S��H8�%
+��[��H8.&x.-x.bx.(�. x.`8.)x.-8. K�.`x.%�.&x.%�.-x.b8.!8.,�.%x.,x.%8.*�.-8.&x.`�."�X]\�H[�[H8. x.b8.+x.&x.*�.&x.bx.,�.`�.%8.(�.*�.(x.&�..x.(�.$�.c
+��8.(�.,x.!�.a8.(x.b8.(x.-x.!�.,�.&x.`�.%8.%�..x. H[\[Y[�8.a8.&�.%x.,�.(x.!8.,�.%x.,x.%8.*�.-8.&x.`�."8.`8.%8.-8.(x.`8.)x.(�
+8.(�.,x.!�.+x.(�..x.b8. �.,x.bx.&x.%x.+x.&x.(�.+x.`8.&x.-�.bx.+x.*�.,��[\��X�[ۊH8."8.-�.!�.a8.(x.b8.(x.-H�]�ܚ�8.%�.,�.!�.`8.%�.!8.&x.-8.!8.`8. x.-8.%8. �.-�.bx.&x."8.,�. x. x.,�.(�.`x. x.bx.a8. �.&x.-x.bB�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��
+�����H�[\���H�S�8."8.,8.'�.,x.$�.&x.,�.`8.&�.a�.&x.`x.+x.&��]\�8.`x.(�. x.%x.b8.,�.!�.*�.,�. J��
+8.a8.(x.b8.`�."�.b�X]\�H[�[H8.`�.&x.`x.+x.&�.`8.%8.-8.(JH8�%8.`8.%�.-x.(�.&�.`8.%�.b8.,�.`�.(x.`8.%8.)H��YH�[\��[�\��^�YH�[\��[�\�8.%�.-x.b8.`x.(�. H\8."�.,x.%8.`8."8.&x."8.,�. x.'x.,x.b8.!�.)x..x. x.!8.bx.,��H8.'8.)x. x.(�.,8.%�.&�
+8.*�.-8.b8.!�.%�.-x.b8.%x.bx.+x.!�.`8.%x.(�.-x.(�.(x. x.b8.+x.&x.`8.(�.-8.b8.(H\�H8."8.(�.-8.!�8.`8.'�.(�.,�.,�\�8.&�.,x."8."8..8.&�.,x.&x.a8.(x.b8.(x.-H[ۛܙ\���[��8.`�.%8.a�N��K�
+��.`�.!8.(�.!�.*�.(�.bx.,�.!��\��]ܞJ���8.%x.bx.+x.!�.%x.,x.%8.*�.-8.&x.`�."8.)�.b8.,�."8.,8.*�.(�.bx.,�.!�.`x.+x.&�.%�.-x.b8.*�.+x.!�.`�.&x.(�..x.&�.`x.&�.&�.a8.*�.&H8�%
+8. JH8.`�.&�.(�.`8."8. x.%x.c�]\�8.`�.*�.(x.b8.`x.(�. x.%�.,x.bx.!�.*�.(x.%8.`�.&H�\�8.`8.%8.-x.(�.)�. x.,x.&H
+8.`8."�.b8.&H�[\��\�8.!8..x.b8. x.,x.&�\�8.`8.%8.-8.(H8.`�.%8.(�.(�.,x.!�.a8.(x.b8.`�."�.bH[ۛܙ\���8.+x.(�.b8.,�.!�.`8.&�.a�.&x.%�.,�.!�. x.,�.(�8.`x.!8.b8.`�.'�.)x.`8.%8.+x.(�.c8.`x.(�. JH8.*�.(�.-�.+H
+8. �H8.%x.,x.bx.!�[ۛܙ\���[��8."8.(�.-8.!�."8.,x.!�
+8.`8."�.b8.&HY[��H8.`8.'�.-�.b8.+H�\�HX��Y�H8.(�.,8.*�.)�.b8.,�.!�.*�.+x.!�.`x.+x.&�
+[�[�ܙ\��]ܞK�\�Yۈ�\�[H8.(�.b8.)�.(x. x.,x.&JH8�%8.`8.&�.a�.&x. x.,�.(�.%x.,x.%8.*�.-8.&x.`�."8.(�.b8.+x.(�.%�.-x.bRH��X�X[�Y�\����[��8."8.,8.`8.*�.&x.+x.%�.,�.!�.`8.)x.-�.+x. x.`�.*�.bH��[�\�8.+x.-x. x.!8.(�.,x.bx.!�.%x.+x.&x.`8.(�.-8.b8.(H[\[Y[�8."8.(�.-8.!�8.`8.'�.(�.,�.,8. x.(�.,8.%�.&��Z[��K�\�H\[[�B���
+���X��[�
+���8.(�.,x.!�.!8.!�.`�."�.bH�\X�\�H�ڙX�8.`8.%8.-x.(�.)�. x.,x.&H
+8.a8.(x.b8.(x.-H�\�Y�X��[�8.`x.(�. JH8.%x.,�.(x.%�.-x.bX\�\���\8.(�.,8.&�..8.a8.)�.bx.`x.%x.b8.%x.bx.&x.)�.b8.,���\�Y�X��[��8.`8.&�.a�.&x.*�.b8.)�.&x.*�.&x.-�.b8.!�. �.+x.!�H8.*�.b8.)�.&x. �.+x.!��S�]�ܛH8�%8.`x.!8.b8.'x.,x.b8.!��Y[�
+�]\�H8.`x.(�. x.`8.&�.a�.&x.*�.+x.!�.`x.+x.&�8.a8.(x.b8.`�."�.b8.`x.(�. H�X��[��ˈ
+��\�Yۈ�\�[J���8.%x.bx.+x.!�.%x.,x.%8.*�.-8.&x.`�."8.)�.b8.,�."8.,�\�H�]\�X��Y�H
+�Y�]��[YJH8.(�.,8.*�.)�.b8.,�.!�.*�.+x.!�.`x.+x.&�.(�.,x.!�.a8.!�8.*�.(�.-�.+x."8.,\X�]KܙZ[\[Y[�8.`8.'�.-�.b8.+x.!8.)�.,�.(x.`8.(�.-x.(�.&�.!�.b8.,�.(�.`�.&x.(�.+x.&�.`x.(�. H
+8.`�.*�.bHRH\�Yۈ8.`8.*�.&x.+x.%x.+x.&x.`8.(�.-8.b8.(x.+x.+x. x.`x.&�.&�."8.(�.-8.!�B��8.(�.,x.!�.!8.!�
+��.(�.+H��[�\�8.*�.b8.!�.`8.&x.-�.bx.+x.*�.,�.`8.%x.a�.(x. �.+x.!�X\�\���\�X�[ۈ8.%�.-x.b8.`8. x.-x.b8.(�.)�. x.,x.&��[\���8.`8.*�.(x.-�.+x.&H[��H8. x.b8.+x.&x.*�.&x.bx.,�8�%8.`8.!�.-�.b8.+x.&x.a8. �.&x.-x.bx.a8.(x.b8.`8.&�.)x.-x.b8.(�.&B�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN�8.(�.+x.`8.&x.-�.bx.+x.*�.,��[\��X�[ۈ8."8.,�. H��[�\�8. x.b8.+x.&x.`8.(�.-8.b8.(x.!�.,�.&x."8.(�.-8.!�8�%[��H8.&x.-x.bx.`x.%�.&x.%�.-x.b[��H8. x.b8.+x.&x.*�.&x.bx.,�
+���LLMK�.`8.)x.-�.+x. x.*�.%�.,�.&�.,x.%x.(�. x.(�.(�.(H�X]\�H[�[H8.`�.&x.`x.+x.&�.`8.%8.-x.(�.)�.`8.%8.-8.(H�H8.+x.(�.b8.,�.!�.*�.(x.&�..x.(�.$�.c�����̌��LL��H�.(�.-x.`x.&�.(�.&x.%8.c�8�%8.)x.a�.+x. H�S��K��8.`8.&�.a�.&H��\]H��X��X�Y�X�][ۈ8.*�.)x.,x. H8.`x.%�.&x.%�.-x.b8.%�.-8.*8.%�.,�.!�.`8.%8.-8.(x.%�.,x.bx.!�.*�.(x.%�H8.&�.(�.-8.&�.%Έ��[�\�8.%�.,�.(x.)�.b8.,��.`8.*�.)x.-�.+x.+x.,8.a8.(�.&�.bx.,�.!Ȉ
+8.*�.%�.,�.&x.,8.%x.+x.&x.&x.,x.bx.&N�8.&�.,x.b�. x.%�..8. x.%x.,x.)�.&�.-8.%8.`x.)x.bx.)�8.`8.*�.)x.-�.+H�S�L��8.(�.+H��[��8.`x.)x.,�S�LM�8.(�.+H�\�X�\�H�]\
+H8.`x.)x.bx.)�.%�.,�.(x.%x.b8.+H�.(�.-x.`x.&�.(�.&x.%8.c8.a8.%8.bx.a8.*�.(H8.&�.(�.,x.&�.`8.&�.)x.-x.b8.(�.&x.!�.,�.&x.`�.*�.(x.b8.%�.,x.bx.!�.*�.(x.%�8�%8.*�.)x.,x.!�.%�.,�.(x. �.+x.&�.`8. �.%x.(�.-x.`x.&�.(�.&x.%8.c8.'8.b8.,�.&H�\��[�\�8.%x.+x.&�.%8.bx.)�.(�.*�.`8.&�. x."x.&�.,x.&�.`8.%x.a�.(H
+����S��K��8�%��TUH��P��P�Q�P�USӈ���
+L�8.*�.,x.)�. �.bx.+JH8.'�.(�.bx.+x.(x.(�.,8.&�..8."�.,x.%8.)�.b8.,��.'8.(x."8.,8.)x.a�.+x. H�S��K��8.`�.*�.bx.`8.&�.a�.&x.*�.`8.&�. x.!8.b8.+x.&x. �.bx.,�.!�.!8.(�.&�.)�.!�."8.(�8.`�.%8.(�.(�.-�.%8.*�.-8.b8.!�.%�.-x.b8.`8.(�.,�.!8..8.(�. x.,x.&x.%�.,x.bx.!�.*�.(x.%8.`x.)x.,8.`x.(�. H�S�\��S�YZ[�8."�.,x.%8.`8."8.&H�8.`x.)x.,8.`x.&x.&�.*�.(x.,�.(�.`8.*�.%x..8. x.#�.*�.(x.,�.(�
+K8. x.#�.*�.(x.,�.(�.&8..8.(�. x.(�.(�.(x.+x.-8.`8.)x.a�. x.%�.(�.+x.&x.-8. x.*�.c8. x.#�.*�.(x.,�.(�.!8.+x.(x.'�.-8.)�.`8.%x.+x.(�.c8. x.(�.+x.&�Y�][]�ܛH�\��X�\���8. �.+x.!�UJH8�%8.*�.`8.&�. x.`8.%x.a�.(x.&�.,x.&x.%�.-�. x.a8.)�.bx.%�.-x.b��[��������X���[�]�K��[X\�\�\�X˛Y8.`x.&�.&�.a8.(x.b8.%x.,x.%8.%�.+x.&B�H
+��.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\�����K�
+���S��K��8.!8.-�.+H��X��X�Y�X�][ۈ8.*�.)x.,x. x.%x.,x.bx.!�.`x.%x.b8.&x.-x.bx.a8.&ʊ�8.`x.%�.&x.%�.-x.b��S���H�ԑHT�PUT�H��T�
+���LLM
+K��S��P���YY��
+���LLM8.`8.&x.-�.bx.+x.*�.,�.(�.,x.!�.`�."�.bx.a8.%8.bx.`8.'�.(�.,�.,�X�8.`8.&�.a�.&HH8.`�.&H8.`x. x.&x.*�.)x.,x. x. �.+x.!��K��
+K8.`x.)x.,��S�U�ԓHPT�T�U�S�QS���T�8.*�.b8.)�.&H���K��ST�
+���LLM�MJH8.`�.&x.*�.b8.)�.&x.%�.-x.b8. �.,x.%8.`x.(�.bx.!�. x.,x.&B���
+���K�8.`8.&x.bx.&H8.`x. x.&N���
+��X�
+��]
+�\��ݙ\�J��8�%8.(�.,x.!�.a8.(x.b8.`8.&�.-8.%8.`8.%x.a�.(x.(�..x.&�.`x.&�.&���S����S���S�RH8.`8.%x.a�.(x.(�..x.&�.`x.&�.&�X\��]X�K^[Y[�]�K�Y[��[8�%8.`x.%x.b\��]X�\�H8.%x.bx.+x.!�.`8.%x.(�.-x.(�.(x.(�.+x.!�.(�.,x.&�.+x.&x.,�.!8.%B�ˈ
+��.`x.(�. H�S�\��S�YZ[�8.`8.&�.a�.&x.!8.&x.)x.,\X�][ۈ8.`�.%8.(�.*�.-8.bx.&x.`8."�.-8.!ʊ���
+��Y�[���\X[��J���8.%x.bx.+x.!�.+x.+x. x.`x.&�.&�.(�.,8.&�.&�.(�.+x.!�.(�.,x.&�K�KU�[��X�[ۋ�. x.#�.*�.(x.,�.(�.!8.+x.(x.'�.-8.)�.`8.%x.+x.(�.c��8.%x.,x.bx.!�.`x.%x.b�H8�%��[�\�8.(�.,8.&�..8."�.,x.%8.)�.b8.,�. x.,�.(�.`8. �.bx.,�. �.b8.,�.(��.*�.&x.bx.,�.%�.-x.b8.`8."x.'�.,�.,8.%x.bx.+x.!�.`�.*�.bx.'8..x.bx.`8."�.-x.b8.(�.)�."�.,�.#x. x.#�.*�.(x.,�.(�.%x.(�.)�."8."8.,�. x.(�..x.&�.`x.&�.&�.&8..8.(�. x.-8."8."8.(�.-8.!�.+x.-x. x.!8.(�.,x.bx.!�8.%�.-x.(HRH8.a8.(x.b8.`�."�.b8.%�.-x.b8.&�.(�.-�. x.*x.,�. x.#�.*�.(x.,�.(�8.+x.+x. x.`x.&�.&���\X[��H^Y\�8.%�.,�.!�.`8.%�.!8.&x.-8.!8.a8.)�.bx.)x.b8.)�.!�.*�.&x.bx.,�.`8.%�.b8.,�.&x.,x.bx.&B�K�
+��.!�.,�.&x.`8.%8.-8.(x.%�.-x.b8.'8.b8.,�.&HPH8.`x.)x.bx.)ʊ���.+x.,x.&x.a8.*�.&x.`�."�.bx.a8.%8.bH8.`�."�.bH8.%�.bx.,�.`�."�.bx.a8.(x.b8.a8.%8.bx. x.a�.%�.-8.bx.!�.`8.)x.(��8�%8.a8.(x.b8.%x.bx.+x.!�.(�.-�.bx.+x. �.+x.!�.`8.%8.-8.(x.%�.-x.b8.(�.,x.!�.%x.(�.!�.*�.`8.&�. x.%�.,x.bx.!�.*�.(x.%8.`x.%x.b8. �.+x.!�.%�.-x.b8.a8.(x.b8.%x.(�.!�
+����HX�H8.`�.*�.bx."8.,x.%8. x.,�.(�.%x.,�.(x.%�.-x.bRH��X�X[�Y�\�8.`8.*�.&x.+B�H
+��.!8.,�.%x.,x.%8.*�.-8.&x.`�."8.(�.b8.+x.(�.%�.-x.b8.(�.-�.&x.(�.,x.&x.`8.'�.-8.b8.(x.'8.b8.,�.&H�\
+8.)�.,x.&x.`8.%8.-x.(�.)�. x.,x.&JJ����K�
+���
+�S�L�J���8.%�.+x.%8.+x.+x. x."8.,�. H���H�]�8.%�.,x.&x.%�.-H
+8.a8.(x.b8.)x.&�.`�.!8.bx.%��H8�%8.`8. x.a�.&�. x.)x.,x.&�.(x.,�.%�.,�.`�.*�.(x.b8.%x.+x.&H��8.%x.,�.(x.%�.-x.b8.*�.`8.&�. x.(�.,8.&�..���
+�����HX\��]X�H
+���KLx�$�JH
+����H�[\���H�S�
+�ST�Lx�$�K�[\��\�
+J���8.%�.+x.%���HX�8.+x.+x. x."8.,�. H\�	�����H�]�8.%�.,x.&x.%�.-K8.'�.,x. H�[\��\�8.a8.)�.bx.`8."x.(�8.a�8.a8.(x.b8.'�.,x.$�.&x.,�.%x.b8.+H
+8.a8.(x.b8.)x.&�.`�.!8.bx.%��8.%�.,x.bx.!�.!8..x.b
+H8�%8.`8.&�.-8.%8.`�.*�.(x.b8.%x.+x.&H���ˈ
+��\�Yۈ�\�[H
+8.*�.-x. �.+x.!�.`x.&�.(�.&x.%8.c
+J���8.*�.`8.&�. x.`�.*�.(x.b8.(�.,8.&�..�8�$�L	H�]H
+�L8�$̌	H�Z[���Ȉ8.%x.b8.,�.!�."8.,�. H�X[�����
+�ܘ[��Hё����X8.%�.-x.b8.`8.'�.-8.b8.!�[\[Y[�8.!8.(�.&�H8.*�.&x.bx.,�."8.+H
+�Lx�$����LLMJH8�%
+����[�\�8.(�.,x.!�.a8.(x.b8.)x.a�.+x. J��8. �.+x.`�.*�.bHRH\�Yۈ8.%�.,�.*�.&x.bx.,�.`8.&�.(�.-x.(�.&�.`8.%�.-x.(�.&�. x.b8.+x.&x.%x.,x.%8.*�.-8.&H
+8.`8.*�.(x.-�.+x.&H]\��8.%�.-x.b8.%�.,�.*�.,�.`8.(�.a�."8.%x.+x.&H�LJH8�%8.(x.+x.&�.*�.(x.,�.(�.`8.&�.a�.&H�LB��
+���S�YZ[����8.*�.%�.,�.&�.,x.%x.(�. x.(�.(�.(H
+���X�X�\�YYZ[�[�[
+��
+8.a8.(x.b8.`�."�.b�]\�\8.`x.(�. x.`x.&�.&��[\��\�
+H8�%8.`8.&�.a�.&H
+��XZ�܈\��]X�\�H8.`�.*�.(x.b8.!8.(�.,x.bx.!�.`x.(�. J��8. �.+x.!�.`�.&�.(�.`8."8. x.%x.c8.%�.-x.b8.a8.(x.b8.`�."�.b�]\��\�8.`8.%8.-8.(H8�%8.(�.,x.!ʊ�.a8.(x.b8.`8.)x.-�.+x. H��[Y]�ܚ����[��8.`8."x.'�.,�.,8.`8."8.,�.,8."8.!ʊ�8.(�.+HRH��X�X[�Y�\��\�Yۈ8.`8.*�.&x.+x.%x.+x.&x.%�.-�.!�\�H�8."8.(�.-8.!�
+8.%x.,�.(H��YX\
+H8.`8.'�.(�.,�.,8. x.(�.,8.%�.&�[���\��X�\�H8.`�.*�.(x.b8.%�.,x.bx.!�.*�.(x.%8.%�.-x.b�\�8.&�.,x."8."8..8.&�.,x.&x.a8.(x.b8.(x.-x.`8.)x.(��H8.'8.)x. x.(�.,8.%�.&��8.*�.(�.bx.,�.!���[��������X���[�]�K��[X\�\�\�X˛Y
+8.*�.`8.&�. x.`8.%x.a�.(JH8.`x.)x.,��[��������X���[�]�K��\��YX\�Y
+��YX\8.`�.*�.(x.b8.`x.&�.b8.!�H\�K8.%x.,�.(�.,�.!�.`8.%�.-x.(�.&�.*�.%�.,�.&x.,8.!�.,�.&x.`8.%8.-8.(x.%�.,x.bx.!�.*�.(x.%8. x.,x.&�.*�.`8.&�. x.`�.*�.(x.b
+H8�%8.*�.(�.bx.,�.!�\��8.`x.(�. x. �.+x.!�\�H��S�L�
+���H�]��\��X�\�JH8.`x.)x.,�LX
+\�Yۈ��\\�\�ۊH8.'�.(�.bx.+x.(x.*�.b8.!�RH\�Yۈ8�%��[��������X���[�]��K\��YX\�Y8.`x.)x.,��[��������X�ޛ��K\]�ܛK\��YX\�Y8.`8. x.a�.&�.a8.)�.bx.`8.&�.a�.&H]Y]�Z[8.a8.(x.b8.)x.&�8.`x.%x.b8.a8.(x.b8.`�."�.b��YX\8.%�.-x.b8.`�."�.bx.!�.,�.&x.+x.(�..x.b8.+x.-x. x.%x.b8.+x.a8.&�8�%
+��.(�.,x.!�.a8.(x.b8.(x.-x. x.,�.(�.)x.&�.`�.!8.bx.%�.%x.,�.(�.,�.!��8.`�.%8.a�8."8.,�. x.!�.,�.&x.&x.-x.bJ��
+�֓��H8.%�.+x.%8."8.,�. HRH8.`8.%�.b8.,�.&x.,x.bx.&H8.(�.+x.%�.,�.`�.&H�S�L�
+B�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��������X���[�]�K��[X\�\�\�X˛Y��[��������X���[�]�K��\��YX\�Y��[��\���ؘX������S�L�X���K[�]�]�K\�\��X�\�K�Y��[��\���ؘX������LK]�K\�X��[�X��܋X��\\�\�ۋ�Y�����̌��LL��H8.`8.&�.)x.-x.b8.(�.&x."�.-�.b8.+x.`x.&�.(�.&x.%8.c�S�8����S���
+8.`8."x.'�.,�.,8."�.-�.b8.+x.%�.-x.b8.'8..x.bx.`�."�.bx.`8.*�.a�.&H8�%8.a8.(x.b8.`x.%x.,X��X�[Y[�Y�Y\�B�H8.&�.(�.-8.&�.%Έ��[�\�8.*�.,x.b8.!�.%x.b8.+x."8.,�. x. x.,�.(�.)x.a�.+x. x.*�.`8.&�. H�S��K��8.)�.b8.,��.`8.&�.)x.-x.b8.(�.&x."�.-�.b8.+x.`x.&�.(�.&x.%8.c8.%8.bx.)�.(�.&x.,8."8.,�. H�S�8.`8.&�.a�.&H�S��Ȉ8�%8.%�.,�.(x.(�.-�.&x.(�.,x.&x. �.+x.&�.`8. �.%x.'8.b8.,�.&H�\8. x.b8.+x.&x.`8.'�.(�.,�.,8. x.,�.(�.`8.&�.)x.-x.b8.(�.&H�[�HQ�X��X�[Y[�Y�Y\�8. x.(�.,8.%�.&�. x.,�.(�.*�.(x.,x.!8.(��\�X�\�K��]]�\�ܙH8.%�.-x.b8.(�.,x.!�.a8.(x.b8.a8.%8.bx.%�.,�.`8.)x.(�.*�.,x. x.%x.,x.)H
+��.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\�����K�
+��. �.+x.&�.`8. �.%HH8.`8."x.'�.,�.,8."�.-�.b8.+x.`x.&�.(�.&x.%8.c8.%�.-x.b8.'8..x.bx.`�."�.bx.`8.*�.a�.&J��8�%8."�.-�.b8.+x.`x.+x.&��.`�.)x.`�. x.bK�. �.bx.+x.!8.)�.,�.(x.`�.&HRK�.`8.+x. x.*�.,�.(�X\��][���\�ܙK�^H�ܙH\�[��8.`x.)x.,8."�.-�.b8.+x.'�.-x.`8."8.+x.(�.c8.%�.-x.b8.(x.-x.!8.,�.)�.b8.,���S��8.&�.(�.,8. x.+x.&�
+8.`8."�.b8.&H��S�YZ[��8�����S���YZ[����S��]�8�����S����]���S��L�8�����S����L���S���XZȈ8�����S�����XZȊH8.%�.,x.bx.!�.*�.(x.%8.`8.&�.)x.-x.b8.(�.&x.`8.&�.a�.&H
+���S��ʊ����
+��X��X�[Y[�Y�Y\�8.!8.!�.`8.%8.-8.(x.%�.,x.bx.!�.*�.(x.%
+����[�HQ
+[˝�[���[�[˝�[�����\�[\�
+K8."�.-�.b8.+x.`�.'�.)x.`8.%8.+x.(�.c
+\��[\��\�
+K8."�.-�.b8.+H�\X�\�H�ڙX�X�K���[[���\��ݘ\�XX�H�[Y\�8.%�.,x.bx.!�.*�.(x.%8.`�.&x.`�.!8.bx.%8.`x.)x.,
+��\��Q�Y�^8.(�.,x.!�.`�."�.bH�S�V��V����KV��ST�V8.`8.*�.(x.-�.+x.&x.`8.%8.-8.(J��
+8.a8.(x.b8.`8.&�.)x.-x.b8.(�.&x.`8.&�.a�.&H�S���V
+H8�%8.`8.'�.-�.b8.+x.a8.(x.b8.%x.bx.+x.!�.*�.(x.,x.!8.(��\�X�\�K��]]�\�ܙH8.`�.*�.(x.b8.`x.)x.,8.a8.(x.b8. x.(�.,8.%�.&�]Y]�Z[�\�ܞH8. �.+x.!�\��8.%�.-x.b8.'8.b8.,�.&HPH8.`x.)x.bx.)�.%�.,x.bx.!�.*�.(x.%�ˈ
+�����H����H�[\���H�S����8.(�.,x.!�.a8.(x.b8.`8.&�.)x.-x.b8.(�.&x."�.-�.b8.+x.%x.+x.&x.&x.-x.bH8�%8.(�.+x.%x.,x.%8.*�.-8.&x.`�."8.%x.+x.&x.%�.-�.!���
+8.*�.+x.%8.!8.)x.bx.+x.!�. x.,x.&�.%�.-x.b8.%�..x. x.'�.,x. H���H8.a8.)�.bx.`x.)x.bx.)�.%x.,�.(H[��H8. x.b8.+x.&x.*�.&x.bx.,�B�H8.'8.)x. x.(�.,8.%�.&��8.%x.,x.bx.!�.`x.%x.b8.&x.-x.bx.a8.&�.`8.+x. x.*�.,�.(��\���\�Yۋ�RH��H8.`�.*�.(x.b8.%�.,x.bx.!�.*�.(x.%8.%�.-x.b8.`8. �.-x.(�.&x. �.-�.bx.&x.`�."�.bx."�.-�.b8.+x.`x.&�.(�.&x.%8.c
+���S��ʊ�8.`x.%�.&H�S�8.`�.&x.%�..8. x."8..8.%8.%�.-x.b8.'8..x.bx.`�."�.bx.`8.*�.a�.&H8�%8.`8.+x. x.*�.,�.(�.`8. x.b8.,�.%�.-x.b8.&�.,x.&x.%�.-�. x.!8.,�.'�..x.%�.*�.`8.&�. x.`8.%8.-8.(x. �.+x.!���[�\�8.`x.&�.&��\��][H
+8.`8."�.b8.&H��[��������X���[�]�K��[X\�\�\�X˛Y
+H
+��.a8.(x.b8.`x. x.bx.(�.bx.+x.&x.*�.)x.,x.!ʊ�8.`8.'�.-�.b8.+x.(�.,x. x.*x.,�.!8.)�.,�.(x.%�..x. x.%x.bx.+x.!�. �.+x.!�.&�.,x.&x.%�.-�. x.&�.(�.,8.)�.,x.%x.-8.*8.,�.*�.%x.(�.c8.`x.%x.b8.`8.'�.-8.b8.(H�[Z[����H8. x.,�. x.,x.&�.a8.)�.bx.%�.-x.b8.%x.bx.&x.a8.'�.)x.c8.`x.%�.&H8�%8.!�.,�.&H�[�[YH8."8.(�.-8.!�.`�.&x.`�.!8.bx.%�RH
+8.`8.&�.)x.-x.b8.(�.&x. �.bx.+x.!8.)�.,�.(x.%�.-x.b8.`x.*�.%8.!�.'8.)K\�[YH8.`�.&x.a8.'�.)x.c�ۙ�Y�8. �.+x.!��ܙH\�[��8.`8.+x. x.*�.,�.(�X\��][��H8.`8.&�.a�.&x.!�.,�.&HRH\�Yۋ���[��8.%�.,�.%x.+x.&x.`x.%x.,8.*�.&x.bx.,�."8.+x.&x.,x.bx.&x."8.(�.-8.!�8.a8.(x.b8.`�."�.b8. x.,�.(��Y�X�܈8.(�.)�.%8.`8.%8.-x.(�.)�.%�.,x.bx.!�.(�.,8.&�.&�
+8.a8.(x.b8.(x.-H�[ܚ]H8.`8.(�.b8.!�.%8.b8.)�.&x.`8.&�.a�.&x.'�.-8.`8.*8.*H8.%�.,�.!8.)�.&�.!8..x.b8.a8.&�. x.,x.&�\�H8.%�.-x.b8. x.,�.)x.,x.!�.%�.,�.+x.(�..x.b
+B�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��������X���[�]�K��[X\�\�\�X˛Y��[��������X���[�]�K��\��YX\�Y�����̌��LL��H�S�L�
+���H�]��\��X�\�JH8�%8.(�..8.&����YY
+�S�LNx�$���H8.`8. �.bx.,��YH8.`x.%�.&x. x.,�.(�.`8. x.a�.&�.`8.&�.a�.&HX�8.`x.(�. B�H8.&�.(�.-8.&�.%Έ8.(�.,8.*�.)�.b8.,�.!�RH\�Yۈ8.+x.+x. x.`x.&�.&��S�L�8.'�.&�.)�.b8.,�X\�\��X������H�]�
+�X�[ۈ�
+H8. x.,�.*�.&x.%8.%x.,�.`x.*�.&x.b8.!�����8.`8.&�.a�.&x.&�..8.b8.(H�Ȉ8.*�.,�.*�.(�.,x.&�.*�.(�.bx.,�.!���8.`8.%�.b8.,�.&x.,x.bx.&H8.a8.(x.b8.`�."�.bX�8.`8.&�.-8.%8.%8..H�YY8.`x.%x.b���YY�ܙY[�8.&�.,x."8."8..8.&�.,x.&x.`8.&�.a�.&x.*�.&x.bx.,����X[�YY8.`8.%x.a�.(x.(�..x.&�.`x.&�.&�
+�S�LNN�X��܈[�Kћ���[���]\��S�L���K����\�Y��Y[�[ۋԙ\H8.'8..x. x.+x.(�..x.b
+H8.%�.bx.,�.%�.+x.%8.%x.,�.(x.*�.`8.&�. x.%x.(�.!�.a�8."8.,8.a8.(x.b8.(x.-x.%�.,�.!�.`8. �.bx.,�.%�.-�.!�.*�.&x.bx.,�.&x.-x.bx.+x.-x. x.`8.)x.(�8�%8.%�.,�.(x.(�.-�.&x.(�.,x.&x.'8.b8.,�.&H�\�H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��
+��.(�..8.&����YY8.`8. �.bx.,��YJ��8�%�YI���YY[[�H�[X�܈8. �.(�.,�.(�."8.,�. H�8.`8.&�.a�.&H8.%x.,x.)�.`8.)x.-�.+x. H
+8.*�.,�.*�.(�.,x.&�.!8..8.$�ʊ�.%x.-8.%8.%x.,�.(H
+8.`�.*�.(x.b
+J���.)x.b8.,�.*�..8.%�."8.,�. H�X�8. �.+x.!�.!8..8.$�H8.`x.%�.&x.%�.-x.b8."8.,8.`8. x.a�.&����YY�ܙY[�8.a8.)�.bx.%�.-x.b8.+x.-�.b8.&x.*�.(�.-�.+x.'x.-�.&x.!8.!�.`8.&�.a�.&HX�8.`x.(�. x. �.,x.%8.*�.`8.&�. H8�%8.%x.(�.!�. x.,x.&�X\�\��X��X�[ۈH
+��YH�YY�8.*�.+x.!�.`�.*�.(x.%�܈[�Kћ���[�ȊH8.(x.,�. x.%�.-x.b8.*�..8.%8.`x.)x.,8.a8.(x.b8.(x.-H�\X�[]H8.`�.%8.*�..x.#x.`8.*�.-x.(�
+8.%�..8. H]Y\�Kܘ[��[���\�Y��Y[�[ۈ��X�8. �.+x.!��S�LNx�$���8.(�.,x.!�.`�."�.bx.a8.%8.bH8.`x.!8.b8.`8.&�.)x.-x.b8.(�.&x.%�.-x.b[�[�
+B�H8.'8.)x. x.(�.,8.%�.&��
+��.%x.b8.,�.!�."8.,�. H�֓��H8.%�.-x.b8.`x.!8.b8.%�.+x.%8."8.,�. HRH8.a8.(x.b8.)x.&�.`�.!8.bx.%
+��8�%���YY�ܙY[�����X��YY
+��.)x.&�.+x.+x. x."8.,�. x.`�.!8.bx.%8.a8.%8.bx."8.(�.-8.!ʊ�8.`8.'�.(�.,�.,�\X�[]H8.%�.,x.bx.!�.*�.(x.%8.(�.bx.,�.(�.`8. �.bx.,��YH8.!8.(�.&�.`x.)x.,8."8.,8.a8.(x.b8. x.)x.,x.&�.(x.,�.`8.&�.a�.&HX�8.`x.(�. x.+x.-x. H8.(�.,�.(�.)x.,8.`8.+x.-x.(�.%8.`8.%x.a�.(x.%�.-x.b��[������\�Yۋ��[�L�X���K[�]�]�K\�\��X�\�K�Y
+�ܙY[��H8�%8.+x.,x.&�.`8.%8.%H�\]Z\�[Y[�8.`8.'�.-8.b8.(x.`8.&�.a�.&H�8.`�.&H��[��\���ؘX������S�L�X���K[�]�]�K\�\��X�\�K�Y�H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[������\�Yۋ��[�L�X���K[�]�]�K\�\��X�\�K�Y��[��\���ؘX������S�L�X���K[�]�]�K\�\��X�\�K�Y�����̌��LL��H�LH8�%��[�\�8.`8.)x.-�.+x. H�[ۈ��8.!8.!��X[�8.`8.%8.-8.(H
+��Z[����8.`8.&�.a�.&HX��[�8.`8.*�.(�.-8.(x.`8."x.'�.,�.,8."8..8.%�H8.&�.(�.-8.&�.%ΈRH\�Yۈ8.%�.,�.*�.&x.bx.,�.`8.&�.(�.-x.(�.&�.`8.%�.-x.(�.&�
+\�Y�X�
+H8.(�.,8.*�.)�.b8.,�.!��[ۈH
+�Z[����8.`8.%x.a�.(x.(�..x.&�.`x.&�.&�.`x.%�.&H�X[�H8. x.,x.&��[ۈ�
+8.!8.!��X[�8.`8.%8.-8.(H
+��Z[����8.`8.&�.a�.&HX��[�8.`8.*�.(�.-8.(JH8.%x.,�.(x.%�.-x.b��[�\�8. �.+x.a8.)�.bx. x.b8.+x.&x.)x.a�.+x. x.*�.-H�K��8�%8.'�.&�.)�.b8.,��[ۈH8.%�.,�.`�.*�.bx.%x.bx.+x.!�]Y]��Q��۝�\�8."�.bx.,�.%�.,x.bx.!�H8.*�.&x.bx.,�."8.+x.%�.-x.b�LH8.%�.,�.a8.&�.`x.)x.bx.)�8.!8..x.$�H
+8."8.,�. H�X[�8.*�.-x.`8.%8.-x.(�.)�.`8.&�.a�.&H�Z[����H8.*�.-H8.%�..8. x.*�.-x.(�.,x.!�.%x. x.`8. x.$�.$x.cPH8.&�.&x.'�.-�.bx.&x. �.,�.)�.`8.*�.(x.-�.+x.&x.`8.%8.-8.(x.*�.(�.-�.+x.`x.(�.b8. x.)�.b8.,�H8.`x.)x.,ܘYY[�X\�]^8.a8.(x.b8.(x.-x.!8.b8.,��۝�\�8.`8.%8.-x.(�.)�.%�.-x.b8.&x.-8.(�.,�.(x.a8.%8.bHRH\�Yۈ8.`x.&x.,8.&x.,��[ۈ��H
+��.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!���[�\��8.`8.)x.-�.+x. H�[ۈ����H8.'8.)x. x.(�.,8.%�.&��
+��\�Yۈ�\�[H8.`8.%8.-8.(H
+�Lx�$��X[�����
+����Hܘ[��Hё����X
+H8.(�.,x.!�.!8.!�.`�."�.bx.`8.&�.a�.&x.!8.b8.,�."8.(�.-8.!�.%x.b8.+x.a8.&�.%�.,x.bx.!�.*�.(x.%8.a8.(x.b8.(x.-x. x.,�.(�.`8.&�.)x.-x.b8.(�.&x.*�.-H�[X\�H8.`�.%8.a���8�%�Z[����8.`8.'�.-8.b8.(x.`8.&�.a�.&HX��[�8.`�.*�.(x.b8.`8."x.'�.,�.,�8."8..8.%8.%x. x.`x.%x.b8.!�.%�.-x.b8.a8.(x.b8.(x.-x.%x.,x.)�.*�.&x.,x.!�.*�.-�.+x.%�.,x.&�
+8.%x.,�.(x.%�.-x.b[[�8.a8.)�.bx.`�.&H\�Y�X�
+N�
+JH�[��8.(�.+x.&�]�]\�8. �.+x.!��۝[�8.%�.-x.b8.%x.-8.%�[�[��8.`8.%�.b8.,�.&x.,x.bx.&H
+8.a8.(x.b8.`�."�.b]�]\�8.%�..8. x.+x.,x.&JH
+�H8.`8.*�.bx.&x.&�.,�.!�.`�.%x.bH�Y�Y[�8.%�.-x.bX�]�H8.`�.&H�YY[[�H�[X�܈8. �.+x.!��YH8�%8.%�.,x.bx.!�.*�.+x.!�."8..8.%8.`8.&�.a�.&x. x.,�.(�.`8.'�.-8.b8.(x.`8.*�.(�.-8.(H8.a8.(x.b8.`x.%�.&x.%�.-x.b8.*�.-8.b8.!�.%�.-x.b8.(x.-x.+x.(�..x.b8.`x.)x.bx.)��8�$�L	H�]H�L8�$̌	H�Z[���Ȉ8.%x.,�.(x.&�.(�.-x.'�.%x.-x.!8.)�.,�.(x.)�.b8.,��Z[����8.`8.&�.a�.&x.%x.,x.)�.`8.*�.(�.-8.(x.!8.)�.,�.(x.*�.(x.,�.(�
+8.`x."8.bx.!�.)�.b8.,�.+x.,8.a8.(�. x.,�.)x.,x.!��[�[��H8.a8.(x.b8.`�."�.b8.*�.-x.'�.-�.bx.&x.$8.,�.&x. �.+x.!�.(�.,8.&�.&��H8.+x.bx.,�.!�.+x.-8.!�
+\����8.%�.bx.,�.(x.-JN���[��\���ؘX������LK]�K\�X��[�X��܋X��\\�\�ۋ�Y\�Y�X�8.`8.&�.(�.-x.(�.&�.`8.%�.-x.(�.&�
+8.)x.-8.!�. x.c8.`�.&x.a8.'�.)x.c\��B�����̌��LLMWH\�H
+���H�[\���H�S�H8�%��[�\�8.*�.b8.!�.`8.&x.-�.bx.+x.*�.,��X�[ۈL�LM�8.`8.%x.a�.(x.`x.)x.bx.)�RH��X�X[�Y�\�8.)�.,�.!�\����XZ��ۈ
+�8.%x.,x.%8.*�.-8.&x.`�."[\[Y[�][ۈ]Z[8.%�.-x.b8.`8.*�.)x.-�.+B�H8.&�.(�.-8.&�.%Έ��[�\�8.*�.b8.!���S�U�ԓH8�%PT�T�U�S�QS���T�8."x.&�.,x.&�.`8.%x.a�.(x.(x.,�.+x.-x. x.!8.(�.,x.bx.!�
+8.(x.-x.`8.&x.-�.bx.+x.*�.,��X�[ۈL�LM�8.%�.-x.b8. �.,�.%8.*�.,�.(�.a8.&�."8.,�. H�\�8.%x.,x.bx.!�.`x.%x.b8.%x.bx.&JH8�%RH��X�X[�Y�\�8.%x.(�.)�."8.*�.+x.&��\�
+\�X��X˞X[[�[�HQ[˝�[���[�\�X��XZ[��\�	��[YH�]\\�X���ܙK�[���\�	��\�YY�[�H]\��\�X�ٙX]\�\��]]��8.*�.&x.bx.,�."8.+K�\X�\�K���[XK��[	����8.&�.,x."8."8..8.&�.,x.&x. �.+x.!��ܙ\����X���ܙ\��
+H8. x.b8.+x.&x.)�.,�.!�\����XZ��ۈ8.%x.,�.(H�X�[ۈ��8. �.+x.!�X\�\���\8.`8.+x.!H8.!8.,�.%x.,x.%8.*�.-8.&x.`�."8. �.+x.!�RH��X�X[�Y�\�
+8.%�.,�.a8.%8.bx.`8.+x.!�.%x.,�.(H�ST˛Y8.`8.'�.(�.,�.,8.`8.&�.a�.&x.(�.,�.(�.)x.,8.`8.+x.-x.(�.%[\[Y[�][ۈ8.%x.b8.+x.(�.+x.%8."8.,�. x.!8.,�.%x.,x.%8.*�.-8.&x.`�."8.*�.%�.,�.&�.,x.%x.(�. x.(�.(�.(x.*�.)x.,x. x.%�.-x.b��[�\�8.(�.-�.&x.(�.,x.&x.`x.)x.bx.)�8�%8.`x.+x.&�.`x.(�. K8.a8.(x.b8.`�."�.bXZ�܈\��]X�\�K՚\�[ۋН\�[�\��[�[��X�\�]H�[��H8.`�.*�.(x.b
+N��K�
+���\��]ܞH8. �.+x.!�.`x.+x.&�.%�.-x.b8.*�.+x.!ʊ��8.`�.'�.)x.`8.%8.+x.(�.c�[\��\�8.%�.-x.b���8. �.+x.!��\�8.`8.%8.-x.(�.)�. x.,x.&H
+8.!8..x.b8. x.,x.&�\�
+H8�%
+��.a8.(x.b8.`�."�.bHY[���[ۛܙ\���[��8.`�.&x.(�.+x.&�.`x.(�. J��8.`8.'�.(�.,�.,8.(�.,x.!�.a8.(x.b8.(x.-HZ[�8."8.(�.-8.!�."8.,�. x. x.,�.(�.a8.(x.b8.(x.-H�\�YX��Y�H
+8.`x.!8.b�8.`x.+x.&�H8.&�.(�.,8.`8.(x.-8.&x.`�.*�.(x.b8.`�.&x.+x.&x.,�.!8.%x.%�.bx.,�\X�][ۈ8.`8.(�.-8.b8.(x.`8."8.a�.&�.&�.)�.%8."8.(�.-8.!��
+���[�HQ
+���[˝�[�����\�[\�
+8.`8.%�.-x.(�.&�. x.,x.&�\�	��[˝�[���[�
+B�ˈ
+��]][�X�][ۊ����]\�H�\X�\�H]]8.`8.%8.-x.(�.)�. x.,x.&��S����X[8.%�.,x.bx.!�.*�.(x.%
+]]�\�\����ٚ[\�8.`8.%8.-8.(JH8�%�[\�8.!8.-�.+x.'8..x.bx.`�."�.bH�S�8.%�.-x.b8.(x.-x.+x.(�..x.b8.`x.)x.bx.)�.%�.-x.b�.*�.(x.,x.!8.(�.(�.bx.,�.&H�8.`8.'�.-8.b8.(H
+8.*�.(�.bx.,�.!�.`x.%�.)��ܙ\�8.`�.*�.(x.b8.%�.-x.b�ۙ\��YH]]�ZY
+
+X8�%8.!8.+x.)x.,x.(x.&x.c8.&x.-x.bx.(x.-x.+x.(�..x.b8.`x.)x.bx.)�.%x.,x.bx.!�.`x.%x.b���KLJH8.a8.(x.u��6��$z{-���jםแล้วสร้าง `wyn115-apply-club-poll-schema.yml` แก้ — รันสำเร็จ ยืนยันด้วย query เดิมที่เคย fail ซ้ำ
 
 **อาการ (2) ไม่ใช่บั๊ก แต่เป็นผลจาก Chat Lockdown (WYN-122) ที่เปิดทดสอบค้างอยู่**: `chat_lockdown.enabled = true` (allowlist มีแค่ `warren`/`wynos_online`) และ WYN-123's invite ใช้กลไก `get_or_create_conversation()`+ส่งข้อความ Chat เบื้องหลัง เลยโดน lockdown บล็อกไปด้วยทั้งที่ไม่เกี่ยวกัน — Founder สั่งปิด lockdown ทันที (`wyn122-toggle-chat-lockdown.yml action=disable`) และให้แก้ทิศทางของฟีเจอร์เชิญเข้าคลับใหม่ทั้งหมด
 
@@ -1714,3 +895,48 @@ Verification ครบทั้ง 2 ข้อตาม `.wyn/company/WORKFLOW.m
 เสร็จสมบูรณ์ ไม่มี task ใน `.wyn/tasks/` ให้ย้าย (เป็น hotfix flag เดียว ไม่ได้เปิด task แยกไว้ตั้งแต่ต้น)
 
 อ้างอิง: PR #316/#317, commit `32a7105`/`dec0caa`, deploy-web.yml run #108
+
+## [2026-09-08] แก้สถานะ QA-WYN-110-002 ให้ตรงกับ deployment evidence
+
+การ audit วันที่ 2026-09-06 ด้านบนย้าย `WYN-110-homedropcard-320px-action-row-overflow.md` กลับไป
+`qa/` เพราะอ่าน QA note ที่เขียนก่อน fix แล้วสรุปว่ายังไม่มี QA หลัง fix แต่ deployment log
+`.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md` บันทึกไว้แล้วว่า fix ผ่าน CI บน `main`,
+`flutter analyze`, full `flutter test` 1173/1173 (รวม targeted regression 8 cases), deploy run #64 และ
+Founder production verification เมื่อ 2026-09-05 งานจึงเสร็จจริงก่อน audit หนึ่งวัน
+
+แก้ task tracking โดยย้ายไฟล์จาก `qa/` ไป `completed/` และเก็บ entry เดิมไว้เป็นประวัติ ห้ามตีความการ
+แก้นี้ว่าเป็น QA rerun ใหม่หรือ product change — เป็นการ reconcile สถานะกับหลักฐานที่เกิดหลัง fix เท่านั้น
+
+อ้างอิง: `.wyn/tasks/completed/WYN-110-homedropcard-320px-action-row-overflow.md`,
+`.wyn/logs/deployments/2026-09-05-wyn-110-111-real-deploy.md`, commit `3c2707b`, PR #228,
+CI run `33956199282`, deploy run `33956438765`
+
+## [2026-09-08] WYN-141 — Founder สั่งยกระดับ UX/UI frontend ทั้งระบบแบบ Mobile-first
+
+Founder กำหนด objective ให้ปรับ WYNOS frontend ให้ cohesive, polished, modern, responsive และ accessible
+โดยครอบคลุม Auth/Onboarding, Navigation, Feed, Content Detail, Search/Discovery, Notifications,
+Profile/Settings, Clubs, Chat และ Admin พร้อมล็อกข้อกำหนดว่าใช้ design system/shared components,
+รักษา feature/business logic เดิม, ไม่เพิ่ม Check-in, ไม่ refactor backend ที่ไม่เกี่ยวข้อง และต้องรัน
+lint/test/build หลัง major change ทุกชุดพร้อมรายงาน regression ก่อนทำต่อ
+
+คำสั่งนี้ถือเป็นการอนุมัติ **ขอบเขต Product/Design และทิศทาง responsive ที่ DS-008 เคยรอคำตอบ** แต่ไม่ยกเลิก
+กติกาถาวร “UI ใหม่ต้องมีภาพให้ Founder ดูก่อนเขียนโค้ด” จึงเปิด WYN-141, ทำ audit/spec และ visual preview
+ก่อน โดย production Coding จะเริ่มหลัง Founder อนุมัติภาพเท่านั้น เพื่อไม่ตีความคำว่า modern เป็น visual
+direction ใหม่เองและไม่ทำ broad refactor แบบ blind
+
+อ้างอิง: `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`,
+`.wyn/docs/design/wyn-141-frontend-ux-ui-audit.md`, `.wyn/docs/design/wyn-141-frontend-ux-ui-system.md`,
+`design-reference/23-ux-ui-system-preview.svg`
+
+## [2026-09-08] WYN-141 — Founder อนุมัติให้ผ่าน visual gate และสั่ง “ทำให้เสร็จเลย”
+
+หลังได้รับ Product/Design audit, responsive spec และ visual preview แล้ว Founder สั่ง “ทำให้เสร็จเลยนะ”
+จึงถือเป็นการอนุมัติ visual direction ของ WYN-141 และอนุญาตให้ AI Coding เริ่ม implementation batches ได้
+โดยข้อจำกัดเดิมยังอยู่ครบ: ห้ามเปลี่ยน business logic/backend ที่ไม่เกี่ยวข้อง, ห้ามเพิ่ม Check-in,
+ต้องหยุดเมื่อ lint/test/build พบ regression และ user-facing behavior ใหม่ต้องใช้ staged rollout ตาม WYN-125
+
+Implementation เริ่มที่ Admin responsive/accessibility shell และ shared form/button primitives ก่อน เพราะมี
+toolchain จริงใน environment ให้ตรวจ lint/type/build ได้ ส่วน Flutter batch จะไม่ถูกแก้แบบ blind เมื่อไม่มี
+Flutter SDK; ต้องมี test runner ที่ตรงกับ CI ก่อนจึงจะเปลี่ยน broad shared widgets ได้อย่างปลอดภัย
+
+อ้างอิง: `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`, commit ก่อนหน้า `455f303`

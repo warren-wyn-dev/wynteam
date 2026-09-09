@@ -86,10 +86,10 @@ Snapshot ณ 2026-09-08 จาก `.wyn/tasks/`:
 | backlog | 3 |
 | active | 1 |
 | review | 0 |
-| qa | 1 |
+| qa | 0 |
 | bugs | 25 |
 | approved | 102 |
-| completed | 30 |
+| completed | 31 |
 
 ข้อสังเกต:
 

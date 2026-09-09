@@ -15,11 +15,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { email, role } = await requireAdminRole();
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen min-w-0 bg-muted/30">
+      <a
+        href="#admin-main-content"
+        className="sr-only z-50 rounded-md bg-background px-4 py-3 font-medium shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        ข้ามไปยังเนื้อหาหลัก
+      </a>
       <AdminSidebar />
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader email={email} role={role} signOutAction={signOutAction} />
-        <main className="flex flex-1 flex-col">{children}</main>
+        <main
+          id="admin-main-content"
+          tabIndex={-1}
+          className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col pb-24 md:pb-0"
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 // QA-WYN-110-002: HomeDropCard's action row (heart/comment/repost/eye)
 // overflowed the available width by 3px at 320px screens, even with
 // like/comment counts at 0 (not a long-number problem) -- see
-// .wyn/tasks/bugs/WYN-110-homedropcard-320px-action-row-overflow.md.
+// .wyn/tasks/completed/WYN-110-homedropcard-320px-action-row-overflow.md.
 // Found while QA was testing WYN-110's scroll mechanism, but pre-dates it
 // and is unrelated to it (this file, home_drop_card.dart, was untouched
 // by that change). This is the dedicated, no-scroll/no-NestedScrollView

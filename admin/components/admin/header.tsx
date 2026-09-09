@@ -24,13 +24,16 @@ export function AdminHeader({
   const title = ADMIN_NAV_ITEMS.find((item) => item.href === pathname)?.label ?? "WYN Admin";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-6">
-      <h1 className="text-base font-semibold">{title}</h1>
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur sm:px-6">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold tracking-wide text-muted-foreground md:hidden">WYN Admin</p>
+        <h1 className="truncate text-base font-semibold">{title}</h1>
+      </div>
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
           {ROLE_LABEL[role]}
         </span>
-        {email ? <span className="text-sm text-muted-foreground">{email}</span> : null}
+        {email ? <span className="hidden max-w-56 truncate text-sm text-muted-foreground lg:inline">{email}</span> : null}
         <form action={signOutAction}>
           <Button type="submit" variant="outline" size="sm" aria-label="ออกจากระบบ">
             ออกจากระบบ

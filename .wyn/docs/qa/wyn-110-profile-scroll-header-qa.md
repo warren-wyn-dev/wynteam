@@ -118,7 +118,7 @@ Environment: `flutter test` / `flutter analyze` บน Linux, Flutter SDK ที
 - 360/390/430px ผ่านสะอาด ไม่มี overflow เลย — ยืนยันว่าเป็นปัญหาเฉพาะ 320px ของการ์ดเอง
 - ไม่ควรบล็อกการอนุมัติ WYN-110 (design spec ของ WYN-110 เองก็ห้ามแตะการ์ดโพสต์) แต่ต้องบันทึกไว้
   ไม่ให้หลุดหาย แนะนำเปิด task แยก
-- Bug report เต็ม: `.wyn/tasks/bugs/WYN-110-homedropcard-320px-action-row-overflow.md`
+- Bug report เต็ม: `.wyn/tasks/completed/WYN-110-homedropcard-320px-action-row-overflow.md`
 
 ## Security Findings
 
