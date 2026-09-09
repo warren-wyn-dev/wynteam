@@ -1,0 +1,113 @@
+name: WYN Feed Algorithm v1 -- apply additive schema
+
+# Manual production gate for WYN-140..146. These files live outside the
+# Supabase CLI migrations directory, so committing them does not apply them.
+# The Home client has a compatibility fallback, but the v1 ranking RPCs only
+# become authoritative after this workflow succeeds.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type APPLY to run the additive feed migrations'
+        required: true
+        type: string
+
+concurrency:
+  group: production-feed-algorithm-schema
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: ${{ inputs.confirmation == 'APPLY' }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate deployment inputs
+        run: |
+          set -euo pipefail
+          test -n "$(printf '%s' "$SUPABASE_ACCESS_TOKEN" | tr -d '[:space:]')" || {
+            echo '::error::SUPABASE_ACCESS_TOKEN is missing'; exit 1;
+          }
+          test -n "$(printf '%s' "$SUPABASE_URL" | tr -d '[:space:]')" || {
+            echo '::error::SUPABASE_URL is missing'; exit 1;
+          }
+
+      - name: Apply WYN-140 through WYN-146 in order
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(printf '%s' "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql_file() {
+            local migration="$1" body out code
+            echo "Applying $migration"
+            body=$(jq -n --rawfile query "$migration" '{query: $query}')
+            out=$(mktemp)
+            code=$(curl --silent --show-error --output "$out" --write-out '%{http_code}' \
+              --request POST "$API" \
+              --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              --header 'Content-Type: application/json' \
+              --data "$body")
+            if [ "$code" != 200 ] && [ "$code" != 201 ]; then
+              echo "::error::$migration failed with HTTP $code"
+              cat "$out"
+              rm -f "$out"
+              return 1
+            fi
+            rm -f "$out"
+          }
+
+          migrations=(
+            supabase/migrations_wyn140_trending_velocity.sql
+            supabase/migrations_wyn141_top100_trending_integration.sql
+            supabase/migrations_wyn142_personalization_signals.sql
+            supabase/migrations_wyn143_cold_start.sql
+            supabase/migrations_wyn144_feed_quality.sql
+            supabase/migrations_wyn145_experimentation.sql
+            supabase/migrations_wyn146_feed_algorithm_v1.sql
+          )
+          for migration in "${migrations[@]}"; do
+            test -s "$migration"
+            run_sql_file "$migration"
+          done
+
+          # Ask PostgREST to refresh immediately rather than waiting for its
+          # schema-cache polling interval during the app rollout.
+          body=$(jq -n --arg query "notify pgrst, 'reload schema';" '{query: $query}')
+          curl --fail --silent --show-error \
+            --request POST "$API" \
+            --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "$body" >/dev/null
+
+      - name: Verify required Home RPCs
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          url=$(clean "$SUPABASE_URL")
+          token=$(clean "$SUPABASE_ACCESS_TOKEN")
+          ref=$(printf '%s' "$url" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          api="https://api.supabase.com/v1/projects/$ref/database/query"
+          query="select proname from pg_proc join pg_namespace n on n.oid = pronamespace where n.nspname = 'public' and proname in ('get_wynos_ranked_feed','get_trending_candidates','get_top100_candidates') group by proname order by proname;"
+          result=$(curl --fail --silent --show-error \
+            --request POST "$api" \
+            --header "Authorization: Bearer $token" \
+            --header 'Content-Type: application/json' \
+            --data "$(jq -n --arg query "$query" '{query: $query}')")
+          printf '%s' "$result" | jq .
+          for rpc in get_wynos_ranked_feed get_trending_candidates get_top100_candidates; do
+            printf '%s' "$result" | jq -e --arg rpc "$rpc" \
+              'map(.proname) | index($rpc) != null' >/dev/null || {
+                echo "::error::Required RPC $rpc was not found after migration"; exit 1;
+              }
+          done

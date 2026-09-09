@@ -62,3 +62,11 @@ for Trending, Top100, quality, similarity and observability, deploy backend and
 clients, validate admin authorization and telemetry ingestion, run query plans
 and load tests against production-like data, smoke-test all feed surfaces, then
 begin a controlled rollout. No automatic winner promotion exists.
+
+The migrations are intentionally not auto-applied by a push. After approval,
+run the manual **WYN Feed Algorithm v1 -- apply additive schema** GitHub Action,
+enter `APPLY`, approve its `production` environment gate, and confirm its final
+RPC verification passes. Then run **Deploy Flutter web to Vercel (production)**
+and complete the Home smoke test. Until the schema action succeeds, compatible
+clients serve the existing RLS-protected `home_feed` view instead of failing the
+entire Home surface.
