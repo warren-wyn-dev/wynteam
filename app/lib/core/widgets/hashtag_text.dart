@@ -14,6 +14,17 @@ import '../../features/profile/data/profile_repository.dart';
 import '../../features/profile/presentation/view_profile_screen.dart';
 import '../../features/saved/data/saved_repository.dart';
 import '../text_utils.dart';
+import '../typography/native_emoji.dart';
+
+/// Matches the emoji sequences WYN needs to lift out of Flutter's canvas text
+/// on Apple browsers. The browser then paints those clusters with its installed
+/// Apple Color Emoji font instead of Flutter Web's bundled emoji fallback.
+///
+/// This intentionally uses UTF-16 ranges (Dart RegExp's default mode) because
+/// supplementary emoji are represented as surrogate pairs in String offsets.
+final RegExp _emojiSequencePattern = RegExp(
+  r'(?:(?:\uD83C[\uDDE6-\uDDFF]){2}|(?:[\uD83C-\uD83E][\uDC00-\uDFFF]|[\u2600-\u27BF])(?:\uFE0F|\uFE0E)?(?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D(?:[\uD83C-\uD83E][\uDC00-\uDFFF]|[\u2600-\u27BF])(?:\uFE0F|\uFE0E)?(?:\uD83C[\uDFFB-\uDFFF])?)*|(?:[#*0-9]\uFE0F?\u20E3))',
+);
 
 /// Drop-in replacement for `Text(caption)` wherever a Drop/Pop/Club post
 /// caption is rendered -- renders `#hashtag` tokens as tappable spans
@@ -135,6 +146,42 @@ class _HashtagTextState extends State<HashtagText> {
     return tokens;
   }
 
+  void _appendPlainText(
+    List<InlineSpan> spans,
+    String text,
+    TextStyle baseStyle,
+  ) {
+    if (text.isEmpty) return;
+    if (!shouldUseBrowserNativeEmoji) {
+      spans.add(TextSpan(text: text));
+      return;
+    }
+
+    var cursor = 0;
+    for (final match in _emojiSequencePattern.allMatches(text)) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, match.start)));
+      }
+
+      final emoji = match.group(0)!;
+      final fontSize = baseStyle.fontSize ?? 14;
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Semantics(
+            label: emoji,
+            child: browserNativeEmoji(emoji, fontSize: fontSize),
+          ),
+        ),
+      );
+      cursor = match.end;
+    }
+
+    if (cursor < text.length) {
+      spans.add(TextSpan(text: text.substring(cursor)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     for (final recognizer in _recognizers) {
@@ -158,7 +205,11 @@ class _HashtagTextState extends State<HashtagText> {
       if (token.start < lastEnd) continue;
 
       if (token.start > lastEnd) {
-        spans.add(TextSpan(text: widget.text.substring(lastEnd, token.start)));
+        _appendPlainText(
+          spans,
+          widget.text.substring(lastEnd, token.start),
+          baseStyle,
+        );
       }
 
       final recognizer = TapGestureRecognizer()
@@ -174,7 +225,11 @@ class _HashtagTextState extends State<HashtagText> {
       lastEnd = token.end;
     }
     if (lastEnd < widget.text.length) {
-      spans.add(TextSpan(text: widget.text.substring(lastEnd)));
+      _appendPlainText(
+        spans,
+        widget.text.substring(lastEnd),
+        baseStyle,
+      );
     }
 
     return Text.rich(
