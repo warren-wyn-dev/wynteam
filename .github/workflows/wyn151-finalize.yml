@@ -1,0 +1,52 @@
+name: One-shot WYN-151 schema finalizer
+
+on:
+  push:
+    branches: [fix/beta4-audit-remaining-bugs]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/beta4-audit-remaining-bugs
+          fetch-depth: 0
+
+      - name: Append WYN-151 to schema baseline
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          schema = Path('supabase/schema.sql')
+          migration = Path('supabase/migrations_wyn151_discovery_creator_affinity.sql')
+          text = schema.read_text(encoding='utf-8')
+          marker = '-- WYN-151 / BUG-004 follow-up: restore the documented Discovery semantics.'
+          if marker not in text:
+              text = text.rstrip() + '\n\n' + migration.read_text(encoding='utf-8').strip() + '\n'
+              schema.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify baseline and regression contract
+        run: |
+          set -euo pipefail
+          grep -Fq "dimension_type = 'creator'" supabase/migrations_wyn151_discovery_creator_affinity.sql
+          grep -Fq "dimension_type = 'creator'" supabase/schema.sql
+          bash -n supabase/tests/wyn_063_unified_home_feed_test.sh
+          python3 supabase/check_schema_ordering.py
+          git diff --check
+
+      - name: Commit schema baseline
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/schema.sql
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'chore(db): sync WYN-151 schema baseline'
+          git push origin HEAD:fix/beta4-audit-remaining-bugs
