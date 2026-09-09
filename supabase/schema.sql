@@ -9302,9 +9302,11 @@ begin
     perform internal.learn_from_drop('redrop:' || new.id, new.redropper_id,
       new.drop_id, 5.0, new.created_at,
       case when new.quote_text is null then null else 'quote' end);
-  elsif tg_table_name = 'saves' and new.content_type = 'drop' then
+  elsif tg_table_name = 'saves' then
+  if new.content_type = 'drop' then
     perform internal.learn_from_drop('save:' || new.content_id || ':' || new.user_id
       || ':' || new.created_at, new.user_id, new.content_id, 4.0, new.created_at);
+  end if;
   elsif tg_table_name = 'follows' then
     v_event_key := 'follow:' || new.follower_id || ':' || new.following_id
       || ':' || new.created_at;
@@ -9333,24 +9335,29 @@ begin
           new.target_id::text, v_weight, new.created_at);
       end if;
     end if;
-  elsif tg_table_name = 'reports' and new.target_type = 'drop' then
+  elsif tg_table_name = 'reports' then
+  if new.target_type = 'drop' then
     perform internal.learn_from_drop('report:' || new.id, new.reporter_id,
       new.target_id, -12.0, new.created_at);
-  elsif tg_table_name = 'blocks' or tg_table_name = 'mutes' then
-    v_event_key := tg_table_name || ':'
-      || case when tg_table_name = 'blocks' then new.blocker_id else new.muter_id end
-      || ':' || case when tg_table_name = 'blocks' then new.blocked_id else new.muted_id end
-      || ':' || new.created_at;
-    insert into public.personalization_processed_events(event_key)
-    values(v_event_key) on conflict do nothing;
-    if found then
-      perform internal.apply_affinity_signal(
-        case when tg_table_name = 'blocks' then new.blocker_id else new.muter_id end,
-        'creator',
-        (case when tg_table_name = 'blocks' then new.blocked_id else new.muted_id end)::text,
-        case when tg_table_name = 'blocks' then -20.0 else -8.0 end,
-        new.created_at);
-    end if;
+  end if;
+  elsif tg_table_name = 'blocks' then
+  v_event_key := 'blocks:' || new.blocker_id || ':' || new.blocked_id
+    || ':' || new.created_at;
+  insert into public.personalization_processed_events(event_key)
+  values(v_event_key) on conflict do nothing;
+  if found then
+    perform internal.apply_affinity_signal(new.blocker_id, 'creator',
+      new.blocked_id::text, -20.0, new.created_at);
+  end if;
+elsif tg_table_name = 'mutes' then
+  v_event_key := 'mutes:' || new.muter_id || ':' || new.muted_id
+    || ':' || new.created_at;
+  insert into public.personalization_processed_events(event_key)
+  values(v_event_key) on conflict do nothing;
+  if found then
+    perform internal.apply_affinity_signal(new.muter_id, 'creator',
+      new.muted_id::text, -8.0, new.created_at);
+  end if;
   end if;
   return new;
 end;
@@ -15984,6 +15991,1075 @@ $$;
 
 grant execute on function public.redeem_club_invite_link(text) to authenticated;
 -- ============================================================
+-- WYN-145 / Phase 7: Experimentation & A/B Testing
+-- Additive/idempotent. Creates no active experiment and changes no production weights.
+
+-- WYNOS Experimentation & A/B Testing V1 (Phase 7)
+-- ============================================================
+
+create table if not exists public.feed_experiments (
+  experiment_key text not null,
+  version integer not null check(version > 0),
+  status text not null default 'draft'
+    check(status in ('draft','active','paused','completed')),
+  start_at timestamptz not null,
+  end_at timestamptz not null,
+  allocation_basis_points integer not null default 0
+    check(allocation_basis_points between 0 and 10000),
+  eligible_maturity text[] not null default
+    array['zero_history','sparse','learning','personalized'],
+  primary_metric text,
+  secondary_metrics text[] not null default array[]::text[],
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key(experiment_key,version),
+  check(start_at < end_at),
+  check(eligible_maturity <@ array['zero_history','sparse','learning','personalized'])
+);
+
+create table if not exists public.feed_experiment_variants (
+  experiment_key text not null,
+  experiment_version integer not null,
+  variant_key text not null,
+  weight_basis_points integer not null check(weight_basis_points between 1 and 10000),
+  config jsonb not null default '{}'::jsonb check(jsonb_typeof(config)='object'),
+  primary key(experiment_key,experiment_version,variant_key),
+  foreign key(experiment_key,experiment_version)
+    references public.feed_experiments(experiment_key,version) on delete cascade
+);
+
+create table if not exists public.feed_experiment_exposures (
+  id uuid primary key default gen_random_uuid(),
+  experiment_key text not null,
+  experiment_version integer not null,
+  variant_key text not null,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  surface text not null check(surface in ('home')),
+  exposure_date date not null default current_date,
+  exposed_at timestamptz not null default now(),
+  request_count integer not null default 1 check(request_count > 0),
+  foreign key(experiment_key,experiment_version,variant_key)
+    references public.feed_experiment_variants(
+      experiment_key,experiment_version,variant_key),
+  unique(experiment_key,experiment_version,user_id,surface,exposure_date)
+);
+
+create table if not exists public.feed_experiment_outcomes (
+  exposure_id uuid not null references public.feed_experiment_exposures(id)
+    on delete cascade,
+  event_key text not null,
+  outcome_type text not null check(outcome_type in (
+    'qualified_view','long_view','fast_skip','like','save','comment','share',
+    'profile_visit','follow_from_feed','hide','not_interested','report')),
+  target_id uuid,
+  occurred_at timestamptz not null,
+  primary key(exposure_id,event_key)
+);
+
+create index if not exists feed_experiments_active_idx
+  on public.feed_experiments(status,start_at,end_at);
+create index if not exists feed_experiment_exposures_analysis_idx
+  on public.feed_experiment_exposures(
+    experiment_key,experiment_version,variant_key,exposed_at);
+create index if not exists feed_experiment_outcomes_analysis_idx
+  on public.feed_experiment_outcomes(exposure_id,outcome_type,occurred_at);
+
+alter table public.feed_experiments enable row level security;
+alter table public.feed_experiment_variants enable row level security;
+alter table public.feed_experiment_exposures enable row level security;
+alter table public.feed_experiment_outcomes enable row level security;
+revoke all on public.feed_experiments,public.feed_experiment_variants,
+  public.feed_experiment_exposures,public.feed_experiment_outcomes
+  from authenticated,anon;
+
+-- Stable across requests/deploys. Version is part of the input, intentionally
+-- re-bucketing a materially new experiment. md5 is used only for distribution,
+-- never for password/security decisions.
+create or replace function internal.experiment_bucket(
+  p_key text,p_version integer,p_user_id uuid,p_salt text default 'rollout'
+)
+returns integer language sql immutable parallel safe as $$
+  select (('x'||substr(md5(p_key||':'||p_version||':'||p_user_id||':'||p_salt),1,8))
+    ::bit(32)::bigint % 10000)::integer;
+$$;
+revoke all on function internal.experiment_bucket(text,integer,uuid,text)
+  from public;
+
+create or replace function internal.feed_experiment_is_valid(
+  p_key text,p_version integer
+)
+returns boolean language plpgsql stable security definer set search_path=public as $$
+declare v_total integer; v_invalid integer; v_mix jsonb;
+begin
+  select coalesce(sum(weight_basis_points),0),count(*) filter(where exists(
+      select 1 from jsonb_object_keys(config) k(key)
+      where k.key not in ('home.source_mix','fatigue.creator_factor',
+        'fatigue.topic_factor','fatigue.content_type_factor',
+        'fatigue.repetition_factor','similarity.enabled',
+        'similarity.strength')))
+    into v_total,v_invalid
+  from public.feed_experiment_variants
+  where experiment_key=p_key and experiment_version=p_version;
+  if v_total<>10000 or v_invalid<>0 then return false; end if;
+
+  if exists(select 1 from public.feed_experiment_variants v,
+      lateral jsonb_each(v.config) c
+      where v.experiment_key=p_key and v.experiment_version=p_version
+        and c.key like 'fatigue.%'
+        and (jsonb_typeof(c.value)<>'number'
+          or (c.value#>>'{}')::double precision not between 0.1 and 1.0))
+    then return false;
+  end if;
+
+  if exists(select 1 from public.feed_experiment_variants v
+      where v.experiment_key=p_key and v.experiment_version=p_version
+        and ((v.config ? 'similarity.enabled'
+          and jsonb_typeof(v.config->'similarity.enabled')<>'boolean')
+        or (v.config ? 'similarity.strength' and (
+          jsonb_typeof(v.config->'similarity.strength')<>'number'
+          or (v.config->>'similarity.strength')::double precision not between 0 and 0.25))))
+    then return false;
+  end if;
+
+  for v_mix in select config->'home.source_mix'
+    from public.feed_experiment_variants
+    where experiment_key=p_key and experiment_version=p_version
+      and config ? 'home.source_mix'
+  loop
+    if jsonb_typeof(v_mix)<>'object'
+      or (select array_agg(keys.key order by keys.key)
+          from jsonb_object_keys(v_mix) keys(key))
+        <> array['club','exploration','following','latest','new_creator',
+          'recommended','trending']
+      or exists(select 1 from jsonb_each(v_mix) e
+        where jsonb_typeof(e.value)<>'number'
+          or (e.value#>>'{}')::double precision not between 0 and 100
+          or (e.value#>>'{}')::double precision
+            <> trunc((e.value#>>'{}')::double precision))
+      or (select sum((value#>>'{}')::integer) from jsonb_each(v_mix))<>100
+    then return false; end if;
+  end loop;
+  return true;
+exception when others then return false;
+end;
+$$;
+revoke all on function internal.feed_experiment_is_valid(text,integer)
+  from public;
+
+-- Active experiments exclusively own every config key. Independent keys may
+-- coexist; overlapping active experiments are rejected rather than relying on
+-- an invisible precedence rule.
+create or replace function internal.validate_feed_experiment_activation()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if tg_op='UPDATE' and exists(select 1 from public.feed_experiment_exposures
+      where experiment_key=old.experiment_key
+        and experiment_version=old.version)
+    and (new.allocation_basis_points<>old.allocation_basis_points
+      or new.start_at<>old.start_at or new.end_at<>old.end_at
+      or new.eligible_maturity<>old.eligible_maturity) then
+    raise exception 'Exposed experiment semantics are immutable; create a version';
+  end if;
+  if new.status='active' then
+    if not internal.feed_experiment_is_valid(new.experiment_key,new.version)
+      then raise exception 'Invalid experiment variants/configuration'; end if;
+    if exists(
+      select 1 from public.feed_experiments other
+      join public.feed_experiment_variants ov
+        on ov.experiment_key=other.experiment_key
+        and ov.experiment_version=other.version
+      join public.feed_experiment_variants nv
+        on nv.experiment_key=new.experiment_key
+        and nv.experiment_version=new.version
+      join lateral jsonb_object_keys(ov.config) ok(key) on true
+      join lateral jsonb_object_keys(nv.config) nk(key) on nk.key=ok.key
+      where other.status='active'
+        and (other.experiment_key,other.version)
+          <>(new.experiment_key,new.version)
+        and tstzrange(other.start_at,other.end_at,'[)')
+          && tstzrange(new.start_at,new.end_at,'[)'))
+      then raise exception 'Experiment config-key conflict'; end if;
+  end if;
+  new.updated_at=clock_timestamp();
+  return new;
+end;
+$$;
+revoke all on function internal.validate_feed_experiment_activation()
+  from public;
+drop trigger if exists feed_experiment_validate_activation on public.feed_experiments;
+create trigger feed_experiment_validate_activation
+  before insert or update on public.feed_experiments for each row
+  execute function internal.validate_feed_experiment_activation();
+
+create or replace function internal.prevent_active_variant_mutation()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare v_key text:=coalesce(new.experiment_key,old.experiment_key);
+  v_version integer:=coalesce(new.experiment_version,old.experiment_version);
+begin
+  if exists(select 1 from public.feed_experiments where experiment_key=v_key
+      and version=v_version and status='active')
+    or exists(select 1 from public.feed_experiment_exposures
+      where experiment_key=v_key and experiment_version=v_version) then
+    raise exception 'Active experiment variants are immutable; create a version';
+  end if;
+  return case when tg_op='DELETE' then old else new end;
+end;
+$$;
+revoke all on function internal.prevent_active_variant_mutation() from public;
+drop trigger if exists feed_experiment_variants_immutable on public.feed_experiment_variants;
+create trigger feed_experiment_variants_immutable
+  before insert or update or delete on public.feed_experiment_variants
+  for each row execute function internal.prevent_active_variant_mutation();
+
+-- Resolution is read-only: assignment alone is not exposure. Home records the
+-- server-verified assignment only after ranking/allocation succeeds.
+create or replace function public.resolve_home_feed_experiments(
+  p_surface text default 'home'
+)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare e record; v record; v_bucket integer; v_running integer;
+  v_found boolean;
+  v_effective jsonb:='{}'; v_assignments jsonb:='[]'; v_keys text[]:=array[]::text[];
+  v_maturity text;
+begin
+  if auth.uid() is null or p_surface<>'home' then return '{}'::jsonb; end if;
+  select maturity_state into v_maturity
+    from public.get_my_personalization_maturity();
+  for e in select * from public.feed_experiments
+    where status='active' and clock_timestamp()>=start_at
+      and clock_timestamp()<end_at
+      and v_maturity=any(eligible_maturity)
+    order by experiment_key,version
+  loop
+    if not internal.feed_experiment_is_valid(e.experiment_key,e.version)
+      or internal.experiment_bucket(e.experiment_key,e.version,auth.uid())
+        >=e.allocation_basis_points then continue; end if;
+    v_bucket:=internal.experiment_bucket(
+      e.experiment_key,e.version,auth.uid(),'variant');
+    v_running:=0; v_found:=false;
+    for v in select * from public.feed_experiment_variants
+      where experiment_key=e.experiment_key and experiment_version=e.version
+      order by variant_key
+    loop
+      v_found:=true;
+      v_running:=v_running+v.weight_basis_points;
+      exit when v_bucket<v_running;
+    end loop;
+    if not v_found or exists(
+      select 1 from jsonb_object_keys(v.config) keys(key)
+      where keys.key=any(v_keys)) then continue; end if;
+    v_effective:=v_effective||v.config;
+    v_keys:=v_keys||array(select jsonb_object_keys(v.config));
+    v_assignments:=v_assignments||jsonb_build_array(
+      e.experiment_key||':v'||e.version||':'||v.variant_key);
+  end loop;
+  return v_effective||jsonb_build_object('_assignments',v_assignments);
+exception when others then return '{}'::jsonb;
+end;
+$$;
+revoke all on function public.resolve_home_feed_experiments(text) from public,anon;
+grant execute on function public.resolve_home_feed_experiments(text) to authenticated;
+
+create or replace function public.record_home_feed_experiment_exposures(
+  p_assignments text[],p_surface text default 'home'
+)
+returns void language sql security definer set search_path=public as $$
+  with maturity as (
+    select maturity_state from public.get_my_personalization_maturity()
+  ), weighted as (
+    select e.experiment_key,e.version,v.variant_key,v.weight_basis_points,
+      sum(v.weight_basis_points) over(partition by e.experiment_key,e.version
+        order by v.variant_key) as upper_bucket,e.allocation_basis_points
+    from public.feed_experiments e
+    join public.feed_experiment_variants v on v.experiment_key=e.experiment_key
+      and v.experiment_version=e.version
+    cross join maturity m
+    where auth.uid() is not null and p_surface='home'
+      and cardinality(coalesce(p_assignments,array[]::text[])) between 1 and 8
+      and e.status='active'
+      and clock_timestamp()>=e.start_at and clock_timestamp()<e.end_at
+      and m.maturity_state=any(e.eligible_maturity)
+      and internal.feed_experiment_is_valid(e.experiment_key,e.version)
+      and internal.experiment_bucket(e.experiment_key,e.version,auth.uid())
+        <e.allocation_basis_points
+  ), assigned as (
+    select * from weighted w where
+      internal.experiment_bucket(w.experiment_key,w.version,auth.uid(),'variant')
+        >=w.upper_bucket-w.weight_basis_points
+      and internal.experiment_bucket(
+        w.experiment_key,w.version,auth.uid(),'variant')<w.upper_bucket
+      and w.experiment_key||':v'||w.version||':'||w.variant_key
+        =any(coalesce(p_assignments,array[]::text[]))
+  )
+  insert into public.feed_experiment_exposures(
+    experiment_key,experiment_version,variant_key,user_id,surface)
+  select experiment_key,version,variant_key,auth.uid(),p_surface from assigned
+  on conflict(experiment_key,experiment_version,user_id,surface,exposure_date)
+    do update set request_count=public.feed_experiment_exposures.request_count+1;
+$$;
+revoke all on function public.record_home_feed_experiment_exposures(text[],text)
+  from public,anon;
+grant execute on function public.record_home_feed_experiment_exposures(text[],text)
+  to authenticated;
+
+create or replace function internal.attribute_feed_experiment_outcome()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare v_user uuid; v_type text; v_target uuid; v_key text; v_at timestamptz;
+begin
+  if tg_table_name='feed_signals' then
+    v_user:=new.user_id; v_type:=new.signal_type; v_target:=new.target_id;
+    v_key:='feed_signal:'||new.id; v_at:=new.created_at;
+  elsif tg_table_name='drop_likes' then
+    v_user:=new.user_id; v_type:='like'; v_target:=new.drop_id;
+    v_key:='like:'||new.drop_id||':'||new.user_id; v_at:=new.created_at;
+  elsif tg_table_name='drop_comments' then
+    v_user:=new.author_id; v_type:='comment'; v_target:=new.drop_id;
+    v_key:='comment:'||new.id; v_at:=new.created_at;
+  elsif tg_table_name='redrops' then
+    v_user:=new.redropper_id; v_type:='share'; v_target:=new.drop_id;
+    v_key:='share:'||new.id; v_at:=new.created_at;
+  elsif tg_table_name='saves' and new.content_type='drop' then
+    v_user:=new.user_id; v_type:='save'; v_target:=new.content_id;
+    v_key:='save:'||new.user_id||':'||new.content_id; v_at:=new.created_at;
+  elsif tg_table_name='reports' and new.target_type='drop' then
+    v_user:=new.reporter_id; v_type:='report'; v_target:=new.target_id;
+    v_key:='report:'||new.id; v_at:=new.created_at;
+  else return new; end if;
+  if v_type not in ('qualified_view','long_view','fast_skip','like','save',
+    'comment','share','profile_visit','follow_from_feed','hide',
+    'not_interested','report') then return new; end if;
+  insert into public.feed_experiment_outcomes(
+    exposure_id,event_key,outcome_type,target_id,occurred_at)
+  select x.id,v_key,v_type,v_target,v_at
+  from public.feed_experiment_exposures x
+  join public.feed_experiments e on e.experiment_key=x.experiment_key
+    and e.version=x.experiment_version
+  where x.user_id=v_user and x.surface='home' and x.exposed_at<=v_at
+    and x.exposure_date=v_at::date and v_at>=e.start_at and v_at<e.end_at
+  on conflict do nothing;
+  return new;
+end;
+$$;
+revoke all on function internal.attribute_feed_experiment_outcome() from public;
+drop trigger if exists feed_signals_experiment_outcome on public.feed_signals;
+create trigger feed_signals_experiment_outcome after insert on public.feed_signals
+  for each row execute function internal.attribute_feed_experiment_outcome();
+drop trigger if exists drop_likes_experiment_outcome on public.drop_likes;
+create trigger drop_likes_experiment_outcome after insert on public.drop_likes
+  for each row execute function internal.attribute_feed_experiment_outcome();
+drop trigger if exists drop_comments_experiment_outcome on public.drop_comments;
+create trigger drop_comments_experiment_outcome after insert on public.drop_comments
+  for each row execute function internal.attribute_feed_experiment_outcome();
+drop trigger if exists redrops_experiment_outcome on public.redrops;
+create trigger redrops_experiment_outcome after insert on public.redrops
+  for each row execute function internal.attribute_feed_experiment_outcome();
+drop trigger if exists saves_experiment_outcome on public.saves;
+create trigger saves_experiment_outcome after insert on public.saves
+  for each row execute function internal.attribute_feed_experiment_outcome();
+drop trigger if exists reports_experiment_outcome on public.reports;
+create trigger reports_experiment_outcome after insert on public.reports
+  for each row execute function internal.attribute_feed_experiment_outcome();
+
+-- Owner/service-role reporting only; no client grant and no automatic winner.
+create or replace view internal.feed_experiment_variant_metrics as
+with exposure_rollup as (
+  select experiment_key,experiment_version,variant_key,
+    count(distinct user_id) as unique_exposed_users,
+    sum(request_count) as impressions,count(*) as exposure_days
+  from public.feed_experiment_exposures
+  group by experiment_key,experiment_version,variant_key
+), outcome_rollup as (
+  select x.experiment_key,x.experiment_version,x.variant_key,
+    count(*) filter(where o.outcome_type='qualified_view') as qualified_views,
+    count(*) filter(where o.outcome_type='long_view') as long_views,
+    count(*) filter(where o.outcome_type='fast_skip') as fast_skips,
+    count(*) filter(where o.outcome_type='like') as likes,
+    count(*) filter(where o.outcome_type='save') as saves,
+    count(*) filter(where o.outcome_type='share') as shares,
+    count(*) filter(where o.outcome_type='comment') as comments,
+    count(*) filter(where o.outcome_type='follow_from_feed') as follows,
+    count(*) filter(where o.outcome_type='hide') as hides,
+    count(*) filter(where o.outcome_type='not_interested') as not_interested,
+    count(*) filter(where o.outcome_type='report') as reports
+  from public.feed_experiment_exposures x
+  join public.feed_experiment_outcomes o on o.exposure_id=x.id
+  group by x.experiment_key,x.experiment_version,x.variant_key
+)
+select e.*,coalesce(o.qualified_views,0) as qualified_views,
+  coalesce(o.long_views,0) as long_views,coalesce(o.fast_skips,0) as fast_skips,
+  coalesce(o.likes,0) as likes,coalesce(o.saves,0) as saves,
+  coalesce(o.shares,0) as shares,coalesce(o.comments,0) as comments,
+  coalesce(o.follows,0) as follows,coalesce(o.hides,0) as hides,
+  coalesce(o.not_interested,0) as not_interested,
+  coalesce(o.reports,0) as reports,
+  coalesce(o.qualified_views,0)::double precision/e.impressions
+    as qualified_view_rate,
+  coalesce(o.long_views,0)::double precision/e.impressions as long_view_rate,
+  coalesce(o.fast_skips,0)::double precision/e.impressions as fast_skip_rate,
+  coalesce(o.follows,0)::double precision/e.impressions as follow_from_feed_rate,
+  coalesce(o.hides,0)::double precision/e.impressions as hide_rate,
+  coalesce(o.not_interested,0)::double precision/e.impressions
+    as not_interested_rate,
+  coalesce(o.reports,0)::double precision/e.impressions as report_rate
+from exposure_rollup e left join outcome_rollup o using(
+  experiment_key,experiment_version,variant_key);
+revoke all on internal.feed_experiment_variant_metrics from public,authenticated,anon;
+
+-- ============================================================
+
+-- WYN-146 / Phases 8-10: WYNOS Feed Algorithm v1 Production Candidate
+-- Additive, non-destructive, and no traffic/experiment activation.
+
+-- WYNOS Feed Algorithm v1: Observability, Similarity & Hardening (Phases 8-10)
+-- ============================================================
+create table if not exists public.feed_algorithm_config (
+  algorithm_version integer primary key check(algorithm_version=1),
+  candidate_limit integer not null check(candidate_limit between 50 and 500),
+  similarity_neighbor_limit integer not null check(similarity_neighbor_limit between 1 and 50),
+  similarity_candidate_limit integer not null check(similarity_candidate_limit between 1 and 100),
+  similarity_strength double precision not null check(similarity_strength between 0 and 0.25),
+  updated_at timestamptz not null default now()
+);
+insert into public.feed_algorithm_config values(1,200,20,50,0.10,now())
+on conflict(algorithm_version) do nothing;
+alter table public.feed_algorithm_config enable row level security;
+revoke all on public.feed_algorithm_config from authenticated,anon;
+
+create table if not exists public.feed_impressions (
+  id uuid primary key default gen_random_uuid(), user_id uuid not null references public.profiles(id) on delete cascade,
+  event_key text not null, session_key text not null check(length(session_key) between 8 and 128),
+  content_id uuid not null, feed_source text not null check(feed_source in ('following','recommended','trending','latest','club','new_creator','exploration')),
+  rank_position integer not null check(rank_position between 1 and 200),
+  maturity_state text not null check(maturity_state in ('zero_history','sparse','learning','personalized')),
+  content_type text not null, topic text, reason_code text, candidate_origin text not null default 'direct',
+  algorithm_version integer not null default 1 check(algorithm_version=1),
+  latency_ms integer check(latency_ms between 0 and 120000), fallback_used boolean not null default false,
+  experiment_assignments text[] not null default array[]::text[], created_at timestamptz not null default now(),
+  unique(user_id,event_key)
+);
+create index if not exists feed_impressions_rollup_idx on public.feed_impressions(created_at,feed_source,maturity_state);
+create index if not exists feed_impressions_attribution_idx on public.feed_impressions(user_id,content_id,created_at desc);
+alter table public.feed_impressions enable row level security;
+revoke all on public.feed_impressions from authenticated,anon;
+
+create table if not exists public.feed_observability_rollups (
+  bucket_start timestamptz not null, window_kind text not null check(window_kind in ('hour','day')),
+  feed_source text not null, maturity_state text not null, candidate_origin text not null,
+  impressions bigint not null, unique_viewers bigint not null, unique_creators bigint not null,
+  unique_topics bigint not null, avg_rank double precision, p50_latency_ms double precision,
+  p95_latency_ms double precision,p99_latency_ms double precision,fallback_count bigint not null,
+  qualified_views bigint not null,long_views bigint not null,fast_skips bigint not null,likes bigint not null,
+  comments bigint not null,saves bigint not null,shares bigint not null,profile_visits bigint not null,
+  follows bigint not null,hides bigint not null,not_interested bigint not null,reports bigint not null,
+  algorithm_version integer not null default 1,updated_at timestamptz not null default now(),
+  primary key(bucket_start,window_kind,feed_source,maturity_state,candidate_origin,algorithm_version)
+);
+alter table public.feed_observability_rollups enable row level security;
+revoke all on public.feed_observability_rollups from authenticated,anon;
+
+create table if not exists public.topic_similarities(
+ source_topic text not null,target_topic text not null,similarity_score double precision not null check(similarity_score between 0 and 1),
+ support_count integer not null,confidence double precision not null check(confidence between 0 and 1),neighbor_rank integer not null check(neighbor_rank between 1 and 20),computed_at timestamptz not null,
+ primary key(source_topic,target_topic));
+create table if not exists public.creator_similarities(
+ source_creator uuid not null references public.profiles(id) on delete cascade,target_creator uuid not null references public.profiles(id) on delete cascade,
+ similarity_score double precision not null check(similarity_score between 0 and 1),support_count integer not null,
+ confidence double precision not null check(confidence between 0 and 1),neighbor_rank integer not null check(neighbor_rank between 1 and 20),computed_at timestamptz not null,
+ primary key(source_creator,target_creator));
+create table if not exists public.content_similarities(
+ source_content uuid not null references public.drops(id) on delete cascade,target_content uuid not null references public.drops(id) on delete cascade,
+ similarity_score double precision not null check(similarity_score between 0 and 1),support_count integer not null,
+ confidence double precision not null check(confidence between 0 and 1),neighbor_rank integer not null check(neighbor_rank between 1 and 20),computed_at timestamptz not null,
+ primary key(source_content,target_content));
+create index if not exists topic_similarities_lookup_idx on public.topic_similarities(source_topic,neighbor_rank,computed_at desc);
+create index if not exists creator_similarities_lookup_idx on public.creator_similarities(source_creator,neighbor_rank,computed_at desc);
+create index if not exists content_similarities_lookup_idx on public.content_similarities(source_content,neighbor_rank,computed_at desc);
+alter table public.topic_similarities enable row level security; alter table public.creator_similarities enable row level security; alter table public.content_similarities enable row level security;
+revoke all on public.topic_similarities,public.creator_similarities,public.content_similarities from authenticated,anon;
+
+create or replace function public.refresh_feed_similarities(p_computed_at timestamptz default clock_timestamp()) returns integer
+language plpgsql security definer set search_path=public as $$ declare v_rows integer:=0; v_part integer;
+begin
+ with positive as (select user_id,dimension_key topic,least(signal_count,10) weight from public.user_affinities where dimension_type='topic' and recent_score>0),
+ pairs as (select a.topic source,b.topic target,count(distinct a.user_id)::int support,sum(least(a.weight,b.weight)) score from positive a join positive b on a.user_id=b.user_id and a.topic<>b.topic group by a.topic,b.topic),
+ norms as (select *,score/sqrt(sum(score) over(partition by source)*sum(score) over(partition by target)) raw from pairs where support>=2),
+ ranked as (select *,row_number() over(partition by source order by raw*support/(support+5.0) desc,target) rn from norms)
+ insert into public.topic_similarities select source,target,least(1.0,raw*support/(support+5.0)),support,least(1.0,support/10.0),rn,p_computed_at from ranked where rn<=20
+ on conflict(source_topic,target_topic) do update set similarity_score=excluded.similarity_score,support_count=excluded.support_count,confidence=excluded.confidence,neighbor_rank=excluded.neighbor_rank,computed_at=excluded.computed_at;
+ get diagnostics v_part=row_count; v_rows:=v_rows+v_part;
+ with positive as (select user_id,dimension_key::uuid creator,least(signal_count,10) weight from public.user_affinities where dimension_type='creator' and recent_score>0),
+ pairs as (select a.creator source,b.creator target,count(distinct a.user_id)::int support,sum(least(a.weight,b.weight)) score from positive a join positive b on a.user_id=b.user_id and a.creator<>b.creator group by a.creator,b.creator),
+ norms as (select *,score/sqrt(sum(score) over(partition by source)*sum(score) over(partition by target)) raw from pairs where support>=2),
+ ranked as (select *,row_number() over(partition by source order by raw*support/(support+5.0) desc,target) rn from norms)
+ insert into public.creator_similarities select source,target,least(1.0,raw*support/(support+5.0)),support,least(1.0,support/10.0),rn,p_computed_at from ranked where rn<=20
+ on conflict(source_creator,target_creator) do update set similarity_score=excluded.similarity_score,support_count=excluded.support_count,confidence=excluded.confidence,neighbor_rank=excluded.neighbor_rank,computed_at=excluded.computed_at;
+ get diagnostics v_part=row_count; v_rows:=v_rows+v_part;
+ with tagged as (select id,lower(substring(caption from '#([[:alnum:]_]+)')) topic from public.drops where deleted_at is null and created_at>=p_computed_at-interval '30 days'),
+ ranked as (select a.id source,b.id target,row_number() over(partition by a.id order by b.created_at desc,b.id) rn from tagged a join public.drops b on lower(substring(b.caption from '#([[:alnum:]_]+)'))=a.topic and b.id<>a.id where a.topic is not null and b.deleted_at is null)
+ insert into public.content_similarities select source,target,0.5,2,0.2,rn,p_computed_at from ranked where rn<=20
+ on conflict(source_content,target_content) do update set similarity_score=excluded.similarity_score,support_count=excluded.support_count,confidence=excluded.confidence,neighbor_rank=excluded.neighbor_rank,computed_at=excluded.computed_at;
+ get diagnostics v_part=row_count; return v_rows+v_part;
+end $$;
+revoke all on function public.refresh_feed_similarities(timestamptz) from public,authenticated,anon;
+
+create or replace function internal.my_similarity_candidates() returns table(drop_id uuid,similarity_score double precision,candidate_origin text)
+language sql stable security definer set search_path=public as $$
+ with experiment as (select public.resolve_home_feed_experiments('home') config),
+ cfg as (select c.*,
+   coalesce((e.config->>'similarity.enabled')::boolean,true) similarity_enabled,
+   coalesce((e.config->>'similarity.strength')::double precision,c.similarity_strength) effective_similarity_strength
+   from public.feed_algorithm_config c cross join experiment e where algorithm_version=1),
+ creator_edges as (select d.id,cs.similarity_score,'related_creator'::text origin from public.my_effective_affinities a join public.creator_similarities cs on a.dimension_type='creator' and cs.source_creator=a.dimension_key::uuid join public.drops d on d.author_id=cs.target_creator cross join cfg where cfg.similarity_enabled and a.effective_score>0 and cs.neighbor_rank<=cfg.similarity_neighbor_limit and cs.computed_at>=now()-interval '48 hours' and d.deleted_at is null),
+ topic_edges as (select d.id,ts.similarity_score,'related_topic'::text origin from public.my_effective_affinities a join public.topic_similarities ts on a.dimension_type='topic' and ts.source_topic=a.dimension_key join public.drops d on lower(substring(d.caption from '#([[:alnum:]_]+)'))=ts.target_topic cross join cfg where cfg.similarity_enabled and a.effective_score>0 and ts.neighbor_rank<=cfg.similarity_neighbor_limit and ts.computed_at>=now()-interval '48 hours' and d.deleted_at is null),
+ combined as (select * from creator_edges union all select * from topic_edges), ranked as (select id,max(similarity_score) score,min(origin) origin from combined group by id order by score desc,id limit (select similarity_candidate_limit from cfg))
+ select id,score*(select effective_similarity_strength from cfg),origin from ranked;
+$$;
+revoke all on function internal.my_similarity_candidates() from public; grant execute on function internal.my_similarity_candidates() to authenticated;
+
+create or replace function public.record_feed_impressions(p_session_key text,p_items jsonb,p_latency_ms integer default null) returns integer
+language plpgsql security definer set search_path=public as $$ declare v_count integer;
+begin
+ if auth.uid() is null or length(p_session_key) not between 8 and 128 or jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)>200 then return 0; end if;
+ insert into public.feed_impressions(user_id,event_key,session_key,content_id,feed_source,rank_position,maturity_state,content_type,topic,reason_code,candidate_origin,latency_ms,fallback_used,experiment_assignments)
+ select auth.uid(),p_session_key||':'||left(coalesce(x->>'renderKey',x->>'contentId'),100),p_session_key,(x->>'contentId')::uuid,x->>'feedSource',(x->>'rankPosition')::int,
+ coalesce((select maturity_state from public.get_my_personalization_maturity()),'zero_history'),coalesce(x->>'contentType','drop'),left(x->>'topic',80),left(x->>'reasonCode',80),coalesce(left(x->>'candidateOrigin',40),'direct'),p_latency_ms,coalesce((x->>'fallbackUsed')::boolean,false),array(select jsonb_array_elements_text(coalesce(x->'experiments','[]')) limit 8)
+ from jsonb_array_elements(p_items) x
+ where x->>'feedSource' in ('following','recommended','trending','latest','club','new_creator','exploration') and (x->>'rankPosition')::int between 1 and 200
+ on conflict(user_id,event_key) do nothing;
+ get diagnostics v_count=row_count; return v_count;
+exception when others then return 0; end $$;
+revoke all on function public.record_feed_impressions(text,jsonb,integer) from public,anon; grant execute on function public.record_feed_impressions(text,jsonb,integer) to authenticated;
+
+create or replace function public.admin_feed_algorithm_dashboard(p_hours integer default 24)
+returns jsonb language plpgsql stable security definer set search_path=public as $$
+declare v_result jsonb;
+begin
+ if coalesce(internal.current_platform_role(),'') not in ('admin','moderator') then raise exception 'Not authorized'; end if;
+ if p_hours not in (1,24,168,720) then raise exception 'Invalid time window'; end if;
+ with scoped as (select * from public.feed_impressions where created_at>=now()-make_interval(hours=>p_hours)),
+ source_metrics as (select feed_source,count(*) impressions,count(distinct user_id) unique_viewers,
+   count(distinct content_id) unique_content,count(distinct topic) unique_topics,avg(rank_position) avg_rank,
+   percentile_cont(.5) within group(order by latency_ms) p50_latency_ms,
+   percentile_cont(.95) within group(order by latency_ms) p95_latency_ms,
+   percentile_cont(.99) within group(order by latency_ms) p99_latency_ms,
+   count(*) filter(where fallback_used) fallback_count,count(*) filter(where candidate_origin<>'direct') similarity_impressions
+   from scoped group by feed_source),
+ maturity as (select maturity_state,count(*) impressions,count(distinct user_id) unique_viewers from scoped group by maturity_state),
+ trend_diag as (select count(*) candidate_count,avg(content_age_hours) avg_age_hours,avg(unique_engagers_1h) avg_unique_engagers,max(extract(epoch from(now()-updated_at))) max_staleness_seconds from public.trending_scores),
+ top_diag as (select count(*) candidate_count,count(distinct creator_id) creators,max(extract(epoch from(now()-updated_at))) max_staleness_seconds from public.top100_scores),
+ overlap as (select count(*) overlap_top20 from (select drop_id from public.trending_scores order by trend_score desc limit 20)t join (select drop_id from public.top100_scores order by current_rank limit 20)q using(drop_id))
+ select jsonb_build_object('algorithmVersion',1,'windowHours',p_hours,
+  'sources',coalesce((select jsonb_agg(to_jsonb(source_metrics)) from source_metrics),'[]'),
+  'maturity',coalesce((select jsonb_agg(to_jsonb(maturity)) from maturity),'[]'),
+  'trending',(select to_jsonb(trend_diag) from trend_diag),'top100',(select to_jsonb(top_diag) from top_diag),
+  'trendingTop100',(select to_jsonb(overlap) from overlap),
+  'experiments',coalesce((select jsonb_agg(to_jsonb(m)) from internal.feed_experiment_variant_metrics m),'[]')) into v_result;
+ return v_result;
+end $$;
+revoke all on function public.admin_feed_algorithm_dashboard(integer) from public,anon;
+grant execute on function public.admin_feed_algorithm_dashboard(integer) to authenticated;
+
+-- ============================================================
+
+-- Replace Home RPC to batch similarity expansion and emit safe origin/version metadata.
+create or replace function public.get_wynos_ranked_feed()
+returns table (
+  row_data jsonb,
+  wynos_score double precision,
+  is_following boolean,
+  is_discovery boolean
+)
+language sql
+stable
+as $$
+  with similarity_candidates as (
+    select * from internal.my_similarity_candidates()
+  ), recent as (
+    select hf.*
+    from public.home_feed hf
+    where not exists (
+      select 1 from public.feed_signals fs
+      where fs.user_id = auth.uid()
+        and fs.signal_type in ('hide', 'not_interested')
+        and fs.target_id = hf.id
+    )
+    order by (exists(select 1 from similarity_candidates sc
+      where sc.drop_id=hf.id)) desc,hf.created_at desc
+    limit 200
+  ),
+  candidates as (
+    select r.*,
+      greatest(extract(epoch from (now() - r.created_at)) / 3600.0, 0.0) as age_hours,
+      nullif(lower(substring(r.caption from '#([[:alnum:]_]+)')), '')
+        as candidate_topic,
+      case when r.content_type = 'pop' then 'video'
+           when r.redrop_id is not null and r.quote_text is not null then 'quote'
+           when r.poll_id is not null then 'poll'
+           when r.image_url is not null then 'image' else 'text' end
+        as candidate_content_type
+    from recent r
+    where r.author_id not in (
+      select author_id from public.authors_posting_blocked(
+        (select coalesce(array_agg(distinct author_id), array[]::uuid[]) from recent)
+      )
+    )
+  ),
+  -- Precomputed affinity lookup replaces the former request-time scan across
+  -- every historical Like/Comment/Save/View. Three indexed joins cover the
+  -- whole 200-candidate batch without per-post network/database queries.
+  effective_affinities as (
+    select dimension_type, dimension_key, effective_score
+    from public.my_effective_affinities
+  ),
+  maturity as (
+    select * from public.get_my_personalization_maturity()
+  ),
+  quality_factors as (
+    select * from internal.content_quality_factors(
+      (select coalesce(array_agg(id),array[]::uuid[]) from candidates)
+    )
+  ),
+  scored as (
+    select
+      c.*,
+      (coalesce(topic_aff.effective_score, 0.0) * 0.45
+        + coalesce(creator_aff.effective_score, 0.0) * 0.40
+        + coalesce(type_aff.effective_score, 0.0) * 0.15) as affinity_raw,
+      coalesce(topic_aff.effective_score, 0.0) as topic_affinity,
+      coalesce(creator_aff.effective_score, 0.0) as creator_affinity,
+      coalesce(type_aff.effective_score, 0.0) as content_type_affinity,
+      (f.follower_id is not null) as is_following_flag,
+      p.created_at as author_created_at,
+      coalesce(ts.trend_score, 0.0) as precomputed_trend_score,
+      coalesce(fq.quality_score, 1.0) as home_quality_score,
+      coalesce(sim.similarity_score,0.0) as similarity_score,
+      coalesce(sim.candidate_origin,'direct') as candidate_origin,
+      -- Top100 is quality evidence only: rank is mapped to a bounded 0..10
+      -- bonus. Its raw formula is never duplicated here and it cannot replace
+      -- Recommended or reward impressions/distribution.
+      coalesce(greatest(0.0, (101 - t100.current_rank) / 10.0), 0.0)
+        as top100_quality_bonus,
+      exists (
+        select 1
+        from public.club_members mine
+        join public.club_members theirs on theirs.club_id = mine.club_id
+        where mine.user_id = auth.uid() and mine.status = 'approved'
+          and theirs.user_id = c.author_id and theirs.status = 'approved'
+      ) as is_club_flag,
+      public.content_save_count(c.id) as save_count
+    from candidates c
+    left join effective_affinities creator_aff
+      on creator_aff.dimension_type = 'creator'
+      and creator_aff.dimension_key = c.author_id::text
+    left join effective_affinities topic_aff
+      on topic_aff.dimension_type = 'topic'
+      and topic_aff.dimension_key = c.candidate_topic
+    left join effective_affinities type_aff
+      on type_aff.dimension_type = 'content_type'
+      and type_aff.dimension_key = c.candidate_content_type
+    left join public.follows f
+      on f.follower_id = auth.uid() and f.following_id = c.author_id
+    left join public.trending_scores ts on ts.drop_id = c.id
+    left join quality_factors fq on fq.drop_id = c.id
+    left join similarity_candidates sim on sim.drop_id=c.id
+    left join public.top100_scores t100 on t100.drop_id = c.id
+    join public.profiles p on p.id = c.author_id
+  ),
+  -- Same like*2 + comment*3 + view*0.1 shape as engagementScore()
+  -- (WYN-041), plus save*4 (a Save is a stronger intent signal than a
+  -- Like or Comment -- deliberate action to keep something, per
+  -- Product's "Save" signal) which the client-side engagementScore()
+  -- never had access to (saves' own RLS made a true total uncountable
+  -- from the client -- see content_save_count()'s own comment).
+  scored_engagement as (
+    select
+      s.*,
+      (s.like_count * 2 + s.comment_count * 3 + s.save_count * 4
+        + case when s.content_type = 'drop' then s.view_count * 0.1 else 0 end
+      ) as engagement_raw
+    from scored s
+  ),
+  final as (
+    select
+      se.*,
+      -- Trending = engagement earned *per hour of the post's life* --
+      -- Product's own example (500 Likes in 30 minutes beating 2,000
+      -- Likes over 3 days): a plain engagement sum can't tell those
+      -- apart, dividing by age can. Floors the denominator at 0.5h so
+      -- a just-posted item with any early engagement doesn't produce
+      -- an inflated/unstable velocity from dividing by a near-zero age.
+      -- Phase 2: authoritative Trending is the precomputed velocity score.
+      -- A stale/missing refresh contributes zero and lets Phase 1 fallback
+      -- allocation fill the slot; request-time raw aggregation is forbidden.
+      se.precomputed_trend_score as trending_velocity,
+      -- A candidate counts as "Discovery" when the viewer neither
+      -- follows this author nor has any recorded affinity toward them
+      -- at all -- i.e. a genuinely new-to-you creator, not just "an
+      -- author you follow less than others."
+      (not se.is_following_flag and se.affinity_raw = 0) as is_discovery_flag,
+      -- Linear 7-day decay, identical shape to WYN-018's own
+      -- recencyScore, just rescaled to a 0-100 percentage (168 hours
+      -- = 7 days = the same window rankingScore() already uses) so it
+      -- combines with the other 0-100-scaled factors below on equal
+      -- footing.
+      least(greatest(168.0 - se.age_hours, 0.0), 168.0) / 168.0 * 100 as recency_pct,
+      -- Personalized Interest, Engagement, and Trending are all
+      -- unbounded raw magnitudes (a single viral post could be 100x
+      -- any other candidate's engagement) -- percent_rank() converts
+      -- each to "this candidate's relative standing within *this*
+      -- batch" (0-100), which is naturally comparable to the already-
+      -- bounded Following/Recency/Discovery terms and, unlike min-max
+      -- normalization, isn't skewed by one extreme outlier.
+      percent_rank() over (order by se.affinity_raw) * 100 as pr_interest,
+      percent_rank() over (order by se.engagement_raw) * 100 as pr_engagement,
+      percent_rank() over (
+        order by se.precomputed_trend_score
+      ) * 100 as pr_trending
+    from scored_engagement se
+  ),
+  weights as (
+    select
+      max(weight) filter (where key = 'personalized_interest') as w_personalized,
+      max(weight) filter (where key = 'following') as w_following,
+      max(weight) filter (where key = 'engagement') as w_engagement,
+      max(weight) filter (where key = 'trending') as w_trending,
+      max(weight) filter (where key = 'recency') as w_recency,
+      max(weight) filter (where key = 'discovery') as w_discovery
+    from public.feed_ranking_config
+  ),
+  base_ranked as (
+    select final.*,
+      maturity.maturity_state,
+      maturity.confidence as personalization_confidence,
+      (coalesce(weights.w_personalized, 0.35) * final.pr_interest
+        + coalesce(weights.w_following, 0.25)
+          * (case when final.is_following_flag then 100.0 else 0.0 end)
+        + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
+        + coalesce(weights.w_trending, 0.10) * final.pr_trending
+        + coalesce(weights.w_recency, 0.10) * final.recency_pct
+        + coalesce(weights.w_discovery, 0.05)
+          * (case when final.is_discovery_flag then 100.0 else 0.0 end)
+      ) as base_score,
+      (coalesce(weights.w_following, 0.25)
+          * (case when final.is_following_flag then 100.0 else 0.0 end)
+        + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
+        + coalesce(weights.w_trending, 0.10) * final.pr_trending
+        + coalesce(weights.w_recency, 0.10) * final.recency_pct
+        + coalesce(weights.w_discovery, 0.05)
+          * (case when final.is_discovery_flag then 100.0 else 0.0 end)
+      ) as nonpersonal_score
+    from final, weights, maturity
+  )
+  -- coalesce(..., <Founder's own starting weight>) covers the
+  -- pathological case of feed_ranking_config having been emptied out
+  -- entirely -- the feed degrades to the documented V1.0 defaults
+  -- rather than every wynos_score collapsing to null/0 and the whole
+  -- ranked feed silently going empty-looking.
+  select
+    (to_jsonb(base_ranked.*)
+      - 'precomputed_trend_score' - 'affinity_raw' - 'topic_affinity'
+      - 'creator_affinity' - 'content_type_affinity' - 'base_score'
+      - 'nonpersonal_score' - 'personalization_confidence'
+      - 'top100_quality_bonus' - 'maturity_state' - 'home_quality_score'
+      - 'similarity_score')
+    || jsonb_build_object(
+      'feed_is_trending', base_ranked.precomputed_trend_score > 0,
+      'feed_is_latest', base_ranked.age_hours <= 24,
+      'feed_is_club', base_ranked.is_club_flag,
+      'feed_is_new_creator',
+        (base_ranked.author_created_at >= now() - interval '30 days'
+          or (base_ranked.age_hours <= 24 and base_ranked.engagement_raw <= 10)),
+      'feed_topic', base_ranked.candidate_topic,
+      'feed_maturity_state', base_ranked.maturity_state,
+      'feed_algorithm_version', 1,
+      'feed_candidate_origin', base_ranked.candidate_origin,
+      'feed_source_scores', jsonb_build_object(
+        'following', base_ranked.nonpersonal_score
+          + base_ranked.personalization_confidence * (
+            base_ranked.base_score - base_ranked.nonpersonal_score
+            + base_ranked.creator_affinity * 12
+            + base_ranked.topic_affinity * 6
+            + base_ranked.content_type_affinity * 2)
+          - (1 - base_ranked.home_quality_score) * 8,
+        'recommended', base_ranked.nonpersonal_score
+          + base_ranked.top100_quality_bonus
+          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
+          + base_ranked.personalization_confidence * (
+            base_ranked.base_score - base_ranked.nonpersonal_score
+            + base_ranked.affinity_raw * 20)
+          + base_ranked.similarity_score * 100
+          - (1 - base_ranked.home_quality_score) * 25,
+        'trending', base_ranked.nonpersonal_score
+          + base_ranked.personalization_confidence * base_ranked.affinity_raw * 5
+          - (1 - base_ranked.home_quality_score) * 20,
+        'latest', base_ranked.nonpersonal_score
+          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
+          + base_ranked.personalization_confidence * base_ranked.affinity_raw * 3
+          - (1 - base_ranked.home_quality_score) * 6,
+        'club', base_ranked.nonpersonal_score
+          + base_ranked.personalization_confidence * (
+            base_ranked.base_score - base_ranked.nonpersonal_score
+            + base_ranked.creator_affinity * 8
+            + base_ranked.topic_affinity * 5)
+          - (1 - base_ranked.home_quality_score) * 10,
+        'new_creator', base_ranked.nonpersonal_score
+          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
+          + base_ranked.personalization_confidence * (
+            base_ranked.topic_affinity * 10
+            + base_ranked.content_type_affinity * 4)
+          - (1 - base_ranked.home_quality_score) * 6,
+        'exploration', base_ranked.nonpersonal_score
+          + (1 - base_ranked.personalization_confidence)
+            * (case when abs(base_ranked.topic_affinity) < 0.2 then 5 else 0 end)
+          + base_ranked.personalization_confidence
+            * (1 - abs(base_ranked.topic_affinity)) * 5
+          + base_ranked.similarity_score * 50
+          - (1 - base_ranked.home_quality_score) * 10
+      ),
+      'feed_reason_code', case
+        when base_ranked.maturity_state = 'zero_history'
+          and base_ranked.precomputed_trend_score > 0 then 'popular_now'
+        when base_ranked.maturity_state = 'zero_history'
+          and base_ranked.age_hours <= 24 then 'fresh_content'
+        when base_ranked.maturity_state = 'zero_history'
+          and base_ranked.top100_quality_bonus > 0 then 'high_quality_content'
+        when base_ranked.maturity_state = 'zero_history' then 'broad_discovery'
+        when base_ranked.topic_affinity >= greatest(
+          base_ranked.creator_affinity, base_ranked.content_type_affinity, 0.2)
+          then 'interested_in_topic'
+        when base_ranked.creator_affinity >= greatest(
+          base_ranked.content_type_affinity, 0.2) then 'often_engages_creator'
+        when base_ranked.content_type_affinity >= 0.2 then 'preferred_content_type'
+        else 'general_quality' end
+    ) as row_data,
+    base_ranked.base_score as wynos_score,
+    base_ranked.is_following_flag as is_following,
+    base_ranked.is_discovery_flag as is_discovery
+  from base_ranked
+  order by wynos_score desc, base_ranked.created_at desc, base_ranked.id desc;
+$$;
+
+grant execute on function public.get_wynos_ranked_feed() to authenticated;
+
+-- WYN-147: Home Feed Repetition Control
+-- Additive/non-destructive. Apply after WYN-146.
+--
+-- Goal: keep For You personalized while making refreshes feel fresh. We do not
+-- randomize the feed globally. Instead, content delivered recently to the
+-- viewer gets a bounded score multiplier, then a tiny deterministic 15-minute
+-- jitter breaks near-ties. Existing pre-WYN147 impression rows are ignored so
+-- the old "record all 200 candidates" telemetry cannot suppress the catalog.
+
+create table if not exists public.feed_repetition_config (
+  algorithm_version integer primary key check (algorithm_version = 1),
+  started_at timestamptz not null,
+  hard_cooldown_minutes integer not null check (hard_cooldown_minutes between 5 and 180),
+  medium_cooldown_minutes integer not null check (medium_cooldown_minutes between 60 and 720),
+  soft_cooldown_minutes integer not null check (soft_cooldown_minutes between 360 and 2880),
+  hard_factor double precision not null check (hard_factor between 0 and 1),
+  medium_factor double precision not null check (medium_factor between 0 and 1),
+  soft_factor double precision not null check (soft_factor between 0 and 1),
+  jitter_strength double precision not null check (jitter_strength between 0 and 3),
+  updated_at timestamptz not null default now(),
+  check (hard_cooldown_minutes < medium_cooldown_minutes),
+  check (medium_cooldown_minutes < soft_cooldown_minutes),
+  check (hard_factor <= medium_factor and medium_factor <= soft_factor)
+);
+
+insert into public.feed_repetition_config (
+  algorithm_version, started_at, hard_cooldown_minutes,
+  medium_cooldown_minutes, soft_cooldown_minutes,
+  hard_factor, medium_factor, soft_factor, jitter_strength
+) values (1, clock_timestamp(), 60, 360, 1440, 0.05, 0.40, 0.75, 1.25)
+on conflict (algorithm_version) do nothing;
+
+alter table public.feed_repetition_config enable row level security;
+revoke all on public.feed_repetition_config from authenticated, anon;
+
+-- The client currently sends the full 200-row ranked window once when page 0
+-- is built. Those are ranking candidates, not 200 posts the user actually saw.
+-- From WYN-147 onward, retain only the first delivered page (10 rows) as the
+-- conservative server-side repetition signal. This fixes refresh repetition
+-- without falsely marking the rest of the candidate window as consumed.
+create or replace function public.record_feed_impressions(
+  p_session_key text,
+  p_items jsonb,
+  p_latency_ms integer default null
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_count integer;
+begin
+  if auth.uid() is null
+    or length(p_session_key) not between 8 and 128
+    or jsonb_typeof(p_items) <> 'array'
+    or jsonb_array_length(p_items) > 200 then
+    return 0;
+  end if;
+
+  insert into public.feed_impressions(
+    user_id,event_key,session_key,content_id,feed_source,rank_position,
+    maturity_state,content_type,topic,reason_code,candidate_origin,latency_ms,
+    fallback_used,experiment_assignments
+  )
+  select auth.uid(),
+    p_session_key||':'||left(coalesce(x->>'renderKey',x->>'contentId'),100),
+    p_session_key,(x->>'contentId')::uuid,x->>'feedSource',
+    (x->>'rankPosition')::int,
+    coalesce((select maturity_state from public.get_my_personalization_maturity()),
+      'zero_history'),
+    coalesce(x->>'contentType','drop'),left(x->>'topic',80),
+    left(x->>'reasonCode',80),coalesce(left(x->>'candidateOrigin',40),'direct'),
+    p_latency_ms,coalesce((x->>'fallbackUsed')::boolean,false),
+    array(select jsonb_array_elements_text(coalesce(x->'experiments','[]')) limit 8)
+  from jsonb_array_elements(p_items) x
+  where x->>'feedSource' in (
+      'following','recommended','trending','latest','club','new_creator','exploration')
+    and (x->>'rankPosition')::int between 1 and 10
+  on conflict(user_id,event_key) do nothing;
+
+  get diagnostics v_count=row_count;
+  return v_count;
+exception when others then
+  return 0;
+end;
+$$;
+revoke all on function public.record_feed_impressions(text,jsonb,integer)
+  from public,anon;
+grant execute on function public.record_feed_impressions(text,jsonb,integer)
+  to authenticated;
+
+create index if not exists feed_impressions_recent_user_idx
+  on public.feed_impressions(user_id,created_at desc,content_id);
+
+-- Isolate privileged telemetry lookup from the invoker-mode feed RPC. The feed
+-- itself must continue running with the viewer's RLS permissions; only this
+-- narrow helper reads the private impression table and only for auth.uid().
+create or replace function internal.my_recent_feed_deliveries()
+returns table(content_id uuid,last_delivered_at timestamptz)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select i.content_id,max(i.created_at) as last_delivered_at
+  from public.feed_impressions i
+  join public.feed_repetition_config c on c.algorithm_version=1
+  where auth.uid() is not null
+    and i.user_id=auth.uid()
+    and i.created_at>=c.started_at
+    and i.created_at>=now()-make_interval(mins=>c.soft_cooldown_minutes)
+  group by i.content_id;
+$$;
+revoke all on function internal.my_recent_feed_deliveries() from public,anon;
+grant execute on function internal.my_recent_feed_deliveries() to authenticated;
+
+-- Transform all per-source scores together so source allocation cannot undo
+-- repetition control. The same small jitter is added to every source score for
+-- a content item, preserving its source preference while breaking near-ties.
+create or replace function internal.repetition_adjust_source_scores(
+  p_scores jsonb,p_factor double precision,p_jitter double precision
+)
+returns jsonb
+language sql
+immutable
+parallel safe
+as $$
+  select coalesce(
+    jsonb_object_agg(e.key,
+      to_jsonb((e.value#>>'{}')::double precision*p_factor+p_jitter)),
+    '{}'::jsonb)
+  from jsonb_each(coalesce(p_scores,'{}'::jsonb)) e;
+$$;
+revoke all on function internal.repetition_adjust_source_scores(
+  jsonb,double precision,double precision) from public;
+grant execute on function internal.repetition_adjust_source_scores(
+  jsonb,double precision,double precision) to authenticated;
+
+-- Preserve the WYN-146 scorer as the authoritative base and wrap it. Moving
+-- the base into internal keeps the public RPC name stable for existing clients
+-- without copying/re-forking the large ranking SQL.
+do $$
+begin
+  if to_regprocedure('internal.get_wynos_ranked_feed_base_v1()') is null
+    and to_regprocedure('public.get_wynos_ranked_feed()') is not null then
+    alter function public.get_wynos_ranked_feed()
+      rename to get_wynos_ranked_feed_base_v1;
+    alter function public.get_wynos_ranked_feed_base_v1()
+      set schema internal;
+  end if;
+end
+$$;
+
+grant execute on function internal.get_wynos_ranked_feed_base_v1()
+  to authenticated;
+
+create or replace function public.get_wynos_ranked_feed()
+returns table (
+  row_data jsonb,
+  wynos_score double precision,
+  is_following boolean,
+  is_discovery boolean
+)
+language sql
+stable
+security invoker
+as $$
+  with cfg as (
+    select * from public.feed_repetition_config where algorithm_version=1
+  ), recent as (
+    select * from internal.my_recent_feed_deliveries()
+  ), base as (
+    select * from internal.get_wynos_ranked_feed_base_v1()
+  ), weighted as (
+    select b.*,
+      case
+        when r.last_delivered_at is null then 1.0
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.hard_cooldown_minutes) then c.hard_factor
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.medium_cooldown_minutes) then c.medium_factor
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.soft_cooldown_minutes) then c.soft_factor
+        else 1.0
+      end as repetition_factor,
+      (
+        (abs(mod(hashtextextended(
+          coalesce(b.row_data->>'id','')||':'||
+          floor(extract(epoch from now())/900)::bigint::text,0),1000))
+          ::double precision/1000.0)-0.5
+      )*2.0*c.jitter_strength as score_jitter
+    from base b
+    cross join cfg c
+    left join recent r on r.content_id=(b.row_data->>'id')::uuid
+  ), adjusted as (
+    select
+      jsonb_set(
+        row_data,
+        '{feed_source_scores}',
+        internal.repetition_adjust_source_scores(
+          row_data->'feed_source_scores',repetition_factor,score_jitter),
+        false
+      ) || jsonb_build_object(
+        'feed_repetition_factor',repetition_factor
+      ) as adjusted_row_data,
+      wynos_score*repetition_factor+score_jitter as adjusted_score,
+      is_following,is_discovery
+    from weighted
+  )
+  select adjusted_row_data,adjusted_score,is_following,is_discovery
+  from adjusted
+  order by adjusted_score desc,
+    adjusted_row_data->>'created_at' desc,
+    adjusted_row_data->>'id' desc;
+$$;
+
+revoke all on function public.get_wynos_ranked_feed() from public,anon;
+grant execute on function public.get_wynos_ranked_feed() to authenticated;
+
 -- WYN-148: Atomic and idempotent non-poll Drop publication
 -- ============================================================
 
@@ -16089,3 +17165,359 @@ $$;
 
 revoke all on function public.publish_drop(uuid,text,text,text,uuid[],jsonb,uuid[],text,double precision,double precision,text,integer,integer,text) from public,anon;
 grant execute on function public.publish_drop(uuid,text,text,text,uuid[],jsonb,uuid[],text,double precision,double precision,text,integer,integer,text) to authenticated;
+
+-- WYN-149 / BUG-003: atomic LocationIQ rate-limit reservation.
+-- WYN-149 / BUG-003: race-free LocationIQ rate-limit reservation.
+-- One advisory lock per user serializes the count+insert decision so 20
+-- concurrent requests cannot all observe the same pre-insert count.
+
+create or replace function public.reserve_location_search_request(
+  p_user_id uuid,
+  p_limit integer default 20,
+  p_window_seconds integer default 60
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_recent integer;
+begin
+  if p_user_id is null or p_limit < 1 or p_window_seconds < 1 then
+    raise exception 'Invalid rate-limit reservation parameters';
+  end if;
+
+  if not exists (select 1 from public.profiles where id = p_user_id) then
+    raise exception 'Unknown user';
+  end if;
+
+  perform pg_advisory_xact_lock(
+    hashtextextended('location-search:' || p_user_id::text, 0)
+  );
+
+  select count(*)::integer into v_recent
+  from public.location_search_requests
+  where user_id = p_user_id
+    and requested_at >= now() - make_interval(secs => p_window_seconds);
+
+  if v_recent >= p_limit then
+    return false;
+  end if;
+
+  insert into public.location_search_requests(user_id) values (p_user_id);
+  return true;
+end;
+$$;
+
+revoke all on function public.reserve_location_search_request(uuid,integer,integer)
+  from public, anon, authenticated;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant execute on function public.reserve_location_search_request(uuid,integer,integer) to service_role';
+  end if;
+end;
+$$;
+
+-- WYN-151 / BUG-004 follow-up: restore the documented Discovery semantics.
+--
+-- WYN-146 describes Discovery as a genuinely new-to-you creator: someone the
+-- viewer does not follow and has no recorded creator affinity toward. Its
+-- implementation used aggregate affinity_raw, which also includes topic and
+-- content-type affinity. That makes an unrelated creator stop being Discovery
+-- merely because the viewer likes the same content type (for example images).
+-- Keep WYN-147 repetition control intact and recompute only the public
+-- is_discovery flag from creator affinity at the final wrapper boundary.
+
+create or replace function public.get_wynos_ranked_feed()
+returns table (
+  row_data jsonb,
+  wynos_score double precision,
+  is_following boolean,
+  is_discovery boolean
+)
+language sql
+stable
+security invoker
+as $$
+  with cfg as (
+    select * from public.feed_repetition_config where algorithm_version=1
+  ), recent as (
+    select * from internal.my_recent_feed_deliveries()
+  ), base as (
+    select * from internal.get_wynos_ranked_feed_base_v1()
+  ), weighted as (
+    select b.*,
+      case
+        when r.last_delivered_at is null then 1.0
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.hard_cooldown_minutes) then c.hard_factor
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.medium_cooldown_minutes) then c.medium_factor
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.soft_cooldown_minutes) then c.soft_factor
+        else 1.0
+      end as repetition_factor,
+      (
+        (abs(mod(hashtextextended(
+          coalesce(b.row_data->>'id','')||':'||
+          floor(extract(epoch from now())/900)::bigint::text,0),1000))
+          ::double precision/1000.0)-0.5
+      )*2.0*c.jitter_strength as score_jitter
+    from base b
+    cross join cfg c
+    left join recent r on r.content_id=(b.row_data->>'id')::uuid
+  ), adjusted as (
+    select
+      jsonb_set(
+        row_data,
+        '{feed_source_scores}',
+        internal.repetition_adjust_source_scores(
+          row_data->'feed_source_scores',repetition_factor,score_jitter),
+        false
+      ) || jsonb_build_object(
+        'feed_repetition_factor',repetition_factor
+      ) as adjusted_row_data,
+      wynos_score*repetition_factor+score_jitter as adjusted_score,
+      is_following
+    from weighted
+  )
+  select
+    adjusted_row_data,
+    adjusted_score,
+    is_following,
+    (
+      not is_following
+      and not exists (
+        select 1
+        from public.my_effective_affinities a
+        where a.dimension_type = 'creator'
+          and a.dimension_key = adjusted_row_data->>'author_id'
+      )
+    ) as is_discovery
+  from adjusted
+  order by adjusted_score desc,
+    adjusted_row_data->>'created_at' desc,
+    adjusted_row_data->>'id' desc;
+$$;
+
+revoke all on function public.get_wynos_ranked_feed() from public,anon;
+grant execute on function public.get_wynos_ranked_feed() to authenticated;
+
+-- WYN-152 / BUG-004 follow-up: make the WYN-145 experiment outcome trigger
+-- safe across all of the tables it is attached to. PL/pgSQL evaluates record
+-- field references against the trigger table's row type, so table-specific
+-- fields must only be touched after TG_TABLE_NAME selects that table.
+
+create or replace function internal.attribute_feed_experiment_outcome()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid;
+  v_type text;
+  v_target uuid;
+  v_key text;
+  v_at timestamptz;
+begin
+  if tg_table_name = 'feed_signals' then
+    v_user := new.user_id;
+    v_type := new.signal_type;
+    v_target := new.target_id;
+    v_key := 'feed_signal:' || new.id;
+    v_at := new.created_at;
+  elsif tg_table_name = 'drop_likes' then
+    v_user := new.user_id;
+    v_type := 'like';
+    v_target := new.drop_id;
+    v_key := 'like:' || new.drop_id || ':' || new.user_id;
+    v_at := new.created_at;
+  elsif tg_table_name = 'drop_comments' then
+    v_user := new.author_id;
+    v_type := 'comment';
+    v_target := new.drop_id;
+    v_key := 'comment:' || new.id;
+    v_at := new.created_at;
+  elsif tg_table_name = 'redrops' then
+    v_user := new.redropper_id;
+    v_type := 'share';
+    v_target := new.drop_id;
+    v_key := 'share:' || new.id;
+    v_at := new.created_at;
+  elsif tg_table_name = 'saves' then
+    if new.content_type <> 'drop' then
+      return new;
+    end if;
+    v_user := new.user_id;
+    v_type := 'save';
+    v_target := new.content_id;
+    v_key := 'save:' || new.user_id || ':' || new.content_id;
+    v_at := new.created_at;
+  elsif tg_table_name = 'reports' then
+    if new.target_type <> 'drop' then
+      return new;
+    end if;
+    v_user := new.reporter_id;
+    v_type := 'report';
+    v_target := new.target_id;
+    v_key := 'report:' || new.id;
+    v_at := new.created_at;
+  else
+    return new;
+  end if;
+
+  if v_type not in (
+    'qualified_view','long_view','fast_skip','like','save','comment','share',
+    'profile_visit','follow_from_feed','hide','not_interested','report'
+  ) then
+    return new;
+  end if;
+
+  insert into public.feed_experiment_outcomes(
+    exposure_id,event_key,outcome_type,target_id,occurred_at
+  )
+  select x.id,v_key,v_type,v_target,v_at
+  from public.feed_experiment_exposures x
+  join public.feed_experiments e
+    on e.experiment_key = x.experiment_key
+   and e.version = x.experiment_version
+  where x.user_id = v_user
+    and x.surface = 'home'
+    and x.exposed_at <= v_at
+    and x.exposure_date = v_at::date
+    and v_at >= e.start_at
+    and v_at < e.end_at
+  on conflict do nothing;
+
+  return new;
+end;
+$$;
+
+revoke all on function internal.attribute_feed_experiment_outcome() from public;
+
+-- WYN-153 / BUG-004 follow-up: keep repetition configuration private while
+-- allowing the SECURITY INVOKER Home feed wrapper to apply repetition control.
+--
+-- WYN-147 intentionally revoked direct authenticated access to
+-- public.feed_repetition_config, but its public feed wrapper selected that table
+-- directly. Under SECURITY INVOKER that makes the RPC fail for real clients.
+-- Isolate only the config lookup behind a narrow SECURITY DEFINER helper, just
+-- like WYN-147 already does for private feed-impression telemetry. The public
+-- feed wrapper remains SECURITY INVOKER so all candidate/RLS visibility remains
+-- evaluated as the signed-in viewer.
+
+create or replace function internal.current_feed_repetition_config()
+returns table (
+  algorithm_version integer,
+  started_at timestamptz,
+  hard_cooldown_minutes integer,
+  medium_cooldown_minutes integer,
+  soft_cooldown_minutes integer,
+  hard_factor double precision,
+  medium_factor double precision,
+  soft_factor double precision,
+  jitter_strength double precision,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    c.algorithm_version,
+    c.started_at,
+    c.hard_cooldown_minutes,
+    c.medium_cooldown_minutes,
+    c.soft_cooldown_minutes,
+    c.hard_factor,
+    c.medium_factor,
+    c.soft_factor,
+    c.jitter_strength,
+    c.updated_at
+  from public.feed_repetition_config c
+  where c.algorithm_version = 1;
+$$;
+
+revoke all on function internal.current_feed_repetition_config()
+  from public, anon;
+grant execute on function internal.current_feed_repetition_config()
+  to authenticated;
+
+create or replace function public.get_wynos_ranked_feed()
+returns table (
+  row_data jsonb,
+  wynos_score double precision,
+  is_following boolean,
+  is_discovery boolean
+)
+language sql
+stable
+security invoker
+as $$
+  with cfg as (
+    select * from internal.current_feed_repetition_config()
+  ), recent as (
+    select * from internal.my_recent_feed_deliveries()
+  ), base as (
+    select * from internal.get_wynos_ranked_feed_base_v1()
+  ), weighted as (
+    select b.*,
+      case
+        when r.last_delivered_at is null then 1.0
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.hard_cooldown_minutes) then c.hard_factor
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.medium_cooldown_minutes) then c.medium_factor
+        when r.last_delivered_at >= now()-make_interval(
+          mins=>c.soft_cooldown_minutes) then c.soft_factor
+        else 1.0
+      end as repetition_factor,
+      (
+        (abs(mod(hashtextextended(
+          coalesce(b.row_data->>'id','')||':'||
+          floor(extract(epoch from now())/900)::bigint::text,0),1000))
+          ::double precision/1000.0)-0.5
+      )*2.0*c.jitter_strength as score_jitter
+    from base b
+    cross join cfg c
+    left join recent r on r.content_id=(b.row_data->>'id')::uuid
+  ), adjusted as (
+    select
+      jsonb_set(
+        row_data,
+        '{feed_source_scores}',
+        internal.repetition_adjust_source_scores(
+          row_data->'feed_source_scores',repetition_factor,score_jitter),
+        false
+      ) || jsonb_build_object(
+        'feed_repetition_factor',repetition_factor
+      ) as adjusted_row_data,
+      wynos_score*repetition_factor+score_jitter as adjusted_score,
+      is_following
+    from weighted
+  )
+  select
+    adjusted_row_data,
+    adjusted_score,
+    is_following,
+    (
+      not is_following
+      and not exists (
+        select 1
+        from public.my_effective_affinities a
+        where a.dimension_type = 'creator'
+          and a.dimension_key = adjusted_row_data->>'author_id'
+      )
+    ) as is_discovery
+  from adjusted
+  order by adjusted_score desc,
+    adjusted_row_data->>'created_at' desc,
+    adjusted_row_data->>'id' desc;
+$$;
+
+revoke all on function public.get_wynos_ranked_feed() from public, anon;
+grant execute on function public.get_wynos_ranked_feed() to authenticated;

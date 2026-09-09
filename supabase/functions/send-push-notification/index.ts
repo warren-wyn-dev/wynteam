@@ -37,6 +37,7 @@ import {
   safeErrorMessage,
   splitPushMessage,
   summariseOutcomes,
+  type NotificationRow,
   type WebhookPayload,
   webPushTopic,
 } from "./_lib.ts";
@@ -59,6 +60,20 @@ async function supabaseRestGet(path: string): Promise<unknown[]> {
   return await response.json();
 }
 
+async function authoritativeNotification(
+  notificationId: string,
+): Promise<NotificationRow | null> {
+  const fields = [
+    "id", "recipient_id", "actor_id", "type", "drop_id", "pop_id", "club_id",
+    "club_post_id", "reason", "moderation_action_id", "moderation_action_type",
+    "conversation_id",
+  ].join(",");
+  const rows = await supabaseRestGet(
+    `notifications?id=eq.${encodeURIComponent(notificationId)}&select=${fields}`,
+  );
+  return (rows[0] as NotificationRow | undefined) ?? null;
+}
+
 async function deletePushToken(token: string): Promise<void> {
   await fetch(`${SUPABASE_URL}/rest/v1/push_tokens?token=eq.${encodeURIComponent(token)}`, {
     method: "DELETE",
@@ -77,11 +92,22 @@ async function handleWebhook(req: Request): Promise<Response> {
     return new Response("Bad request", { status: 400 });
   }
 
-  if (payload.table !== "notifications" || payload.type !== "INSERT") {
+  if (
+    payload.schema !== "public" || payload.table !== "notifications" ||
+    payload.type !== "INSERT" || typeof payload.record?.id !== "string" ||
+    payload.record.id.length === 0
+  ) {
     return new Response("Ignored", { status: 200 });
   }
 
-  const row = payload.record;
+  // POTENTIAL-001 hardened: verify_jwt protects the endpoint from invalid
+  // credentials, but any signed-in client can possess a valid JWT. Never let a
+  // caller choose recipient/type/target fields. Load the authoritative row by
+  // notification id with service-role access and use only that DB record.
+  const row = await authoritativeNotification(payload.record.id);
+  if (!row) {
+    return new Response("Notification not found", { status: 403 });
+  }
 
   const serviceAccountRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
   if (!serviceAccountRaw) {

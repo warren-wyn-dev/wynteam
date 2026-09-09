@@ -19,10 +19,6 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
-# A new push to the same branch cancels the previous, still-running run
-# -- CI minutes are better spent on the current state of a PR than on a
-# commit that has already been superseded. `main` pushes are keyed
-# separately by ref, so a PR run never cancels a main run.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -31,10 +27,7 @@ permissions:
   contents: read
 
 jobs:
-  # The Flutter app (`app/`) -- Wynos, the only product this repo ships.
-  # `seller_app` (ZOKY, a commerce/marketplace track) was removed
-  # entirely; this job used to run as a [app, seller_app] matrix and is
-  # single-package now that there is only one.
+  # The Flutter app (`app/`) -- WYNOS, the product this repo ships.
   flutter:
     name: Flutter
     runs-on: ubuntu-latest
@@ -44,10 +37,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Pinned to the exact version deploy-web.yml builds production
-      # with. An analyzer/SDK version that drifts from the one that
-      # actually ships would make a green CI meaningless -- keep these
-      # two files' flutter-version in sync whenever either is bumped.
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -55,16 +44,9 @@ jobs:
           cache: true
 
       - run: flutter pub get
-
-      # Both plain, no extra flags -- the same two commands this
-      # project's roles already run by hand before every merge, so CI
-      # agrees with the established local workflow rather than
-      # introducing a stricter bar nobody has been held to yet.
       - run: flutter analyze
       - run: flutter test
 
-  # The Next.js admin panel (`admin/`). No test suite exists there yet,
-  # so this is lint + typecheck only.
   admin:
     name: Admin (Next.js)
     runs-on: ubuntu-latest
@@ -82,26 +64,9 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
-
-      # `next typegen` must run before tsc: Next 16 generates the
-      # LayoutProps/PageProps globals that app/layout.tsx annotates
-      # against into .next/types/, which does not exist on a clean
-      # checkout -- a bare `tsc --noEmit` fails with
-      # "TS2304: Cannot find name 'LayoutProps'" without it.
       - run: npx next typegen
       - run: npx tsc --noEmit
 
-      # `next build` is deliberately NOT run here: admin/lib/supabase/*
-      # read NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      # at module load, so prerendering needs real project credentials CI
-      # has no business holding. The typecheck above covers the same
-      # compile errors a build would have caught.
-
-  # Supabase Edge Functions (Deno). The *.test.ts files cover the pure
-  # logic in each _lib.ts (no network, no Deno.serve, no real LocationIQ
-  # or FCM account needed -- see those files' own headers); `deno check`
-  # additionally type-checks the index.ts entrypoints, which have no
-  # tests of their own.
   edge-functions:
     name: Supabase Edge Functions (Deno)
     runs-on: ubuntu-latest
@@ -115,11 +80,6 @@ jobs:
       - run: deno check supabase/functions/*/index.ts
       - run: deno test supabase/functions/
 
-  # Static guard on supabase/schema.sql. SCHEMA-001 (a `create table`
-  # referencing a table defined later in the same file) aborted a real
-  # migration partway through and left the database half-applied; this
-  # script is the regression test for that bug class. Pure stdlib
-  # Python, no database connection needed.
   schema:
     name: schema.sql ordering
     runs-on: ubuntu-latest
@@ -127,11 +87,15 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 supabase/check_schema_ordering.py
 
-  # WYN-148 release gate. This runs the atomicity/idempotency/privacy
-  # regression script on the same PostgreSQL major version as production.
-  wyn148-database:
-    name: WYN-148 PostgreSQL integration
+  # BUG-004: execute every maintained PostgreSQL/RLS integration script.
+  # WYN-038 is intentionally quarantined because its own header marks its
+  # assertions stale after the Founder-approved WYN-083 view-count behavior
+  # change. WYN-083 is the maintained executable regression for owner/repeat
+  # views and remains in this loop. Every other persisted script must pass.
+  database:
+    name: Supabase PostgreSQL integration (maintained SQL/RLS tests)
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     services:
       postgres:
         image: postgres:17
@@ -151,4 +115,65 @@ jobs:
       PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
-      - run: bash supabase/tests/wyn_148_atomic_drop_publication_test.sh
+      - name: Run maintained PostgreSQL/RLS regression scripts
+        run: |
+          set -euo pipefail
+
+          # Older scripts retry failed psql commands via `sudo -u postgres`.
+          # That was useful on local machines but, in Actions, PostgreSQL is a
+          # TCP service container. A naive retry either switches to a nonexistent
+          # local socket or replays a half-applied SQL file and hides the original
+          # error behind duplicate-object failures. Wrap psql so the first failure
+          # is preserved, and make the legacy sudo fallback replay that original
+          # diagnostic instead of mutating the throwaway DB a second time.
+          ci_bin="$RUNNER_TEMP/wynos-db-ci-bin"
+          mkdir -p "$ci_bin"
+
+          cat > "$ci_bin/psql" <<'EOF'
+          #!/usr/bin/env bash
+          set +e
+          capture="${RUNNER_TEMP}/wynos-psql-capture-$$.out"
+          /usr/bin/psql "$@" >"$capture" 2>&1
+          status=$?
+          cat "$capture"
+          if [ "$status" -ne 0 ]; then
+            cp "$capture" "${RUNNER_TEMP}/wynos-last-psql-failure.out"
+          fi
+          rm -f "$capture"
+          exit "$status"
+          EOF
+
+          cat > "$ci_bin/sudo" <<'EOF'
+          #!/usr/bin/env bash
+          set -e
+          if [ "${1:-}" = "-u" ] && [ "${2:-}" = "postgres" ]; then
+            shift 2
+            if [ "${1:-}" = "psql" ] && [ -f "${RUNNER_TEMP}/wynos-last-psql-failure.out" ]; then
+              cat "${RUNNER_TEMP}/wynos-last-psql-failure.out" >&2
+              exit 1
+            fi
+            # createdb/dropdb legacy fallbacks stay on the same TCP service.
+            exec "$@"
+          fi
+          exec /usr/bin/sudo "$@"
+          EOF
+
+          chmod +x "$ci_bin/psql" "$ci_bin/sudo"
+          export PATH="$ci_bin:$PATH"
+
+          executed=0
+          skipped=0
+          for test_script in supabase/tests/*.sh; do
+            if [ "$test_script" = "supabase/tests/wyn_038_view_counting_test.sh" ]; then
+              echo "::notice::Skipping stale WYN-038 test; WYN-083 is the maintained owner/repeat view regression."
+              skipped=$((skipped + 1))
+              continue
+            fi
+            executed=$((executed + 1))
+            echo "::group::$test_script"
+            bash "$test_script"
+            echo "::endgroup::"
+          done
+
+          test -f supabase/tests/wyn_083_view_count_owner_and_repeat_test.sh
+          echo "Executed $executed maintained database integration scripts; quarantined $skipped explicitly stale script(s)."
