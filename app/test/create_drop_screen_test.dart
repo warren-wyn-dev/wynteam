@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/core/design/wyn_colors.dart';
 import 'package:wyn/features/drop/data/square_crop.dart';
 import 'package:wyn/features/drop/data/drop.dart';
+import 'package:wyn/features/drop/data/drop_repository.dart';
 import 'package:wyn/features/drop/data/drop_draft.dart';
 import 'package:wyn/features/drop/data/location_result.dart';
 import 'package:wyn/core/design/wyn_spacing.dart';
@@ -143,6 +144,60 @@ void main() {
     expect(textDropRepo.createTextDropArgs.single['caption'],
         'แคปชันอย่างเดียว ไม่มีรูป');
     expect(textDropRepo.createDropMentionedUserIdsArgs, isEmpty);
+  });
+
+  testWidgets('rapid double tap starts only one logical publication',
+      (tester) async {
+    textDropRepo.createTextDropArgs.clear();
+    final gate = Completer<void>();
+    textDropRepo.createTextDropGate = gate;
+    await tester.pumpWidget(MaterialApp(
+      home: CreateDropScreen(
+        dropRepository: textDropRepo,
+        profileRepository: profileRepo,
+      ),
+    ));
+    await tester.enterText(find.byType(TextField), 'one publication');
+    await tester.pump();
+
+    await tester.tap(postButton());
+    await tester.tap(postButton());
+    await tester.pump();
+
+    expect(textDropRepo.createTextDropArgs, hasLength(1));
+    expect(textDropRepo.createTextDropArgs.single['publicationOperationId'],
+        isNotNull);
+    gate.complete();
+    await tester.pumpAndSettle();
+    textDropRepo.createTextDropGate = null;
+  });
+
+  testWidgets('ambiguous retry keeps the same publication operation ID',
+      (tester) async {
+    textDropRepo.createTextDropArgs.clear();
+    textDropRepo.createTextDropError =
+        const DropPublicationStateUnknownException('server-operation-id');
+    await tester.pumpWidget(MaterialApp(
+      home: CreateDropScreen(
+        dropRepository: textDropRepo,
+        profileRepository: profileRepo,
+      ),
+    ));
+    await tester.enterText(find.byType(TextField), 'ambiguous publication');
+    await tester.pump();
+    await tester.tap(postButton());
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ยังยืนยันสถานะการแชร์ไม่ได้'), findsOneWidget);
+    final firstOperation =
+        textDropRepo.createTextDropArgs.last['publicationOperationId'];
+    textDropRepo.createTextDropError = null;
+    await tester.tap(postButton());
+    await tester.pumpAndSettle();
+
+    expect(textDropRepo.createTextDropArgs, hasLength(greaterThanOrEqualTo(2)));
+    expect(textDropRepo.createTextDropArgs.last['publicationOperationId'],
+        firstOperation);
   });
 
   group('Poll composer (WYN-035)', () {

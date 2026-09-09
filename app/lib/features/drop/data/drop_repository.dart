@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -35,6 +36,26 @@ const _dropAuthorSelect =
 const _commentAuthorSelect =
     'author:profiles!drop_comments_author_id_fkey(username, display_name, avatar_url)';
 const _savesContentType = 'drop';
+
+/// The publication RPC may have committed even when its response was lost.
+/// Callers must retain the operation ID and reconcile rather than starting a
+/// new publication or deleting deterministic uploads.
+class DropPublicationStateUnknownException implements Exception {
+  const DropPublicationStateUnknownException(this.operationId);
+
+  final String operationId;
+}
+
+String newDropPublicationOperationId() {
+  final random = Random.secure();
+  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  final hex = bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+      '${hex.substring(20)}';
+}
 
 // WYN-035: drop_polls(...) is a to-one embed (drop_polls.drop_id is
 // unique) -- every fetch method below shares this one select string
@@ -836,32 +857,59 @@ class DropRepository {
     // it; this records *which* shape they were cut to, so the feed can
     // draw the card at that shape instead of assuming 4:5.
     DropAspectRatio aspectRatio = DropAspectRatio.initial,
+    String? publicationOperationId,
   }) async {
     assert(imagesBytes.length == imageExtensions.length);
     assert(imagesBytes.isNotEmpty && imagesBytes.length <= 9);
     final userId = _client.auth.currentUser!.id;
 
+    final operationId =
+        publicationOperationId ?? newDropPublicationOperationId();
+    try {
+      if (await _dropIdForPublication(operationId) != null) return;
+    } catch (_) {
+      throw DropPublicationStateUnknownException(operationId);
+    }
     final imageUrls = <String>[];
+    final newlyUploadedPaths = <String>[];
+    final publicationPaths = <String>[];
     // WYN-093: decoded from the in-memory bytes already picked/
     // compressed for upload -- no extra network round-trip, and known
     // before drops/drop_images are ever inserted so HomeDropCard never
     // has to wait for Image.network to finish loading before it knows
     // how tall to render the card.
     final imageDimensions = <(int, int)>[];
-    for (var i = 0; i < imagesBytes.length; i++) {
-      final path =
-          '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.${imageExtensions[i]}';
-      await _client.storage.from('drop-images').uploadBinary(
-            path,
-            imagesBytes[i],
-            fileOptions: immutableUploadFileOptions,
-          );
-      imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
-      imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
-      onImageUploaded?.call(i + 1, imagesBytes.length);
+    try {
+      for (var i = 0; i < imagesBytes.length; i++) {
+        final safeExtension = imageExtensions[i]
+            .toLowerCase()
+            .replaceAll(RegExp('[^a-z0-9]'), '');
+        final path = '$userId/publications/$operationId/'
+            '$i.${safeExtension.isEmpty ? 'jpg' : safeExtension}';
+        publicationPaths.add(path);
+        try {
+          await _client.storage.from('drop-images').uploadBinary(
+                path,
+                imagesBytes[i],
+                fileOptions: immutableUploadFileOptions,
+              );
+          newlyUploadedPaths.add(path);
+        } on StorageException catch (error) {
+          // A prior attempt can have uploaded this deterministic object before
+          // losing its response. Never overwrite it and never claim it as new.
+          if (error.statusCode.toString() != '409') rethrow;
+        }
+        imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
+        imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
+        onImageUploaded?.call(i + 1, imagesBytes.length);
+      }
+    } catch (_) {
+      await _removeNewPublicationUploadsBestEffort(newlyUploadedPaths);
+      rethrow;
     }
 
-    await _insertDrop(
+    await _publishDrop(
+      publicationOperationId: operationId,
       imageUrl: imageUrls.first,
       allImageUrls: imageUrls,
       allImageDimensions: imageDimensions,
@@ -871,6 +919,7 @@ class DropRepository {
       excludedFriendIds: excludedFriendIds,
       location: location,
       aspectRatio: aspectRatio,
+      publicationPaths: publicationPaths,
     );
   }
 
@@ -888,9 +937,13 @@ class DropRepository {
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
     LocationResult? location,
+    String? publicationOperationId,
   }) {
-    return _insertDrop(
+    return _publishDrop(
+      publicationOperationId:
+          publicationOperationId ?? newDropPublicationOperationId(),
       imageUrl: imageUrl,
+      allImageUrls: [imageUrl],
       caption: caption,
       mentionedUserIds: mentionedUserIds,
       audience: audience,
@@ -911,11 +964,14 @@ class DropRepository {
     AudienceOption audience = AudienceOption.everyone,
     Set<String> excludedFriendIds = const {},
     LocationResult? location,
+    String? publicationOperationId,
   }) {
     if (caption.trim().isEmpty) {
       throw ArgumentError('A text-only Drop needs a non-empty caption');
     }
-    return _insertDrop(
+    return _publishDrop(
+      publicationOperationId:
+          publicationOperationId ?? newDropPublicationOperationId(),
       imageUrl: null,
       caption: caption,
       mentionedUserIds: mentionedUserIds,
@@ -925,7 +981,16 @@ class DropRepository {
     );
   }
 
-  Future<void> _insertDrop({
+  Future<String?> _dropIdForPublication(String operationId) async {
+    final result = await _client.rpc(
+      'drop_id_for_publication',
+      params: {'p_operation_id': operationId},
+    );
+    return result as String?;
+  }
+
+  Future<void> _publishDrop({
+    required String publicationOperationId,
     required String? imageUrl,
     required String caption,
     required Set<String> mentionedUserIds,
@@ -959,72 +1024,68 @@ class DropRepository {
     // uploaded URL, whose photo was cropped under the old rules and is
     // not being re-cropped now.
     DropAspectRatio? aspectRatio,
+    List<String> publicationPaths = const [],
   }) async {
     final primaryDimensions =
         allImageDimensions.isNotEmpty ? allImageDimensions.first : null;
-    final row = await _client
-        .from('drops')
-        .insert({
-          'author_id': _client.auth.currentUser!.id,
-          'image_url': imageUrl,
-          'caption': normalizeOptionalText(caption.trim()),
-          'image_width': primaryDimensions?.$1,
-          'image_height': primaryDimensions?.$2,
-          'audience': audience.dbValue,
-          'location': location?.name,
-          'location_lat': location?.lat,
-          'location_lon': location?.lon,
-          'location_place_id': location?.placeId,
-          // WYN-109: only named when there is a shape to record, i.e.
-          // when this Drop has photos the poster chose one for.
-          //
-          // Sending the key unconditionally made every kind of post --
-          // text, poll, a Draft republished from an existing URL --
-          // depend on a column that only the photo feature needs. On a
-          // database that has not run the WYN-109 migration yet,
-          // PostgREST rejects an insert naming a column it cannot see,
-          // so posting anything at all would fail. That is a real state:
-          // production runs this code the moment it is deployed, and the
-          // migration is applied by hand.
-          //
-          // Omitting the key does not remove the ordering requirement
-          // for photo posts -- run the migration before deploying, per
-          // supabase/migrations_wyn109_image_aspect_ratio.sql -- it
-          // confines the requirement to the feature that introduced it.
-          if (aspectRatio != null) 'image_aspect_ratio': aspectRatio.wireValue,
-        })
-        .select('id')
-        .single();
-    final dropId = row['id'] as String;
-
-    // WYN-097: only meaningful for AudienceOption.friendsExcept -- a
-    // non-empty excludedFriendIds passed alongside any other audience
-    // is silently ignored (see this method's own doc comment).
-    if (audience == AudienceOption.friendsExcept && excludedFriendIds.isNotEmpty) {
-      await _client.from('drop_audience_exclusions').insert([
-        for (final excludedId in excludedFriendIds)
-          {'drop_id': dropId, 'excluded_user_id': excludedId},
-      ]);
+    try {
+      await _client.rpc('publish_drop', params: {
+        'p_operation_id': publicationOperationId,
+        'p_image_url': imageUrl,
+        'p_caption': normalizeOptionalText(caption.trim()),
+        'p_audience': audience.dbValue,
+        'p_excluded_friend_ids': excludedFriendIds.toList(),
+        'p_images': [
+          for (var i = 0; i < allImageUrls.length; i++)
+            {
+              'image_url': allImageUrls[i],
+              'position': i,
+              'image_width': i < allImageDimensions.length
+                  ? allImageDimensions[i].$1
+                  : null,
+              'image_height': i < allImageDimensions.length
+                  ? allImageDimensions[i].$2
+                  : null,
+            },
+        ],
+        'p_mentioned_user_ids': mentionedUserIds.toList(),
+        'p_location': location?.name,
+        'p_location_lat': location?.lat,
+        'p_location_lon': location?.lon,
+        'p_location_place_id': location?.placeId,
+        'p_image_width': primaryDimensions?.$1,
+        'p_image_height': primaryDimensions?.$2,
+        'p_image_aspect_ratio': aspectRatio?.wireValue,
+      });
+    } on PostgrestException {
+      await _removeNewPublicationUploadsBestEffort(publicationPaths);
+      rethrow;
+    } catch (_) {
+      try {
+        if (await _dropIdForPublication(publicationOperationId) != null) {
+          return;
+        }
+      } catch (_) {
+        throw DropPublicationStateUnknownException(publicationOperationId);
+      }
+      await _removeNewPublicationUploadsBestEffort(publicationPaths);
+      rethrow;
     }
+  }
 
-    if (allImageUrls.isNotEmpty) {
-      await _client.from('drop_images').insert([
-        for (var i = 0; i < allImageUrls.length; i++)
-          {
-            'drop_id': dropId,
-            'image_url': allImageUrls[i],
-            'position': i,
-            'image_width': i < allImageDimensions.length ? allImageDimensions[i].$1 : null,
-            'image_height': i < allImageDimensions.length ? allImageDimensions[i].$2 : null,
-          },
-      ]);
-    }
+  Future<void> _removeNewPublicationUploads(List<String> paths) async {
+    if (paths.isEmpty) return;
+    await _client.storage.from('drop-images').remove(paths);
+  }
 
-    if (mentionedUserIds.isNotEmpty) {
-      await _client.from('drop_mentions').insert([
-        for (final mentionedId in mentionedUserIds)
-          {'drop_id': dropId, 'mentioned_user_id': mentionedId},
-      ]);
+  Future<void> _removeNewPublicationUploadsBestEffort(
+    List<String> paths,
+  ) async {
+    try {
+      await _removeNewPublicationUploads(paths);
+    } catch (_) {
+      // Relational publication is confirmed absent. Cleanup can be retried by
+      // an operations sweeper; never replace the useful publication failure.
     }
   }
 

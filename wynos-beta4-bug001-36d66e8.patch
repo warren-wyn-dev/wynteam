@@ -1,0 +1,1058 @@
+From 36d66e8770f89ee6f05e5f23fa3361b980a9057a Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Wed, 9 Sep 2026 16:40:25 +0000
+Subject: [PATCH] fix(drop): make publication atomic and idempotent
+
+---
+ .../features/drop/data/drop_repository.dart   | 211 +++++++++++-------
+ .../drop/presentation/create_drop_screen.dart |  10 +
+ app/test/create_drop_screen_test.dart         |  55 +++++
+ .../qa_round2_home_aspect_ratio_test.dart     |  28 +--
+ .../support/recording_drop_repository.dart    |  10 +-
+ ...rations_wyn148_atomic_drop_publication.sql | 191 ++++++++++++++++
+ supabase/schema.sql                           | 106 +++++++++
+ .../wyn_148_atomic_drop_publication_test.sh   | 175 +++++++++++++++
+ 8 files changed, 697 insertions(+), 89 deletions(-)
+ create mode 100644 supabase/migrations_wyn148_atomic_drop_publication.sql
+ create mode 100755 supabase/tests/wyn_148_atomic_drop_publication_test.sh
+
+diff --git a/app/lib/features/drop/data/drop_repository.dart b/app/lib/features/drop/data/drop_repository.dart
+index 64c6e96..f085d12 100644
+--- a/app/lib/features/drop/data/drop_repository.dart
++++ b/app/lib/features/drop/data/drop_repository.dart
+@@ -1,3 +1,4 @@
++import 'dart:math';
+ import 'dart:typed_data';
+ 
+ import 'package:supabase_flutter/supabase_flutter.dart';
+@@ -36,6 +37,26 @@ const _commentAuthorSelect =
+     'author:profiles!drop_comments_author_id_fkey(username, display_name, avatar_url)';
+ const _savesContentType = 'drop';
+ 
++/// The publication RPC may have committed even when its response was lost.
++/// Callers must retain the operation ID and reconcile rather than starting a
++/// new publication or deleting deterministic uploads.
++class DropPublicationStateUnknownException implements Exception {
++  const DropPublicationStateUnknownException(this.operationId);
++
++  final String operationId;
++}
++
++String newDropPublicationOperationId() {
++  final random = Random.secure();
++  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
++  bytes[6] = (bytes[6] & 0x0f) | 0x40;
++  bytes[8] = (bytes[8] & 0x3f) | 0x80;
++  final hex = bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
++  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
++      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
++      '${hex.substring(20)}';
++}
++
+ // WYN-035: drop_polls(...) is a to-one embed (drop_polls.drop_id is
+ // unique) -- every fetch method below shares this one select string
+ // (like _dropAuthorSelect/the count embeds already did) so a Poll
+@@ -836,32 +857,59 @@ class DropRepository {
+     // it; this records *which* shape they were cut to, so the feed can
+     // draw the card at that shape instead of assuming 4:5.
+     DropAspectRatio aspectRatio = DropAspectRatio.initial,
++    String? publicationOperationId,
+   }) async {
+     assert(imagesBytes.length == imageExtensions.length);
+     assert(imagesBytes.isNotEmpty && imagesBytes.length <= 9);
+     final userId = _client.auth.currentUser!.id;
+ 
++    final operationId =
++        publicationOperationId ?? newDropPublicationOperationId();
++    try {
++      if (await _dropIdForPublication(operationId) != null) return;
++    } catch (_) {
++      throw DropPublicationStateUnknownException(operationId);
++    }
+     final imageUrls = <String>[];
++    final newlyUploadedPaths = <String>[];
++    final publicationPaths = <String>[];
+     // WYN-093: decoded from the in-memory bytes already picked/
+     // compressed for upload -- no extra network round-trip, and known
+     // before drops/drop_images are ever inserted so HomeDropCard never
+     // has to wait for Image.network to finish loading before it knows
+     // how tall to render the card.
+     final imageDimensions = <(int, int)>[];
+-    for (var i = 0; i < imagesBytes.length; i++) {
+-      final path =
+-          '$userId/${DateTime.now().millisecondsSinceEpoch}_$i.${imageExtensions[i]}';
+-      await _client.storage.from('drop-images').uploadBinary(
+-            path,
+-            imagesBytes[i],
+-            fileOptions: immutableUploadFileOptions,
+-          );
+-      imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
+-      imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
+-      onImageUploaded?.call(i + 1, imagesBytes.length);
++    try {
++      for (var i = 0; i < imagesBytes.length; i++) {
++        final safeExtension = imageExtensions[i]
++            .toLowerCase()
++            .replaceAll(RegExp('[^a-z0-9]'), '');
++        final path = '$userId/publications/$operationId/'
++            '$i.${safeExtension.isEmpty ? 'jpg' : safeExtension}';
++        publicationPaths.add(path);
++        try {
++          await _client.storage.from('drop-images').uploadBinary(
++                path,
++                imagesBytes[i],
++                fileOptions: immutableUploadFileOptions,
++              );
++          newlyUploadedPaths.add(path);
++        } on StorageException catch (error) {
++          // A prior attempt can have uploaded this deterministic object before
++          // losing its response. Never overwrite it and never claim it as new.
++          if (error.statusCode.toString() != '409') rethrow;
++        }
++        imageUrls.add(_client.storage.from('drop-images').getPublicUrl(path));
++        imageDimensions.add(await decodeImageDimensions(imagesBytes[i]));
++        onImageUploaded?.call(i + 1, imagesBytes.length);
++      }
++    } catch (_) {
++      await _removeNewPublicationUploadsBestEffort(newlyUploadedPaths);
++      rethrow;
+     }
+ 
+-    await _insertDrop(
++    await _publishDrop(
++      publicationOperationId: operationId,
+       imageUrl: imageUrls.first,
+       allImageUrls: imageUrls,
+       allImageDimensions: imageDimensions,
+@@ -871,6 +919,7 @@ class DropRepository {
+       excludedFriendIds: excludedFriendIds,
+       location: location,
+       aspectRatio: aspectRatio,
++      publicationPaths: publicationPaths,
+     );
+   }
+ 
+@@ -888,9 +937,13 @@ class DropRepository {
+     AudienceOption audience = AudienceOption.everyone,
+     Set<String> excludedFriendIds = const {},
+     LocationResult? location,
++    String? publicationOperationId,
+   }) {
+-    return _insertDrop(
++    return _publishDrop(
++      publicationOperationId:
++          publicationOperationId ?? newDropPublicationOperationId(),
+       imageUrl: imageUrl,
++      allImageUrls: [imageUrl],
+       caption: caption,
+       mentionedUserIds: mentionedUserIds,
+       audience: audience,
+@@ -911,11 +964,14 @@ class DropRepository {
+     AudienceOption audience = AudienceOption.everyone,
+     Set<String> excludedFriendIds = const {},
+     LocationResult? location,
++    String? publicationOperationId,
+   }) {
+     if (caption.trim().isEmpty) {
+       throw ArgumentError('A text-only Drop needs a non-empty caption');
+     }
+-    return _insertDrop(
++    return _publishDrop(
++      publicationOperationId:
++          publicationOperationId ?? newDropPublicationOperationId(),
+       imageUrl: null,
+       caption: caption,
+       mentionedUserIds: mentionedUserIds,
+@@ -925,7 +981,16 @@ class DropRepository {
+     );
+   }
+ 
+-  Future<void> _insertDrop({
++  Future<String?> _dropIdForPublication(String operationId) async {
++    final result = await _client.rpc(
++      'drop_id_for_publication',
++      params: {'p_operation_id': operationId},
++    );
++    return result as String?;
++  }
++
++  Future<void> _publishDrop({
++    required String publicationOperationId,
+     required String? imageUrl,
+     required String caption,
+     required Set<String> mentionedUserIds,
+@@ -959,72 +1024,68 @@ class DropRepository {
+     // uploaded URL, whose photo was cropped under the old rules and is
+     // not being re-cropped now.
+     DropAspectRatio? aspectRatio,
++    List<String> publicationPaths = const [],
+   }) async {
+     final primaryDimensions =
+         allImageDimensions.isNotEmpty ? allImageDimensions.first : null;
+-    final row = await _client
+-        .from('drops')
+-        .insert({
+-          'author_id': _client.auth.currentUser!.id,
+-          'image_url': imageUrl,
+-          'caption': normalizeOptionalText(caption.trim()),
+-          'image_width': primaryDimensions?.$1,
+-          'image_height': primaryDimensions?.$2,
+-          'audience': audience.dbValue,
+-          'location': location?.name,
+-          'location_lat': location?.lat,
+-          'location_lon': location?.lon,
+-          'location_place_id': location?.placeId,
+-          // WYN-109: only named when there is a shape to record, i.e.
+-          // when this Drop has photos the poster chose one for.
+-          //
+-          // Sending the key unconditionally made every kind of post --
+-          // text, poll, a Draft republished from an existing URL --
+-          // depend on a column that only the photo feature needs. On a
+-          // database that has not run the WYN-109 migration yet,
+-          // PostgREST rejects an insert naming a column it cannot see,
+-          // so posting anything at all would fail. That is a real state:
+-          // production runs this code the moment it is deployed, and the
+-          // migration is applied by hand.
+-          //
+-          // Omitting the key does not remove the ordering requirement
+-          // for photo posts -- run the migration before deploying, per
+-          // supabase/migrations_wyn109_image_aspect_ratio.sql -- it
+-          // confines the requirement to the feature that introduced it.
+-          if (aspectRatio != null) 'image_aspect_ratio': aspectRatio.wireValue,
+-        })
+-        .select('id')
+-        .single();
+-    final dropId = row['id'] as String;
+-
+-    // WYN-097: only meaningful for AudienceOption.friendsExcept -- a
+-    // non-empty excludedFriendIds passed alongside any other audience
+-    // is silently ignored (see this method's own doc comment).
+-    if (audience == AudienceOption.friendsExcept && excludedFriendIds.isNotEmpty) {
+-      await _client.from('drop_audience_exclusions').insert([
+-        for (final excludedId in excludedFriendIds)
+-          {'drop_id': dropId, 'excluded_user_id': excludedId},
+-      ]);
++    try {
++      await _client.rpc('publish_drop', params: {
++        'p_operation_id': publicationOperationId,
++        'p_image_url': imageUrl,
++        'p_caption': normalizeOptionalText(caption.trim()),
++        'p_audience': audience.dbValue,
++        'p_excluded_friend_ids': excludedFriendIds.toList(),
++        'p_images': [
++          for (var i = 0; i < allImageUrls.length; i++)
++            {
++              'image_url': allImageUrls[i],
++              'position': i,
++              'image_width': i < allImageDimensions.length
++                  ? allImageDimensions[i].$1
++                  : null,
++              'image_height': i < allImageDimensions.length
++                  ? allImageDimensions[i].$2
++                  : null,
++            },
++        ],
++        'p_mentioned_user_ids': mentionedUserIds.toList(),
++        'p_location': location?.name,
++        'p_location_lat': location?.lat,
++        'p_location_lon': location?.lon,
++        'p_location_place_id': location?.placeId,
++        'p_image_width': primaryDimensions?.$1,
++        'p_image_height': primaryDimensions?.$2,
++        'p_image_aspect_ratio': aspectRatio?.wireValue,
++      });
++    } on PostgrestException {
++      await _removeNewPublicationUploadsBestEffort(publicationPaths);
++      rethrow;
++    } catch (_) {
++      try {
++        if (await _dropIdForPublication(publicationOperationId) != null) {
++          return;
++        }
++      } catch (_) {
++        throw DropPublicationStateUnknownException(publicationOperationId);
++      }
++      await _removeNewPublicationUploadsBestEffort(publicationPaths);
++      rethrow;
+     }
++  }
+ 
+-    if (allImageUrls.isNotEmpty) {
+-      await _client.from('drop_images').insert([
+-        for (var i = 0; i < allImageUrls.length; i++)
+-          {
+-            'drop_id': dropId,
+-            'image_url': allImageUrls[i],
+-            'position': i,
+-            'image_width': i < allImageDimensions.length ? allImageDimensions[i].$1 : null,
+-            'image_height': i < allImageDimensions.length ? allImageDimensions[i].$2 : null,
+-          },
+-      ]);
+-    }
++  Future<void> _removeNewPublicationUploads(List<String> paths) async {
++    if (paths.isEmpty) return;
++    await _client.storage.from('drop-images').remove(paths);
++  }
+ 
+-    if (mentionedUserIds.isNotEmpty) {
+-      await _client.from('drop_mentions').insert([
+-        for (final mentionedId in mentionedUserIds)
+-          {'drop_id': dropId, 'mentioned_user_id': mentionedId},
+-      ]);
++  Future<void> _removeNewPublicationUploadsBestEffort(
++    List<String> paths,
++  ) async {
++    try {
++      await _removeNewPublicationUploads(paths);
++    } catch (_) {
++      // Relational publication is confirmed absent. Cleanup can be retried by
++      // an operations sweeper; never replace the useful publication failure.
+     }
+   }
+ 
+diff --git a/app/lib/features/drop/presentation/create_drop_screen.dart b/app/lib/features/drop/presentation/create_drop_screen.dart
+index fe5625f..e83d32d 100644
+--- a/app/lib/features/drop/presentation/create_drop_screen.dart
++++ b/app/lib/features/drop/presentation/create_drop_screen.dart
+@@ -198,6 +198,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
+ 
+   bool _isSharing = false;
+   String? _errorMessage;
++  String? _publicationOperationId;
+ 
+   // WYN-094: how many of _imagesBytes have finished uploading during
+   // the in-flight _share() call -- drives the progress bar below the
+@@ -715,6 +716,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
+       _isSharing = true;
+       _errorMessage = null;
+       _uploadedImageCount = 0;
++      _publicationOperationId ??= newDropPublicationOperationId();
+     });
+ 
+     try {
+@@ -743,6 +745,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
+               if (mounted) setState(() => _uploadedImageCount = uploaded);
+             },
+             aspectRatio: _aspectRatio,
++            publicationOperationId: _publicationOperationId,
+           );
+         } else if (existingImageUrl != null) {
+           // WYN-036: continuing a Draft without picking a new image --
+@@ -756,6 +759,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
+             audience: _audience,
+             excludedFriendIds: _excludedFriendIds,
+             location: _selectedLocation,
++            publicationOperationId: _publicationOperationId,
+           );
+         } else {
+           // WYNOS V1.0.0 Beta requirement 2: no image at all -- _canShare
+@@ -766,6 +770,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
+             audience: _audience,
+             excludedFriendIds: _excludedFriendIds,
+             location: _selectedLocation,
++            publicationOperationId: _publicationOperationId,
+           );
+         }
+       }
+@@ -797,6 +802,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
+       // unchanged: this adds feedback, not a second code path.
+       WynFeedback.completed();
+       Navigator.of(context).pop(true);
++    } on DropPublicationStateUnknownException {
++      if (!mounted) return;
++      WynFeedback.failed();
++      setState(() => _errorMessage =
++          'ยังยืนยันสถานะการแชร์ไม่ได้ กรุณาต่ออินเทอร์เน็ตแล้วกดตรวจสอบอีกครั้ง');
+     } catch (_) {
+       if (!mounted) return;
+       WynFeedback.failed();
+diff --git a/app/test/create_drop_screen_test.dart b/app/test/create_drop_screen_test.dart
+index 6b14317..bc72f76 100644
+--- a/app/test/create_drop_screen_test.dart
++++ b/app/test/create_drop_screen_test.dart
+@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
+ import 'package:wyn/core/design/wyn_colors.dart';
+ import 'package:wyn/features/drop/data/square_crop.dart';
+ import 'package:wyn/features/drop/data/drop.dart';
++import 'package:wyn/features/drop/data/drop_repository.dart';
+ import 'package:wyn/features/drop/data/drop_draft.dart';
+ import 'package:wyn/features/drop/data/location_result.dart';
+ import 'package:wyn/core/design/wyn_spacing.dart';
+@@ -145,6 +146,60 @@ void main() {
+     expect(textDropRepo.createDropMentionedUserIdsArgs, isEmpty);
+   });
+ 
++  testWidgets('rapid double tap starts only one logical publication',
++      (tester) async {
++    textDropRepo.createTextDropArgs.clear();
++    final gate = Completer<void>();
++    textDropRepo.createTextDropGate = gate;
++    await tester.pumpWidget(MaterialApp(
++      home: CreateDropScreen(
++        dropRepository: textDropRepo,
++        profileRepository: profileRepo,
++      ),
++    ));
++    await tester.enterText(find.byType(TextField), 'one publication');
++    await tester.pump();
++
++    await tester.tap(postButton());
++    await tester.tap(postButton());
++    await tester.pump();
++
++    expect(textDropRepo.createTextDropArgs, hasLength(1));
++    expect(textDropRepo.createTextDropArgs.single['publicationOperationId'],
++        isNotNull);
++    gate.complete();
++    await tester.pumpAndSettle();
++    textDropRepo.createTextDropGate = null;
++  });
++
++  testWidgets('ambiguous retry keeps the same publication operation ID',
++      (tester) async {
++    textDropRepo.createTextDropArgs.clear();
++    textDropRepo.createTextDropError =
++        const DropPublicationStateUnknownException('server-operation-id');
++    await tester.pumpWidget(MaterialApp(
++      home: CreateDropScreen(
++        dropRepository: textDropRepo,
++        profileRepository: profileRepo,
++      ),
++    ));
++    await tester.enterText(find.byType(TextField), 'ambiguous publication');
++    await tester.pump();
++    await tester.tap(postButton());
++    await tester.pumpAndSettle();
++
++    expect(find.textContaining('ยังยืนยันสถานะการแชร์ไม่ได้'), findsOneWidget);
++    final firstOperation =
++        textDropRepo.createTextDropArgs.last['publicationOperationId'];
++    textDropRepo.createTextDropError = null;
++    await tester.tap(postButton());
++    await tester.pumpAndSettle();
++
++    expect(textDropRepo.createTextDropArgs, hasLength(greaterThanOrEqualTo(2)));
++    expect(textDropRepo.createTextDropArgs.last['publicationOperationId'],
++        firstOperation);
++  });
++
+   group('Poll composer (WYN-035)', () {
+     testWidgets('tapping the toolbar poll icon hides the image toolbar '
+         'and needs no photo', (tester) async {
+diff --git a/app/test/qa_round2_home_aspect_ratio_test.dart b/app/test/qa_round2_home_aspect_ratio_test.dart
+index 07bcdf5..0ff34e2 100644
+--- a/app/test/qa_round2_home_aspect_ratio_test.dart
++++ b/app/test/qa_round2_home_aspect_ratio_test.dart
+@@ -60,14 +60,14 @@ class _FakeRest {
+         return;
+       }
+ 
+-      final stub = responses[path];
+-      if (stub == null) {
++      if (!responses.containsKey(path)) {
+         request.response.statusCode = 404;
+         request.response
+             .write(jsonEncode({'code': '404', 'message': 'no stub for $path'}));
+         await request.response.close();
+         return;
+       }
++      final stub = responses[path];
+       request.response.write(jsonEncode(stub));
+       await request.response.close();
+     });
+@@ -420,9 +420,8 @@ void main() {
+       bodies.clear();
+       rest2 = _FakeRest({});
+       rest2.captureBodies = bodies;
+-      rest2.responses['drops'] = {'id': 'new-drop-1'};
+-      rest2.responses['drop_mentions'] = <dynamic>[];
+-      rest2.responses['drop_images'] = <dynamic>[];
++      rest2.responses['rpc/drop_id_for_publication'] = null;
++      rest2.responses['rpc/publish_drop'] = 'new-drop-1';
+       await rest2.start();
+       client2 = await _signedInClient(rest2.url);
+       drops = DropRepository(client2);
+@@ -437,11 +436,10 @@ void main() {
+         () async {
+       await drops.createTextDrop(caption: 'สวัสดี');
+       expect(bodies, isNotEmpty);
+-      final payload = jsonDecode(bodies.first) as Map<String, dynamic>;
+-      expect(payload.containsKey('image_aspect_ratio'), isFalse,
+-          reason: 'naming the column is what broke every post type when '
+-              'the database did not have it yet');
+-      expect(payload['caption'], 'สวัสดี');
++      final payload = jsonDecode(bodies.last) as Map<String, dynamic>;
++      expect(payload['p_image_aspect_ratio'], isNull);
++      expect(payload['p_caption'], 'สวัสดี');
++      expect(rest2.asked('rpc/publish_drop'), isTrue);
+     });
+ 
+     test('QA-R2-13 a Draft republished from an existing URL never names it',
+@@ -450,9 +448,13 @@ void main() {
+         imageUrl: 'https://example.test/old.jpg',
+         caption: 'draft',
+       );
+-      final payload = jsonDecode(bodies.first) as Map<String, dynamic>;
+-      expect(payload.containsKey('image_aspect_ratio'), isFalse);
+-      expect(payload['image_url'], 'https://example.test/old.jpg');
++      final payload = jsonDecode(bodies.last) as Map<String, dynamic>;
++      expect(payload['p_image_aspect_ratio'], isNull);
++      expect(payload['p_image_url'], 'https://example.test/old.jpg');
++      expect(payload['p_images'], [
++        {'image_url': 'https://example.test/old.jpg', 'position': 0,
++         'image_width': null, 'image_height': null},
++      ]);
+     });
+ 
+     test('QA-R2-14 a Poll Drop goes through an RPC and names no column',
+diff --git a/app/test/support/recording_drop_repository.dart b/app/test/support/recording_drop_repository.dart
+index 3200a62..cfd258d 100644
+--- a/app/test/support/recording_drop_repository.dart
++++ b/app/test/support/recording_drop_repository.dart
+@@ -231,6 +231,7 @@ class RecordingDropRepository extends DropRepository {
+     LocationResult? location,
+     void Function(int uploaded, int total)? onImageUploaded,
+     DropAspectRatio aspectRatio = DropAspectRatio.initial,
++    String? publicationOperationId,
+   }) async {
+     if (createDropError != null) throw createDropError!;
+     createDropImageCountArgs.add(imagesBytes.length);
+@@ -249,6 +250,7 @@ class RecordingDropRepository extends DropRepository {
+   /// V1.0.0 Beta requirement 2 (caption-only Drop).
+   final List<Map<String, Object?>> createTextDropArgs = [];
+   Object? createTextDropError;
++  Completer<void>? createTextDropGate;
+ 
+   @override
+   Future<void> createTextDrop({
+@@ -257,14 +259,18 @@ class RecordingDropRepository extends DropRepository {
+     AudienceOption audience = AudienceOption.everyone,
+     Set<String> excludedFriendIds = const {},
+     LocationResult? location,
++    String? publicationOperationId,
+   }) async {
+-    if (createTextDropError != null) throw createTextDropError!;
+     createTextDropArgs.add({
+       'caption': caption,
+       'mentionedUserIds': mentionedUserIds,
+       'audience': audience,
+       'location': location,
++      'publicationOperationId': publicationOperationId,
+     });
++    final gate = createTextDropGate;
++    if (gate != null) await gate.future;
++    if (createTextDropError != null) throw createTextDropError!;
+   }
+ 
+   /// Returned by [fetchCaptionsForHashtagSuggestion], regardless of
+@@ -535,6 +541,7 @@ class RecordingDropRepository extends DropRepository {
+     AudienceOption audience = AudienceOption.everyone,
+     Set<String> excludedFriendIds = const {},
+     LocationResult? location,
++    String? publicationOperationId,
+   }) async {
+     if (createDropFromExistingImageError != null) {
+       throw createDropFromExistingImageError!;
+@@ -545,6 +552,7 @@ class RecordingDropRepository extends DropRepository {
+       'mentionedUserIds': mentionedUserIds,
+       'audience': audience,
+       'location': location,
++      'publicationOperationId': publicationOperationId,
+     });
+   }
+ }
+diff --git a/supabase/migrations_wyn148_atomic_drop_publication.sql b/supabase/migrations_wyn148_atomic_drop_publication.sql
+new file mode 100644
+index 0000000..52e1cf3
+--- /dev/null
++++ b/supabase/migrations_wyn148_atomic_drop_publication.sql
+@@ -0,0 +1,191 @@
++-- WYN-148: atomic and idempotent publication for non-poll Drops.
++-- Additive and backward-compatible with the currently deployed Beta4 client.
++
++alter table public.drops
++  add column if not exists publication_operation_id uuid;
++
++create unique index if not exists drops_publication_operation_id_key
++  on public.drops (publication_operation_id)
++  where publication_operation_id is not null;
++
++create or replace function public.drop_id_for_publication(p_operation_id uuid)
++returns uuid
++language sql
++stable
++security definer
++set search_path = public
++as $$
++  select d.id
++  from public.drops d
++  where d.publication_operation_id = p_operation_id
++    and d.author_id = auth.uid();
++$$;
++
++revoke all on function public.drop_id_for_publication(uuid) from public, anon;
++grant execute on function public.drop_id_for_publication(uuid) to authenticated;
++
++create or replace function public.publish_drop(
++  p_operation_id uuid,
++  p_image_url text,
++  p_caption text,
++  p_audience text,
++  p_excluded_friend_ids uuid[] default '{}',
++  p_images jsonb default '[]'::jsonb,
++  p_mentioned_user_ids uuid[] default '{}',
++  p_location text default null,
++  p_location_lat double precision default null,
++  p_location_lon double precision default null,
++  p_location_place_id text default null,
++  p_image_width integer default null,
++  p_image_height integer default null,
++  p_image_aspect_ratio text default null
++)
++returns uuid
++language plpgsql
++security definer
++set search_path = public
++as $$
++declare
++  v_author uuid := auth.uid();
++  v_drop_id uuid;
++  v_image_count integer;
++begin
++  if v_author is null then
++    raise exception 'Not authenticated';
++  end if;
++  if p_operation_id is null then
++    raise exception 'Publication operation ID is required';
++  end if;
++
++  -- Serialize concurrent retries of the same logical publication. Without
++  -- this, two first calls could both miss the lookup and one would surface a
++  -- unique violation instead of returning the winner's Drop ID.
++  perform pg_advisory_xact_lock(hashtextextended(p_operation_id::text, 0));
++
++  -- The unique operation ID is global, but an idempotent result is disclosed
++  -- only to its owner. A collision with another owner is rejected below by
++  -- the unique index without leaking that owner's Drop ID.
++  select d.id into v_drop_id
++  from public.drops d
++  where d.publication_operation_id = p_operation_id
++    and d.author_id = v_author;
++  if v_drop_id is not null then
++    return v_drop_id;
++  end if;
++
++  if internal.is_posting_blocked(v_author) then
++    raise exception 'Account is posting-restricted';
++  end if;
++  if p_audience not in
++      ('everyone', 'friends', 'friends_except', 'close_friends', 'only_me') then
++    raise exception 'Invalid audience';
++  end if;
++  if p_image_url is null and nullif(trim(p_caption), '') is null then
++    raise exception 'A Drop requires an image or caption';
++  end if;
++  if p_caption is not null and char_length(trim(p_caption)) > 500 then
++    raise exception 'Caption exceeds 500 characters';
++  end if;
++  if (p_location_lat is null) <> (p_location_lon is null)
++      or (p_location_lat is not null and p_location_lat not between -90 and 90)
++      or (p_location_lon is not null and p_location_lon not between -180 and 180) then
++    raise exception 'Invalid location coordinates';
++  end if;
++  if p_images is null or jsonb_typeof(p_images) <> 'array' then
++    raise exception 'Images must be an array';
++  end if;
++
++  v_image_count := jsonb_array_length(p_images);
++  if v_image_count > 9
++      or (p_image_url is null and v_image_count <> 0)
++      or (p_image_url is not null and v_image_count not between 1 and 9) then
++    raise exception 'Invalid image count';
++  end if;
++  if exists (
++    select 1
++    from jsonb_array_elements(p_images) with ordinality as e(value, ordinal)
++    where jsonb_typeof(value) <> 'object'
++       or nullif(value->>'image_url', '') is null
++       or (value->>'position') is null
++       or (value->>'position') !~ '^[0-9]+$'
++       or (value->>'position')::integer <> ordinal - 1
++       or (value->>'position')::integer not between 0 and 8
++       or ((value->>'image_width') is not null
++           and ((value->>'image_width') !~ '^[1-9][0-9]*$'))
++       or ((value->>'image_height') is not null
++           and ((value->>'image_height') !~ '^[1-9][0-9]*$'))
++  ) then
++    raise exception 'Invalid image metadata';
++  end if;
++  if v_image_count > 0
++      and (p_images->0->>'image_url') is distinct from p_image_url then
++    raise exception 'Primary image does not match image position zero';
++  end if;
++
++  if p_audience <> 'friends_except'
++      and coalesce(cardinality(p_excluded_friend_ids), 0) <> 0 then
++    raise exception 'Audience exclusions require friends_except';
++  end if;
++  if coalesce(cardinality(p_excluded_friend_ids), 0) <>
++      coalesce((select count(distinct x) from unnest(p_excluded_friend_ids) x), 0)
++      or exists (
++        select 1 from unnest(p_excluded_friend_ids) x
++        where x = v_author
++           or not exists (select 1 from public.profiles p where p.id = x)
++           or not internal.is_mutual_follow(v_author, x)
++      ) then
++    raise exception 'Invalid audience exclusions';
++  end if;
++  if coalesce(cardinality(p_mentioned_user_ids), 0) <>
++      coalesce((select count(distinct x) from unnest(p_mentioned_user_ids) x), 0)
++      or exists (
++        select 1 from unnest(p_mentioned_user_ids) x
++        where not exists (select 1 from public.profiles p where p.id = x)
++      ) then
++    raise exception 'Invalid mentioned users';
++  end if;
++
++  insert into public.drops (
++    author_id, image_url, caption, audience, publication_operation_id,
++    location, location_lat, location_lon, location_place_id,
++    image_width, image_height, image_aspect_ratio
++  ) values (
++    v_author, p_image_url, nullif(trim(p_caption), ''), p_audience,
++    p_operation_id, p_location, p_location_lat, p_location_lon,
++    p_location_place_id, p_image_width, p_image_height,
++    p_image_aspect_ratio
++  ) returning id into v_drop_id;
++
++  if p_audience = 'friends_except' then
++    insert into public.drop_audience_exclusions(drop_id, excluded_user_id)
++    select v_drop_id, x from unnest(p_excluded_friend_ids) x;
++  end if;
++
++  insert into public.drop_images(
++    drop_id, image_url, position, image_width, image_height
++  )
++  select v_drop_id, e.value->>'image_url', (e.value->>'position')::integer,
++    nullif(e.value->>'image_width', '')::integer,
++    nullif(e.value->>'image_height', '')::integer
++  from jsonb_array_elements(p_images) e(value);
++
++  -- Preserve the established privacy behavior: disallowed mentions remain
++  -- plain caption text and do not create rows/notifications.
++  insert into public.drop_mentions(drop_id, mentioned_user_id)
++  select v_drop_id, x
++  from unnest(p_mentioned_user_ids) x
++  where not internal.is_blocked_either_way(v_author, x)
++    and internal.mention_allowed(x, v_author);
++
++  return v_drop_id;
++end;
++$$;
++
++revoke all on function public.publish_drop(
++  uuid,text,text,text,uuid[],jsonb,uuid[],text,double precision,
++  double precision,text,integer,integer,text
++) from public, anon;
++grant execute on function public.publish_drop(
++  uuid,text,text,text,uuid[],jsonb,uuid[],text,double precision,
++  double precision,text,integer,integer,text
++) to authenticated;
+diff --git a/supabase/schema.sql b/supabase/schema.sql
+index 6b9b2d1..f38dfb5 100644
+--- a/supabase/schema.sql
++++ b/supabase/schema.sql
+@@ -15983,3 +15983,109 @@ end;
+ $$;
+ 
+ grant execute on function public.redeem_club_invite_link(text) to authenticated;
++-- ============================================================
++-- WYN-148: Atomic and idempotent non-poll Drop publication
++-- ============================================================
++
++alter table public.drops
++  add column if not exists publication_operation_id uuid;
++
++create unique index if not exists drops_publication_operation_id_key
++  on public.drops (publication_operation_id)
++  where publication_operation_id is not null;
++
++create or replace function public.drop_id_for_publication(p_operation_id uuid)
++returns uuid
++language sql
++stable
++security definer
++set search_path = public
++as $$
++  select d.id from public.drops d
++  where d.publication_operation_id = p_operation_id
++    and d.author_id = auth.uid();
++$$;
++
++revoke all on function public.drop_id_for_publication(uuid) from public, anon;
++grant execute on function public.drop_id_for_publication(uuid) to authenticated;
++
++create or replace function public.publish_drop(
++  p_operation_id uuid, p_image_url text, p_caption text, p_audience text,
++  p_excluded_friend_ids uuid[] default '{}', p_images jsonb default '[]'::jsonb,
++  p_mentioned_user_ids uuid[] default '{}', p_location text default null,
++  p_location_lat double precision default null,
++  p_location_lon double precision default null, p_location_place_id text default null,
++  p_image_width integer default null, p_image_height integer default null,
++  p_image_aspect_ratio text default null
++)
++returns uuid
++language plpgsql
++security definer
++set search_path = public
++as $$
++declare
++  v_author uuid := auth.uid();
++  v_drop_id uuid;
++  v_image_count integer;
++begin
++  if v_author is null then raise exception 'Not authenticated'; end if;
++  if p_operation_id is null then raise exception 'Publication operation ID is required'; end if;
++  perform pg_advisory_xact_lock(hashtextextended(p_operation_id::text,0));
++  select d.id into v_drop_id from public.drops d
++  where d.publication_operation_id=p_operation_id and d.author_id=v_author;
++  if v_drop_id is not null then return v_drop_id; end if;
++  if internal.is_posting_blocked(v_author) then raise exception 'Account is posting-restricted'; end if;
++  if p_audience not in ('everyone','friends','friends_except','close_friends','only_me') then raise exception 'Invalid audience'; end if;
++  if p_image_url is null and nullif(trim(p_caption),'') is null then raise exception 'A Drop requires an image or caption'; end if;
++  if p_caption is not null and char_length(trim(p_caption))>500 then raise exception 'Caption exceeds 500 characters'; end if;
++  if (p_location_lat is null)<>(p_location_lon is null)
++     or (p_location_lat is not null and p_location_lat not between -90 and 90)
++     or (p_location_lon is not null and p_location_lon not between -180 and 180)
++  then raise exception 'Invalid location coordinates'; end if;
++  if p_images is null or jsonb_typeof(p_images)<>'array' then raise exception 'Images must be an array'; end if;
++  v_image_count:=jsonb_array_length(p_images);
++  if v_image_count>9 or (p_image_url is null and v_image_count<>0)
++     or (p_image_url is not null and v_image_count not between 1 and 9)
++  then raise exception 'Invalid image count'; end if;
++  if exists (
++    select 1 from jsonb_array_elements(p_images) with ordinality e(value,ordinal)
++    where jsonb_typeof(value)<>'object' or nullif(value->>'image_url','') is null
++       or (value->>'position') is null or (value->>'position')!~'^[0-9]+$'
++       or (value->>'position')::integer<>ordinal-1
++       or (value->>'position')::integer not between 0 and 8
++       or ((value->>'image_width') is not null and (value->>'image_width')!~'^[1-9][0-9]*$')
++       or ((value->>'image_height') is not null and (value->>'image_height')!~'^[1-9][0-9]*$')
++  ) then raise exception 'Invalid image metadata'; end if;
++  if v_image_count>0 and (p_images->0->>'image_url') is distinct from p_image_url then raise exception 'Primary image does not match image position zero'; end if;
++  if p_audience<>'friends_except' and coalesce(cardinality(p_excluded_friend_ids),0)<>0 then raise exception 'Audience exclusions require friends_except'; end if;
++  if coalesce(cardinality(p_excluded_friend_ids),0)<>coalesce((select count(distinct x) from unnest(p_excluded_friend_ids)x),0)
++     or exists(select 1 from unnest(p_excluded_friend_ids)x where x=v_author
++       or not exists(select 1 from public.profiles p where p.id=x)
++       or not internal.is_mutual_follow(v_author,x))
++  then raise exception 'Invalid audience exclusions'; end if;
++  if coalesce(cardinality(p_mentioned_user_ids),0)<>coalesce((select count(distinct x) from unnest(p_mentioned_user_ids)x),0)
++     or exists(select 1 from unnest(p_mentioned_user_ids)x where not exists(select 1 from public.profiles p where p.id=x))
++  then raise exception 'Invalid mentioned users'; end if;
++  insert into public.drops(author_id,image_url,caption,audience,publication_operation_id,
++    location,location_lat,location_lon,location_place_id,image_width,image_height,image_aspect_ratio)
++  values(v_author,p_image_url,nullif(trim(p_caption),''),p_audience,p_operation_id,
++    p_location,p_location_lat,p_location_lon,p_location_place_id,p_image_width,p_image_height,p_image_aspect_ratio)
++  returning id into v_drop_id;
++  if p_audience='friends_except' then
++    insert into public.drop_audience_exclusions(drop_id,excluded_user_id)
++    select v_drop_id,x from unnest(p_excluded_friend_ids)x;
++  end if;
++  insert into public.drop_images(drop_id,image_url,position,image_width,image_height)
++  select v_drop_id,e.value->>'image_url',(e.value->>'position')::integer,
++    nullif(e.value->>'image_width','')::integer,nullif(e.value->>'image_height','')::integer
++  from jsonb_array_elements(p_images)e(value);
++  insert into public.drop_mentions(drop_id,mentioned_user_id)
++  select v_drop_id,x from unnest(p_mentioned_user_ids)x
++  where not internal.is_blocked_either_way(v_author,x)
++    and internal.mention_allowed(x,v_author);
++  return v_drop_id;
++end;
++$$;
++
++revoke all on function public.publish_drop(uuid,text,text,text,uuid[],jsonb,uuid[],text,double precision,double precision,text,integer,integer,text) from public,anon;
++grant execute on function public.publish_drop(uuid,text,text,text,uuid[],jsonb,uuid[],text,double precision,double precision,text,integer,integer,text) to authenticated;
+diff --git a/supabase/tests/wyn_148_atomic_drop_publication_test.sh b/supabase/tests/wyn_148_atomic_drop_publication_test.sh
+new file mode 100755
+index 0000000..25b20ba
+--- /dev/null
++++ b/supabase/tests/wyn_148_atomic_drop_publication_test.sh
+@@ -0,0 +1,175 @@
++#!/usr/bin/env bash
++# WYN-148 atomic/idempotent Drop publication regression coverage.
++set -euo pipefail
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
++DB="wyn_wyn148_test_$$"
++WORK_DIR="$(mktemp -d)"
++PSQL=(psql -v ON_ERROR_STOP=1 -X -q)
++
++cleanup() {
++  dropdb --if-exists "$DB" >/dev/null 2>&1 || true
++  rm -rf "$WORK_DIR"
++}
++trap cleanup EXIT
++createdb "$DB"
++cat >"$WORK_DIR/stub.sql" <<'SQL'
++create extension if not exists pgcrypto;
++create schema if not exists auth;
++create table auth.users(id uuid primary key, email text);
++create function auth.uid() returns uuid language sql stable as $$
++  select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
++$$;
++create function auth.role() returns text language sql stable as $$
++  select nullif(current_setting('request.jwt.claim.role',true),'')
++$$;
++create schema if not exists storage;
++create table storage.buckets(id text primary key,name text,public boolean);
++create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,owner uuid);
++create function storage.foldername(name text) returns text[] language sql immutable as $$select string_to_array(name,'/')$$;
++do $$begin
++ if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
++ if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
++end$$;
++grant usage on schema public,storage to authenticated,anon;
++alter default privileges in schema public grant select,insert,update,delete on tables to authenticated;
++grant select,insert,update,delete on storage.objects to authenticated;
++grant select on storage.buckets to authenticated;
++SQL
++"${PSQL[@]}" -d "$DB" -f "$WORK_DIR/stub.sql" >/dev/null
++"${PSQL[@]}" -d "$DB" -f "$ROOT/supabase/schema.sql" >/dev/null
++
++"${PSQL[@]}" -d "$DB" <<'SQL'
++insert into auth.users(id) values
++ ('11111111-1111-1111-1111-111111111111'),
++ ('22222222-2222-2222-2222-222222222222'),
++ ('33333333-3333-3333-3333-333333333333');
++insert into public.profiles(id,username) values
++ ('11111111-1111-1111-1111-111111111111','wyn148_a'),
++ ('22222222-2222-2222-2222-222222222222','wyn148_b'),
++ ('33333333-3333-3333-3333-333333333333','wyn148_c');
++insert into public.follows(follower_id,following_id) values
++ ('11111111-1111-1111-1111-111111111111','22222222-2222-2222-2222-222222222222'),
++ ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111'),
++ ('11111111-1111-1111-1111-111111111111','33333333-3333-3333-3333-333333333333'),
++ ('33333333-3333-3333-3333-333333333333','11111111-1111-1111-1111-111111111111');
++
++set role authenticated;
++set request.jwt.claim.sub='11111111-1111-1111-1111-111111111111';
++
++-- Text, one image, multi-image, maximum images, mentions and friendsExcept.
++select public.publish_drop('10000000-0000-4000-8000-000000000001',null,'text','everyone');
++select public.publish_drop('10000000-0000-4000-8000-000000000002','one.jpg','one','everyone',
++ '{}','[{"image_url":"one.jpg","position":0}]');
++select public.publish_drop('10000000-0000-4000-8000-000000000003','a.jpg','multi','everyone',
++ '{}','[{"image_url":"a.jpg","position":0},{"image_url":"b.jpg","position":1}]');
++select public.publish_drop('10000000-0000-4000-8000-000000000004','0.jpg','max','everyone','{}',
++ (select jsonb_agg(jsonb_build_object('image_url',i||'.jpg','position',i) order by i)
++  from generate_series(0,8)i));
++select public.publish_drop('10000000-0000-4000-8000-000000000005',null,'@wyn148_c','friends_except',
++ array['22222222-2222-2222-2222-222222222222']::uuid[],'[]',
++ array['33333333-3333-3333-3333-333333333333']::uuid[]);
++
++do $$
++declare a uuid; b uuid;
++begin
++  a:=public.publish_drop('10000000-0000-4000-8000-000000000001',null,'text','everyone');
++  b:=public.publish_drop('10000000-0000-4000-8000-000000000001',null,'ignored retry','everyone');
++  if a<>b or (select count(*) from public.drops where publication_operation_id='10000000-0000-4000-8000-000000000001')<>1 then
++    raise exception 'idempotent retry failed';
++  end if;
++end$$;
++
++select public.publish_drop('10000000-0000-4000-8000-000000000003','a.jpg','multi','everyone',
++ '{}','[{"image_url":"a.jpg","position":0},{"image_url":"b.jpg","position":1}]');
++select public.publish_drop('10000000-0000-4000-8000-000000000005',null,'@wyn148_c','friends_except',
++ array['22222222-2222-2222-2222-222222222222']::uuid[],'[]',
++ array['33333333-3333-3333-3333-333333333333']::uuid[]);
++do $$begin
++  if (select count(*) from public.drop_images where drop_id=public.drop_id_for_publication('10000000-0000-4000-8000-000000000003'))<>2
++    or (select count(*) from public.drop_audience_exclusions where drop_id=public.drop_id_for_publication('10000000-0000-4000-8000-000000000005'))<>1
++    or (select count(*) from public.drop_mentions where drop_id=public.drop_id_for_publication('10000000-0000-4000-8000-000000000005'))<>1
++  then raise exception 'publication children were duplicated or missing'; end if;
++end$$;
++
++reset role; reset request.jwt.claim.sub;
++do $$begin
++  perform public.publish_drop('10000000-0000-4000-8000-000000000012',null,'x','everyone');
++  raise exception 'unauthenticated publication accepted';
++exception when others then
++  if sqlerrm='unauthenticated publication accepted' then raise; end if;
++end$$;
++set role authenticated;
++set request.jwt.claim.sub='11111111-1111-1111-1111-111111111111';
++
++-- Invalid input and cross-user operation reuse must fail.
++do $$ begin
++  perform public.publish_drop('10000000-0000-4000-8000-000000000010',null,'x','invalid');
++  raise exception 'invalid audience accepted';
++exception when others then
++  if sqlerrm='invalid audience accepted' then raise; end if;
++end$$;
++do $$ begin
++  perform public.publish_drop('10000000-0000-4000-8000-000000000011','x.jpg','x','everyone','{}',
++    '[{"image_url":"x.jpg","position":1}]');
++  raise exception 'invalid image position accepted';
++exception when others then
++  if sqlerrm='invalid image position accepted' then raise; end if;
++end$$;
++
++-- Failure in every relational child stage rolls back the Drop row too.
++create function pg_temp.fail_wyn148() returns trigger language plpgsql as $$begin raise exception 'fault'; end$$;
++create trigger wyn148_fail_exclusion before insert on public.drop_audience_exclusions
++  for each row execute function pg_temp.fail_wyn148();
++do $$ begin
++  perform public.publish_drop('10000000-0000-4000-8000-000000000020',null,'x','friends_except',
++    array['22222222-2222-2222-2222-222222222222']::uuid[]);
++exception when others then null; end$$;
++drop trigger wyn148_fail_exclusion on public.drop_audience_exclusions;
++create trigger wyn148_fail_image before insert on public.drop_images
++  for each row execute function pg_temp.fail_wyn148();
++do $$ begin
++  perform public.publish_drop('10000000-0000-4000-8000-000000000021','x.jpg','x','everyone','{}',
++    '[{"image_url":"x.jpg","position":0}]');
++exception when others then null; end$$;
++drop trigger wyn148_fail_image on public.drop_images;
++create trigger wyn148_fail_mention before insert on public.drop_mentions
++  for each row execute function pg_temp.fail_wyn148();
++do $$ begin
++  perform public.publish_drop('10000000-0000-4000-8000-000000000022',null,'x','everyone','{}','[]',
++    array['33333333-3333-3333-3333-333333333333']::uuid[]);
++exception when others then null; end$$;
++drop trigger wyn148_fail_mention on public.drop_mentions;
++do $$ begin
++  if exists(select 1 from public.drops where publication_operation_id in
++    ('10000000-0000-4000-8000-000000000020','10000000-0000-4000-8000-000000000021','10000000-0000-4000-8000-000000000022')) then
++    raise exception 'partial Drop survived child failure';
++  end if;
++end$$;
++
++reset role; reset request.jwt.claim.sub;
++set role authenticated;
++set request.jwt.claim.sub='22222222-2222-2222-2222-222222222222';
++do $$ begin
++  if exists(select 1 from public.drops where publication_operation_id='10000000-0000-4000-8000-000000000005') then
++    raise exception 'excluded user can read friendsExcept Drop';
++  end if;
++end$$;
++-- Another user cannot discover or reuse A's operation ID.
++do $$ begin
++  if public.drop_id_for_publication('10000000-0000-4000-8000-000000000005') is not null then
++    raise exception 'cross-user publication lookup leaked';
++  end if;
++  perform public.publish_drop('10000000-0000-4000-8000-000000000005',null,'attack','everyone');
++  raise exception 'cross-user operation reuse accepted';
++exception when unique_violation then null; end$$;
++reset role; reset request.jwt.claim.sub;
++set role authenticated;
++set request.jwt.claim.sub='33333333-3333-3333-3333-333333333333';
++do $$ begin
++  if not exists(select 1 from public.drops where publication_operation_id='10000000-0000-4000-8000-000000000005') then
++    raise exception 'allowed user cannot read friendsExcept Drop';
++  end if;
++end$$;
++SQL
++
++echo "PASS: WYN-148 atomic publication, idempotency, faults and privacy"
+-- 
+2.43.0
+
