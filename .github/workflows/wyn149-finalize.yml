@@ -1,0 +1,84 @@
+name: One-shot WYN-149 finalizer
+
+on:
+  push:
+    branches: [fix/beta4-audit-remaining-bugs]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/beta4-audit-remaining-bugs
+          fetch-depth: 0
+
+      - name: Fix WYN-149 SQL and regression harness
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          migration = Path('supabase/migrations_wyn149_location_search_rate_limit.sql')
+          schema = Path('supabase/schema.sql')
+          test = Path('supabase/tests/wyn_149_location_rate_limit_test.sh')
+
+          duplicate_index = (
+              'create index if not exists location_search_requests_user_requested_at_idx\n'
+              '  on public.location_search_requests (user_id, requested_at desc);\n\n'
+          )
+
+          for path in (migration, schema):
+              text = path.read_text(encoding='utf-8')
+              text = text.replace(duplicate_index, '')
+              text = text.replace('do \\$\\$\n', 'do $$\n')
+              text = text.replace('\n\\$\\$;', '\n$$;')
+              path.write_text(text, encoding='utf-8')
+
+          text = test.read_text(encoding='utf-8')
+          old = 'create role anon;\ncreate role authenticated;\ncreate role service_role;'
+          new = '''do $$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then
+              create role anon nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+              create role authenticated nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then
+              create role service_role nologin;
+            end if;
+          end
+          $$;'''
+          if old not in text:
+              raise SystemExit('expected WYN-149 role bootstrap not found')
+          test.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+
+      - name: Static verification
+        run: |
+          set -euo pipefail
+          ! grep -Fq 'location_search_requests_user_requested_at_idx' supabase/migrations_wyn149_location_search_rate_limit.sql
+          ! grep -Fq 'location_search_requests_user_requested_at_idx' supabase/schema.sql
+          grep -Fq 'location_search_requests_user_id_requested_at_idx' supabase/schema.sql
+          ! grep -Fq 'do \$\$' supabase/migrations_wyn149_location_search_rate_limit.sql
+          ! grep -Fq 'do \$\$' supabase/schema.sql
+          bash -n supabase/tests/wyn_149_location_rate_limit_test.sh
+          python3 supabase/check_schema_ordering.py
+          git diff --check
+
+      - name: Commit and push source fixes
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/migrations_wyn149_location_search_rate_limit.sql supabase/schema.sql supabase/tests/wyn_149_location_rate_limit_test.sh
+          if git diff --cached --quiet; then
+            echo 'No WYN-149 source changes needed.'
+            exit 0
+          fi
+          git commit -m 'fix(db): finalize WYN-149 rate-limit regression coverage'
+          git push origin HEAD:fix/beta4-audit-remaining-bugs
