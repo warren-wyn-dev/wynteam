@@ -7,6 +7,7 @@
 // itself -- those are ranking-pass-only facts nothing else in the app ever
 // needs to render, and HomeFeedItem is already read by a large number of
 // call sites this task has no reason to touch.
+import 'feed_experiment.dart';
 import 'feed_source.dart';
 
 class FeedDiversityCandidate {
@@ -167,8 +168,9 @@ List<FeedDiversityCandidate> allocateFeedSources(
 /// ReDrop flooding,
 /// while a candidate's source score can still offset (but not erase) fatigue.
 List<FeedDiversityCandidate> applyFeedFatigue(
-  List<FeedDiversityCandidate> candidates,
-) {
+  List<FeedDiversityCandidate> candidates, {
+  FeedFatigueConfig config = FeedFatigueConfig.production,
+}) {
   final remaining = List<FeedDiversityCandidate>.from(candidates);
   final result = <FeedDiversityCandidate>[];
   final creators = <String, int>{};
@@ -177,11 +179,15 @@ List<FeedDiversityCandidate> applyFeedFatigue(
   final underlying = <String, int>{};
 
   double adjusted(FeedDiversityCandidate candidate) {
-    final creatorFactor = _pow(0.82, creators[candidate.authorId] ?? 0);
-    final topicFactor = _pow(0.88, topics[candidate.topic] ?? 0);
-    final typeFactor = _pow(0.94, types[candidate.contentType] ?? 0);
+    final creatorFactor =
+        _pow(config.creatorFactor, creators[candidate.authorId] ?? 0);
+    final topicFactor = _pow(config.topicFactor, topics[candidate.topic] ?? 0);
+    final typeFactor =
+        _pow(config.contentTypeFactor, types[candidate.contentType] ?? 0);
     final priorUnderlying = underlying[candidate.fatigueIdentity] ?? 0;
-    final repetitionFactor = priorUnderlying == 0 ? 1.0 : _pow(0.35, priorUnderlying);
+    final repetitionFactor = priorUnderlying == 0
+        ? 1.0
+        : _pow(config.repetitionFactor, priorUnderlying);
     final fatigueFactor =
         creatorFactor * topicFactor * typeFactor * repetitionFactor;
     return candidate.wynosScore >= 0

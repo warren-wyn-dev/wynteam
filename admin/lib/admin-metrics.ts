@@ -124,3 +124,37 @@ export function deltaPct(today: number, yesterday: number): number | null {
   if (yesterday === 0) return null;
   return Math.round(((today - yesterday) / yesterday) * 1000) / 10;
 }
+
+export type FeedSourceMetric = {
+  feed_source: string;
+  impressions: number;
+  unique_viewers: number;
+  unique_content: number;
+  unique_topics: number;
+  avg_rank: number | null;
+  p95_latency_ms: number | null;
+  fallback_count: number;
+  similarity_impressions: number;
+};
+
+export type FeedAlgorithmDashboard = {
+  algorithmVersion: number;
+  windowHours: number;
+  sources: FeedSourceMetric[];
+  maturity: Array<{ maturity_state: string; impressions: number; unique_viewers: number }>;
+  trending: { candidate_count: number; max_staleness_seconds: number | null };
+  top100: { candidate_count: number; creators: number; max_staleness_seconds: number | null };
+  trendingTop100: { overlap_top20: number };
+  experiments: unknown[];
+};
+
+export async function fetchFeedAlgorithmDashboard(
+  hours = 24,
+): Promise<FeedAlgorithmDashboard> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_feed_algorithm_dashboard", {
+    p_hours: hours,
+  });
+  if (error || !data) throw error ?? new Error("Feed observability unavailable");
+  return data as FeedAlgorithmDashboard;
+}
