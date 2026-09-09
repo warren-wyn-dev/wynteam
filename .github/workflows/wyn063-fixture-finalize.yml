@@ -1,0 +1,89 @@
+name: One-shot WYN-063 fixture correction
+
+on:
+  push:
+    branches: [fix/beta4-audit-remaining-bugs]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/beta4-audit-remaining-bugs
+          fetch-depth: 0
+
+      - name: Make the Discovery fixture use a genuinely unseen creator
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/tests/wyn_063_unified_home_feed_test.sh')
+          s = p.read_text(encoding='utf-8')
+
+          old_users = """insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-000000000001', 'me@test.local'),
+  ('00000000-0000-0000-0000-000000000002', 'followed@test.local'),
+  ('00000000-0000-0000-0000-000000000003', 'stranger@test.local');
+
+insert into profiles (id, username) values
+  ('00000000-0000-0000-0000-000000000001', 'me'),
+  ('00000000-0000-0000-0000-000000000002', 'followed_author'),
+  ('00000000-0000-0000-0000-000000000003', 'stranger_author');
+"""
+          new_users = """insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-000000000001', 'me@test.local'),
+  ('00000000-0000-0000-0000-000000000002', 'followed@test.local'),
+  ('00000000-0000-0000-0000-000000000003', 'stranger@test.local'),
+  ('00000000-0000-0000-0000-000000000004', 'hidden-author@test.local');
+
+insert into profiles (id, username) values
+  ('00000000-0000-0000-0000-000000000001', 'me'),
+  ('00000000-0000-0000-0000-000000000002', 'followed_author'),
+  ('00000000-0000-0000-0000-000000000003', 'stranger_author'),
+  ('00000000-0000-0000-0000-000000000004', 'hidden_author');
+"""
+          old_drops = """-- One Drop from each author, both recent.
+insert into drops (id, author_id, image_url, caption, created_at) values
+  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'https://x/img1.jpg', 'from followed author', now() - interval '2 hours'),
+  ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', 'https://x/img2.jpg', 'from stranger author', now() - interval '2 hours'),
+  ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 'https://x/img3.jpg', 'to be hidden', now() - interval '1 hour');
+"""
+          new_drops = """-- Discovery and hidden-content fixtures deliberately use different creators.
+-- Hiding a Drop is a real negative creator-affinity signal, so reusing the
+-- stranger creator here would make that creator no longer genuinely unseen.
+insert into drops (id, author_id, image_url, caption, created_at) values
+  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'https://x/img1.jpg', 'from followed author', now() - interval '2 hours'),
+  ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', 'https://x/img2.jpg', 'from stranger author', now() - interval '2 hours'),
+  ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004', 'https://x/img3.jpg', 'to be hidden', now() - interval '1 hour');
+"""
+
+          if old_users not in s:
+              raise SystemExit('WYN-063 user fixture block not found')
+          if old_drops not in s:
+              raise SystemExit('WYN-063 drop fixture block not found')
+          s = s.replace(old_users, new_users, 1).replace(old_drops, new_drops, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Verify fixture intent
+        run: |
+          set -euo pipefail
+          grep -Fq "'00000000-0000-0000-0000-000000000004', 'hidden_author'" supabase/tests/wyn_063_unified_home_feed_test.sh
+          grep -Fq "'10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004'" supabase/tests/wyn_063_unified_home_feed_test.sh
+          grep -Fq "CHECK3_stranger_is_discovery" supabase/tests/wyn_063_unified_home_feed_test.sh
+          bash -n supabase/tests/wyn_063_unified_home_feed_test.sh
+          git diff --check
+
+      - name: Commit correction and remove helper
+        run: |
+          set -euo pipefail
+          rm .github/workflows/wyn063-fixture-finalize.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/tests/wyn_063_unified_home_feed_test.sh .github/workflows/wyn063-fixture-finalize.yml
+          git commit -m 'test(db): keep WYN-063 discovery creator genuinely unseen'
+          git push origin HEAD:fix/beta4-audit-remaining-bugs
