@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -18,10 +20,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Flutter Web uses a canvas renderer and therefore cannot read the Thai
-  // system font installed on Safari/iOS. Load an OFL-licensed looped Thai
-  // fallback before the first frame so Thai copy keeps traditional loops.
-  // Native builds use the no-op implementation and remain on OS fonts.
-  await loadLoopedThaiFontForWeb();
+  // system font installed on Safari/iOS. The OFL-licensed looped Thai font is
+  // only a visual enhancement, so never make the first frame depend on a
+  // cross-origin network request. Native builds use a no-op implementation.
+  unawaited(loadLoopedThaiFontForWeb());
 
   // WYN-078 (Wynos V1.0.0 Beta2, item 5): without this, the OS draws its
   // own default status bar/nav bar scrim (often white or black depending
