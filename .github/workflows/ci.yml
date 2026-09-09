@@ -116,6 +116,25 @@ jobs:
       - name: Run all persisted PostgreSQL/RLS regression scripts
         run: |
           set -euo pipefail
+
+          # Older scripts fall back to `sudo -u postgres` when a direct psql
+          # command fails. On Actions, PostgreSQL lives in a service container,
+          # so switching OS user would discard the TCP env and incorrectly try
+          # a local Unix socket. Preserve the historical fallback contract while
+          # keeping it on the same service connection.
+          mkdir -p "$RUNNER_TEMP/wynos-db-ci-bin"
+          cat > "$RUNNER_TEMP/wynos-db-ci-bin/sudo" <<'EOF'
+          #!/usr/bin/env bash
+          set -e
+          if [ "${1:-}" = "-u" ] && [ "${2:-}" = "postgres" ]; then
+            shift 2
+            exec "$@"
+          fi
+          exec /usr/bin/sudo "$@"
+          EOF
+          chmod +x "$RUNNER_TEMP/wynos-db-ci-bin/sudo"
+          export PATH="$RUNNER_TEMP/wynos-db-ci-bin:$PATH"
+
           count=0
           for test_script in supabase/tests/*.sh; do
             count=$((count + 1))
