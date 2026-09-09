@@ -9302,9 +9302,11 @@ begin
     perform internal.learn_from_drop('redrop:' || new.id, new.redropper_id,
       new.drop_id, 5.0, new.created_at,
       case when new.quote_text is null then null else 'quote' end);
-  elsif tg_table_name = 'saves' and new.content_type = 'drop' then
+  elsif tg_table_name = 'saves' then
+  if new.content_type = 'drop' then
     perform internal.learn_from_drop('save:' || new.content_id || ':' || new.user_id
       || ':' || new.created_at, new.user_id, new.content_id, 4.0, new.created_at);
+  end if;
   elsif tg_table_name = 'follows' then
     v_event_key := 'follow:' || new.follower_id || ':' || new.following_id
       || ':' || new.created_at;
@@ -9333,24 +9335,29 @@ begin
           new.target_id::text, v_weight, new.created_at);
       end if;
     end if;
-  elsif tg_table_name = 'reports' and new.target_type = 'drop' then
+  elsif tg_table_name = 'reports' then
+  if new.target_type = 'drop' then
     perform internal.learn_from_drop('report:' || new.id, new.reporter_id,
       new.target_id, -12.0, new.created_at);
-  elsif tg_table_name = 'blocks' or tg_table_name = 'mutes' then
-    v_event_key := tg_table_name || ':'
-      || case when tg_table_name = 'blocks' then new.blocker_id else new.muter_id end
-      || ':' || case when tg_table_name = 'blocks' then new.blocked_id else new.muted_id end
-      || ':' || new.created_at;
-    insert into public.personalization_processed_events(event_key)
-    values(v_event_key) on conflict do nothing;
-    if found then
-      perform internal.apply_affinity_signal(
-        case when tg_table_name = 'blocks' then new.blocker_id else new.muter_id end,
-        'creator',
-        (case when tg_table_name = 'blocks' then new.blocked_id else new.muted_id end)::text,
-        case when tg_table_name = 'blocks' then -20.0 else -8.0 end,
-        new.created_at);
-    end if;
+  end if;
+  elsif tg_table_name = 'blocks' then
+  v_event_key := 'blocks:' || new.blocker_id || ':' || new.blocked_id
+    || ':' || new.created_at;
+  insert into public.personalization_processed_events(event_key)
+  values(v_event_key) on conflict do nothing;
+  if found then
+    perform internal.apply_affinity_signal(new.blocker_id, 'creator',
+      new.blocked_id::text, -20.0, new.created_at);
+  end if;
+elsif tg_table_name = 'mutes' then
+  v_event_key := 'mutes:' || new.muter_id || ':' || new.muted_id
+    || ':' || new.created_at;
+  insert into public.personalization_processed_events(event_key)
+  values(v_event_key) on conflict do nothing;
+  if found then
+    perform internal.apply_affinity_signal(new.muter_id, 'creator',
+      new.muted_id::text, -8.0, new.created_at);
+  end if;
   end if;
   return new;
 end;
