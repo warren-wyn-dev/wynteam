@@ -1,18 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/home/data/feed_diversity.dart';
+import 'package:wyn/features/home/data/feed_source.dart';
 
 FeedDiversityCandidate _c(
   String key,
   String authorId, {
   double? score,
   bool isDiscovery = false,
+  FeedSource source = FeedSource.recommended,
+  String? topic,
+  String? contentIdentity,
 }) =>
     FeedDiversityCandidate(
       key: key,
       authorId: authorId,
       wynosScore: score ?? 0,
       isDiscovery: isDiscovery,
+      feedSource: source,
+      topic: topic,
+      contentIdentity: contentIdentity,
     );
 
 void main() {
@@ -174,6 +181,99 @@ void main() {
       // 5) -- with no diversity rule actually triggered, plain score
       // order is preserved exactly.
       expect(result.map((c) => c.key).toList(), ['p0', 'd1', 'd2', 'p1']);
+    });
+  });
+
+  group('seven-source allocation', () {
+    Map<FeedSource, List<FeedDiversityCandidate>> fullPools(int count) => {
+          for (final source in FeedSource.values)
+            source: [
+              for (var i = 0; i < count; i++)
+                _c('${source.wireName}-$i', '${source.wireName}-author-$i',
+                    score: (count - i).toDouble(),
+                    source: source,
+                    contentIdentity: '${source.wireName}:$i'),
+            ],
+        };
+
+    test('all seven sources contribute at the 35/20/10/10/10/10/5 target',
+        () {
+      final result = allocateFeedSources(fullPools(100), limit: 100);
+      final counts = <FeedSource, int>{
+        for (final source in FeedSource.values)
+          source: result.where((item) => item.feedSource == source).length,
+      };
+      expect(counts, feedSourceTargetWeights);
+    });
+
+    test('empty source quotas fall back without leaving avoidable holes', () {
+      final pools = fullPools(30)
+        ..[FeedSource.club] = []
+        ..[FeedSource.trending] = [];
+      final result = allocateFeedSources(pools, limit: 20);
+      expect(result, hasLength(20));
+      expect(result.where((item) => item.feedSource == FeedSource.club), isEmpty);
+      expect(
+        result.where((item) => item.feedSource == FeedSource.recommended),
+        isNotEmpty,
+      );
+    });
+
+    test('a candidate present in multiple pools is emitted only once', () {
+      final duplicate = _c('render-a', 'author-a',
+          score: 100, contentIdentity: 'drop:a');
+      final result = allocateFeedSources({
+        FeedSource.following: [duplicate],
+        FeedSource.recommended: [duplicate],
+        FeedSource.latest: [duplicate],
+      }, limit: 10);
+      expect(result, hasLength(1));
+    });
+
+    test('page 2 excludes every identity seen on page 1', () {
+      final pools = fullPools(20);
+      final first = allocateFeedSources(pools, limit: 10);
+      final second = allocateFeedSources(
+        pools,
+        limit: 10,
+        seenContentIdentities:
+            first.map((item) => item.contentIdentity).toSet(),
+      );
+      expect(
+        first.map((item) => item.contentIdentity).toSet().intersection(
+              second.map((item) => item.contentIdentity).toSet(),
+            ),
+        isEmpty,
+      );
+      expect(second, hasLength(10));
+    });
+
+    test('plain and standard redrop dedupe while a quote remains distinct', () {
+      final result = allocateFeedSources({
+        FeedSource.following: [
+          _c('plain', 'original', score: 100, contentIdentity: 'drop:a'),
+          _c('standard-redrop', 'original',
+              score: 90, contentIdentity: 'drop:a'),
+          _c('quote-redrop', 'original',
+              score: 80, contentIdentity: 'drop:a:quote:q1'),
+        ],
+      }, limit: 10);
+      expect(result.map((item) => item.key), ['plain', 'quote-redrop']);
+    });
+
+    test('topic and source runs are broken when alternatives exist', () {
+      final candidates = [
+        for (var i = 0; i < 3; i++)
+          _c('same-$i', 'author-$i',
+              score: (100 - i).toDouble(),
+              source: FeedSource.recommended,
+              topic: 'music'),
+        _c('alternate', 'author-x',
+            score: 1, source: FeedSource.latest, topic: 'sports'),
+      ];
+      final result = applyFeedDiversity(candidates);
+      expect(result.map((item) => item.key),
+          ['same-0', 'same-1', 'alternate', 'same-2']);
     });
   });
 }
