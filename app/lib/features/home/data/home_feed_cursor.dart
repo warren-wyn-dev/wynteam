@@ -7,18 +7,40 @@ class HomeFeedCursor {
 
   static const _version = 1;
   static const maxSeen = 200;
+  static const maxEncodedLength = 64 * 1024;
+  static const _maxIdentityLength = 512;
 
   final String userId;
   final Set<String> seen;
 
-  String encode() => base64Url.encode(utf8.encode(jsonEncode({
-        'v': _version,
-        'u': userId,
-        's': seen.take(maxSeen).toList(),
-      })));
+  String encode() {
+    // Never silently truncate pagination state. Dropping older identities can
+    // make already-rendered content eligible again and surface duplicates.
+    // A cursor beyond the supported ranked window is a programming error, so
+    // fail closed instead of emitting a lossy cursor.
+    if (seen.length > maxSeen) {
+      throw StateError('Feed cursor contains too many identities');
+    }
+    if (seen.any((identity) =>
+        identity.isEmpty || identity.length > _maxIdentityLength)) {
+      throw StateError('Feed cursor contains an invalid identity');
+    }
+
+    return base64Url.encode(utf8.encode(jsonEncode({
+      'v': _version,
+      'u': userId,
+      's': seen.toList(),
+    })));
+  }
 
   static HomeFeedCursor decode(String value, {required String expectedUserId}) {
     try {
+      // Reject obviously corrupted/unbounded input before allocating and
+      // decoding a potentially large JSON payload.
+      if (value.isEmpty || value.length > maxEncodedLength) {
+        throw const FormatException('Invalid feed cursor');
+      }
+
       final decoded = jsonDecode(utf8.decode(base64Url.decode(value)));
       if (decoded is! Map<String, dynamic> ||
           decoded['v'] != _version ||
@@ -26,10 +48,19 @@ class HomeFeedCursor {
           decoded['s'] is! List) {
         throw const FormatException('Invalid feed cursor');
       }
-      final seen = (decoded['s'] as List).whereType<String>().toSet();
-      if (seen.length > maxSeen || seen.length != (decoded['s'] as List).length) {
+
+      final rawSeen = decoded['s'] as List;
+      if (rawSeen.length > maxSeen) {
         throw const FormatException('Invalid feed cursor identities');
       }
+
+      final seen = rawSeen.whereType<String>().toSet();
+      if (seen.length != rawSeen.length ||
+          seen.any((identity) =>
+              identity.isEmpty || identity.length > _maxIdentityLength)) {
+        throw const FormatException('Invalid feed cursor identities');
+      }
+
       return HomeFeedCursor(userId: expectedUserId, seen: seen);
     } on FormatException {
       rethrow;
