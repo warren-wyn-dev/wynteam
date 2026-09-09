@@ -173,25 +173,21 @@ void main() {
   // is here so it cannot come back quietly.
   group('WYN-109/108 QA round 1 regressions', () {
     test(
-        'a post with no photos does not name the aspect-ratio column '
-        '(B-109-1, Critical)', () {
-      // The insert used to name `image_aspect_ratio` on every Drop --
-      // text, poll, Draft included -- so on a database that had not run
-      // the migration yet, PostgREST rejected the insert and posting
-      // anything at all failed. The column belongs to the photo
-      // feature; nothing else should depend on it existing.
+        'a post with no photos passes a null aspect ratio through the '
+        'publication RPC (B-109-1, Critical)', () {
+      // WYN-148 moved Drop creation behind `publish_drop`, so the old guard
+      // that grepped for a conditional direct-table insert is obsolete. The
+      // invariant is now that all creation goes through the RPC and null is
+      // preserved for text-only/Draft publication. QA-R2-12/13 verify the
+      // actual wire payload; this source-level guard only protects the new
+      // architectural boundary.
       final source =
           File('lib/features/drop/data/drop_repository.dart').readAsStringSync();
+      expect(source.contains("await _client.rpc('publish_drop'"), isTrue);
       expect(
-        source.contains(
-            "if (aspectRatio != null) 'image_aspect_ratio': aspectRatio.wireValue"),
+        source.contains("'p_image_aspect_ratio': aspectRatio?.wireValue"),
         isTrue,
-        reason: 'the column must only be named when there is a ratio to store',
-      );
-      expect(
-        source.contains("'image_aspect_ratio': aspectRatio?.wireValue"),
-        isFalse,
-        reason: 'naming it unconditionally is what broke every post type',
+        reason: 'text-only publication must preserve a null aspect ratio',
       );
     });
 
