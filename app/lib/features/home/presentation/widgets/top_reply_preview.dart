@@ -24,6 +24,10 @@ class TopReplyPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: _replyTextColor,
+        );
+
     return Semantics(
       label: '${reply.authorNameOrUsername} ตอบว่า ${reply.text} '
           'กดเพื่อดูคอมเมนต์ทั้งหมด',
@@ -47,11 +51,11 @@ class TopReplyPreview extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: Text.rich(
                       TextSpan(
-                        style: const TextStyle(fontSize: 12.5, color: _replyTextColor),
+                        style: baseStyle,
                         children: [
                           TextSpan(
                             text: reply.authorNameOrUsername,
-                            style: const TextStyle(
+                            style: baseStyle?.copyWith(
                               color: WynColors.ink,
                               fontWeight: FontWeight.w600,
                             ),
