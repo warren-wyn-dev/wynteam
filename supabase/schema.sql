@@ -16139,5 +16139,10 @@ $$;
 
 revoke all on function public.reserve_location_search_request(uuid,integer,integer)
   from public, anon, authenticated;
-grant execute on function public.reserve_location_search_request(uuid,integer,integer)
-  to service_role;
+do \$\$
+begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant execute on function public.reserve_location_search_request(uuid,integer,integer) to service_role';
+  end if;
+end;
+\$\$;
