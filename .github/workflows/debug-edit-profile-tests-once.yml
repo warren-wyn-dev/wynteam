@@ -24,9 +24,9 @@ jobs:
           flutter-version: 3.47.1
           cache: true
 
-      - name: Apply patch and capture focused test output
+      - name: Apply patch and capture full test output
         run: |
-          python3 tools/apply_edit_profile_approved_v2.py
+          python3 tools/apply_edit_profile_approved_v3.py
           dart format \
             app/lib/features/profile/data/profile.dart \
             app/lib/features/profile/data/profile_repository.dart \
@@ -36,10 +36,12 @@ jobs:
           cd app
           flutter pub get
           set +e
-          flutter test test/edit_profile_screen_test.dart -r expanded > ../debug_flutter_test.log 2>&1
+          flutter test -r expanded > /tmp/flutter-full-test.log 2>&1
           STATUS=$?
           set -e
-          printf '\nEXIT_STATUS=%s\n' "$STATUS" >> ../debug_flutter_test.log
+          cd ..
+          tail -n 1200 /tmp/flutter-full-test.log > debug_flutter_test.log
+          printf '\nEXIT_STATUS=%s\n' "$STATUS" >> debug_flutter_test.log
 
       - name: Commit captured log
         run: |
@@ -48,5 +50,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add debug_flutter_test.log
-          git commit -m "chore: capture Edit Profile test output"
+          git commit -m "chore: capture full Flutter test output"
           git push origin HEAD:main
