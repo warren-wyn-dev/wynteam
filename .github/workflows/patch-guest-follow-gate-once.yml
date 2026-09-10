@@ -1,0 +1,78 @@
+name: Apply guest follow gate patch once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/patch-guest-follow-gate-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Gate profile Follow button for guests
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/lib/features/profile/presentation/view_profile_screen.dart')
+          text = path.read_text()
+
+          guest_import = "import '../../auth/presentation/widgets/guest_gate.dart';\n"
+          import_anchor = "import '../../account_switcher/presentation/account_switcher_sheet.dart';\n"
+          if guest_import not in text:
+              if import_anchor not in text:
+                  raise SystemExit('import anchor not found')
+              text = text.replace(import_anchor, import_anchor + guest_import, 1)
+
+          old = """  void _onFollowButtonPressed(Profile profile) {
+            if (_isFollowing!) {
+              _toggleFollow();
+            } else if (profile.isPrivate && (_hasPendingRequest ?? false)) {
+              _cancelFollowRequest(profile);
+            } else if (profile.isPrivate) {
+              _sendFollowRequest();
+            } else {
+              _toggleFollow();
+            }
+          }
+          """
+          new = """  Future<void> _onFollowButtonPressed(Profile profile) async {
+            // WYN-072 Guest Browsing: viewing a shared profile is allowed, but
+            // Follow/Follow Request requires a permanent account. Gate before
+            // any optimistic UI state change or write occurs.
+            if (!await requireRealAccount(context) || !mounted) return;
+
+            if (_isFollowing!) {
+              _toggleFollow();
+            } else if (profile.isPrivate && (_hasPendingRequest ?? false)) {
+              _cancelFollowRequest(profile);
+            } else if (profile.isPrivate) {
+              _sendFollowRequest();
+            } else {
+              _toggleFollow();
+            }
+          }
+          """
+          if old not in text:
+              raise SystemExit('follow button method anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+
+      - name: Remove one-shot workflow and commit patch
+        run: |
+          rm .github/workflows/patch-guest-follow-gate-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/lib/features/profile/presentation/view_profile_screen.dart .github/workflows/patch-guest-follow-gate-once.yml
+          git commit -m "fix: require account before profile follow"
+          git push origin HEAD:main
