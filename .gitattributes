@@ -1,0 +1,2 @@
+# Temporary helper allowance; removed before Beta5 PR.
+supabase/schema.sql -whitespace
