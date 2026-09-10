@@ -19,8 +19,10 @@ jobs:
           ref: wyn/WYN-141-founder-final-ui
           fetch-depth: 0
 
-      - name: Apply Founder final UI patch
-        run: python3 tools/wyn141_founder_ui_patch.py
+      - name: Fix patch target and apply Founder final UI patch
+        run: |
+          python3 tools/wyn141_fix_patcher.py
+          python3 tools/wyn141_founder_ui_patch.py
 
       - name: Commit patched UI
         run: |
