@@ -616,6 +616,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             height: kToolbarHeight,
             child: Row(
               children: [
+                const SizedBox(width: 16),
                 const Text(
                   'โปรไฟล์',
                   style: TextStyle(
