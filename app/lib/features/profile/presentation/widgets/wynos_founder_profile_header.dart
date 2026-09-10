@@ -24,9 +24,10 @@ class WynosProfileCover extends StatelessWidget {
             Image.network(
               url,
               fit: BoxFit.cover,
-              // Keep the cover box unchanged but move the crop focus upward
-              // by roughly 10-15%, matching the approved Profile polish.
-              alignment: const Alignment(0, -0.15),
+              // Keep the approved upward focal bias, but slightly relax the
+              // crop so the cover reveals more of the lower cloud band seen
+              // in the final reference screenshot.
+              alignment: const Alignment(0, -0.10),
               errorBuilder: (_, __, ___) => const _CoverFallback(),
             )
           else
@@ -199,7 +200,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
                     clipBehavior: Clip.none,
                     children: [
                       Positioned(
-                        top: -25,
+                        top: -23,
                         left: 0,
                         child: _ProfileAvatar(
                           profile: profile,
@@ -217,7 +218,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
                       _displayNameControl(),
                       if (profile.bio != null &&
                           profile.bio!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Text(
                           profile.bio!,
                           maxLines: 3,
@@ -236,7 +237,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
             ),
           ),
           if (showStats) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 7),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 72),
               child: Row(
@@ -268,7 +269,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
             ),
           ],
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 9),
             child: actions,
           ),
           if (footer != null)
