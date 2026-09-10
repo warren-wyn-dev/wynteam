@@ -1,0 +1,36 @@
+name: WYN154 Sync Schema
+
+on:
+  push:
+    branches:
+      - fix/wyn154-club-invite-not-found
+
+permissions:
+  contents: write
+
+jobs:
+  sync-schema:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/wyn154-club-invite-not-found
+          fetch-depth: 0
+      - name: Sync WYN-154 into schema baseline
+        run: python3 .github/scripts/wyn154_sync_schema.py
+      - name: Validate schema ordering
+        run: python3 supabase/check_schema_ordering.py
+      - name: Validate diff
+        run: git diff --check
+      - name: Commit schema baseline
+        run: |
+          if git diff --quiet -- supabase/schema.sql; then
+            echo "schema.sql already synced"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/schema.sql
+          git commit -m "fix(db): sync WYN-154 schema baseline"
+          git push origin HEAD:fix/wyn154-club-invite-not-found
