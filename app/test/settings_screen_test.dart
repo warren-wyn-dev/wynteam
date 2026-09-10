@@ -188,7 +188,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('V1.0.0 Beta5', skipOffstage: false), findsOneWidget);
-      expect(find.textContaining('Beta5', skipOffstage: false), findsNothing);
+      expect(find.textContaining('Beta4', skipOffstage: false), findsNothing);
 
       final listView = tester.widget<ListView>(find.byType(ListView));
       final children =
@@ -217,9 +217,9 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('V1.0.0 Beta5', skipOffstage: false),
-          findsOneWidget);
-      expect(find.text('V1.0.0 Beta5', skipOffstage: false), findsNothing);
+      expect(find.text('V1.0.0 Beta5', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('[พัฒนาอยู่]', skipOffstage: false),
+          findsNothing);
 
       recordingDeveloperAccessService.isDeveloperResult = false;
     });
@@ -240,7 +240,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('V1.0.0 Beta5', skipOffstage: false), findsOneWidget);
-      expect(find.textContaining('Beta5', skipOffstage: false), findsNothing);
+      expect(find.textContaining('Beta4', skipOffstage: false), findsNothing);
     });
   });
 
