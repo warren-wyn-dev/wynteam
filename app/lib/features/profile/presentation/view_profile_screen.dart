@@ -30,6 +30,8 @@ import 'widgets/profile_drop_grid_tab.dart';
 import 'widgets/profile_likes_tab.dart';
 import 'widgets/profile_recommendation_section.dart';
 import 'widgets/profile_redrops_tab.dart';
+import 'widgets/profile_refresh_coordinator.dart';
+import 'widgets/suggested_follow_sheet.dart';
 import 'widgets/privacy_notice_banner.dart';
 import 'widgets/profile_skeleton.dart';
 import '../../../core/design/wyn_colors.dart';
@@ -154,6 +156,9 @@ class ViewProfileScreen extends StatefulWidget {
 
 class _ViewProfileScreenState extends State<ViewProfileScreen> {
   late Future<_ProfileWithCounts> _loadFuture;
+  final ProfileRefreshCoordinator _refreshCoordinator =
+      ProfileRefreshCoordinator();
+  bool _isProfileRefreshInFlight = false;
 
   // Whether the *current viewer* follows this profile's owner -- null
   // until the real status has loaded. Only relevant (and only loaded)
@@ -188,7 +193,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.homeRepository ?? HomeRepository(Supabase.instance.client);
   late final FollowRequestRepository _followRequestRepository =
       widget.followRequestRepository ??
-      FollowRequestRepository(Supabase.instance.client);
+          FollowRequestRepository(Supabase.instance.client);
 
   // WYN-071 Screen 5 -- same optional/defaulted shape as every other
   // repository above. Built fresh (not threaded through the
@@ -285,6 +290,47 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     setState(() {
       _loadFuture = _load();
     });
+  }
+
+  /// One pull gesture refreshes Profile as one surface: header, counts,
+  /// relationship state and every mounted profile-tab data source. The tab
+  /// widgets suppress their own RefreshIndicator while coordinated here, so
+  /// the user sees exactly one spinner and one completion point.
+  Future<void> _refreshWholeProfile() async {
+    if (_isProfileRefreshInFlight) return;
+    _isProfileRefreshInFlight = true;
+
+    try {
+      // Keep the current Profile visible while refreshing. Swapping the
+      // FutureBuilder back to a loading Future would flash the skeleton and
+      // make one pull gesture look like two independent refresh operations.
+      final freshDataFuture = _load();
+      final secondaryRefreshes = <Future<void>>[
+        _refreshCoordinator.refreshAll(),
+      ];
+      if (_isOwnProfile) {
+        secondaryRefreshes.add(_loadPendingRequestCount());
+      } else {
+        secondaryRefreshes.addAll([
+          _loadFollowStatus(),
+          _loadBlockRelationship(),
+          _loadMuteStatus(),
+          _loadPendingRequestStatus(),
+        ]);
+      }
+
+      final freshData = await freshDataFuture;
+      await Future.wait(secondaryRefreshes);
+      if (!mounted) return;
+      setState(() => _loadFuture = Future.value(freshData));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('รีเฟรชโปรไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      _isProfileRefreshInFlight = false;
+    }
   }
 
   Future<void> _loadFollowStatus() async {
@@ -395,8 +441,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // to the other party is worth one extra tap to avoid an accidental
   // cancel.
   Future<void> _cancelFollowRequest(Profile profile) async {
-    final confirmed =
-        await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text('ยกเลิกคำขอติดตาม ${profile.nameOrUsername}?'),
@@ -454,6 +499,23 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // rather than given a back button, since a bell shortcut pointing at
   // *your own* notifications never belonged on someone else's profile
   // in the first place.
+
+  Future<void> _openSuggestedFollowers() async {
+    await showSuggestedFollowSheet(
+      context,
+      discoveryRepository: _discoveryRepository,
+      followRepository: widget.followRepository,
+      followRequestRepository: _followRequestRepository,
+      excludeUserId: widget.userId,
+      onShowAll: _openSearch,
+    );
+
+    // A Follow action in the sheet can change this profile's Following count.
+    // Resync via the same whole-page refresh path instead of independently
+    // mutating only that number.
+    if (mounted) await _refreshWholeProfile();
+  }
+
   void _openSearch() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -465,8 +527,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           savedRepository: widget.savedRepository,
           clubRepository:
               widget.clubRepository ?? ClubRepository(Supabase.instance.client),
-          clubPostRepository:
-              widget.clubPostRepository ??
+          clubPostRepository: widget.clubPostRepository ??
               ClubPostRepository(Supabase.instance.client),
           autofocus: true,
         ),
@@ -663,8 +724,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           const SizedBox(width: 10),
           WynosProfileIconAction(
             icon: Icons.person_add_alt_1_outlined,
-            tooltip: 'ค้นหาเพื่อน',
-            onPressed: _openSearch,
+            tooltip: 'แนะนำสำหรับคุณ',
+            onPressed: _openSuggestedFollowers,
           ),
           const SizedBox(width: 10),
           WynosProfileIconAction(
@@ -699,12 +760,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   ? null
                   : () => _onFollowButtonPressed(profile),
               style: FilledButton.styleFrom(
-                backgroundColor: _isFollowing!
-                    ? WynColors.surfaceTint
-                    : WynColors.ink,
-                foregroundColor: _isFollowing!
-                    ? WynColors.ink
-                    : WynColors.paper,
+                backgroundColor:
+                    _isFollowing! ? WynColors.surfaceTint : WynColors.ink,
+                foregroundColor:
+                    _isFollowing! ? WynColors.ink : WynColors.paper,
                 shape: const StadiumBorder(),
                 elevation: 0,
               ),
@@ -795,19 +854,19 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   void _openFollowRequests() {
     Navigator.of(context)
         .push<void>(
-          MaterialPageRoute(
-            builder: (_) => FollowRequestListScreen(
-              followRequestRepository: _followRequestRepository,
-            ),
-          ),
-        )
+      MaterialPageRoute(
+        builder: (_) => FollowRequestListScreen(
+          followRequestRepository: _followRequestRepository,
+        ),
+      ),
+    )
         .then((_) {
-          // The list screen may have Accepted/Rejected requests -- refresh
-          // both the badge count and this profile's own Followers count.
-          if (!mounted) return;
-          _loadPendingRequestCount();
-          _reload();
-        });
+      // The list screen may have Accepted/Rejected requests -- refresh
+      // both the badge count and this profile's own Followers count.
+      if (!mounted) return;
+      _loadPendingRequestCount();
+      _reload();
+    });
   }
 
   // WYN-031, Screen 4. get_or_create_conversation() itself rejects a
@@ -842,8 +901,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       // understands this is a temporary platform state, not a glitch to
       // retry. This button itself stays visible/tappable either way
       // (Founder's explicit requirement) -- only the outcome differs.
-      final message =
-          e is PostgrestException &&
+      final message = e is PostgrestException &&
               e.message.contains('temporarily closed for testing')
           ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
           : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
@@ -1145,8 +1203,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
             ),
           ),
         ],
@@ -1189,8 +1247,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
             final data = snapshot.data!;
             final profile = data.profile;
-            final isBlockedEitherWay =
-                !isOwnProfile &&
+            final isBlockedEitherWay = !isOwnProfile &&
                 (_blockRelationship?.isBlockedEitherWay ?? false);
             // WYN-039 Design, Screen 2 -- Block always takes precedence
             // over Private (a blocked pair sees the Blocked banner, never
@@ -1200,8 +1257,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             // the same brief-flicker tradeoff _blockRelationship's own
             // `?? false` default already accepts elsewhere on this
             // screen, not a new one introduced here.
-            final isLockedPrivate =
-                !isOwnProfile &&
+            final isLockedPrivate = !isOwnProfile &&
                 !isBlockedEitherWay &&
                 profile.isPrivate &&
                 (_isFollowing ?? false) == false;
@@ -1219,187 +1275,201 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             // (ProfileDropGridTab/ProfileRedropsTab/ProfileLikesTab) is
             // this NestedScrollView's inner scrollable -- see their own
             // SliverOverlapInjector for the other half of that contract.
-            return NestedScrollView(
-              headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                // Keep cover + identity in one render box so the avatar's
-                // intentional negative overlap is inside this sliver's paint bounds.
-                SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      _buildProfileCoverBar(profile, isOwnProfile),
-                      WynosFounderProfileHeader(
-                        profile: profile,
-                        followingCount: data.followingCount,
-                        followerCount: data.followerCount,
-                        isOwnProfile: isOwnProfile,
-                        showStats: !isBlockedEitherWay,
-                        showOnline: isOwnProfile,
-                        onDisplayNameTap: isOwnProfile
-                            ? _openAccountSwitcher
-                            : null,
-                        onFollowingTap: () => _openFollowList(
-                          FollowListMode.following,
-                          isLockedPrivate: isLockedPrivate,
-                        ),
-                        onFollowersTap: () => _openFollowList(
-                          FollowListMode.followers,
-                          isLockedPrivate: isLockedPrivate,
-                        ),
-                        actions: _buildProfileActions(
-                          profile: profile,
-                          isOwnProfile: isOwnProfile,
-                          isBlockedEitherWay: isBlockedEitherWay,
-                        ),
-                        footer: _buildProfileFooter(profile, isOwnProfile),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isOwnProfile)
+            return RefreshIndicator(
+              onRefresh: _refreshWholeProfile,
+              notificationPredicate: (notification) =>
+                  notification.metrics.axis == Axis.vertical,
+              child: NestedScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                  // Keep cover + identity in one render box so the avatar's
+                  // intentional negative overlap is inside this sliver's paint bounds.
                   SliverToBoxAdapter(
-                    child: ProfileRecommendationSection(
-                      discoveryRepository: _discoveryRepository,
-                      followRepository: widget.followRepository,
-                      followRequestRepository: _followRequestRepository,
-                      profileRepository: widget.profileRepository,
-                    ),
-                  ),
-                // 05-profile.tsx cuts Replies/Media -- 3 tabs
-                // (Posts/ReDrops/Likes) for every viewer now, same
-                // public set regardless of who's looking. Saved/Draft
-                // (own-only, private) stay on the icon row above, not
-                // tabs here -- see _openSaved/_openDrafts.
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _ProfileTabBarDelegate(
-                    tabBar: TabBar(
-                      indicatorColor: WynColors.ink,
-                      indicatorSize: TabBarIndicatorSize.label,
-                      indicatorWeight: 2,
-                      labelColor: WynColors.ink,
-                      unselectedLabelColor: WynColors.mutedNeutral,
-                      labelStyle: _textStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      unselectedLabelStyle: _textStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      tabs: const [
-                        Tab(
-                          height: WynosFounderMetrics.profileTabHeight,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.image_outlined, size: 20),
-                              SizedBox(width: 7),
-                              Text('สื่อ'),
-                            ],
+                    child: Column(
+                      children: [
+                        _buildProfileCoverBar(profile, isOwnProfile),
+                        WynosFounderProfileHeader(
+                          profile: profile,
+                          followingCount: data.followingCount,
+                          followerCount: data.followerCount,
+                          isOwnProfile: isOwnProfile,
+                          showStats: !isBlockedEitherWay,
+                          showOnline: isOwnProfile,
+                          onDisplayNameTap:
+                              isOwnProfile ? _openAccountSwitcher : null,
+                          onFollowingTap: () => _openFollowList(
+                            FollowListMode.following,
+                            isLockedPrivate: isLockedPrivate,
                           ),
-                        ),
-                        Tab(
-                          height: WynosFounderMetrics.profileTabHeight,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.repeat_rounded, size: 20),
-                              SizedBox(width: 7),
-                              Text('รีโพสต์'),
-                            ],
+                          onFollowersTap: () => _openFollowList(
+                            FollowListMode.followers,
+                            isLockedPrivate: isLockedPrivate,
                           ),
-                        ),
-                        Tab(
-                          height: WynosFounderMetrics.profileTabHeight,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.favorite_border_rounded, size: 20),
-                              SizedBox(width: 7),
-                              Text('ถูกใจ'),
-                            ],
+                          actions: _buildProfileActions(
+                            profile: profile,
+                            isOwnProfile: isOwnProfile,
+                            isBlockedEitherWay: isBlockedEitherWay,
                           ),
+                          footer: _buildProfileFooter(profile, isOwnProfile),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
-              body: TabBarView(
-                children: [
-                  ProfileDropGridTab(
-                    dropRepository: widget.dropRepository,
-                    followRepository: widget.followRepository,
-                    profileRepository: widget.profileRepository,
-                    popRepository: widget.popRepository,
-                    savedRepository: widget.savedRepository,
-                    authorId: widget.userId,
-                    onRefreshHeader: _reload,
-                    emptyText: _gridEmptyText(
-                      isOwnProfile: isOwnProfile,
-                      isBlockedEitherWay: isBlockedEitherWay,
-                      isLockedPrivate: isLockedPrivate,
-                      contentLabel: 'Post',
-                      profile: profile,
-                    ),
-                  ),
-                  ProfileRedropsTab(
-                    homeRepository: _homeRepository,
-                    dropRepository: widget.dropRepository,
-                    followRepository: widget.followRepository,
-                    profileRepository: widget.profileRepository,
-                    popRepository: widget.popRepository,
-                    savedRepository: widget.savedRepository,
-                    authorId: widget.userId,
-                    onRefreshHeader: _reload,
-                    emptyText: _gridEmptyText(
-                      isOwnProfile: isOwnProfile,
-                      isBlockedEitherWay: isBlockedEitherWay,
-                      isLockedPrivate: isLockedPrivate,
-                      contentLabel: 'รีโพสต์',
-                      profile: profile,
-                    ),
-                  ),
-                  Column(
-                    children: [
-                      if (isOwnProfile)
-                        PrivacyNoticeBanner(
-                          prefsKey: 'seen_likes_privacy_notice',
-                          // WYN-099: tracks the owner's own current
-                          // likes_visibility setting -- must never
-                          // claim "everyone sees this" once they've
-                          // narrowed it, or the banner contradicts
-                          // the tab's real behavior.
-                          message: switch (profile.likesVisibility) {
-                            LikesVisibility.everyone =>
-                              'คนอื่นเห็นสิ่งที่คุณกด Like ได้เหมือนกัน',
-                            LikesVisibility.friends =>
-                              'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นแท็บนี้ได้',
-                            LikesVisibility.onlyMe =>
-                              'เฉพาะคุณเท่านั้นที่เห็นแท็บนี้',
-                          },
-                        ),
-                      Expanded(
-                        child: ProfileLikesTab(
-                          dropRepository: widget.dropRepository,
-                          followRepository: widget.followRepository,
-                          profileRepository: widget.profileRepository,
-                          popRepository: widget.popRepository,
-                          savedRepository: widget.savedRepository,
-                          authorId: widget.userId,
-                          onRefreshHeader: _reload,
-                          emptyText: _gridEmptyText(
-                            isOwnProfile: isOwnProfile,
-                            isBlockedEitherWay: isBlockedEitherWay,
-                            isLockedPrivate: isLockedPrivate,
-                            contentLabel: 'สิ่งที่ถูกใจ',
-                            profile: profile,
-                          ),
-                        ),
+                  if (!isOwnProfile)
+                    SliverToBoxAdapter(
+                      child: ProfileRecommendationSection(
+                        discoveryRepository: _discoveryRepository,
+                        followRepository: widget.followRepository,
+                        followRequestRepository: _followRequestRepository,
+                        profileRepository: widget.profileRepository,
                       ),
-                    ],
+                    ),
+                  // 05-profile.tsx cuts Replies/Media -- 3 tabs
+                  // (Posts/ReDrops/Likes) for every viewer now, same
+                  // public set regardless of who's looking. Saved/Draft
+                  // (own-only, private) stay on the icon row above, not
+                  // tabs here -- see _openSaved/_openDrafts.
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _ProfileTabBarDelegate(
+                      tabBar: TabBar(
+                        indicatorColor: WynColors.ink,
+                        indicatorSize: TabBarIndicatorSize.label,
+                        indicatorWeight: 2,
+                        labelColor: WynColors.ink,
+                        unselectedLabelColor: WynColors.mutedNeutral,
+                        labelStyle: _textStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        unselectedLabelStyle: _textStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        tabs: const [
+                          Tab(
+                            height: WynosFounderMetrics.profileTabHeight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.image_outlined, size: 20),
+                                  SizedBox(width: 7),
+                                  Text('สื่อ'),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Tab(
+                            height: WynosFounderMetrics.profileTabHeight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.repeat_rounded, size: 20),
+                                  SizedBox(width: 7),
+                                  Text('รีโพสต์'),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Tab(
+                            height: WynosFounderMetrics.profileTabHeight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.favorite_border_rounded, size: 20),
+                                  SizedBox(width: 7),
+                                  Text('ถูกใจ'),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
+                body: TabBarView(
+                  children: [
+                    ProfileDropGridTab(
+                      dropRepository: widget.dropRepository,
+                      followRepository: widget.followRepository,
+                      profileRepository: widget.profileRepository,
+                      popRepository: widget.popRepository,
+                      savedRepository: widget.savedRepository,
+                      authorId: widget.userId,
+                      refreshCoordinator: _refreshCoordinator,
+                      emptyText: _gridEmptyText(
+                        isOwnProfile: isOwnProfile,
+                        isBlockedEitherWay: isBlockedEitherWay,
+                        isLockedPrivate: isLockedPrivate,
+                        contentLabel: 'Post',
+                        profile: profile,
+                      ),
+                    ),
+                    ProfileRedropsTab(
+                      homeRepository: _homeRepository,
+                      dropRepository: widget.dropRepository,
+                      followRepository: widget.followRepository,
+                      profileRepository: widget.profileRepository,
+                      popRepository: widget.popRepository,
+                      savedRepository: widget.savedRepository,
+                      authorId: widget.userId,
+                      refreshCoordinator: _refreshCoordinator,
+                      emptyText: _gridEmptyText(
+                        isOwnProfile: isOwnProfile,
+                        isBlockedEitherWay: isBlockedEitherWay,
+                        isLockedPrivate: isLockedPrivate,
+                        contentLabel: 'รีโพสต์',
+                        profile: profile,
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        if (isOwnProfile)
+                          PrivacyNoticeBanner(
+                            prefsKey: 'seen_likes_privacy_notice',
+                            // WYN-099: tracks the owner's own current
+                            // likes_visibility setting -- must never
+                            // claim "everyone sees this" once they've
+                            // narrowed it, or the banner contradicts
+                            // the tab's real behavior.
+                            message: switch (profile.likesVisibility) {
+                              LikesVisibility.everyone =>
+                                'คนอื่นเห็นสิ่งที่คุณกด Like ได้เหมือนกัน',
+                              LikesVisibility.friends =>
+                                'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นแท็บนี้ได้',
+                              LikesVisibility.onlyMe =>
+                                'เฉพาะคุณเท่านั้นที่เห็นแท็บนี้',
+                            },
+                          ),
+                        Expanded(
+                          child: ProfileLikesTab(
+                            dropRepository: widget.dropRepository,
+                            followRepository: widget.followRepository,
+                            profileRepository: widget.profileRepository,
+                            popRepository: widget.popRepository,
+                            savedRepository: widget.savedRepository,
+                            authorId: widget.userId,
+                            refreshCoordinator: _refreshCoordinator,
+                            emptyText: _gridEmptyText(
+                              isOwnProfile: isOwnProfile,
+                              isBlockedEitherWay: isBlockedEitherWay,
+                              isLockedPrivate: isLockedPrivate,
+                              contentLabel: 'สิ่งที่ถูกใจ',
+                              profile: profile,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -1414,12 +1484,13 @@ TextStyle _textStyle({
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? height,
-}) => TextStyle(
-  fontSize: fontSize,
-  fontWeight: fontWeight,
-  color: color,
-  height: height,
-);
+}) =>
+    TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+    );
 
 /// WYN-110: pins the profile's TabBar (โพสต์/รีโพสต์/ถูกใจ) to the top of
 /// the screen once the header above it has scrolled away, the same

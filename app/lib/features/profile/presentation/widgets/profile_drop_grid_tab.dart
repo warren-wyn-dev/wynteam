@@ -12,6 +12,7 @@ import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../view_profile_screen.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import 'profile_refresh_coordinator.dart';
 
 /// "Posts" tab on a profile (WYN-013) -- 05-profile.tsx's PostRow: full-
 /// width rows (time, caption, hashtags, a real like/comment/redrop/view
@@ -31,6 +32,7 @@ class ProfileDropGridTab extends StatefulWidget {
     required this.authorId,
     required this.emptyText,
     this.onRefreshHeader,
+    this.refreshCoordinator,
   });
 
   final DropRepository dropRepository;
@@ -49,6 +51,9 @@ class ProfileDropGridTab extends StatefulWidget {
   // one tab's own refresh). Optional/null in every existing test that
   // builds this tab directly.
   final VoidCallback? onRefreshHeader;
+
+  /// Non-null when ViewProfileScreen owns the one visible pull-to-refresh.
+  final ProfileRefreshCoordinator? refreshCoordinator;
 
   @override
   State<ProfileDropGridTab> createState() => _ProfileDropGridTabState();
@@ -81,8 +86,26 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
   @override
   void initState() {
     super.initState();
+    widget.refreshCoordinator?.attach(this, _refreshFromPage);
     _loadInitial();
   }
+
+  @override
+  void didUpdateWidget(covariant ProfileDropGridTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshCoordinator != widget.refreshCoordinator) {
+      oldWidget.refreshCoordinator?.detach(this);
+      widget.refreshCoordinator?.attach(this, _refreshFromPage);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshCoordinator?.detach(this);
+    super.dispose();
+  }
+
+  Future<void> _refreshFromPage() => _loadInitial(showLoading: false);
 
   // WYN-110: was a private ScrollController's own listener before this
   // tab's ListView became the CustomScrollView below -- inside a
@@ -121,9 +144,9 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     return false;
   }
 
-  Future<void> _loadInitial() async {
+  Future<void> _loadInitial({bool showLoading = true}) async {
     setState(() {
-      _isLoadingInitial = true;
+      if (showLoading) _isLoadingInitial = true;
       _error = null;
     });
     try {
@@ -144,7 +167,9 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     } catch (_) {
       setState(() => _error = 'โหลดโพสต์ไม่สำเร็จ');
     } finally {
-      if (mounted) setState(() => _isLoadingInitial = false);
+      if (mounted && showLoading) {
+        setState(() => _isLoadingInitial = false);
+      }
     }
   }
 
@@ -355,62 +380,62 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
       return Center(child: Text(widget.emptyText));
     }
 
+    final content = NotificationListener<ScrollNotification>(
+      onNotification: _onScrollNotification,
+      // WYN-110: this tab is one of NestedScrollView's inner
+      // scrollables (see ViewProfileScreen's own build method). No
+      // SliverOverlapAbsorber/Injector pair needed -- that pair only
+      // matters when a *floating* SliverAppBar in the header can
+      // visually overlap the body as it slides; nothing in this
+      // screen's header floats (see ViewProfileScreen's own build
+      // method), so there is no overlap for an injector to redirect.
+      child: CustomScrollView(
+        slivers: [
+          // The last full-width post card had no breathing room above
+          // the Bottom Nav -- root cause was purely a missing bottom
+          // inset here, not the Bottom Nav actually covering content
+          // (RootShell's Scaffold already excludes its height from this
+          // tab's available space). WynSpacing.space6 matches what
+          // DropDetailScreen's own comment list already reserves at its
+          // own tail end.
+          SliverPadding(
+            padding: const EdgeInsets.only(bottom: WynSpacing.space6),
+            sliver: SliverList.separated(
+              itemCount: _drops.length + (_hasMore ? 1 : 0),
+              separatorBuilder: (context, index) => index + 1 < _drops.length
+                  ? const Divider(height: 1)
+                  : const SizedBox.shrink(),
+              itemBuilder: (context, index) {
+                if (index >= _drops.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(WynSpacing.space4),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final drop = _drops[index];
+                return HomeDropCard(
+                  key: ValueKey(drop.id),
+                  item: HomeFeedItem.fromDrop(drop),
+                  dropRepository: widget.dropRepository,
+                  onTap: () => _openDropDetail(drop),
+                  onToggleLike: () => _toggleLike(drop.id),
+                  onToggleSave: () => _toggleSave(drop.id),
+                  onOpenProfile: () => _openProfile(drop.authorId),
+                  onToggleRedrop: () => _toggleRedrop(drop.id),
+                  onQuoteRedrop: () => _quoteRedrop(drop.id),
+                  onVotePoll: (optionIndex) => _votePoll(drop.id, optionIndex),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+    if (widget.refreshCoordinator != null) return content;
     return RefreshIndicator(
       onRefresh: _onPullToRefresh,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: _onScrollNotification,
-        // WYN-110: this tab is one of NestedScrollView's inner
-        // scrollables (see ViewProfileScreen's own build method). No
-        // SliverOverlapAbsorber/Injector pair needed -- that pair only
-        // matters when a *floating* SliverAppBar in the header can
-        // visually overlap the body as it slides; nothing in this
-        // screen's header floats (see ViewProfileScreen's own build
-        // method), so there is no overlap for an injector to redirect.
-        child: CustomScrollView(
-          slivers: [
-            // The last full-width post card had no breathing room above
-            // the Bottom Nav -- root cause was purely a missing bottom
-            // inset here, not the Bottom Nav actually covering content
-            // (RootShell's Scaffold already excludes its height from this
-            // tab's available space). WynSpacing.space6 matches what
-            // DropDetailScreen's own comment list already reserves at its
-            // own tail end.
-            SliverPadding(
-              padding: const EdgeInsets.only(bottom: WynSpacing.space6),
-              sliver: SliverList.separated(
-                itemCount: _drops.length + (_hasMore ? 1 : 0),
-                separatorBuilder: (context, index) =>
-                    index + 1 < _drops.length
-                        ? const Divider(height: 1)
-                        : const SizedBox.shrink(),
-                itemBuilder: (context, index) {
-                  if (index >= _drops.length) {
-                    return const Padding(
-                      padding: EdgeInsets.all(WynSpacing.space4),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  final drop = _drops[index];
-                  return HomeDropCard(
-                    key: ValueKey(drop.id),
-                    item: HomeFeedItem.fromDrop(drop),
-                    dropRepository: widget.dropRepository,
-                    onTap: () => _openDropDetail(drop),
-                    onToggleLike: () => _toggleLike(drop.id),
-                    onToggleSave: () => _toggleSave(drop.id),
-                    onOpenProfile: () => _openProfile(drop.authorId),
-                    onToggleRedrop: () => _toggleRedrop(drop.id),
-                    onQuoteRedrop: () => _quoteRedrop(drop.id),
-                    onVotePoll: (optionIndex) =>
-                        _votePoll(drop.id, optionIndex),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: content,
     );
   }
 }

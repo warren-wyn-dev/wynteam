@@ -12,6 +12,7 @@ import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../view_profile_screen.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import 'profile_refresh_coordinator.dart';
 
 /// "Likes" tab on a profile -- WYN-071 Design, Screen 6; restyled to
 /// 05-profile.tsx's full-width PostRow (same [HomeDropCard] reuse as
@@ -30,6 +31,7 @@ class ProfileLikesTab extends StatefulWidget {
     required this.authorId,
     required this.emptyText,
     this.onRefreshHeader,
+    this.refreshCoordinator,
   });
 
   final DropRepository dropRepository;
@@ -43,6 +45,9 @@ class ProfileLikesTab extends StatefulWidget {
   // WYN-081 (Wynos V1.0.0 Beta2, item 16): see ProfileDropGridTab's
   // identical field for why this exists.
   final VoidCallback? onRefreshHeader;
+
+  /// Non-null when ViewProfileScreen owns the one visible pull-to-refresh.
+  final ProfileRefreshCoordinator? refreshCoordinator;
 
   @override
   State<ProfileLikesTab> createState() => _ProfileLikesTabState();
@@ -83,8 +88,26 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
   @override
   void initState() {
     super.initState();
+    widget.refreshCoordinator?.attach(this, _refreshFromPage);
     _loadInitial();
   }
+
+  @override
+  void didUpdateWidget(covariant ProfileLikesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshCoordinator != widget.refreshCoordinator) {
+      oldWidget.refreshCoordinator?.detach(this);
+      widget.refreshCoordinator?.attach(this, _refreshFromPage);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshCoordinator?.detach(this);
+    super.dispose();
+  }
+
+  Future<void> _refreshFromPage() => _loadInitial(showLoading: false);
 
   // WYN-110: see ProfileDropGridTab's identical doc comment -- this
   // tab is now one of NestedScrollView's inner scrollables, which owns
@@ -119,9 +142,9 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     return false;
   }
 
-  Future<void> _loadInitial() async {
+  Future<void> _loadInitial({bool showLoading = true}) async {
     setState(() {
-      _isLoadingInitial = true;
+      if (showLoading) _isLoadingInitial = true;
       _error = null;
     });
     try {
@@ -157,7 +180,9 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     } catch (_) {
       setState(() => _error = 'โหลดรายการที่ถูกใจไม่สำเร็จ');
     } finally {
-      if (mounted) setState(() => _isLoadingInitial = false);
+      if (mounted && showLoading) {
+        setState(() => _isLoadingInitial = false);
+      }
     }
   }
 
@@ -363,52 +388,52 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
       );
     }
 
+    final content = NotificationListener<ScrollNotification>(
+      onNotification: _onScrollNotification,
+      // WYN-110: see ProfileDropGridTab's identical doc comment on
+      // why no SliverOverlapAbsorber/Injector pair is needed here.
+      child: CustomScrollView(
+        slivers: [
+          // Same missing-bottom-inset fix as ProfileDropGridTab's own
+          // list -- see that file's own comment.
+          SliverPadding(
+            padding: const EdgeInsets.only(bottom: WynSpacing.space6),
+            sliver: SliverList.separated(
+              itemCount: _drops.length + (_hasMore ? 1 : 0),
+              separatorBuilder: (context, index) => index + 1 < _drops.length
+                  ? const Divider(height: 1)
+                  : const SizedBox.shrink(),
+              itemBuilder: (context, index) {
+                if (index >= _drops.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(WynSpacing.space4),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final drop = _drops[index];
+                return HomeDropCard(
+                  key: ValueKey(drop.id),
+                  item: HomeFeedItem.fromDrop(drop),
+                  dropRepository: widget.dropRepository,
+                  onTap: () => _openDropDetail(drop),
+                  onToggleLike: () => _toggleLike(drop.id),
+                  onToggleSave: () => _toggleSave(drop.id),
+                  onOpenProfile: () => _openProfile(drop.authorId),
+                  onToggleRedrop: () => _toggleRedrop(drop.id),
+                  onQuoteRedrop: () => _quoteRedrop(drop.id),
+                  onVotePoll: (optionIndex) => _votePoll(drop.id, optionIndex),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+    if (widget.refreshCoordinator != null) return content;
     return RefreshIndicator(
       onRefresh: _onPullToRefresh,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: _onScrollNotification,
-        // WYN-110: see ProfileDropGridTab's identical doc comment on
-        // why no SliverOverlapAbsorber/Injector pair is needed here.
-        child: CustomScrollView(
-          slivers: [
-            // Same missing-bottom-inset fix as ProfileDropGridTab's own
-            // list -- see that file's own comment.
-            SliverPadding(
-              padding: const EdgeInsets.only(bottom: WynSpacing.space6),
-              sliver: SliverList.separated(
-                itemCount: _drops.length + (_hasMore ? 1 : 0),
-                separatorBuilder: (context, index) =>
-                    index + 1 < _drops.length
-                        ? const Divider(height: 1)
-                        : const SizedBox.shrink(),
-                itemBuilder: (context, index) {
-                  if (index >= _drops.length) {
-                    return const Padding(
-                      padding: EdgeInsets.all(WynSpacing.space4),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  final drop = _drops[index];
-                  return HomeDropCard(
-                    key: ValueKey(drop.id),
-                    item: HomeFeedItem.fromDrop(drop),
-                    dropRepository: widget.dropRepository,
-                    onTap: () => _openDropDetail(drop),
-                    onToggleLike: () => _toggleLike(drop.id),
-                    onToggleSave: () => _toggleSave(drop.id),
-                    onOpenProfile: () => _openProfile(drop.authorId),
-                    onToggleRedrop: () => _toggleRedrop(drop.id),
-                    onQuoteRedrop: () => _quoteRedrop(drop.id),
-                    onVotePoll: (optionIndex) =>
-                        _votePoll(drop.id, optionIndex),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: content,
     );
   }
 }
