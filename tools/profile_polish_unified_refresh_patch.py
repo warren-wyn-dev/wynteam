@@ -11,29 +11,6 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Profile header: repair compact icon glyph after the direct layout rewrite.
-# ---------------------------------------------------------------------------
-header_path = ROOT / "app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart"
-header = header_path.read_text(encoding="utf-8")
-header = replace_once(
-    header,
-    "        icon: const SizedBox.shrink(),",
-    "        icon: Icon(icon, size: 21, color: WynColors.ink),",
-    "profile icon glyph",
-)
-header = replace_once(
-    header,
-    "        // Keep the glyph slightly smaller together with the compact action\n"
-    "        // row; the hit target remains the full metric-sized button.\n"
-    "        selectedIcon: null,\n"
-    "        isSelected: false,\n",
-    "",
-    "remove temporary icon placeholders",
-)
-header_path.write_text(header, encoding="utf-8")
-
-
-# ---------------------------------------------------------------------------
 # ViewProfileScreen: one page-level refresh + suggested-follow sheet.
 # ---------------------------------------------------------------------------
 view_path = ROOT / "app/lib/features/profile/presentation/view_profile_screen.dart"
@@ -63,18 +40,18 @@ view = replace_once(
 )
 
 refresh_method = r'''
-  /// One pull gesture refreshes the visible Profile as one surface: header,
-  /// follower/following counts, relationship state and mounted tab content.
-  /// Individual tabs suppress their own RefreshIndicator while attached to
-  /// [_refreshCoordinator], so the user never sees two independent refreshes.
+  /// One pull gesture refreshes Profile as one surface: header, counts,
+  /// relationship state and every mounted profile-tab data source. The tab
+  /// widgets suppress their own RefreshIndicator while coordinated here, so
+  /// the user sees exactly one spinner and one completion point.
   Future<void> _refreshWholeProfile() async {
     if (_isProfileRefreshInFlight) return;
     _isProfileRefreshInFlight = true;
 
     try {
-      // Start every independent request together. The existing UI remains on
-      // screen while the single page-level RefreshIndicator is visible; we do
-      // not swap FutureBuilder back to ProfileSkeleton during a pull refresh.
+      // Keep the current Profile visible while refreshing. Swapping the
+      // FutureBuilder back to a loading Future would flash the skeleton and
+      // make one pull gesture look like two independent refresh operations.
       final freshDataFuture = _load();
       final secondaryRefreshes = <Future<void>>[
         _refreshCoordinator.refreshAll(),
@@ -93,10 +70,7 @@ refresh_method = r'''
       final freshData = await freshDataFuture;
       await Future.wait(secondaryRefreshes);
       if (!mounted) return;
-
-      setState(() {
-        _loadFuture = Future.value(freshData);
-      });
+      setState(() => _loadFuture = Future.value(freshData));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,9 +98,9 @@ suggested_method = r'''
       onShowAll: _openSearch,
     );
 
-    // Following from the sheet changes the own-profile Following count. Sync
-    // the whole surface once the sheet closes instead of updating one number
-    // independently from the feed/header state.
+    // A Follow action in the sheet can change this profile's Following count.
+    // Resync via the same whole-page refresh path instead of independently
+    // mutating only that number.
     if (mounted) await _refreshWholeProfile();
   }
 
@@ -173,8 +147,19 @@ view = view.replace(
     "refreshCoordinator: _refreshCoordinator,",
 )
 
-# Close NestedScrollView, then RefreshIndicator. Use the last matching tail in
-# this build method so unrelated constructors earlier in the file are untouched.
+# On 320-430px viewports a fixed one-third tab can be narrower than the icon +
+# Thai label. Scale only the tab contents down as needed; the Tab itself and
+# touch target keep their full width/height.
+for icon, label in [
+    ("Icons.image_outlined", "สื่อ"),
+    ("Icons.repeat_rounded", "รีโพสต์"),
+    ("Icons.favorite_border_rounded", "ถูกใจ"),
+]:
+    old = f'''                          child: Row(\n                            mainAxisAlignment: MainAxisAlignment.center,\n                            children: [\n                              Icon({icon}, size: 20),\n                              SizedBox(width: 7),\n                              Text('{label}'),\n                            ],\n                          ),'''
+    new = f'''                          child: FittedBox(\n                            fit: BoxFit.scaleDown,\n                            child: Row(\n                              mainAxisSize: MainAxisSize.min,\n                              children: [\n                                Icon({icon}, size: 20),\n                                SizedBox(width: 7),\n                                Text('{label}'),\n                              ],\n                            ),\n                          ),'''
+    view = replace_once(view, old, new, f"responsive tab {label}")
+
+# Close NestedScrollView, then RefreshIndicator.
 tail = "              ),\n            );\n          },\n        ),\n      ),\n    );\n  }\n}"
 replacement_tail = "              ),\n              ),\n            );\n          },\n        ),\n      ),\n    );\n  }\n}"
 idx = view.rfind(tail)
@@ -186,8 +171,8 @@ view_path.write_text(view, encoding="utf-8")
 
 # ---------------------------------------------------------------------------
 # Profile tabs: register non-blocking data refresh with the page coordinator.
-# Keep their old standalone RefreshIndicator behavior when constructed without
-# a coordinator so existing isolated tests/call sites remain compatible.
+# Keep their standalone RefreshIndicator behavior when constructed without a
+# coordinator so existing isolated uses/tests retain their old contract.
 # ---------------------------------------------------------------------------
 def patch_tab(relative_path: str, widget_class: str) -> None:
     path = ROOT / relative_path
