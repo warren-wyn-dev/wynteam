@@ -1,0 +1,69 @@
+name: Apply Beta5 Profile V2
+
+on:
+  push:
+    branches:
+      - feature/beta5-profile-v2
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/beta5-profile-v2
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply Profile V2 patch
+        run: python3 .github/scripts/apply_beta5_profile_v2.py
+
+      - name: Format Dart
+        run: |
+          dart format \
+            app/lib/features/profile/data/profile.dart \
+            app/lib/features/profile/data/profile_repository.dart \
+            app/lib/features/drop/data/drop_repository.dart \
+            app/lib/features/profile/presentation/view_profile_screen.dart \
+            app/lib/features/profile/presentation/profile_cover_editor_screen.dart \
+            app/lib/features/profile/presentation/widgets/profile_v2_header.dart \
+            app/lib/features/profile/presentation/widgets/profile_pinned_drops_sheet.dart \
+            app/lib/features/profile/presentation/widgets/profile_drop_grid_tab.dart \
+            app/lib/features/profile/presentation/widgets/profile_redrops_tab.dart \
+            app/lib/features/profile/presentation/widgets/profile_likes_tab.dart \
+            app/test/support/recording_drop_repository.dart \
+            app/test/view_profile_screen_test.dart \
+            app/test/qa_wyn110_profile_scroll_header_test.dart \
+            app/test/beta5_profile_v2_test.dart \
+            app/test/audit_remaining_regression_test.dart
+
+      - name: Check schema ordering
+        run: python3 supabase/check_schema_ordering.py
+
+      - name: Flutter dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze --no-pub
+
+      - name: Commit generated implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit"
+            exit 0
+          fi
+          git commit -m "feat(profile): implement Beta5 Profile V2"
+          git push origin HEAD:feature/beta5-profile-v2
