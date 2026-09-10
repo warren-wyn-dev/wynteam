@@ -103,6 +103,12 @@ class HomeDropCard extends StatelessWidget {
   /// unaffected -- only home_feed_screen.dart passes false.
   final bool showViewCount;
 
+  // Home passes showViewCount:false. Reuse that existing surface flag to
+  // opt the Home timeline into the Founder-approved Threads + X visual
+  // treatment without changing Profile/Search/Hashtag call sites that share
+  // this card and intentionally keep their current appearance.
+  bool get _isHomeFeedSurface => !showViewCount;
+
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
 
@@ -113,6 +119,142 @@ class HomeDropCard extends StatelessWidget {
   bool get _isOwnRedrop =>
       item.redropId != null &&
       item.redropperId == Supabase.instance.client.auth.currentUser!.id;
+
+  Widget _captionText(String text) {
+    return HashtagText(
+      text,
+      style: _isHomeFeedSurface
+          ? const TextStyle(
+              color: WynColors.ink,
+              fontSize: 14.5,
+              height: 1.35,
+              fontWeight: FontWeight.w400,
+            )
+          : null,
+    );
+  }
+
+  Widget _buildActionBar(BuildContext context) {
+    final actionIconSize = _isHomeFeedSurface ? 20.0 : 17.0;
+    final metrics = <Widget>[
+      ActionMetric(
+        icon: WynHeartIcon(
+          filled: item.likedByMe,
+          size: actionIconSize,
+          color: item.likedByMe ? WynColors.iconLikeActive : WynColors.iconIdle,
+        ),
+        iconState: item.likedByMe,
+        count: item.likeCount,
+        color: item.likedByMe ? WynColors.iconLikeActive : WynColors.iconIdle,
+        semanticsLabel:
+            item.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
+        onTap: onToggleLike,
+      ),
+      const SizedBox(width: WynSpacing.space5),
+      ActionMetric(
+        icon: Icon(
+          Icons.mode_comment_outlined,
+          size: actionIconSize,
+          color: WynColors.graphite,
+        ),
+        iconState: Icons.mode_comment_outlined,
+        count: item.commentCount,
+        color: WynColors.graphite,
+        semanticsLabel: 'ดูคอมเมนต์',
+        onTap: onTap,
+      ),
+      if (item.audience == AudienceOption.everyone) ...[
+        const SizedBox(width: WynSpacing.space5),
+        ActionMetric(
+          icon: Icon(
+            Icons.repeat,
+            size: actionIconSize,
+            color:
+                item.redroppedByMe ? WynColors.iconActive : WynColors.iconIdle,
+          ),
+          iconState: item.redroppedByMe,
+          count: item.redropCount,
+          color: item.redroppedByMe ? WynColors.sapphire : WynColors.graphite,
+          semanticsLabel: item.redroppedByMe
+              ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
+              : 'กดเพื่อรีโพสต์',
+          onTap: () => _openRedropSheet(context),
+        ),
+      ],
+      if (showViewCount) ...[
+        const SizedBox(width: WynSpacing.space5),
+        ActionMetric(
+          icon: const Icon(
+            Icons.visibility_outlined,
+            size: 16,
+            color: WynColors.faint,
+          ),
+          iconState: Icons.visibility_outlined,
+          count: item.viewCount,
+          color: WynColors.faint,
+          semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+          onTap: null,
+        ),
+      ],
+    ];
+
+    final metricsRow = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(mainAxisSize: MainAxisSize.min, children: metrics),
+    );
+
+    if (!_isHomeFeedSurface) {
+      return Padding(
+        padding: const EdgeInsets.only(right: homeCardEdgeInset),
+        child: metricsRow,
+      );
+    }
+
+    // The approved Home mockup keeps Like / Comment / Repost on the left and
+    // exposes Save as a first-class action at the far right. This only affects
+    // Home; the overflow menu still contains Save too for feature parity.
+    return Padding(
+      padding: EdgeInsets.only(
+        right: homeCardEdgeInset,
+        top: item.likedBy.isNotEmpty ? 6 : 0,
+      ),
+      child: SizedBox(
+        height: WynSpacing.touchTargetMin,
+        child: Row(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: metricsRow,
+              ),
+            ),
+            const SizedBox(width: WynSpacing.space1),
+            SizedBox(
+              width: WynSpacing.touchTargetMin,
+              height: WynSpacing.touchTargetMin,
+              child: IconButton(
+                tooltip: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: WynSpacing.touchTargetMin,
+                  height: WynSpacing.touchTargetMin,
+                ),
+                icon: Icon(
+                  item.savedByMe
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_border_rounded,
+                  size: 22,
+                  color: WynColors.ink,
+                ),
+                onPressed: onToggleSave,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _share() async {
     await SharePlus.instance.share(
@@ -230,7 +372,9 @@ class HomeDropCard extends StatelessWidget {
           // 01-home.tsx's own `pt-4 pb-4` per post -- the card is
           // wider-set now, and the old 8 left it looking cramped
           // against the extra horizontal room.
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+          padding: EdgeInsets.symmetric(
+            vertical: _isHomeFeedSurface ? 12 : WynSpacing.space4,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -349,9 +493,17 @@ class HomeDropCard extends StatelessWidget {
                                           Flexible(
                                             child: Text(
                                               item.authorNameOrUsername,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleSmall,
+                                              style: _isHomeFeedSurface
+                                                  ? const TextStyle(
+                                                      color: WynColors.ink,
+                                                      fontSize: 15.5,
+                                                      height: 1.15,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    )
+                                                  : Theme.of(context)
+                                                      .textTheme
+                                                      .titleSmall,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
@@ -414,7 +566,13 @@ class HomeDropCard extends StatelessWidget {
                               // name off the avatar's own top line.
                               // Still >= the 44 minimum DS-001 6 sets.
                               IconButton(
-                                icon: const Icon(Icons.more_vert),
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  size: _isHomeFeedSurface ? 22 : 24,
+                                  color: _isHomeFeedSurface
+                                      ? WynColors.graphite
+                                      : null,
+                                ),
                                 tooltip: 'เพิ่มเติม',
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints.tightFor(
@@ -453,9 +611,9 @@ class HomeDropCard extends StatelessWidget {
                                 ? DoubleTapLike(
                                     onLike: onToggleLike,
                                     alreadyLiked: item.likedByMe,
-                                    child: HashtagText(item.caption!),
+                                    child: _captionText(item.caption!),
                                   )
-                                : HashtagText(item.caption!),
+                                : _captionText(item.caption!),
                           ),
                         if (item.isPoll)
                           Padding(
@@ -541,112 +699,7 @@ class HomeDropCard extends StatelessWidget {
                               totalLikeCount: item.likeCount,
                             ),
                           ),
-                        Padding(
-                          // WYN-096 aligned this row with the rest of the card;
-                          // WYN-107 moved the whole card into a content column, so
-                          // "the rest of the card" is now the column's own left
-                          // edge -- which is exactly what the Founder asked for
-                          // when they circled this row: "ปุ่มควรขยับ ให้ตรงชื่อ".
-                          // ActionMetric's own internal spacing stays untouched.
-                          padding:
-                              const EdgeInsets.only(right: homeCardEdgeInset),
-                          // QA-WYN-110-002: at 320px width the 4 ActionMetrics
-                          // + their spacing overflow the available column by
-                          // 3px even at count 0 -- not a long-number problem.
-                          // FittedBox(scaleDown) is a no-op the instant the Row
-                          // already fits (everything 360px and up), and only
-                          // uniformly shrinks by the few percent needed to
-                          // close a few-pixel gap at 320px, rather than a
-                          // breakpoint-specific spacing change.
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Row(
-                              children: [
-                                // Heart/comment/repost/eye sizing+color match
-                                // WYNOSHomeSpec.md 4.9's table exactly -- exactly
-                                // these 4 elements now that Share/Bookmark moved
-                                // into the "..." menu (see _openMoreMenu, spec 4.6).
-                                ActionMetric(
-                                  icon: WynHeartIcon(
-                                    filled: item.likedByMe,
-                                    size: 17,
-                                    color: item.likedByMe
-                                        ? WynColors.iconLikeActive
-                                        : WynColors.iconIdle,
-                                  ),
-                                  iconState: item.likedByMe,
-                                  count: item.likeCount,
-                                  color: item.likedByMe
-                                      ? WynColors.iconLikeActive
-                                      : WynColors.iconIdle,
-                                  semanticsLabel: item.likedByMe
-                                      ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
-                                      : 'กดเพื่อถูกใจ',
-                                  onTap: onToggleLike,
-                                ),
-                                const SizedBox(width: WynSpacing.space5),
-                                ActionMetric(
-                                  icon: const Icon(Icons.mode_comment_outlined,
-                                      size: 17, color: WynColors.graphite),
-                                  iconState: Icons.mode_comment_outlined,
-                                  count: item.commentCount,
-                                  color: WynColors.graphite,
-                                  semanticsLabel: 'ดูคอมเมนต์',
-                                  onTap: onTap,
-                                ),
-                                // WYN-097, Design spec Screen 6: hidden entirely
-                                // (not disabled/greyed) once this post's audience
-                                // isn't "ทุกคน" -- prevents "รีโพสต์ได้แต่คนอื่นเห็น
-                                // แค่บางคน" confusion, same "ซ่อนเองอัตโนมัติ"
-                                // posture the 9-image toolbar limit (WYN-071)
-                                // already established.
-                                if (item.audience ==
-                                    AudienceOption.everyone) ...[
-                                  const SizedBox(width: WynSpacing.space5),
-                                  ActionMetric(
-                                    icon: Icon(Icons.repeat,
-                                        size: 17,
-                                        color: item.redroppedByMe
-                                            ? WynColors.iconActive
-                                            : WynColors.iconIdle),
-                                    iconState: item.redroppedByMe,
-                                    count: item.redropCount,
-                                    // WYN-089: same active-state color the Focused Action
-                                    // Bar (DropDetailScreen._buildFocusedActionBar) has
-                                    // used for this all along -- only the icon changes
-                                    // color, the count stays graphite (same convention
-                                    // as Like: the number is a total, not a status
-                                    // indicator).
-                                    color: item.redroppedByMe
-                                        ? WynColors.sapphire
-                                        : WynColors.graphite,
-                                    semanticsLabel: item.redroppedByMe
-                                        ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
-                                        : 'กดเพื่อรีโพสต์',
-                                    onTap: () => _openRedropSheet(context),
-                                  ),
-                                ],
-                                // WYN-088: hidden on the Home feed (showViewCount:
-                                // false there) -- still shown everywhere else this
-                                // card is reused (Profile's 3 tabs, hashtag feed).
-                                if (showViewCount) ...[
-                                  const SizedBox(width: WynSpacing.space5),
-                                  ActionMetric(
-                                    icon: const Icon(Icons.visibility_outlined,
-                                        size: 16, color: WynColors.faint),
-                                    iconState: Icons.visibility_outlined,
-                                    count: item.viewCount,
-                                    color: WynColors.faint,
-                                    semanticsLabel:
-                                        'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                                    onTap: null,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
+                        _buildActionBar(context),
                         if (item.topReply != null)
                           Padding(
                             padding:

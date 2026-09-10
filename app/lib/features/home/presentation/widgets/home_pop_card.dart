@@ -67,8 +67,111 @@ class HomePopCard extends StatelessWidget {
   /// Defaults to true; only home_feed_screen.dart passes false.
   final bool showViewCount;
 
+  bool get _isHomeFeedSurface => !showViewCount;
+
   bool get _isOwnPop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
+
+  Widget _buildActionBar() {
+    final actionIconSize = _isHomeFeedSurface ? 20.0 : 17.0;
+    final metrics = <Widget>[
+      ActionMetric(
+        icon: WynHeartIcon(
+          filled: item.likedByMe,
+          size: actionIconSize,
+          color: item.likedByMe ? WynColors.iconLikeActive : WynColors.iconIdle,
+        ),
+        iconState: item.likedByMe,
+        count: item.likeCount,
+        color: item.likedByMe ? WynColors.iconLikeActive : WynColors.iconIdle,
+        semanticsLabel:
+            item.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
+        onTap: onToggleLike,
+      ),
+      const SizedBox(width: WynSpacing.space5),
+      ActionMetric(
+        icon: Icon(
+          Icons.mode_comment_outlined,
+          size: actionIconSize,
+          color: WynColors.graphite,
+        ),
+        iconState: Icons.mode_comment_outlined,
+        count: item.commentCount,
+        color: WynColors.graphite,
+        semanticsLabel: 'ดูคอมเมนต์',
+        onTap: onTapComment ?? onTap,
+      ),
+      if (showViewCount) ...[
+        const SizedBox(width: WynSpacing.space5),
+        ActionMetric(
+          icon: const Icon(
+            Icons.visibility_outlined,
+            size: 16,
+            color: WynColors.faint,
+          ),
+          iconState: Icons.visibility_outlined,
+          count: item.viewCount,
+          color: WynColors.faint,
+          semanticsLabel: 'เข้าชมแล้ว ${item.viewCount} ครั้ง',
+          onTap: null,
+        ),
+      ],
+    ];
+
+    final metricsRow = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(mainAxisSize: MainAxisSize.min, children: metrics),
+    );
+
+    if (!_isHomeFeedSurface) {
+      return Padding(
+        padding: const EdgeInsets.only(right: homeCardEdgeInset),
+        child: metricsRow,
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(
+        right: homeCardEdgeInset,
+        top: item.likedBy.isNotEmpty ? 6 : 0,
+      ),
+      child: SizedBox(
+        height: WynSpacing.touchTargetMin,
+        child: Row(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: metricsRow,
+              ),
+            ),
+            const SizedBox(width: WynSpacing.space1),
+            SizedBox(
+              width: WynSpacing.touchTargetMin,
+              height: WynSpacing.touchTargetMin,
+              child: IconButton(
+                tooltip: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: WynSpacing.touchTargetMin,
+                  height: WynSpacing.touchTargetMin,
+                ),
+                icon: Icon(
+                  item.savedByMe
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_border_rounded,
+                  size: 22,
+                  color: WynColors.ink,
+                ),
+                onPressed: onToggleSave,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _share() async {
     await SharePlus.instance.share(
@@ -128,7 +231,9 @@ class HomePopCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+          padding: EdgeInsets.symmetric(
+            vertical: _isHomeFeedSurface ? 12 : WynSpacing.space4,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -197,7 +302,13 @@ class HomePopCard extends StatelessWidget {
                               // whether the authorship-gated Hide row
                               // appears underneath those two.
                               IconButton(
-                                icon: const Icon(Icons.more_vert),
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  size: _isHomeFeedSurface ? 22 : 24,
+                                  color: _isHomeFeedSurface
+                                      ? WynColors.graphite
+                                      : null,
+                                ),
                                 tooltip: 'เพิ่มเติม',
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints.tightFor(
@@ -297,71 +408,7 @@ class HomePopCard extends StatelessWidget {
                               totalLikeCount: item.likeCount,
                             ),
                           ),
-                        Padding(
-                          // WYN-096 aligned this row with the rest of
-                          // the card; WYN-107 moved the card into a
-                          // content column, so that alignment is now the
-                          // column's own left edge -- same change, same
-                          // reason, as HomeDropCard's identical row.
-                          padding:
-                              const EdgeInsets.only(right: homeCardEdgeInset),
-                          child: Row(
-                            children: [
-                              // Same WYNOSHomeSpec.md 4.9 sizing/color as
-                              // HomeDropCard's action bar (see that file) -- Pop
-                              // has no ReDrop concept, so only 3 of the 4 spec'd
-                              // metrics apply here. Share/Bookmark moved into
-                              // the "..." menu (see _openMoreMenu, spec 4.6).
-                              ActionMetric(
-                                icon: WynHeartIcon(
-                                  filled: item.likedByMe,
-                                  size: 17,
-                                  color: item.likedByMe
-                                      ? WynColors.iconLikeActive
-                                      : WynColors.iconIdle,
-                                ),
-                                iconState: item.likedByMe,
-                                count: item.likeCount,
-                                color: item.likedByMe
-                                    ? WynColors.iconLikeActive
-                                    : WynColors.iconIdle,
-                                semanticsLabel: item.likedByMe
-                                    ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
-                                    : 'กดเพื่อถูกใจ',
-                                onTap: onToggleLike,
-                              ),
-                              const SizedBox(width: WynSpacing.space5),
-                              ActionMetric(
-                                icon: const Icon(Icons.mode_comment_outlined,
-                                    size: 17, color: WynColors.graphite),
-                                iconState: Icons.mode_comment_outlined,
-                                count: item.commentCount,
-                                color: WynColors.graphite,
-                                semanticsLabel: 'ดูคอมเมนต์',
-                                onTap: onTapComment ?? onTap,
-                              ),
-                              // WYN-088: hidden on the Home feed (showViewCount:
-                              // false there) -- HomePopCard has no other call
-                              // site today, but this stays symmetric with
-                              // HomeDropCard's identical toggle for whenever Pop
-                              // returns to Profile (ProfilePopGridTab already
-                              // exists, just unwired -- see its own doc comment).
-                              if (showViewCount) ...[
-                                const SizedBox(width: WynSpacing.space5),
-                                ActionMetric(
-                                  icon: const Icon(Icons.visibility_outlined,
-                                      size: 16, color: WynColors.faint),
-                                  iconState: Icons.visibility_outlined,
-                                  count: item.viewCount,
-                                  color: WynColors.faint,
-                                  semanticsLabel:
-                                      'เข้าชมแล้ว ${item.viewCount} ครั้ง',
-                                  onTap: null,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                        _buildActionBar(),
                         if (item.topReply != null)
                           Padding(
                             padding:
