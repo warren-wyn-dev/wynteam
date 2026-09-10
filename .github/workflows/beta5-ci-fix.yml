@@ -1,0 +1,117 @@
+name: Beta5 CI repair
+
+on:
+  push:
+    branches:
+      - feature/beta5-profile-v2
+    paths:
+      - .github/workflows/beta5-ci-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/beta5-profile-v2
+          fetch-depth: 0
+
+      - name: Apply targeted Beta5 CI fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, expected_min=1):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count < expected_min:
+                  raise SystemExit(f"Expected at least {expected_min} occurrence(s) in {path}, found {count}: {old!r}")
+              p.write_text(text.replace(old, new))
+              print(f"{path}: replaced {count} occurrence(s)")
+
+          # Settings footer now intentionally reports the Beta5 release label
+          # identically in regular/developer modes.
+          p = Path('app/test/settings_screen_test.dart')
+          text = p.read_text()
+          text = text.replace("V1.0.0 Beta4", "V1.0.0 Beta5")
+          text = text.replace("V1.0.0 Beta5 [พัฒนาอยู่]", "V1.0.0 Beta5")
+          p.write_text(text)
+
+          # Keep the atomic publication guard, but tolerate normal Dart line
+          # wrapping between the client and rpc() call.
+          replace(
+              'app/test/drop_aspect_ratio_test.dart',
+              'src.contains("await _client.rpc(\'publish_drop\'")',
+              '''RegExp(\n        r"await\\s+_client\\s*\\.rpc\\(\\s*'publish_drop'",\n        multiLine: true,\n      ).hasMatch(src)''',
+          )
+
+          # Beta5 moved Edit Profile into the app bar. The scroll contract is
+          # now expressed by the compact identity appearing while collapsed,
+          # not by the removed full-width Edit Profile row disappearing.
+          p = Path('app/test/view_profile_screen_scroll_test.dart')
+          text = p.read_text()
+          text = text.replace(
+              "expect(find.text('แก้ไขโปรไฟล์'), findsOneWidget);",
+              "expect(find.byKey(const Key('profile_edit_button')), findsOneWidget);",
+              1,
+          )
+          text = text.replace(
+              "expect(find.text('แก้ไขโปรไฟล์'), findsNothing);",
+              "expect(find.byKey(const Key('profile_v2_compact_identity')), findsOneWidget);",
+              1,
+          )
+          text = text.replace(
+              "expect(find.text('แก้ไขโปรไฟล์'), findsNothing);",
+              "expect(find.byKey(const Key('profile_v2_compact_identity')), findsOneWidget);",
+              1,
+          )
+          text = text.replace(
+              "expect(find.text('แก้ไขโปรไฟล์'), findsOneWidget);",
+              "expect(find.byKey(const Key('profile_v2_compact_identity')), findsNothing);\n    expect(find.byKey(const Key('profile_edit_button')), findsOneWidget);",
+              1,
+          )
+          if "find.text('แก้ไขโปรไฟล์')" in text:
+              raise SystemExit('stale Edit Profile text finder remains in scroll test')
+          p.write_text(text)
+
+          # setState callbacks must be synchronous/void; assigning a Future in
+          # an arrow callback violates Flutter's runtime contract.
+          replace(
+              'app/lib/features/profile/presentation/view_profile_screen.dart',
+              'setState(() => _loadFuture = next);',
+              '''setState(() {\n      _loadFuture = next;\n    });''',
+          )
+
+          # Guard against the design-system failure seen on the previous CI
+          # head. This is a no-op if the branch already contains the token fix.
+          p = Path('app/lib/features/profile/presentation/profile_cover_editor_screen.dart')
+          text = p.read_text()
+          if 'Colors.red' in text:
+              p.write_text(text.replace('Colors.red', 'WynColors.iconLikeActive'))
+              print(f'{p}: replaced Colors.red')
+          PY
+
+      - name: Show diff
+        run: git diff --check && git diff --stat && git diff
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/test/settings_screen_test.dart \
+                  app/test/drop_aspect_ratio_test.dart \
+                  app/test/view_profile_screen_scroll_test.dart \
+                  app/lib/features/profile/presentation/view_profile_screen.dart \
+                  app/lib/features/profile/presentation/profile_cover_editor_screen.dart
+          git commit -m "fix(beta5): repair Flutter CI regressions"
+          git push origin HEAD:feature/beta5-profile-v2
