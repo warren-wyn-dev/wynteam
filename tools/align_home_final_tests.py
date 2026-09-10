@@ -24,6 +24,48 @@ text = replace_exact(
     "      child: InkWell(\n        key: Key('home_feed_mode_${mode.name}'),\n        onTap: () => _selectFeedMode(mode),",
     "feed-tab key",
 )
+text = replace_exact(
+    text,
+    """            Expanded(
+              child: Center(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? WynColors.ink : WynColors.graphite,
+                    fontSize: 15,
+                    height: 1,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),""",
+    """            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: selected ? WynColors.ink : WynColors.graphite,
+                        fontSize: 15,
+                        height: 1,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),""",
+    "fixed tab label scaling",
+)
 home.write_text(text)
 
 
