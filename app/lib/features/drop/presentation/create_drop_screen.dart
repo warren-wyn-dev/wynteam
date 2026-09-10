@@ -74,12 +74,12 @@ class CreateDropScreen extends StatefulWidget {
     LocationRepository? locationRepository,
     this.draft,
     @visibleForTesting this.debugInitialImagesBytes,
-  })  : _profileRepository = profileRepository,
-        _hashtagRepository = hashtagRepository,
-        _moderationRepository = moderationRepository,
-        _appealRepository = appealRepository,
-        _followRepository = followRepository,
-        _locationRepository = locationRepository;
+  }) : _profileRepository = profileRepository,
+       _hashtagRepository = hashtagRepository,
+       _moderationRepository = moderationRepository,
+       _appealRepository = appealRepository,
+       _followRepository = followRepository,
+       _locationRepository = locationRepository;
 
   final DropRepository dropRepository;
 
@@ -141,13 +141,14 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       widget._profileRepository ?? ProfileRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
       widget._moderationRepository ??
-          ModerationRepository(Supabase.instance.client);
+      ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
   late final FollowRepository _followRepository =
       widget._followRepository ?? FollowRepository(Supabase.instance.client);
   late final LocationRepository _locationRepository =
-      widget._locationRepository ?? LocationRepository(Supabase.instance.client);
+      widget._locationRepository ??
+      LocationRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
 
   // WYN-097: who can see this Drop -- see AudienceOption's own doc
@@ -349,7 +350,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       _pollOptionControllers
         ..clear()
         ..addAll(
-            pollOptions.map((option) => TextEditingController(text: option)));
+          pollOptions.map((option) => TextEditingController(text: option)),
+        );
       _pollDurationDays = draft.pollDurationDays ?? 1;
     }
   }
@@ -805,8 +807,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     } on DropPublicationStateUnknownException {
       if (!mounted) return;
       WynFeedback.failed();
-      setState(() => _errorMessage =
-          'ยังยืนยันสถานะการแชร์ไม่ได้ กรุณาต่ออินเทอร์เน็ตแล้วกดตรวจสอบอีกครั้ง');
+      setState(
+        () => _errorMessage = 'ยังยืนยันสถานะการแชร์ไม่ได้ กรุณาต่ออินเทอร์เน็ตแล้วกดตรวจสอบอีกครั้ง',
+      );
     } catch (_) {
       if (!mounted) return;
       WynFeedback.failed();
@@ -905,10 +908,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         imageBytes: isImageMode && _imagesBytes.isNotEmpty
             ? _imagesBytes.first
             : null,
-        imageExtension:
-            _imageExtensions.isNotEmpty ? _imageExtensions.first : 'jpg',
-        existingImageUrl:
-            isImageMode && _imagesBytes.isEmpty ? _existingImageUrl : null,
+        imageExtension: _imageExtensions.isNotEmpty
+            ? _imageExtensions.first
+            : 'jpg',
+        existingImageUrl: isImageMode && _imagesBytes.isEmpty
+            ? _existingImageUrl
+            : null,
         caption: _captionController.text,
         pollOptions: _mode == _ComposeMode.poll
             ? _pollOptionControllers.map((c) => c.text.trim()).toList()
@@ -959,94 +964,100 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                 ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(WynSpacing.space4,
-                      WynSpacing.space4, WynSpacing.space4, WynSpacing.space4),
-                  child: Row(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(
+                    WynSpacing.space4,
+                    WynSpacing.space4,
+                    WynSpacing.space4,
+                    WynSpacing.space4,
+                  ),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      AvatarCircle(
-                        imageUrl: _ownProfile?.avatarUrl,
-                        fallbackText: _ownProfile?.username ?? '',
-                        radius: 20,
-                        ring: true,
+                      Row(
+                        children: [
+                          AvatarCircle(
+                            imageUrl: _ownProfile?.avatarUrl,
+                            fallbackText: _ownProfile?.username ?? '',
+                            radius: 22,
+                            ring: true,
+                          ),
+                          const SizedBox(width: WynSpacing.space3),
+                          _AudienceChip(
+                            value: _audience,
+                            onTap: _isSharing ? null : _showAudiencePicker,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: WynSpacing.space3),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _AudienceChip(
-                              value: _audience,
-                              onTap: _isSharing ? null : _showAudiencePicker,
-                            ),
-                            const SizedBox(height: WynSpacing.space3),
-                            // Shared between both modes -- doubles as the
-                            // Poll's question when _mode is poll (same
-                            // role it always played, just reordered to
-                            // render before the image strip/poll options
-                            // now, matching 04-drop.tsx's textarea-then-
-                            // attachments order instead of the old
-                            // attachments-then-caption order).
-                            MentionInput(
-                              controller: _captionController,
-                              profileRepository: _profileRepository,
-                              hashtagRepository: widget._hashtagRepository,
-                              onMentionedUsersChanged: (ids) =>
-                                  setState(() => _mentionedUserIds = ids),
-                              maxLength: _captionMaxLength,
-                              maxLines: null,
-                              minLines: 3,
-                              enabled: !_isSharing,
-                              style: const TextStyle(
-                                  fontSize: 20, color: WynColors.ink, height: 1.4),
-                              decoration: InputDecoration(
-                                hintText: _mode == _ComposeMode.poll
-                                    ? 'ตั้งคำถามโพล...'
-                                    : 'มีอะไรเกิดขึ้นบ้าง',
-                                hintStyle: const TextStyle(
-                                    fontSize: 20, color: WynColors.faint, height: 1.4),
-                                border: InputBorder.none,
-                                counterText: '',
-                                contentPadding: EdgeInsets.zero,
-                                isDense: true,
-                              ),
-                            ),
-                            if (_mode == _ComposeMode.image)
-                              _buildImageStrip()
-                            else
-                              _buildPollComposer(),
-                            if (_selectedLocation != null) ...[
-                              const SizedBox(height: WynSpacing.space3),
-                              _LocationChip(
-                                location: _selectedLocation!,
-                                onRemove: _isSharing ? null : _removeLocation,
-                              ),
-                            ],
-                            if (_captionController.text.length >
-                                _captionMaxLength * 0.8)
-                              Padding(
-                                padding:
-                                    const EdgeInsets.only(top: WynSpacing.space1),
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text(
-                                    '${_captionMaxLength - _captionController.text.length}',
-                                    style: const TextStyle(
-                                        fontSize: 13, color: WynColors.sapphire),
-                                  ),
-                                ),
-                              ),
-                            if (_errorMessage != null) ...[
-                              const SizedBox(height: WynSpacing.space2),
-                              Text(
-                                _errorMessage!,
-                                style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error),
-                              ),
-                            ],
-                          ],
+                      const SizedBox(height: WynSpacing.space4),
+                      MentionInput(
+                        controller: _captionController,
+                        profileRepository: _profileRepository,
+                        hashtagRepository: widget._hashtagRepository,
+                        onMentionedUsersChanged: (ids) =>
+                            setState(() => _mentionedUserIds = ids),
+                        maxLength: _captionMaxLength,
+                        maxLines: null,
+                        minLines: 2,
+                        enabled: !_isSharing,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          color: WynColors.ink,
+                          height: 1.4,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: _mode == _ComposeMode.poll
+                              ? 'ตั้งคำถามโพล...'
+                              : 'มีอะไรเกิดขึ้นบ้าง',
+                          hintStyle: const TextStyle(
+                            fontSize: 22,
+                            color: WynColors.faint,
+                            height: 1.4,
+                          ),
+                          border: InputBorder.none,
+                          counterText: '',
+                          contentPadding: EdgeInsets.zero,
+                          isDense: true,
                         ),
                       ),
+                      if (_mode == _ComposeMode.image)
+                        _buildImageStrip()
+                      else
+                        _buildPollComposer(),
+                      if (_selectedLocation != null) ...[
+                        const SizedBox(height: WynSpacing.space3),
+                        _LocationChip(
+                          location: _selectedLocation!,
+                          onRemove: _isSharing ? null : _removeLocation,
+                        ),
+                      ],
+                      if (_captionController.text.length >
+                          _captionMaxLength * 0.8)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            top: WynSpacing.space1,
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              '${_captionMaxLength - _captionController.text.length}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: WynColors.sapphire,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: WynSpacing.space2),
+                        Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -1081,7 +1092,11 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                WynSpacing.space4, 0, WynSpacing.space4, WynSpacing.space1),
+              WynSpacing.space4,
+              0,
+              WynSpacing.space4,
+              WynSpacing.space1,
+            ),
             child: Text(
               'กำลังอัปโหลด $_uploadedImageCount/$total รูป... $percent%',
               style: const TextStyle(fontSize: 13, color: WynColors.graphite),
@@ -1101,84 +1116,121 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          WynSpacing.space4, WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          TextButton(
-            key: const Key('cancel_button'),
-            onPressed: _handleClose,
+    final draftControl = _draftId == null && !_isRestricted
+        ? TextButton.icon(
+            key: const Key('open_drafts_button'),
+            onPressed: _isSharing || _isSavingDraft ? null : _openDrafts,
             style: TextButton.styleFrom(
               foregroundColor: WynColors.ink,
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space2,
+              ),
+              minimumSize: const Size(0, WynSpacing.touchTargetMin),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('ยกเลิก', style: TextStyle(fontSize: 15, color: WynColors.ink)),
-          ),
-          // Beta4 §5: "สร้างโพสต์ → ร่าง". The Draft list's entry point
-          // now sits in the composer's own header, between Cancel and
-          // Post -- a draft is written here and resumed here, so this
-          // is the one place a person looks for one. It used to be an
-          // unlabelled icon on the viewer's own Profile, two taps away
-          // and on a surface about published posts.
-          //
-          // Hidden while this composer *is* an open draft
-          // ([_draftId] set, i.e. opened from the list this button
-          // opens) -- offering a way back into the list you just came
-          // from would stack the same screen on itself. Hidden while
-          // restricted, for the same reason the Post button is
-          // disabled there.
-          if (_draftId == null && !_isRestricted)
-            TextButton.icon(
-              key: const Key('open_drafts_button'),
-              onPressed: _isSharing || _isSavingDraft ? null : _openDrafts,
-              style: TextButton.styleFrom(
-                foregroundColor: WynColors.ink,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: WynSpacing.space2),
-                // Beta4 §9 (Touch Target): the design system's 44px
-                // minimum, honoured. Deliberately no
-                // `visualDensity: compact` here -- it subtracts 8 from
-                // the minimum height, which quietly puts this button
-                // back under 44 (caught by this button's own test).
-                minimumSize: const Size(0, WynSpacing.touchTargetMin),
-              ),
-              icon: const Icon(Icons.edit_note_outlined,
-                  size: 18, color: WynColors.ink),
-              label: const Text('ร่าง',
-                  style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: WynColors.ink)),
+            icon: const Icon(
+              Icons.edit_note_outlined,
+              size: 19,
+              color: WynColors.ink,
             ),
-          Semantics(
-            label: _isRestricted
-                ? 'โพสต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว'
-                : null,
-            excludeSemantics: _isRestricted,
-            child: TextButton(
-              key: const Key('post_button'),
-              onPressed: _canShare ? _share : null,
-              style: TextButton.styleFrom(
-                backgroundColor: _canShare ? WynColors.sapphire : WynColors.hairline,
-                foregroundColor: _canShare ? WynColors.paper : WynColors.mutedNeutral,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                shape: const StadiumBorder(),
+            label: const Text(
+              'ร่าง',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: WynColors.ink,
               ),
-              child: _isSharing
-                  ? SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: _canShare ? WynColors.paper : WynColors.mutedNeutral,
-                      ),
-                    )
-                  : const Text('โพสต์',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          )
+        : const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.edit_note_outlined, size: 19, color: WynColors.ink),
+              SizedBox(width: 6),
+              Text(
+                'ร่าง',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: WynColors.ink,
+                ),
+              ),
+            ],
+          );
+
+    return SizedBox(
+      height: 70,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: WynSpacing.space4),
+              child: TextButton(
+                key: const Key('cancel_button'),
+                onPressed: _handleClose,
+                style: TextButton.styleFrom(
+                  foregroundColor: WynColors.ink,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(54, WynSpacing.touchTargetMin),
+                  alignment: Alignment.centerLeft,
+                ),
+                child: const Text(
+                  'ยกเลิก',
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                    color: WynColors.ink,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Center(child: draftControl),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: WynSpacing.space4),
+              child: Semantics(
+                label: _isRestricted
+                    ? 'โพสต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว'
+                    : null,
+                excludeSemantics: _isRestricted,
+                child: TextButton(
+                  key: const Key('post_button'),
+                  onPressed: _canShare ? _share : null,
+                  style: TextButton.styleFrom(
+                    backgroundColor: _canShare
+                        ? WynColors.ink
+                        : WynColors.hairline,
+                    foregroundColor: _canShare
+                        ? WynColors.paper
+                        : WynColors.mutedNeutral,
+                    minimumSize: const Size(72, 42),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: const StadiumBorder(),
+                  ),
+                  child: _isSharing
+                      ? SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _canShare
+                                ? WynColors.paper
+                                : WynColors.mutedNeutral,
+                          ),
+                        )
+                      : const Text(
+                          'โพสต์',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                ),
+              ),
             ),
           ),
         ],
@@ -1212,13 +1264,16 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                     color: WynColors.hairline,
                     child: _isCropping
                         ? const Center(child: CircularProgressIndicator())
-                        : Image.network(existingImageUrl, fit: BoxFit.cover,
-                          errorBuilder: networkImageErrorBuilder,
-                        ),
+                        : Image.network(
+                            existingImageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: networkImageErrorBuilder,
+                          ),
                   ),
                 ),
                 _buildRemoveButton(
-                    onTap: () => setState(() => _existingImageUrl = null)),
+                  onTap: () => setState(() => _existingImageUrl = null),
+                ),
               ],
             ),
           ),
@@ -1239,7 +1294,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _imagesBytes.length,
-              separatorBuilder: (_, __) => const SizedBox(width: WynSpacing.space2),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: WynSpacing.space2),
               itemBuilder: (context, index) => ClipRRect(
                 borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
                 child: SizedBox(
@@ -1389,24 +1445,44 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                       controller: _pollOptionControllers[i],
                       maxLength: _pollOptionMaxLength,
                       enabled: !_isSharing,
-                      style: const TextStyle(fontSize: 16, color: WynColors.ink),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: WynColors.ink,
+                      ),
                       decoration: InputDecoration(
                         hintText: 'ตัวเลือกที่ ${i + 1}',
-                        hintStyle: const TextStyle(fontSize: 16, color: WynColors.faint),
+                        hintStyle: const TextStyle(
+                          fontSize: 16,
+                          color: WynColors.faint,
+                        ),
                         counterText: '',
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+                          horizontal: WynSpacing.space3,
+                          vertical: WynSpacing.space2,
+                        ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-                          borderSide: const BorderSide(color: WynColors.hairline),
+                          borderRadius: BorderRadius.circular(
+                            WynSpacing.radiusMd,
+                          ),
+                          borderSide: const BorderSide(
+                            color: WynColors.hairline,
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-                          borderSide: const BorderSide(color: WynColors.hairline),
+                          borderRadius: BorderRadius.circular(
+                            WynSpacing.radiusMd,
+                          ),
+                          borderSide: const BorderSide(
+                            color: WynColors.hairline,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
-                          borderSide: const BorderSide(color: WynColors.sapphire),
+                          borderRadius: BorderRadius.circular(
+                            WynSpacing.radiusMd,
+                          ),
+                          borderSide: const BorderSide(
+                            color: WynColors.sapphire,
+                          ),
                         ),
                       ),
                       onChanged: (_) => setState(() {}),
@@ -1429,12 +1505,20 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               onPressed: _isSharing ? null : _addPollOption,
               style: TextButton.styleFrom(foregroundColor: WynColors.sapphire),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('เพิ่มตัวเลือก', style: TextStyle(fontSize: 15)),
+              label: const Text(
+                'เพิ่มตัวเลือก',
+                style: TextStyle(fontSize: 15),
+              ),
             ),
           const SizedBox(height: WynSpacing.space2),
-          const Text('ระยะเวลาโหวต',
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
+          const Text(
+            'ระยะเวลาโหวต',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: WynColors.ink,
+            ),
+          ),
           const SizedBox(height: WynSpacing.space2),
           SegmentedButton<int>(
             style: SegmentedButton.styleFrom(
@@ -1452,7 +1536,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             onSelectionChanged: _isSharing
                 ? null
                 : (selection) =>
-                    setState(() => _pollDurationDays = selection.first),
+                      setState(() => _pollDurationDays = selection.first),
           ),
         ],
       ),
@@ -1467,52 +1551,99 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   // Photo/camera disabled in poll mode (a Drop carries either an image
   // or a Poll, never both) and while sharing/cropping.
   Widget _buildToolbar() {
-    final imageDisabled = _isSharing || _isCropping || _mode == _ComposeMode.poll;
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: WynColors.hairline)),
+    final imageDisabled =
+        _isSharing || _isCropping || _mode == _ComposeMode.poll;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        WynSpacing.space4,
+        WynSpacing.space3,
+        WynSpacing.space4,
+        WynSpacing.space3,
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
-        child: Row(
-          children: [
-            _ToolbarIcon(
-              key: const Key('toolbar_photo_button'),
-              icon: Icons.image_outlined,
-              enabled: !imageDisabled,
-              onTap: _pickMultipleImages,
-              semanticsLabel: 'แนบรูปจากคลังภาพ',
-            ),
-            const SizedBox(width: WynSpacing.space5),
-            _ToolbarIcon(
-              key: const Key('toolbar_camera_button'),
-              icon: Icons.camera_alt_outlined,
-              enabled: !imageDisabled,
-              onTap: () => _pickImage(ImageSource.camera),
-              semanticsLabel: 'ถ่ายรูปใหม่',
-            ),
-            const SizedBox(width: WynSpacing.space5),
-            _ToolbarIcon(
-              key: const Key('toolbar_poll_button'),
-              icon: Icons.bar_chart,
-              enabled: !_isSharing,
-              active: _mode == _ComposeMode.poll,
-              onTap: () => setState(() => _mode =
-                  _mode == _ComposeMode.poll ? _ComposeMode.image : _ComposeMode.poll),
-              semanticsLabel: _mode == _ComposeMode.poll ? 'ยกเลิกโพล' : 'สร้างโพล',
-            ),
-            const SizedBox(width: WynSpacing.space5),
-            _ToolbarIcon(
-              key: const Key('toolbar_location_button'),
-              icon: Icons.location_on_outlined,
-              enabled: !_isSharing,
-              active: _selectedLocation != null,
-              onTap: _showLocationPicker,
-              semanticsLabel: 'เพิ่มตำแหน่งที่ตั้ง',
-            ),
-          ],
+      decoration: BoxDecoration(
+        color: WynColors.paper,
+        border: const Border(top: BorderSide(color: WynColors.hairline)),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: WynColors.ink.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'เพิ่มไปยังโพสต์ของคุณ',
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: WynColors.ink,
+            ),
+          ),
+          const SizedBox(height: WynSpacing.space3),
+          Row(
+            children: [
+              Expanded(
+                child: _ToolbarIcon(
+                  key: const Key('toolbar_photo_button'),
+                  icon: Icons.image_outlined,
+                  label: 'รูปภาพ',
+                  enabled: !imageDisabled,
+                  onTap: _pickMultipleImages,
+                  semanticsLabel: 'แนบรูปจากคลังภาพ',
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space2),
+              Expanded(
+                child: _ToolbarIcon(
+                  key: const Key('toolbar_camera_button'),
+                  icon: Icons.camera_alt_outlined,
+                  label: 'กล้อง',
+                  enabled: !imageDisabled,
+                  onTap: () => _pickImage(ImageSource.camera),
+                  semanticsLabel: 'ถ่ายรูปใหม่',
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space2),
+              Expanded(
+                child: _ToolbarIcon(
+                  key: const Key('toolbar_poll_button'),
+                  icon: Icons.bar_chart,
+                  label: 'โพล',
+                  enabled: !_isSharing,
+                  active: _mode == _ComposeMode.poll,
+                  onTap: () => setState(
+                    () => _mode = _mode == _ComposeMode.poll
+                        ? _ComposeMode.image
+                        : _ComposeMode.poll,
+                  ),
+                  semanticsLabel: _mode == _ComposeMode.poll
+                      ? 'ยกเลิกโพล'
+                      : 'สร้างโพล',
+                ),
+              ),
+              const SizedBox(width: WynSpacing.space2),
+              Expanded(
+                child: _ToolbarIcon(
+                  key: const Key('toolbar_location_button'),
+                  icon: Icons.location_on_outlined,
+                  label: 'สถานที่',
+                  enabled: !_isSharing,
+                  active: _selectedLocation != null,
+                  onTap: _showLocationPicker,
+                  semanticsLabel: 'เพิ่มตำแหน่งที่ตั้ง',
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1524,28 +1655,28 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 /// border/radius as the reference's original static chip -- only the
 /// text and the `InkWell`/tap handler are new.
 String audienceOptionLabel(AudienceOption value) => switch (value) {
-      AudienceOption.everyone => 'ทุกคน',
-      AudienceOption.friends => 'เพื่อน',
-      AudienceOption.friendsExcept => 'ซ่อนเพื่อนบางคน',
-      AudienceOption.closeFriends => 'เพื่อนที่สนิท',
-      AudienceOption.onlyMe => 'เฉพาะฉัน',
-    };
+  AudienceOption.everyone => 'ทุกคน',
+  AudienceOption.friends => 'เพื่อน',
+  AudienceOption.friendsExcept => 'ซ่อนเพื่อนบางคน',
+  AudienceOption.closeFriends => 'เพื่อนที่สนิท',
+  AudienceOption.onlyMe => 'เฉพาะฉัน',
+};
 
 String audienceOptionDescription(AudienceOption value) => switch (value) {
-      AudienceOption.everyone => 'ทุกคนเห็นโพสต์นี้ได้',
-      AudienceOption.friends => 'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นได้',
-      AudienceOption.friendsExcept => 'เพื่อนทุกคนเห็นได้ ยกเว้นคนที่คุณเลือกซ่อน',
-      AudienceOption.closeFriends => 'เฉพาะเพื่อนที่สนิทที่คุณเลือกไว้เท่านั้น',
-      AudienceOption.onlyMe => 'เห็นเฉพาะคุณคนเดียว',
-    };
+  AudienceOption.everyone => 'ทุกคนเห็นโพสต์นี้ได้',
+  AudienceOption.friends => 'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นได้',
+  AudienceOption.friendsExcept => 'เพื่อนทุกคนเห็นได้ ยกเว้นคนที่คุณเลือกซ่อน',
+  AudienceOption.closeFriends => 'เฉพาะเพื่อนที่สนิทที่คุณเลือกไว้เท่านั้น',
+  AudienceOption.onlyMe => 'เห็นเฉพาะคุณคนเดียว',
+};
 
 IconData _audienceOptionIcon(AudienceOption value) => switch (value) {
-      AudienceOption.everyone => Icons.public,
-      AudienceOption.friends => Icons.people_outline,
-      AudienceOption.friendsExcept => Icons.person_off_outlined,
-      AudienceOption.closeFriends => Icons.star_outline,
-      AudienceOption.onlyMe => Icons.lock_outline,
-    };
+  AudienceOption.everyone => Icons.public,
+  AudienceOption.friends => Icons.people_outline,
+  AudienceOption.friendsExcept => Icons.person_off_outlined,
+  AudienceOption.closeFriends => Icons.star_outline,
+  AudienceOption.onlyMe => Icons.lock_outline,
+};
 
 class _AudienceChip extends StatelessWidget {
   const _AudienceChip({required this.value, required this.onTap});
@@ -1563,8 +1694,10 @@ class _AudienceChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
         onTap: onTap,
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space3,
+            vertical: 4,
+          ),
           decoration: BoxDecoration(
             color: WynColors.surfaceTint,
             border: Border.all(color: WynColors.hairline),
@@ -1573,11 +1706,22 @@ class _AudienceChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(audienceOptionLabel(value),
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
+              Icon(_audienceOptionIcon(value), size: 14, color: WynColors.ink),
+              const SizedBox(width: 5),
+              Text(
+                audienceOptionLabel(value),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: WynColors.ink,
+                ),
+              ),
               const SizedBox(width: 2),
-              const Icon(Icons.keyboard_arrow_down, size: 13, color: WynColors.graphite),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 13,
+                color: WynColors.graphite,
+              ),
             ],
           ),
         ),
@@ -1635,8 +1779,13 @@ class _AudiencePickerSheet extends StatelessWidget {
               Row(
                 children: [
                   const Expanded(
-                    child: Text('ใครเห็นโพสต์นี้ได้บ้าง',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    child: Text(
+                      'ใครเห็นโพสต์นี้ได้บ้าง',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                   SizedBox(
                     width: WynSpacing.touchTargetMin,
@@ -1652,33 +1801,35 @@ class _AudiencePickerSheet extends StatelessWidget {
               ),
               const SizedBox(height: WynSpacing.space2),
               for (final option in AudienceOption.values)
-              Semantics(
-                label:
-                    '${audienceOptionLabel(option)} — ${audienceOptionDescription(option)}',
-                selected: option == currentValue,
-                excludeSemantics: true,
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(_audienceOptionIcon(option)),
-                  title: Text(audienceOptionLabel(option)),
-                  subtitle: Text(audienceOptionDescription(option)),
-                  // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" always show both a
-                  // radio (when currently selected) and a chevron
-                  // (Design spec's "โชว์ทั้ง radio (checked) และ chevron
-                  // คู่กัน" -- signals "selected" AND "tap to edit the
-                  // list" at once for those 2 options specifically).
-                  trailing: switch (option) {
-                    AudienceOption.friendsExcept || AudienceOption.closeFriends =>
-                      Row(
+                Semantics(
+                  label:
+                      '${audienceOptionLabel(option)} — ${audienceOptionDescription(option)}',
+                  selected: option == currentValue,
+                  excludeSemantics: true,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(_audienceOptionIcon(option)),
+                    title: Text(audienceOptionLabel(option)),
+                    subtitle: Text(audienceOptionDescription(option)),
+                    // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" always show both a
+                    // radio (when currently selected) and a chevron
+                    // (Design spec's "โชว์ทั้ง radio (checked) และ chevron
+                    // คู่กัน" -- signals "selected" AND "tap to edit the
+                    // list" at once for those 2 options specifically).
+                    trailing: switch (option) {
+                      AudienceOption.friendsExcept ||
+                      AudienceOption.closeFriends => Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (option == currentValue)
-                            Icon(Icons.radio_button_checked,
-                                color: Theme.of(context).colorScheme.primary),
+                            Icon(
+                              Icons.radio_button_checked,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           const Icon(Icons.chevron_right),
                         ],
                       ),
-                    _ => Icon(
+                      _ => Icon(
                         option == currentValue
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
@@ -1686,10 +1837,10 @@ class _AudiencePickerSheet extends StatelessWidget {
                             ? Theme.of(context).colorScheme.primary
                             : null,
                       ),
-                  },
-                  onTap: () => Navigator.of(context).pop(option),
+                    },
+                    onTap: () => Navigator.of(context).pop(option),
+                  ),
                 ),
-              ),
               const SizedBox(height: WynSpacing.space4),
             ],
           ),
@@ -1713,7 +1864,10 @@ class _LocationChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: WynSpacing.space3,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
         color: WynColors.surfaceTint,
         border: Border.all(color: WynColors.hairline),
@@ -1731,7 +1885,10 @@ class _LocationChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: WynColors.ink,
+              ),
             ),
           ),
           const SizedBox(width: 4),
@@ -1758,6 +1915,7 @@ class _ToolbarIcon extends StatelessWidget {
   const _ToolbarIcon({
     super.key,
     required this.icon,
+    required this.label,
     required this.enabled,
     required this.onTap,
     required this.semanticsLabel,
@@ -1765,6 +1923,7 @@ class _ToolbarIcon extends StatelessWidget {
   });
 
   final IconData icon;
+  final String label;
   final bool enabled;
   final VoidCallback onTap;
   final String semanticsLabel;
@@ -1772,29 +1931,49 @@ class _ToolbarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = !enabled
+    final foreground = !enabled
         ? WynColors.faint
         : active
-            ? WynColors.sapphire
-            : WynColors.sapphire;
+        ? WynColors.sapphire
+        : WynColors.ink;
+    final background = active ? WynColors.sapphireRing : WynColors.surfaceTint;
+
     return Semantics(
       label: semanticsLabel,
       button: true,
+      enabled: enabled,
       excludeSemantics: true,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Container(
-            decoration: active
-                ? const BoxDecoration(
-                    color: WynColors.sapphireRing,
-                    shape: BoxShape.circle,
-                  )
-                : null,
-            padding: active ? const EdgeInsets.all(4) : const EdgeInsets.all(0),
-            child: Icon(icon, size: 19, color: color),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            height: 72,
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: active ? WynColors.sapphireRing : WynColors.hairline,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 24, color: foreground),
+                const SizedBox(height: 7),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: foreground,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1838,10 +2017,12 @@ class _AspectRatioChip extends StatelessWidget {
     // sit on the label's line.
     final glyphRatio = ratio.ratio ?? 4 / 3;
     const glyphLongSide = 14.0;
-    final glyphWidth =
-        glyphRatio >= 1 ? glyphLongSide : glyphLongSide * glyphRatio;
-    final glyphHeight =
-        glyphRatio >= 1 ? glyphLongSide / glyphRatio : glyphLongSide;
+    final glyphWidth = glyphRatio >= 1
+        ? glyphLongSide
+        : glyphLongSide * glyphRatio;
+    final glyphHeight = glyphRatio >= 1
+        ? glyphLongSide / glyphRatio
+        : glyphLongSide;
 
     return Semantics(
       label: 'สัดส่วน ${_labels[ratio]}',
