@@ -24,15 +24,13 @@ class WynosProfileCover extends StatelessWidget {
             Image.network(
               url,
               fit: BoxFit.cover,
-              // Founder polish: keep the cover height unchanged, but bias
-              // the crop upward so the visual focus moves about 10-15% up.
+              // Keep the cover box unchanged but move the crop focus upward
+              // by roughly 10-15%, matching the approved Profile polish.
               alignment: const Alignment(0, -0.15),
               errorBuilder: (_, __, ___) => const _CoverFallback(),
             )
           else
             const _CoverFallback(),
-          // Keeps white top-bar controls readable over arbitrary photos,
-          // while remaining visually almost invisible over normal covers.
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -65,9 +63,12 @@ class _CoverFallback extends StatelessWidget {
   }
 }
 
-/// Pixel-targeted identity/action block for the Founder-approved Profile
-/// screenshot. Business behavior remains owned by ViewProfileScreen; this
-/// widget only owns composition, proportions and visual hierarchy.
+/// Founder-approved identity/action block for Profile.
+///
+/// The avatar deliberately sits inside the white identity body instead of
+/// painting over the cover. That keeps the whole cover visible and also avoids
+/// the renderer clipping bug that the earlier negative-overlap composition hit
+/// on iOS/Flutter Web.
 class WynosFounderProfileHeader extends StatelessWidget {
   const WynosFounderProfileHeader({
     super.key,
@@ -96,6 +97,66 @@ class WynosFounderProfileHeader extends StatelessWidget {
   final Widget? footer;
   final bool showOnline;
 
+  Widget _nameRow() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            profile.nameOrUsername,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 21,
+              height: 1.12,
+              fontWeight: FontWeight.w700,
+              color: WynColors.ink,
+            ),
+          ),
+        ),
+        if (profile.isVerified) ...[
+          const SizedBox(width: 4),
+          const VerifiedBadge(),
+        ],
+        if (isOwnProfile) ...[
+          const SizedBox(width: 5),
+          const Icon(
+            Icons.keyboard_arrow_down,
+            size: 22,
+            color: WynColors.ink,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _displayNameControl() {
+    final row = _nameRow();
+    if (!isOwnProfile || onDisplayNameTap == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        child: row,
+      );
+    }
+
+    return Semantics(
+      key: const Key('profile_account_switcher'),
+      label: 'สลับบัญชี ${profile.nameOrUsername}',
+      button: true,
+      excludeSemantics: false,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: WynSpacing.touchTargetMin,
+        ),
+        child: InkWell(
+          onTap: onDisplayNameTap,
+          borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+          child: Align(alignment: Alignment.centerLeft, child: row),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
@@ -103,11 +164,6 @@ class WynosFounderProfileHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Founder polish: the avatar now lives fully inside the white
-          // profile body instead of painting upward over the cover. Using a
-          // normal Row (not a negatively-positioned child) also means its
-          // full 92px height participates in layout, so stats can never
-          // collide with it on Web/iOS.
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WynSpacing.space4,
@@ -118,53 +174,14 @@ class WynosFounderProfileHeader extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ProfileAvatar(
-                  profile: profile,
-                  showOnline: showOnline,
-                ),
+                _ProfileAvatar(profile: profile, showOnline: showOnline),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      InkWell(
-                        onTap: onDisplayNameTap,
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 1),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  profile.nameOrUsername,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 21,
-                                    height: 1.12,
-                                    fontWeight: FontWeight.w700,
-                                    color: WynColors.ink,
-                                  ),
-                                ),
-                              ),
-                              if (profile.isVerified) ...[
-                                const SizedBox(width: 4),
-                                const VerifiedBadge(),
-                              ],
-                              if (isOwnProfile) ...[
-                                const SizedBox(width: 5),
-                                const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  size: 22,
-                                  color: WynColors.ink,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
+                      _displayNameControl(),
+                      const SizedBox(height: 3),
                       Text(
                         '@${profile.username}',
                         maxLines: 1,
@@ -177,7 +194,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
                       ),
                       if (profile.bio != null &&
                           profile.bio!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 9),
                         Text(
                           profile.bio!,
                           maxLines: 3,
@@ -364,7 +381,7 @@ class WynosProfileIconAction extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: const SizedBox.shrink(),
+        icon: Icon(icon, size: 21, color: WynColors.ink),
         style: IconButton.styleFrom(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -372,10 +389,6 @@ class WynosProfileIconAction extends StatelessWidget {
           ),
           backgroundColor: WynColors.paper,
         ),
-        // Keep the glyph slightly smaller together with the compact action
-        // row; the hit target remains the full metric-sized button.
-        selectedIcon: null,
-        isSelected: false,
       ),
     );
   }
