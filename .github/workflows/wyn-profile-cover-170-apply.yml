@@ -1,0 +1,87 @@
+name: WYN Profile Cover 170 Apply
+
+on:
+  push:
+    branches:
+      - wyn/profile-cover-170-overlap
+    paths:
+      - .github/workflows/wyn-profile-cover-170-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: wyn/profile-cover-170-overlap
+
+      - name: Apply final Profile cover sizing and avatar overlap
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          metrics = Path('app/lib/core/design/wynos_founder_metrics.dart')
+          text = metrics.read_text()
+          old = 'static const double profileCoverExpandedHeight = 121;'
+          new = 'static const double profileCoverExpandedHeight = 170;'
+          if old not in text:
+              raise SystemExit(f'Expected cover height token not found: {old}')
+          metrics.write_text(text.replace(old, new, 1))
+
+          header = Path('app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart')
+          text = header.read_text()
+          old = '                _ProfileAvatar(profile: profile, showOnline: showOnline),\n                const SizedBox(width: 12),'
+          new = '''                Transform.translate(\n                  offset: const Offset(0, -25),\n                  child: _ProfileAvatar(\n                    profile: profile,\n                    showOnline: showOnline,\n                  ),\n                ),\n                const SizedBox(width: 12),'''
+          if old not in text:
+              raise SystemExit('Expected Profile avatar row block not found')
+          header.write_text(text.replace(old, new, 1))
+
+          test = Path('app/test/wynos_founder_profile_header_test.dart')
+          text = test.read_text()
+          old = '    expect(avatar.top, greaterThanOrEqualTo(0));\n    expect(name.left, greaterThan(avatar.right));'
+          new = '''    // Final approved mockup: the avatar lifts slightly toward the cover\n    // while identity text remains in the white body.\n    expect(avatar.top, lessThan(0));\n    expect(name.left, greaterThan(avatar.right));'''
+          if old not in text:
+              raise SystemExit('Expected avatar layout assertion not found')
+          test.write_text(text.replace(old, new, 1))
+          PY
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Format
+        run: dart format app/lib/core/design/wynos_founder_metrics.dart app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart app/test/wynos_founder_profile_header_test.dart
+
+      - name: Validate final Profile tokens
+        run: |
+          grep -q 'profileCoverExpandedHeight = 170' app/lib/core/design/wynos_founder_metrics.dart
+          grep -q 'Offset(0, -25)' app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart
+          grep -q 'left: 16' app/lib/features/profile/presentation/view_profile_screen.dart
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Founder Profile header regression tests
+        working-directory: app
+        run: flutter test test/wynos_founder_profile_header_test.dart
+
+      - name: Commit Profile visual correction and remove helper workflow
+        run: |
+          rm .github/workflows/wyn-profile-cover-170-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/lib/core/design/wynos_founder_metrics.dart \
+                  app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart \
+                  app/test/wynos_founder_profile_header_test.dart \
+                  .github/workflows/wyn-profile-cover-170-apply.yml
+          git commit -m "fix(ui): enlarge Profile cover and align avatar"
+          git push origin HEAD:wyn/profile-cover-170-overlap
