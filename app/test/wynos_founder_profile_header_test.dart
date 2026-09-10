@@ -48,7 +48,6 @@ void main() {
   testWidgets('own display-name switcher keeps a 44px accessible tap target',
       (tester) async {
     final handle = tester.ensureSemantics();
-    addTearDown(handle.dispose);
     await tester.pumpWidget(buildHeader());
 
     final finder = find.byKey(const Key('profile_account_switcher'));
@@ -60,6 +59,7 @@ void main() {
     final semantics = tester.getSemantics(finder);
     expect(semantics.label, contains('สลับบัญชี'));
     expect(semantics.flagsCollection.isButton, isTrue);
+    handle.dispose();
   });
 
   testWidgets('compact profile icon action still renders its glyph',
