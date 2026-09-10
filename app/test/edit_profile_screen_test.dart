@@ -15,10 +15,8 @@ import 'support/recording_profile_repository.dart';
 /// the `TextField`, not a descendant of it -- `find.widgetWithText
 /// (TextField, ...)` can no longer find these. Each field carries its
 /// own `Key` instead; these helpers keep every test call site short.
-Finder _field(String key) => find.descendant(
-      of: find.byKey(Key(key)),
-      matching: find.byType(TextField),
-    );
+Finder _field(String key) =>
+    find.descendant(of: find.byKey(Key(key)), matching: find.byType(TextField));
 
 final _usernameField = _field('username_field');
 final _displayNameField = _field('display_name_field');
@@ -28,8 +26,9 @@ void main() {
   // SupabaseClient() only stores config here -- no network call happens
   // until a method is invoked, so it's safe to construct in a widget test.
   // None of the cases below tap "บันทึก", so no network call is made.
-  final profileRepository =
-      ProfileRepository(SupabaseClient('https://example.supabase.co', 'test-key'));
+  final profileRepository = ProfileRepository(
+    SupabaseClient('https://example.supabase.co', 'test-key'),
+  );
 
   const profile = Profile(
     id: 'u1',
@@ -47,14 +46,17 @@ void main() {
   // (.wyn/learning/PATTERNS.md).
   final recordingRepo = RecordingProfileRepository(profile: profile);
 
-  testWidgets('pre-fills display name and bio from the existing profile',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: EditProfileScreen(
-        profileRepository: profileRepository,
-        profile: profile,
+  testWidgets('pre-fills display name and bio from the existing profile', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EditProfileScreen(
+          profileRepository: profileRepository,
+          profile: profile,
+        ),
       ),
-    ));
+    );
 
     expect(find.text('น้ำฝน'), findsOneWidget);
     expect(find.text('สวัสดีค่ะ'), findsOneWidget);
@@ -65,62 +67,78 @@ void main() {
   // permanently visible the way Material's own InputDecoration counter
   // was -- so this now taps into the field first.
   testWidgets(
-      'bio counter shows the pre-filled length once the field is focused',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: EditProfileScreen(
-        profileRepository: profileRepository,
-        profile: profile,
-      ),
-    ));
+    'bio counter shows the pre-filled length once the field is focused',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EditProfileScreen(
+            profileRepository: profileRepository,
+            profile: profile,
+          ),
+        ),
+      );
 
-    expect(find.text('9/160'), findsNothing);
-    await tester.tap(_bioField);
-    await tester.pump();
+      expect(find.text('9/150'), findsNothing);
+      await tester.ensureVisible(_bioField);
+      await tester.pumpAndSettle();
+      await tester.tap(_bioField);
+      await tester.pump();
 
-    expect(find.text('9/160'), findsOneWidget);
-  });
+      expect(find.text('9/150'), findsOneWidget);
+    },
+  );
 
   testWidgets('bio counter updates as the user types', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: EditProfileScreen(
-        profileRepository: profileRepository,
-        profile: profile,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EditProfileScreen(
+          profileRepository: profileRepository,
+          profile: profile,
+        ),
       ),
-    ));
+    );
 
+    await tester.ensureVisible(_bioField);
+    await tester.pumpAndSettle();
     await tester.tap(_bioField);
     await tester.enterText(_bioField, 'a' * 20);
     await tester.pump();
 
-    expect(find.text('20/160'), findsOneWidget);
+    expect(find.text('20/150'), findsOneWidget);
   });
 
-  testWidgets('bio counter turns error-colored near the character limit',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: EditProfileScreen(
-        profileRepository: profileRepository,
-        profile: profile,
+  testWidgets('bio counter turns error-colored near the character limit', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EditProfileScreen(
+          profileRepository: profileRepository,
+          profile: profile,
+        ),
       ),
-    ));
+    );
 
+    await tester.ensureVisible(_bioField);
+    await tester.pumpAndSettle();
     await tester.tap(_bioField);
     await tester.enterText(_bioField, 'a' * 150);
     await tester.pump();
 
-    final counter = tester.widget<Text>(find.text('150/160'));
+    final counter = tester.widget<Text>(find.text('150/150'));
     expect(counter.style?.color, WynColors.errorLight);
   });
 
   testWidgets('"บันทึก" starts disabled and enables once something '
       'actually changes (06-edit-profile.tsx)', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: EditProfileScreen(
-        profileRepository: profileRepository,
-        profile: profile,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EditProfileScreen(
+          profileRepository: profileRepository,
+          profile: profile,
+        ),
       ),
-    ));
+    );
 
     final saveButton = find.widgetWithText(FilledButton, 'บันทึก');
     expect(tester.widget<FilledButton>(saveButton).onPressed, isNull);
@@ -138,29 +156,34 @@ void main() {
       recordingRepo.updateUsernameArgs.clear();
     });
 
-    testWidgets('pre-fills the username field with the current @username',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: EditProfileScreen(
-          profileRepository: recordingRepo,
-          profile: profile,
+    testWidgets('pre-fills the username field with the current @username', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EditProfileScreen(
+            profileRepository: recordingRepo,
+            profile: profile,
+          ),
         ),
-      ));
+      );
 
       expect(_usernameField, findsOneWidget);
       expect(find.text('namfah'), findsOneWidget);
     });
 
-    testWidgets(
-        'typing back the exact same username never triggers an '
-        'availability check, and "บันทึก" stays disabled (no real change)',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: EditProfileScreen(
-          profileRepository: recordingRepo,
-          profile: profile,
+    testWidgets('typing back the exact same username never triggers an '
+        'availability check, and "บันทึก" stays disabled (no real change)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EditProfileScreen(
+            profileRepository: recordingRepo,
+            profile: profile,
+          ),
         ),
-      ));
+      );
 
       await tester.enterText(_usernameField, 'namfah');
       await tester.pump(const Duration(milliseconds: 500));
@@ -172,12 +195,14 @@ void main() {
 
     testWidgets('an invalid format (too short) shows an error and '
         'disables "บันทึก"', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: EditProfileScreen(
-          profileRepository: recordingRepo,
-          profile: profile,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EditProfileScreen(
+            profileRepository: recordingRepo,
+            profile: profile,
+          ),
         ),
-      ));
+      );
 
       await tester.enterText(_usernameField, 'ab');
       await tester.pump();
@@ -189,12 +214,14 @@ void main() {
 
     testWidgets('a new, available username shows a check icon after the '
         'debounce', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: EditProfileScreen(
-          profileRepository: recordingRepo,
-          profile: profile,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EditProfileScreen(
+            profileRepository: recordingRepo,
+            profile: profile,
+          ),
         ),
-      ));
+      );
 
       await tester.enterText(_usernameField, 'wynos');
       await tester.pump(const Duration(milliseconds: 500));
@@ -204,15 +231,18 @@ void main() {
       expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
     });
 
-    testWidgets('a taken username shows an error and disables "บันทึก"',
-        (tester) async {
+    testWidgets('a taken username shows an error and disables "บันทึก"', (
+      tester,
+    ) async {
       recordingRepo.takenUsernames = {'wynos'};
-      await tester.pumpWidget(MaterialApp(
-        home: EditProfileScreen(
-          profileRepository: recordingRepo,
-          profile: profile,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EditProfileScreen(
+            profileRepository: recordingRepo,
+            profile: profile,
+          ),
         ),
-      ));
+      );
 
       await tester.enterText(_usernameField, 'wynos');
       await tester.pump(const Duration(milliseconds: 500));
@@ -223,34 +253,39 @@ void main() {
     });
 
     testWidgets(
-        'saving with a changed, available username calls updateUsername '
-        'and pops with the new username', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: EditProfileScreen(
-          profileRepository: recordingRepo,
-          profile: profile,
-        ),
-      ));
+      'saving with a changed, available username calls updateUsername '
+      'and pops with the new username',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: EditProfileScreen(
+              profileRepository: recordingRepo,
+              profile: profile,
+            ),
+          ),
+        );
 
-      await tester.enterText(_usernameField, 'wynos');
-      await tester.pump(const Duration(milliseconds: 500));
+        await tester.enterText(_usernameField, 'wynos');
+        await tester.pump(const Duration(milliseconds: 500));
 
-      await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+        await tester.pumpAndSettle();
 
-      expect(recordingRepo.updateUsernameArgs, ['wynos']);
-      expect(recordingRepo.updateProfileArgs, hasLength(1));
-    });
+        expect(recordingRepo.updateUsernameArgs, ['wynos']);
+        expect(recordingRepo.updateProfileArgs, hasLength(1));
+      },
+    );
 
-    testWidgets(
-        'saving after changing only the display name never calls '
+    testWidgets('saving after changing only the display name never calls '
         'updateUsername', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: EditProfileScreen(
-          profileRepository: recordingRepo,
-          profile: profile,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EditProfileScreen(
+            profileRepository: recordingRepo,
+            profile: profile,
+          ),
         ),
-      ));
+      );
 
       await tester.enterText(_displayNameField, 'ชื่อใหม่');
       await tester.pump();

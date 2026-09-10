@@ -9,10 +9,10 @@ import '../../../core/text_utils.dart';
 enum PlatformRole { user, moderator, admin }
 
 PlatformRole platformRoleFromString(String? value) => switch (value) {
-      'admin' => PlatformRole.admin,
-      'moderator' => PlatformRole.moderator,
-      _ => PlatformRole.user,
-    };
+  'admin' => PlatformRole.admin,
+  'moderator' => PlatformRole.moderator,
+  _ => PlatformRole.user,
+};
 
 /// WYN-045: the one shared 3-level vocabulary reused by all three
 /// Interaction Privacy Controls (DM/Mention/Comment Permission) --
@@ -32,10 +32,10 @@ InteractionPermission interactionPermissionFromString(String? value) =>
 
 extension InteractionPermissionDbValue on InteractionPermission {
   String get dbValue => switch (this) {
-        InteractionPermission.everyone => 'everyone',
-        InteractionPermission.peopleIFollow => 'people_i_follow',
-        InteractionPermission.noOne => 'no_one',
-      };
+    InteractionPermission.everyone => 'everyone',
+    InteractionPermission.peopleIFollow => 'people_i_follow',
+    InteractionPermission.noOne => 'no_one',
+  };
 }
 
 /// WYN-099: who can see the "ถูกใจ" (Likes) tab on this profile --
@@ -50,17 +50,28 @@ extension InteractionPermissionDbValue on InteractionPermission {
 enum LikesVisibility { everyone, friends, onlyMe }
 
 LikesVisibility likesVisibilityFromString(String? value) => switch (value) {
-      'friends' => LikesVisibility.friends,
-      'only_me' => LikesVisibility.onlyMe,
-      _ => LikesVisibility.everyone,
-    };
+  'friends' => LikesVisibility.friends,
+  'only_me' => LikesVisibility.onlyMe,
+  _ => LikesVisibility.everyone,
+};
 
 extension LikesVisibilityDbValue on LikesVisibility {
   String get dbValue => switch (this) {
-        LikesVisibility.everyone => 'everyone',
-        LikesVisibility.friends => 'friends',
-        LikesVisibility.onlyMe => 'only_me',
-      };
+    LikesVisibility.everyone => 'everyone',
+    LikesVisibility.friends => 'friends',
+    LikesVisibility.onlyMe => 'only_me',
+  };
+}
+
+Map<String, String> _parseSocialLinks(Object? value) {
+  if (value is! Map) return const {};
+  final result = <String, String>{};
+  for (final entry in value.entries) {
+    final key = entry.key.toString();
+    final link = entry.value?.toString().trim() ?? '';
+    if (key.isNotEmpty && link.isNotEmpty) result[key] = link;
+  }
+  return result;
 }
 
 /// A WYN user profile row. See supabase/schema.sql (WYN-003 section,
@@ -73,6 +84,7 @@ class Profile {
     this.bio,
     this.avatarUrl,
     this.coverUrl,
+    this.socialLinks = const {},
     this.platformRole = PlatformRole.user,
     this.isPrivate = false,
     this.dmPermission = InteractionPermission.everyone,
@@ -83,53 +95,58 @@ class Profile {
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) => Profile(
-        id: map['id'] as String,
-        // `profiles.username` is nullable in the schema (`username text
-        // unique`) and a row genuinely can exist without one:
-        // LegalRepository.acceptMandatoryDocuments() and
-        // AuthRepository.setDateOfBirth() both upsert a stub
-        // `{'id': userId}` row *before* onboarding ever reaches the
-        // Username step. A bare `as String` therefore threw a TypeError
-        // on any such profile and took the whole screen reading it down
-        // with it (ViewProfileScreen's snapshot.hasError branch). Falls
-        // back to '' -- the same convention every other username-parsing
-        // factory in this app already uses (Drop/Pop/ClubPost/
-        // HomeFeedItem/... all read `as String? ?? ''`), which
-        // displayNameOrUsername then renders as the display name when
-        // one is set.
-        username: map['username'] as String? ?? '',
-        displayName: map['display_name'] as String?,
-        bio: map['bio'] as String?,
-        avatarUrl: map['avatar_url'] as String?,
-        coverUrl: map['cover_url'] as String?,
-        platformRole: platformRoleFromString(map['platform_role'] as String?),
-        // WYN-039: defaults to false so any pre-existing call site that
-        // builds a Profile from a partial map (not a full `drops.select
-        // author:profiles(*)` embed) never accidentally reads a private
-        // account as public -- see ProfileRepository/FollowRepository.
-        isPrivate: map['is_private'] as bool? ?? false,
-        // WYN-045: same "missing key defaults to the least-restrictive
-        // value" reasoning as isPrivate above -- a partial map without
-        // these keys reads as 'everyone', which also happens to be
-        // these columns' own DB default for every profile that has
-        // never touched Settings.
-        dmPermission:
-            interactionPermissionFromString(map['dm_permission'] as String?),
-        mentionPermission: interactionPermissionFromString(
-            map['mention_permission'] as String?),
-        commentPermission: interactionPermissionFromString(
-            map['comment_permission'] as String?),
-        // WYN-099: same "missing key defaults to the least-restrictive
-        // value" reasoning as dmPermission/mentionPermission/
-        // commentPermission above.
-        likesVisibility:
-            likesVisibilityFromString(map['likes_visibility'] as String?),
-        // WYNOSHomeSpec.md 4.5/4.9: same "missing key defaults to the
-        // least-notable value" reasoning as isPrivate above -- a
-        // partial map without this key (most ProfileRepository selects
-        // don't fetch it) reads as unverified.
-        isVerified: map['is_verified'] as bool? ?? false,
-      );
+    id: map['id'] as String,
+    // `profiles.username` is nullable in the schema (`username text
+    // unique`) and a row genuinely can exist without one:
+    // LegalRepository.acceptMandatoryDocuments() and
+    // AuthRepository.setDateOfBirth() both upsert a stub
+    // `{'id': userId}` row *before* onboarding ever reaches the
+    // Username step. A bare `as String` therefore threw a TypeError
+    // on any such profile and took the whole screen reading it down
+    // with it (ViewProfileScreen's snapshot.hasError branch). Falls
+    // back to '' -- the same convention every other username-parsing
+    // factory in this app already uses (Drop/Pop/ClubPost/
+    // HomeFeedItem/... all read `as String? ?? ''`), which
+    // displayNameOrUsername then renders as the display name when
+    // one is set.
+    username: map['username'] as String? ?? '',
+    displayName: map['display_name'] as String?,
+    bio: map['bio'] as String?,
+    avatarUrl: map['avatar_url'] as String?,
+    coverUrl: map['cover_url'] as String?,
+    socialLinks: _parseSocialLinks(map['social_links']),
+    platformRole: platformRoleFromString(map['platform_role'] as String?),
+    // WYN-039: defaults to false so any pre-existing call site that
+    // builds a Profile from a partial map (not a full `drops.select
+    // author:profiles(*)` embed) never accidentally reads a private
+    // account as public -- see ProfileRepository/FollowRepository.
+    isPrivate: map['is_private'] as bool? ?? false,
+    // WYN-045: same "missing key defaults to the least-restrictive
+    // value" reasoning as isPrivate above -- a partial map without
+    // these keys reads as 'everyone', which also happens to be
+    // these columns' own DB default for every profile that has
+    // never touched Settings.
+    dmPermission: interactionPermissionFromString(
+      map['dm_permission'] as String?,
+    ),
+    mentionPermission: interactionPermissionFromString(
+      map['mention_permission'] as String?,
+    ),
+    commentPermission: interactionPermissionFromString(
+      map['comment_permission'] as String?,
+    ),
+    // WYN-099: same "missing key defaults to the least-restrictive
+    // value" reasoning as dmPermission/mentionPermission/
+    // commentPermission above.
+    likesVisibility: likesVisibilityFromString(
+      map['likes_visibility'] as String?,
+    ),
+    // WYNOSHomeSpec.md 4.5/4.9: same "missing key defaults to the
+    // least-notable value" reasoning as isPrivate above -- a
+    // partial map without this key (most ProfileRepository selects
+    // don't fetch it) reads as unverified.
+    isVerified: map['is_verified'] as bool? ?? false,
+  );
 
   final String id;
   final String username;
@@ -137,6 +154,7 @@ class Profile {
   final String? bio;
   final String? avatarUrl;
   final String? coverUrl;
+  final Map<String, String> socialLinks;
   final PlatformRole platformRole;
   final bool isPrivate;
   final InteractionPermission dmPermission;

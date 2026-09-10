@@ -10,8 +10,8 @@ class RecordingProfileRepository extends ProfileRepository {
     this.profile = const Profile(id: 'unused', username: 'unused'),
     List<Profile>? searchResults,
     this.byUsernameResult,
-  })  : searchResults = searchResults ?? [],
-        super(SupabaseClient('https://example.supabase.co', 'test-key'));
+  }) : searchResults = searchResults ?? [],
+       super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   // WYN-039: mutable (not final) so a single shared instance (the
   // project's setUpAll convention -- see PATTERNS.md) can be reused
@@ -122,6 +122,7 @@ class RecordingProfileRepository extends ProfileRepository {
     required String userId,
     required String displayName,
     required String bio,
+    Map<String, String>? socialLinks,
   }) async {
     updateProfileArgs.add({'displayName': displayName, 'bio': bio});
   }

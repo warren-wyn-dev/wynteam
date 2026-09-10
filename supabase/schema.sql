@@ -39,7 +39,8 @@ alter table public.profiles
   add column if not exists display_name text,
   add column if not exists bio text,
   add column if not exists avatar_url text,
-  add column if not exists cover_url text;
+  add column if not exists cover_url text,
+  add column if not exists social_links jsonb not null default '{}'::jsonb;
 
 alter table public.profiles
   add constraint profiles_display_name_length
