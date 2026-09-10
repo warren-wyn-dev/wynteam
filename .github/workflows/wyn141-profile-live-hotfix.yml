@@ -26,7 +26,12 @@ jobs:
           flutter-version: 3.47.1
 
       - name: Apply targeted live UI hotfix
-        run: python3 tools/wyn141_profile_avatar_nav_hotfix.py
+        run: |
+          python3 tools/wyn141_profile_avatar_nav_hotfix.py
+          # WYN-141 moved the compact stat rendering into the new founder
+          # header widget, leaving this import stale on main.
+          sed -i "/import '\.\.\/\.\.\/\.\.\/core\/text_utils\.dart';/d" \
+            app/lib/features/profile/presentation/view_profile_screen.dart
 
       - name: Format changed Dart files
         run: |
