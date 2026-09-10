@@ -53,6 +53,59 @@ jobs:
       - name: Apply Profile V2 patch
         run: python3 .github/scripts/apply_beta5_profile_v2.py
 
+      - name: Resolve generated analyzer issues
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          grid = Path('app/lib/features/profile/presentation/widgets/profile_drop_grid_tab.dart')
+          text = grid.read_text()
+          color_import = "import '../../../../core/design/wyn_colors.dart';\n"
+          if color_import not in text:
+              anchor = "import '../../../../core/design/wyn_spacing.dart';\n"
+              if anchor not in text:
+                  raise SystemExit('WynSpacing import anchor missing')
+              text = text.replace(anchor, anchor + color_import, 1)
+          grid.write_text(text)
+
+          likes = Path('app/test/profile_likes_tab_test.dart')
+          text = likes.read_text()
+          old = '      onRefreshHeader: () => refreshHeaderCalls++,\n'
+          new = '      onRefreshHeader: () async {\n        refreshHeaderCalls++;\n      },\n'
+          if old not in text:
+              raise SystemExit('ProfileLikes refresh callback anchor missing')
+          likes.write_text(text.replace(old, new, 1))
+
+          view_test = Path('app/test/view_profile_screen_test.dart')
+          text = view_test.read_text()
+          dangling = '    expect(followersX, lessThan(buttonRect.right));\n'
+          if dangling not in text:
+              raise SystemExit('buttonRect dangling assertion missing')
+          text = text.replace(
+              dangling,
+              '    expect(followersX, greaterThan(followingX));\n',
+              1,
+          )
+          view_test.write_text(text)
+
+          view = Path('app/lib/features/profile/presentation/view_profile_screen.dart')
+          text = view.read_text()
+          # Beta5 ProfileV2Header owns stats, so remove the old Beta4-only
+          # stat widgets/divider/bio tone rather than suppressing warnings.
+          text, count = re.subn(
+              r'class _FollowCountTarget[\s\S]*?const _bioTone = WynColors\.inkSoft;\n\n',
+              '',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'old profile stat helper block matches={count}')
+          if 'compactCountLabel(' not in text:
+              text = text.replace("import '../../../core/text_utils.dart';\n", '', 1)
+          view.write_text(text)
+          PY
+
       - name: Format Dart
         run: |
           dart format \
@@ -68,6 +121,7 @@ jobs:
             app/lib/features/profile/presentation/widgets/profile_likes_tab.dart \
             app/test/support/recording_drop_repository.dart \
             app/test/view_profile_screen_test.dart \
+            app/test/profile_likes_tab_test.dart \
             app/test/qa_wyn110_profile_scroll_header_test.dart \
             app/test/beta5_profile_v2_test.dart \
             app/test/audit_remaining_regression_test.dart
@@ -82,6 +136,15 @@ jobs:
       - name: Flutter analyze
         working-directory: app
         run: flutter analyze --no-pub
+
+      - name: Targeted Profile V2 tests
+        working-directory: app
+        run: |
+          flutter test --no-pub \
+            test/beta5_profile_v2_test.dart \
+            test/view_profile_screen_test.dart \
+            test/profile_likes_tab_test.dart \
+            test/qa_wyn110_profile_scroll_header_test.dart
 
       - name: Commit generated implementation
         run: |
