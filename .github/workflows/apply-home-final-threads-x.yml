@@ -6,6 +6,7 @@ on:
       - wyn/home-final-threads-x
     paths:
       - tools/apply_home_final_threads_x.py
+      - tools/align_home_final_tests.py
       - .github/workflows/apply-home-final-threads-x.yml
 
 permissions:
@@ -30,15 +31,18 @@ jobs:
         run: flutter pub get
 
       - name: Apply approved Home visual pass
-        run: python tools/apply_home_final_threads_x.py
+        run: |
+          python tools/apply_home_final_threads_x.py
+          python tools/align_home_final_tests.py
 
-      - name: Format touched Dart files
+      - name: Format touched Dart files and tests
         working-directory: app
         run: |
           dart format \
             lib/features/home/presentation/home_feed_screen.dart \
             lib/features/home/presentation/widgets/home_drop_card.dart \
-            lib/features/home/presentation/widgets/home_pop_card.dart
+            lib/features/home/presentation/widgets/home_pop_card.dart \
+            test/home_feed_screen_test.dart
 
       - name: Analyze
         working-directory: app
@@ -54,6 +58,7 @@ jobs:
       - name: Commit final Home UI and remove one-shot helpers
         run: |
           rm tools/apply_home_final_threads_x.py
+          rm tools/align_home_final_tests.py
           rm .github/workflows/apply-home-final-threads-x.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
