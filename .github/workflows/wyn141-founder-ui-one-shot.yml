@@ -1,0 +1,32 @@
+name: WYN-141 Founder UI one-shot
+
+on:
+  push:
+    branches:
+      - wyn/WYN-141-founder-final-ui
+    paths:
+      - .github/workflows/wyn141-founder-ui-one-shot.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: wyn/WYN-141-founder-final-ui
+          fetch-depth: 0
+
+      - name: Apply Founder final UI patch
+        run: python3 tools/wyn141_founder_ui_patch.py
+
+      - name: Commit patched UI
+        run: |
+          git config user.name "WYNOS UI Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --stat
+          git commit -m "feat(ui): implement Founder final Profile and Post Detail references"
+          git push origin HEAD:wyn/WYN-141-founder-final-ui
