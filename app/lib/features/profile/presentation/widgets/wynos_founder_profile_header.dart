@@ -24,6 +24,9 @@ class WynosProfileCover extends StatelessWidget {
             Image.network(
               url,
               fit: BoxFit.cover,
+              // Founder polish: keep the cover height unchanged, but bias
+              // the crop upward so the visual focus moves about 10-15% up.
+              alignment: const Alignment(0, -0.15),
               errorBuilder: (_, __, ___) => const _CoverFallback(),
             )
           else
@@ -93,12 +96,6 @@ class WynosFounderProfileHeader extends StatelessWidget {
   final Widget? footer;
   final bool showOnline;
 
-  String get _membershipLabel => switch (profile.platformRole) {
-        PlatformRole.admin => 'ผู้ดูแลระบบ',
-        PlatformRole.moderator => 'ผู้ดูแล',
-        PlatformRole.user => 'สมาชิกทั่วไป',
-      };
-
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
@@ -106,120 +103,100 @@ class WynosFounderProfileHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  WynosFounderMetrics.profileIdentityLeftInset,
-                  10,
-                  WynSpacing.space4,
-                  2,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      onTap: onDisplayNameTap,
-                      borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 1),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                profile.nameOrUsername,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 21,
-                                  height: 1.12,
-                                  fontWeight: FontWeight.w700,
-                                  color: WynColors.ink,
-                                ),
-                              ),
-                            ),
-                            if (profile.isVerified) ...[
-                              const SizedBox(width: 4),
-                              const VerifiedBadge(),
-                            ],
-                            if (isOwnProfile) ...[
-                              const SizedBox(width: 5),
-                              const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 22,
-                                color: WynColors.ink,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            '@${profile.username}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13.5,
-                              height: 1.1,
-                              color: WynColors.graphite,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: WynColors.surfaceTint,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _membershipLabel,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              height: 1,
-                              color: WynColors.graphite,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (profile.bio != null && profile.bio!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        profile.bio!,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          height: 1.34,
-                          color: WynColors.ink,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Positioned(
-                top: -46,
-                left: WynSpacing.space4,
-                child: _ProfileAvatar(
+          // Founder polish: the avatar now lives fully inside the white
+          // profile body instead of painting upward over the cover. Using a
+          // normal Row (not a negatively-positioned child) also means its
+          // full 92px height participates in layout, so stats can never
+          // collide with it on Web/iOS.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              12,
+              WynSpacing.space4,
+              2,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ProfileAvatar(
                   profile: profile,
                   showOnline: showOnline,
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: onDisplayNameTap,
+                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 1),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  profile.nameOrUsername,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 21,
+                                    height: 1.12,
+                                    fontWeight: FontWeight.w700,
+                                    color: WynColors.ink,
+                                  ),
+                                ),
+                              ),
+                              if (profile.isVerified) ...[
+                                const SizedBox(width: 4),
+                                const VerifiedBadge(),
+                              ],
+                              if (isOwnProfile) ...[
+                                const SizedBox(width: 5),
+                                const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 22,
+                                  color: WynColors.ink,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '@${profile.username}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          height: 1.1,
+                          color: WynColors.graphite,
+                        ),
+                      ),
+                      if (profile.bio != null &&
+                          profile.bio!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          profile.bio!,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            height: 1.34,
+                            color: WynColors.ink,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           if (showStats) ...[
-            const SizedBox(height: 13),
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 72),
               child: Row(
@@ -251,7 +228,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
             ),
           ],
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: actions,
           ),
           if (footer != null)
@@ -387,14 +364,18 @@ class WynosProfileIconAction extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon, size: 23, color: WynColors.ink),
+        icon: const SizedBox.shrink(),
         style: IconButton.styleFrom(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(14),
             side: const BorderSide(color: WynColors.hairline),
           ),
           backgroundColor: WynColors.paper,
         ),
+        // Keep the glyph slightly smaller together with the compact action
+        // row; the hit target remains the full metric-sized button.
+        selectedIcon: null,
+        isSelected: false,
       ),
     );
   }
