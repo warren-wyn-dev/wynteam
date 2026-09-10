@@ -33,35 +33,8 @@ jobs:
                   raise SystemExit('import anchor not found')
               text = text.replace(import_anchor, import_anchor + guest_import, 1)
 
-          old = """  void _onFollowButtonPressed(Profile profile) {
-            if (_isFollowing!) {
-              _toggleFollow();
-            } else if (profile.isPrivate && (_hasPendingRequest ?? false)) {
-              _cancelFollowRequest(profile);
-            } else if (profile.isPrivate) {
-              _sendFollowRequest();
-            } else {
-              _toggleFollow();
-            }
-          }
-          """
-          new = """  Future<void> _onFollowButtonPressed(Profile profile) async {
-            // WYN-072 Guest Browsing: viewing a shared profile is allowed, but
-            // Follow/Follow Request requires a permanent account. Gate before
-            // any optimistic UI state change or write occurs.
-            if (!await requireRealAccount(context) || !mounted) return;
-
-            if (_isFollowing!) {
-              _toggleFollow();
-            } else if (profile.isPrivate && (_hasPendingRequest ?? false)) {
-              _cancelFollowRequest(profile);
-            } else if (profile.isPrivate) {
-              _sendFollowRequest();
-            } else {
-              _toggleFollow();
-            }
-          }
-          """
+          old = "  void _onFollowButtonPressed(Profile profile) {\n    if (_isFollowing!) {\n      _toggleFollow();\n    } else if (profile.isPrivate && (_hasPendingRequest ?? false)) {\n      _cancelFollowRequest(profile);\n    } else if (profile.isPrivate) {\n      _sendFollowRequest();\n    } else {\n      _toggleFollow();\n    }\n  }\n"
+          new = "  Future<void> _onFollowButtonPressed(Profile profile) async {\n    // WYN-072 Guest Browsing: viewing a shared profile is allowed, but\n    // Follow/Follow Request requires a permanent account. Gate before\n    // any optimistic UI state change or write occurs.\n    if (!await requireRealAccount(context) || !mounted) return;\n\n    if (_isFollowing!) {\n      _toggleFollow();\n    } else if (profile.isPrivate && (_hasPendingRequest ?? false)) {\n      _cancelFollowRequest(profile);\n    } else if (profile.isPrivate) {\n      _sendFollowRequest();\n    } else {\n      _toggleFollow();\n    }\n  }\n"
           if old not in text:
               raise SystemExit('follow button method anchor not found')
           text = text.replace(old, new, 1)
