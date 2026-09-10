@@ -1,0 +1,19 @@
+name: Ops dispatch production web deploy
+
+on:
+  push:
+    branches:
+      - ops/deploy-beta4-20260910-2
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch canonical production workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-web.yml --ref main --repo "$GITHUB_REPOSITORY"
