@@ -39,6 +39,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wynos_founder_metrics.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../account_switcher/presentation/account_switcher_sheet.dart';
+import '../../auth/presentation/widgets/guest_gate.dart';
 import '../../block/data/block_relationship.dart';
 import '../../block/data/block_repository.dart';
 import '../../block/presentation/block_dialogs.dart';
@@ -375,7 +376,12 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     return 'ติดตาม';
   }
 
-  void _onFollowButtonPressed(Profile profile) {
+  Future<void> _onFollowButtonPressed(Profile profile) async {
+    // WYN-072 Guest Browsing: viewing a shared profile is allowed, but
+    // Follow/Follow Request requires a permanent account. Gate before
+    // any optimistic UI state change or write occurs.
+    if (!await requireRealAccount(context) || !mounted) return;
+
     if (_isFollowing!) {
       _toggleFollow();
     } else if (profile.isPrivate && (_hasPendingRequest ?? false)) {
