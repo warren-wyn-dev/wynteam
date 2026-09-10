@@ -27,7 +27,9 @@ void main() {
     final owner = Object();
     var calls = 0;
 
-    coordinator.attach(owner, () async => calls++);
+    coordinator.attach(owner, () async {
+      calls++;
+    });
     coordinator.detach(owner);
     await coordinator.refreshAll();
 
