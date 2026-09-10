@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/interaction/wyn_feedback.dart';
 import '../../../../core/interaction/wyn_motion.dart';
 import '../../../profile/data/profile.dart';
@@ -28,15 +29,20 @@ class FollowActionButton extends StatefulWidget {
     required this.followRepository,
     required this.followRequestRepository,
     this.compact = false,
+    this.filled = false,
   });
 
   final Profile profile;
   final FollowRepository followRepository;
   final FollowRequestRepository followRequestRepository;
 
-  /// Smaller padding/min-size for the Rising section's card (Design
-  /// doc: "ขนาดเล็กลง (compact OutlinedButton) ให้พอดีความกว้างการ์ด").
+  /// Smaller padding/min-size for compact recommendation surfaces.
   final bool compact;
+
+  /// Founder profile recommendation sheet uses a black filled pill while
+  /// existing Discovery/Profile recommendation surfaces keep their original
+  /// outlined appearance by default.
+  final bool filled;
 
   @override
   State<FollowActionButton> createState() => _FollowActionButtonState();
@@ -115,8 +121,6 @@ class _FollowActionButtonState extends State<FollowActionButton> {
       _isActionInFlight = true;
       _hasPendingRequest = true;
     });
-    // Asking to follow is the same commitment as following, from the
-    // user's side -- same light acknowledgement as [_toggleFollow].
     WynFeedback.follow();
     try {
       await widget.followRequestRepository
@@ -129,10 +133,6 @@ class _FollowActionButtonState extends State<FollowActionButton> {
     }
   }
 
-  // Confirm before canceling (unlike sending) -- mirrors
-  // ViewProfileScreen._cancelFollowRequest exactly, same reasoning:
-  // undoing a decision already communicated to the other party is
-  // worth one extra tap to avoid an accidental cancel.
   Future<void> _cancelRequest() async {
     final confirmed = await showDialog<bool>(
           context: context,
@@ -181,39 +181,66 @@ class _FollowActionButtonState extends State<FollowActionButton> {
     }
   }
 
+  Widget _labelWidget(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: WynMotion.duration(context, WynMotion.quick),
+      child: Text(_label, key: ValueKey(_label)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isFollowing == null) return const SizedBox.shrink();
 
     final primary = Theme.of(context).colorScheme.primary;
-    final style = widget.compact
-        ? OutlinedButton.styleFrom(
-            foregroundColor: primary,
-            side: BorderSide(color: primary),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            minimumSize: const Size(0, 32),
-            textStyle: Theme.of(context).textTheme.labelSmall,
-          )
-        : OutlinedButton.styleFrom(
-            foregroundColor: primary,
-            side: BorderSide(color: primary),
-          );
+    final onPressed = _isActionInFlight ? null : _onPressed;
+
+    final Widget button;
+    if (widget.filled) {
+      button = FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: WynColors.ink,
+          foregroundColor: WynColors.paper,
+          disabledBackgroundColor: WynColors.surfaceTint,
+          disabledForegroundColor: WynColors.graphite,
+          minimumSize: Size(widget.compact ? 84 : 0, widget.compact ? 36 : 44),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.compact ? 16 : 20,
+          ),
+          shape: const StadiumBorder(),
+          textStyle: widget.compact
+              ? Theme.of(context).textTheme.labelMedium
+              : Theme.of(context).textTheme.labelLarge,
+          elevation: 0,
+        ),
+        child: _labelWidget(context),
+      );
+    } else {
+      final style = widget.compact
+          ? OutlinedButton.styleFrom(
+              foregroundColor: primary,
+              side: BorderSide(color: primary),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 32),
+              textStyle: Theme.of(context).textTheme.labelSmall,
+            )
+          : OutlinedButton.styleFrom(
+              foregroundColor: primary,
+              side: BorderSide(color: primary),
+            );
+      button = OutlinedButton(
+        style: style,
+        onPressed: onPressed,
+        child: _labelWidget(context),
+      );
+    }
 
     return Semantics(
       label: _semanticsLabel,
       button: true,
       excludeSemantics: true,
-      child: OutlinedButton(
-        style: style,
-        onPressed: _isActionInFlight ? null : _onPressed,
-        // WYN-071: cross-fades the label on state changes instead of the
-        // text snapping instantly -- key on the label text itself so
-        // AnimatedSwitcher only triggers when it actually changes.
-        child: AnimatedSwitcher(
-          duration: WynMotion.duration(context, WynMotion.quick),
-          child: Text(_label, key: ValueKey(_label)),
-        ),
-      ),
+      child: button,
     );
   }
 }
