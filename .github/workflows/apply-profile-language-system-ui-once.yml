@@ -1,0 +1,105 @@
+name: Apply profile-language system UI once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-profile-language-system-ui-once.yml
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  apply-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply Profile-language UI refresh
+        run: python3 tools/apply_profile_language_system_ui.py
+
+      - name: Protect Profile implementation
+        run: |
+          if ! git diff --quiet -- app/lib/features/profile; then
+            echo "::error::Profile implementation changed, but Founder said not to edit Profile."
+            git diff -- app/lib/features/profile
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Format refreshed surfaces
+        run: |
+          dart format \
+            app/lib/features/home/presentation/home_feed_screen.dart \
+            app/lib/features/search/presentation/search_screen.dart \
+            app/lib/features/notification/presentation/notification_list_screen.dart \
+            app/lib/features/settings/presentation/settings_screen.dart \
+            app/lib/features/root/presentation/side_menu.dart
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Focused UI regression tests
+        working-directory: app
+        run: |
+          set -e
+          for testfile in \
+            test/home_feed_screen_test.dart \
+            test/search_screen_test.dart \
+            test/notification_list_screen_test.dart \
+            test/settings_screen_test.dart \
+            test/root_shell_test.dart \
+            test/side_menu_test.dart \
+            test/create_drop_screen_test.dart; do
+            if [ -f "$testfile" ]; then
+              echo "==> $testfile"
+              flutter test "$testfile"
+            fi
+          done
+
+      - name: Full Flutter test suite
+        working-directory: app
+        run: flutter test
+
+      - name: Commit validated system UI
+        run: |
+          rm -f tools/apply_profile_language_system_ui.py
+          rm -f .github/workflows/apply-profile-language-system-ui-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: align core UI with approved Profile language"
+          git push origin HEAD:main
+
+      - name: Deploy production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(git rev-parse HEAD)
+          gh workflow run deploy-web.yml --ref main
+          RUN_ID=""
+          for i in $(seq 1 60); do
+            RUN_ID=$(gh run list --workflow deploy-web.yml --branch main --event workflow_dispatch --limit 20 --json databaseId,headSha,createdAt --jq ".[] | select(.headSha == \"$SHA\") | .databaseId" | head -n1)
+            if [ -n "$RUN_ID" ]; then break; fi
+            sleep 3
+          done
+          if [ -z "$RUN_ID" ]; then
+            echo "::error::Could not find production deploy run for $SHA"
+            exit 1
+          fi
+          echo "Deploy run: $RUN_ID"
+          gh run watch "$RUN_ID" --exit-status
