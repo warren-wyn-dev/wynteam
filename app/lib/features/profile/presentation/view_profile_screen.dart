@@ -611,7 +611,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           WynosProfileCover(imageUrl: profile.coverUrl),
           Positioned(
             top: topInset,
-            left: 0,
+            left: 16,
             right: 0,
             height: kToolbarHeight,
             child: Row(
