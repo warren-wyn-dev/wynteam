@@ -77,9 +77,6 @@ jobs:
               raise SystemExit('ProfileLikes refresh callback anchor missing')
           likes.write_text(text.replace(old, new, 1))
 
-          # Beta5 keeps two stats, but each stat must be allowed to shrink on
-          # compact phones. The old unconstrained intrinsic rows overflowed at
-          # every width from 320 through 430 px.
           header = Path('app/lib/features/profile/presentation/widgets/profile_v2_header.dart')
           text = header.read_text()
           old_stats = """                Row(
@@ -153,20 +150,19 @@ jobs:
               r"  testWidgets\(\n      'Beta4 §1: the Edit Profile button spans the identity column, '[\s\S]*?^  \}\);\n\n(?=  testWidgets\('tapping the Followers count)",
               re.M,
           )
-          replacement = """  testWidgets('Beta5: own profile exposes compact Edit Profile in the top bar',
-      (tester) async {
-    await tester.pumpWidget(buildProfile(
-      profileRepository: ownProfileRepo,
-      followRepository: ownFollowRepo,
-      userId: 'me',
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('profile_edit_button')), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsNothing);
-  });
-
-"""
+          replacement = (
+              "  testWidgets('Beta5: own profile exposes compact Edit Profile in the top bar',\n"
+              "      (tester) async {\n"
+              "    await tester.pumpWidget(buildProfile(\n"
+              "      profileRepository: ownProfileRepo,\n"
+              "      followRepository: ownFollowRepo,\n"
+              "      userId: 'me',\n"
+              "    ));\n"
+              "    await tester.pumpAndSettle();\n\n"
+              "    expect(find.byKey(const Key('profile_edit_button')), findsOneWidget);\n"
+              "    expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsNothing);\n"
+              "  });\n\n"
+          )
           text, count = obsolete.subn(replacement, text, count=1)
           if count != 1:
               raise SystemExit(f'obsolete Beta4 edit-button test matches={count}')
@@ -182,8 +178,6 @@ jobs:
               "                  key: const Key('profile_edit_button'),\n" + edit_anchor,
               1,
           )
-          # Beta5 ProfileV2Header owns stats, so remove the old Beta4-only
-          # stat widgets/divider/bio tone rather than suppressing warnings.
           text, count = re.subn(
               r'class _FollowCountTarget[\s\S]*?const _bioTone = WynColors\.inkSoft;\n\n',
               '',
