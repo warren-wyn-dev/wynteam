@@ -22,176 +22,38 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
+          import re
           header = Path('app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart')
           text = header.read_text()
-
-          old_name = '''  Widget _nameRow() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: Text(
-            profile.nameOrUsername,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 21,
-              height: 1.12,
-              fontWeight: FontWeight.w700,
-              color: WynColors.ink,
-            ),
-          ),
-        ),
-        if (profile.isVerified) ...[
-          const SizedBox(width: 4),
-          const VerifiedBadge(),
-        ],
-        const SizedBox(width: 8),
-        Text(
-          '@${profile.username}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 13.5,
-            height: 1.1,
-            color: WynColors.graphite,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        if (isOwnProfile) ...[
-          const SizedBox(width: 5),
-          const Icon(
-            Icons.keyboard_arrow_down,
-            size: 22,
-            color: WynColors.ink,
-          ),
-        ],
-      ],
-    );
-  }
-'''
-          new_name = '''  Widget _nameRow() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                profile.nameOrUsername,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 21,
-                  height: 1.08,
-                  fontWeight: FontWeight.w700,
-                  color: WynColors.ink,
-                ),
-              ),
-            ),
-            if (profile.isVerified) ...[
-              const SizedBox(width: 4),
-              const VerifiedBadge(),
-            ],
-            if (isOwnProfile) ...[
-              const SizedBox(width: 5),
-              const Icon(
-                Icons.keyboard_arrow_down,
-                size: 22,
-                color: WynColors.ink,
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 1),
-        Text(
-          '@${profile.username}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 13.5,
-            height: 1.0,
-            color: WynColors.graphite,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
-    );
-  }
-'''
-          if old_name not in text:
-              raise SystemExit('Expected current name/username row not found')
-          text = text.replace(old_name, new_name, 1)
-
-          old_avatar = '''                Transform.translate(
-                  offset: const Offset(0, -25),
-                  child: _ProfileAvatar(
-                    profile: profile,
-                    showOnline: showOnline,
-                  ),
-                ),
-                const SizedBox(width: 12),'''
-          new_avatar = '''                SizedBox(
-                  width: WynosFounderMetrics.profileAvatarOuterDiameter,
-                  height: 67,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned(
-                        top: -25,
-                        left: 0,
-                        child: _ProfileAvatar(
-                          profile: profile,
-                          showOnline: showOnline,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),'''
+          pattern = r"  Widget _nameRow\(\) \{.*?\n  \}\n\n  Widget _displayNameControl\(\)"
+          replacement = "  Widget _nameRow() {\n    return Column(\n      mainAxisSize: MainAxisSize.min,\n      crossAxisAlignment: CrossAxisAlignment.start,\n      children: [\n        Row(\n          mainAxisSize: MainAxisSize.min,\n          children: [\n            Flexible(\n              child: Text(\n                profile.nameOrUsername,\n                maxLines: 1,\n                overflow: TextOverflow.ellipsis,\n                style: const TextStyle(\n                  fontSize: 21,\n                  height: 1.08,\n                  fontWeight: FontWeight.w700,\n                  color: WynColors.ink,\n                ),\n              ),\n            ),\n            if (profile.isVerified) ...[\n              const SizedBox(width: 4),\n              const VerifiedBadge(),\n            ],\n            if (isOwnProfile) ...[\n              const SizedBox(width: 5),\n              const Icon(\n                Icons.keyboard_arrow_down,\n                size: 22,\n                color: WynColors.ink,\n              ),\n            ],\n          ],\n        ),\n        const SizedBox(height: 1),\n        Text(\n          '@${profile.username}',\n          maxLines: 1,\n          overflow: TextOverflow.ellipsis,\n          style: const TextStyle(\n            fontSize: 13.5,\n            height: 1.0,\n            color: WynColors.graphite,\n            fontWeight: FontWeight.w400,\n          ),\n        ),\n      ],\n    );\n  }\n\n  Widget _displayNameControl()"
+          text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('Expected current name/username block not found')
+          old_avatar = "                Transform.translate(\n                  offset: const Offset(0, -25),\n                  child: _ProfileAvatar(\n                    profile: profile,\n                    showOnline: showOnline,\n                  ),\n                ),\n                const SizedBox(width: 12),"
+          new_avatar = "                SizedBox(\n                  width: WynosFounderMetrics.profileAvatarOuterDiameter,\n                  height: 67,\n                  child: Stack(\n                    clipBehavior: Clip.none,\n                    children: [\n                      Positioned(\n                        top: -25,\n                        left: 0,\n                        child: _ProfileAvatar(\n                          profile: profile,\n                          showOnline: showOnline,\n                        ),\n                      ),\n                    ],\n                  ),\n                ),\n                const SizedBox(width: 12),"
           if old_avatar not in text:
               raise SystemExit('Expected current avatar overlap block not found')
           text = text.replace(old_avatar, new_avatar, 1)
-
-          replacements = {
-              '''              12,\n              WynSpacing.space4,\n              2,''': '''              8,\n              WynSpacing.space4,\n              0,''',
-              '                        const SizedBox(height: 9),': '                        const SizedBox(height: 3),',
-              '            const SizedBox(height: 12),': '            const SizedBox(height: 4),',
-              '            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),': '            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),',
-              '              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),': '              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),',
-          }
-          for old, new in replacements.items():
+          for old, new in [
+              ("              12,\n              WynSpacing.space4,\n              2,", "              8,\n              WynSpacing.space4,\n              0,"),
+              ("                        const SizedBox(height: 9),", "                        const SizedBox(height: 3),"),
+              ("            const SizedBox(height: 12),", "            const SizedBox(height: 4),"),
+              ("            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),", "            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),"),
+              ("              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),", "              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),"),
+          ]:
               if old not in text:
                   raise SystemExit(f'Expected spacing token not found: {old!r}')
               text = text.replace(old, new, 1)
           header.write_text(text)
-
           test = Path('app/test/wynos_founder_profile_header_test.dart')
           t = test.read_text()
-          old_test = '''  testWidgets('username sits beside display name on the same row',
-      (tester) async {
-    await tester.pumpWidget(buildHeader());
-
-    final name = tester.getRect(find.text('หาเพื่อนคุย'));
-    final username = tester.getRect(find.text('@kkcu52'));
-    expect(username.left, greaterThan(name.left));
-    expect((username.center.dy - name.center.dy).abs(), lessThan(8));
-  });'''
-          new_test = '''  testWidgets('username sits directly below the display name', (tester) async {
-    await tester.pumpWidget(buildHeader());
-
-    final name = tester.getRect(find.text('หาเพื่อนคุย'));
-    final username = tester.getRect(find.text('@kkcu52'));
-    expect(username.left, closeTo(name.left, 1));
-    expect(username.center.dy, greaterThan(name.center.dy));
-    expect(username.top - name.bottom, lessThan(6));
-  });'''
-          if old_test not in t:
-              raise SystemExit('Expected current username placement regression test not found')
-          test.write_text(t.replace(old_test, new_test, 1))
+          pattern = r"  testWidgets\('username sits beside display name on the same row',.*?\n  \}\);"
+          replacement = "  testWidgets('username sits directly below the display name', (tester) async {\n    await tester.pumpWidget(buildHeader());\n\n    final name = tester.getRect(find.text('หาเพื่อนคุย'));\n    final username = tester.getRect(find.text('@kkcu52'));\n    expect(username.left, closeTo(name.left, 1));\n    expect(username.center.dy, greaterThan(name.center.dy));\n    expect(username.top - name.bottom, lessThan(6));\n  });"
+          t, count = re.subn(pattern, replacement, t, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('Expected username regression test not found')
+          test.write_text(t)
           PY
 
       - uses: subosito/flutter-action@v2
