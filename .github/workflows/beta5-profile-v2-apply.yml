@@ -22,6 +22,34 @@ jobs:
           channel: stable
           flutter-version: 3.47.1
 
+      - name: Fix generator target
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/apply_beta5_profile_v2.py')
+          text = path.read_text()
+          old = """replace_once(
+              view_path,
+              '                    authorId: widget.userId,\\n                    onRefreshHeader: _reload,',
+              '                    authorId: widget.userId,\\n                    isOwnProfile: isOwnProfile,\\n                    onRefreshHeader: _reload,',
+          )"""
+          new = """text = read(view_path)
+          posts_call = '                  ProfileDropGridTab(\\n'
+          start = text.find(posts_call)
+          if start < 0:
+              raise SystemExit('ProfileDropGridTab call not found')
+          needle = '                    authorId: widget.userId,\\n                    onRefreshHeader: _reload,'
+          position = text.find(needle, start)
+          if position < 0:
+              raise SystemExit('ProfileDropGridTab refresh hook not found')
+          replacement = '                    authorId: widget.userId,\\n                    isOwnProfile: isOwnProfile,\\n                    onRefreshHeader: _reload,'
+          text = text[:position] + text[position:].replace(needle, replacement, 1)
+          write(view_path, text)"""
+          if old not in text:
+              raise SystemExit('generator target block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Apply Profile V2 patch
         run: python3 .github/scripts/apply_beta5_profile_v2.py
 
