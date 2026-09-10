@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wyn_app/core/design/wyn_spacing.dart';
-import 'package:wyn_app/features/profile/data/profile.dart';
-import 'package:wyn_app/features/profile/presentation/widgets/avatar_circle.dart';
-import 'package:wyn_app/features/profile/presentation/widgets/wynos_founder_profile_header.dart';
+import 'package:wyn/core/design/wyn_spacing.dart';
+import 'package:wyn/features/profile/data/profile.dart';
+import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
+import 'package:wyn/features/profile/presentation/widgets/wynos_founder_profile_header.dart';
 
 void main() {
   const profile = Profile(
@@ -53,8 +53,10 @@ void main() {
 
     final finder = find.byKey(const Key('profile_account_switcher'));
     expect(finder, findsOneWidget);
-    expect(tester.getSize(finder).height,
-        greaterThanOrEqualTo(WynSpacing.touchTargetMin));
+    expect(
+      tester.getSize(finder).height,
+      greaterThanOrEqualTo(WynSpacing.touchTargetMin),
+    );
     final semantics = tester.getSemantics(finder);
     expect(semantics.label, contains('สลับบัญชี'));
     expect(semantics.flagsCollection.isButton, isTrue);
