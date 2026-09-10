@@ -1293,7 +1293,6 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   }
 
   Widget _buildCommentRow(DropComment comment, String currentUserId, {required bool isReply}) {
-  Widget _buildCommentRow(DropComment comment, String currentUserId, {required bool isReply}) {
     final isOwnComment = comment.authorId == currentUserId;
 
     return Semantics(
@@ -1560,9 +1559,6 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       ),
     );
   }
-}
-
-TextStyle _textStyle({
 }
 
 TextStyle _textStyle({

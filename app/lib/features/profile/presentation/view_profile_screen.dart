@@ -11,14 +11,12 @@ import '../../follow/data/follow_request_repository.dart';
 import '../../follow/presentation/follow_list_screen.dart';
 import '../../follow/presentation/follow_request_list_screen.dart';
 import '../../home/data/home_repository.dart';
-import '../../home/presentation/widgets/verified_badge.dart';
 import '../../pop/data/pop_repository.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../saved/presentation/bookmarks_screen.dart';
 import '../data/profile.dart';
 import '../data/profile_repository.dart';
 import 'edit_profile_screen.dart';
-import 'widgets/avatar_circle.dart';
 import 'widgets/wynos_founder_profile_header.dart';
 import 'widgets/profile_drop_grid_tab.dart';
 // Pop is hidden from Profile for WYNOS V1.0.0 Beta (Product spec
@@ -37,7 +35,6 @@ import 'widgets/privacy_notice_banner.dart';
 import 'widgets/profile_skeleton.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
-import '../../../core/design/wyn_typography.dart';
 import '../../../core/design/wynos_founder_metrics.dart';
 import '../../../core/widgets/action_sheet_row.dart';
 import '../../account_switcher/presentation/account_switcher_sheet.dart';
@@ -330,14 +327,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       return 'ขอติดตามแล้ว';
     }
     return 'ติดตาม';
-  }
-
-  String _followButtonSemanticsLabel(Profile profile) {
-    if (_isFollowing!) return 'กำลังติดตาม กดเพื่อเลิกติดตาม';
-    if (profile.isPrivate && (_hasPendingRequest ?? false)) {
-      return 'ขอติดตามแล้ว กดเพื่อยกเลิกคำขอ';
-    }
-    return profile.isPrivate ? 'กดเพื่อขอติดตาม' : 'กดเพื่อติดตาม';
   }
 
   void _onFollowButtonPressed(Profile profile) {
@@ -1128,7 +1117,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       child: Scaffold(
         backgroundColor: WynColors.paper,
         body: FutureBuilder<_ProfileWithCounts>(
-        body: FutureBuilder<_ProfileWithCounts>(
           future: _loadFuture,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
@@ -1208,8 +1196,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                     footer: _buildProfileFooter(profile, isOwnProfile),
                   ),
                 ),
-                if (!isOwnProfile)
-                  SliverToBoxAdapter(
                 if (!isOwnProfile)
                   SliverToBoxAdapter(
                     child: ProfileRecommendationSection(
@@ -1359,184 +1345,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     );
   }
 }
-
-/// Beta4 §2 -- "ชื่อที่แสดง ⌄": the display name on your own profile,
-/// with the chevron that opens the account switcher.
-///
-/// The whole name+chevron is one tap target, not just the glyph: a
-/// 12px chevron on its own is far under the 44px this design system
-/// requires ([WynSpacing.touchTargetMin]), and a person reaching for
-/// "switch account" aims at the name they want to change, not at the
-/// arrow beside it. The row is [MainAxisSize.min] so the target ends
-/// where the name ends rather than swallowing the empty space to its
-/// right, which would otherwise make the bio area below feel tappable
-/// too.
-///
-/// The chevron is [Icons.keyboard_arrow_down] at 22px against the 20px
-/// name: it needs to read as the "there is more here" affordance the
-/// Founder's own "⌄" sketch shows, and the smaller
-/// [Icons.expand_more] at text size disappears next to a 700-weight
-/// name. Colour is [WynColors.graphite], not ink -- the name is the
-/// content, the chevron is the hint.
-class _AccountSwitcherName extends StatelessWidget {
-  const _AccountSwitcherName({
-    required this.name,
-    required this.isVerified,
-    required this.onTap,
-  });
-
-  final String name;
-  final bool isVerified;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      // Says what the control *does*, not just what it shows -- Beta4
-      // §2: "ต้องสื่อชัดว่าใช้เปลี่ยนบัญชี". A screen-reader user
-      // hearing only the name would have no way to know the name is a
-      // button at all, let alone what it opens.
-      label: '$name, แตะเพื่อสลับบัญชี',
-      button: true,
-      excludeSemantics: true,
-      child: InkWell(
-        key: const Key('profile_account_switcher'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: WynSpacing.touchTargetMin,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Flexible, not Expanded: the row stays content-width
-              // (see the class doc) but a very long display name still
-              // ellipsizes instead of overflowing the identity column
-              // on a small phone.
-              Flexible(
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _textStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: WynColors.ink,
-                  ),
-                ),
-              ),
-              if (isVerified) ...[
-                const SizedBox(width: WynSpacing.space1),
-                const VerifiedBadge(),
-              ],
-              const SizedBox(width: WynSpacing.space1),
-              const Icon(
-                Icons.keyboard_arrow_down,
-                size: 22,
-                color: WynColors.graphite,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FollowCountTarget extends StatelessWidget {
-  const _FollowCountTarget({
-    required this.count,
-    required this.label,
-    required this.onTap,
-  });
-
-  final int count;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: '$count $label',
-      button: true,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
-          child: _StatBlockContent(count: count, label: label),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatBlockContent extends StatelessWidget {
-  const _StatBlockContent({required this.count, required this.label});
-
-  final int count;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    // Beta4 §14: each line scales down only if it genuinely cannot fit
-    // the column it was given -- at every width from 360px up this is a
-    // no-op and the type is exactly the size the design system says.
-    // It exists for the 320px case, where "กำลังติดตาม" at 13px is
-    // wider than half the identity column; shrinking a label a few
-    // points there is better than ellipsizing a word or overflowing.
-    return Column(
-      children: [
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            // WYN-095: the stat sits in a row squeezed beside the
-            // avatar rather than spanning the full screen width, so a
-            // large raw number is abbreviated -- the Semantics label on
-            // the tap target still reads the exact count out loud, this
-            // is the visible text only.
-            compactCountLabel(count),
-            maxLines: 1,
-            style: _textStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: WynColors.ink),
-          ),
-        ),
-        const SizedBox(height: 2),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            maxLines: 1,
-            style: _textStyle(fontSize: 13, color: WynColors.graphite),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// SPEC.md Section 3's `w-px h-8 background hairline` vertical divider
-/// between StatsRow stats.
-Widget _buildStatDivider() => Container(
-      width: 1,
-      height: 32,
-      // Beta4 §14: space3, not space4 -- 8px of the identity column back
-      // for the two stats either side of it on a small screen.
-      margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
-      color: WynColors.hairline,
-    );
-
-/// 05-profile.tsx's bio tone (`#2B2A26`) -- deliberately not full
-/// `WynColors.ink`, same "quieter than the nearest named token" pattern
-/// SPEC.md's own Section 4.10 sanctions for Home's reply-preview text
-/// (see notification_list_screen.dart's identical reasoning for its own
-/// message-body tone).
-const _bioTone = WynColors.inkSoft;
 
 TextStyle _textStyle({
   required double fontSize,
