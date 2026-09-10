@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/design/wynos_founder_metrics.dart';
+import '../../../home/presentation/widgets/verified_badge.dart';
 import '../../data/profile.dart';
 import 'avatar_circle.dart';
-import 'verified_badge.dart';
 
 class WynosProfileCover extends StatelessWidget {
   const WynosProfileCover({super.key, required this.imageUrl});
