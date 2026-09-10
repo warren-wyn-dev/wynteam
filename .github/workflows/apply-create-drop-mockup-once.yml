@@ -1,0 +1,53 @@
+name: Apply approved Create Post UI once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-create-drop-mockup-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply approved Create Post mockup
+        run: python3 tools/apply_create_drop_mockup.py
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Format Create Post source
+        run: dart format app/lib/features/drop/presentation/create_drop_screen.dart
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Create Post regression tests
+        working-directory: app
+        run: flutter test test/create_drop_screen_test.dart
+
+      - name: Commit validated Create Post UI
+        run: |
+          rm -f tools/apply_create_drop_mockup.py
+          rm -f .github/workflows/apply-create-drop-mockup-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: refresh Create Post composer UI"
+          git push origin HEAD:main
