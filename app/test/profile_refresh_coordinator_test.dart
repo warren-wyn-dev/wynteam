@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wyn_app/features/profile/presentation/widgets/profile_refresh_coordinator.dart';
+import 'package:wyn/features/profile/presentation/widgets/profile_refresh_coordinator.dart';
 
 void main() {
   test('one refresh awaits every registered profile surface', () async {
