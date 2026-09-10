@@ -595,15 +595,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   }
 
   Widget _buildProfileCoverBar(Profile profile, bool isOwnProfile) {
-    void goBack() {
-      final navigator = Navigator.of(context);
-      if (navigator.canPop()) {
-        navigator.pop();
-      } else {
-        widget.onRootBack?.call();
-      }
-    }
-
     // The cover and the identity header must live in the same sliver.
     // The avatar intentionally paints 46px upward into this cover; keeping
     // the cover in a separate SliverAppBar clips that overflow at the sliver
@@ -625,15 +616,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             height: kToolbarHeight,
             child: Row(
               children: [
-                IconButton(
-                  tooltip: 'ย้อนกลับ',
-                  icon: const Icon(
-                    Icons.chevron_left_rounded,
-                    size: 32,
-                    color: WynColors.paper,
-                  ),
-                  onPressed: goBack,
-                ),
                 const Text(
                   'โปรไฟล์',
                   style: TextStyle(

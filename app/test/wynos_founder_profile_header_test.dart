@@ -45,6 +45,16 @@ void main() {
     expect(name.left, greaterThan(avatar.right));
   });
 
+  testWidgets('username sits beside display name on the same row',
+      (tester) async {
+    await tester.pumpWidget(buildHeader());
+
+    final name = tester.getRect(find.text('หาเพื่อนคุย'));
+    final username = tester.getRect(find.text('@kkcu52'));
+    expect(username.left, greaterThan(name.left));
+    expect((username.center.dy - name.center.dy).abs(), lessThan(8));
+  });
+
   testWidgets('own display-name switcher keeps a 44px accessible tap target',
       (tester) async {
     final handle = tester.ensureSemantics();
