@@ -171,7 +171,11 @@ jobs:
             fi
             executed=$((executed + 1))
             echo "::group::$test_script"
-            bash "$test_script"
+            if ! bash "$test_script"; then
+              echo "::endgroup::"
+              echo "::error file=$test_script::Database regression failed: $test_script"
+              exit 1
+            fi
             echo "::endgroup::"
           done
 
