@@ -2,13 +2,13 @@ class WynosFounderMetrics {
   WynosFounderMetrics._();
 
   // Profile reference: 864x1536 screenshot, normalized to a 390 logical-px
-  // mobile viewport. The SliverAppBar adds the device top inset itself.
+  // mobile viewport. The profile cover includes the device top inset itself.
   static const double profileCoverExpandedHeight = 108;
   static const double profileAvatarRadius = 42;
   static const double profileAvatarOuterDiameter = 92;
   static const double profileIdentityLeftInset = 120;
-  static const double profileActionHeight = 48;
-  static const double profileSecondaryActionSize = 48;
+  static const double profileActionHeight = 44;
+  static const double profileSecondaryActionSize = 44;
   static const double profileTabHeight = 52;
 
   // Post-detail reference.

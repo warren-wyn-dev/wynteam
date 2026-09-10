@@ -24,12 +24,13 @@ class WynosProfileCover extends StatelessWidget {
             Image.network(
               url,
               fit: BoxFit.cover,
+              // Keep the cover box unchanged but move the crop focus upward
+              // by roughly 10-15%, matching the approved Profile polish.
+              alignment: const Alignment(0, -0.15),
               errorBuilder: (_, __, ___) => const _CoverFallback(),
             )
           else
             const _CoverFallback(),
-          // Keeps white top-bar controls readable over arbitrary photos,
-          // while remaining visually almost invisible over normal covers.
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -62,9 +63,12 @@ class _CoverFallback extends StatelessWidget {
   }
 }
 
-/// Pixel-targeted identity/action block for the Founder-approved Profile
-/// screenshot. Business behavior remains owned by ViewProfileScreen; this
-/// widget only owns composition, proportions and visual hierarchy.
+/// Founder-approved identity/action block for Profile.
+///
+/// The avatar deliberately sits inside the white identity body instead of
+/// painting over the cover. That keeps the whole cover visible and also avoids
+/// the renderer clipping bug that the earlier negative-overlap composition hit
+/// on iOS/Flutter Web.
 class WynosFounderProfileHeader extends StatelessWidget {
   const WynosFounderProfileHeader({
     super.key,
@@ -93,11 +97,65 @@ class WynosFounderProfileHeader extends StatelessWidget {
   final Widget? footer;
   final bool showOnline;
 
-  String get _membershipLabel => switch (profile.platformRole) {
-        PlatformRole.admin => 'ผู้ดูแลระบบ',
-        PlatformRole.moderator => 'ผู้ดูแล',
-        PlatformRole.user => 'สมาชิกทั่วไป',
-      };
+  Widget _nameRow() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            profile.nameOrUsername,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 21,
+              height: 1.12,
+              fontWeight: FontWeight.w700,
+              color: WynColors.ink,
+            ),
+          ),
+        ),
+        if (profile.isVerified) ...[
+          const SizedBox(width: 4),
+          const VerifiedBadge(),
+        ],
+        if (isOwnProfile) ...[
+          const SizedBox(width: 5),
+          const Icon(
+            Icons.keyboard_arrow_down,
+            size: 22,
+            color: WynColors.ink,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _displayNameControl() {
+    final row = _nameRow();
+    if (!isOwnProfile || onDisplayNameTap == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        child: row,
+      );
+    }
+
+    return Semantics(
+      key: const Key('profile_account_switcher'),
+      label: 'สลับบัญชี ${profile.nameOrUsername}',
+      button: true,
+      excludeSemantics: false,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: WynSpacing.touchTargetMin,
+        ),
+        child: InkWell(
+          onTap: onDisplayNameTap,
+          borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+          child: Align(alignment: Alignment.centerLeft, child: row),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,120 +164,56 @@ class WynosFounderProfileHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  WynosFounderMetrics.profileIdentityLeftInset,
-                  10,
-                  WynSpacing.space4,
-                  2,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      onTap: onDisplayNameTap,
-                      borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 1),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                profile.nameOrUsername,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 21,
-                                  height: 1.12,
-                                  fontWeight: FontWeight.w700,
-                                  color: WynColors.ink,
-                                ),
-                              ),
-                            ),
-                            if (profile.isVerified) ...[
-                              const SizedBox(width: 4),
-                              const VerifiedBadge(),
-                            ],
-                            if (isOwnProfile) ...[
-                              const SizedBox(width: 5),
-                              const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 22,
-                                color: WynColors.ink,
-                              ),
-                            ],
-                          ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              12,
+              WynSpacing.space4,
+              2,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ProfileAvatar(profile: profile, showOnline: showOnline),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _displayNameControl(),
+                      const SizedBox(height: 3),
+                      Text(
+                        '@${profile.username}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          height: 1.1,
+                          color: WynColors.graphite,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            '@${profile.username}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13.5,
-                              height: 1.1,
-                              color: WynColors.graphite,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: WynColors.surfaceTint,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _membershipLabel,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              height: 1,
-                              color: WynColors.graphite,
-                            ),
+                      if (profile.bio != null &&
+                          profile.bio!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 9),
+                        Text(
+                          profile.bio!,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            height: 1.34,
+                            color: WynColors.ink,
                           ),
                         ),
                       ],
-                    ),
-                    if (profile.bio != null && profile.bio!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        profile.bio!,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          height: 1.34,
-                          color: WynColors.ink,
-                        ),
-                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              Positioned(
-                top: -46,
-                left: WynSpacing.space4,
-                child: _ProfileAvatar(
-                  profile: profile,
-                  showOnline: showOnline,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           if (showStats) ...[
-            const SizedBox(height: 13),
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 72),
               child: Row(
@@ -251,7 +245,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
             ),
           ],
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: actions,
           ),
           if (footer != null)
@@ -387,10 +381,10 @@ class WynosProfileIconAction extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon, size: 23, color: WynColors.ink),
+        icon: Icon(icon, size: 21, color: WynColors.ink),
         style: IconButton.styleFrom(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(14),
             side: const BorderSide(color: WynColors.hairline),
           ),
           backgroundColor: WynColors.paper,
