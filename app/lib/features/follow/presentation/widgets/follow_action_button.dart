@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/interaction/wyn_feedback.dart';
 import '../../../../core/interaction/wyn_motion.dart';
+import '../../../auth/presentation/widgets/guest_gate.dart';
 import '../../../profile/data/profile.dart';
 import '../../data/follow_repository.dart';
 import '../../data/follow_request_repository.dart';
@@ -169,7 +170,12 @@ class _FollowActionButtonState extends State<FollowActionButton> {
     }
   }
 
-  void _onPressed() {
+  Future<void> _onPressed() async {
+    // Guests may browse people, but Follow/Follow Request is a real-account
+    // action. The shared gate shows the existing สมัคร/เข้าสู่ระบบ prompt
+    // before any optimistic state change or write is attempted.
+    if (!await requireRealAccount(context) || !mounted) return;
+
     if (_isFollowing!) {
       _toggleFollow();
     } else if (widget.profile.isPrivate && (_hasPendingRequest ?? false)) {
