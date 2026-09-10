@@ -51,7 +51,9 @@ String newDropPublicationOperationId() {
   final bytes = List<int>.generate(16, (_) => random.nextInt(256));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  final hex = bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+  final hex = bytes
+      .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+      .join();
   return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
       '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
       '${hex.substring(20)}';
@@ -153,16 +155,18 @@ class DropRepository {
     final pollStates = viewer.pollStates;
 
     return rows
-        .map((row) => Drop.fromMap(
-              row,
-              likedByMe: likedIds.contains(row['id'] as String),
-              savedByMe: savedIds.contains(row['id'] as String),
-              redroppedByMe: redroppedIds.contains(row['id'] as String),
-              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
-              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
-              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
-              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
-            ))
+        .map(
+          (row) => Drop.fromMap(
+            row,
+            likedByMe: likedIds.contains(row['id'] as String),
+            savedByMe: savedIds.contains(row['id'] as String),
+            redroppedByMe: redroppedIds.contains(row['id'] as String),
+            pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+            pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+            pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+            imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
+          ),
+        )
         .toList();
   }
 
@@ -190,16 +194,18 @@ class DropRepository {
     final pollStates = viewer.pollStates;
 
     return rows
-        .map((row) => Drop.fromMap(
-              row,
-              likedByMe: likedIds.contains(row['id'] as String),
-              savedByMe: savedIds.contains(row['id'] as String),
-              redroppedByMe: redroppedIds.contains(row['id'] as String),
-              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
-              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
-              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
-              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
-            ))
+        .map(
+          (row) => Drop.fromMap(
+            row,
+            likedByMe: likedIds.contains(row['id'] as String),
+            savedByMe: savedIds.contains(row['id'] as String),
+            redroppedByMe: redroppedIds.contains(row['id'] as String),
+            pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+            pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+            pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+            imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
+          ),
+        )
         .toList();
   }
 
@@ -243,17 +249,62 @@ class DropRepository {
     final pollStates = viewer.pollStates;
 
     return rows
-        .map((row) => Drop.fromMap(
-              row,
-              likedByMe: likedIds.contains(row['id'] as String),
-              savedByMe: savedIds.contains(row['id'] as String),
-              redroppedByMe: redroppedIds.contains(row['id'] as String),
-              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
-              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
-              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
-              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
-            ))
+        .map(
+          (row) => Drop.fromMap(
+            row,
+            likedByMe: likedIds.contains(row['id'] as String),
+            savedByMe: savedIds.contains(row['id'] as String),
+            redroppedByMe: redroppedIds.contains(row['id'] as String),
+            pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+            pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+            pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+            imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
+          ),
+        )
         .toList();
+  }
+
+  /// Beta5 Profile V2: the author's pinned Drops, ordered by the server's
+  /// 1..3 profile_pin_position. This remains an ordinary `drops` select,
+  /// so every existing audience/private/block RLS rule still applies.
+  Future<List<Drop>> fetchPinnedByAuthor({required String authorId}) async {
+    final userId = _client.auth.currentUser!.id;
+    final rows = await _client
+        .from('drops')
+        .select(_dropSelect)
+        .eq('author_id', authorId)
+        .isFilter('deleted_at', null)
+        .not('profile_pin_position', 'is', null)
+        .order('profile_pin_position', ascending: true);
+
+    final viewer = await _fetchViewerState(userId: userId, rows: rows);
+    return rows
+        .map(
+          (row) => Drop.fromMap(
+            row,
+            likedByMe: viewer.likedIds.contains(row['id'] as String),
+            savedByMe: viewer.savedIds.contains(row['id'] as String),
+            redroppedByMe: viewer.redroppedIds.contains(row['id'] as String),
+            pollMyVoteIndex:
+                viewer.pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+            pollTotalVotes: viewer.pollStates[_pollIdFromRow(row)]?.totalVotes,
+            pollOptionCounts:
+                viewer.pollStates[_pollIdFromRow(row)]?.optionCounts,
+            imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
+          ),
+        )
+        .toList();
+  }
+
+  /// Atomically pins one of the signed-in user's own Drops into the first
+  /// free Profile slot (maximum 3). The RPC serializes concurrent pin
+  /// requests server-side, so two taps/devices cannot create four pins.
+  Future<void> pinProfileDrop(String dropId) async {
+    await _client.rpc('pin_profile_drop', params: {'p_drop_id': dropId});
+  }
+
+  Future<void> unpinProfileDrop(String dropId) async {
+    await _client.rpc('unpin_profile_drop', params: {'p_drop_id': dropId});
   }
 
   /// Total (non-deleted) Drop count for one author -- 05-profile.tsx's
@@ -261,8 +312,10 @@ class DropRepository {
   /// FollowRepository.countFollowers/countFollowing (see
   /// public.drop_count() in supabase/schema.sql).
   Future<int> countByAuthor(String authorId) async {
-    final response =
-        await _client.rpc('drop_count', params: {'p_user_id': authorId});
+    final response = await _client.rpc(
+      'drop_count',
+      params: {'p_user_id': authorId},
+    );
     return (response as num).toInt();
   }
 
@@ -296,17 +349,16 @@ class DropRepository {
       'fetch_liked_drop_ids',
       params: {'p_target_user_id': authorId, 'p_page': page},
     ) as List<dynamic>;
-    final orderedIds =
-        idRows.map((row) => row['drop_id'] as String).toList(growable: false);
+    final orderedIds = idRows
+        .map((row) => row['drop_id'] as String)
+        .toList(growable: false);
     if (orderedIds.isEmpty) return [];
 
     final fetched = await _client
         .from('drops')
         .select(_dropSelect)
         .inFilter('id', orderedIds);
-    final byId = {
-      for (final row in fetched) row['id'] as String: row,
-    };
+    final byId = {for (final row in fetched) row['id'] as String: row};
     // fetch_liked_drop_ids' own order is the source of truth (newest
     // Like first) -- the second query above has no ORDER BY of its own
     // to match it, and a row missing here (blocked/private/deleted,
@@ -324,16 +376,18 @@ class DropRepository {
     final pollStates = viewer.pollStates;
 
     return rows
-        .map((row) => Drop.fromMap(
-              row,
-              likedByMe: likedIds.contains(row['id'] as String),
-              savedByMe: savedIds.contains(row['id'] as String),
-              redroppedByMe: redroppedIds.contains(row['id'] as String),
-              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
-              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
-              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
-              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
-            ))
+        .map(
+          (row) => Drop.fromMap(
+            row,
+            likedByMe: likedIds.contains(row['id'] as String),
+            savedByMe: savedIds.contains(row['id'] as String),
+            redroppedByMe: redroppedIds.contains(row['id'] as String),
+            pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+            pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+            pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+            imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
+          ),
+        )
         .toList();
   }
 
@@ -357,9 +411,11 @@ class DropRepository {
 
     final rows = await _client
         .from('drop_comments')
-        .select('*, $_commentAuthorSelect, '
-            'drop:drops!inner(id, caption, image_url, '
-            'author:profiles!drops_author_id_fkey(username, display_name))')
+        .select(
+          '*, $_commentAuthorSelect, '
+          'drop:drops!inner(id, caption, image_url, '
+          'author:profiles!drops_author_id_fkey(username, display_name))',
+        )
         .eq('author_id', authorId)
         .order('created_at', ascending: false)
         .range(from, to);
@@ -393,8 +449,9 @@ class DropRepository {
         .from('follows')
         .select('following_id')
         .eq('follower_id', userId);
-    final followingIds =
-        followRows.map((row) => row['following_id'] as String).toList();
+    final followingIds = followRows
+        .map((row) => row['following_id'] as String)
+        .toList();
     if (followingIds.isEmpty) return [];
 
     final rows = await _client
@@ -411,16 +468,18 @@ class DropRepository {
     final pollStates = viewer.pollStates;
 
     return rows
-        .map((row) => Drop.fromMap(
-              row,
-              likedByMe: likedIds.contains(row['id'] as String),
-              savedByMe: savedIds.contains(row['id'] as String),
-              redroppedByMe: redroppedIds.contains(row['id'] as String),
-              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
-              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
-              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
-              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
-            ))
+        .map(
+          (row) => Drop.fromMap(
+            row,
+            likedByMe: likedIds.contains(row['id'] as String),
+            savedByMe: savedIds.contains(row['id'] as String),
+            redroppedByMe: redroppedIds.contains(row['id'] as String),
+            pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+            pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+            pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+            imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
+          ),
+        )
         .toList();
   }
 
@@ -451,8 +510,9 @@ class DropRepository {
     final viewer = await _fetchViewerState(
       userId: userId,
       rows: rows,
-      authorIdsToCheckFollowing:
-          rows.map((row) => row['author_id'] as String).toSet(),
+      authorIdsToCheckFollowing: rows
+          .map((row) => row['author_id'] as String)
+          .toSet(),
     );
     final likedIds = viewer.likedIds;
     final savedIds = viewer.savedIds;
@@ -461,16 +521,18 @@ class DropRepository {
     final pollStates = viewer.pollStates;
 
     final drops = rows
-        .map((row) => Drop.fromMap(
-              row,
-              likedByMe: likedIds.contains(row['id'] as String),
-              savedByMe: savedIds.contains(row['id'] as String),
-              redroppedByMe: redroppedIds.contains(row['id'] as String),
-              pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
-              pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
-              pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
-              imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
-            ))
+        .map(
+          (row) => Drop.fromMap(
+            row,
+            likedByMe: likedIds.contains(row['id'] as String),
+            savedByMe: savedIds.contains(row['id'] as String),
+            redroppedByMe: redroppedIds.contains(row['id'] as String),
+            pollMyVoteIndex: pollStates[_pollIdFromRow(row)]?.myVoteIndex,
+            pollTotalVotes: pollStates[_pollIdFromRow(row)]?.totalVotes,
+            pollOptionCounts: pollStates[_pollIdFromRow(row)]?.optionCounts,
+            imageUrls: viewer.imageUrlsByDropId[row['id'] as String],
+          ),
+        )
         .toList();
 
     final now = DateTime.now().toUtc();
@@ -596,8 +658,9 @@ class DropRepository {
       redroppedIds: results[2] as Set<String>,
       pollStates: results[3] as Map<String, _PollState>,
       imageUrlsByDropId: results[4] as Map<String, List<String>>,
-      followedAuthorIds:
-          results.length > 5 ? results[5] as Set<String> : const {},
+      followedAuthorIds: results.length > 5
+          ? results[5] as Set<String>
+          : const {},
     );
   }
 
@@ -650,8 +713,9 @@ class DropRepository {
 
       final byDropId = <String, List<String>>{};
       for (final row in imageRows) {
-        (byDropId[row['drop_id'] as String] ??= <String>[])
-            .add(row['image_url'] as String);
+        (byDropId[row['drop_id'] as String] ??= <String>[]).add(
+          row['image_url'] as String,
+        );
       }
       return byDropId;
     } catch (_) {
@@ -762,8 +826,8 @@ class DropRepository {
               : null,
           optionCounts: resultsByPollId[id]?['visible'] == true
               ? (resultsByPollId[id]!['option_counts'] as List<dynamic>)
-                  .map((e) => (e as num).toInt())
-                  .toList()
+                    .map((e) => (e as num).toInt())
+                    .toList()
               : null,
         ),
     };
@@ -789,18 +853,21 @@ class DropRepository {
     // in both compose modes.
     LocationResult? location,
   }) {
-    return _client.rpc('create_poll_drop', params: {
-      'p_caption': question.trim(),
-      'p_options': options,
-      'p_duration_days': durationDays,
-      'p_mentioned_user_ids': mentionedUserIds.toList(),
-      'p_audience': audience.dbValue,
-      'p_excluded_friend_ids': excludedFriendIds.toList(),
-      'p_location': location?.name,
-      'p_location_lat': location?.lat,
-      'p_location_lon': location?.lon,
-      'p_location_place_id': location?.placeId,
-    });
+    return _client.rpc(
+      'create_poll_drop',
+      params: {
+        'p_caption': question.trim(),
+        'p_options': options,
+        'p_duration_days': durationDays,
+        'p_mentioned_user_ids': mentionedUserIds.toList(),
+        'p_audience': audience.dbValue,
+        'p_excluded_friend_ids': excludedFriendIds.toList(),
+        'p_location': location?.name,
+        'p_location_lat': location?.lat,
+        'p_location_lon': location?.lon,
+        'p_location_place_id': location?.placeId,
+      },
+    );
   }
 
   /// Casts (or changes) a vote -- an upsert on `drop_poll_votes` so a
@@ -813,14 +880,11 @@ class DropRepository {
     required int optionIndex,
   }) async {
     final userId = _client.auth.currentUser!.id;
-    await _client.from('drop_poll_votes').upsert(
-      {
-        'poll_id': pollId,
-        'voter_id': userId,
-        'option_index': optionIndex,
-      },
-      onConflict: 'poll_id,voter_id',
-    );
+    await _client.from('drop_poll_votes').upsert({
+      'poll_id': pollId,
+      'voter_id': userId,
+      'option_index': optionIndex,
+    }, onConflict: 'poll_id,voter_id');
   }
 
   /// Creates a Drop with 1-9 photos (WYN-071 -- was exactly 1 photo
@@ -881,14 +945,18 @@ class DropRepository {
     final imageDimensions = <(int, int)>[];
     try {
       for (var i = 0; i < imagesBytes.length; i++) {
-        final safeExtension = imageExtensions[i]
-            .toLowerCase()
-            .replaceAll(RegExp('[^a-z0-9]'), '');
-        final path = '$userId/publications/$operationId/'
+        final safeExtension = imageExtensions[i].toLowerCase().replaceAll(
+          RegExp('[^a-z0-9]'),
+          '',
+        );
+        final path =
+            '$userId/publications/$operationId/'
             '$i.${safeExtension.isEmpty ? 'jpg' : safeExtension}';
         publicationPaths.add(path);
         try {
-          await _client.storage.from('drop-images').uploadBinary(
+          await _client.storage
+              .from('drop-images')
+              .uploadBinary(
                 path,
                 imagesBytes[i],
                 fileOptions: immutableUploadFileOptions,
@@ -1026,37 +1094,41 @@ class DropRepository {
     DropAspectRatio? aspectRatio,
     List<String> publicationPaths = const [],
   }) async {
-    final primaryDimensions =
-        allImageDimensions.isNotEmpty ? allImageDimensions.first : null;
+    final primaryDimensions = allImageDimensions.isNotEmpty
+        ? allImageDimensions.first
+        : null;
     try {
-      await _client.rpc('publish_drop', params: {
-        'p_operation_id': publicationOperationId,
-        'p_image_url': imageUrl,
-        'p_caption': normalizeOptionalText(caption.trim()),
-        'p_audience': audience.dbValue,
-        'p_excluded_friend_ids': excludedFriendIds.toList(),
-        'p_images': [
-          for (var i = 0; i < allImageUrls.length; i++)
-            {
-              'image_url': allImageUrls[i],
-              'position': i,
-              'image_width': i < allImageDimensions.length
-                  ? allImageDimensions[i].$1
-                  : null,
-              'image_height': i < allImageDimensions.length
-                  ? allImageDimensions[i].$2
-                  : null,
-            },
-        ],
-        'p_mentioned_user_ids': mentionedUserIds.toList(),
-        'p_location': location?.name,
-        'p_location_lat': location?.lat,
-        'p_location_lon': location?.lon,
-        'p_location_place_id': location?.placeId,
-        'p_image_width': primaryDimensions?.$1,
-        'p_image_height': primaryDimensions?.$2,
-        'p_image_aspect_ratio': aspectRatio?.wireValue,
-      });
+      await _client.rpc(
+        'publish_drop',
+        params: {
+          'p_operation_id': publicationOperationId,
+          'p_image_url': imageUrl,
+          'p_caption': normalizeOptionalText(caption.trim()),
+          'p_audience': audience.dbValue,
+          'p_excluded_friend_ids': excludedFriendIds.toList(),
+          'p_images': [
+            for (var i = 0; i < allImageUrls.length; i++)
+              {
+                'image_url': allImageUrls[i],
+                'position': i,
+                'image_width': i < allImageDimensions.length
+                    ? allImageDimensions[i].$1
+                    : null,
+                'image_height': i < allImageDimensions.length
+                    ? allImageDimensions[i].$2
+                    : null,
+              },
+          ],
+          'p_mentioned_user_ids': mentionedUserIds.toList(),
+          'p_location': location?.name,
+          'p_location_lat': location?.lat,
+          'p_location_lon': location?.lon,
+          'p_location_place_id': location?.placeId,
+          'p_image_width': primaryDimensions?.$1,
+          'p_image_height': primaryDimensions?.$2,
+          'p_image_aspect_ratio': aspectRatio?.wireValue,
+        },
+      );
     } on PostgrestException {
       await _removeNewPublicationUploadsBestEffort(publicationPaths);
       rethrow;
@@ -1194,10 +1266,10 @@ class DropRepository {
       // caller's catch rolls the card back to "not liked" while the row
       // is in fact stored. Reaches here from a second device, a retry,
       // or a tap that raced its predecessor.
-      await _client
-          .from('drop_likes')
-          .upsert({'drop_id': dropId, 'user_id': userId},
-              ignoreDuplicates: true);
+      await _client.from('drop_likes').upsert({
+        'drop_id': dropId,
+        'user_id': userId,
+      }, ignoreDuplicates: true);
     }
   }
 
@@ -1302,10 +1374,7 @@ class DropRepository {
   /// parent -- so a reply can never load before the comment it belongs
   /// under. (The reverse is fine: a parent whose replies are still on a
   /// later page simply shows them once that page loads.)
-  Future<List<DropComment>> fetchComments(
-    String dropId, {
-    int page = 0,
-  }) async {
+  Future<List<DropComment>> fetchComments(String dropId, {int page = 0}) async {
     final userId = _client.auth.currentUser!.id;
     final from = page * commentPageSize;
     final to = from + commentPageSize - 1;
@@ -1318,14 +1387,18 @@ class DropRepository {
         .range(from, to);
 
     final commentIds = rows.map((row) => row['id'] as String).toList();
-    final likedIds =
-        await _fetchLikedCommentIds(userId: userId, commentIds: commentIds);
+    final likedIds = await _fetchLikedCommentIds(
+      userId: userId,
+      commentIds: commentIds,
+    );
 
     return rows
-        .map((row) => DropComment.fromMap(
-              row,
-              likedByMe: likedIds.contains(row['id'] as String),
-            ))
+        .map(
+          (row) => DropComment.fromMap(
+            row,
+            likedByMe: likedIds.contains(row['id'] as String),
+          ),
+        )
         .toList();
   }
 
@@ -1383,9 +1456,10 @@ class DropRepository {
           .eq('comment_id', commentId)
           .eq('user_id', userId);
     } else {
-      await _client
-          .from('drop_comment_likes')
-          .insert({'comment_id': commentId, 'user_id': userId});
+      await _client.from('drop_comment_likes').insert({
+        'comment_id': commentId,
+        'user_id': userId,
+      });
     }
   }
 
@@ -1438,7 +1512,9 @@ class DropRepository {
     if (imageBytes != null) {
       final path =
           '$userId/${DateTime.now().millisecondsSinceEpoch}.$imageExtension';
-      await _client.storage.from('drop-images').uploadBinary(
+      await _client.storage
+          .from('drop-images')
+          .uploadBinary(
             path,
             imageBytes,
             fileOptions: immutableUploadFileOptions,
@@ -1456,8 +1532,11 @@ class DropRepository {
     };
 
     if (draftId == null) {
-      final inserted =
-          await _client.from('drop_drafts').insert(row).select('id').single();
+      final inserted = await _client
+          .from('drop_drafts')
+          .insert(row)
+          .select('id')
+          .single();
       return inserted['id'] as String;
     }
 

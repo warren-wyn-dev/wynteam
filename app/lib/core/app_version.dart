@@ -9,10 +9,10 @@ class AppVersion {
 
   /// Shown to every regular (non-developer) account -- the current
   /// stable, publicly-shipped build.
-  static const String stable = 'V1.0.0 Beta4';
+  static const String stable = 'V1.0.0 Beta5';
 
   /// Shown only to a developer/internal test account (WYN-125's
   /// `DeveloperAccessService.isDeveloperAccount()`) -- the build
   /// currently in development behind that staged-rollout allowlist.
-  static const String developerPreview = 'V1.0.0 Beta5 [พัฒนาอยู่]';
+  static const String developerPreview = 'V1.0.0 Beta5';
 }

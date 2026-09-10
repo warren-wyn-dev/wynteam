@@ -1,6 +1,13 @@
 # WYNOS Release Notes
 
-## Current release — WYNOS v1.0.0 Beta4
+## Current release — WYNOS v1.0.0 Beta5
+
+### Profile V2
+- Unified pull-to-refresh for profile identity + active content tab.
+- Compact cover/avatar identity header; large edit/link band removed so posts start sooner.
+- Header collapses into a compact identity in the top bar while scrolling.
+- Profile cover upload and up to 3 atomic pinned Drops.
+
 
 **Production status ณ 2026-09-08:** Beta4 คือ baseline ที่ผู้ใช้ทั่วไปใช้งานอยู่บน
 `https://wynos.online` ส่วน Beta5 กำลังพัฒนาหลัง developer-account allowlist และยังไม่เปิดให้ผู้ใช้ทั่วไป

@@ -19,15 +19,15 @@ class RecordingDropRepository extends DropRepository {
     List<Drop>? followingFeedDrops,
     List<Drop>? rankedFeedDrops,
     List<DropComment>? comments,
-  })  : feedDrops = feedDrops ?? [],
-        followingFeedDrops = followingFeedDrops ?? [],
-        // Defaults to the same list as feedDrops -- see
-        // RecordingHomeRepository's identical rationale (WYN-018): most
-        // call sites predating this follow-up only care that "the feed
-        // shows these drops", not which of the two queries served them.
-        rankedFeedDrops = rankedFeedDrops ?? feedDrops ?? [],
-        comments = comments ?? [],
-        super(SupabaseClient('https://example.supabase.co', 'test-key'));
+  }) : feedDrops = feedDrops ?? [],
+       followingFeedDrops = followingFeedDrops ?? [],
+       // Defaults to the same list as feedDrops -- see
+       // RecordingHomeRepository's identical rationale (WYN-018): most
+       // call sites predating this follow-up only care that "the feed
+       // shows these drops", not which of the two queries served them.
+       rankedFeedDrops = rankedFeedDrops ?? feedDrops ?? [],
+       comments = comments ?? [],
+       super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchFeed] for page 0 only (page 1+ returns empty).
   final List<Drop> feedDrops;
@@ -86,6 +86,26 @@ class RecordingDropRepository extends DropRepository {
   }) async {
     if (page != 0) return [];
     return feedDrops.where((d) => d.authorId == authorId).toList();
+  }
+
+  /// Beta5 Profile V2 fixtures. Tests opt in by populating this map; all
+  /// existing tests see an empty pinned shelf by default.
+  Map<String, List<Drop>> pinnedDropsByAuthor = {};
+  final List<String> pinProfileDropCalls = [];
+  final List<String> unpinProfileDropCalls = [];
+
+  @override
+  Future<List<Drop>> fetchPinnedByAuthor({required String authorId}) async =>
+      pinnedDropsByAuthor[authorId] ?? <Drop>[];
+
+  @override
+  Future<void> pinProfileDrop(String dropId) async {
+    pinProfileDropCalls.add(dropId);
+  }
+
+  @override
+  Future<void> unpinProfileDrop(String dropId) async {
+    unpinProfileDropCalls.add(dropId);
   }
 
   /// Returned by [countByAuthor], keyed by authorId -- defaults to 0 for
@@ -377,7 +397,10 @@ class RecordingDropRepository extends DropRepository {
   Object? editDropError;
 
   @override
-  Future<void> editDrop({required String dropId, required String caption}) async {
+  Future<void> editDrop({
+    required String dropId,
+    required String caption,
+  }) async {
     if (editDropError != null) throw editDropError!;
     editDropArgs.add({'dropId': dropId, 'caption': caption});
   }

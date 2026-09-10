@@ -87,7 +87,7 @@ void main() {
       (tester) async {
     await pumpScrollableProfile(tester);
 
-    expect(find.text('แก้ไขโปรไฟล์'), findsOneWidget);
+    expect(find.byKey(const Key('profile_edit_button')), findsOneWidget);
     expect(find.text('โพสต์'), findsOneWidget);
   });
 
@@ -103,7 +103,7 @@ void main() {
     tester.takeException();
 
     // The header scrolled away with the rest of the content...
-    expect(find.text('แก้ไขโปรไฟล์'), findsNothing);
+    expect(find.byKey(const Key('profile_v2_compact_identity')), findsOneWidget);
     // ...but the TabBar -- the one thing that is supposed to stay --
     // is still there, pinned rather than scrolled off with it.
     expect(find.text('โพสต์'), findsOneWidget);
@@ -126,7 +126,7 @@ void main() {
     await tester.drag(find.text('โพสต์ที่ 0'), const Offset(0, -900));
     await tester.pumpAndSettle();
     tester.takeException();
-    expect(find.text('แก้ไขโปรไฟล์'), findsNothing);
+    expect(find.byKey(const Key('profile_v2_compact_identity')), findsOneWidget);
 
     // Drag back down by the same amount, from wherever the pointer can
     // still find scrollable content (the tab bar itself doesn't scroll,
@@ -135,7 +135,8 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.text('แก้ไขโปรไฟล์'), findsOneWidget);
+    expect(find.byKey(const Key('profile_v2_compact_identity')), findsNothing);
+    expect(find.byKey(const Key('profile_edit_button')), findsOneWidget);
   });
 
   testWidgets(
