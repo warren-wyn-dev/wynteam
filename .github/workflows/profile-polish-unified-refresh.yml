@@ -7,6 +7,8 @@ on:
     paths:
       - tools/profile_polish_unified_refresh_patch.py
       - .github/workflows/profile-polish-unified-refresh.yml
+      - app/test/profile_refresh_coordinator_test.dart
+      - app/test/wynos_founder_profile_header_test.dart
 
 permissions:
   contents: write
