@@ -98,46 +98,52 @@ class WynosFounderProfileHeader extends StatelessWidget {
   final bool showOnline;
 
   Widget _nameRow() {
-    return Row(
+    return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Flexible(
-          child: Text(
-            profile.nameOrUsername,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 21,
-              height: 1.12,
-              fontWeight: FontWeight.w700,
-              color: WynColors.ink,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                profile.nameOrUsername,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 21,
+                  height: 1.08,
+                  fontWeight: FontWeight.w700,
+                  color: WynColors.ink,
+                ),
+              ),
             ),
-          ),
+            if (profile.isVerified) ...[
+              const SizedBox(width: 4),
+              const VerifiedBadge(),
+            ],
+            if (isOwnProfile) ...[
+              const SizedBox(width: 5),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 22,
+                color: WynColors.ink,
+              ),
+            ],
+          ],
         ),
-        if (profile.isVerified) ...[
-          const SizedBox(width: 4),
-          const VerifiedBadge(),
-        ],
-        const SizedBox(width: 8),
+        const SizedBox(height: 1),
         Text(
           '@${profile.username}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 13.5,
-            height: 1.1,
+            height: 1.0,
             color: WynColors.graphite,
             fontWeight: FontWeight.w400,
           ),
         ),
-        if (isOwnProfile) ...[
-          const SizedBox(width: 5),
-          const Icon(
-            Icons.keyboard_arrow_down,
-            size: 22,
-            color: WynColors.ink,
-          ),
-        ],
       ],
     );
   }
@@ -179,18 +185,28 @@ class WynosFounderProfileHeader extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(
               WynSpacing.space4,
-              12,
+              8,
               WynSpacing.space4,
-              2,
+              0,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Transform.translate(
-                  offset: const Offset(0, -25),
-                  child: _ProfileAvatar(
-                    profile: profile,
-                    showOnline: showOnline,
+                SizedBox(
+                  width: WynosFounderMetrics.profileAvatarOuterDiameter,
+                  height: 67,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        top: -25,
+                        left: 0,
+                        child: _ProfileAvatar(
+                          profile: profile,
+                          showOnline: showOnline,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -201,7 +217,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
                       _displayNameControl(),
                       if (profile.bio != null &&
                           profile.bio!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 9),
+                        const SizedBox(height: 3),
                         Text(
                           profile.bio!,
                           maxLines: 3,
@@ -220,7 +236,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
             ),
           ),
           if (showStats) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 72),
               child: Row(
@@ -252,12 +268,12 @@ class WynosFounderProfileHeader extends StatelessWidget {
             ),
           ],
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
             child: actions,
           ),
           if (footer != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: footer!,
             ),
         ],
