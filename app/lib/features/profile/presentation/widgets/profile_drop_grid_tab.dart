@@ -11,7 +11,9 @@ import '../../../pop/data/pop_repository.dart';
 import '../../../saved/data/saved_repository.dart';
 import '../../data/profile_repository.dart';
 import '../view_profile_screen.dart';
+import 'profile_pinned_drops_sheet.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/design/wyn_colors.dart';
 
 /// "Posts" tab on a profile (WYN-013) -- 05-profile.tsx's PostRow: full-
 /// width rows (time, caption, hashtags, a real like/comment/redrop/view
@@ -30,6 +32,7 @@ class ProfileDropGridTab extends StatefulWidget {
     required this.savedRepository,
     required this.authorId,
     required this.emptyText,
+    this.isOwnProfile = false,
     this.onRefreshHeader,
   });
 
@@ -40,6 +43,7 @@ class ProfileDropGridTab extends StatefulWidget {
   final SavedRepository savedRepository;
   final String authorId;
   final String emptyText;
+  final bool isOwnProfile;
 
   // WYN-081 (Wynos V1.0.0 Beta2, item 16): pulling to refresh this tab
   // also refreshes ViewProfileScreen's own header (follower/following/
@@ -48,7 +52,7 @@ class ProfileDropGridTab extends StatefulWidget {
   // all (the header has its own separate _loadFuture, untouched by any
   // one tab's own refresh). Optional/null in every existing test that
   // builds this tab directly.
-  final VoidCallback? onRefreshHeader;
+  final Future<void> Function()? onRefreshHeader;
 
   @override
   State<ProfileDropGridTab> createState() => _ProfileDropGridTabState();
@@ -57,6 +61,7 @@ class ProfileDropGridTab extends StatefulWidget {
 class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     with AutomaticKeepAliveClientMixin {
   final List<Drop> _drops = [];
+  final List<Drop> _pinnedDrops = [];
 
   /// Keys of every row already shown this load cycle. Offset pagination
   /// re-reads a list that can have grown at the top since the previous
@@ -127,11 +132,22 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
       _error = null;
     });
     try {
-      final drops = await widget.dropRepository.fetchByAuthor(
+      final pinnedFuture = widget.dropRepository.fetchPinnedByAuthor(
+        authorId: widget.authorId,
+      );
+      final postsFuture = widget.dropRepository.fetchByAuthor(
         authorId: widget.authorId,
         page: 0,
       );
+      final pinned = await pinnedFuture;
+      final fetched = await postsFuture;
+      final pinnedIds = pinned.map((d) => d.id).toSet();
+      final drops = fetched.where((d) => !pinnedIds.contains(d.id)).toList();
+      if (!mounted) return;
       setState(() {
+        _pinnedDrops
+          ..clear()
+          ..addAll(pinned);
         _drops
           ..clear()
           ..addAll(drops);
@@ -139,10 +155,10 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
           ..clear()
           ..addAll(drops.map((d) => d.id));
         _page = 0;
-        _hasMore = drops.length == DropRepository.pageSize;
+        _hasMore = fetched.length == DropRepository.pageSize;
       });
     } catch (_) {
-      setState(() => _error = 'โหลดโพสต์ไม่สำเร็จ');
+      if (mounted) setState(() => _error = 'โหลดโพสต์ไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -151,8 +167,12 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
   // Only used by RefreshIndicator's pull gesture, not initState's own
   // first load -- see [onRefreshHeader]'s doc comment.
   Future<void> _onPullToRefresh() async {
-    widget.onRefreshHeader?.call();
-    await _loadInitial();
+    final headerRefresh = widget.onRefreshHeader;
+    if (headerRefresh == null) {
+      await _loadInitial();
+      return;
+    }
+    await Future.wait([headerRefresh(), _loadInitial()]);
   }
 
   Future<void> _loadMore() async {
@@ -167,7 +187,9 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         // _hasMore is still driven by what the server returned, not
         // by what survived the filter: a full page that happens to be
         // all duplicates still means there is more behind it.
+        final pinnedIds = _pinnedDrops.map((d) => d.id).toSet();
         for (final drop in drops) {
+          if (pinnedIds.contains(drop.id)) continue;
           if (_seenKeys.add(drop.id)) _drops.add(drop);
         }
         _page = nextPage;
@@ -181,14 +203,25 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     }
   }
 
+  Future<void> _openPinnedManager() async {
+    final changed = await showProfilePinnedDropsSheet(
+      context,
+      dropRepository: widget.dropRepository,
+      authorId: widget.authorId,
+    );
+    if (changed && mounted) await _loadInitial();
+  }
+
   Future<void> _toggleLike(String dropId) async {
     final index = _drops.indexWhere((d) => d.id == dropId);
     if (index == -1) return;
     final previous = _drops[index];
     setState(() => _drops[index] = previous.toggledLike());
     try {
-      await widget.dropRepository
-          .toggleLike(dropId: dropId, currentlyLiked: previous.likedByMe);
+      await widget.dropRepository.toggleLike(
+        dropId: dropId,
+        currentlyLiked: previous.likedByMe,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _drops[index] = previous);
@@ -201,8 +234,10 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     final previous = _drops[index];
     setState(() => _drops[index] = previous.toggledSave());
     try {
-      await widget.dropRepository
-          .toggleSave(dropId: dropId, currentlySaved: previous.savedByMe);
+      await widget.dropRepository.toggleSave(
+        dropId: dropId,
+        currentlySaved: previous.savedByMe,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _drops[index] = previous);
@@ -258,7 +293,8 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
     final currentIndex = _drops.indexWhere((d) => d.id == dropId);
     if (currentIndex == -1) return;
     setState(
-        () => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop());
+      () => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop(),
+    );
   }
 
   void _openProfile(String userId) {
@@ -351,7 +387,7 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
       );
     }
 
-    if (_drops.isEmpty) {
+    if (_drops.isEmpty && _pinnedDrops.isEmpty) {
       return Center(child: Text(widget.emptyText));
     }
 
@@ -368,6 +404,15 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
         // method), so there is no overlap for an injector to redirect.
         child: CustomScrollView(
           slivers: [
+            if (_pinnedDrops.isNotEmpty || widget.isOwnProfile)
+              SliverToBoxAdapter(
+                child: _PinnedDropsSection(
+                  drops: _pinnedDrops,
+                  canManage: widget.isOwnProfile,
+                  onManage: _openPinnedManager,
+                  onOpen: _openDropDetail,
+                ),
+              ),
             // The last full-width post card had no breathing room above
             // the Bottom Nav -- root cause was purely a missing bottom
             // inset here, not the Bottom Nav actually covering content
@@ -379,10 +424,9 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
               padding: const EdgeInsets.only(bottom: WynSpacing.space6),
               sliver: SliverList.separated(
                 itemCount: _drops.length + (_hasMore ? 1 : 0),
-                separatorBuilder: (context, index) =>
-                    index + 1 < _drops.length
-                        ? const Divider(height: 1)
-                        : const SizedBox.shrink(),
+                separatorBuilder: (context, index) => index + 1 < _drops.length
+                    ? const Divider(height: 1)
+                    : const SizedBox.shrink(),
                 itemBuilder: (context, index) {
                   if (index >= _drops.length) {
                     return const Padding(
@@ -409,6 +453,166 @@ class _ProfileDropGridTabState extends State<ProfileDropGridTab>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PinnedDropsSection extends StatelessWidget {
+  const _PinnedDropsSection({
+    required this.drops,
+    required this.canManage,
+    required this.onManage,
+    required this.onOpen,
+  });
+
+  final List<Drop> drops;
+  final bool canManage;
+  final VoidCallback onManage;
+  final ValueChanged<Drop> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    if (drops.isEmpty && !canManage) return const SizedBox.shrink();
+    return Padding(
+      key: const Key('profile_pinned_drops_section'),
+      padding: const EdgeInsets.fromLTRB(
+        WynSpacing.space4,
+        WynSpacing.space3,
+        WynSpacing.space4,
+        WynSpacing.space3,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  drops.isEmpty ? 'โพสต์เด่น' : 'ปักหมุด (${drops.length})',
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (canManage)
+                TextButton(
+                  onPressed: onManage,
+                  child: Text(drops.isEmpty ? 'ปักหมุดโพสต์' : 'จัดการ'),
+                ),
+            ],
+          ),
+          if (drops.isNotEmpty) ...[
+            const SizedBox(height: WynSpacing.space1),
+            Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: WynSpacing.space2),
+                  Expanded(
+                    child: i < drops.length
+                        ? _PinnedDropTile(
+                            drop: drops[i],
+                            onTap: () => onOpen(drops[i]),
+                          )
+                        : canManage
+                        ? _EmptyPinnedSlot(onTap: onManage)
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PinnedDropTile extends StatelessWidget {
+  const _PinnedDropTile({required this.drop, required this.onTap});
+  final Drop drop;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      padding: const EdgeInsets.all(WynSpacing.space2),
+      alignment: Alignment.center,
+      color: WynColors.surfaceTint,
+      child: Text(
+        (drop.caption?.trim().isNotEmpty ?? false)
+            ? drop.caption!.trim()
+            : 'โพสต์',
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+      ),
+    );
+    return Semantics(
+      button: true,
+      label: 'เปิดโพสต์ปักหมุด',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (drop.imageUrl == null)
+                  fallback
+                else
+                  Image.network(
+                    drop.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => fallback,
+                  ),
+                const Positioned(
+                  top: WynSpacing.space1,
+                  right: WynSpacing.space1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: WynColors.ink,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(5),
+                      child: Icon(
+                        Icons.push_pin,
+                        size: 13,
+                        color: WynColors.paper,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyPinnedSlot extends StatelessWidget {
+  const _EmptyPinnedSlot({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: WynColors.surfaceTint,
+            borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+          ),
+          child: const Icon(Icons.add, color: WynColors.mutedNeutral),
         ),
       ),
     );

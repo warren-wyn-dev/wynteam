@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/interaction/wyn_feedback.dart';
-import '../../../core/text_utils.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -29,10 +28,11 @@ import 'widgets/profile_drop_grid_tab.dart';
 // wired up here -- 05-profile.tsx cuts it down to 3 tabs, see the
 // TabBar/TabBarView below.
 import 'widgets/profile_likes_tab.dart';
-import 'widgets/profile_recommendation_section.dart';
 import 'widgets/profile_redrops_tab.dart';
 import 'widgets/privacy_notice_banner.dart';
 import 'widgets/profile_skeleton.dart';
+import 'widgets/profile_v2_header.dart';
+import 'profile_cover_editor_screen.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
@@ -49,7 +49,6 @@ import '../../mute/data/mute_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
-import '../../search/data/discovery_repository.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 
@@ -150,6 +149,8 @@ class ViewProfileScreen extends StatefulWidget {
 
 class _ViewProfileScreenState extends State<ViewProfileScreen> {
   late Future<_ProfileWithCounts> _loadFuture;
+  final ScrollController _profileScrollController = ScrollController();
+  bool _showCompactIdentity = false;
 
   // Whether the *current viewer* follows this profile's owner -- null
   // until the real status has loaded. Only relevant (and only loaded)
@@ -184,17 +185,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.homeRepository ?? HomeRepository(Supabase.instance.client);
   late final FollowRequestRepository _followRequestRepository =
       widget.followRequestRepository ??
-          FollowRequestRepository(Supabase.instance.client);
-
-  // WYN-071 Screen 5 -- same optional/defaulted shape as every other
-  // repository above. Built fresh (not threaded through the
-  // constructor) since only this screen's Recommendation Section uses
-  // it here.
-  late final DiscoveryRepository _discoveryRepository = DiscoveryRepository(
-    Supabase.instance.client,
-    homeRepository: _homeRepository,
-    profileRepository: widget.profileRepository,
-  );
+      FollowRequestRepository(Supabase.instance.client);
 
   // Null until loaded (only for other people's profiles, same posture as
   // _isFollowing) -- true only while the *current viewer* has an
@@ -234,6 +225,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _profileScrollController.addListener(_onProfileScroll);
     _loadFuture = _load();
     if (!_isOwnProfile) {
       _loadFollowStatus();
@@ -244,6 +236,22 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     } else {
       _loadPendingRequestCount();
     }
+  }
+
+  void _onProfileScroll() {
+    final next =
+        _profileScrollController.hasClients &&
+        _profileScrollController.offset > 150;
+    if (next == _showCompactIdentity || !mounted) return;
+    setState(() => _showCompactIdentity = next);
+  }
+
+  @override
+  void dispose() {
+    _profileScrollController
+      ..removeListener(_onProfileScroll)
+      ..dispose();
+    super.dispose();
   }
 
   // Profile and Follower/Following counts are loaded together as one
@@ -269,24 +277,28 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     );
   }
 
-  void _reload() {
-    // Block body, not `() => _loadFuture = _load()` -- an assignment
-    // expression evaluates to the assigned value, so an arrow body here
-    // would make this closure literally return the Future, which trips
-    // setState()'s own "did you accidentally do async work in here?"
-    // debug assertion the instant this runs inside one (found via
-    // WYN-081, which made this method reachable from a RefreshIndicator
-    // pull for the first time -- see the 3 profile tabs'
-    // onRefreshHeader).
-    setState(() {
-      _loadFuture = _load();
-    });
+  Future<void> _reload() async {
+    final next = _load();
+    setState(() => _loadFuture = next);
+    await next;
+    if (!mounted) return;
+    if (_isOwnProfile) {
+      await _loadPendingRequestCount();
+    } else {
+      await Future.wait([
+        _loadFollowStatus(),
+        _loadBlockRelationship(),
+        _loadMuteStatus(),
+        _loadPendingRequestStatus(),
+      ]);
+    }
   }
 
   Future<void> _loadFollowStatus() async {
     try {
-      final isFollowing =
-          await widget.followRepository.isFollowing(userId: widget.userId);
+      final isFollowing = await widget.followRepository.isFollowing(
+        userId: widget.userId,
+      );
       if (!mounted) return;
       setState(() => _isFollowing = isFollowing);
     } catch (_) {
@@ -347,7 +359,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   Future<void> _loadPendingRequestStatus() async {
     try {
       final hasPending = await _followRequestRepository.hasPendingRequest(
-          userId: widget.userId);
+        userId: widget.userId,
+      );
       if (!mounted) return;
       setState(() => _hasPendingRequest = hasPending);
     } catch (_) {
@@ -397,7 +410,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // to the other party is worth one extra tap to avoid an accidental
   // cancel.
   Future<void> _cancelFollowRequest(Profile profile) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text('ยกเลิกคำขอติดตาม ${profile.nameOrUsername}?'),
@@ -466,7 +480,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           savedRepository: widget.savedRepository,
           clubRepository:
               widget.clubRepository ?? ClubRepository(Supabase.instance.client),
-          clubPostRepository: widget.clubPostRepository ??
+          clubPostRepository:
+              widget.clubPostRepository ??
               ClubPostRepository(Supabase.instance.client),
           autofocus: true,
         ),
@@ -525,19 +540,19 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   void _openFollowRequests() {
     Navigator.of(context)
         .push<void>(
-      MaterialPageRoute(
-        builder: (_) => FollowRequestListScreen(
-          followRequestRepository: _followRequestRepository,
-        ),
-      ),
-    )
+          MaterialPageRoute(
+            builder: (_) => FollowRequestListScreen(
+              followRequestRepository: _followRequestRepository,
+            ),
+          ),
+        )
         .then((_) {
-      // The list screen may have Accepted/Rejected requests -- refresh
-      // both the badge count and this profile's own Followers count.
-      if (!mounted) return;
-      _loadPendingRequestCount();
-      _reload();
-    });
+          // The list screen may have Accepted/Rejected requests -- refresh
+          // both the badge count and this profile's own Followers count.
+          if (!mounted) return;
+          _loadPendingRequestCount();
+          _reload();
+        });
   }
 
   // WYN-031, Screen 4. get_or_create_conversation() itself rejects a
@@ -548,8 +563,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (_isStartingChat) return;
     setState(() => _isStartingChat = true);
     try {
-      final conversationId =
-          await _chatRepository.getOrCreateConversation(widget.userId);
+      final conversationId = await _chatRepository.getOrCreateConversation(
+        widget.userId,
+      );
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -571,10 +587,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       // understands this is a temporary platform state, not a glitch to
       // retry. This button itself stays visible/tappable either way
       // (Founder's explicit requirement) -- only the outcome differs.
-      final message = e is PostgrestException && e.message.contains('temporarily closed for testing')
+      final message =
+          e is PostgrestException &&
+              e.message.contains('temporarily closed for testing')
           ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
           : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
     }
@@ -582,8 +601,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
   Future<void> _loadBlockRelationship() async {
     try {
-      final relationship =
-          await _blockRepository.blockRelationship(widget.userId);
+      final relationship = await _blockRepository.blockRelationship(
+        widget.userId,
+      );
       if (!mounted) return;
       setState(() => _blockRelationship = relationship);
     } catch (_) {
@@ -645,9 +665,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(previous
-              ? 'เปิดเสียง @${profile.username} แล้ว'
-              : 'ปิดเสียง @${profile.username} แล้ว'),
+          content: Text(
+            previous
+                ? 'เปิดเสียง @${profile.username} แล้ว'
+                : 'ปิดเสียง @${profile.username} แล้ว',
+          ),
         ),
       );
     } catch (_) {
@@ -669,6 +691,18 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       ),
     );
     _reload();
+  }
+
+  Future<void> _openCoverEditor(Profile profile) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ProfileCoverEditorScreen(
+          profileRepository: widget.profileRepository,
+          profile: profile,
+        ),
+      ),
+    );
+    if (changed == true && mounted) await _reload();
   }
 
   Future<void> _reportUser() {
@@ -703,52 +737,54 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(rows: [
-        ActionSheetRow(
-          icon: Icons.share_outlined,
-          label: 'แชร์โปรไฟล์',
-          onTap: () {
-            Navigator.of(sheetContext).pop();
-            showShareSheet(
-              context,
-              chatRepository: _chatRepository,
-              profileRepository: widget.profileRepository,
-              sharedContentType: SharedContentType.profile,
-              sharedContentId: widget.userId,
-              previewLabel: 'แชร์โปรไฟล์ @${data.profile.username}',
-              nativeShareText: profileShareLink(data.profile.username),
-              nativeShareTitle:
-                  data.profile.displayName ?? '@${data.profile.username}',
-            );
-          },
-        ),
-        ActionSheetRow(
-          icon: Icons.flag_outlined,
-          label: 'รายงาน',
-          onTap: () {
-            Navigator.of(sheetContext).pop();
-            _reportUser();
-          },
-        ),
-        if (_isMuted != null && _blockRelationship == BlockRelationship.none)
+      builder: (sheetContext) => ActionSheetBody(
+        rows: [
           ActionSheetRow(
-            icon: _isMuted! ? Icons.volume_up : Icons.volume_off,
-            label: _isMuted! ? 'เปิดเสียง' : 'ปิดเสียง',
+            icon: Icons.share_outlined,
+            label: 'แชร์โปรไฟล์',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              _onMuteTapped();
+              showShareSheet(
+                context,
+                chatRepository: _chatRepository,
+                profileRepository: widget.profileRepository,
+                sharedContentType: SharedContentType.profile,
+                sharedContentId: widget.userId,
+                previewLabel: 'แชร์โปรไฟล์ @${data.profile.username}',
+                nativeShareText: profileShareLink(data.profile.username),
+                nativeShareTitle:
+                    data.profile.displayName ?? '@${data.profile.username}',
+              );
             },
           ),
-        if (_blockRelationship == BlockRelationship.none)
           ActionSheetRow(
-            icon: Icons.block,
-            label: 'บล็อก',
+            icon: Icons.flag_outlined,
+            label: 'รายงาน',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              _onBlockTapped();
+              _reportUser();
             },
           ),
-      ]),
+          if (_isMuted != null && _blockRelationship == BlockRelationship.none)
+            ActionSheetRow(
+              icon: _isMuted! ? Icons.volume_up : Icons.volume_off,
+              label: _isMuted! ? 'เปิดเสียง' : 'ปิดเสียง',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _onMuteTapped();
+              },
+            ),
+          if (_blockRelationship == BlockRelationship.none)
+            ActionSheetRow(
+              icon: Icons.block,
+              label: 'บล็อก',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _onBlockTapped();
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -809,6 +845,161 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   /// Drop/Pop grid's empty state must say the content is *hidden*, not
   /// reuse the ordinary "ยังไม่มี ... เลย" copy that would wrongly imply
   /// this person has no content at all.
+
+  Widget _buildAppBarTitle(bool isOwnProfile) {
+    if (!isOwnProfile) {
+      return FutureBuilder<_ProfileWithCounts>(
+        future: _loadFuture,
+        builder: (context, snapshot) {
+          final username = snapshot.data?.profile.username;
+          return Text(
+            username == null ? 'โปรไฟล์' : '@$username',
+            style: _textStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: WynColors.ink,
+            ),
+          );
+        },
+      );
+    }
+
+    if (!_showCompactIdentity) {
+      return Text(
+        'โปรไฟล์',
+        style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
+      );
+    }
+
+    return FutureBuilder<_ProfileWithCounts>(
+      future: _loadFuture,
+      builder: (context, snapshot) {
+        final profile = snapshot.data?.profile;
+        if (profile == null) return const SizedBox.shrink();
+        return Row(
+          key: const Key('profile_v2_compact_identity'),
+          children: [
+            AvatarCircle(
+              imageUrl: profile.avatarUrl,
+              fallbackText: profile.username,
+              radius: 15,
+            ),
+            const SizedBox(width: WynSpacing.space2),
+            Expanded(
+              child: Text(
+                profile.nameOrUsername,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _textStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: WynColors.ink,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileNameRow(Profile profile, bool isOwnProfile) {
+    if (isOwnProfile) {
+      return _AccountSwitcherName(
+        name: profile.nameOrUsername,
+        isVerified: profile.isVerified,
+        onTap: _openAccountSwitcher,
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            profile.nameOrUsername,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _textStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: WynColors.ink,
+            ),
+          ),
+        ),
+        if (profile.isVerified) ...[
+          const SizedBox(width: WynSpacing.space1),
+          const VerifiedBadge(),
+        ],
+      ],
+    );
+  }
+
+  Widget? _buildOtherProfileActions(Profile profile) {
+    if (_isOwnProfile || _isFollowing == null) return null;
+    return Row(
+      children: [
+        Expanded(
+          child: Semantics(
+            label: _followButtonSemanticsLabel(profile),
+            excludeSemantics: true,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                backgroundColor: _isFollowing!
+                    ? WynColors.surfaceTint
+                    : WynColors.sapphire,
+                foregroundColor: _isFollowing!
+                    ? WynColors.graphite
+                    : WynColors.paper,
+              ),
+              onPressed: _isFollowActionInFlight
+                  ? null
+                  : () => _onFollowButtonPressed(profile),
+              child: Text(_followButtonLabel(profile)),
+            ),
+          ),
+        ),
+        const SizedBox(width: WynSpacing.space2),
+        Expanded(
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              shape: const StadiumBorder(),
+              side: const BorderSide(color: WynColors.hairline),
+              foregroundColor: WynColors.ink,
+            ),
+            onPressed: _isStartingChat ? null : () => _openChat(profile),
+            icon: _isStartingChat
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send_outlined, size: 16),
+            label: const Text('ส่งข้อความ'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPendingRequestEntry() {
+    return InkWell(
+      onTap: _openFollowRequests,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.person_add_alt, size: 18),
+            const SizedBox(width: WynSpacing.space2),
+            Text('คำขอติดตาม ($_pendingRequestCount)'),
+            const Icon(Icons.chevron_right, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _gridEmptyText({
     required bool isOwnProfile,
     required bool isBlockedEitherWay,
@@ -855,16 +1046,19 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.block,
-              size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.block,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: WynSpacing.space2),
           Flexible(
             child: Text(
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -891,27 +1085,20 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           // _loadFuture the body's own FutureBuilder awaits rather than
           // fetching a second time; shows the generic title until it
           // resolves.
-          title: isOwnProfile
-              ? Text(
-                  'โปรไฟล์',
-                  style: WynTypography.screenTitle(
-                      fontSize: 16, color: WynColors.ink),
-                )
-              : FutureBuilder<_ProfileWithCounts>(
-                  future: _loadFuture,
-                  builder: (context, snapshot) {
-                    final username = snapshot.data?.profile.username;
-                    return Text(
-                      username == null ? 'โปรไฟล์' : '@$username',
-                      style: _textStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: WynColors.ink),
-                    );
-                  },
-                ),
+          title: _buildAppBarTitle(isOwnProfile),
           actions: [
             if (isOwnProfile) ...[
+              FutureBuilder<_ProfileWithCounts>(
+                future: _loadFuture,
+                builder: (context, snapshot) => IconButton(
+                  key: const Key('profile_edit_button'),
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'แก้ไขโปรไฟล์',
+                  onPressed: snapshot.hasData
+                      ? () => _openEdit(snapshot.data!.profile)
+                      : null,
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: 'ตั้งค่า',
@@ -986,7 +1173,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                     const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
                     const SizedBox(height: WynSpacing.space3),
                     TextButton(
-                        onPressed: _reload, child: const Text('ลองใหม่')),
+                      onPressed: _reload,
+                      child: const Text('ลองใหม่'),
+                    ),
                   ],
                 ),
               );
@@ -998,7 +1187,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
             final data = snapshot.data!;
             final profile = data.profile;
-            final isBlockedEitherWay = !isOwnProfile &&
+            final isBlockedEitherWay =
+                !isOwnProfile &&
                 (_blockRelationship?.isBlockedEitherWay ?? false);
             // WYN-039 Design, Screen 2 -- Block always takes precedence
             // over Private (a blocked pair sees the Blocked banner, never
@@ -1008,7 +1198,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             // the same brief-flicker tradeoff _blockRelationship's own
             // `?? false` default already accepts elsewhere on this
             // screen, not a new one introduced here.
-            final isLockedPrivate = !isOwnProfile &&
+            final isLockedPrivate =
+                !isOwnProfile &&
                 !isBlockedEitherWay &&
                 profile.isPrivate &&
                 (_isFollowing ?? false) == false;
@@ -1027,343 +1218,39 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             // this NestedScrollView's inner scrollable -- see their own
             // SliverOverlapInjector for the other half of that contract.
             return NestedScrollView(
+              controller: _profileScrollController,
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
                 SliverToBoxAdapter(
-                  child:
-                      // Beta4 §1 -- the profile identity block. Founder's own
-                      // layout sketch:
-                      //
-                      //   👤            ชื่อที่แสดง ⌄
-                      //                 @username
-                      //
-                      //                 Bio
-                      //
-                      //        Following      Followers
-                      //
-                      //          [ แก้ไขโปรไฟล์ ]
-                      //
-                      // i.e. avatar on the left, and *everything* that
-                      // identifies the account in one left-aligned column
-                      // beside it. WYN-095's Mockup A had put the stats row
-                      // beside the avatar and the name/username *below* both,
-                      // which split identity across two zones: your face sat
-                      // next to two numbers, and your name sat under them
-                      // with nothing to anchor it. Reading order now goes
-                      // name → handle → bio → reach → action, top to bottom,
-                      // in one column.
-                      //
-                      // The stats row and the action button deliberately sit
-                      // inside that same right-hand column rather than
-                      // spanning the full card width, so the whole block
-                      // reads as one object next to the avatar instead of
-                      // three stacked bands.
-                      Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      WynSpacing.space6,
-                      WynSpacing.space5,
-                      WynSpacing.space6,
-                      WynSpacing.space4,
+                  child: ProfileV2Header(
+                    profile: profile,
+                    nameRow: _buildProfileNameRow(profile, isOwnProfile),
+                    followingCount: data.followingCount,
+                    followerCount: data.followerCount,
+                    onFollowingTap: () => _openFollowList(
+                      FollowListMode.following,
+                      isLockedPrivate: isLockedPrivate,
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AvatarCircle(
-                          imageUrl: profile.avatarUrl,
-                          fallbackText: profile.username,
-                          ring: true,
-                        ),
-                        const SizedBox(width: WynSpacing.space4),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Beta4 §2: the display name doubles as the
-                              // account switcher's entry point on your own
-                              // profile -- "ชื่อที่แสดง ⌄". On anyone
-                              // else's profile it is a plain, unstyled
-                              // name with no chevron and no tap target,
-                              // per §2's "Profile ของคนอื่นไม่มีปุ่มนี้".
-                              isOwnProfile
-                                  ? _AccountSwitcherName(
-                                      name: profile.nameOrUsername,
-                                      isVerified: profile.isVerified,
-                                      onTap: _openAccountSwitcher,
-                                    )
-                                  : Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            profile.nameOrUsername,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: _textStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w700,
-                                              color: WynColors.ink,
-                                            ),
-                                          ),
-                                        ),
-                                        if (profile.isVerified) ...[
-                                          const SizedBox(width: WynSpacing.space1),
-                                          const VerifiedBadge(),
-                                        ],
-                                      ],
-                                    ),
-                              const SizedBox(height: WynSpacing.space1),
-                              Text(
-                                '@${profile.username}',
-                                style: _textStyle(
-                                    fontSize: 13,
-                                    color: WynColors.mutedNeutral),
-                              ),
-                              if (profile.bio != null &&
-                                  profile.bio!.isNotEmpty) ...[
-                                const SizedBox(height: WynSpacing.space2),
-                                Text(
-                                  profile.bio!,
-                                  // Beta4 §14: bounded. This header is
-                                  // not scrollable -- it sits above a
-                                  // TabBar in a Column, with the tab
-                                  // content taking the remainder -- so an
-                                  // unbounded bio pushed the whole thing
-                                  // past a short screen's height (a real
-                                  // 102px bottom overflow at 320x568,
-                                  // caught by this screen's own
-                                  // small-mobile test). A profile bio is
-                                  // capped at 160 characters, which fits
-                                  // in 4 lines at every width the app
-                                  // supports except the very narrowest,
-                                  // where it now ellipsizes instead of
-                                  // breaking the layout.
-                                  maxLines: 4,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _textStyle(
-                                    fontSize: 15,
-                                    color: _bioTone,
-                                    height: 1.45,
-                                  ),
-                                ),
-                              ],
-                              // Blocked persona (WYN-027 Design, Screen
-                              // 3): no stats and no action to offer at
-                              // all -- the banner replaces both, exactly
-                              // as it did before Beta4 moved them.
-                              if (isBlockedEitherWay) ...[
-                                const SizedBox(height: WynSpacing.space4),
-                                _buildBlockedBanner(),
-                              ] else ...[
-                                const SizedBox(height: WynSpacing.space3),
-                                // Beta4 §1: Following first, then
-                                // Followers -- the order in the Founder's
-                                // sketch. Two stats only; the third
-                                // ("โพสต์") is gone, see
-                                // [_ProfileWithCounts].
-                                // Beta4 §14: both stats are Expanded, so
-                                // they share the identity column instead
-                                // of taking their natural width and
-                                // overflowing it. On a 320px screen that
-                                // column is ~170px wide, and two
-                                // natural-width stats plus the divider
-                                // wanted 200px more than that -- a real
-                                // RenderFlex overflow, caught by this
-                                // screen's own small-mobile test.
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _FollowCountTarget(
-                                        count: data.followingCount,
-                                        label: 'กำลังติดตาม',
-                                        onTap: () => _openFollowList(
-                                          FollowListMode.following,
-                                          isLockedPrivate: isLockedPrivate,
-                                        ),
-                                      ),
-                                    ),
-                                    _buildStatDivider(),
-                                    Expanded(
-                                      child: _FollowCountTarget(
-                                        count: data.followerCount,
-                                        label: 'ผู้ติดตาม',
-                                        onTap: () => _openFollowList(
-                                          FollowListMode.followers,
-                                          isLockedPrivate: isLockedPrivate,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: WynSpacing.space4),
-                                if (isOwnProfile) ...[
-                                  // Beta4 §1: one action, full width of
-                                  // the identity column. The Saved and
-                                  // Draft icon buttons that used to sit
-                                  // beside it are gone from this screen
-                                  // -- Saved lives in Home's ☰ menu (§4,
-                                  // already there as "บันทึกไว้") and
-                                  // Draft in the composer (§5,
-                                  // [DraftsScreen]). Neither capability
-                                  // was removed; both are now labelled
-                                  // words in a menu instead of two
-                                  // unlabelled glyphs next to a button.
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: OutlinedButton(
-                                      style: OutlinedButton.styleFrom(
-                                        shape: const StadiumBorder(),
-                                        side: const BorderSide(
-                                            color: WynColors.hairline),
-                                        foregroundColor: WynColors.ink,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: WynSpacing.space2 + 2,
-                                        ),
-                                      ),
-                                      onPressed: () => _openEdit(profile),
-                                      child: Text(
-                                        'แก้ไขโปรไฟล์',
-                                        style: _textStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: WynColors.ink,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  // WYN-039 Design, Screen 3's entry point
-                                  // -- only for a Private account with at
-                                  // least 1 request waiting (see
-                                  // _loadPendingRequestCount).
-                                  if (profile.isPrivate &&
-                                      _pendingRequestCount > 0) ...[
-                                    const SizedBox(height: WynSpacing.space2),
-                                    InkWell(
-                                      onTap: _openFollowRequests,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: WynSpacing.space2,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.person_add_alt,
-                                                size: 18),
-                                            const SizedBox(
-                                                width: WynSpacing.space2),
-                                            Text(
-                                                'คำขอติดตาม ($_pendingRequestCount)'),
-                                            const Icon(Icons.chevron_right,
-                                                size: 18),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ] else if (_isFollowing != null)
-                                  // Beta4 §3: "[ ติดตาม ] [ ส่งข้อความ ]"
-                                  // -- unchanged from WYN-095 apart from
-                                  // now living inside the identity column
-                                  // like every other element here.
-                                  // Messaging reuses the existing chat
-                                  // system (WYN-031), per §3's own rule
-                                  // against building a new one.
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Semantics(
-                                          label: _followButtonSemanticsLabel(
-                                              profile),
-                                          excludeSemantics: true,
-                                          child: FilledButton(
-                                            style: FilledButton.styleFrom(
-                                              shape: const StadiumBorder(),
-                                              backgroundColor: _isFollowing!
-                                                  ? WynColors.surfaceTint
-                                                  : WynColors.sapphire,
-                                              foregroundColor: _isFollowing!
-                                                  ? WynColors.graphite
-                                                  : WynColors.paper,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                vertical: WynSpacing.space2 + 2,
-                                              ),
-                                              textStyle: _textStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            onPressed: _isFollowActionInFlight
-                                                ? null
-                                                : () => _onFollowButtonPressed(
-                                                    profile),
-                                            child: Text(
-                                                _followButtonLabel(profile)),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: WynSpacing.space2),
-                                      // WYN-031, Screen 4.
-                                      Expanded(
-                                        child: Semantics(
-                                          label:
-                                              'ส่งข้อความถึง ${profile.nameOrUsername}',
-                                          button: true,
-                                          excludeSemantics: true,
-                                          child: OutlinedButton.icon(
-                                            style: OutlinedButton.styleFrom(
-                                              shape: const StadiumBorder(),
-                                              side: const BorderSide(
-                                                  color: WynColors.hairline),
-                                              foregroundColor: WynColors.ink,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                vertical: WynSpacing.space2 + 2,
-                                              ),
-                                            ),
-                                            onPressed: _isStartingChat
-                                                ? null
-                                                : () => _openChat(profile),
-                                            icon: _isStartingChat
-                                                ? const SizedBox(
-                                                    width: 16,
-                                                    height: 16,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                            strokeWidth: 2),
-                                                  )
-                                                : const Icon(
-                                                    Icons.send_outlined,
-                                                    size: 16,
-                                                    color: WynColors.ink),
-                                            label: Text(
-                                              'ส่งข้อความ',
-                                              style: _textStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                                color: WynColors.ink,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
+                    onFollowersTap: () => _openFollowList(
+                      FollowListMode.followers,
+                      isLockedPrivate: isLockedPrivate,
                     ),
+                    onEditCover: isOwnProfile
+                        ? () => _openCoverEditor(profile)
+                        : null,
+                    blockedBanner: isBlockedEitherWay
+                        ? _buildBlockedBanner()
+                        : null,
+                    actionRow: isBlockedEitherWay
+                        ? null
+                        : _buildOtherProfileActions(profile),
+                    pendingRequestEntry:
+                        isOwnProfile &&
+                            profile.isPrivate &&
+                            _pendingRequestCount > 0
+                        ? _buildPendingRequestEntry()
+                        : null,
                   ),
                 ),
-                if (!isOwnProfile)
-                  SliverToBoxAdapter(
-                    child: ProfileRecommendationSection(
-                      discoveryRepository: _discoveryRepository,
-                      followRepository: widget.followRepository,
-                      followRequestRepository: _followRequestRepository,
-                      profileRepository: widget.profileRepository,
-                    ),
-                  ),
                 // 05-profile.tsx cuts Replies/Media -- 3 tabs
                 // (Posts/ReDrops/Likes) for every viewer now, same
                 // public set regardless of who's looking. Saved/Draft
@@ -1378,10 +1265,14 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       indicatorWeight: 2,
                       labelColor: WynColors.ink,
                       unselectedLabelColor: WynColors.mutedNeutral,
-                      labelStyle:
-                          _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      unselectedLabelStyle:
-                          _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
+                      labelStyle: _textStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      unselectedLabelStyle: _textStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                      ),
                       tabs: const [
                         Tab(text: 'โพสต์'),
                         Tab(text: 'รีโพสต์'),
@@ -1402,6 +1293,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                     popRepository: widget.popRepository,
                     savedRepository: widget.savedRepository,
                     authorId: widget.userId,
+                    isOwnProfile: isOwnProfile,
                     onRefreshHeader: _reload,
                     emptyText: _gridEmptyText(
                       isOwnProfile: isOwnProfile,
@@ -1561,112 +1453,17 @@ class _AccountSwitcherName extends StatelessWidget {
   }
 }
 
-class _FollowCountTarget extends StatelessWidget {
-  const _FollowCountTarget({
-    required this.count,
-    required this.label,
-    required this.onTap,
-  });
-
-  final int count;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: '$count $label',
-      button: true,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: WynSpacing.space2, vertical: WynSpacing.space1),
-          child: _StatBlockContent(count: count, label: label),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatBlockContent extends StatelessWidget {
-  const _StatBlockContent({required this.count, required this.label});
-
-  final int count;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    // Beta4 §14: each line scales down only if it genuinely cannot fit
-    // the column it was given -- at every width from 360px up this is a
-    // no-op and the type is exactly the size the design system says.
-    // It exists for the 320px case, where "กำลังติดตาม" at 13px is
-    // wider than half the identity column; shrinking a label a few
-    // points there is better than ellipsizing a word or overflowing.
-    return Column(
-      children: [
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            // WYN-095: the stat sits in a row squeezed beside the
-            // avatar rather than spanning the full screen width, so a
-            // large raw number is abbreviated -- the Semantics label on
-            // the tap target still reads the exact count out loud, this
-            // is the visible text only.
-            compactCountLabel(count),
-            maxLines: 1,
-            style: _textStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: WynColors.ink),
-          ),
-        ),
-        const SizedBox(height: 2),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            maxLines: 1,
-            style: _textStyle(fontSize: 13, color: WynColors.graphite),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// SPEC.md Section 3's `w-px h-8 background hairline` vertical divider
-/// between StatsRow stats.
-Widget _buildStatDivider() => Container(
-      width: 1,
-      height: 32,
-      // Beta4 §14: space3, not space4 -- 8px of the identity column back
-      // for the two stats either side of it on a small screen.
-      margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
-      color: WynColors.hairline,
-    );
-
-/// 05-profile.tsx's bio tone (`#2B2A26`) -- deliberately not full
-/// `WynColors.ink`, same "quieter than the nearest named token" pattern
-/// SPEC.md's own Section 4.10 sanctions for Home's reply-preview text
-/// (see notification_list_screen.dart's identical reasoning for its own
-/// message-body tone).
-const _bioTone = WynColors.inkSoft;
-
 TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? height,
-}) =>
-    TextStyle(
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color,
-      height: height,
-    );
+}) => TextStyle(
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  color: color,
+  height: height,
+);
 
 /// WYN-110: pins the profile's TabBar (โพสต์/รีโพสต์/ถูกใจ) to the top of
 /// the screen once the header above it has scrolled away, the same
@@ -1689,7 +1486,10 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     // Opaque, same reasoning as _FeedModeToggleHeaderDelegate: once
     // pinned above scrolled-past post cards, this needs its own surface
     // so they don't show through underneath it.

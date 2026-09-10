@@ -42,7 +42,7 @@ class ProfileLikesTab extends StatefulWidget {
 
   // WYN-081 (Wynos V1.0.0 Beta2, item 16): see ProfileDropGridTab's
   // identical field for why this exists.
-  final VoidCallback? onRefreshHeader;
+  final Future<void> Function()? onRefreshHeader;
 
   @override
   State<ProfileLikesTab> createState() => _ProfileLikesTabState();
@@ -132,8 +132,9 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
       bool? canView = _canViewLikes;
       if (drops.isEmpty) {
         try {
-          canView =
-              await widget.profileRepository.canViewLikes(widget.authorId);
+          canView = await widget.profileRepository.canViewLikes(
+            widget.authorId,
+          );
         } catch (_) {
           // Fails open to "true" (shows the ordinary "no Likes yet"
           // empty text) -- same fail-open posture as every other
@@ -164,8 +165,12 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
   // Only used by RefreshIndicator's pull gesture, not initState's own
   // first load -- see [onRefreshHeader]'s doc comment.
   Future<void> _onPullToRefresh() async {
-    widget.onRefreshHeader?.call();
-    await _loadInitial();
+    final headerRefresh = widget.onRefreshHeader;
+    if (headerRefresh == null) {
+      await _loadInitial();
+      return;
+    }
+    await Future.wait([headerRefresh(), _loadInitial()]);
   }
 
   Future<void> _loadMore() async {
@@ -196,8 +201,10 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     final previous = _drops[index];
     setState(() => _drops[index] = previous.toggledLike());
     try {
-      await widget.dropRepository
-          .toggleLike(dropId: dropId, currentlyLiked: previous.likedByMe);
+      await widget.dropRepository.toggleLike(
+        dropId: dropId,
+        currentlyLiked: previous.likedByMe,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _drops[index] = previous);
@@ -210,8 +217,10 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     final previous = _drops[index];
     setState(() => _drops[index] = previous.toggledSave());
     try {
-      await widget.dropRepository
-          .toggleSave(dropId: dropId, currentlySaved: previous.savedByMe);
+      await widget.dropRepository.toggleSave(
+        dropId: dropId,
+        currentlySaved: previous.savedByMe,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _drops[index] = previous);
@@ -267,7 +276,8 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
     final currentIndex = _drops.indexWhere((d) => d.id == dropId);
     if (currentIndex == -1) return;
     setState(
-        () => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop());
+      () => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop(),
+    );
   }
 
   void _openProfile(String userId) {
@@ -377,10 +387,9 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
               padding: const EdgeInsets.only(bottom: WynSpacing.space6),
               sliver: SliverList.separated(
                 itemCount: _drops.length + (_hasMore ? 1 : 0),
-                separatorBuilder: (context, index) =>
-                    index + 1 < _drops.length
-                        ? const Divider(height: 1)
-                        : const SizedBox.shrink(),
+                separatorBuilder: (context, index) => index + 1 < _drops.length
+                    ? const Divider(height: 1)
+                    : const SizedBox.shrink(),
                 itemBuilder: (context, index) {
                   if (index >= _drops.length) {
                     return const Padding(

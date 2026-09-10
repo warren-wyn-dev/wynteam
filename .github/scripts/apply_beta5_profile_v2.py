@@ -1362,11 +1362,18 @@ sub_once(
 ''',
 )
 
-replace_once(
-    view_path,
-    '                    authorId: widget.userId,\n                    onRefreshHeader: _reload,',
-    '                    authorId: widget.userId,\n                    isOwnProfile: isOwnProfile,\n                    onRefreshHeader: _reload,',
-)
+text = read(view_path)
+posts_call = '                  ProfileDropGridTab(\n'
+start = text.find(posts_call)
+if start < 0:
+    raise SystemExit('ProfileDropGridTab call not found')
+needle = '                    authorId: widget.userId,\n                    onRefreshHeader: _reload,'
+position = text.find(needle, start)
+if position < 0:
+    raise SystemExit('ProfileDropGridTab refresh hook not found')
+replacement = '                    authorId: widget.userId,\n                    isOwnProfile: isOwnProfile,\n                    onRefreshHeader: _reload,'
+text = text[:position] + text[position:].replace(needle, replacement, 1)
+write(view_path, text)
 
 # ---------------------------------------------------------------------------
 # DB migration + schema baseline + integration test.

@@ -44,7 +44,8 @@ class ProfileRepository {
         // so every profile silently read as unverified here regardless
         // of what profiles.is_verified actually held.
         .select(
-            'id, username, display_name, bio, avatar_url, platform_role, is_private, is_verified, dm_permission, mention_permission, comment_permission, likes_visibility')
+          'id, username, display_name, bio, avatar_url, cover_url, platform_role, is_private, is_verified, dm_permission, mention_permission, comment_permission, likes_visibility',
+        )
         .eq('id', userId)
         .single();
     return Profile.fromMap(row);
@@ -59,7 +60,7 @@ class ProfileRepository {
   Future<Profile?> fetchProfileByUsername(String username) async {
     final row = await _client
         .from('profiles')
-        .select('id, username, display_name, bio, avatar_url')
+        .select('id, username, display_name, bio, avatar_url, cover_url')
         .eq('username', username)
         .maybeSingle();
     return row == null ? null : Profile.fromMap(row);
@@ -70,14 +71,17 @@ class ProfileRepository {
     required String displayName,
     required String bio,
   }) {
-    return _client.from('profiles').update({
-      // profiles_display_name_length requires display_name to be either
-      // NULL or 1-50 characters (see supabase/schema.sql) -- an empty
-      // string satisfies neither, so "no display name set" must be sent
-      // as null, not ''. bio has no such minimum, so it's fine as-is.
-      'display_name': normalizeOptionalText(displayName),
-      'bio': bio,
-    }).eq('id', userId);
+    return _client
+        .from('profiles')
+        .update({
+          // profiles_display_name_length requires display_name to be either
+          // NULL or 1-50 characters (see supabase/schema.sql) -- an empty
+          // string satisfies neither, so "no display name set" must be sent
+          // as null, not ''. bio has no such minimum, so it's fine as-is.
+          'display_name': normalizeOptionalText(displayName),
+          'bio': bio,
+        })
+        .eq('id', userId);
   }
 
   /// Whether [username] is free to take -- WYNOS V1.0.0 Beta requirement
@@ -108,14 +112,17 @@ class ProfileRepository {
     required String userId,
     required String username,
   }) async {
-    final available =
-        await isUsernameAvailable(username, currentUserId: userId);
+    final available = await isUsernameAvailable(
+      username,
+      currentUserId: userId,
+    );
     if (!available) throw UsernameTakenException();
 
     try {
       await _client
           .from('profiles')
-          .update({'username': username}).eq('id', userId);
+          .update({'username': username})
+          .eq('id', userId);
     } on PostgrestException catch (e) {
       // 23505 = unique_violation -- a concurrent request can still take
       // this username between the availability check above and this
@@ -138,7 +145,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'is_private': isPrivate}).eq('id', userId);
+        .update({'is_private': isPrivate})
+        .eq('id', userId);
   }
 
   /// WYN-045 Settings -- who can start a new DM conversation with this
@@ -150,7 +158,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'dm_permission': value.dbValue}).eq('id', userId);
+        .update({'dm_permission': value.dbValue})
+        .eq('id', userId);
   }
 
   /// WYN-045 Settings -- who can @mention this user in a Drop (or Poll
@@ -162,7 +171,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'mention_permission': value.dbValue}).eq('id', userId);
+        .update({'mention_permission': value.dbValue})
+        .eq('id', userId);
   }
 
   /// WYN-045 Settings -- who can comment on this user's Drops/Pops
@@ -176,7 +186,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'comment_permission': value.dbValue}).eq('id', userId);
+        .update({'comment_permission': value.dbValue})
+        .eq('id', userId);
   }
 
   /// WYN-099 -- whether the *current viewer* is allowed to see
@@ -186,8 +197,10 @@ class ProfileRepository {
   /// Likes yet" vs. "not allowed to see this") since both return an
   /// empty list either way -- this is what actually distinguishes them.
   Future<bool> canViewLikes(String targetUserId) async {
-    final result = await _client
-        .rpc('can_view_likes', params: {'p_target': targetUserId});
+    final result = await _client.rpc(
+      'can_view_likes',
+      params: {'p_target': targetUserId},
+    );
     return result as bool;
   }
 
@@ -200,7 +213,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'likes_visibility': value.dbValue}).eq('id', userId);
+        .update({'likes_visibility': value.dbValue})
+        .eq('id', userId);
   }
 
   /// Uploads [bytes] to the `avatars` bucket under the user's own folder
@@ -213,7 +227,9 @@ class ProfileRepository {
   }) async {
     final path = '$userId/avatar.$fileExtension';
 
-    await _client.storage.from('avatars').uploadBinary(
+    await _client.storage
+        .from('avatars')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: const FileOptions(upsert: true),
@@ -226,6 +242,30 @@ class ProfileRepository {
 
     await _client.from('profiles').update({'avatar_url': url}).eq('id', userId);
 
+    return url;
+  }
+
+  /// Beta5 Profile V2: uploads a wide profile cover into the same
+  /// per-user public `avatars` storage folder as the avatar. Reusing the
+  /// existing bucket means the already-deployed owner-folder storage RLS
+  /// continues to be the authority; no new public bucket is introduced.
+  Future<String> uploadCover({
+    required String userId,
+    required Uint8List bytes,
+    required String fileExtension,
+  }) async {
+    final path = '$userId/cover.$fileExtension';
+    await _client.storage
+        .from('avatars')
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+    final url =
+        '${_client.storage.from('avatars').getPublicUrl(path)}?v=${DateTime.now().millisecondsSinceEpoch}';
+    await _client.from('profiles').update({'cover_url': url}).eq('id', userId);
     return url;
   }
 
@@ -243,7 +283,8 @@ class ProfileRepository {
     final rows = await _client
         .from('profiles')
         .select(
-            'id, username, display_name, bio, avatar_url, platform_role, is_private, is_verified')
+          'id, username, display_name, bio, avatar_url, cover_url, platform_role, is_private, is_verified',
+        )
         .inFilter('id', ids);
 
     final byId = {

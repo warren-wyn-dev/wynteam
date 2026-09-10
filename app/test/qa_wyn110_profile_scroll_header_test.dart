@@ -89,16 +89,16 @@ class _PagedHomeRepository extends RecordingHomeRepository {
 }
 
 Drop _textDrop(String id, {String authorId = 'me', String? caption}) => Drop(
-      id: id,
-      authorId: authorId,
-      authorUsername: authorId,
-      caption: caption ?? 'โพสต์ $id',
-      createdAt: DateTime.now(),
-      likeCount: 0,
-      commentCount: 0,
-      likedByMe: false,
-      savedByMe: false,
-    );
+  id: id,
+  authorId: authorId,
+  authorUsername: authorId,
+  caption: caption ?? 'โพสต์ $id',
+  createdAt: DateTime.now(),
+  likeCount: 0,
+  commentCount: 0,
+  likedByMe: false,
+  savedByMe: false,
+);
 
 Widget _wrapTab(Widget child) => MaterialApp(home: Scaffold(body: child));
 
@@ -126,20 +126,31 @@ void main() {
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     ownProfileRepo = RecordingProfileRepository(
-      profile:
-          const Profile(id: 'me', username: 'me_user', displayName: 'ตัวฉันเอง'),
+      profile: const Profile(
+        id: 'me',
+        username: 'me_user',
+        displayName: 'ตัวฉันเอง',
+      ),
     );
     otherProfileRepo = RecordingProfileRepository(
       profile: const Profile(
-          id: 'someone-else', username: 'namfah', displayName: 'น้ำฝน'),
+        id: 'someone-else',
+        username: 'namfah',
+        displayName: 'น้ำฝน',
+      ),
     );
-    followRepo = RecordingFollowRepository(followerCount: 10, followingCount: 4);
+    followRepo = RecordingFollowRepository(
+      followerCount: 10,
+      followingCount: 4,
+    );
     popRepo = RecordingPopRepository();
     savedRepo = RecordingSavedRepository();
 
-    othersPostsRepo = RecordingDropRepository(feedDrops: [
-      for (var i = 0; i < 40; i++) _textDrop('p$i', authorId: 'someone-else'),
-    ]);
+    othersPostsRepo = RecordingDropRepository(
+      feedDrops: [
+        for (var i = 0; i < 40; i++) _textDrop('p$i', authorId: 'someone-else'),
+      ],
+    );
 
     redropsForOwnRepo = RecordingHomeRepository(
       redropsByUser: [
@@ -156,39 +167,42 @@ void main() {
         ],
       };
 
-    postsForOwnScrollRepo = RecordingDropRepository(feedDrops: [
-      for (var i = 0; i < 40; i++) _textDrop('sp$i'),
-    ])
-      ..likedDropsByAuthor = {'me': []};
+    postsForOwnScrollRepo = RecordingDropRepository(
+      feedDrops: [for (var i = 0; i < 40; i++) _textDrop('sp$i')],
+    )..likedDropsByAuthor = {'me': []};
 
     emptyDropRepo = RecordingDropRepository();
 
-    pagedPostsRepo = _PagedDropRepository(pagesByAuthor: {
-      'someone-else': [
-        [for (var i = 0; i < DropRepository.pageSize; i++) _textDrop('gp$i')],
-        [_textDrop('gp-new-1'), _textDrop('gp-new-2')],
-      ],
-    });
+    pagedPostsRepo = _PagedDropRepository(
+      pagesByAuthor: {
+        'someone-else': [
+          [for (var i = 0; i < DropRepository.pageSize; i++) _textDrop('gp$i')],
+          [_textDrop('gp-new-1'), _textDrop('gp-new-2')],
+        ],
+      },
+    );
 
-    pagedRedropsRepo = _PagedHomeRepository(pagesByUser: {
-      'someone-else': [
-        [
-          for (var i = 0; i < HomeRepository.pageSize; i++)
-            HomeFeedItem.fromDrop(_textDrop('rp$i'))
+    pagedRedropsRepo = _PagedHomeRepository(
+      pagesByUser: {
+        'someone-else': [
+          [
+            for (var i = 0; i < HomeRepository.pageSize; i++)
+              HomeFeedItem.fromDrop(_textDrop('rp$i')),
+          ],
+          [
+            HomeFeedItem.fromDrop(_textDrop('rp-new-1')),
+            HomeFeedItem.fromDrop(_textDrop('rp-new-2')),
+          ],
         ],
-        [
-          HomeFeedItem.fromDrop(_textDrop('rp-new-1')),
-          HomeFeedItem.fromDrop(_textDrop('rp-new-2')),
-        ],
-      ],
-    });
+      },
+    );
 
     pagedLikesRepo = RecordingDropRepository()
       ..likedDropPagesByAuthor = {
         'someone-else': [
           [
             for (var i = 0; i < DropRepository.pageSize; i++)
-              _textDrop('lp$i', authorId: 'someone-else')
+              _textDrop('lp$i', authorId: 'someone-else'),
           ],
           [
             _textDrop('lp-new-1', authorId: 'someone-else'),
@@ -204,9 +218,12 @@ void main() {
 
     overflowRepos = [
       for (var w = 0; w < 4; w++)
-        RecordingDropRepository(feedDrops: [
-          for (var i = 0; i < 20; i++) _textDrop('ov${w}_$i', authorId: 'someone-else'),
-        ]),
+        RecordingDropRepository(
+          feedDrops: [
+            for (var i = 0; i < 20; i++)
+              _textDrop('ov${w}_$i', authorId: 'someone-else'),
+          ],
+        ),
     ];
 
     // QA round 2: dedicated repos for trying to break the
@@ -214,107 +231,122 @@ void main() {
     // back, and a direction reversal mid-scroll. Each has its own
     // instance (not shared with group 4's tests above) so call counts
     // from one attempt never leak into another.
-    flingPostsRepo = _PagedDropRepository(pagesByAuthor: {
-      'someone-else': [
-        [for (var i = 0; i < DropRepository.pageSize; i++) _textDrop('fp$i')],
-        [_textDrop('fp-new-1'), _textDrop('fp-new-2')],
-      ],
-    });
-    rapidDragPostsRepo = _PagedDropRepository(pagesByAuthor: {
-      'someone-else': [
-        [for (var i = 0; i < DropRepository.pageSize; i++) _textDrop('rd$i')],
-        [_textDrop('rd-new-1'), _textDrop('rd-new-2')],
-      ],
-    });
-    reversalPostsRepo = _PagedDropRepository(pagesByAuthor: {
-      'someone-else': [
-        [for (var i = 0; i < DropRepository.pageSize; i++) _textDrop('rv$i')],
-        [_textDrop('rv-new-1'), _textDrop('rv-new-2')],
-      ],
-    });
+    flingPostsRepo = _PagedDropRepository(
+      pagesByAuthor: {
+        'someone-else': [
+          [for (var i = 0; i < DropRepository.pageSize; i++) _textDrop('fp$i')],
+          [_textDrop('fp-new-1'), _textDrop('fp-new-2')],
+        ],
+      },
+    );
+    rapidDragPostsRepo = _PagedDropRepository(
+      pagesByAuthor: {
+        'someone-else': [
+          [for (var i = 0; i < DropRepository.pageSize; i++) _textDrop('rd$i')],
+          [_textDrop('rd-new-1'), _textDrop('rd-new-2')],
+        ],
+      },
+    );
+    reversalPostsRepo = _PagedDropRepository(
+      pagesByAuthor: {
+        'someone-else': [
+          [for (var i = 0; i < DropRepository.pageSize; i++) _textDrop('rv$i')],
+          [_textDrop('rv-new-1'), _textDrop('rv-new-2')],
+        ],
+      },
+    );
   });
 
-  group('1. header scroll-away on a profile that is NOT the viewer\'s own',
-      () {
+  group('1. header scroll-away on a profile that is NOT the viewer\'s own', () {
     testWidgets(
-        'someone else\'s profile (with ProfileRecommendationSection in the '
-        'header) still lets the header scroll away and pins the TabBar',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: otherProfileRepo,
-          followRepository: followRepo,
-          dropRepository: othersPostsRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'someone-else',
-        ),
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
+      'someone else\'s profile (with ProfileRecommendationSection in the '
+      'header) still lets the header scroll away and pins the TabBar',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ViewProfileScreen(
+              profileRepository: otherProfileRepo,
+              followRepository: followRepo,
+              dropRepository: othersPostsRepo,
+              popRepository: popRepo,
+              savedRepository: savedRepo,
+              userId: 'someone-else',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      // At rest: the "ติดตาม" follow button (the header-only element on
-      // someone else's profile, standing in for "แก้ไขโปรไฟล์" on your
-      // own) is visible.
-      expect(find.text('ติดตาม'), findsOneWidget);
+        // At rest: the "ติดตาม" follow button (the header-only element on
+        // someone else's profile, standing in for "แก้ไขโปรไฟล์" on your
+        // own) is visible.
+        expect(find.text('ติดตาม'), findsOneWidget);
 
-      await tester.drag(find.text('โพสต์ p0'), const Offset(0, -1000));
-      await tester.pumpAndSettle();
-      tester.takeException();
+        await tester.drag(find.text('โพสต์ p0'), const Offset(0, -1000));
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      // Header (including the follow button) scrolled away...
-      expect(find.text('ติดตาม'), findsNothing);
-      // ...but the TabBar is still on screen, pinned near the top --
-      // not just "still in the tree somewhere off-screen".
-      expect(find.text('โพสต์'), findsOneWidget);
-      final tabBarTop = tester.getTopLeft(find.text('โพสต์')).dy;
-      expect(tabBarTop, greaterThan(0));
-      expect(tabBarTop, lessThan(150));
-    });
+        // Header (including the follow button) scrolled away...
+        expect(find.text('ติดตาม'), findsNothing);
+        // ...but the TabBar is still on screen, pinned near the top --
+        // not just "still in the tree somewhere off-screen".
+        expect(find.text('โพสต์'), findsOneWidget);
+        final tabBarTop = tester.getTopLeft(find.text('โพสต์')).dy;
+        expect(tabBarTop, greaterThan(0));
+        expect(tabBarTop, lessThan(150));
+      },
+    );
   });
 
   group('2. every tab (not just Posts) lets the header scroll away', () {
-    testWidgets('ReDrops tab scrolls its own header away, TabBar stays pinned',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: ownProfileRepo,
-          followRepository: followRepo,
-          dropRepository: emptyDropRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          homeRepository: redropsForOwnRepo,
-          userId: 'me',
+    testWidgets(
+      'ReDrops tab scrolls its own header away, TabBar stays pinned',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ViewProfileScreen(
+              profileRepository: ownProfileRepo,
+              followRepository: followRepo,
+              dropRepository: emptyDropRepo,
+              popRepository: popRepo,
+              savedRepository: savedRepo,
+              homeRepository: redropsForOwnRepo,
+              userId: 'me',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
+
+        await tester.tap(find.text('รีโพสต์'));
+        await tester.pumpAndSettle();
+        tester.takeException();
+
+        expect(find.byKey(const Key('profile_v2_full_header')), findsOneWidget);
+        await tester.drag(find.text('รีโพสต์ r0'), const Offset(0, -1000));
+        await tester.pumpAndSettle();
+        tester.takeException();
+
+        expect(find.byKey(const Key('profile_v2_full_header')), findsNothing);
+        expect(find.text('รีโพสต์'), findsWidgets); // tab label still there
+      },
+    );
+
+    testWidgets('Likes tab scrolls its own header away, TabBar stays pinned', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ViewProfileScreen(
+            profileRepository: ownProfileRepo,
+            followRepository: followRepo,
+            dropRepository: likesForOwnRepo,
+            popRepository: popRepo,
+            savedRepository: savedRepo,
+            userId: 'me',
+          ),
         ),
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      await tester.tap(find.text('รีโพสต์'));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('แก้ไขโปรไฟล์'), findsOneWidget);
-      await tester.drag(find.text('รีโพสต์ r0'), const Offset(0, -1000));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      expect(find.text('แก้ไขโปรไฟล์'), findsNothing);
-      expect(find.text('รีโพสต์'), findsWidgets); // tab label still there
-    });
-
-    testWidgets('Likes tab scrolls its own header away, TabBar stays pinned',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: ownProfileRepo,
-          followRepository: followRepo,
-          dropRepository: likesForOwnRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'me',
-        ),
-      ));
+      );
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -322,164 +354,182 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(find.text('แก้ไขโปรไฟล์'), findsOneWidget);
+      expect(find.byKey(const Key('profile_v2_full_header')), findsOneWidget);
       await tester.drag(find.text('ถูกใจ l0'), const Offset(0, -1000));
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(find.text('แก้ไขโปรไฟล์'), findsNothing);
+      expect(find.byKey(const Key('profile_v2_full_header')), findsNothing);
       expect(find.text('ถูกใจ'), findsWidgets);
     });
   });
 
   group('3. per-tab scroll position survives switching tabs', () {
     testWidgets(
-        'scrolling the Posts tab, switching to Likes and back leaves the '
-        'Posts tab scrolled where it was (not reset to the top)',
-        (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        home: ViewProfileScreen(
-          profileRepository: ownProfileRepo,
-          followRepository: followRepo,
-          dropRepository: postsForOwnScrollRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          userId: 'me',
-        ),
-      ));
-      await tester.pumpAndSettle();
-      tester.takeException();
+      'scrolling the Posts tab, switching to Likes and back leaves the '
+      'Posts tab scrolled where it was (not reset to the top)',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ViewProfileScreen(
+              profileRepository: ownProfileRepo,
+              followRepository: followRepo,
+              dropRepository: postsForOwnScrollRepo,
+              popRepository: popRepo,
+              savedRepository: savedRepo,
+              userId: 'me',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      await tester.drag(find.text('โพสต์ sp0'), const Offset(0, -1000));
-      await tester.pumpAndSettle();
-      tester.takeException();
-      // Header is gone and some early post has scrolled past the top.
-      expect(find.text('แก้ไขโปรไฟล์'), findsNothing);
-      expect(find.text('โพสต์ sp0'), findsNothing);
+        await tester.drag(find.text('โพสต์ sp0'), const Offset(0, -1000));
+        await tester.pumpAndSettle();
+        tester.takeException();
+        // Header is gone and some early post has scrolled past the top.
+        expect(find.byKey(const Key('profile_v2_full_header')), findsNothing);
+        expect(find.text('โพสต์ sp0'), findsNothing);
 
-      await tester.tap(find.text('ถูกใจ'));
-      await tester.pumpAndSettle();
-      tester.takeException();
-      await tester.tap(find.text('โพสต์'));
-      await tester.pumpAndSettle();
-      tester.takeException();
+        await tester.tap(find.text('ถูกใจ'));
+        await tester.pumpAndSettle();
+        tester.takeException();
+        await tester.tap(find.text('โพสต์'));
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      // If the tab had reset to the top, the header ("แก้ไขโปรไฟล์") and
-      // "โพสต์ sp0" would both be visible again. AutomaticKeepAliveClientMixin
-      // + NestedScrollView's per-tab controller means neither is.
-      expect(find.text('แก้ไขโปรไฟล์'), findsNothing,
+        // If the tab had reset to the top, the header ("แก้ไขโปรไฟล์") and
+        // "โพสต์ sp0" would both be visible again. AutomaticKeepAliveClientMixin
+        // + NestedScrollView's per-tab controller means neither is.
+        expect(
+          find.text('แก้ไขโปรไฟล์'),
+          findsNothing,
           reason:
               'Posts tab scroll offset was reset to the top after switching '
               'tabs and back -- NestedScrollView is not preserving each '
-              'tab\'s own inner scroll position.');
-      expect(find.text('โพสต์ sp0'), findsNothing);
-    });
+              'tab\'s own inner scroll position.',
+        );
+        expect(find.text('โพสต์ sp0'), findsNothing);
+      },
+    );
   });
 
   group('4. infinite-scroll pagination past a real page boundary', () {
     testWidgets(
-        'ProfileDropGridTab (Posts): one scroll past the threshold should '
-        'fetch page 1 exactly once (QA-WYN-110-001: currently fetches '
-        'several times -- see bug report)', (tester) async {
-      await tester.pumpWidget(_wrapTab(ProfileDropGridTab(
-        dropRepository: pagedPostsRepo,
-        followRepository: followRepo,
-        profileRepository: otherProfileRepo,
-        popRepository: popRepo,
-        savedRepository: savedRepo,
-        authorId: 'someone-else',
-        emptyText: 'ยังไม่มีโพสต์',
-      )));
-      await tester.pumpAndSettle();
-      tester.takeException();
+      'ProfileDropGridTab (Posts): one scroll past the threshold should '
+      'fetch page 1 exactly once (QA-WYN-110-001: currently fetches '
+      'several times -- see bug report)',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrapTab(
+            ProfileDropGridTab(
+              dropRepository: pagedPostsRepo,
+              followRepository: followRepo,
+              profileRepository: otherProfileRepo,
+              popRepository: popRepo,
+              savedRepository: savedRepo,
+              authorId: 'someone-else',
+              emptyText: 'ยังไม่มีโพสต์',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      await tester.scrollUntilVisible(
-        find.byType(CircularProgressIndicator),
-        600,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      tester.takeException();
+        await tester.scrollUntilVisible(
+          find.byType(CircularProgressIndicator),
+          600,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      // The end result is correct either way -- see the two assertions
-      // below -- but a single "near the bottom" crossing should cost
-      // exactly 1 extra fetch (2 total including the initial page-0
-      // load), not several. This is QA-WYN-110-001.
-      expect(pagedPostsRepo.fetchByAuthorCalls, 2,
+        // The end result is correct either way -- see the two assertions
+        // below -- but a single "near the bottom" crossing should cost
+        // exactly 1 extra fetch (2 total including the initial page-0
+        // load), not several. This is QA-WYN-110-001.
+        expect(
+          pagedPostsRepo.fetchByAuthorCalls,
+          2,
           reason:
               'QA-WYN-110-001: one scroll-to-near-bottom should trigger '
               'exactly one _loadMore() call; _onScrollNotification\'s '
               'addPostFrameCallback guard is checked at notification time, '
               'not at the callback\'s execution time, so several '
               'notifications queued within the same frame all schedule '
-              'their own _loadMore(), each re-fetching the same next page.');
+              'their own _loadMore(), each re-fetching the same next page.',
+        );
 
-      // Whatever the call count, the *content* must still be correct --
-      // no duplicate rows, no crash. Verifying that independently here
-      // rather than assuming it from the call count alone.
-      //
-      // QA round 2 fix: this used to pass `-300`. For a vertical
-      // (AxisDirection.down) Scrollable, scrollUntilVisible's internal
-      // moveStep is `Offset(0, -delta)` -- delta must be *positive* to
-      // keep swiping forward/down towards content appended at the end
-      // of the list (WidgetController.dragUntilVisible: "a negative
-      // Offset.dy swipes up, revealing items below" -- negative dy
-      // needs a positive delta here). `gp-new-2` is the very last row
-      // (page 1's second and final item), further down than wherever
-      // the first scrollUntilVisible above already landed, so this
-      // must keep scrolling in the same forward direction, not reverse.
-      // A negative delta here happened to still find the element before
-      // the QA-WYN-110-001 fix only because the redundant extra fetches
-      // pushed the scroll position further than intended, so scrolling
-      // "backward" still landed on already-passed content; once the
-      // fix removed that over-scroll, the backward search found nothing.
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ gp-new-2'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      tester.takeException();
-      // If the redundant fetches above (before the fix) had each
-      // appended their own copy of page 1 without _seenKeys' dedup,
-      // several 'gp-new-2' rows would sit right next to each other at
-      // the tail of the list and at least one extra copy would be
-      // mounted in this same viewport alongside the one found here --
-      // findsOneWidget below would fail. (An exact total count via
-      // find.byType(HomeDropCard) is not a valid check here: this is a
-      // lazily-built CustomScrollView, so only the rows near the
-      // current scroll position -- not all pageSize + 2 of them -- are
-      // ever mounted at once.)
-      expect(find.text('โพสต์ gp-new-2'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+        // Whatever the call count, the *content* must still be correct --
+        // no duplicate rows, no crash. Verifying that independently here
+        // rather than assuming it from the call count alone.
+        //
+        // QA round 2 fix: this used to pass `-300`. For a vertical
+        // (AxisDirection.down) Scrollable, scrollUntilVisible's internal
+        // moveStep is `Offset(0, -delta)` -- delta must be *positive* to
+        // keep swiping forward/down towards content appended at the end
+        // of the list (WidgetController.dragUntilVisible: "a negative
+        // Offset.dy swipes up, revealing items below" -- negative dy
+        // needs a positive delta here). `gp-new-2` is the very last row
+        // (page 1's second and final item), further down than wherever
+        // the first scrollUntilVisible above already landed, so this
+        // must keep scrolling in the same forward direction, not reverse.
+        // A negative delta here happened to still find the element before
+        // the QA-WYN-110-001 fix only because the redundant extra fetches
+        // pushed the scroll position further than intended, so scrolling
+        // "backward" still landed on already-passed content; once the
+        // fix removed that over-scroll, the backward search found nothing.
+        await tester.scrollUntilVisible(
+          find.text('โพสต์ gp-new-2'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
+        // If the redundant fetches above (before the fix) had each
+        // appended their own copy of page 1 without _seenKeys' dedup,
+        // several 'gp-new-2' rows would sit right next to each other at
+        // the tail of the list and at least one extra copy would be
+        // mounted in this same viewport alongside the one found here --
+        // findsOneWidget below would fail. (An exact total count via
+        // find.byType(HomeDropCard) is not a valid check here: this is a
+        // lazily-built CustomScrollView, so only the rows near the
+        // current scroll position -- not all pageSize + 2 of them -- are
+        // ever mounted at once.)
+        expect(find.text('โพสต์ gp-new-2'), findsOneWidget);
+        expect(tester.takeException(), isNull);
 
-      // Scroll back to the very top and confirm the first page still
-      // reads correctly too -- the redundant-fetch bug only ever
-      // touched page 1, but this rules out any knock-on corruption of
-      // page 0's own rows.
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ gp0'),
-        -600,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('โพสต์ gp0'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+        // Scroll back to the very top and confirm the first page still
+        // reads correctly too -- the redundant-fetch bug only ever
+        // touched page 1, but this rules out any knock-on corruption of
+        // page 0's own rows.
+        await tester.scrollUntilVisible(
+          find.text('โพสต์ gp0'),
+          -600,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('โพสต์ gp0'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-    testWidgets(
-        'ProfileRedropsTab: one scroll past the threshold should fetch '
+    testWidgets('ProfileRedropsTab: one scroll past the threshold should fetch '
         'page 1 exactly once (same QA-WYN-110-001 pattern)', (tester) async {
-      await tester.pumpWidget(_wrapTab(ProfileRedropsTab(
-        homeRepository: pagedRedropsRepo,
-        dropRepository: othersPostsRepo,
-        followRepository: followRepo,
-        profileRepository: otherProfileRepo,
-        popRepository: popRepo,
-        savedRepository: savedRepo,
-        authorId: 'someone-else',
-        emptyText: 'ยังไม่มีรีโพสต์',
-      )));
+      await tester.pumpWidget(
+        _wrapTab(
+          ProfileRedropsTab(
+            homeRepository: pagedRedropsRepo,
+            dropRepository: othersPostsRepo,
+            followRepository: followRepo,
+            profileRepository: otherProfileRepo,
+            popRepository: popRepo,
+            savedRepository: savedRepo,
+            authorId: 'someone-else',
+            emptyText: 'ยังไม่มีรีโพสต์',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -491,8 +541,11 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(pagedRedropsRepo.fetchRedropsByUserCallsSeen, 2,
-          reason: 'QA-WYN-110-001 (see ProfileDropGridTab\'s identical case)');
+      expect(
+        pagedRedropsRepo.fetchRedropsByUserCallsSeen,
+        2,
+        reason: 'QA-WYN-110-001 (see ProfileDropGridTab\'s identical case)',
+      );
 
       // QA round 2 fix: see the identical `gp-new-2` case above for why
       // this must be a positive delta, not -300.
@@ -519,96 +572,118 @@ void main() {
     });
 
     testWidgets(
-        'ProfileLikesTab: one scroll past the threshold should fetch page '
-        '1 exactly once (same QA-WYN-110-001 pattern, using the '
-        'pre-existing likedDropPagesByAuthor fake)', (tester) async {
-      await tester.pumpWidget(_wrapTab(ProfileLikesTab(
-        dropRepository: pagedLikesRepo,
-        followRepository: followRepo,
-        profileRepository: otherProfileRepo,
-        popRepository: popRepo,
-        savedRepository: savedRepo,
-        authorId: 'someone-else',
-        emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
-      )));
-      await tester.pumpAndSettle();
-      tester.takeException();
+      'ProfileLikesTab: one scroll past the threshold should fetch page '
+      '1 exactly once (same QA-WYN-110-001 pattern, using the '
+      'pre-existing likedDropPagesByAuthor fake)',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrapTab(
+            ProfileLikesTab(
+              dropRepository: pagedLikesRepo,
+              followRepository: followRepo,
+              profileRepository: otherProfileRepo,
+              popRepository: popRepo,
+              savedRepository: savedRepo,
+              authorId: 'someone-else',
+              emptyText: 'ยังไม่มีอะไรที่ถูกใจ',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      await tester.scrollUntilVisible(
-        find.byType(CircularProgressIndicator),
-        600,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      tester.takeException();
+        await tester.scrollUntilVisible(
+          find.byType(CircularProgressIndicator),
+          600,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      expect(pagedLikesRepo.fetchLikedByAuthorCalls, 2,
-          reason: 'QA-WYN-110-001 (see ProfileDropGridTab\'s identical case)');
+        expect(
+          pagedLikesRepo.fetchLikedByAuthorCalls,
+          2,
+          reason: 'QA-WYN-110-001 (see ProfileDropGridTab\'s identical case)',
+        );
 
-      // QA round 2 fix: see the identical `gp-new-2` case above for why
-      // this must be a positive delta, not -300.
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ lp-new-2'),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      tester.takeException();
-      // See the identical ProfileDropGridTab case above for why this
-      // is a findsOneWidget + scroll-back check, not a total-count one.
-      expect(find.text('โพสต์ lp-new-2'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+        // QA round 2 fix: see the identical `gp-new-2` case above for why
+        // this must be a positive delta, not -300.
+        await tester.scrollUntilVisible(
+          find.text('โพสต์ lp-new-2'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
+        // See the identical ProfileDropGridTab case above for why this
+        // is a findsOneWidget + scroll-back check, not a total-count one.
+        expect(find.text('โพสต์ lp-new-2'), findsOneWidget);
+        expect(tester.takeException(), isNull);
 
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ lp0'),
-        -600,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('โพสต์ lp0'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+        await tester.scrollUntilVisible(
+          find.text('โพสต์ lp0'),
+          -600,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('โพสต์ lp0'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 
   group('5. pull-to-refresh still works on every tab', () {
-    testWidgets('ProfileDropGridTab RefreshIndicator.onRefresh does not throw',
-        (tester) async {
-      await tester.pumpWidget(_wrapTab(ProfileDropGridTab(
-        dropRepository: refreshPostsRepo,
-        followRepository: followRepo,
-        profileRepository: ownProfileRepo,
-        popRepository: popRepo,
-        savedRepository: savedRepo,
-        authorId: 'me',
-        emptyText: 'ยังไม่มีโพสต์',
-      )));
+    testWidgets(
+      'ProfileDropGridTab RefreshIndicator.onRefresh does not throw',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrapTab(
+            ProfileDropGridTab(
+              dropRepository: refreshPostsRepo,
+              followRepository: followRepo,
+              profileRepository: ownProfileRepo,
+              popRepository: popRepo,
+              savedRepository: savedRepo,
+              authorId: 'me',
+              emptyText: 'ยังไม่มีโพสต์',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
+
+        final indicator = tester.widget<RefreshIndicator>(
+          find.byType(RefreshIndicator),
+        );
+        await indicator.onRefresh();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('ProfileRedropsTab RefreshIndicator.onRefresh does not throw', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrapTab(
+          ProfileRedropsTab(
+            homeRepository: refreshRedropsRepo,
+            dropRepository: othersPostsRepo,
+            followRepository: followRepo,
+            profileRepository: ownProfileRepo,
+            popRepository: popRepo,
+            savedRepository: savedRepo,
+            authorId: 'me',
+            emptyText: 'ยังไม่มีรีโพสต์',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       tester.takeException();
 
-      final indicator =
-          tester.widget<RefreshIndicator>(find.byType(RefreshIndicator));
-      await indicator.onRefresh();
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('ProfileRedropsTab RefreshIndicator.onRefresh does not throw',
-        (tester) async {
-      await tester.pumpWidget(_wrapTab(ProfileRedropsTab(
-        homeRepository: refreshRedropsRepo,
-        dropRepository: othersPostsRepo,
-        followRepository: followRepo,
-        profileRepository: ownProfileRepo,
-        popRepository: popRepo,
-        savedRepository: savedRepo,
-        authorId: 'me',
-        emptyText: 'ยังไม่มีรีโพสต์',
-      )));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      final indicator =
-          tester.widget<RefreshIndicator>(find.byType(RefreshIndicator));
+      final indicator = tester.widget<RefreshIndicator>(
+        find.byType(RefreshIndicator),
+      );
       await indicator.onRefresh();
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -620,22 +695,25 @@ void main() {
     for (var w = 0; w < widths.length; w++) {
       final width = widths[w];
       final repoIndex = w;
-      testWidgets('$width px wide: no overflow mid-drag through the header',
-          (tester) async {
+      testWidgets('$width px wide: no overflow mid-drag through the header', (
+        tester,
+      ) async {
         tester.view.physicalSize = Size(width, 700);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
 
-        await tester.pumpWidget(MaterialApp(
-          home: ViewProfileScreen(
-            profileRepository: otherProfileRepo,
-            followRepository: followRepo,
-            dropRepository: overflowRepos[repoIndex],
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            userId: 'someone-else',
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ViewProfileScreen(
+              profileRepository: otherProfileRepo,
+              followRepository: followRepo,
+              dropRepository: overflowRepos[repoIndex],
+              popRepository: popRepo,
+              savedRepository: savedRepo,
+              userId: 'someone-else',
+            ),
           ),
-        ));
+        );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
 
@@ -648,9 +726,13 @@ void main() {
           await tester.dragFrom(Offset(width / 2, 400), const Offset(0, -60));
           await tester.pump(const Duration(milliseconds: 16));
           final exception = tester.takeException();
-          expect(exception, isNull,
-              reason: 'QA-WYN-110-002 (pre-existing, out of this diff\'s '
-                  'scope): $exception');
+          expect(
+            exception,
+            isNull,
+            reason:
+                'QA-WYN-110-002 (pre-existing, out of this diff\'s '
+                'scope): $exception',
+          );
         }
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
@@ -660,19 +742,23 @@ void main() {
 
   group('7. QA round 2: trying to break the QA-WYN-110-001 guard fix '
       'further', () {
-    testWidgets(
-        'a fast fling past the threshold still fetches page 1 exactly '
-        'once, not once per synthesized pointer-move frame of the fling',
-        (tester) async {
-      await tester.pumpWidget(_wrapTab(ProfileDropGridTab(
-        dropRepository: flingPostsRepo,
-        followRepository: followRepo,
-        profileRepository: otherProfileRepo,
-        popRepository: popRepo,
-        savedRepository: savedRepo,
-        authorId: 'someone-else',
-        emptyText: 'ยังไม่มีโพสต์',
-      )));
+    testWidgets('a fast fling past the threshold still fetches page 1 exactly '
+        'once, not once per synthesized pointer-move frame of the fling', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrapTab(
+          ProfileDropGridTab(
+            dropRepository: flingPostsRepo,
+            followRepository: followRepo,
+            profileRepository: otherProfileRepo,
+            popRepository: popRepo,
+            savedRepository: savedRepo,
+            authorId: 'someone-else',
+            emptyText: 'ยังไม่มีโพสต์',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -689,75 +775,91 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(flingPostsRepo.fetchByAuthorCalls, 2,
-          reason: 'a fast fling that crosses the near-bottom threshold '
-              'should still cost exactly one _loadMore() call, the same '
-              'as a slow drag -- QA-WYN-110-001 must not resurface for '
-              'high-velocity gestures specifically.');
+      expect(
+        flingPostsRepo.fetchByAuthorCalls,
+        2,
+        reason:
+            'a fast fling that crosses the near-bottom threshold '
+            'should still cost exactly one _loadMore() call, the same '
+            'as a slow drag -- QA-WYN-110-001 must not resurface for '
+            'high-velocity gestures specifically.',
+      );
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'several drags fired back to back, before the widget is given a '
-        'chance to settle between them, still cost exactly one extra '
-        'fetch per threshold crossing', (tester) async {
-      await tester.pumpWidget(_wrapTab(ProfileDropGridTab(
-        dropRepository: rapidDragPostsRepo,
-        followRepository: followRepo,
-        profileRepository: otherProfileRepo,
-        popRepository: popRepo,
-        savedRepository: savedRepo,
-        authorId: 'someone-else',
-        emptyText: 'ยังไม่มีโพสต์',
-      )));
-      await tester.pumpAndSettle();
-      tester.takeException();
-
-      // Several drags in a row, each only given a single pump() (not
-      // pumpAndSettle) -- closer to a user flicking the list repeatedly
-      // with a finger than to the single isolated drag group 4's tests
-      // use. -4000 each is deliberately far more than needed to cross
-      // the near-bottom threshold on its own (21 rows' worth of
-      // HomeDropCards is nowhere near that tall) -- the point is that
-      // every one of these drags dispatches its own
-      // ScrollUpdateNotification(s) before a single frame is drawn (no
-      // pump() happens until after each drag's gesture completes, and
-      // even that pump() is a single frame, not pumpAndSettle), so the
-      // guard has several chances across several separate gestures --
-      // not just several notifications within one gesture, as group 4
-      // covers -- to let a second _loadMore() slip through.
-      for (var i = 0; i < 4; i++) {
-        await tester.drag(
-          find.byType(Scrollable).first,
-          const Offset(0, -4000),
-          warnIfMissed: false,
+      'several drags fired back to back, before the widget is given a '
+      'chance to settle between them, still cost exactly one extra '
+      'fetch per threshold crossing',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrapTab(
+            ProfileDropGridTab(
+              dropRepository: rapidDragPostsRepo,
+              followRepository: followRepo,
+              profileRepository: otherProfileRepo,
+              popRepository: popRepo,
+              savedRepository: savedRepo,
+              authorId: 'someone-else',
+              emptyText: 'ยังไม่มีโพสต์',
+            ),
+          ),
         );
-        await tester.pump();
-      }
-      await tester.pumpAndSettle();
-      tester.takeException();
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      expect(rapidDragPostsRepo.fetchByAuthorCalls, 2,
-          reason: 'four drags fired back to back only cross the '
+        // Several drags in a row, each only given a single pump() (not
+        // pumpAndSettle) -- closer to a user flicking the list repeatedly
+        // with a finger than to the single isolated drag group 4's tests
+        // use. -4000 each is deliberately far more than needed to cross
+        // the near-bottom threshold on its own (21 rows' worth of
+        // HomeDropCards is nowhere near that tall) -- the point is that
+        // every one of these drags dispatches its own
+        // ScrollUpdateNotification(s) before a single frame is drawn (no
+        // pump() happens until after each drag's gesture completes, and
+        // even that pump() is a single frame, not pumpAndSettle), so the
+        // guard has several chances across several separate gestures --
+        // not just several notifications within one gesture, as group 4
+        // covers -- to let a second _loadMore() slip through.
+        for (var i = 0; i < 4; i++) {
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -4000),
+            warnIfMissed: false,
+          );
+          await tester.pump();
+        }
+        await tester.pumpAndSettle();
+        tester.takeException();
+
+        expect(
+          rapidDragPostsRepo.fetchByAuthorCalls,
+          2,
+          reason:
+              'four drags fired back to back only cross the '
               'near-bottom threshold once (there is only one page 1 to '
               'fetch) -- this must not multiply the fetch count the way '
-              'QA-WYN-110-001 did.');
-      expect(tester.takeException(), isNull);
-    });
+              'QA-WYN-110-001 did.',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-    testWidgets(
-        'reversing direction (dragging back up) immediately after '
-        'crossing the threshold does not add extra fetches',
-        (tester) async {
-      await tester.pumpWidget(_wrapTab(ProfileDropGridTab(
-        dropRepository: reversalPostsRepo,
-        followRepository: followRepo,
-        profileRepository: otherProfileRepo,
-        popRepository: popRepo,
-        savedRepository: savedRepo,
-        authorId: 'someone-else',
-        emptyText: 'ยังไม่มีโพสต์',
-      )));
+    testWidgets('reversing direction (dragging back up) immediately after '
+        'crossing the threshold does not add extra fetches', (tester) async {
+      await tester.pumpWidget(
+        _wrapTab(
+          ProfileDropGridTab(
+            dropRepository: reversalPostsRepo,
+            followRepository: followRepo,
+            profileRepository: otherProfileRepo,
+            popRepository: popRepo,
+            savedRepository: savedRepo,
+            authorId: 'someone-else',
+            emptyText: 'ยังไม่มีโพสต์',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -780,10 +882,14 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      expect(reversalPostsRepo.fetchByAuthorCalls, 2,
-          reason: 'crossing the threshold once and then reversing '
-              'direction before it settles must still cost exactly one '
-              'extra fetch, not two.');
+      expect(
+        reversalPostsRepo.fetchByAuthorCalls,
+        2,
+        reason:
+            'crossing the threshold once and then reversing '
+            'direction before it settles must still cost exactly one '
+            'extra fetch, not two.',
+      );
       expect(tester.takeException(), isNull);
     });
   });

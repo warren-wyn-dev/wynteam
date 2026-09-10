@@ -44,7 +44,7 @@ class ProfileRedropsTab extends StatefulWidget {
 
   // WYN-081 (Wynos V1.0.0 Beta2, item 16): see ProfileDropGridTab's
   // identical field for why this exists.
-  final VoidCallback? onRefreshHeader;
+  final Future<void> Function()? onRefreshHeader;
 
   @override
   State<ProfileRedropsTab> createState() => _ProfileRedropsTabState();
@@ -149,8 +149,12 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
   // Only used by RefreshIndicator's pull gesture, not initState's own
   // first load -- see [onRefreshHeader]'s doc comment.
   Future<void> _onPullToRefresh() async {
-    widget.onRefreshHeader?.call();
-    await _loadInitial();
+    final headerRefresh = widget.onRefreshHeader;
+    if (headerRefresh == null) {
+      await _loadInitial();
+      return;
+    }
+    await Future.wait([headerRefresh(), _loadInitial()]);
   }
 
   Future<void> _loadMore() async {
@@ -186,12 +190,14 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
   Future<void> _toggleLike(int index) async {
     if (index < 0 || index >= _items.length) return;
     final previous = _items[index];
-    setState(() => _items[index] = previous.copyWith(
-          likedByMe: !previous.likedByMe,
-          likeCount: previous.likedByMe
-              ? previous.likeCount - 1
-              : previous.likeCount + 1,
-        ));
+    setState(
+      () => _items[index] = previous.copyWith(
+        likedByMe: !previous.likedByMe,
+        likeCount: previous.likedByMe
+            ? previous.likeCount - 1
+            : previous.likeCount + 1,
+      ),
+    );
     try {
       await widget.dropRepository.toggleLike(
         dropId: previous.id,
@@ -206,8 +212,9 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
   Future<void> _toggleSave(int index) async {
     if (index < 0 || index >= _items.length) return;
     final previous = _items[index];
-    setState(() =>
-        _items[index] = previous.copyWith(savedByMe: !previous.savedByMe));
+    setState(
+      () => _items[index] = previous.copyWith(savedByMe: !previous.savedByMe),
+    );
     try {
       await widget.dropRepository.toggleSave(
         dropId: previous.id,
@@ -222,12 +229,14 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
   Future<void> _toggleRedrop(int index) async {
     if (index < 0 || index >= _items.length) return;
     final previous = _items[index];
-    setState(() => _items[index] = previous.copyWith(
-          redroppedByMe: !previous.redroppedByMe,
-          redropCount: previous.redroppedByMe
-              ? previous.redropCount - 1
-              : previous.redropCount + 1,
-        ));
+    setState(
+      () => _items[index] = previous.copyWith(
+        redroppedByMe: !previous.redroppedByMe,
+        redropCount: previous.redroppedByMe
+            ? previous.redropCount - 1
+            : previous.redropCount + 1,
+      ),
+    );
     try {
       await widget.dropRepository.toggleRedrop(
         dropId: previous.id,
@@ -400,10 +409,9 @@ class _ProfileRedropsTabState extends State<ProfileRedropsTab>
               padding: const EdgeInsets.only(bottom: WynSpacing.space6),
               sliver: SliverList.separated(
                 itemCount: _items.length + (_hasMore ? 1 : 0),
-                separatorBuilder: (context, index) =>
-                    index + 1 < _items.length
-                        ? const Divider(height: 1)
-                        : const SizedBox.shrink(),
+                separatorBuilder: (context, index) => index + 1 < _items.length
+                    ? const Divider(height: 1)
+                    : const SizedBox.shrink(),
                 itemBuilder: (context, index) {
                   if (index >= _items.length) {
                     return const Padding(
