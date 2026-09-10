@@ -180,7 +180,10 @@ void main() {
       // and no public creation path may silently reintroduce a direct insert.
       final source =
           File('lib/features/drop/data/drop_repository.dart').readAsStringSync();
-      expect(source.contains("await _client.rpc('publish_drop'"), isTrue);
+      expect(RegExp(
+        r"await\s+_client\s*\.rpc\(\s*'publish_drop'",
+        multiLine: true,
+      ).hasMatch(source), isTrue);
       expect(
         source.contains("'p_image_aspect_ratio': aspectRatio?.wireValue"),
         isTrue,

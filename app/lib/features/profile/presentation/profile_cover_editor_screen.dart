@@ -155,7 +155,7 @@ class _ProfileCoverEditorScreenState extends State<ProfileCoverEditorScreen> {
           ),
           if (_error != null) ...[
             const SizedBox(height: WynSpacing.space3),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(_error!, style: const TextStyle(color: WynColors.iconLikeActive)),
           ],
         ],
       ),

@@ -279,7 +279,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
   Future<void> _reload() async {
     final next = _load();
-    setState(() => _loadFuture = next);
+    setState(() {
+      _loadFuture = next;
+    });
     await next;
     if (!mounted) return;
     if (_isOwnProfile) {
