@@ -186,7 +186,13 @@ class WynosFounderProfileHeader extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ProfileAvatar(profile: profile, showOnline: showOnline),
+                Transform.translate(
+                  offset: const Offset(0, -25),
+                  child: _ProfileAvatar(
+                    profile: profile,
+                    showOnline: showOnline,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
