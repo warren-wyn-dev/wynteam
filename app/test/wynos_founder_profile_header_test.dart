@@ -65,7 +65,7 @@ void main() {
   testWidgets('compact profile icon action still renders its glyph',
       (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: WynosProfileIconAction(
             icon: Icons.person_add_alt_1_outlined,
