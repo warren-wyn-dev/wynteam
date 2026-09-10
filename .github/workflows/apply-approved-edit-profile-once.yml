@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply approved Edit Profile patch
-        run: python3 tools/apply_edit_profile_approved_v2.py
+        run: python3 tools/apply_edit_profile_approved_v3.py
 
       - uses: subosito/flutter-action@v2
         with:
@@ -53,6 +53,9 @@ jobs:
         run: |
           rm -f tools/apply_edit_profile_approved.py
           rm -f tools/apply_edit_profile_approved_v2.py
+          rm -f tools/apply_edit_profile_approved_v3.py
+          rm -f debug_flutter_test.log
+          rm -f .github/workflows/debug-edit-profile-tests-once.yml
           rm -f .github/workflows/apply-approved-edit-profile-once.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
