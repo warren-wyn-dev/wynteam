@@ -118,6 +118,18 @@ class WynosFounderProfileHeader extends StatelessWidget {
           const SizedBox(width: 4),
           const VerifiedBadge(),
         ],
+        const SizedBox(width: 8),
+        Text(
+          '@${profile.username}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 13.5,
+            height: 1.1,
+            color: WynColors.graphite,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
         if (isOwnProfile) ...[
           const SizedBox(width: 5),
           const Icon(
@@ -181,17 +193,6 @@ class WynosFounderProfileHeader extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _displayNameControl(),
-                      const SizedBox(height: 3),
-                      Text(
-                        '@${profile.username}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          height: 1.1,
-                          color: WynColors.graphite,
-                        ),
-                      ),
                       if (profile.bio != null &&
                           profile.bio!.trim().isNotEmpty) ...[
                         const SizedBox(height: 9),
