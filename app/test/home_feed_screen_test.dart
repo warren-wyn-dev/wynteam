@@ -397,7 +397,8 @@ void main() {
     // test in this file (it's exercised on its own, both dismissed and
     // not, in home_explainer_banner_test.dart and in the dedicated group
     // below).
-    SharedPreferences.setMockInitialValues({'home_explainer_banner_dismissed': true});
+    SharedPreferences.setMockInitialValues(
+        {'home_explainer_banner_dismissed': true});
     VideoPlayerPlatform.instance = FakeVideoPlayerPlatform();
 
     sharedDropRepository = RecordingDropRepository();
@@ -665,8 +666,8 @@ void main() {
     triggerRefreshTestHomeRepository = RecordingHomeRepository(
       rankedFeedItems: [_dropItem(id: 'top-1', hasImage: false)],
     );
-    duplicateFetchGuardTestHomeRepository =
-        _DelayedHomeRepository(items: [_dropItem(id: 'guard-1', hasImage: false)]);
+    duplicateFetchGuardTestHomeRepository = _DelayedHomeRepository(
+        items: [_dropItem(id: 'guard-1', hasImage: false)]);
 
     // A full page (pageSize == 10, so _hasMore stays true and the feed
     // will ask for page 1), whose last item comes back at the head of
@@ -697,8 +698,8 @@ void main() {
     );
     // What Detail's changes look like when the row is re-read: the post
     // the test opens comes back with one more like.
-    backFromDetailHomeRepository.itemsById['back-5:'] =
-        _dropItem(id: 'back-5', caption: 'โพสต์ที่ 5', hasImage: false, likeCount: 1);
+    backFromDetailHomeRepository.itemsById['back-5:'] = _dropItem(
+        id: 'back-5', caption: 'โพสต์ที่ 5', hasImage: false, likeCount: 1);
 
     failingSecondPageHomeRepository = _FailingSecondPageHomeRepository(
       page0: [
@@ -706,11 +707,11 @@ void main() {
           _dropItem(id: 'fail-\$i', caption: 'หน้าแรกที่ \$i', hasImage: false),
       ],
     );
-    slowInitialHomeRepository =
-        _DelayedHomeRepository(items: [_dropItem(id: 'slow-1', hasImage: false)]);
+    slowInitialHomeRepository = _DelayedHomeRepository(
+        items: [_dropItem(id: 'slow-1', hasImage: false)]);
 
-    swipeTestHomeRepository =
-        RecordingHomeRepository(feedItems: [_dropItem(id: 'sw1', hasImage: false)]);
+    swipeTestHomeRepository = RecordingHomeRepository(
+        feedItems: [_dropItem(id: 'sw1', hasImage: false)]);
 
     carouselSwipeDropRepository = RecordingDropRepository()
       ..dropImagesById = {
@@ -745,8 +746,7 @@ void main() {
           clubRepository: clubRepository ?? sharedClubRepository,
           clubPostRepository: clubPostRepository ?? sharedClubPostRepository,
           chatRepository: sharedChatRepository,
-          homeTabReselectSignal:
-              homeTabReselectSignal ?? ValueNotifier<int>(0),
+          homeTabReselectSignal: homeTabReselectSignal ?? ValueNotifier<int>(0),
           homeTabActivatedSignal:
               homeTabActivatedSignal ?? ValueNotifier<int>(0),
         ),
@@ -764,8 +764,8 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.byIcon(Icons.menu), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.menu));
+    expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('สร้าง Club'), findsOneWidget);
@@ -798,7 +798,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('2'), findsOneWidget);
+      expect(find.byKey(const Key('home_chat_unread_dot')), findsOneWidget);
 
       sharedChatRepository.unreadCount = 0;
 
@@ -808,7 +808,7 @@ void main() {
           .didChangeAppLifecycleState(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
 
-      expect(find.text('2'), findsNothing);
+      expect(find.byKey(const Key('home_chat_unread_dot')), findsNothing);
     });
 
     // Regression test: on the Flutter Web build this app also ships as,
@@ -833,13 +833,13 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('2'), findsOneWidget);
+      expect(find.byKey(const Key('home_chat_unread_dot')), findsOneWidget);
 
       sharedChatRepository.unreadCount = 0;
       activatedSignal.value++;
       await tester.pumpAndSettle();
 
-      expect(find.text('2'), findsNothing);
+      expect(find.byKey(const Key('home_chat_unread_dot')), findsNothing);
     });
   });
 
@@ -898,10 +898,12 @@ void main() {
       // .first -- the CustomScrollView's own Scrollable, not one of the
       // nested horizontal Scrollables inside it (the Trending row, the
       // feed-mode toggle's SingleChildScrollView).
-      scrollable: find.descendant(
-        of: find.byKey(const Key('home_feed_scroll_view')),
-        matching: find.byType(Scrollable),
-      ).first,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('home_feed_scroll_view')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     tester.takeException();
 
@@ -1122,8 +1124,7 @@ void main() {
       expect(find.widgetWithIcon(ActionMetric, Icons.repeat), findsNothing);
       // The Like/Comment buttons are still there -- only ReDrop is
       // conditionally hidden.
-      expect(findHeartButton<ActionMetric>(filled: false),
-          findsOneWidget);
+      expect(findHeartButton<ActionMetric>(filled: false), findsOneWidget);
     });
 
     // WYN-098, Design spec Screen 4.
@@ -1271,8 +1272,7 @@ void main() {
       expect(notRedroppedIcon.color, WynColors.graphite);
     });
 
-    testWidgets('tapping "อ้างอิง" opens QuoteRedropScreen',
-        (tester) async {
+    testWidgets('tapping "อ้างอิง" opens QuoteRedropScreen', (tester) async {
       await tester.pumpWidget(buildHome(
         quoteRedropNavTestHomeRepository,
         dropRepository: quoteRedropNavTestDropRepository,
@@ -1386,7 +1386,8 @@ void main() {
       );
     });
 
-    testWidgets('a failed hideContent call restores the card and stays '
+    testWidgets(
+        'a failed hideContent call restores the card and stays '
         'silent (no error banner)', (tester) async {
       await tester.pumpWidget(buildHome(
         hideFailTestHomeRepository,
@@ -1431,8 +1432,7 @@ void main() {
       // of the 800x600 test viewport, below where tester.tap() can
       // reliably hit-test, so this invokes SnackBarAction.onPressed
       // directly instead.
-      final undoAction =
-          find.widgetWithText(SnackBarAction, 'เลิกทำ');
+      final undoAction = find.widgetWithText(SnackBarAction, 'เลิกทำ');
       tester.widget<SnackBarAction>(undoAction).onPressed();
       await tester.pumpAndSettle();
 
@@ -1445,8 +1445,7 @@ void main() {
 
     testWidgets(
         'WYN-079: letting the Undo Snackbar time out without tapping it '
-        'leaves the card hidden and never calls unhideContent',
-        (tester) async {
+        'leaves the card hidden and never calls unhideContent', (tester) async {
       await tester.pumpWidget(buildHome(
         hideDropUndoTimeoutTestHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1508,9 +1507,9 @@ void main() {
       expect(find.text('0%'), findsOneWidget);
     });
 
-    testWidgets('a Poll card whose results are already visible shows '
-        'percentages and highlights the viewer\'s own vote',
-        (tester) async {
+    testWidgets(
+        'a Poll card whose results are already visible shows '
+        'percentages and highlights the viewer\'s own vote', (tester) async {
       await tester.pumpWidget(buildHome(
         pollResultsVisibleTestHomeRepository,
         dropRepository: sharedDropRepository,
@@ -1523,8 +1522,7 @@ void main() {
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
     });
 
-    testWidgets('a failed vote reverts the optimistic update',
-        (tester) async {
+    testWidgets('a failed vote reverts the optimistic update', (tester) async {
       await tester.pumpWidget(buildHome(
         pollVoteFailTestHomeRepository,
         dropRepository: pollVoteFailTestDropRepository,
@@ -1656,8 +1654,7 @@ void main() {
       expect(find.byKey(const Key('from_your_clubs_feed')), findsNothing);
     });
 
-    testWidgets(
-        'switching to "Club" shows Club posts instead of Drop/Pop',
+    testWidgets('switching to "Club" shows Club posts instead of Drop/Pop',
         (tester) async {
       await tester.pumpWidget(buildHome(
         mixedFeedHomeRepository,
@@ -2141,15 +2138,8 @@ void main() {
 
     for (final width in [360.0, 375.0, 390.0, 414.0, 430.0]) {
       testWidgets(
-          'every segment label (not just the short ones) is fully legible '
-          'at ${width}px once active -- WYN-024 follow-up (2026-08-22): '
-          'SegmentedButton now gets an unbounded width via a horizontal '
-          'SingleChildScrollView + IntrinsicWidth instead of being '
-          'stretched to the screen, so every segment gets its full natural '
-          'width regardless of viewport, and the row scrolls instead. '
-          'Closes the residual gap the round-3 fix above left open for '
-          '"สำหรับคุณ" (the default segment) and "Club".',
-          (tester) async {
+          'the approved three-column Home tabs stay fully legible at '
+          '${width}px', (tester) async {
         tester.view.physicalSize = Size(width, 800);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
@@ -2162,39 +2152,39 @@ void main() {
         await tester.pumpAndSettle();
         tester.takeException();
 
-        for (final label in [
-          'สำหรับคุณ',
-          'ติดตาม',
-          'Club',
-        ]) {
-          await tester.dragUntilVisible(
-            find.text(label),
-            find.byType(SingleChildScrollView).first,
-            const Offset(-60, 0),
+        const tabs = <String, String>{
+          'forYou': 'สำหรับคุณ',
+          'following': 'ติดตาม',
+          'fromYourClubs': 'Club',
+        };
+
+        for (final entry in tabs.entries) {
+          final tabFinder = find.byKey(Key('home_feed_mode_${entry.key}'));
+          expect(tabFinder, findsOneWidget);
+          final labelFinder = find.descendant(
+            of: tabFinder,
+            matching: find.text(entry.value),
           );
-          await tester.tap(find.text(label));
+          expect(labelFinder, findsOneWidget);
+
+          await tester.tap(tabFinder);
           await tester.pumpAndSettle();
-          // A mocked NetworkImage 400 from a Drop's image resolving on
-          // this exact frame is unrelated network-mock noise (this test
-          // is about label legibility, not image loading -- every other
-          // takeException() call in this file drains without asserting
-          // for the same reason); anything else (e.g. a RenderFlex
-          // overflow from the segment switch itself) must still fail.
           final exception = tester.takeException();
           if (exception != null && exception is! NetworkImageLoadException) {
             fail('Unexpected exception at ${width}px: $exception');
           }
 
           final renderParagraph =
-              tester.renderObject(find.text(label)) as RenderParagraph;
-          expect(renderParagraph.didExceedMaxLines, isFalse,
-              reason: '"$label" must never be truncated at ${width}px -- that '
-                  'is the whole point of the scrollable-width fix');
+              tester.renderObject(labelFinder) as RenderParagraph;
+          expect(
+            renderParagraph.didExceedMaxLines,
+            isFalse,
+            reason: '"${entry.value}" must remain fully legible at '
+                '${width}px in the fixed three-column Home tab row',
+          );
         }
 
-        // The Rainbow indicator (DS-009) must still track exactly one
-        // active segment, even though segments are no longer stretched
-        // to equal widths within the (now scrollable) row.
+        // The final black underline tracks exactly one active segment.
         expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
       });
     }
@@ -2422,7 +2412,8 @@ void main() {
       expect(find.byType(TopReplyPreview), findsNothing);
     });
 
-    testWidgets('tapping the reply preview opens DropDetailScreen '
+    testWidgets(
+        'tapping the reply preview opens DropDetailScreen '
         '(same destination as tapping the card itself)', (tester) async {
       await tester.pumpWidget(buildHome(
         topReplyTestHomeRepository,
@@ -2471,7 +2462,8 @@ void main() {
     });
   });
 
-  group('WYN-087: relative time on the repost header (Wynos V1.0.0 Beta2, '
+  group(
+      'WYN-087: relative time on the repost header (Wynos V1.0.0 Beta2, '
       'item 26)', () {
     testWidgets(
         'the "รีโพสต์โดย @username" header shows a relative time, using '
@@ -2573,8 +2565,7 @@ void main() {
 
     testWidgets(
         'a portrait image within the 4:5 (0.8) .. 1.91:1 clamp range '
-        'renders at its true aspect ratio, not cropped to 1:1',
-        (tester) async {
+        'renders at its true aspect ratio, not cropped to 1:1', (tester) async {
       // 800x1000 -> 0.8 exactly, the most-portrait shape allowed.
       await pumpCard(tester, _dropItem(imageWidth: 800, imageHeight: 1000));
       await tester.pumpAndSettle();
@@ -2598,7 +2589,8 @@ void main() {
       expect(aspectRatio.aspectRatio, closeTo(1.91, 0.0001));
     });
 
-    testWidgets('a square image renders at 1:1 (same as the old fixed '
+    testWidgets(
+        'a square image renders at 1:1 (same as the old fixed '
         'behavior, just arrived at via its real dimensions now)',
         (tester) async {
       await pumpCard(tester, _dropItem(imageWidth: 500, imageHeight: 500));
@@ -2725,8 +2717,7 @@ void main() {
 
     testWidgets(
         'a multi-image Drop (imageCount > 1) shows the first image '
-        'immediately, before the full list has been fetched',
-        (tester) async {
+        'immediately, before the full list has been fetched', (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
           body: HomeDropCard(
@@ -2826,8 +2817,7 @@ void main() {
       // has. This checks the data model directly rather than assuming a
       // particular number of built Image widgets.
       final listView = tester.widget<ListView>(find.byType(ListView));
-      final delegate =
-          listView.childrenDelegate as SliverChildBuilderDelegate;
+      final delegate = listView.childrenDelegate as SliverChildBuilderDelegate;
       expect(delegate.childCount, 3);
 
       // WYN-107: 82% of the *content column* the post is written in, not
@@ -2838,8 +2828,7 @@ void main() {
       // edge, but a card is still sized off the column, which is what
       // keeps a photo lined up with the caption above it.
       final cardWidth = tester.getSize(find.byType(HomeDropCard)).width;
-      final columnWidth =
-          cardWidth - homeCardContentInset - homeCardEdgeInset;
+      final columnWidth = cardWidth - homeCardContentInset - homeCardEdgeInset;
       final firstImageSize = tester.getSize(find.byType(Image).first);
       expect(firstImageSize.width, closeTo(columnWidth * 0.82, 0.5));
       expect(
@@ -3163,8 +3152,7 @@ void main() {
     });
   });
 
-  group('feed integrity under real pagination/tap behaviour (Beta2 audit)',
-      () {
+  group('feed integrity under real pagination/tap behaviour (Beta2 audit)', () {
     testWidgets(
         'a row that offset pagination hands back on both pages is shown '
         'once, not twice', (tester) async {
@@ -3227,8 +3215,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(pendingLikeDropRepository.toggleLikeCalls, 2);
-      expect(pendingLikeDropRepository.toggleLikeCurrentlyLikedArgs,
-          [false, true],
+      expect(
+          pendingLikeDropRepository.toggleLikeCurrentlyLikedArgs, [false, true],
           reason: 'each write still carries the state at its own tap');
       expect(pendingLikeDropRepository.maxConcurrentWrites, 1,
           reason: 'the two writes never overlapped');
@@ -3337,7 +3325,8 @@ void main() {
       expect(find.byKey(const Key('home_feed_load_more_retry')), findsNothing);
     });
 
-    testWidgets('the initial load shows card-shaped placeholders, not a bare '
+    testWidgets(
+        'the initial load shows card-shaped placeholders, not a bare '
         'spinner', (tester) async {
       await tester.pumpWidget(buildHome(
         slowInitialHomeRepository,
