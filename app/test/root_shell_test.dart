@@ -114,11 +114,11 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Search'), findsOneWidget);
+    expect(find.text('หน้าหลัก'), findsOneWidget);
+    expect(find.text('ค้นหา'), findsOneWidget);
     expect(find.text('โพสต์'), findsOneWidget);
-    expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('การแจ้งเตือน'), findsOneWidget);
+    expect(find.text('โปรไฟล์'), findsOneWidget);
     // Home's own content is showing by default: the feed-mode toggle is
     // Home's, not any other tab's.
     await _expectFeedToggleVisible(tester);
@@ -130,7 +130,7 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Search'));
+    await tester.tap(find.text('ค้นหา'));
     await tester.pumpAndSettle();
 
     final search = tester.widget<SearchScreen>(find.byType(SearchScreen));
@@ -170,7 +170,7 @@ void main() {
 
     expect(find.text('3'), findsOneWidget);
 
-    await tester.tap(find.text('Notifications'));
+    await tester.tap(find.text('การแจ้งเตือน'));
     await tester.pumpAndSettle();
 
     expect(find.byType(NotificationListScreen), findsOneWidget);
@@ -277,7 +277,7 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Profile'));
+    await tester.tap(find.text('โปรไฟล์'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ViewProfileScreen), findsOneWidget);
@@ -318,7 +318,7 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.text('หน้าหลัก'));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -338,10 +338,10 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Notifications'));
+    await tester.tap(find.text('การแจ้งเตือน'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.text('หน้าหลัก'));
     await tester.pumpAndSettle();
     tester.takeException();
 

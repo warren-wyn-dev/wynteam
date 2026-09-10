@@ -1,0 +1,32 @@
+name: WYN-141 Founder UI one-shot
+
+on:
+  push:
+    branches:
+      - wyn/WYN-141-founder-final-ui
+    paths:
+      - .github/workflows/wyn141-founder-ui-one-shot.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: wyn/WYN-141-founder-final-ui
+          fetch-depth: 0
+
+      - name: Apply WYN-141 CI correction pass
+        run: python3 tools/wyn141_ci_fix.py
+
+      - name: Commit corrected UI
+        run: |
+          git config user.name "WYNOS UI Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --stat
+          git commit -m "fix(ui): correct WYN-141 Founder UI compile regressions"
+          git push origin HEAD:wyn/WYN-141-founder-final-ui

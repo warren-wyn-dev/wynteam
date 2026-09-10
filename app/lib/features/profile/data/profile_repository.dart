@@ -44,7 +44,7 @@ class ProfileRepository {
         // so every profile silently read as unverified here regardless
         // of what profiles.is_verified actually held.
         .select(
-            'id, username, display_name, bio, avatar_url, platform_role, is_private, is_verified, dm_permission, mention_permission, comment_permission, likes_visibility')
+            'id, username, display_name, bio, avatar_url, cover_url, platform_role, is_private, is_verified, dm_permission, mention_permission, comment_permission, likes_visibility')
         .eq('id', userId)
         .single();
     return Profile.fromMap(row);
@@ -59,7 +59,7 @@ class ProfileRepository {
   Future<Profile?> fetchProfileByUsername(String username) async {
     final row = await _client
         .from('profiles')
-        .select('id, username, display_name, bio, avatar_url')
+        .select('id, username, display_name, bio, avatar_url, cover_url')
         .eq('username', username)
         .maybeSingle();
     return row == null ? null : Profile.fromMap(row);
@@ -229,6 +229,28 @@ class ProfileRepository {
     return url;
   }
 
+  /// Uploads the approved wide profile cover into the existing public
+  /// `avatars` bucket under the owner's folder. Reusing this bucket keeps the
+  /// already-deployed owner-folder storage RLS authoritative; only the URL
+  /// metadata column is new.
+  Future<String> uploadCover({
+    required String userId,
+    required Uint8List bytes,
+    required String fileExtension,
+  }) async {
+    final path = '$userId/cover.$fileExtension';
+    await _client.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+    final url =
+        '${_client.storage.from('avatars').getPublicUrl(path)}?v=${DateTime.now().millisecondsSinceEpoch}';
+    await _client.from('profiles').update({'cover_url': url}).eq('id', userId);
+    return url;
+  }
+
   /// Fetches multiple profiles by id in a single query, returning them
   /// in the same order as [ids] (not whatever order Postgres happens to
   /// return rows in) -- WYN-040's Discovery RPCs (rising_profiles/
@@ -243,7 +265,7 @@ class ProfileRepository {
     final rows = await _client
         .from('profiles')
         .select(
-            'id, username, display_name, bio, avatar_url, platform_role, is_private, is_verified')
+            'id, username, display_name, bio, avatar_url, cover_url, platform_role, is_private, is_verified')
         .inFilter('id', ids);
 
     final byId = {

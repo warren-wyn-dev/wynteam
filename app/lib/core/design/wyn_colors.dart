@@ -106,6 +106,9 @@ class WynColors {
   /// agreed by coincidence rather than by construction.
   static const Color inkSoft = Color(0xFF2B2A26);
 
+  /// Founder-approved online-presence dot from the final Profile UI.
+  static const Color online = Color(0xFF57D65B);
+
   // ---------------------------------------------------------------------
   // Notification type-badge colors (02-notifications.tsx) -- Founder-
   // approved exception to "sapphire is the only accent" (2026-08-29),
