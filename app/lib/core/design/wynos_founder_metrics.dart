@@ -3,7 +3,7 @@ class WynosFounderMetrics {
 
   // Profile reference: 864x1536 screenshot, normalized to a 390 logical-px
   // mobile viewport. The profile cover includes the device top inset itself.
-  static const double profileCoverExpandedHeight = 121;
+  static const double profileCoverExpandedHeight = 170;
   static const double profileAvatarRadius = 42;
   static const double profileAvatarOuterDiameter = 92;
   static const double profileIdentityLeftInset = 120;

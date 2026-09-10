@@ -41,7 +41,9 @@ void main() {
 
     final avatar = tester.getRect(find.byType(AvatarCircle));
     final name = tester.getRect(find.text('หาเพื่อนคุย'));
-    expect(avatar.top, greaterThanOrEqualTo(0));
+    // Final approved mockup: the avatar lifts slightly toward the cover
+    // while identity text remains in the white body.
+    expect(avatar.top, lessThan(0));
     expect(name.left, greaterThan(avatar.right));
   });
 
