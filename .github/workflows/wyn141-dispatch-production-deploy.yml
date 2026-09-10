@@ -11,6 +11,7 @@ permissions:
   actions: write
   contents: read
 
+# Dispatch marker: profile avatar/nav hotfix 2026-09-10
 jobs:
   dispatch:
     runs-on: ubuntu-latest
