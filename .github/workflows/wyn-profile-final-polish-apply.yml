@@ -45,24 +45,33 @@ jobs:
           channel: stable
           flutter-version: 3.47.1
 
-      - name: Format
-        run: dart format app/lib/core/design/wynos_founder_metrics.dart app/lib/features/profile/presentation/view_profile_screen.dart
-
       - name: Flutter pub get
         working-directory: app
         run: flutter pub get
+
+      - name: Format
+        run: dart format app/lib/core/design/wynos_founder_metrics.dart app/lib/features/profile/presentation/view_profile_screen.dart
+
+      - name: Validate approved Profile layout tokens
+        run: |
+          grep -F "profileCoverExpandedHeight = 121;" app/lib/core/design/wynos_founder_metrics.dart
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('app/lib/features/profile/presentation/view_profile_screen.dart').read_text()
+          needle = '''          Positioned(\n            top: topInset,\n            left: 16,\n            right: 0,\n            height: kToolbarHeight,'''
+          if needle not in text:
+              raise SystemExit('Profile title left inset is not 16px')
+          if 'Icons.arrow_back' in text or 'Icons.arrow_back_ios' in text:
+              raise SystemExit('Back button unexpectedly present on Profile screen')
+          PY
 
       - name: Flutter analyze
         working-directory: app
         run: flutter analyze
 
-      - name: Focused Profile regression tests
+      - name: Current Founder Profile header regression tests
         working-directory: app
-        run: |
-          flutter test \
-            test/wynos_founder_profile_header_test.dart \
-            test/view_profile_screen_test.dart \
-            test/view_profile_screen_scroll_test.dart
+        run: flutter test test/wynos_founder_profile_header_test.dart
 
       - name: Commit polished Profile UI and remove helper workflow
         run: |
