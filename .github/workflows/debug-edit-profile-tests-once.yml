@@ -1,0 +1,52 @@
+name: Debug approved Edit Profile tests once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/debug-edit-profile-tests-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply patch and capture focused test output
+        run: |
+          python3 tools/apply_edit_profile_approved_v2.py
+          dart format \
+            app/lib/features/profile/data/profile.dart \
+            app/lib/features/profile/data/profile_repository.dart \
+            app/lib/features/profile/presentation/edit_profile_screen.dart \
+            app/test/support/recording_profile_repository.dart \
+            app/test/edit_profile_screen_test.dart
+          cd app
+          flutter pub get
+          set +e
+          flutter test test/edit_profile_screen_test.dart -r expanded > ../debug_flutter_test.log 2>&1
+          STATUS=$?
+          set -e
+          printf '\nEXIT_STATUS=%s\n' "$STATUS" >> ../debug_flutter_test.log
+
+      - name: Commit captured log
+        run: |
+          git checkout -- app supabase || true
+          rm -f supabase/migrations_edit_profile_social_links.sql
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add debug_flutter_test.log
+          git commit -m "chore: capture Edit Profile test output"
+          git push origin HEAD:main
