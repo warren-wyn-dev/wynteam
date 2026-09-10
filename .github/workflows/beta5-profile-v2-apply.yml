@@ -79,62 +79,54 @@ jobs:
 
           header = Path('app/lib/features/profile/presentation/widgets/profile_v2_header.dart')
           text = header.read_text()
-          old_stats = """                Row(
-                  children: [
-                    _ProfileStat(
-                      count: followingCount,
-                      label: 'กำลังติดตาม',
-                      onTap: onFollowingTap,
-                    ),
-                    const SizedBox(width: WynSpacing.space5),
-                    _ProfileStat(
-                      count: followerCount,
-                      label: 'ผู้ติดตาม',
-                      onTap: onFollowersTap,
-                    ),
-                  ],
-                ),"""
-          new_stats = """                Row(
-                  children: [
-                    Expanded(
-                      child: _ProfileStat(
-                        count: followingCount,
-                        label: 'กำลังติดตาม',
-                        onTap: onFollowingTap,
-                      ),
-                    ),
-                    const SizedBox(width: WynSpacing.space2),
-                    Expanded(
-                      child: _ProfileStat(
-                        count: followerCount,
-                        label: 'ผู้ติดตาม',
-                        onTap: onFollowersTap,
-                      ),
-                    ),
-                  ],
-                ),"""
-          if old_stats not in text:
-              raise SystemExit('ProfileV2 stat row anchor missing')
-          text = text.replace(old_stats, new_stats, 1)
-          old_label = """            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: WynColors.mutedNeutral,
-                  ),
-            ),"""
-          new_label = """            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: WynColors.mutedNeutral,
-                    ),
-              ),
-            ),"""
-          if old_label not in text:
-              raise SystemExit('ProfileV2 stat label anchor missing')
-          header.write_text(text.replace(old_label, new_label, 1))
+          stats_pattern = re.compile(
+              r"Row\(\s*children: \[\s*_ProfileStat\(\s*count: followingCount,\s*label: 'กำลังติดตาม',\s*onTap: onFollowingTap,\s*\),\s*const SizedBox\(width: WynSpacing\.space5\),\s*_ProfileStat\(\s*count: followerCount,\s*label: 'ผู้ติดตาม',\s*onTap: onFollowersTap,\s*\),\s*\],\s*\),",
+              re.S,
+          )
+          stats_replacement = (
+              "Row(\n"
+              "  children: [\n"
+              "    Expanded(\n"
+              "      child: _ProfileStat(\n"
+              "        count: followingCount,\n"
+              "        label: 'กำลังติดตาม',\n"
+              "        onTap: onFollowingTap,\n"
+              "      ),\n"
+              "    ),\n"
+              "    const SizedBox(width: WynSpacing.space2),\n"
+              "    Expanded(\n"
+              "      child: _ProfileStat(\n"
+              "        count: followerCount,\n"
+              "        label: 'ผู้ติดตาม',\n"
+              "        onTap: onFollowersTap,\n"
+              "      ),\n"
+              "    ),\n"
+              "  ],\n"
+              "),"
+          )
+          text, count = stats_pattern.subn(stats_replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'ProfileV2 stat row matches={count}')
+          label_pattern = re.compile(
+              r"Text\(\s*label,\s*style: Theme\.of\(context\)\.textTheme\.bodyMedium\?\.copyWith\(\s*color: WynColors\.mutedNeutral,\s*\),\s*\),",
+              re.S,
+          )
+          label_replacement = (
+              "Flexible(\n"
+              "  child: Text(\n"
+              "    label,\n"
+              "    maxLines: 1,\n"
+              "    overflow: TextOverflow.ellipsis,\n"
+              "    style: Theme.of(context).textTheme.bodyMedium?.copyWith(\n"
+              "      color: WynColors.mutedNeutral,\n"
+              "    ),\n"
+              "  ),\n"
+              "),"
+          )
+          text, count = label_pattern.subn(label_replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'ProfileV2 stat label matches={count}')
+          header.write_text(text)
 
           view_test = Path('app/test/view_profile_screen_test.dart')
           text = view_test.read_text()
