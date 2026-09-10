@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/interaction/wyn_feedback.dart';
-import '../../../core/text_utils.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -189,7 +188,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       widget.homeRepository ?? HomeRepository(Supabase.instance.client);
   late final FollowRequestRepository _followRequestRepository =
       widget.followRequestRepository ??
-          FollowRequestRepository(Supabase.instance.client);
+      FollowRequestRepository(Supabase.instance.client);
 
   // WYN-071 Screen 5 -- same optional/defaulted shape as every other
   // repository above. Built fresh (not threaded through the
@@ -290,8 +289,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
   Future<void> _loadFollowStatus() async {
     try {
-      final isFollowing =
-          await widget.followRepository.isFollowing(userId: widget.userId);
+      final isFollowing = await widget.followRepository.isFollowing(
+        userId: widget.userId,
+      );
       if (!mounted) return;
       setState(() => _isFollowing = isFollowing);
     } catch (_) {
@@ -344,7 +344,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   Future<void> _loadPendingRequestStatus() async {
     try {
       final hasPending = await _followRequestRepository.hasPendingRequest(
-          userId: widget.userId);
+        userId: widget.userId,
+      );
       if (!mounted) return;
       setState(() => _hasPendingRequest = hasPending);
     } catch (_) {
@@ -394,7 +395,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   // to the other party is worth one extra tap to avoid an accidental
   // cancel.
   Future<void> _cancelFollowRequest(Profile profile) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text('ยกเลิกคำขอติดตาม ${profile.nameOrUsername}?'),
@@ -463,7 +465,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           savedRepository: widget.savedRepository,
           clubRepository:
               widget.clubRepository ?? ClubRepository(Supabase.instance.client),
-          clubPostRepository: widget.clubPostRepository ??
+          clubPostRepository:
+              widget.clubPostRepository ??
               ClubPostRepository(Supabase.instance.client),
           autofocus: true,
         ),
@@ -530,7 +533,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (mounted) _reload();
   }
 
-  Widget _buildProfileSliverAppBar(Profile profile, bool isOwnProfile) {
+  Widget _buildProfileCoverBar(Profile profile, bool isOwnProfile) {
     void goBack() {
       final navigator = Navigator.of(context);
       if (navigator.canPop()) {
@@ -540,58 +543,89 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       }
     }
 
-    return SliverAppBar(
-      primary: true,
-      pinned: false,
-      floating: false,
-      backgroundColor: WynColors.inkSoft,
-      surfaceTintColor: Colors.transparent,
-      foregroundColor: WynColors.paper,
-      expandedHeight: WynosFounderMetrics.profileCoverExpandedHeight,
-      leading: IconButton(
-        tooltip: 'ย้อนกลับ',
-        icon: const Icon(Icons.chevron_left_rounded, size: 32),
-        onPressed: goBack,
-      ),
-      titleSpacing: 0,
-      title: const Text(
-        'โปรไฟล์',
-        style: TextStyle(
-          color: WynColors.paper,
-          fontSize: 18,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      actions: isOwnProfile
-          ? [
-              IconButton(
-                tooltip: 'แชร์โปรไฟล์',
-                icon: const Icon(Icons.ios_share_outlined, size: 24),
-                onPressed: () => _shareProfile(profile),
-              ),
-              IconButton(
-                tooltip: 'ตั้งค่า',
-                icon: const Icon(Icons.settings_outlined, size: 27),
-                onPressed: () => _openSettings(profile),
-              ),
-              const SizedBox(width: 4),
-            ]
-          : [
-              IconButton(
-                tooltip: 'ค้นหา',
-                icon: const Icon(Icons.search_rounded, size: 25),
-                onPressed: _openSearch,
-              ),
-              IconButton(
-                tooltip: 'เพิ่มเติม',
-                icon: const Icon(Icons.more_vert_rounded, size: 24),
-                onPressed: _openMoreMenu,
-              ),
-              const SizedBox(width: 4),
-            ],
-      flexibleSpace: FlexibleSpaceBar(
-        collapseMode: CollapseMode.parallax,
-        background: WynosProfileCover(imageUrl: profile.coverUrl),
+    // The cover and the identity header must live in the same sliver.
+    // The avatar intentionally paints 46px upward into this cover; keeping
+    // the cover in a separate SliverAppBar clips that overflow at the sliver
+    // boundary on real iOS/Web renderers even when the inner Stack uses
+    // Clip.none. This fixed-height cover bar preserves the exact visual
+    // height/controls while allowing the parent SliverToBoxAdapter to own
+    // both paint regions.
+    final topInset = MediaQuery.paddingOf(context).top;
+    return SizedBox(
+      height: topInset + WynosFounderMetrics.profileCoverExpandedHeight,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          WynosProfileCover(imageUrl: profile.coverUrl),
+          Positioned(
+            top: topInset,
+            left: 0,
+            right: 0,
+            height: kToolbarHeight,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'ย้อนกลับ',
+                  icon: const Icon(
+                    Icons.chevron_left_rounded,
+                    size: 32,
+                    color: WynColors.paper,
+                  ),
+                  onPressed: goBack,
+                ),
+                const Text(
+                  'โปรไฟล์',
+                  style: TextStyle(
+                    color: WynColors.paper,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                if (isOwnProfile) ...[
+                  IconButton(
+                    tooltip: 'แชร์โปรไฟล์',
+                    icon: const Icon(
+                      Icons.ios_share_outlined,
+                      size: 24,
+                      color: WynColors.paper,
+                    ),
+                    onPressed: () => _shareProfile(profile),
+                  ),
+                  IconButton(
+                    tooltip: 'ตั้งค่า',
+                    icon: const Icon(
+                      Icons.settings_outlined,
+                      size: 27,
+                      color: WynColors.paper,
+                    ),
+                    onPressed: () => _openSettings(profile),
+                  ),
+                ] else ...[
+                  IconButton(
+                    tooltip: 'ค้นหา',
+                    icon: const Icon(
+                      Icons.search_rounded,
+                      size: 25,
+                      color: WynColors.paper,
+                    ),
+                    onPressed: _openSearch,
+                  ),
+                  IconButton(
+                    tooltip: 'เพิ่มเติม',
+                    icon: const Icon(
+                      Icons.more_vert_rounded,
+                      size: 24,
+                      color: WynColors.paper,
+                    ),
+                    onPressed: _openMoreMenu,
+                  ),
+                ],
+                const SizedBox(width: 4),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -665,10 +699,12 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   ? null
                   : () => _onFollowButtonPressed(profile),
               style: FilledButton.styleFrom(
-                backgroundColor:
-                    _isFollowing! ? WynColors.surfaceTint : WynColors.ink,
-                foregroundColor:
-                    _isFollowing! ? WynColors.ink : WynColors.paper,
+                backgroundColor: _isFollowing!
+                    ? WynColors.surfaceTint
+                    : WynColors.ink,
+                foregroundColor: _isFollowing!
+                    ? WynColors.ink
+                    : WynColors.paper,
                 shape: const StadiumBorder(),
                 elevation: 0,
               ),
@@ -759,19 +795,19 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   void _openFollowRequests() {
     Navigator.of(context)
         .push<void>(
-      MaterialPageRoute(
-        builder: (_) => FollowRequestListScreen(
-          followRequestRepository: _followRequestRepository,
-        ),
-      ),
-    )
+          MaterialPageRoute(
+            builder: (_) => FollowRequestListScreen(
+              followRequestRepository: _followRequestRepository,
+            ),
+          ),
+        )
         .then((_) {
-      // The list screen may have Accepted/Rejected requests -- refresh
-      // both the badge count and this profile's own Followers count.
-      if (!mounted) return;
-      _loadPendingRequestCount();
-      _reload();
-    });
+          // The list screen may have Accepted/Rejected requests -- refresh
+          // both the badge count and this profile's own Followers count.
+          if (!mounted) return;
+          _loadPendingRequestCount();
+          _reload();
+        });
   }
 
   // WYN-031, Screen 4. get_or_create_conversation() itself rejects a
@@ -782,8 +818,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (_isStartingChat) return;
     setState(() => _isStartingChat = true);
     try {
-      final conversationId =
-          await _chatRepository.getOrCreateConversation(widget.userId);
+      final conversationId = await _chatRepository.getOrCreateConversation(
+        widget.userId,
+      );
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -805,10 +842,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       // understands this is a temporary platform state, not a glitch to
       // retry. This button itself stays visible/tappable either way
       // (Founder's explicit requirement) -- only the outcome differs.
-      final message = e is PostgrestException && e.message.contains('temporarily closed for testing')
+      final message =
+          e is PostgrestException &&
+              e.message.contains('temporarily closed for testing')
           ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
           : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
     }
@@ -816,8 +856,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
   Future<void> _loadBlockRelationship() async {
     try {
-      final relationship =
-          await _blockRepository.blockRelationship(widget.userId);
+      final relationship = await _blockRepository.blockRelationship(
+        widget.userId,
+      );
       if (!mounted) return;
       setState(() => _blockRelationship = relationship);
     } catch (_) {
@@ -879,9 +920,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(previous
-              ? 'เปิดเสียง @${profile.username} แล้ว'
-              : 'ปิดเสียง @${profile.username} แล้ว'),
+          content: Text(
+            previous
+                ? 'เปิดเสียง @${profile.username} แล้ว'
+                : 'ปิดเสียง @${profile.username} แล้ว',
+          ),
         ),
       );
     } catch (_) {
@@ -937,52 +980,54 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(rows: [
-        ActionSheetRow(
-          icon: Icons.share_outlined,
-          label: 'แชร์โปรไฟล์',
-          onTap: () {
-            Navigator.of(sheetContext).pop();
-            showShareSheet(
-              context,
-              chatRepository: _chatRepository,
-              profileRepository: widget.profileRepository,
-              sharedContentType: SharedContentType.profile,
-              sharedContentId: widget.userId,
-              previewLabel: 'แชร์โปรไฟล์ @${data.profile.username}',
-              nativeShareText: profileShareLink(data.profile.username),
-              nativeShareTitle:
-                  data.profile.displayName ?? '@${data.profile.username}',
-            );
-          },
-        ),
-        ActionSheetRow(
-          icon: Icons.flag_outlined,
-          label: 'รายงาน',
-          onTap: () {
-            Navigator.of(sheetContext).pop();
-            _reportUser();
-          },
-        ),
-        if (_isMuted != null && _blockRelationship == BlockRelationship.none)
+      builder: (sheetContext) => ActionSheetBody(
+        rows: [
           ActionSheetRow(
-            icon: _isMuted! ? Icons.volume_up : Icons.volume_off,
-            label: _isMuted! ? 'เปิดเสียง' : 'ปิดเสียง',
+            icon: Icons.share_outlined,
+            label: 'แชร์โปรไฟล์',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              _onMuteTapped();
+              showShareSheet(
+                context,
+                chatRepository: _chatRepository,
+                profileRepository: widget.profileRepository,
+                sharedContentType: SharedContentType.profile,
+                sharedContentId: widget.userId,
+                previewLabel: 'แชร์โปรไฟล์ @${data.profile.username}',
+                nativeShareText: profileShareLink(data.profile.username),
+                nativeShareTitle:
+                    data.profile.displayName ?? '@${data.profile.username}',
+              );
             },
           ),
-        if (_blockRelationship == BlockRelationship.none)
           ActionSheetRow(
-            icon: Icons.block,
-            label: 'บล็อก',
+            icon: Icons.flag_outlined,
+            label: 'รายงาน',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              _onBlockTapped();
+              _reportUser();
             },
           ),
-      ]),
+          if (_isMuted != null && _blockRelationship == BlockRelationship.none)
+            ActionSheetRow(
+              icon: _isMuted! ? Icons.volume_up : Icons.volume_off,
+              label: _isMuted! ? 'เปิดเสียง' : 'ปิดเสียง',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _onMuteTapped();
+              },
+            ),
+          if (_blockRelationship == BlockRelationship.none)
+            ActionSheetRow(
+              icon: Icons.block,
+              label: 'บล็อก',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _onBlockTapped();
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -1089,16 +1134,19 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.block,
-              size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.block,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: WynSpacing.space2),
           Flexible(
             child: Text(
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -1127,7 +1175,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                     const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
                     const SizedBox(height: WynSpacing.space3),
                     TextButton(
-                        onPressed: _reload, child: const Text('ลองใหม่')),
+                      onPressed: _reload,
+                      child: const Text('ลองใหม่'),
+                    ),
                   ],
                 ),
               );
@@ -1139,7 +1189,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
 
             final data = snapshot.data!;
             final profile = data.profile;
-            final isBlockedEitherWay = !isOwnProfile &&
+            final isBlockedEitherWay =
+                !isOwnProfile &&
                 (_blockRelationship?.isBlockedEitherWay ?? false);
             // WYN-039 Design, Screen 2 -- Block always takes precedence
             // over Private (a blocked pair sees the Blocked banner, never
@@ -1149,7 +1200,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             // the same brief-flicker tradeoff _blockRelationship's own
             // `?? false` default already accepts elsewhere on this
             // screen, not a new one introduced here.
-            final isLockedPrivate = !isOwnProfile &&
+            final isLockedPrivate =
+                !isOwnProfile &&
                 !isBlockedEitherWay &&
                 profile.isPrivate &&
                 (_isFollowing ?? false) == false;
@@ -1169,31 +1221,38 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             // SliverOverlapInjector for the other half of that contract.
             return NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                _buildProfileSliverAppBar(profile, isOwnProfile),
+                // Keep cover + identity in one render box so the avatar's
+                // intentional negative overlap is inside this sliver's paint bounds.
                 SliverToBoxAdapter(
-                  child: WynosFounderProfileHeader(
-                    profile: profile,
-                    followingCount: data.followingCount,
-                    followerCount: data.followerCount,
-                    isOwnProfile: isOwnProfile,
-                    showStats: !isBlockedEitherWay,
-                    showOnline: isOwnProfile,
-                    onDisplayNameTap:
-                        isOwnProfile ? _openAccountSwitcher : null,
-                    onFollowingTap: () => _openFollowList(
-                      FollowListMode.following,
-                      isLockedPrivate: isLockedPrivate,
-                    ),
-                    onFollowersTap: () => _openFollowList(
-                      FollowListMode.followers,
-                      isLockedPrivate: isLockedPrivate,
-                    ),
-                    actions: _buildProfileActions(
-                      profile: profile,
-                      isOwnProfile: isOwnProfile,
-                      isBlockedEitherWay: isBlockedEitherWay,
-                    ),
-                    footer: _buildProfileFooter(profile, isOwnProfile),
+                  child: Column(
+                    children: [
+                      _buildProfileCoverBar(profile, isOwnProfile),
+                      WynosFounderProfileHeader(
+                        profile: profile,
+                        followingCount: data.followingCount,
+                        followerCount: data.followerCount,
+                        isOwnProfile: isOwnProfile,
+                        showStats: !isBlockedEitherWay,
+                        showOnline: isOwnProfile,
+                        onDisplayNameTap: isOwnProfile
+                            ? _openAccountSwitcher
+                            : null,
+                        onFollowingTap: () => _openFollowList(
+                          FollowListMode.following,
+                          isLockedPrivate: isLockedPrivate,
+                        ),
+                        onFollowersTap: () => _openFollowList(
+                          FollowListMode.followers,
+                          isLockedPrivate: isLockedPrivate,
+                        ),
+                        actions: _buildProfileActions(
+                          profile: profile,
+                          isOwnProfile: isOwnProfile,
+                          isBlockedEitherWay: isBlockedEitherWay,
+                        ),
+                        footer: _buildProfileFooter(profile, isOwnProfile),
+                      ),
+                    ],
                   ),
                 ),
                 if (!isOwnProfile)
@@ -1219,10 +1278,14 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       indicatorWeight: 2,
                       labelColor: WynColors.ink,
                       unselectedLabelColor: WynColors.mutedNeutral,
-                      labelStyle:
-                          _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      unselectedLabelStyle:
-                          _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
+                      labelStyle: _textStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      unselectedLabelStyle: _textStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                      ),
                       tabs: const [
                         Tab(
                           height: WynosFounderMetrics.profileTabHeight,
@@ -1351,13 +1414,12 @@ TextStyle _textStyle({
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? height,
-}) =>
-    TextStyle(
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color,
-      height: height,
-    );
+}) => TextStyle(
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  color: color,
+  height: height,
+);
 
 /// WYN-110: pins the profile's TabBar (โพสต์/รีโพสต์/ถูกใจ) to the top of
 /// the screen once the header above it has scrolled away, the same
@@ -1380,7 +1442,10 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     // Opaque, same reasoning as _FeedModeToggleHeaderDelegate: once
     // pinned above scrolled-past post cards, this needs its own surface
     // so they don't show through underneath it.
