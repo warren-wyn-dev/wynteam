@@ -28,7 +28,8 @@ class FollowRepository {
     required String userId,
     required bool currentlyFollowing,
   }) async {
-    final currentUserId = _client.auth.currentUser!.id;
+    final currentUser = _client.auth.currentUser!;
+    final currentUserId = currentUser.id;
     if (currentlyFollowing) {
       await _client
           .from('follows')
@@ -36,6 +37,22 @@ class FollowRepository {
           .eq('follower_id', currentUserId)
           .eq('following_id', userId);
     } else {
+      // A signed-out visitor who opens a shared wynos.online/@username
+      // link is intentionally given a Supabase Anonymous Sign-In session
+      // so the profile can be previewed without registration. Anonymous
+      // sessions bypass onboarding, though, so some of them have no
+      // `profiles` row yet. `follows.follower_id` references profiles(id),
+      // which made Follow silently fail for exactly those visitors.
+      //
+      // Materialize only the caller's own minimal profile immediately
+      // before their first follow. Existing Profiles RLS restricts this
+      // insert to auth.uid() and the normal `user` role, while the follows
+      // INSERT policy still decides whether the target may be followed
+      // (for example, a Private account cannot be followed directly).
+      if (currentUser.isAnonymous) {
+        await _client.from('profiles').upsert({'id': currentUserId});
+      }
+
       await _client
           .from('follows')
           .insert({'follower_id': currentUserId, 'following_id': userId});
