@@ -80,3 +80,8 @@ Known Issues:
 - No browser binary/screenshot renderer is installed, so responsive Admin visuals still require CI/browser/device QA despite compile-time checks passing.
 
 Handoff: AI QA & Security for the Admin batch; continue Flutter batches only on a runner with Flutter 3.47.1.
+
+
+## Founder final visual reference — 2026-09-10
+
+The final Profile and Post Detail screenshots supplied directly by the Founder supersede conflicting older TSX composition for those two surfaces. Implementation target is screenshot-level visual parity while preserving Beta4 behavior and backend contracts; the only required data addition is `profiles.cover_url` for the visible profile cover.

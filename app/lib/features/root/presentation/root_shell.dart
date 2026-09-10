@@ -24,6 +24,9 @@ import '../../search/presentation/search_screen.dart';
 import '../../push/data/push_token_repository.dart';
 import '../../push/presentation/push_notification_service.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/design/wyn_colors.dart';
+import '../../../core/design/wynos_founder_metrics.dart';
+import 'widgets/wynos_founder_bottom_navigation.dart';
 import '../../../core/navigation/deep_link_service.dart';
 
 /// The Bottom Navigation shell -- 5 destinations per the WYNOS V1.0.0
@@ -456,41 +459,19 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
         userId: userId,
         clubRepository: _clubRepository,
         clubPostRepository: _clubPostRepository,
+        onRootBack: () => _onDestinationSelected(_homeDestinationIndex),
       ),
     ];
 
     return Scaffold(
       body: IndexedStack(index: _tabIndex, children: tabs),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: WynosFounderBottomNavigation(
         selectedIndex: _navIndexForTab[_tabIndex],
         onDestinationSelected: (navIndex) => _onDestinationSelected(navIndex),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          NavigationDestination(
-            icon: _buildDropAction(),
-            selectedIcon: _buildDropAction(),
-            label: 'โพสต์',
-          ),
-          NavigationDestination(
-            icon: _buildNotificationsIcon(context, selected: false),
-            selectedIcon: _buildNotificationsIcon(context, selected: true),
-            label: 'Notifications',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        createAction: _buildDropAction(),
+        notificationIcon: _buildNotificationsIcon(context, selected: false),
+        selectedNotificationIcon:
+            _buildNotificationsIcon(context, selected: true),
       ),
     );
   }
@@ -509,25 +490,25 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   // selected state to distinguish. See
   // .wyn/docs/design/wyn-056-club-discovery-visual-refresh.md, Screen 6.
   Widget _buildDropAction() {
-    final scheme = Theme.of(context).colorScheme;
     return Semantics(
       label: 'สร้างโพสต์ใหม่',
       button: true,
       child: ExcludeSemantics(
         child: Container(
-          width: 40,
-          height: 40,
+          width: WynosFounderMetrics.createActionDiameter,
+          height: WynosFounderMetrics.createActionDiameter,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: scheme.primary,
+            color: WynColors.ink,
             boxShadow: [
               BoxShadow(
-                color: scheme.primary.withValues(alpha: 0.35),
-                blurRadius: 16,
+                color: WynColors.ink.withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
-          child: Icon(Icons.add, color: scheme.onPrimary),
+          child: const Icon(Icons.add_rounded, size: 33, color: WynColors.paper),
         ),
       ),
     );

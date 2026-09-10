@@ -72,6 +72,7 @@ class Profile {
     this.displayName,
     this.bio,
     this.avatarUrl,
+    this.coverUrl,
     this.platformRole = PlatformRole.user,
     this.isPrivate = false,
     this.dmPermission = InteractionPermission.everyone,
@@ -100,6 +101,7 @@ class Profile {
         displayName: map['display_name'] as String?,
         bio: map['bio'] as String?,
         avatarUrl: map['avatar_url'] as String?,
+        coverUrl: map['cover_url'] as String?,
         platformRole: platformRoleFromString(map['platform_role'] as String?),
         // WYN-039: defaults to false so any pre-existing call site that
         // builds a Profile from a partial map (not a full `drops.select
@@ -134,6 +136,7 @@ class Profile {
   final String? displayName;
   final String? bio;
   final String? avatarUrl;
+  final String? coverUrl;
   final PlatformRole platformRole;
   final bool isPrivate;
   final InteractionPermission dmPermission;

@@ -48,6 +48,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Uint8List? _pickedImageBytes;
   String? _pickedImageExtension;
+  Uint8List? _pickedCoverBytes;
+  String? _pickedCoverExtension;
 
   _UsernameStatus _usernameStatus = _UsernameStatus.unchanged;
   Timer? _usernameDebounce;
@@ -116,7 +118,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _usernameController.text != widget.profile.username ||
       _displayNameController.text != (widget.profile.displayName ?? '') ||
       _bioController.text != (widget.profile.bio ?? '') ||
-      _pickedImageBytes != null;
+      _pickedImageBytes != null ||
+      _pickedCoverBytes != null;
 
   bool get _canSave =>
       !_isSaving &&
@@ -159,6 +162,53 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       // what's actually being uploaded.
       _pickedImageExtension = 'png';
     });
+  }
+
+  Future<void> _pickCoverImage(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1800,
+      maxHeight: 1000,
+      imageQuality: 88,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    final ext = picked.name.contains('.')
+        ? picked.name.split('.').last.toLowerCase()
+        : 'jpg';
+    setState(() {
+      _pickedCoverBytes = bytes;
+      _pickedCoverExtension = ext == 'png' ? 'png' : 'jpg';
+    });
+  }
+
+  Future<void> _showCoverImageSourceSheet() {
+    return showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('ถ่ายภาพหน้าปก'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pickCoverImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('เลือกภาพหน้าปกจากคลังภาพ'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pickCoverImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _showImageSourceSheet() {
@@ -205,6 +255,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
       }
 
+      var coverUrl = widget.profile.coverUrl;
+      if (_pickedCoverBytes != null) {
+        coverUrl = await widget.profileRepository.uploadCover(
+          userId: widget.profile.id,
+          bytes: _pickedCoverBytes!,
+          fileExtension: _pickedCoverExtension ?? 'jpg',
+        );
+      }
+
       final displayName = _displayNameController.text.trim();
       final bio = _bioController.text.trim();
       final username = _usernameController.text.trim();
@@ -233,6 +292,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           displayName: displayName,
           bio: bio,
           avatarUrl: avatarUrl,
+          coverUrl: coverUrl,
         ),
       );
     } on UsernameTakenException {
@@ -276,6 +336,52 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: WynSpacing.space6),
+              GestureDetector(
+                key: const Key('cover_edit_button'),
+                onTap: _isSaving ? null : _showCoverImageSourceSheet,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
+                  child: SizedBox(
+                    height: 124,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (_pickedCoverBytes != null)
+                          Image.memory(_pickedCoverBytes!, fit: BoxFit.cover)
+                        else if (widget.profile.coverUrl != null &&
+                            widget.profile.coverUrl!.isNotEmpty)
+                          Image.network(
+                            widget.profile.coverUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const ColoredBox(color: WynColors.surfaceTint),
+                          )
+                        else
+                          const ColoredBox(color: WynColors.surfaceTint),
+                        const Positioned(
+                          right: 10,
+                          bottom: 10,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: WynColors.ink,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(
+                                Icons.photo_camera_outlined,
+                                size: 17,
+                                color: WynColors.paper,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: WynSpacing.space5),
               Center(
                 child: GestureDetector(
                   key: const Key('avatar_edit_button'),

@@ -1279,8 +1279,8 @@ replace_once(
 )
 replace_once(
     root_path,
-    "        clubPostRepository: _clubPostRepository,\n      ),\n",
-    "        clubPostRepository: _clubPostRepository,\n"
+    "        userId: userId,\n        clubRepository: _clubRepository,\n        clubPostRepository: _clubPostRepository,\n      ),\n",
+    "        userId: userId,\n        clubRepository: _clubRepository,\n        clubPostRepository: _clubPostRepository,\n"
     "        onRootBack: () => _onDestinationSelected(_homeDestinationIndex),\n"
     "      ),\n",
 )

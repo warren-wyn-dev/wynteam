@@ -39,6 +39,7 @@ alter table public.profiles
   add column if not exists display_name text,
   add column if not exists bio text,
   add column if not exists avatar_url text;
+  cover_url text,
 
 alter table public.profiles
   add constraint profiles_display_name_length
