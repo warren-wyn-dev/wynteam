@@ -43,19 +43,20 @@ jobs:
             app/lib/features/profile/presentation/widgets/profile_refresh_coordinator.dart \
             app/lib/features/profile/presentation/widgets/suggested_follow_sheet.dart \
             app/lib/features/follow/presentation/widgets/follow_action_button.dart \
-            app/lib/core/design/wynos_founder_metrics.dart
+            app/lib/core/design/wynos_founder_metrics.dart \
+            app/test/profile_refresh_coordinator_test.dart \
+            app/test/wynos_founder_profile_header_test.dart
 
       - name: Analyze Flutter app
         working-directory: app
         run: flutter analyze
 
-      - name: Run profile regression tests
+      - name: Run focused Profile regression tests
         working-directory: app
         run: |
           flutter test \
-            test/view_profile_screen_test.dart \
-            test/view_profile_screen_scroll_test.dart \
-            test/qa_wyn110_profile_scroll_header_test.dart \
+            test/profile_refresh_coordinator_test.dart \
+            test/wynos_founder_profile_header_test.dart \
             test/profile_recommendation_section_test.dart \
             test/follow_list_screen_test.dart
 
