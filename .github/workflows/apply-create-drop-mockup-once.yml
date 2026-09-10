@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply approved Create Post mockup
-        run: python3 tools/apply_create_drop_mockup.py
+        run: python3 tools/apply_create_drop_mockup_v2.py
 
       - uses: subosito/flutter-action@v2
         with:
@@ -45,6 +45,7 @@ jobs:
       - name: Commit validated Create Post UI
         run: |
           rm -f tools/apply_create_drop_mockup.py
+          rm -f tools/apply_create_drop_mockup_v2.py
           rm -f .github/workflows/apply-create-drop-mockup-once.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
