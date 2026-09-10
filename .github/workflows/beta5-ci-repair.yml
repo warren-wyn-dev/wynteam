@@ -42,8 +42,8 @@ jobs:
 
           replace(
               'app/test/drop_aspect_ratio_test.dart',
-              'src.contains("await _client.rpc(\'publish_drop\'")',
-              '''RegExp(\n        r"await\\s+_client\\s*\\.rpc\\(\\s*'publish_drop'",\n        multiLine: true,\n      ).hasMatch(src)''',
+              'source.contains("await _client.rpc(\'publish_drop\'")',
+              '''RegExp(\n        r"await\\s+_client\\s*\\.rpc\\(\\s*'publish_drop'",\n        multiLine: true,\n      ).hasMatch(source)''',
           )
 
           p = Path('app/test/view_profile_screen_scroll_test.dart')
