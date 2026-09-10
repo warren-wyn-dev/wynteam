@@ -62,7 +62,7 @@ class WynosFounderBottomNavigation extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         createAction,
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 6),
                         const Text(
                           'โพสต์',
                           style: TextStyle(

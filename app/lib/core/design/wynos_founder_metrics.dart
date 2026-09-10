@@ -18,6 +18,6 @@ class WynosFounderMetrics {
   static const double commentComposerHeight = 46;
 
   // Root navigation reference.
-  static const double bottomNavContentHeight = 72;
+  static const double bottomNavContentHeight = 80;
   static const double createActionDiameter = 56;
 }
