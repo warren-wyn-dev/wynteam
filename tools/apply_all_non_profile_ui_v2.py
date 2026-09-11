@@ -4,10 +4,9 @@ source = Path('tools/apply_all_non_profile_ui.py').read_text()
 
 # Drop Detail is a behavior-heavy surface with a custom action bar, comment
 # composer, view metrics, and ReDrop affordance. The global constructor-level
-# transformer is intentionally presentation-only, but applying generic chrome
-# arguments to this screen changed its compact test layout enough to hide those
-# existing controls. Keep this one bespoke screen on its already-approved
-# implementation rather than weakening behavioral regression tests.
+# transformer is intentionally presentation-only. Keep this bespoke,
+# Founder-approved surface on its current implementation while the generic pass
+# harmonizes the remaining presentation tree.
 exclude_marker = "EXCLUDED_PARTS = {'profile', 'pop'}\n\n"
 if exclude_marker not in source:
     raise RuntimeError('Transformer shape changed: exclusion marker not found')
@@ -37,7 +36,7 @@ if audit_marker not in source:
 source = source.replace(
     audit_marker,
     "    '- Hidden and intentionally not resurfaced: `app/lib/features/pop/**`\\n'\n"
-    "    '- Behavior-sensitive surface audited and intentionally preserved unchanged: `app/lib/features/drop/presentation/drop_detail_screen.dart`\\n\\n'\n",
+    "    '- Behavior-sensitive Founder-final surface audited and intentionally preserved unchanged: `app/lib/features/drop/presentation/drop_detail_screen.dart`\\n\\n'\n",
     1,
 )
 
@@ -175,7 +174,7 @@ exec(compile(source, 'tools/apply_all_non_profile_ui.py', 'exec'), {'__name__': 
 # The base pass may inspect a file that already has every desired argument and
 # therefore add the shared color import without ultimately needing it. Remove
 # only imports that are provably unused after the complete transform. Profile,
-# hidden Pop, and the interaction-heavy Drop Detail exclusion stay untouched.
+# hidden Pop, and the Founder-final Drop Detail exclusion stay untouched.
 color_import = "import 'package:wyn/core/design/wyn_colors.dart';\n"
 features = Path('app/lib/features')
 for path in features.rglob('*.dart'):
@@ -189,3 +188,69 @@ for path in features.rglob('*.dart'):
     without_import = text.replace(color_import, '', 1)
     if 'WynColors.' not in without_import:
         path.write_text(without_import)
+
+# WYN-141 Founder Final intentionally superseded the older Post Detail TSX
+# contract: the plain-language _buildStatLine was removed, engagement counts
+# moved into the focused action bar, detailed metrics moved behind the
+# "ดูกิจกรรม" row, and the visible action/composer icons became rounded.
+# The product source already implements that approved contract. Keep regression
+# coverage strict by updating the stale assertions to test the new UI rather
+# than restoring obsolete visuals or skipping the behavior tests.
+test_path = Path('app/test/drop_detail_screen_test.dart')
+test_text = test_path.read_text()
+
+def replace_exact(old: str, new: str, expected: int = 1) -> None:
+    global test_text
+    actual = test_text.count(old)
+    if actual != expected:
+        raise RuntimeError(
+            f'Drop Detail test contract changed: expected {expected} occurrence(s) of {old!r}, found {actual}'
+        )
+    test_text = test_text.replace(old, new)
+
+replace_exact(
+    "expect(find.text('3 ถูกใจ'), findsOneWidget);",
+    "expect(\n      find.bySemanticsLabel(RegExp('ถูกใจ 3 คน กดเพื่อถูกใจ')),\n      findsOneWidget,\n    );",
+)
+replace_exact(
+    "expect(find.text('4 ถูกใจ'), findsOneWidget);",
+    "expect(\n      find.bySemanticsLabel(RegExp('ถูกใจแล้ว 4 คน กดเพื่อเลิกถูกใจ')),\n      findsOneWidget,\n    );",
+)
+replace_exact(
+    "await tester.tap(find.byIcon(Icons.send));",
+    "await tester.tap(find.byIcon(Icons.send_rounded));",
+)
+replace_exact(
+    "await tester.tap(find.byIcon(Icons.close));",
+    "await tester.tap(find.byIcon(Icons.close_rounded));",
+)
+
+old_view_assert = "expect(find.text('6 การเข้าชม'), findsOneWidget);"
+new_view_assert = """final activityEntry = find.text('ดูกิจกรรม');
+      await tester.ensureVisible(activityEntry);
+      await tester.pumpAndSettle();
+      await tester.tap(activityEntry);
+      await tester.pumpAndSettle();
+      expect(find.text('การเข้าชม'), findsOneWidget);
+      expect(find.text('6'), findsOneWidget);"""
+replace_exact(old_view_assert, new_view_assert, expected=2)
+
+old_semantics_assert = """expect(
+        find.bySemanticsLabel(RegExp('เข้าชมแล้ว 43 ครั้ง')),
+        findsOneWidget,
+      );"""
+new_semantics_assert = """final activityEntry = find.text('ดูกิจกรรม');
+      await tester.ensureVisible(activityEntry);
+      await tester.pumpAndSettle();
+      await tester.tap(activityEntry);
+      await tester.pumpAndSettle();
+      expect(find.text('การเข้าชม'), findsOneWidget);
+      expect(find.text('43'), findsOneWidget);"""
+replace_exact(old_semantics_assert, new_semantics_assert)
+
+# Both audience tests must look for the actual Founder-final ReDrop glyph.
+# Updating both is important: otherwise the hidden-state test would pass for
+# the wrong reason simply because it searched for the retired square icon.
+replace_exact('find.byIcon(Icons.repeat)', 'find.byIcon(Icons.repeat_rounded)', expected=2)
+
+test_path.write_text(test_text)
