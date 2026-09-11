@@ -1,0 +1,124 @@
+name: Apply all non-profile UX UI once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-all-non-profile-ui-once.yml
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  audit-style-test-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Capture protected feature trees
+        id: protected
+        run: |
+          echo "profile=$(git rev-parse HEAD:app/lib/features/profile)" >> "$GITHUB_OUTPUT"
+          echo "pop=$(git rev-parse HEAD:app/lib/features/pop)" >> "$GITHUB_OUTPUT"
+
+      - name: Apply all non-profile UI system pass
+        run: python3 tools/apply_all_non_profile_ui.py
+
+      - name: Protect Profile and hidden Pop
+        run: |
+          test "$(git rev-parse HEAD:app/lib/features/profile)" = "${{ steps.protected.outputs.profile }}"
+          test "$(git rev-parse HEAD:app/lib/features/pop)" = "${{ steps.protected.outputs.pop }}"
+          if ! git diff --quiet -- app/lib/features/profile; then
+            echo "::error::Profile changed; this pass is not allowed to touch it."
+            git diff -- app/lib/features/profile
+            exit 1
+          fi
+          if ! git diff --quiet -- app/lib/features/pop; then
+            echo "::error::Hidden Pop changed; this pass must not resurface it."
+            git diff -- app/lib/features/pop
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Format changed Dart sources
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACM -- '*.dart')
+          if [ ${#files[@]} -gt 0 ]; then
+            dart format "${files[@]}"
+          fi
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Non-profile screen regression tests
+        working-directory: app
+        run: |
+          set -e
+          mapfile -t tests < <(find test -type f \( -name '*screen_test.dart' -o -name '*shell_test.dart' -o -name '*navigation_test.dart' \) | sort | grep -v '/profile' || true)
+          echo "Running ${#tests[@]} non-profile screen/shell test files"
+          for testfile in "${tests[@]}"; do
+            case "$testfile" in
+              *pop*) continue ;;
+            esac
+            echo "==> $testfile"
+            flutter test "$testfile"
+          done
+
+      - name: Full Flutter test suite diagnostic
+        working-directory: app
+        run: |
+          set +e
+          flutter test 2>&1 | tee ../full_flutter_test.log
+          status=${PIPESTATUS[0]}
+          echo "Full suite status: $status"
+          exit 0
+
+      - name: Verify coverage audit exists
+        run: |
+          test -s .wyn/docs/qa/non-profile-system-ui-audit.md
+          grep -q 'Protected and intentionally untouched: `app/lib/features/profile/\*\*`' .wyn/docs/qa/non-profile-system-ui-audit.md
+
+      - name: Commit validated all-page UI pass
+        run: |
+          rm -f tools/apply_all_non_profile_ui.py
+          rm -f .github/workflows/apply-all-non-profile-ui-once.yml
+          rm -f full_flutter_test.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: unify all non-profile screens with Profile UI language"
+          git push origin HEAD:main
+
+      - name: Deploy production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(git rev-parse HEAD)
+          gh workflow run deploy-web.yml --ref main
+          RUN_ID=""
+          for i in $(seq 1 80); do
+            RUN_ID=$(gh run list --workflow deploy-web.yml --branch main --event workflow_dispatch --limit 30 --json databaseId,headSha --jq ".[] | select(.headSha == \"$SHA\") | .databaseId" | head -n1)
+            if [ -n "$RUN_ID" ]; then break; fi
+            sleep 3
+          done
+          if [ -z "$RUN_ID" ]; then
+            echo "::error::Could not find production deploy run for $SHA"
+            exit 1
+          fi
+          echo "Production deploy run: $RUN_ID"
+          gh run watch "$RUN_ID" --exit-status
