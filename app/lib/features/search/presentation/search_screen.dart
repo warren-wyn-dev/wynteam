@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/wynos_social_chrome.dart';
 import '../../club/data/club_post_repository.dart';
 import '../../club/data/club_repository.dart';
 import '../../drop/data/drop_repository.dart';
@@ -145,149 +146,132 @@ class _SearchScreenState extends State<SearchScreen> {
       length: 3,
       child: Scaffold(
         backgroundColor: WynColors.paper,
-        appBar: AppBar(
-          backgroundColor: WynColors.paper,
-          foregroundColor: WynColors.ink,
-          surfaceTintColor: WynColors.paper,
-          elevation: 0,
-          toolbarHeight: 64,
-          titleSpacing: WynSpacing.space4,
-          title: Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
-            decoration: BoxDecoration(
-              color: WynColors.surfaceTint,
-              borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
-              border: Border.all(color: WynColors.hairline),
-            ),
-            child: Row(
+        body: SafeArea(
+          child: WynosContentRail(
+            child: Column(
               children: [
-                IconButton(
-                  onPressed: _submit,
-                  tooltip: 'ค้นหา',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  icon: const Icon(
-                    Icons.search,
-                    size: 20,
-                    color: WynColors.graphite,
-                  ),
-                ),
-                const SizedBox(width: WynSpacing.space1),
+                _buildSearchHeader(),
+                if (_showDiscovery)
+                  const Divider(height: 1, color: WynColors.hairline)
+                else
+                  const WynosSocialTabBar(labels: ['User', 'โพสต์', 'Club']),
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    autofocus: widget.autofocus,
-                    style: const TextStyle(
-                      fontSize: 15.5,
-                      color: WynColors.ink,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'ค้นหา username, โพสต์, Club',
-                      hintStyle: TextStyle(
-                        fontSize: 15.5,
-                        color: WynColors.graphite,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      border: InputBorder.none,
-                      isCollapsed: true,
-                    ),
-                    textInputAction: TextInputAction.search,
-                    onChanged: _onQueryChanged,
-                    onSubmitted: (_) => _submit(),
-                  ),
+                  child: _showDiscovery
+                      ? DiscoveryView(
+                          discoveryRepository: _discoveryRepository,
+                          clubRepository: widget.clubRepository,
+                          clubPostRepository: widget.clubPostRepository,
+                          profileRepository: widget.profileRepository,
+                          followRepository: widget.followRepository,
+                          followRequestRepository: _followRequestRepository,
+                          dropRepository: widget.dropRepository,
+                          popRepository: widget.popRepository,
+                          savedRepository: widget.savedRepository,
+                        )
+                      : TabBarView(
+                          children: [
+                            SearchUserResultsTab(
+                              query: _query,
+                              profileRepository: widget.profileRepository,
+                              followRepository: widget.followRepository,
+                              followRequestRepository:
+                                  _followRequestRepository,
+                              dropRepository: widget.dropRepository,
+                              popRepository: widget.popRepository,
+                              savedRepository: widget.savedRepository,
+                            ),
+                            SearchDropResultsTab(
+                              query: _query,
+                              dropRepository: widget.dropRepository,
+                              followRepository: widget.followRepository,
+                              profileRepository: widget.profileRepository,
+                              popRepository: widget.popRepository,
+                              savedRepository: widget.savedRepository,
+                            ),
+                            SearchClubResultsTab(
+                              query: _query,
+                              clubRepository: widget.clubRepository,
+                              clubPostRepository: widget.clubPostRepository,
+                            ),
+                          ],
+                        ),
                 ),
-                if (_controller.text.isNotEmpty)
-                  IconButton(
-                    onPressed: _clear,
-                    tooltip: 'ล้างคำค้นหา',
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                    icon: const Icon(
-                      Icons.close,
-                      size: 18,
-                      color: WynColors.graphite,
-                    ),
-                  ),
               ],
             ),
           ),
-          bottom: _showDiscovery
-              ? const PreferredSize(
-                  preferredSize: Size.fromHeight(1),
-                  child: Divider(height: 1, color: WynColors.hairline),
-                )
-              : const TabBar(
-                  labelColor: WynColors.ink,
-                  unselectedLabelColor: WynColors.graphite,
-                  indicatorColor: WynColors.ink,
-                  indicatorWeight: 2,
-                  dividerColor: WynColors.hairline,
-                  labelStyle: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  unselectedLabelStyle: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  tabs: [
-                    Tab(
-                        icon: Icon(Icons.person_outline_rounded, size: 19),
-                        text: 'User'),
-                    Tab(
-                        icon: Icon(Icons.grid_view_rounded, size: 18),
-                        text: 'โพสต์'),
-                    Tab(
-                        icon: Icon(Icons.groups_outlined, size: 19),
-                        text: 'Club'),
-                  ],
-                ),
         ),
-        body: _showDiscovery
-            ? DiscoveryView(
-                discoveryRepository: _discoveryRepository,
-                clubRepository: widget.clubRepository,
-                clubPostRepository: widget.clubPostRepository,
-                profileRepository: widget.profileRepository,
-                followRepository: widget.followRepository,
-                followRequestRepository: _followRequestRepository,
-                dropRepository: widget.dropRepository,
-                popRepository: widget.popRepository,
-                savedRepository: widget.savedRepository,
-              )
-            : TabBarView(
-                children: [
-                  SearchUserResultsTab(
-                    query: _query,
-                    profileRepository: widget.profileRepository,
-                    followRepository: widget.followRepository,
-                    followRequestRepository: _followRequestRepository,
-                    dropRepository: widget.dropRepository,
-                    popRepository: widget.popRepository,
-                    savedRepository: widget.savedRepository,
-                  ),
-                  SearchDropResultsTab(
-                    query: _query,
-                    dropRepository: widget.dropRepository,
-                    followRepository: widget.followRepository,
-                    profileRepository: widget.profileRepository,
-                    popRepository: widget.popRepository,
-                    savedRepository: widget.savedRepository,
-                  ),
-                  SearchClubResultsTab(
-                    query: _query,
-                    clubRepository: widget.clubRepository,
-                    clubPostRepository: widget.clubPostRepository,
-                  ),
-                ],
+      ),
+    );
+  }
+
+  Widget _buildSearchHeader() {
+    return Container(
+      height: 64,
+      color: WynColors.paper,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WynSpacing.space4,
+        vertical: 10,
+      ),
+      child: WynosSearchSurface(
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: _submit,
+              tooltip: 'ค้นหา',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: WynSpacing.touchTargetMin,
+                minHeight: WynSpacing.touchTargetMin,
               ),
+              icon: const Icon(
+                Icons.search,
+                size: 20,
+                color: WynColors.graphite,
+              ),
+            ),
+            const SizedBox(width: WynSpacing.space1),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                autofocus: widget.autofocus,
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  color: WynColors.ink,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'ค้นหา username, โพสต์, Club',
+                  hintStyle: TextStyle(
+                    fontSize: 15.5,
+                    color: WynColors.graphite,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: InputBorder.none,
+                  isCollapsed: true,
+                ),
+                textInputAction: TextInputAction.search,
+                onChanged: _onQueryChanged,
+                onSubmitted: (_) => _submit(),
+              ),
+            ),
+            if (_controller.text.isNotEmpty)
+              IconButton(
+                onPressed: _clear,
+                tooltip: 'ล้างคำค้นหา',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: WynSpacing.touchTargetMin,
+                  minHeight: WynSpacing.touchTargetMin,
+                ),
+                icon: const Icon(
+                  Icons.close,
+                  size: 18,
+                  color: WynColors.graphite,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
