@@ -49,6 +49,12 @@ replace_once(
 notifications = ROOT / "app/lib/features/notification/presentation/notification_list_screen.dart"
 replace_once(
     notifications,
+    "import '../../../core/design/wyn_typography.dart';\n",
+    "",
+    "notifications dead typography import",
+)
+replace_once(
+    notifications,
     "import '../../../core/widgets/empty_state_block.dart';\n",
     "import '../../../core/widgets/empty_state_block.dart';\nimport '../../../core/widgets/wynos_social_chrome.dart';\n",
     "notifications shared chrome import",
@@ -75,6 +81,12 @@ regex_once(
 # 3) Chat Inbox: same pushed-screen header, 52px equal-width tabs and content
 # rail. All lockdown/request/realtime/paging logic remains exactly where it was.
 chat = ROOT / "app/lib/features/chat/presentation/chat_inbox_screen.dart"
+replace_once(
+    chat,
+    "import '../../../core/design/wyn_typography.dart';\n",
+    "",
+    "chat dead typography import",
+)
 replace_once(
     chat,
     "import '../../../core/widgets/empty_state_block.dart';\n",
