@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Profile-language UI refresh
-        run: python3 tools/apply_profile_language_system_ui_v4.py
+        run: python3 tools/apply_profile_language_system_ui_v5.py
 
       - name: Protect Profile implementation
         run: |
@@ -47,7 +47,8 @@ jobs:
             app/lib/features/search/presentation/search_screen.dart \
             app/lib/features/notification/presentation/notification_list_screen.dart \
             app/lib/features/settings/presentation/settings_screen.dart \
-            app/lib/features/root/presentation/side_menu.dart
+            app/lib/features/root/presentation/side_menu.dart \
+            app/test/root_shell_test.dart
 
       - name: Flutter analyze
         working-directory: app
@@ -81,6 +82,7 @@ jobs:
           rm -f tools/apply_profile_language_system_ui_v2.py
           rm -f tools/apply_profile_language_system_ui_v3.py
           rm -f tools/apply_profile_language_system_ui_v4.py
+          rm -f tools/apply_profile_language_system_ui_v5.py
           rm -f debug_profile_ui_tests.log
           rm -f .github/workflows/debug-profile-language-ui-tests-once.yml
           rm -f .github/workflows/apply-profile-language-system-ui-once.yml
