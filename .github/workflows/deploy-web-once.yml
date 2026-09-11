@@ -19,4 +19,4 @@ jobs:
       - name: Dispatch the existing production workflow on main
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy-web.yml --ref main
+        run: gh workflow run deploy-web.yml --repo warren-wyn-dev/wynteam --ref main
