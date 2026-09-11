@@ -1,0 +1,97 @@
+name: One-shot full chat system UI patch (2026-09-12)
+
+on:
+  push:
+    branches:
+      - feat/chat-system-ui-20260912
+    paths:
+      - .github/workflows/patch-chat-system-ui-once-20260912.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/chat-system-ui-20260912
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply approved chat-system UI patch
+        run: |
+          python3 tools/patch_chat_system_ui_20260912.py
+          # Preserve the existing View Once regression contract: the countdown
+          # number remains a standalone text node even in the new pill UI.
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/lib/features/chat/presentation/widgets/view_once_image_viewer.dart')
+          text = path.read_text(encoding='utf-8')
+          old = "'$_secondsLeft วิ'"
+          if old not in text:
+              raise SystemExit('View Once countdown patch target not found')
+          path.write_text(text.replace(old, "'$_secondsLeft'", 1), encoding='utf-8')
+          PY
+
+      - name: Format changed Dart files
+        working-directory: app
+        run: |
+          dart format \
+            lib/features/chat/presentation/chat_inbox_screen.dart \
+            lib/features/chat/presentation/conversation_screen.dart \
+            lib/features/chat/presentation/message_request_list_screen.dart \
+            lib/features/chat/presentation/new_message_screen.dart \
+            lib/features/chat/presentation/share_sheet.dart \
+            lib/features/chat/presentation/share_to_chat_screen.dart \
+            lib/features/chat/presentation/widgets/chat_ui.dart \
+            lib/features/chat/presentation/widgets/chat_media_viewer.dart \
+            lib/features/chat/presentation/widgets/view_once_image_viewer.dart \
+            lib/features/club/presentation/widgets/club_channel_chat_view.dart \
+            test/chat_inbox_screen_test.dart
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Run chat regression suite
+        working-directory: app
+        run: |
+          flutter test \
+            test/chat_inbox_screen_test.dart \
+            test/new_message_screen_test.dart \
+            test/message_request_list_screen_test.dart \
+            test/share_to_chat_screen_test.dart \
+            test/view_once_image_viewer_test.dart \
+            test/conversation_screen_test.dart \
+            test/club_channel_chat_view_test.dart
+
+      - name: Guard Profile layout and scope
+        run: |
+          if git diff --name-only 7f5966861f97409b2b3487e7af7559772f05107b...HEAD | grep -E '^app/lib/features/profile/'; then
+            echo '::error::Profile files changed; Founder explicitly locked Profile layout.'
+            exit 1
+          fi
+          if git diff --name-only | grep -E '^app/lib/features/profile/'; then
+            echo '::error::Patch touched Profile files; aborting.'
+            exit 1
+          fi
+
+      - name: Commit verified patch and remove one-shot tooling
+        run: |
+          rm -f tools/patch_chat_system_ui_20260912.py
+          rm -f .github/workflows/patch-chat-system-ui-once-20260912.yml
+          git config user.name "warren-wyn-dev"
+          git config user.email "warren.wyn.dev@gmail.com"
+          git add -A
+          git commit -m "feat(chat): unify full chat system UI"
+          git push origin HEAD:feat/chat-system-ui-20260912
