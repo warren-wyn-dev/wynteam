@@ -191,83 +191,118 @@ class _SideMenuState extends State<SideMenu> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                icon: const Icon(Icons.close, size: 20, color: WynColors.graphite),
-                onPressed: () => Navigator.of(context).pop(),
-                tooltip: 'ปิด',
-              ),
-            ),
-            InkWell(
-              onTap: profile == null ? null : _openOwnProfile,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(WynSpacing.space4, 0,
-                    WynSpacing.space4, WynSpacing.space4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AvatarCircle(
-                      imageUrl: profile?.avatarUrl,
-                      fallbackText: profile?.username ?? '',
-                      radius: 26,
-                      ring: true,
-                    ),
-                    const SizedBox(width: WynSpacing.space3),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            profile?.nameOrUsername ?? '',
-                            style: _textStyle(
-                                fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
-                          ),
-                          if (profile != null)
-                            Text(
-                              '@${profile.username}',
-                              style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
-                            ),
-                          const SizedBox(height: WynSpacing.space1),
-                          // Wrap, not Row -- the drawer's fixed Material
-                          // width (~304dp) leaves this column narrower
-                          // than "N ผู้ติดตาม" + "N กำลังติดตาม" can
-                          // always fit side by side (confirmed by a real
-                          // RenderFlex overflow with realistic counts);
-                          // wrapping to a second line degrades gracefully
-                          // instead of clipping/overflowing.
-                          Wrap(
-                            spacing: WynSpacing.space3,
-                            runSpacing: 2,
-                            children: [
-                              _CountLabel(count: _followerCount, label: 'ผู้ติดตาม'),
-                              _CountLabel(count: _followingCount, label: 'กำลังติดตาม'),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Icon(Icons.chevron_right, size: 16, color: WynColors.faint),
-                    ),
-                  ],
+            SizedBox(
+              height: 52,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 22, color: WynColors.ink),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'ปิด',
                 ),
               ),
             ),
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+              child: Material(
+                color: WynColors.paper,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  side: const BorderSide(color: WynColors.hairline),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: profile == null ? null : _openOwnProfile,
+                  child: Padding(
+                    padding: const EdgeInsets.all(WynSpacing.space4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        AvatarCircle(
+                          imageUrl: profile?.avatarUrl,
+                          fallbackText: profile?.username ?? '',
+                          radius: 28,
+                          ring: true,
+                        ),
+                        const SizedBox(width: WynSpacing.space3),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                profile?.nameOrUsername ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _textStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: WynColors.ink,
+                                ),
+                              ),
+                              if (profile != null)
+                                Text(
+                                  '@${profile.username}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: _textStyle(
+                                    fontSize: 13,
+                                    color: WynColors.graphite,
+                                  ),
+                                ),
+                              const SizedBox(height: WynSpacing.space2),
+                              Wrap(
+                                spacing: WynSpacing.space3,
+                                runSpacing: 2,
+                                children: [
+                                  _CountLabel(
+                                      count: _followerCount,
+                                      label: 'ผู้ติดตาม'),
+                                  _CountLabel(
+                                      count: _followingCount,
+                                      label: 'กำลังติดตาม'),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: WynColors.faint,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: WynSpacing.space4),
             const Divider(height: 1, color: WynColors.hairline),
             const SizedBox(height: WynSpacing.space2),
             _MenuRow(
-                icon: Icons.explore_outlined, label: 'สำรวจ Club', onTap: _openExploreClubs),
+              icon: Icons.explore_outlined,
+              label: 'สำรวจ Club',
+              onTap: _openExploreClubs,
+            ),
             _MenuRow(
-                icon: Icons.add_circle_outline, label: 'สร้าง Club', onTap: _openCreateClub),
-            _MenuRow(icon: Icons.groups_outlined, label: 'Club ของฉัน', onTap: _openMyClubs),
-            _MenuRow(icon: Icons.bookmark_border, label: 'บันทึกไว้', onTap: _openSaved),
-            // Web-only, and hidden once already installed -- see
-            // PwaInstallHint.shouldOfferInstall's own doc comment.
+              icon: Icons.add_circle_outline_rounded,
+              label: 'สร้าง Club',
+              onTap: _openCreateClub,
+            ),
+            _MenuRow(
+              icon: Icons.groups_outlined,
+              label: 'Club ของฉัน',
+              onTap: _openMyClubs,
+            ),
+            _MenuRow(
+              icon: Icons.bookmark_border_rounded,
+              label: 'บันทึกไว้',
+              onTap: _openSaved,
+            ),
             if (PwaInstallHint.shouldOfferInstall)
               _MenuRow(
-                icon: Icons.add_to_home_screen,
+                icon: Icons.add_to_home_screen_rounded,
                 label: 'เพิ่ม WYNOS ไว้ที่หน้าจอหลัก',
                 onTap: _openAddToHomeScreenGuide,
               ),
@@ -291,7 +326,10 @@ class _CountLabel extends StatelessWidget {
         children: [
           TextSpan(
             text: '${count ?? 0} ',
-            style: _textStyle(fontSize: 13, fontWeight: FontWeight.w700, color: WynColors.ink),
+            style: _textStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: WynColors.ink),
           ),
           TextSpan(
             text: label,
@@ -304,7 +342,8 @@ class _CountLabel extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.icon, required this.label, required this.onTap});
+  const _MenuRow(
+      {required this.icon, required this.label, required this.onTap});
 
   final IconData icon;
   final String label;
@@ -312,20 +351,52 @@ class _MenuRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
-        child: Row(
-          children: [
-            Icon(icon, size: 19, color: WynColors.ink),
-            const SizedBox(width: WynSpacing.space3),
-            Text(
-              label,
-              style: _textStyle(fontSize: 15, fontWeight: FontWeight.w500, color: WynColors.ink),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: SizedBox(
+            height: 54,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: WynColors.surfaceTint,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, size: 19, color: WynColors.ink),
+                  ),
+                  const SizedBox(width: WynSpacing.space3),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _textStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: WynColors.ink,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 19,
+                    color: WynColors.faint,
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );

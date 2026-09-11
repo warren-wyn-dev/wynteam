@@ -7,6 +7,7 @@ import 'package:wyn/features/notification/presentation/notification_list_screen.
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
 import 'package:wyn/features/root/presentation/root_shell.dart';
+import 'package:wyn/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart';
 import 'package:wyn/features/search/presentation/search_screen.dart';
 
 import 'support/fake_supabase_session.dart';
@@ -75,15 +76,17 @@ void main() {
     sharedDropRepository = RecordingDropRepository();
     sharedPopRepository = RecordingPopRepository();
     sharedFollowRepository = RecordingFollowRepository();
-    sharedProfileRepository =
-        RecordingProfileRepository(profile: const Profile(id: 'me', username: 'me'));
+    sharedProfileRepository = RecordingProfileRepository(
+        profile: const Profile(id: 'me', username: 'me'));
     sharedSavedRepository = RecordingSavedRepository();
     sharedClubRepository = RecordingClubRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
     defaultHomeRepository = RecordingHomeRepository(feedItems: []);
     defaultNotificationRepository = RecordingNotificationRepository();
-    fewUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 3);
-    manyUnreadNotificationRepository = RecordingNotificationRepository(unreadCount: 15);
+    fewUnreadNotificationRepository =
+        RecordingNotificationRepository(unreadCount: 3);
+    manyUnreadNotificationRepository =
+        RecordingNotificationRepository(unreadCount: 15);
     sharedPresenceRepository = RecordingPresenceRepository();
   });
 
@@ -100,7 +103,8 @@ void main() {
           followRepository: sharedFollowRepository,
           profileRepository: sharedProfileRepository,
           savedRepository: sharedSavedRepository,
-          notificationRepository: notificationRepository ?? defaultNotificationRepository,
+          notificationRepository:
+              notificationRepository ?? defaultNotificationRepository,
           clubRepository: sharedClubRepository,
           clubPostRepository: sharedClubPostRepository,
           homeRepository: homeRepository ?? defaultHomeRepository,
@@ -161,7 +165,8 @@ void main() {
     expect(find.byType(FromYourClubsFeed), findsNothing);
   });
 
-  testWidgets('shows the unread notification count as a badge, and clears '
+  testWidgets(
+      'shows the unread notification count as a badge, and clears '
       'it optimistically after switching to Notifications', (tester) async {
     await tester.pumpWidget(buildShell(
       notificationRepository: fewUnreadNotificationRepository,
@@ -191,8 +196,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(tester.state(find.byType(RootShell)),
-        isA<WidgetsBindingObserver>());
+    expect(tester.state(find.byType(RootShell)), isA<WidgetsBindingObserver>());
   });
 
   // Beta4 §11.4 -- "Refresh แล้วไม่เพี้ยน".
@@ -289,7 +293,8 @@ void main() {
   // Account Switcher switch -- this proves RootShell itself honours that
   // flag, independent of AuthGate's own logic for deriving it (covered by
   // auth_gate_test.dart).
-  testWidgets('startOnProfileTab: true opens straight to ViewProfileScreen '
+  testWidgets(
+      'startOnProfileTab: true opens straight to ViewProfileScreen '
       'instead of Home', (tester) async {
     await tester.pumpWidget(buildShell(startOnProfileTab: true));
     await tester.pumpAndSettle();
@@ -301,7 +306,11 @@ void main() {
     // opposite: Home did NOT become the selected tab.
     expect(find.text('สำหรับคุณ'), findsNothing);
     expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      tester
+          .widget<WynosFounderBottomNavigation>(
+            find.byType(WynosFounderBottomNavigation),
+          )
+          .selectedIndex,
       4,
     );
   });
@@ -352,7 +361,8 @@ void main() {
     testWidgets('starts the global presence channel once on launch',
         (tester) async {
       final presenceRepository = RecordingPresenceRepository();
-      await tester.pumpWidget(buildShell(presenceRepository: presenceRepository));
+      await tester
+          .pumpWidget(buildShell(presenceRepository: presenceRepository));
       await tester.pumpAndSettle();
 
       expect(presenceRepository.startGlobalPresenceCalls, 1);
@@ -362,17 +372,20 @@ void main() {
         'untracks + persists last_seen_at on pause, re-tracks on resume',
         (tester) async {
       final presenceRepository = RecordingPresenceRepository();
-      await tester.pumpWidget(buildShell(presenceRepository: presenceRepository));
+      await tester
+          .pumpWidget(buildShell(presenceRepository: presenceRepository));
       await tester.pumpAndSettle();
 
-      lifecycleObserverOf(tester).didChangeAppLifecycleState(AppLifecycleState.paused);
+      lifecycleObserverOf(tester)
+          .didChangeAppLifecycleState(AppLifecycleState.paused);
       await tester.pumpAndSettle();
 
       expect(presenceRepository.untrackOnlineCalls, 1);
       expect(presenceRepository.touchMyPresenceCalls, 1);
       expect(presenceRepository.trackOnlineCalls, 0);
 
-      lifecycleObserverOf(tester).didChangeAppLifecycleState(AppLifecycleState.resumed);
+      lifecycleObserverOf(tester)
+          .didChangeAppLifecycleState(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
 
       expect(presenceRepository.trackOnlineCalls, 1);

@@ -172,8 +172,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       unawaited(widget.notificationRepository.markAllAsRead());
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = errorMessageFor(error,
-          serverMessage: 'โหลดการแจ้งเตือนไม่สำเร็จ'));
+      setState(() => _error =
+          errorMessageFor(error, serverMessage: 'โหลดการแจ้งเตือนไม่สำเร็จ'));
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -289,7 +289,9 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         // (see _messageFor), not the destination.
         final newMessageConversationId = notification.conversationId;
         final newMessageActorId = notification.actorId;
-        if (newMessageConversationId == null || newMessageActorId == null) return;
+        if (newMessageConversationId == null || newMessageActorId == null) {
+          return;
+        }
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => ConversationScreen(
@@ -605,28 +607,34 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   // and this screen (like Home) no longer has a use for one now that
   // Search/Notifications are their own Bottom Nav destinations.
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(WynSpacing.space2,
-          WynSpacing.space1, WynSpacing.space2, WynSpacing.space1),
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+      decoration: const BoxDecoration(
+        color: WynColors.paper,
+        border: Border(bottom: BorderSide(color: WynColors.hairline)),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // 10-side-menu.tsx's ☰ opens a real drawer (see SideMenu) now
-          // that it's built.
           IconButton(
-            icon: const Icon(Icons.menu, size: 20, color: WynColors.ink),
+            icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
             tooltip: 'เมนู',
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
-          Text(
-            'การแจ้งเตือน',
-            style: WynTypography.screenTitle(
-              fontSize: 24,
-              color: WynColors.ink,
+          Expanded(
+            child: Center(
+              child: Text(
+                'การแจ้งเตือน',
+                style: WynTypography.screenTitle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: WynColors.ink,
+                ),
+              ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.search, size: 19, color: WynColors.ink),
+            icon: const Icon(Icons.search, size: 21, color: WynColors.ink),
             tooltip: 'ค้นหา',
             onPressed: _openSearch,
           ),
@@ -637,15 +645,14 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
 
   Widget _buildTabs() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
       decoration: const BoxDecoration(
+        color: WynColors.paper,
         border: Border(bottom: BorderSide(color: WynColors.hairline)),
       ),
       child: Row(
         children: [
-          _buildTab(_NotificationTab.all, 'ทั้งหมด'),
-          const SizedBox(width: WynSpacing.space6),
-          _buildTab(_NotificationTab.mentions, 'การกล่าวถึง'),
+          Expanded(child: _buildTab(_NotificationTab.all, 'ทั้งหมด')),
+          Expanded(child: _buildTab(_NotificationTab.mentions, 'การกล่าวถึง')),
         ],
       ),
     );
@@ -655,25 +662,29 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     final active = _tab == tab;
     return InkWell(
       onTap: () => setState(() => _tab = tab),
-      child: IntrinsicWidth(
+      child: SizedBox(
+        height: 46,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: WynSpacing.space3),
-              child: Text(
-                label,
-                style: _textStyle(
-                  fontSize: 13,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                  color: active ? WynColors.ink : WynColors.mutedNeutral,
+            Expanded(
+              child: Center(
+                child: Text(
+                  label,
+                  style: _textStyle(
+                    fontSize: 13.5,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color: active ? WynColors.ink : WynColors.graphite,
+                  ),
                 ),
               ),
             ),
             Container(
+              width: 34,
               height: 2,
-              color: active ? WynColors.sapphire : Colors.transparent,
+              decoration: BoxDecoration(
+                color: active ? WynColors.ink : Colors.transparent,
+                borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+              ),
             ),
           ],
         ),
@@ -811,7 +822,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
 
   Widget _buildGroupRow(_NotificationGroup group) {
     final n = group.head;
-    final isUnread = group.items.any((item) => _unreadSnapshot.contains(item.id));
+    final isUnread =
+        group.items.any((item) => _unreadSnapshot.contains(item.id));
     final time = relativeTimeLabel(n.createdAt, now: DateTime.now());
     final message = _messageFor(n);
 
@@ -841,7 +853,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                         '“${n.contentPreview}”',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: _textStyle(fontSize: 13, color: WynColors.graphite),
+                        style:
+                            _textStyle(fontSize: 13, color: WynColors.graphite),
                       ),
                     ],
                     const SizedBox(height: 2),
@@ -921,19 +934,21 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   Widget _buildMessage(WynNotification n, String message, int extraActorCount) {
     final name = n.actorNameOrUsername;
     final baseStyle = _textStyle(fontSize: 15, color: _kMessageBodyColor);
-    final nameStyle =
-        _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink);
+    final nameStyle = _textStyle(
+        fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink);
     final extraStyle = _textStyle(fontSize: 15, color: WynColors.graphite);
 
     final spans = <InlineSpan>[];
     if (name.isNotEmpty && message.startsWith(name)) {
       spans.add(TextSpan(text: name, style: nameStyle));
-      spans.add(TextSpan(text: message.substring(name.length), style: baseStyle));
+      spans.add(
+          TextSpan(text: message.substring(name.length), style: baseStyle));
     } else {
       spans.add(TextSpan(text: message, style: baseStyle));
     }
     if (extraActorCount > 0) {
-      spans.add(TextSpan(text: ' และอีก $extraActorCount คน', style: extraStyle));
+      spans.add(
+          TextSpan(text: ' และอีก $extraActorCount คน', style: extraStyle));
     }
     return Text.rich(TextSpan(children: spans));
   }
@@ -1025,12 +1040,8 @@ class _NotificationGroup {
   /// deliberately de-duplicated by actorId so the same person appearing
   /// twice (e.g. unliked then re-liked) never inflates the "และอีก N คน"
   /// count.
-  int get extraActorCount => items
-      .skip(1)
-      .map((n) => n.actorId)
-      .whereType<String>()
-      .toSet()
-      .length;
+  int get extraActorCount =>
+      items.skip(1).map((n) => n.actorId).whereType<String>().toSet().length;
 }
 
 class _TypeBadge {
@@ -1078,8 +1089,7 @@ _TypeBadge? _badgeFor(NotificationType type) {
       return const _TypeBadge(
           Icons.chat_bubble, WynColors.notificationBadgeComment);
     case NotificationType.redrop:
-      return const _TypeBadge(
-          Icons.repeat, WynColors.notificationBadgeRepost);
+      return const _TypeBadge(Icons.repeat, WynColors.notificationBadgeRepost);
     case NotificationType.follow:
     case NotificationType.followRequestAccepted:
       return const _TypeBadge(Icons.person_add, WynColors.sapphire);
@@ -1122,11 +1132,14 @@ class _GroupLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(WynSpacing.space4,
-          WynSpacing.space5, WynSpacing.space4, WynSpacing.space1),
+      padding: const EdgeInsets.fromLTRB(WynSpacing.space4, WynSpacing.space5,
+          WynSpacing.space4, WynSpacing.space1),
       child: Text(
         label,
-        style: _textStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
+        style: _textStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: WynColors.mutedNeutral)
             .copyWith(letterSpacing: 13 * 0.12),
       ),
     );

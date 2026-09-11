@@ -142,62 +142,57 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      // WYN-102 (Wynos V1.0.0 Beta2, item 11, 2026-09-02): was 4 (User/
-      // โพสต์/Pop/Club) -- Pop's own tab is hidden, not deleted (see the
-      // removed Tab/SearchPopResultsTab below and Pop's own code, still
-      // untouched under app/lib/features/pop/). widget.popRepository
-      // stays required: DiscoveryView and the other result tabs below
-      // still use it.
       length: 3,
       child: Scaffold(
         backgroundColor: WynColors.paper,
         appBar: AppBar(
           backgroundColor: WynColors.paper,
           foregroundColor: WynColors.ink,
+          surfaceTintColor: WynColors.paper,
           elevation: 0,
-          toolbarHeight: 66,
+          toolbarHeight: 64,
           titleSpacing: WynSpacing.space4,
-          // 03-search.tsx's search bar: a rounded pill, not a bare
-          // AppBar TextField -- real controller/focusNode/autofocus/
-          // onChanged debounce/clear button all unchanged, styling only.
           title: Container(
-            height: 42,
+            height: 44,
             padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
             decoration: BoxDecoration(
-              // Literal one-off, not one of SPEC.md's 7 tokens -- the
-              // search box's own slightly-off-paper fill, same "single
-              // contained use" precedent as _kMessageBodyColor
-              // (notification_list_screen.dart).
               color: WynColors.surfaceTint,
               borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
               border: Border.all(color: WynColors.hairline),
             ),
             child: Row(
               children: [
-                // WYN-080: now a real button (was a bare, non-interactive
-                // Icon) -- the explicit "ปุ่มให้กดค้นหา" (search button)
-                // Founder asked for, alongside the keyboard's own search
-                // action below.
-                Semantics(
-                  label: 'ค้นหา',
-                  button: true,
-                  excludeSemantics: true,
-                  child: GestureDetector(
-                    onTap: _submit,
-                    child: const Icon(Icons.search,
-                        size: 16, color: WynColors.mutedNeutral),
+                IconButton(
+                  onPressed: _submit,
+                  tooltip: 'ค้นหา',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: WynColors.graphite,
                   ),
                 ),
-                const SizedBox(width: WynSpacing.space2),
+                const SizedBox(width: WynSpacing.space1),
                 Expanded(
                   child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
                     autofocus: widget.autofocus,
-                    style: const TextStyle(fontSize: 16, color: WynColors.ink),
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      color: WynColors.ink,
+                      fontWeight: FontWeight.w500,
+                    ),
                     decoration: const InputDecoration(
                       hintText: 'ค้นหา username, โพสต์, Club',
-                      hintStyle: TextStyle(fontSize: 16, color: WynColors.graphite),
+                      hintStyle: TextStyle(
+                        fontSize: 15.5,
+                        color: WynColors.graphite,
+                        fontWeight: FontWeight.w400,
+                      ),
                       border: InputBorder.none,
                       isCollapsed: true,
                     ),
@@ -207,31 +202,51 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                 ),
                 if (_controller.text.isNotEmpty)
-                  Semantics(
-                    label: 'ล้างคำค้นหา',
-                    button: true,
-                    excludeSemantics: true,
-                    child: GestureDetector(
-                      onTap: _clear,
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: WynSpacing.space1),
-                        child: Icon(Icons.close, size: 16, color: WynColors.mutedNeutral),
-                      ),
+                  IconButton(
+                    onPressed: _clear,
+                    tooltip: 'ล้างคำค้นหา',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: WynColors.graphite,
                     ),
                   ),
               ],
             ),
           ),
-          // WYN-040: no reason for the TabBar to stick around while
-          // Discovery shows instead of the result tabs it would flip
-          // between -- both come/go together, not just the body.
           bottom: _showDiscovery
-              ? null
+              ? const PreferredSize(
+                  preferredSize: Size.fromHeight(1),
+                  child: Divider(height: 1, color: WynColors.hairline),
+                )
               : const TabBar(
+                  labelColor: WynColors.ink,
+                  unselectedLabelColor: WynColors.graphite,
+                  indicatorColor: WynColors.ink,
+                  indicatorWeight: 2,
+                  dividerColor: WynColors.hairline,
+                  labelStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  unselectedLabelStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                   tabs: [
-                    Tab(icon: Icon(Icons.person_outline), text: 'User'),
-                    Tab(icon: Icon(Icons.grid_view_outlined), text: 'โพสต์'),
-                    Tab(icon: Icon(Icons.groups_outlined), text: 'Club'),
+                    Tab(
+                        icon: Icon(Icons.person_outline_rounded, size: 19),
+                        text: 'User'),
+                    Tab(
+                        icon: Icon(Icons.grid_view_rounded, size: 18),
+                        text: 'โพสต์'),
+                    Tab(
+                        icon: Icon(Icons.groups_outlined, size: 19),
+                        text: 'Club'),
                   ],
                 ),
         ),

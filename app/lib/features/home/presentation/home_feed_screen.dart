@@ -112,7 +112,8 @@ class HomeFeedScreen extends StatefulWidget {
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
 }
 
-class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObserver {
+class _HomeFeedScreenState extends State<HomeFeedScreen>
+    with WidgetsBindingObserver {
   // WYN-100: opens the SideMenu drawer (mirrors
   // notification_list_screen.dart's own _scaffoldKey exactly).
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -336,13 +337,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   // reference's search icon becomes chat, matching what this icon
   // already opens everywhere else in the app (WYN-031).
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          WynSpacing.space2, WynSpacing.space1, WynSpacing.space2, WynSpacing.space1),
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+      decoration: const BoxDecoration(
+        color: WynColors.paper,
+        border: Border(bottom: BorderSide(color: WynColors.hairline)),
+      ),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.menu, size: 20, color: WynColors.ink),
+            icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
             tooltip: 'เมนู',
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
@@ -353,15 +358,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                 children: [
                   Image.asset(
                     'assets/images/wynos_logo_mark.png',
-                    height: 20,
+                    height: 19,
                   ),
                   const SizedBox(width: WynSpacing.space2),
                   Text(
                     'WYNOS',
                     style: WynTypography.screenTitle(
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
+                      letterSpacing: 1.2,
+                      color: WynColors.ink,
                     ),
                   ),
                 ],
@@ -392,8 +398,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                 right: -6,
                 top: -4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
-                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: WynSpacing.space1, vertical: 1),
+                  constraints:
+                      const BoxConstraints(minWidth: 16, minHeight: 16),
                   decoration: BoxDecoration(
                     // Unread badges read as red (colorScheme.error), not
                     // brand sapphire (colorScheme.primary) -- Founder:
@@ -441,9 +449,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
   // `IntrinsicWidth` workaround needed here -- each tab just sizes to
   // its own label.
   Widget _buildFeedModeToggle() {
-    // WYN-140: shortened from "จาก Club ของคุณ" -- Founder asked for a more
-    // compact label. _HomeFeedMode.fromYourClubs itself is unchanged (an
-    // internal id, not user-facing text).
     const labels = {
       _HomeFeedMode.forYou: 'สำหรับคุณ',
       _HomeFeedMode.following: 'ติดตาม',
@@ -451,12 +456,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
     };
 
     return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
+      decoration: const BoxDecoration(
+        color: WynColors.paper,
+        border: Border(bottom: BorderSide(color: WynColors.hairline)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -477,14 +479,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
 
   Widget _buildFeedModeTab(_HomeFeedMode mode, String label) {
     final selected = mode == _feedMode;
-    final colorScheme = Theme.of(context).colorScheme;
-    final textStyle = (Theme.of(context).textTheme.bodyMedium ??
-            const TextStyle())
-        .copyWith(
-      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-      color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
-    );
-
     return Semantics(
       label: label,
       selected: selected,
@@ -502,23 +496,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: textStyle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? WynColors.ink : WynColors.graphite,
+                  ),
                 ),
                 const SizedBox(height: WynSpacing.space1),
-                // Reserves the same 2px of height whether selected or
-                // not (opacity-only animation), so switching tabs never
-                // shifts the row's height -- same approach the old
-                // strip indicator used.
-                //
-                // WYN-140: duration/curve on the shared DS-010 motion
-                // tokens (220ms, respects reduced-motion). This toggle
-                // row has been through 4 rounds of overflow/wrapping
-                // fixes (see WYN-024's history in this file and in
-                // home_feed_screen_test.dart); a literal
-                // position-tracking sliding indicator remains a
-                // follow-up, not this fade -- see PageView's own drag
-                // now for the "does it feel like it's really sliding"
-                // part of that ask.
                 AnimatedOpacity(
                   duration: WynMotion.duration(context, WynMotion.standard),
                   curve: WynMotion.enter,
@@ -527,9 +511,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> with WidgetsBindingObse
                     key: selected ? const Key('active_segment_accent') : null,
                     height: 2,
                     decoration: const BoxDecoration(
-                      gradient: WynColors.rainbowAccent,
+                      color: WynColors.ink,
                       borderRadius: BorderRadius.all(
-                          Radius.circular(WynSpacing.radiusFull)),
+                        Radius.circular(WynSpacing.radiusFull),
+                      ),
                     ),
                   ),
                 ),

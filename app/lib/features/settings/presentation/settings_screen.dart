@@ -183,101 +183,119 @@ class SettingsScreen extends StatelessWidget {
       backgroundColor: WynColors.paper,
       appBar: AppBar(
         backgroundColor: WynColors.paper,
+        surfaceTintColor: WynColors.paper,
+        elevation: 0,
         centerTitle: true,
+        toolbarHeight: 64,
         leading: IconButton(
-          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          icon: const Icon(Icons.chevron_left_rounded,
+              size: 26, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ตั้งค่า', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
+        title: Text(
+          'ตั้งค่า',
+          style: WynTypography.screenTitle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: WynColors.ink,
+          ),
+        ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
         ),
       ),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: WynSpacing.space6),
         children: [
           const _GroupLabel('บัญชี'),
-          _SettingsRow(
-            icon: Icons.person_outline,
-            label: 'บัญชี',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => _AccountManagementScreen(
-                  platformRole: platformRole,
-                  dataRightsRepository: dataRightsRepository,
+          _SettingsSection(
+            children: [
+              _SettingsRow(
+                icon: Icons.person_outline_rounded,
+                label: 'บัญชี',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => _AccountManagementScreen(
+                      platformRole: platformRole,
+                      dataRightsRepository: dataRightsRepository,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          _SettingsRow(
-            icon: Icons.lock_outline,
-            label: 'ความเป็นส่วนตัว',
-            isLast: true,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => _PrivacyScreen(
-                  isPrivate: isPrivate,
-                  dmPermission: dmPermission,
-                  mentionPermission: mentionPermission,
-                  commentPermission: commentPermission,
-                  likesVisibility: likesVisibility,
-                  profileRepository: profileRepository,
-                  followRepository: followRepository,
-                  presenceRepository: presenceRepository,
+              _SettingsRow(
+                icon: Icons.lock_outline_rounded,
+                label: 'ความเป็นส่วนตัว',
+                isLast: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => _PrivacyScreen(
+                      isPrivate: isPrivate,
+                      dmPermission: dmPermission,
+                      mentionPermission: mentionPermission,
+                      commentPermission: commentPermission,
+                      likesVisibility: likesVisibility,
+                      profileRepository: profileRepository,
+                      followRepository: followRepository,
+                      presenceRepository: presenceRepository,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
           const _GroupLabel('การตั้งค่าแอป'),
-          _SettingsRow(
-            icon: Icons.notifications_outlined,
-            label: 'การแจ้งเตือน',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => NotificationSettingsScreen(
-                notificationSettingsRepository:
-                    NotificationSettingsRepository(Supabase.instance.client),
+          _SettingsSection(
+            children: [
+              _SettingsRow(
+                icon: Icons.notifications_none_rounded,
+                label: 'การแจ้งเตือน',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => NotificationSettingsScreen(
+                      notificationSettingsRepository:
+                          NotificationSettingsRepository(
+                              Supabase.instance.client),
+                    ),
+                  ),
+                ),
               ),
-            )),
-          ),
-          const _SettingsRow(
-            icon: Icons.dark_mode_outlined,
-            label: 'ธีมเข้ม',
-            isLast: true,
+              const _SettingsRow(
+                icon: Icons.dark_mode_outlined,
+                label: 'ธีมเข้ม',
+                isLast: true,
+              ),
+            ],
           ),
           const _GroupLabel('ช่วยเหลือ'),
-          const _SettingsRow(
-            icon: Icons.help_outline,
-            label: 'ช่วยเหลือ',
-          ),
-          _SettingsRow(
-            icon: Icons.description_outlined,
-            label: 'ข้อกำหนดและความเป็นส่วนตัว',
-            isLast: true,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const _LegalScreen()),
-            ),
-          ),
-          // ออกจากระบบ -- separated, quieter, extra breathing room above it
-          // (11-settings.tsx: "grouped list pattern... logout... separated,
-          // muted red-free, extra spacing above it so it doesn't blend
-          // into the list above it").
-          Padding(
-            padding: const EdgeInsets.only(top: WynSpacing.space8, bottom: WynSpacing.space8),
-            child: Column(
-              children: [
-                const Divider(height: 1, color: WynColors.hairline),
-                const SizedBox(height: WynSpacing.space2),
-                _SettingsRow(
-                  icon: Icons.logout,
-                  label: 'ออกจากระบบ',
-                  isLast: true,
-                  contentColor: WynColors.graphite,
-                  onTap: () => _confirmSignOut(context),
+          _SettingsSection(
+            children: [
+              const _SettingsRow(
+                icon: Icons.help_outline_rounded,
+                label: 'ช่วยเหลือ',
+              ),
+              _SettingsRow(
+                icon: Icons.description_outlined,
+                label: 'ข้อกำหนดและความเป็นส่วนตัว',
+                isLast: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const _LegalScreen()),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          // WYN-126: version label, always the last thing on the page.
+          const SizedBox(height: WynSpacing.space3),
+          _SettingsSection(
+            children: [
+              _SettingsRow(
+                icon: Icons.logout_rounded,
+                label: 'ออกจากระบบ',
+                isLast: true,
+                contentColor: WynColors.graphite,
+                onTap: () => _confirmSignOut(context),
+              ),
+            ],
+          ),
           _VersionFooter(developerAccessService: developerAccessService),
         ],
       ),
@@ -338,6 +356,26 @@ class _VersionFooterState extends State<_VersionFooter> {
 
 /// 11-settings.tsx's `GroupLabel` -- same shape as Explore Club's own
 /// section-label component (explore_clubs_screen.dart).
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
+      decoration: BoxDecoration(
+        color: WynColors.paper,
+        border: Border.all(color: WynColors.hairline),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+}
+
 class _GroupLabel extends StatelessWidget {
   const _GroupLabel(this.label);
 
@@ -347,25 +385,23 @@ class _GroupLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space6, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space4,
+        WynSpacing.space3,
+        WynSpacing.space4,
+        WynSpacing.space1,
       ),
       child: Text(
         label,
         style: _textStyle(
           fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: WynColors.mutedNeutral,
-          letterSpacing: 13 * 0.14,
+          fontWeight: FontWeight.w700,
+          color: WynColors.graphite,
         ),
       ),
     );
   }
 }
 
-/// 11-settings.tsx's `Row` -- icon + label + chevron, hairline
-/// border-bottom except on the last row of its group. A row with no
-/// [onTap] renders disabled (muted [WynColors.faint] throughout, no
-/// chevron) -- see this file's own doc comment on "ธีมเข้ม"/"ช่วยเหลือ".
 class _SettingsRow extends StatelessWidget {
   const _SettingsRow({
     required this.icon,
@@ -379,10 +415,6 @@ class _SettingsRow extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final bool isLast;
-
-  /// Overrides the icon+label color for rows that need a quieter look
-  /// than the default ink -- currently only "ออกจากระบบ" (11-settings.tsx's
-  /// own doc comment: "muted red-free", still just graphite text).
   final Color? contentColor;
 
   bool get _enabled => onTap != null;
@@ -390,28 +422,52 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _enabled ? (contentColor ?? WynColors.ink) : WynColors.faint;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6, vertical: 14),
-        decoration: BoxDecoration(
-          border: isLast
-              ? null
-              : const Border(bottom: BorderSide(color: WynColors.hairline)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
-                style: _textStyle(fontSize: 15, fontWeight: FontWeight.w500, color: color),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space4,
+            vertical: WynSpacing.space2,
+          ),
+          decoration: BoxDecoration(
+            border: isLast
+                ? null
+                : const Border(bottom: BorderSide(color: WynColors.hairline)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _enabled ? WynColors.surfaceTint : WynColors.paper,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 19, color: color),
               ),
-            ),
-            if (_enabled)
-              const Icon(Icons.chevron_right, size: 15, color: WynColors.faint),
-          ],
+              const SizedBox(width: WynSpacing.space3),
+              Expanded(
+                child: Text(
+                  label,
+                  style: _textStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+              if (_enabled)
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: WynColors.faint,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -433,12 +489,14 @@ class _AccountManagementScreen extends StatefulWidget {
   final DataRightsRepository? dataRightsRepository;
 
   @override
-  State<_AccountManagementScreen> createState() => _AccountManagementScreenState();
+  State<_AccountManagementScreen> createState() =>
+      _AccountManagementScreenState();
 }
 
 class _AccountManagementScreenState extends State<_AccountManagementScreen> {
   late final DataRightsRepository _dataRightsRepository =
-      widget.dataRightsRepository ?? DataRightsRepository(Supabase.instance.client);
+      widget.dataRightsRepository ??
+          DataRightsRepository(Supabase.instance.client);
   bool _isExporting = false;
 
   /// WYN-047's "ดาวน์โหลดข้อมูลของฉัน" row -- calls export_my_data()
@@ -499,8 +557,8 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
           ListTile(
             leading: const Icon(Icons.swap_horiz),
             title: const Text('สลับบัญชี'),
-            subtitle:
-                const Text('เพิ่มได้สูงสุด ${AccountSwitcherRepository.maxAccounts} บัญชีต่อเครื่อง'),
+            subtitle: const Text(
+                'เพิ่มได้สูงสุด ${AccountSwitcherRepository.maxAccounts} บัญชีต่อเครื่อง'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => showAccountSwitcherSheet(context),
           ),
@@ -910,7 +968,9 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
             subtitle: const Text(
                 'ถ้าปิด คุณจะไม่เห็นสถานะออนไลน์และเข้าใช้งานล่าสุดของคนอื่นด้วยเช่นกัน'),
             value: _showOnline ?? true,
-            onChanged: (_showOnline == null || _isTogglingShowOnline) ? null : _setShowOnline,
+            onChanged: (_showOnline == null || _isTogglingShowOnline)
+                ? null
+                : _setShowOnline,
           ),
           // WYN-099 -- 4th row, its own picker (3 values: ทุกคน/เพื่อน/
           // เฉพาะฉัน -- not InteractionPermission's 3, a different
@@ -1161,7 +1221,8 @@ String _likesVisibilityLabel(LikesVisibility value) => switch (value) {
 
 String _likesVisibilityDescription(LikesVisibility value) => switch (value) {
       LikesVisibility.everyone => 'ค่าเริ่มต้น -- ทุกคนเห็นแท็บถูกใจของคุณได้',
-      LikesVisibility.friends => 'เฉพาะเพื่อน (ติดตามกันทั้งสองทาง) เท่านั้นที่เห็นได้',
+      LikesVisibility.friends =>
+        'เฉพาะเพื่อน (ติดตามกันทั้งสองทาง) เท่านั้นที่เห็นได้',
       LikesVisibility.onlyMe => 'เฉพาะคุณเท่านั้นที่เห็นแท็บนี้',
     };
 
