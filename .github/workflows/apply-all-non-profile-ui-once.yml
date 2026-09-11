@@ -180,4 +180,4 @@ jobs:
             --title "feat: unify all non-profile screens with Profile UI language" \
             --body "Generated from the validated one-shot UI pass. Profile remains unchanged and hidden Pop remains hidden. This PR intentionally does not deploy production; merge and production deployment stay separate release gates."
 
-# retriggered by ChatGPT for Founder-approved completion and production release
+# retriggered after Home narrow-tab fix merge for validated production release
