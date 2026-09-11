@@ -49,9 +49,10 @@ jobs:
         run: |
           # Automated fixes are scoped to Chat only (const + unused imports).
           dart fix --apply lib/features/chat/presentation
-          # Add braces to complete one-line if statements using balanced
-          # parentheses so nested closures such as any((m) => ...) remain intact.
-          # Club is restricted to the real chat widget only; no other Club UI.
+          # Add braces around imperative single-statement ifs. The parser below
+          # balances nested parentheses and supports multiline conditions while
+          # leaving collection-if elements alone (their next line is an expression,
+          # not a semicolon-terminated statement).
           python3 - <<'PY'
           from pathlib import Path
 
@@ -60,47 +61,98 @@ jobs:
               Path('lib/features/club/presentation/widgets/club_channel_chat_view.dart'),
           ]
 
-          for path in targets:
-              text = path.read_text(encoding='utf-8')
-              if path.name == 'club_channel_chat_view.dart':
-                  text = text.replace("import '../../../../core/widgets/action_sheet_row.dart';\n", '')
-
+          def wrap_if_statements(text: str) -> str:
+              lines = text.splitlines()
               out = []
-              for line in text.splitlines():
+              i = 0
+              while i < len(lines):
+                  line = lines[i]
                   stripped = line.lstrip()
                   indent = line[:len(line) - len(stripped)]
                   if not stripped.startswith('if ('):
                       out.append(line)
+                      i += 1
                       continue
 
-                  open_index = line.index('(')
+                  # Find the closing parenthesis for this if condition, across
+                  # as many lines as needed.
                   depth = 0
-                  close_index = None
-                  for index in range(open_index, len(line)):
-                      char = line[index]
-                      if char == '(':
-                          depth += 1
-                      elif char == ')':
-                          depth -= 1
-                          if depth == 0:
-                              close_index = index
-                              break
+                  started = False
+                  close_line = None
+                  close_col = None
+                  for j in range(i, len(lines)):
+                      scan = lines[j]
+                      start_col = scan.find('(') if j == i else 0
+                      if j == i and start_col < 0:
+                          break
+                      for k in range(start_col, len(scan)):
+                          ch = scan[k]
+                          if ch == '(':
+                              depth += 1
+                              started = True
+                          elif ch == ')' and started:
+                              depth -= 1
+                              if depth == 0:
+                                  close_line = j
+                                  close_col = k
+                                  break
+                      if close_line is not None:
+                          break
 
-                  if close_index is None:
+                  if close_line is None:
                       out.append(line)
+                      i += 1
                       continue
 
-                  condition = line[open_index + 1:close_index]
-                  remainder = line[close_index + 1:].strip()
-                  if not remainder or remainder.startswith('{') or not remainder.endswith(';'):
-                      out.append(line)
+                  closing = lines[close_line]
+                  remainder = closing[close_col + 1:].strip()
+
+                  # Same-line statement: if (condition) return;
+                  if remainder and not remainder.startswith('{') and remainder.endswith(';'):
+                      for j in range(i, close_line + 1):
+                          segment = lines[j]
+                          if j == close_line:
+                              segment = segment[:close_col + 1]
+                          out.append(segment)
+                      out[-1] = out[-1] + ' {'
+                      out.append(f'{indent}  {remainder}')
+                      out.append(f'{indent}}}')
+                      i = close_line + 1
                       continue
 
-                  out.append(f'{indent}if ({condition}) {{')
-                  out.append(f'{indent}  {remainder}')
-                  out.append(f'{indent}}}')
+                  # Already braced / same-line collection expression.
+                  if remainder:
+                      out.extend(lines[i:close_line + 1])
+                      i = close_line + 1
+                      continue
 
-              path.write_text('\n'.join(out) + '\n', encoding='utf-8')
+                  # Multiline condition followed by exactly one imperative
+                  # statement. Collection-if expressions (Widget(...), variable
+                  # entries, else branches) do not end in ';' here and are left.
+                  statement_index = close_line + 1
+                  while statement_index < len(lines) and not lines[statement_index].strip():
+                      statement_index += 1
+                  if statement_index < len(lines):
+                      statement = lines[statement_index].strip()
+                      if statement and not statement.startswith('{') and statement.endswith(';'):
+                          out.extend(lines[i:close_line + 1])
+                          out[-1] = out[-1] + ' {'
+                          out.extend(lines[close_line + 1:statement_index])
+                          out.append(f'{indent}  {statement}')
+                          out.append(f'{indent}}}')
+                          i = statement_index + 1
+                          continue
+
+                  out.extend(lines[i:close_line + 1])
+                  i = close_line + 1
+
+              return '\n'.join(out) + '\n'
+
+          for path in targets:
+              text = path.read_text(encoding='utf-8')
+              if path.name == 'club_channel_chat_view.dart':
+                  text = text.replace("import '../../../../core/widgets/action_sheet_row.dart';\n", '')
+              path.write_text(wrap_if_statements(text), encoding='utf-8')
           PY
 
       - name: Format changed Dart files
