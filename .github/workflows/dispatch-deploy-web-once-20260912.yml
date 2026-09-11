@@ -1,17 +1,41 @@
-name: Archived one-shot production dispatcher (2026-09-12)
+name: Production web smoke once (2026-09-12)
 
-# This workflow is intentionally inert. It was used once to dispatch the
-# canonical manual-only deploy-web.yml workflow for the Beta4 DM push fix.
-# Kept as a harmless audit marker because repository file deletion is not
-# available through the current integration. It must not deploy anything.
+# Temporary external smoke gate for the deployed Beta4 DM push fix.
+# It makes no deployment or application changes; it only verifies that the
+# public production origin and Firebase messaging worker are reachable and
+# correctly configured from a clean GitHub-hosted runner.
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
 
 permissions:
   contents: read
 
 jobs:
-  archived:
+  smoke:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Archived one-shot dispatcher; no deployment action."
+      - name: Verify public WYNOS origin
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            https://wynos.online/ -o /tmp/wynos-index.html
+          grep -q '<title>WYNOS Beta</title>' /tmp/wynos-index.html
+          echo 'wynos.online root: OK'
+
+      - name: Verify production Firebase messaging worker
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            https://wynos.online/firebase-messaging-sw.js -o /tmp/firebase-messaging-sw.js
+          grep -q 'onBackgroundMessage' /tmp/firebase-messaging-sw.js
+          grep -q 'showNotification' /tmp/firebase-messaging-sw.js
+          if grep -qE '__FIREBASE_[A-Z_]+__' /tmp/firebase-messaging-sw.js; then
+            echo 'Firebase placeholder remains in production worker' >&2
+            exit 1
+          fi
+          echo 'firebase-messaging-sw.js: OK (configured background handler)'
