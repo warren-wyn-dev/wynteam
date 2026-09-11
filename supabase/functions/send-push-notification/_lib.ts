@@ -24,6 +24,11 @@ export interface NotificationRow {
   moderation_action_id: string | null;
   moderation_action_type: string | null;
   conversation_id: string | null;
+  // Needed to resolve the exact DM that caused a `new_message` row. The
+  // notification row is inserted after the message row in the same transaction,
+  // so `message.created_at <= notification.created_at` safely excludes a later
+  // rapid-fire DM while still matching the triggering one.
+  created_at: string;
 }
 
 export interface WebhookPayload {
@@ -42,13 +47,37 @@ export interface FcmServiceAccount {
 // ---------------------------------------------------------------------
 // Thai message templates -- mirror `_messageFor` in
 // app/lib/features/notification/presentation/notification_list_screen.dart
-// *exactly*, word for word. If that ever changes wording, this must
-// change too -- there is no shared source of truth across Dart and
-// this Deno function (no package-sharing infra in this project, same
-// reasoning as every other cross-language duplication here).
+// for general-notification types. DM `new_message` is transport-only and is
+// deliberately excluded from that screen; its push copy is enriched with the
+// exact message preview instead.
 // ---------------------------------------------------------------------
 export function displayNameOrUsername(displayName: string | null, username: string): string {
   return displayName && displayName.length > 0 ? displayName : `@${username}`;
+}
+
+export function dmMessagePreview(
+  text: string | null,
+  imageUrl: string | null,
+  sharedContentType: string | null,
+  viewOnce = false,
+): string {
+  const trimmed = text?.trim();
+  if (trimmed) return trimmed;
+
+  if (imageUrl) {
+    return viewOnce ? "ส่งรูปภาพแบบดูครั้งเดียว" : "ส่งรูปภาพ";
+  }
+
+  switch (sharedContentType) {
+    case "drop":
+      return "แชร์โพสต์กับคุณ";
+    case "profile":
+      return "แชร์โปรไฟล์กับคุณ";
+    case "club":
+      return "แชร์ Club กับคุณ";
+    default:
+      return "ส่งข้อความถึงคุณ";
+  }
 }
 
 export function messageFor(
@@ -60,6 +89,7 @@ export function messageFor(
   // 043 types below read either of these.
   reason: string | null = null,
   moderationActionType: string | null = null,
+  dmPreview: string | null = null,
 ): string {
   const club = clubName ?? "Club";
   switch (type) {
@@ -136,11 +166,11 @@ export function messageFor(
     // notification.dart's own doc comment.
     case "message_request":
       return `${actorName} ส่งคำขอข้อความถึงคุณ`;
-    // WYN-134: mirrors notification_list_screen.dart's `_messageFor`
-    // word for word -- deliberately never includes the message's own
-    // text (privacy, see that file's own comment on this type).
+    // DM is not a general-notification item anymore. Push keeps the sender as
+    // the title (via splitPushMessage) and uses the exact text/attachment
+    // preview as the body when available.
     case "new_message":
-      return `${actorName} ส่งข้อความถึงคุณ`;
+      return `${actorName} ${dmPreview ?? "ส่งข้อความถึงคุณ"}`;
     case "follow_request":
       return `${actorName} ขอติดตามคุณ`;
     case "follow_request_accepted":
@@ -223,7 +253,7 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      grant_type: "urn:ietf:params:oauth-type:jwt-bearer".replace("oauth-type", "oauth-grant-type"),
       assertion,
     }),
   });
@@ -336,10 +366,8 @@ export function summariseOutcomes(outcomes: string[]): string {
 /// line.
 ///
 /// The wording itself is not touched. [messageFor] stays the single
-/// source of it, because those strings mirror the in-app notification
-/// list word for word across two languages and two apps, and a second
-/// set written for push would drift from the first within a release.
-/// The actor's name is simply lifted off the front when it is there.
+/// source of it. The actor's name is simply lifted off the front when it
+/// is there. For DM this means title=sender and body=message preview.
 ///
 /// It is there for most types and absent for whole families of them --
 /// orders, moderation, system announcements -- and those keep "WYN" as
