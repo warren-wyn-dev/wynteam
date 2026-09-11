@@ -1,41 +1,15 @@
-name: Production web smoke once (2026-09-12)
+name: Archived production web verification (2026-09-12)
 
-# Temporary external smoke gate for the deployed Beta4 DM push fix.
-# It makes no deployment or application changes; it only verifies that the
-# public production origin and Firebase messaging worker are reachable and
-# correctly configured from a clean GitHub-hosted runner.
+# Inert audit marker for the one-shot Beta4 DM push deployment + production
+# smoke verification. It never deploys and never runs automatically.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
 
 jobs:
-  smoke:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify public WYNOS origin
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --retry 5 --retry-all-errors --retry-delay 2 \
-            https://wynos.online/ -o /tmp/wynos-index.html
-          grep -q '<title>WYNOS Beta</title>' /tmp/wynos-index.html
-          echo 'wynos.online root: OK'
-
-      - name: Verify production Firebase messaging worker
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --retry 5 --retry-all-errors --retry-delay 2 \
-            https://wynos.online/firebase-messaging-sw.js -o /tmp/firebase-messaging-sw.js
-          grep -q 'onBackgroundMessage' /tmp/firebase-messaging-sw.js
-          grep -q 'showNotification' /tmp/firebase-messaging-sw.js
-          if grep -qE '__FIREBASE_[A-Z_]+__' /tmp/firebase-messaging-sw.js; then
-            echo 'Firebase placeholder remains in production worker' >&2
-            exit 1
-          fi
-          echo 'firebase-messaging-sw.js: OK (configured background handler)'
+      - run: echo "Archived one-shot production verification; no deployment action."
