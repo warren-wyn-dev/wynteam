@@ -1,34 +1,12 @@
-name: One-shot production chat UI smoke (2026-09-12)
+name: Archived production chat UI verification (2026-09-12)
 
+# Archived after the production smoke completed successfully. This workflow is
+# intentionally manual-only and performs no deployment or production mutation.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/dispatch-deploy-web-once-20260912.yml
-
-permissions:
-  contents: read
+  workflow_dispatch: {}
 
 jobs:
-  smoke:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify WYNOS production root and chat UI bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --location --retry 5 --retry-delay 2 https://wynos.online/ -o /tmp/index.html
-          grep -F '<title>WYNOS Beta</title>' /tmp/index.html
-
-          curl --fail --silent --show-error --location --retry 5 --retry-delay 2 https://wynos.online/main.dart.js -o /tmp/main.dart.js
-          grep -F 'chat_threads_tabs' /tmp/main.dart.js
-
-          curl --fail --silent --show-error --location --retry 5 --retry-delay 2 https://wynos.online/firebase-messaging-sw.js -o /tmp/firebase-messaging-sw.js
-          grep -F 'showNotification' /tmp/firebase-messaging-sw.js
-          if grep -qE '__FIREBASE_[A-Z_]+__' /tmp/firebase-messaging-sw.js; then
-            echo 'Firebase placeholder remained in production service worker'
-            exit 1
-          fi
-
-          echo 'Production chat UI smoke passed.'
+      - run: echo "Archived production verification; no deployment action."
