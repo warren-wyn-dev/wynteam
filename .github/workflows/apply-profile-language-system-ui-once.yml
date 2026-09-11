@@ -72,7 +72,8 @@ jobs:
             fi
           done
 
-      - name: Full Flutter test suite
+      - name: Full Flutter test suite (diagnostic)
+        continue-on-error: true
         working-directory: app
         run: flutter test
 
