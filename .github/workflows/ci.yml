@@ -45,6 +45,8 @@ jobs:
 
       - run: flutter pub get
       - run: flutter analyze
+      - name: Push reliability regression
+        run: flutter test test/push_reliability_controller_test.dart
       - run: flutter test
 
   admin:
