@@ -54,7 +54,8 @@ class ChatMediaViewer extends StatelessWidget {
                     shape: const CircleBorder(),
                     child: IconButton(
                       key: const Key('chat_media_close_button'),
-                      icon: const Icon(Icons.close, color: WynColors.paper, size: 21),
+                      icon: const Icon(Icons.close,
+                          color: WynColors.paper, size: 21),
                       tooltip: 'ปิด',
                       onPressed: () => Navigator.of(context).pop(),
                     ),

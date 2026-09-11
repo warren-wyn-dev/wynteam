@@ -31,7 +31,8 @@ class MessageRequestListScreen extends StatefulWidget {
   final PresenceRepository? presenceRepository;
 
   @override
-  State<MessageRequestListScreen> createState() => _MessageRequestListScreenState();
+  State<MessageRequestListScreen> createState() =>
+      _MessageRequestListScreenState();
 }
 
 class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
@@ -70,7 +71,8 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
       _error = null;
     });
     try {
-      final requests = await widget.chatRepository.fetchMessageRequests(page: 0);
+      final requests =
+          await widget.chatRepository.fetchMessageRequests(page: 0);
       if (!mounted) return;
       setState(() {
         _requests
@@ -90,7 +92,8 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final requests = await widget.chatRepository.fetchMessageRequests(page: nextPage);
+      final requests =
+          await widget.chatRepository.fetchMessageRequests(page: nextPage);
       if (!mounted) return;
       setState(() {
         _requests.addAll(requests);
@@ -142,11 +145,31 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
         ),
         title: const Text(
           'คำขอข้อความ',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
+          style: TextStyle(
+              fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
         ),
         bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: WynColors.hairline),
+          preferredSize: Size.fromHeight(46),
+          child: Column(
+            children: [
+              Divider(height: 1, color: WynColors.hairline),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  WynSpacing.space4,
+                  WynSpacing.space2,
+                  WynSpacing.space4,
+                  WynSpacing.space2,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'ข้อความจากคนที่คุณยังไม่ได้เริ่มแชทด้วยจะอยู่ที่นี่',
+                    style: TextStyle(fontSize: 12.5, color: WynColors.graphite),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       body: _buildBody(),
@@ -155,7 +178,8 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
 
   Widget _buildBody() {
     if (_isLoadingInitial) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: WynColors.ink));
     }
 
     if (_error != null) {
@@ -264,15 +288,33 @@ class _MessageRequestRow extends StatelessWidget {
                       _preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, color: WynColors.graphite),
+                      style: const TextStyle(
+                          fontSize: 14, color: WynColors.graphite),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: WynSpacing.space2),
-              Text(
-                time,
-                style: const TextStyle(fontSize: 12.5, color: WynColors.graphite),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    time,
+                    style: const TextStyle(
+                        fontSize: 12.5, color: WynColors.graphite),
+                  ),
+                  const SizedBox(height: 5),
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      color: WynColors.surfaceTint,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.chevron_right,
+                        size: 17, color: WynColors.ink),
+                  ),
+                ],
               ),
             ],
           ),

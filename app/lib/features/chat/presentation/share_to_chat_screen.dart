@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
+import '../../../core/widgets/empty_state_block.dart';
 import '../../profile/data/profile.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/chat_repository.dart';
 import '../data/conversation.dart';
 import '../data/shared_content_type.dart';
+import 'widgets/chat_ui.dart';
 
 /// Screen 3 (WYN-033) -- pick a conversation (existing or new, via
 /// search) to send a shared Drop/Profile/Club into. See
@@ -124,7 +127,8 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
     if (_isSending) return;
     setState(() => _isSending = true);
     try {
-      final conversationId = await widget.chatRepository.getOrCreateConversation(otherUserId);
+      final conversationId =
+          await widget.chatRepository.getOrCreateConversation(otherUserId);
       await _doSend(conversationId);
     } catch (_) {
       if (!mounted) return;
@@ -159,28 +163,80 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('แชร์เข้า Chat')),
+      backgroundColor: WynColors.paper,
+      appBar: AppBar(
+        backgroundColor: WynColors.paper,
+        surfaceTintColor: WynColors.paper,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: 58,
+        titleSpacing: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'แชร์เข้า Chat',
+          style: TextStyle(
+              fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
+      ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-            child: Text(
-              widget.previewLabel,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+            padding: const EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space3,
+              WynSpacing.space4,
+              WynSpacing.space2,
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space3,
+                vertical: WynSpacing.space2,
+              ),
+              decoration: BoxDecoration(
+                color: WynColors.surfaceTint,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.send_outlined,
+                      size: 17, color: WynColors.ink),
+                  const SizedBox(width: WynSpacing.space2),
+                  Expanded(
+                    child: Text(
+                      widget.previewLabel,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          const TextStyle(fontSize: 13.5, color: WynColors.ink),
+                    ),
                   ),
+                ],
+              ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-            child: TextField(
+            child: ChatSearchField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                hintText: 'ค้นหาผู้ใช้...',
-                prefixIcon: Icon(Icons.search),
-              ),
+              hintText: 'ค้นหาคนหรือชื่อผู้ใช้...',
+              onChanged: (_) => setState(() {}),
+              onClear: () {
+                _searchController.clear();
+                setState(() => _searchResults = []);
+              },
             ),
           ),
+          if (_isSending)
+            const LinearProgressIndicator(minHeight: 2, color: WynColors.ink),
           const SizedBox(height: WynSpacing.space2),
           Expanded(child: _buildBody()),
         ],
@@ -192,75 +248,177 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
     if (!_queryTooShort) return _buildSearchResults();
 
     if (_isLoadingConversations) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: WynColors.ink));
     }
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
-            const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadConversations, child: const Text('ลองใหม่')),
+            const Icon(Icons.error_outline,
+                size: 28, color: WynColors.graphite),
+            const SizedBox(height: WynSpacing.space2),
+            Text(_error!, style: const TextStyle(color: WynColors.graphite)),
+            const SizedBox(height: WynSpacing.space2),
+            TextButton(
+                onPressed: _loadConversations, child: const Text('ลองใหม่')),
           ],
         ),
       );
     }
     if (_conversations.isEmpty) {
       return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text('ยังไม่มีบทสนทนา — ค้นหาผู้ใช้เพื่อเริ่มแชร์', textAlign: TextAlign.center),
+        child: EmptyStateBlock(
+          icon: Icons.forum_outlined,
+          title: 'ยังไม่มีบทสนทนา',
+          subtitle: 'ค้นหาผู้ใช้ด้านบนเพื่อเริ่มแชร์',
         ),
       );
     }
 
     return ListView.builder(
-      itemCount: _conversations.length,
+      padding: const EdgeInsets.only(bottom: WynSpacing.space4),
+      itemCount: _conversations.length + 1,
       itemBuilder: (context, index) {
-        final conversation = _conversations[index];
-        final displayName = conversation.otherDisplayName?.isNotEmpty == true
-            ? conversation.otherDisplayName!
-            : '@${conversation.otherUsername}';
-        return ListTile(
-          leading: AvatarCircle(
-            imageUrl: conversation.otherAvatarUrl,
-            fallbackText: displayName,
-            radius: 20,
-          ),
-          title: Text(displayName),
-          enabled: !_isSending,
-          onTap: () => _sendToExisting(conversation.id),
-        );
+        if (index == 0) {
+          return const Padding(
+            padding: EdgeInsets.fromLTRB(
+              WynSpacing.space4,
+              WynSpacing.space3,
+              WynSpacing.space4,
+              WynSpacing.space2,
+            ),
+            child: ChatSectionLabel('บทสนทนาล่าสุด'),
+          );
+        }
+        return _buildConversationRow(_conversations[index - 1]);
       },
     );
   }
 
   Widget _buildSearchResults() {
     if (_isSearching) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: WynColors.ink));
     }
     if (_searchResults.isEmpty) {
-      return const Center(child: Text('ไม่พบผู้ใช้'));
+      return const Center(
+        child: EmptyStateBlock(
+          icon: Icons.person_search_outlined,
+          title: 'ไม่พบผู้ใช้',
+          subtitle: 'ลองค้นหาด้วยชื่อหรือ @username อื่น',
+        ),
+      );
     }
     return ListView.builder(
+      padding: const EdgeInsets.only(bottom: WynSpacing.space4),
       itemCount: _searchResults.length,
-      itemBuilder: (context, index) {
-        final profile = _searchResults[index];
-        final displayName =
-            profile.displayName?.isNotEmpty == true ? profile.displayName! : '@${profile.username}';
-        return ListTile(
-          leading: AvatarCircle(
-            imageUrl: profile.avatarUrl,
-            fallbackText: displayName,
-            radius: 20,
-          ),
-          title: Text(displayName),
-          subtitle: Text('@${profile.username}'),
-          enabled: !_isSending,
-          onTap: () => _sendToNewConversation(profile.id),
-        );
-      },
+      itemBuilder: (context, index) => _buildProfileRow(_searchResults[index]),
+    );
+  }
+
+  Widget _buildConversationRow(Conversation conversation) {
+    final displayName = conversation.otherDisplayName?.isNotEmpty == true
+        ? conversation.otherDisplayName!
+        : '@${conversation.otherUsername}';
+    return InkWell(
+      onTap: _isSending ? null : () => _sendToExisting(conversation.id),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space4, vertical: 10),
+        child: Row(
+          children: [
+            AvatarCircle(
+              imageUrl: conversation.otherAvatarUrl,
+              fallbackText: displayName,
+              radius: 23,
+              ring: false,
+            ),
+            const SizedBox(width: WynSpacing.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: WynColors.ink,
+                    ),
+                  ),
+                  Text(
+                    '@${conversation.otherUsername}',
+                    style: const TextStyle(
+                        fontSize: 13, color: WynColors.graphite),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: const BoxDecoration(
+                color: WynColors.surfaceTint,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.arrow_upward,
+                  size: 17, color: WynColors.ink),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileRow(Profile profile) {
+    final displayName = profile.displayName?.isNotEmpty == true
+        ? profile.displayName!
+        : '@${profile.username}';
+    return InkWell(
+      onTap: _isSending ? null : () => _sendToNewConversation(profile.id),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space4, vertical: 10),
+        child: Row(
+          children: [
+            AvatarCircle(
+              imageUrl: profile.avatarUrl,
+              fallbackText: displayName,
+              radius: 23,
+              ring: false,
+            ),
+            const SizedBox(width: WynSpacing.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: WynColors.ink,
+                    ),
+                  ),
+                  Text(
+                    '@${profile.username}',
+                    style: const TextStyle(
+                        fontSize: 13, color: WynColors.graphite),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 18, color: WynColors.graphite),
+          ],
+        ),
+      ),
     );
   }
 }

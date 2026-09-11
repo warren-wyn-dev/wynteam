@@ -13,6 +13,7 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/chat_repository.dart';
 import 'conversation_screen.dart';
+import 'widgets/chat_ui.dart';
 
 /// 17-new-message.tsx -- reached by tapping the pencil icon on the Chat
 /// Inbox header (chat_inbox_screen.dart's own doc comment named this
@@ -107,8 +108,8 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
 
   Future<void> _loadFollowing() async {
     try {
-      final profiles =
-          await widget.followRepository.fetchFollowing(userId: _myUserId, page: 0);
+      final profiles = await widget.followRepository
+          .fetchFollowing(userId: _myUserId, page: 0);
       if (!mounted) return;
       setState(() {
         _following
@@ -145,8 +146,8 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
       _searchError = null;
     });
     try {
-      final results = await widget.profileRepository
-          .searchProfiles(query: _query, page: 0);
+      final results =
+          await widget.profileRepository.searchProfiles(query: _query, page: 0);
       if (!mounted) return;
       setState(() {
         _searchResults
@@ -189,10 +190,12 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
       // tapping a non-allowlisted person). Same specific message as
       // ViewProfileScreen's identical catch, so the reason reads the
       // same everywhere it can occur.
-      final message = e is PostgrestException && e.message.contains('temporarily closed for testing')
+      final message = e is PostgrestException &&
+              e.message.contains('temporarily closed for testing')
           ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
           : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
     }
@@ -216,7 +219,8 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
         ),
         title: const Text(
           'ข้อความใหม่',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
+          style: TextStyle(
+              fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -224,7 +228,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
         ),
       ),
       body: !_lockCheckDone
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: WynColors.ink))
           : _isLocked
               ? const Center(
                   child: EmptyStateBlock(
@@ -236,9 +240,12 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
               : Column(
                   children: [
                     _buildSearchBar(),
-                    if (_isStartingChat) const LinearProgressIndicator(minHeight: 2),
+                    if (_isStartingChat)
+                      const LinearProgressIndicator(minHeight: 2),
                     Expanded(
-                      child: _showSearchResults ? _buildSearchResults() : _buildFollowingList(),
+                      child: _showSearchResults
+                          ? _buildSearchResults()
+                          : _buildFollowingList(),
                     ),
                   ],
                 ),
@@ -248,59 +255,28 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space3, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space4,
+        WynSpacing.space3,
+        WynSpacing.space4,
+        WynSpacing.space2,
       ),
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-        decoration: BoxDecoration(
-          color: WynColors.surfaceTint,
-          borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
-          border: Border.all(color: WynColors.hairline),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.search, size: 15, color: WynColors.mutedNeutral),
-            const SizedBox(width: WynSpacing.space2),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                style: _textStyle(fontSize: 16, color: WynColors.ink),
-                decoration: InputDecoration(
-                  hintText: 'ค้นหาผู้ใช้',
-                  hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
-                  border: InputBorder.none,
-                  isCollapsed: true,
-                ),
-                onChanged: _onQueryChanged,
-              ),
-            ),
-            if (_searchController.text.isNotEmpty)
-              Semantics(
-                label: 'ล้างคำค้นหา',
-                button: true,
-                excludeSemantics: true,
-                child: GestureDetector(
-                  onTap: () {
-                    _debounceTimer?.cancel();
-                    _searchController.clear();
-                    setState(() => _query = '');
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: WynSpacing.space1),
-                    child: Icon(Icons.close, size: 16, color: WynColors.mutedNeutral),
-                  ),
-                ),
-              ),
-          ],
-        ),
+      child: ChatSearchField(
+        controller: _searchController,
+        hintText: 'ค้นหาผู้ใช้...',
+        onChanged: _onQueryChanged,
+        onClear: () {
+          _debounceTimer?.cancel();
+          _searchController.clear();
+          setState(() => _query = '');
+        },
       ),
     );
   }
 
   Widget _buildFollowingList() {
     if (_isLoadingFollowing) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: WynColors.ink));
     }
     if (_following.isEmpty) {
       return Center(
@@ -316,18 +292,14 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
     }
     return ListView(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            WynSpacing.space6, WynSpacing.space4, WynSpacing.space6, WynSpacing.space2,
+        const Padding(
+          padding: EdgeInsets.fromLTRB(
+            WynSpacing.space6,
+            WynSpacing.space4,
+            WynSpacing.space6,
+            WynSpacing.space2,
           ),
-          child: Text(
-            'ติดตามอยู่',
-            style: _textStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: WynColors.graphite,
-            ),
-          ),
+          child: ChatSectionLabel('ติดตามอยู่'),
         ),
         for (final profile in _following) _buildPersonRow(profile),
       ],
@@ -336,7 +308,8 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
 
   Widget _buildSearchResults() {
     if (_isSearching) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: WynColors.ink));
     }
     if (_searchError != null) {
       return Center(
@@ -359,7 +332,9 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
       );
     }
     return ListView(
-      children: [for (final profile in _searchResults) _buildPersonRow(profile)],
+      children: [
+        for (final profile in _searchResults) _buildPersonRow(profile)
+      ],
     );
   }
 
@@ -375,7 +350,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
         onTap: () => _openChat(profile),
         child: Padding(
           padding: const EdgeInsets.symmetric(
-              horizontal: WynSpacing.space6, vertical: WynSpacing.space3 - 2),
+              horizontal: WynSpacing.space4, vertical: 10),
           child: Row(
             children: [
               AvatarCircle(
@@ -390,11 +365,15 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
                 children: [
                   Text(
                     displayName,
-                    style: _textStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: WynColors.ink),
+                    style: _textStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                        color: WynColors.ink),
                   ),
                   Text(
                     '@${profile.username}',
-                    style: _textStyle(fontSize: 13.5, color: WynColors.graphite),
+                    style:
+                        _textStyle(fontSize: 13.5, color: WynColors.graphite),
                   ),
                 ],
               ),

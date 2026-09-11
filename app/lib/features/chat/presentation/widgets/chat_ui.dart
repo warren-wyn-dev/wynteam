@@ -96,7 +96,8 @@ class ChatSearchField extends StatelessWidget {
                 isCollapsed: true,
               ).copyWith(
                 hintText: hintText,
-                hintStyle: const TextStyle(fontSize: 15.5, color: WynColors.mutedNeutral),
+                hintStyle: const TextStyle(
+                    fontSize: 15.5, color: WynColors.mutedNeutral),
               ),
               onChanged: onChanged,
             ),
@@ -201,7 +202,8 @@ class ChatActionSheetBody extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           subtitle!,
-                          style: const TextStyle(fontSize: 13, color: WynColors.graphite),
+                          style: const TextStyle(
+                              fontSize: 13, color: WynColors.graphite),
                         ),
                       ],
                     ],
