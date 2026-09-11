@@ -8,10 +8,10 @@ on:
 
 permissions:
   contents: write
-  actions: write
+  pull-requests: write
 
 jobs:
-  audit-style-test-deploy:
+  audit-style-test-stage:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -93,33 +93,29 @@ jobs:
           test -s .wyn/docs/qa/non-profile-system-ui-audit.md
           grep -q 'Protected and intentionally untouched: `app/lib/features/profile/\*\*`' .wyn/docs/qa/non-profile-system-ui-audit.md
 
-      - name: Commit validated all-page UI pass
+      - name: Stage validated UI pass on review branch
+        id: stage
         run: |
+          BRANCH="ui/non-profile-system-refresh-${GITHUB_RUN_ID}"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           rm -f tools/apply_all_non_profile_ui.py
           rm -f tools/apply_all_non_profile_ui_v2.py
           rm -f .github/workflows/apply-all-non-profile-ui-once.yml
           rm -f full_flutter_test.log
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
           git add -A
           git commit -m "feat: unify all non-profile screens with Profile UI language"
-          git push origin HEAD:main
+          git push --set-upstream origin "$BRANCH"
 
-      - name: Deploy production
+      - name: Open review PR
         env:
           GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.stage.outputs.branch }}
         run: |
-          SHA=$(git rev-parse HEAD)
-          gh workflow run deploy-web.yml --ref main
-          RUN_ID=""
-          for i in $(seq 1 80); do
-            RUN_ID=$(gh run list --workflow deploy-web.yml --branch main --event workflow_dispatch --limit 30 --json databaseId,headSha --jq ".[] | select(.headSha == \"$SHA\") | .databaseId" | head -n1)
-            if [ -n "$RUN_ID" ]; then break; fi
-            sleep 3
-          done
-          if [ -z "$RUN_ID" ]; then
-            echo "::error::Could not find production deploy run for $SHA"
-            exit 1
-          fi
-          echo "Production deploy run: $RUN_ID"
-          gh run watch "$RUN_ID" --exit-status
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "feat: unify all non-profile screens with Profile UI language" \
+            --body "Generated from the validated one-shot UI pass. Profile remains unchanged and hidden Pop remains hidden. This PR intentionally does not deploy production; merge and production deployment stay separate release gates."
