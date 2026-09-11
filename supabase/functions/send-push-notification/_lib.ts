@@ -6,29 +6,19 @@
 export interface NotificationRow {
   id: string;
   recipient_id: string;
-  // Nullable (WYN-029 fix, mirrors WynNotification.actorId in the Dart
-  // client exactly): null only for moderation_warning/
-  // moderation_content_removed and system -- see notification.dart's
-  // own doc comment for why.
   actor_id: string | null;
   type: string;
   drop_id: string | null;
   pop_id: string | null;
   club_id: string | null;
   club_post_id: string | null;
-  // WYN-029/030/032 -- added for the moderation/appeal/message-request
-  // types below. Same columns notification.dart's WynNotification
-  // already reads (reason/moderationActionId/moderationActionType/
-  // conversationId).
   reason: string | null;
   moderation_action_id: string | null;
   moderation_action_type: string | null;
   conversation_id: string | null;
-  // Needed to resolve the exact DM that caused a `new_message` row. The
-  // notification row is inserted after the message row in the same transaction,
-  // so `message.created_at <= notification.created_at` safely excludes a later
-  // rapid-fire DM while still matching the triggering one.
-  created_at: string;
+  // Present on authoritative DB rows. Optional here so historical unit-test
+  // fixtures and webhook-shaped helpers remain source-compatible.
+  created_at?: string;
 }
 
 export interface WebhookPayload {
@@ -44,13 +34,6 @@ export interface FcmServiceAccount {
   project_id: string;
 }
 
-// ---------------------------------------------------------------------
-// Thai message templates -- mirror `_messageFor` in
-// app/lib/features/notification/presentation/notification_list_screen.dart
-// for general-notification types. DM `new_message` is transport-only and is
-// deliberately excluded from that screen; its push copy is enriched with the
-// exact message preview instead.
-// ---------------------------------------------------------------------
 export function displayNameOrUsername(displayName: string | null, username: string): string {
   return displayName && displayName.length > 0 ? displayName : `@${username}`;
 }
@@ -84,9 +67,6 @@ export function messageFor(
   type: string,
   actorName: string,
   clubName: string | null,
-  // Optional/trailing so every existing call site (and every existing
-  // test) keeps compiling unchanged -- only the WYN-029/030/032/034/039/
-  // 043 types below read either of these.
   reason: string | null = null,
   moderationActionType: string | null = null,
   dmPreview: string | null = null,
@@ -148,9 +128,6 @@ export function messageFor(
       return `อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ${reason ?? ""}`;
     case "message_request":
       return `${actorName} ส่งคำขอข้อความถึงคุณ`;
-    // DM is not a general-notification item anymore. Push keeps the sender as
-    // the title (via splitPushMessage) and uses the exact text/attachment
-    // preview as the body when available.
     case "new_message":
       return `${actorName} ${dmPreview ?? "ส่งข้อความถึงคุณ"}`;
     case "follow_request":
@@ -164,14 +141,6 @@ export function messageFor(
   }
 }
 
-// ---------------------------------------------------------------------
-// Google OAuth2 JWT-bearer flow -- mints an FCM v1-scoped access token
-// from the service account's private key. Deno's Web Crypto
-// (crypto.subtle) supports RS256 signing directly with a PKCS8 key,
-// which is exactly the format a Firebase service account JSON's
-// `private_key` field already is (PEM-encoded PKCS8) -- no external
-// JWT/OAuth library needed.
-// ---------------------------------------------------------------------
 export function base64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -221,7 +190,6 @@ export async function buildSignedJwtAssertion(
 
 export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Promise<string> {
   const assertion = await buildSignedJwtAssertion(serviceAccount, Math.floor(Date.now() / 1000));
-
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
