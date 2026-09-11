@@ -1,6 +1,7 @@
 name: Apply all non-profile UX UI on review branch
 
 # Review-branch staging only. Production merge/deploy remains a separate gate.
+# Validation pass includes manual guards for interaction-heavy detail screens.
 on:
   push:
     branches:
