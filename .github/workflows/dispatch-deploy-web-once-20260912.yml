@@ -1,15 +1,22 @@
-name: Archived production DM reliability verification (2026-09-12)
+name: Dispatch DM notification routing production deploy (2026-09-12)
 
-# Inert audit marker for the one-shot Beta4 DM notification deployment and
-# production smoke checks. It never deploys and never runs automatically.
+# One-shot bridge: dispatch the canonical manual-only production workflow once
+# for the merged Beta4 DM routing/content fix, then archive this file again.
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
 
 permissions:
+  actions: write
   contents: read
 
 jobs:
-  archived:
+  dispatch:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Archived production verification; no deployment action."
+      - name: Dispatch canonical production web deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-web.yml --repo "${{ github.repository }}" --ref main
