@@ -1,25 +1,24 @@
-name: Apply all non-profile UX UI once
+name: Apply all non-profile UX UI on review branch
 
 on:
   push:
-    branches: [main]
+    branches:
+      - ui/wynos-system-ui-harmonization-20260911
     paths:
       - .github/workflows/apply-all-non-profile-ui-once.yml
-      - tools/apply_all_non_profile_ui.py
-      - tools/apply_all_non_profile_ui_v2.py
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   audit-style-test-stage:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ui/wynos-system-ui-harmonization-20260911
           fetch-depth: 0
 
       - name: Capture protected feature trees
@@ -65,9 +64,6 @@ jobs:
 
       - name: Flutter analyze
         working-directory: app
-        # Keep analyzer errors and warnings release-blocking. The repository has
-        # a small number of pre-existing style-only info diagnostics, so those
-        # do not block this one-shot UI rollout.
         run: flutter analyze --no-fatal-infos
 
       - name: Non-profile screen regression tests
@@ -84,43 +80,21 @@ jobs:
             flutter test "$testfile"
           done
 
-      - name: Full Flutter test suite diagnostic
-        working-directory: app
-        run: |
-          set +e
-          flutter test 2>&1 | tee ../full_flutter_test.log
-          status=${PIPESTATUS[0]}
-          echo "Full suite status: $status"
-          exit 0
-
       - name: Verify coverage audit exists
         run: |
           test -s .wyn/docs/qa/non-profile-system-ui-audit.md
           grep -q 'Protected and intentionally untouched: `app/lib/features/profile/\*\*`' .wyn/docs/qa/non-profile-system-ui-audit.md
 
-      - name: Stage validated UI pass on review branch
-        id: stage
+      - name: Commit validated system pass to review branch
         run: |
-          BRANCH="ui/non-profile-system-refresh-${GITHUB_RUN_ID}"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          rm -f tools/apply_all_non_profile_ui.py
-          rm -f tools/apply_all_non_profile_ui_v2.py
-          rm -f .github/workflows/apply-all-non-profile-ui-once.yml
-          rm -f full_flutter_test.log
+          test -z "$(git status --porcelain -- app/lib/features/profile)"
+          test -z "$(git status --porcelain -- app/lib/features/pop)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$BRANCH"
-          git add -A
-          git commit -m "feat: unify all non-profile screens with Profile UI language"
-          git push --set-upstream origin "$BRANCH"
-
-      - name: Open review PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ steps.stage.outputs.branch }}
-        run: |
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "feat: unify all non-profile screens with Profile UI language" \
-            --body "Generated from the validated one-shot UI pass. Profile remains unchanged and hidden Pop remains hidden. This PR intentionally does not deploy production; merge and production deployment stay separate release gates."
+          git add app/lib/features .wyn/docs/qa/non-profile-system-ui-audit.md
+          if git diff --cached --quiet; then
+            echo "No system-pass changes to commit."
+            exit 0
+          fi
+          git commit -m "feat: harmonize all non-profile presentation surfaces"
+          git push origin HEAD:ui/wynos-system-ui-harmonization-20260911
