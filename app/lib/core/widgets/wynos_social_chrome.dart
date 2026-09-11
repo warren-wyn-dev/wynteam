@@ -18,6 +18,7 @@ class WynosSocialChrome {
   static const double tabHeight = 52;
   static const double contentRailMaxWidth = 680;
   static const double searchHeight = 44;
+  static const double actionExtent = WynSpacing.touchTargetRecommended;
 }
 
 /// Keeps phone layouts edge-to-edge while preventing Flutter Web/Desktop
@@ -48,9 +49,9 @@ class WynosContentRail extends StatelessWidget {
   }
 }
 
-/// One header contract for top-level social screens. Leading and trailing
-/// slots are fixed to the recommended 48px Material interaction width so the
-/// title stays optically centered even when the two actions differ.
+/// One header contract for top-level and pushed social screens. Leading and
+/// trailing slots are fixed to 48px so titles remain optically centered even
+/// when the two actions have different glyph widths.
 class WynosSocialHeader extends StatelessWidget {
   const WynosSocialHeader({
     super.key,
@@ -81,8 +82,8 @@ class WynosSocialHeader extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: WynSpacing.touchTargetRecommended,
-            height: WynSpacing.touchTargetRecommended,
+            width: WynosSocialChrome.actionExtent,
+            height: WynosSocialChrome.actionExtent,
             child: leading,
           ),
           Expanded(
@@ -101,8 +102,8 @@ class WynosSocialHeader extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: WynSpacing.touchTargetRecommended,
-            height: WynSpacing.touchTargetRecommended,
+            width: WynosSocialChrome.actionExtent,
+            height: WynosSocialChrome.actionExtent,
             child: trailing,
           ),
         ],
@@ -111,8 +112,53 @@ class WynosSocialHeader extends StatelessWidget {
   }
 }
 
-/// Text-only tab row used by Home/Notifications and other high-level social
-/// surfaces. Tabs divide the available width evenly, matching the calm,
+/// Standard pushed-screen back action. Keeping this centralized prevents
+/// chevron/arrow glyph and touch-target drift across secondary screens.
+class WynosBackButton extends StatelessWidget {
+  const WynosBackButton({super.key, this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+      onPressed: onPressed ?? () => Navigator.maybePop(context),
+      icon: const Icon(
+        Icons.chevron_left_rounded,
+        size: 26,
+        color: WynColors.ink,
+      ),
+    );
+  }
+}
+
+/// Standard header icon action with the same optical size and semantic touch
+/// target used across Home, Search, Notifications and secondary screens.
+class WynosHeaderAction extends StatelessWidget {
+  const WynosHeaderAction({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 21, color: WynColors.ink),
+    );
+  }
+}
+
+/// Text-only tab row used by Home/Notifications/Chat and other high-level
+/// social surfaces. Tabs divide the available width evenly, matching the calm,
 /// predictable navigation rhythm of Profile and large social platforms.
 class WynosSocialTabs<T> extends StatelessWidget {
   const WynosSocialTabs({
@@ -213,8 +259,9 @@ class _WynosSocialTab<T> extends StatelessWidget {
 }
 
 /// Shared visual treatment for a native Flutter [TabBar] when the screen
-/// needs TabController/TabBarView behavior. Deliberately text-only: icons in
-/// primary tabs add visual noise and make Search feel unlike Home/Profile.
+/// needs TabController/TabBarView behavior. The explicit 52px box is
+/// intentional: PreferredSize alone does not constrain a TabBar used as a
+/// normal Column child, which caused Search and secondary tab screens to drift.
 class WynosSocialTabBar extends StatelessWidget
     implements PreferredSizeWidget {
   const WynosSocialTabBar({
@@ -233,23 +280,26 @@ class WynosSocialTabBar extends StatelessWidget
   Widget build(BuildContext context) {
     return Material(
       color: WynColors.paper,
-      child: TabBar(
-        controller: controller,
-        labelColor: WynColors.ink,
-        unselectedLabelColor: WynColors.graphite,
-        indicatorColor: WynColors.ink,
-        indicatorWeight: 2,
-        indicatorSize: TabBarIndicatorSize.label,
-        dividerColor: WynColors.hairline,
-        labelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
+      child: SizedBox(
+        height: WynosSocialChrome.tabHeight,
+        child: TabBar(
+          controller: controller,
+          labelColor: WynColors.ink,
+          unselectedLabelColor: WynColors.graphite,
+          indicatorColor: WynColors.ink,
+          indicatorWeight: 2,
+          indicatorSize: TabBarIndicatorSize.label,
+          dividerColor: WynColors.hairline,
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          tabs: [for (final label in labels) Tab(text: label)],
         ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-        tabs: [for (final label in labels) Tab(text: label)],
       ),
     );
   }
@@ -274,6 +324,35 @@ class WynosSearchSurface extends StatelessWidget {
         border: Border.all(color: WynColors.hairline),
       ),
       child: child,
+    );
+  }
+}
+
+/// Quiet section label for settings, moderation, lists and secondary tools.
+/// This keeps headings in the content hierarchy instead of looking like a
+/// second app bar.
+class WynosSectionLabel extends StatelessWidget {
+  const WynosSectionLabel(this.label, {super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WynSpacing.space4,
+        WynSpacing.space4,
+        WynSpacing.space4,
+        WynSpacing.space1,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: WynColors.graphite,
+        ),
+      ),
     );
   }
 }
