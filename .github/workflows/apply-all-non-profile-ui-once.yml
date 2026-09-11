@@ -42,19 +42,39 @@ jobs:
           end = text.index('\n  Widget _buildCommentRow', start)
           method = text[start:end]
 
-          opening = "      builder: (context) => SafeArea(\n        child: Padding("
-          if method.count(opening) != 1:
-              raise RuntimeError('Activity Sheet opening changed; refusing an unsafe patch')
-          method = method.replace(
-              opening,
-              "      builder: (context) => SafeArea(\n        child: SingleChildScrollView(\n          child: Padding(",
-              1,
-          )
+          marker = '        child: Padding('
+          if method.count(marker) != 1:
+              raise RuntimeError('Activity Sheet Padding shape changed; refusing an unsafe patch')
+          padding_start = method.index('Padding(', method.index(marker))
+          open_idx = padding_start + len('Padding')
+          depth = 0
+          quote = None
+          i = open_idx
+          close_idx = None
+          while i < len(method):
+              ch = method[i]
+              if quote is not None:
+                  if ch == '\\':
+                      i += 2
+                      continue
+                  if ch == quote:
+                      quote = None
+                  i += 1
+                  continue
+              if ch in ('\"', "'"):
+                  quote = ch
+              elif ch == '(':
+                  depth += 1
+              elif ch == ')':
+                  depth -= 1
+                  if depth == 0:
+                      close_idx = i
+                      break
+              i += 1
+          if close_idx is None:
+              raise RuntimeError('Could not find Activity Sheet Padding close')
 
-          tail = "        ),\n      ),\n    );\n  }"
-          if not method.endswith(tail):
-              raise RuntimeError('Activity Sheet closing changed; refusing an unsafe patch')
-          method = method[:-len(tail)] + "        ),\n        ),\n      ),\n    );\n  }"
+          method = method[:padding_start] + 'SingleChildScrollView(\n          child: ' + method[padding_start:close_idx + 1] + ',\n        )' + method[close_idx + 1:]
           path.write_text(text[:start] + method + text[end:])
 
           audit_path = Path('.wyn/docs/qa/non-profile-system-ui-audit.md')
