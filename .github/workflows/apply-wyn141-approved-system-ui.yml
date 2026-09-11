@@ -1,0 +1,66 @@
+name: Apply WYN-141 approved system UI
+
+on:
+  push:
+    branches: [ui/system-refresh-approved-20260911]
+    paths:
+      - tools/wyn141_system_refresh_approved.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/system-refresh-approved-20260911
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply approved UX/UI codemod
+        working-directory: .
+        run: python3 tools/wyn141_system_refresh_approved.py
+
+      - name: Format touched Dart files
+        working-directory: .
+        run: |
+          dart format \
+            app/lib/core/design/wyn_theme.dart \
+            app/lib/core/design/wynos_founder_metrics.dart \
+            app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart \
+            app/lib/features/home/presentation/home_feed_screen.dart \
+            app/lib/features/search/presentation/search_screen.dart
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+      - name: Commit generated UI changes
+        working-directory: .
+        run: |
+          if git diff --quiet; then
+            echo "No generated changes"
+            exit 0
+          fi
+          git config user.name "wynos-ui-bot"
+          git config user.email "warren.wyn.dev@gmail.com"
+          git add \
+            app/lib/core/design/wyn_theme.dart \
+            app/lib/core/design/wynos_founder_metrics.dart \
+            app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart \
+            app/lib/features/home/presentation/home_feed_screen.dart \
+            app/lib/features/search/presentation/search_screen.dart \
+            .github/workflows/deploy-web.yml \
+            .wyn/tasks/active/WYN-141-frontend-ux-ui-system.md
+          git commit -m "feat: apply approved WYNOS system UI refresh"
+          git push origin HEAD:ui/system-refresh-approved-20260911
