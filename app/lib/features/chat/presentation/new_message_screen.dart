@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
-import '../../../core/design/wyn_typography.dart';
 import '../../../core/widgets/empty_state_block.dart';
 import '../../follow/data/follow_repository.dart';
 import '../../presence/data/presence_repository.dart';
@@ -205,12 +204,20 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
       backgroundColor: WynColors.paper,
       appBar: AppBar(
         backgroundColor: WynColors.paper,
-        centerTitle: true,
+        surfaceTintColor: WynColors.paper,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: 58,
+        titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, size: 20, color: WynColors.ink),
+          icon: const Icon(Icons.close, size: 21, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ข้อความใหม่', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
+        title: const Text(
+          'ข้อความใหม่',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
+        ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -244,7 +251,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
         WynSpacing.space6, WynSpacing.space3, WynSpacing.space6, WynSpacing.space2,
       ),
       child: Container(
-        height: 42,
+        height: 44,
         padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
         decoration: BoxDecoration(
           color: WynColors.surfaceTint,
@@ -318,8 +325,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
             style: _textStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: WynColors.mutedNeutral,
-              letterSpacing: 13 * 0.14,
+              color: WynColors.graphite,
             ),
           ),
         ),
@@ -375,8 +381,8 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
               AvatarCircle(
                 imageUrl: profile.avatarUrl,
                 fallbackText: profile.username,
-                radius: 21,
-                ring: true,
+                radius: 23,
+                ring: false,
               ),
               const SizedBox(width: WynSpacing.space3),
               Column(
@@ -384,11 +390,11 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
                 children: [
                   Text(
                     displayName,
-                    style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
+                    style: _textStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: WynColors.ink),
                   ),
                   Text(
                     '@${profile.username}',
-                    style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
+                    style: _textStyle(fontSize: 13.5, color: WynColors.graphite),
                   ),
                 ],
               ),
