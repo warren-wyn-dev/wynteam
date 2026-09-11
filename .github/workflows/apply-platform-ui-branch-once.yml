@@ -1,0 +1,88 @@
+name: Apply platform UI system on review branch once
+
+on:
+  push:
+    branches: [ui/wynos-platform-system-20260911]
+    paths:
+      - .github/workflows/apply-platform-ui-branch-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-audit-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/wynos-platform-system-20260911
+          fetch-depth: 0
+
+      - name: Capture protected Profile and hidden Pop trees
+        id: protected
+        run: |
+          echo "profile=$(git rev-parse HEAD:app/lib/features/profile)" >> "$GITHUB_OUTPUT"
+          echo "pop=$(git rev-parse HEAD:app/lib/features/pop)" >> "$GITHUB_OUTPUT"
+
+      - name: Apply non-profile system surface pass
+        run: python3 tools/apply_all_non_profile_ui_v2.py
+
+      - name: Protect Profile and hidden Pop
+        run: |
+          if ! git diff --quiet -- app/lib/features/profile; then
+            echo "::error::Profile changed; platform pass is forbidden from touching it."
+            git diff -- app/lib/features/profile
+            exit 1
+          fi
+          if ! git diff --quiet -- app/lib/features/pop; then
+            echo "::error::Hidden Pop changed; this pass must not resurface it."
+            git diff -- app/lib/features/pop
+            exit 1
+          fi
+          test "$(git rev-parse HEAD:app/lib/features/profile)" = "${{ steps.protected.outputs.profile }}"
+          test "$(git rev-parse HEAD:app/lib/features/pop)" = "${{ steps.protected.outputs.pop }}"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Format generated Dart changes
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACM -- '*.dart')
+          if [ ${#files[@]} -gt 0 ]; then
+            dart format "${files[@]}"
+          fi
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze --no-fatal-infos
+
+      - name: Non-profile screen regression tests
+        working-directory: app
+        run: |
+          set -e
+          mapfile -t tests < <(find test -type f \( -name '*screen_test.dart' -o -name '*shell_test.dart' -o -name '*navigation_test.dart' \) | sort | grep -v '/profile' || true)
+          echo "Running ${#tests[@]} non-profile screen/shell/navigation test files"
+          for testfile in "${tests[@]}"; do
+            case "$testfile" in
+              *pop*) continue ;;
+            esac
+            echo "==> $testfile"
+            flutter test "$testfile"
+          done
+
+      - name: Commit validated system pass
+        run: |
+          rm -f .github/workflows/apply-platform-ui-branch-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: harmonize non-profile platform surfaces"
+          git push origin HEAD:ui/wynos-platform-system-20260911
