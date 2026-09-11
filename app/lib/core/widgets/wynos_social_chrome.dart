@@ -191,6 +191,7 @@ class _WynosSocialTab<T> extends StatelessWidget {
                 ),
               ),
               AnimatedContainer(
+                key: selected ? const Key('active_segment_accent') : null,
                 duration: const Duration(milliseconds: 160),
                 width: 36,
                 height: 2,
