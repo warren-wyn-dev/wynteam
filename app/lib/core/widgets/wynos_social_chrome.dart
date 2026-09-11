@@ -112,39 +112,79 @@ class WynosSocialHeader extends StatelessWidget {
 }
 
 /// Text-only tab row used by Home/Notifications and other high-level social
-/// surfaces. Tabs divide the available width evenly, matching the calm,
-/// predictable navigation rhythm of Profile and large social platforms.
+/// surfaces. By default tabs divide the available width evenly. Screens with
+/// labels that must keep their full natural width can opt into [scrollable],
+/// which preserves the same chrome while allowing horizontal overflow instead
+/// of truncating text on narrow phones.
 class WynosSocialTabs<T> extends StatelessWidget {
   const WynosSocialTabs({
     super.key,
     required this.items,
     required this.selected,
     required this.onSelected,
+    this.scrollable = false,
   });
 
   final List<WynosSocialTabItem<T>> items;
   final T selected;
   final ValueChanged<T> onSelected;
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
+    final tabs = scrollable
+        ? LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: IntrinsicWidth(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        for (final item in items)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: WynSpacing.space2,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minWidth: WynSpacing.touchTargetRecommended,
+                              ),
+                              child: _WynosSocialTab<T>(
+                                item: item,
+                                selected: item.value == selected,
+                                onSelected: onSelected,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          )
+        : Row(
+            children: [
+              for (final item in items)
+                Expanded(
+                  child: _WynosSocialTab<T>(
+                    item: item,
+                    selected: item.value == selected,
+                    onSelected: onSelected,
+                  ),
+                ),
+            ],
+          );
+
     return Container(
       decoration: const BoxDecoration(
         color: WynColors.paper,
         border: Border(bottom: BorderSide(color: WynColors.hairline)),
       ),
-      child: Row(
-        children: [
-          for (final item in items)
-            Expanded(
-              child: _WynosSocialTab<T>(
-                item: item,
-                selected: item.value == selected,
-                onSelected: onSelected,
-              ),
-            ),
-        ],
-      ),
+      child: tabs,
     );
   }
 }
