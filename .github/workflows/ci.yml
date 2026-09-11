@@ -122,6 +122,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Test migration safety guard
+        run: python3 supabase/check_migration_safety_test.py
       - name: Reject unapproved destructive SQL
         run: >-
           python3 supabase/check_migration_safety.py
