@@ -97,19 +97,23 @@ if (
 
   // Background delivery (tab closed, or another tab focused).
   //
-  // Beta4 §11.6 (Duplicate Protection): `tag` is set to the
-  // notification's own row id. A tag makes the browser *replace* any
-  // notification already showing with the same tag rather than stacking
-  // a second one -- so a webhook retry, a reconnect, or the same row
-  // arriving twice shows one notification, not two. The id comes from
-  // the `data` payload the Edge Function builds straight from the
-  // `notifications` row (see supabase/functions/send-push-notification),
-  // so it is stable per notification and unique across them.
+  // The production Edge Function currently sends a Firebase
+  // `notification` payload (and a matching `webpush.notification`). The
+  // Firebase Web SDK displays that notification automatically while the
+  // app is in the background. Calling showNotification() again for the
+  // same payload produces two identical iOS/Web Push banners.
+  //
+  // Therefore this handler only renders a notification for a future
+  // data-only payload. Notification payloads are deliberately left to
+  // Firebase's automatic renderer. Their `webpush.notification.tag` is
+  // still the stable notification row id, preserving Beta4 §11.6 retry
+  // collapse protection.
   messaging.onBackgroundMessage((payload) => {
+    if (payload.notification) return;
+
     const data = payload.data || {};
-    const notification = payload.notification || {};
-    self.registration.showNotification(notification.title || 'WYN', {
-      body: notification.body || '',
+    self.registration.showNotification(data.push_title || 'WYN', {
+      body: data.push_body || '',
       icon: '/icons/Icon-192.png',
       badge: '/icons/Icon-192.png',
       tag: data.notification_id || undefined,
