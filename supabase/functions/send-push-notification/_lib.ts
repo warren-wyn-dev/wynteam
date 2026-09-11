@@ -111,39 +111,23 @@ export function messageFor(
       return `${actorName} ถูกใจโพสต์ของคุณใน ${club}`;
     case "club_post_comment":
       return `${actorName} แสดงความคิดเห็นในโพสต์ของคุณใน ${club}`;
-    // WYN-116: mirrors notification_list_screen.dart's `_messageFor`
-    // word for word.
     case "club_post_new":
       return `${actorName} โพสต์ใหม่ใน ${club}`;
     case "club_post_pinned":
       return `${actorName} ปักหมุดโพสต์ใหม่ใน ${club}`;
-    // WYN-124: mirrors notification_list_screen.dart's `_messageFor`
-    // word for word.
     case "club_invite":
       return `${actorName} ชวนคุณเข้าร่วม ${club}`;
-    // WYN-021: mirrors app/'s notification_list_screen.dart's
-    // `_messageFor` word for word.
     case "mention_drop":
       return `${actorName} กล่าวถึงคุณในโพสต์`;
     case "mention_club_post":
       return `${actorName} กล่าวถึงคุณในโพสต์ที่ ${club}`;
-    // WYN-034/043: same destination/data field as like_drop/mentionDrop
-    // (drop_id) -- see buildDataPayload, no new field needed.
     case "redrop":
       return `${actorName} รีโพสต์โพสต์ของคุณ`;
-    // WYN-029: mirrors notification_list_screen.dart's `_messageFor`
-    // word for word. actor_id is null for both of these (WYN-029 fix --
-    // see NotificationRow's own doc comment), which is fine here since
-    // neither template references actorName.
     case "moderation_warning":
       return `คุณได้รับคำเตือนจากทีมงาน WYN: ${reason ?? ""}`;
     case "moderation_content_removed":
       return `เนื้อหาของคุณถูกลบเนื่องจากละเมิดกฎการใช้งาน WYN -- ` +
         `เหตุผล: ${reason ?? ""}`;
-    // WYN-030: mirrors the Dart client's per-action-type wording
-    // exactly -- see notification_list_screen.dart's own comment on why
-    // Remove Content's wording may never imply the content itself came
-    // back.
     case "appeal_approved":
       switch (moderationActionType) {
         case "warning":
@@ -162,8 +146,6 @@ export function messageFor(
       }
     case "appeal_rejected":
       return `อุทธรณ์ของคุณถูกปฏิเสธ -- เหตุผล: ${reason ?? ""}`;
-    // WYN-032/039: actor_id is always real for these 3 -- see
-    // notification.dart's own doc comment.
     case "message_request":
       return `${actorName} ส่งคำขอข้อความถึงคุณ`;
     // DM is not a general-notification item anymore. Push keeps the sender as
@@ -175,10 +157,6 @@ export function messageFor(
       return `${actorName} ขอติดตามคุณ`;
     case "follow_request_accepted":
       return `${actorName} ยอมรับคำขอติดตามของคุณแล้ว`;
-    // WYN-043: the admin's own message text, shown as-is -- same `reason`
-    // column moderation_warning/moderation_content_removed use above,
-    // just with no fixed prefix (send_system_notification() already
-    // writes the full message).
     case "system":
       return reason ?? "มีประกาศจากระบบ WYN";
     default:
@@ -215,11 +193,6 @@ export function importPrivateKey(pem: string): Promise<CryptoKey> {
   );
 }
 
-/// Builds the signed JWT assertion (header.claims.signature) for the
-/// OAuth2 JWT-bearer grant -- split out from the token-exchange HTTP
-/// call itself so the signing logic alone (the part with real
-/// cryptographic correctness risk) can be unit tested without a live
-/// network call to Google.
 export async function buildSignedJwtAssertion(
   serviceAccount: FcmServiceAccount,
   nowSeconds: number,
@@ -253,7 +226,7 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth-type:jwt-bearer".replace("oauth-type", "oauth-grant-type"),
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion,
     }),
   });
@@ -264,89 +237,14 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
   return json.access_token as string;
 }
 
-/// The de-duplication key for one notification, used by all three
-/// delivery layers (Beta4 §11.6).
-///
-/// The problem this solves is not hypothetical: `send-push-notification`
-/// is driven by a Supabase Database Webhook, and a webhook that does not
-/// receive a timely 200 is retried. Before Beta4 a retry produced a
-/// second, identical notification on the device -- the row insert had
-/// already happened, so the in-app list was correct, but the phone
-/// showed the same thing twice.
-///
-/// A collapse key does not prevent the second *send*; it makes the
-/// second send land on top of the first instead of beside it, which is
-/// the behaviour every platform offers and the only one available
-/// without giving this function its own delivery ledger. FCM's own
-/// per-platform names for the same idea:
-/// * Web -- `webpush.headers.Topic`, plus the `tag` the service worker
-///   sets on `showNotification`.
-/// * Android -- `android.collapse_key`.
-/// * iOS -- `apns.headers.apns-collapse-id`.
-///
-/// Keyed on the notification row id rather than, say, type+target: two
-/// different people liking the same post are two notifications a person
-/// should see separately, and the in-app list already groups those (see
-/// `_groupWithinDay` in notification_list_screen.dart). This collapses
-/// only a literal redelivery of one row.
-///
-/// APNs caps `apns-collapse-id` at 64 bytes; a uuid is 36, so no
-/// truncation is needed for any id this table produces. Web Push is
-/// stricter and needs `webPushTopic` below -- that limit was missed when
-/// this was written, and it is what kept push off iOS entirely.
 export function collapseKeyFor(row: NotificationRow): string {
   return row.id;
 }
 
-/// The same collapse key, cut to what the Web Push protocol actually
-/// allows in a `Topic` header.
-///
-/// RFC 8030 section 5.4 defines it as `1*32(ALPHA / DIGIT / "-" / "_")`
-/// -- at most 32 characters. A uuid is 36, so every push this function
-/// has ever sent to a browser carried an illegal header. Apple's push
-/// service enforces the limit and rejects the request; FCM does not
-/// check it and had already answered 200 by then, because delivery to
-/// the browser's push service happens after FCM accepts. That is why
-/// the Edge Function could report `sent=1` for a notification no device
-/// would ever show, and why nothing anywhere recorded an error.
-///
-/// Dropping the hyphens is what makes this exact rather than lossy: a
-/// uuid without them is 32 characters on the nose, so the whole id
-/// survives. Truncating instead would have thrown away four hex digits
-/// and made two notifications collapsible that are not the same.
 export function webPushTopic(collapseKey: string): string {
   return collapseKey.replace(/-/g, "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 32);
 }
 
-/// A short, safe description of a thrown value, for the one place a
-/// failure here is visible from: the response body, which pg_net stores
-/// in `net._http_response`.
-///
-/// Without this, every failure in the function is an opaque 500. That
-/// cost a real debugging round: a service-account key that would not
-/// parse looked exactly like a key that would not sign, and neither
-/// could be told apart from the outside. The push path is
-/// fire-and-forget by design -- nobody is watching a screen when it
-/// fails -- so the stored reply is the only record there will be.
-///
-/// It is scrubbed rather than passed through, because the values in
-/// scope when things go wrong here include a Firebase private key and
-/// an FCM access token, and `net._http_response` is readable by anyone
-/// with database access. PEM blocks and long base64 runs come out; the
-/// error's name and a truncated message stay, which is what actually
-/// distinguishes the cases.
-/// Condenses the per-token results of one notification's fan-out into a
-/// single line for the response body.
-///
-/// "OK" alone was ambiguous in the way that matters: the function
-/// returns it after FCM has rejected every device just as readily as
-/// after it accepted them all, and net._http_response is the only place
-/// anyone ever sees this. `sent=0 failed=2 (404 UNREGISTERED)` says in
-/// one line both that nothing arrived and why.
-///
-/// Reasons are deduplicated because a fan-out to many devices usually
-/// fails the same way on all of them, and a row of identical strings
-/// would push the useful part out of a truncated log.
 export function summariseOutcomes(outcomes: string[]): string {
   const sent = outcomes.filter((o) => o === "sent").length;
   const failures = outcomes.filter((o) => o !== "sent");
@@ -355,23 +253,6 @@ export function summariseOutcomes(outcomes: string[]): string {
   return `OK sent=${sent} failed=${failures.length} (${reasons})`;
 }
 
-/// Splits one notification sentence into the two lines a push actually
-/// gets: who did it, and what they did.
-///
-/// A push had been titled "WYN" with the whole sentence beneath it. iOS
-/// already writes "from WYNOS Beta" under any web push, so the most
-/// prominent line on the screen was spent repeating the app's name,
-/// and the person's name -- the part that decides whether a
-/// notification is worth opening -- sat mid-sentence in the smaller
-/// line.
-///
-/// The wording itself is not touched. [messageFor] stays the single
-/// source of it. The actor's name is simply lifted off the front when it
-/// is there. For DM this means title=sender and body=message preview.
-///
-/// It is there for most types and absent for whole families of them --
-/// orders, moderation, system announcements -- and those keep "WYN" as
-/// a title, which is right: no person did them.
 export function splitPushMessage(
   message: string,
   actorName: string,
@@ -392,36 +273,15 @@ export function safeErrorMessage(err: unknown): string {
   return `${name}: ${scrubbed}`.slice(0, 300);
 }
 
-/// Which of the `notifications`-row id columns are non-null becomes the
-/// FCM `data` payload -- split out so the "only include set fields, as
-/// strings" logic can be tested without any network/crypto involved.
-/// `actor_id` is included only when set (WYN-029 fix: null for
-/// moderation_warning/moderation_content_removed/system) -- omitting it
-/// rather than sending the literal string "null" mirrors every other
-/// optional field here.
 export function buildDataPayload(row: NotificationRow): Record<string, string> {
   const data: Record<string, string> = { type: row.type };
-  // Beta4 §11.6 (Duplicate Protection): the notification's own row id,
-  // carried so every delivery layer can collapse a repeat of the *same*
-  // notification onto the one already showing -- see
-  // [collapseKeyFor]/the `webpush`/`android`/`apns` blocks in index.ts,
-  // and the `tag` the web service worker sets from this field.
-  //
-  // This is the id of the row that triggered the webhook, so it is
-  // stable across a webhook retry and distinct between two genuinely
-  // different notifications (even two of the same type about the same
-  // post). It is not read by the client's deep-link switch -- that
-  // keys off `type` plus the target id, exactly as before.
   data.notification_id = row.id;
   if (row.actor_id) data.actor_id = row.actor_id;
   if (row.drop_id) data.drop_id = row.drop_id;
   if (row.pop_id) data.pop_id = row.pop_id;
   if (row.club_id) data.club_id = row.club_id;
   if (row.club_post_id) data.club_post_id = row.club_post_id;
-  // WYN-032: lets the client open ConversationScreen directly on tap.
   if (row.conversation_id) data.conversation_id = row.conversation_id;
-  // WYN-030: lets the client open MyModerationActionScreen directly on
-  // tap, for all 4 moderation-related types.
   if (row.moderation_action_id) data.moderation_action_id = row.moderation_action_id;
   return data;
 }
