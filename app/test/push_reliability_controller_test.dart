@@ -33,7 +33,7 @@ void main() {
     expect(find.text('ส่งข้อความถึงคุณ'), findsOneWidget);
   });
 
-  testWidgets('foreground non-DM push keeps existing behavior with no banner',
+  testWidgets('foreground non-DM event keeps existing behavior with no banner',
       (tester) async {
     await pumpApp(tester);
 
@@ -48,16 +48,48 @@ void main() {
     expect(find.text('ถูกใจโพสต์ของคุณ'), findsNothing);
   });
 
-  testWidgets('foreground DM falls back to safe copy when FCM text is absent',
+  testWidgets('incoming realtime DM shows safe in-app copy without FCM text',
       (tester) async {
     await pumpApp(tester);
 
-    PushReliabilityController.instance.debugShowForegroundMessage(
-      data: const {'type': 'new_message'},
+    PushReliabilityController.instance.debugHandleIncomingRealtimeDm(
+      senderId: 'sender-user',
+      subscribedUserId: 'receiver-user',
+      activeUserId: 'receiver-user',
     );
     await tester.pump();
 
     expect(find.text('ข้อความใหม่'), findsOneWidget);
     expect(find.text('มีคนส่งข้อความถึงคุณ'), findsOneWidget);
+  });
+
+  testWidgets('realtime echo of own sent message does not show a banner',
+      (tester) async {
+    await pumpApp(tester);
+
+    PushReliabilityController.instance.debugHandleIncomingRealtimeDm(
+      senderId: 'receiver-user',
+      subscribedUserId: 'receiver-user',
+      activeUserId: 'receiver-user',
+    );
+    await tester.pump();
+
+    expect(find.text('ข้อความใหม่'), findsNothing);
+    expect(find.text('มีคนส่งข้อความถึงคุณ'), findsNothing);
+  });
+
+  testWidgets('stale account realtime event is ignored after account switch',
+      (tester) async {
+    await pumpApp(tester);
+
+    PushReliabilityController.instance.debugHandleIncomingRealtimeDm(
+      senderId: 'other-user',
+      subscribedUserId: 'old-account',
+      activeUserId: 'new-account',
+    );
+    await tester.pump();
+
+    expect(find.text('ข้อความใหม่'), findsNothing);
+    expect(find.text('มีคนส่งข้อความถึงคุณ'), findsNothing);
   });
 }
