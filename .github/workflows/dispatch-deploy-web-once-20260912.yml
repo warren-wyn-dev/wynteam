@@ -1,8 +1,7 @@
-name: Dispatch final DM reliability production deploy (2026-09-12)
+name: Final DM reliability production smoke (2026-09-12)
 
-# One-shot bridge for the Founder-approved Beta4 DM notification fix. It only
-# dispatches the canonical manual-only deploy-web.yml workflow once; it is
-# archived again immediately after the deployment is verified.
+# One-shot external verification for the Founder-approved Beta4 DM notification
+# fix. It does not deploy or mutate application/backend state.
 on:
   push:
     branches: [main]
@@ -10,14 +9,40 @@ on:
       - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
 
 permissions:
-  actions: write
   contents: read
 
 jobs:
-  dispatch:
+  smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch canonical production web deploy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy-web.yml --repo "${{ github.repository }}" --ref main
+      - name: Verify public WYNOS origin
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            https://wynos.online/ -o /tmp/wynos-index.html
+          grep -q '<title>WYNOS Beta</title>' /tmp/wynos-index.html
+          echo 'wynos.online root: OK'
+
+      - name: Verify deployed realtime DM reliability code
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            https://wynos.online/main.dart.js -o /tmp/main.dart.js
+          grep -q 'push-reliability-dm-' /tmp/main.dart.js
+          echo 'main.dart.js realtime DM channel: OK'
+
+      - name: Verify production Firebase messaging worker
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            https://wynos.online/firebase-messaging-sw.js -o /tmp/firebase-messaging-sw.js
+          grep -q 'onBackgroundMessage' /tmp/firebase-messaging-sw.js
+          grep -q 'showNotification' /tmp/firebase-messaging-sw.js
+          if grep -qE '__FIREBASE_[A-Z_]+__' /tmp/firebase-messaging-sw.js; then
+            echo 'Firebase placeholder remains in production worker' >&2
+            exit 1
+          fi
+          echo 'firebase-messaging-sw.js: OK'
