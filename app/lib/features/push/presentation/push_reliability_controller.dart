@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/navigation/app_navigator.dart';
 import '../../../core/push_env.dart';
+import '../../../core/text_utils.dart';
 import '../data/push_token_repository.dart';
 import 'push_notification_service.dart';
 
@@ -26,10 +27,9 @@ import 'push_notification_service.dart';
 ///    FCM token. Browser/OS push remains responsible for background/closed-app
 ///    delivery when permission is granted.
 ///
-/// The realtime path is deliberately independent from Firebase. That matters
-/// for the exact broken state this class is meant to repair: a signed-in user
-/// with notification permission denied/not-yet-granted still receives an
-/// in-app banner while actively using WYNOS.
+/// The foreground banner resolves the sender's profile and uses the exact
+/// message row delivered by Realtime, so it can say who sent the DM and what
+/// they sent without routing the DM through the general notification center.
 class PushReliabilityController with WidgetsBindingObserver {
   PushReliabilityController._();
 
@@ -111,12 +111,15 @@ class PushReliabilityController with WidgetsBindingObserver {
           schema: 'public',
           table: 'messages',
           callback: (payload) {
-            final senderId = payload.newRecord['sender_id'] as String?;
+            final record = Map<String, dynamic>.from(payload.newRecord);
+            final senderId = record['sender_id'] as String?;
             if (senderId == null) return;
-            _handleIncomingRealtimeDm(
-              senderId: senderId,
-              subscribedUserId: userId,
-              activeUserId: client.auth.currentUser?.id,
+            unawaited(
+              _handleIncomingRealtimeDm(
+                record: record,
+                senderId: senderId,
+                subscribedUserId: userId,
+              ),
             );
           },
         )
@@ -147,23 +150,80 @@ class PushReliabilityController with WidgetsBindingObserver {
     }
   }
 
-  void _handleIncomingRealtimeDm({
+  Future<void> _handleIncomingRealtimeDm({
+    required Map<String, dynamic> record,
     required String senderId,
     required String subscribedUserId,
-    required String? activeUserId,
-  }) {
+  }) async {
+    final client = _client;
+    if (client == null) return;
+
     // Ignore the realtime echo of this user's own send. Also ignore an event
     // from an old account's channel during the tiny async account-switch
     // unsubscribe window.
-    if (activeUserId != subscribedUserId || senderId == subscribedUserId) {
+    if (client.auth.currentUser?.id != subscribedUserId ||
+        senderId == subscribedUserId) {
       return;
     }
 
+    final preview = _dmPreview(record);
+    final senderName = await _senderName(senderId);
+
+    // The profile lookup above is asynchronous. Re-check the account after it
+    // completes so a fast account switch cannot surface the old account's DM.
+    if (client.auth.currentUser?.id != subscribedUserId) return;
+
     _showForegroundMessage(
       data: const {'type': 'new_message'},
-      title: 'ข้อความใหม่',
-      body: 'มีคนส่งข้อความถึงคุณ',
+      title: senderName,
+      body: preview,
     );
+  }
+
+  Future<String> _senderName(String senderId) async {
+    final client = _client;
+    if (client == null) return 'ข้อความใหม่';
+
+    try {
+      final profile = await client
+          .from('profiles')
+          .select('username, display_name')
+          .eq('id', senderId)
+          .maybeSingle();
+      if (profile == null) return 'ข้อความใหม่';
+
+      final username = profile['username'] as String?;
+      if (username == null || username.isEmpty) return 'ข้อความใหม่';
+      return displayNameOrUsername(
+        displayName: profile['display_name'] as String?,
+        username: username,
+      );
+    } catch (_) {
+      // A failed profile lookup must never suppress the actual DM alert.
+      return 'ข้อความใหม่';
+    }
+  }
+
+  String _dmPreview(Map<String, dynamic> record) {
+    final text = (record['text'] as String?)?.trim();
+    if (text != null && text.isNotEmpty) return text;
+
+    if (record['image_url'] != null) {
+      return record['view_once'] == true
+          ? 'ส่งรูปภาพแบบดูครั้งเดียว'
+          : 'ส่งรูปภาพ';
+    }
+
+    switch (record['shared_content_type'] as String?) {
+      case 'drop':
+        return 'แชร์โพสต์กับคุณ';
+      case 'profile':
+        return 'แชร์โปรไฟล์กับคุณ';
+      case 'club':
+        return 'แชร์ Club กับคุณ';
+      default:
+        return 'ส่งข้อความถึงคุณ';
+    }
   }
 
   void _showForegroundMessage({
@@ -196,7 +256,7 @@ class PushReliabilityController with WidgetsBindingObserver {
             const SizedBox(height: 2),
             Text(
               safeBody == null || safeBody.isEmpty
-                  ? 'มีคนส่งข้อความถึงคุณ'
+                  ? 'ส่งข้อความถึงคุณ'
                   : safeBody,
             ),
           ],
@@ -215,19 +275,38 @@ class PushReliabilityController with WidgetsBindingObserver {
     _showForegroundMessage(data: data, title: title, body: body);
   }
 
-  /// Test-only entry point for Realtime account/sender filtering.
+  /// Test-only entry point for Realtime presentation/filtering without a real
+  /// Supabase profile lookup.
   @visibleForTesting
-  void debugHandleIncomingRealtimeDm({
+  void debugPresentIncomingRealtimeDm({
     required String senderId,
     required String subscribedUserId,
     required String? activeUserId,
+    required String senderName,
+    String? text,
+    String? imageUrl,
+    bool viewOnce = false,
+    String? sharedContentType,
   }) {
-    _handleIncomingRealtimeDm(
-      senderId: senderId,
-      subscribedUserId: subscribedUserId,
-      activeUserId: activeUserId,
+    if (activeUserId != subscribedUserId || senderId == subscribedUserId) {
+      return;
+    }
+
+    _showForegroundMessage(
+      data: const {'type': 'new_message'},
+      title: senderName,
+      body: _dmPreview({
+        'text': text,
+        'image_url': imageUrl,
+        'view_once': viewOnce,
+        'shared_content_type': sharedContentType,
+      }),
     );
   }
+
+  /// Test-only pure preview helper.
+  @visibleForTesting
+  String debugDmPreview(Map<String, dynamic> record) => _dmPreview(record);
 
   /// This singleton intentionally lives for the whole process and therefore has
   /// no production dispose path.

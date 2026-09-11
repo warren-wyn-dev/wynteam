@@ -13,12 +13,19 @@ import 'notification.dart';
 /// FollowRepository (WYN-008). `club:clubs(name)` has no such ambiguity
 /// (only one FK from `notifications` to `clubs`), so it needs no
 /// `!constraint` qualifier.
+///
+/// `new_message` rows are intentionally transport-only. The database webhook
+/// still needs them to fan DM events out to Web Push, but DM unread state and
+/// presentation belong to Chat, not the general notification center. Every
+/// general-notification read below therefore excludes that type at the query
+/// boundary so it cannot leak into the bell list or badge.
 class NotificationRepository {
   NotificationRepository(this._client);
 
   final SupabaseClient _client;
 
   static const pageSize = 30;
+  static const _dmTransportType = 'new_message';
 
   Future<List<WynNotification>> fetchNotifications({required int page}) async {
     final from = page * pageSize;
@@ -40,6 +47,7 @@ class NotificationRepository {
           'drop:drops(caption), '
           'pop:pops(caption)',
         )
+        .neq('type', _dmTransportType)
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -52,7 +60,8 @@ class NotificationRepository {
         .from('notifications')
         .count(CountOption.exact)
         .eq('recipient_id', userId)
-        .eq('is_read', false);
+        .eq('is_read', false)
+        .neq('type', _dmTransportType);
     return response;
   }
 
@@ -62,6 +71,7 @@ class NotificationRepository {
         .from('notifications')
         .update({'is_read': true})
         .eq('recipient_id', userId)
-        .eq('is_read', false);
+        .eq('is_read', false)
+        .neq('type', _dmTransportType);
   }
 }
