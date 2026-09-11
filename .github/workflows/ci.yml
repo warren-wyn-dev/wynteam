@@ -1,18 +1,7 @@
 name: CI
 
 # Runs on every pull request and on every push to main. Deliberately
-# separate from deploy-web.yml (manual `workflow_dispatch` only, because
-# the Vercel account's free-tier deploy quota is shared) -- this one is
-# free to run on every change, and is meant to.
-#
-# Why this exists: until 2026-09-03 nothing in this repo ran
-# `flutter analyze` or `flutter test` automatically. Every check was a
-# human/AI role remembering to run it and reporting the result by hand,
-# which is exactly how the Wynos V1.0.0 Beta2 release shipped a build
-# whose profile screen could not load (see
-# .wyn/logs/deployments/2026-09-03-wyn-077-105-beta2-real-deploy.md).
-# Nothing here replaces the AI QA role -- it just makes the mechanical
-# half of the check impossible to forget.
+# separate from deploy workflows: CI validates buildability without deploying.
 on:
   pull_request:
   push:
@@ -45,7 +34,35 @@ jobs:
 
       - run: flutter pub get
       - run: flutter analyze
-      - run: flutter test
+      - name: Test with coverage
+        run: flutter test --coverage
+      - name: Report Flutter coverage
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lcov = Path('coverage/lcov.info')
+          if not lcov.exists():
+              raise SystemExit('coverage/lcov.info was not generated')
+
+          found = hit = 0
+          for line in lcov.read_text().splitlines():
+              if line.startswith('LF:'):
+                  found += int(line[3:])
+              elif line.startswith('LH:'):
+                  hit += int(line[3:])
+
+          if found == 0:
+              raise SystemExit('coverage report contains zero executable lines')
+
+          percent = hit * 100 / found
+          print(f'Flutter line coverage: {percent:.2f}% ({hit}/{found})')
+          PY
+      - name: Flutter web release build smoke test
+        run: >-
+          flutter build web --release
+          --dart-define=SUPABASE_URL=https://example.supabase.co
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=ci-placeholder-key
 
   admin:
     name: Admin (Next.js)
@@ -53,6 +70,9 @@ jobs:
     defaults:
       run:
         working-directory: admin
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-key
     steps:
       - uses: actions/checkout@v4
 
@@ -66,6 +86,20 @@ jobs:
       - run: npm run lint
       - run: npx next typegen
       - run: npx tsc --noEmit
+      - name: Block critical npm vulnerabilities
+        run: npm audit --audit-level=critical
+      - name: Admin production build smoke test
+        run: npm run build
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
 
   edge-functions:
     name: Supabase Edge Functions (Deno)
@@ -79,6 +113,22 @@ jobs:
 
       - run: deno check supabase/functions/*/index.ts
       - run: deno test supabase/functions/
+
+  migration-safety:
+    name: Destructive migration guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test migration safety guard
+        run: python3 supabase/check_migration_safety_test.py
+      - name: Reject unapproved destructive SQL
+        run: >-
+          python3 supabase/check_migration_safety.py
+          "${{ github.event.pull_request.base.sha }}"
+          "${{ github.event.pull_request.head.sha }}"
 
   schema:
     name: schema.sql ordering
