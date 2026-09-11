@@ -30,12 +30,26 @@ jobs:
           python3 tools/patch_chat_system_ui_20260912.py
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('app/lib/features/chat/presentation/widgets/view_once_image_viewer.dart')
-          text = path.read_text(encoding='utf-8')
+
+          view_once = Path('app/lib/features/chat/presentation/widgets/view_once_image_viewer.dart')
+          text = view_once.read_text(encoding='utf-8')
           old = "'$_secondsLeft วิ'"
           if old not in text:
               raise SystemExit('View Once countdown patch target not found')
-          path.write_text(text.replace(old, "'$_secondsLeft'", 1), encoding='utf-8')
+          view_once.write_text(text.replace(old, "'$_secondsLeft'", 1), encoding='utf-8')
+
+          # UI-only contract update: read receipts are now neutral graphite,
+          # matching the approved Profile/Threads-like chat direction.
+          test_path = Path('app/test/conversation_screen_test.dart')
+          test_text = test_path.read_text(encoding='utf-8')
+          old_assertion = "expect(readLabel.style?.color, WynColors.sapphire);"
+          new_assertion = "expect(readLabel.style?.color, WynColors.graphite);"
+          if old_assertion not in test_text:
+              raise SystemExit('Read receipt color assertion target not found')
+          test_path.write_text(
+              test_text.replace(old_assertion, new_assertion, 1),
+              encoding='utf-8',
+          )
           PY
 
       - name: Install dependencies
@@ -143,7 +157,8 @@ jobs:
           dart format \
             lib/features/chat/presentation \
             lib/features/club/presentation/widgets/club_channel_chat_view.dart \
-            test/chat_inbox_screen_test.dart
+            test/chat_inbox_screen_test.dart \
+            test/conversation_screen_test.dart
 
       - name: Analyze
         working-directory: app
