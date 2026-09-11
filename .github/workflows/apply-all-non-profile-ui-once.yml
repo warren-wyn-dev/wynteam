@@ -8,6 +8,8 @@ on:
       - ui/wynos-system-ui-harmonization-20260911
     paths:
       - .github/workflows/apply-all-non-profile-ui-once.yml
+      - tools/apply_platform_ui_finish.py
+      - app/lib/core/widgets/wynos_social_chrome.dart
 
 permissions:
   contents: write
@@ -31,6 +33,9 @@ jobs:
 
       - name: Apply all non-profile UI system pass
         run: python3 tools/apply_all_non_profile_ui_v2.py
+
+      - name: Apply interaction-aware platform finish
+        run: python3 tools/apply_platform_ui_finish.py
 
       - name: Protect Profile and hidden Pop
         run: |
@@ -109,7 +114,7 @@ jobs:
           test -z "$(git status --porcelain -- app/lib/features/pop)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/lib/features .wyn/docs/qa/non-profile-system-ui-audit.md
+          git add app/lib/core/widgets/wynos_social_chrome.dart app/lib/features .wyn/docs/qa/non-profile-system-ui-audit.md
           if git diff --cached --quiet; then
             echo "No system-pass changes to commit."
             exit 0
