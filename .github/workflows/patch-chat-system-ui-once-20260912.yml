@@ -28,8 +28,6 @@ jobs:
       - name: Apply approved chat-system UI patch
         run: |
           python3 tools/patch_chat_system_ui_20260912.py
-          # Preserve the existing View Once regression contract: the countdown
-          # number remains a standalone text node even in the new pill UI.
           python3 - <<'PY'
           from pathlib import Path
           path = Path('app/lib/features/chat/presentation/widgets/view_once_image_viewer.dart')
@@ -47,12 +45,7 @@ jobs:
       - name: Apply analyzer-safe chat fixes
         working-directory: app
         run: |
-          # Automated fixes are scoped to Chat only (const + unused imports).
           dart fix --apply lib/features/chat/presentation
-          # Add braces around imperative single-statement ifs. The parser below
-          # balances nested parentheses and supports multiline conditions while
-          # leaving collection-if elements alone (their next line is an expression,
-          # not a semicolon-terminated statement).
           python3 - <<'PY'
           from pathlib import Path
 
@@ -73,9 +66,6 @@ jobs:
                       out.append(line)
                       i += 1
                       continue
-
-                  # Find the closing parenthesis for this if condition, across
-                  # as many lines as needed.
                   depth = 0
                   started = False
                   close_line = None
@@ -98,16 +88,12 @@ jobs:
                                   break
                       if close_line is not None:
                           break
-
                   if close_line is None:
                       out.append(line)
                       i += 1
                       continue
-
                   closing = lines[close_line]
                   remainder = closing[close_col + 1:].strip()
-
-                  # Same-line statement: if (condition) return;
                   if remainder and not remainder.startswith('{') and remainder.endswith(';'):
                       for j in range(i, close_line + 1):
                           segment = lines[j]
@@ -119,16 +105,10 @@ jobs:
                       out.append(f'{indent}}}')
                       i = close_line + 1
                       continue
-
-                  # Already braced / same-line collection expression.
                   if remainder:
                       out.extend(lines[i:close_line + 1])
                       i = close_line + 1
                       continue
-
-                  # Multiline condition followed by exactly one imperative
-                  # statement. Collection-if expressions (Widget(...), variable
-                  # entries, else branches) do not end in ';' here and are left.
                   statement_index = close_line + 1
                   while statement_index < len(lines) and not lines[statement_index].strip():
                       statement_index += 1
@@ -142,10 +122,8 @@ jobs:
                           out.append(f'{indent}}}')
                           i = statement_index + 1
                           continue
-
                   out.extend(lines[i:close_line + 1])
                   i = close_line + 1
-
               return '\n'.join(out) + '\n'
 
           for path in targets:
@@ -165,7 +143,9 @@ jobs:
 
       - name: Analyze
         working-directory: app
-        run: flutter analyze
+        run: |
+          nl -ba lib/features/chat/presentation/conversation_screen.dart | sed -n '1514,1528p'
+          flutter analyze
 
       - name: Run chat regression suite
         working-directory: app
