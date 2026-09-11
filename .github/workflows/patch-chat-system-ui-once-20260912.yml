@@ -23,6 +23,7 @@ jobs:
         with:
           channel: stable
           flutter-version: 3.47.1
+          cache: true
 
       - name: Apply approved chat-system UI patch
         run: |
@@ -39,25 +40,46 @@ jobs:
           path.write_text(text.replace(old, "'$_secondsLeft'", 1), encoding='utf-8')
           PY
 
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Apply analyzer-safe chat fixes
+        working-directory: app
+        run: |
+          # Automated Dart fixes are scoped to Chat only. This adds braces,
+          # const constructors and removes unused imports without changing behavior.
+          dart fix --apply lib/features/chat/presentation
+          # The existing Club channel chat is part of the approved chat-system
+          # restyle, but the rest of Club is out of scope. Fix only this file.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('lib/features/club/presentation/widgets/club_channel_chat_view.dart')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace("import '../../../../core/widgets/action_sheet_row.dart';\n", '')
+          out = []
+          pattern = re.compile(r'^(\s*)if \((.+?)\) (.+;)$')
+          for line in text.splitlines():
+              match = pattern.match(line)
+              if match and not match.group(3).lstrip().startswith('{'):
+                  indent, condition, statement = match.groups()
+                  out.append(f'{indent}if ({condition}) {{')
+                  out.append(f'{indent}  {statement}')
+                  out.append(f'{indent}}}')
+              else:
+                  out.append(line)
+          path.write_text('\n'.join(out) + '\n', encoding='utf-8')
+          PY
+
       - name: Format changed Dart files
         working-directory: app
         run: |
           dart format \
-            lib/features/chat/presentation/chat_inbox_screen.dart \
-            lib/features/chat/presentation/conversation_screen.dart \
-            lib/features/chat/presentation/message_request_list_screen.dart \
-            lib/features/chat/presentation/new_message_screen.dart \
-            lib/features/chat/presentation/share_sheet.dart \
-            lib/features/chat/presentation/share_to_chat_screen.dart \
-            lib/features/chat/presentation/widgets/chat_ui.dart \
-            lib/features/chat/presentation/widgets/chat_media_viewer.dart \
-            lib/features/chat/presentation/widgets/view_once_image_viewer.dart \
+            lib/features/chat/presentation \
             lib/features/club/presentation/widgets/club_channel_chat_view.dart \
             test/chat_inbox_screen_test.dart
-
-      - name: Install dependencies
-        working-directory: app
-        run: flutter pub get
 
       - name: Analyze
         working-directory: app
@@ -73,7 +95,8 @@ jobs:
             test/share_to_chat_screen_test.dart \
             test/view_once_image_viewer_test.dart \
             test/conversation_screen_test.dart \
-            test/club_channel_chat_view_test.dart
+            test/club_channel_chat_view_test.dart \
+            test/push_reliability_controller_test.dart
 
       - name: Guard Profile layout and scope
         run: |
