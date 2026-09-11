@@ -1,0 +1,22 @@
+name: Dispatch production web deploy once
+
+# One-shot bridge for this release. The real production workflow stays
+# manual-only; this file only dispatches it once when this PR lands on main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-web-once.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the existing production workflow on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-web.yml --ref main
