@@ -290,6 +290,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
     return WynosSocialTabs<_HomeFeedMode>(
       selected: _feedMode,
       onSelected: _selectFeedMode,
+      scrollable: true,
       items: const [
         WynosSocialTabItem(
           value: _HomeFeedMode.forYou,
