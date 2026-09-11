@@ -1,24 +1,17 @@
-name: Dispatch production web deploy once (2026-09-12)
+name: Archived one-shot production dispatcher (2026-09-12)
 
-# One-shot bridge used because this integration cannot call GitHub's
-# workflow_dispatch endpoint directly. The actual deployment remains the
-# canonical manual-only deploy-web.yml workflow; this file only dispatches it
-# once from a main-branch push, then is removed after the deploy completes.
+# This workflow is intentionally inert. It was used once to dispatch the
+# canonical manual-only deploy-web.yml workflow for the Beta4 DM push fix.
+# Kept as a harmless audit marker because repository file deletion is not
+# available through the current integration. It must not deploy anything.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
+  workflow_dispatch: {}
 
 permissions:
-  actions: write
   contents: read
 
 jobs:
-  dispatch:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch canonical production web deploy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy-web.yml --repo "${{ github.repository }}" --ref main
+      - run: echo "Archived one-shot dispatcher; no deployment action."
