@@ -47,30 +47,60 @@ jobs:
       - name: Apply analyzer-safe chat fixes
         working-directory: app
         run: |
-          # Automated Dart fixes are scoped to Chat only. This adds braces,
-          # const constructors and removes unused imports without changing behavior.
+          # Automated fixes are scoped to Chat only (const + unused imports).
           dart fix --apply lib/features/chat/presentation
-          # The existing Club channel chat is part of the approved chat-system
-          # restyle, but the rest of Club is out of scope. Fix only this file.
+          # Add braces to complete one-line if statements using balanced
+          # parentheses so nested closures such as any((m) => ...) remain intact.
+          # Club is restricted to the real chat widget only; no other Club UI.
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
-          path = Path('lib/features/club/presentation/widgets/club_channel_chat_view.dart')
-          text = path.read_text(encoding='utf-8')
-          text = text.replace("import '../../../../core/widgets/action_sheet_row.dart';\n", '')
-          out = []
-          pattern = re.compile(r'^(\s*)if \((.+?)\) (.+;)$')
-          for line in text.splitlines():
-              match = pattern.match(line)
-              if match and not match.group(3).lstrip().startswith('{'):
-                  indent, condition, statement = match.groups()
+          targets = [
+              Path('lib/features/chat/presentation/conversation_screen.dart'),
+              Path('lib/features/club/presentation/widgets/club_channel_chat_view.dart'),
+          ]
+
+          for path in targets:
+              text = path.read_text(encoding='utf-8')
+              if path.name == 'club_channel_chat_view.dart':
+                  text = text.replace("import '../../../../core/widgets/action_sheet_row.dart';\n", '')
+
+              out = []
+              for line in text.splitlines():
+                  stripped = line.lstrip()
+                  indent = line[:len(line) - len(stripped)]
+                  if not stripped.startswith('if ('):
+                      out.append(line)
+                      continue
+
+                  open_index = line.index('(')
+                  depth = 0
+                  close_index = None
+                  for index in range(open_index, len(line)):
+                      char = line[index]
+                      if char == '(':
+                          depth += 1
+                      elif char == ')':
+                          depth -= 1
+                          if depth == 0:
+                              close_index = index
+                              break
+
+                  if close_index is None:
+                      out.append(line)
+                      continue
+
+                  condition = line[open_index + 1:close_index]
+                  remainder = line[close_index + 1:].strip()
+                  if not remainder or remainder.startswith('{') or not remainder.endswith(';'):
+                      out.append(line)
+                      continue
+
                   out.append(f'{indent}if ({condition}) {{')
-                  out.append(f'{indent}  {statement}')
+                  out.append(f'{indent}  {remainder}')
                   out.append(f'{indent}}}')
-              else:
-                  out.append(line)
-          path.write_text('\n'.join(out) + '\n', encoding='utf-8')
+
+              path.write_text('\n'.join(out) + '\n', encoding='utf-8')
           PY
 
       - name: Format changed Dart files
