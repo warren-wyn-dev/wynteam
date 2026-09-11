@@ -2,6 +2,26 @@ from pathlib import Path
 
 source = Path('tools/apply_all_non_profile_ui.py').read_text()
 
+# Interaction-heavy detail surfaces are reviewed manually rather than receiving
+# constructor-wide source rewriting. Drop Detail owns a dense action bar,
+# comments/replies, view semantics and audience-specific actions; a generic
+# AppBar/Card/Tab pass can move or hide tested controls without improving the
+# screen. It remains in the release regression suite below and is recorded in
+# the generated audit as a manual-review surface.
+manual_review_paths = {
+    'app/lib/features/drop/presentation/drop_detail_screen.dart',
+}
+manual_guard_old = "    if 'profile' in parts or 'pop' in parts:\n        return False\n    return path.suffix == '.dart'"
+manual_guard_new = "    if 'profile' in parts or 'pop' in parts:\n        return False\n    if path.as_posix() in MANUAL_REVIEW_PATHS:\n        return False\n    return path.suffix == '.dart'"
+if manual_guard_old not in source:
+    raise RuntimeError('Transformer shape changed: target guard marker not found')
+source = source.replace(
+    "EXCLUDED_PARTS = {'profile', 'pop'}\n",
+    "EXCLUDED_PARTS = {'profile', 'pop'}\nMANUAL_REVIEW_PATHS = {\n    'app/lib/features/drop/presentation/drop_detail_screen.dart',\n}\n",
+    1,
+)
+source = source.replace(manual_guard_old, manual_guard_new, 1)
+
 # The base transformer intentionally works at source-text level, so make every
 # constructor lookup lexical and identifier-boundary aware before executing it.
 # This prevents tokens such as `Card(`, `AppBar(`, and `Scaffold(` from
@@ -133,14 +153,26 @@ source = source.replace(probe_marker, probe + probe_marker, 1)
 # independent syntax gates.
 exec(compile(source, 'tools/apply_all_non_profile_ui.py', 'exec'), {'__name__': '__main__'})
 
+# Record the interaction-heavy manual-review set explicitly. These files are
+# still exercised by their full widget-test contracts; they are merely excluded
+# from generic constructor rewriting.
+report = Path('.wyn/docs/qa/non-profile-system-ui-audit.md')
+if report.exists():
+    with report.open('a') as handle:
+        handle.write('\n## Manual interaction-heavy review surfaces\n\n')
+        for manual_path in sorted(manual_review_paths):
+            handle.write(f'- `{manual_path}` — excluded from generic rewriting; full regression contract retained.\n')
+
 # The base pass may inspect a file that already has every desired argument and
 # therefore add the shared color import without ultimately needing it. Remove
-# only imports that are provably unused after the complete transform. Profile
-# and hidden Pop stay excluded from this cleanup as well.
+# only imports that are provably unused after the complete transform. Profile,
+# hidden Pop and manual-review surfaces stay excluded from this cleanup as well.
 color_import = "import 'package:wyn/core/design/wyn_colors.dart';\n"
 features = Path('app/lib/features')
 for path in features.rglob('*.dart'):
     if 'profile' in path.parts or 'pop' in path.parts:
+        continue
+    if path.as_posix() in manual_review_paths:
         continue
     text = path.read_text()
     if color_import not in text:
