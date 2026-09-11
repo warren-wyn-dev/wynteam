@@ -38,93 +38,24 @@ jobs:
 
           path = Path('app/lib/features/drop/presentation/drop_detail_screen.dart')
           text = path.read_text()
-          old = """      builder: (context) => SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'กิจกรรมโพสต์',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: WynColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        leading: const Icon(Icons.favorite_rounded,
-                            color: WynColors.iconLikeActive),
-                        title: const Text('ถูกใจ'),
-                        trailing: Text('${_drop.likeCount}'),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.mode_comment_outlined),
-                        title: const Text('ความคิดเห็น'),
-                        trailing: Text('${_drop.commentCount}'),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.repeat_rounded),
-                        title: const Text('รีโพสต์'),
-                        trailing: Text('${_drop.redropCount}'),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.visibility_outlined),
-                        title: const Text('การเข้าชม'),
-                        trailing: Text('${_drop.viewCount}'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          """
-          new = """      builder: (context) => SafeArea(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'กิจกรรมโพสต์',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: WynColors.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ListTile(
-                          leading: const Icon(Icons.favorite_rounded,
-                              color: WynColors.iconLikeActive),
-                          title: const Text('ถูกใจ'),
-                          trailing: Text('${_drop.likeCount}'),
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.mode_comment_outlined),
-                          title: const Text('ความคิดเห็น'),
-                          trailing: Text('${_drop.commentCount}'),
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.repeat_rounded),
-                          title: const Text('รีโพสต์'),
-                          trailing: Text('${_drop.redropCount}'),
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.visibility_outlined),
-                          title: const Text('การเข้าชม'),
-                          trailing: Text('${_drop.viewCount}'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          """
-          if text.count(old) != 1:
-              raise RuntimeError('Founder-final activity sheet shape changed; refusing an unsafe patch')
-          path.write_text(text.replace(old, new, 1))
+          start = text.index('  Future<void> _openActivitySheet() {')
+          end = text.index('\n  Widget _buildCommentRow', start)
+          method = text[start:end]
+
+          opening = "      builder: (context) => SafeArea(\n        child: Padding("
+          if method.count(opening) != 1:
+              raise RuntimeError('Activity Sheet opening changed; refusing an unsafe patch')
+          method = method.replace(
+              opening,
+              "      builder: (context) => SafeArea(\n        child: SingleChildScrollView(\n          child: Padding(",
+              1,
+          )
+
+          tail = "        ),\n      ),\n    );\n  }"
+          if not method.endswith(tail):
+              raise RuntimeError('Activity Sheet closing changed; refusing an unsafe patch')
+          method = method[:-len(tail)] + "        ),\n        ),\n      ),\n    );\n  }"
+          path.write_text(text[:start] + method + text[end:])
 
           audit_path = Path('.wyn/docs/qa/non-profile-system-ui-audit.md')
           audit = audit_path.read_text()
