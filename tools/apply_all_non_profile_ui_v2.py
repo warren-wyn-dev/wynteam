@@ -106,7 +106,7 @@ for old, new in replacements.items():
 # repository-wide pass and therefore fails fast if named-argument insertion is
 # ever broken again.
 probe_marker = '\n\nSURFACE_RULES = [\n'
-probe = r'''
+probe = r"""
 
 _probe = '''    return Scaffold(
       body: const SizedBox(),
@@ -123,7 +123,7 @@ _probe_names = top_level_named_args(_probe[_probe_open + 1:_probe_close])
 assert _probe_count == 1
 assert 'backgroundColor' in _probe_names
 assert 'return   backgroundColor' not in _probe
-'''
+"""
 if probe_marker not in source:
     raise RuntimeError('Transformer shape changed: SURFACE_RULES marker not found')
 source = source.replace(probe_marker, probe + probe_marker, 1)
