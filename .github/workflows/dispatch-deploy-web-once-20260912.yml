@@ -1,7 +1,8 @@
-name: Dispatch DM notification routing production deploy (2026-09-12)
+name: Dispatch duplicate Web Push fix production deploy (2026-09-12)
 
 # One-shot bridge: dispatch the canonical manual-only production workflow once
-# for the merged Beta4 DM routing/content fix, then archive this file again.
+# for the merged Beta4 duplicate iOS/Web Push notification fix, then archive
+# this file again after the canonical deploy completes.
 on:
   push:
     branches: [main]
