@@ -1,42 +1,12 @@
-name: Smoke production full chat UI (2026-09-12)
+name: Archived production full chat UI verification (2026-09-12)
 
+# Archived after the production deploy and smoke completed successfully. This
+# workflow is intentionally manual-only and performs no deployment or mutation.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/dispatch-deploy-web-once-20260912.yml
-
-permissions:
-  contents: read
+  workflow_dispatch: {}
 
 jobs:
-  smoke:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify production shell and chat bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 5 --retry-all-errors https://wynos.online/ -o /tmp/index.html
-          grep -Fq '<title>WYNOS Beta</title>' /tmp/index.html
-
-          curl -fsSL --retry 5 --retry-all-errors https://wynos.online/main.dart.js -o /tmp/main.dart.js
-          test -s /tmp/main.dart.js
-          grep -Fq 'chat_threads_tabs' /tmp/main.dart.js
-
-          python3 - <<'PY'
-          from pathlib import Path
-          data = Path('/tmp/main.dart.js').read_text(encoding='utf-8', errors='ignore')
-          marker = 'ตั้งค่าบทสนทนา'
-          escaped = ''.join(f'\\u{ord(ch):04x}' if ord(ch) > 127 else ch for ch in marker)
-          if marker not in data and escaped.lower() not in data.lower():
-              raise SystemExit('new full-chat UI marker not found in production bundle')
-          PY
-
-          curl -fsSL --retry 5 --retry-all-errors https://wynos.online/firebase-messaging-sw.js -o /tmp/firebase-messaging-sw.js
-          test -s /tmp/firebase-messaging-sw.js
-          grep -Fq 'showNotification' /tmp/firebase-messaging-sw.js
-          if grep -Eq '__FIREBASE_[A-Z_]+__' /tmp/firebase-messaging-sw.js; then
-            echo 'unresolved Firebase placeholder found in production service worker' >&2
-            exit 1
-          fi
+      - run: echo "Archived production verification; no deployment action."
