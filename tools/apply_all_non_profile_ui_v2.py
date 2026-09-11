@@ -132,3 +132,19 @@ source = source.replace(probe_marker, probe + probe_marker, 1)
 # insertion indentation are safe; dart format and flutter analyze remain
 # independent syntax gates.
 exec(compile(source, 'tools/apply_all_non_profile_ui.py', 'exec'), {'__name__': '__main__'})
+
+# The base pass may inspect a file that already has every desired argument and
+# therefore add the shared color import without ultimately needing it. Remove
+# only imports that are provably unused after the complete transform. Profile
+# and hidden Pop stay excluded from this cleanup as well.
+color_import = "import 'package:wyn/core/design/wyn_colors.dart';\n"
+features = Path('app/lib/features')
+for path in features.rglob('*.dart'):
+    if 'profile' in path.parts or 'pop' in path.parts:
+        continue
+    text = path.read_text()
+    if color_import not in text:
+        continue
+    without_import = text.replace(color_import, '', 1)
+    if 'WynColors.' not in without_import:
+        path.write_text(without_import)
