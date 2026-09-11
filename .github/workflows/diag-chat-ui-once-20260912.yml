@@ -1,0 +1,67 @@
+name: One-shot chat UI test diagnostics (2026-09-12)
+
+on:
+  push:
+    branches:
+      - feat/chat-threads-ui-20260912
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  flutter-diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+      - name: Run full Flutter tests and capture failure
+        id: tests
+        working-directory: app
+        shell: bash
+        run: |
+          set +e
+          flutter test > /tmp/flutter-test.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Post concise diagnostics to PR 363
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('/tmp/flutter-test.log').read_text(errors='replace')
+          lines = text.splitlines()
+          needles = ('Expected:', 'Actual:', 'Which:', 'TestFailure', '══', 'FAILED', 'Error:', 'Exception:', 'Some tests failed', 'The following TestFailure', 'A Timer is still pending', 'overflowed by')
+          hits = []
+          for i, line in enumerate(lines):
+              if any(n in line for n in needles):
+                  start = max(0, i - 8)
+                  end = min(len(lines), i + 16)
+                  hits.extend(lines[start:end])
+          if not hits:
+              hits = lines[-220:]
+          out = []
+          seen = set()
+          for line in hits:
+              key = line
+              if key in seen and line.strip():
+                  continue
+              seen.add(key)
+              out.append(line)
+          body = ['### One-shot Flutter test diagnostics', '', f'Exit status: `${{ steps.tests.outputs.status }}`', '', '```text']
+          body += out[-260:]
+          body += ['```']
+          Path('/tmp/diag.md').write_text('\n'.join(body))
+          PY
+          gh pr comment 363 --repo warren-wyn-dev/wynteam --body-file /tmp/diag.md
+      - name: Fail diagnostics if tests failed
+        if: steps.tests.outputs.status != '0'
+        run: exit 1
