@@ -21,8 +21,6 @@ def ensure_color_import(text: str) -> str:
     marker = "import 'package:flutter/material.dart';\n"
     if marker in text:
         return text.replace(marker, marker + "import 'package:wyn/core/design/wyn_colors.dart';\n", 1)
-    # Every target that uses the Material primitives below should import Material,
-    # but fail loudly instead of guessing if a file does not.
     raise RuntimeError('Material import not found')
 
 
@@ -225,18 +223,15 @@ SURFACE_RULES = [
     ]),
     ('showModalBottomSheet<', [
         ('backgroundColor', 'WynColors.paper'),
-        ('showDragHandle', 'true'),
         ('useSafeArea', 'true'),
     ]),
 ]
 
-# Handle non-generic showModalBottomSheet( calls separately. Flutter's
-# showModalBottomSheet API does not expose surfaceTintColor, so keep the sheet
-# surface explicit through backgroundColor rather than injecting an invalid
-# named parameter.
+# Handle non-generic showModalBottomSheet( calls separately. Keep global sheet
+# changes layout-neutral: forcing a drag handle increases sheet height and can
+# push actions below the tappable viewport on compact screens.
 BOTTOM_SHEET_RULE = [
     ('backgroundColor', 'WynColors.paper'),
-    ('showDragHandle', 'true'),
     ('useSafeArea', 'true'),
 ]
 
@@ -255,15 +250,9 @@ for path in files:
         text = ensure_color_import(text)
 
     for token, desired in SURFACE_RULES:
-        # Generic syntax has the actual opening parenthesis later, e.g.
-        # showModalBottomSheet<void>(. Treat those through the normal call only
-        # if the exact token exists; plain calls are handled below.
         if token not in text:
             continue
         if token == 'showModalBottomSheet<':
-            # We cannot use the standard token parser here because '<' is not
-            # the opening delimiter. Convert each generic occurrence by finding
-            # the next '(' and reusing a temporary unique marker.
             search = 0
             while True:
                 gi = text.find('showModalBottomSheet<', search)
@@ -289,7 +278,6 @@ for path in files:
         text, count = inject_missing_args(text, token, desired)
         rule_counts[token] += count
 
-    # Plain bottom-sheet calls not already consumed as generic calls.
     text, count = inject_missing_args(text, 'showModalBottomSheet(', BOTTOM_SHEET_RULE)
     rule_counts['showModalBottomSheet('] += count
 
@@ -299,10 +287,6 @@ for path in files:
     else:
         reviewed_files.append(path)
 
-# Audit every route-level screen after the transform. A screen with a Scaffold
-# must explicitly carry the non-profile paper surface; every AppBar must carry
-# the profile-language chrome contract. Screens that deliberately own a dark
-# background already had explicit values and were not overridden.
 violations = []
 for path in screens:
     text = path.read_text()
@@ -326,11 +310,7 @@ for path in screens:
 if violations:
     raise RuntimeError('Non-profile UI audit failed:\n' + '\n'.join(violations))
 
-# Founder guard at script level as well as workflow level: never touch Profile
-# or hidden Pop implementation in this system-wide visual pass.
 for protected in [FEATURES / 'profile', FEATURES / 'pop']:
-    # The script never writes these paths. This explicit existence check catches
-    # an accidental path/filter regression early if the repo layout changes.
     if not protected.exists():
         raise RuntimeError(f'Protected feature path missing: {protected}')
 
@@ -350,7 +330,7 @@ report.write_text(
     '- Ink foreground, zero-elevation app bars, no Material tint drift.\n'
     '- Ink/graphite/hairline tab language shared with the approved Profile.\n'
     '- Flat cards and quiet paper dialogs.\n'
-    '- Safe-area bottom sheets with a standard drag handle.\n\n'
+    '- Safe-area paper bottom sheets without globally forcing extra vertical chrome.\n\n'
     '## Changed files\n\n' +
     ''.join(f'- `{p.as_posix()}`\n' for p in changed_files) +
     '\n## Reviewed without source changes\n\n' +
