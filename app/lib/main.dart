@@ -15,6 +15,7 @@ import 'core/navigation/app_navigator.dart';
 import 'core/typography/looped_thai_font_loader.dart';
 import 'features/account_switcher/data/account_switcher_repository.dart';
 import 'features/auth/presentation/auth_gate.dart';
+import 'features/push/presentation/push_reliability_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -104,6 +105,12 @@ Future<void> main() async {
   }
 
   runApp(const WynApp());
+
+  // Push reliability is process-wide rather than screen-owned. Starting it
+  // after runApp ensures its foreground DM banner has a ScaffoldMessenger to
+  // target, while Firebase/Supabase are already initialized above. It never
+  // prompts for permission; it only repairs an existing grant on auth/resume.
+  PushReliabilityController.instance.start();
 }
 
 /// What a widget that failed to build shows in release. Deliberately
