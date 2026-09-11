@@ -27,7 +27,7 @@ jobs:
           echo "pop=$(git rev-parse HEAD:app/lib/features/pop)" >> "$GITHUB_OUTPUT"
 
       - name: Apply all non-profile UI system pass
-        run: python3 tools/apply_all_non_profile_ui.py
+        run: python3 tools/apply_all_non_profile_ui_v2.py
 
       - name: Protect Profile and hidden Pop
         run: |
@@ -96,6 +96,7 @@ jobs:
       - name: Commit validated all-page UI pass
         run: |
           rm -f tools/apply_all_non_profile_ui.py
+          rm -f tools/apply_all_non_profile_ui_v2.py
           rm -f .github/workflows/apply-all-non-profile-ui-once.yml
           rm -f full_flutter_test.log
           git config user.name "github-actions[bot]"
