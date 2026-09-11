@@ -130,6 +130,12 @@ jobs:
               text = path.read_text(encoding='utf-8')
               if path.name == 'club_channel_chat_view.dart':
                   text = text.replace("import '../../../../core/widgets/action_sheet_row.dart';\n", '')
+              if path.name == 'conversation_screen.dart':
+                  old = """    if (next == position.pixels)\n      return; // Already at the end -- nothing more to reveal.\n"""
+                  new = """    if (next == position.pixels) {\n      return; // Already at the end -- nothing more to reveal.\n    }\n"""
+                  if old not in text:
+                      raise SystemExit('Expected scroll-boundary if target not found')
+                  text = text.replace(old, new, 1)
               path.write_text(wrap_if_statements(text), encoding='utf-8')
           PY
 
@@ -143,9 +149,7 @@ jobs:
 
       - name: Analyze
         working-directory: app
-        run: |
-          nl -ba lib/features/chat/presentation/conversation_screen.dart | sed -n '1514,1528p'
-          flutter analyze
+        run: flutter analyze
 
       - name: Run chat regression suite
         working-directory: app
