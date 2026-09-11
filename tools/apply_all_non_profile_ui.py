@@ -225,16 +225,17 @@ SURFACE_RULES = [
     ]),
     ('showModalBottomSheet<', [
         ('backgroundColor', 'WynColors.paper'),
-        ('surfaceTintColor', 'WynColors.paper'),
         ('showDragHandle', 'true'),
         ('useSafeArea', 'true'),
     ]),
 ]
 
-# Handle non-generic showModalBottomSheet( calls separately.
+# Handle non-generic showModalBottomSheet( calls separately. Flutter's
+# showModalBottomSheet API does not expose surfaceTintColor, so keep the sheet
+# surface explicit through backgroundColor rather than injecting an invalid
+# named parameter.
 BOTTOM_SHEET_RULE = [
     ('backgroundColor', 'WynColors.paper'),
-    ('surfaceTintColor', 'WynColors.paper'),
     ('showDragHandle', 'true'),
     ('useSafeArea', 'true'),
 ]
