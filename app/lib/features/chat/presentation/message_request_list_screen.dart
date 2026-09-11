@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/text_utils.dart';
+import '../../../core/widgets/empty_state_block.dart';
 import '../../presence/data/presence_repository.dart';
 import '../../profile/presentation/widgets/avatar_circle.dart';
 import '../data/chat_repository.dart';
@@ -125,7 +127,28 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('คำขอข้อความ')),
+      backgroundColor: WynColors.paper,
+      appBar: AppBar(
+        backgroundColor: WynColors.paper,
+        surfaceTintColor: WynColors.paper,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: 58,
+        titleSpacing: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'คำขอข้อความ',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: WynColors.hairline),
+        ),
+      ),
       body: _buildBody(),
     );
   }
@@ -149,21 +172,11 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
     }
 
     if (_requests.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.mail_outline,
-                size: 56,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              const SizedBox(height: WynSpacing.space4),
-              const Text('ยังไม่มีคำขอข้อความ', textAlign: TextAlign.center),
-            ],
-          ),
+      return const Center(
+        child: EmptyStateBlock(
+          icon: Icons.chat_bubble_outline,
+          title: 'ยังไม่มีคำขอข้อความ',
+          subtitle: 'คำขอจากคนที่ยังไม่ได้เริ่มแชทกับคุณจะอยู่ตรงนี้',
         ),
       );
     }
@@ -223,7 +236,7 @@ class _MessageRequestRow extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: WynSpacing.space4,
-            vertical: WynSpacing.space2,
+            vertical: 12,
           ),
           child: Row(
             children: [
@@ -231,20 +244,27 @@ class _MessageRequestRow extends StatelessWidget {
                 imageUrl: request.otherAvatarUrl,
                 fallbackText: displayName,
                 radius: 24,
+                ring: false,
               ),
               const SizedBox(width: WynSpacing.space3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(displayName, style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                        color: WynColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
                     Text(
                       _preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                      style: const TextStyle(fontSize: 14, color: WynColors.graphite),
                     ),
                   ],
                 ),
@@ -252,9 +272,7 @@ class _MessageRequestRow extends StatelessWidget {
               const SizedBox(width: WynSpacing.space2),
               Text(
                 time,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
+                style: const TextStyle(fontSize: 12.5, color: WynColors.graphite),
               ),
             ],
           ),

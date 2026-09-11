@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
-import '../../../core/design/wyn_typography.dart';
 import '../../../core/text_utils.dart';
 import '../../../core/widgets/empty_state_block.dart';
 import '../../follow/data/follow_repository.dart';
@@ -299,18 +298,32 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       backgroundColor: WynColors.paper,
       appBar: AppBar(
         backgroundColor: WynColors.paper,
-        centerTitle: true,
+        surfaceTintColor: WynColors.paper,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: 58,
+        titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('ข้อความ', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
+        title: const Text(
+          'ข้อความ',
+          style: TextStyle(
+            fontSize: 20,
+            height: 1.1,
+            fontWeight: FontWeight.w700,
+            color: WynColors.ink,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 19, color: WynColors.ink),
+            icon: const Icon(Icons.edit_outlined, size: 22, color: WynColors.ink),
             tooltip: 'เขียนข้อความใหม่',
             onPressed: _openNewMessage,
           ),
+          const SizedBox(width: 4),
         ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -337,15 +350,15 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
 
   Widget _buildTabs() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6),
+      key: const Key('chat_threads_tabs'),
+      height: 48,
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: WynColors.hairline)),
       ),
       child: Row(
         children: [
-          _buildTab('ทั้งหมด', 0),
-          const SizedBox(width: WynSpacing.space6),
-          _buildTab('ยังไม่อ่าน', 1),
+          Expanded(child: _buildTab('ทั้งหมด', 0)),
+          Expanded(child: _buildTab('ยังไม่อ่าน', 1)),
         ],
       ),
     );
@@ -355,27 +368,27 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
     final selected = _selectedTab == index;
     return InkWell(
       onTap: () => setState(() => _selectedTab = index),
-      child: IntrinsicWidth(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Center(
               child: Text(
                 label,
                 style: _textStyle(
-                  fontSize: 13,
+                  fontSize: 13.5,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? WynColors.ink : WynColors.mutedNeutral,
+                  color: selected ? WynColors.ink : WynColors.graphite,
                 ),
               ),
             ),
-            Container(
-              height: 2,
-              color: selected ? WynColors.sapphire : Colors.transparent,
-            ),
-          ],
-        ),
+          ),
+          Container(
+            width: 34,
+            height: 2,
+            color: selected ? WynColors.ink : Colors.transparent,
+          ),
+        ],
       ),
     );
   }
@@ -392,20 +405,46 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
             border: Border(bottom: BorderSide(color: WynColors.hairline)),
           ),
           padding: const EdgeInsets.symmetric(
-            horizontal: WynSpacing.space6,
-            vertical: WynSpacing.space3,
+            horizontal: WynSpacing.space4,
+            vertical: 10,
           ),
           child: Row(
             children: [
-              const Icon(Icons.mail_outline, size: 18, color: WynColors.sapphire),
-              const SizedBox(width: WynSpacing.space3),
-              Expanded(
-                child: Text(
-                  'คำขอข้อความ ($_pendingRequestCount)',
-                  style: _textStyle(fontSize: 15, fontWeight: FontWeight.w500, color: WynColors.ink),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: WynColors.surfaceTint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chat_bubble_outline,
+                  size: 18,
+                  color: WynColors.ink,
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 15, color: WynColors.faint),
+              const SizedBox(width: WynSpacing.space3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'คำขอข้อความ ($_pendingRequestCount)',
+                      style: _textStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: WynColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'รายการที่รอการตอบรับ',
+                      style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 18, color: WynColors.graphite),
             ],
           ),
         ),
@@ -517,20 +556,17 @@ class _ConversationRow extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6, vertical: 14),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: WynColors.hairline)),
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 12),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               AvatarCircle(
                 imageUrl: conversation.otherAvatarUrl,
                 fallbackText: displayName,
                 radius: 24,
-                ring: true,
+                ring: false,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,7 +579,7 @@ class _ConversationRow extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: _textStyle(
-                              fontSize: 15,
+                              fontSize: 15.5,
                               fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
                               color: WynColors.ink,
                             ),
@@ -552,7 +588,7 @@ class _ConversationRow extends StatelessWidget {
                         const SizedBox(width: WynSpacing.space2),
                         Text(
                           time,
-                          style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
+                          style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
                         ),
                       ],
                     ),
@@ -570,7 +606,7 @@ class _ConversationRow extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: _textStyle(
-                              fontSize: 13,
+                              fontSize: 14,
                               fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
                               fontWeight: isUnread ? FontWeight.w500 : FontWeight.w400,
                               color: isUnread ? WynColors.ink : WynColors.graphite,
@@ -596,9 +632,9 @@ class _UnreadDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 6,
-      height: 6,
-      decoration: const BoxDecoration(color: WynColors.sapphire, shape: BoxShape.circle),
+      width: 7,
+      height: 7,
+      decoration: const BoxDecoration(color: WynColors.ink, shape: BoxShape.circle),
     );
   }
 }

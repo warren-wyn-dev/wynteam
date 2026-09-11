@@ -46,7 +46,8 @@ import '../data/shared_content_type.dart';
 import '../../presence/data/presence_repository.dart';
 
 /// Screen 3 -- the conversation itself. Restyled to 13-chat-thread.tsx:
-/// sapphire-filled bubbles (mine) vs. tinted #F1EFE9 bubbles (theirs).
+/// ink-filled bubbles (mine) vs. tinted #F1EFE9 bubbles (theirs), matching
+/// the monochrome Profile/Threads direction while preserving every DM action.
 ///
 /// Message grouping/bubble behavior (per
 /// .wyn/docs/design/wyn-031-chat-message-grouping-bubble-spec.md):
@@ -1503,7 +1504,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(color: Color(0xFF4CAF50), shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: WynColors.online, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
           Text('ออนไลน์', style: _textStyle(fontSize: 12, color: WynColors.faint)),
@@ -1532,9 +1533,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       backgroundColor: WynColors.paper,
       appBar: AppBar(
         backgroundColor: WynColors.paper,
+        surfaceTintColor: WynColors.paper,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
+        toolbarHeight: 60,
         leading: IconButton(
-          icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
+          icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: InkWell(
@@ -1553,7 +1558,12 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AvatarCircle(imageUrl: widget.otherAvatarUrl, fallbackText: displayName, radius: 14),
+              AvatarCircle(
+                imageUrl: widget.otherAvatarUrl,
+                fallbackText: displayName,
+                radius: 16,
+                ring: false,
+              ),
               const SizedBox(width: WynSpacing.space2),
               Flexible(
                 child: Column(
@@ -1563,12 +1573,16 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                     Text(
                       displayName,
                       overflow: TextOverflow.ellipsis,
-                      style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+                      style: _textStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: WynColors.ink),
                     ),
-                    // WYN-139/WYN-125: null (nothing rendered at all, no
-                    // empty line reserved) for a non-developer account
-                    // -- see _buildStatusSubtitle's own doc comment.
-                    if (statusSubtitle != null) statusSubtitle,
+                    if (statusSubtitle != null)
+                      statusSubtitle
+                    else
+                      Text(
+                        '@${widget.otherUsername}',
+                        overflow: TextOverflow.ellipsis,
+                        style: _textStyle(fontSize: 12, color: WynColors.graphite),
+                      ),
                   ],
                 ),
               ),
@@ -1577,7 +1591,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert, color: WynColors.ink),
+            icon: const Icon(Icons.more_horiz, color: WynColors.ink),
             tooltip: 'ตัวเลือกเพิ่มเติม',
             onPressed: _showConversationMenu,
           ),
@@ -1784,7 +1798,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       // this, a list with no overflow to scroll never reports the drag.
       physics: const AlwaysScrollableScrollPhysics(),
       reverse: true,
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
+      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space4),
       itemCount: _messages.length + (_hasMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _messages.length) {
@@ -1957,7 +1971,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                 width: WynSpacing.touchTargetMin,
                 height: WynSpacing.touchTargetMin,
                 child: Material(
-                  color: _canSend ? WynColors.sapphire : WynColors.hairline,
+                  color: _canSend ? WynColors.ink : WynColors.surfaceTint,
                   shape: const CircleBorder(),
                   child: IconButton(
                     // WYN-138: edit mode's own "บันทึก" (confirm edit)
@@ -2015,6 +2029,10 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               const SizedBox(width: WynSpacing.space3),
               Expanded(
                 child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: WynColors.ink,
+                    foregroundColor: WynColors.paper,
+                  ),
                   onPressed: _isDecidingRequest ? null : _acceptRequest,
                   child: _isDecidingRequest
                       ? const SizedBox(
@@ -2384,7 +2402,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bubbleColor = message.isDeleted ? WynColors.hairline : (isMine ? WynColors.sapphire : _kBubbleFill);
+    final bubbleColor = message.isDeleted ? WynColors.hairline : (isMine ? WynColors.ink : _kBubbleFill);
     final textColor = message.isDeleted ? WynColors.graphite : (isMine ? WynColors.paper : WynColors.ink);
 
     final bubble = Container(
@@ -2410,7 +2428,12 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: textColor.withValues(alpha: 0.08),
-                  border: const Border(left: BorderSide(color: WynColors.sapphire, width: 2)),
+                  border: Border(
+                    left: BorderSide(
+                      color: isMine ? WynColors.paper : WynColors.graphite,
+                      width: 2,
+                    ),
+                  ),
                 ),
                 child: Text(
                   message.replyPreviewDeletedAt != null
@@ -2501,7 +2524,7 @@ class _MessageBubble extends StatelessWidget {
                 SizedBox(
                   width: _avatarSlotWidth,
                   child: showAvatar
-                      ? AvatarCircle(imageUrl: otherAvatarUrl, fallbackText: otherDisplayName, radius: 15, ring: true)
+                      ? AvatarCircle(imageUrl: otherAvatarUrl, fallbackText: otherDisplayName, radius: 15, ring: false)
                       : null,
                 ),
                 const SizedBox(width: WynSpacing.space2),
