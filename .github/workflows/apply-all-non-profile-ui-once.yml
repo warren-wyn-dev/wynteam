@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/apply-all-non-profile-ui-once.yml
+      - tools/apply_all_non_profile_ui.py
+      - tools/apply_all_non_profile_ui_v2.py
 
 permissions:
   contents: write
