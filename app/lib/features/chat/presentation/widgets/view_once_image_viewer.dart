@@ -2,20 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/widgets/network_thumbnail.dart';
 
-/// Founder feedback: a chat photo sent "View Once" (like Instagram) --
-/// shown for exactly [duration], then this pops itself automatically.
-/// Popping early (the close button, the system back gesture) counts as
-/// the one view too -- see `ConversationScreen._openViewOnceImage`'s
-/// own doc comment for why the caller expires the message regardless
-/// of *how* this route closes, not only on the countdown reaching zero.
-///
-/// Deliberately no pinch-zoom/InteractiveViewer, same "don't
-/// over-engineer" posture [EvidenceImageViewer] already takes -- a
-/// photo the viewer is actively racing a clock on is the last place
-/// that would help.
+/// Chat "View Once" viewer: one distraction-free dark canvas, a compact
+/// countdown pill, and the same auto-close / early-close semantics as before.
 class ViewOnceImageViewer extends StatefulWidget {
   const ViewOnceImageViewer({
     super.key,
@@ -58,41 +50,103 @@ class _ViewOnceImageViewerState extends State<ViewOnceImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final progress = widget.duration.inSeconds == 0
+        ? 0.0
+        : _secondsLeft / widget.duration.inSeconds;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Center(
-            child: Image.network(widget.signedUrl, errorBuilder: networkImageErrorBuilder),
+          Positioned.fill(
+            child: Center(
+              child: Image.network(
+                widget.signedUrl,
+                fit: BoxFit.contain,
+                errorBuilder: networkImageErrorBuilder,
+              ),
+            ),
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(WynSpacing.space3),
+              padding: const EdgeInsets.fromLTRB(
+                WynSpacing.space3,
+                WynSpacing.space2,
+                WynSpacing.space3,
+                0,
+              ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton(
-                    key: const Key('view_once_close_button'),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
+                  Material(
+                    color: WynColors.imageScrimStrong,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      key: const Key('view_once_close_button'),
+                      icon: const Icon(Icons.close,
+                          color: WynColors.paper, size: 21),
+                      tooltip: 'ปิด',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                   ),
+                  const Spacer(),
                   Semantics(
                     label: 'ปิดอัตโนมัติใน $_secondsLeft วินาที',
                     excludeSemantics: true,
                     child: Container(
                       key: const Key('view_once_countdown'),
-                      width: 32,
-                      height: 32,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WynSpacing.space3,
+                        vertical: WynSpacing.space2,
                       ),
-                      child: Text(
-                        '$_secondsLeft',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      decoration: BoxDecoration(
+                        color: WynColors.imageScrimStrong,
+                        borderRadius:
+                            BorderRadius.circular(WynSpacing.radiusFull),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.filter_1_outlined,
+                              size: 15, color: WynColors.paper),
+                          const SizedBox(width: WynSpacing.space1),
+                          Text(
+                            '$_secondsLeft',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: WynColors.paper,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: WynSpacing.space4,
+            right: WynSpacing.space4,
+            bottom: WynSpacing.space4,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 3,
+                      backgroundColor: WynColors.graphite,
+                      color: WynColors.paper,
+                    ),
+                  ),
+                  const SizedBox(height: WynSpacing.space2),
+                  const Text(
+                    'รูปนี้จะหายหลังจากเปิดดู',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12.5, color: WynColors.faint),
                   ),
                 ],
               ),

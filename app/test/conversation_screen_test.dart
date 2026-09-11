@@ -80,7 +80,8 @@ void main() {
           otherDisplayName: 'น้ำฝน',
           blockRepository: blockRepo,
           moderationRepository: moderationRepo,
-          presenceRepository: presenceRepository ?? RecordingPresenceRepository(),
+          presenceRepository:
+              presenceRepository ?? RecordingPresenceRepository(),
         ),
       );
 
@@ -129,7 +130,8 @@ void main() {
     expect(chatRepo.markConversationReadCalls, 1);
   });
 
-  testWidgets('loads and shows existing messages, and marks the conversation read',
+  testWidgets(
+      'loads and shows existing messages, and marks the conversation read',
       (tester) async {
     chatRepo.messagesByConversation = {
       'c1': [message(text: 'สวัสดีจ้า')],
@@ -142,7 +144,8 @@ void main() {
     expect(chatRepo.lastMarkConversationReadId, 'c1');
   });
 
-  testWidgets('sending a text message calls sendMessage and shows the sent bubble',
+  testWidgets(
+      'sending a text message calls sendMessage and shows the sent bubble',
       (tester) async {
     chatRepo.messagesByConversation = const {'c1': []};
     chatRepo.sendMessageResult = ChatMessage(
@@ -165,7 +168,8 @@ void main() {
     expect(find.text('ข้อความใหม่'), findsOneWidget);
   });
 
-  testWidgets('replying to a message shows the quote bar and sends with replyToMessageId',
+  testWidgets(
+      'replying to a message shows the quote bar and sends with replyToMessageId',
       (tester) async {
     chatRepo.messagesByConversation = {
       'c1': [message(id: 'm1', text: 'ข้อความต้นทาง')],
@@ -196,7 +200,8 @@ void main() {
     expect(chatRepo.lastSendMessageReplyToId, 'm1');
   });
 
-  testWidgets('long-pressing a message that is itself a reply offers no "ตอบกลับ" option',
+  testWidgets(
+      'long-pressing a message that is itself a reply offers no "ตอบกลับ" option',
       (tester) async {
     chatRepo.messagesByConversation = {
       'c1': [
@@ -223,7 +228,10 @@ void main() {
       'a fixed-height guess', (tester) async {
     final fillers = List.generate(
       25,
-      (i) => message(id: 'filler-${i + 1}', text: null, imageUrl: 'c1/filler-${i + 1}.jpg'),
+      (i) => message(
+          id: 'filler-${i + 1}',
+          text: null,
+          imageUrl: 'c1/filler-${i + 1}.jpg'),
     );
     chatRepo.signedUrlResult = 'https://example.supabase.co/signed/filler.jpg';
     chatRepo.messagesByConversation = {
@@ -251,7 +259,8 @@ void main() {
     expect(find.text('ข้อความต้นฉบับที่อยู่ไกลมาก'), findsOneWidget);
   });
 
-  testWidgets('deleting my own message calls deleteMessage and shows the deleted placeholder',
+  testWidgets(
+      'deleting my own message calls deleteMessage and shows the deleted placeholder',
       (tester) async {
     chatRepo.messagesByConversation = {
       'c1': [message(id: 'm1', senderId: 'me', text: 'ลบข้อความนี้')],
@@ -315,7 +324,8 @@ void main() {
       chatRepo.messagesByConversation = {
         'c1': [message(id: 'm1', text: null, imageUrl: 'c1/other-1.jpg')],
       };
-      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      chatRepo.signedUrlResult =
+          'https://example.supabase.co/signed/other-1.jpg';
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
       // The signed URL 404s in a test -- harmless NetworkImageLoadException
@@ -330,7 +340,8 @@ void main() {
       // NetworkThumbnail decodes at a bounded size via `cacheWidth`,
       // which wraps the underlying NetworkImage in a ResizeImage.
       final resized = image.image as ResizeImage;
-      expect((resized.imageProvider as NetworkImage).url, chatRepo.signedUrlResult);
+      expect((resized.imageProvider as NetworkImage).url,
+          chatRepo.signedUrlResult);
     });
 
     testWidgets(
@@ -354,7 +365,8 @@ void main() {
       chatRepo.messagesByConversation = {
         'c1': [message(id: 'm1', text: null, imageUrl: 'c1/other-1.jpg')],
       };
-      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      chatRepo.signedUrlResult =
+          'https://example.supabase.co/signed/other-1.jpg';
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
       tester.takeException();
@@ -419,7 +431,8 @@ void main() {
       expect(find.text('แตะเพื่อดู'), findsNothing);
     });
 
-    testWidgets('an opened photo (imageUrl already cleared) shows "เปิดดูแล้ว" '
+    testWidgets(
+        'an opened photo (imageUrl already cleared) shows "เปิดดูแล้ว" '
         'for both sender and recipient, never tappable', (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [
@@ -454,7 +467,8 @@ void main() {
           ),
         ],
       };
-      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      chatRepo.signedUrlResult =
+          'https://example.supabase.co/signed/other-1.jpg';
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
@@ -506,7 +520,8 @@ void main() {
           ),
         ],
       };
-      chatRepo.signedUrlResult = 'https://example.supabase.co/signed/other-1.jpg';
+      chatRepo.signedUrlResult =
+          'https://example.supabase.co/signed/other-1.jpg';
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
@@ -589,7 +604,8 @@ void main() {
     expect(textFieldBottom, greaterThan(844 - keyboardHeight - 200));
   });
 
-  testWidgets('blocked either way hides the composer with an explanatory message',
+  testWidgets(
+      'blocked either way hides the composer with an explanatory message',
       (tester) async {
     blockRepo.blockRelationshipResult = BlockRelationship.blockedByMe;
     chatRepo.messagesByConversation = const {'c1': []};
@@ -600,7 +616,8 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
-  testWidgets('a Restrict in effect shows RestrictionBanner instead of the composer',
+  testWidgets(
+      'a Restrict in effect shows RestrictionBanner instead of the composer',
       (tester) async {
     moderationRepo.myStatus = ModerationStatus(
       isRestricted: true,
@@ -617,7 +634,8 @@ void main() {
     expect(find.textContaining('คุณถูกจำกัดการโพสต์ชั่วคราว'), findsOneWidget);
   });
 
-  testWidgets('Suspended hides the composer with an explanatory message', (tester) async {
+  testWidgets('Suspended hides the composer with an explanatory message',
+      (tester) async {
     moderationRepo.myStatus = const ModerationStatus(
       isRestricted: false,
       isSuspended: true,
@@ -631,7 +649,8 @@ void main() {
     expect(find.textContaining('บัญชีของคุณถูกระงับ'), findsOneWidget);
   });
 
-  testWidgets('a realtime message from the other side appears and marks the conversation read',
+  testWidgets(
+      'a realtime message from the other side appears and marks the conversation read',
       (tester) async {
     chatRepo.messagesByConversation = const {'c1': []};
     await tester.pumpWidget(buildScreen());
@@ -645,7 +664,8 @@ void main() {
     expect(chatRepo.markConversationReadCalls, greaterThan(callsBefore));
   });
 
-  testWidgets('a realtime echo of my own message is not duplicated', (tester) async {
+  testWidgets('a realtime echo of my own message is not duplicated',
+      (tester) async {
     chatRepo.messagesByConversation = const {'c1': []};
     chatRepo.sendMessageResult = ChatMessage(
       id: 'm-dup',
@@ -663,13 +683,15 @@ void main() {
     await tester.pumpAndSettle();
 
     // The realtime echo of the exact same id must not create a second bubble.
-    chatRepo.emitConversationMessage(message(id: 'm-dup', senderId: 'me', text: 'ข้อความซ้ำ'));
+    chatRepo.emitConversationMessage(
+        message(id: 'm-dup', senderId: 'me', text: 'ข้อความซ้ำ'));
     await tester.pumpAndSettle();
 
     expect(find.text('ข้อความซ้ำ'), findsOneWidget);
   });
 
-  group('Chat Screen Message Grouping & Bubble Behavior spec: avatar '
+  group(
+      'Chat Screen Message Grouping & Bubble Behavior spec: avatar '
       'grouping and date separators', () {
     testWidgets(
         'a consecutive run of "them" messages shows the avatar only once, '
@@ -756,7 +778,8 @@ void main() {
       expect(find.text('15 มิถุนายน'), findsOneWidget);
     });
 
-    testWidgets('a message on a different calendar day gets its own date '
+    testWidgets(
+        'a message on a different calendar day gets its own date '
         'separator', (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [
@@ -788,7 +811,8 @@ void main() {
     testWidgets(
         'as the recipient (not requestedBy): messages readable, composer replaced '
         'with Accept/Delete/Block/Report', (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
+      chatRepo.conversationMetaResult =
+          (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message(text: 'อยากรู้จักครับ')],
       };
@@ -804,9 +828,11 @@ void main() {
       expect(find.text('รายงาน'), findsOneWidget);
     });
 
-    testWidgets('tapping ยอมรับ accepts the request and the composer becomes normal',
+    testWidgets(
+        'tapping ยอมรับ accepts the request and the composer becomes normal',
         (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
+      chatRepo.conversationMetaResult =
+          (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -821,9 +847,11 @@ void main() {
       expect(find.byType(TextField), findsOneWidget);
     });
 
-    testWidgets('tapping ลบ confirms then deletes the request and pops the screen',
+    testWidgets(
+        'tapping ลบ confirms then deletes the request and pops the screen',
         (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
+      chatRepo.conversationMetaResult =
+          (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -866,9 +894,11 @@ void main() {
       expect(find.text('เปิดคำขอ'), findsOneWidget);
     });
 
-    testWidgets('tapping บล็อก blocks the sender and switches to the blocked message',
+    testWidgets(
+        'tapping บล็อก blocks the sender and switches to the blocked message',
         (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
+      chatRepo.conversationMetaResult =
+          (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -882,11 +912,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(blockRepo.blockUserCalls, 1);
-      expect(find.text('คุณไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้'), findsOneWidget);
+      expect(
+          find.text('คุณไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้'), findsOneWidget);
     });
 
-    testWidgets('tapping รายงาน opens the report sheet targeting the user', (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
+    testWidgets('tapping รายงาน opens the report sheet targeting the user',
+        (tester) async {
+      chatRepo.conversationMetaResult =
+          (status: 'pending', requestedBy: 'other', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -899,9 +932,11 @@ void main() {
       expect(find.text('รายงานผู้ใช้นี้'), findsOneWidget);
     });
 
-    testWidgets('as the requester (requestedBy == me): composer stays normal with an '
+    testWidgets(
+        'as the requester (requestedBy == me): composer stays normal with an '
         'awaiting-response label', (tester) async {
-      chatRepo.conversationMetaResult = (status: 'pending', requestedBy: 'me', otherUserLastReadAt: null);
+      chatRepo.conversationMetaResult =
+          (status: 'pending', requestedBy: 'me', otherUserLastReadAt: null);
       chatRepo.messagesByConversation = {
         'c1': [message()],
       };
@@ -934,7 +969,8 @@ void main() {
       await tester.enterText(find.byType(TextField), 'กำลังส่ง');
       await tester.pump();
       await tester.tap(find.byIcon(Icons.send));
-      await tester.pump(); // Optimistic insert lands; sendMessage is still gated.
+      await tester
+          .pump(); // Optimistic insert lands; sendMessage is still gated.
 
       // The composer clears immediately (optimistic, not on success) --
       // keeps the TextField's content, focus, and keyboard undisturbed
@@ -987,7 +1023,7 @@ void main() {
       // Read.
       expect(find.text('ส่งแล้ว'), findsNothing);
       final readLabel = tester.widget<Text>(find.text('อ่านแล้ว'));
-      expect(readLabel.style?.color, WynColors.sapphire);
+      expect(readLabel.style?.color, WynColors.graphite);
     });
   });
 
@@ -998,7 +1034,11 @@ void main() {
     chatRepo.messagesByConversation = {
       'c1': [
         ChatMessage(
-            id: 'm1', conversationId: 'c1', senderId: 'me', createdAt: sentAt, text: 'แตะดูเวลา'),
+            id: 'm1',
+            conversationId: 'c1',
+            senderId: 'me',
+            createdAt: sentAt,
+            text: 'แตะดูเวลา'),
       ],
     };
     await tester.pumpWidget(buildScreen());
@@ -1019,8 +1059,7 @@ void main() {
   group('WYN-138: Edit + Pin Message', () {
     testWidgets(
         'editing my own text message updates the bubble optimistically '
-        'and shows the "แก้ไขแล้ว" label',
-        (tester) async {
+        'and shows the "แก้ไขแล้ว" label', (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [message(id: 'm1', senderId: 'me', text: 'ข้อความเดิม')],
       };
@@ -1054,7 +1093,8 @@ void main() {
         "person's message", (tester) async {
       chatRepo.messagesByConversation = {
         'c1': [
-          message(id: 'm1', senderId: 'me', text: null, imageUrl: 'c1/me-1.jpg'),
+          message(
+              id: 'm1', senderId: 'me', text: null, imageUrl: 'c1/me-1.jpg'),
           message(id: 'm2', senderId: 'other', text: 'ข้อความของอีกฝ่าย'),
         ],
       };
@@ -1068,7 +1108,8 @@ void main() {
       expect(find.text('แก้ไข'), findsNothing);
       // "ปักหมุดข้อความ" still available -- pin has no such restriction.
       expect(find.text('ปักหมุดข้อความ'), findsOneWidget);
-      await tester.tapAt(const Offset(10, 10)); // dismiss via the sheet's barrier
+      await tester
+          .tapAt(const Offset(10, 10)); // dismiss via the sheet's barrier
       await tester.pumpAndSettle();
 
       await tester.longPress(find.text('ข้อความของอีกฝ่าย'));
@@ -1096,7 +1137,8 @@ void main() {
       await tester.tap(find.byIcon(Icons.check));
       await tester.pumpAndSettle();
 
-      expect(find.text('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
+      expect(
+          find.text('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
       expect(find.text('ข้อความเดิม'), findsOneWidget);
       expect(find.text('กำลังแก้ไขข้อความ'), findsOneWidget);
       final field = tester.widget<TextField>(find.byType(TextField));
@@ -1157,7 +1199,8 @@ void main() {
       chatRepo.messagesByConversation = {
         'c1': [message(id: 'm1', senderId: 'other', text: 'ข้อความที่ 4')],
       };
-      chatRepo.pinMessageError = Exception('At most 3 pinned messages allowed per conversation');
+      chatRepo.pinMessageError =
+          Exception('At most 3 pinned messages allowed per conversation');
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 

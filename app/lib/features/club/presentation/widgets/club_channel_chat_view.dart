@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
-import '../../../../core/widgets/action_sheet_row.dart';
 import '../../../../core/widgets/confirm_delete_dialog.dart';
 import '../../../../core/widgets/empty_state_block.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
@@ -18,6 +17,7 @@ import '../../data/club_repository.dart';
 import '../../../report/data/report_repository.dart';
 import '../../../report/data/report_target_type.dart';
 import '../../../report/presentation/report_sheet.dart';
+import '../../../chat/presentation/widgets/chat_ui.dart';
 
 /// WYN-128 -- the group chat room for one WYN-127 channel, embedded
 /// inline under the "โพสต์ | แชท" toggle (ClubPostsTab hosts this, not a
@@ -25,7 +25,7 @@ import '../../../report/presentation/report_sheet.dart';
 ///
 /// Reuses ConversationScreen's (WYN-031) visual language as closely as
 /// this being embedded (not a full Scaffold/AppBar of its own) allows --
-/// sapphire-filled sent bubbles / surfaceTint received bubbles, the same
+/// ink-filled sent bubbles / surfaceTint received bubbles, the same
 /// pill TextField + circular send button input bar -- per Design Rules:
 /// "ห้ามสร้าง UI chat ใหม่ตั้งแต่ศูนย์ -- reuse component จาก WYN-031 ให้
 /// มากที่สุด". `ConversationScreen`'s own bubble widget
@@ -112,7 +112,9 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
       widget.channelId,
       _onRealtimeMessage,
       onPresenceChange: (count) {
-        if (mounted) setState(() => _onlineCount = count);
+        if (mounted) {
+          setState(() => _onlineCount = count);
+        }
       },
     );
     _subscribeMembership();
@@ -133,17 +135,25 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
   @override
   void dispose() {
     final channel = _channel;
-    if (channel != null) widget.repository.unsubscribe(channel);
+    if (channel != null) {
+      widget.repository.unsubscribe(channel);
+    }
     final membershipChannel = _membershipChannel;
-    if (membershipChannel != null) widget.clubRepository.unsubscribe(membershipChannel);
+    if (membershipChannel != null) {
+      widget.clubRepository.unsubscribe(membershipChannel);
+    }
     _scrollController.dispose();
     _textController.dispose();
     super.dispose();
   }
 
   void _onRealtimeMessage(ClubChannelMessage message) {
-    if (!mounted) return;
-    if (_messages.any((m) => m.id == message.id)) return;
+    if (!mounted) {
+      return;
+    }
+    if (_messages.any((m) => m.id == message.id)) {
+      return;
+    }
     setState(() => _messages.insert(0, message));
     if (message.authorId != _myUserId) {
       widget.repository.markChannelRead(widget.channelId).catchError((_) {});
@@ -154,7 +164,9 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
     setState(() => _isLoadingInitial = true);
     try {
       final messages = await widget.repository.fetchMessages(widget.channelId);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _messages
           ..clear()
@@ -164,25 +176,34 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
     } catch (_) {
       // Fails open to an empty list, same posture as ConversationScreen.
     } finally {
-      if (mounted) setState(() => _isLoadingInitial = false);
+      if (mounted) {
+        setState(() => _isLoadingInitial = false);
+      }
     }
   }
 
   void _onScroll() {
-    if (_isLoadingMore || !_hasMore) return;
-    if (_scrollController.position.pixels > _scrollController.position.maxScrollExtent - 300) {
+    if (_isLoadingMore || !_hasMore) {
+      return;
+    }
+    if (_scrollController.position.pixels >
+        _scrollController.position.maxScrollExtent - 300) {
       _loadMore();
     }
   }
 
   Future<void> _loadMore() async {
-    if (_messages.isEmpty) return;
+    if (_messages.isEmpty) {
+      return;
+    }
     setState(() => _isLoadingMore = true);
     try {
       final oldest = _messages.last.createdAt;
-      final more =
-          await widget.repository.fetchMessages(widget.channelId, beforeCreatedAt: oldest);
-      if (!mounted) return;
+      final more = await widget.repository
+          .fetchMessages(widget.channelId, beforeCreatedAt: oldest);
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _messages.addAll(more);
         _hasMore = more.length == ClubChannelChatRepository.messagePageSize;
@@ -190,7 +211,9 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
     } catch (_) {
       // Silent, same posture as every other list's load-more failure.
     } finally {
-      if (mounted) setState(() => _isLoadingMore = false);
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
     }
   }
 
@@ -201,10 +224,16 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
       maxHeight: 1600,
       imageQuality: 85,
     );
-    if (picked == null) return;
+    if (picked == null) {
+      return;
+    }
     final bytes = await picked.readAsBytes();
-    final extension = picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
-    if (!mounted) return;
+    final extension = picked.name.contains('.')
+        ? picked.name.split('.').last.toLowerCase()
+        : 'jpg';
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _imageBytes = bytes;
       _imageExtension = extension;
@@ -212,10 +241,13 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
   }
 
   bool get _canSend =>
-      !_isSending && (_textController.text.trim().isNotEmpty || _imageBytes != null);
+      !_isSending &&
+      (_textController.text.trim().isNotEmpty || _imageBytes != null);
 
   Future<void> _send() async {
-    if (!_canSend) return;
+    if (!_canSend) {
+      return;
+    }
     final text = _textController.text;
     final imageBytes = _imageBytes;
     final imageExtension = _imageExtension;
@@ -236,14 +268,22 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
         imageExtension: imageExtension,
         replyToMessageId: replyTo?.id,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        if (!_messages.any((m) => m.id == sent.id)) _messages.insert(0, sent);
+        if (!_messages.any((m) => m.id == sent.id)) {
+          _messages.insert(0, sent);
+        }
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        if (_textController.text.isEmpty && _imageBytes == null && _replyTo == null) {
+        if (_textController.text.isEmpty &&
+            _imageBytes == null &&
+            _replyTo == null) {
           _textController.text = text;
           _imageBytes = imageBytes;
           _imageExtension = imageExtension;
@@ -254,19 +294,27 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
         const SnackBar(content: Text('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
-      if (mounted) setState(() => _isSending = false);
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 
   Future<void> _deleteMessage(ClubChannelMessage message) async {
     final confirmed = await confirmDeletePost(context, itemLabel: 'ข้อความ');
-    if (!confirmed || !mounted) return;
+    if (!confirmed || !mounted) {
+      return;
+    }
     try {
       await widget.repository.deleteMessage(message.id);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() => _messages.removeWhere((m) => m.id == message.id));
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -289,8 +337,9 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
     final canDelete = isMine || _canModerate;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(rows: [
-        ActionSheetRow(
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => ChatActionSheetBody(rows: [
+        ChatActionSheetRow(
           icon: Icons.reply_outlined,
           label: 'ตอบกลับ',
           onTap: () {
@@ -299,7 +348,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
           },
         ),
         if (canDelete)
-          ActionSheetRow(
+          ChatActionSheetRow(
             icon: Icons.delete_outline,
             label: 'ลบข้อความ',
             onTap: () {
@@ -311,7 +360,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
         // someone else's message -- same posture as club_post_card.dart's
         // own "รายงานโพสต์" row (wyn-026-report-system.md, Screen 6).
         if (!isMine)
-          ActionSheetRow(
+          ChatActionSheetRow(
             icon: Icons.flag_outlined,
             label: 'รายงานข้อความ',
             onTap: () {
@@ -336,24 +385,46 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      child: Row(
-        children: [
-          Icon(Icons.circle, size: 8, color: _onlineCount > 0 ? WynColors.sapphire : WynColors.faint),
-          const SizedBox(width: WynSpacing.space1),
-          Text(
-            '$_onlineCount คนออนไลน์ในห้องนี้',
-            style: const TextStyle(fontSize: 12, color: WynColors.graphite),
-          ),
-        ],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          WynSpacing.space4,
+          WynSpacing.space2,
+          WynSpacing.space4,
+          WynSpacing.space1,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space3,
+          vertical: WynSpacing.space2,
+        ),
+        decoration: BoxDecoration(
+          color: WynColors.surfaceTint,
+          borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.circle,
+              size: 8,
+              color: _onlineCount > 0 ? WynColors.online : WynColors.faint,
+            ),
+            const SizedBox(width: WynSpacing.space1),
+            Text(
+              '$_onlineCount คนออนไลน์ในห้องนี้',
+              style: const TextStyle(fontSize: 12.5, color: WynColors.graphite),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildMessageList() {
     if (_isLoadingInitial) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: WynColors.ink));
     }
     if (_messages.isEmpty) {
       return const Center(
@@ -373,7 +444,8 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
       child: ListView.builder(
         controller: _scrollController,
         reverse: true,
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space4, vertical: WynSpacing.space3),
         itemCount: _messages.length + (_hasMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= _messages.length) {
@@ -407,18 +479,23 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: WynColors.hairline)),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+          padding: const EdgeInsets.symmetric(
+              horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              IconButton(
-                icon: const Icon(Icons.image_outlined, size: 20, color: WynColors.graphite),
+              ChatRoundIconButton(
+                icon: Icons.image_outlined,
                 tooltip: 'แนบรูป',
                 onPressed: _isSending ? null : _pickImage,
+                enabled: !_isSending,
+                size: 40,
               ),
+              const SizedBox(width: WynSpacing.space2),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: WynSpacing.space4, vertical: 6),
                   decoration: BoxDecoration(
                     color: WynColors.surfaceTint,
                     borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
@@ -432,7 +509,8 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                     style: const TextStyle(fontSize: 16, color: WynColors.ink),
                     decoration: const InputDecoration(
                       hintText: 'พิมพ์ข้อความ...',
-                      hintStyle: TextStyle(fontSize: 16, color: WynColors.mutedNeutral),
+                      hintStyle: TextStyle(
+                          fontSize: 16, color: WynColors.mutedNeutral),
                       border: InputBorder.none,
                       isCollapsed: true,
                       counterText: '',
@@ -446,7 +524,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                 width: WynSpacing.touchTargetMin,
                 height: WynSpacing.touchTargetMin,
                 child: Material(
-                  color: _canSend ? WynColors.sapphire : WynColors.hairline,
+                  color: _canSend ? WynColors.ink : WynColors.surfaceTint,
                   shape: const CircleBorder(),
                   child: IconButton(
                     icon: _isSending
@@ -455,10 +533,16 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: _canSend ? WynColors.paper : WynColors.mutedNeutral,
+                              color: _canSend
+                                  ? WynColors.paper
+                                  : WynColors.mutedNeutral,
                             ),
                           )
-                        : Icon(Icons.send, size: 15, color: _canSend ? WynColors.paper : WynColors.mutedNeutral),
+                        : Icon(Icons.send,
+                            size: 15,
+                            color: _canSend
+                                ? WynColors.paper
+                                : WynColors.mutedNeutral),
                     tooltip: 'ส่งข้อความ',
                     onPressed: _canSend ? _send : null,
                   ),
@@ -473,11 +557,17 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
 
   Widget _buildReplyPreviewBar() {
     final replyTo = _replyTo!;
-    final preview =
-        replyTo.content?.isNotEmpty == true ? replyTo.content! : (replyTo.imageUrl != null ? '📷 รูปภาพ' : '');
+    final preview = replyTo.content?.isNotEmpty == true
+        ? replyTo.content!
+        : (replyTo.imageUrl != null ? '📷 รูปภาพ' : '');
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      color: WynColors.surfaceTint,
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+      decoration: BoxDecoration(
+        color: WynColors.surfaceTint,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -495,13 +585,19 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
 
   Widget _buildImagePreviewBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      color: WynColors.surfaceTint,
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+      decoration: BoxDecoration(
+        color: WynColors.surfaceTint,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-            child: Image.memory(_imageBytes!, width: 48, height: 48, fit: BoxFit.cover),
+            child: Image.memory(_imageBytes!,
+                width: 48, height: 48, fit: BoxFit.cover),
           ),
           const Spacer(),
           IconButton(
@@ -540,7 +636,7 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bubbleColor = isMine ? WynColors.sapphire : WynColors.surfaceTint;
+    final bubbleColor = isMine ? WynColors.ink : WynColors.surfaceTint;
     final textColor = isMine ? WynColors.paper : WynColors.ink;
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(18),
@@ -550,7 +646,8 @@ class _ChatBubble extends StatelessWidget {
     );
 
     final bubble = ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+      constraints:
+          BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
       child: GestureDetector(
         onLongPress: onLongPress,
         child: Container(
@@ -564,8 +661,10 @@ class _ChatBubble extends StatelessWidget {
               if (message.imageUrl != null) _buildImage(),
               if (message.content != null && message.content!.isNotEmpty)
                 Padding(
-                  padding: EdgeInsets.only(top: message.imageUrl != null ? WynSpacing.space1 : 0),
-                  child: Text(message.content!, style: TextStyle(fontSize: 15, color: textColor)),
+                  padding: EdgeInsets.only(
+                      top: message.imageUrl != null ? WynSpacing.space1 : 0),
+                  child: Text(message.content!,
+                      style: TextStyle(fontSize: 15, color: textColor)),
                 ),
             ],
           ),
@@ -574,7 +673,8 @@ class _ChatBubble extends StatelessWidget {
     );
 
     return Column(
-      crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment:
+          isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
         // WYN-128's own addition vs. 1:1 chat -- a group needs the
         // sender's name above every incoming bubble.
@@ -584,9 +684,17 @@ class _ChatBubble extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AvatarCircle(imageUrl: message.authorAvatarUrl, fallbackText: _authorLabel, radius: 10),
+                AvatarCircle(
+                    imageUrl: message.authorAvatarUrl,
+                    fallbackText: _authorLabel,
+                    radius: 10,
+                    ring: false),
                 const SizedBox(width: WynSpacing.space1),
-                Text(_authorLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: WynColors.graphite)),
+                Text(_authorLabel,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: WynColors.graphite)),
               ],
             ),
           ),
@@ -601,9 +709,11 @@ class _ChatBubble extends StatelessWidget {
         : (message.replyPreviewImageUrl != null ? '📷 รูปภาพ' : 'ข้อความ');
     return Container(
       margin: const EdgeInsets.only(bottom: WynSpacing.space1),
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space2, vertical: 4),
       decoration: BoxDecoration(
-        color: (isMine ? WynColors.paper : WynColors.hairline).withValues(alpha: 0.35),
+        color: (isMine ? WynColors.paper : WynColors.hairline)
+            .withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
       ),
       child: Text(

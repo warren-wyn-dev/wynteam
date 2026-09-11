@@ -56,7 +56,8 @@ void main() {
         ),
       );
 
-  testWidgets('empty state shows the no-conversations message, not a crash', (tester) async {
+  testWidgets('empty state shows the no-conversations message, not a crash',
+      (tester) async {
     chatRepo.inboxPages = const [[]];
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
@@ -95,7 +96,9 @@ void main() {
     expect(find.text('ระบบแชทปิดปรับปรุงชั่วคราว'), findsNothing);
   });
 
-  testWidgets('shows the other participant, preview text, and an unread indicator', (tester) async {
+  testWidgets(
+      'shows the other participant, preview text, and an unread indicator',
+      (tester) async {
     chatRepo.inboxPages = [
       [conversation()],
     ];
@@ -106,7 +109,8 @@ void main() {
     expect(find.text('สวัสดี'), findsOneWidget);
   });
 
-  testWidgets('shows "ข้อความถูกลบ" preview for a soft-deleted last message', (tester) async {
+  testWidgets('shows "ข้อความถูกลบ" preview for a soft-deleted last message',
+      (tester) async {
     chatRepo.inboxPages = [
       [conversation(lastMessageDeletedAt: '2026-08-22T10:00:30Z')],
     ];
@@ -116,7 +120,8 @@ void main() {
     expect(find.text('ข้อความถูกลบ'), findsOneWidget);
   });
 
-  testWidgets('tapping a row opens ConversationScreen for that conversation', (tester) async {
+  testWidgets('tapping a row opens ConversationScreen for that conversation',
+      (tester) async {
     chatRepo.inboxPages = [
       [conversation()],
     ];
@@ -129,7 +134,8 @@ void main() {
     expect(find.byType(ConversationScreen), findsOneWidget);
   });
 
-  testWidgets('long-press opens the mute/unmute sheet and toggling it calls the repository',
+  testWidgets(
+      'long-press opens the mute/unmute sheet and toggling it calls the repository',
       (tester) async {
     chatRepo.inboxPages = [
       [conversation()],
@@ -215,8 +221,7 @@ void main() {
       expect(find.text('อ่านแล้ว'), findsNothing);
     });
 
-    testWidgets(
-        '"ยังไม่อ่าน" with nothing unread shows its own empty message',
+    testWidgets('"ยังไม่อ่าน" with nothing unread shows its own empty message',
         (tester) async {
       chatRepo.inboxPages = [
         [
@@ -233,8 +238,7 @@ void main() {
     });
   });
 
-  testWidgets(
-      '17-new-message.tsx: the pencil icon opens NewMessageScreen',
+  testWidgets('17-new-message.tsx: the pencil icon opens NewMessageScreen',
       (tester) async {
     chatRepo.inboxPages = const [[]];
     await tester.pumpWidget(buildScreen());
@@ -246,26 +250,32 @@ void main() {
     expect(find.byType(NewMessageScreen), findsOneWidget);
   });
 
-  group('Message Requests banner (WYN-032)', () {
-    testWidgets('hidden when there are no pending requests', (tester) async {
+  group('Message Requests pill (WYN-032)', () {
+    testWidgets(
+        'stays available with zero pending requests and opens the empty list',
+        (tester) async {
       chatRepo.inboxPages = const [[]];
       chatRepo.pendingMessageRequestCount = 0;
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('คำขอข้อความ'), findsNothing);
+      expect(find.text('คำขอ'), findsOneWidget);
+      await tester.tap(find.text('คำขอ'));
+      await tester.pumpAndSettle();
+      expect(find.byType(MessageRequestListScreen), findsOneWidget);
     });
 
-    testWidgets('shows the pending count and opens MessageRequestListScreen on tap',
+    testWidgets(
+        'shows the pending count and opens MessageRequestListScreen on tap',
         (tester) async {
       chatRepo.inboxPages = const [[]];
       chatRepo.pendingMessageRequestCount = 3;
       await tester.pumpWidget(buildScreen());
       await tester.pumpAndSettle();
 
-      expect(find.text('คำขอข้อความ (3)'), findsOneWidget);
+      expect(find.text('คำขอ (3)'), findsOneWidget);
 
-      await tester.tap(find.text('คำขอข้อความ (3)'));
+      await tester.tap(find.text('คำขอ (3)'));
       await tester.pumpAndSettle();
 
       expect(find.byType(MessageRequestListScreen), findsOneWidget);

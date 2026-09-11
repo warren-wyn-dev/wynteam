@@ -27,7 +27,8 @@ import '../../moderation/data/appeal_repository.dart';
 import '../../moderation/data/appeal_status.dart';
 import '../../moderation/data/moderation_repository.dart';
 import '../../moderation/presentation/appeal_form_screen.dart';
-import '../../moderation/presentation/evidence_image_viewer.dart';
+import 'widgets/chat_media_viewer.dart';
+import 'widgets/chat_ui.dart';
 import 'widgets/view_once_image_viewer.dart';
 import '../../profile/presentation/view_profile_screen.dart';
 import '../../follow/data/follow_repository.dart';
@@ -153,7 +154,8 @@ class ConversationScreen extends StatefulWidget {
   State<ConversationScreen> createState() => _ConversationScreenState();
 }
 
-class _ConversationScreenState extends State<ConversationScreen> with WidgetsBindingObserver {
+class _ConversationScreenState extends State<ConversationScreen>
+    with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final _textFieldFocusNode = FocusNode();
@@ -162,7 +164,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   late final BlockRepository _blockRepository =
       widget._blockRepository ?? BlockRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
-      widget._moderationRepository ?? ModerationRepository(Supabase.instance.client);
+      widget._moderationRepository ??
+          ModerationRepository(Supabase.instance.client);
   late final ReportRepository _reportRepository =
       widget._reportRepository ?? ReportRepository(Supabase.instance.client);
   late final ProfileRepository _profileRepository =
@@ -180,9 +183,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   late final ClubRepository _clubRepository =
       widget._clubRepository ?? ClubRepository(Supabase.instance.client);
   late final ClubPostRepository _clubPostRepository =
-      widget._clubPostRepository ?? ClubPostRepository(Supabase.instance.client);
+      widget._clubPostRepository ??
+          ClubPostRepository(Supabase.instance.client);
   late final PresenceRepository _presenceRepository =
-      widget._presenceRepository ?? PresenceRepository(Supabase.instance.client);
+      widget._presenceRepository ??
+          PresenceRepository(Supabase.instance.client);
 
   // WYN-033: caches a resolved shared Drop/Profile/Club by
   // "$type:$id" so scrolling (which rebuilds bubbles) doesn't re-fetch
@@ -214,7 +219,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   final Map<String, GlobalKey> _messageRowKeys = {};
 
   Future<String?> _resolveImageUrl(String path) async {
-    if (_signedUrlCache.containsKey(path)) return _signedUrlCache[path];
+    if (_signedUrlCache.containsKey(path)) {
+      return _signedUrlCache[path];
+    }
     final url = await widget.chatRepository.imageSignedUrl(path);
     _signedUrlCache[path] = url;
     return url;
@@ -343,9 +350,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// True only for the recipient of a still-pending Message Request --
   /// the requester keeps a normal composer while waiting (see
   /// [_isPendingAsRequester]).
-  bool get _isPendingAsRecipient => _conversationStatus == 'pending' && _requestedBy != _myUserId;
+  bool get _isPendingAsRecipient =>
+      _conversationStatus == 'pending' && _requestedBy != _myUserId;
 
-  bool get _isPendingAsRequester => _conversationStatus == 'pending' && _requestedBy == _myUserId;
+  bool get _isPendingAsRequester =>
+      _conversationStatus == 'pending' && _requestedBy == _myUserId;
 
   bool get _isComposerDisabled =>
       _blockRelationship.isBlockedEitherWay ||
@@ -372,11 +381,14 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   Future<void> _initLockCheckThenLoad() async {
     bool allowed;
     try {
-      allowed = await widget.chatRepository.isChatAllowed(otherUserId: widget.otherUserId);
+      allowed = await widget.chatRepository
+          .isChatAllowed(otherUserId: widget.otherUserId);
     } catch (_) {
       allowed = true;
     }
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     if (!allowed) {
       setState(() {
         _lockCheckDone = true;
@@ -432,19 +444,26 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       onPresenceChange: _onTypingPresenceChange,
     );
     final oldListener = _presenceListener;
-    if (oldListener != null) _presenceRepository.removeGlobalPresenceListener(oldListener);
+    if (oldListener != null) {
+      _presenceRepository.removeGlobalPresenceListener(oldListener);
+    }
     _presenceListener = () {
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     };
     _presenceRepository.addGlobalPresenceListener(_presenceListener!);
   }
 
   Future<void> _loadPartnerPresence() async {
     try {
-      final presence = await _presenceRepository.fetchConversationPartnerPresence(
+      final presence =
+          await _presenceRepository.fetchConversationPartnerPresence(
         widget.conversationId,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _partnerShowOnline = presence.showOnline;
         _partnerLastSeenAt = presence.lastSeenAt;
@@ -461,14 +480,21 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// every `true` sync (design doc: "เริ่ม timer client-side ของตัวเอง 3
   /// วิ (safety net เผื่อ event false/leave หลุดหายระหว่างทาง)").
   void _onTypingPresenceChange() {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     final channel = _typingChannel;
-    if (channel == null) return;
-    final typing = _presenceRepository.isOtherTyping(channel, widget.otherUserId);
+    if (channel == null) {
+      return;
+    }
+    final typing =
+        _presenceRepository.isOtherTyping(channel, widget.otherUserId);
     _otherTypingSafetyTimer?.cancel();
     if (typing) {
       _otherTypingSafetyTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) setState(() => _otherTyping = false);
+        if (mounted) {
+          setState(() => _otherTyping = false);
+        }
       });
     }
     setState(() => _otherTyping = typing);
@@ -480,7 +506,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// it automatically if nothing else does first.
   void _onComposerTextChanged() {
     final channel = _typingChannel;
-    if (channel == null) return;
+    if (channel == null) {
+      return;
+    }
     if (_textController.text.trim().isNotEmpty) {
       if (!_iAmTyping) {
         _iAmTyping = true;
@@ -499,25 +527,39 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   void _stopMyTyping() {
     _myTypingStopTimer?.cancel();
     _myTypingStopTimer = null;
-    if (!_iAmTyping) return;
+    if (!_iAmTyping) {
+      return;
+    }
     _iAmTyping = false;
     final channel = _typingChannel;
-    if (channel != null) _presenceRepository.setTyping(channel, false);
+    if (channel != null) {
+      _presenceRepository.setTyping(channel, false);
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     final channel = _channel;
-    if (channel != null) widget.chatRepository.unsubscribe(channel);
+    if (channel != null) {
+      widget.chatRepository.unsubscribe(channel);
+    }
     final metaChannel = _metaChannel;
-    if (metaChannel != null) widget.chatRepository.unsubscribe(metaChannel);
+    if (metaChannel != null) {
+      widget.chatRepository.unsubscribe(metaChannel);
+    }
     final pinsChannel = _pinsChannel;
-    if (pinsChannel != null) widget.chatRepository.unsubscribe(pinsChannel);
+    if (pinsChannel != null) {
+      widget.chatRepository.unsubscribe(pinsChannel);
+    }
     final typingChannel = _typingChannel;
-    if (typingChannel != null) _presenceRepository.unsubscribeTyping(typingChannel);
+    if (typingChannel != null) {
+      _presenceRepository.unsubscribeTyping(typingChannel);
+    }
     final presenceListener = _presenceListener;
-    if (presenceListener != null) _presenceRepository.removeGlobalPresenceListener(presenceListener);
+    if (presenceListener != null) {
+      _presenceRepository.removeGlobalPresenceListener(presenceListener);
+    }
     _otherTypingSafetyTimer?.cancel();
     _myTypingStopTimer?.cancel();
     _revealTimer?.cancel();
@@ -537,36 +579,48 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   // know to pull-to-refresh.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_isLocked) _resubscribeAndRefresh();
+    if (state == AppLifecycleState.resumed && !_isLocked) {
+      _resubscribeAndRefresh();
+    }
   }
 
   Future<void> _resubscribeAndRefresh() async {
     final oldChannel = _channel;
-    if (oldChannel != null) widget.chatRepository.unsubscribe(oldChannel);
+    if (oldChannel != null) {
+      widget.chatRepository.unsubscribe(oldChannel);
+    }
     _channel = widget.chatRepository.subscribeToConversationMessages(
       widget.conversationId,
       _onRealtimeMessage,
       onUpdate: _onRealtimeMessageUpdate,
     );
     final oldMetaChannel = _metaChannel;
-    if (oldMetaChannel != null) widget.chatRepository.unsubscribe(oldMetaChannel);
+    if (oldMetaChannel != null) {
+      widget.chatRepository.unsubscribe(oldMetaChannel);
+    }
     _metaChannel = widget.chatRepository.subscribeToConversationMeta(
       widget.conversationId,
       _onConversationMetaUpdate,
     );
     final oldPinsChannel = _pinsChannel;
-    if (oldPinsChannel != null) widget.chatRepository.unsubscribe(oldPinsChannel);
+    if (oldPinsChannel != null) {
+      widget.chatRepository.unsubscribe(oldPinsChannel);
+    }
     _pinsChannel = null;
     _initPins();
     final oldTypingChannel = _typingChannel;
-    if (oldTypingChannel != null) _presenceRepository.unsubscribeTyping(oldTypingChannel);
+    if (oldTypingChannel != null) {
+      _presenceRepository.unsubscribeTyping(oldTypingChannel);
+    }
     _typingChannel = null;
     _initPresence();
     await Future.wait([_refreshLatest(), _loadConversationMeta()]);
   }
 
   void _onConversationMetaUpdate(ConversationMeta meta) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _conversationStatus = meta.status;
       _requestedBy = meta.requestedBy;
@@ -575,8 +629,12 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   }
 
   void _onRealtimeMessage(ChatMessage message) {
-    if (!mounted) return;
-    if (_messages.any((m) => m.id == message.id)) return;
+    if (!mounted) {
+      return;
+    }
+    if (_messages.any((m) => m.id == message.id)) {
+      return;
+    }
     setState(() => _messages.insert(0, message));
     if (message.senderId != _myUserId) {
       // .catchError -- see the identical call in initState for why a
@@ -614,9 +672,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// message is sent (no UPDATE in this app ever touches it), so the old
   /// preview is always still correct for the new row.
   void _onRealtimeMessageUpdate(ChatMessage message) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     final index = _messages.indexWhere((m) => m.id == message.id);
-    if (index == -1) return;
+    if (index == -1) {
+      return;
+    }
     final old = _messages[index];
     setState(() {
       _messages[index] = ChatMessage(
@@ -648,11 +710,15 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// touches older, already-loaded history below the newest page.
   Future<void> _refreshLatest() async {
     try {
-      final fresh = await widget.chatRepository.fetchMessages(widget.conversationId);
-      if (!mounted) return;
+      final fresh =
+          await widget.chatRepository.fetchMessages(widget.conversationId);
+      if (!mounted) {
+        return;
+      }
       setState(() {
         for (final message in fresh) {
-          final index = _messages.indexWhere((existing) => existing.id == message.id);
+          final index =
+              _messages.indexWhere((existing) => existing.id == message.id);
           if (index == -1) {
             _messages.insert(0, message);
           } else {
@@ -668,8 +734,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   }
 
   void _onScroll() {
-    if (_isLoadingMore || !_hasMore) return;
-    if (_scrollController.position.pixels > _scrollController.position.maxScrollExtent - 300) {
+    if (_isLoadingMore || !_hasMore) {
+      return;
+    }
+    if (_scrollController.position.pixels >
+        _scrollController.position.maxScrollExtent - 300) {
       _loadMore();
     }
   }
@@ -677,8 +746,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   Future<void> _loadInitial() async {
     setState(() => _isLoadingInitial = true);
     try {
-      final messages = await widget.chatRepository.fetchMessages(widget.conversationId);
-      if (!mounted) return;
+      final messages =
+          await widget.chatRepository.fetchMessages(widget.conversationId);
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _messages
           ..clear()
@@ -689,12 +761,16 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       // Fails open to an empty list with a retry-by-pull-to-refresh --
       // matches every other list screen's load-failure posture.
     } finally {
-      if (mounted) setState(() => _isLoadingInitial = false);
+      if (mounted) {
+        setState(() => _isLoadingInitial = false);
+      }
     }
   }
 
   Future<void> _loadMore() async {
-    if (_messages.isEmpty) return;
+    if (_messages.isEmpty) {
+      return;
+    }
     setState(() => _isLoadingMore = true);
     try {
       final oldest = _messages.last.createdAt;
@@ -702,7 +778,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         widget.conversationId,
         beforeCreatedAt: oldest,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _messages.addAll(messages);
         _hasMore = messages.length == ChatRepository.messagePageSize;
@@ -710,21 +788,28 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     } catch (_) {
       // Silent, same posture as every other list's load-more failure.
     } finally {
-      if (mounted) setState(() => _isLoadingMore = false);
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
     }
   }
 
   Future<void> _loadSafetyState() async {
     try {
-      final relationship = await _blockRepository.blockRelationship(widget.otherUserId);
-      if (mounted) setState(() => _blockRelationship = relationship);
+      final relationship =
+          await _blockRepository.blockRelationship(widget.otherUserId);
+      if (mounted) {
+        setState(() => _blockRelationship = relationship);
+      }
     } catch (_) {
       // Fails open -- the RLS INSERT guard on `messages` is the real
       // boundary regardless of what this screen shows.
     }
     try {
       final status = await _moderationRepository.fetchMyStatus();
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _isSuspendedOrBanned = status.isSuspended || status.isBanned;
         if (status.isRestricted) {
@@ -741,8 +826,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 
   Future<void> _loadConversationMeta() async {
     try {
-      final meta = await widget.chatRepository.fetchConversationMeta(widget.conversationId);
-      if (meta != null) _onConversationMetaUpdate(meta);
+      final meta = await widget.chatRepository
+          .fetchConversationMeta(widget.conversationId);
+      if (meta != null) {
+        _onConversationMetaUpdate(meta);
+      }
     } catch (_) {
       // Fails open to the 'active' default -- the messages INSERT
       // policy is the real boundary regardless of what this screen
@@ -754,14 +842,20 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     setState(() => _isDecidingRequest = true);
     try {
       await widget.chatRepository.acceptMessageRequest(widget.conversationId);
-      if (mounted) setState(() => _conversationStatus = 'active');
+      if (mounted) {
+        setState(() => _conversationStatus = 'active');
+      }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
-      if (mounted) setState(() => _isDecidingRequest = false);
+      if (mounted) {
+        setState(() => _isDecidingRequest = false);
+      }
     }
   }
 
@@ -783,13 +877,19 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted) {
+      return;
+    }
     setState(() => _isDecidingRequest = true);
     try {
       await widget.chatRepository.deleteMessageRequest(widget.conversationId);
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() => _isDecidingRequest = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
@@ -798,19 +898,28 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   }
 
   Future<void> _blockFromRequest() async {
-    final confirmed = await confirmBlock(context, username: widget.otherUsername);
-    if (!confirmed || !mounted) return;
+    final confirmed =
+        await confirmBlock(context, username: widget.otherUsername);
+    if (!confirmed || !mounted) {
+      return;
+    }
     setState(() => _isDecidingRequest = true);
     try {
       await _blockRepository.blockUser(widget.otherUserId);
-      if (mounted) setState(() => _blockRelationship = BlockRelationship.blockedByMe);
+      if (mounted) {
+        setState(() => _blockRelationship = BlockRelationship.blockedByMe);
+      }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
-      if (mounted) setState(() => _isDecidingRequest = false);
+      if (mounted) {
+        setState(() => _isDecidingRequest = false);
+      }
     }
   }
 
@@ -827,7 +936,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 
   Future<void> _openAppeal() async {
     final actionId = _restrictActionId;
-    if (actionId == null) return;
+    if (actionId == null) {
+      return;
+    }
     final submitted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => AppealFormScreen(
@@ -837,7 +948,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         ),
       ),
     );
-    if (submitted == true) _loadSafetyState();
+    if (submitted == true) {
+      _loadSafetyState();
+    }
   }
 
   Future<void> _pickImage() async {
@@ -847,10 +960,16 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       maxHeight: 1600,
       imageQuality: 85,
     );
-    if (picked == null) return;
+    if (picked == null) {
+      return;
+    }
     final bytes = await picked.readAsBytes();
-    final extension = picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
-    if (!mounted) return;
+    final extension = picked.name.contains('.')
+        ? picked.name.split('.').last.toLowerCase()
+        : 'jpg';
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _imageBytes = bytes;
       _imageExtension = extension;
@@ -886,7 +1005,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// clobber it, which is worse than just losing the failed send (the
   /// error toast already says to try again).
   Future<void> _send() async {
-    if (!_canSend) return;
+    if (!_canSend) {
+      return;
+    }
     // Re-affirm focus synchronously, in the same tap that triggered this
     // -- on Flutter *Web*, tapping any other on-screen control (like the
     // send button itself) can blur the underlying native text-input
@@ -907,7 +1028,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final imageExtension = _imageExtension;
     final viewOnce = _isViewOnce;
     final replyTo = _replyTo;
-    final pendingId = '$_pendingIdPrefix${DateTime.now().microsecondsSinceEpoch}';
+    final pendingId =
+        '$_pendingIdPrefix${DateTime.now().microsecondsSinceEpoch}';
     final pending = ChatMessage(
       id: pendingId,
       conversationId: widget.conversationId,
@@ -934,10 +1056,14 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         replyToMessageId: replyTo?.id,
         viewOnce: viewOnce,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         final index = _messages.indexWhere((m) => m.id == pendingId);
-        if (index != -1) _messages.removeAt(index);
+        if (index != -1) {
+          _messages.removeAt(index);
+        }
         // The realtime echo of this same insert can win the race and
         // arrive first -- don't double-insert if it already has.
         if (!_messages.any((m) => m.id == sent.id)) {
@@ -945,10 +1071,14 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         }
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _messages.removeWhere((m) => m.id == pendingId);
-        if (_textController.text.isEmpty && _imageBytes == null && _replyTo == null) {
+        if (_textController.text.isEmpty &&
+            _imageBytes == null &&
+            _replyTo == null) {
           _textController.text = text;
           _imageBytes = imageBytes;
           _imageExtension = imageExtension;
@@ -960,16 +1090,22 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         const SnackBar(content: Text('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
-      if (mounted) setState(() => _isSending = false);
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 
   Future<void> _deleteMessage(ChatMessage message) async {
     final confirmed = await confirmDeletePost(context, itemLabel: 'ข้อความ');
-    if (!confirmed || !mounted) return;
+    if (!confirmed || !mounted) {
+      return;
+    }
     try {
       await widget.chatRepository.deleteMessage(message);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       final index = _messages.indexWhere((m) => m.id == message.id);
       if (index != -1) {
         setState(() {
@@ -983,7 +1119,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         });
       }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -1000,7 +1138,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       message.imageUrl == null &&
       message.sharedContentId == null;
 
-  bool _isPinned(String messageId) => _pinnedMessages.any((pin) => pin.messageId == messageId);
+  bool _isPinned(String messageId) =>
+      _pinnedMessages.any((pin) => pin.messageId == messageId);
 
   /// WYN-138: switches the composer into edit mode for [message] --
   /// only ever called from the Staged-Rollout-gated "แก้ไข" menu row.
@@ -1031,9 +1170,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// tapping the confirm button again.
   Future<void> _confirmEdit() async {
     final message = _editingMessage;
-    if (message == null || _isSavingEdit) return;
+    if (message == null || _isSavingEdit) {
+      return;
+    }
     final text = _textController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      return;
+    }
     final index = _messages.indexWhere((m) => m.id == message.id);
     final previous = index == -1 ? null : _messages[index];
     setState(() {
@@ -1044,25 +1187,34 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     });
     try {
       await widget.chatRepository.editMessage(message.id, text);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _editingMessage = null;
         _textController.clear();
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        if (index != -1 && previous != null) _messages[index] = previous;
+        if (index != -1 && previous != null) {
+          _messages[index] = previous;
+        }
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
-      if (mounted) setState(() => _isSavingEdit = false);
+      if (mounted) {
+        setState(() => _isSavingEdit = false);
+      }
     }
   }
 
-  ChatMessage _editedCopyOf(ChatMessage message, {required String text}) => ChatMessage(
+  ChatMessage _editedCopyOf(ChatMessage message, {required String text}) =>
+      ChatMessage(
         id: message.id,
         conversationId: message.conversationId,
         senderId: message.senderId,
@@ -1092,11 +1244,17 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   Future<void> _pinMessage(ChatMessage message) async {
     try {
       await widget.chatRepository.pinMessage(message.id);
-      if (mounted) _loadPinnedMessages();
+      if (mounted) {
+        _loadPinnedMessages();
+      }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ปักหมุดได้สูงสุด 3 ข้อความต่อบทสนทนา ยกเลิกอันเก่าก่อน')),
+        const SnackBar(
+            content:
+                Text('ปักหมุดได้สูงสุด 3 ข้อความต่อบทสนทนา ยกเลิกอันเก่าก่อน')),
       );
     }
   }
@@ -1104,9 +1262,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   Future<void> _unpinMessage(String messageId) async {
     try {
       await widget.chatRepository.unpinMessage(messageId);
-      if (mounted) _loadPinnedMessages();
+      if (mounted) {
+        _loadPinnedMessages();
+      }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('เลิกปักหมุดไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
@@ -1115,8 +1277,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 
   Future<void> _loadPinnedMessages() async {
     try {
-      final pins = await widget.chatRepository.fetchPinnedMessages(widget.conversationId);
-      if (!mounted) return;
+      final pins = await widget.chatRepository
+          .fetchPinnedMessages(widget.conversationId);
+      if (!mounted) {
+        return;
+      }
       setState(() => _pinnedMessages = pins);
     } catch (_) {
       // Fails open to an empty pinned bar -- matches every other list
@@ -1126,9 +1291,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 
   Future<void> _openEvidence(String path) async {
     final url = await widget.chatRepository.imageSignedUrl(path);
-    if (!mounted || url == null) return;
+    if (!mounted || url == null) {
+      return;
+    }
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => EvidenceImageViewer(signedUrl: url)),
+      MaterialPageRoute(builder: (_) => ChatMediaViewer(signedUrl: url)),
     );
   }
 
@@ -1151,7 +1318,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       try {
         await widget.chatRepository.markViewOnceViewed(message.id);
       } catch (_) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เปิดรูปไม่สำเร็จ ลองใหม่อีกครั้ง')),
         );
@@ -1178,9 +1347,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     }
 
     final path = message.imageUrl;
-    if (path == null || !mounted) return;
+    if (path == null || !mounted) {
+      return;
+    }
     final url = await widget.chatRepository.imageSignedUrl(path);
-    if (!mounted || url == null) return;
+    if (!mounted || url == null) {
+      return;
+    }
     // Awaited: whether the countdown ran out on its own or the viewer
     // was dismissed early (back button), popping either way means this
     // one view has been used up -- same "opened is opened, however
@@ -1193,7 +1366,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         builder: (_) => ViewOnceImageViewer(signedUrl: url),
       ),
     );
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     await _expireViewOnce(message);
   }
 
@@ -1209,9 +1384,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     } catch (_) {
       return;
     }
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     final index = _messages.indexWhere((m) => m.id == message.id);
-    if (index == -1) return;
+    if (index == -1) {
+      return;
+    }
     setState(() {
       _messages[index] = ChatMessage(
         id: message.id,
@@ -1233,7 +1412,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// Drop) blocked-author reference naturally resolves to null here,
   /// same as opening it any other way would. Cached by "$type:$id" so
   /// scrolling doesn't re-fetch on every rebuild.
-  Future<Object?> _resolveSharedContent(SharedContentType type, String id) async {
+  Future<Object?> _resolveSharedContent(
+      SharedContentType type, String id) async {
     final cacheKey = '${type.wireValue}:$id';
     if (_sharedContentCache.containsKey(cacheKey)) {
       return _sharedContentCache[cacheKey];
@@ -1294,7 +1474,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   }
 
   void _scrollToMessage(String messageId) {
-    if (_messages.indexWhere((m) => m.id == messageId) == -1) return;
+    if (_messages.indexWhere((m) => m.id == messageId) == -1) {
+      return;
+    }
     _bringMessageIntoBuildRange(messageId, remainingJumps: 40);
   }
 
@@ -1315,8 +1497,11 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// so a message that was never actually loaded into this
   /// conversation's page (a bug elsewhere, or a stale id) can't spin
   /// forever.
-  void _bringMessageIntoBuildRange(String messageId, {required int remainingJumps}) {
-    if (!mounted || !_scrollController.hasClients) return;
+  void _bringMessageIntoBuildRange(String messageId,
+      {required int remainingJumps}) {
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
     final context = _messageRowKeys[messageId]?.currentContext;
     if (context != null) {
       Scrollable.ensureVisible(
@@ -1326,13 +1511,19 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       );
       return;
     }
-    if (remainingJumps <= 0) return;
+    if (remainingJumps <= 0) {
+      return;
+    }
     final position = _scrollController.position;
-    final next = (position.pixels + position.viewportDimension).clamp(0.0, position.maxScrollExtent);
-    if (next == position.pixels) return; // Already at the end -- nothing more to reveal.
+    final next = (position.pixels + position.viewportDimension)
+        .clamp(0.0, position.maxScrollExtent);
+    if (next == position.pixels) {
+      return; // Already at the end -- nothing more to reveal.
+    }
     _scrollController.jumpTo(next);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _bringMessageIntoBuildRange(messageId, remainingJumps: remainingJumps - 1);
+      _bringMessageIntoBuildRange(messageId,
+          remainingJumps: remainingJumps - 1);
     });
   }
 
@@ -1347,25 +1538,30 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final canEdit = _canEditMessage(message);
     final canPin = !message.isDeleted;
     final isPinned = canPin && _isPinned(message.id);
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(rows: [
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => ChatActionSheetBody(rows: [
         if (canReply)
-          ActionSheetRow(
+          ChatActionSheetRow(
             icon: Icons.reply_outlined,
             label: 'ตอบกลับ',
             onTap: () {
               Navigator.of(sheetContext).pop();
               setState(() {
-                if (_isEditingMessage) _textController.clear();
+                if (_isEditingMessage) {
+                  _textController.clear();
+                }
                 _editingMessage = null;
                 _replyTo = message;
               });
             },
           ),
         if (canEdit)
-          ActionSheetRow(
+          ChatActionSheetRow(
             icon: Icons.edit_outlined,
             label: 'แก้ไข',
             onTap: () {
@@ -1374,7 +1570,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
             },
           ),
         if (isMine)
-          ActionSheetRow(
+          ChatActionSheetRow(
             icon: Icons.delete_outline,
             label: 'ลบ',
             onTap: () {
@@ -1383,7 +1579,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
             },
           )
         else
-          ActionSheetRow(
+          ChatActionSheetRow(
             icon: Icons.flag_outlined,
             label: 'รายงาน',
             onTap: () {
@@ -1399,7 +1595,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
             },
           ),
         if (canPin)
-          ActionSheetRow(
+          ChatActionSheetRow(
             icon: isPinned ? Icons.push_pin : Icons.push_pin_outlined,
             label: isPinned ? 'เลิกปักหมุด' : 'ปักหมุดข้อความ',
             onTap: () {
@@ -1416,21 +1612,29 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   }
 
   Future<void> _showConversationMenu() async {
-    final isMuted = await widget.chatRepository.isConversationMuted(widget.conversationId);
-    if (!mounted) return;
+    final isMuted =
+        await widget.chatRepository.isConversationMuted(widget.conversationId);
+    if (!mounted) {
+      return;
+    }
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(rows: [
-        ActionSheetRow(
-          icon: isMuted ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => ChatActionSheetBody(rows: [
+        ChatActionSheetRow(
+          icon: isMuted
+              ? Icons.notifications_active_outlined
+              : Icons.notifications_off_outlined,
           label: isMuted ? 'เปิดแจ้งเตือนบทสนทนานี้' : 'ปิดแจ้งเตือนบทสนทนานี้',
           onTap: () async {
             Navigator.of(sheetContext).pop();
             try {
               if (isMuted) {
-                await widget.chatRepository.unmuteConversation(widget.conversationId);
+                await widget.chatRepository
+                    .unmuteConversation(widget.conversationId);
               } else {
-                await widget.chatRepository.muteConversation(widget.conversationId);
+                await widget.chatRepository
+                    .muteConversation(widget.conversationId);
               }
             } catch (_) {
               // Silent -- see ChatInboxScreen's identical toggle.
@@ -1438,25 +1642,34 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
           },
         ),
         if (!_blockRelationship.isBlockedEitherWay)
-          ActionSheetRow(
+          ChatActionSheetRow(
             icon: Icons.block,
             label: 'บล็อก',
             onTap: () async {
               Navigator.of(sheetContext).pop();
-              final confirmed = await confirmBlock(context, username: widget.otherUsername);
-              if (!confirmed || !mounted) return;
+              final confirmed =
+                  await confirmBlock(context, username: widget.otherUsername);
+              if (!confirmed || !mounted) {
+                return;
+              }
               try {
                 await _blockRepository.blockUser(widget.otherUserId);
-                if (mounted) setState(() => _blockRelationship = BlockRelationship.blockedByMe);
+                if (mounted) {
+                  setState(
+                      () => _blockRelationship = BlockRelationship.blockedByMe);
+                }
               } catch (_) {
-                if (!mounted) return;
+                if (!mounted) {
+                  return;
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+                  const SnackBar(
+                      content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
                 );
               }
             },
           ),
-        ActionSheetRow(
+        ChatActionSheetRow(
           icon: Icons.person_outline,
           label: 'ดูโปรไฟล์',
           onTap: () {
@@ -1488,7 +1701,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       return Text(
         'กำลังพิมพ์...',
         overflow: TextOverflow.ellipsis,
-        style: _textStyle(fontSize: 12, color: WynColors.faint),
+        style: _textStyle(fontSize: 12, color: WynColors.graphite),
       );
     }
     // Live "online" only ever counts once the reciprocal privacy check
@@ -1504,10 +1717,12 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(color: WynColors.online, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+                color: WynColors.online, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
-          Text('ออนไลน์', style: _textStyle(fontSize: 12, color: WynColors.faint)),
+          Text('ออนไลน์',
+              style: _textStyle(fontSize: 12, color: WynColors.graphite)),
         ],
       );
     }
@@ -1516,7 +1731,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       return Text(
         'ใช้งานล่าสุด ${relativeTimeLabel(lastSeenAt, now: DateTime.now())}',
         overflow: TextOverflow.ellipsis,
-        style: _textStyle(fontSize: 12, color: WynColors.faint),
+        style: _textStyle(fontSize: 12, color: WynColors.graphite),
       );
     }
     return null;
@@ -1536,8 +1751,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
         surfaceTintColor: WynColors.paper,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: true,
-        toolbarHeight: 60,
+        centerTitle: false,
+        toolbarHeight: 64,
+        titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
@@ -1561,7 +1777,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               AvatarCircle(
                 imageUrl: widget.otherAvatarUrl,
                 fallbackText: displayName,
-                radius: 16,
+                radius: 17,
                 ring: false,
               ),
               const SizedBox(width: WynSpacing.space2),
@@ -1573,7 +1789,10 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                     Text(
                       displayName,
                       overflow: TextOverflow.ellipsis,
-                      style: _textStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: WynColors.ink),
+                      style: _textStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: WynColors.ink),
                     ),
                     if (statusSubtitle != null)
                       statusSubtitle
@@ -1581,7 +1800,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                       Text(
                         '@${widget.otherUsername}',
                         overflow: TextOverflow.ellipsis,
-                        style: _textStyle(fontSize: 12, color: WynColors.graphite),
+                        style:
+                            _textStyle(fontSize: 12, color: WynColors.graphite),
                       ),
                   ],
                 ),
@@ -1603,7 +1823,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       ),
       body: SafeArea(
         child: !_lockCheckDone
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+                child: CircularProgressIndicator(color: WynColors.ink))
             : _isLocked
                 ? const Center(
                     child: EmptyStateBlock(
@@ -1636,11 +1857,17 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// Grouping rule: same sender, within 60 seconds of each other, same
   /// calendar day. Symmetric -- order of [a]/[b] doesn't matter.
   bool _isSameGroup(ChatMessage a, ChatMessage b) {
-    if (a.senderId != b.senderId) return false;
-    if (a.createdAt.difference(b.createdAt).abs() > _groupGapThreshold) return false;
+    if (a.senderId != b.senderId) {
+      return false;
+    }
+    if (a.createdAt.difference(b.createdAt).abs() > _groupGapThreshold) {
+      return false;
+    }
     final aLocal = a.createdAt.toLocal();
     final bLocal = b.createdAt.toLocal();
-    return aLocal.year == bLocal.year && aLocal.month == bLocal.month && aLocal.day == bLocal.day;
+    return aLocal.year == bLocal.year &&
+        aLocal.month == bLocal.month &&
+        aLocal.day == bLocal.day;
   }
 
   /// True for the chronologically-*earliest* bubble of its group -- the
@@ -1649,7 +1876,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// highest index whose next-older neighbor, index + 1, either doesn't
   /// exist or isn't part of the same group).
   bool _isGroupStart(int index) {
-    if (index + 1 >= _messages.length) return true;
+    if (index + 1 >= _messages.length) {
+      return true;
+    }
     return !_isSameGroup(_messages[index], _messages[index + 1]);
   }
 
@@ -1658,7 +1887,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// avatar (incoming) and delivery/read receipt (outgoing, last message
   /// overall only) attach.
   bool _isGroupEnd(int index) {
-    if (index == 0) return true;
+    if (index == 0) {
+      return true;
+    }
     return !_isSameGroup(_messages[index - 1], _messages[index]);
   }
 
@@ -1667,10 +1898,14 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// groups from the same sender, 20px between groups from different
   /// senders. Zero when there's no older neighbor in this list.
   double _gapBelowMessage(int index) {
-    if (index + 1 >= _messages.length) return 0;
+    if (index + 1 >= _messages.length) {
+      return 0;
+    }
     final current = _messages[index];
     final older = _messages[index + 1];
-    if (_isSameGroup(current, older)) return 4;
+    if (_isSameGroup(current, older)) {
+      return 4;
+    }
     return current.senderId == older.senderId ? 16 : 20;
   }
 
@@ -1686,8 +1921,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       return _hasMore ? null : _dateLabel(current);
     }
     final previous = _messages[index + 1].createdAt.toLocal();
-    final sameDay =
-        current.year == previous.year && current.month == previous.month && current.day == previous.day;
+    final sameDay = current.year == previous.year &&
+        current.month == previous.month &&
+        current.day == previous.day;
     return sameDay ? null : _dateLabel(current);
   }
 
@@ -1700,8 +1936,12 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final date = DateTime(local.year, local.month, local.day);
-    if (date == today) return 'วันนี้';
-    if (date == today.subtract(const Duration(days: 1))) return 'เมื่อวาน';
+    if (date == today) {
+      return 'วันนี้';
+    }
+    if (date == today.subtract(const Duration(days: 1))) {
+      return 'เมื่อวาน';
+    }
     return '${local.day} ${_thaiMonths[local.month - 1]}';
   }
 
@@ -1722,7 +1962,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     }
     setState(() => _revealedTimestampMessageId = messageId);
     _revealTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _revealedTimestampMessageId = null);
+      if (mounted) {
+        setState(() => _revealedTimestampMessageId = null);
+      }
     });
   }
 
@@ -1732,7 +1974,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// Computed once per list build, not per bubble.
   int? _lastMineMessageIndex() {
     for (var i = 0; i < _messages.length; i++) {
-      if (_messages[i].senderId == _myUserId) return i;
+      if (_messages[i].senderId == _myUserId) {
+        return i;
+      }
     }
     return null;
   }
@@ -1743,17 +1987,24 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// [_lastMineMessageIndex]'s result, passed in rather than recomputed
   /// per bubble.
   _DeliveryStatus? _deliveryStatusAt(int index, int? lastMineIndex) {
-    if (index != lastMineIndex) return null;
+    if (index != lastMineIndex) {
+      return null;
+    }
     final message = _messages[index];
-    if (message.id.startsWith(_pendingIdPrefix)) return _DeliveryStatus.sending;
+    if (message.id.startsWith(_pendingIdPrefix)) {
+      return _DeliveryStatus.sending;
+    }
     final otherRead = _otherUserLastReadAt;
-    if (otherRead != null && !otherRead.isBefore(message.createdAt)) return _DeliveryStatus.read;
+    if (otherRead != null && !otherRead.isBefore(message.createdAt)) {
+      return _DeliveryStatus.read;
+    }
     return _DeliveryStatus.sent;
   }
 
   Widget _buildMessageList() {
     if (_isLoadingInitial) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: WynColors.ink));
     }
     if (_messages.isEmpty) {
       final displayName = widget.otherDisplayName?.isNotEmpty == true
@@ -1774,9 +2025,13 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    AvatarCircle(imageUrl: widget.otherAvatarUrl, fallbackText: displayName, radius: 40),
+                    AvatarCircle(
+                        imageUrl: widget.otherAvatarUrl,
+                        fallbackText: displayName,
+                        radius: 40),
                     const SizedBox(height: WynSpacing.space4),
-                    Text('เริ่มบทสนทนากับ $displayName', textAlign: TextAlign.center),
+                    Text('เริ่มบทสนทนากับ $displayName',
+                        textAlign: TextAlign.center),
                   ],
                 ),
               ),
@@ -1798,7 +2053,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       // this, a list with no overflow to scroll never reports the drag.
       physics: const AlwaysScrollableScrollPhysics(),
       reverse: true,
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space4),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space4, vertical: WynSpacing.space4),
       itemCount: _messages.length + (_hasMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _messages.length) {
@@ -1912,23 +2168,24 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: WynColors.hairline)),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+          padding: const EdgeInsets.symmetric(
+              horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              IconButton(
-                icon: const Icon(Icons.image_outlined, size: 20, color: WynColors.graphite),
+              ChatRoundIconButton(
+                icon: Icons.image_outlined,
                 tooltip: 'แนบรูป',
-                // WYN-138: an edit is text-only (`edit_message()` rejects
-                // any message that ever carries an image) -- attaching a
-                // photo mid-edit would be a dead end, so this is
-                // disabled for the whole time the composer is in edit
-                // mode, not just while a send/save is already in flight.
-                onPressed: (_isSending || _isEditingMessage) ? null : _pickImage,
+                onPressed:
+                    (_isSending || _isEditingMessage) ? null : _pickImage,
+                enabled: !_isSending && !_isEditingMessage,
+                size: 40,
               ),
+              const SizedBox(width: WynSpacing.space2),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: WynSpacing.space4, vertical: 8),
                   decoration: BoxDecoration(
                     color: _kBubbleFill,
                     borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
@@ -1949,7 +2206,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                     style: _textStyle(fontSize: 16, color: WynColors.ink),
                     decoration: InputDecoration(
                       hintText: 'พิมพ์ข้อความ...',
-                      hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
+                      hintStyle: _textStyle(
+                          fontSize: 15, color: WynColors.mutedNeutral),
                       border: InputBorder.none,
                       isCollapsed: true,
                       counterText: '',
@@ -1983,16 +2241,23 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: _canSend ? WynColors.paper : WynColors.mutedNeutral,
+                              color: _canSend
+                                  ? WynColors.paper
+                                  : WynColors.mutedNeutral,
                             ),
                           )
                         : Icon(
                             _isEditingMessage ? Icons.check : Icons.send,
                             size: 15,
-                            color: _canSend ? WynColors.paper : WynColors.mutedNeutral,
+                            color: _canSend
+                                ? WynColors.paper
+                                : WynColors.mutedNeutral,
                           ),
-                    tooltip: _isEditingMessage ? 'บันทึกการแก้ไข' : 'ส่งข้อความ',
-                    onPressed: _canSend ? (_isEditingMessage ? _confirmEdit : _send) : null,
+                    tooltip:
+                        _isEditingMessage ? 'บันทึกการแก้ไข' : 'ส่งข้อความ',
+                    onPressed: _canSend
+                        ? (_isEditingMessage ? _confirmEdit : _send)
+                        : null,
                   ),
                 ),
               ),
@@ -2016,7 +2281,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$displayName ต้องการส่งข้อความถึงคุณ', textAlign: TextAlign.center),
+          Text('$displayName ต้องการส่งข้อความถึงคุณ',
+              textAlign: TextAlign.center),
           const SizedBox(height: WynSpacing.space3),
           Row(
             children: [
@@ -2066,7 +2332,8 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 
   Widget _buildAwaitingResponseLabel() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Text(
         'รอการตอบรับ',
         style: _textStyle(fontSize: 13, color: WynColors.faint),
@@ -2078,14 +2345,22 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final replyTo = _replyTo!;
     final preview = replyTo.isDeleted
         ? 'ข้อความถูกลบ'
-        : (replyTo.text?.isNotEmpty == true ? replyTo.text! : (replyTo.imageUrl != null ? '📷 รูปภาพ' : ''));
+        : (replyTo.text?.isNotEmpty == true
+            ? replyTo.text!
+            : (replyTo.imageUrl != null ? '📷 รูปภาพ' : ''));
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      color: _kBubbleFill,
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+      decoration: BoxDecoration(
+        color: _kBubbleFill,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
           Expanded(
-            child: Text('ตอบกลับ: $preview', maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text('ตอบกลับ: $preview',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
@@ -2102,14 +2377,20 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   /// เดียวกับแถบ 'กำลังตอบกลับ' ที่มีอยู่แล้ว").
   Widget _buildEditPreviewBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      color: _kBubbleFill,
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+      decoration: BoxDecoration(
+        color: _kBubbleFill,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
           const Icon(Icons.edit_outlined, size: 16, color: WynColors.graphite),
           const SizedBox(width: WynSpacing.space2),
           const Expanded(
-            child: Text('กำลังแก้ไขข้อความ', maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text('กำลังแก้ไขข้อความ',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
@@ -2131,16 +2412,19 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
     final latest = _pinnedMessages.first;
     final preview = latest.isDeleted
         ? 'ข้อความถูกลบ'
-        : (latest.text?.isNotEmpty == true ? latest.text! : (latest.imageUrl != null ? '📷 รูปภาพ' : ''));
+        : (latest.text?.isNotEmpty == true
+            ? latest.text!
+            : (latest.imageUrl != null ? '📷 รูปภาพ' : ''));
     return InkWell(
       key: const Key('pinned_bar'),
       onTap: _showPinnedMessagesSheet,
       child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-        decoration: const BoxDecoration(
+        height: 42,
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+        decoration: BoxDecoration(
           color: _kBubbleFill,
-          border: Border(bottom: BorderSide(color: WynColors.hairline)),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
@@ -2159,7 +2443,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
                 padding: const EdgeInsets.only(left: WynSpacing.space2),
                 child: Text(
                   '1/${_pinnedMessages.length}',
-                  style: _textStyle(fontSize: 12, color: WynColors.faint),
+                  style: _textStyle(fontSize: 12, color: WynColors.graphite),
                 ),
               ),
             const SizedBox(width: WynSpacing.space1),
@@ -2171,8 +2455,9 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
   }
 
   Future<void> _showPinnedMessagesSheet() async {
-    final displayName =
-        widget.otherDisplayName?.isNotEmpty == true ? widget.otherDisplayName! : '@${widget.otherUsername}';
+    final displayName = widget.otherDisplayName?.isNotEmpty == true
+        ? widget.otherDisplayName!
+        : '@${widget.otherUsername}';
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -2194,13 +2479,19 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
 
   Widget _buildImagePreviewBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      color: _kBubbleFill,
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+      decoration: BoxDecoration(
+        color: _kBubbleFill,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
-            child: Image.memory(_imageBytes!, width: 48, height: 48, fit: BoxFit.cover),
+            child: Image.memory(_imageBytes!,
+                width: 48, height: 48, fit: BoxFit.cover),
           ),
           const Spacer(),
           // Founder feedback -- View Once: a toggle, not a separate send
@@ -2217,7 +2508,7 @@ class _ConversationScreenState extends State<ConversationScreen> with WidgetsBin
               icon: Icon(
                 _isViewOnce ? Icons.filter_1 : Icons.filter_1_outlined,
                 size: 20,
-                color: _isViewOnce ? WynColors.sapphire : WynColors.graphite,
+                color: _isViewOnce ? WynColors.ink : WynColors.graphite,
               ),
               tooltip: 'ส่งแบบดูครั้งเดียว',
               onPressed: () => setState(() => _isViewOnce = !_isViewOnce),
@@ -2311,8 +2602,10 @@ class _MessageBubble extends StatelessWidget {
 
   /// WYN-033 -- see `_ConversationScreenState._resolveSharedContent()`/
   /// `_openSharedContent()`.
-  final Future<Object?> Function(SharedContentType type, String id) resolveSharedContent;
-  final void Function(SharedContentType type, Object content) onTapSharedContent;
+  final Future<Object?> Function(SharedContentType type, String id)
+      resolveSharedContent;
+  final void Function(SharedContentType type, Object content)
+      onTapSharedContent;
 
   /// Delivery/read receipt (spec section 7) -- null on every bubble
   /// except the single last-outgoing-message-in-the-conversation one.
@@ -2371,9 +2664,8 @@ class _MessageBubble extends StatelessWidget {
   ///     in a half-opened state with no way to ever clear it).
   Widget _buildViewOnceThumbnail(Color textColor) {
     final opened = message.imageUrl == null;
-    final label = opened
-        ? 'เปิดดูแล้ว'
-        : (isMine ? 'ส่งแล้ว รอเปิดดู' : 'แตะเพื่อดู');
+    final label =
+        opened ? 'เปิดดูแล้ว' : (isMine ? 'ส่งแล้ว รอเปิดดู' : 'แตะเพื่อดู');
     final icon = opened
         ? Icons.check_circle_outline
         : (isMine ? Icons.timer_outlined : Icons.remove_red_eye_outlined);
@@ -2389,11 +2681,14 @@ class _MessageBubble extends StatelessWidget {
         children: [
           Icon(icon, color: WynColors.graphite),
           const SizedBox(height: WynSpacing.space1),
-          Text(label, style: _textStyle(fontSize: 12, color: WynColors.graphite)),
+          Text(label,
+              style: _textStyle(fontSize: 12, color: WynColors.graphite)),
         ],
       ),
     );
-    if (opened || isMine) return content;
+    if (opened || isMine) {
+      return content;
+    }
     return GestureDetector(
       onTap: () => onTapViewOnceImage(message),
       child: content,
@@ -2402,12 +2697,18 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bubbleColor = message.isDeleted ? WynColors.hairline : (isMine ? WynColors.ink : _kBubbleFill);
-    final textColor = message.isDeleted ? WynColors.graphite : (isMine ? WynColors.paper : WynColors.ink);
+    final bubbleColor = message.isDeleted
+        ? WynColors.hairline
+        : (isMine ? WynColors.ink : _kBubbleFill);
+    final textColor = message.isDeleted
+        ? WynColors.graphite
+        : (isMine ? WynColors.paper : WynColors.ink);
 
     final bubble = Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2 + 2),
-      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space4, vertical: WynSpacing.space2 + 2),
+      constraints:
+          BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.72),
       decoration: BoxDecoration(
         color: bubbleColor,
         borderRadius: _cornerRadius(),
@@ -2440,7 +2741,9 @@ class _MessageBubble extends StatelessWidget {
                       ? 'ข้อความถูกลบ'
                       : (message.replyPreviewText?.isNotEmpty == true
                           ? message.replyPreviewText!
-                          : (message.replyPreviewImageUrl != null ? '📷 รูปภาพ' : '')),
+                          : (message.replyPreviewImageUrl != null
+                              ? '📷 รูปภาพ'
+                              : '')),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: _textStyle(fontSize: 13, color: textColor),
@@ -2450,7 +2753,8 @@ class _MessageBubble extends StatelessWidget {
           if (message.isDeleted)
             Text(
               'ข้อความนี้ถูกลบ',
-              style: _textStyle(fontSize: 15, fontStyle: FontStyle.italic, color: textColor),
+              style: _textStyle(
+                  fontSize: 15, fontStyle: FontStyle.italic, color: textColor),
             )
           else ...[
             if (message.viewOnce)
@@ -2477,7 +2781,8 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ),
               ),
-            if (message.sharedContentType != null && message.sharedContentId != null)
+            if (message.sharedContentType != null &&
+                message.sharedContentId != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: WynSpacing.space1),
                 child: _SharedContentPreview(
@@ -2489,7 +2794,9 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             if (message.text != null)
-              Text(message.text!, style: _textStyle(fontSize: 15, color: textColor, height: 1.45)),
+              Text(message.text!,
+                  style:
+                      _textStyle(fontSize: 15, color: textColor, height: 1.45)),
             // WYN-138: permanent once set -- Requirement: "ห้ามซ่อน" (no
             // tap-to-reveal/hide), so an edited message never looks
             // identical to one that wasn't, for either participant.
@@ -2498,7 +2805,8 @@ class _MessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   'แก้ไขแล้ว',
-                  style: _textStyle(fontSize: 11, color: textColor.withValues(alpha: 0.7)),
+                  style: _textStyle(
+                      fontSize: 11, color: textColor.withValues(alpha: 0.7)),
                 ),
               ),
           ],
@@ -2514,17 +2822,23 @@ class _MessageBubble extends StatelessWidget {
       onTap: message.isDeleted ? null : onTap,
       onLongPress: message.isDeleted ? null : onLongPress,
       child: Column(
-        crossAxisAlignment: isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment:
+            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment:
+                isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
             children: [
               if (!isMine) ...[
                 SizedBox(
                   width: _avatarSlotWidth,
                   child: showAvatar
-                      ? AvatarCircle(imageUrl: otherAvatarUrl, fallbackText: otherDisplayName, radius: 15, ring: false)
+                      ? AvatarCircle(
+                          imageUrl: otherAvatarUrl,
+                          fallbackText: otherDisplayName,
+                          radius: 15,
+                          ring: false)
                       : null,
                 ),
                 const SizedBox(width: WynSpacing.space2),
@@ -2536,7 +2850,8 @@ class _MessageBubble extends StatelessWidget {
           if (isTimestampRevealed)
             Padding(
               padding: EdgeInsets.only(top: 2, left: leadingInset),
-              child: Text(timeLabel, style: _textStyle(fontSize: 11, color: WynColors.faint)),
+              child: Text(timeLabel,
+                  style: _textStyle(fontSize: 11, color: WynColors.faint)),
             ),
           // Spec section 7: only ever set on the single last-outgoing
           // bubble in the whole conversation.
@@ -2559,7 +2874,8 @@ class _MessageBubble extends StatelessWidget {
 /// directly fetchable), then paints the actual photo inline via
 /// [NetworkThumbnail], with loading/broken-image states of its own.
 class _ChatImageThumbnail extends StatefulWidget {
-  const _ChatImageThumbnail({required this.path, required this.resolveImageUrl});
+  const _ChatImageThumbnail(
+      {required this.path, required this.resolveImageUrl});
 
   final String path;
   final Future<String?> Function(String path) resolveImageUrl;
@@ -2595,7 +2911,9 @@ class _ChatImageThumbnailState extends State<_ChatImageThumbnail> {
         if (url == null) {
           return const ColoredBox(
             color: WynColors.hairline,
-            child: Center(child: Icon(Icons.broken_image_outlined, color: WynColors.graphite)),
+            child: Center(
+                child: Icon(Icons.broken_image_outlined,
+                    color: WynColors.graphite)),
           );
         }
         return NetworkThumbnail(imageUrl: url, maxDecodeWidth: 160);
@@ -2618,9 +2936,12 @@ class _DeliveryStatusIcon extends StatelessWidget {
     // design system's own "no emoji standing in for an icon" rule
     // (Beta4 §6) entirely -- there's no icon slot to misuse.
     return switch (status) {
-      _DeliveryStatus.sending => const Icon(Icons.fiber_manual_record, size: 8, color: WynColors.faint),
-      _DeliveryStatus.sent => Text('ส่งแล้ว', style: _textStyle(fontSize: 11, color: WynColors.faint)),
-      _DeliveryStatus.read => Text('อ่านแล้ว', style: _textStyle(fontSize: 11, color: WynColors.sapphire)),
+      _DeliveryStatus.sending =>
+        const Icon(Icons.fiber_manual_record, size: 8, color: WynColors.faint),
+      _DeliveryStatus.sent => Text('ส่งแล้ว',
+          style: _textStyle(fontSize: 11, color: WynColors.faint)),
+      _DeliveryStatus.read => Text('อ่านแล้ว',
+          style: _textStyle(fontSize: 11, color: WynColors.graphite)),
     };
   }
 }
@@ -2638,7 +2959,8 @@ class _DateSeparator extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
       child: Center(
-        child: Text(label, style: _textStyle(fontSize: 13, color: WynColors.faint)),
+        child: Text(label,
+            style: _textStyle(fontSize: 13, color: WynColors.faint)),
       ),
     );
   }
@@ -2651,7 +2973,12 @@ TextStyle _textStyle({
   Color? color,
   double? height,
 }) =>
-    TextStyle(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color, height: height);
+    TextStyle(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        fontStyle: fontStyle,
+        color: color,
+        height: height);
 
 /// WYN-138 -- "ข้อความที่ปักหมุด" bottom sheet: every currently-pinned
 /// message (at most 3, see `pin_message()`'s own cap), tap the row to
@@ -2687,12 +3014,16 @@ class _PinnedMessagesSheet extends StatelessWidget {
         children: [
           const SheetDragHandle(),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space6, vertical: WynSpacing.space2),
+            padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space6, vertical: WynSpacing.space2),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'ข้อความที่ปักหมุด',
-                style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+                style: _textStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: WynColors.ink),
               ),
             ),
           ),
@@ -2714,7 +3045,10 @@ class _PinnedMessagesSheet extends StatelessWidget {
                         children: [
                           Text(
                             pin.senderId == myUserId ? 'คุณ' : otherDisplayName,
-                            style: _textStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink),
+                            style: _textStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: WynColors.ink),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -2722,15 +3056,19 @@ class _PinnedMessagesSheet extends StatelessWidget {
                                 ? 'ข้อความถูกลบ'
                                 : (pin.text?.isNotEmpty == true
                                     ? pin.text!
-                                    : (pin.imageUrl != null ? '📷 รูปภาพ' : '')),
+                                    : (pin.imageUrl != null
+                                        ? '📷 รูปภาพ'
+                                        : '')),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: _textStyle(fontSize: 14, color: WynColors.graphite),
+                            style: _textStyle(
+                                fontSize: 14, color: WynColors.graphite),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             _timeLabel(pin.pinnedAt),
-                            style: _textStyle(fontSize: 11, color: WynColors.faint),
+                            style: _textStyle(
+                                fontSize: 11, color: WynColors.faint),
                           ),
                         ],
                       ),
@@ -2769,15 +3107,18 @@ class _SharedContentPreview extends StatefulWidget {
   final SharedContentType type;
   final String id;
   final Color textColor;
-  final Future<Object?> Function(SharedContentType type, String id) resolveSharedContent;
-  final void Function(SharedContentType type, Object content) onTapSharedContent;
+  final Future<Object?> Function(SharedContentType type, String id)
+      resolveSharedContent;
+  final void Function(SharedContentType type, Object content)
+      onTapSharedContent;
 
   @override
   State<_SharedContentPreview> createState() => _SharedContentPreviewState();
 }
 
 class _SharedContentPreviewState extends State<_SharedContentPreview> {
-  late final Future<Object?> _future = widget.resolveSharedContent(widget.type, widget.id);
+  late final Future<Object?> _future =
+      widget.resolveSharedContent(widget.type, widget.id);
 
   @override
   Widget build(BuildContext context) {
@@ -2807,7 +3148,8 @@ class _SharedContentPreviewState extends State<_SharedContentPreview> {
             decoration: cardDecoration,
             child: Text(
               'เนื้อหานี้ไม่พร้อมใช้งาน',
-              style: TextStyle(color: widget.textColor, fontStyle: FontStyle.italic),
+              style: TextStyle(
+                  color: widget.textColor, fontStyle: FontStyle.italic),
             ),
           );
         }
@@ -2824,7 +3166,9 @@ class _SharedContentPreviewState extends State<_SharedContentPreview> {
                 fallbackText: content.username,
                 radius: 24,
               ),
-              content.displayName?.isNotEmpty == true ? content.displayName! : '@${content.username}',
+              content.displayName?.isNotEmpty == true
+                  ? content.displayName!
+                  : '@${content.username}',
               content.bio ?? '@${content.username}',
             ),
           SharedContentType.club => (
@@ -2853,14 +3197,19 @@ class _SharedContentPreviewState extends State<_SharedContentPreview> {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: widget.textColor, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: widget.textColor,
+                            fontWeight: FontWeight.bold),
                       ),
                       if (subtitle.isNotEmpty)
                         Text(
                           subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
                                 color: widget.textColor.withValues(alpha: 0.8),
                               ),
                         ),

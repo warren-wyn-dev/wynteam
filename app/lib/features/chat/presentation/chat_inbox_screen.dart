@@ -14,6 +14,7 @@ import '../data/conversation.dart';
 import 'conversation_screen.dart';
 import 'message_request_list_screen.dart';
 import 'new_message_screen.dart';
+import 'widgets/chat_ui.dart';
 
 /// Screen 2 -- the Chat Inbox: every conversation this user is part of,
 /// sorted by most recent activity first. Restyled to 12-chat.tsx: chevron
@@ -227,7 +228,8 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final conversations = await widget.chatRepository.fetchInbox(page: nextPage);
+      final conversations =
+          await widget.chatRepository.fetchInbox(page: nextPage);
       if (!mounted) return;
       setState(() {
         _conversations.addAll(conversations);
@@ -261,33 +263,36 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   }
 
   Future<void> _showConversationMenu(Conversation conversation) async {
-    final isMuted = await widget.chatRepository.isConversationMuted(conversation.id);
+    final isMuted =
+        await widget.chatRepository.isConversationMuted(conversation.id);
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: Icon(isMuted ? Icons.notifications_active_outlined : Icons.notifications_off_outlined),
-              title: Text(isMuted ? 'เปิดแจ้งเตือนบทสนทนานี้' : 'ปิดแจ้งเตือนบทสนทนานี้'),
-              onTap: () async {
-                Navigator.of(sheetContext).pop();
-                try {
-                  if (isMuted) {
-                    await widget.chatRepository.unmuteConversation(conversation.id);
-                  } else {
-                    await widget.chatRepository.muteConversation(conversation.id);
-                  }
-                } catch (_) {
-                  // Silent -- same optimistic-toggle posture as WYN-028's
-                  // profile mute toggle; a failed mute isn't worth a
-                  // blocking error for a reversible, low-stakes action.
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => ChatActionSheetBody(
+        title: 'ตั้งค่าบทสนทนา',
+        rows: [
+          ChatActionSheetRow(
+            icon: isMuted
+                ? Icons.notifications_active_outlined
+                : Icons.notifications_off_outlined,
+            label:
+                isMuted ? 'เปิดแจ้งเตือนบทสนทนานี้' : 'ปิดแจ้งเตือนบทสนทนานี้',
+            onTap: () async {
+              Navigator.of(sheetContext).pop();
+              try {
+                if (isMuted) {
+                  await widget.chatRepository
+                      .unmuteConversation(conversation.id);
+                } else {
+                  await widget.chatRepository.muteConversation(conversation.id);
                 }
-              },
-            ),
-          ],
-        ),
+              } catch (_) {
+                // Silent -- a failed mute is reversible and low-stakes.
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -302,7 +307,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        toolbarHeight: 58,
+        toolbarHeight: 62,
         titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
@@ -311,19 +316,22 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
         title: const Text(
           'ข้อความ',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 22,
             height: 1.1,
             fontWeight: FontWeight.w700,
             color: WynColors.ink,
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 22, color: WynColors.ink),
-            tooltip: 'เขียนข้อความใหม่',
-            onPressed: _openNewMessage,
+          Padding(
+            padding: const EdgeInsets.only(right: WynSpacing.space3),
+            child: ChatRoundIconButton(
+              icon: Icons.edit_outlined,
+              tooltip: 'เขียนข้อความใหม่',
+              onPressed: _openNewMessage,
+              size: 38,
+            ),
           ),
-          const SizedBox(width: 4),
         ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -340,7 +348,6 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
             )
           : Column(
               children: [
-                if (_pendingRequestCount > 0) _buildRequestsBanner(),
                 _buildTabs(),
                 Expanded(child: _buildBody()),
               ],
@@ -349,112 +356,50 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   }
 
   Widget _buildTabs() {
-    return Container(
+    final requestLabel =
+        _pendingRequestCount > 0 ? 'คำขอ ($_pendingRequestCount)' : 'คำขอ';
+    return Padding(
       key: const Key('chat_threads_tabs'),
-      height: 48,
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: WynColors.hairline)),
+      padding: const EdgeInsets.fromLTRB(
+        WynSpacing.space4,
+        WynSpacing.space3,
+        WynSpacing.space4,
+        WynSpacing.space2,
       ),
       child: Row(
         children: [
-          Expanded(child: _buildTab('ทั้งหมด', 0)),
-          Expanded(child: _buildTab('ยังไม่อ่าน', 1)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTab(String label, int index) {
-    final selected = _selectedTab == index;
-    return InkWell(
-      onTap: () => setState(() => _selectedTab = index),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
           Expanded(
-            child: Center(
-              child: Text(
-                label,
-                style: _textStyle(
-                  fontSize: 13.5,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? WynColors.ink : WynColors.graphite,
-                ),
-              ),
+            child: ChatPillTab(
+              label: 'ทั้งหมด',
+              selected: _selectedTab == 0,
+              onTap: () => setState(() => _selectedTab = 0),
             ),
           ),
-          Container(
-            width: 34,
-            height: 2,
-            color: selected ? WynColors.ink : Colors.transparent,
+          const SizedBox(width: WynSpacing.space2),
+          Expanded(
+            child: ChatPillTab(
+              label: 'ยังไม่อ่าน',
+              selected: _selectedTab == 1,
+              onTap: () => setState(() => _selectedTab = 1),
+            ),
+          ),
+          const SizedBox(width: WynSpacing.space2),
+          Expanded(
+            child: ChatPillTab(
+              label: requestLabel,
+              selected: false,
+              onTap: _openMessageRequests,
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildRequestsBanner() {
-    return Semantics(
-      label: 'คำขอข้อความ $_pendingRequestCount รายการ',
-      button: true,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: _openMessageRequests,
-        child: Container(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: WynColors.hairline)),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WynSpacing.space4,
-            vertical: 10,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: WynColors.surfaceTint,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.chat_bubble_outline,
-                  size: 18,
-                  color: WynColors.ink,
-                ),
-              ),
-              const SizedBox(width: WynSpacing.space3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'คำขอข้อความ ($_pendingRequestCount)',
-                      style: _textStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: WynColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      'รายการที่รอการตอบรับ',
-                      style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, size: 18, color: WynColors.graphite),
-            ],
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildBody() {
     if (_isLoadingInitial) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: WynColors.ink));
     }
 
     if (_error != null) {
@@ -482,7 +427,9 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       return Center(
         child: EmptyStateBlock(
           icon: Icons.chat_bubble_outline,
-          title: _selectedTab == 1 ? 'ไม่มีบทสนทนาที่ยังไม่อ่าน' : 'ยังไม่มีข้อความ',
+          title: _selectedTab == 1
+              ? 'ไม่มีบทสนทนาที่ยังไม่อ่าน'
+              : 'ยังไม่มีข้อความ',
           subtitle: _selectedTab == 1
               ? 'บทสนทนาที่ยังไม่อ่านทั้งหมดจะขึ้นตรงนี้'
               : 'เริ่มแชทกับคนที่คุณติดตาม กดไอคอนดินสอด้านบนได้เลย',
@@ -499,7 +446,8 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
           if (index >= visible.length) {
             return const Padding(
               padding: EdgeInsets.all(WynSpacing.space4),
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(
+                  child: CircularProgressIndicator(color: WynColors.ink)),
             );
           }
 
@@ -556,7 +504,8 @@ class _ConversationRow extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+              horizontal: WynSpacing.space4, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -580,7 +529,8 @@ class _ConversationRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: _textStyle(
                               fontSize: 15.5,
-                              fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
+                              fontWeight:
+                                  isUnread ? FontWeight.w700 : FontWeight.w600,
                               color: WynColors.ink,
                             ),
                           ),
@@ -588,7 +538,8 @@ class _ConversationRow extends StatelessWidget {
                         const SizedBox(width: WynSpacing.space2),
                         Text(
                           time,
-                          style: _textStyle(fontSize: 12.5, color: WynColors.graphite),
+                          style: _textStyle(
+                              fontSize: 12.5, color: WynColors.graphite),
                         ),
                       ],
                     ),
@@ -607,9 +558,13 @@ class _ConversationRow extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: _textStyle(
                               fontSize: 14,
-                              fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
-                              fontWeight: isUnread ? FontWeight.w500 : FontWeight.w400,
-                              color: isUnread ? WynColors.ink : WynColors.graphite,
+                              fontStyle: isDeleted
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
+                              fontWeight:
+                                  isUnread ? FontWeight.w500 : FontWeight.w400,
+                              color:
+                                  isUnread ? WynColors.ink : WynColors.graphite,
                             ),
                           ),
                         ),
@@ -634,7 +589,8 @@ class _UnreadDot extends StatelessWidget {
     return Container(
       width: 7,
       height: 7,
-      decoration: const BoxDecoration(color: WynColors.ink, shape: BoxShape.circle),
+      decoration:
+          const BoxDecoration(color: WynColors.ink, shape: BoxShape.circle),
     );
   }
 }
@@ -645,4 +601,8 @@ TextStyle _textStyle({
   FontStyle fontStyle = FontStyle.normal,
   Color? color,
 }) =>
-    TextStyle(fontSize: fontSize, fontWeight: fontWeight, fontStyle: fontStyle, color: color);
+    TextStyle(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        fontStyle: fontStyle,
+        color: color);

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/design/wyn_colors.dart';
+
 import '../../club/data/club_repository.dart';
 import '../../club/presentation/invite_to_club_screen.dart';
 import '../../follow/data/follow_repository.dart';
@@ -9,6 +11,7 @@ import '../../profile/data/profile_repository.dart';
 import '../data/chat_repository.dart';
 import '../data/shared_content_type.dart';
 import 'share_to_chat_screen.dart';
+import 'widgets/chat_ui.dart';
 
 /// Screen 1 (WYN-033) -- the 3-item sheet a "แชร์" entry point opens:
 /// "แชร์เข้า Chat" (new), "แชร์ผ่านระบบมือถือ" (native share, the same
@@ -51,77 +54,71 @@ Future<void> showShareSheet(
 
   await showModalBottomSheet<void>(
     context: context,
-    builder: (sheetContext) => SafeArea(
-      child: Wrap(
-        children: [
-          if (showInviteFromFollowers)
-            ListTile(
-              leading: const Icon(Icons.person_add_alt_1),
-              title: const Text('เชิญจากผู้ติดตาม'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    // Dart promotes followRepository/clubRepository/
-                    // clubName to non-null here on its own --
-                    // showInviteFromFollowers is exactly `... &&
-                    // followRepository != null && clubRepository !=
-                    // null && clubName != null`, and none is ever
-                    // reassigned in this function, so no `!` is needed
-                    // (flutter analyze flags one as an
-                    // unnecessary_non_null_assertion warning if added).
-                    builder: (_) => InviteToClubScreen(
-                      followRepository: followRepository,
-                      clubRepository: clubRepository,
-                      clubId: sharedContentId,
-                      clubName: clubName,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ListTile(
-            leading: const Icon(Icons.chat_bubble_outline),
-            title: const Text('แชร์เข้า Chat'),
+    backgroundColor: Colors.transparent,
+    barrierColor: WynColors.imageScrim,
+    builder: (sheetContext) => ChatActionSheetBody(
+      title: 'แชร์',
+      subtitle: previewLabel,
+      rows: [
+        if (showInviteFromFollowers)
+          ChatActionSheetRow(
+            icon: Icons.person_add_alt_1,
+            label: 'เชิญจากผู้ติดตาม',
             onTap: () {
               Navigator.of(sheetContext).pop();
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => ShareToChatScreen(
-                    chatRepository: chatRepository,
-                    profileRepository: profileRepository,
-                    sharedContentType: sharedContentType,
-                    sharedContentId: sharedContentId,
-                    previewLabel: previewLabel,
+                  builder: (_) => InviteToClubScreen(
+                    followRepository: followRepository,
+                    clubRepository: clubRepository,
+                    clubId: sharedContentId,
+                    clubName: clubName,
                   ),
                 ),
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.ios_share),
-            title: const Text('แชร์ผ่านระบบมือถือ'),
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              SharePlus.instance.share(
-                ShareParams(text: nativeShareText, title: nativeShareTitle),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.link),
-            title: const Text('คัดลอกลิงก์'),
-            onTap: () async {
-              Navigator.of(sheetContext).pop();
-              await Clipboard.setData(ClipboardData(text: nativeShareText));
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('คัดลอกลิงก์แล้ว')),
-              );
-            },
-          ),
-        ],
-      ),
+        ChatActionSheetRow(
+          icon: Icons.chat_bubble_outline,
+          label: 'แชร์เข้า Chat',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ShareToChatScreen(
+                  chatRepository: chatRepository,
+                  profileRepository: profileRepository,
+                  sharedContentType: sharedContentType,
+                  sharedContentId: sharedContentId,
+                  previewLabel: previewLabel,
+                ),
+              ),
+            );
+          },
+        ),
+        ChatActionSheetRow(
+          icon: Icons.ios_share,
+          label: 'แชร์ผ่านระบบมือถือ',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            SharePlus.instance.share(
+              ShareParams(text: nativeShareText, title: nativeShareTitle),
+            );
+          },
+        ),
+        ChatActionSheetRow(
+          icon: Icons.link,
+          label: 'คัดลอกลิงก์',
+          onTap: () async {
+            Navigator.of(sheetContext).pop();
+            await Clipboard.setData(ClipboardData(text: nativeShareText));
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('คัดลอกลิงก์แล้ว')),
+            );
+          },
+        ),
+      ],
     ),
   );
 }
