@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Profile-language UI refresh
-        run: python3 tools/apply_profile_language_system_ui_v2.py
+        run: python3 tools/apply_profile_language_system_ui_v3.py
 
       - name: Protect Profile implementation
         run: |
@@ -79,6 +79,9 @@ jobs:
         run: |
           rm -f tools/apply_profile_language_system_ui.py
           rm -f tools/apply_profile_language_system_ui_v2.py
+          rm -f tools/apply_profile_language_system_ui_v3.py
+          rm -f debug_profile_ui_tests.log
+          rm -f .github/workflows/debug-profile-language-ui-tests-once.yml
           rm -f .github/workflows/apply-profile-language-system-ui-once.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
