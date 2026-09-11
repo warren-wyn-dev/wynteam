@@ -114,6 +114,20 @@ jobs:
       - run: deno check supabase/functions/*/index.ts
       - run: deno test supabase/functions/
 
+  migration-safety:
+    name: Destructive migration guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject unapproved destructive SQL
+        run: >-
+          python3 supabase/check_migration_safety.py
+          "${{ github.event.pull_request.base.sha }}"
+          "${{ github.event.pull_request.head.sha }}"
+
   schema:
     name: schema.sql ordering
     runs-on: ubuntu-latest
