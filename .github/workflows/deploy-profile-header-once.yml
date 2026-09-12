@@ -1,4 +1,4 @@
-name: Deploy Threads-like Home posts once
+name: Deploy tighter Home post rhythm once
 
 on:
   push:
