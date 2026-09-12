@@ -1,0 +1,64 @@
+name: Fix foreground DM banner once (2026-09-12)
+
+on:
+  push:
+    branches:
+      - fix/foreground-dm-banner-20260912
+    paths:
+      - '.github/workflows/fix-foreground-dm-banner-once-20260912.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/foreground-dm-banner-20260912
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply focused patch
+        run: python3 tools/fix_foreground_dm_banner_20260912_v2.py
+
+      - name: Format changed Dart files
+        working-directory: app
+        run: >-
+          dart format
+          lib/features/chat/presentation/active_conversation_tracker.dart
+          lib/features/chat/presentation/conversation_screen.dart
+          lib/features/push/presentation/push_reliability_controller.dart
+          test/push_reliability_controller_test.dart
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Run focused regressions
+        working-directory: app
+        run: >-
+          flutter test
+          test/push_reliability_controller_test.dart
+          test/conversation_screen_test.dart
+
+      - name: Commit validated fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            app/lib/features/chat/presentation/active_conversation_tracker.dart \
+            app/lib/features/chat/presentation/conversation_screen.dart \
+            app/lib/features/push/presentation/push_reliability_controller.dart \
+            app/test/push_reliability_controller_test.dart
+          git commit -m 'fix: move foreground DM alert to top banner'
+          git push origin HEAD:fix/foreground-dm-banner-20260912
