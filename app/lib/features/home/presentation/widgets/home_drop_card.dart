@@ -5,6 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../drop/data/drop.dart' show AudienceOption;
 import '../../../drop/data/drop_repository.dart';
 import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;
+import '../../../follow/data/follow_repository.dart';
+import '../../../follow/data/follow_request_repository.dart';
+import '../../../follow/presentation/widgets/follow_action_button.dart';
+import '../../../profile/data/profile.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import 'home_card_metrics.dart';
@@ -45,6 +49,10 @@ class HomeDropCard extends StatelessWidget {
     this.onDeleteRedrop,
     this.onVotePoll,
     this.onHide,
+    this.authorProfile,
+    this.followRepository,
+    this.followRequestRepository,
+    this.showHomeFollowButton = false,
     this.showViewCount = true,
     this.showLikedBy = true,
     this.hideZeroActionCounts = false,
@@ -96,6 +104,13 @@ class HomeDropCard extends StatelessWidget {
   /// post from your own feed isn't a meaningful action.
   final VoidCallback? onHide;
 
+  /// Home-only dependencies for the compact author-row Follow action.
+  /// Other surfaces that reuse this card keep the feature off by default.
+  final Profile? authorProfile;
+  final FollowRepository? followRepository;
+  final FollowRequestRepository? followRequestRepository;
+  final bool showHomeFollowButton;
+
   /// WYN-088 (Wynos V1.0.0 Beta2, item 27): the eye/view-count
   /// ActionMetric is hidden on the Home feed (every tab) now, but this
   /// same [HomeDropCard] is also reused on the viewer's own Profile
@@ -114,6 +129,13 @@ class HomeDropCard extends StatelessWidget {
 
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
+
+  bool get _canShowHomeFollowButton =>
+      showHomeFollowButton &&
+      !_isOwnDrop &&
+      authorProfile != null &&
+      followRepository != null &&
+      followRequestRepository != null;
 
   /// Whether *this card* is the viewer's own ReDrop (Standard or
   /// Quote) of someone's Drop -- independent of [_isOwnDrop], which is
@@ -417,6 +439,26 @@ class HomeDropCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
+                              // Approved Home mockup: compact black Follow pill
+                              // beside the overflow menu. The shared button keeps
+                              // public/private/request behavior consistent everywhere.
+                              if (_canShowHomeFollowButton) ...[
+                                const SizedBox(width: WynSpacing.space1),
+                                FollowActionButton(
+                                  key: ValueKey<String>(
+                                    'home_follow_${item.authorId}',
+                                  ),
+                                  profile: authorProfile!,
+                                  followRepository: followRepository!,
+                                  followRequestRepository:
+                                      followRequestRepository!,
+                                  compact: true,
+                                  filled: true,
+                                  headerCompact: true,
+                                  hideWhenFollowing: true,
+                                ),
+                                const SizedBox(width: WynSpacing.space1),
+                              ],
                               // WYNOSHomeSpec.md 4.6: always shown now,
                               // even on the viewer's own plain
                               // (non-ReDrop) Drop -- Share/Save moved in
