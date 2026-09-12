@@ -1,0 +1,72 @@
+name: Apply final Home feed mockup once
+
+on:
+  push:
+    branches: [fix/home-feed-final-mockup]
+    paths:
+      - .github/workflows/apply-home-feed-final-mockup-once.yml
+      - tools/apply_home_feed_final_mockup.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/home-feed-final-mockup
+          fetch-depth: 0
+
+      - name: Apply approved Home mockup
+        run: python3 tools/apply_home_feed_final_mockup.py
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Format changed Dart files
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACM -- '*.dart')
+          if [ ${#files[@]} -gt 0 ]; then
+            dart format "${files[@]}"
+          fi
+
+      - name: Patch sanity
+        run: |
+          git diff --check
+          grep -q "homeCardEdgeInset = WynSpacing.space4" app/lib/features/home/presentation/widgets/home_card_metrics.dart
+          grep -q "homeCardAvatarDiameter = 40" app/lib/features/home/presentation/widgets/home_card_metrics.dart
+          grep -q "fontSize: 17.5" app/lib/features/home/presentation/widgets/home_drop_card.dart
+          grep -q "height: 32" app/lib/features/home/presentation/widgets/home_drop_card.dart
+          grep -q "ofl/notosansthailooped/" app/lib/core/typography/looped_thai_font_loader_web.dart
+          grep -q "NotoSansThaiLooped%5Bwdth%2Cwght%5D.ttf" app/lib/core/typography/looped_thai_font_loader_web.dart
+          test "$(grep -c 'hideZeroActionCounts: false,' app/lib/features/home/presentation/widgets/mode_feed_page.dart)" -eq 2
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Home and typography regression tests
+        working-directory: app
+        run: |
+          flutter test test/home_feed_screen_test.dart
+          flutter test test/system_typography_ios_accessibility_test.dart
+
+      - name: Commit validated Home mockup
+        run: |
+          rm -f tools/apply_home_feed_final_mockup.py
+          rm -f .github/workflows/apply-home-feed-final-mockup-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(home): match approved final feed mockup"
+          git push origin fix/home-feed-final-mockup
