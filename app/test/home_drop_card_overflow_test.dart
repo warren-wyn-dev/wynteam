@@ -98,7 +98,7 @@ void main() {
   }
 
   testWidgets(
-    'post header keeps relative time beside the author and uses horizontal more',
+    'post header keeps relative time and more menu aligned with the author',
     (tester) async {
       final createdAt = DateTime.now().subtract(const Duration(days: 3));
       await _pump(tester, card(_item(createdAt: createdAt)), width: 390);
@@ -106,14 +106,17 @@ void main() {
 
       final author = find.text('@namfah');
       final time = find.text('3 วันที่แล้ว');
+      final more = find.byIcon(Icons.more_horiz);
       expect(author, findsOneWidget);
       expect(time, findsOneWidget);
+      expect(more, findsOneWidget);
 
       final authorCenter = tester.getCenter(author);
       final timeCenter = tester.getCenter(time);
+      final moreCenter = tester.getCenter(more);
       expect((authorCenter.dy - timeCenter.dy).abs(), lessThan(3));
+      expect((authorCenter.dy - moreCenter.dy).abs(), lessThan(3));
 
-      expect(find.byIcon(Icons.more_horiz), findsOneWidget);
       expect(find.byIcon(Icons.more_vert), findsNothing);
       expect(tester.takeException(), isNull);
     },
