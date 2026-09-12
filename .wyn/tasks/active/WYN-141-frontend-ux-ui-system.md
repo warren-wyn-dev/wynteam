@@ -85,3 +85,40 @@ Handoff: AI QA & Security for the Admin batch; continue Flutter batches only on 
 ## Founder final visual reference — 2026-09-10
 
 The final Profile and Post Detail screenshots supplied directly by the Founder supersede conflicting older TSX composition for those two surfaces. Implementation target is screenshot-level visual parity while preserving Beta4 behavior and backend contracts; the only required data addition is `profiles.cover_url` for the visible profile cover.
+
+## Founder Direction Amendment — 2026-09-12
+
+Founder: "ชอบ UX UI ของเธรด ปรับให้หน่อย ทุกหน้า ยกเว้นโปรไฟล์ จัดดีแล้ว" + "อยากให้ดูโปรไฟล์เป็น แล้วปรับทุกหน้าให้ไปในทิศทางเดียวกัน"
+
+Clarified with Founder (AskUserQuestion, 2026-09-12):
+
+1. "Other Profile" (design-reference `18-other-profile.tsx`) is **not** automatically covered by the Profile exemption — it must still be audited/adjusted.
+2. Post Detail (`07-post-detail.tsx`), despite receiving its own Founder-final screenshot on 2026-09-10, must **also** be re-aligned to the new Profile-led direction — it is not exempt.
+3. Scope for this round is the **WYNOS mobile app only** (design-reference `01`–`22` except `05-profile`). Admin/back office is explicitly **out of scope**.
+
+### Requirements (amendment)
+
+1. Treat the Founder-approved final **Profile** screenshot (2026-09-10) as the single visual north star for the whole WYNOS mobile app — not just a one-off fix for the Profile screen.
+2. AI Design re-audits every in-scope mobile screen (`design-reference/01,02,03,04,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22`) against Profile's realized direction — surface/card/row treatment, spacing rhythm, typography weight, header/nav chrome, iconography, accent usage — and documents concrete deltas per screen.
+3. Post Detail and Other Profile get their own explicit before/after rationale in the revised spec; neither may be carried over unchanged just because an earlier reference existed for them.
+4. No new accent colors or token deviations — apply the existing Sapphire palette / `SPEC.md` tokens more consistently, matching Profile's application of them.
+5. Preserve existing navigation, business logic, auth/authorization and data contracts (same constraint as the base WYN-141 task) — this is a visual/pattern-consistency pass, not a feature change.
+6. Admin is unaffected by this amendment.
+
+### Acceptance Criteria (amendment)
+
+- Revised design spec explicitly cites the Profile final screenshot as the reference and covers all in-scope screens listed above.
+- Post Detail and Other Profile each have a stated before/after rationale (not marked "no change needed" by default).
+- No proposed change alters navigation destinations, business logic, or data flows.
+- No tokens/colors introduced outside approved SPEC.md + Sapphire palette.
+- Founder visual approval obtained on the revised spec before Coding resumes any further non-Admin batch.
+
+### Known Blocker
+
+No screenshot files for Profile/Post Detail exist in this repository (checked — not committed anywhere under the working tree). AI Design will need the Founder to re-share the reference image(s) in-session before producing the revised spec.
+
+### Data Integrity Issue Found (unrelated to this amendment, flagged for Founder)
+
+`.wyn/company/DECISIONS.md` — a mandatory read-before-work file for every AI role — is corrupted: it is binary data, not valid text (confirmed with `file`, and it has been binary since the single commit that introduced it, `c385739`, same on `origin/main`). Per `.wyn/company/RULES.md` ("Founder Feedback" section), this amendment should normally also be logged there, but it could not be appended safely. Recording it here instead as the interim durable record. Recommend Founder/DevOps restore or rebuild `DECISIONS.md` from an earlier good source if one exists.
+
+Handoff: AI Design — produce the revised WYN-141 spec per this amendment; request Founder re-share the Profile/Post Detail reference image(s); then Founder visual approval before Coding resumes.
