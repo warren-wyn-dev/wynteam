@@ -59,6 +59,7 @@ class WynosSocialHeader extends StatelessWidget {
     this.trailing,
     this.titleWidget,
     this.showBottomDivider = true,
+    this.height = WynosSocialChrome.headerHeight,
   });
 
   final String title;
@@ -66,11 +67,12 @@ class WynosSocialHeader extends StatelessWidget {
   final Widget? trailing;
   final Widget? titleWidget;
   final bool showBottomDivider;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: WynosSocialChrome.headerHeight,
+      height: height,
       padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
       decoration: BoxDecoration(
         color: WynColors.paper,
@@ -87,7 +89,8 @@ class WynosSocialHeader extends StatelessWidget {
           ),
           Expanded(
             child: Center(
-              child: titleWidget ??
+              child:
+                  titleWidget ??
                   Text(
                     title,
                     maxLines: 1,
@@ -227,8 +230,7 @@ class _WynosSocialTab<T> extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       color: selected ? WynColors.ink : WynColors.graphite,
                     ),
                   ),
@@ -255,13 +257,8 @@ class _WynosSocialTab<T> extends StatelessWidget {
 /// Shared visual treatment for a native Flutter [TabBar] when the screen
 /// needs TabController/TabBarView behavior. Deliberately text-only: icons in
 /// primary tabs add visual noise and make Search feel unlike Home/Profile.
-class WynosSocialTabBar extends StatelessWidget
-    implements PreferredSizeWidget {
-  const WynosSocialTabBar({
-    super.key,
-    required this.labels,
-    this.controller,
-  });
+class WynosSocialTabBar extends StatelessWidget implements PreferredSizeWidget {
+  const WynosSocialTabBar({super.key, required this.labels, this.controller});
 
   final List<String> labels;
   final TabController? controller;
@@ -281,10 +278,7 @@ class WynosSocialTabBar extends StatelessWidget
         indicatorWeight: 2,
         indicatorSize: TabBarIndicatorSize.label,
         dividerColor: WynColors.hairline,
-        labelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
+        labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         unselectedLabelStyle: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
