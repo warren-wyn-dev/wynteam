@@ -23,6 +23,8 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
+          from collections import Counter, defaultdict
+
           root = Path('app/lib')
           files = sorted(root.rglob('*.dart'))
           patterns = {
@@ -48,6 +50,7 @@ jobs:
               'CupertinoAlertDialog(': r'(?<![A-Za-z0-9_])CupertinoAlertDialog\s*\(',
               'Tooltip(message:)': r'Tooltip\s*\([^\)]*?message\s*:',
           }
+
           print(f'Dart files: {len(files)}')
           print('--- counts ---')
           per_pattern_files = {}
@@ -63,6 +66,112 @@ jobs:
                       hit_files.append((str(p), n))
               per_pattern_files[label] = hit_files
               print(f'{label}: {total} across {len(hit_files)} files')
+
+          def find_invocations(source, token):
+              needle = token + '('
+              out = []
+              pos = 0
+              while True:
+                  i = source.find(needle, pos)
+                  if i < 0:
+                      return out
+                  if i and (source[i-1].isalnum() or source[i-1] == '_'):
+                      pos = i + len(needle)
+                      continue
+                  start = i + len(token)
+                  depth = 0
+                  quote = None
+                  triple = False
+                  escape = False
+                  line_comment = False
+                  block_comment = False
+                  j = start
+                  while j < len(source):
+                      ch = source[j]
+                      nxt = source[j:j+2]
+                      if line_comment:
+                          if ch == '\n': line_comment = False
+                          j += 1; continue
+                      if block_comment:
+                          if nxt == '*/': block_comment = False; j += 2; continue
+                          j += 1; continue
+                      if quote:
+                          if escape:
+                              escape = False; j += 1; continue
+                          if ch == '\\':
+                              escape = True; j += 1; continue
+                          if triple and source.startswith(quote*3, j):
+                              j += 3; quote = None; triple = False; continue
+                          if not triple and ch == quote:
+                              j += 1; quote = None; continue
+                          j += 1; continue
+                      if nxt == '//': line_comment = True; j += 2; continue
+                      if nxt == '/*': block_comment = True; j += 2; continue
+                      if source.startswith("'''", j): quote="'"; triple=True; j += 3; continue
+                      if source.startswith('"""', j): quote='"'; triple=True; j += 3; continue
+                      if ch in "'\"": quote=ch; j += 1; continue
+                      if ch == '(':
+                          depth += 1
+                      elif ch == ')':
+                          depth -= 1
+                          if depth == 0:
+                              out.append(source[start+1:j])
+                              pos = j + 1
+                              break
+                      j += 1
+                  else:
+                      return out
+
+          def top_level_named_args(body):
+              parts=[]; start=0; par=br=cur=0; quote=None; triple=False; escape=False; line=False; block=False; i=0
+              while i < len(body):
+                  ch=body[i]; nxt=body[i:i+2]
+                  if line:
+                      if ch=='\n': line=False
+                      i+=1; continue
+                  if block:
+                      if nxt=='*/': block=False; i+=2; continue
+                      i+=1; continue
+                  if quote:
+                      if escape: escape=False; i+=1; continue
+                      if ch=='\\': escape=True; i+=1; continue
+                      if triple and body.startswith(quote*3,i): quote=None; triple=False; i+=3; continue
+                      if not triple and ch==quote: quote=None; i+=1; continue
+                      i+=1; continue
+                  if nxt=='//': line=True; i+=2; continue
+                  if nxt=='/*': block=True; i+=2; continue
+                  if body.startswith("'''",i): quote="'"; triple=True; i+=3; continue
+                  if body.startswith('"""',i): quote='"'; triple=True; i+=3; continue
+                  if ch in "'\"": quote=ch; i+=1; continue
+                  if ch=='(': par+=1
+                  elif ch==')': par-=1
+                  elif ch=='[': br+=1
+                  elif ch==']': br-=1
+                  elif ch=='{': cur+=1
+                  elif ch=='}': cur-=1
+                  elif ch==',' and par==0 and br==0 and cur==0:
+                      parts.append(body[start:i]); start=i+1
+                  i+=1
+              parts.append(body[start:])
+              names=[]
+              for part in parts:
+                  m=re.match(r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*:', part)
+                  if m: names.append(m.group(1))
+              return names
+
+          for token in ['Text', 'Text.rich', 'TextField']:
+              counts=Counter(); file_sets=defaultdict(set); total=0
+              for p in files:
+                  source=p.read_text(encoding='utf-8')
+                  invs=find_invocations(source, token)
+                  total += len(invs)
+                  for body in invs:
+                      for name in top_level_named_args(body):
+                          counts[name]+=1; file_sets[name].add(str(p))
+              print(f'--- {token} named args ({total} invocations) ---')
+              for name,count in counts.most_common():
+                  print(f'{name}: {count} across {len(file_sets[name])} files')
+
           print('--- files with direct Text/RichText/input surfaces ---')
           interesting = ['Text(', 'Text.rich(', 'RichText(', 'SelectableText(', 'SelectableText.rich(', 'TextField(', 'TextFormField(', 'EditableText(', 'CupertinoTextField(']
           merged = {}
