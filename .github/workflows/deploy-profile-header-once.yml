@@ -1,6 +1,6 @@
 name: Deploy approved final Home feed once
 
-# Deploy trigger 2026-09-12: align three-dot menu with author/date row.
+# Deploy trigger 2026-09-12: lower post avatar to align with content block.
 on:
   push:
     branches: [main]
