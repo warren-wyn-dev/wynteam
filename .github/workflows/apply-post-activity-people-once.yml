@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/apply-post-activity-people-once.yml
       - tools/apply_post_activity_people.py
+      - tools/fix_post_activity_view_tests.py
 
 permissions:
   contents: write
@@ -21,7 +22,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply post activity people patch
-        run: python3 tools/apply_post_activity_people.py
+        run: |
+          python3 tools/apply_post_activity_people.py
+          python3 tools/fix_post_activity_view_tests.py
 
       - uses: subosito/flutter-action@v2
         with:
@@ -57,6 +60,7 @@ jobs:
       - name: Commit validated change
         run: |
           rm -f tools/apply_post_activity_people.py
+          rm -f tools/fix_post_activity_view_tests.py
           rm -f .github/workflows/apply-post-activity-people-once.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
