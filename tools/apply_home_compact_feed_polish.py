@@ -16,7 +16,9 @@ replace_once(
     """    return WynosSocialHeader(\n      title: 'WYNOS',\n""",
     """    return WynosSocialHeader(\n      title: 'WYNOS',\n      // Keep the 48px actions fully tappable while pulling the feed tabs\n      // 8px closer to the WYNOS wordmark. Home is intentionally denser\n      // than the generic social-screen header; other screens keep 60px.\n      height: 52,\n      showBottomDivider: false,\n""",
 )
-replace_once(home, "      scrollable: true,\n", "      scrollable: false,\n")
+# Keep the tab row scrollable: the longer Thai labels need their natural
+# width on narrow phones, and the existing SingleChildScrollView contract
+# already protects them from ellipsis truncation.
 replace_once(home, "          label: 'ติดตาม',\n", "          label: 'กำลังติดตาม',\n")
 replace_once(home, "          label: 'Club',\n", "          label: 'คลับของฉัน',\n")
 
@@ -58,10 +60,15 @@ replace_once(
 # Regression expectations ---------------------------------------------------
 home_test = Path('app/test/home_feed_screen_test.dart')
 text = home_test.read_text()
-# In this test file, these two strings are the Home feed selector labels;
-# HomeDropCard itself has no Follow button, so updating them is scoped safely.
+# Direct Home-tab finder calls.
 text = text.replace("find.text('Club')", "find.text('คลับของฉัน')")
 text = text.replace("find.text('ติดตาม')", "find.text('กำลังติดตาม')")
+# Label-driven regression loops must use the actual new UI copy too.
+text = text.replace("['ติดตาม']", "['กำลังติดตาม']")
+text = text.replace(
+    "['สำหรับคุณ', 'ติดตาม', 'Club']",
+    "['สำหรับคุณ', 'กำลังติดตาม', 'คลับของฉัน']",
+)
 home_test.write_text(text)
 
 root_test = Path('app/test/root_shell_test.dart')
