@@ -115,9 +115,7 @@ class HomeDropCard extends StatelessWidget {
       item.redropperId == Supabase.instance.client.auth.currentUser!.id;
 
   Future<void> _share() async {
-    await SharePlus.instance.share(
-      ShareParams(text: dropShareLink(item.id)),
-    );
+    await SharePlus.instance.share(ShareParams(text: dropShareLink(item.id)));
   }
 
   /// WYN-034: the ReDrop icon opens a small action sheet rather than
@@ -150,71 +148,73 @@ class HomeDropCard extends StatelessWidget {
   Future<void> _openMoreMenu(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(rows: [
-        // WYNOSHomeSpec.md 4.6: Share/Save deliberately live here now,
-        // not in the action bar (see that section's own "deliberate
-        // simplification" note) -- always offered first, ahead of the
-        // existing Hide/Report/Delete-ReDrop rows below, which the
-        // spec's own simplified 2-row mockup doesn't have to account
-        // for but this app already does.
-        ActionSheetRow(
-          icon: Icons.share_outlined,
-          label: 'แชร์',
-          onTap: () {
-            Navigator.of(sheetContext).pop();
-            _share();
-          },
-        ),
-        ActionSheetRow(
-          icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-          label: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
-          onTap: () {
-            Navigator.of(sheetContext).pop();
-            onToggleSave();
-          },
-        ),
-        // Reporting your own Drop makes no sense -- same guard
-        // _isOwnDrop already applied to this button's own
-        // visibility before WYN-034, kept here now that the
-        // button can also show for a reason unrelated to
-        // authorship (_isOwnRedrop).
-        if (!_isOwnDrop && onHide != null)
+      builder: (sheetContext) => ActionSheetBody(
+        rows: [
+          // WYNOSHomeSpec.md 4.6: Share/Save deliberately live here now,
+          // not in the action bar (see that section's own "deliberate
+          // simplification" note) -- always offered first, ahead of the
+          // existing Hide/Report/Delete-ReDrop rows below, which the
+          // spec's own simplified 2-row mockup doesn't have to account
+          // for but this app already does.
           ActionSheetRow(
-            icon: Icons.visibility_off_outlined,
-            label: 'ไม่สนใจโพสต์นี้',
+            icon: Icons.share_outlined,
+            label: 'แชร์',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              onHide?.call();
+              _share();
             },
           ),
-        if (!_isOwnDrop)
           ActionSheetRow(
-            icon: Icons.flag_outlined,
-            label: 'รายงานโพสต์',
+            icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+            label: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              showReportSheet(
-                context,
-                reportRepository: ReportRepository(Supabase.instance.client),
-                targetType: ReportTargetType.drop,
-                targetId: item.id,
-                targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
-                associatedUserId: item.authorId,
-              );
+              onToggleSave();
             },
           ),
-        // WYN-034: removes *this ReDrop entry* only -- the original
-        // Drop (and any other ReDrops of it) are untouched.
-        if (_isOwnRedrop)
-          ActionSheetRow(
-            icon: Icons.delete_outline,
-            label: 'ลบรีโพสต์',
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              onDeleteRedrop?.call();
-            },
-          ),
-      ]),
+          // Reporting your own Drop makes no sense -- same guard
+          // _isOwnDrop already applied to this button's own
+          // visibility before WYN-034, kept here now that the
+          // button can also show for a reason unrelated to
+          // authorship (_isOwnRedrop).
+          if (!_isOwnDrop && onHide != null)
+            ActionSheetRow(
+              icon: Icons.visibility_off_outlined,
+              label: 'ไม่สนใจโพสต์นี้',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onHide?.call();
+              },
+            ),
+          if (!_isOwnDrop)
+            ActionSheetRow(
+              icon: Icons.flag_outlined,
+              label: 'รายงานโพสต์',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                showReportSheet(
+                  context,
+                  reportRepository: ReportRepository(Supabase.instance.client),
+                  targetType: ReportTargetType.drop,
+                  targetId: item.id,
+                  targetLabel: 'รายงานโพสต์ของ ${item.authorNameOrUsername}',
+                  associatedUserId: item.authorId,
+                );
+              },
+            ),
+          // WYN-034: removes *this ReDrop entry* only -- the original
+          // Drop (and any other ReDrops of it) are untouched.
+          if (_isOwnRedrop)
+            ActionSheetRow(
+              icon: Icons.delete_outline,
+              label: 'ลบรีโพสต์',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onDeleteRedrop?.call();
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -230,7 +230,12 @@ class HomeDropCard extends StatelessWidget {
           // 01-home.tsx's own `pt-4 pb-4` per post -- the card is
           // wider-set now, and the old 8 left it looking cramped
           // against the extra horizontal room.
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            WynSpacing.space2,
+            0,
+            WynSpacing.space4,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -282,12 +287,12 @@ class HomeDropCard extends StatelessWidget {
                             'รีโพสต์โดย @${item.redropperUsername} · '
                             '${relativeTimeLabel(item.createdAt, now: DateTime.now())}',
                             overflow: TextOverflow.ellipsis,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
                           ),
                         ),
                       ],
@@ -316,8 +321,9 @@ class HomeDropCard extends StatelessWidget {
                     padding: const EdgeInsets.only(left: homeCardEdgeInset),
                     child: InkWell(
                       onTap: onOpenProfile,
-                      borderRadius:
-                          BorderRadius.circular(WynSpacing.radiusFull),
+                      borderRadius: BorderRadius.circular(
+                        WynSpacing.radiusFull,
+                      ),
                       child: AvatarCircle(
                         imageUrl: item.authorAvatarUrl,
                         fallbackText: item.authorUsername,
@@ -331,65 +337,56 @@ class HomeDropCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding:
-                              const EdgeInsets.only(right: homeCardEdgeInset),
+                          padding: const EdgeInsets.only(
+                            right: homeCardEdgeInset,
+                          ),
                           child: Row(
                             children: [
                               Expanded(
                                 child: InkWell(
                                   onTap: onOpenProfile,
                                   borderRadius: BorderRadius.circular(
-                                      WynSpacing.radiusSm),
-                                  child: Column(
+                                    WynSpacing.radiusSm,
+                                  ),
+                                  child: Row(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.center,
                                     children: [
-                                      Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              item.authorNameOrUsername,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleSmall,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          if (item.authorIsVerified) ...[
-                                            const SizedBox(
-                                                width: WynSpacing.space1),
-                                            const VerifiedBadge(),
-                                          ],
-                                        ],
+                                      Flexible(
+                                        child: Text(
+                                          item.authorNameOrUsername,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
-                                      // WYN-140: separates the name from the
-                                      // timestamp below it -- previously 0px,
-                                      // read as one run-on block instead of
-                                      // two distinct rows.
-                                      const SizedBox(height: WynSpacing.space1),
-                                      Text(
-                                        // WYN-098, Design spec Screen 4:
-                                        // appended to the same line (not a
-                                        // 3rd row) when this Drop has a
-                                        // check-in -- plain text, no Icon
-                                        // widget (matches Product spec's
-                                        // literal "📍 {ชื่อสถานที่}" copy),
-                                        // and deliberately not wrapped in
-                                        // any tap handler (not tappable,
-                                        // per that spec's Out of Scope).
-                                        item.location != null
-                                            ? '${relativeTimeLabel(item.createdAt, now: DateTime.now())} · 📍 ${item.location}'
-                                            : relativeTimeLabel(item.createdAt,
-                                                now: DateTime.now()),
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .outline,
-                                            ),
+                                      if (item.authorIsVerified) ...[
+                                        const SizedBox(
+                                          width: WynSpacing.space1,
+                                        ),
+                                        const VerifiedBadge(),
+                                      ],
+                                      const SizedBox(width: WynSpacing.space2),
+                                      Flexible(
+                                        child: Text(
+                                          item.location != null
+                                              ? '${relativeTimeLabel(item.createdAt, now: DateTime.now())} · 📍 ${item.location}'
+                                              : relativeTimeLabel(
+                                                  item.createdAt,
+                                                  now: DateTime.now(),
+                                                ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .outline,
+                                              ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -405,21 +402,18 @@ class HomeDropCard extends StatelessWidget {
                               // Delete ReDrop) actually appear
                               // underneath those two.
                               //
-                              // WYN-107: pinned to a 44x44 box so the
-                              // header row is the height of the name
-                              // block plus its own tap target, rather
-                              // than IconButton's default 48 -- which,
-                              // now that the avatar is a column of its
-                              // own beside this row, would push the
-                              // name off the avatar's own top line.
-                              // Still >= the 44 minimum DS-001 6 sets.
+                              // Compact header: keep the More action
+                              // aligned to the 40px avatar so media/caption
+                              // can begin closer to the author row. The button
+                              // stays 44px wide for a forgiving horizontal
+                              // target while its visual row is 40px tall.
                               IconButton(
-                                icon: const Icon(Icons.more_vert),
+                                icon: const Icon(Icons.more_horiz),
                                 tooltip: 'เพิ่มเติม',
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
-                                  height: WynSpacing.touchTargetMin,
+                                  height: homeCardAvatarDiameter,
                                 ),
                                 onPressed: () => _openMoreMenu(context),
                               ),
@@ -445,7 +439,7 @@ class HomeDropCard extends StatelessWidget {
                             // deliberate break rather than a cramped one.
                             padding: const EdgeInsets.fromLTRB(
                               0,
-                              WynSpacing.space2,
+                              WynSpacing.space1,
                               homeCardEdgeInset,
                               WynSpacing.space3,
                             ),
@@ -459,8 +453,9 @@ class HomeDropCard extends StatelessWidget {
                           ),
                         if (item.isPoll)
                           Padding(
-                            padding:
-                                const EdgeInsets.only(right: homeCardEdgeInset),
+                            padding: const EdgeInsets.only(
+                              right: homeCardEdgeInset,
+                            ),
                             child: PollCard(
                               options: item.pollOptions!,
                               expiresAt: item.pollExpiresAt!,
@@ -491,8 +486,9 @@ class HomeDropCard extends StatelessWidget {
                             // inset rather than bleeding like the carousel does --
                             // there is no next card for it to hint at, so running
                             // it to the screen edge would only break the column.
-                            padding:
-                                const EdgeInsets.only(right: homeCardEdgeInset),
+                            padding: const EdgeInsets.only(
+                              right: homeCardEdgeInset,
+                            ),
                             child: DoubleTapLike(
                               onLike: onToggleLike,
                               alreadyLiked: item.likedByMe,
@@ -548,8 +544,9 @@ class HomeDropCard extends StatelessWidget {
                           // edge -- which is exactly what the Founder asked for
                           // when they circled this row: "ปุ่มควรขยับ ให้ตรงชื่อ".
                           // ActionMetric's own internal spacing stays untouched.
-                          padding:
-                              const EdgeInsets.only(right: homeCardEdgeInset),
+                          padding: const EdgeInsets.only(
+                            right: homeCardEdgeInset,
+                          ),
                           // QA-WYN-110-002: at 320px width the 4 ActionMetrics
                           // + their spacing overflow the available column by
                           // 3px even at count 0 -- not a long-number problem.
@@ -587,8 +584,11 @@ class HomeDropCard extends StatelessWidget {
                                 ),
                                 const SizedBox(width: WynSpacing.space5),
                                 ActionMetric(
-                                  icon: const Icon(Icons.mode_comment_outlined,
-                                      size: 17, color: WynColors.graphite),
+                                  icon: const Icon(
+                                    Icons.mode_comment_outlined,
+                                    size: 17,
+                                    color: WynColors.graphite,
+                                  ),
                                   iconState: Icons.mode_comment_outlined,
                                   count: item.commentCount,
                                   color: WynColors.graphite,
@@ -605,11 +605,13 @@ class HomeDropCard extends StatelessWidget {
                                     AudienceOption.everyone) ...[
                                   const SizedBox(width: WynSpacing.space5),
                                   ActionMetric(
-                                    icon: Icon(Icons.repeat,
-                                        size: 17,
-                                        color: item.redroppedByMe
-                                            ? WynColors.iconActive
-                                            : WynColors.iconIdle),
+                                    icon: Icon(
+                                      Icons.repeat,
+                                      size: 17,
+                                      color: item.redroppedByMe
+                                          ? WynColors.iconActive
+                                          : WynColors.iconIdle,
+                                    ),
                                     iconState: item.redroppedByMe,
                                     count: item.redropCount,
                                     // WYN-089: same active-state color the Focused Action
@@ -633,8 +635,11 @@ class HomeDropCard extends StatelessWidget {
                                 if (showViewCount) ...[
                                   const SizedBox(width: WynSpacing.space5),
                                   ActionMetric(
-                                    icon: const Icon(Icons.visibility_outlined,
-                                        size: 16, color: WynColors.faint),
+                                    icon: const Icon(
+                                      Icons.visibility_outlined,
+                                      size: 16,
+                                      color: WynColors.faint,
+                                    ),
                                     iconState: Icons.visibility_outlined,
                                     count: item.viewCount,
                                     color: WynColors.faint,
@@ -649,10 +654,13 @@ class HomeDropCard extends StatelessWidget {
                         ),
                         if (item.topReply != null)
                           Padding(
-                            padding:
-                                const EdgeInsets.only(right: homeCardEdgeInset),
+                            padding: const EdgeInsets.only(
+                              right: homeCardEdgeInset,
+                            ),
                             child: TopReplyPreview(
-                                reply: item.topReply!, onTap: onTap),
+                              reply: item.topReply!,
+                              onTap: onTap,
+                            ),
                           ),
                       ],
                     ),
