@@ -1,6 +1,6 @@
 name: Deploy approved final Home feed once
 
-# Deploy trigger 2026-09-12: lower avatar to the founder-marked text line.
+# Deploy trigger 2026-09-12: enlarge feed avatar and tighten caption spacing.
 on:
   push:
     branches: [main]
