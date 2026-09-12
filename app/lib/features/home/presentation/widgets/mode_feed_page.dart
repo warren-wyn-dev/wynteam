@@ -142,7 +142,8 @@ class ModeFeedPageState extends State<ModeFeedPage>
     _loadInitial();
     _scrollController.addListener(_onScroll);
     _newPostsChannel = widget.homeRepository.subscribeToNewPosts((authorId) {
-      if (!mounted || authorId == Supabase.instance.client.auth.currentUser?.id) {
+      if (!mounted ||
+          authorId == Supabase.instance.client.auth.currentUser?.id) {
         return;
       }
       setState(() => _newPostCount++);
@@ -242,8 +243,12 @@ class ModeFeedPageState extends State<ModeFeedPage>
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error =
-          errorMessageFor(error, serverMessage: 'โหลด Home ไม่สำเร็จ'));
+      setState(
+        () => _error = errorMessageFor(
+          error,
+          serverMessage: 'โหลด Home ไม่สำเร็จ',
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoadingInitial = false);
     }
@@ -534,8 +539,9 @@ class ModeFeedPageState extends State<ModeFeedPage>
     if (posted != true || !mounted) return;
     if (index >= _items.length || _items[index].id != item.id) return;
     setState(() {
-      _items[index] =
-          _items[index].copyWith(redropCount: _items[index].redropCount + 1);
+      _items[index] = _items[index].copyWith(
+        redropCount: _items[index].redropCount + 1,
+      );
     });
   }
 
@@ -547,18 +553,19 @@ class ModeFeedPageState extends State<ModeFeedPage>
   // would have quietly wiped a ReDrop-sourced card's label/state on
   // every Like or Save tap once redrop_* existed.
   static HomeFeedItem _withToggledLike(HomeFeedItem item) => item.copyWith(
-        likedByMe: !item.likedByMe,
-        likeCount: item.likedByMe ? item.likeCount - 1 : item.likeCount + 1,
-      );
+    likedByMe: !item.likedByMe,
+    likeCount: item.likedByMe ? item.likeCount - 1 : item.likeCount + 1,
+  );
 
   static HomeFeedItem _withToggledSave(HomeFeedItem item) =>
       item.copyWith(savedByMe: !item.savedByMe);
 
   static HomeFeedItem _withToggledRedrop(HomeFeedItem item) => item.copyWith(
-        redroppedByMe: !item.redroppedByMe,
-        redropCount:
-            item.redroppedByMe ? item.redropCount - 1 : item.redropCount + 1,
-      );
+    redroppedByMe: !item.redroppedByMe,
+    redropCount: item.redroppedByMe
+        ? item.redropCount - 1
+        : item.redropCount + 1,
+  );
 
   Future<void> _openDrop(HomeFeedItem item) async {
     await Navigator.of(context).push(
@@ -655,10 +662,10 @@ class ModeFeedPageState extends State<ModeFeedPage>
   // distinct key since, once a PageView has both pages built, two
   // widgets sharing one Key string would make find.byKey ambiguous.
   Key get _scrollViewKey => Key(
-        widget.mode == HomeFeedRankMode.forYou
-            ? 'home_feed_scroll_view'
-            : 'home_feed_scroll_view_following',
-      );
+    widget.mode == HomeFeedRankMode.forYou
+        ? 'home_feed_scroll_view'
+        : 'home_feed_scroll_view_following',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -710,9 +717,7 @@ class ModeFeedPageState extends State<ModeFeedPage>
     if (_isLoadingInitial) {
       // A sliver of card-shaped placeholders rather than a spinner in an
       // empty viewport -- see HomeFeedSkeleton.
-      return [
-        const SliverToBoxAdapter(child: HomeFeedSkeleton()),
-      ];
+      return [const SliverToBoxAdapter(child: HomeFeedSkeleton())];
     }
 
     if (_error != null) {
@@ -726,7 +731,9 @@ class ModeFeedPageState extends State<ModeFeedPage>
                 Text(_error!),
                 const SizedBox(height: WynSpacing.space3),
                 TextButton(
-                    onPressed: _loadInitial, child: const Text('ลองใหม่')),
+                  onPressed: _loadInitial,
+                  child: const Text('ลองใหม่'),
+                ),
               ],
             ),
           ),
@@ -787,89 +794,94 @@ class ModeFeedPageState extends State<ModeFeedPage>
     final itemCount = _items.length + (_hasMore ? 1 : 0);
     return [
       SliverList(
-        key: Key(widget.mode == HomeFeedRankMode.forYou
-            ? 'home_feed_list'
-            : 'home_feed_list_following'),
-        delegate: SliverChildBuilderDelegate(
-          (context, i) {
-            if (i.isOdd) {
-              final itemIndex = i ~/ 2;
-              return itemIndex + 1 < _items.length
-                  ? const Divider(height: 1)
-                  : const SizedBox.shrink();
-            }
-            final index = i ~/ 2;
+        key: Key(
+          widget.mode == HomeFeedRankMode.forYou
+              ? 'home_feed_list'
+              : 'home_feed_list_following',
+        ),
+        delegate: SliverChildBuilderDelegate((context, i) {
+          if (i.isOdd) {
+            final itemIndex = i ~/ 2;
+            return itemIndex + 1 < _items.length
+                ? const Divider(height: 1)
+                : const SizedBox.shrink();
+          }
+          final index = i ~/ 2;
 
-            if (index >= _items.length) {
-              if (_loadMoreFailed) {
-                return Padding(
-                  padding: const EdgeInsets.all(WynSpacing.space4),
-                  child: Center(
-                    child: TextButton.icon(
-                      key: Key(widget.mode == HomeFeedRankMode.forYou
+          if (index >= _items.length) {
+            if (_loadMoreFailed) {
+              return Padding(
+                padding: const EdgeInsets.all(WynSpacing.space4),
+                child: Center(
+                  child: TextButton.icon(
+                    key: Key(
+                      widget.mode == HomeFeedRankMode.forYou
                           ? 'home_feed_load_more_retry'
-                          : 'home_feed_load_more_retry_following'),
-                      onPressed: _loadMore,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('โหลดเพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'),
+                          : 'home_feed_load_more_retry_following',
                     ),
+                    onPressed: _loadMore,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('โหลดเพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'),
                   ),
-                );
-              }
-              return const Padding(
-                padding: EdgeInsets.all(WynSpacing.space4),
-                child: Center(child: CircularProgressIndicator()),
+                ),
               );
             }
+            return const Padding(
+              padding: EdgeInsets.all(WynSpacing.space4),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
 
-            final item = _items[index];
-            // WYN-034: id alone is no longer a unique widget key -- the
-            // same Drop can appear twice (once plain, once via someone's
-            // ReDrop of it), so redropId (null for a plain row) is
-            // folded in too.
-            final itemKey = ValueKey('${item.id}:${item.redropId ?? ''}');
-            if (item.contentType == HomeContentType.drop) {
-              return HomeDropCard(
-                key: itemKey,
-                item: item,
-                dropRepository: widget.dropRepository,
-                onTap: () => _openDrop(item),
-                onToggleLike: () => _toggleLike(index),
-                onToggleSave: () => _toggleSave(index),
-                onOpenProfile: () => _openProfile(item.authorId),
-                onToggleRedrop: () => _toggleRedrop(index),
-                onQuoteRedrop: () => _quoteRedrop(index),
-                onOpenRedropperProfile: item.redropperId == null
-                    ? null
-                    : () => _openProfile(item.redropperId!),
-                onDeleteRedrop: () => _deleteRedrop(index),
-                onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
-                onHide: () => _hideItem(index),
-                // WYN-088 (Wynos V1.0.0 Beta2, item 27): Founder wants
-                // the eye/view-count icon off the Home feed specifically
-                // (every tab -- this widget serves both ranked modes),
-                // while Profile keeps it (HomeDropCard's other call
-                // sites -- profile_drop_grid_tab.dart etc. -- don't pass
-                // this, so they keep the default true).
-                showViewCount: false,
-              );
-            }
-            return HomePopCard(
+          final item = _items[index];
+          // WYN-034: id alone is no longer a unique widget key -- the
+          // same Drop can appear twice (once plain, once via someone's
+          // ReDrop of it), so redropId (null for a plain row) is
+          // folded in too.
+          final itemKey = ValueKey('${item.id}:${item.redropId ?? ''}');
+          if (item.contentType == HomeContentType.drop) {
+            return HomeDropCard(
               key: itemKey,
               item: item,
-              onTap: () => _openPop(item),
-              onTapComment: () => _openPop(item, openComments: true),
+              dropRepository: widget.dropRepository,
+              onTap: () => _openDrop(item),
               onToggleLike: () => _toggleLike(index),
               onToggleSave: () => _toggleSave(index),
               onOpenProfile: () => _openProfile(item.authorId),
+              onToggleRedrop: () => _toggleRedrop(index),
+              onQuoteRedrop: () => _quoteRedrop(index),
+              onOpenRedropperProfile: item.redropperId == null
+                  ? null
+                  : () => _openProfile(item.redropperId!),
+              onDeleteRedrop: () => _deleteRedrop(index),
+              onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
               onHide: () => _hideItem(index),
-              // WYN-088 -- same reasoning as HomeDropCard's identical
-              // param above.
+              // WYN-088 (Wynos V1.0.0 Beta2, item 27): Founder wants
+              // the eye/view-count icon off the Home feed specifically
+              // (every tab -- this widget serves both ranked modes),
+              // while Profile keeps it (HomeDropCard's other call
+              // sites -- profile_drop_grid_tab.dart etc. -- don't pass
+              // this, so they keep the default true).
               showViewCount: false,
+              showLikedBy: false,
+              hideZeroActionCounts: true,
             );
-          },
-          childCount: itemCount * 2 - 1,
-        ),
+          }
+          return HomePopCard(
+            key: itemKey,
+            item: item,
+            onTap: () => _openPop(item),
+            onTapComment: () => _openPop(item, openComments: true),
+            onToggleLike: () => _toggleLike(index),
+            onToggleSave: () => _toggleSave(index),
+            onOpenProfile: () => _openProfile(item.authorId),
+            onHide: () => _hideItem(index),
+            // WYN-088 -- same reasoning as HomeDropCard's identical
+            // param above.
+            showViewCount: false,
+            showLikedBy: false,
+            hideZeroActionCounts: true,
+          );
+        }, childCount: itemCount * 2 - 1),
       ),
     ];
   }
@@ -897,14 +909,14 @@ class _NewPostsPillHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     // A Material surface, not a transparent passthrough -- once pinned
     // above feed cards scrolling underneath, this needs its own opaque
     // background rather than letting them show through.
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      child: child,
-    );
+    return Material(color: Theme.of(context).colorScheme.surface, child: child);
   }
 
   @override

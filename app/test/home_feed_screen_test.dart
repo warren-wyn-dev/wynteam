@@ -950,7 +950,7 @@ void main() {
     // an unscoped findsOneWidget would over-count.
     final popMoreButton = find.descendant(
       of: find.byType(HomePopCard),
-      matching: find.widgetWithIcon(IconButton, Icons.more_vert),
+      matching: find.widgetWithIcon(IconButton, Icons.more_horiz),
     );
     expect(popMoreButton, findsOneWidget);
     await tester.tap(popMoreButton);
@@ -1446,7 +1446,7 @@ void main() {
         await tester.pumpAndSettle();
         tester.takeException();
 
-        final moreButton = find.widgetWithIcon(IconButton, Icons.more_vert);
+        final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
         expect(moreButton, findsOneWidget);
         tester.widget<IconButton>(moreButton).onPressed!();
         await tester.pumpAndSettle();
@@ -2580,21 +2580,23 @@ void main() {
   });
 
   group('Liked-by stacked avatars (WYNOSHomeSpec.md 4.8)', () {
-    testWidgets('shows the row when the card has likers', (tester) async {
-      await tester.pumpWidget(
-        buildHome(
-          likedByTestHomeRepository,
-          dropRepository: sharedDropRepository,
-          popRepository: sharedPopRepository,
-        ),
-      );
-      await tester.pumpAndSettle();
-      tester.takeException();
+    testWidgets(
+      'hides the liked-by row on compact Home cards even when liker data exists',
+      (tester) async {
+        await tester.pumpWidget(
+          buildHome(
+            likedByTestHomeRepository,
+            dropRepository: sharedDropRepository,
+            popRepository: sharedPopRepository,
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester.takeException();
 
-      expect(find.byType(LikedByRow), findsOneWidget);
-      expect(find.textContaining('Warren'), findsOneWidget);
-      expect(find.textContaining('และอีก 3 คน'), findsOneWidget);
-    });
+        expect(find.byType(LikedByRow), findsNothing);
+        expect(find.textContaining('ถูกใจโดย'), findsNothing);
+      },
+    );
 
     testWidgets('renders nothing when the card has no liker data', (
       tester,
