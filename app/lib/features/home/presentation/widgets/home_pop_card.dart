@@ -159,13 +159,7 @@ class HomePopCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    // Match HomeDropCard: the avatar sits one 4px spacing
-                    // step lower so Drop and Pop cards share the same
-                    // visual alignment in one feed.
-                    padding: const EdgeInsets.only(
-                      left: homeCardEdgeInset,
-                      top: WynSpacing.space1,
-                    ),
+                    padding: const EdgeInsets.only(left: homeCardEdgeInset),
                     child: InkWell(
                       onTap: onOpenProfile,
                       borderRadius: BorderRadius.circular(
