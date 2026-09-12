@@ -333,7 +333,13 @@ class HomeDropCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(left: homeCardEdgeInset),
+                    // Lower the avatar one 4px spacing step so it visually
+                    // aligns with the author/caption block instead of sitting
+                    // slightly high above the text column.
+                    padding: const EdgeInsets.only(
+                      left: homeCardEdgeInset,
+                      top: WynSpacing.space1,
+                    ),
                     child: InkWell(
                       onTap: onOpenProfile,
                       borderRadius: BorderRadius.circular(
