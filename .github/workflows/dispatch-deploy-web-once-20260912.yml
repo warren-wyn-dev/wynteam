@@ -1,45 +1,13 @@
-name: One-shot production web smoke (2026-09-13)
+name: Archived production system-font verification (2026-09-13)
 
-# Temporary production smoke. Triggered only by its activation commit, then
-# archived again after the live site is confirmed.
+# Archived after the production deploy and live smoke completed successfully.
+# This workflow is intentionally manual-only and performs no deployment or
+# mutation.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/dispatch-deploy-web-once-20260912.yml
   workflow_dispatch: {}
 
-permissions:
-  contents: read
-
 jobs:
-  smoke:
-    if: contains(github.event.head_commit.message, 'smoke production system-font deploy')
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify live production
-        run: |
-          set -euo pipefail
-          root="$(mktemp)"
-          add="$(mktemp)"
-          trap 'rm -f "$root" "$add"' EXIT
-
-          curl --fail --silent --show-error --location \
-            --retry 4 --retry-delay 2 --retry-all-errors \
-            -H 'Cache-Control: no-cache' \
-            "https://wynos.online/?smoke=${GITHUB_SHA}" -o "$root"
-
-          curl --fail --silent --show-error --location \
-            --retry 4 --retry-delay 2 --retry-all-errors \
-            -H 'Cache-Control: no-cache' \
-            "https://wynos.online/add-to-home.html?smoke=${GITHUB_SHA}" -o "$add"
-
-          grep -F 'font-family: -apple-system, BlinkMacSystemFont' "$root"
-          grep -F 'font-family:-apple-system, BlinkMacSystemFont' "$add"
-
-          if grep -Fq 'fonts.googleapis.com' "$root" "$add"; then
-            echo '::error::Google Fonts is still referenced in production HTML.'
-            exit 1
-          fi
-
-          echo 'Production smoke passed: root + add-to-home are live with system fonts only.'
+      - run: echo "Archived production system-font verification; no deployment action."
