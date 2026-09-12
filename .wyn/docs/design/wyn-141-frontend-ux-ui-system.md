@@ -110,3 +110,71 @@ Each batch requires: targeted tests → full relevant lint/test → production b
 7. Full responsive/accessibility QA.
 
 No production UI code may start until Founder approves the visual preview. Any approved implementation remains behind developer-account staged rollout when it changes user-visible behavior rather than fixing an existing accessibility/layout defect.
+
+---
+
+## Amendment — Profile as Canonical Reference (2026-09-12)
+
+Founder: "ชอบ UX UI ของเธรด ปรับให้หน่อย ทุกหน้า ยกเว้นโปรไฟล์ จัดดีแล้ว" + "อยากให้ดูโปรไฟล์เป็น แล้วปรับทุกหน้าให้ไปในทิศทางเดียวกัน" (ดู product amendment ที่ `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`)
+
+### DS-001 vs this spec — resolved
+
+Confirmed with Founder directly (AskUserQuestion, since `.wyn/company/DECISIONS.md` is corrupted and could not record this): **Sapphire `#1B3A6B` + Threads/X-inspired (this document, `design-reference/`)** is now the governing direction for WYNOS (`app/`), superseding DS-001's Cyan/Orange for this scope. DS-001 is amended with a scope note accordingly; it remains fully in force for `seller_app/` (ZOKY), which this amendment does not touch.
+
+---
+
+### Screen: Post Detail (`07-post-detail.tsx`)
+
+**Purpose:** Bring Post Detail fully in line with Profile's realized final direction — not exempt despite already having its own 2026-09-10 Founder screenshot.
+
+**User Flow:** Unchanged — pushed screen from a post's `⋯`/tap, back via `ChevronLeft`.
+
+**Components:** Already Sapphire/paper-ink token system per its own header comment (`07-post-detail.tsx` lines 17–21) — avatar ring, action bar, comment thread. Re-check specifically against whatever header/avatar/cover treatment Profile's final screenshot establishes (e.g. `profiles.cover_url` cover if the post author's own avatar/identity chrome echoes it anywhere), plus spacing rhythm and type weights.
+
+**Interactions:** Unchanged — double-tap-to-like, comment composer pinned above keyboard, `⋯` overflow menu (Share/Save only, per DESIGN-PHILOSOPHY §5/§4.6).
+
+**States:** Unchanged — loading/empty/error per existing spec.
+
+**Responsive Behavior:** Unchanged — readable max-width on ≥600px per the Responsive Shell table above.
+
+**Accessibility:** Unchanged — 44px targets, focus order, semantic labels.
+
+**Design Rules:** No new tokens. Sapphire-only accent. Compare pixel-for-pixel against Profile's final reference once re-shared — do not treat the existing `.tsx` as sufficient on its own for this pass.
+
+**Handoff:** AI Coding — hold this screen's batch until Founder re-shares the Profile (and, if it affects shared chrome, Post Detail) reference image(s); this is a re-validation pass, not a rewrite.
+
+---
+
+### Screen: Other Profile (`18-other-profile.tsx`)
+
+**Purpose:** Same as above — explicitly not covered by the Profile exemption even though it shares Profile's layout by design (per its own header comment: "Same layout as your own Profile... except the action row swaps...").
+
+**User Flow:** Unchanged — pushed screen from tapping another user's name/avatar; `⋯` adds report/block (own profile doesn't need this).
+
+**Components:** Avatar, identity block, stats, tabs — mirrors Profile's structure already. Re-check against Profile's final screenshot for the same chrome/spacing/cover treatment Profile itself just got; the Follow/Message action row and report/block `⋯` are the only intentional deltas from Profile and should stay.
+
+**Interactions:** Unchanged — Follow/Unfollow toggle, message icon, report/block bottom sheet (DESIGN-PHILOSOPHY §5 "Report/Block" pattern).
+
+**States:** Unchanged.
+
+**Responsive Behavior:** Unchanged.
+
+**Accessibility:** Unchanged.
+
+**Design Rules:** No new tokens. Same Sapphire/paper-ink system as Profile.
+
+**Handoff:** AI Coding — same hold as Post Detail, pending the re-shared reference image(s).
+
+---
+
+### Design Rule: All other in-scope screens (01–04, 06, 08–17, 19–22)
+
+**Purpose:** Apply Profile's direction system-wide without re-litigating each screen individually — these already use the same Sapphire/paper-ink tokens, typography, and component patterns documented in `design-reference/SPEC.md` and `DESIGN-PHILOSOPHY.md`; no screenshot exists for them beyond the `.tsx` references themselves, so those references stand as-is.
+
+**Design Rules:** Coding proceeds batch-by-batch per the existing rollout order in this document and in `wyn-141-frontend-ux-ui-audit.md`, using each numbered `design-reference` file as the spec, with DS-001's Cyan/Orange no longer a valid fallback anywhere in `app/` per the resolution above.
+
+**Handoff:** AI Coding may continue non-Admin batches for these screens without waiting on the screenshot re-share — only Post Detail and Other Profile are gated on it.
+
+### Known Blocker (repeated from product amendment)
+
+No Profile/Post Detail screenshot files exist anywhere in this repository. Founder needs to re-share them in-session before Post Detail/Other Profile batches can be marked complete.

@@ -1,6 +1,12 @@
 # DS-001 — WYN Design System: Color / Typography / Spacing Foundation
 
-> สถานะ: **APPROVED — Founder เลือก B (2026-08-15), พร้อมส่ง AI Coding**
+> **ขอบเขตแก้ไข (2026-09-12)**: สำหรับแอป **WYNOS (Social, `app/`)** เอกสารนี้ถูก **superseded เรื่องสี/ทิศทางภาพ** โดยทิศทาง Sapphire `#1B3A6B` + แนว Threads/X-inspired ของ `design-reference/` (SPEC.md, DESIGN-PHILOSOPHY.md) ซึ่งเป็นทิศทางที่ Founder อนุมัติผ่าน WYN-141 (8 ก.ย. 2026, "ทำให้เสร็จเลยนะ") และยืนยันอีกครั้งตรง ๆ เมื่อ 12 ก.ย. 2026 ("ชอบ UX UI ของเธรด") — ดูรายละเอียดที่ `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md` หัวข้อ "Founder Direction Amendment — 2026-09-12" และ `.wyn/docs/design/wyn-141-frontend-ux-ui-system.md`
+>
+> DS-001 (Cyan/Orange) **ยังบังคับใช้เต็มรูปแบบกับ `seller_app/` (ZOKY)** ซึ่งไม่อยู่ใน scope ของการเปลี่ยนแปลงนี้ — ไม่มีการแก้ไขใด ๆ ต่อ Section ด้านล่างสำหรับ ZOKY
+>
+> หมายเหตุ: การยืนยันนี้เกิดจากคำถามโครงสร้าง (AskUserQuestion) ต่อ Founder โดยตรง เนื่องจาก `.wyn/company/DECISIONS.md` เสียหาย (เป็น binary ไม่ใช่ text ตั้งแต่ commit เดียวที่เพิ่มไฟล์) จึงบันทึกการตัดสินใจนี้ไว้ที่นี่แทนชั่วคราว จนกว่าไฟล์จะถูกกู้คืน
+>
+> สถานะ: **APPROVED — Founder เลือก B (2026-08-15), พร้อมส่ง AI Coding** (ขอบเขตเดิมก่อนการแก้ไขข้างต้น)
 > ผู้จัดทำ: AI Design | วันที่เขียนร่างแรก: 2026-08-15 | วันที่ Founder อนุมัติ: 2026-08-15 | อ้างอิง task: `.wyn/tasks/backlog/DS-001-design-system-audit.md`
 > เอกสารนี้ **เป็นกติกาที่อนุมัติแล้ว** — แทนที่ `.wyn/docs/design/design-principles.md` (Blue + White + Soft Gray) อย่างสมบูรณ์ ดูคำตัดสินใจฉบับเต็มที่ `.wyn/company/DECISIONS.md` (2026-08-15, "เปลี่ยน Color Direction ของ WYN: Blue → Cyan")
 > หน้าเปรียบเทียบที่ Founder ใช้ตัดสิน: `palette_compare.html` (เก็บไว้เป็น artifact อ้างอิงย้อนหลัง ไม่ใช่เอกสารที่ยังต้องใช้ตัดสินใจอีก)
