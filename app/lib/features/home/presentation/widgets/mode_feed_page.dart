@@ -863,7 +863,7 @@ class ModeFeedPageState extends State<ModeFeedPage>
               // this, so they keep the default true).
               showViewCount: false,
               showLikedBy: false,
-              hideZeroActionCounts: true,
+              hideZeroActionCounts: false,
             );
           }
           return HomePopCard(
@@ -879,7 +879,7 @@ class ModeFeedPageState extends State<ModeFeedPage>
             // param above.
             showViewCount: false,
             showLikedBy: false,
-            hideZeroActionCounts: true,
+            hideZeroActionCounts: false,
           );
         }, childCount: itemCount * 2 - 1),
       ),

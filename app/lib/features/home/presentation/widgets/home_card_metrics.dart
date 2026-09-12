@@ -24,10 +24,10 @@ import '../../../../core/design/wyn_spacing.dart';
 /// bleeds past the right one (Design Rule 2: overflow the right edge
 /// only, never the left, which is the whole alignment this task is
 /// about).
-const double homeCardEdgeInset = WynSpacing.space5;
+const double homeCardEdgeInset = WynSpacing.space4;
 
 /// The avatar's diameter, and so the width of the card's left column.
-const double homeCardAvatarDiameter = 48;
+const double homeCardAvatarDiameter = 40;
 
 /// Gap between the avatar column and the content column.
 ///
@@ -39,7 +39,8 @@ const double homeCardAvatarDiameter = 48;
 const double homeCardAvatarGap = WynSpacing.space3;
 
 /// Where the content column starts, measured from the screen edge:
-/// 20 + 48 + 12 = 80 on any width. Every section of a card lines up
-/// here, including the photo row's left edge.
+/// 16 + 40 + 12 = 68 on any width. Every section of a card lines up
+/// here, including the photo row's left edge. This matches the approved
+/// compact Home mockup while leaving enough room for a clear avatar.
 const double homeCardContentInset =
     homeCardEdgeInset + homeCardAvatarDiameter + homeCardAvatarGap;

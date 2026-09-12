@@ -1,13 +1,12 @@
 import 'package:flutter/services.dart';
 
-// Keep the registered family name stable so existing ThemeData/tests do not
-// need a migration, but use the cleaner OFL Noto Sans Thai face. On iPhone
-// Safari this is visually closer to modern iOS Thai than the traditional
-// looped face while still giving Flutter Web a reliable Thai glyph fallback.
+// The approved Home mockup uses traditional headed/looped Thai glyphs.
+// Keep the registered family stable, but load Google's OFL-licensed
+// Noto Sans Thai Looped variable font rather than the loopless face.
 const _family = 'WYNThaiLooped';
 const _fontBaseUrl =
-    'https://raw.githubusercontent.com/google/fonts/main/ofl/notosansthai/';
-const _fontFile = 'NotoSansThai%5Bwdth,wght%5D.ttf';
+    'https://raw.githubusercontent.com/google/fonts/main/ofl/notosansthailooped/';
+const _fontFile = 'NotoSansThaiLooped%5Bwdth%2Cwght%5D.ttf';
 
 Future<void> loadLoopedThaiFontForWeb() async {
   // This font is only a visual enhancement. Keep every part of the network
