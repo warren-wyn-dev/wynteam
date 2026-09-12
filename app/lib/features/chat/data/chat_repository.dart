@@ -14,7 +14,11 @@ import '../../../core/storage_upload_options.dart';
 /// outgoing-bubble read receipt -- deliberately not the full
 /// `Conversation` row, since this is fetched fresh on every open rather
 /// than trusted from a possibly-stale list-row prop.
-typedef ConversationMeta = ({String status, String? requestedBy, DateTime? otherUserLastReadAt});
+typedef ConversationMeta = ({
+  String status,
+  String? requestedBy,
+  DateTime? otherUserLastReadAt,
+});
 
 // Hinted by column name (`reply_to_message_id`), not by the FK's
 // constraint name (`messages_reply_to_message_id_fkey`). PostgREST 400s
@@ -24,8 +28,10 @@ typedef ConversationMeta = ({String status, String? requestedBy, DateTime? other
 // exists -- verified directly against production. Since this embed is
 // part of every `_messageColumns` select, that alone made every chat
 // send and fetch 400 unconditionally, reply or not.
-const _replyEmbed = 'reply_to:messages!reply_to_message_id(text, image_url, deleted_at)';
-const _messageColumns = 'id, conversation_id, sender_id, text, image_url, reply_to_message_id, '
+const _replyEmbed =
+    'reply_to:messages!reply_to_message_id(text, image_url, deleted_at)';
+const _messageColumns =
+    'id, conversation_id, sender_id, text, image_url, reply_to_message_id, '
     'shared_content_type, shared_content_id, deleted_at, created_at, view_once, viewed_at, edited_at, '
     '$_replyEmbed';
 
@@ -96,9 +102,10 @@ class ChatRepository {
   /// (ConversationScreen, whether opening an existing conversation or
   /// one just created via [getOrCreateConversation]).
   Future<bool> isChatAllowed({String? otherUserId}) async {
-    final result = await _client.rpc('chat_lockdown_status', params: {
-      'p_other_user_id': otherUserId,
-    });
+    final result = await _client.rpc(
+      'chat_lockdown_status',
+      params: {'p_other_user_id': otherUserId},
+    );
     return result as bool;
   }
 
@@ -124,9 +131,10 @@ class ChatRepository {
   /// The recipient accepts a Message Request -- the conversation
   /// behaves exactly like any other WYN-031 chat from this point on.
   Future<void> acceptMessageRequest(String conversationId) {
-    return _client.rpc('accept_message_request', params: {
-      'p_conversation_id': conversationId,
-    });
+    return _client.rpc(
+      'accept_message_request',
+      params: {'p_conversation_id': conversationId},
+    );
   }
 
   /// The recipient declines a Message Request -- discards the
@@ -134,24 +142,27 @@ class ChatRepository {
   /// delete_message_request()'s comment in schema.sql). The requester
   /// gets no signal that this happened.
   Future<void> deleteMessageRequest(String conversationId) {
-    return _client.rpc('delete_message_request', params: {
-      'p_conversation_id': conversationId,
-    });
+    return _client.rpc(
+      'delete_message_request',
+      params: {'p_conversation_id': conversationId},
+    );
   }
 
   /// Starts (or resumes) a 1:1 conversation with [otherUserId] --
   /// returns the same conversation id every time for the same pair.
   Future<String> getOrCreateConversation(String otherUserId) async {
-    final result = await _client.rpc('get_or_create_conversation', params: {
-      'p_other_user_id': otherUserId,
-    });
+    final result = await _client.rpc(
+      'get_or_create_conversation',
+      params: {'p_other_user_id': otherUserId},
+    );
     return result as String;
   }
 
   Future<void> markConversationRead(String conversationId) {
-    return _client.rpc('mark_conversation_read', params: {
-      'p_conversation_id': conversationId,
-    });
+    return _client.rpc(
+      'mark_conversation_read',
+      params: {'p_conversation_id': conversationId},
+    );
   }
 
   /// Fetched fresh by `ConversationScreen` on every open (WYN-032) --
@@ -162,7 +173,9 @@ class ChatRepository {
   Future<ConversationMeta?> fetchConversationMeta(String conversationId) async {
     final row = await _client
         .from('conversations')
-        .select('status, requested_by, user_a_id, user_b_id, user_a_last_read_at, user_b_last_read_at')
+        .select(
+          'status, requested_by, user_a_id, user_b_id, user_a_last_read_at, user_b_last_read_at',
+        )
         .eq('id', conversationId)
         .maybeSingle();
     if (row == null) return null;
@@ -180,7 +193,9 @@ class ChatRepository {
   /// `postgres_changes` payload in this repository).
   DateTime? _otherUserLastReadAt(Map<String, dynamic> row) {
     final iAmUserA = row['user_a_id'] as String == _myUserId;
-    final raw = iAmUserA ? row['user_b_last_read_at'] : row['user_a_last_read_at'];
+    final raw = iAmUserA
+        ? row['user_b_last_read_at']
+        : row['user_a_last_read_at'];
     return raw == null ? null : DateTime.parse(raw as String);
   }
 
@@ -202,7 +217,11 @@ class ChatRepository {
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'conversations',
-          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'id', value: conversationId),
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: conversationId,
+          ),
           callback: (payload) {
             final row = payload.newRecord;
             onUpdate((
@@ -227,12 +246,22 @@ class ChatRepository {
     String conversationId, {
     DateTime? beforeCreatedAt,
   }) async {
-    var query = _client.from('messages').select(_messageColumns).eq('conversation_id', conversationId);
+    var query = _client
+        .from('messages')
+        .select(_messageColumns)
+        .eq('conversation_id', conversationId);
     if (beforeCreatedAt != null) {
       query = query.lt('created_at', beforeCreatedAt.toIso8601String());
     }
-    final rows = await query.order('created_at', ascending: false).limit(messagePageSize);
-    return rows.map((row) => ChatMessage.fromMap(row)).toList();
+    final rows = await query
+        .order('created_at', ascending: false)
+        .limit(messagePageSize);
+    final hydratedRows = await Future.wait(
+      rows.map(
+        (row) => _hydrateReplyPreviewRow(Map<String, dynamic>.from(row)),
+      ),
+    );
+    return hydratedRows.map(ChatMessage.fromMap).toList();
   }
 
   /// Uploads [imageBytes] to `chat-media` (if given) then inserts the
@@ -267,8 +296,11 @@ class ChatRepository {
     String? imagePath;
     if (imageBytes != null) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      imagePath = '$conversationId/$_myUserId-$timestamp.${imageExtension ?? 'jpg'}';
-      await _client.storage.from(_bucket).uploadBinary(
+      imagePath =
+          '$conversationId/$_myUserId-$timestamp.${imageExtension ?? 'jpg'}';
+      await _client.storage
+          .from(_bucket)
+          .uploadBinary(
             imagePath,
             imageBytes,
             fileOptions: immutableUploadFileOptions,
@@ -289,7 +321,10 @@ class ChatRepository {
         })
         .select(_messageColumns)
         .single();
-    return ChatMessage.fromMap(row);
+    final hydratedRow = await _hydrateReplyPreviewRow(
+      Map<String, dynamic>.from(row),
+    );
+    return ChatMessage.fromMap(hydratedRow);
   }
 
   /// The recipient's one explicit "I'm opening this now" for a View
@@ -297,7 +332,10 @@ class ChatRepository {
   /// supabase/schema.sql for why this has to happen (and succeed)
   /// *before* [imageSignedUrl] is ever called for that message's path.
   Future<void> markViewOnceViewed(String messageId) {
-    return _client.rpc('mark_view_once_viewed', params: {'p_message_id': messageId});
+    return _client.rpc(
+      'mark_view_once_viewed',
+      params: {'p_message_id': messageId},
+    );
   }
 
   /// Called once [message]'s View Once countdown (owned entirely by the
@@ -323,7 +361,10 @@ class ChatRepository {
         // Best-effort -- see doc comment above.
       }
     }
-    await _client.rpc('clear_view_once_message', params: {'p_message_id': message.id});
+    await _client.rpc(
+      'clear_view_once_message',
+      params: {'p_message_id': message.id},
+    );
   }
 
   /// Also best-effort deletes the underlying `chat-media` storage object
@@ -359,10 +400,10 @@ class ChatRepository {
   /// a normal exception -- ConversationScreen shows a SnackBar and keeps
   /// the composer's edit-mode text in place for a retry).
   Future<void> editMessage(String messageId, String text) {
-    return _client.rpc('edit_message', params: {
-      'p_message_id': messageId,
-      'p_text': text,
-    });
+    return _client.rpc(
+      'edit_message',
+      params: {'p_message_id': messageId, 'p_text': text},
+    );
   }
 
   /// WYN-138: either participant may pin (no DM hierarchy -- see
@@ -389,7 +430,9 @@ class ChatRepository {
   Future<List<PinnedMessage>> fetchPinnedMessages(String conversationId) async {
     final rows = await _client
         .from('message_pins')
-        .select('message_id, pinned_at, pinned_by, messages!inner(text, image_url, deleted_at, sender_id)')
+        .select(
+          'message_id, pinned_at, pinned_by, messages!inner(text, image_url, deleted_at, sender_id)',
+        )
         .eq('conversation_id', conversationId)
         .order('pinned_at', ascending: false);
     return rows.map((row) {
@@ -446,13 +489,48 @@ class ChatRepository {
     return channel;
   }
 
+  Future<Map<String, dynamic>> _hydrateReplyPreviewRow(
+    Map<String, dynamic> row,
+  ) async {
+    final replyId = row['reply_to_message_id'] as String?;
+    if (replyId == null) return row;
+
+    final rawReply = row['reply_to'];
+    Map<String, dynamic>? embedded;
+    if (rawReply is Map<String, dynamic>) {
+      embedded = rawReply;
+    } else if (rawReply is List &&
+        rawReply.isNotEmpty &&
+        rawReply.first is Map<String, dynamic>) {
+      embedded = rawReply.first as Map<String, dynamic>;
+    }
+    final embeddedHasPreview =
+        embedded != null &&
+        (embedded['deleted_at'] != null ||
+            (embedded['text'] as String?)?.isNotEmpty == true ||
+            embedded['image_url'] != null);
+    if (embeddedHasPreview) return row;
+
+    final reply = await _client
+        .from('messages')
+        .select('text, image_url, deleted_at')
+        .eq('id', replyId)
+        .maybeSingle();
+    if (reply == null) return row;
+    return <String, dynamic>{...row, 'reply_to': reply};
+  }
+
   Future<ChatMessage?> fetchMessage(String messageId) async {
     final row = await _client
         .from('messages')
         .select(_messageColumns)
         .eq('id', messageId)
         .maybeSingle();
-    return row == null ? null : ChatMessage.fromMap(row);
+    if (row == null) return null;
+    final hydratedRow = await _hydrateReplyPreviewRow(
+      Map<String, dynamic>.from(row),
+    );
+    return ChatMessage.fromMap(hydratedRow);
   }
 
   /// A fresh signed URL for one chat-media path -- null on failure
@@ -460,7 +538,9 @@ class ChatRepository {
   /// a broken thumbnail is better than a broken screen).
   Future<String?> imageSignedUrl(String path) async {
     try {
-      return await _client.storage.from(_bucket).createSignedUrl(path, _signedUrlTtlSeconds);
+      return await _client.storage
+          .from(_bucket)
+          .createSignedUrl(path, _signedUrlTtlSeconds);
     } catch (_) {
       return null;
     }
@@ -552,8 +632,10 @@ class ChatRepository {
       onInsert(ChatMessage.fromMap(rawRow));
       return;
     }
-    final full = await fetchMessage(rawRow['id'] as String);
-    onInsert(full ?? ChatMessage.fromMap(rawRow));
+    final hydratedRow = await _hydrateReplyPreviewRow(
+      Map<String, dynamic>.from(rawRow),
+    );
+    onInsert(ChatMessage.fromMap(hydratedRow));
   }
 
   /// Subscribes to every new message across *all* of this user's
@@ -561,14 +643,17 @@ class ChatRepository {
   /// no `conversation_id` filter: `messages`' own participant-only
   /// SELECT policy already scopes `postgres_changes` delivery to rows
   /// this caller may see, the same way it scopes a plain `select`.
-  RealtimeChannel subscribeToMyMessages(void Function(ChatMessage message) onInsert) {
+  RealtimeChannel subscribeToMyMessages(
+    void Function(ChatMessage message) onInsert,
+  ) {
     final channel = _client.channel('chat-inbox-$_myUserId');
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
-          callback: (payload) => _handleRealtimeInsert(payload.newRecord, onInsert),
+          callback: (payload) =>
+              _handleRealtimeInsert(payload.newRecord, onInsert),
         )
         .subscribe();
     return channel;
