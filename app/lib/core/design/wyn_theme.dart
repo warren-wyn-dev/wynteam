@@ -31,13 +31,6 @@ import 'wyn_typography.dart';
 class WynTheme {
   WynTheme._();
 
-  /// Flutter Web cannot read the visitor's installed Thai system font from
-  /// its canvas renderer. This family is registered at web startup from the
-  /// OFL-licensed Noto Sans Thai Looped file. Latin text still resolves to
-  /// the platform/default Flutter font first; this is only a missing-glyph
-  /// fallback for Thai and other glyphs that the primary face lacks.
-  static const List<String> fontFamilyFallback = ['WYNThaiLooped'];
-
   static final CardThemeData _lightCardTheme = CardThemeData(
     elevation: 0,
     clipBehavior: Clip.antiAlias,
@@ -59,7 +52,6 @@ class WynTheme {
   static final ThemeData light = ThemeData(
     useMaterial3: true,
     colorScheme: WynColors.socialLightScheme,
-    fontFamilyFallback: fontFamilyFallback,
     textTheme: WynTypography.textTheme,
     cardTheme: _lightCardTheme,
   );
@@ -67,7 +59,6 @@ class WynTheme {
   static final ThemeData dark = ThemeData(
     useMaterial3: true,
     colorScheme: WynColors.socialDarkScheme,
-    fontFamilyFallback: fontFamilyFallback,
     textTheme: WynTypography.textTheme,
     cardTheme: _darkCardTheme,
   );

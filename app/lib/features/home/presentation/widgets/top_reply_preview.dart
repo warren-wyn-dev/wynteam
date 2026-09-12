@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
+import '../../../../core/typography/browser_system_text.dart';
 import '../../data/home_top_reply.dart';
 
 /// A one-off color from WYNOSHomeSpec.md 4.10 itself ("deliberately not
@@ -49,21 +50,19 @@ class TopReplyPreview extends StatelessWidget {
                 Expanded(
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Text.rich(
-                      TextSpan(
-                        style: baseStyle,
-                        children: [
-                          TextSpan(
-                            text: reply.authorNameOrUsername,
-                            style: baseStyle?.copyWith(
-                              color: WynColors.ink,
-                              fontWeight: FontWeight.w600,
-                            ),
+                    child: BrowserSystemRichText(
+                      style: baseStyle,
+                      spans: [
+                        BrowserSystemSpan(
+                          text: reply.authorNameOrUsername,
+                          style: baseStyle?.copyWith(
+                            color: WynColors.ink,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const TextSpan(text: ' '),
-                          TextSpan(text: reply.text),
-                        ],
-                      ),
+                        ),
+                        const BrowserSystemSpan(text: ' '),
+                        BrowserSystemSpan(text: reply.text),
+                      ],
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

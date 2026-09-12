@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,19 +10,12 @@ import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
 import 'core/push_env.dart';
 import 'core/navigation/app_navigator.dart';
-import 'core/typography/looped_thai_font_loader.dart';
 import 'features/account_switcher/data/account_switcher_repository.dart';
 import 'features/auth/presentation/auth_gate.dart';
 import 'features/push/presentation/push_reliability_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Flutter Web uses a canvas renderer and therefore cannot read the Thai
-  // system font installed on Safari/iOS. The OFL-licensed looped Thai font is
-  // only a visual enhancement, so never make the first frame depend on a
-  // cross-origin network request. Native builds use a no-op implementation.
-  unawaited(loadLoopedThaiFontForWeb());
 
   // WYN-078 (Wynos V1.0.0 Beta2, item 5): without this, the OS draws its
   // own default status bar/nav bar scrim (often white or black depending
@@ -55,7 +46,8 @@ Future<void> main() async {
   // comment. A no-op until an account is first captured (AuthGate, once
   // it reaches RootShell), so this is safe to start unconditionally here
   // even before any user has signed in.
-  AccountSwitcherRepository().startSyncingActiveSession(Supabase.instance.client);
+  AccountSwitcherRepository()
+      .startSyncingActiveSession(Supabase.instance.client);
 
   // WYN-016 (Push Notification): throws until the Founder adds real
   // `google-services.json`/`GoogleService-Info.plist` -- caught here so
