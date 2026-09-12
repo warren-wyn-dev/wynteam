@@ -1,13 +1,20 @@
-name: Archived production stale-cache hotfix verification (2026-09-12)
+name: Dispatch production web deploy once (2026-09-12)
 
-# Archived after the production stale-cache hotfix deploy and external smoke
-# completed successfully. This workflow is intentionally manual-only and
-# performs no deployment or mutation.
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
+
+permissions:
+  actions: write
+  contents: read
 
 jobs:
-  archived:
+  dispatch:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Archived production stale-cache verification; no deployment action."
+      - name: Start canonical production deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-web.yml --repo "$GITHUB_REPOSITORY" --ref main
