@@ -304,10 +304,12 @@ select public.refresh_feed_content_quality(now());
 insert into results select 'CHECK27_refresh_is_idempotent',
  (count(*)=count(distinct drop_id))::int,1 from public.feed_content_quality;
 insert into results select 'CHECK28_quality_request_path_is_precomputed',
- ((position('feed_content_quality' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))>0
+ ((position('internal.content_quality_factors' in pg_get_functiondef(
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0
+   and position('feed_content_quality' in pg_get_functiondef(
+   'internal.content_quality_factors(uuid[])'::regprocedure))>0
    and position('from public.reports' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))=0)::int),1;
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))=0)::int),1;
 insert into results select 'CHECK29_global_rankers_unchanged',
  ((position('feed_content_quality' in pg_get_functiondef(
    'public.get_trending_candidates(integer)'::regprocedure))=0
