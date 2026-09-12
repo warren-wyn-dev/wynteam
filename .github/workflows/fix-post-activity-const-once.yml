@@ -34,6 +34,11 @@ jobs:
           if section.count(old) != 1:
               raise SystemExit(f'expected one activity SizedBox match, found {section.count(old)}')
           section = section.replace(old, new, 1)
+          nested_old = '            child: const Row(\n'
+          nested_new = '            child: Row(\n'
+          if section.count(nested_old) != 1:
+              raise SystemExit(f'expected one nested const Row match, found {section.count(nested_old)}')
+          section = section.replace(nested_old, nested_new, 1)
           path.write_text(text[:start] + section + text[end:])
           PY
           git diff --check
