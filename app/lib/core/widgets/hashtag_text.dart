@@ -184,28 +184,22 @@ class _HashtagTextState extends State<HashtagText> {
   }
 
   bool _isHomeFeedCaption(BuildContext context) {
-    // Only the Home feed captions use the explicit 17.5px caption style.
-    // Quote text and every HashtagText on detail/club/profile surfaces stay
-    // untouched. The card-level semantics label mirrors the same scoping
-    // already used by the Home feed avatar alignment.
+    // The same HomeDropCard is reused by Profile, Search and Hashtag feeds.
+    // Scope this tighter rhythm to the actual Home sliver rather than inferring
+    // from the card's Semantics shape, which those other surfaces share.
     if ((widget.style?.fontSize ?? 0) != 17.5) return false;
 
-    var isHomePost = false;
+    var isHomeFeed = false;
     context.visitAncestorElements((element) {
-      final ancestor = element.widget;
-      if (ancestor is Semantics) {
-        final label = ancestor.properties.label;
-        final isPostLabel =
-            label != null &&
-            (label.startsWith('รูปของ ') || label.startsWith('วิดีโอของ '));
-        if (ancestor.properties.button == true && isPostLabel) {
-          isHomePost = true;
-          return false;
-        }
+      final key = element.widget.key;
+      if (key == const ValueKey<String>('home_feed_list') ||
+          key == const ValueKey<String>('home_feed_list_following')) {
+        isHomeFeed = true;
+        return false;
       }
       return true;
     });
-    return isHomePost;
+    return isHomeFeed;
   }
 
   @override
@@ -265,7 +259,7 @@ class _HashtagTextState extends State<HashtagText> {
       overflow: widget.overflow ?? TextOverflow.clip,
       // Home uses a tighter first/last line box so the caption sits closer
       // to the author row and the next element without changing the readable
-      // line-height between lines. Detail/Profile/Club captions are untouched.
+      // line-height between lines. Detail/Profile/Search/Hashtag stay untouched.
       textHeightBehavior: isHomeFeedCaption
           ? const TextHeightBehavior(
               applyHeightToFirstAscent: false,
