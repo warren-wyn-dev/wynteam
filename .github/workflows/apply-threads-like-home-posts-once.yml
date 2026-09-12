@@ -159,6 +159,22 @@ jobs:
               raise SystemExit('liked-by regression block not found')
           s = s.replace(old_liked, new_liked, 1)
           p.write_text(s)
+
+          qa = Path('app/test/qa_round2_ui_regression_test.dart')
+          q = qa.read_text()
+          old_desc = """      'QA-R2-21 WYN-107: the Home card still opens its content column at '
+                'x=78 on a 390 screen and the photo row still bleeds to the edge',"""
+          new_desc = """      'QA-R2-21 WYN-107: the compact Home card opens its content column at '
+                'x=80 on a 390 screen and the photo row still bleeds to the edge',"""
+          if old_desc not in q:
+              raise SystemExit('QA-R2-21 description not found')
+          q = q.replace(old_desc, new_desc, 1)
+          old_expect = '    expect(row.left, closeTo(78.0, 0.5));'
+          new_expect = '    expect(row.left, closeTo(80.0, 0.5));'
+          if q.count(old_expect) != 1:
+              raise SystemExit(f'QA-R2-21 left-edge expectation count={q.count(old_expect)}')
+          q = q.replace(old_expect, new_expect, 1)
+          qa.write_text(q)
           PY
 
       - uses: subosito/flutter-action@v2
