@@ -258,15 +258,27 @@ class _HashtagTextState extends State<HashtagText> {
       );
     }
 
+    final isHomeFeedCaption = _isHomeFeedCaption(context);
     final richText = Text.rich(
       TextSpan(style: baseStyle, children: spans),
       maxLines: widget.maxLines,
       overflow: widget.overflow ?? TextOverflow.clip,
+      // Home uses a tighter first/last line box so the caption sits closer
+      // to the author row and the next element without changing the readable
+      // line-height between lines. Detail/Profile/Club captions are untouched.
+      textHeightBehavior: isHomeFeedCaption
+          ? const TextHeightBehavior(
+              applyHeightToFirstAscent: false,
+              applyHeightToLastDescent: false,
+            )
+          : null,
     );
 
-    if (!_isHomeFeedCaption(context)) return richText;
+    if (!isHomeFeedCaption) return richText;
+    // Threads/X-like rhythm: keep the same typography, but lift the Home
+    // caption one 8px spacing token so it visually belongs to the author row.
     return Transform.translate(
-      offset: const Offset(0, -WynSpacing.space1),
+      offset: const Offset(0, -WynSpacing.space2),
       child: richText,
     );
   }
