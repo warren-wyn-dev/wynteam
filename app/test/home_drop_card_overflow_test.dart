@@ -9,7 +9,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:wyn/core/design/wyn_spacing.dart';
 import 'package:wyn/core/widgets/hashtag_text.dart';
 import 'package:wyn/features/drop/data/square_crop.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
@@ -217,27 +216,23 @@ void main() {
   );
 
   testWidgets(
-    'Home feed caption is lifted 8px toward the author row',
+    'Home feed caption removes visual translation so no phantom gap remains',
     (tester) async {
       await _pump(tester, card(_item()), width: 390, asHomeFeed: true);
       await tester.pump();
 
       final caption = find.byType(HashtagText);
       expect(caption, findsOneWidget);
-      final transformFinder = find.descendant(
-        of: caption,
-        matching: find.byType(Transform),
+      expect(
+        find.descendant(of: caption, matching: find.byType(Transform)),
+        findsNothing,
       );
-      expect(transformFinder, findsOneWidget);
-
-      final transform = tester.widget<Transform>(transformFinder);
-      expect(transform.transform.storage[13], -WynSpacing.space2);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'reused HomeDropCard outside Home does not get the compact caption lift',
+    'reused HomeDropCard outside Home also has no caption translation',
     (tester) async {
       await _pump(tester, card(_item()), width: 390);
       await tester.pump();

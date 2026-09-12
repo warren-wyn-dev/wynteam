@@ -7,24 +7,31 @@ import 'package:wyn/features/hashtag/presentation/hashtag_feed_screen.dart';
 
 import 'support/fake_supabase_session.dart';
 
+TextSpan _spanWithText(WidgetTester tester, String text) {
+  final richText = tester.widget<RichText>(find.byType(RichText).first);
+  final rootSpan = richText.text as TextSpan;
+  TextSpan? found;
+  rootSpan.visitChildren((span) {
+    if (span is TextSpan && span.text == text) {
+      found = span;
+      return false;
+    }
+    return true;
+  });
+  expect(found, isNotNull, reason: 'no span found for "$text"');
+  return found!;
+}
+
 /// Finds the TextSpan whose text exactly matches [text] within the
 /// single RichText HashtagText renders, and invokes its tap recognizer
 /// directly -- the standard way to exercise a TextSpan.recognizer in a
 /// widget test, since tester.tap() on the whole widget can't target one
 /// specific inline span.
 void _tapSpan(WidgetTester tester, String text) {
-  final richText = tester.widget<RichText>(find.byType(RichText).first);
-  final rootSpan = richText.text as TextSpan;
-  TapGestureRecognizer? found;
-  rootSpan.visitChildren((span) {
-    if (span is TextSpan && span.text == text) {
-      found = span.recognizer as TapGestureRecognizer?;
-      return false;
-    }
-    return true;
-  });
-  expect(found, isNotNull, reason: 'no tappable span found for "$text"');
-  found!.onTap!();
+  final span = _spanWithText(tester, text);
+  final recognizer = span.recognizer as TapGestureRecognizer?;
+  expect(recognizer, isNotNull, reason: 'no tappable span found for "$text"');
+  recognizer!.onTap!();
 }
 
 void main() {
@@ -81,6 +88,57 @@ void main() {
 
     // find.text matches RichText by its combined plain-text content too.
     expect(find.text('เที่ยวมา #WYN สนุกมาก'), findsOneWidget);
+  });
+
+  testWidgets('renders hashtag tokens in the approved bright blue',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: HashtagText('เที่ยวมา #WYN'))),
+    );
+
+    final hashtagSpan = _spanWithText(tester, '#WYN');
+    expect(hashtagSpan.style?.color, const Color(0xFF1D9BF0));
+  });
+
+  testWidgets('Home collapses a blank line immediately before hashtag block',
+      (tester) async {
+    const text = 'ชีวิตไม่ต้องสมบูรณ์แบบ\n\n#คำคม #ชีวิตดีๆ #WYNOS';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: KeyedSubtree(
+            key: ValueKey<String>('home_feed_list'),
+            child: HashtagText(
+              text,
+              style: TextStyle(fontSize: 17.5, height: 1.32),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final richText = tester.widget<RichText>(find.byType(RichText).first);
+    expect(
+      richText.text.toPlainText(),
+      'ชีวิตไม่ต้องสมบูรณ์แบบ\n#คำคม #ชีวิตดีๆ #WYNOS',
+    );
+  });
+
+  testWidgets('non-Home surfaces preserve authored blank lines', (tester) async {
+    const text = 'ข้อความ\n\n#WYN';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: HashtagText(
+            text,
+            style: TextStyle(fontSize: 17.5, height: 1.32),
+          ),
+        ),
+      ),
+    );
+
+    final richText = tester.widget<RichText>(find.byType(RichText).first);
+    expect(richText.text.toPlainText(), text);
   });
 
   testWidgets('tapping a hashtag span opens HashtagFeedScreen for that tag',
