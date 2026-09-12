@@ -28,7 +28,7 @@ jobs:
 
       - name: Format changed Dart files
         working-directory: app
-        run: dart format lib/features/chat/data/chat_message.dart lib/features/chat/data/chat_repository.dart lib/features/chat/presentation/conversation_screen.dart test/chat_model_test.dart
+        run: dart format lib/features/chat/data/chat_message.dart lib/features/chat/data/chat_repository.dart lib/features/chat/presentation/conversation_screen.dart test/chat_model_test.dart test/conversation_screen_test.dart
 
       - name: Install Flutter dependencies
         working-directory: app
