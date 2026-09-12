@@ -1,0 +1,75 @@
+name: Audit all web text rendering surfaces
+
+on:
+  push:
+    branches:
+      - feat/web-system-text-all
+    paths:
+      - .github/workflows/audit-web-system-text-all.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/web-system-text-all
+      - name: Audit Flutter text surfaces
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path('app/lib')
+          files = sorted(root.rglob('*.dart'))
+          patterns = {
+              'Text(': r'(?<![A-Za-z0-9_])Text\s*\(',
+              'Text.rich(': r'(?<![A-Za-z0-9_])Text\.rich\s*\(',
+              'RichText(': r'(?<![A-Za-z0-9_])RichText\s*\(',
+              'SelectableText(': r'(?<![A-Za-z0-9_])SelectableText\s*\(',
+              'SelectableText.rich(': r'(?<![A-Za-z0-9_])SelectableText\.rich\s*\(',
+              'TextField(': r'(?<![A-Za-z0-9_])TextField\s*\(',
+              'TextFormField(': r'(?<![A-Za-z0-9_])TextFormField\s*\(',
+              'EditableText(': r'(?<![A-Za-z0-9_])EditableText\s*\(',
+              'CupertinoTextField(': r'(?<![A-Za-z0-9_])CupertinoTextField\s*\(',
+              'NavigationDestination(': r'(?<![A-Za-z0-9_])NavigationDestination\s*\(',
+              'BottomNavigationBarItem(': r'(?<![A-Za-z0-9_])BottomNavigationBarItem\s*\(',
+              'Tab(text:)': r'Tab\s*\([^\)]*?text\s*:',
+              'SnackBar(content:)': r'SnackBar\s*\([^\)]*?content\s*:',
+              'InputDecoration(': r'(?<![A-Za-z0-9_])InputDecoration\s*\(',
+              'DropdownMenuItem(': r'(?<![A-Za-z0-9_])DropdownMenuItem(?:<[^>]+>)?\s*\(',
+              'PopupMenuItem(': r'(?<![A-Za-z0-9_])PopupMenuItem(?:<[^>]+>)?\s*\(',
+              'ListTile(': r'(?<![A-Za-z0-9_])ListTile\s*\(',
+              'AlertDialog(': r'(?<![A-Za-z0-9_])AlertDialog\s*\(',
+              'SimpleDialog(': r'(?<![A-Za-z0-9_])SimpleDialog\s*\(',
+              'CupertinoAlertDialog(': r'(?<![A-Za-z0-9_])CupertinoAlertDialog\s*\(',
+              'Tooltip(message:)': r'Tooltip\s*\([^\)]*?message\s*:',
+          }
+          print(f'Dart files: {len(files)}')
+          print('--- counts ---')
+          per_pattern_files = {}
+          for label, pattern in patterns.items():
+              rx = re.compile(pattern, re.S)
+              total = 0
+              hit_files = []
+              for p in files:
+                  text = p.read_text(encoding='utf-8')
+                  n = len(rx.findall(text))
+                  if n:
+                      total += n
+                      hit_files.append((str(p), n))
+              per_pattern_files[label] = hit_files
+              print(f'{label}: {total} across {len(hit_files)} files')
+          print('--- files with direct Text/RichText/input surfaces ---')
+          interesting = ['Text(', 'Text.rich(', 'RichText(', 'SelectableText(', 'SelectableText.rich(', 'TextField(', 'TextFormField(', 'EditableText(', 'CupertinoTextField(']
+          merged = {}
+          for label in interesting:
+              for path, n in per_pattern_files[label]:
+                  merged.setdefault(path, {})[label] = n
+          for path in sorted(merged):
+              details = ', '.join(f'{k}={v}' for k,v in merged[path].items())
+              print(f'{path}: {details}')
+          PY
