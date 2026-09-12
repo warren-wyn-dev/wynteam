@@ -1,0 +1,106 @@
+name: Patch Home header follow button v2
+
+on:
+  push:
+    branches: [fix/home-header-follow-button]
+    paths:
+      - .github/workflows/patch-home-header-follow-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/home-header-follow-button
+          fetch-depth: 0
+
+      - name: Apply approved Home header design
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected 1 match, got {count}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # HomeDropCard: optional Home-only follow dependencies + inline pill.
+          path = 'app/lib/features/home/presentation/widgets/home_drop_card.dart'
+          replace_once(path,
+          "import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;\nimport '../../../profile/presentation/widgets/avatar_circle.dart';\n",
+          "import '../../../drop/presentation/drop_detail_screen.dart' show dropShareLink;\nimport '../../../follow/data/follow_repository.dart';\nimport '../../../follow/data/follow_request_repository.dart';\nimport '../../../follow/presentation/widgets/follow_action_button.dart';\nimport '../../../profile/data/profile.dart';\nimport '../../../profile/presentation/widgets/avatar_circle.dart';\n")
+          replace_once(path,
+          "    this.onHide,\n    this.showViewCount = true,\n",
+          "    this.onHide,\n    this.authorProfile,\n    this.followRepository,\n    this.followRequestRepository,\n    this.showHomeFollowButton = false,\n    this.showViewCount = true,\n")
+          replace_once(path,
+          "  final VoidCallback? onHide;\n",
+          "  final VoidCallback? onHide;\n\n  /// Home-only dependencies for the compact author-row Follow action.\n  /// Other surfaces that reuse this card keep the feature off by default.\n  final Profile? authorProfile;\n  final FollowRepository? followRepository;\n  final FollowRequestRepository? followRequestRepository;\n  final bool showHomeFollowButton;\n")
+          replace_once(path,
+          "  bool get _isOwnDrop =>\n      item.authorId == Supabase.instance.client.auth.currentUser!.id;\n",
+          "  bool get _isOwnDrop =>\n      item.authorId == Supabase.instance.client.auth.currentUser!.id;\n\n  bool get _canShowHomeFollowButton =>\n      showHomeFollowButton &&\n      !_isOwnDrop &&\n      authorProfile != null &&\n      followRepository != null &&\n      followRequestRepository != null;\n")
+          replace_once(path,
+          "                              // WYNOSHomeSpec.md 4.6: always shown now,\n",
+          "                              // Approved Home mockup: compact black Follow pill\n                              // beside the overflow menu. The shared button keeps\n                              // public/private/request behavior consistent everywhere.\n                              if (_canShowHomeFollowButton) ...[\n                                const SizedBox(width: WynSpacing.space1),\n                                FollowActionButton(\n                                  key: ValueKey<String>(\n                                    'home_follow_${item.authorId}',\n                                  ),\n                                  profile: authorProfile!,\n                                  followRepository: followRepository!,\n                                  followRequestRepository:\n                                      followRequestRepository!,\n                                  compact: true,\n                                  filled: true,\n                                  headerCompact: true,\n                                  hideWhenFollowing: true,\n                                ),\n                                const SizedBox(width: WynSpacing.space1),\n                              ],\n                              // WYNOSHomeSpec.md 4.6: always shown now,\n")
+
+          # FollowActionButton: preserve current compact button while adding a
+          # 28px Home-header variant and IG-like hide-after-follow behavior.
+          path = 'app/lib/features/follow/presentation/widgets/follow_action_button.dart'
+          replace_once(path,
+          "    this.compact = false,\n    this.filled = false,\n",
+          "    this.compact = false,\n    this.filled = false,\n    this.headerCompact = false,\n    this.hideWhenFollowing = false,\n")
+          replace_once(path,
+          "  final bool filled;\n",
+          "  final bool filled;\n\n  /// Extra-small filled pill for an inline post header. Kept separate\n  /// from [compact] so recommendation surfaces retain their 36px button.\n  final bool headerCompact;\n\n  /// IG-like feed behavior: hide the pill after a follow is established.\n  final bool hideWhenFollowing;\n")
+          replace_once(path,
+          "  Widget build(BuildContext context) {\n    if (_isFollowing == null) return const SizedBox.shrink();\n\n    final primary",
+          "  Widget build(BuildContext context) {\n    if (_isFollowing == null ||\n        (widget.hideWhenFollowing && _isFollowing == true)) {\n      return const SizedBox.shrink();\n    }\n\n    final primary")
+          replace_once(path,
+          "          minimumSize: Size(widget.compact ? 84 : 0, widget.compact ? 36 : 44),\n          padding: EdgeInsets.symmetric(\n            horizontal: widget.compact ? 16 : 20,\n          ),\n          shape: const StadiumBorder(),\n          textStyle: widget.compact\n              ? Theme.of(context).textTheme.labelMedium\n              : Theme.of(context).textTheme.labelLarge,\n          elevation: 0,\n",
+          "          minimumSize: widget.headerCompact\n              ? const Size(0, 28)\n              : Size(widget.compact ? 84 : 0, widget.compact ? 36 : 44),\n          padding: EdgeInsets.symmetric(\n            horizontal: widget.headerCompact\n                ? 12\n                : (widget.compact ? 16 : 20),\n          ),\n          shape: const StadiumBorder(),\n          tapTargetSize: widget.headerCompact\n              ? MaterialTapTargetSize.shrinkWrap\n              : null,\n          textStyle: widget.headerCompact\n              ? Theme.of(context).textTheme.labelSmall?.copyWith(\n                  fontWeight: FontWeight.w700,\n                )\n              : (widget.compact\n                  ? Theme.of(context).textTheme.labelMedium\n                  : Theme.of(context).textTheme.labelLarge),\n          elevation: 0,\n")
+
+          # ModeFeedPage: one bulk Profile query per page, not one per card.
+          path = 'app/lib/features/home/presentation/widgets/mode_feed_page.dart'
+          replace_once(path,
+          "import '../../../pop/data/pop_repository.dart';\nimport '../../../profile/data/profile_repository.dart';\n",
+          "import '../../../pop/data/pop_repository.dart';\nimport '../../../profile/data/profile.dart';\nimport '../../../profile/data/profile_repository.dart';\n")
+          replace_once(path,
+          "  final List<HomeFeedItem> _items = [];\n",
+          "  final List<HomeFeedItem> _items = [];\n  final Map<String, Profile> _authorProfiles = {};\n")
+          replace_once(path,
+          "  Future<void> _loadInitial() async {\n",
+          "  Future<Map<String, Profile>> _fetchAuthorProfiles(\n    List<HomeFeedItem> items,\n  ) async {\n    final currentUserId = Supabase.instance.client.auth.currentUser?.id;\n    final ids = <String>{\n      for (final item in items)\n        if (item.authorId != currentUserId) item.authorId,\n    }.toList();\n    if (ids.isEmpty) return const {};\n    try {\n      final profiles = await widget.profileRepository.fetchProfilesByIds(ids);\n      return {for (final profile in profiles) profile.id: profile};\n    } catch (_) {\n      // Follow is secondary UI: never fail the feed because this hydration\n      // request had a transient error. A refresh gets another chance.\n      return const {};\n    }\n  }\n\n  Future<void> _loadInitial() async {\n")
+          replace_once(path,
+          "      final items = await _fetchPage(0);\n      if (!mounted) return;\n      setState(() {\n        _items\n          ..clear()\n          ..addAll(items);\n",
+          "      final items = await _fetchPage(0);\n      final authorProfiles = await _fetchAuthorProfiles(items);\n      if (!mounted) return;\n      setState(() {\n        _items\n          ..clear()\n          ..addAll(items);\n        _authorProfiles\n          ..clear()\n          ..addAll(authorProfiles);\n")
+          replace_once(path,
+          "      final items = await _fetchPage(nextPage);\n      if (!mounted) return;\n      setState(() {\n",
+          "      final items = await _fetchPage(nextPage);\n      final authorProfiles = await _fetchAuthorProfiles(items);\n      if (!mounted) return;\n      setState(() {\n        _authorProfiles.addAll(authorProfiles);\n")
+          replace_once(path,
+          "              onHide: () => _hideItem(index),\n              // WYN-088",
+          "              onHide: () => _hideItem(index),\n              authorProfile: _authorProfiles[item.authorId],\n              followRepository: widget.followRepository,\n              followRequestRepository: _followRequestRepository,\n              showHomeFollowButton: true,\n              // WYN-088")
+          PY
+
+      - name: Format changed Dart files
+        working-directory: app
+        run: |
+          dart format \
+            lib/features/home/presentation/widgets/home_drop_card.dart \
+            lib/features/home/presentation/widgets/mode_feed_page.dart \
+            lib/features/follow/presentation/widgets/follow_action_button.dart
+
+      - name: Commit patch to branch
+        run: |
+          git config user.name "warren-wyn-dev"
+          git config user.email "warren.wyn.dev@gmail.com"
+          git add app/lib/features/home/presentation/widgets/home_drop_card.dart \
+                  app/lib/features/home/presentation/widgets/mode_feed_page.dart \
+                  app/lib/features/follow/presentation/widgets/follow_action_button.dart
+          git commit -m "feat(home): add compact follow button to post header"
+          git push origin HEAD:fix/home-header-follow-button
