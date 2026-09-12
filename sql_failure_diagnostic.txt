@@ -1,5 +1,7 @@
 FAILED_SCRIPT=supabase/tests/wyn_143_cold_start_test.sh
---- LAST_PSQL_FAILURE ---
+--- SUITE_TAIL ---
+ALL CHECKS PASSED
+===== RUN supabase/tests/wyn_143_cold_start_test.sh =====
 Pager usage is off.
 BEGIN
 CREATE TABLE
@@ -12,415 +14,129 @@ INSERT 0 1
 SET
 SET
 SET
-psql:/tmp/tmp.GNRfsMw3gO/10_seed_and_assert.sql:35: ERROR:  permission denied for schema auth
-LINE 9:       where fs.user_id = auth.uid()
-                                 ^
-QUERY:  
-  with similarity_candidates as (
-    select * from internal.my_similarity_candidates()
-  ), recent as (
-    select hf.*
-    from public.home_feed hf
-    where not exists (
-      select 1 from public.feed_signals fs
-      where fs.user_id = auth.uid()
-        and fs.signal_type in ('hide', 'not_interested')
-        and fs.target_id = hf.id
-    )
-    order by (exists(select 1 from similarity_candidates sc
-      where sc.drop_id=hf.id)) desc,hf.created_at desc
-    limit 200
-  ),
-  candidates as (
-    select r.*,
-      greatest(extract(epoch from (now() - r.created_at)) / 3600.0, 0.0) as age_hours,
-      nullif(lower(substring(r.caption from '#([[:alnum:]_]+)')), '')
-        as candidate_topic,
-      case when r.content_type = 'pop' then 'video'
-           when r.redrop_id is not null and r.quote_text is not null then 'quote'
-           when r.poll_id is not null then 'poll'
-           when r.image_url is not null then 'image' else 'text' end
-        as candidate_content_type
-    from recent r
-    where r.author_id not in (
-      select author_id from public.authors_posting_blocked(
-        (select coalesce(array_agg(distinct author_id), array[]::uuid[]) from recent)
-      )
-    )
-  ),
-  -- Precomputed affinity lookup replaces the former request-time scan across
-  -- every historical Like/Comment/Save/View. Three indexed joins cover the
-  -- whole 200-candidate batch without per-post network/database queries.
-  effective_affinities as (
-    select dimension_type, dimension_key, effective_score
-    from public.my_effective_affinities
-  ),
-  maturity as (
-    select * from public.get_my_personalization_maturity()
-  ),
-  quality_factors as (
-    select * from internal.content_quality_factors(
-      (select coalesce(array_agg(id),array[]::uuid[]) from candidates)
-    )
-  ),
-  scored as (
-    select
-      c.*,
-      (coalesce(topic_aff.effective_score, 0.0) * 0.45
-        + coalesce(creator_aff.effective_score, 0.0) * 0.40
-        + coalesce(type_aff.effective_score, 0.0) * 0.15) as affinity_raw,
-      coalesce(topic_aff.effective_score, 0.0) as topic_affinity,
-      coalesce(creator_aff.effective_score, 0.0) as creator_affinity,
-      coalesce(type_aff.effective_score, 0.0) as content_type_affinity,
-      (f.follower_id is not null) as is_following_flag,
-      p.created_at as author_created_at,
-      coalesce(ts.trend_score, 0.0) as precomputed_trend_score,
-      coalesce(fq.quality_score, 1.0) as home_quality_score,
-      coalesce(sim.similarity_score,0.0) as similarity_score,
-      coalesce(sim.candidate_origin,'direct') as candidate_origin,
-      -- Top100 is quality evidence only: rank is mapped to a bounded 0..10
-      -- bonus. Its raw formula is never duplicated here and it cannot replace
-      -- Recommended or reward impressions/distribution.
-      coalesce(greatest(0.0, (101 - t100.current_rank) / 10.0), 0.0)
-        as top100_quality_bonus,
-      exists (
-        select 1
-        from public.club_members mine
-        join public.club_members theirs on theirs.club_id = mine.club_id
-        where mine.user_id = auth.uid() and mine.status = 'approved'
-          and theirs.user_id = c.author_id and theirs.status = 'approved'
-      ) as is_club_flag,
-      public.content_save_count(c.id) as save_count
-    from candidates c
-    left join effective_affinities creator_aff
-      on creator_aff.dimension_type = 'creator'
-      and creator_aff.dimension_key = c.author_id::text
-    left join effective_affinities topic_aff
-      on topic_aff.dimension_type = 'topic'
-      and topic_aff.dimension_key = c.candidate_topic
-    left join effective_affinities type_aff
-      on type_aff.dimension_type = 'content_type'
-      and type_aff.dimension_key = c.candidate_content_type
-    left join public.follows f
-      on f.follower_id = auth.uid() and f.following_id = c.author_id
-    left join public.trending_scores ts on ts.drop_id = c.id
-    left join quality_factors fq on fq.drop_id = c.id
-    left join similarity_candidates sim on sim.drop_id=c.id
-    left join public.top100_scores t100 on t100.drop_id = c.id
-    join public.profiles p on p.id = c.author_id
-  ),
-  -- Same like*2 + comment*3 + view*0.1 shape as engagementScore()
-  -- (WYN-041), plus save*4 (a Save is a stronger intent signal than a
-  -- Like or Comment -- deliberate action to keep something, per
-  -- Product's "Save" signal) which the client-side engagementScore()
-  -- never had access to (saves' own RLS made a true total uncountable
-  -- from the client -- see content_save_count()'s own comment).
-  scored_engagement as (
-    select
-      s.*,
-      (s.like_count * 2 + s.comment_count * 3 + s.save_count * 4
-        + case when s.content_type = 'drop' then s.view_count * 0.1 else 0 end
-      ) as engagement_raw
-    from scored s
-  ),
-  final as (
-    select
-      se.*,
-      -- Trending = engagement earned *per hour of the post's life* --
-      -- Product's own example (500 Likes in 30 minutes beating 2,000
-      -- Likes over 3 days): a plain engagement sum can't tell those
-      -- apart, dividing by age can. Floors the denominator at 0.5h so
-      -- a just-posted item with any early engagement doesn't produce
-      -- an inflated/unstable velocity from dividing by a near-zero age.
-      -- Phase 2: authoritative Trending is the precomputed velocity score.
-      -- A stale/missing refresh contributes zero and lets Phase 1 fallback
-      -- allocation fill the slot; request-time raw aggregation is forbidden.
-      se.precomputed_trend_score as trending_velocity,
-      -- A candidate counts as "Discovery" when the viewer neither
-      -- follows this author nor has any recorded affinity toward them
-      -- at all -- i.e. a genuinely new-to-you creator, not just "an
-      -- author you follow less than others."
-      (not se.is_following_flag and se.affinity_raw = 0) as is_discovery_flag,
-      -- Linear 7-day decay, identical shape to WYN-018's own
-      -- recencyScore, just rescaled to a 0-100 percentage (168 hours
-      -- = 7 days = the same window rankingScore() already uses) so it
-      -- combines with the other 0-100-scaled factors below on equal
-      -- footing.
-      least(greatest(168.0 - se.age_hours, 0.0), 168.0) / 168.0 * 100 as recency_pct,
-      -- Personalized Interest, Engagement, and Trending are all
-      -- unbounded raw magnitudes (a single viral post could be 100x
-      -- any other candidate's engagement) -- percent_rank() converts
-      -- each to "this candidate's relative standing within *this*
-      -- batch" (0-100), which is naturally comparable to the already-
-      -- bounded Following/Recency/Discovery terms and, unlike min-max
-      -- normalization, isn't skewed by one extreme outlier.
-      percent_rank() over (order by se.affinity_raw) * 100 as pr_interest,
-      percent_rank() over (order by se.engagement_raw) * 100 as pr_engagement,
-      percent_rank() over (
-        order by se.precomputed_trend_score
-      ) * 100 as pr_trending
-    from scored_engagement se
-  ),
-  weights as (
-    select
-      max(weight) filter (where key = 'personalized_interest') as w_personalized,
-      max(weight) filter (where key = 'following') as w_following,
-      max(weight) filter (where key = 'engagement') as w_engagement,
-      max(weight) filter (where key = 'trending') as w_trending,
-      max(weight) filter (where key = 'recency') as w_recency,
-      max(weight) filter (where key = 'discovery') as w_discovery
-    from public.feed_ranking_config
-  ),
-  base_ranked as (
-    select final.*,
-      maturity.maturity_state,
-      maturity.confidence as personalization_confidence,
-      (coalesce(weights.w_personalized, 0.35) * final.pr_interest
-        + coalesce(weights.w_following, 0.25)
-          * (case when final.is_following_flag then 100.0 else 0.0 end)
-        + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
-        + coalesce(weights.w_trending, 0.10) * final.pr_trending
-        + coalesce(weights.w_recency, 0.10) * final.recency_pct
-        + coalesce(weights.w_discovery, 0.05)
-          * (case when final.is_discovery_flag then 100.0 else 0.0 end)
-      ) as base_score,
-      (coalesce(weights.w_following, 0.25)
-          * (case when final.is_following_flag then 100.0 else 0.0 end)
-        + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
-        + coalesce(weights.w_trending, 0.10) * final.pr_trending
-        + coalesce(weights.w_recency, 0.10) * final.recency_pct
-        + coalesce(weights.w_discovery, 0.05)
-          * (case when final.is_discovery_flag then 100.0 else 0.0 end)
-      ) as nonpersonal_score
-    from final, weights, maturity
-  )
-  -- coalesce(..., <Founder's own starting weight>) covers the
-  -- pathological case of feed_ranking_config having been emptied out
-  -- entirely -- the feed degrades to the documented V1.0 defaults
-  -- rather than every wynos_score collapsing to null/0 and the whole
-  -- ranked feed silently going empty-looking.
-  select
-    (to_jsonb(base_ranked.*)
-      - 'precomputed_trend_score' - 'affinity_raw' - 'topic_affinity'
-      - 'creator_affinity' - 'content_type_affinity' - 'base_score'
-      - 'nonpersonal_score' - 'personalization_confidence'
-      - 'top100_quality_bonus' - 'maturity_state' - 'home_quality_score'
-      - 'similarity_score')
-    || jsonb_build_object(
-      'feed_is_trending', base_ranked.precomputed_trend_score > 0,
-      'feed_is_latest', base_ranked.age_hours <= 24,
-      'feed_is_club', base_ranked.is_club_flag,
-      'feed_is_new_creator',
-        (base_ranked.author_created_at >= now() - interval '30 days'
-          or (base_ranked.age_hours <= 24 and base_ranked.engagement_raw <= 10)),
-      'feed_topic', base_ranked.candidate_topic,
-      'feed_maturity_state', base_ranked.maturity_state,
-      'feed_algorithm_version', 1,
-      'feed_candidate_origin', base_ranked.candidate_origin,
-      'feed_source_scores', jsonb_build_object(
-        'following', base_ranked.nonpersonal_score
-          + base_ranked.personalization_confidence * (
-            base_ranked.base_score - base_ranked.nonpersonal_score
-            + base_ranked.creator_affinity * 12
-            + base_ranked.topic_affinity * 6
-            + base_ranked.content_type_affinity * 2)
-          - (1 - base_ranked.home_quality_score) * 8,
-        'recommended', base_ranked.nonpersonal_score
-          + base_ranked.top100_quality_bonus
-          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
-          + base_ranked.personalization_confidence * (
-            base_ranked.base_score - base_ranked.nonpersonal_score
-            + base_ranked.affinity_raw * 20)
-          + base_ranked.similarity_score * 100
-          - (1 - base_ranked.home_quality_score) * 25,
-        'trending', base_ranked.nonpersonal_score
-          + base_ranked.personalization_confidence * base_ranked.affinity_raw * 5
-          - (1 - base_ranked.home_quality_score) * 20,
-        'latest', base_ranked.nonpersonal_score
-          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
-          + base_ranked.personalization_confidence * base_ranked.affinity_raw * 3
-          - (1 - base_ranked.home_quality_score) * 6,
-        'club', base_ranked.nonpersonal_score
-          + base_ranked.personalization_confidence * (
-            base_ranked.base_score - base_ranked.nonpersonal_score
-            + base_ranked.creator_affinity * 8
-            + base_ranked.topic_affinity * 5)
-          - (1 - base_ranked.home_quality_score) * 10,
-        'new_creator', base_ranked.nonpersonal_score
-          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
-          + base_ranked.personalization_confidence * (
-            base_ranked.topic_affinity * 10
-            + base_ranked.content_type_affinity * 4)
-          - (1 - base_ranked.home_quality_score) * 6,
-        'exploration', base_ranked.nonpersonal_score
-          + (1 - base_ranked.personalization_confidence)
-            * (case when abs(base_ranked.topic_affinity) < 0.2 then 5 else 0 end)
-          + base_ranked.personalization_confidence
-            * (1 - abs(base_ranked.topic_affinity)) * 5
-          + base_ranked.similarity_score * 50
-          - (1 - base_ranked.home_quality_score) * 10
-      ),
-      'feed_reason_code', case
-        when base_ranked.maturity_state = 'zero_history'
-          and base_ranked.precomputed_trend_score > 0 then 'popular_now'
-        when base_ranked.maturity_state = 'zero_history'
-          and base_ranked.age_hours <= 24 then 'fresh_content'
-        when base_ranked.maturity_state = 'zero_history'
-          and base_ranked.top100_quality_bonus > 0 then 'high_quality_content'
-        when base_ranked.maturity_state = 'zero_history' then 'broad_discovery'
-        when base_ranked.topic_affinity >= greatest(
-          base_ranked.creator_affinity, base_ranked.content_type_affinity, 0.2)
-          then 'interested_in_topic'
-        when base_ranked.creator_affinity >= greatest(
-          base_ranked.content_type_affinity, 0.2) then 'often_engages_creator'
-        when base_ranked.content_type_affinity >= 0.2 then 'preferred_content_type'
-        else 'general_quality' end
-    ) as row_data,
-    base_ranked.base_score as wynos_score,
-    base_ranked.is_following_flag as is_following,
-    base_ranked.is_discovery_flag as is_discovery
-  from base_ranked
-  order by wynos_score desc, base_ranked.created_at desc, base_ranked.id desc;
+INSERT 0 1
+RESET
+RESET
+RESET
+SET
+SET
+SET
+INSERT 0 1
+RESET
+RESET
+RESET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 3
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+ learn_from_drop 
+-----------------
+ 
+(1 row)
 
-CONTEXT:  SQL function "get_wynos_ranked_feed_base_v1" during inlining
---- SUITE_TAIL ---
-      -- = 7 days = the same window rankingScore() already uses) so it
-      -- combines with the other 0-100-scaled factors below on equal
-      -- footing.
-      least(greatest(168.0 - se.age_hours, 0.0), 168.0) / 168.0 * 100 as recency_pct,
-      -- Personalized Interest, Engagement, and Trending are all
-      -- unbounded raw magnitudes (a single viral post could be 100x
-      -- any other candidate's engagement) -- percent_rank() converts
-      -- each to "this candidate's relative standing within *this*
-      -- batch" (0-100), which is naturally comparable to the already-
-      -- bounded Following/Recency/Discovery terms and, unlike min-max
-      -- normalization, isn't skewed by one extreme outlier.
-      percent_rank() over (order by se.affinity_raw) * 100 as pr_interest,
-      percent_rank() over (order by se.engagement_raw) * 100 as pr_engagement,
-      percent_rank() over (
-        order by se.precomputed_trend_score
-      ) * 100 as pr_trending
-    from scored_engagement se
-  ),
-  weights as (
-    select
-      max(weight) filter (where key = 'personalized_interest') as w_personalized,
-      max(weight) filter (where key = 'following') as w_following,
-      max(weight) filter (where key = 'engagement') as w_engagement,
-      max(weight) filter (where key = 'trending') as w_trending,
-      max(weight) filter (where key = 'recency') as w_recency,
-      max(weight) filter (where key = 'discovery') as w_discovery
-    from public.feed_ranking_config
-  ),
-  base_ranked as (
-    select final.*,
-      maturity.maturity_state,
-      maturity.confidence as personalization_confidence,
-      (coalesce(weights.w_personalized, 0.35) * final.pr_interest
-        + coalesce(weights.w_following, 0.25)
-          * (case when final.is_following_flag then 100.0 else 0.0 end)
-        + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
-        + coalesce(weights.w_trending, 0.10) * final.pr_trending
-        + coalesce(weights.w_recency, 0.10) * final.recency_pct
-        + coalesce(weights.w_discovery, 0.05)
-          * (case when final.is_discovery_flag then 100.0 else 0.0 end)
-      ) as base_score,
-      (coalesce(weights.w_following, 0.25)
-          * (case when final.is_following_flag then 100.0 else 0.0 end)
-        + coalesce(weights.w_engagement, 0.15) * final.pr_engagement
-        + coalesce(weights.w_trending, 0.10) * final.pr_trending
-        + coalesce(weights.w_recency, 0.10) * final.recency_pct
-        + coalesce(weights.w_discovery, 0.05)
-          * (case when final.is_discovery_flag then 100.0 else 0.0 end)
-      ) as nonpersonal_score
-    from final, weights, maturity
-  )
-  -- coalesce(..., <Founder's own starting weight>) covers the
-  -- pathological case of feed_ranking_config having been emptied out
-  -- entirely -- the feed degrades to the documented V1.0 defaults
-  -- rather than every wynos_score collapsing to null/0 and the whole
-  -- ranked feed silently going empty-looking.
-  select
-    (to_jsonb(base_ranked.*)
-      - 'precomputed_trend_score' - 'affinity_raw' - 'topic_affinity'
-      - 'creator_affinity' - 'content_type_affinity' - 'base_score'
-      - 'nonpersonal_score' - 'personalization_confidence'
-      - 'top100_quality_bonus' - 'maturity_state' - 'home_quality_score'
-      - 'similarity_score')
-    || jsonb_build_object(
-      'feed_is_trending', base_ranked.precomputed_trend_score > 0,
-      'feed_is_latest', base_ranked.age_hours <= 24,
-      'feed_is_club', base_ranked.is_club_flag,
-      'feed_is_new_creator',
-        (base_ranked.author_created_at >= now() - interval '30 days'
-          or (base_ranked.age_hours <= 24 and base_ranked.engagement_raw <= 10)),
-      'feed_topic', base_ranked.candidate_topic,
-      'feed_maturity_state', base_ranked.maturity_state,
-      'feed_algorithm_version', 1,
-      'feed_candidate_origin', base_ranked.candidate_origin,
-      'feed_source_scores', jsonb_build_object(
-        'following', base_ranked.nonpersonal_score
-          + base_ranked.personalization_confidence * (
-            base_ranked.base_score - base_ranked.nonpersonal_score
-            + base_ranked.creator_affinity * 12
-            + base_ranked.topic_affinity * 6
-            + base_ranked.content_type_affinity * 2)
-          - (1 - base_ranked.home_quality_score) * 8,
-        'recommended', base_ranked.nonpersonal_score
-          + base_ranked.top100_quality_bonus
-          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
-          + base_ranked.personalization_confidence * (
-            base_ranked.base_score - base_ranked.nonpersonal_score
-            + base_ranked.affinity_raw * 20)
-          + base_ranked.similarity_score * 100
-          - (1 - base_ranked.home_quality_score) * 25,
-        'trending', base_ranked.nonpersonal_score
-          + base_ranked.personalization_confidence * base_ranked.affinity_raw * 5
-          - (1 - base_ranked.home_quality_score) * 20,
-        'latest', base_ranked.nonpersonal_score
-          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
-          + base_ranked.personalization_confidence * base_ranked.affinity_raw * 3
-          - (1 - base_ranked.home_quality_score) * 6,
-        'club', base_ranked.nonpersonal_score
-          + base_ranked.personalization_confidence * (
-            base_ranked.base_score - base_ranked.nonpersonal_score
-            + base_ranked.creator_affinity * 8
-            + base_ranked.topic_affinity * 5)
-          - (1 - base_ranked.home_quality_score) * 10,
-        'new_creator', base_ranked.nonpersonal_score
-          + (case when base_ranked.age_hours <= 24 then 5 else 0 end)
-          + base_ranked.personalization_confidence * (
-            base_ranked.topic_affinity * 10
-            + base_ranked.content_type_affinity * 4)
-          - (1 - base_ranked.home_quality_score) * 6,
-        'exploration', base_ranked.nonpersonal_score
-          + (1 - base_ranked.personalization_confidence)
-            * (case when abs(base_ranked.topic_affinity) < 0.2 then 5 else 0 end)
-          + base_ranked.personalization_confidence
-            * (1 - abs(base_ranked.topic_affinity)) * 5
-          + base_ranked.similarity_score * 50
-          - (1 - base_ranked.home_quality_score) * 10
-      ),
-      'feed_reason_code', case
-        when base_ranked.maturity_state = 'zero_history'
-          and base_ranked.precomputed_trend_score > 0 then 'popular_now'
-        when base_ranked.maturity_state = 'zero_history'
-          and base_ranked.age_hours <= 24 then 'fresh_content'
-        when base_ranked.maturity_state = 'zero_history'
-          and base_ranked.top100_quality_bonus > 0 then 'high_quality_content'
-        when base_ranked.maturity_state = 'zero_history' then 'broad_discovery'
-        when base_ranked.topic_affinity >= greatest(
-          base_ranked.creator_affinity, base_ranked.content_type_affinity, 0.2)
-          then 'interested_in_topic'
-        when base_ranked.creator_affinity >= greatest(
-          base_ranked.content_type_affinity, 0.2) then 'often_engages_creator'
-        when base_ranked.content_type_affinity >= 0.2 then 'preferred_content_type'
-        else 'general_quality' end
-    ) as row_data,
-    base_ranked.base_score as wynos_score,
-    base_ranked.is_following_flag as is_following,
-    base_ranked.is_discovery_flag as is_discovery
-  from base_ranked
-  order by wynos_score desc, base_ranked.created_at desc, base_ranked.id desc;
+SELECT 1
+ learn_from_drop 
+-----------------
+ 
+(1 row)
 
-CONTEXT:  SQL function "get_wynos_ranked_feed_base_v1" during inlining
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+ apply_affinity_signal 
+-----------------------
+ 
+(1 row)
+
+ apply_affinity_signal 
+-----------------------
+ 
+(1 row)
+
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+SET
+SET
+SET
+INSERT 0 1
+RESET
+RESET
+RESET
+SET
+SET
+SET
+INSERT 0 1
+INSERT 0 1
+RESET
+RESET
+RESET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+                    check_name                    | actual | expected 
+--------------------------------------------------+--------+----------
+ CHECK10A_recent_interest_outweighs_stale         |      1 |        1
+ CHECK10B_long_term_interest_survives_decay       |      1 |        1
+ CHECK10_recent_score_exceeds_long_term_increment |      0 |        0
+ CHECK11_impression_is_not_a_learning_signal      |      1 |        1
+ CHECK12_no_request_time_interaction_scan         |      1 |        1
+ CHECK13_precomputed_affinity_join                |      1 |        1
+ CHECK14_global_trending_not_personalized         |      1 |        1
+ CHECK15_top100_not_personalized                  |      1 |        1
+ CHECK16_zero_history_without_profile_data        |      1 |        1
+ CHECK17_one_like_does_not_overfit                |      1 |        1
+ CHECK18_feed_emits_safe_maturity_not_confidence  |      1 |        1
+ CHECK19_global_contracts_remain_unpersonalized   |      1 |        1
+ CHECK1_topic_affinity_created                    |      2 |        2
+ CHECK20_top100_is_bounded_quality_signal         |      0 |        1
+ CHECK21_no_impression_confidence                 |      1 |        1
+ CHECK2A_gaming_user_prefers_gaming               |      1 |        1
+ CHECK2B_fashion_user_prefers_fashion             |      1 |        1
+ CHECK2_profiles_are_user_specific                |      1 |        1
+ CHECK3_save_stronger_than_like                   |      1 |        1
+ CHECK4_share_stronger_than_save                  |      1 |        1
+ CHECK5_follow_is_strong_creator_prior            |      1 |        1
+ CHECK6_repeated_skips_accumulate                 |      1 |        1
+ CHECK7_not_interested_is_strong_negative         |      1 |        1
+ CHECK8_event_replay_is_idempotent                |      0 |        0
+ CHECK9_effective_scores_are_bounded              |      0 |        0
+(25 rows)
+
+COMMIT
+PASS: CHECK10A_recent_interest_outweighs_stale (expected 1, got 1)
+PASS: CHECK10B_long_term_interest_survives_decay (expected 1, got 1)
+PASS: CHECK10_recent_score_exceeds_long_term_increment (expected 0, got 0)
+PASS: CHECK11_impression_is_not_a_learning_signal (expected 1, got 1)
+PASS: CHECK12_no_request_time_interaction_scan (expected 1, got 1)
+PASS: CHECK13_precomputed_affinity_join (expected 1, got 1)
+PASS: CHECK14_global_trending_not_personalized (expected 1, got 1)
+PASS: CHECK15_top100_not_personalized (expected 1, got 1)
+PASS: CHECK16_zero_history_without_profile_data (expected 1, got 1)
+PASS: CHECK17_one_like_does_not_overfit (expected 1, got 1)
+PASS: CHECK18_feed_emits_safe_maturity_not_confidence (expected 1, got 1)
+PASS: CHECK19_global_contracts_remain_unpersonalized (expected 1, got 1)
+PASS: CHECK1_topic_affinity_created (expected 2, got 2)
+FAIL: CHECK20_top100_is_bounded_quality_signal -- expected 1, got 0
+PASS: CHECK21_no_impression_confidence (expected 1, got 1)
+PASS: CHECK2A_gaming_user_prefers_gaming (expected 1, got 1)
+PASS: CHECK2B_fashion_user_prefers_fashion (expected 1, got 1)
+PASS: CHECK2_profiles_are_user_specific (expected 1, got 1)
+PASS: CHECK3_save_stronger_than_like (expected 1, got 1)
+PASS: CHECK4_share_stronger_than_save (expected 1, got 1)
+PASS: CHECK5_follow_is_strong_creator_prior (expected 1, got 1)
+PASS: CHECK6_repeated_skips_accumulate (expected 1, got 1)
+PASS: CHECK7_not_interested_is_strong_negative (expected 1, got 1)
+PASS: CHECK8_event_replay_is_idempotent (expected 0, got 0)
+PASS: CHECK9_effective_scores_are_bounded (expected 0, got 0)
+FAIL: 1 check(s) failed
