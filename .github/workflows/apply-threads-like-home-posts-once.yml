@@ -49,6 +49,36 @@ jobs:
           '''                                icon: const Icon(Icons.mode_comment_outlined,
                                               size: 24, color: WynColors.graphite),''')
           """, "")
+
+          # Keep Share in the existing More menu for backwards compatibility,
+          # while also exposing the new send/share icon in the visible action row.
+          drop_share_removal = """replace_once(drop,
+          '''          ActionSheetRow(
+                      icon: Icons.share_outlined,
+                      label: 'แชร์',
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _share();
+                      },
+                    ),
+          ''', '')
+          """
+          pop_share_removal = """replace_once(pop,
+          '''        ActionSheetRow(
+                    icon: Icons.share_outlined,
+                    label: 'แชร์',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _share();
+                    },
+                  ),
+          ''', '')
+          """
+          for block in (drop_share_removal, pop_share_removal):
+              if block not in s:
+                  raise SystemExit('share-removal patch block not found')
+              s = s.replace(block, '', 1)
+
           old_mode = """replace_all_checked(mode,
           '''                showViewCount: false,
           ''',
@@ -84,6 +114,86 @@ jobs:
 
       - name: Apply Home post polish
         run: python3 tools/apply_threads_like_home_posts.py
+
+      - name: Update Home regression expectations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/test/home_feed_screen_test.dart')
+          s = p.read_text()
+
+          # Home Pop now follows the same horizontal ellipsis treatment as Drop.
+          s = s.replace('Icons.more_vert', 'Icons.more_horiz')
+
+          old_liked = """    testWidgets('shows the row when the card has likers', (tester) async {
+                await tester.pumpWidget(
+                  buildHome(
+                    likedByTestHomeRepository,
+                    dropRepository: sharedDropRepository,
+                    popRepository: sharedPopRepository,
+                  ),
+                );
+                await tester.pumpAndSettle();
+                tester.takeException();
+
+                expect(find.byType(LikedByRow), findsOneWidget);
+                expect(find.textContaining('Warren'), findsOneWidget);
+                expect(find.textContaining('และอีก 3 คน'), findsOneWidget);
+              });
+          """
+          new_liked = """    testWidgets('hides the liked-by row on compact Home cards even when liker data exists', (tester) async {
+                await tester.pumpWidget(
+                  buildHome(
+                    likedByTestHomeRepository,
+                    dropRepository: sharedDropRepository,
+                    popRepository: sharedPopRepository,
+                  ),
+                );
+                await tester.pumpAndSettle();
+                tester.takeException();
+
+                expect(find.byType(LikedByRow), findsNothing);
+                expect(find.textContaining('ถูกใจโดย'), findsNothing);
+              });
+          """
+          if old_liked not in s:
+              raise SystemExit('liked-by regression block not found')
+          s = s.replace(old_liked, new_liked, 1)
+
+          # The visible share/send affordance is part of the new compact action row.
+          drop_anchor = """    expect(
+                    find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined),
+                    findsOneWidget,
+                  );
+          """
+          drop_insert = drop_anchor + """    expect(
+                    find.descendant(
+                      of: find.byType(HomeDropCard),
+                      matching: find.byIcon(Icons.send_outlined),
+                    ),
+                    findsOneWidget,
+                  );
+          """
+          if drop_anchor not in s:
+              raise SystemExit('Drop action regression anchor not found')
+          s = s.replace(drop_anchor, drop_insert, 1)
+
+          pop_anchor = """    expect(popCardComment, findsOneWidget);
+          """
+          pop_insert = pop_anchor + """    expect(
+                    find.descendant(
+                      of: find.byType(HomePopCard),
+                      matching: find.byIcon(Icons.send_outlined),
+                    ),
+                    findsOneWidget,
+                  );
+          """
+          if pop_anchor not in s:
+              raise SystemExit('Pop action regression anchor not found')
+          s = s.replace(pop_anchor, pop_insert, 1)
+
+          p.write_text(s)
+          PY
 
       - uses: subosito/flutter-action@v2
         with:
@@ -121,6 +231,7 @@ jobs:
           grep -q "showLikedBy: false" app/lib/features/home/presentation/widgets/mode_feed_page.dart
           grep -q "hideZeroActionCounts: true" app/lib/features/home/presentation/widgets/mode_feed_page.dart
           grep -q "Icons.send_outlined" app/lib/features/home/presentation/widgets/home_drop_card.dart
+          grep -q "Icons.send_outlined" app/lib/features/home/presentation/widgets/home_pop_card.dart
           grep -q "Icons.more_horiz" app/lib/features/home/presentation/widgets/home_pop_card.dart
 
       - name: Commit validated UI change
