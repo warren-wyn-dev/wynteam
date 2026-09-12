@@ -52,10 +52,15 @@
   <!-- apple-mobile-web-app-capable (not just the generic
        mobile-web-app-capable below, which iOS Safari ignores) is the
        other half of the safe-area fix above -- both are required for
-       iOS to treat the home-screen icon as a real standalone app. -->
+       iOS to treat the home-screen icon as a real standalone app.
+
+       black-translucent lets the standalone web view extend behind the
+       iOS status bar. Flutter still receives the top safe-area inset, so
+       profile controls stay below the Dynamic Island while the cover image
+       itself can paint edge-to-edge behind the status bar. -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="WYNOS Beta">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
