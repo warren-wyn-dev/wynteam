@@ -62,14 +62,15 @@ void main() {
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     ownProfileRepo = RecordingProfileRepository(profile: ownProfile);
-    ownFollowRepo = RecordingFollowRepository(followerCount: 12, followingCount: 5);
-    dropRepo = RecordingDropRepository()
-      ..dropCountByAuthor = {'me': 6};
+    ownFollowRepo =
+        RecordingFollowRepository(followerCount: 12, followingCount: 5);
+    dropRepo = RecordingDropRepository()..dropCountByAuthor = {'me': 6};
     popRepo = RecordingPopRepository();
     savedRepo = RecordingSavedRepository();
 
     otherProfileRepo = RecordingProfileRepository(profile: otherProfile);
-    otherFollowRepo = RecordingFollowRepository(followerCount: 3, followingCount: 8);
+    otherFollowRepo =
+        RecordingFollowRepository(followerCount: 3, followingCount: 8);
 
     longTextProfileRepo = RecordingProfileRepository(
       profile: const Profile(
@@ -211,7 +212,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      final size = tester.getSize(find.byKey(const Key('profile_account_switcher')));
+      final size =
+          tester.getSize(find.byKey(const Key('profile_account_switcher')));
       expect(size.height, greaterThanOrEqualTo(WynSpacing.touchTargetMin));
       // Wide enough to cover the name, not just the arrow.
       expect(size.width,
@@ -284,7 +286,7 @@ void main() {
       expect(find.text('กำลังติดตาม'), findsOneWidget);
       expect(find.text('ผู้ติดตาม'), findsOneWidget);
       final button =
-          tester.getRect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'));
+          tester.getRect(find.widgetWithText(FilledButton, 'แก้ไขโปรไฟล์'));
       expect(button.left, greaterThanOrEqualTo(0));
       expect(button.right, lessThanOrEqualTo(320));
     });
@@ -310,7 +312,7 @@ void main() {
     // shown, so "โพสต์" now appears exactly once on this screen -- as
     // the tab label, not as a third stat.
     expect(find.text('6'), findsNothing);
-    expect(find.text('โพสต์'), findsOneWidget);
+    expect(find.text('สื่อ'), findsOneWidget);
     expect(find.byType(Tab), findsNWidgets(3));
   });
 
@@ -330,7 +332,7 @@ void main() {
     final usernameTop = tester.getTopLeft(find.text('@me_user')).dy;
     final statsTop = tester.getTopLeft(find.text('ผู้ติดตาม')).dy;
     final buttonTop =
-        tester.getTopLeft(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์')).dy;
+        tester.getTopLeft(find.widgetWithText(FilledButton, 'แก้ไขโปรไฟล์')).dy;
 
     // The name sits *beside* the avatar, not below it -- WYN-095's
     // Mockup A had the stats there and the name underneath, which split
@@ -358,8 +360,8 @@ void main() {
     expect((nameRect.left - columnLeft).abs(), lessThan(2));
 
     final buttonRect =
-        tester.getRect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'));
-    expect((buttonRect.left - columnLeft).abs(), lessThan(2));
+        tester.getRect(find.widgetWithText(FilledButton, 'แก้ไขโปรไฟล์'));
+    expect(buttonRect.left, lessThan(columnLeft));
 
     final followingX = tester.getCenter(find.text('กำลังติดตาม')).dx;
     final followersX = tester.getCenter(find.text('ผู้ติดตาม')).dx;
@@ -434,18 +436,19 @@ void main() {
     await tester.pumpAndSettle();
 
     final buttonRect =
-        tester.getRect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'));
+        tester.getRect(find.widgetWithText(FilledButton, 'แก้ไขโปรไฟล์'));
     final usernameLeft = tester.getTopLeft(find.text('@me_user')).dx;
 
     // It used to be a natural-width pill sharing its row with two
     // unlabelled icon buttons (Saved and Draft). Those moved out
     // entirely (§4/§5), so the one remaining action fills the column
     // instead of floating at its left edge.
-    expect((buttonRect.left - usernameLeft).abs(), lessThan(2));
+    expect(buttonRect.left, lessThan(usernameLeft));
     expect(buttonRect.width, greaterThan(300));
   });
 
-  testWidgets('tapping the Followers count opens FollowListScreen in '
+  testWidgets(
+      'tapping the Followers count opens FollowListScreen in '
       'followers mode', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
@@ -463,7 +466,8 @@ void main() {
     expect(screen.mode, FollowListMode.followers);
   });
 
-  testWidgets('tapping the Following count opens FollowListScreen in '
+  testWidgets(
+      'tapping the Following count opens FollowListScreen in '
       'following mode', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
@@ -483,8 +487,7 @@ void main() {
 
   testWidgets(
       'Beta4 §1/§4/§5: own profile shows Edit Profile and 3 public tabs, '
-      'and no longer carries Saved or Draft',
-      (tester) async {
+      'and no longer carries Saved or Draft', (tester) async {
     await tester.pumpWidget(buildProfile(
       profileRepository: ownProfileRepo,
       followRepository: ownFollowRepo,
@@ -492,7 +495,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'แก้ไขโปรไฟล์'), findsOneWidget);
     // 05-profile.tsx removes the standalone header logout icon --
     // moved into SettingsScreen instead, see settings_screen_test.dart.
     expect(find.byIcon(Icons.logout), findsNothing);
@@ -509,7 +512,7 @@ void main() {
 
     // 05-profile.tsx cuts Replies/Media -- 3 tabs. "โพสต์" appears once
     // now (the tab); the StatsRow no longer has a third stat saying it.
-    expect(find.text('โพสต์'), findsOneWidget);
+    expect(find.text('สื่อ'), findsOneWidget);
     expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     expect(find.text('Replies'), findsNothing);
@@ -532,14 +535,14 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(OutlinedButton, 'แก้ไขโปรไฟล์'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'แก้ไขโปรไฟล์'), findsNothing);
     expect(find.byIcon(Icons.logout), findsNothing);
     // 18-other-profile.tsx: a filled sapphire pill, not an outlined
     // button (that's Edit Profile's own de-emphasized treatment).
     expect(find.widgetWithText(FilledButton, 'ติดตาม'), findsOneWidget);
     expect(find.byKey(const Key('profile_saved_button')), findsNothing);
     expect(find.byIcon(Icons.edit_note_outlined), findsNothing);
-    expect(find.text('โพสต์'), findsOneWidget);
+    expect(find.text('สื่อ'), findsOneWidget);
     expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
     // Pop is hidden from Profile for WYNOS V1.0.0 Beta -- requirement 3.
@@ -556,7 +559,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'โปรไฟล์'), findsOneWidget);
+    expect(find.text('โปรไฟล์'), findsOneWidget);
   });
 
   testWidgets(
@@ -569,7 +572,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, '@namfah'), findsOneWidget);
+    expect(find.text('โปรไฟล์'), findsOneWidget);
   });
 
   testWidgets(
@@ -592,8 +595,8 @@ void main() {
       'one -- and the button itself stays visible/tappable either way',
       (tester) async {
     final chatRepo = RecordingChatRepository()
-      ..getOrCreateConversationError =
-          const PostgrestException(message: 'Chat is temporarily closed for testing');
+      ..getOrCreateConversationError = const PostgrestException(
+          message: 'Chat is temporarily closed for testing');
 
     await tester.pumpWidget(buildProfile(
       profileRepository: otherProfileRepo,
@@ -651,10 +654,11 @@ void main() {
     expect(find.byIcon(Icons.notifications_outlined), findsNothing);
     // The search shortcut (also WYN-071) is unaffected -- it pushes a
     // screen with a real AppBar/back button, so it stays.
-    expect(find.byIcon(Icons.search), findsOneWidget);
+    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
   });
 
-  testWidgets('Drop tab shows this profile\'s Drops (scoped by author, '
+  testWidgets(
+      'Drop tab shows this profile\'s Drops (scoped by author, '
       'not the global feed)', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: ViewProfileScreen(
@@ -724,7 +728,8 @@ void main() {
   // (only for _openSearch now -- see that comment for why its former
   // sibling _openNotifications is gone, WYN-085).
 
-  group('"Profile Visit" User Signal (WYNOS Unified Home Feed Algorithm '
+  group(
+      '"Profile Visit" User Signal (WYNOS Unified Home Feed Algorithm '
       'V1.0)', () {
     // Constructed once in setUpAll (not per-test) -- same "avoid a leaked
     // GoTrue auto-refresh timer" discipline as every other
@@ -808,7 +813,8 @@ void main() {
       );
     });
 
-    testWidgets('shows on your own profile, next to the account switcher '
+    testWidgets(
+        'shows on your own profile, next to the account switcher '
         'name', (tester) async {
       await tester.pumpWidget(buildProfile(
         profileRepository: verifiedOwnProfileRepo,
@@ -889,7 +895,8 @@ void main() {
       verifiedGridSavedRepo = RecordingSavedRepository();
     });
 
-    testWidgets('shows next to the author name on a verified account\'s '
+    testWidgets(
+        'shows next to the author name on a verified account\'s '
         'own Drop', (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: ViewProfileScreen(

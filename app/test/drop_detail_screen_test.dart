@@ -35,8 +35,7 @@ class _PagedCommentDropRepository extends RecordingDropRepository {
       );
 
   static final page0 = [
-    for (var i = 0; i < DropRepository.commentPageSize; i++)
-      _comment('p0-$i'),
+    for (var i = 0; i < DropRepository.commentPageSize; i++) _comment('p0-$i'),
   ];
   static final page1 = [_comment('p1-0'), _comment('p1-1')];
 
@@ -217,7 +216,13 @@ void main() {
     // (.wyn/docs/design/wyn-005-drop.md) called out building it that way
     // from the start, so this test exists to prove it actually was.
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: tallDrop),
+      home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: tallDrop),
     ));
     // fetchComments() fails against the fake network, and the image
     // fails to load -- both expected, neither is what this test checks.
@@ -277,7 +282,13 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: drop),
+      home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop),
     ));
     await tester.pump();
     // No real network access in the test environment -- expected and
@@ -289,7 +300,10 @@ void main() {
     // 07-post-detail.tsx: the count lives in the plain-language stat
     // line ("3 ถูกใจ"), not next to the action-bar icon anymore -- see
     // DropDetailScreen._buildStatLine.
-    expect(find.text('3 ถูกใจ'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('ถูกใจ 3 คน กดเพื่อถูกใจ')),
+      findsOneWidget,
+    );
 
     // The square image above it (AspectRatio 1, 800px wide in this test
     // viewport) pushes the like button below the visible 600px-tall
@@ -301,7 +315,10 @@ void main() {
     await tester.pump();
 
     expect(findHeart(filled: true), findsOneWidget);
-    expect(find.text('4 ถูกใจ'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('ถูกใจแล้ว 4 คน กดเพื่อเลิกถูกใจ')),
+      findsOneWidget,
+    );
   });
 
   // Founder feedback: a verified account's Drop showed the checkmark on
@@ -309,7 +326,8 @@ void main() {
   // authorIsVerified through) but not here -- DropDetailScreen's own
   // header never rendered VerifiedBadge at all, so tapping into the
   // exact same Drop lost the mark it had a moment ago.
-  testWidgets('shows VerifiedBadge in the header for a verified account\'s '
+  testWidgets(
+      'shows VerifiedBadge in the header for a verified account\'s '
       'Drop', (tester) async {
     final verifiedDrop = Drop(
       id: 'd-verified',
@@ -340,8 +358,7 @@ void main() {
     expect(find.byType(VerifiedBadge), findsOneWidget);
   });
 
-  testWidgets('shows a Follow button for another user\'s Drop',
-      (tester) async {
+  testWidgets('shows a Follow button for another user\'s Drop', (tester) async {
     final otherDrop = Drop(
       id: 'd3',
       authorId: 'someone-else',
@@ -372,10 +389,12 @@ void main() {
     // squeezed to 30px tall to fit the header row -- confirm the fix
     // actually reaches the 44px minimum, not just that the button exists.
     final followButtonSize = tester.getSize(
-      find.ancestor(
-        of: find.widgetWithText(OutlinedButton, 'ติดตาม'),
-        matching: find.byType(SizedBox),
-      ).first,
+      find
+          .ancestor(
+            of: find.widgetWithText(OutlinedButton, 'ติดตาม'),
+            matching: find.byType(SizedBox),
+          )
+          .first,
     );
     expect(followButtonSize.height, greaterThanOrEqualTo(44));
   });
@@ -423,25 +442,30 @@ void main() {
     tester.takeException();
 
     final deleteButtonSize = tester.getSize(
-      find.ancestor(
-        of: find.widgetWithIcon(IconButton, Icons.delete_outline),
-        matching: find.byType(SizedBox),
-      ).first,
+      find
+          .ancestor(
+            of: find.widgetWithIcon(IconButton, Icons.delete_outline),
+            matching: find.byType(SizedBox),
+          )
+          .first,
     );
     expect(deleteButtonSize.width, greaterThanOrEqualTo(44));
     expect(deleteButtonSize.height, greaterThanOrEqualTo(44));
 
     final likeButtonSize = tester.getSize(
-      find.ancestor(
-        of: findHeartButton<IconButton>(filled: false),
-        matching: find.byType(SizedBox),
-      ).first,
+      find
+          .ancestor(
+            of: findHeartButton<IconButton>(filled: false),
+            matching: find.byType(SizedBox),
+          )
+          .first,
     );
     expect(likeButtonSize.width, greaterThanOrEqualTo(44));
     expect(likeButtonSize.height, greaterThanOrEqualTo(44));
   });
 
-  testWidgets('does not show a Follow button for the current user\'s own '
+  testWidgets(
+      'does not show a Follow button for the current user\'s own '
       'Drop', (tester) async {
     final ownDrop = Drop(
       id: 'd4',
@@ -621,7 +645,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'คำตอบของฉัน');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.send));
+      await tester.tap(find.byIcon(Icons.send_rounded));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -632,7 +656,8 @@ void main() {
       expect(find.text('ตอบกลับ @namfah'), findsNothing);
     });
 
-    testWidgets('cancelling a reply (tapping the X) clears the chip and reply state',
+    testWidgets(
+        'cancelling a reply (tapping the X) clears the chip and reply state',
         (tester) async {
       tester.view.physicalSize = const Size(800, 2200);
       tester.view.devicePixelRatio = 1.0;
@@ -655,7 +680,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ตอบกลับ @namfah'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
 
       expect(find.text('ตอบกลับ @namfah'), findsNothing);
@@ -686,7 +711,8 @@ void main() {
           pollOptionCounts: optionCounts,
         );
 
-    testWidgets('shows the Poll widget instead of an image, and voting '
+    testWidgets(
+        'shows the Poll widget instead of an image, and voting '
         'calls votePoll and updates optimistically', (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: DropDetailScreen(
@@ -783,7 +809,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
       await tester.pumpAndSettle();
 
       expect(find.text('แก้ไข'), findsOneWidget);
@@ -819,7 +847,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
       await tester.pumpAndSettle();
 
       expect(find.text('แก้ไข'), findsNothing);
@@ -856,7 +886,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('แก้ไข'));
       await tester.pumpAndSettle();
@@ -904,7 +936,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('ลบ'));
       await tester.pumpAndSettle();
@@ -954,7 +988,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('ลบ'));
       await tester.pumpAndSettle();
@@ -1003,7 +1039,9 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert)).onPressed!();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
       await tester.pumpAndSettle();
       await tester.tap(find.text('ลบ'));
       await tester.pumpAndSettle();
@@ -1051,7 +1089,13 @@ void main() {
       // the (fake, network-less) RPC call resolves. Lives in the stat
       // line now ("6 การเข้าชม"), not a bare number -- see
       // DropDetailScreen._buildStatLine.
-      expect(find.text('6 การเข้าชม'), findsOneWidget);
+      final activityEntry = find.text('ดูกิจกรรม');
+      await tester.ensureVisible(activityEntry);
+      await tester.pumpAndSettle();
+      await tester.tap(activityEntry);
+      await tester.pumpAndSettle();
+      expect(find.text('การเข้าชม'), findsOneWidget);
+      expect(find.text('6'), findsOneWidget);
     });
 
     testWidgets(
@@ -1087,7 +1131,13 @@ void main() {
       expect(ownDropViewCountTestRepo.recordViewArgs, ['view-own-1']);
       // Optimistically bumped the same as any other viewer -- 5 -> 6
       // (stat line, see DropDetailScreen._buildStatLine).
-      expect(find.text('6 การเข้าชม'), findsOneWidget);
+      final activityEntry = find.text('ดูกิจกรรม');
+      await tester.ensureVisible(activityEntry);
+      await tester.pumpAndSettle();
+      await tester.tap(activityEntry);
+      await tester.pumpAndSettle();
+      expect(find.text('การเข้าชม'), findsOneWidget);
+      expect(find.text('6'), findsOneWidget);
     });
 
     testWidgets(
@@ -1188,16 +1238,20 @@ void main() {
       // 43, not the fixture's 42 -- WYN-083: this Drop's author is "me"
       // (the current viewer), and the author's own view now counts
       // too, so opening this screen optimistically bumps 42 -> 43.
-      expect(
-        find.bySemanticsLabel(RegExp('เข้าชมแล้ว 43 ครั้ง')),
-        findsOneWidget,
-      );
+      final activityEntry = find.text('ดูกิจกรรม');
+      await tester.ensureVisible(activityEntry);
+      await tester.pumpAndSettle();
+      await tester.tap(activityEntry);
+      await tester.pumpAndSettle();
+      expect(find.text('การเข้าชม'), findsOneWidget);
+      expect(find.text('43'), findsOneWidget);
     });
   });
 
   // WYN-097, Design spec Screen 6.
   group('ReDrop button hidden for non-"ทุกคน" audience (WYN-097)', () {
-    testWidgets('the FocusedActionBar has no ReDrop icon when the '
+    testWidgets(
+        'the FocusedActionBar has no ReDrop icon when the '
         "Drop's audience is not everyone", (tester) async {
       final drop = Drop(
         id: 'd-audience',
@@ -1225,12 +1279,13 @@ void main() {
       await tester.pump();
       tester.takeException();
 
-      expect(find.byIcon(Icons.repeat), findsNothing);
+      expect(find.byIcon(Icons.repeat_rounded), findsNothing);
       // Like is still there -- only ReDrop is conditionally hidden.
       expect(findHeart(filled: false), findsOneWidget);
     });
 
-    testWidgets('the ReDrop icon is shown as usual for audience == '
+    testWidgets(
+        'the ReDrop icon is shown as usual for audience == '
         'everyone (no regression)', (tester) async {
       final drop = Drop(
         id: 'd-audience-2',
@@ -1257,13 +1312,14 @@ void main() {
       await tester.pump();
       tester.takeException();
 
-      expect(find.byIcon(Icons.repeat), findsOneWidget);
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
     });
   });
 
   // WYN-098, Design spec Screen 4.
   group('Location check-in display (WYN-098)', () {
-    testWidgets('shows "· 📍 {location}" appended to the relative-time '
+    testWidgets(
+        'shows "· 📍 {location}" appended to the relative-time '
         'text when the Drop has a check-in', (tester) async {
       final drop = Drop(
         id: 'd-location',
@@ -1294,7 +1350,8 @@ void main() {
       expect(find.textContaining('📍 สยามพารากอน'), findsOneWidget);
     });
 
-    testWidgets('shows nothing extra when the Drop has no location '
+    testWidgets(
+        'shows nothing extra when the Drop has no location '
         '(no regression)', (tester) async {
       final drop = Drop(
         id: 'd-no-location',
@@ -1361,8 +1418,7 @@ void main() {
       // -- it would be a lie.
       expect(find.text('ไม่มีความคิดเห็นเพิ่มเติมแล้ว'), findsNothing);
 
-      final loadMore =
-          find.byKey(const Key('drop_detail_load_more_comments'));
+      final loadMore = find.byKey(const Key('drop_detail_load_more_comments'));
       // The comment list is the outermost Scrollable on this screen;
       // naming it explicitly avoids matching the composer's own.
       await tester.scrollUntilVisible(

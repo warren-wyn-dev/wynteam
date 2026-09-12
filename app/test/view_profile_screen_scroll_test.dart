@@ -88,7 +88,7 @@ void main() {
     await pumpScrollableProfile(tester);
 
     expect(find.text('แก้ไขโปรไฟล์'), findsOneWidget);
-    expect(find.text('โพสต์'), findsOneWidget);
+    expect(find.text('สื่อ'), findsOneWidget);
   });
 
   testWidgets(
@@ -106,14 +106,14 @@ void main() {
     expect(find.text('แก้ไขโปรไฟล์'), findsNothing);
     // ...but the TabBar -- the one thing that is supposed to stay --
     // is still there, pinned rather than scrolled off with it.
-    expect(find.text('โพสต์'), findsOneWidget);
+    expect(find.text('สื่อ'), findsOneWidget);
     expect(find.text('รีโพสต์'), findsOneWidget);
     expect(find.text('ถูกใจ'), findsOneWidget);
 
     // Pinned means fixed at a Y position, not just "still built
     // somewhere off-screen": it must actually be on screen, just below
     // the AppBar.
-    final tabBarTop = tester.getTopLeft(find.text('โพสต์')).dy;
+    final tabBarTop = tester.getTopLeft(find.text('สื่อ')).dy;
     expect(tabBarTop, greaterThan(0));
     expect(tabBarTop, lessThan(150));
   });

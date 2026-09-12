@@ -99,6 +99,9 @@ end
 $$;
 
 grant usage on schema public to authenticated, anon;
+grant usage on schema auth to authenticated, anon;
+grant execute on function auth.uid() to authenticated, anon;
+grant execute on function auth.role() to authenticated, anon;
 grant usage on schema storage to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
 grant select, insert on storage.objects to authenticated;

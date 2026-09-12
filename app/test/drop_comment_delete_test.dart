@@ -88,7 +88,13 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: drop),
+      home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop),
     ));
     await tester.pumpAndSettle();
     tester.takeException();
@@ -119,7 +125,13 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(MaterialApp(
-      home: DropDetailScreen(dropRepository: repo, followRepository: followRepo, profileRepository: profileRepo, popRepository: popRepo, savedRepository: savedRepo, drop: drop),
+      home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop),
     ));
     await tester.pumpAndSettle();
     tester.takeException();
@@ -153,11 +165,14 @@ void main() {
     // count entirely, but the real app keeps one (Founder decision,
     // 2026-08-29) -- see DropDetailScreen._buildStatLine.
     await tester.scrollUntilVisible(
-      find.text('1 คอมเมนต์'),
+      find.bySemanticsLabel(RegExp('ความคิดเห็น 1 รายการ')),
       -500,
       scrollable: find.byType(Scrollable).first,
     );
     tester.takeException();
-    expect(find.text('1 คอมเมนต์'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('ความคิดเห็น 1 รายการ')),
+      findsOneWidget,
+    );
   });
 }

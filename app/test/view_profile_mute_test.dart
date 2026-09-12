@@ -76,7 +76,7 @@ void main() {
     await tester.pumpWidget(buildProfile());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
     await tester.pumpAndSettle();
 
     final items =
@@ -88,12 +88,13 @@ void main() {
     expect(titles, ['แชร์โปรไฟล์', 'รายงาน', 'ปิดเสียง', 'บล็อก']);
   });
 
-  testWidgets('tapping ปิดเสียง calls muteUser and shows a confirmation '
+  testWidgets(
+      'tapping ปิดเสียง calls muteUser and shows a confirmation '
       'SnackBar, with no confirm dialog', (tester) async {
     await tester.pumpWidget(buildProfile());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
     await tester.pumpAndSettle();
     await tester.tap(find.text('ปิดเสียง'));
     await tester.pumpAndSettle();
@@ -110,7 +111,7 @@ void main() {
     await tester.pumpWidget(buildProfile());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('เปิดเสียง'), findsOneWidget);
@@ -123,13 +124,14 @@ void main() {
     expect(find.text('เปิดเสียง @namfah แล้ว'), findsOneWidget);
   });
 
-  testWidgets('does not show ปิดเสียง/เปิดเสียง at all when a block '
+  testWidgets(
+      'does not show ปิดเสียง/เปิดเสียง at all when a block '
       'relationship already exists', (tester) async {
     blockRepo.blockRelationshipResult = BlockRelationship.blockedByMe;
     await tester.pumpWidget(buildProfile());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
     await tester.pumpAndSettle();
 
     expect(find.text('ปิดเสียง'), findsNothing);
@@ -144,7 +146,7 @@ void main() {
     await tester.pumpWidget(buildProfile());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
     await tester.pumpAndSettle();
     await tester.tap(find.text('ปิดเสียง'));
     await tester.pumpAndSettle();
@@ -152,7 +154,7 @@ void main() {
     expect(find.text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'), findsOneWidget);
 
     // Reverted -- opening the menu again should still offer ปิดเสียง.
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
     await tester.pumpAndSettle();
     expect(find.text('ปิดเสียง'), findsOneWidget);
   });
