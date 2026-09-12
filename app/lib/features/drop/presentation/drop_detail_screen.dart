@@ -1159,19 +1159,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     );
   }
 
-  List<DropComment> get _activityParticipants {
-    final comments = _comments ?? const <DropComment>[];
-    final seen = <String>{};
-    final result = <DropComment>[];
-    for (final comment in comments) {
-      if (seen.add(comment.authorId)) result.add(comment);
-      if (result.length == 3) break;
-    }
-    return result;
-  }
-
   Widget _buildActivityRow() {
-    final participants = _activityParticipants;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         WynosFounderMetrics.detailEdgeInset,
@@ -1185,48 +1173,21 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         child: InkWell(
           onTap: _openActivitySheet,
           borderRadius: BorderRadius.circular(18),
-          child: SizedBox(
+          child: const SizedBox(
             height: WynosFounderMetrics.activityRowHeight,
             child: Row(
               children: [
-                const SizedBox(width: 14),
-                if (participants.isNotEmpty)
-                  SizedBox(
-                    width: 58,
-                    height: 36,
-                    child: Stack(
-                      children: [
-                        for (final (index, participant) in participants.indexed)
-                          Positioned(
-                            left: index * 15,
-                            top: 1,
-                            child: Container(
-                              padding: const EdgeInsets.all(1.5),
-                              decoration: const BoxDecoration(
-                                color: WynColors.paper,
-                                shape: BoxShape.circle,
-                              ),
-                              child: AvatarCircle(
-                                imageUrl: participant.authorAvatarUrl,
-                                fallbackText: participant.authorUsername,
-                                radius: 15,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )
-                else
-                  const SizedBox(
-                    width: 42,
-                    child: Icon(
-                      Icons.insights_outlined,
-                      size: 22,
-                      color: WynColors.graphite,
-                    ),
+                SizedBox(width: 14),
+                SizedBox(
+                  width: 42,
+                  child: Icon(
+                    Icons.insights_outlined,
+                    size: 22,
+                    color: WynColors.graphite,
                   ),
-                const SizedBox(width: 7),
-                const Expanded(
+                ),
+                SizedBox(width: 7),
+                Expanded(
                   child: Text(
                     'ดูกิจกรรม',
                     style: TextStyle(
@@ -1236,12 +1197,12 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     ),
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
                   size: 27,
                   color: WynColors.graphite,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
               ],
             ),
           ),
@@ -1256,45 +1217,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: WynColors.paper,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'กิจกรรมโพสต์',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: WynColors.ink,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: const Icon(Icons.favorite_rounded,
-                    color: WynColors.iconLikeActive),
-                title: const Text('ถูกใจ'),
-                trailing: Text('${_drop.likeCount}'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.mode_comment_outlined),
-                title: const Text('ความคิดเห็น'),
-                trailing: Text('${_drop.commentCount}'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.repeat_rounded),
-                title: const Text('รีโพสต์'),
-                trailing: Text('${_drop.redropCount}'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.visibility_outlined),
-                title: const Text('การเข้าชม'),
-                trailing: Text('${_drop.viewCount}'),
-              ),
-            ],
-          ),
-        ),
+      builder: (context) => _DropActivitySheet(
+        dropId: _drop.id,
+        dropRepository: widget.dropRepository,
+        followRepository: widget.followRepository,
+        profileRepository: widget.profileRepository,
+        popRepository: widget.popRepository,
+        savedRepository: widget.savedRepository,
       ),
     );
   }
@@ -1585,3 +1514,222 @@ TextStyle _textStyle({
       color: color,
       height: height,
     );
+
+class _DropActivitySheet extends StatefulWidget {
+  const _DropActivitySheet({
+    required this.dropId,
+    required this.dropRepository,
+    required this.followRepository,
+    required this.profileRepository,
+    required this.popRepository,
+    required this.savedRepository,
+  });
+
+  final String dropId;
+  final DropRepository dropRepository;
+  final FollowRepository followRepository;
+  final ProfileRepository profileRepository;
+  final PopRepository popRepository;
+  final SavedRepository savedRepository;
+
+  @override
+  State<_DropActivitySheet> createState() => _DropActivitySheetState();
+}
+
+class _DropActivitySheetState extends State<_DropActivitySheet> {
+  late Future<({List<Profile> liked, List<Profile> redropped})> _activity;
+
+  @override
+  void initState() {
+    super.initState();
+    _activity = _loadActivity();
+  }
+
+  Future<({List<Profile> liked, List<Profile> redropped})>
+      _loadActivity() async {
+    final idLists = await Future.wait<List<String>>([
+      widget.dropRepository.fetchLikeUserIds(widget.dropId),
+      widget.dropRepository.fetchRedropperIds(widget.dropId),
+    ]);
+    final likedIds = idLists[0];
+    final redroppedIds = idLists[1];
+
+    final allIds = <String>[];
+    final seen = <String>{};
+    for (final id in [...likedIds, ...redroppedIds]) {
+      if (seen.add(id)) allIds.add(id);
+    }
+
+    final profiles = await widget.profileRepository.fetchProfilesByIds(allIds);
+    final byId = {for (final profile in profiles) profile.id: profile};
+
+    return (
+      liked: [
+        for (final id in likedIds)
+          if (byId[id] != null) byId[id]!,
+      ],
+      redropped: [
+        for (final id in redroppedIds)
+          if (byId[id] != null) byId[id]!,
+      ],
+    );
+  }
+
+  void _retry() {
+    setState(() => _activity = _loadActivity());
+  }
+
+  void _openProfile(Profile profile) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewProfileScreen(
+          profileRepository: widget.profileRepository,
+          followRepository: widget.followRepository,
+          dropRepository: widget.dropRepository,
+          popRepository: widget.popRepository,
+          savedRepository: widget.savedRepository,
+          userId: profile.id,
+        ),
+      ),
+    );
+  }
+
+  Widget _peopleList(List<Profile> profiles, {required String emptyLabel}) {
+    if (profiles.isEmpty) {
+      return Center(
+        child: Text(
+          emptyLabel,
+          style: const TextStyle(fontSize: 14, color: WynColors.graphite),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: profiles.length,
+      separatorBuilder: (_, __) => const Divider(
+        height: 1,
+        indent: 72,
+        color: WynColors.hairline,
+      ),
+      itemBuilder: (context, index) {
+        final profile = profiles[index];
+        return ListTile(
+          onTap: () => _openProfile(profile),
+          leading: AvatarCircle(
+            imageUrl: profile.avatarUrl,
+            fallbackText: profile.username,
+            radius: 21,
+          ),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  profile.nameOrUsername,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: WynColors.ink,
+                  ),
+                ),
+              ),
+              if (profile.isVerified) ...[
+                const SizedBox(width: 4),
+                const VerifiedBadge(),
+              ],
+            ],
+          ),
+          subtitle: profile.username.isEmpty
+              ? null
+              : Text(
+                  '@${profile.username}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: WynColors.mutedNeutral,
+                  ),
+                ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.72,
+        child: DefaultTabController(
+          length: 2,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 2, 20, 8),
+                child: Text(
+                  'กิจกรรมโพสต์',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: WynColors.ink,
+                  ),
+                ),
+              ),
+              const TabBar(
+                labelColor: WynColors.ink,
+                unselectedLabelColor: WynColors.graphite,
+                indicatorColor: WynColors.sapphire,
+                tabs: [
+                  Tab(text: 'ถูกใจ'),
+                  Tab(text: 'รีโพสต์'),
+                ],
+              ),
+              const Divider(height: 1, color: WynColors.hairline),
+              Expanded(
+                child: FutureBuilder<
+                    ({List<Profile> liked, List<Profile> redropped})>(
+                  future: _activity,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError || snapshot.data == null) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('โหลดกิจกรรมไม่สำเร็จ'),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _retry,
+                              child: const Text('ลองใหม่'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    final data = snapshot.data!;
+                    return TabBarView(
+                      children: [
+                        _peopleList(
+                          data.liked,
+                          emptyLabel: 'ยังไม่มีใครถูกใจโพสต์นี้',
+                        ),
+                        _peopleList(
+                          data.redropped,
+                          emptyLabel: 'ยังไม่มีใครรีโพสต์โพสต์นี้',
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

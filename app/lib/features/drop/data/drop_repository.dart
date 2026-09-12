@@ -266,6 +266,41 @@ class DropRepository {
     return (response as num).toInt();
   }
 
+  /// User ids that liked one Drop, newest Like first. This intentionally
+  /// reads the same public interaction rows that power Drop like counts/
+  /// liked-by avatars; WYN-099's likes_visibility only controls a user's
+  /// profile Likes tab, not whether their Like is attributable on the
+  /// post they interacted with.
+  Future<List<String>> fetchLikeUserIds(String dropId) async {
+    final rows = await _client
+        .from('drop_likes')
+        .select('user_id')
+        .eq('drop_id', dropId)
+        .order('created_at', ascending: false);
+    final seen = <String>{};
+    return rows
+        .map((row) => row['user_id'] as String)
+        .where(seen.add)
+        .toList(growable: false);
+  }
+
+  /// User ids that ReDropped one Drop, newest ReDrop first. Both Standard
+  /// and Quote ReDrops are included because [Drop.redropCount] also counts
+  /// both forms; duplicate ids are collapsed defensively while preserving
+  /// newest-first order.
+  Future<List<String>> fetchRedropperIds(String dropId) async {
+    final rows = await _client
+        .from('redrops')
+        .select('redropper_id')
+        .eq('drop_id', dropId)
+        .order('created_at', ascending: false);
+    final seen = <String>{};
+    return rows
+        .map((row) => row['redropper_id'] as String)
+        .where(seen.add)
+        .toList(growable: false);
+  }
+
   /// WYN-071: Profile's "Likes" tab -- Drops [authorId] has Liked, newest
   /// Like first (not newest Drop first -- ordered by `drop_likes.
   /// created_at`, mirroring how a Likes tab reads on the reference apps

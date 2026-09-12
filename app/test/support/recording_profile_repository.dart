@@ -97,6 +97,21 @@ class RecordingProfileRepository extends ProfileRepository {
   @override
   Future<bool> canViewLikes(String targetUserId) async => canViewLikesResult;
 
+  /// Canned bulk profile rows for callers that already have actor ids.
+  /// Any id not present here falls back to [profile] when it matches,
+  /// preserving the old single-profile fake behavior.
+  Map<String, Profile> profilesById = {};
+  int fetchProfilesByIdsCalls = 0;
+
+  @override
+  Future<List<Profile>> fetchProfilesByIds(List<String> ids) async {
+    fetchProfilesByIdsCalls++;
+    return ids
+        .map((id) => profilesById[id] ?? (profile.id == id ? profile : null))
+        .whereType<Profile>()
+        .toList(growable: false);
+  }
+
   @override
   Future<Profile?> fetchProfileByUsername(String username) async =>
       byUsernameResult;

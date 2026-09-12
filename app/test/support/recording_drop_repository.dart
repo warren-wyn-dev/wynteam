@@ -164,6 +164,29 @@ class RecordingDropRepository extends DropRepository {
     return null;
   }
 
+  /// Canned activity actor ids used by DropDetailScreen's activity sheet.
+  /// Keys are Drop ids; list order is newest interaction first, matching
+  /// the real repository methods.
+  Map<String, List<String>> likeUserIdsByDrop = {};
+  Map<String, List<String>> redropperIdsByDrop = {};
+  Object? fetchActivityPeopleError;
+  int fetchLikeUserIdsCalls = 0;
+  int fetchRedropperIdsCalls = 0;
+
+  @override
+  Future<List<String>> fetchLikeUserIds(String dropId) async {
+    fetchLikeUserIdsCalls++;
+    if (fetchActivityPeopleError != null) throw fetchActivityPeopleError!;
+    return likeUserIdsByDrop[dropId] ?? const <String>[];
+  }
+
+  @override
+  Future<List<String>> fetchRedropperIds(String dropId) async {
+    fetchRedropperIdsCalls++;
+    if (fetchActivityPeopleError != null) throw fetchActivityPeopleError!;
+    return redropperIdsByDrop[dropId] ?? const <String>[];
+  }
+
   /// Returned by [searchByCaption] for page 0 only, filtered by whether
   /// [feedDrops] caption contains [query] (case insensitive) -- same
   /// "reuse feedDrops as the fake dataset" approach as [fetchByAuthor].

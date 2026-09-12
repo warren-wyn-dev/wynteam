@@ -1085,17 +1085,13 @@ void main() {
 
       expect(viewCountTestRepo.recordViewCalls, 1);
       expect(viewCountTestRepo.recordViewArgs, ['view-1']);
-      // The optimistic view-count bump is visible immediately, before
-      // the (fake, network-less) RPC call resolves. Lives in the stat
-      // line now ("6 การเข้าชม"), not a bare number -- see
-      // DropDetailScreen._buildStatLine.
+      // View recording remains behavioral state; post activity intentionally omits views.
       final activityEntry = find.text('ดูกิจกรรม');
       await tester.ensureVisible(activityEntry);
       await tester.pumpAndSettle();
       await tester.tap(activityEntry);
       await tester.pumpAndSettle();
-      expect(find.text('การเข้าชม'), findsOneWidget);
-      expect(find.text('6'), findsOneWidget);
+      expect(find.text('การเข้าชม'), findsNothing);
     });
 
     testWidgets(
@@ -1129,15 +1125,13 @@ void main() {
 
       expect(ownDropViewCountTestRepo.recordViewCalls, 1);
       expect(ownDropViewCountTestRepo.recordViewArgs, ['view-own-1']);
-      // Optimistically bumped the same as any other viewer -- 5 -> 6
-      // (stat line, see DropDetailScreen._buildStatLine).
+      // The author's own View is still recorded, but it is not an activity tab.
       final activityEntry = find.text('ดูกิจกรรม');
       await tester.ensureVisible(activityEntry);
       await tester.pumpAndSettle();
       await tester.tap(activityEntry);
       await tester.pumpAndSettle();
-      expect(find.text('การเข้าชม'), findsOneWidget);
-      expect(find.text('6'), findsOneWidget);
+      expect(find.text('การเข้าชม'), findsNothing);
     });
 
     testWidgets(
@@ -1183,9 +1177,8 @@ void main() {
     });
 
     testWidgets(
-        'the view count has a Semantics label -- a gap the Pop equivalent '
-        '(HomePopCard) has always had, deliberately not repeated here '
-        '(Design spec, Accessibility)', (tester) async {
+        'view recording stays active while post activity omits views',
+        (tester) async {
       final drop = Drop(
         id: 'view-3',
         authorId: 'me',
@@ -1212,39 +1205,13 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      // WYN-038 QA fix: none of the interaction row's individual
-      // Semantics wraps (Like/Follow/ReDrop/Save, and now View count) sit
-      // behind their own semantics *boundary* (no `container: true`
-      // anywhere in this header) -- a pre-existing gap on this screen
-      // since WYN-005, not something this task introduced. Because of
-      // that, all their labels (plus the header image's own auto-label,
-      // including its NetworkImage load-failure text in this
-      // no-real-network test environment) get merged upward into one
-      // single SemanticsNode. An *exact*-match `bySemanticsLabel(String)`
-      // therefore always finds 0 matches here, no matter what the real
-      // Drop id/viewCount/scroll position is -- confirmed with a debug
-      // semantics-tree dump before writing this fix. flutter_test's own
-      // API doc for `bySemanticsLabel` recommends exactly this fallback:
-      // "prefer matching by regular expression... if the framework has
-      // combined your semantics" -- so match a RegExp (substring) here
-      // instead of the brittle exact string. This only proves the label
-      // text exists somewhere in the merged semantics output, not that
-      // it is independently announced by a screen reader -- that stronger
-      // guarantee would need `Semantics(container: true)` boundaries
-      // added across the whole interaction row, which is a pre-existing
-      // gap out of scope for this task (affects Like/Follow/ReDrop/Save
-      // too, not just View count) -- flagged as a non-blocking finding
-      // in this round's QA report instead of fixed here.
-      // 43, not the fixture's 42 -- WYN-083: this Drop's author is "me"
-      // (the current viewer), and the author's own view now counts
-      // too, so opening this screen optimistically bumps 42 -> 43.
+      // Activity is intentionally limited to Likes and ReDrops; Views stay analytics-only.
       final activityEntry = find.text('ดูกิจกรรม');
       await tester.ensureVisible(activityEntry);
       await tester.pumpAndSettle();
       await tester.tap(activityEntry);
       await tester.pumpAndSettle();
-      expect(find.text('การเข้าชม'), findsOneWidget);
-      expect(find.text('43'), findsOneWidget);
+      expect(find.text('การเข้าชม'), findsNothing);
     });
   });
 
@@ -1458,4 +1425,71 @@ void main() {
       expect(find.text('ไม่มีความคิดเห็นเพิ่มเติมแล้ว'), findsOneWidget);
     });
   });
+
+  testWidgets(
+      'post activity shows only Like and ReDrop tabs and the people in each',
+      (tester) async {
+    repo.likeUserIdsByDrop['d-activity'] = ['liker-1'];
+    repo.redropperIdsByDrop['d-activity'] = ['redropper-1'];
+    profileRepo.profilesById = {
+      'liker-1': const Profile(
+        id: 'liker-1',
+        username: 'mint',
+        displayName: 'Mint',
+      ),
+      'redropper-1': const Profile(
+        id: 'redropper-1',
+        username: 'nine',
+        displayName: 'Nine',
+      ),
+    };
+
+    final activityDrop = Drop(
+      id: 'd-activity',
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      createdAt: DateTime.now(),
+      likeCount: 1,
+      commentCount: 9,
+      redropCount: 1,
+      viewCount: 20,
+      likedByMe: false,
+      savedByMe: false,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: activityDrop,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final activityEntry = find.text('ดูกิจกรรม');
+    await tester.ensureVisible(activityEntry);
+    await tester.pumpAndSettle();
+    await tester.tap(activityEntry);
+    await tester.pumpAndSettle();
+
+    expect(find.text('กิจกรรมโพสต์'), findsOneWidget);
+    expect(find.text('ถูกใจ'), findsOneWidget);
+    expect(find.text('รีโพสต์'), findsOneWidget);
+    expect(find.text('ทั้งหมด'), findsNothing);
+    expect(find.text('ความคิดเห็น'), findsNothing);
+    expect(find.text('การเข้าชม'), findsNothing);
+
+    expect(find.text('Mint'), findsOneWidget);
+    expect(find.text('@mint'), findsOneWidget);
+
+    await tester.tap(find.text('รีโพสต์'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nine'), findsOneWidget);
+    expect(find.text('@nine'), findsOneWidget);
+  });
+
 }
