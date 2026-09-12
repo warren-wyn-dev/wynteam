@@ -1173,9 +1173,9 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         child: InkWell(
           onTap: _openActivitySheet,
           borderRadius: BorderRadius.circular(18),
-          child: SizedBox(
+          child: const SizedBox(
             height: WynosFounderMetrics.activityRowHeight,
-            child: const Row(
+            child: Row(
               children: [
                 SizedBox(width: 14),
                 SizedBox(
