@@ -29,6 +29,10 @@ const double homeCardEdgeInset = WynSpacing.space4;
 /// The avatar's diameter, and so the width of the card's left column.
 const double homeCardAvatarDiameter = 40;
 
+/// Founder-marked vertical position: the avatar's top edge starts on the
+/// visual text line instead of at the top edge of the whole post row.
+const double homeCardAvatarTopInset = WynSpacing.space4;
+
 /// Gap between the avatar column and the content column.
 ///
 /// Deliberately not a [WynSpacing] token: `design-reference/01-home.tsx`

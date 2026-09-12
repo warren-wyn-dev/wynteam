@@ -4,6 +4,8 @@ import 'package:flutter/scheduler.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_typography.dart';
 import '../../../../core/widgets/network_thumbnail.dart';
+import '../../../home/presentation/widgets/home_card_metrics.dart'
+    show homeCardAvatarDiameter, homeCardAvatarTopInset;
 
 /// A circular avatar image, falling back to the first letter of
 /// [fallbackText] on a primary-colored background -- per the WYN-003
@@ -70,6 +72,29 @@ class _AvatarCircleState extends State<AvatarCircle> {
     }
   }
 
+  bool _isHomeFeedPostAvatar(BuildContext context) {
+    // Home feed cards already expose a card-level Semantics label. Use that
+    // existing context to apply the Founder-approved vertical alignment only
+    // to the 40px post avatar, leaving every other AvatarCircle untouched.
+    var isHomePost = false;
+    context.visitAncestorElements((element) {
+      final ancestor = element.widget;
+      if (ancestor is Semantics) {
+        final label = ancestor.properties.label;
+        final isPostLabel =
+            label != null &&
+            (label.startsWith('รูปของ ') || label.startsWith('วิดีโอของ '));
+        if (ancestor.properties.button == true && isPostLabel) {
+          isHomePost = true;
+          return false;
+        }
+      }
+      return true;
+    });
+    return isHomePost &&
+        (widget.radius - (homeCardAvatarDiameter / 2)).abs() < 0.001;
+  }
+
   @override
   Widget build(BuildContext context) {
     final fallbackText = widget.fallbackText;
@@ -115,7 +140,7 @@ class _AvatarCircleState extends State<AvatarCircle> {
           : null,
     );
 
-    return Semantics(
+    final semanticAvatar = Semantics(
       label: 'รูปโปรไฟล์ของ $fallbackText',
       image: true,
       // The placeholder letter is purely decorative once the label above
@@ -136,6 +161,12 @@ class _AvatarCircleState extends State<AvatarCircle> {
               child: avatar,
             )
           : avatar,
+    );
+
+    if (!_isHomeFeedPostAvatar(context)) return semanticAvatar;
+    return Padding(
+      padding: const EdgeInsets.only(top: homeCardAvatarTopInset),
+      child: semanticAvatar,
     );
   }
 }
