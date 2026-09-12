@@ -1,0 +1,37 @@
+name: Feed header time caption regression once
+
+on:
+  push:
+    branches:
+      - fix/feed-header-time-caption
+    paths:
+      - .github/workflows/feed-header-time-caption-tests-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/feed-header-time-caption
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - name: Patch regression expectations
+        run: python3 tools/feed_header_time_caption_test_patch.py
+      - name: Format test
+        run: dart format app/test/home_drop_card_overflow_test.dart
+      - name: Focused test
+        working-directory: app
+        run: flutter test test/home_drop_card_overflow_test.dart
+      - name: Commit test update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/test/home_drop_card_overflow_test.dart
+          git commit -m "test(feed): lock inline time and caption nudge"
+          git push origin HEAD:fix/feed-header-time-caption
