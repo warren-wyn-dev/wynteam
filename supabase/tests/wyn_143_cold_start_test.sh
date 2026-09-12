@@ -278,9 +278,9 @@ insert into results select 'CHECK19_global_contracts_remain_unpersonalized',
    'public.get_top100_candidates(integer)'::regprocedure))=0)::int),1;
 insert into results select 'CHECK20_top100_is_bounded_quality_signal',
  ((position('top100_quality_bonus' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))>0
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0
    and position('(101 - t100.current_rank) / 10.0' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))>0)::int),1;
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0)::int),1;
 insert into results select 'CHECK21_no_impression_confidence',
  (position('impression' in pg_get_functiondef(
    'public.get_my_personalization_maturity()'::regprocedure))=0)::int,1;

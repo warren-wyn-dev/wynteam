@@ -1,47 +1,5 @@
-FAILED_SCRIPT=supabase/tests/wyn_143_cold_start_test.sh
+FAILED_SCRIPT=supabase/tests/wyn_144_feed_quality_test.sh
 --- SUITE_TAIL ---
-ALL CHECKS PASSED
-===== RUN supabase/tests/wyn_143_cold_start_test.sh =====
-Pager usage is off.
-BEGIN
-CREATE TABLE
-INSERT 0 10
-INSERT 0 10
-INSERT 0 2
-INSERT 0 2
-INSERT 0 1
-INSERT 0 1
-SET
-SET
-SET
-INSERT 0 1
-RESET
-RESET
-RESET
-SET
-SET
-SET
-INSERT 0 1
-RESET
-RESET
-RESET
-INSERT 0 1
-INSERT 0 1
-INSERT 0 1
-INSERT 0 1
-INSERT 0 1
-INSERT 0 1
-INSERT 0 3
-INSERT 0 1
-INSERT 0 1
-INSERT 0 1
- learn_from_drop 
------------------
- 
-(1 row)
-
-SELECT 1
- learn_from_drop 
 -----------------
  
 (1 row)
@@ -81,6 +39,30 @@ INSERT 0 1
 RESET
 RESET
 RESET
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+ refresh_trending_scores 
+-------------------------
+                       2
+(1 row)
+
+ refresh_feed_content_quality 
+------------------------------
+                            2
+(1 row)
+
+ refresh_feed_content_quality 
+------------------------------
+                            2
+(1 row)
+
+INSERT 0 1
 INSERT 0 1
 INSERT 0 1
 INSERT 0 1
@@ -99,11 +81,20 @@ INSERT 0 1
  CHECK18_feed_emits_safe_maturity_not_confidence  |      1 |        1
  CHECK19_global_contracts_remain_unpersonalized   |      1 |        1
  CHECK1_topic_affinity_created                    |      2 |        2
- CHECK20_top100_is_bounded_quality_signal         |      0 |        1
+ CHECK20_top100_is_bounded_quality_signal         |      1 |        1
  CHECK21_no_impression_confidence                 |      1 |        1
+ CHECK22_quality_is_bounded                       |      1 |        1
+ CHECK23_unique_quality_beats_noisy_negative      |      1 |        1
+ CHECK24_tiny_sample_is_smoothed                  |      1 |        1
+ CHECK25_reports_are_strong                       |      1 |        1
+ CHECK26_spam_risk_is_bounded_penalty             |      1 |        1
+ CHECK27_refresh_is_idempotent                    |      1 |        1
+ CHECK28_quality_request_path_is_precomputed      |      0 |        1
+ CHECK29_global_rankers_unchanged                 |      1 |        1
  CHECK2A_gaming_user_prefers_gaming               |      1 |        1
  CHECK2B_fashion_user_prefers_fashion             |      1 |        1
  CHECK2_profiles_are_user_specific                |      1 |        1
+ CHECK30_sensitive_quality_fields_not_granted     |      1 |        1
  CHECK3_save_stronger_than_like                   |      1 |        1
  CHECK4_share_stronger_than_save                  |      1 |        1
  CHECK5_follow_is_strong_creator_prior            |      1 |        1
@@ -111,7 +102,7 @@ INSERT 0 1
  CHECK7_not_interested_is_strong_negative         |      1 |        1
  CHECK8_event_replay_is_idempotent                |      0 |        0
  CHECK9_effective_scores_are_bounded              |      0 |        0
-(25 rows)
+(34 rows)
 
 COMMIT
 PASS: CHECK10A_recent_interest_outweighs_stale (expected 1, got 1)
@@ -127,11 +118,20 @@ PASS: CHECK17_one_like_does_not_overfit (expected 1, got 1)
 PASS: CHECK18_feed_emits_safe_maturity_not_confidence (expected 1, got 1)
 PASS: CHECK19_global_contracts_remain_unpersonalized (expected 1, got 1)
 PASS: CHECK1_topic_affinity_created (expected 2, got 2)
-FAIL: CHECK20_top100_is_bounded_quality_signal -- expected 1, got 0
+PASS: CHECK20_top100_is_bounded_quality_signal (expected 1, got 1)
 PASS: CHECK21_no_impression_confidence (expected 1, got 1)
+PASS: CHECK22_quality_is_bounded (expected 1, got 1)
+PASS: CHECK23_unique_quality_beats_noisy_negative (expected 1, got 1)
+PASS: CHECK24_tiny_sample_is_smoothed (expected 1, got 1)
+PASS: CHECK25_reports_are_strong (expected 1, got 1)
+PASS: CHECK26_spam_risk_is_bounded_penalty (expected 1, got 1)
+PASS: CHECK27_refresh_is_idempotent (expected 1, got 1)
+FAIL: CHECK28_quality_request_path_is_precomputed -- expected 1, got 0
+PASS: CHECK29_global_rankers_unchanged (expected 1, got 1)
 PASS: CHECK2A_gaming_user_prefers_gaming (expected 1, got 1)
 PASS: CHECK2B_fashion_user_prefers_fashion (expected 1, got 1)
 PASS: CHECK2_profiles_are_user_specific (expected 1, got 1)
+PASS: CHECK30_sensitive_quality_fields_not_granted (expected 1, got 1)
 PASS: CHECK3_save_stronger_than_like (expected 1, got 1)
 PASS: CHECK4_share_stronger_than_save (expected 1, got 1)
 PASS: CHECK5_follow_is_strong_creator_prior (expected 1, got 1)
