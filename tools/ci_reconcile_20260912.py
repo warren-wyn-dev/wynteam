@@ -123,7 +123,6 @@ replace_exact(
     "expect(find.widgetWithText(AppBar, '@namfah'), findsOneWidget);",
     "expect(find.text('โปรไฟล์'), findsOneWidget);",
 )
-replace_present(profile_test, "find.byIcon(Icons.more_vert)", "find.byIcon(Icons.more_vert_rounded)")
 
 for path in [
     "app/test/qa_wyn110_profile_scroll_header_test.dart",
