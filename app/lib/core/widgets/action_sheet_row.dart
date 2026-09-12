@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../design/wyn_colors.dart';
@@ -53,7 +54,7 @@ class ActionSheetRow extends StatelessWidget {
             Icon(icon, size: 18, color: rowColor),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(
+              child: BrowserSystemText(
                 label,
                 style: TextStyle(
                   fontSize: 15,

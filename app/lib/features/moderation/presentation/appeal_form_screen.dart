@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -106,7 +107,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(false),
         ),
-        title: Text('อุทธรณ์: ${widget.actionLabel}'),
+        title: BrowserSystemText('อุทธรณ์: ${widget.actionLabel}'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -114,14 +115,14 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              BrowserSystemTextField(
                 controller: _reasonController,
                 enabled: !_isSubmitting,
                 minLines: 4,
                 maxLines: 8,
                 onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
-                  labelText: 'เหตุผลที่คุณคิดว่าคำตัดสินนี้ไม่ถูกต้อง (จำเป็น)',
+                  label: BrowserSystemText('เหตุผลที่คุณคิดว่าคำตัดสินนี้ไม่ถูกต้อง (จำเป็น)'),
                 ),
               ),
               const SizedBox(height: WynSpacing.space4),
@@ -132,11 +133,11 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
               OutlinedButton.icon(
                 onPressed: (_isSubmitting || _images.length >= _maxImages) ? null : _pickImages,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: const Text('แนบรูปหลักฐาน (ไม่บังคับ, สูงสุด 3 รูป)'),
+                label: const BrowserSystemText('แนบรูปหลักฐาน (ไม่บังคับ, สูงสุด 3 รูป)'),
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: WynSpacing.space4),
-                Text(
+                BrowserSystemText(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -151,7 +152,7 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('ส่งอุทธรณ์'),
+                    : const BrowserSystemText('ส่งอุทธรณ์'),
               ),
             ],
           ),

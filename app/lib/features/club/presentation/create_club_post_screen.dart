@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -189,7 +190,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
       // `onPressed:` below -- it no longer disables on image count) so
       // this is reachable, rather than the button just going inert.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
+        const SnackBar(content: BrowserSystemText('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
       );
       return;
     }
@@ -314,13 +315,13 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                             style: const TextStyle(
                                 fontSize: 20, color: WynColors.ink, height: 1.4),
                             decoration: InputDecoration(
-                              hintText: _mode == _ComposeMode.poll
+                              hint: BrowserSystemText(_mode == _ComposeMode.poll
                                   ? 'ตั้งคำถามโพล...'
-                                  : 'มีอะไรอยากบอก Club นี้บ้าง?',
+                                  : 'มีอะไรอยากบอก Club นี้บ้าง?'),
                               hintStyle: const TextStyle(
                                   fontSize: 20, color: WynColors.faint, height: 1.4),
                               border: InputBorder.none,
-                              counterText: '',
+                              counter: const SizedBox.shrink(),
                               contentPadding: EdgeInsets.zero,
                               isDense: true,
                             ),
@@ -341,22 +342,22 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                               // apart from "posting".
                               onPressed: _isPosting ? null : _pickImages,
                               icon: const Icon(Icons.add_photo_alternate_outlined),
-                              label: const Text('แนบรูป'),
+                              label: const BrowserSystemText('แนบรูป'),
                             ),
                             const SizedBox(height: WynSpacing.space4),
-                            TextField(
+                            BrowserSystemTextField(
                               controller: _linkController,
                               enabled: !_isPosting,
                               decoration: const InputDecoration(
-                                labelText: 'ลิงก์ (ไม่บังคับ)',
-                                hintText: 'https://...',
+                                label: BrowserSystemText('ลิงก์ (ไม่บังคับ)'),
+                                hint: BrowserSystemText('https://...'),
                               ),
                               onChanged: (_) => setState(() {}),
                             ),
                           ],
                           if (_errorMessage != null) ...[
                             const SizedBox(height: WynSpacing.space4),
-                            Text(
+                            BrowserSystemText(
                               _errorMessage!,
                               style: TextStyle(color: Theme.of(context).colorScheme.error),
                             ),
@@ -393,7 +394,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('ยกเลิก', style: TextStyle(fontSize: 15, color: WynColors.ink)),
+            child: const BrowserSystemText('ยกเลิก', style: TextStyle(fontSize: 15, color: WynColors.ink)),
           ),
           TextButton(
             onPressed: canPost ? _post : null,
@@ -412,7 +413,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                       color: canPost ? WynColors.paper : WynColors.mutedNeutral,
                     ),
                   )
-                : const Text('โพสต์', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                : const BrowserSystemText('โพสต์', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -443,7 +444,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                     : WynColors.hairline,
               ),
             ),
-            child: const Text('🖼️ รูปภาพ'),
+            child: const BrowserSystemText('🖼️ รูปภาพ'),
           ),
         ),
         const SizedBox(width: WynSpacing.space2),
@@ -464,7 +465,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                     : WynColors.hairline,
               ),
             ),
-            child: const Text('📊 โพล'),
+            child: const BrowserSystemText('📊 โพล'),
           ),
         ),
       ],
@@ -487,15 +488,15 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: BrowserSystemTextField(
                     controller: _pollOptionControllers[i],
                     maxLength: _pollOptionMaxLength,
                     enabled: !_isPosting,
                     style: const TextStyle(fontSize: 16, color: WynColors.ink),
                     decoration: InputDecoration(
-                      hintText: 'ตัวเลือกที่ ${i + 1}',
+                      hint: BrowserSystemText('ตัวเลือกที่ ${i + 1}'),
                       hintStyle: const TextStyle(fontSize: 16, color: WynColors.faint),
-                      counterText: '',
+                      counter: const SizedBox.shrink(),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
                       border: OutlineInputBorder(
@@ -517,12 +518,12 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                 // Only the 3rd/4th option can be removed -- the first 2
                 // are the minimum a Poll must always have.
                 if (i >= _minPollOptions)
-                  IconButton(
+                  BrowserSystemTooltip(message: 'ลบตัวเลือกนี้', child: IconButton(
                     key: ValueKey('remove_club_poll_option_$i'),
                     icon: const Icon(Icons.close, color: WynColors.graphite),
-                    tooltip: 'ลบตัวเลือกนี้',
+                    tooltip: null,
                     onPressed: _isPosting ? null : () => _removePollOption(i),
-                  ),
+                  )),
               ],
             ),
           ),
@@ -531,10 +532,10 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
             onPressed: _isPosting ? null : _addPollOption,
             style: TextButton.styleFrom(foregroundColor: WynColors.sapphire),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('เพิ่มตัวเลือก', style: TextStyle(fontSize: 15)),
+            label: const BrowserSystemText('เพิ่มตัวเลือก', style: TextStyle(fontSize: 15)),
           ),
         const SizedBox(height: WynSpacing.space2),
-        const Text('ระยะเวลาโหวต',
+        const BrowserSystemText('ระยะเวลาโหวต',
             style:
                 TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
         const SizedBox(height: WynSpacing.space2),
@@ -546,9 +547,9 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
             side: const BorderSide(color: WynColors.hairline),
           ),
           segments: const [
-            ButtonSegment(value: 1, label: Text('1 วัน')),
-            ButtonSegment(value: 3, label: Text('3 วัน')),
-            ButtonSegment(value: 7, label: Text('7 วัน')),
+            ButtonSegment(value: 1, label: BrowserSystemText('1 วัน')),
+            ButtonSegment(value: 3, label: BrowserSystemText('3 วัน')),
+            ButtonSegment(value: 7, label: BrowserSystemText('7 วัน')),
           ],
           selected: {_pollDurationDays},
           onSelectionChanged: _isPosting
@@ -617,7 +618,7 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
           ),
           Padding(
             padding: const EdgeInsets.only(top: WynSpacing.space1),
-            child: Text(
+            child: BrowserSystemText(
               '${_images.length}/$_maxImages',
               style: const TextStyle(fontSize: 13, color: WynColors.faint),
             ),
@@ -654,7 +655,7 @@ class _LockedClubChip extends StatelessWidget {
           const Icon(Icons.groups_outlined, size: 14, color: WynColors.graphite),
           const SizedBox(width: 6),
           Flexible(
-            child: Text(
+            child: BrowserSystemText(
               channelName.isEmpty
                   ? 'โพสต์ใน $clubName'
                   : 'โพสต์ใน $clubName · #$channelName',

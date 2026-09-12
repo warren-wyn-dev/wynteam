@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -185,22 +186,22 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       });
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: BrowserSystemText(message)));
   }
 
   Future<bool> _confirmLeave() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ออกจาก Club?'),
+        title: const BrowserSystemText('ออกจาก Club?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('ออกจาก Club'),
+            child: const BrowserSystemText('ออกจาก Club'),
           ),
         ],
       ),
@@ -273,7 +274,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
+        title: BrowserSystemText(
           target == ClubPrivacy.private
               ? 'เปลี่ยนเป็น Club ส่วนตัว?'
               : 'เปลี่ยนเป็น Club สาธารณะ?',
@@ -281,11 +282,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('เปลี่ยน'),
+            child: const BrowserSystemText('เปลี่ยน'),
           ),
         ],
       ),
@@ -492,9 +493,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('โหลด Club ไม่สำเร็จ'),
+                        const BrowserSystemText('โหลด Club ไม่สำเร็จ'),
                         const SizedBox(height: WynSpacing.space3),
-                        TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
+                        TextButton(onPressed: _reload, child: const BrowserSystemText('ลองใหม่')),
                       ],
                     ),
                   ),
@@ -539,9 +540,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               labelStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
               unselectedLabelStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
               tabs: const [
-                Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
-                Tab(icon: Icon(Icons.forum_outlined, size: 16), text: 'แชท'),
-                Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
+                Tab(icon: Icon(Icons.article_outlined, size: 16), child: BrowserSystemText('โพสต์')),
+                Tab(icon: Icon(Icons.forum_outlined, size: 16), child: BrowserSystemText('แชท')),
+                Tab(icon: Icon(Icons.info_outline, size: 16), child: BrowserSystemText('เกี่ยวกับ')),
               ],
             );
 
@@ -634,11 +635,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       child: Material(
         color: WynColors.paper.withValues(alpha: 0.8),
         shape: const CircleBorder(),
-        child: IconButton(
+        child: BrowserSystemTooltip(message: 'ย้อนกลับ', child: IconButton(
           icon: const Icon(Icons.chevron_left, color: WynColors.ink),
-          tooltip: 'ย้อนกลับ',
+          tooltip: null,
           onPressed: () => Navigator.of(context).pop(),
-        ),
+        )),
       ),
     );
   }
@@ -737,7 +738,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     'CLUB',
                     style: _textStyle(
                       fontSize: 13,
@@ -747,7 +748,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  BrowserSystemText(
                     club.name,
                     // Two lines, then ellipsis: a 50-character Club name
                     // (the column's own limit) does not fit on one line
@@ -774,16 +775,16 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     return SizedBox(
       width: 36,
       height: 36,
-      child: IconButton(
+      child: BrowserSystemTooltip(message: tooltip, child: IconButton(
         padding: EdgeInsets.zero,
         icon: Icon(icon, size: 14, color: WynColors.ink),
-        tooltip: tooltip,
+        tooltip: null,
         onPressed: onPressed,
         style: IconButton.styleFrom(
           side: const BorderSide(color: WynColors.hairline),
           shape: const CircleBorder(),
         ),
-      ),
+      )),
     );
   }
 
@@ -809,7 +810,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(top: WynSpacing.space1),
-                  child: Text(
+                  child: BrowserSystemText(
                     club.name,
                     style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
                   ),
@@ -835,7 +836,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             spacing: WynSpacing.space2,
             runSpacing: WynSpacing.space1,
             children: [
-              Text(
+              BrowserSystemText(
                 '${club.memberCount} สมาชิก',
                 style: _textStyle(fontSize: 13, color: WynColors.graphite),
               ),
@@ -846,7 +847,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     color: WynColors.hairline,
                     borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
                   ),
-                  child: Text(
+                  child: BrowserSystemText(
                     club.category!,
                     style: _textStyle(fontSize: 13, color: WynColors.graphite),
                   ),
@@ -856,7 +857,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
           ),
           if (club.description != null && club.description!.isNotEmpty) ...[
             const SizedBox(height: WynSpacing.space3),
-            Text(
+            BrowserSystemText(
               club.description!,
               style: _textStyle(fontSize: 15, color: WynColors.ink, height: 1.45),
             ),
@@ -912,7 +913,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             onPressed: onPressed,
-            child: Text(label),
+            child: BrowserSystemText(label),
           )
         : OutlinedButton(
             key: const Key('club-header-join-button'),
@@ -931,10 +932,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     children: [
                       const Icon(Icons.check, size: 11),
                       const SizedBox(width: 4),
-                      Text(label),
+                      BrowserSystemText(label),
                     ],
                   )
-                : Text(label),
+                : BrowserSystemText(label),
           );
 
     return Semantics(

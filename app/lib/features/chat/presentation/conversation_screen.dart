@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -857,7 +858,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -870,16 +871,16 @@ class _ConversationScreenState extends State<ConversationScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ลบคำขอนี้?'),
-        content: const Text('ผู้ส่งจะไม่ได้รับแจ้งเตือนว่าคำขอถูกลบ'),
+        title: const BrowserSystemText('ลบคำขอนี้?'),
+        content: const BrowserSystemText('ผู้ส่งจะไม่ได้รับแจ้งเตือนว่าคำขอถูกลบ'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('ลบ'),
+            child: const BrowserSystemText('ลบ'),
           ),
         ],
       ),
@@ -899,7 +900,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       }
       setState(() => _isDecidingRequest = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ลบคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -921,7 +922,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -1094,7 +1095,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -1130,7 +1131,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -1211,7 +1212,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -1261,7 +1262,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content:
-                Text('ปักหมุดได้สูงสุด 3 ข้อความต่อบทสนทนา ยกเลิกอันเก่าก่อน')),
+                BrowserSystemText('ปักหมุดได้สูงสุด 3 ข้อความต่อบทสนทนา ยกเลิกอันเก่าก่อน')),
       );
     }
   }
@@ -1277,7 +1278,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เลิกปักหมุดไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('เลิกปักหมุดไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -1329,7 +1330,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เปิดรูปไม่สำเร็จ ลองใหม่อีกครั้ง')),
+          const SnackBar(content: BrowserSystemText('เปิดรูปไม่สำเร็จ ลองใหม่อีกครั้ง')),
         );
         return;
       }
@@ -1671,7 +1672,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                 }
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+                      content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
                 );
               }
             },
@@ -1705,7 +1706,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   /// Priority order (design doc): typing > online > last seen > nothing.
   Widget? _buildStatusSubtitle() {
     if (_otherTyping) {
-      return Text(
+      return BrowserSystemText(
         'กำลังพิมพ์...',
         overflow: TextOverflow.ellipsis,
         style: _textStyle(fontSize: 12, color: WynColors.graphite),
@@ -1728,14 +1729,14 @@ class _ConversationScreenState extends State<ConversationScreen>
                 color: WynColors.online, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
-          Text('ออนไลน์',
+          BrowserSystemText('ออนไลน์',
               style: _textStyle(fontSize: 12, color: WynColors.graphite)),
         ],
       );
     }
     final lastSeenAt = _partnerLastSeenAt;
     if (_partnerShowOnline && lastSeenAt != null) {
-      return Text(
+      return BrowserSystemText(
         'ใช้งานล่าสุด ${relativeTimeLabel(lastSeenAt, now: DateTime.now())}',
         overflow: TextOverflow.ellipsis,
         style: _textStyle(fontSize: 12, color: WynColors.graphite),
@@ -1793,7 +1794,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       displayName,
                       overflow: TextOverflow.ellipsis,
                       style: _textStyle(
@@ -1804,7 +1805,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                     if (statusSubtitle != null)
                       statusSubtitle
                     else
-                      Text(
+                      BrowserSystemText(
                         '@${widget.otherUsername}',
                         overflow: TextOverflow.ellipsis,
                         style:
@@ -1817,11 +1818,11 @@ class _ConversationScreenState extends State<ConversationScreen>
           ),
         ),
         actions: [
-          IconButton(
+          BrowserSystemTooltip(message: 'ตัวเลือกเพิ่มเติม', child: IconButton(
             icon: const Icon(Icons.more_horiz, color: WynColors.ink),
-            tooltip: 'ตัวเลือกเพิ่มเติม',
+            tooltip: null,
             onPressed: _showConversationMenu,
-          ),
+          )),
         ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -2037,7 +2038,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                         fallbackText: displayName,
                         radius: 40),
                     const SizedBox(height: WynSpacing.space4),
-                    Text('เริ่มบทสนทนากับ $displayName',
+                    BrowserSystemText('เริ่มบทสนทนากับ $displayName',
                         textAlign: TextAlign.center),
                   ],
                 ),
@@ -2119,7 +2120,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     if (_blockRelationship.isBlockedEitherWay) {
       return Padding(
         padding: const EdgeInsets.all(WynSpacing.space4),
-        child: Text(
+        child: BrowserSystemText(
           'คุณไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้',
           textAlign: TextAlign.center,
           style: _textStyle(fontSize: 15, color: WynColors.graphite),
@@ -2129,7 +2130,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     if (_isSuspendedOrBanned) {
       return Padding(
         padding: const EdgeInsets.all(WynSpacing.space4),
-        child: Text(
+        child: BrowserSystemText(
           'บัญชีของคุณถูกระงับ ไม่สามารถส่งข้อความได้ในขณะนี้',
           textAlign: TextAlign.center,
           style: _textStyle(fontSize: 15, color: WynColors.graphite),
@@ -2198,7 +2199,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                     borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
                     border: Border.all(color: WynColors.hairline),
                   ),
-                  child: TextField(
+                  child: BrowserSystemTextField(
                     controller: _textController,
                     focusNode: _textFieldFocusNode,
                     minLines: 1,
@@ -2212,12 +2213,12 @@ class _ConversationScreenState extends State<ConversationScreen>
                     // left for disabling this to protect against.
                     style: _textStyle(fontSize: 16, color: WynColors.ink),
                     decoration: InputDecoration(
-                      hintText: 'พิมพ์ข้อความ...',
+                      hint: BrowserSystemText('พิมพ์ข้อความ...'),
                       hintStyle: _textStyle(
                           fontSize: 15, color: WynColors.mutedNeutral),
                       border: InputBorder.none,
                       isCollapsed: true,
-                      counterText: '',
+                      counter: const SizedBox.shrink(),
                     ),
                     onChanged: (_) {
                       setState(() {});
@@ -2238,7 +2239,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                 child: Material(
                   color: _canSend ? WynColors.ink : WynColors.surfaceTint,
                   shape: const CircleBorder(),
-                  child: IconButton(
+                  child: BrowserSystemTooltip(message: _isEditingMessage ? 'บันทึกการแก้ไข' : 'ส่งข้อความ', child: IconButton(
                     // WYN-138: edit mode's own "บันทึก" (confirm edit)
                     // affordance -- a checkmark instead of the paper
                     // plane, per the design doc's own wording.
@@ -2260,12 +2261,11 @@ class _ConversationScreenState extends State<ConversationScreen>
                                 ? WynColors.paper
                                 : WynColors.mutedNeutral,
                           ),
-                    tooltip:
-                        _isEditingMessage ? 'บันทึกการแก้ไข' : 'ส่งข้อความ',
+                    tooltip: null,
                     onPressed: _canSend
                         ? (_isEditingMessage ? _confirmEdit : _send)
                         : null,
-                  ),
+                  )),
                 ),
               ),
             ],
@@ -2288,7 +2288,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$displayName ต้องการส่งข้อความถึงคุณ',
+          BrowserSystemText('$displayName ต้องการส่งข้อความถึงคุณ',
               textAlign: TextAlign.center),
           const SizedBox(height: WynSpacing.space3),
           Row(
@@ -2296,7 +2296,7 @@ class _ConversationScreenState extends State<ConversationScreen>
               Expanded(
                 child: OutlinedButton(
                   onPressed: _isDecidingRequest ? null : _deleteRequest,
-                  child: const Text('ลบ'),
+                  child: const BrowserSystemText('ลบ'),
                 ),
               ),
               const SizedBox(width: WynSpacing.space3),
@@ -2313,7 +2313,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('ยอมรับ'),
+                      : const BrowserSystemText('ยอมรับ'),
                 ),
               ),
             ],
@@ -2324,11 +2324,11 @@ class _ConversationScreenState extends State<ConversationScreen>
             children: [
               TextButton(
                 onPressed: _isDecidingRequest ? null : _blockFromRequest,
-                child: const Text('บล็อก'),
+                child: const BrowserSystemText('บล็อก'),
               ),
               TextButton(
                 onPressed: _isDecidingRequest ? null : _reportFromRequest,
-                child: const Text('รายงาน'),
+                child: const BrowserSystemText('รายงาน'),
               ),
             ],
           ),
@@ -2341,7 +2341,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(
           horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
-      child: Text(
+      child: BrowserSystemText(
         'รอการตอบรับ',
         style: _textStyle(fontSize: 13, color: WynColors.faint),
       ),
@@ -2366,7 +2366,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       child: Row(
         children: [
           Expanded(
-            child: Text('ตอบกลับ: $preview',
+            child: BrowserSystemText('ตอบกลับ: $preview',
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           IconButton(
@@ -2396,7 +2396,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           const Icon(Icons.edit_outlined, size: 16, color: WynColors.graphite),
           const SizedBox(width: WynSpacing.space2),
           const Expanded(
-            child: Text('กำลังแก้ไขข้อความ',
+            child: BrowserSystemText('กำลังแก้ไขข้อความ',
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           IconButton(
@@ -2438,7 +2438,7 @@ class _ConversationScreenState extends State<ConversationScreen>
             const Icon(Icons.push_pin, size: 16, color: WynColors.graphite),
             const SizedBox(width: WynSpacing.space2),
             Expanded(
-              child: Text(
+              child: BrowserSystemText(
                 preview,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -2448,7 +2448,7 @@ class _ConversationScreenState extends State<ConversationScreen>
             if (_pinnedMessages.length > 1)
               Padding(
                 padding: const EdgeInsets.only(left: WynSpacing.space2),
-                child: Text(
+                child: BrowserSystemText(
                   '1/${_pinnedMessages.length}',
                   style: _textStyle(fontSize: 12, color: WynColors.graphite),
                 ),
@@ -2510,16 +2510,16 @@ class _ConversationScreenState extends State<ConversationScreen>
             label: _isViewOnce ? 'ปิดโหมดดูครั้งเดียว' : 'ส่งแบบดูครั้งเดียว',
             button: true,
             excludeSemantics: true,
-            child: IconButton(
+            child: BrowserSystemTooltip(message: 'ส่งแบบดูครั้งเดียว', child: IconButton(
               key: const Key('view_once_toggle_button'),
               icon: Icon(
                 _isViewOnce ? Icons.filter_1 : Icons.filter_1_outlined,
                 size: 20,
                 color: _isViewOnce ? WynColors.ink : WynColors.graphite,
               ),
-              tooltip: 'ส่งแบบดูครั้งเดียว',
+              tooltip: null,
               onPressed: () => setState(() => _isViewOnce = !_isViewOnce),
-            ),
+            )),
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
@@ -2688,7 +2688,7 @@ class _MessageBubble extends StatelessWidget {
         children: [
           Icon(icon, color: WynColors.graphite),
           const SizedBox(height: WynSpacing.space1),
-          Text(label,
+          BrowserSystemText(label,
               style: _textStyle(fontSize: 12, color: WynColors.graphite)),
         ],
       ),
@@ -2745,7 +2745,7 @@ class _MessageBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-                child: Text(
+                child: BrowserSystemText(
                   message.replyPreviewDeletedAt != null
                       ? 'ข้อความถูกลบ'
                       : (message.replyPreviewText?.isNotEmpty == true
@@ -2760,7 +2760,7 @@ class _MessageBubble extends StatelessWidget {
               ),
             ),
           if (message.isDeleted)
-            Text(
+            BrowserSystemText(
               'ข้อความนี้ถูกลบ',
               style: _textStyle(
                   fontSize: 15, fontStyle: FontStyle.italic, color: textColor),
@@ -2803,7 +2803,7 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             if (message.text != null)
-              Text(message.text!,
+              BrowserSystemText(message.text!,
                   style:
                       _textStyle(fontSize: 15, color: textColor, height: 1.45)),
             // WYN-138: permanent once set -- Requirement: "ห้ามซ่อน" (no
@@ -2812,7 +2812,7 @@ class _MessageBubble extends StatelessWidget {
             if (message.isEdited)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text(
+                child: BrowserSystemText(
                   'แก้ไขแล้ว',
                   style: _textStyle(
                       fontSize: 11, color: textColor.withValues(alpha: 0.7)),
@@ -2859,7 +2859,7 @@ class _MessageBubble extends StatelessWidget {
           if (isTimestampRevealed)
             Padding(
               padding: EdgeInsets.only(top: 2, left: leadingInset),
-              child: Text(timeLabel,
+              child: BrowserSystemText(timeLabel,
                   style: _textStyle(fontSize: 11, color: WynColors.faint)),
             ),
           // Spec section 7: only ever set on the single last-outgoing
@@ -2947,9 +2947,9 @@ class _DeliveryStatusIcon extends StatelessWidget {
     return switch (status) {
       _DeliveryStatus.sending =>
         const Icon(Icons.fiber_manual_record, size: 8, color: WynColors.faint),
-      _DeliveryStatus.sent => Text('ส่งแล้ว',
+      _DeliveryStatus.sent => BrowserSystemText('ส่งแล้ว',
           style: _textStyle(fontSize: 11, color: WynColors.faint)),
-      _DeliveryStatus.read => Text('อ่านแล้ว',
+      _DeliveryStatus.read => BrowserSystemText('อ่านแล้ว',
           style: _textStyle(fontSize: 11, color: WynColors.graphite)),
     };
   }
@@ -2968,7 +2968,7 @@ class _DateSeparator extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
       child: Center(
-        child: Text(label,
+        child: BrowserSystemText(label,
             style: _textStyle(fontSize: 13, color: WynColors.faint)),
       ),
     );
@@ -3027,7 +3027,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                 horizontal: WynSpacing.space6, vertical: WynSpacing.space2),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
+              child: BrowserSystemText(
                 'ข้อความที่ปักหมุด',
                 style: _textStyle(
                     fontSize: 16,
@@ -3052,7 +3052,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
+                          BrowserSystemText(
                             pin.senderId == myUserId ? 'คุณ' : otherDisplayName,
                             style: _textStyle(
                                 fontSize: 13,
@@ -3060,7 +3060,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                                 color: WynColors.ink),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          BrowserSystemText(
                             pin.isDeleted
                                 ? 'ข้อความถูกลบ'
                                 : (pin.text?.isNotEmpty == true
@@ -3074,7 +3074,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                                 fontSize: 14, color: WynColors.graphite),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          BrowserSystemText(
                             _timeLabel(pin.pinnedAt),
                             style: _textStyle(
                                 fontSize: 11, color: WynColors.faint),
@@ -3084,7 +3084,7 @@ class _PinnedMessagesSheet extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () => onUnpin(pin.messageId),
-                      child: const Text('เลิกปักหมุด'),
+                      child: const BrowserSystemText('เลิกปักหมุด'),
                     ),
                   ],
                 ),
@@ -3155,7 +3155,7 @@ class _SharedContentPreviewState extends State<_SharedContentPreview> {
             width: 220,
             padding: const EdgeInsets.all(WynSpacing.space2),
             decoration: cardDecoration,
-            child: Text(
+            child: BrowserSystemText(
               'เนื้อหานี้ไม่พร้อมใช้งาน',
               style: TextStyle(
                   color: widget.textColor, fontStyle: FontStyle.italic),
@@ -3202,7 +3202,7 @@ class _SharedContentPreviewState extends State<_SharedContentPreview> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+                      BrowserSystemText(
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -3211,7 +3211,7 @@ class _SharedContentPreviewState extends State<_SharedContentPreview> {
                             fontWeight: FontWeight.bold),
                       ),
                       if (subtitle.isNotEmpty)
-                        Text(
+                        BrowserSystemText(
                           subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

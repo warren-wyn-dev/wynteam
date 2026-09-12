@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -76,16 +77,16 @@ class ClubPostCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ลบโพสต์นี้?'),
-        content: const Text('ลบแล้วไม่สามารถกู้คืนได้'),
+        title: const BrowserSystemText('ลบโพสต์นี้?'),
+        content: const BrowserSystemText('ลบแล้วไม่สามารถกู้คืนได้'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('ลบ'),
+            child: const BrowserSystemText('ลบ'),
           ),
         ],
       ),
@@ -224,7 +225,7 @@ class ClubPostCard extends StatelessWidget {
                                 Row(
                                   children: [
                                     Flexible(
-                                      child: Text(
+                                      child: BrowserSystemText(
                                         post.authorNameOrUsername,
                                         style: Theme.of(context).textTheme.titleSmall,
                                         overflow: TextOverflow.ellipsis,
@@ -236,7 +237,7 @@ class ClubPostCard extends StatelessWidget {
                                     ],
                                   ],
                                 ),
-                                Text(
+                                BrowserSystemText(
                                   relativeTimeLabel(post.createdAt, now: DateTime.now()),
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -249,16 +250,16 @@ class ClubPostCard extends StatelessWidget {
                           // Same 44x44 tap-target-only box HomeDropCard uses --
                           // see its own comment for why this stays smaller
                           // than IconButton's default 48.
-                          IconButton(
+                          BrowserSystemTooltip(message: 'เพิ่มเติม', child: IconButton(
                             icon: const Icon(Icons.more_vert),
-                            tooltip: 'เพิ่มเติม',
+                            tooltip: null,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints.tightFor(
                               width: WynSpacing.touchTargetMin,
                               height: WynSpacing.touchTargetMin,
                             ),
                             onPressed: () => _openMoreMenu(context),
-                          ),
+                          )),
                         ],
                       ),
                     ),
@@ -319,7 +320,7 @@ class ClubPostCard extends StatelessWidget {
                               const Icon(Icons.link, size: 16),
                               const SizedBox(width: 6),
                               Expanded(
-                                child: Text(
+                                child: BrowserSystemText(
                                   post.linkUrl!,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,

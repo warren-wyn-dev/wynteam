@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -62,11 +63,11 @@ class ModerationQueueScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('คิวตรวจสอบ'),
+          title: const BrowserSystemText('คิวตรวจสอบ'),
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'รายงาน'),
-              Tab(text: 'อุทธรณ์'),
+              Tab(child: BrowserSystemText('รายงาน')),
+              Tab(child: BrowserSystemText('อุทธรณ์')),
             ],
           ),
         ),
@@ -208,7 +209,7 @@ class _ReportsTabState extends State<_ReportsTab> {
     // action already succeeded server-side by the time this screen sees
     // a non-null result, so there's nothing to roll back on failure.
     setState(() => _reports.removeWhere((r) => r.id == report.id));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: BrowserSystemText(message)));
   }
 
   @override
@@ -222,9 +223,9 @@ class _ReportsTabState extends State<_ReportsTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -243,7 +244,7 @@ class _ReportsTabState extends State<_ReportsTab> {
                 color: Theme.of(context).colorScheme.outline,
               ),
               const SizedBox(height: WynSpacing.space4),
-              const Text('ไม่มีรายงานที่รอตรวจสอบ', textAlign: TextAlign.center),
+              const BrowserSystemText('ไม่มีรายงานที่รอตรวจสอบ', textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -351,15 +352,15 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(headline, style: Theme.of(context).textTheme.titleSmall),
-                        Text(
+                        BrowserSystemText(headline, style: Theme.of(context).textTheme.titleSmall),
+                        BrowserSystemText(
                           summaryLabel,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         if (detail != null && detail.isNotEmpty)
-                          Text(
+                          BrowserSystemText(
                             detail,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -371,7 +372,7 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
                     ),
                   ),
                   const SizedBox(width: WynSpacing.space2),
-                  Text(
+                  BrowserSystemText(
                     time,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.outline,
@@ -481,7 +482,7 @@ class _AppealsTabState extends State<_AppealsTab> {
     if (message == null || !mounted) return;
 
     setState(() => _appeals.removeWhere((a) => a.id == appeal.id));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: BrowserSystemText(message)));
   }
 
   @override
@@ -495,9 +496,9 @@ class _AppealsTabState extends State<_AppealsTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -516,7 +517,7 @@ class _AppealsTabState extends State<_AppealsTab> {
                 color: Theme.of(context).colorScheme.outline,
               ),
               const SizedBox(height: WynSpacing.space4),
-              const Text('ไม่มีอุทธรณ์ที่รอตรวจสอบ', textAlign: TextAlign.center),
+              const BrowserSystemText('ไม่มีอุทธรณ์ที่รอตรวจสอบ', textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -584,14 +585,14 @@ class _AppealQueueRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(headline, style: Theme.of(context).textTheme.titleSmall),
-                    Text(
+                    BrowserSystemText(headline, style: Theme.of(context).textTheme.titleSmall),
+                    BrowserSystemText(
                       appellant,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    Text(
+                    BrowserSystemText(
                       appeal.reason,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -603,7 +604,7 @@ class _AppealQueueRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: WynSpacing.space2),
-              Text(
+              BrowserSystemText(
                 time,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: Theme.of(context).colorScheme.outline,

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -151,15 +152,15 @@ class _FollowActionButtonState extends State<FollowActionButton> {
         await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('ยกเลิกคำขอติดตาม ${widget.profile.nameOrUsername}?'),
+            title: BrowserSystemText('ยกเลิกคำขอติดตาม ${widget.profile.nameOrUsername}?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('ไม่ยกเลิก'),
+                child: const BrowserSystemText('ไม่ยกเลิก'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('ยกเลิกคำขอ'),
+                child: const BrowserSystemText('ยกเลิกคำขอ'),
               ),
             ],
           ),
@@ -204,7 +205,7 @@ class _FollowActionButtonState extends State<FollowActionButton> {
   Widget _labelWidget(BuildContext context) {
     return AnimatedSwitcher(
       duration: WynMotion.duration(context, WynMotion.quick),
-      child: Text(_label, key: ValueKey(_label)),
+      child: BrowserSystemText(_label, key: ValueKey(_label)),
     );
   }
 

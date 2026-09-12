@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -111,7 +112,7 @@ class _BirthdayStepState extends State<BirthdayStep> {
   }) {
     return SizedBox(
       width: maxLen == 4 ? 84 : 60,
-      child: TextField(
+      child: BrowserSystemTextField(
         key: Key('birthday_${hint.toLowerCase()}_field'),
         controller: controller,
         focusNode: focusNode,
@@ -124,8 +125,8 @@ class _BirthdayStepState extends State<BirthdayStep> {
         style: const TextStyle(
             fontSize: 20, color: WynColors.ink, fontWeight: FontWeight.w600),
         decoration: InputDecoration(
-          counterText: '',
-          hintText: hint,
+          counter: const SizedBox.shrink(),
+          hint: BrowserSystemText(hint),
           hintStyle: const TextStyle(color: WynColors.faint),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           enabledBorder: const UnderlineInputBorder(

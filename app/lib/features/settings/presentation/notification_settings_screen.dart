@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -93,7 +94,7 @@ class _NotificationSettingsScreenState
     if (state == PushPermissionState.denied) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('เปิดการแจ้งเตือนได้ที่การตั้งค่าของระบบ'),
+          content: BrowserSystemText('เปิดการแจ้งเตือนได้ที่การตั้งค่าของระบบ'),
         ),
       );
     }
@@ -131,7 +132,7 @@ class _NotificationSettingsScreenState
       if (!mounted) return;
       setState(() => _settings = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _saving.remove(category));
@@ -141,7 +142,7 @@ class _NotificationSettingsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('การแจ้งเตือน')),
+      appBar: AppBar(title: const BrowserSystemText('การแจ้งเตือน')),
       body: _buildBody(),
     );
   }
@@ -156,9 +157,9 @@ class _NotificationSettingsScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -171,19 +172,19 @@ class _NotificationSettingsScreenState
         _buildCategoryHeader(),
         SwitchListTile(
           secondary: const Icon(Icons.favorite_border),
-          title: const Text('ถูกใจ'),
+          title: const BrowserSystemText('ถูกใจ'),
           // WYN-102: was "...โพสต์, Pop หรือรีโพสต์..." -- the setting
           // still governs Pop-like notifications too (unchanged), just
           // no longer names Pop in UI copy.
-          subtitle: const Text('เมื่อมีคนถูกใจโพสต์หรือรีโพสต์ของคุณ'),
+          subtitle: const BrowserSystemText('เมื่อมีคนถูกใจโพสต์หรือรีโพสต์ของคุณ'),
           value: _settings.likes,
           onChanged:
               _saving.contains('likes') ? null : (v) => _toggle('likes', v),
         ),
         SwitchListTile(
           secondary: const Icon(Icons.mode_comment_outlined),
-          title: const Text('คอมเมนต์'),
-          subtitle: const Text('เมื่อมีคนแสดงความคิดเห็นหรือกล่าวถึงคุณในโพสต์'),
+          title: const BrowserSystemText('คอมเมนต์'),
+          subtitle: const BrowserSystemText('เมื่อมีคนแสดงความคิดเห็นหรือกล่าวถึงคุณในโพสต์'),
           value: _settings.comments,
           onChanged: _saving.contains('comments')
               ? null
@@ -191,8 +192,8 @@ class _NotificationSettingsScreenState
         ),
         SwitchListTile(
           secondary: const Icon(Icons.person_add_outlined),
-          title: const Text('ผู้ติดตาม'),
-          subtitle: const Text('เมื่อมีคนติดตามคุณ หรือส่ง/ยอมรับคำขอติดตาม'),
+          title: const BrowserSystemText('ผู้ติดตาม'),
+          subtitle: const BrowserSystemText('เมื่อมีคนติดตามคุณ หรือส่ง/ยอมรับคำขอติดตาม'),
           value: _settings.follows,
           onChanged: _saving.contains('follows')
               ? null
@@ -200,8 +201,8 @@ class _NotificationSettingsScreenState
         ),
         SwitchListTile(
           secondary: const Icon(Icons.mail_outline),
-          title: const Text('ข้อความ'),
-          subtitle: const Text('เมื่อมีคนที่ไม่ได้ติดตามกันส่งคำขอข้อความถึงคุณ'),
+          title: const BrowserSystemText('ข้อความ'),
+          subtitle: const BrowserSystemText('เมื่อมีคนที่ไม่ได้ติดตามกันส่งคำขอข้อความถึงคุณ'),
           value: _settings.messages,
           onChanged: _saving.contains('messages')
               ? null
@@ -209,8 +210,8 @@ class _NotificationSettingsScreenState
         ),
         SwitchListTile(
           secondary: const Icon(Icons.groups_outlined),
-          title: const Text('Club'),
-          subtitle: const Text(
+          title: const BrowserSystemText('Club'),
+          subtitle: const BrowserSystemText(
               'เมื่อมีความเคลื่อนไหวใน Club ที่คุณเป็นเจ้าของหรือเป็นสมาชิก (โพสต์, คำขอเข้าร่วม, การกล่าวถึง)'),
           value: _settings.club,
           onChanged:
@@ -218,8 +219,8 @@ class _NotificationSettingsScreenState
         ),
         SwitchListTile(
           secondary: const Icon(Icons.trending_up),
-          title: const Text('กำลังนิยม'),
-          subtitle: const Text('เมื่อโพสต์ของคุณกำลังเป็นที่นิยมหรือติด WYN Top 100'),
+          title: const BrowserSystemText('กำลังนิยม'),
+          subtitle: const BrowserSystemText('เมื่อโพสต์ของคุณกำลังเป็นที่นิยมหรือติด WYN Top 100'),
           value: _settings.trending,
           onChanged: _saving.contains('trending')
               ? null
@@ -227,8 +228,8 @@ class _NotificationSettingsScreenState
         ),
         SwitchListTile(
           secondary: const Icon(Icons.campaign_outlined),
-          title: const Text('ระบบ'),
-          subtitle: const Text('ประกาศทั่วไปจากทีมงาน WYN'),
+          title: const BrowserSystemText('ระบบ'),
+          subtitle: const BrowserSystemText('ประกาศทั่วไปจากทีมงาน WYN'),
           value: _settings.system,
           onChanged:
               _saving.contains('system') ? null : (v) => _toggle('system', v),
@@ -250,24 +251,24 @@ class _NotificationSettingsScreenState
     return switch (_pushState) {
       null => const ListTile(
           leading: Icon(Icons.notifications_outlined, color: WynColors.faint),
-          title: Text('การแจ้งเตือนบนเครื่องนี้'),
-          subtitle: Text('กำลังตรวจสอบ...'),
+          title: BrowserSystemText('การแจ้งเตือนบนเครื่องนี้'),
+          subtitle: BrowserSystemText('กำลังตรวจสอบ...'),
           enabled: false,
         ),
       PushPermissionState.granted => const ListTile(
           key: Key('push_device_granted'),
           leading: Icon(Icons.notifications_active_outlined,
               color: WynColors.sapphire),
-          title: Text('การแจ้งเตือนบนเครื่องนี้'),
-          subtitle: Text('เปิดอยู่ — เครื่องนี้จะได้รับการแจ้งเตือนตามหมวดหมู่ด้านล่าง'),
+          title: BrowserSystemText('การแจ้งเตือนบนเครื่องนี้'),
+          subtitle: BrowserSystemText('เปิดอยู่ — เครื่องนี้จะได้รับการแจ้งเตือนตามหมวดหมู่ด้านล่าง'),
           trailing: Icon(Icons.check_circle, color: WynColors.sapphire),
         ),
       PushPermissionState.notDetermined => ListTile(
           key: const Key('push_device_enable'),
           leading: const Icon(Icons.notifications_outlined,
               color: WynColors.graphite),
-          title: const Text('เปิดการแจ้งเตือนบนเครื่องนี้'),
-          subtitle: const Text(
+          title: const BrowserSystemText('เปิดการแจ้งเตือนบนเครื่องนี้'),
+          subtitle: const BrowserSystemText(
               'ยังไม่ได้เปิด — แตะเพื่ออนุญาต แล้วเลือกหมวดหมู่ที่ต้องการด้านล่าง'),
           trailing: _isRequestingPush
               ? const SizedBox(
@@ -285,8 +286,8 @@ class _NotificationSettingsScreenState
           key: Key('push_device_denied'),
           leading:
               Icon(Icons.notifications_off_outlined, color: WynColors.graphite),
-          title: Text('การแจ้งเตือนบนเครื่องนี้'),
-          subtitle: Text(
+          title: BrowserSystemText('การแจ้งเตือนบนเครื่องนี้'),
+          subtitle: BrowserSystemText(
               'ปิดอยู่ — เปิดใหม่ได้ที่การตั้งค่าของระบบเท่านั้น '
               'การแจ้งเตือนในแอปยังทำงานตามปกติ'),
         ),
@@ -307,8 +308,8 @@ class _NotificationSettingsScreenState
     return ListTile(
       key: const Key('push_diagnostics_entry'),
       leading: const Icon(Icons.help_outline, color: WynColors.graphite),
-      title: const Text('ไม่ได้รับการแจ้งเตือน?'),
-      subtitle: const Text('ตรวจสอบทีละขั้นว่าติดตรงไหน'),
+      title: const BrowserSystemText('ไม่ได้รับการแจ้งเตือน?'),
+      subtitle: const BrowserSystemText('ตรวจสอบทีละขั้นว่าติดตรงไหน'),
       trailing: const Icon(Icons.chevron_right, color: WynColors.faint),
       onTap: () => showPushDiagnosticsSheet(
         context,
@@ -325,7 +326,7 @@ class _NotificationSettingsScreenState
     return const Padding(
       padding: EdgeInsets.fromLTRB(WynSpacing.space4, WynSpacing.space4,
           WynSpacing.space4, WynSpacing.space2),
-      child: Text(
+      child: BrowserSystemText(
         'รับการแจ้งเตือนเรื่องไหนบ้าง',
         style: TextStyle(
           fontSize: 13,

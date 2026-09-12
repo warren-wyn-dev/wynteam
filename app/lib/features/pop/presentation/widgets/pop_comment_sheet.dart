@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -129,7 +130,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -177,7 +178,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
         children: [
           const Padding(
             padding: EdgeInsets.symmetric(vertical: WynSpacing.space3),
-            child: Text('ความคิดเห็น', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: BrowserSystemText('ความคิดเห็น', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           const Divider(height: 1),
           Expanded(child: _buildCommentList(currentUserId)),
@@ -194,9 +195,9 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
+            const BrowserSystemText('โหลดคอมเมนต์ไม่สำเร็จ'),
             const SizedBox(height: WynSpacing.space2),
-            TextButton(onPressed: _loadComments, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadComments, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -208,7 +209,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
     }
 
     if (comments.isEmpty) {
-      return const Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!'));
+      return const Center(child: BrowserSystemText('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!'));
     }
 
     // Each top-level comment immediately followed by its own replies
@@ -248,17 +249,17 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                BrowserSystemText(
                   comment.authorNameOrUsername,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
-                Text(comment.textContent),
+                BrowserSystemText(comment.textContent),
                 if (!isReply)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: InkWell(
                       onTap: () => _startReply(comment),
-                      child: Text(
+                      child: BrowserSystemText(
                         'ตอบกลับ',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.outline,
@@ -274,13 +275,13 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
             SizedBox(
               width: 32,
               height: 32,
-              child: IconButton(
+              child: BrowserSystemTooltip(message: 'ลบคอมเมนต์', child: IconButton(
                 padding: EdgeInsets.zero,
                 iconSize: 16,
                 icon: const Icon(Icons.delete_outline),
-                tooltip: 'ลบคอมเมนต์',
+                tooltip: null,
                 onPressed: () => _deleteComment(comment.id),
-              ),
+              )),
             ),
           Column(
             children: [
@@ -304,7 +305,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
                 ),
               ),
               if (comment.likeCount > 0)
-                Text(
+                BrowserSystemText(
                   '${comment.likeCount}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
@@ -331,7 +332,7 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     'ตอบกลับ ${_replyingTo!.authorNameOrUsername}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -346,19 +347,19 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: BrowserSystemTextField(
                   controller: _commentController,
                   focusNode: _commentFocusNode,
                   enabled: !_isSendingComment,
-                  decoration: const InputDecoration(hintText: 'เขียนคอมเมนต์'),
+                  decoration: const InputDecoration(hint: BrowserSystemText('เขียนคอมเมนต์')),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              IconButton(
+              BrowserSystemTooltip(message: 'ส่งคอมเมนต์', child: IconButton(
                 icon: const Icon(Icons.send),
-                tooltip: 'ส่งคอมเมนต์',
+                tooltip: null,
                 onPressed: canSend ? _sendComment : null,
-              ),
+              )),
             ],
           ),
         ],

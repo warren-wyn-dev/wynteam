@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -63,7 +64,7 @@ class NewPostsPill extends StatelessWidget {
                   // 'มีโพสต์ใหม่'". The Semantics label above still
                   // carries $count for screen readers -- see this
                   // class's own doc comment reference.
-                  Text(
+                  BrowserSystemText(
                     'มีโพสต์ใหม่',
                     style: TextStyle(
                       fontSize: 12.5,

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../club/data/club_member.dart';
@@ -296,7 +297,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -385,9 +386,9 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('#${widget.tag}'),
+          title: BrowserSystemText('#${widget.tag}'),
           bottom: TabBar(
-            tabs: const [Tab(text: 'Latest'), Tab(text: 'Trending')],
+            tabs: const [Tab(child: BrowserSystemText('Latest')), Tab(child: BrowserSystemText('Trending'))],
             onTap: (index) => setState(
               () => _tab = index == 0 ? _HashtagTab.latest : _HashtagTab.trending,
             ),
@@ -407,9 +408,9 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -417,7 +418,7 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
 
     final entries = _sortedEntries;
     if (entries.isEmpty) {
-      return Center(child: Text('ยังไม่มีโพสต์ที่ใช้ #${widget.tag}'));
+      return Center(child: BrowserSystemText('ยังไม่มีโพสต์ที่ใช้ #${widget.tag}'));
     }
 
     return RefreshIndicator(

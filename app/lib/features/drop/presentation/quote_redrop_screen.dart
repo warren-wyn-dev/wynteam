@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -73,7 +74,7 @@ class _QuoteRedropScreenState extends State<QuoteRedropScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quote รีโพสต์'),
+        title: const BrowserSystemText('Quote รีโพสต์'),
         actions: [
           TextButton(
             onPressed: _canPost ? _post : null,
@@ -83,21 +84,21 @@ class _QuoteRedropScreenState extends State<QuoteRedropScreen> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('โพสต์'),
+                : const BrowserSystemText('โพสต์'),
           ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(WynSpacing.space4),
         children: [
-          TextField(
+          BrowserSystemTextField(
             controller: _textController,
             maxLength: _maxLength,
             maxLines: 6,
             minLines: 3,
             autofocus: true,
             decoration: const InputDecoration(
-              hintText: 'เพิ่มความคิดเห็น...',
+              hint: BrowserSystemText('เพิ่มความคิดเห็น...'),
               border: InputBorder.none,
             ),
             onChanged: (_) => setState(() {}),
@@ -105,7 +106,7 @@ class _QuoteRedropScreenState extends State<QuoteRedropScreen> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: WynSpacing.space2),
-              child: Text(
+              child: BrowserSystemText(
                 _error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
@@ -146,7 +147,7 @@ class _OriginalDropPreview extends StatelessWidget {
                   radius: 14,
                 ),
                 const SizedBox(width: WynSpacing.space2),
-                Text(
+                BrowserSystemText(
                   drop.authorNameOrUsername,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
@@ -164,7 +165,7 @@ class _OriginalDropPreview extends StatelessWidget {
           if (drop.caption != null && drop.caption!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(WynSpacing.space2),
-              child: Text(drop.caption!),
+              child: BrowserSystemText(drop.caption!),
             ),
         ],
       ),

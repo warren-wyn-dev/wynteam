@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 /// Shared by every screen that lets a user delete their own content
@@ -11,16 +12,16 @@ Future<bool> confirmDeletePost(
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text('ลบ$itemLabelนี้?'),
-      content: const Text('ลบแล้วไม่สามารถกู้คืนได้'),
+      title: BrowserSystemText('ลบ$itemLabelนี้?'),
+      content: const BrowserSystemText('ลบแล้วไม่สามารถกู้คืนได้'),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('ยกเลิก'),
+          child: const BrowserSystemText('ยกเลิก'),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('ลบ'),
+          child: const BrowserSystemText('ลบ'),
         ),
       ],
     ),

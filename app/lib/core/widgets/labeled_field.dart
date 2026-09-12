@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../design/wyn_colors.dart';
@@ -89,7 +90,7 @@ class _LabeledFieldState extends State<LabeledField> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          BrowserSystemText(
             widget.label,
             style: _textStyle(
                 fontSize: 13, fontWeight: FontWeight.w500, color: WynColors.ink),
@@ -106,14 +107,14 @@ class _LabeledFieldState extends State<LabeledField> {
                 if (widget.prefix != null)
                   Padding(
                     padding: const EdgeInsets.only(right: 2, bottom: 1),
-                    child: Text(
+                    child: BrowserSystemText(
                       widget.prefix!,
                       style:
                           _textStyle(fontSize: 16, color: WynColors.graphite),
                     ),
                   ),
                 Expanded(
-                  child: TextField(
+                  child: BrowserSystemTextField(
                     controller: widget.controller,
                     focusNode: _focusNode,
                     maxLength: widget.maxLength,
@@ -128,7 +129,7 @@ class _LabeledFieldState extends State<LabeledField> {
                       isDense: true,
                       isCollapsed: true,
                       border: InputBorder.none,
-                      counterText: '',
+                      counter: const SizedBox.shrink(),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -140,7 +141,7 @@ class _LabeledFieldState extends State<LabeledField> {
           if (widget.errorText != null)
             Padding(
               padding: const EdgeInsets.only(top: WynSpacing.space1),
-              child: Text(
+              child: BrowserSystemText(
                 widget.errorText!,
                 style: _textStyle(fontSize: 13, color: WynColors.errorLight),
               ),
@@ -154,12 +155,12 @@ class _LabeledFieldState extends State<LabeledField> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
+                          child: BrowserSystemText(
                             widget.helper,
                             style: _textStyle(fontSize: 13, color: WynColors.faint),
                           ),
                         ),
-                        Text(
+                        BrowserSystemText(
                           '${widget.controller.text.length}/${widget.maxLength}',
                           style: _textStyle(
                             fontSize: 13,

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -136,7 +137,7 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: BrowserSystemText(
                     widget.actionType.confirmSheetTitle,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
@@ -144,12 +145,12 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: IconButton(
+                  child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
                     padding: EdgeInsets.zero,
                     icon: const Icon(Icons.close),
-                    tooltip: 'ปิด',
+                    tooltip: null,
                     onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                  ),
+                  )),
                 ),
               ],
             ),
@@ -168,14 +169,14 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.actionType.needsDuration) ...[
-          Text('ระยะเวลา', style: Theme.of(context).textTheme.titleSmall),
+          BrowserSystemText('ระยะเวลา', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: WynSpacing.space2),
           Wrap(
             spacing: WynSpacing.space2,
             children: [
               for (final days in _durationOptions)
                 ChoiceChip(
-                  label: Text('$days วัน'),
+                  label: BrowserSystemText('$days วัน'),
                   selected: _durationDays == days,
                   onSelected: _isSubmitting
                       ? null
@@ -185,21 +186,21 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
           ),
           const SizedBox(height: WynSpacing.space4),
         ],
-        Text(
+        BrowserSystemText(
           'เหตุผล (จำเป็น)',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: WynSpacing.space1),
-        TextField(
+        BrowserSystemTextField(
           controller: _reasonController,
           enabled: !_isSubmitting,
           minLines: 3,
           maxLines: 5,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(hintText: 'อธิบายเหตุผลของการดำเนินการนี้'),
+          decoration: const InputDecoration(hint: BrowserSystemText('อธิบายเหตุผลของการดำเนินการนี้')),
         ),
         const SizedBox(height: WynSpacing.space1),
-        Text(
+        BrowserSystemText(
           widget.actionType.reasonHelperText,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -207,7 +208,7 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
         ),
         if (widget.actionType == ModerationActionType.ban) ...[
           const SizedBox(height: WynSpacing.space2),
-          Text(
+          BrowserSystemText(
             'แบนถาวร -- ยกเลิกได้เฉพาะทาง Database โดย admin เท่านั้นในรอบนี้ '
             '(ยังไม่มีปุ่ม Unban ในแอป)',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -218,7 +219,7 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
         ],
         if (_submitError != null) ...[
           const SizedBox(height: WynSpacing.space2),
-          Text(
+          BrowserSystemText(
             _submitError!,
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
@@ -238,7 +239,7 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('ยืนยัน'),
+                : const BrowserSystemText('ยืนยัน'),
           ),
         ),
       ],

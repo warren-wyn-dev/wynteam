@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -79,7 +80,7 @@ class _HomeExplainerBannerState extends State<HomeExplainerBanner> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     'ดู → แชร์ → ค้นพบ → ซื้อ',
                     style: TextStyle(
                       fontSize: 13,
@@ -89,7 +90,7 @@ class _HomeExplainerBannerState extends State<HomeExplainerBanner> {
                     ),
                   ),
                   SizedBox(height: 2),
-                  Text(
+                  BrowserSystemText(
                     'WYNOS คือพื้นที่โซเชียลที่ต่อยอดจากสิ่งที่คุณชอบเห็น',
                     style: TextStyle(
                       fontSize: 12,

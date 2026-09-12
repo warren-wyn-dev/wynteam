@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -102,7 +103,7 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(_selected),
         ),
-        title: Text('เลือกเพื่อนที่จะซ่อนโพสต์นี้',
+        title: BrowserSystemText('เลือกเพื่อนที่จะซ่อนโพสต์นี้',
             style: WynTypography.screenTitle(fontSize: 14, color: WynColors.ink)),
         actions: [
           Semantics(
@@ -110,7 +111,7 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
             excludeSemantics: true,
             child: TextButton(
               onPressed: () => Navigator.of(context).pop(_selected),
-              child: Text(_selected.isEmpty
+              child: BrowserSystemText(_selected.isEmpty
                   ? 'เสร็จสิ้น'
                   : 'เสร็จสิ้น (${_selected.length})'),
             ),
@@ -148,10 +149,10 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
             const Icon(Icons.search, size: 14, color: WynColors.mutedNeutral),
             const SizedBox(width: WynSpacing.space2),
             Expanded(
-              child: TextField(
+              child: BrowserSystemTextField(
                 controller: _searchController,
                 decoration: const InputDecoration(
-                  hintText: 'ค้นหา',
+                  hint: BrowserSystemText('ค้นหา'),
                   border: InputBorder.none,
                   isCollapsed: true,
                 ),
@@ -171,9 +172,9 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -183,7 +184,7 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text(
+          child: BrowserSystemText(
             'คุณยังไม่มีเพื่อน (ติดตามกันทั้งสองทาง) ให้เลือก',
             textAlign: TextAlign.center,
           ),
@@ -196,7 +197,7 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text('ไม่พบผู้ใช้ที่ตรงกับ "$_searchQuery"', textAlign: TextAlign.center),
+          child: BrowserSystemText('ไม่พบผู้ใช้ที่ตรงกับ "$_searchQuery"', textAlign: TextAlign.center),
         ),
       );
     }
@@ -223,9 +224,9 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
           fallbackText: friend.username,
           radius: 21,
         ),
-        title: Text(friend.nameOrUsername,
+        title: BrowserSystemText(friend.nameOrUsername,
             style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('@${friend.username}'),
+        subtitle: BrowserSystemText('@${friend.username}'),
       ),
     );
   }

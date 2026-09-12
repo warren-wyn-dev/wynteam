@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -78,7 +79,7 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('รายละเอียดการดำเนินการ')),
+      appBar: AppBar(title: const BrowserSystemText('รายละเอียดการดำเนินการ')),
       body: FutureBuilder<_ActionWithAppeal>(
         future: _loadFuture,
         builder: (context, snapshot) {
@@ -87,9 +88,9 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลดข้อมูลไม่สำเร็จ'),
+                  const BrowserSystemText('โหลดข้อมูลไม่สำเร็จ'),
                   const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
+                  TextButton(onPressed: _reload, child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             );
@@ -129,11 +130,11 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(action.actionType.label, style: Theme.of(context).textTheme.titleMedium),
+          BrowserSystemText(action.actionType.label, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: WynSpacing.space2),
-          Text(action.reason),
+          BrowserSystemText(action.reason),
           const SizedBox(height: WynSpacing.space2),
-          Text(
+          BrowserSystemText(
             relativeTimeLabel(action.createdAt, now: DateTime.now()),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.outline,
@@ -154,7 +155,7 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
         width: double.infinity,
         child: FilledButton(
           onPressed: () => _openAppealForm(action),
-          child: const Text('อุทธรณ์'),
+          child: const BrowserSystemText('อุทธรณ์'),
         ),
       );
     }
@@ -182,7 +183,7 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
         return _buildStatusCard(
           context,
           title: 'อุทธรณ์ถูกปฏิเสธ',
-          child: Text('เหตุผล: ${appeal.decisionReason ?? ''}'),
+          child: BrowserSystemText('เหตุผล: ${appeal.decisionReason ?? ''}'),
         );
     }
   }
@@ -214,7 +215,7 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          BrowserSystemText(title, style: Theme.of(context).textTheme.titleSmall),
           if (child != null) ...[
             const SizedBox(height: WynSpacing.space2),
             child,
@@ -229,7 +230,7 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('เหตุผลของคุณ: ${appeal.reason}'),
+        BrowserSystemText('เหตุผลของคุณ: ${appeal.reason}'),
         if (evidencePaths != null && evidencePaths.isNotEmpty) ...[
           const SizedBox(height: WynSpacing.space2),
           SizedBox(

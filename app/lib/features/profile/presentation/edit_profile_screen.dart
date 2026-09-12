@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -213,7 +214,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('ถ่ายภาพหน้าปก'),
+              title: const BrowserSystemText('ถ่ายภาพหน้าปก'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickCoverImage(ImageSource.camera);
@@ -221,7 +222,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('เลือกภาพหน้าปกจากคลังภาพ'),
+              title: const BrowserSystemText('เลือกภาพหน้าปกจากคลังภาพ'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickCoverImage(ImageSource.gallery);
@@ -241,7 +242,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera),
-              title: const Text('ถ่ายรูปใหม่'),
+              title: const BrowserSystemText('ถ่ายรูปใหม่'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickImage(ImageSource.camera);
@@ -249,7 +250,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('เลือกจากคลังภาพ'),
+              title: const BrowserSystemText('เลือกจากคลังภาพ'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickImage(ImageSource.gallery);
@@ -271,17 +272,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: WynColors.paper,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
+        title: BrowserSystemText(
           label,
           style: _textStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
-        content: TextField(
+        content: BrowserSystemTextField(
           controller: editor,
           autofocus: true,
           keyboardType: TextInputType.url,
           textInputAction: TextInputAction.done,
           decoration: InputDecoration(
-            hintText: 'https://',
+            hint: BrowserSystemText('https://'),
             filled: true,
             fillColor: WynColors.surfaceTint,
             border: OutlineInputBorder(
@@ -294,7 +295,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -302,7 +303,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               foregroundColor: WynColors.paper,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(editor.text),
-            child: const Text('บันทึก'),
+            child: const BrowserSystemText('บันทึก'),
           ),
         ],
       ),
@@ -406,7 +407,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           icon: const Icon(Icons.chevron_left, size: 26, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: BrowserSystemText(
           'แก้ไขโปรไฟล์',
           style: WynTypography.screenTitle(fontSize: 17, color: WynColors.ink),
         ),
@@ -438,7 +439,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           color: WynColors.paper,
                         ),
                       )
-                    : const Text('บันทึก'),
+                    : const BrowserSystemText('บันทึก'),
               ),
             ),
           ),
@@ -499,7 +500,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     color: WynColors.paper,
                                   ),
                                   SizedBox(width: 6),
-                                  Text(
+                                  BrowserSystemText(
                                     'เปลี่ยนรูปปก',
                                     style: TextStyle(
                                       fontSize: 12.5,
@@ -581,13 +582,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      child: const Text('เปลี่ยนรูปโปรไฟล์'),
+                      child: const BrowserSystemText('เปลี่ยนรูปโปรไฟล์'),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
+              BrowserSystemText(
                 'ข้อมูลโปรไฟล์',
                 style: _textStyle(fontSize: 15, fontWeight: FontWeight.w700),
               ),
@@ -658,7 +659,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
+              BrowserSystemText(
                 'ลิงก์',
                 style: _textStyle(fontSize: 15, fontWeight: FontWeight.w700),
               ),
@@ -708,7 +709,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
-                Text(
+                BrowserSystemText(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: WynColors.errorLight),
@@ -745,7 +746,7 @@ class _SocialLinkRow extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
+                child: BrowserSystemText(
                   label,
                   style: const TextStyle(
                     fontSize: 14.5,
@@ -755,7 +756,7 @@ class _SocialLinkRow extends StatelessWidget {
                 ),
               ),
               Flexible(
-                child: Text(
+                child: BrowserSystemText(
                   trimmed.isEmpty ? 'เพิ่มลิงก์' : trimmed,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -611,9 +612,9 @@ class _ErrorRetryScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+            const BrowserSystemText('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: onRetry, child: const Text('ลองใหม่')),
+            TextButton(onPressed: onRetry, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       ),

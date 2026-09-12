@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club_member.dart';
@@ -91,7 +92,7 @@ class ClubJoinButton extends StatelessWidget {
   }
 
   Widget _buildChild(String label, bool isInFlight) {
-    if (!isInFlight) return Text(label);
+    if (!isInFlight) return BrowserSystemText(label);
     return const SizedBox(
       height: 14,
       width: 14,

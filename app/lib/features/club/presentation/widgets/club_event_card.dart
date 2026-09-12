@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club_event.dart';
@@ -77,7 +78,7 @@ class ClubEventCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
+                child: BrowserSystemText(
                   event.title,
                   style: Theme.of(context)
                       .textTheme
@@ -86,23 +87,23 @@ class ClubEventCard extends StatelessWidget {
                 ),
               ),
               if (canManage)
-                IconButton(
+                BrowserSystemTooltip(message: 'เพิ่มเติม', child: IconButton(
                   icon: const Icon(Icons.more_vert),
-                  tooltip: 'เพิ่มเติม',
+                  tooltip: null,
                   onPressed: () => _openMoreMenu(context),
-                ),
+                )),
             ],
           ),
           if (event.description != null && event.description!.isNotEmpty) ...[
             const SizedBox(height: WynSpacing.space1),
-            Text(event.description!),
+            BrowserSystemText(event.description!),
           ],
           const SizedBox(height: WynSpacing.space2),
           Row(
             children: [
               const Icon(Icons.schedule, size: 16),
               const SizedBox(width: 6),
-              Text(_formatDateTime(event.startsAt)),
+              BrowserSystemText(_formatDateTime(event.startsAt)),
             ],
           ),
           const SizedBox(height: WynSpacing.space1),
@@ -116,7 +117,7 @@ class ClubEventCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(event.location, maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: BrowserSystemText(event.location, maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
@@ -125,7 +126,7 @@ class ClubEventCard extends StatelessWidget {
             children: [
               InkWell(
                 onTap: () => onShowAttendees(RsvpStatus.going),
-                child: Text(
+                child: BrowserSystemText(
                   '${event.goingCount} ไป',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.outline,
@@ -136,7 +137,7 @@ class ClubEventCard extends StatelessWidget {
               const SizedBox(width: WynSpacing.space3),
               InkWell(
                 onTap: () => onShowAttendees(RsvpStatus.maybe),
-                child: Text(
+                child: BrowserSystemText(
                   '${event.maybeCount} อาจจะไป',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.outline,
@@ -203,7 +204,7 @@ class _RsvpButton extends StatelessWidget {
         side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant),
         padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
+      child: BrowserSystemText(label, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
     );
   }
 }
@@ -230,12 +231,12 @@ class ClubEventAttendeesSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            BrowserSystemText(title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: WynSpacing.space3),
             if (attendees.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: WynSpacing.space4),
-                child: Center(child: Text('ยังไม่มีใครตอบรับ')),
+                child: Center(child: BrowserSystemText('ยังไม่มีใครตอบรับ')),
               )
             else
               Flexible(
@@ -250,7 +251,7 @@ class ClubEventAttendeesSheet extends StatelessWidget {
                         fallbackText: attendee.username,
                         radius: 18,
                       ),
-                      title: Text(attendee.nameOrUsername),
+                      title: BrowserSystemText(attendee.nameOrUsername),
                     );
                   },
                 ),

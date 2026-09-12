@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -514,11 +515,7 @@ class ModeFeedPageState extends State<ModeFeedPage>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('ไม่สนใจโพสต์นี้แล้ว'),
-        action: SnackBarAction(
-          label: 'เลิกทำ',
-          onPressed: () => _undoHideItem(index, item),
-        ),
+        content: Row(children: [const Expanded(child: BrowserSystemText('ไม่สนใจโพสต์นี้แล้ว')), TextButton(onPressed: () => _undoHideItem(index, item), child: const BrowserSystemText('เลิกทำ'))]),
       ),
     );
   }
@@ -755,11 +752,11 @@ class ModeFeedPageState extends State<ModeFeedPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(_error!),
+                BrowserSystemText(_error!),
                 const SizedBox(height: WynSpacing.space3),
                 TextButton(
                   onPressed: _loadInitial,
-                  child: const Text('ลองใหม่'),
+                  child: const BrowserSystemText('ลองใหม่'),
                 ),
               ],
             ),
@@ -802,7 +799,7 @@ class ModeFeedPageState extends State<ModeFeedPage>
           child: Center(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: WynSpacing.space4),
-              child: Text(
+              child: BrowserSystemText(
                 'ยังไม่มีใครโพสต์อะไรเลย เป็นคนแรกสิ!',
                 textAlign: TextAlign.center,
               ),
@@ -848,7 +845,7 @@ class ModeFeedPageState extends State<ModeFeedPage>
                     ),
                     onPressed: _loadMore,
                     icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('โหลดเพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'),
+                    label: const BrowserSystemText('โหลดเพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'),
                   ),
                 ),
               );

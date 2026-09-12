@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -77,7 +78,7 @@ class _PushDiagnosticsSheetState extends State<PushDiagnosticsSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            const BrowserSystemText(
               'ตรวจสอบการแจ้งเตือน',
               style: TextStyle(
                 fontSize: 18,
@@ -86,7 +87,7 @@ class _PushDiagnosticsSheetState extends State<PushDiagnosticsSheet> {
               ),
             ),
             const SizedBox(height: WynSpacing.space1),
-            const Text(
+            const BrowserSystemText(
               'แต่ละบรรทัดคือหนึ่งขั้นตอนที่การแจ้งเตือนต้องผ่าน '
               'บรรทัดแรกที่ไม่ผ่านคือจุดที่ต้องแก้',
               style: TextStyle(fontSize: 13, color: WynColors.graphite),
@@ -106,7 +107,7 @@ class _PushDiagnosticsSheetState extends State<PushDiagnosticsSheet> {
               child: TextButton(
                 key: const Key('push_diagnostics_close'),
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('ปิด'),
+                child: const BrowserSystemText('ปิด'),
               ),
             ),
           ],
@@ -167,7 +168,7 @@ class _PushDiagnosticsSheetState extends State<PushDiagnosticsSheet> {
         Padding(
           key: const Key('push_diagnostics_failure'),
           padding: const EdgeInsets.only(top: WynSpacing.space2),
-          child: Text(
+          child: BrowserSystemText(
             'รายละเอียดข้อผิดพลาด: ${result.failure}',
             style: const TextStyle(fontSize: 12, color: WynColors.graphite),
           ),
@@ -175,7 +176,7 @@ class _PushDiagnosticsSheetState extends State<PushDiagnosticsSheet> {
       Padding(
         key: const Key('push_diagnostics_summary'),
         padding: const EdgeInsets.only(top: WynSpacing.space3),
-        child: Text(
+        child: BrowserSystemText(
           result.isReadyToReceive
               ? 'เครื่องนี้พร้อมรับการแจ้งเตือนแล้ว ถ้ายังไม่เด้ง '
                   'ให้ดูที่การตั้งค่าการแจ้งเตือนของระบบสำหรับ WYNOS Beta'
@@ -221,14 +222,14 @@ class _CheckRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                BrowserSystemText(
                   label,
                   style: const TextStyle(fontSize: 14, color: WynColors.ink),
                 ),
                 if (detail != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(
+                    child: BrowserSystemText(
                       detail!,
                       style: const TextStyle(
                         fontSize: 12,

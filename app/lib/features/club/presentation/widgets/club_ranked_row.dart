@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
@@ -54,7 +55,7 @@ class ClubRankedRow extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 20,
-                  child: Text(
+                  child: BrowserSystemText(
                     '$rank',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -71,7 +72,7 @@ class ClubRankedRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      BrowserSystemText(
                         club.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -84,7 +85,7 @@ class ClubRankedRow extends StatelessWidget {
                           Icon(Icons.trending_up, size: 14, color: scheme.primary),
                           const SizedBox(width: 2),
                           Flexible(
-                            child: Text(
+                            child: BrowserSystemText(
                               '${club.memberCount} สมาชิก',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

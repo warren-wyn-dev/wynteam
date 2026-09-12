@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club_member_badge.dart';
@@ -39,7 +40,7 @@ class ClubBadgePill extends StatelessWidget {
           color: colors.background,
           borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
         ),
-        child: Text(
+        child: BrowserSystemText(
           badge.label,
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colors.foreground),
         ),
@@ -96,16 +97,16 @@ class _SetClubBadgeDialogState extends State<_SetClubBadgeDialog> {
     final isValid = trimmed.isNotEmpty && trimmed.length <= 20;
 
     return AlertDialog(
-      title: const Text('ตั้งป้าย'),
+      title: const BrowserSystemText('ตั้งป้าย'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
+          BrowserSystemTextField(
             controller: _controller,
             autofocus: true,
             maxLength: 20,
-            decoration: const InputDecoration(hintText: 'ข้อความป้าย เช่น VIP'),
+            decoration: const InputDecoration(hint: BrowserSystemText('ข้อความป้าย เช่น VIP')),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: WynSpacing.space2),
@@ -126,12 +127,12 @@ class _SetClubBadgeDialogState extends State<_SetClubBadgeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('ยกเลิก'),
+          child: const BrowserSystemText('ยกเลิก'),
         ),
         TextButton(
           onPressed:
               isValid ? () => Navigator.of(context).pop((trimmed, _selectedColor)) : null,
-          child: const Text('บันทึก'),
+          child: const BrowserSystemText('บันทึก'),
         ),
       ],
     );

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../profile/data/profile.dart';
@@ -106,7 +107,7 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
       if (!mounted) return;
       setState(() => _unblockingIds.remove(profile.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เลิกบล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('เลิกบล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -114,7 +115,7 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('บัญชีที่ถูกบล็อก')),
+      appBar: AppBar(title: const BrowserSystemText('บัญชีที่ถูกบล็อก')),
       body: _buildBody(),
     );
   }
@@ -129,9 +130,9 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -141,7 +142,7 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text('ยังไม่มีบัญชีที่ถูกบล็อก', textAlign: TextAlign.center),
+          child: BrowserSystemText('ยังไม่มีบัญชีที่ถูกบล็อก', textAlign: TextAlign.center),
         ),
       );
     }
@@ -175,11 +176,11 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      BrowserSystemText(
                         profile.nameOrUsername,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      Text(
+                      BrowserSystemText(
                         '@${profile.username}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.outline,
@@ -199,7 +200,7 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('เลิกบล็อก'),
+                        : const BrowserSystemText('เลิกบล็อก'),
                   ),
                 ),
               ],

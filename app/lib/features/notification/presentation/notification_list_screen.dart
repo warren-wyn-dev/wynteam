@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -340,7 +341,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     if (!mounted) return;
     if (drop == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('โพสต์นี้ถูกลบไปแล้ว')),
+        const SnackBar(content: BrowserSystemText('โพสต์นี้ถูกลบไปแล้ว')),
       );
       return;
     }
@@ -369,7 +370,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   // (tap it, it's gone).
   Future<void> _openPop(String popId) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
+      const SnackBar(content: BrowserSystemText('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
     );
   }
 
@@ -426,7 +427,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     if (!mounted) return;
     if (post == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('โพสต์นี้ถูกลบไปแล้ว')),
+        const SnackBar(content: BrowserSystemText('โพสต์นี้ถูกลบไปแล้ว')),
       );
       return;
     }
@@ -616,14 +617,14 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       ),
       child: Row(
         children: [
-          IconButton(
+          BrowserSystemTooltip(message: 'เมนู', child: IconButton(
             icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
-            tooltip: 'เมนู',
+            tooltip: null,
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          ),
+          )),
           Expanded(
             child: Center(
-              child: Text(
+              child: BrowserSystemText(
                 'การแจ้งเตือน',
                 style: WynTypography.screenTitle(
                   fontSize: 17,
@@ -633,11 +634,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               ),
             ),
           ),
-          IconButton(
+          BrowserSystemTooltip(message: 'ค้นหา', child: IconButton(
             icon: const Icon(Icons.search, size: 21, color: WynColors.ink),
-            tooltip: 'ค้นหา',
+            tooltip: null,
             onPressed: _openSearch,
-          ),
+          )),
         ],
       ),
     );
@@ -668,7 +669,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           children: [
             Expanded(
               child: Center(
-                child: Text(
+                child: BrowserSystemText(
                   label,
                   style: _textStyle(
                     fontSize: 13.5,
@@ -706,9 +707,9 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -809,7 +810,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             padding: const EdgeInsets.symmetric(
                 horizontal: WynSpacing.space4, vertical: WynSpacing.space8),
             child: Center(
-              child: Text(
+              child: BrowserSystemText(
                 'ไม่มีการแจ้งเตือนเพิ่มเติมแล้ว',
                 style: _textStyle(fontSize: 13, color: WynColors.faint),
               ),
@@ -849,7 +850,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                     if (n.contentPreview != null &&
                         n.contentPreview!.isNotEmpty) ...[
                       const SizedBox(height: 2),
-                      Text(
+                      BrowserSystemText(
                         '“${n.contentPreview}”',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -858,7 +859,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                       ),
                     ],
                     const SizedBox(height: 2),
-                    Text(
+                    BrowserSystemText(
                       time,
                       style: _textStyle(fontSize: 13, color: WynColors.faint),
                     ),
@@ -950,7 +951,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       spans.add(
           TextSpan(text: ' และอีก $extraActorCount คน', style: extraStyle));
     }
-    return Text.rich(TextSpan(children: spans));
+    return BrowserSystemText.rich(TextSpan(children: spans));
   }
 }
 
@@ -1134,7 +1135,7 @@ class _GroupLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(WynSpacing.space4, WynSpacing.space5,
           WynSpacing.space4, WynSpacing.space1),
-      child: Text(
+      child: BrowserSystemText(
         label,
         style: _textStyle(
                 fontSize: 13,

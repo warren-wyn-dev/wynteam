@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -183,7 +184,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -208,7 +209,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -230,7 +231,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ย้ายห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ย้ายห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -242,7 +243,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
     // must always survive for posting to keep working.
     if ((_channels?.length ?? 0) <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ต้องมีอย่างน้อย 1 ห้องเสมอ ลบห้องสุดท้ายไม่ได้')),
+        const SnackBar(content: BrowserSystemText('ต้องมีอย่างน้อย 1 ห้องเสมอ ลบห้องสุดท้ายไม่ได้')),
       );
       return;
     }
@@ -268,7 +269,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('สร้างกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -287,7 +288,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขชื่อกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('แก้ไขชื่อกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -354,7 +355,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
   void _onBanned() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('คุณถูกนำออกจาก Club นี้แล้ว')),
+      const SnackBar(content: BrowserSystemText('คุณถูกนำออกจาก Club นี้แล้ว')),
     );
     widget.onBanned?.call();
   }
@@ -362,7 +363,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
   @override
   Widget build(BuildContext context) {
     if (!_isMember) {
-      return const Center(child: Text('เข้าร่วม Club เพื่อดูแชท'));
+      return const Center(child: BrowserSystemText('เข้าร่วม Club เพื่อดูแชท'));
     }
 
     final channels = _channels;
@@ -372,9 +373,9 @@ class _ClubChatTabState extends State<ClubChatTab> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_channelsError!),
+              BrowserSystemText(_channelsError!),
               const SizedBox(height: WynSpacing.space3),
-              TextButton(onPressed: _loadChannels, child: const Text('ลองใหม่')),
+              TextButton(onPressed: _loadChannels, child: const BrowserSystemText('ลองใหม่')),
             ],
           ),
         );
@@ -404,18 +405,18 @@ class _ClubChatTabState extends State<ClubChatTab> {
           child: Row(
             children: [
               const Expanded(
-                child: Text(
+                child: BrowserSystemText(
                   'ห้องแชท',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
                 ),
               ),
               if (_canManageChannels)
-                IconButton(
+                BrowserSystemTooltip(message: 'เพิ่ม', child: IconButton(
                   key: const Key('club_chat_add_button'),
                   icon: const Icon(Icons.add),
-                  tooltip: 'เพิ่ม',
+                  tooltip: null,
                   onPressed: _openAddMenu,
-                ),
+                )),
             ],
           ),
         ),
@@ -444,7 +445,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
           WynSpacing.space4,
           WynSpacing.space1,
         ),
-        child: Text(
+        child: BrowserSystemText(
           category.name.toUpperCase(),
           style: const TextStyle(
             fontSize: 12,
@@ -465,7 +466,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
         WynSpacing.space4,
         WynSpacing.space1,
       ),
-      child: Text(
+      child: BrowserSystemText(
         'ไม่มีกลุ่ม',
         style: TextStyle(
           fontSize: 12,
@@ -491,12 +492,12 @@ class _ClubChatTabState extends State<ClubChatTab> {
           height: 38,
           alignment: Alignment.center,
           decoration: const BoxDecoration(color: WynColors.surfaceTint, shape: BoxShape.circle),
-          child: const Text(
+          child: const BrowserSystemText(
             '#',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.sapphire),
           ),
         ),
-        title: Text(
+        title: BrowserSystemText(
           label,
           style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: WynColors.ink),
         ),

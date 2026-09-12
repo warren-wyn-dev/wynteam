@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -43,12 +44,12 @@ class DraftsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: WynColors.paper,
         centerTitle: true,
-        leading: IconButton(
+        leading: BrowserSystemTooltip(message: 'ย้อนกลับ', child: IconButton(
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
-          tooltip: 'ย้อนกลับ',
+          tooltip: null,
           onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
+        )),
+        title: BrowserSystemText(
           'ร่าง',
           style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),

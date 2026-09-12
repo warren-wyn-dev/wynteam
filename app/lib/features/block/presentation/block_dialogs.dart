@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -29,13 +30,13 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
               children: [
                 const Icon(Icons.error_outline, size: 28, color: WynColors.sapphire),
                 const SizedBox(height: WynSpacing.space3),
-                Text(
+                BrowserSystemText(
                   'บล็อก @$username?',
                   textAlign: TextAlign.center,
                   style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
                 ),
                 const SizedBox(height: WynSpacing.space2),
-                const Text(
+                const BrowserSystemText(
                   'คุณจะไม่เห็นเนื้อหาของกันและกันอีกต่อไป การติดตามระหว่างกัน '
                   '(ถ้ามี) จะถูกยกเลิกทันที ยกเลิกการบล็อกได้ภายหลังที่ตั้งค่า',
                   textAlign: TextAlign.center,
@@ -52,7 +53,7 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () => Navigator.of(sheetContext).pop(true),
-                    child: const Text('บล็อก'),
+                    child: const BrowserSystemText('บล็อก'),
                   ),
                 ),
                 const SizedBox(height: WynSpacing.space2 + 2),
@@ -64,7 +65,7 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
                       side: const BorderSide(color: WynColors.hairline),
                     ),
                     onPressed: () => Navigator.of(sheetContext).pop(false),
-                    child: const Text('ยกเลิก'),
+                    child: const BrowserSystemText('ยกเลิก'),
                   ),
                 ),
               ],
@@ -82,19 +83,19 @@ Future<bool> confirmUnblock(BuildContext context, {required String username}) as
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text('เลิกบล็อก @$username?'),
-      content: const Text(
+      title: BrowserSystemText('เลิกบล็อก @$username?'),
+      content: const BrowserSystemText(
         'คุณจะเห็นเนื้อหาของกันและกันได้อีกครั้ง — การติดตามเดิม (ถ้ามี) '
         'จะไม่กลับมาอัตโนมัติ',
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('ยกเลิก'),
+          child: const BrowserSystemText('ยกเลิก'),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('เลิกบล็อก'),
+          child: const BrowserSystemText('เลิกบล็อก'),
         ),
       ],
     ),

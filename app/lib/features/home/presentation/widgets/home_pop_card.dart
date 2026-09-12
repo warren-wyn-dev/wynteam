@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -255,9 +256,9 @@ class HomePopCard extends StatelessWidget {
                               // _openMoreMenu itself still decides
                               // whether the authorship-gated Hide row
                               // appears underneath those two.
-                              IconButton(
+                              BrowserSystemTooltip(message: 'เพิ่มเติม', child: IconButton(
                                 icon: const Icon(Icons.more_horiz, size: 22),
-                                tooltip: 'เพิ่มเติม',
+                                tooltip: null,
                                 padding: const EdgeInsets.only(top: 2),
                                 alignment: Alignment.topCenter,
                                 constraints: const BoxConstraints.tightFor(
@@ -265,7 +266,7 @@ class HomePopCard extends StatelessWidget {
                                   height: 32,
                                 ),
                                 onPressed: () => _openMoreMenu(context),
-                              ),
+                              )),
                             ],
                           ),
                         ),
@@ -335,7 +336,7 @@ class HomePopCard extends StatelessWidget {
                                               4,
                                             ),
                                           ),
-                                          child: Text(
+                                          child: BrowserSystemText(
                                             _formatDuration(
                                               item.durationSeconds!,
                                             ),
@@ -418,9 +419,9 @@ class HomePopCard extends StatelessWidget {
                                 countTextStyle: actionCountStyle,
                               ),
                               const SizedBox(width: WynSpacing.space4),
-                              IconButton(
+                              BrowserSystemTooltip(message: 'แชร์', child: IconButton(
                                 icon: const Icon(Icons.send_outlined, size: 24),
-                                tooltip: 'แชร์',
+                                tooltip: null,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
@@ -428,7 +429,7 @@ class HomePopCard extends StatelessWidget {
                                 ),
                                 color: WynColors.graphite,
                                 onPressed: _share,
-                              ),
+                              )),
                               // WYN-088: hidden on the Home feed (showViewCount:
                               // false there) -- HomePopCard has no other call
                               // site today, but this stays symmetric with

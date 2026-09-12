@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -69,7 +70,7 @@ class SavedGridTile extends StatelessWidget {
                           color: WynColors.imageScrim,
                           borderRadius: BorderRadius.circular(3),
                         ),
-                        child: Text(
+                        child: BrowserSystemText(
                           _formatDuration(item.durationSeconds!),
                           style: const TextStyle(color: Colors.white, fontSize: 11),
                         ),

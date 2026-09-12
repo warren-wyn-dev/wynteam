@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -81,18 +82,18 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('ยืนยันลบบัญชีถาวร?'),
-        content: const Text(
+        title: const BrowserSystemText('ยืนยันลบบัญชีถาวร?'),
+        content: const BrowserSystemText(
           'บัญชีและข้อมูลทั้งหมดของคุณจะถูกลบทันที ไม่สามารถกู้คืนได้',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('ลบ'),
+            child: const BrowserSystemText('ลบ'),
           ),
         ],
       ),
@@ -113,7 +114,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       if (!mounted) return;
       setState(() => _isDeleting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ลบบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
       return;
     }
@@ -159,7 +160,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     final canSubmit = _isMatch && !_isDeleting;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ลบบัญชี')),
+      appBar: AppBar(title: const BrowserSystemText('ลบบัญชี')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(WynSpacing.space4),
@@ -171,7 +172,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                   Icon(Icons.warning_amber_rounded, color: colorScheme.error),
                   const SizedBox(width: WynSpacing.space2),
                   Expanded(
-                    child: Text(
+                    child: BrowserSystemText(
                       'ลบบัญชีถาวร',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
@@ -179,14 +180,14 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                 ],
               ),
               const SizedBox(height: WynSpacing.space3),
-              const Text('การลบบัญชีจะทำให้สิ่งต่อไปนี้หายไปทั้งหมด:'),
+              const BrowserSystemText('การลบบัญชีจะทำให้สิ่งต่อไปนี้หายไปทั้งหมด:'),
               const SizedBox(height: WynSpacing.space2),
               const _BulletItem('โพสต์, Pop และ Comment ทั้งหมดของคุณ'),
               const _BulletItem('Follower และ Following ทั้งหมด'),
               const _BulletItem('ข้อความแชททั้งหมดที่คุณส่ง'),
               const _BulletItem('การเป็นสมาชิก Club ทั้งหมด'),
               const SizedBox(height: WynSpacing.space3),
-              Text(
+              BrowserSystemText(
                 'การลบบัญชีไม่สามารถย้อนกลับได้ ไม่มีระยะเวลาผ่อนผันเหมือนการลบโพสต์',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colorScheme.error,
@@ -194,11 +195,11 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                     ),
               ),
               const SizedBox(height: WynSpacing.space4),
-              TextField(
+              BrowserSystemTextField(
                 controller: _confirmController,
                 enabled: !_isDeleting,
                 decoration: const InputDecoration(
-                  labelText: 'พิมพ์ "ลบบัญชี" เพื่อยืนยัน',
+                  label: BrowserSystemText('พิมพ์ "ลบบัญชี" เพื่อยืนยัน'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -222,7 +223,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('ลบบัญชีถาวร'),
+                        : const BrowserSystemText('ลบบัญชีถาวร'),
                   ),
                 ),
               ),
@@ -246,8 +247,8 @@ class _BulletItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('•  '),
-          Expanded(child: Text(text)),
+          const BrowserSystemText('•  '),
+          Expanded(child: BrowserSystemText(text)),
         ],
       ),
     );

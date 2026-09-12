@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -144,15 +145,15 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
+        title: BrowserSystemText(title),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('ยืนยัน'),
+            child: const BrowserSystemText('ยืนยัน'),
           ),
         ],
       ),
@@ -161,7 +162,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: BrowserSystemText(message)));
   }
 
   Future<void> _approve(ClubMember member) async {
@@ -375,7 +376,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
         color = scheme.outline;
     }
     return Chip(
-      label: Text(
+      label: BrowserSystemText(
         _roleLabel(role),
         style: TextStyle(color: scheme.onPrimary, fontSize: 13),
       ),
@@ -403,9 +404,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('โหลดรายชื่อสมาชิกไม่สำเร็จ'),
+                    const BrowserSystemText('โหลดรายชื่อสมาชิกไม่สำเร็จ'),
                     const SizedBox(height: WynSpacing.space3),
-                    TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+                    TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
                   ],
                 ),
               ),
@@ -445,14 +446,14 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
                     child: OutlinedButton.icon(
                       onPressed: widget.onInvite,
                       icon: const Icon(Icons.person_add_alt_outlined),
-                      label: const Text('เชิญเพื่อน'),
+                      label: const BrowserSystemText('เชิญเพื่อน'),
                     ),
                   ),
                 ),
               if (pending.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  child: Text(
+                  child: BrowserSystemText(
                     'คำขอเข้าร่วม (${pending.length})',
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
@@ -474,7 +475,7 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
                         : TextButton(
                             key: const Key('club_load_more_members'),
                             onPressed: _loadMoreMembers,
-                            child: const Text('ดูสมาชิกเพิ่มเติม'),
+                            child: const BrowserSystemText('ดูสมาชิกเพิ่มเติม'),
                           ),
                   ),
                 ),
@@ -500,8 +501,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(member.nameOrUsername, style: Theme.of(context).textTheme.titleSmall),
-                Text(
+                BrowserSystemText(member.nameOrUsername, style: Theme.of(context).textTheme.titleSmall),
+                BrowserSystemText(
                   '@${member.username}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.outline,
@@ -510,8 +511,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
               ],
             ),
           ),
-          TextButton(onPressed: () => _approve(member), child: const Text('อนุมัติ')),
-          TextButton(onPressed: () => _reject(member), child: const Text('ปฏิเสธ')),
+          TextButton(onPressed: () => _approve(member), child: const BrowserSystemText('อนุมัติ')),
+          TextButton(onPressed: () => _reject(member), child: const BrowserSystemText('ปฏิเสธ')),
         ],
       ),
     );
@@ -536,8 +537,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(member.nameOrUsername, style: Theme.of(context).textTheme.titleSmall),
-                Text(
+                BrowserSystemText(member.nameOrUsername, style: Theme.of(context).textTheme.titleSmall),
+                BrowserSystemText(
                   '@${member.username}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.outline,
@@ -565,18 +566,18 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
           // (and its own "no menu on own/Owner row" rule) rather than
           // merging the two into one "..." button.
           if (_canManage)
-            IconButton(
+            BrowserSystemTooltip(message: memberBadge != null ? 'จัดการป้าย' : 'ตั้งป้าย', child: IconButton(
               key: ValueKey('member-badge-menu-${member.userId}'),
               icon: const Icon(Icons.local_offer_outlined, size: 18),
-              tooltip: memberBadge != null ? 'จัดการป้าย' : 'ตั้งป้าย',
+              tooltip: null,
               onPressed: () => _openBadgeMenu(member),
-            ),
+            )),
           if (actions.isNotEmpty)
             PopupMenuButton<_MemberAction>(
               key: ValueKey('member-menu-${member.userId}'),
               onSelected: (action) => action.onSelected(),
               itemBuilder: (context) => actions
-                  .map((action) => PopupMenuItem(value: action, child: Text(action.label)))
+                  .map((action) => PopupMenuItem(value: action, child: BrowserSystemText(action.label)))
                   .toList(),
             ),
         ],

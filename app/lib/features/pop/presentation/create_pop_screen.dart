@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -113,7 +114,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.videocam_outlined),
-              title: const Text('ถ่ายวิดีโอใหม่'),
+              title: const BrowserSystemText('ถ่ายวิดีโอใหม่'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickVideo(ImageSource.camera);
@@ -121,7 +122,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.video_library_outlined),
-              title: const Text('เลือกจากคลังวิดีโอ'),
+              title: const BrowserSystemText('เลือกจากคลังวิดีโอ'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickVideo(ImageSource.gallery);
@@ -192,7 +193,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(false),
         ),
-        title: const Text('Pop ใหม่'),
+        title: const BrowserSystemText('Pop ใหม่'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: WynSpacing.space2),
@@ -205,7 +206,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                         width: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('แชร์'),
+                    : const BrowserSystemText('แชร์'),
               ),
             ),
           ),
@@ -221,7 +222,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
                   child: Center(
-                    child: Text(
+                    child: BrowserSystemText(
                       '${_formatDuration(_durationSeconds)} / ${_formatDuration(_maxDurationSeconds)}',
                     ),
                   ),
@@ -231,20 +232,20 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
+                    BrowserSystemTextField(
                       controller: _captionController,
                       maxLength: _captionMaxLength,
                       maxLines: 4,
                       minLines: 2,
                       enabled: !_isSharing,
                       decoration: const InputDecoration(
-                        hintText: 'เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้',
+                        hint: BrowserSystemText('เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้'),
                         border: InputBorder.none,
                       ),
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: WynSpacing.space2),
-                      Text(
+                      BrowserSystemText(
                         _errorMessage!,
                         style:
                             TextStyle(color: Theme.of(context).colorScheme.error),
@@ -281,7 +282,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                           children: [
                             Icon(Icons.video_call_outlined, size: 40),
                             SizedBox(height: WynSpacing.space2),
-                            Text('แตะเพื่อเลือกวิดีโอ'),
+                            BrowserSystemText('แตะเพื่อเลือกวิดีโอ'),
                           ],
                         ),
                       )

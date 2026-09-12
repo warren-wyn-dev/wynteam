@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -87,7 +88,7 @@ class _PushPermissionCardState extends State<PushPermissionCard> {
     });
     if (state == PushPermissionState.granted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปิดการแจ้งเตือนแล้ว')),
+        const SnackBar(content: BrowserSystemText('เปิดการแจ้งเตือนแล้ว')),
       );
     }
   }
@@ -123,7 +124,7 @@ class _PushPermissionCardState extends State<PushPermissionCard> {
                   size: 18, color: WynColors.sapphire),
               SizedBox(width: WynSpacing.space2),
               Expanded(
-                child: Text(
+                child: BrowserSystemText(
                   'เปิดการแจ้งเตือนบนเครื่องนี้',
                   style: _cardTitleStyle,
                 ),
@@ -131,7 +132,7 @@ class _PushPermissionCardState extends State<PushPermissionCard> {
             ],
           ),
           const SizedBox(height: WynSpacing.space2),
-          const Text(
+          const BrowserSystemText(
             'รู้ทันทีเมื่อมีคนถูกใจ คอมเมนต์ ติดตามคุณ '
             'หรือมีความเคลื่อนไหวใน Club — เลือกได้ว่าจะรับเรื่องไหนบ้าง '
             'ที่ ตั้งค่า → การแจ้งเตือน',
@@ -159,7 +160,7 @@ class _PushPermissionCardState extends State<PushPermissionCard> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: WynColors.paper),
                       )
-                    : const Text('เปิดการแจ้งเตือน',
+                    : const BrowserSystemText('เปิดการแจ้งเตือน',
                         style: TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w600)),
               ),
@@ -169,7 +170,7 @@ class _PushPermissionCardState extends State<PushPermissionCard> {
                 style: TextButton.styleFrom(foregroundColor: WynColors.graphite),
                 onPressed:
                     _isRequesting ? null : () => setState(() => _dismissed = true),
-                child: const Text('ไม่ใช่ตอนนี้',
+                child: const BrowserSystemText('ไม่ใช่ตอนนี้',
                     style: TextStyle(fontSize: 15, color: WynColors.graphite)),
               ),
             ],
@@ -191,7 +192,7 @@ class _PushPermissionCardState extends State<PushPermissionCard> {
               size: 16, color: WynColors.graphite),
           SizedBox(width: WynSpacing.space2),
           Expanded(
-            child: Text(
+            child: BrowserSystemText(
               'การแจ้งเตือนบนเครื่องนี้ถูกปิดอยู่ '
               'เปิดใหม่ได้ที่การตั้งค่าของระบบ (หรือการตั้งค่าเว็บไซต์ในเบราว์เซอร์) '
               'การแจ้งเตือนในแอปยังแสดงที่หน้านี้ตามปกติ',

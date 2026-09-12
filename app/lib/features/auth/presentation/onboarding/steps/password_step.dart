@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../core/design/wyn_colors.dart';
@@ -104,7 +105,7 @@ class _PasswordStepState extends State<PasswordStep> {
             ),
           ),
           const SizedBox(height: WynSpacing.space1),
-          Text(label, style: TextStyle(fontSize: 12, color: color)),
+          BrowserSystemText(label, style: TextStyle(fontSize: 12, color: color)),
         ],
       ),
     );

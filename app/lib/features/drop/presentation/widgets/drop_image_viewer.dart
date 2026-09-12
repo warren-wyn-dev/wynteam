@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -124,7 +125,7 @@ class _DropImageViewerState extends State<DropImageViewer> {
                     ),
                   ),
                   Expanded(
-                    child: Text(
+                    child: BrowserSystemText(
                       '${_currentIndex + 1} / ${widget.imageUrls.length}',
                       textAlign: TextAlign.center,
                       style: TextStyle(

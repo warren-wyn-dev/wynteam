@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/design/wyn_spacing.dart';
 
@@ -24,7 +25,7 @@ class SearchStateMessage extends StatelessWidget {
           children: [
             Icon(icon, size: 56, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: WynSpacing.space4),
-            Text(text, textAlign: TextAlign.center),
+            BrowserSystemText(text, textAlign: TextAlign.center),
           ],
         ),
       ),

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -156,7 +157,7 @@ class _DiscoveryViewState extends State<DiscoveryView> {
           return const Padding(
             padding: EdgeInsets.symmetric(
                 horizontal: WynSpacing.space4, vertical: WynSpacing.space4),
-            child: Text('ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้'),
+            child: BrowserSystemText('ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้'),
           );
         }
 
@@ -177,7 +178,7 @@ class _DiscoveryViewState extends State<DiscoveryView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       'ดูอันดับทั้งหมด (Top 100)',
                       style: _textStyle(
                           fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.sapphire),
@@ -210,7 +211,7 @@ class _DiscoveryViewState extends State<DiscoveryView> {
           return const Padding(
             padding: EdgeInsets.symmetric(
                 horizontal: WynSpacing.space4, vertical: WynSpacing.space4),
-            child: Text('ยังไม่มีบัญชีแนะนำให้ติดตามตอนนี้'),
+            child: BrowserSystemText('ยังไม่มีบัญชีแนะนำให้ติดตามตอนนี้'),
           );
         }
 
@@ -249,12 +250,12 @@ class _DiscoveryViewState extends State<DiscoveryView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       profile.nameOrUsername,
                       style:
                           _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                     ),
-                    Text(
+                    BrowserSystemText(
                       '@${profile.username}',
                       style: _textStyle(fontSize: 13, color: WynColors.faint),
                     ),
@@ -285,7 +286,7 @@ class _SectionLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(WynSpacing.space4,
           WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
-      child: Text(
+      child: BrowserSystemText(
         label,
         style: _textStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
             .copyWith(letterSpacing: 13 * 0.14),

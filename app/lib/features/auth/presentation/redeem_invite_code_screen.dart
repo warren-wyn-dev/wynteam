@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -84,23 +85,23 @@ class _RedeemInviteCodeScreenState extends State<RedeemInviteCodeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: WynSpacing.space6),
-              Text(
+              BrowserSystemText(
                 'กรอกโค้ดเชิญ',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: WynSpacing.space3),
-              Text(
+              BrowserSystemText(
                 'ตอนนี้ WYNOS เปิดให้เข้าใช้งานเฉพาะผู้ที่มีโค้ดเชิญจากเพื่อนเท่านั้น',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
               const SizedBox(height: WynSpacing.space8),
-              TextField(
+              BrowserSystemTextField(
                 key: const Key('invite_code_field'),
                 controller: _controller,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'โค้ดเชิญ'),
+                decoration: const InputDecoration(label: BrowserSystemText('โค้ดเชิญ')),
                 onChanged: (_) {
                   if (_errorText != null) setState(() => _errorText = null);
                 },
@@ -115,11 +116,11 @@ class _RedeemInviteCodeScreenState extends State<RedeemInviteCodeScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('ดำเนินการต่อ'),
+                    : const BrowserSystemText('ดำเนินการต่อ'),
               ),
               if (_errorText != null) ...[
                 const SizedBox(height: WynSpacing.space4),
-                Text(
+                BrowserSystemText(
                   _errorText!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),

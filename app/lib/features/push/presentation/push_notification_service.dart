@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -501,7 +502,7 @@ class PushNotificationService {
     String? popId,
   ) async {
     appScaffoldMessengerKey.currentState?.showSnackBar(
-      const SnackBar(content: Text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
+      const SnackBar(content: BrowserSystemText('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -79,7 +80,7 @@ class _PrivacyNoticeBannerState extends State<PrivacyNoticeBanner> {
               size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: WynSpacing.space2),
           Expanded(
-            child: Text(widget.message,
+            child: BrowserSystemText(widget.message,
                 style: Theme.of(context).textTheme.bodySmall),
           ),
           Semantics(

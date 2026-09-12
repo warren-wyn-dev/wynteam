@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -215,7 +216,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: BrowserSystemText(
           'บันทึกไว้',
           style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
@@ -238,9 +239,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -54,7 +55,7 @@ class PopGridTile extends StatelessWidget {
                       color: WynColors.imageScrim,
                       borderRadius: BorderRadius.circular(3),
                     ),
-                    child: Text(
+                    child: BrowserSystemText(
                       _formatDuration(pop.durationSeconds),
                       style: const TextStyle(color: Colors.white, fontSize: 11),
                     ),

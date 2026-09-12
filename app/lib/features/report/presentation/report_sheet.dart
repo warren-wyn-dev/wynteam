@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -67,16 +68,13 @@ Future<void> showReportSheet(
 
   if (submitted != true || !context.mounted) return;
 
-  SnackBarAction? blockAction;
+  VoidCallback? blockAction;
   if (associatedUserId != null) {
     try {
       final relationship = await BlockRepository(Supabase.instance.client)
           .blockRelationship(associatedUserId);
       if (relationship == BlockRelationship.none && context.mounted) {
-        blockAction = SnackBarAction(
-          label: 'บล็อก',
-          onPressed: () => _offerBlockAfterReport(context, associatedUserId),
-        );
+        blockAction = () => _offerBlockAfterReport(context, associatedUserId);
       }
     } catch (_) {
       // The report itself already succeeded -- a failed eligibility
@@ -87,8 +85,7 @@ Future<void> showReportSheet(
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: const Text('ส่งรายงานแล้ว ทีมงานจะตรวจสอบเร็วๆ นี้'),
-      action: blockAction,
+      content: Row(children: [const Expanded(child: BrowserSystemText('ส่งรายงานแล้ว ทีมงานจะตรวจสอบเร็วๆ นี้')), if (blockAction != null) TextButton(onPressed: blockAction, child: const BrowserSystemText('บล็อก'))]),
     ),
   );
 }
@@ -109,12 +106,12 @@ Future<void> _offerBlockAfterReport(BuildContext context, String userId) async {
     await BlockRepository(Supabase.instance.client).blockUser(userId);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('บล็อก @${profile.username} แล้ว')),
+      SnackBar(content: BrowserSystemText('บล็อก @${profile.username} แล้ว')),
     );
   } catch (_) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      const SnackBar(content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
     );
   }
 }
@@ -240,7 +237,7 @@ class _ReportSheetState extends State<ReportSheet> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: BrowserSystemText(
                     widget.targetLabel,
                     // 21-report-block.tsx: the reason-picker heading
                     // ("ทำไมคุณถึงรายงานโพสต์นี้") uses the screen-title style -- same
@@ -252,12 +249,12 @@ class _ReportSheetState extends State<ReportSheet> {
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: IconButton(
+                  child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
                     padding: EdgeInsets.zero,
                     icon: const Icon(Icons.close),
-                    tooltip: 'ปิด',
+                    tooltip: null,
                     onPressed: () => Navigator.of(context).pop(),
-                  ),
+                  )),
                 ),
               ],
             ),
@@ -283,14 +280,14 @@ class _ReportSheetState extends State<ReportSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('โหลดข้อมูลไม่สำเร็จ'),
+              const BrowserSystemText('โหลดข้อมูลไม่สำเร็จ'),
               const SizedBox(height: WynSpacing.space2),
               TextButton(
                 onPressed: () {
                   setState(() => _loadState = _LoadState.checking);
                   _checkExisting();
                 },
-                child: const Text('ลองใหม่'),
+                child: const BrowserSystemText('ลองใหม่'),
               ),
             ],
           ),
@@ -301,7 +298,7 @@ class _ReportSheetState extends State<ReportSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('คุณรายงานสิ่งนี้ไปแล้ว ทีมงานกำลังตรวจสอบ'),
+              BrowserSystemText('คุณรายงานสิ่งนี้ไปแล้ว ทีมงานกำลังตรวจสอบ'),
             ],
           ),
         );
@@ -347,7 +344,7 @@ class _ReportSheetState extends State<ReportSheet> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
+                        child: BrowserSystemText(
                           category.label,
                           style: const TextStyle(fontSize: 15, color: WynColors.ink),
                         ),
@@ -372,21 +369,21 @@ class _ReportSheetState extends State<ReportSheet> {
               ),
             ),
           const SizedBox(height: WynSpacing.space2),
-          TextField(
+          BrowserSystemTextField(
             controller: _detailController,
             enabled: !_isSubmitting,
             minLines: 3,
             maxLines: 5,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              labelText: _category == ReportCategory.other
+              label: BrowserSystemText(_category == ReportCategory.other
                   ? 'อธิบายเพิ่มเติม (จำเป็น)'
-                  : 'อธิบายเพิ่มเติม (ถ้ามี)',
+                  : 'อธิบายเพิ่มเติม (ถ้ามี)'),
             ),
           ),
           if (_submitError != null) ...[
             const SizedBox(height: WynSpacing.space2),
-            Text(
+            BrowserSystemText(
               _submitError!,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
@@ -407,7 +404,7 @@ class _ReportSheetState extends State<ReportSheet> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('ส่งรายงาน'),
+                    : const BrowserSystemText('ส่งรายงาน'),
               ),
             ),
           ),

@@ -421,8 +421,9 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     final decoration = style.decoration;
     if (decoration != null && decoration != TextDecoration.none) {
       final values = <String>[];
-      if (decoration.contains(TextDecoration.underline))
+      if (decoration.contains(TextDecoration.underline)) {
         values.add('underline');
+      }
       if (decoration.contains(TextDecoration.lineThrough)) {
         values.add('line-through');
       }
@@ -602,8 +603,9 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
     element.setAttribute('spellcheck', widget.autocorrect ? 'true' : 'false');
     element.setAttribute('inputmode', _inputMode());
     final enterKeyHint = _enterKeyHint();
-    if (enterKeyHint != null)
+    if (enterKeyHint != null) {
       element.setAttribute('enterkeyhint', enterKeyHint);
+    }
     if (!_enabled) element.setAttribute('disabled', 'disabled');
     if (widget.maxLength != null) {
       element.setAttribute('maxlength', '${widget.maxLength}');
@@ -757,7 +759,7 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
     if (type == TextInputType.url) return 'url';
     if (type == TextInputType.phone) return 'tel';
     if (type == TextInputType.number ||
-        type == TextInputType.numberWithOptions()) {
+        type == const TextInputType.numberWithOptions()) {
       return 'numeric';
     }
     return 'text';

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -79,13 +80,13 @@ class _ViewOnceImageViewerState extends State<ViewOnceImageViewer> {
                   Material(
                     color: WynColors.imageScrimStrong,
                     shape: const CircleBorder(),
-                    child: IconButton(
+                    child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
                       key: const Key('view_once_close_button'),
                       icon: const Icon(Icons.close,
                           color: WynColors.paper, size: 21),
-                      tooltip: 'ปิด',
+                      tooltip: null,
                       onPressed: () => Navigator.of(context).pop(),
-                    ),
+                    )),
                   ),
                   const Spacer(),
                   Semantics(
@@ -108,7 +109,7 @@ class _ViewOnceImageViewerState extends State<ViewOnceImageViewer> {
                           const Icon(Icons.filter_1_outlined,
                               size: 15, color: WynColors.paper),
                           const SizedBox(width: WynSpacing.space1),
-                          Text(
+                          BrowserSystemText(
                             '$_secondsLeft',
                             style: const TextStyle(
                               fontSize: 13,
@@ -143,7 +144,7 @@ class _ViewOnceImageViewerState extends State<ViewOnceImageViewer> {
                     ),
                   ),
                   const SizedBox(height: WynSpacing.space2),
-                  const Text(
+                  const BrowserSystemText(
                     'รูปนี้จะหายหลังจากเปิดดู',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12.5, color: WynColors.faint),

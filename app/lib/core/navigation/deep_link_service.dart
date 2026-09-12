@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -126,7 +127,7 @@ class DeepLinkService {
         // "content not available" treatment as a push notification for
         // an old like_pop/comment_pop (PushNotificationService._openPop).
         appScaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
+          const SnackBar(content: BrowserSystemText('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
         );
       case 'club':
         _openClub(navigator, Supabase.instance.client, id);

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -39,7 +40,7 @@ class ChatPillTab extends StatelessWidget {
               borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
               border: selected ? null : Border.all(color: WynColors.hairline),
             ),
-            child: Text(
+            child: BrowserSystemText(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -87,7 +88,7 @@ class ChatSearchField extends StatelessWidget {
           const Icon(Icons.search, size: 18, color: WynColors.graphite),
           const SizedBox(width: WynSpacing.space2),
           Expanded(
-            child: TextField(
+            child: BrowserSystemTextField(
               controller: controller,
               autofocus: autofocus,
               style: const TextStyle(fontSize: 15.5, color: WynColors.ink),
@@ -95,7 +96,7 @@ class ChatSearchField extends StatelessWidget {
                 border: InputBorder.none,
                 isCollapsed: true,
               ).copyWith(
-                hintText: hintText,
+                hint: BrowserSystemText(hintText),
                 hintStyle: const TextStyle(
                     fontSize: 15.5, color: WynColors.mutedNeutral),
               ),
@@ -128,7 +129,7 @@ class ChatSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return BrowserSystemText(
       label,
       style: const TextStyle(
         fontSize: 12.5,
@@ -190,7 +191,7 @@ class ChatActionSheetBody extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (title != null)
-                        Text(
+                        BrowserSystemText(
                           title!,
                           style: const TextStyle(
                             fontSize: 17,
@@ -200,7 +201,7 @@ class ChatActionSheetBody extends StatelessWidget {
                         ),
                       if (subtitle != null) ...[
                         const SizedBox(height: 3),
-                        Text(
+                        BrowserSystemText(
                           subtitle!,
                           style: const TextStyle(
                               fontSize: 13, color: WynColors.graphite),
@@ -266,7 +267,7 @@ class ChatActionSheetRow extends StatelessWidget {
             ),
             const SizedBox(width: WynSpacing.space3),
             Expanded(
-              child: Text(
+              child: BrowserSystemText(
                 label,
                 style: TextStyle(
                   fontSize: 15,
@@ -303,7 +304,7 @@ class ChatRoundIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = enabled && onPressed != null;
-    return Tooltip(
+    return BrowserSystemTooltip(
       message: tooltip,
       child: Material(
         color: filled && active ? WynColors.ink : WynColors.surfaceTint,

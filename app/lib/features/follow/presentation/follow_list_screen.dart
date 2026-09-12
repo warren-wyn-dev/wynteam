@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -240,15 +241,15 @@ class _FollowListScreenState extends State<FollowListScreen> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('เอา ${profile.nameOrUsername} ออกจากผู้ติดตาม?'),
+            title: BrowserSystemText('เอา ${profile.nameOrUsername} ออกจากผู้ติดตาม?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('ยกเลิก'),
+                child: const BrowserSystemText('ยกเลิก'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('เอาออก'),
+                child: const BrowserSystemText('เอาออก'),
               ),
             ],
           ),
@@ -266,7 +267,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _removingIds.remove(profile.id));
@@ -284,7 +285,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: BrowserSystemText(
           _ownerDisplayName ?? '',
           style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
@@ -326,7 +327,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
-            child: Text(
+            child: BrowserSystemText(
               label,
               textAlign: TextAlign.center,
               style: _textStyle(
@@ -364,11 +365,11 @@ class _FollowListScreenState extends State<FollowListScreen> {
             const Icon(Icons.search, size: 14, color: WynColors.mutedNeutral),
             const SizedBox(width: WynSpacing.space2),
             Expanded(
-              child: TextField(
+              child: BrowserSystemTextField(
                 controller: _searchController,
                 style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
-                  hintText: 'ค้นหา',
+                  hint: BrowserSystemText('ค้นหา'),
                   hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                   border: InputBorder.none,
                   isCollapsed: true,
@@ -393,11 +394,11 @@ class _FollowListScreenState extends State<FollowListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(tab.error!),
+            BrowserSystemText(tab.error!),
             const SizedBox(height: WynSpacing.space3),
             TextButton(
               onPressed: () => _loadTab(_selectedMode, initial: true),
-              child: const Text('ลองใหม่'),
+              child: const BrowserSystemText('ลองใหม่'),
             ),
           ],
         ),
@@ -412,7 +413,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text(emptyText, textAlign: TextAlign.center),
+          child: BrowserSystemText(emptyText, textAlign: TextAlign.center),
         ),
       );
     }
@@ -422,7 +423,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text(
+          child: BrowserSystemText(
             'ไม่พบผู้ใช้ที่ตรงกับ "$_searchQuery"',
             textAlign: TextAlign.center,
             style: _textStyle(fontSize: 13, color: WynColors.faint),
@@ -473,11 +474,11 @@ class _FollowListScreenState extends State<FollowListScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       profile.nameOrUsername,
                       style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
                     ),
-                    Text(
+                    BrowserSystemText(
                       '@${profile.username}',
                       style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                     ),
@@ -495,7 +496,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
                 else
                   OutlinedButton(
                     onPressed: () => _removeFollower(profile),
-                    child: const Text('ลบ'),
+                    child: const BrowserSystemText('ลบ'),
                   )
               else
                 FollowActionButton(

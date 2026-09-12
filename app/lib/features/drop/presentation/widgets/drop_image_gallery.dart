@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -174,7 +175,7 @@ class _DropImageGalleryState extends State<DropImageGallery> {
                   color: WynColors.imageScrim,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
+                child: BrowserSystemText(
                   '${_currentIndex + 1}/${imageUrls.length}',
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),

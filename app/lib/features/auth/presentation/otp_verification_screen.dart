@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -83,14 +84,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ยืนยันรหัส OTP')),
+      appBar: AppBar(title: const BrowserSystemText('ยืนยันรหัส OTP')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
+              BrowserSystemText(
                 'กรอกรหัส 6 หลักที่ส่งไปยัง ${widget.phone}',
                 textAlign: TextAlign.center,
               ),
@@ -99,7 +100,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               if (_errorMessage != null) ...[
                 const SizedBox(height: WynSpacing.space3),
                 Center(
-                  child: Text(
+                  child: BrowserSystemText(
                     _errorMessage!,
                     style:
                         TextStyle(color: Theme.of(context).colorScheme.error),
@@ -114,7 +115,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               Center(
                 child: TextButton(
                   onPressed: _secondsRemaining == 0 ? _resend : null,
-                  child: Text(
+                  child: BrowserSystemText(
                     _secondsRemaining == 0
                         ? 'ส่งรหัสอีกครั้ง'
                         : 'ส่งรหัสอีกครั้งใน $_secondsRemaining วินาที',

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -67,7 +68,7 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
     await Clipboard.setData(ClipboardData(text: clubInviteShareLink(code)));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('คัดลอกลิงก์แล้ว')),
+      const SnackBar(content: BrowserSystemText('คัดลอกลิงก์แล้ว')),
     );
   }
 
@@ -87,7 +88,7 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างลิงก์เชิญไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('สร้างลิงก์เชิญไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isCreating = false);
@@ -98,16 +99,16 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('เพิกถอนลิงก์นี้?'),
-        content: const Text('ใครก็ตามที่ถือลิงก์นี้อยู่จะใช้ไม่ได้อีกทันที'),
+        title: const BrowserSystemText('เพิกถอนลิงก์นี้?'),
+        content: const BrowserSystemText('ใครก็ตามที่ถือลิงก์นี้อยู่จะใช้ไม่ได้อีกทันที'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('เพิกถอนลิงก์'),
+            child: const BrowserSystemText('เพิกถอนลิงก์'),
           ),
         ],
       ),
@@ -126,7 +127,7 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
       if (!mounted) return;
       setState(() => _revokingIds.remove(link.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เพิกถอนลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('เพิกถอนลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -151,14 +152,14 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ลิงก์เชิญ')),
+      appBar: AppBar(title: const BrowserSystemText('ลิงก์เชิญ')),
       body: RefreshIndicator(onRefresh: _load, child: _buildBody()),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isCreating ? null : _createLink,
         icon: _isCreating
             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
             : const Icon(Icons.add),
-        label: const Text('สร้างลิงก์เชิญใหม่'),
+        label: const BrowserSystemText('สร้างลิงก์เชิญใหม่'),
       ),
     );
   }
@@ -172,9 +173,9 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -194,7 +195,7 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
           if (showPrivacyWarning) _buildPrivacyWarningBanner(context),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: WynSpacing.space8, horizontal: WynSpacing.space6),
-            child: Text(
+            child: BrowserSystemText(
               'ยังไม่มีลิงก์เชิญ — สร้างลิงก์แรกเพื่อแชร์ Club นี้ไปที่อื่นได้เลย',
               textAlign: TextAlign.center,
             ),
@@ -238,7 +239,7 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
           Icon(Icons.warning_amber_rounded, size: 18, color: Colors.orange.shade800),
           const SizedBox(width: WynSpacing.space2),
           Expanded(
-            child: Text(
+            child: BrowserSystemText(
               'ใครก็ตามที่มีลิงก์นี้จะเข้าร่วม Club ส่วนตัวนี้ได้ทันที '
               'โดยไม่ต้องรออนุมัติ — ระวังอย่าแชร์ต่อไปยังคนที่ไม่ต้องการให้เข้าร่วม',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.orange.shade900),
@@ -275,14 +276,14 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     clubInviteShareLink(link.code).replaceFirst('https://', ''),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  BrowserSystemText(
                     '${_usageLabel(link)} · ${_expiryLabel(link)} · สร้างเมื่อ ${dateLabel(link.createdAt)}'
                     '$statusSuffix',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -292,11 +293,11 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
                 ],
               ),
             ),
-            IconButton(
+            BrowserSystemTooltip(message: 'คัดลอกลิงก์', child: IconButton(
               icon: const Icon(Icons.copy_outlined, size: 20),
-              tooltip: 'คัดลอกลิงก์',
+              tooltip: null,
               onPressed: () => _copyLink(link.code),
-            ),
+            )),
             isRevoking
                 ? const SizedBox(
                     width: 40,
@@ -306,11 +307,11 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   )
-                : IconButton(
+                : BrowserSystemTooltip(message: 'ตัวเลือกเพิ่มเติม', child: IconButton(
                     icon: const Icon(Icons.more_vert, size: 20),
-                    tooltip: 'ตัวเลือกเพิ่มเติม',
+                    tooltip: null,
                     onPressed: () => _showLinkMenu(link),
-                  ),
+                  )),
           ],
         ),
       ),
@@ -372,9 +373,9 @@ class _CreateInviteLinkSheetState extends State<_CreateInviteLinkSheet> {
             children: [
               const SizedBox(height: WynSpacing.space2),
               const SheetDragHandle(),
-              Text('สร้างลิงก์เชิญใหม่', style: Theme.of(context).textTheme.titleMedium),
+              BrowserSystemText('สร้างลิงก์เชิญใหม่', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: WynSpacing.space4),
-              Text('วันหมดอายุ', style: Theme.of(context).textTheme.labelLarge),
+              BrowserSystemText('วันหมดอายุ', style: Theme.of(context).textTheme.labelLarge),
               for (final choice in _expiryChoices)
                 _RadioRow(
                   label: _expiryLabel(choice),
@@ -382,7 +383,7 @@ class _CreateInviteLinkSheetState extends State<_CreateInviteLinkSheet> {
                   onTap: () => setState(() => _expiresInDays = choice),
                 ),
               const SizedBox(height: WynSpacing.space2),
-              Text('จำนวนครั้งใช้งานสูงสุด', style: Theme.of(context).textTheme.labelLarge),
+              BrowserSystemText('จำนวนครั้งใช้งานสูงสุด', style: Theme.of(context).textTheme.labelLarge),
               for (final choice in _maxUsesChoices)
                 _RadioRow(
                   label: _maxUsesLabel(choice),
@@ -397,7 +398,7 @@ class _CreateInviteLinkSheetState extends State<_CreateInviteLinkSheet> {
                     expiresInDays: _expiresInDays,
                     maxUses: _maxUses,
                   )),
-                  child: const Text('สร้างลิงก์'),
+                  child: const BrowserSystemText('สร้างลิงก์'),
                 ),
               ),
               const SizedBox(height: WynSpacing.space2),
@@ -434,7 +435,7 @@ class _RadioRow extends StatelessWidget {
           selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
           color: selected ? Theme.of(context).colorScheme.primary : null,
         ),
-        title: Text(label),
+        title: BrowserSystemText(label),
         onTap: onTap,
       ),
     );

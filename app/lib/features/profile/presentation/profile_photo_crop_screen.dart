@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -256,10 +257,10 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
         leadingWidth: 88,
         leading: TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('ยกเลิก', style: TextStyle(color: Colors.white)),
+          child: const BrowserSystemText('ยกเลิก', style: TextStyle(color: Colors.white)),
         ),
         centerTitle: true,
-        title: const Text(
+        title: const BrowserSystemText(
           'ปรับตำแหน่งรูป',
           style: TextStyle(color: Colors.white, fontSize: 16),
         ),
@@ -273,7 +274,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white),
                   )
-                : const Text(
+                : const BrowserSystemText(
                     'เสร็จสิ้น',
                     style: TextStyle(
                         color: Colors.white, fontWeight: FontWeight.bold),
@@ -290,7 +291,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
                     ? (_errorMessage != null
                         ? Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
+                            child: BrowserSystemText(
                               _errorMessage!,
                               style: const TextStyle(color: Colors.white),
                               textAlign: TextAlign.center,
@@ -306,7 +307,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
             if (ready && _errorMessage != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
+                child: BrowserSystemText(
                   _errorMessage!,
                   // Beta4 §10: was an ad-hoc `Colors.redAccent`, the one
                   // error colour in the app that came from Material
@@ -394,11 +395,11 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
           WynSpacing.space6, 8, WynSpacing.space6, WynSpacing.space6),
       child: Row(
         children: [
-          IconButton(
-            tooltip: 'ลดการซูม',
+          BrowserSystemTooltip(message: 'ลดการซูม', child: IconButton(
+            tooltip: null,
             icon: const Icon(Icons.remove, color: Colors.white),
             onPressed: ready ? () => _setScale(_scale - _zoomButtonStep) : null,
-          ),
+          )),
           Expanded(
             child: Semantics(
               label: 'ระดับการซูม',
@@ -414,11 +415,11 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
               ),
             ),
           ),
-          IconButton(
-            tooltip: 'เพิ่มการซูม',
+          BrowserSystemTooltip(message: 'เพิ่มการซูม', child: IconButton(
+            tooltip: null,
             icon: const Icon(Icons.add, color: Colors.white),
             onPressed: ready ? () => _setScale(_scale + _zoomButtonStep) : null,
-          ),
+          )),
         ],
       ),
     );

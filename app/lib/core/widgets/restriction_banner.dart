@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/moderation/data/appeal_status.dart';
@@ -79,7 +80,7 @@ class RestrictionBanner extends StatelessWidget {
               ),
               const SizedBox(width: WynSpacing.space2),
               Flexible(
-                child: Text(
+                child: BrowserSystemText(
                   message,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -98,16 +99,16 @@ class RestrictionBanner extends StatelessWidget {
   Widget _buildAppealRow(BuildContext context) {
     switch (appealStatus ?? AppealStatus.none) {
       case AppealStatus.none:
-        return TextButton(onPressed: onAppeal, child: const Text('อุทธรณ์'));
+        return TextButton(onPressed: onAppeal, child: const BrowserSystemText('อุทธรณ์'));
       case AppealStatus.pending:
-        return Text(
+        return BrowserSystemText(
           'อยู่ระหว่างพิจารณาอุทธรณ์',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
         );
       case AppealStatus.rejected:
-        return Text(
+        return BrowserSystemText(
           'อุทธรณ์ถูกปฏิเสธแล้ว',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,

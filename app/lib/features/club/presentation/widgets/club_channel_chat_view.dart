@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -291,7 +292,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -316,7 +317,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -411,7 +412,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
               color: _onlineCount > 0 ? WynColors.online : WynColors.faint,
             ),
             const SizedBox(width: WynSpacing.space1),
-            Text(
+            BrowserSystemText(
               '$_onlineCount คนออนไลน์ในห้องนี้',
               style: const TextStyle(fontSize: 12.5, color: WynColors.graphite),
             ),
@@ -501,19 +502,19 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                     borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
                     border: Border.all(color: WynColors.hairline),
                   ),
-                  child: TextField(
+                  child: BrowserSystemTextField(
                     controller: _textController,
                     minLines: 1,
                     maxLines: 6,
                     maxLength: 2000,
                     style: const TextStyle(fontSize: 16, color: WynColors.ink),
                     decoration: const InputDecoration(
-                      hintText: 'พิมพ์ข้อความ...',
+                      hint: BrowserSystemText('พิมพ์ข้อความ...'),
                       hintStyle: TextStyle(
                           fontSize: 16, color: WynColors.mutedNeutral),
                       border: InputBorder.none,
                       isCollapsed: true,
-                      counterText: '',
+                      counter: const SizedBox.shrink(),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -526,7 +527,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                 child: Material(
                   color: _canSend ? WynColors.ink : WynColors.surfaceTint,
                   shape: const CircleBorder(),
-                  child: IconButton(
+                  child: BrowserSystemTooltip(message: 'ส่งข้อความ', child: IconButton(
                     icon: _isSending
                         ? SizedBox(
                             width: 16,
@@ -543,9 +544,9 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                             color: _canSend
                                 ? WynColors.paper
                                 : WynColors.mutedNeutral),
-                    tooltip: 'ส่งข้อความ',
+                    tooltip: null,
                     onPressed: _canSend ? _send : null,
-                  ),
+                  )),
                 ),
               ),
             ],
@@ -571,7 +572,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
       child: Row(
         children: [
           Expanded(
-            child: Text('ตอบกลับ ${replyTo.authorUsername}: $preview',
+            child: BrowserSystemText('ตอบกลับ ${replyTo.authorUsername}: $preview',
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           IconButton(
@@ -663,7 +664,7 @@ class _ChatBubble extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.only(
                       top: message.imageUrl != null ? WynSpacing.space1 : 0),
-                  child: Text(message.content!,
+                  child: BrowserSystemText(message.content!,
                       style: TextStyle(fontSize: 15, color: textColor)),
                 ),
             ],
@@ -690,7 +691,7 @@ class _ChatBubble extends StatelessWidget {
                     radius: 10,
                     ring: false),
                 const SizedBox(width: WynSpacing.space1),
-                Text(_authorLabel,
+                BrowserSystemText(_authorLabel,
                     style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -716,7 +717,7 @@ class _ChatBubble extends StatelessWidget {
             .withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
       ),
-      child: Text(
+      child: BrowserSystemText(
         preview,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,

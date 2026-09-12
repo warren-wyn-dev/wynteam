@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -123,7 +124,7 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          BrowserSystemText(
                             'แนะนำสำหรับคุณ',
                             style: TextStyle(
                               fontSize: 22,
@@ -133,7 +134,7 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
                             ),
                           ),
                           SizedBox(height: 5),
-                          Text(
+                          BrowserSystemText(
                             'คนที่คุณอาจสนใจ',
                             style: TextStyle(
                               fontSize: 14,
@@ -143,15 +144,15 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      tooltip: 'ปิด',
+                    BrowserSystemTooltip(message: 'ปิด', child: IconButton(
+                      tooltip: null,
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(
                         Icons.close_rounded,
                         size: 28,
                         color: WynColors.ink,
                       ),
-                    ),
+                    )),
                   ],
                 ),
               ),
@@ -164,7 +165,7 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
+                        child: BrowserSystemText(
                           'ดูคำแนะนำทั้งหมด',
                           style: TextStyle(
                             fontSize: 15,
@@ -194,12 +195,12 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            const BrowserSystemText(
               'โหลดคำแนะนำไม่สำเร็จ',
               style: TextStyle(color: WynColors.graphite),
             ),
             const SizedBox(height: WynSpacing.space2),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -211,7 +212,7 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
     }
     if (profiles.isEmpty) {
       return const Center(
-        child: Text(
+        child: BrowserSystemText(
           'ยังไม่มีคำแนะนำใหม่ในตอนนี้',
           style: TextStyle(color: WynColors.graphite),
         ),
@@ -236,7 +237,7 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     profile.nameOrUsername,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -247,7 +248,7 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  BrowserSystemText(
                     '@${profile.username}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

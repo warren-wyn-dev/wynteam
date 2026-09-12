@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
@@ -92,8 +93,8 @@ class _ClubInsightsTabState extends State<ClubInsightsTab> {
                 Center(
                   child: SegmentedButton<int>(
                     segments: const [
-                      ButtonSegment(value: 7, label: Text('7 วัน')),
-                      ButtonSegment(value: 30, label: Text('30 วัน')),
+                      ButtonSegment(value: 7, label: BrowserSystemText('7 วัน')),
+                      ButtonSegment(value: 30, label: BrowserSystemText('30 วัน')),
                     ],
                     selected: {_days},
                     onSelectionChanged: (selection) => _selectDays(selection.first),
@@ -110,11 +111,11 @@ class _ClubInsightsTabState extends State<ClubInsightsTab> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('โหลดข้อมูลไม่สำเร็จ'),
+                              const BrowserSystemText('โหลดข้อมูลไม่สำเร็จ'),
                               const SizedBox(height: WynSpacing.space3),
                               TextButton(
                                 onPressed: () => setState(() => _future = _load()),
-                                child: const Text('ลองใหม่'),
+                                child: const BrowserSystemText('ลองใหม่'),
                               ),
                             ],
                           ),
@@ -174,14 +175,14 @@ class _StatTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          BrowserSystemText(
             '$value',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: WynSpacing.space1),
-          Text(
+          BrowserSystemText(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.outline,

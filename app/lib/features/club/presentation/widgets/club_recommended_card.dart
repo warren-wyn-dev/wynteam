@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
@@ -70,7 +71,7 @@ class ClubRecommendedCard extends StatelessWidget {
                           : Container(
                               color: scheme.primaryContainer,
                               alignment: Alignment.center,
-                              child: Text(
+                              child: BrowserSystemText(
                                 club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
                                 style: TextStyle(
                                   color: scheme.onPrimaryContainer,
@@ -110,7 +111,7 @@ class ClubRecommendedCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       club.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -121,7 +122,7 @@ class ClubRecommendedCard extends StatelessWidget {
                       children: [
                         if (club.category != null) ...[
                           Flexible(
-                            child: Text(
+                            child: BrowserSystemText(
                               club.category!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -131,10 +132,10 @@ class ClubRecommendedCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text('·', style: TextStyle(color: scheme.onSurfaceVariant)),
+                          BrowserSystemText('·', style: TextStyle(color: scheme.onSurfaceVariant)),
                           const SizedBox(width: 4),
                         ],
-                        Text(
+                        BrowserSystemText(
                           '${club.memberCount} สมาชิก',
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
@@ -174,15 +175,15 @@ class _MoreMenuButton extends StatelessWidget {
         shape: BoxShape.circle,
         color: WynColors.imageScrim,
       ),
-      child: PopupMenuButton<String>(
+      child: BrowserSystemTooltip(message: 'เพิ่มเติม', child: PopupMenuButton<String>(
         padding: EdgeInsets.zero,
         icon: const Icon(Icons.more_vert, size: 16, color: Colors.white),
-        tooltip: 'เพิ่มเติม',
+        tooltip: null,
         onSelected: (_) => onReport(),
         itemBuilder: (context) => const [
-          PopupMenuItem(value: 'report', child: Text('รายงาน Club')),
+          PopupMenuItem(value: 'report', child: BrowserSystemText('รายงาน Club')),
         ],
-      ),
+      )),
     );
   }
 }

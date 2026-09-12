@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -124,7 +125,7 @@ class _AvatarCircleState extends State<AvatarCircle> {
             ),
       onBackgroundImageError: imageUrl == null ? null : (_, __) => _onImageError(),
       child: imageUrl == null
-          ? Text(
+          ? BrowserSystemText(
               initial,
               // design-reference SPEC.md, Section 2: the avatar initial is
               // one of the few spots outside the header wordmark/empty-

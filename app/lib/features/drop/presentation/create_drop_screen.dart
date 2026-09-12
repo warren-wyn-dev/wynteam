@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -614,7 +615,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   /// is confusing on its own.
   void _showImageLimitSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
+      const SnackBar(content: BrowserSystemText('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
     );
   }
 
@@ -837,21 +838,21 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     final action = await showDialog<_CloseAction>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('บันทึกเป็นร่างก่อนออกไหม?'),
+        title: const BrowserSystemText('บันทึกเป็นร่างก่อนออกไหม?'),
         actions: [
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(_CloseAction.discard),
-            child: const Text('ทิ้ง'),
+            child: const BrowserSystemText('ทิ้ง'),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(_CloseAction.cancel),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(_CloseAction.save),
-            child: const Text('บันทึกร่าง'),
+            child: const BrowserSystemText('บันทึกร่าง'),
           ),
         ],
       ),
@@ -925,7 +926,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isSavingDraft = false);
@@ -1007,16 +1008,16 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                           height: 1.4,
                         ),
                         decoration: InputDecoration(
-                          hintText: _mode == _ComposeMode.poll
+                          hint: BrowserSystemText(_mode == _ComposeMode.poll
                               ? 'ตั้งคำถามโพล...'
-                              : 'มีอะไรเกิดขึ้นบ้าง',
+                              : 'มีอะไรเกิดขึ้นบ้าง'),
                           hintStyle: const TextStyle(
                             fontSize: 22,
                             color: WynColors.faint,
                             height: 1.4,
                           ),
                           border: InputBorder.none,
-                          counterText: '',
+                          counter: const SizedBox.shrink(),
                           contentPadding: EdgeInsets.zero,
                           isDense: true,
                         ),
@@ -1040,7 +1041,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                           ),
                           child: Align(
                             alignment: Alignment.centerRight,
-                            child: Text(
+                            child: BrowserSystemText(
                               '${_captionMaxLength - _captionController.text.length}',
                               style: const TextStyle(
                                 fontSize: 13,
@@ -1051,7 +1052,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                         ),
                       if (_errorMessage != null) ...[
                         const SizedBox(height: WynSpacing.space2),
-                        Text(
+                        BrowserSystemText(
                           _errorMessage!,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,
@@ -1097,7 +1098,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               WynSpacing.space4,
               WynSpacing.space1,
             ),
-            child: Text(
+            child: BrowserSystemText(
               'กำลังอัปโหลด $_uploadedImageCount/$total รูป... $percent%',
               style: const TextStyle(fontSize: 13, color: WynColors.graphite),
             ),
@@ -1133,7 +1134,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               size: 19,
               color: WynColors.ink,
             ),
-            label: const Text(
+            label: const BrowserSystemText(
               'ร่าง',
               style: TextStyle(
                 fontSize: 16,
@@ -1147,7 +1148,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             children: [
               Icon(Icons.edit_note_outlined, size: 19, color: WynColors.ink),
               SizedBox(width: 6),
-              Text(
+              BrowserSystemText(
                 'ร่าง',
                 style: TextStyle(
                   fontSize: 16,
@@ -1176,7 +1177,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                   minimumSize: const Size(54, WynSpacing.touchTargetMin),
                   alignment: Alignment.centerLeft,
                 ),
-                child: const Text(
+                child: const BrowserSystemText(
                   'ยกเลิก',
                   style: TextStyle(
                     fontSize: 15.5,
@@ -1222,7 +1223,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                                 : WynColors.mutedNeutral,
                           ),
                         )
-                      : const Text(
+                      : const BrowserSystemText(
                           'โพสต์',
                           style: TextStyle(
                             fontSize: 15,
@@ -1340,7 +1341,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
           _buildAspectRatioChips(),
           Padding(
             padding: const EdgeInsets.only(top: WynSpacing.space1),
-            child: Text(
+            child: BrowserSystemText(
               '${_imagesBytes.length}/$_maxImages',
               style: const TextStyle(fontSize: 13, color: WynColors.faint),
             ),
@@ -1441,7 +1442,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: BrowserSystemTextField(
                       controller: _pollOptionControllers[i],
                       maxLength: _pollOptionMaxLength,
                       enabled: !_isSharing,
@@ -1450,12 +1451,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                         color: WynColors.ink,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'ตัวเลือกที่ ${i + 1}',
+                        hint: BrowserSystemText('ตัวเลือกที่ ${i + 1}'),
                         hintStyle: const TextStyle(
                           fontSize: 16,
                           color: WynColors.faint,
                         ),
-                        counterText: '',
+                        counter: const SizedBox.shrink(),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: WynSpacing.space3,
                           vertical: WynSpacing.space2,
@@ -1491,12 +1492,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                   // Only the 3rd/4th option can be removed -- the
                   // first 2 are the minimum a Poll must always have.
                   if (i >= _minPollOptions)
-                    IconButton(
+                    BrowserSystemTooltip(message: 'ลบตัวเลือกนี้', child: IconButton(
                       key: ValueKey('remove_poll_option_$i'),
                       icon: const Icon(Icons.close, color: WynColors.graphite),
-                      tooltip: 'ลบตัวเลือกนี้',
+                      tooltip: null,
                       onPressed: _isSharing ? null : () => _removePollOption(i),
-                    ),
+                    )),
                 ],
               ),
             ),
@@ -1505,13 +1506,13 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               onPressed: _isSharing ? null : _addPollOption,
               style: TextButton.styleFrom(foregroundColor: WynColors.sapphire),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text(
+              label: const BrowserSystemText(
                 'เพิ่มตัวเลือก',
                 style: TextStyle(fontSize: 15),
               ),
             ),
           const SizedBox(height: WynSpacing.space2),
-          const Text(
+          const BrowserSystemText(
             'ระยะเวลาโหวต',
             style: TextStyle(
               fontSize: 13,
@@ -1528,9 +1529,9 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
               side: const BorderSide(color: WynColors.hairline),
             ),
             segments: const [
-              ButtonSegment(value: 1, label: Text('1 วัน')),
-              ButtonSegment(value: 3, label: Text('3 วัน')),
-              ButtonSegment(value: 7, label: Text('7 วัน')),
+              ButtonSegment(value: 1, label: BrowserSystemText('1 วัน')),
+              ButtonSegment(value: 3, label: BrowserSystemText('3 วัน')),
+              ButtonSegment(value: 7, label: BrowserSystemText('7 วัน')),
             ],
             selected: {_pollDurationDays},
             onSelectionChanged: _isSharing
@@ -1579,7 +1580,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          const BrowserSystemText(
             'เพิ่มไปยังโพสต์ของคุณ',
             style: TextStyle(
               fontSize: 14.5,
@@ -1708,7 +1709,7 @@ class _AudienceChip extends StatelessWidget {
             children: [
               Icon(_audienceOptionIcon(value), size: 14, color: WynColors.ink),
               const SizedBox(width: 5),
-              Text(
+              BrowserSystemText(
                 audienceOptionLabel(value),
                 style: const TextStyle(
                   fontSize: 13,
@@ -1779,7 +1780,7 @@ class _AudiencePickerSheet extends StatelessWidget {
               Row(
                 children: [
                   const Expanded(
-                    child: Text(
+                    child: BrowserSystemText(
                       'ใครเห็นโพสต์นี้ได้บ้าง',
                       style: TextStyle(
                         fontSize: 16,
@@ -1790,12 +1791,12 @@ class _AudiencePickerSheet extends StatelessWidget {
                   SizedBox(
                     width: WynSpacing.touchTargetMin,
                     height: WynSpacing.touchTargetMin,
-                    child: IconButton(
+                    child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
                       padding: EdgeInsets.zero,
                       icon: const Icon(Icons.close),
-                      tooltip: 'ปิด',
+                      tooltip: null,
                       onPressed: () => Navigator.of(context).pop(),
-                    ),
+                    )),
                   ),
                 ],
               ),
@@ -1809,8 +1810,8 @@ class _AudiencePickerSheet extends StatelessWidget {
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(_audienceOptionIcon(option)),
-                    title: Text(audienceOptionLabel(option)),
-                    subtitle: Text(audienceOptionDescription(option)),
+                    title: BrowserSystemText(audienceOptionLabel(option)),
+                    subtitle: BrowserSystemText(audienceOptionDescription(option)),
                     // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" always show both a
                     // radio (when currently selected) and a chevron
                     // (Design spec's "โชว์ทั้ง radio (checked) และ chevron
@@ -1880,7 +1881,7 @@ class _LocationChip extends StatelessWidget {
           const SizedBox(width: 4),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 180),
-            child: Text(
+            child: BrowserSystemText(
               location.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1962,7 +1963,7 @@ class _ToolbarIcon extends StatelessWidget {
               children: [
                 Icon(icon, size: 24, color: foreground),
                 const SizedBox(height: 7),
-                Text(
+                BrowserSystemText(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -2064,7 +2065,7 @@ class _AspectRatioChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: WynSpacing.space2 - 2),
-              Text(
+              BrowserSystemText(
                 _labels[ratio]!,
                 style: TextStyle(
                   fontSize: 12.5,

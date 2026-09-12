@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../drop/data/drop_repository.dart';
@@ -150,11 +151,11 @@ class _SearchPopResultsTabState extends State<SearchPopResultsTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
             TextButton(
               onPressed: () => _search(reset: true),
-              child: const Text('ลองใหม่'),
+              child: const BrowserSystemText('ลองใหม่'),
             ),
           ],
         ),

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -51,7 +52,7 @@ class HashtagRankRow extends StatelessWidget {
             children: [
               SizedBox(
                 width: 22,
-                child: Text(
+                child: BrowserSystemText(
                   '$rank',
                   textAlign: TextAlign.right,
                   style: WynTypography.screenTitle(
@@ -63,7 +64,7 @@ class HashtagRankRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       '#${item.tag}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -71,7 +72,7 @@ class HashtagRankRow extends StatelessWidget {
                           fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
+                    const BrowserSystemText(
                       'กำลังนิยมใน ไทย',
                       style: TextStyle(fontSize: 13, color: WynColors.graphite),
                     ),

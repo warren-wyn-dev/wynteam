@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../drop/data/drop_repository.dart';
@@ -137,7 +138,7 @@ class _MutedListScreenState extends State<MutedListScreen> {
       if (!mounted) return;
       setState(() => _unmutingIds.remove(profile.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปิดเสียงไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('เปิดเสียงไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -145,7 +146,7 @@ class _MutedListScreenState extends State<MutedListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('บัญชีที่ปิดเสียง')),
+      appBar: AppBar(title: const BrowserSystemText('บัญชีที่ปิดเสียง')),
       body: _buildBody(),
     );
   }
@@ -160,9 +161,9 @@ class _MutedListScreenState extends State<MutedListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -172,7 +173,7 @@ class _MutedListScreenState extends State<MutedListScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text('ยังไม่มีบัญชีที่ปิดเสียง', textAlign: TextAlign.center),
+          child: BrowserSystemText('ยังไม่มีบัญชีที่ปิดเสียง', textAlign: TextAlign.center),
         ),
       );
     }
@@ -217,11 +218,11 @@ class _MutedListScreenState extends State<MutedListScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                BrowserSystemText(
                                   profile.nameOrUsername,
                                   style: Theme.of(context).textTheme.titleSmall,
                                 ),
-                                Text(
+                                BrowserSystemText(
                                   '@${profile.username}',
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                         color: Theme.of(context).colorScheme.outline,
@@ -247,7 +248,7 @@ class _MutedListScreenState extends State<MutedListScreen> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('เปิดเสียง'),
+                        : const BrowserSystemText('เปิดเสียง'),
                   ),
                 ),
               ],

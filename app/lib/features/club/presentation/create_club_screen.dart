@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -228,7 +229,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
           children: [
             for (final category in clubCategories)
               ListTile(
-                title: Text(category),
+                title: BrowserSystemText(category),
                 trailing: category == _category
                     ? const Icon(Icons.check, color: WynColors.sapphire)
                     : null,
@@ -252,7 +253,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: BrowserSystemText(
           'สร้าง Club',
           style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
@@ -343,7 +344,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+                                  BrowserSystemText(
                                     'หมวดหมู่',
                                     style: _textStyle(
                                       fontSize: 13,
@@ -352,7 +353,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: WynSpacing.space1),
-                                  Text(
+                                  BrowserSystemText(
                                     _category ?? 'ไม่บังคับ',
                                     style: _textStyle(
                                       fontSize: 15,
@@ -378,7 +379,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          BrowserSystemText(
                             'ความเป็นส่วนตัว',
                             style: _textStyle(
                                 fontSize: 13, fontWeight: FontWeight.w500, color: WynColors.ink),
@@ -387,7 +388,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                           _buildPrivacyToggle(),
                           if (_privacy != null) ...[
                             const SizedBox(height: WynSpacing.space2),
-                            Text(
+                            BrowserSystemText(
                               _privacy == ClubPrivacy.public
                                   ? 'ทุกคนค้นหาและเข้าร่วมได้ทันที'
                                   : 'ต้องส่งคำขอ ผู้ดูแลต้องอนุมัติก่อน',
@@ -414,7 +415,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
               ],
               const SizedBox(height: WynSpacing.space6),
               if (_errorMessage != null) ...[
-                Text(
+                BrowserSystemText(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: WynColors.errorLight),
@@ -442,7 +443,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: WynColors.paper),
                         )
-                      : const Text('สร้าง Club'),
+                      : const BrowserSystemText('สร้าง Club'),
                 ),
               ),
             ],
@@ -479,7 +480,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                     ]
                   : null,
             ),
-            child: Text(
+            child: BrowserSystemText(
               label,
               textAlign: TextAlign.center,
               style: _textStyle(
@@ -562,7 +563,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       'รูป Club',
                       style: _textStyle(
                         fontSize: 13,
@@ -571,7 +572,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                       ),
                     ),
                     const SizedBox(height: WynSpacing.space1),
-                    Text(
+                    BrowserSystemText(
                       hasImage ? 'เลือกรูปแล้ว — แตะเพื่อเปลี่ยน' : 'ไม่บังคับ',
                       style: _textStyle(
                         fontSize: 15,
@@ -609,7 +610,7 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          BrowserSystemText(
             'ตรวจสอบข้อมูล',
             style: _textStyle(
               fontSize: 13,
@@ -655,7 +656,7 @@ class _ReviewLine extends StatelessWidget {
           Icon(icon, size: 16, color: WynColors.graphite),
           const SizedBox(width: WynSpacing.space2),
           Expanded(
-            child: Text(
+            child: BrowserSystemText(
               text,
               style: _textStyle(fontSize: 13, color: WynColors.ink),
             ),

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -215,9 +216,9 @@ class _SearchScreenState extends State<SearchScreen> {
       child: WynosSearchSurface(
         child: Row(
           children: [
-            IconButton(
+            BrowserSystemTooltip(message: 'ค้นหา', child: IconButton(
               onPressed: _submit,
-              tooltip: 'ค้นหา',
+              tooltip: null,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(
                 minWidth: WynSpacing.touchTargetMin,
@@ -228,10 +229,10 @@ class _SearchScreenState extends State<SearchScreen> {
                 size: 20,
                 color: WynColors.graphite,
               ),
-            ),
+            )),
             const SizedBox(width: WynSpacing.space1),
             Expanded(
-              child: TextField(
+              child: BrowserSystemTextField(
                 controller: _controller,
                 focusNode: _focusNode,
                 autofocus: widget.autofocus,
@@ -241,7 +242,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   fontWeight: FontWeight.w500,
                 ),
                 decoration: const InputDecoration(
-                  hintText: 'ค้นหา username, โพสต์, Club',
+                  hint: BrowserSystemText('ค้นหา username, โพสต์, Club'),
                   hintStyle: TextStyle(
                     fontSize: 15.5,
                     color: WynColors.graphite,
@@ -256,9 +257,9 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
             if (_controller.text.isNotEmpty)
-              IconButton(
+              BrowserSystemTooltip(message: 'ล้างคำค้นหา', child: IconButton(
                 onPressed: _clear,
-                tooltip: 'ล้างคำค้นหา',
+                tooltip: null,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(
                   minWidth: WynSpacing.touchTargetMin,
@@ -269,7 +270,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   size: 18,
                   color: WynColors.graphite,
                 ),
-              ),
+              )),
           ],
         ),
       ),

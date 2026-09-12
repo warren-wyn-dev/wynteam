@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../drop/data/drop_comment.dart';
@@ -151,16 +152,16 @@ class _ProfileRepliesTabState extends State<ProfileRepliesTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
     }
 
     if (_replies.isEmpty) {
-      return Center(child: Text(widget.emptyText));
+      return Center(child: BrowserSystemText(widget.emptyText));
     }
 
     return RefreshIndicator(
@@ -190,12 +191,12 @@ class _ProfileRepliesTabState extends State<ProfileRepliesTab>
                     )
                   : null,
             ),
-            title: Text(
+            title: BrowserSystemText(
               reply.comment.textContent,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            subtitle: Text(
+            subtitle: BrowserSystemText(
               'ตอบกลับโพสต์ของ ${reply.dropAuthorNameOrUsername} · '
               '${relativeTimeLabel(reply.comment.createdAt, now: DateTime.now())}',
               maxLines: 1,

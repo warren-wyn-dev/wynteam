@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -64,12 +65,12 @@ class _SuggestedFollowListState extends State<SuggestedFollowList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
+        BrowserSystemText(
           'ยังไม่มีอะไรให้ดูตรงนี้',
           style: WynTypography.screenTitle(fontSize: 20, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: WynSpacing.space1 + 2),
-        const Text(
+        const BrowserSystemText(
           'ลองติดตามคนที่คุณสนใจ เพื่อเริ่มเห็นโพสต์ในหน้านี้',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13, color: WynColors.graphite),
@@ -128,7 +129,7 @@ class _SuggestedAccountRow extends StatelessWidget {
                       Row(
                         children: [
                           Flexible(
-                            child: Text(
+                            child: BrowserSystemText(
                               profile.nameOrUsername,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -145,7 +146,7 @@ class _SuggestedAccountRow extends StatelessWidget {
                           ],
                         ],
                       ),
-                      Text(
+                      BrowserSystemText(
                         '@${profile.username}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

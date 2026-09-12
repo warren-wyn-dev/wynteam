@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -53,7 +54,7 @@ class _RecentlyDeletedDropsScreenState
       if (!mounted) return;
       setState(() => _drops = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กู้คืนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('กู้คืนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -63,22 +64,22 @@ class _RecentlyDeletedDropsScreenState
     final drops = _drops;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('รายการที่ลบ')),
+      appBar: AppBar(title: const BrowserSystemText('รายการที่ลบ')),
       body: _error != null
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(_error!),
+                  BrowserSystemText(_error!),
                   const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+                  TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             )
           : drops == null
               ? const Center(child: CircularProgressIndicator())
               : drops.isEmpty
-                  ? const Center(child: Text('ไม่มีโพสต์ที่ลบไว้'))
+                  ? const Center(child: BrowserSystemText('ไม่มีโพสต์ที่ลบไว้'))
                   : ListView.separated(
                       itemCount: drops.length,
                       separatorBuilder: (_, __) => const Divider(height: 1),
@@ -100,21 +101,21 @@ class _RecentlyDeletedDropsScreenState
                                           caption: drop.caption ?? ''),
                             ),
                           ),
-                          title: Text(
+                          title: BrowserSystemText(
                             drop.caption?.isNotEmpty == true
                                 ? drop.caption!
                                 : '(ไม่มีแคปชัน)',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(
+                          subtitle: BrowserSystemText(
                             drop.deletedAt != null
                                 ? 'ลบเมื่อ ${_formatDate(drop.deletedAt!)}'
                                 : '',
                           ),
                           trailing: OutlinedButton(
                             onPressed: () => _restore(drop),
-                            child: const Text('กู้คืน'),
+                            child: const BrowserSystemText('กู้คืน'),
                           ),
                         );
                       },

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -134,7 +135,7 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
       if (!mounted) return;
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -149,13 +150,13 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แชร์แล้ว')),
+        const SnackBar(content: BrowserSystemText('แชร์แล้ว')),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -176,7 +177,7 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
           icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: const BrowserSystemText(
           'แชร์เข้า Chat',
           style: TextStyle(
               fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
@@ -211,7 +212,7 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
                       size: 17, color: WynColors.ink),
                   const SizedBox(width: WynSpacing.space2),
                   Expanded(
-                    child: Text(
+                    child: BrowserSystemText(
                       widget.previewLabel,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -259,10 +260,10 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
             const Icon(Icons.error_outline,
                 size: 28, color: WynColors.graphite),
             const SizedBox(height: WynSpacing.space2),
-            Text(_error!, style: const TextStyle(color: WynColors.graphite)),
+            BrowserSystemText(_error!, style: const TextStyle(color: WynColors.graphite)),
             const SizedBox(height: WynSpacing.space2),
             TextButton(
-                onPressed: _loadConversations, child: const Text('ลองใหม่')),
+                onPressed: _loadConversations, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -340,7 +341,7 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -350,7 +351,7 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
                       color: WynColors.ink,
                     ),
                   ),
-                  Text(
+                  BrowserSystemText(
                     '@${conversation.otherUsername}',
                     style: const TextStyle(
                         fontSize: 13, color: WynColors.graphite),
@@ -396,7 +397,7 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -406,7 +407,7 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
                       color: WynColors.ink,
                     ),
                   ),
-                  Text(
+                  BrowserSystemText(
                     '@${profile.username}',
                     style: const TextStyle(
                         fontSize: 13, color: WynColors.graphite),

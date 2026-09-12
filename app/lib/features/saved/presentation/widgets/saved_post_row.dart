@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -87,12 +88,12 @@ class SavedPostRow extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
+                        BrowserSystemText(
                           item.authorNameOrUsername,
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const SizedBox(width: WynSpacing.space2),
-                        Text(
+                        BrowserSystemText(
                           relativeTimeLabel(item.createdAt, now: DateTime.now()),
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                 color: WynColors.mutedNeutral,
@@ -196,7 +197,7 @@ class _Metric extends StatelessWidget {
         else
           Icon(icon!, size: 16, color: WynColors.graphite),
         const SizedBox(width: WynSpacing.space1),
-        Text(
+        BrowserSystemText(
           '$count',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: WynColors.graphite,

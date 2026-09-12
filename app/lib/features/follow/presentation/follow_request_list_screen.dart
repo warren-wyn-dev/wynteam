@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../profile/data/profile.dart';
@@ -108,7 +109,7 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _inFlight.remove(requester.id));
@@ -119,16 +120,16 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('ปฏิเสธคำขอติดตามจาก ${requester.nameOrUsername}?'),
-            content: const Text('ผู้ขอจะไม่ได้รับแจ้งเตือน'),
+            title: BrowserSystemText('ปฏิเสธคำขอติดตามจาก ${requester.nameOrUsername}?'),
+            content: const BrowserSystemText('ผู้ขอจะไม่ได้รับแจ้งเตือน'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('ยกเลิก'),
+                child: const BrowserSystemText('ยกเลิก'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('ปฏิเสธ'),
+                child: const BrowserSystemText('ปฏิเสธ'),
               ),
             ],
           ),
@@ -146,7 +147,7 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ปฏิเสธคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ปฏิเสธคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _inFlight.remove(requester.id));
@@ -156,7 +157,7 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('คำขอติดตาม')),
+      appBar: AppBar(title: const BrowserSystemText('คำขอติดตาม')),
       body: _buildBody(),
     );
   }
@@ -171,9 +172,9 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -183,7 +184,7 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text('ยังไม่มีคำขอติดตาม', textAlign: TextAlign.center),
+          child: BrowserSystemText('ยังไม่มีคำขอติดตาม', textAlign: TextAlign.center),
         ),
       );
     }
@@ -218,11 +219,11 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      BrowserSystemText(
                         requester.nameOrUsername,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      Text(
+                      BrowserSystemText(
                         '@${requester.username}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.outline,
@@ -241,12 +242,12 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
                 else ...[
                   OutlinedButton(
                     onPressed: () => _reject(requester),
-                    child: const Text('ปฏิเสธ'),
+                    child: const BrowserSystemText('ปฏิเสธ'),
                   ),
                   const SizedBox(width: WynSpacing.space2),
                   FilledButton(
                     onPressed: () => _accept(requester),
-                    child: const Text('ยอมรับ'),
+                    child: const BrowserSystemText('ยอมรับ'),
                   ),
                 ],
               ],

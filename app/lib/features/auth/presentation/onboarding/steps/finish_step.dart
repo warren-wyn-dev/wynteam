@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../core/design/wyn_colors.dart';
@@ -47,13 +48,13 @@ class FinishStep extends StatelessWidget {
                 child: const Icon(Icons.check, size: 44, color: WynColors.paper),
               ),
               const SizedBox(height: WynSpacing.space8),
-              Text(
+              BrowserSystemText(
                 'พร้อมแล้ว',
                 style: WynTypography.screenTitle(
                     fontSize: 26, fontWeight: FontWeight.w700, color: WynColors.ink),
               ),
               const SizedBox(height: WynSpacing.space2),
-              Text(
+              BrowserSystemText(
                 displayName == null || displayName!.isEmpty
                     ? 'ยินดีต้อนรับสู่ WYNOS 👋'
                     : 'ยินดีต้อนรับสู่ WYNOS, $displayName 👋',
@@ -62,7 +63,7 @@ class FinishStep extends StatelessWidget {
               ),
               const Spacer(flex: 4),
               if (errorText != null) ...[
-                Text(
+                BrowserSystemText(
                   errorText!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 13, color: WynColors.errorLight),
@@ -91,7 +92,7 @@ class FinishStep extends StatelessWidget {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: WynColors.paper),
                         )
-                      : const Text('เข้าสู่ WYNOS'),
+                      : const BrowserSystemText('เข้าสู่ WYNOS'),
                 ),
               ),
               const SizedBox(height: WynSpacing.space8),

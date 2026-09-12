@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../drop/data/drop_repository.dart';
@@ -92,11 +93,11 @@ class _PopSingleClipScreenState extends State<PopSingleClipScreen> {
                     setState(() => _deleted = true);
                     Navigator.of(context).pop();
                   },
-                  topLeading: IconButton(
+                  topLeading: BrowserSystemTooltip(message: 'ย้อนกลับ', child: IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    tooltip: 'ย้อนกลับ',
+                    tooltip: null,
                     onPressed: () => Navigator.of(context).pop(),
-                  ),
+                  )),
                 ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/design/wyn_spacing.dart';
@@ -76,7 +77,7 @@ class OtpBoxInputState extends State<OtpBoxInput> {
             label: 'หลักที่ ${index + 1} จาก ${widget.length}',
             child: SizedBox(
               width: 44,
-              child: TextField(
+              child: BrowserSystemTextField(
                 controller: _controllers[index],
                 focusNode: _focusNodes[index],
                 textAlign: TextAlign.center,
@@ -84,7 +85,7 @@ class OtpBoxInputState extends State<OtpBoxInput> {
                 maxLength: 1,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: const TextStyle(fontSize: 24),
-                decoration: const InputDecoration(counterText: ''),
+                decoration: const InputDecoration(counter: const SizedBox.shrink()),
                 onChanged: (value) => _handleChanged(index, value),
               ),
             ),

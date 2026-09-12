@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../club/data/club_member.dart';
@@ -207,7 +208,7 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -250,9 +251,9 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -265,12 +266,12 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
+              const BrowserSystemText('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
               const SizedBox(height: WynSpacing.space3),
               OutlinedButton.icon(
                 onPressed: _openExploreClubs,
                 icon: const Icon(Icons.explore_outlined, size: 18),
-                label: const Text('สำรวจ Club'),
+                label: const BrowserSystemText('สำรวจ Club'),
               ),
             ],
           ),

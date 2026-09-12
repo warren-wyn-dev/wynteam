@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -97,18 +98,18 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('ลบบัญชีนี้ออกจากเครื่อง?'),
-        content: Text(
+        title: const BrowserSystemText('ลบบัญชีนี้ออกจากเครื่อง?'),
+        content: BrowserSystemText(
           'คุณจะต้องเข้าสู่ระบบใหม่หากต้องการใช้ ${account.nameOrUsername} อีกครั้งบนเครื่องนี้',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('ลบ', style: TextStyle(color: WynColors.errorLight)),
+            child: const BrowserSystemText('ลบ', style: TextStyle(color: WynColors.errorLight)),
           ),
         ],
       ),
@@ -167,7 +168,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
-              child: Text('บัญชีของฉัน', style: Theme.of(context).textTheme.titleMedium),
+              child: BrowserSystemText('บัญชีของฉัน', style: Theme.of(context).textTheme.titleMedium),
             ),
             const SizedBox(height: WynSpacing.space2),
             FutureBuilder<List<StoredAccount>>(
@@ -204,13 +205,13 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                 backgroundColor: WynColors.hairline,
                 child: Icon(Icons.add, color: WynColors.ink),
               ),
-              title: const Text('เพิ่มบัญชี'),
+              title: const BrowserSystemText('เพิ่มบัญชี'),
               onTap: _switchingUserId != null ? null : _addAccount,
             ),
             if (_errorText != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: WynSpacing.space4),
-                child: Text(
+                child: BrowserSystemText(
                   _errorText!,
                   style: const TextStyle(fontSize: 13, color: WynColors.errorLight),
                 ),
@@ -252,7 +253,7 @@ class _AccountRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Flexible(
-            child: Text(
+            child: BrowserSystemText(
               account.nameOrUsername,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -264,7 +265,7 @@ class _AccountRow extends StatelessWidget {
           ],
         ],
       ),
-      subtitle: Text('@${account.username}'),
+      subtitle: BrowserSystemText('@${account.username}'),
       trailing: isSwitching
           ? const SizedBox(
               height: 20,
@@ -275,11 +276,11 @@ class _AccountRow extends StatelessWidget {
               ? const Icon(Icons.check_circle, color: WynColors.sapphire)
               : onRemove == null
                   ? null
-                  : IconButton(
+                  : BrowserSystemTooltip(message: 'ลบบัญชีนี้ออกจากเครื่อง', child: IconButton(
                       icon: const Icon(Icons.close, size: 18, color: WynColors.faint),
-                      tooltip: 'ลบบัญชีนี้ออกจากเครื่อง',
+                      tooltip: null,
                       onPressed: onRemove,
-                    ),
+                    )),
       onTap: isActive ? null : onTap,
     );
   }

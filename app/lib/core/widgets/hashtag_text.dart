@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -310,7 +311,7 @@ class _HashtagTextState extends State<HashtagText> {
         _appendPlainText(spans, text.substring(lastEnd), baseStyle);
       }
 
-      return Text.rich(
+      return BrowserSystemText.rich(
         TextSpan(style: baseStyle, children: spans),
         maxLines: widget.maxLines,
         overflow: widget.overflow ?? TextOverflow.clip,

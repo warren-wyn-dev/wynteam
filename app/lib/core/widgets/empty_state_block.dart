@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../design/wyn_colors.dart';
@@ -40,13 +41,13 @@ class EmptyStateBlock extends StatelessWidget {
             child: Icon(icon, size: 26, color: WynColors.sapphire),
           ),
           const SizedBox(height: WynSpacing.space4),
-          Text(
+          BrowserSystemText(
             title,
             textAlign: TextAlign.center,
             style: WynTypography.screenTitle(fontSize: 20, color: WynColors.ink),
           ),
           const SizedBox(height: WynSpacing.space1 + 2),
-          Text(
+          BrowserSystemText(
             subtitle,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),

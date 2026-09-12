@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -143,7 +144,7 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
           icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: const BrowserSystemText(
           'คำขอข้อความ',
           style: TextStyle(
               fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
@@ -162,7 +163,7 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
                 ),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
+                  child: BrowserSystemText(
                     'ข้อความจากคนที่คุณยังไม่ได้เริ่มแชทด้วยจะอยู่ที่นี่',
                     style: TextStyle(fontSize: 12.5, color: WynColors.graphite),
                   ),
@@ -187,9 +188,9 @@ class _MessageRequestListScreenState extends State<MessageRequestListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -275,7 +276,7 @@ class _MessageRequestRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       displayName,
                       style: const TextStyle(
                         fontSize: 15.5,
@@ -284,7 +285,7 @@ class _MessageRequestRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
+                    BrowserSystemText(
                       _preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -298,7 +299,7 @@ class _MessageRequestRow extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     time,
                     style: const TextStyle(
                         fontSize: 12.5, color: WynColors.graphite),
