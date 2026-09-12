@@ -126,14 +126,15 @@ void main() {
   setUpAll(() async {
     await initFakeSupabaseSession(userId: 'me');
     ownProfileRepo = RecordingProfileRepository(
-      profile:
-          const Profile(id: 'me', username: 'me_user', displayName: 'ตัวฉันเอง'),
+      profile: const Profile(
+          id: 'me', username: 'me_user', displayName: 'ตัวฉันเอง'),
     );
     otherProfileRepo = RecordingProfileRepository(
       profile: const Profile(
           id: 'someone-else', username: 'namfah', displayName: 'น้ำฝน'),
     );
-    followRepo = RecordingFollowRepository(followerCount: 10, followingCount: 4);
+    followRepo =
+        RecordingFollowRepository(followerCount: 10, followingCount: 4);
     popRepo = RecordingPopRepository();
     savedRepo = RecordingSavedRepository();
 
@@ -205,7 +206,8 @@ void main() {
     overflowRepos = [
       for (var w = 0; w < 4; w++)
         RecordingDropRepository(feedDrops: [
-          for (var i = 0; i < 20; i++) _textDrop('ov${w}_$i', authorId: 'someone-else'),
+          for (var i = 0; i < 20; i++)
+            _textDrop('ov${w}_$i', authorId: 'someone-else'),
         ]),
     ];
 
@@ -234,8 +236,7 @@ void main() {
     });
   });
 
-  group('1. header scroll-away on a profile that is NOT the viewer\'s own',
-      () {
+  group('1. header scroll-away on a profile that is NOT the viewer\'s own', () {
     testWidgets(
         'someone else\'s profile (with ProfileRecommendationSection in the '
         'header) still lets the header scroll away and pins the TabBar',
@@ -266,8 +267,8 @@ void main() {
       expect(find.text('ติดตาม'), findsNothing);
       // ...but the TabBar is still on screen, pinned near the top --
       // not just "still in the tree somewhere off-screen".
-      expect(find.text('โพสต์'), findsOneWidget);
-      final tabBarTop = tester.getTopLeft(find.text('โพสต์')).dy;
+      expect(find.text('สื่อ'), findsOneWidget);
+      final tabBarTop = tester.getTopLeft(find.text('สื่อ')).dy;
       expect(tabBarTop, greaterThan(0));
       expect(tabBarTop, lessThan(150));
     });
@@ -360,7 +361,7 @@ void main() {
       await tester.tap(find.text('ถูกใจ'));
       await tester.pumpAndSettle();
       tester.takeException();
-      await tester.tap(find.text('โพสต์'));
+      await tester.tap(find.text('สื่อ'));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -406,8 +407,7 @@ void main() {
       // exactly 1 extra fetch (2 total including the initial page-0
       // load), not several. This is QA-WYN-110-001.
       expect(pagedPostsRepo.fetchByAuthorCalls, 2,
-          reason:
-              'QA-WYN-110-001: one scroll-to-near-bottom should trigger '
+          reason: 'QA-WYN-110-001: one scroll-to-near-bottom should trigger '
               'exactly one _loadMore() call; _onScrollNotification\'s '
               'addPostFrameCallback guard is checked at notification time, '
               'not at the callback\'s execution time, so several '
@@ -658,7 +658,8 @@ void main() {
     }
   });
 
-  group('7. QA round 2: trying to break the QA-WYN-110-001 guard fix '
+  group(
+      '7. QA round 2: trying to break the QA-WYN-110-001 guard fix '
       'further', () {
     testWidgets(
         'a fast fling past the threshold still fetches page 1 exactly '
@@ -747,8 +748,7 @@ void main() {
 
     testWidgets(
         'reversing direction (dragging back up) immediately after '
-        'crossing the threshold does not add extra fetches',
-        (tester) async {
+        'crossing the threshold does not add extra fetches', (tester) async {
       await tester.pumpWidget(_wrapTab(ProfileDropGridTab(
         dropRepository: reversalPostsRepo,
         followRepository: followRepo,

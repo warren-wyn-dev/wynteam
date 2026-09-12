@@ -99,6 +99,9 @@ end
 $$;
 
 grant usage on schema public to authenticated, anon;
+grant usage on schema auth to authenticated, anon;
+grant execute on function auth.uid() to authenticated, anon;
+grant execute on function auth.role() to authenticated, anon;
 grant usage on schema storage to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
 grant select, insert on storage.objects to authenticated;
@@ -275,9 +278,9 @@ insert into results select 'CHECK19_global_contracts_remain_unpersonalized',
    'public.get_top100_candidates(integer)'::regprocedure))=0)::int),1;
 insert into results select 'CHECK20_top100_is_bounded_quality_signal',
  ((position('top100_quality_bonus' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))>0
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0
    and position('(101 - t100.current_rank) / 10.0' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))>0)::int),1;
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0)::int),1;
 insert into results select 'CHECK21_no_impression_confidence',
  (position('impression' in pg_get_functiondef(
    'public.get_my_personalization_maturity()'::regprocedure))=0)::int,1;
@@ -301,10 +304,12 @@ select public.refresh_feed_content_quality(now());
 insert into results select 'CHECK27_refresh_is_idempotent',
  (count(*)=count(distinct drop_id))::int,1 from public.feed_content_quality;
 insert into results select 'CHECK28_quality_request_path_is_precomputed',
- ((position('feed_content_quality' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))>0
+ ((position('internal.content_quality_factors' in pg_get_functiondef(
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0
+   and position('feed_content_quality' in pg_get_functiondef(
+   'internal.content_quality_factors(uuid[])'::regprocedure))>0
    and position('from public.reports' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))=0)::int),1;
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))=0)::int),1;
 insert into results select 'CHECK29_global_rankers_unchanged',
  ((position('feed_content_quality' in pg_get_functiondef(
    'public.get_trending_candidates(integer)'::regprocedure))=0

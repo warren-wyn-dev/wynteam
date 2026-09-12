@@ -137,7 +137,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
 
   final _reportRepository = ReportRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
-      widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+      widget.moderationRepository ??
+          ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
   late final ChatRepository _chatRepository =
@@ -253,8 +254,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       if (!mounted) return;
       setState(() {
         _comments = comments;
-        _hasMoreComments =
-            comments.length == DropRepository.commentPageSize;
+        _hasMoreComments = comments.length == DropRepository.commentPageSize;
       });
     } catch (_) {
       if (!mounted) return;
@@ -525,7 +525,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   // existing delete icon (own comments only) stays as-is; this is an
   // additional entry point, not a replacement, per
   // .wyn/docs/design/wyn-026-report-system.md, Screen 5.
-  Future<void> _openCommentMenu(DropComment comment, String currentUserId) async {
+  Future<void> _openCommentMenu(
+      DropComment comment, String currentUserId) async {
     final isOwnComment = comment.authorId == currentUserId;
 
     await showModalBottomSheet<void>(
@@ -576,7 +577,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       try {
         stillLive = await widget.dropRepository.fetchById(_drop.id);
       } catch (_) {
-        stillLive = _drop; // can't tell either way -- fall through to reporting failure
+        stillLive =
+            _drop; // can't tell either way -- fall through to reporting failure
       }
       if (!mounted) return;
       if (stillLive == null) {
@@ -773,7 +775,10 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         // way either way.
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, WynSpacing.space2,
+            WynSpacing.space4,
+            WynSpacing.space4,
+            WynSpacing.space4,
+            WynSpacing.space2,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,7 +805,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Row(
-                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.baseline,
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Flexible(
@@ -843,7 +849,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                 Text(
                                   '@${_drop.authorUsername}',
                                   style: _textStyle(
-                                      fontSize: 13, color: WynColors.mutedNeutral),
+                                      fontSize: 13,
+                                      color: WynColors.mutedNeutral),
                                 ),
                                 if (_drop.wasEdited)
                                   Text(
@@ -901,7 +908,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 // screen to itself.
                 HashtagText(
                   _drop.caption!,
-                  style: _textStyle(fontSize: 16, color: WynColors.ink, height: 1.5),
+                  style: _textStyle(
+                      fontSize: 16, color: WynColors.ink, height: 1.5),
                 ),
               ],
             ],
@@ -995,7 +1003,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               in comments.where((c) => c.parentCommentId == null).indexed) ...[
             if (index > 0) const Divider(height: 1, color: WynColors.hairline),
             _buildCommentRow(comment, currentUserId, isReply: false),
-            for (final reply in comments.where((c) => c.parentCommentId == comment.id))
+            for (final reply
+                in comments.where((c) => c.parentCommentId == comment.id))
               _buildCommentRow(reply, currentUserId, isReply: true),
           ],
           // "That's all of them" is only true once there is nothing
@@ -1089,9 +1098,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               child: WynHeartIcon(
                 filled: _drop.likedByMe,
                 size: 26,
-                color: _drop.likedByMe
-                    ? WynColors.iconLikeActive
-                    : WynColors.ink,
+                color:
+                    _drop.likedByMe ? WynColors.iconLikeActive : WynColors.ink,
               ),
             ),
             count: _drop.likeCount,
@@ -1115,9 +1123,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               icon: Icon(
                 Icons.repeat_rounded,
                 size: 27,
-                color: _drop.redroppedByMe
-                    ? WynColors.iconActive
-                    : WynColors.ink,
+                color:
+                    _drop.redroppedByMe ? WynColors.iconActive : WynColors.ink,
               ),
               count: _drop.redropCount,
               semanticsLabel: 'รีโพสต์ ${_drop.redropCount} ครั้ง',
@@ -1189,8 +1196,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     height: 36,
                     child: Stack(
                       children: [
-                        for (final (index, participant)
-                            in participants.indexed)
+                        for (final (index, participant) in participants.indexed)
                           Positioned(
                             left: index * 15,
                             top: 1,
@@ -1247,6 +1253,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   Future<void> _openActivitySheet() {
     return showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: WynColors.paper,
       builder: (context) => SafeArea(
@@ -1292,7 +1299,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     );
   }
 
-  Widget _buildCommentRow(DropComment comment, String currentUserId, {required bool isReply}) {
+  Widget _buildCommentRow(DropComment comment, String currentUserId,
+      {required bool isReply}) {
     final isOwnComment = comment.authorId == currentUserId;
 
     return Semantics(
@@ -1307,135 +1315,139 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       child: GestureDetector(
         onLongPress: () => _openCommentMenu(comment, currentUserId),
         child: Padding(
-      padding: EdgeInsets.fromLTRB(
-          isReply ? 52 : WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 07-post-detail.tsx: a reply is visually connected to its
-          // parent by a short hairline stub, the same idea as the
-          // reference's own indented `CommentReply`.
-          if (isReply)
-            const Padding(
-              padding: EdgeInsets.only(right: WynSpacing.space2),
-              child: SizedBox(
-                width: 1,
-                height: 44,
-                child: ColoredBox(color: WynColors.hairline),
+          padding: EdgeInsets.fromLTRB(isReply ? 52 : WynSpacing.space4,
+              WynSpacing.space3, WynSpacing.space4, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 07-post-detail.tsx: a reply is visually connected to its
+              // parent by a short hairline stub, the same idea as the
+              // reference's own indented `CommentReply`.
+              if (isReply)
+                const Padding(
+                  padding: EdgeInsets.only(right: WynSpacing.space2),
+                  child: SizedBox(
+                    width: 1,
+                    height: 44,
+                    child: ColoredBox(color: WynColors.hairline),
+                  ),
+                ),
+              AvatarCircle(
+                imageUrl: comment.authorAvatarUrl,
+                fallbackText: comment.authorUsername,
+                radius: isReply ? 16 : 18,
+                ring: true,
               ),
-            ),
-          AvatarCircle(
-            imageUrl: comment.authorAvatarUrl,
-            fallbackText: comment.authorUsername,
-            radius: isReply ? 16 : 18,
-            ring: true,
-          ),
-          const SizedBox(width: WynSpacing.space2),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
+              const SizedBox(width: WynSpacing.space2),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        comment.authorNameOrUsername,
-                        overflow: TextOverflow.ellipsis,
-                        style: _textStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: WynColors.ink,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            comment.authorNameOrUsername,
+                            overflow: TextOverflow.ellipsis,
+                            style: _textStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: WynColors.ink,
+                            ),
+                          ),
                         ),
+                        const SizedBox(width: WynSpacing.space2),
+                        Text(
+                          relativeTimeLabel(comment.createdAt,
+                              now: DateTime.now()),
+                          style: _textStyle(
+                              fontSize: 13, color: WynColors.mutedNeutral),
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        comment.textContent,
+                        style: _textStyle(
+                            fontSize: 15, color: WynColors.ink, height: 1.45),
                       ),
                     ),
-                    const SizedBox(width: WynSpacing.space2),
-                    Text(
-                      relativeTimeLabel(comment.createdAt, now: DateTime.now()),
-                      style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
-                    ),
+                    // Replies don't get their own "ตอบกลับ" button -- that's
+                    // what keeps nesting to one level in the UI (the DB
+                    // trigger is the real enforcement either way).
+                    if (!isReply)
+                      Padding(
+                        padding: const EdgeInsets.only(top: WynSpacing.space2),
+                        child: InkWell(
+                          onTap: () => _startReply(comment),
+                          child: Text(
+                            'ตอบกลับ',
+                            style: _textStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: WynColors.graphite,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    comment.textContent,
-                    style: _textStyle(
-                        fontSize: 15, color: WynColors.ink, height: 1.45),
-                  ),
-                ),
-                // Replies don't get their own "ตอบกลับ" button -- that's
-                // what keeps nesting to one level in the UI (the DB
-                // trigger is the real enforcement either way).
-                if (!isReply)
-                  Padding(
-                    padding: const EdgeInsets.only(top: WynSpacing.space2),
-                    child: InkWell(
-                      onTap: () => _startReply(comment),
-                      child: Text(
-                        'ตอบกลับ',
-                        style: _textStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: WynColors.graphite,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (comment.authorId == currentUserId)
-            SizedBox(
-              width: WynSpacing.touchTargetMin,
-              height: WynSpacing.touchTargetMin,
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                iconSize: 16,
-                icon: const Icon(Icons.delete_outline, color: WynColors.graphite),
-                tooltip: 'ลบคอมเมนต์',
-                onPressed: () => _deleteComment(comment.id),
               ),
-            ),
-          Column(
-            children: [
-              Semantics(
-                label: comment.likedByMe
-                    ? 'ถูกใจคอมเมนต์นี้แล้ว กดเพื่อเลิกถูกใจ'
-                    : 'กดเพื่อถูกใจคอมเมนต์นี้',
-                excludeSemantics: true,
-                child: SizedBox(
+              if (comment.authorId == currentUserId)
+                SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    // WYN-108: the size lives on the heart itself now.
-                    // IconButton's `iconSize` reaches an [Icon] through
-                    // IconTheme and cannot reach a widget that sizes
-                    // itself, so leaving the 16 here and a 24 below drew
-                    // the comment heart half again as large as the one
-                    // it replaced.
-                    icon: WynHeartIcon(
-                      filled: comment.likedByMe,
-                      size: 16,
-                      color: comment.likedByMe
-                          ? WynColors.iconLikeActive
-                          : WynColors.iconIdle,
-                    ),
-                    onPressed: () => _toggleCommentLike(comment.id),
+                    iconSize: 16,
+                    icon: const Icon(Icons.delete_outline,
+                        color: WynColors.graphite),
+                    tooltip: 'ลบคอมเมนต์',
+                    onPressed: () => _deleteComment(comment.id),
                   ),
                 ),
+              Column(
+                children: [
+                  Semantics(
+                    label: comment.likedByMe
+                        ? 'ถูกใจคอมเมนต์นี้แล้ว กดเพื่อเลิกถูกใจ'
+                        : 'กดเพื่อถูกใจคอมเมนต์นี้',
+                    excludeSemantics: true,
+                    child: SizedBox(
+                      width: WynSpacing.touchTargetMin,
+                      height: WynSpacing.touchTargetMin,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        // WYN-108: the size lives on the heart itself now.
+                        // IconButton's `iconSize` reaches an [Icon] through
+                        // IconTheme and cannot reach a widget that sizes
+                        // itself, so leaving the 16 here and a 24 below drew
+                        // the comment heart half again as large as the one
+                        // it replaced.
+                        icon: WynHeartIcon(
+                          filled: comment.likedByMe,
+                          size: 16,
+                          color: comment.likedByMe
+                              ? WynColors.iconLikeActive
+                              : WynColors.iconIdle,
+                        ),
+                        onPressed: () => _toggleCommentLike(comment.id),
+                      ),
+                    ),
+                  ),
+                  if (comment.likeCount > 0)
+                    Text(
+                      '${comment.likeCount}',
+                      style:
+                          _textStyle(fontSize: 13, color: WynColors.graphite),
+                    ),
+                ],
               ),
-              if (comment.likeCount > 0)
-                Text(
-                  '${comment.likeCount}',
-                  style: _textStyle(fontSize: 13, color: WynColors.graphite),
-                ),
             ],
           ),
-        ],
-      ),
         ),
       ),
     );

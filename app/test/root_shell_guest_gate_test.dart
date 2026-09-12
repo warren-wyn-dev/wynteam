@@ -57,8 +57,8 @@ void main() {
     sharedDropRepository = RecordingDropRepository();
     sharedPopRepository = RecordingPopRepository();
     sharedFollowRepository = RecordingFollowRepository();
-    sharedProfileRepository =
-        RecordingProfileRepository(profile: const Profile(id: 'guest', username: 'guest'));
+    sharedProfileRepository = RecordingProfileRepository(
+        profile: const Profile(id: 'guest', username: 'guest'));
     sharedSavedRepository = RecordingSavedRepository();
     sharedClubRepository = RecordingClubRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
@@ -95,7 +95,7 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Profile'));
+    await tester.tap(find.text('โปรไฟล์'));
     await tester.pumpAndSettle();
 
     expect(find.text('เข้าสู่ระบบเพื่อดำเนินการต่อ'), findsOneWidget);
@@ -121,7 +121,7 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Notifications'));
+    await tester.tap(find.text('การแจ้งเตือน'));
     await tester.pumpAndSettle();
 
     expect(find.text('เข้าสู่ระบบเพื่อดำเนินการต่อ'), findsOneWidget);
@@ -134,7 +134,7 @@ void main() {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Profile'));
+    await tester.tap(find.text('โปรไฟล์'));
     await tester.pumpAndSettle();
     expect(find.text('เข้าสู่ระบบเพื่อดำเนินการต่อ'), findsOneWidget);
 
@@ -166,13 +166,12 @@ void main() {
   // per test file, so there's no cheap way to re-hydrate a fresh
   // anonymous session for tests declared after this one -- ordering is
   // the guard instead.
-  testWidgets(
-      'tapping "สมัคร/เข้าสู่ระบบ" on the dialog signs the guest out',
+  testWidgets('tapping "สมัคร/เข้าสู่ระบบ" on the dialog signs the guest out',
       (tester) async {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Profile'));
+    await tester.tap(find.text('โปรไฟล์'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('สมัคร/เข้าสู่ระบบ'));

@@ -99,6 +99,9 @@ end
 $$;
 
 grant usage on schema public to authenticated, anon;
+grant usage on schema auth to authenticated, anon;
+grant execute on function auth.uid() to authenticated, anon;
+grant execute on function auth.role() to authenticated, anon;
 grant usage on schema storage to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
 grant select, insert on storage.objects to authenticated;
@@ -275,9 +278,9 @@ insert into results select 'CHECK19_global_contracts_remain_unpersonalized',
    'public.get_top100_candidates(integer)'::regprocedure))=0)::int),1;
 insert into results select 'CHECK20_top100_is_bounded_quality_signal',
  ((position('top100_quality_bonus' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))>0
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0
    and position('(101 - t100.current_rank) / 10.0' in pg_get_functiondef(
-   'public.get_wynos_ranked_feed()'::regprocedure))>0)::int),1;
+   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0)::int),1;
 insert into results select 'CHECK21_no_impression_confidence',
  (position('impression' in pg_get_functiondef(
    'public.get_my_personalization_maturity()'::regprocedure))=0)::int,1;

@@ -54,6 +54,7 @@ Future<void> showShareSheet(
 
   await showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: WynColors.imageScrim,
     builder: (sheetContext) => ChatActionSheetBody(
