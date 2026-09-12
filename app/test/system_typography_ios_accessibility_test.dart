@@ -44,17 +44,15 @@ void main() {
     text: 'ชอบโพสต์นี้มาก 👨‍👩‍👧‍👦 🇹🇭',
   );
 
-  test('theme does not inject the downloaded Thai fallback', () {
+  test('theme keeps Thai fallback for ordinary Flutter text', () {
     expect(
-      WynTheme.light.textTheme.bodyLarge?.fontFamily,
-      isNot('WYNThaiLooped'),
+      WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback,
+      contains('WYNThaiLooped'),
     );
-    expect(WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback, isNull);
     expect(
-      WynTheme.dark.textTheme.labelSmall?.fontFamily,
-      isNot('WYNThaiLooped'),
+      WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback,
+      contains('WYNThaiLooped'),
     );
-    expect(WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback, isNull);
   });
 
   testWidgets('liked-by metadata uses the shared labelSmall token',
