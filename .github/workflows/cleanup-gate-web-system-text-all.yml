@@ -1,0 +1,265 @@
+name: Cleanup and gate all-page web system text migration
+
+on:
+  push:
+    branches:
+      - feat/web-system-text-all
+    paths:
+      - .github/workflows/cleanup-gate-web-system-text-all.yml
+
+permissions:
+  contents: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/web-system-text-all
+          fetch-depth: 0
+
+      - name: Restore unrelated full-lib formatting churn
+        run: |
+          set -euo pipefail
+          base=c30e4b0dbe2409d32ef70472a6c24686af959712
+          fixed=03b2934caa64c73505e32679d907815f6609fc11
+          keep='app/lib/core/typography/browser_system_picker_stub.dart
+          app/lib/core/typography/browser_system_picker_web.dart
+          app/lib/core/widgets/hashtag_text.dart
+          app/lib/core/widgets/labeled_field.dart
+          app/lib/core/widgets/mention_input.dart
+          app/lib/features/auth/presentation/phone_entry_screen.dart
+          app/lib/features/auth/presentation/widgets/otp_box_input.dart
+          app/lib/features/chat/presentation/conversation_screen.dart
+          app/lib/features/club/presentation/explore_clubs_screen.dart
+          app/lib/features/club/presentation/invite_to_club_screen.dart
+          app/lib/features/club/presentation/widgets/club_channel_chat_view.dart
+          app/lib/features/club/presentation/widgets/club_channel_dialogs.dart
+          app/lib/features/follow/presentation/follow_list_screen.dart
+          app/lib/features/home/presentation/home_feed_screen.dart
+          app/lib/features/home/presentation/widgets/home_drop_card.dart
+          app/lib/features/home/presentation/widgets/home_pop_card.dart
+          app/lib/features/profile/presentation/edit_profile_screen.dart'
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            if printf '%s\n' "$keep" | grep -Fxq "$file"; then
+              continue
+            fi
+            git checkout "$base" -- "$file"
+          done < <(git diff --name-only "$base..$fixed" -- app/lib)
+
+          # A later lint-only edit touched this unrelated ranking helper after
+          # the broad formatter exposed two style infos. Restore its exact
+          # pre-format version as well; the migration never needed this file.
+          git checkout "$base" -- app/lib/features/home/data/home_ranking.dart
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/lib
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore(web): remove unrelated formatting churn'
+            git push origin HEAD:feat/web-system-text-all
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - name: Resolve packages
+        working-directory: app
+        run: flutter pub get
+
+      - name: Source gate — no legacy app-owned text surfaces
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          root = Path('app/lib')
+          excluded = {
+              root / 'core/typography/browser_system_text_stub.dart',
+              root / 'core/typography/browser_system_text_web.dart',
+              root / 'core/typography/browser_system_picker_stub.dart',
+              root / 'core/typography/browser_system_picker_web.dart',
+          }
+
+          def code_mask(source):
+              mask = bytearray(b'1' * len(source))
+              i = 0; quote = None; triple = False; escape = False
+              line = False; block = False
+              while i < len(source):
+                  ch = source[i]; pair = source[i:i+2]
+                  if line:
+                      mask[i] = 0
+                      if ch == '\n': line = False
+                      i += 1; continue
+                  if block:
+                      mask[i] = 0
+                      if pair == '*/':
+                          mask[i:i+2] = b'00'; block = False; i += 2; continue
+                      i += 1; continue
+                  if quote:
+                      mask[i] = 0
+                      if escape:
+                          escape = False; i += 1; continue
+                      if ch == '\\': escape = True; i += 1; continue
+                      if triple and source.startswith(quote * 3, i):
+                          mask[i:i+3] = b'000'; quote = None; triple = False; i += 3; continue
+                      if not triple and ch == quote:
+                          quote = None; i += 1; continue
+                      i += 1; continue
+                  if pair == '//':
+                      mask[i:i+2] = b'00'; line = True; i += 2; continue
+                  if pair == '/*':
+                      mask[i:i+2] = b'00'; block = True; i += 2; continue
+                  if source.startswith("'''", i):
+                      mask[i:i+3] = b'000'; quote = "'"; triple = True; i += 3; continue
+                  if source.startswith('"""', i):
+                      mask[i:i+3] = b'000'; quote = '"'; triple = True; i += 3; continue
+                  if ch in "'\"":
+                      mask[i] = 0; quote = ch; i += 1; continue
+                  i += 1
+              return mask
+
+          def match_close(source, open_index):
+              depth = 0; i = open_index
+              quote = None; triple = False; escape = False; line = False; block = False
+              while i < len(source):
+                  ch = source[i]; pair = source[i:i+2]
+                  if line:
+                      if ch == '\n': line = False
+                      i += 1; continue
+                  if block:
+                      if pair == '*/': block = False; i += 2; continue
+                      i += 1; continue
+                  if quote:
+                      if escape: escape = False; i += 1; continue
+                      if ch == '\\': escape = True; i += 1; continue
+                      if triple and source.startswith(quote*3, i): quote=None; triple=False; i += 3; continue
+                      if not triple and ch == quote: quote=None; i += 1; continue
+                      i += 1; continue
+                  if pair == '//': line=True; i += 2; continue
+                  if pair == '/*': block=True; i += 2; continue
+                  if source.startswith("'''", i): quote="'"; triple=True; i += 3; continue
+                  if source.startswith('"""', i): quote='"'; triple=True; i += 3; continue
+                  if ch in "'\"": quote=ch; i += 1; continue
+                  if ch == '(': depth += 1
+                  elif ch == ')':
+                      depth -= 1
+                      if depth == 0: return i
+                  i += 1
+              return None
+
+          def find_calls(source, token, allow_named_constructor=False):
+              mask = code_mask(source); out = []; i = 0
+              while i < len(source):
+                  idx = source.find(token, i)
+                  if idx < 0: break
+                  if not mask[idx] or (idx and (source[idx-1].isalnum() or source[idx-1] == '_')):
+                      i = idx + len(token); continue
+                  j = idx + len(token)
+                  if allow_named_constructor and j < len(source) and source[j] == '.':
+                      j += 1
+                      while j < len(source) and (source[j].isalnum() or source[j] == '_'): j += 1
+                  elif j < len(source) and (source[j].isalnum() or source[j] in '_.'):
+                      i = idx + len(token); continue
+                  while j < len(source) and source[j].isspace(): j += 1
+                  if j < len(source) and source[j] == '<':
+                      depth = 0
+                      while j < len(source):
+                          if source[j] == '<': depth += 1
+                          elif source[j] == '>':
+                              depth -= 1
+                              if depth == 0:
+                                  j += 1; break
+                          j += 1
+                      while j < len(source) and source[j].isspace(): j += 1
+                  if j >= len(source) or source[j] != '(':
+                      i = idx + len(token); continue
+                  close = match_close(source, j)
+                  if close is None: break
+                  out.append((idx, j, close))
+                  i = close + 1
+              return out
+
+          def split_args(body):
+              parts=[]; start=0; i=0; par=br=cur=0
+              quote=None; triple=False; escape=False; line=False; block=False
+              while i < len(body):
+                  ch=body[i]; pair=body[i:i+2]
+                  if line:
+                      if ch=='\n': line=False
+                      i+=1; continue
+                  if block:
+                      if pair=='*/': block=False; i+=2; continue
+                      i+=1; continue
+                  if quote:
+                      if escape: escape=False; i+=1; continue
+                      if ch=='\\': escape=True; i+=1; continue
+                      if triple and body.startswith(quote*3,i): quote=None; triple=False; i+=3; continue
+                      if not triple and ch==quote: quote=None; i+=1; continue
+                      i+=1; continue
+                  if pair=='//': line=True; i+=2; continue
+                  if pair=='/*': block=True; i+=2; continue
+                  if body.startswith("'''",i): quote="'"; triple=True; i+=3; continue
+                  if body.startswith('"""',i): quote='"'; triple=True; i+=3; continue
+                  if ch in "'\"": quote=ch; i+=1; continue
+                  if ch=='(': par+=1
+                  elif ch==')': par-=1
+                  elif ch=='[': br+=1
+                  elif ch==']': br-=1
+                  elif ch=='{': cur+=1
+                  elif ch=='}': cur-=1
+                  elif ch==',' and par==0 and br==0 and cur==0:
+                      parts.append(body[start:i]); start=i+1
+                  i+=1
+              parts.append(body[start:])
+              return parts
+
+          def named_args(body):
+              names=[]
+              for part in split_args(body):
+                  m=re.match(r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*:', part, re.S)
+                  if m: names.append(m.group(1))
+              return set(names)
+
+          failures=[]
+          forbidden_calls = ['Text', 'Text.rich', 'TextField', 'Tooltip', 'SnackBarAction', 'showDatePicker', 'showTimePicker']
+          decoration_text_args = {'hintText','labelText','helperText','errorText','prefixText','counterText'}
+          tooltip_owners = ['IconButton', 'FloatingActionButton', 'PopupMenuButton']
+
+          for path in sorted(root.rglob('*.dart')):
+              if path in excluded: continue
+              source = path.read_text()
+              for token in forbidden_calls:
+                  calls = find_calls(source, token)
+                  if calls:
+                      failures.append(f'{path}: legacy {token}( calls={len(calls)}')
+              for _, open_i, close_i in find_calls(source, 'InputDecoration'):
+                  bad = named_args(source[open_i+1:close_i]) & decoration_text_args
+                  if bad:
+                      failures.append(f'{path}: InputDecoration string args={sorted(bad)}')
+              for _, open_i, close_i in find_calls(source, 'Tab'):
+                  if 'text' in named_args(source[open_i+1:close_i]):
+                      failures.append(f'{path}: Tab(text:) still present')
+              for owner in tooltip_owners:
+                  for _, open_i, close_i in find_calls(source, owner, allow_named_constructor=True):
+                      if 'tooltip' in named_args(source[open_i+1:close_i]):
+                          failures.append(f'{path}: {owner} tooltip still framework-rendered')
+
+          if failures:
+              print('Legacy app-owned text surfaces remain:')
+              print('\n'.join(f'  - {item}' for item in failures))
+              sys.exit(1)
+          print('System-text source gate passed: no legacy app-owned text surfaces remain.')
+          PY
+
+      - name: Full Flutter QA
+        working-directory: app
+        run: |
+          flutter analyze
+          flutter test
+          flutter build web --release
