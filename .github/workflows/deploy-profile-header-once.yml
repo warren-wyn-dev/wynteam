@@ -1,4 +1,4 @@
-name: Deploy compact Home feed once
+name: Deploy Threads-like Home posts once
 
 on:
   push:
