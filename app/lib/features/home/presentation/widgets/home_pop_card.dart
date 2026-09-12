@@ -141,11 +141,11 @@ class HomePopCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             0,
             WynSpacing.space3,
             0,
-            WynSpacing.space2,
+            item.topReply == null ? 0 : WynSpacing.space2,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,9 +193,12 @@ class HomePopCard extends StatelessWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Flexible(
+                                      Expanded(
+                                        flex: 3,
                                         child: Text(
                                           item.authorNameOrUsername,
+                                          maxLines: 1,
+                                          softWrap: false,
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleSmall
@@ -216,6 +219,7 @@ class HomePopCard extends StatelessWidget {
                                       ],
                                       const SizedBox(width: WynSpacing.space2),
                                       Flexible(
+                                        flex: 2,
                                         child: Text(
                                           relativeTimeLabel(
                                             item.createdAt,

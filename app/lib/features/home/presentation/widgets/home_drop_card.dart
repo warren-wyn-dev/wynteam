@@ -267,11 +267,11 @@ class HomeDropCard extends StatelessWidget {
         child: Padding(
           // Approved final mockup: each post gets breathing room above
           // the avatar/name, while the content inside the post stays compact.
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             0,
             WynSpacing.space3,
             0,
-            WynSpacing.space2,
+            item.topReply == null ? 0 : WynSpacing.space2,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,9 +390,12 @@ class HomeDropCard extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
                                     children: [
-                                      Flexible(
+                                      Expanded(
+                                        flex: 3,
                                         child: Text(
                                           item.authorNameOrUsername,
+                                          maxLines: 1,
+                                          softWrap: false,
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleSmall
@@ -413,6 +416,7 @@ class HomeDropCard extends StatelessWidget {
                                       ],
                                       const SizedBox(width: WynSpacing.space2),
                                       Flexible(
+                                        flex: 2,
                                         child: Text(
                                           item.location != null
                                               ? '${relativeTimeLabel(item.createdAt, now: DateTime.now())} · 📍 ${item.location}'
