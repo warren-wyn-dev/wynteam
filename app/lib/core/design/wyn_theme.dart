@@ -31,6 +31,13 @@ import 'wyn_typography.dart';
 class WynTheme {
   WynTheme._();
 
+  // BrowserSystemText surfaces bypass Flutter text rendering on Web and use
+  // the device's real system font/emoji stack. The rest of WYNOS still has
+  // many ordinary Text widgets, though, and Flutter's web canvas renderer
+  // cannot read an installed Thai system font. Keep a registered Thai family
+  // only as a missing-glyph fallback for those non-DOM surfaces.
+  static const List<String> fontFamilyFallback = ['WYNThaiLooped'];
+
   static final CardThemeData _lightCardTheme = CardThemeData(
     elevation: 0,
     clipBehavior: Clip.antiAlias,
@@ -52,6 +59,7 @@ class WynTheme {
   static final ThemeData light = ThemeData(
     useMaterial3: true,
     colorScheme: WynColors.socialLightScheme,
+    fontFamilyFallback: fontFamilyFallback,
     textTheme: WynTypography.textTheme,
     cardTheme: _lightCardTheme,
   );
@@ -59,6 +67,7 @@ class WynTheme {
   static final ThemeData dark = ThemeData(
     useMaterial3: true,
     colorScheme: WynColors.socialDarkScheme,
+    fontFamilyFallback: fontFamilyFallback,
     textTheme: WynTypography.textTheme,
     cardTheme: _darkCardTheme,
   );
