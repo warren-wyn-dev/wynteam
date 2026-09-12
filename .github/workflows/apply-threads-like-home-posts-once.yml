@@ -20,6 +20,38 @@ jobs:
           ref: feat/threads-like-home-posts
           fetch-depth: 0
 
+      - name: Normalize patch matching
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/apply_threads_like_home_posts.py')
+          s = p.read_text()
+          s = s.replace(
+              "replace_once(drop, '                                    size: 17,',\n                  '                                    size: 24,')",
+              "replace_all_checked(drop, '                                    size: 17,',\n                    '                                    size: 24,', 3)",
+          )
+          s = s.replace("""replace_once(drop,
+          '''                                    size: 17,
+                                              color: WynColors.graphite,''',
+          '''                                    size: 24,
+                                              color: WynColors.graphite,''')
+          """, "")
+          s = s.replace("""replace_once(drop, '                                      size: 17,\\n                                      color: item.redroppedByMe',
+                            '                                      size: 24,\\n                                      color: item.redroppedByMe')
+          """, "")
+          s = s.replace(
+              "replace_once(pop, '                                  size: 17,',\n                  '                                  size: 24,')",
+              "replace_all_checked(pop, '                                  size: 17,',\n                    '                                  size: 24,', 2)",
+          )
+          s = s.replace("""replace_once(pop,
+          '''                                icon: const Icon(Icons.mode_comment_outlined,
+                                              size: 17, color: WynColors.graphite),''',
+          '''                                icon: const Icon(Icons.mode_comment_outlined,
+                                              size: 24, color: WynColors.graphite),''')
+          """, "")
+          p.write_text(s)
+          PY
+
       - name: Apply Home post polish
         run: python3 tools/apply_threads_like_home_posts.py
 
