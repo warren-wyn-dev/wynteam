@@ -1,6 +1,6 @@
 name: Deploy approved final Home feed once
 
-# Deploy trigger 2026-09-12: lower post avatar to align with content block.
+# Deploy trigger 2026-09-12: lower Drop and Pop avatars to the shared content alignment.
 on:
   push:
     branches: [main]
