@@ -36,10 +36,28 @@ jobs:
         with:
           ref: fix/ci-reconcile-20260912
 
-      - name: Run maintained SQL suite and persist first failure
+      - name: Patch WYN-143 harness and run maintained SQL suite
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('supabase/tests/wyn_143_cold_start_test.sh')
+          text = path.read_text()
+          needle = 'grant usage on schema public to authenticated, anon;\n'
+          grants = (
+              'grant usage on schema public to authenticated, anon;\n'
+              'grant usage on schema auth to authenticated, anon;\n'
+              'grant execute on function auth.uid() to authenticated, anon;\n'
+              'grant execute on function auth.role() to authenticated, anon;\n'
+          )
+          if 'grant usage on schema auth to authenticated, anon;' not in text:
+              if needle not in text:
+                  raise SystemExit('expected WYN-143 grant anchor not found')
+              text = text.replace(needle, grants, 1)
+              path.write_text(text)
+          PY
+
           chmod +x tools/sql_ci_diagnostic_20260912.sh
           set +e
           bash tools/sql_ci_diagnostic_20260912.sh
@@ -48,9 +66,9 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add sql_failure_diagnostic.txt
+          git add supabase/tests/wyn_143_cold_start_test.sh sql_failure_diagnostic.txt
           if ! git diff --cached --quiet; then
-            git commit -m 'chore(ci): record SQL diagnostic result'
+            git commit -m 'fix: align WYN-143 auth test harness'
             git push origin HEAD:fix/ci-reconcile-20260912
           fi
 
