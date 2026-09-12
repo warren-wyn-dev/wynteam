@@ -16,6 +16,7 @@ import 'home_feed_image_peek_carousel.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
+import '../../../../core/typography/browser_system_text.dart';
 import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/wyn_heart_icon.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
@@ -252,12 +253,14 @@ class HomeDropCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final captionStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      fontSize: 17.5,
-      height: 1.32,
-      fontWeight: FontWeight.w400,
-      color: WynColors.ink,
-    );
-    final actionCountStyle = Theme.of(context).textTheme.bodyMedium
+          fontSize: 17.5,
+          height: 1.32,
+          fontWeight: FontWeight.w400,
+          color: WynColors.ink,
+        );
+    final actionCountStyle = Theme.of(context)
+        .textTheme
+        .bodyMedium
         ?.copyWith(fontSize: 15, height: 1.1, fontWeight: FontWeight.w400);
     return Semantics(
       label: 'รูปของ ${item.authorNameOrUsername}',
@@ -309,7 +312,7 @@ class HomeDropCard extends StatelessWidget {
                         ),
                         const SizedBox(width: WynSpacing.space1),
                         Flexible(
-                          child: Text(
+                          child: BrowserSystemText(
                             // WYN-087 (Wynos V1.0.0 Beta2, item 26):
                             // relative time appended, same as a plain
                             // post's own author row -- Founder: "ตรง
@@ -324,12 +327,12 @@ class HomeDropCard extends StatelessWidget {
                             'รีโพสต์โดย @${item.redropperUsername} · '
                             '${relativeTimeLabel(item.createdAt, now: DateTime.now())}',
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
                           ),
                         ),
                       ],
@@ -392,7 +395,7 @@ class HomeDropCard extends StatelessWidget {
                                     children: [
                                       Expanded(
                                         flex: 3,
-                                        child: Text(
+                                        child: BrowserSystemText(
                                           item.authorNameOrUsername,
                                           maxLines: 1,
                                           softWrap: false,
@@ -417,7 +420,7 @@ class HomeDropCard extends StatelessWidget {
                                       const SizedBox(width: WynSpacing.space2),
                                       Flexible(
                                         flex: 2,
-                                        child: Text(
+                                        child: BrowserSystemText(
                                           item.location != null
                                               ? '${relativeTimeLabel(item.createdAt, now: DateTime.now())} · 📍 ${item.location}'
                                               : relativeTimeLabel(

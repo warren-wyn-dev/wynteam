@@ -24,6 +24,7 @@ class BrowserSystemText extends StatelessWidget {
     super.key,
     this.style,
     this.maxLines,
+    this.softWrap,
     this.overflow,
     this.textAlign = TextAlign.start,
     this.semanticsLabel,
@@ -32,6 +33,7 @@ class BrowserSystemText extends StatelessWidget {
   final String text;
   final TextStyle? style;
   final int? maxLines;
+  final bool? softWrap;
   final TextOverflow? overflow;
   final TextAlign textAlign;
   final String? semanticsLabel;
@@ -42,6 +44,7 @@ class BrowserSystemText extends StatelessWidget {
       text,
       style: style,
       maxLines: maxLines,
+      softWrap: softWrap,
       overflow: overflow,
       textAlign: textAlign,
       semanticsLabel: semanticsLabel,
@@ -55,6 +58,7 @@ class BrowserSystemRichText extends StatefulWidget {
     required this.spans,
     this.style,
     this.maxLines,
+    this.softWrap,
     this.overflow,
     this.textAlign = TextAlign.start,
     this.semanticsLabel,
@@ -63,6 +67,7 @@ class BrowserSystemRichText extends StatefulWidget {
   final List<BrowserSystemSpan> spans;
   final TextStyle? style;
   final int? maxLines;
+  final bool? softWrap;
   final TextOverflow? overflow;
   final TextAlign textAlign;
   final String? semanticsLabel;
@@ -111,6 +116,7 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
         ],
       ),
       maxLines: widget.maxLines,
+      softWrap: widget.softWrap,
       overflow: widget.overflow ?? TextOverflow.clip,
       textAlign: widget.textAlign,
       semanticsLabel: widget.semanticsLabel,

@@ -34,6 +34,7 @@ class BrowserSystemText extends StatelessWidget {
     super.key,
     this.style,
     this.maxLines,
+    this.softWrap,
     this.overflow,
     this.textAlign = TextAlign.start,
     this.semanticsLabel,
@@ -42,6 +43,7 @@ class BrowserSystemText extends StatelessWidget {
   final String text;
   final TextStyle? style;
   final int? maxLines;
+  final bool? softWrap;
   final TextOverflow? overflow;
   final TextAlign textAlign;
   final String? semanticsLabel;
@@ -52,6 +54,7 @@ class BrowserSystemText extends StatelessWidget {
       spans: [BrowserSystemSpan(text: text)],
       style: style,
       maxLines: maxLines,
+      softWrap: softWrap,
       overflow: overflow,
       textAlign: textAlign,
       semanticsLabel: semanticsLabel ?? text,
@@ -65,6 +68,7 @@ class BrowserSystemRichText extends StatefulWidget {
     required this.spans,
     this.style,
     this.maxLines,
+    this.softWrap,
     this.overflow,
     this.textAlign = TextAlign.start,
     this.semanticsLabel,
@@ -73,6 +77,7 @@ class BrowserSystemRichText extends StatefulWidget {
   final List<BrowserSystemSpan> spans;
   final TextStyle? style;
   final int? maxLines;
+  final bool? softWrap;
   final TextOverflow? overflow;
   final TextAlign textAlign;
   final String? semanticsLabel;
@@ -128,7 +133,7 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
           _measuredHeight = estimatedHeight;
         }
 
-        final height = math.max(_measuredHeight ?? estimatedHeight, 1);
+        final height = math.max(_measuredHeight ?? estimatedHeight, 1.0);
         return Semantics(
           label: widget.semanticsLabel ?? widget.plainText,
           excludeSemantics: true,
@@ -203,7 +208,8 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     required TextDirection direction,
   }) {
     final spanSignature = widget.spans
-        .map((span) => '${span.text}:${span.style?.hashCode}:${span.onTap != null}')
+        .map((span) =>
+            '${span.text}:${span.style?.hashCode}:${span.onTap != null}')
         .join('|');
     return Object.hash(
       spanSignature,
@@ -296,11 +302,15 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       ..color = _cssColor(style.color ?? const Color(0xFF000000))
       ..textAlign = _cssTextAlign(widget.textAlign, direction)
       ..direction = direction == TextDirection.rtl ? 'rtl' : 'ltr'
-      ..whiteSpace = widget.maxLines == 1 ? 'nowrap' : 'pre-wrap'
-      ..overflow = widget.overflow == null || widget.overflow == TextOverflow.visible
-          ? 'visible'
-          : 'hidden'
-      ..textOverflow = widget.overflow == TextOverflow.ellipsis ? 'ellipsis' : 'clip'
+      ..whiteSpace = widget.softWrap == false || widget.maxLines == 1
+          ? 'nowrap'
+          : 'pre-wrap'
+      ..overflow =
+          widget.overflow == null || widget.overflow == TextOverflow.visible
+              ? 'visible'
+              : 'hidden'
+      ..textOverflow =
+          widget.overflow == TextOverflow.ellipsis ? 'ellipsis' : 'clip'
       ..overflowWrap = 'break-word'
       ..boxSizing = 'border-box'
       ..width = '100%'
@@ -337,7 +347,7 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
   }
 
   String _cssColor(Color color) {
-    final value = color.value;
+    final value = color.toARGB32();
     final alpha = ((value >> 24) & 0xFF) / 255;
     final red = (value >> 16) & 0xFF;
     final green = (value >> 8) & 0xFF;
