@@ -100,18 +100,15 @@ void main() {
     expect(hashtagSpan.style?.color, const Color(0xFF1D9BF0));
   });
 
-  testWidgets('Home collapses a blank line immediately before hashtag block',
+  testWidgets('feed-card caption collapses blank line before hashtag block',
       (tester) async {
     const text = 'ชีวิตไม่ต้องสมบูรณ์แบบ\n\n#คำคม #ชีวิตดีๆ #WYNOS';
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: KeyedSubtree(
-            key: ValueKey<String>('home_feed_list'),
-            child: HashtagText(
-              text,
-              style: TextStyle(fontSize: 17.5, height: 1.32),
-            ),
+          body: HashtagText(
+            text,
+            style: TextStyle(fontSize: 17.5, height: 1.32),
           ),
         ),
       ),
@@ -124,14 +121,33 @@ void main() {
     );
   });
 
-  testWidgets('non-Home surfaces preserve authored blank lines', (tester) async {
-    const text = 'ข้อความ\n\n#WYN';
+  testWidgets('feed-card caption trims trailing blank lines above actions',
+      (tester) async {
+    const text = 'ข้อความ\n\n#WYN\n\n';
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
           body: HashtagText(
             text,
             style: TextStyle(fontSize: 17.5, height: 1.32),
+          ),
+        ),
+      ),
+    );
+
+    final richText = tester.widget<RichText>(find.byType(RichText).first);
+    expect(richText.text.toPlainText(), 'ข้อความ\n#WYN');
+  });
+
+  testWidgets('non-feed-card surfaces preserve authored blank lines',
+      (tester) async {
+    const text = 'ข้อความ\n\n#WYN';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: HashtagText(
+            text,
+            style: TextStyle(fontSize: 16, height: 1.32),
           ),
         ),
       ),
