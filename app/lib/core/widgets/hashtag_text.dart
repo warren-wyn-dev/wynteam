@@ -20,12 +20,12 @@ import '../typography/native_emoji.dart';
 /// Deliberately scoped to hashtag text: mentions keep the app's primary accent.
 const Color _hashtagLinkBlue = Color(0xFF1D9BF0);
 
-/// Home-feed captions are intentionally denser than the stored post body.
-/// A user may author a blank line before a hashtag block; on Home that blank
-/// line makes the post read as two separate blocks, so collapse only that
-/// boundary to one newline. Detail/Profile/Search/Hashtag feeds keep the exact
-/// authored whitespace.
-final RegExp _homeHashtagBlankLinePattern = RegExp(
+/// Feed-card captions are intentionally denser than the stored post body.
+/// A user may author a blank line before a hashtag block; inside the compact
+/// feed card that blank line makes the post read as two separate blocks, so
+/// collapse only that boundary to one newline. Trailing blank lines are also
+/// removed so they cannot create phantom space above the action row.
+final RegExp _feedCardHashtagBlankLinePattern = RegExp(
   r'\r?\n(?:[ \t]*\r?\n)+(?=[ \t]*#)',
 );
 
@@ -195,24 +195,8 @@ class _HashtagTextState extends State<HashtagText> {
     }
   }
 
-  bool _isHomeFeedCaption(BuildContext context) {
-    // The same HomeDropCard is reused by Profile, Search and Hashtag feeds.
-    // Scope this tighter rhythm to the actual Home sliver rather than inferring
-    // from the card's Semantics shape, which those other surfaces share.
-    if ((widget.style?.fontSize ?? 0) != 17.5) return false;
-
-    var isHomeFeed = false;
-    context.visitAncestorElements((element) {
-      final key = element.widget.key;
-      if (key == const ValueKey<String>('home_feed_list') ||
-          key == const ValueKey<String>('home_feed_list_following')) {
-        isHomeFeed = true;
-        return false;
-      }
-      return true;
-    });
-    return isHomeFeed;
-  }
+  bool get _usesCompactFeedCardRhythm =>
+      (widget.style?.fontSize ?? 0) == 17.5;
 
   @override
   Widget build(BuildContext context) {
@@ -221,9 +205,11 @@ class _HashtagTextState extends State<HashtagText> {
     }
     _recognizers.clear();
 
-    final isHomeFeedCaption = _isHomeFeedCaption(context);
-    final displayText = isHomeFeedCaption
-        ? widget.text.replaceAll(_homeHashtagBlankLinePattern, '\n')
+    final compactFeedCard = _usesCompactFeedCardRhythm;
+    final displayText = compactFeedCard
+        ? widget.text
+            .trimRight()
+            .replaceAll(_feedCardHashtagBlankLinePattern, '\n')
         : widget.text;
     final baseStyle = widget.style ?? DefaultTextStyle.of(context).style;
     final hashtagStyle = baseStyle.copyWith(
@@ -276,13 +262,10 @@ class _HashtagTextState extends State<HashtagText> {
       TextSpan(style: baseStyle, children: spans),
       maxLines: widget.maxLines,
       overflow: widget.overflow ?? TextOverflow.clip,
-      // Home uses a tighter first/last line box so the caption sits closer
-      // to the author row and the next element without changing the readable
-      // line-height between lines. Detail/Profile/Search/Hashtag stay untouched.
-      // Do not visually translate this text upward: Transform kept the original
-      // layout box in place and left an extra 8px of phantom space below the
-      // caption, exactly where the action row should sit tightly underneath.
-      textHeightBehavior: isHomeFeedCaption
+      // Feed cards use a tighter first/last line box so the caption sits closer
+      // to the author row and the action row without changing readable line
+      // height between lines. Full post/detail surfaces keep authored spacing.
+      textHeightBehavior: compactFeedCard
           ? const TextHeightBehavior(
               applyHeightToFirstAscent: false,
               applyHeightToLastDescent: false,
