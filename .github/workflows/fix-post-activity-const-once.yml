@@ -1,0 +1,66 @@
+name: Fix post activity const once
+
+on:
+  push:
+    branches: [feat/post-activity-people]
+    paths:
+      - .github/workflows/fix-post-activity-const-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/post-activity-people
+          fetch-depth: 0
+
+      - name: Fix activity row const lint
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/lib/features/drop/presentation/drop_detail_screen.dart')
+          text = path.read_text()
+          marker = '  Widget _buildActivityRow() {'
+          start = text.index(marker)
+          end = text.index('  Future<void> _openActivitySheet()', start)
+          section = text[start:end]
+          old = '          child: SizedBox(\n            height: WynosFounderMetrics.activityRowHeight,'
+          new = '          child: const SizedBox(\n            height: WynosFounderMetrics.activityRowHeight,'
+          if section.count(old) != 1:
+              raise SystemExit(f'expected one activity SizedBox match, found {section.count(old)}')
+          section = section.replace(old, new, 1)
+          path.write_text(text[:start] + section + text[end:])
+          PY
+          git diff --check
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Drop detail regression tests
+        working-directory: app
+        run: flutter test test/drop_detail_screen_test.dart
+
+      - name: Commit lint fix
+        run: |
+          rm -f .github/workflows/fix-post-activity-const-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(drop): satisfy activity const lint"
+          git push origin feat/post-activity-people
