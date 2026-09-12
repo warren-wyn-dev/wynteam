@@ -1,61 +1,13 @@
-name: Production web smoke test once (2026-09-12)
+name: Archived production stale-cache hotfix verification (2026-09-12)
 
+# Archived after the production stale-cache hotfix deploy and external smoke
+# completed successfully. This workflow is intentionally manual-only and
+# performs no deployment or mutation.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
-
-permissions:
-  contents: read
+  workflow_dispatch: {}
 
 jobs:
-  smoke:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify wynos.online serves the fresh Flutter production build
-        shell: bash
-        run: |
-          set -euo pipefail
-          base='https://wynos.online'
-          tmp="$(mktemp -d)"
-          trap 'rm -rf "$tmp"' EXIT
-
-          fetch() {
-            local url="$1"
-            local out="$2"
-            local code
-            code=$(curl --silent --show-error --location \
-              --retry 6 --retry-delay 2 --retry-all-errors \
-              --connect-timeout 10 --max-time 40 \
-              -H 'Cache-Control: no-cache' \
-              -H 'Pragma: no-cache' \
-              -o "$out" -w '%{http_code}' "$url")
-            echo "$code"
-          }
-
-          root_code=$(fetch "$base/" "$tmp/index.html")
-          echo "root_status=$root_code"
-          test "$root_code" = '200'
-          grep -q 'flutter_bootstrap.js' "$tmp/index.html"
-
-          bootstrap_code=$(fetch "$base/flutter_bootstrap.js" "$tmp/flutter_bootstrap.js")
-          echo "flutter_bootstrap_status=$bootstrap_code"
-          test "$bootstrap_code" = '200'
-          test -s "$tmp/flutter_bootstrap.js"
-
-          retire_code=$(fetch "$base/flutter_service_worker.js" "$tmp/flutter_service_worker.js")
-          echo "legacy_retirement_worker_status=$retire_code"
-          test "$retire_code" = '200'
-          grep -q 'LEGACY_FLUTTER_CACHES' "$tmp/flutter_service_worker.js"
-          grep -q 'registration.unregister' "$tmp/flutter_service_worker.js"
-
-          firebase_code=$(fetch "$base/firebase-messaging-sw.js" "$tmp/firebase-messaging-sw.js")
-          echo "firebase_worker_status=$firebase_code"
-          test "$firebase_code" = '200'
-          if grep -qE '__FIREBASE_[A-Z_]+__' "$tmp/firebase-messaging-sw.js"; then
-            echo 'Firebase service worker still contains unresolved config placeholders.' >&2
-            exit 1
-          fi
-
-          echo 'PRODUCTION_SMOKE_PASSED'
+      - run: echo "Archived production stale-cache verification; no deployment action."
