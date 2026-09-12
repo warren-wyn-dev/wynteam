@@ -145,4 +145,50 @@ replace_once(
     "    test('parses shared_content_type/shared_content_id (WYN-033)', () {\n",
 )
 
+# Existing scroll-to-original test intentionally exercises a real quote, so
+# give its fixture the preview content the production repository now hydrates.
+replace_once(
+    "app/test/conversation_screen_test.dart",
+    "        message(id: 'reply', text: 'ตอบกลับ', replyToMessageId: 'target'),\n",
+    "        message(\n"
+    "          id: 'reply',\n"
+    "          text: 'ตอบกลับ',\n"
+    "          replyToMessageId: 'target',\n"
+    "          replyPreviewText: 'ข้อความต้นฉบับที่อยู่ไกลมาก',\n"
+    "        ),\n",
+)
+
+# Directly guard the production symptom: a raw realtime-style reply with no
+# preview must not draw the empty quote rectangle/left bar.
+replace_once(
+    "app/test/conversation_screen_test.dart",
+    "    expect(find.text('ข้อความต้นฉบับที่อยู่ไกลมาก'), findsOneWidget);\n"
+    "  });\n\n"
+    "  testWidgets(\n"
+    "      'deleting my own message calls deleteMessage and shows the deleted placeholder',\n",
+    "    expect(find.text('ข้อความต้นฉบับที่อยู่ไกลมาก'), findsOneWidget);\n"
+    "  });\n\n"
+    "  testWidgets('reply with no hydrated preview does not render an empty quote shell',\n"
+    "      (tester) async {\n"
+    "    chatRepo.messagesByConversation = {\n"
+    "      'c1': [\n"
+    "        message(\n"
+    "          id: 'reply-without-preview',\n"
+    "          text: 'ตอบกลับ',\n"
+    "          replyToMessageId: 'target',\n"
+    "        ),\n"
+    "      ],\n"
+    "    };\n"
+    "    await tester.pumpWidget(buildScreen());\n"
+    "    await tester.pumpAndSettle();\n\n"
+    "    expect(find.text('ตอบกลับ'), findsOneWidget);\n"
+    "    expect(\n"
+    "      find.byKey(const Key('reply_quote_reply-without-preview')),\n"
+    "      findsNothing,\n"
+    "    );\n"
+    "  });\n\n"
+    "  testWidgets(\n"
+    "      'deleting my own message calls deleteMessage and shows the deleted placeholder',\n",
+)
+
 print("chat reply preview patch applied")
