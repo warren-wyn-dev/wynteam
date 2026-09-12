@@ -204,7 +204,7 @@ void main() {
   );
 
   testWidgets(
-    'Home feed caption is lifted 4px toward the author row',
+    'Home feed caption is lifted 8px toward the author row',
     (tester) async {
       await _pump(tester, card(_item()), width: 390);
       await tester.pump();
@@ -218,7 +218,7 @@ void main() {
       expect(transformFinder, findsOneWidget);
 
       final transform = tester.widget<Transform>(transformFinder);
-      expect(transform.transform.storage[13], -WynSpacing.space1);
+      expect(transform.transform.storage[13], -WynSpacing.space2);
       expect(tester.takeException(), isNull);
     },
   );
