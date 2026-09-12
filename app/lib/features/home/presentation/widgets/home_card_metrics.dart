@@ -27,24 +27,23 @@ import '../../../../core/design/wyn_spacing.dart';
 const double homeCardEdgeInset = WynSpacing.space4;
 
 /// The avatar's diameter, and so the width of the card's left column.
-const double homeCardAvatarDiameter = 40;
+/// 44px keeps the feed compact while matching the slightly larger
+/// profile treatment requested for the X/Threads-like visual weight.
+const double homeCardAvatarDiameter = 44;
 
 /// Founder-marked vertical position: the avatar's top edge starts on the
 /// visual text line instead of at the top edge of the whole post row.
 const double homeCardAvatarTopInset = WynSpacing.space4;
 
 /// Gap between the avatar column and the content column.
-///
-/// Deliberately not a [WynSpacing] token: `design-reference/01-home.tsx`
-/// sets `gap-3.5` (14px) on this exact row, and the 4px grid has no 14
-/// (it has 12 and 16). A micro-spacing exception of the same kind
-/// DS-008 §2 already accepted -- copied from the reference the Founder
-/// approved, not a number invented here.
-const double homeCardAvatarGap = WynSpacing.space3;
+/// The avatar grew by 4px, so this gap tightens by the same amount to keep
+/// the already-approved content column at x=68 instead of pushing the
+/// name, caption and media to the right.
+const double homeCardAvatarGap = WynSpacing.space2;
 
 /// Where the content column starts, measured from the screen edge:
-/// 16 + 40 + 12 = 68 on any width. Every section of a card lines up
-/// here, including the photo row's left edge. This matches the approved
-/// compact Home mockup while leaving enough room for a clear avatar.
+/// 16 + 44 + 8 = 68 on any width. The avatar gets more visual weight
+/// without moving the name/caption/photo alignment the Founder already
+/// approved.
 const double homeCardContentInset =
     homeCardEdgeInset + homeCardAvatarDiameter + homeCardAvatarGap;

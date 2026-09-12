@@ -9,6 +9,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:wyn/core/design/wyn_spacing.dart';
+import 'package:wyn/core/widgets/hashtag_text.dart';
 import 'package:wyn/features/drop/data/square_crop.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/widgets/home_card_metrics.dart';
@@ -149,7 +151,7 @@ void main() {
   );
 
   testWidgets(
-    'Drop avatar visual top starts at the requested text-line inset',
+    'Drop avatar keeps requested vertical inset and uses the larger size',
     (tester) async {
       await _pump(tester, card(_item()), width: 390);
       await tester.pump();
@@ -168,12 +170,15 @@ void main() {
         avatarTop - headerTop,
         closeTo(homeCardAvatarTopInset, 0.5),
       );
+      final circle = tester.widget<CircleAvatar>(avatar);
+      expect(circle.radius, homeCardAvatarDiameter / 2);
+      expect(homeCardAvatarDiameter, 44);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'Pop avatar visual top starts at the requested text-line inset',
+    'Pop avatar keeps requested vertical inset and uses the larger size',
     (tester) async {
       await _pump(tester, popCard(_popItem()), width: 390);
       await tester.pump();
@@ -192,6 +197,28 @@ void main() {
         avatarTop - headerTop,
         closeTo(homeCardAvatarTopInset, 0.5),
       );
+      final circle = tester.widget<CircleAvatar>(avatar);
+      expect(circle.radius, homeCardAvatarDiameter / 2);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Home feed caption is lifted 4px toward the author row',
+    (tester) async {
+      await _pump(tester, card(_item()), width: 390);
+      await tester.pump();
+
+      final caption = find.byType(HashtagText);
+      expect(caption, findsOneWidget);
+      final transformFinder = find.descendant(
+        of: caption,
+        matching: find.byType(Transform),
+      );
+      expect(transformFinder, findsOneWidget);
+
+      final transform = tester.widget<Transform>(transformFinder);
+      expect(transform.transform.storage[13], -WynSpacing.space1);
       expect(tester.takeException(), isNull);
     },
   );
