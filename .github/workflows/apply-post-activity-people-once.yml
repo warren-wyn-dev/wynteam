@@ -1,0 +1,65 @@
+name: Apply post activity people once
+
+on:
+  push:
+    branches: [feat/post-activity-people]
+    paths:
+      - .github/workflows/apply-post-activity-people-once.yml
+      - tools/apply_post_activity_people.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/post-activity-people
+          fetch-depth: 0
+
+      - name: Apply post activity people patch
+        run: python3 tools/apply_post_activity_people.py
+
+      - name: Format changed Dart sources
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACM -- '*.dart')
+          if [ ${#files[@]} -gt 0 ]; then
+            dart format "${files[@]}"
+          fi
+
+      - name: Check patch scope
+        run: |
+          git diff --check
+          git diff --name-only
+          test -n "$(git diff --name-only)"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze --no-fatal-infos
+
+      - name: Drop detail regression tests
+        working-directory: app
+        run: flutter test test/drop_detail_screen_test.dart
+
+      - name: Commit validated change
+        run: |
+          rm -f tools/apply_post_activity_people.py
+          rm -f .github/workflows/apply-post-activity-people-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(drop): show people in post activity"
+          git push origin feat/post-activity-people
