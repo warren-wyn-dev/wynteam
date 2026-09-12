@@ -8,6 +8,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/navigation/app_navigator.dart';
 import '../../../core/push_env.dart';
 import '../../../core/text_utils.dart';
+import '../../chat/data/chat_repository.dart';
+import '../../chat/presentation/active_conversation_tracker.dart';
+import '../../chat/presentation/conversation_screen.dart';
 import '../data/push_token_repository.dart';
 import 'push_notification_service.dart';
 
@@ -33,7 +36,8 @@ import 'push_notification_service.dart';
 class PushReliabilityController with WidgetsBindingObserver {
   PushReliabilityController._();
 
-  static final PushReliabilityController instance = PushReliabilityController._();
+  static final PushReliabilityController instance =
+      PushReliabilityController._();
 
   static const Duration _foregroundBannerDuration = Duration(seconds: 4);
 
@@ -44,6 +48,8 @@ class PushReliabilityController with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSubscription;
   RealtimeChannel? _dmChannel;
   String? _dmChannelUserId;
+  OverlayEntry? _foregroundOverlayEntry;
+  Timer? _foregroundOverlayTimer;
 
   bool get _pushRuntimeAvailable =>
       Firebase.apps.isNotEmpty && (!kIsWeb || PushEnv.isWebPushConfigured);
@@ -158,50 +164,100 @@ class PushReliabilityController with WidgetsBindingObserver {
     final client = _client;
     if (client == null) return;
 
-    // Ignore the realtime echo of this user's own send. Also ignore an event
-    // from an old account's channel during the tiny async account-switch
-    // unsubscribe window.
     if (client.auth.currentUser?.id != subscribedUserId ||
         senderId == subscribedUserId) {
       return;
     }
 
-    final preview = _dmPreview(record);
-    final senderName = await _senderName(senderId);
+    final conversationId = record['conversation_id'] as String?;
+    if (conversationId != null &&
+        ActiveConversationTracker.currentConversationId == conversationId) {
+      return;
+    }
 
-    // The profile lookup above is asynchronous. Re-check the account after it
-    // completes so a fast account switch cannot surface the old account's DM.
+    final preview = _dmPreview(record);
+    final sender = await _senderPresentation(senderId);
+
     if (client.auth.currentUser?.id != subscribedUserId) return;
+    if (conversationId != null &&
+        ActiveConversationTracker.currentConversationId == conversationId) {
+      return;
+    }
 
     _showForegroundMessage(
       data: const {'type': 'new_message'},
-      title: senderName,
+      title: sender.name,
       body: preview,
+      onTap: conversationId == null || sender.username.isEmpty
+          ? null
+          : () => _openRealtimeConversation(
+                conversationId: conversationId,
+                senderId: senderId,
+                sender: sender,
+              ),
     );
   }
 
-  Future<String> _senderName(String senderId) async {
+  Future<_DmSenderPresentation> _senderPresentation(String senderId) async {
     final client = _client;
-    if (client == null) return 'ข้อความใหม่';
+    if (client == null) {
+      return const _DmSenderPresentation(name: 'ข้อความใหม่');
+    }
 
     try {
       final profile = await client
           .from('profiles')
-          .select('username, display_name')
+          .select('username, display_name, avatar_url')
           .eq('id', senderId)
           .maybeSingle();
-      if (profile == null) return 'ข้อความใหม่';
+      if (profile == null) {
+        return const _DmSenderPresentation(name: 'ข้อความใหม่');
+      }
 
-      final username = profile['username'] as String?;
-      if (username == null || username.isEmpty) return 'ข้อความใหม่';
-      return displayNameOrUsername(
-        displayName: profile['display_name'] as String?,
+      final username = (profile['username'] as String?)?.trim() ?? '';
+      final displayName = (profile['display_name'] as String?)?.trim();
+      final resolvedName = displayNameOrUsername(
+        displayName: displayName,
         username: username,
+      ).trim();
+      return _DmSenderPresentation(
+        name: resolvedName.isEmpty ? 'ข้อความใหม่' : resolvedName,
+        username: username,
+        displayName: displayName,
+        avatarUrl: profile['avatar_url'] as String?,
       );
     } catch (_) {
-      // A failed profile lookup must never suppress the actual DM alert.
-      return 'ข้อความใหม่';
+      return const _DmSenderPresentation(name: 'ข้อความใหม่');
     }
+  }
+
+  void _openRealtimeConversation({
+    required String conversationId,
+    required String senderId,
+    required _DmSenderPresentation sender,
+  }) {
+    final client = _client;
+    final navigator = appNavigatorKey.currentState;
+    if (client == null || navigator == null || sender.username.isEmpty) return;
+    if (ActiveConversationTracker.currentConversationId == conversationId) {
+      return;
+    }
+
+    _dismissForegroundMessage();
+    unawaited(
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ConversationScreen(
+            chatRepository: ChatRepository(client),
+            conversationId: conversationId,
+            otherUserId: senderId,
+            otherUsername: sender.username,
+            otherDisplayName: sender.displayName,
+            otherAvatarUrl: sender.avatarUrl,
+          ),
+        ),
+      ),
+    );
   }
 
   String _dmPreview(Map<String, dynamic> record) {
@@ -230,65 +286,161 @@ class PushReliabilityController with WidgetsBindingObserver {
     required Map<String, dynamic> data,
     String? title,
     String? body,
+    VoidCallback? onTap,
   }) {
-    // Keep this fix tightly scoped to DM. Other notification types keep their
-    // existing in-app/badge behavior.
     if (data['type'] != 'new_message') return;
 
-    final messenger = appScaffoldMessengerKey.currentState;
-    if (messenger == null) return;
+    final overlay = appNavigatorKey.currentState?.overlay;
+    if (overlay == null) return;
 
+    _dismissForegroundMessage();
     final safeTitle = title?.trim();
     final safeBody = body?.trim();
+    final resolvedTitle =
+        safeTitle == null || safeTitle.isEmpty ? 'ข้อความใหม่' : safeTitle;
+    final resolvedBody =
+        safeBody == null || safeBody.isEmpty ? 'ส่งข้อความถึงคุณ' : safeBody;
 
-    messenger.showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        duration: _foregroundBannerDuration,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              safeTitle == null || safeTitle.isEmpty ? 'ข้อความใหม่' : safeTitle,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) {
+        final colors = Theme.of(context).colorScheme;
+        return Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Material(
+                key: const Key('foreground_dm_banner'),
+                color: colors.surface,
+                elevation: 8,
+                shadowColor: colors.shadow.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onTap == null
+                      ? null
+                      : () {
+                          _dismissForegroundMessage();
+                          onTap();
+                        },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: colors.primaryContainer,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.chat_bubble_rounded,
+                            size: 20,
+                            color: colors.onPrimaryContainer,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                resolvedTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                resolvedBody,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (onTap != null) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              safeBody == null || safeBody.isEmpty
-                  ? 'ส่งข้อความถึงคุณ'
-                  : safeBody,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
+    );
+
+    _foregroundOverlayEntry = entry;
+    overlay.insert(entry);
+    _foregroundOverlayTimer = Timer(
+      _foregroundBannerDuration,
+      _dismissForegroundMessage,
     );
   }
 
-  /// Test-only entry point for the presentation path.
+  void _dismissForegroundMessage() {
+    _foregroundOverlayTimer?.cancel();
+    _foregroundOverlayTimer = null;
+    final entry = _foregroundOverlayEntry;
+    _foregroundOverlayEntry = null;
+    if (entry?.mounted ?? false) {
+      entry!.remove();
+    }
+  }
+
   @visibleForTesting
   void debugShowForegroundMessage({
     required Map<String, dynamic> data,
     String? title,
     String? body,
+    VoidCallback? onTap,
   }) {
-    _showForegroundMessage(data: data, title: title, body: body);
+    _showForegroundMessage(
+      data: data,
+      title: title,
+      body: body,
+      onTap: onTap,
+    );
   }
 
-  /// Test-only entry point for Realtime presentation/filtering without a real
-  /// Supabase profile lookup.
   @visibleForTesting
   void debugPresentIncomingRealtimeDm({
     required String senderId,
     required String subscribedUserId,
     required String? activeUserId,
     required String senderName,
+    String? conversationId,
     String? text,
     String? imageUrl,
     bool viewOnce = false,
     String? sharedContentType,
+    VoidCallback? onTap,
   }) {
     if (activeUserId != subscribedUserId || senderId == subscribedUserId) {
+      return;
+    }
+    if (conversationId != null &&
+        ActiveConversationTracker.currentConversationId == conversationId) {
       return;
     }
 
@@ -301,8 +453,12 @@ class PushReliabilityController with WidgetsBindingObserver {
         'view_once': viewOnce,
         'shared_content_type': sharedContentType,
       }),
+      onTap: onTap,
     );
   }
+
+  @visibleForTesting
+  void debugDismissForegroundMessage() => _dismissForegroundMessage();
 
   /// Test-only pure preview helper.
   @visibleForTesting
@@ -313,4 +469,18 @@ class PushReliabilityController with WidgetsBindingObserver {
   @visibleForTesting
   bool get debugHasLiveSubscriptions =>
       _authSubscription != null || _dmChannel != null;
+}
+
+class _DmSenderPresentation {
+  const _DmSenderPresentation({
+    required this.name,
+    this.username = '',
+    this.displayName,
+    this.avatarUrl,
+  });
+
+  final String name;
+  final String username;
+  final String? displayName;
+  final String? avatarUrl;
 }

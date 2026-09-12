@@ -45,6 +45,7 @@ import '../data/chat_repository.dart';
 import '../data/pinned_message.dart';
 import '../data/shared_content_type.dart';
 import '../../presence/data/presence_repository.dart';
+import 'active_conversation_tracker.dart';
 
 /// Screen 3 -- the conversation itself. Restyled to 13-chat-thread.tsx:
 /// ink-filled bubbles (mine) vs. tinted #F1EFE9 bubbles (theirs), matching
@@ -156,6 +157,7 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen>
     with WidgetsBindingObserver {
+  final Object _activeConversationOwner = Object();
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final _textFieldFocusNode = FocusNode();
@@ -365,6 +367,10 @@ class _ConversationScreenState extends State<ConversationScreen>
   @override
   void initState() {
     super.initState();
+    ActiveConversationTracker.enter(
+      _activeConversationOwner,
+      widget.conversationId,
+    );
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
     _initLockCheckThenLoad();
@@ -539,6 +545,7 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   @override
   void dispose() {
+    ActiveConversationTracker.leave(_activeConversationOwner);
     WidgetsBinding.instance.removeObserver(this);
     final channel = _channel;
     if (channel != null) {
