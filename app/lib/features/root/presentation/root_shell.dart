@@ -27,6 +27,7 @@ import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wynos_founder_metrics.dart';
 import 'widgets/wynos_founder_bottom_navigation.dart';
+import 'root_navigation_controller.dart';
 import '../../../core/navigation/deep_link_service.dart';
 
 /// The Bottom Navigation shell -- 5 destinations per the WYNOS V1.0.0
@@ -204,6 +205,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    RootNavigationController.attach(this, _onDestinationSelected);
     _tabIndex = widget.startOnProfileTab ? _profileTab : _homeTab;
     final client = Supabase.instance.client;
     _dropRepository = widget._dropRepository ?? DropRepository(client);
@@ -214,11 +216,13 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
     _notificationRepository =
         widget._notificationRepository ?? NotificationRepository(client);
     _clubRepository = widget._clubRepository ?? ClubRepository(client);
-    _clubPostRepository = widget._clubPostRepository ?? ClubPostRepository(client);
+    _clubPostRepository =
+        widget._clubPostRepository ?? ClubPostRepository(client);
     _homeRepository = widget._homeRepository ?? HomeRepository(client);
     _appealRepository = widget._appealRepository ?? AppealRepository(client);
     _chatRepository = widget._chatRepository ?? ChatRepository(client);
-    _presenceRepository = widget._presenceRepository ?? PresenceRepository(client);
+    _presenceRepository =
+        widget._presenceRepository ?? PresenceRepository(client);
 
     // WYN-016 (Push Notification): register this device's token and
     // start listening, once, the first time RootShell renders for this
@@ -281,6 +285,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    RootNavigationController.detach(this);
     WidgetsBinding.instance.removeObserver(this);
     // WYN-139: tears the global presence channel down entirely -- this
     // State only ever gets disposed when the signed-in account itself
@@ -317,7 +322,8 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
       // initState) stays subscribed for the app's whole session, only
       // the tracked entry needs refreshing here.
       if (_presenceStarted) _presenceRepository.trackOnline();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       // WYN-139: best-effort, same posture as every other lifecycle
       // hook in this app -- see PresenceRepository.untrackOnline's own
       // doc comment for why a killed-outright app can miss this.
@@ -508,14 +514,17 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
               ),
             ],
           ),
-          child: const Icon(Icons.add_rounded, size: 33, color: WynColors.paper),
+          child:
+              const Icon(Icons.add_rounded, size: 33, color: WynColors.paper),
         ),
       ),
     );
   }
 
-  Widget _buildNotificationsIcon(BuildContext context, {required bool selected}) {
-    final icon = Icon(selected ? Icons.notifications : Icons.notifications_outlined);
+  Widget _buildNotificationsIcon(BuildContext context,
+      {required bool selected}) {
+    final icon =
+        Icon(selected ? Icons.notifications : Icons.notifications_outlined);
     final count = _unreadNotificationCount;
     if (count <= 0) return icon;
 
@@ -531,7 +540,8 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
             right: -6,
             top: -4,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space1, vertical: 1),
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               decoration: BoxDecoration(
                 // Unread badges read as red (colorScheme.error), not

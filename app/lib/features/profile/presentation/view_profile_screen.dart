@@ -51,6 +51,8 @@ import '../../mute/data/mute_repository.dart';
 import '../../report/data/report_repository.dart';
 import '../../report/data/report_target_type.dart';
 import '../../report/presentation/report_sheet.dart';
+import '../../root/presentation/root_navigation_controller.dart';
+import '../../root/presentation/widgets/wynos_founder_bottom_navigation.dart';
 import '../../search/data/discovery_repository.dart';
 import '../../search/presentation/search_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
@@ -600,6 +602,59 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     if (mounted) _reload();
   }
 
+  void _goBack() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      widget.onRootBack?.call();
+    }
+  }
+
+  Future<void> _openRootDestination(int navIndex) async {
+    if (!RootNavigationController.isAttached) return;
+
+    // A pushed profile sits above RootShell on the app's single Navigator.
+    // Switching a bottom destination should leave that pushed stack entirely,
+    // reveal the existing RootShell (preserving its IndexedStack state), then
+    // let RootShell perform the real destination action/guest gate.
+    final navigator = Navigator.of(context);
+    navigator.popUntil((route) => route.isFirst);
+    await Future<void>.delayed(Duration.zero);
+    await RootNavigationController.selectDestination(navIndex);
+  }
+
+  Widget _buildPushedProfileBottomNavigation() {
+    return WynosFounderBottomNavigation(
+      selectedIndex: 4,
+      onDestinationSelected: (navIndex) {
+        _openRootDestination(navIndex);
+      },
+      createAction: Container(
+        width: WynosFounderMetrics.createActionDiameter,
+        height: WynosFounderMetrics.createActionDiameter,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: WynColors.ink,
+          boxShadow: [
+            BoxShadow(
+              color: WynColors.ink.withValues(alpha: 0.18),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.add_rounded,
+          size: 33,
+          color: WynColors.paper,
+        ),
+      ),
+      notificationIcon: const Icon(Icons.notifications_outlined),
+      selectedNotificationIcon: const Icon(Icons.notifications),
+    );
+  }
+
   Widget _buildProfileCoverBar(Profile profile, bool isOwnProfile) {
     // The cover and the identity header must live in the same sliver.
     // The avatar intentionally paints 46px upward into this cover; keeping
@@ -617,11 +672,20 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           WynosProfileCover(imageUrl: profile.coverUrl),
           Positioned(
             top: topInset,
-            left: 16,
+            left: 4,
             right: 0,
             height: kToolbarHeight,
             child: Row(
               children: [
+                IconButton(
+                  tooltip: 'ย้อนกลับ',
+                  icon: const Icon(
+                    Icons.chevron_left_rounded,
+                    size: 32,
+                    color: WynColors.paper,
+                  ),
+                  onPressed: _goBack,
+                ),
                 const Text(
                   'โปรไฟล์',
                   style: TextStyle(
@@ -1210,6 +1274,10 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       length: 3,
       child: Scaffold(
         backgroundColor: WynColors.paper,
+        bottomNavigationBar:
+            !isOwnProfile && RootNavigationController.isAttached
+                ? _buildPushedProfileBottomNavigation()
+                : null,
         body: FutureBuilder<_ProfileWithCounts>(
           future: _loadFuture,
           builder: (context, snapshot) {

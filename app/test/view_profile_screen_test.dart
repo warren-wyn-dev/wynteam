@@ -11,6 +11,7 @@ import 'package:wyn/features/home/presentation/widgets/verified_badge.dart';
 import 'package:wyn/features/pop/data/pop.dart';
 import 'package:wyn/features/profile/data/profile.dart';
 import 'package:wyn/features/profile/presentation/view_profile_screen.dart';
+import 'package:wyn/features/root/presentation/root_navigation_controller.dart';
 import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 import 'package:wyn/features/profile/presentation/widgets/profile_skeleton.dart';
 
@@ -913,6 +914,78 @@ void main() {
 
       expect(find.byType(HomeDropCard), findsOneWidget);
       expect(find.byType(VerifiedBadge), findsOneWidget);
+    });
+  });
+
+  group('pushed profile navigation chrome', () {
+    Widget buildLauncher() => MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  key: const Key('open_other_profile'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ViewProfileScreen(
+                        profileRepository: otherProfileRepo,
+                        followRepository: otherFollowRepo,
+                        dropRepository: dropRepo,
+                        popRepository: popRepo,
+                        savedRepository: savedRepo,
+                        userId: 'someone-else',
+                      ),
+                    ),
+                  ),
+                  child: const Text('เปิดโปรไฟล์คนอื่น'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    testWidgets('shows a real back button on someone else profile',
+        (tester) async {
+      final owner = Object();
+      RootNavigationController.attach(owner, (_) async {});
+      addTearDown(() => RootNavigationController.detach(owner));
+
+      await tester.pumpWidget(buildLauncher());
+      await tester.tap(find.byKey(const Key('open_other_profile')));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('ย้อนกลับ'), findsOneWidget);
+      await tester.tap(find.byTooltip('ย้อนกลับ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('open_other_profile')), findsOneWidget);
+      expect(find.text('น้ำฝน'), findsNothing);
+    });
+
+    testWidgets(
+        'keeps the root bottom destinations visible and dispatches a tab tap',
+        (tester) async {
+      final owner = Object();
+      final selected = <int>[];
+      RootNavigationController.attach(owner, (index) async {
+        selected.add(index);
+      });
+      addTearDown(() => RootNavigationController.detach(owner));
+
+      await tester.pumpWidget(buildLauncher());
+      await tester.tap(find.byKey(const Key('open_other_profile')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('หน้าหลัก'), findsOneWidget);
+      expect(find.text('ค้นหา'), findsOneWidget);
+      expect(find.text('การแจ้งเตือน'), findsOneWidget);
+      expect(find.text('โปรไฟล์'), findsWidgets);
+
+      await tester.tap(find.text('ค้นหา'));
+      await tester.pumpAndSettle();
+
+      expect(selected, [1]);
+      expect(find.byKey(const Key('open_other_profile')), findsOneWidget);
+      expect(find.text('น้ำฝน'), findsNothing);
     });
   });
 }
