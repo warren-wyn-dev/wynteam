@@ -13,9 +13,21 @@ import '../../features/profile/data/profile.dart';
 import '../../features/profile/data/profile_repository.dart';
 import '../../features/profile/presentation/view_profile_screen.dart';
 import '../../features/saved/data/saved_repository.dart';
-import '../design/wyn_spacing.dart';
 import '../text_utils.dart';
 import '../typography/native_emoji.dart';
+
+/// Founder-approved bright blue for tappable hashtags in post copy.
+/// Deliberately scoped to hashtag text: mentions keep the app's primary accent.
+const Color _hashtagLinkBlue = Color(0xFF1D9BF0);
+
+/// Home-feed captions are intentionally denser than the stored post body.
+/// A user may author a blank line before a hashtag block; on Home that blank
+/// line makes the post read as two separate blocks, so collapse only that
+/// boundary to one newline. Detail/Profile/Search/Hashtag feeds keep the exact
+/// authored whitespace.
+final RegExp _homeHashtagBlankLinePattern = RegExp(
+  r'\r?\n(?:[ \t]*\r?\n)+(?=[ \t]*#)',
+);
 
 /// Matches the emoji sequences WYN needs to lift out of Flutter's canvas text
 /// on Apple browsers. The browser then paints those clusters with its installed
@@ -209,15 +221,23 @@ class _HashtagTextState extends State<HashtagText> {
     }
     _recognizers.clear();
 
+    final isHomeFeedCaption = _isHomeFeedCaption(context);
+    final displayText = isHomeFeedCaption
+        ? widget.text.replaceAll(_homeHashtagBlankLinePattern, '\n')
+        : widget.text;
     final baseStyle = widget.style ?? DefaultTextStyle.of(context).style;
-    final tappableStyle = baseStyle.copyWith(
+    final hashtagStyle = baseStyle.copyWith(
+      color: _hashtagLinkBlue,
+      fontWeight: FontWeight.w600,
+    );
+    final mentionStyle = baseStyle.copyWith(
       color: Theme.of(context).colorScheme.primary,
       fontWeight: FontWeight.w600,
     );
 
     final spans = <InlineSpan>[];
     var lastEnd = 0;
-    for (final token in _findTokens(widget.text)) {
+    for (final token in _findTokens(displayText)) {
       // hashtagPattern/mentionPattern never overlap (different prefix
       // characters), but a token could still start before lastEnd if
       // sorting alone let a shorter earlier overlap through -- skip
@@ -227,7 +247,7 @@ class _HashtagTextState extends State<HashtagText> {
       if (token.start > lastEnd) {
         _appendPlainText(
           spans,
-          widget.text.substring(lastEnd, token.start),
+          displayText.substring(lastEnd, token.start),
           baseStyle,
         );
       }
@@ -238,42 +258,36 @@ class _HashtagTextState extends State<HashtagText> {
             : () => _openMentionedProfile(token.value);
       _recognizers.add(recognizer);
       spans.add(TextSpan(
-        text: widget.text.substring(token.start, token.end),
-        style: tappableStyle,
+        text: displayText.substring(token.start, token.end),
+        style: token.kind == _SpanKind.hashtag ? hashtagStyle : mentionStyle,
         recognizer: recognizer,
       ));
       lastEnd = token.end;
     }
-    if (lastEnd < widget.text.length) {
+    if (lastEnd < displayText.length) {
       _appendPlainText(
         spans,
-        widget.text.substring(lastEnd),
+        displayText.substring(lastEnd),
         baseStyle,
       );
     }
 
-    final isHomeFeedCaption = _isHomeFeedCaption(context);
-    final richText = Text.rich(
+    return Text.rich(
       TextSpan(style: baseStyle, children: spans),
       maxLines: widget.maxLines,
       overflow: widget.overflow ?? TextOverflow.clip,
       // Home uses a tighter first/last line box so the caption sits closer
       // to the author row and the next element without changing the readable
       // line-height between lines. Detail/Profile/Search/Hashtag stay untouched.
+      // Do not visually translate this text upward: Transform kept the original
+      // layout box in place and left an extra 8px of phantom space below the
+      // caption, exactly where the action row should sit tightly underneath.
       textHeightBehavior: isHomeFeedCaption
           ? const TextHeightBehavior(
               applyHeightToFirstAscent: false,
               applyHeightToLastDescent: false,
             )
           : null,
-    );
-
-    if (!isHomeFeedCaption) return richText;
-    // Threads/X-like rhythm: keep the same typography, but lift the Home
-    // caption one 8px spacing token so it visually belongs to the author row.
-    return Transform.translate(
-      offset: const Offset(0, -WynSpacing.space2),
-      child: richText,
     );
   }
 }
