@@ -24,7 +24,9 @@ jobs:
           channel: stable
 
       - name: Apply patch
-        run: python3 tools/fix_chat_reply_preview_20260912.py
+        run: |
+          python3 tools/fix_chat_reply_preview_20260912.py
+          python3 tools/fix_chat_reply_preview_test_fixture_20260912.py
 
       - name: Format changed Dart files
         working-directory: app
@@ -49,6 +51,7 @@ jobs:
       - name: Commit clean fix
         run: |
           rm -f tools/fix_chat_reply_preview_20260912.py
+          rm -f tools/fix_chat_reply_preview_test_fixture_20260912.py
           rm -f .github/workflows/fix-chat-reply-preview-once-20260912.yml
           git config user.name 'warren-wyn-dev'
           git config user.email 'warren.wyn.dev@gmail.com'
