@@ -236,7 +236,12 @@ void main() {
     chatRepo.signedUrlResult = 'https://example.supabase.co/signed/filler.jpg';
     chatRepo.messagesByConversation = {
       'c1': [
-        message(id: 'reply', text: 'ตอบกลับ', replyToMessageId: 'target'),
+        message(
+          id: 'reply',
+          text: 'ตอบกลับ',
+          replyToMessageId: 'target',
+          replyPreviewText: 'ตัวอย่างข้อความอ้างอิง',
+        ),
         ...fillers,
         message(id: 'target', text: 'ข้อความต้นฉบับที่อยู่ไกลมาก'),
       ],
@@ -257,6 +262,27 @@ void main() {
     tester.takeException();
 
     expect(find.text('ข้อความต้นฉบับที่อยู่ไกลมาก'), findsOneWidget);
+  });
+
+  testWidgets('reply with no hydrated preview does not render an empty quote shell',
+      (tester) async {
+    chatRepo.messagesByConversation = {
+      'c1': [
+        message(
+          id: 'reply-without-preview',
+          text: 'ตอบกลับ',
+          replyToMessageId: 'target',
+        ),
+      ],
+    };
+    await tester.pumpWidget(buildScreen());
+    await tester.pumpAndSettle();
+
+    expect(find.text('ตอบกลับ'), findsOneWidget);
+    expect(
+      find.byKey(const Key('reply_quote_reply-without-preview')),
+      findsNothing,
+    );
   });
 
   testWidgets(

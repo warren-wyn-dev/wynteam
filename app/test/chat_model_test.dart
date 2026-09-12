@@ -206,6 +206,7 @@ void main() {
       expect(message.replyToMessageId, 'm1');
       expect(message.replyPreviewText, 'ข้อความต้นทาง');
       expect(message.replyPreviewDeletedAt, isNull);
+      expect(message.hasReplyPreview, isTrue);
     });
 
     test('a reply to a since-deleted message has a null preview text but a non-null preview deletedAt', () {
@@ -243,6 +244,7 @@ void main() {
 
       expect(message.replyPreviewText, isNull);
       expect(message.replyPreviewDeletedAt, isNull);
+      expect(message.hasReplyPreview, isFalse);
     });
 
     test('parses shared_content_type/shared_content_id (WYN-033)', () {
