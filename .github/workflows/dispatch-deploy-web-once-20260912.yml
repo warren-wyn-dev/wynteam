@@ -1,8 +1,7 @@
-name: One-shot production web deploy (2026-09-13)
+name: One-shot production web smoke (2026-09-13)
 
-# Temporary bridge: dispatch the existing manual production deploy exactly
-# once from a push, then archive this file again after the production run is
-# confirmed. The job only runs for the activation commit message below.
+# Temporary production smoke. Triggered only by its activation commit, then
+# archived again after the live site is confirmed.
 on:
   push:
     branches: [main]
@@ -11,15 +10,36 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  actions: write
   contents: read
 
 jobs:
-  dispatch:
-    if: contains(github.event.head_commit.message, 'dispatch production web deploy')
+  smoke:
+    if: contains(github.event.head_commit.message, 'smoke production system-font deploy')
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch production deploy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy-web.yml --repo "${{ github.repository }}" --ref main
+      - name: Verify live production
+        run: |
+          set -euo pipefail
+          root="$(mktemp)"
+          add="$(mktemp)"
+          trap 'rm -f "$root" "$add"' EXIT
+
+          curl --fail --silent --show-error --location \
+            --retry 4 --retry-delay 2 --retry-all-errors \
+            -H 'Cache-Control: no-cache' \
+            "https://wynos.online/?smoke=${GITHUB_SHA}" -o "$root"
+
+          curl --fail --silent --show-error --location \
+            --retry 4 --retry-delay 2 --retry-all-errors \
+            -H 'Cache-Control: no-cache' \
+            "https://wynos.online/add-to-home.html?smoke=${GITHUB_SHA}" -o "$add"
+
+          grep -F 'font-family: -apple-system, BlinkMacSystemFont' "$root"
+          grep -F 'font-family:-apple-system, BlinkMacSystemFont' "$add"
+
+          if grep -Fq 'fonts.googleapis.com' "$root" "$add"; then
+            echo '::error::Google Fonts is still referenced in production HTML.'
+            exit 1
+          fi
+
+          echo 'Production smoke passed: root + add-to-home are live with system fonts only.'
