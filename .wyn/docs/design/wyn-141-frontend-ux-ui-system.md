@@ -175,6 +175,34 @@ Confirmed with Founder directly (AskUserQuestion, since `.wyn/company/DECISIONS.
 
 **Handoff:** AI Coding may continue non-Admin batches for these screens without waiting on the screenshot re-share — only Post Detail and Other Profile are gated on it.
 
-### Known Blocker (repeated from product amendment)
+### Known Blocker (repeated from product amendment) — RESOLVED 2026-09-12
 
-No Profile/Post Detail screenshot files exist anywhere in this repository. Founder needs to re-share them in-session before Post Detail/Other Profile batches can be marked complete.
+Founder shared the real Profile screenshot in-session. Saved to `design-reference/founder-screenshots/profile-final-2026-09-12.png` (canonical reference, supersedes conflicting detail in `05-profile.tsx` below). Founder confirmed directly: "ชอบแบบนี้ แบบล่าสุด ตอนนี้เลย" (like this one, the latest, right now).
+
+### Literal breakdown of the real screenshot (ground truth — read this before touching Profile/Post Detail/Other Profile)
+
+This is a screenshot of the **actual running app**, not a mockup — treat every detail below as confirmed unless marked as an open question.
+
+| Area | What the screenshot actually shows | vs. `05-profile.tsx` / `SPEC.md` |
+|---|---|---|
+| Cover photo | Full-width photo banner above the identity block (user's own uploaded photo) | **New** — confirms the `profiles.cover_url` addition already noted in this task's 2026-09-10 entry. Not a copyright/asset-safety violation (DESIGN-PHILOSOPHY §9 bans *decorative* stock photography as a design element, not user-uploaded content) |
+| Header (over cover) | "โปรไฟล์" title top-left, share icon + settings gear top-right, white icons directly on the photo | **New position** — `.tsx` had the gear icon on a plain paper header with no cover to sit over |
+| Avatar | Circular, thick white ring, overlaps the bottom edge of the cover (bottom-left aligned, not centered), small green online-status dot bottom-right | **Differs**: ring reads white/bright here vs. the `.tsx`'s thin sapphire-tint ring (could be the same ring reading differently against a photo — flagging as unconfirmed, not asserting a token change). Online-status dot is **new**, undocumented anywhere before this |
+| Name row | Name + a small chevron-down next to it | **New, unexplained** — likely an existing account-switcher affordance already in the shipped app. Design position: preserve as existing behavior, don't redesign or remove it; not treating this as a new visual element to replicate elsewhere |
+| Stats row | Exactly **2** stats: "กำลังติดตาม" (following) then "ผู้ติดตาม" (followers) — in that order, big number over small gray label | **Differs**: `.tsx` shows 3 stats (ผู้ติดตาม, กำลังติดตาม, โพสต์) in the opposite follower/following order, plus a post count that isn't shown here |
+| Primary action | Solid **black** filled pill, pencil icon + "แก้ไขโปรไฟล์" label combined inside the button, spanning most of the row width | **Differs materially** — `05-profile.tsx`'s own comments explicitly call this button "de-emphasized... no longer a full-width bordered button," styled as a small plain-bordered pill. The real screen does the opposite: it's the visually heaviest element in the action row |
+| Secondary actions | Two circular **outline** icon buttons (visible border) — person-add/follow-request icon, bookmark icon | **Differs**: `.tsx` used plain borderless icons here |
+| Tabs | 3 tabs, each **icon + label**: "สื่อ" (grid icon), "รีโพสต์" (repeat icon), "ถูกใจ" (heart icon) | **Differs from `.tsx`** (text-only "โพสต์/ReDrop/ถูกใจ") but **confirms** the older WYN-071/WYN-013 rule ("tab ทุกอันต้องมี icon+label เสมอ") is still alive in the real app — the `.tsx`'s text-only tabs were apparently never shipped this way. Tab set/labels also don't match WYN-071 Screen 6's proposed 4-tab plan (Posts/Replies/Media/Likes) — the real app's 3 tabs (Media/Repost/Liked) are their own current shape |
+| Bottom nav | 5 items, home/search/[+ elevated black circle]/notifications/profile, active tab filled black, inactive outline/gray | Consistent with the existing 5-item nav rule in DESIGN-PHILOSOPHY §6 — the elevated black "+" for Drop is the one new visual detail worth carrying into every other screen's nav |
+
+### Correction to this document's earlier guidance
+
+The "Design Direction" section above (Sapphire as primary accent, restrained radius, flat bordered containers) still holds for **surfaces, typography, and spacing**. It does **not** hold uncorrected for **primary button color**: the real Profile screen uses solid **ink/black** for its primary action, not sapphire. Until Coding/QA confirm otherwise, treat **ink-filled** as the primary button style and reserve sapphire for the same restrained roles DESIGN-PHILOSOPHY §2 already lists (verified badge, active tab underline, hashtags, avatar ring, links) — not as a button fill.
+
+### Open question carried forward (not decided here)
+
+Someone else's profile (`18-other-profile.tsx`) shows a **"ติดตาม" (Follow) button** in the same slot as Edit Profile — the screenshot only covers **own** profile, so it doesn't say whether Follow should also become ink/black-filled (matching this correction) or stay sapphire-filled (as a "positive/affirmative" action distinct from Edit). Not assuming either way — ask Founder or confirm against another real screenshot before Coding implements Other Profile's action row.
+
+### Handoff (updated)
+
+AI Coding may now proceed on Profile using `design-reference/founder-screenshots/profile-final-2026-09-12.png` + the breakdown table above as the spec, superseding the conflicting parts of `05-profile.tsx` listed above. Post Detail and Other Profile still need the Follow-button-color question resolved before their action rows are finalized; their non-action-row content (avatar, post rows, tabs where applicable) can proceed under the same ink/paper/hairline system already confirmed.
