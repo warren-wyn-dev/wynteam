@@ -55,7 +55,13 @@ final RegExp _emojiSequencePattern = RegExp(
 /// See .wyn/docs/design/wyn-020-hashtag-system.md and
 /// .wyn/docs/design/wyn-021-mention-system.md.
 class HashtagText extends StatefulWidget {
-  const HashtagText(this.text, {super.key, this.style, this.maxLines, this.overflow});
+  const HashtagText(
+    this.text, {
+    super.key,
+    this.style,
+    this.maxLines,
+    this.overflow,
+  });
 
   final String text;
   final TextStyle? style;
@@ -69,7 +75,12 @@ class HashtagText extends StatefulWidget {
 enum _SpanKind { hashtag, mention }
 
 class _TokenMatch {
-  const _TokenMatch({required this.kind, required this.start, required this.end, required this.value});
+  const _TokenMatch({
+    required this.kind,
+    required this.start,
+    required this.end,
+    required this.value,
+  });
 
   final _SpanKind kind;
   final int start;
@@ -127,7 +138,8 @@ class _HashtagTextState extends State<HashtagText> {
     // non-navigable, same silent no-op as an unresolvable mention above
     // -- see .wyn/docs/design/wyn-027-block-system.md, Screen 9.
     try {
-      final blockRelationship = await BlockRepository(client).blockRelationship(profile.id);
+      final blockRelationship = await BlockRepository(client)
+          .blockRelationship(profile.id);
       if (blockRelationship.isBlockedEitherWay) return;
     } catch (_) {
       return;
@@ -151,9 +163,19 @@ class _HashtagTextState extends State<HashtagText> {
   List<_TokenMatch> _findTokens(String text) {
     final tokens = [
       for (final m in hashtagPattern.allMatches(text))
-        _TokenMatch(kind: _SpanKind.hashtag, start: m.start, end: m.end, value: m.group(1)!),
+        _TokenMatch(
+          kind: _SpanKind.hashtag,
+          start: m.start,
+          end: m.end,
+          value: m.group(1)!,
+        ),
       for (final m in mentionPattern.allMatches(text))
-        _TokenMatch(kind: _SpanKind.mention, start: m.start, end: m.end, value: m.group(1)!),
+        _TokenMatch(
+          kind: _SpanKind.mention,
+          start: m.start,
+          end: m.end,
+          value: m.group(1)!,
+        ),
     ];
     tokens.sort((a, b) => a.start.compareTo(b.start));
     return tokens;
@@ -195,8 +217,7 @@ class _HashtagTextState extends State<HashtagText> {
     }
   }
 
-  bool get _usesCompactFeedCardRhythm =>
-      (widget.style?.fontSize ?? 0) == 17.5;
+  bool get _usesCompactFeedCardRhythm => (widget.style?.fontSize ?? 0) == 17.5;
 
   @override
   Widget build(BuildContext context) {
@@ -207,70 +228,86 @@ class _HashtagTextState extends State<HashtagText> {
 
     final compactFeedCard = _usesCompactFeedCardRhythm;
     final displayText = compactFeedCard
-        ? widget.text
-            .trimRight()
-            .replaceAll(_feedCardHashtagBlankLinePattern, '\n')
+        ? widget.text.trimRight().replaceAll(
+            _feedCardHashtagBlankLinePattern,
+            '\n',
+          )
         : widget.text;
     final baseStyle = widget.style ?? DefaultTextStyle.of(context).style;
-    final hashtagStyle = baseStyle.copyWith(
-      color: _hashtagLinkBlue,
-      fontWeight: FontWeight.w600,
-    );
+    final hashtagStyle = baseStyle.copyWith(color: _hashtagLinkBlue);
     final mentionStyle = baseStyle.copyWith(
       color: Theme.of(context).colorScheme.primary,
       fontWeight: FontWeight.w600,
     );
 
-    final spans = <InlineSpan>[];
-    var lastEnd = 0;
-    for (final token in _findTokens(displayText)) {
-      // hashtagPattern/mentionPattern never overlap (different prefix
-      // characters), but a token could still start before lastEnd if
-      // sorting alone let a shorter earlier overlap through -- skip
-      // defensively rather than emit a negative-length substring.
-      if (token.start < lastEnd) continue;
+    Text buildRichText(String text) {
+      final spans = <InlineSpan>[];
+      var lastEnd = 0;
+      for (final token in _findTokens(text)) {
+        if (token.start < lastEnd) continue;
+        if (token.start > lastEnd) {
+          _appendPlainText(
+            spans,
+            text.substring(lastEnd, token.start),
+            baseStyle,
+          );
+        }
 
-      if (token.start > lastEnd) {
-        _appendPlainText(
-          spans,
-          displayText.substring(lastEnd, token.start),
-          baseStyle,
+        final recognizer = TapGestureRecognizer()
+          ..onTap = token.kind == _SpanKind.hashtag
+              ? () => _openHashtagFeed(token.value)
+              : () => _openMentionedProfile(token.value);
+        _recognizers.add(recognizer);
+        spans.add(
+          TextSpan(
+            text: text.substring(token.start, token.end),
+            style: token.kind == _SpanKind.hashtag
+                ? hashtagStyle
+                : mentionStyle,
+            recognizer: recognizer,
+          ),
         );
+        lastEnd = token.end;
+      }
+      if (lastEnd < text.length) {
+        _appendPlainText(spans, text.substring(lastEnd), baseStyle);
       }
 
-      final recognizer = TapGestureRecognizer()
-        ..onTap = token.kind == _SpanKind.hashtag
-            ? () => _openHashtagFeed(token.value)
-            : () => _openMentionedProfile(token.value);
-      _recognizers.add(recognizer);
-      spans.add(TextSpan(
-        text: displayText.substring(token.start, token.end),
-        style: token.kind == _SpanKind.hashtag ? hashtagStyle : mentionStyle,
-        recognizer: recognizer,
-      ));
-      lastEnd = token.end;
-    }
-    if (lastEnd < displayText.length) {
-      _appendPlainText(
-        spans,
-        displayText.substring(lastEnd),
-        baseStyle,
+      return Text.rich(
+        TextSpan(style: baseStyle, children: spans),
+        maxLines: widget.maxLines,
+        overflow: widget.overflow ?? TextOverflow.clip,
+        textHeightBehavior: compactFeedCard
+            ? const TextHeightBehavior(
+                applyHeightToFirstAscent: false,
+                applyHeightToLastDescent: false,
+              )
+            : null,
       );
     }
 
-    return Text.rich(
-      TextSpan(style: baseStyle, children: spans),
-      maxLines: widget.maxLines,
-      overflow: widget.overflow ?? TextOverflow.clip,
-      // Feed cards use a tighter first/last line box so the caption sits closer
-      // to the author row and the action row without changing readable line
-      // height between lines. Full post/detail surfaces keep authored spacing.
-      textHeightBehavior: compactFeedCard
-          ? const TextHeightBehavior(
-              applyHeightToFirstAscent: false,
-              applyHeightToLastDescent: false,
-            )
-          : null,
-    );
+    if (compactFeedCard && widget.maxLines == null) {
+      final boundary = RegExp(r'\r?\n(?=[ \t]*#)').firstMatch(displayText);
+      if (boundary != null) {
+        final caption = displayText.substring(0, boundary.start).trimRight();
+        final hashtagBlock = displayText.substring(boundary.end).trimLeft();
+        if (caption.isNotEmpty && hashtagBlock.isNotEmpty) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              buildRichText(caption),
+              const SizedBox(
+                key: ValueKey<String>('feed_caption_hashtag_gap'),
+                height: 4,
+              ),
+              buildRichText(hashtagBlock),
+            ],
+          );
+        }
+      }
+    }
+
+    return buildRichText(displayText);
   }
 }

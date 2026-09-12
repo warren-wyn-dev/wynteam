@@ -8,16 +8,18 @@ import 'package:wyn/features/hashtag/presentation/hashtag_feed_screen.dart';
 import 'support/fake_supabase_session.dart';
 
 TextSpan _spanWithText(WidgetTester tester, String text) {
-  final richText = tester.widget<RichText>(find.byType(RichText).first);
-  final rootSpan = richText.text as TextSpan;
   TextSpan? found;
-  rootSpan.visitChildren((span) {
-    if (span is TextSpan && span.text == text) {
-      found = span;
-      return false;
-    }
-    return true;
-  });
+  for (final richText in tester.widgetList<RichText>(find.byType(RichText))) {
+    final rootSpan = richText.text as TextSpan;
+    rootSpan.visitChildren((span) {
+      if (span is TextSpan && span.text == text) {
+        found = span;
+        return false;
+      }
+      return true;
+    });
+    if (found != null) break;
+  }
   expect(found, isNotNull, reason: 'no span found for "$text"');
   return found!;
 }
@@ -39,8 +41,9 @@ void main() {
     await initFakeSupabaseSession(userId: 'me');
   });
 
-  testWidgets('renders plain text unchanged when there is no hashtag',
-      (tester) async {
+  testWidgets('renders plain text unchanged when there is no hashtag', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: HashtagText('ไม่มีแฮชแท็กเลย'))),
     );
@@ -48,8 +51,9 @@ void main() {
     expect(find.text('ไม่มีแฮชแท็กเลย'), findsOneWidget);
   });
 
-  testWidgets('preserves native emoji sequences in rendered post text',
-      (tester) async {
+  testWidgets('preserves native emoji sequences in rendered post text', (
+    tester,
+  ) async {
     const text = 'สวัสดี 👋🏽 ครอบครัว 👨‍👩‍👧‍👦 ธง 🇹🇭 #WYN';
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: HashtagText(text))),
@@ -60,15 +64,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('preserves emoji while system text scaling is enabled',
-      (tester) async {
+  testWidgets('preserves emoji while system text scaling is enabled', (
+    tester,
+  ) async {
     const text = 'โพสต์นี้ดีมาก 🥹❤️‍🔥 #WYN';
     await tester.pumpWidget(
       MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: const TextScaler.linear(1.5),
-          ),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.5)),
           child: child!,
         ),
         home: const Scaffold(body: HashtagText(text)),
@@ -80,18 +84,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('renders the full caption text when it contains a hashtag',
-      (tester) async {
+  testWidgets('renders the full caption text when it contains a hashtag', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HashtagText('เที่ยวมา #WYN สนุกมาก'))),
+      const MaterialApp(
+        home: Scaffold(body: HashtagText('เที่ยวมา #WYN สนุกมาก')),
+      ),
     );
 
     // find.text matches RichText by its combined plain-text content too.
     expect(find.text('เที่ยวมา #WYN สนุกมาก'), findsOneWidget);
   });
 
-  testWidgets('renders hashtag tokens in the approved bright blue',
-      (tester) async {
+  testWidgets('renders hashtag tokens in the approved bright blue', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: HashtagText('เที่ยวมา #WYN'))),
     );
@@ -100,55 +108,76 @@ void main() {
     expect(hashtagSpan.style?.color, const Color(0xFF1D9BF0));
   });
 
-  testWidgets('feed-card caption collapses blank line before hashtag block',
-      (tester) async {
+  testWidgets('feed-card caption collapses blank line before hashtag block', (
+    tester,
+  ) async {
     const text = 'ชีวิตไม่ต้องสมบูรณ์แบบ\n\n#คำคม #ชีวิตดีๆ #WYNOS';
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
           body: HashtagText(
             text,
-            style: TextStyle(fontSize: 17.5, height: 1.32),
+            style: TextStyle(
+              fontSize: 17.5,
+              height: 1.32,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
       ),
     );
 
-    final richText = tester.widget<RichText>(find.byType(RichText).first);
-    expect(
-      richText.text.toPlainText(),
-      'ชีวิตไม่ต้องสมบูรณ์แบบ\n#คำคม #ชีวิตดีๆ #WYNOS',
-    );
+    final richTexts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .toList();
+    expect(richTexts, hasLength(2));
+    expect(richTexts[0].text.toPlainText(), 'ชีวิตไม่ต้องสมบูรณ์แบบ');
+    expect(richTexts[1].text.toPlainText(), '#คำคม #ชีวิตดีๆ #WYNOS');
+    final gap = find.byKey(const ValueKey<String>('feed_caption_hashtag_gap'));
+    expect(gap, findsOneWidget);
+    expect(tester.getSize(gap).height, 4);
+
+    final hashtagSpan = _spanWithText(tester, '#คำคม');
+    expect(hashtagSpan.style?.fontSize, 17.5);
+    expect(hashtagSpan.style?.fontWeight, FontWeight.w400);
+    expect(hashtagSpan.style?.color, const Color(0xFF1D9BF0));
   });
 
-  testWidgets('feed-card caption trims trailing blank lines above actions',
-      (tester) async {
+  testWidgets('feed-card caption trims trailing blank lines above actions', (
+    tester,
+  ) async {
     const text = 'ข้อความ\n\n#WYN\n\n';
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
           body: HashtagText(
             text,
-            style: TextStyle(fontSize: 17.5, height: 1.32),
+            style: TextStyle(
+              fontSize: 17.5,
+              height: 1.32,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
       ),
     );
 
-    final richText = tester.widget<RichText>(find.byType(RichText).first);
-    expect(richText.text.toPlainText(), 'ข้อความ\n#WYN');
+    final richTexts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .toList();
+    expect(richTexts, hasLength(2));
+    expect(richTexts[0].text.toPlainText(), 'ข้อความ');
+    expect(richTexts[1].text.toPlainText(), '#WYN');
   });
 
-  testWidgets('non-feed-card surfaces preserve authored blank lines',
-      (tester) async {
+  testWidgets('non-feed-card surfaces preserve authored blank lines', (
+    tester,
+  ) async {
     const text = 'ข้อความ\n\n#WYN';
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: HashtagText(
-            text,
-            style: TextStyle(fontSize: 16, height: 1.32),
-          ),
+          body: HashtagText(text, style: TextStyle(fontSize: 16, height: 1.32)),
         ),
       ),
     );
@@ -157,10 +186,13 @@ void main() {
     expect(richText.text.toPlainText(), text);
   });
 
-  testWidgets('tapping a hashtag span opens HashtagFeedScreen for that tag',
-      (tester) async {
+  testWidgets('tapping a hashtag span opens HashtagFeedScreen for that tag', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HashtagText('เที่ยวมา #WYN สนุกมาก'))),
+      const MaterialApp(
+        home: Scaffold(body: HashtagText('เที่ยวมา #WYN สนุกมาก')),
+      ),
     );
 
     _tapSpan(tester, '#WYN');
@@ -170,47 +202,59 @@ void main() {
     expect(find.text('#WYN'), findsWidgets); // AppBar title also reads "#WYN"
   });
 
-  testWidgets('renders the full caption text when it contains a mention (WYN-021)',
-      (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HashtagText('ทักทาย @namfah หน่อย'))),
-    );
+  testWidgets(
+    'renders the full caption text when it contains a mention (WYN-021)',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: HashtagText('ทักทาย @namfah หน่อย')),
+        ),
+      );
 
-    expect(find.text('ทักทาย @namfah หน่อย'), findsOneWidget);
-  });
+      expect(find.text('ทักทาย @namfah หน่อย'), findsOneWidget);
+    },
+  );
 
-  testWidgets('a mention span has its own tap recognizer, separate from hashtags',
-      (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HashtagText('ทักทาย @namfah หน่อย'))),
-    );
+  testWidgets(
+    'a mention span has its own tap recognizer, separate from hashtags',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: HashtagText('ทักทาย @namfah หน่อย')),
+        ),
+      );
 
-    // Doesn't crash and doesn't navigate anywhere -- this widget resolves
-    // the username against a real Supabase.instance.client (no injected
-    // fake, by design, same as _openHashtagFeed), so in a test
-    // environment with no reachable project the lookup fails and
-    // HashtagText's own documented "fail silently" posture applies. What
-    // this test actually proves is that a mention span *is* independently
-    // tappable (has its own recognizer, distinct from any hashtag one)
-    // without throwing.
-    _tapSpan(tester, '@namfah');
-    await tester.pumpAndSettle();
-    tester.takeException();
+      // Doesn't crash and doesn't navigate anywhere -- this widget resolves
+      // the username against a real Supabase.instance.client (no injected
+      // fake, by design, same as _openHashtagFeed), so in a test
+      // environment with no reachable project the lookup fails and
+      // HashtagText's own documented "fail silently" posture applies. What
+      // this test actually proves is that a mention span *is* independently
+      // tappable (has its own recognizer, distinct from any hashtag one)
+      // without throwing.
+      _tapSpan(tester, '@namfah');
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-    expect(find.byType(HashtagFeedScreen), findsNothing);
-  });
+      expect(find.byType(HashtagFeedScreen), findsNothing);
+    },
+  );
 
-  testWidgets('a caption with both a hashtag and a mention renders/handles both',
-      (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HashtagText('#WYN กับ @namfah'))),
-    );
+  testWidgets(
+    'a caption with both a hashtag and a mention renders/handles both',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: HashtagText('#WYN กับ @namfah')),
+        ),
+      );
 
-    expect(find.text('#WYN กับ @namfah'), findsOneWidget);
+      expect(find.text('#WYN กับ @namfah'), findsOneWidget);
 
-    _tapSpan(tester, '#WYN');
-    await tester.pumpAndSettle();
+      _tapSpan(tester, '#WYN');
+      await tester.pumpAndSettle();
 
-    expect(find.byType(HashtagFeedScreen), findsOneWidget);
-  });
+      expect(find.byType(HashtagFeedScreen), findsOneWidget);
+    },
+  );
 }
