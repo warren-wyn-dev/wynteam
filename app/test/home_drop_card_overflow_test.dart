@@ -59,16 +59,29 @@ Future<void> _pump(
   WidgetTester tester,
   Widget child, {
   required double width,
+  bool asHomeFeed = false,
 }) async {
   final size = Size(width, 844);
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
+
+  final body = asHomeFeed
+      ? CustomScrollView(
+          slivers: [
+            SliverList(
+              key: const Key('home_feed_list'),
+              delegate: SliverChildListDelegate.fixed([child]),
+            ),
+          ],
+        )
+      : child;
+
   await tester.pumpWidget(
     MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(size: size),
-        child: Scaffold(body: child),
+        child: Scaffold(body: body),
       ),
     ),
   );
@@ -206,7 +219,7 @@ void main() {
   testWidgets(
     'Home feed caption is lifted 8px toward the author row',
     (tester) async {
-      await _pump(tester, card(_item()), width: 390);
+      await _pump(tester, card(_item()), width: 390, asHomeFeed: true);
       await tester.pump();
 
       final caption = find.byType(HashtagText);
@@ -219,6 +232,22 @@ void main() {
 
       final transform = tester.widget<Transform>(transformFinder);
       expect(transform.transform.storage[13], -WynSpacing.space2);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'reused HomeDropCard outside Home does not get the compact caption lift',
+    (tester) async {
+      await _pump(tester, card(_item()), width: 390);
+      await tester.pump();
+
+      final caption = find.byType(HashtagText);
+      expect(caption, findsOneWidget);
+      expect(
+        find.descendant(of: caption, matching: find.byType(Transform)),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     },
   );
