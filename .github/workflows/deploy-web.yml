@@ -205,6 +205,45 @@ jobs:
 
       - run: flutter build web --release --dart-define-from-file=dart_define.json
 
+      # Older WYNOS web builds registered Flutter's root app-shell service
+      # worker. Removing registration from flutter_bootstrap.js stops new
+      # installs, but an already-installed PWA can keep the old worker and
+      # continue serving an old index/main.dart.js. Keep this tiny script at
+      # the same URL for one-way migration: the browser's normal worker update
+      # check replaces the legacy worker, clears only Flutter's app-shell
+      # caches, unregisters itself, and reloads controlled windows. Firebase
+      # Messaging uses firebase-messaging-sw.js and is intentionally untouched.
+      - name: Retire legacy Flutter app service worker
+        run: |
+          cat > build/web/flutter_service_worker.js <<'JS'
+          const LEGACY_FLUTTER_CACHES = [
+            'flutter-app-cache',
+            'flutter-temp-cache',
+            'flutter-app-manifest',
+          ];
+
+          self.addEventListener('install', (event) => {
+            event.waitUntil(self.skipWaiting());
+          });
+
+          self.addEventListener('activate', (event) => {
+            event.waitUntil((async () => {
+              await Promise.all(
+                LEGACY_FLUTTER_CACHES.map((name) => caches.delete(name)),
+              );
+              await self.clients.claim();
+              const windows = await self.clients.matchAll({
+                type: 'window',
+                includeUncontrolled: true,
+              });
+              await self.registration.unregister();
+              await Promise.all(
+                windows.map((client) => client.navigate(client.url)),
+              );
+            })());
+          });
+          JS
+
       # Deploys straight to the existing "web" Vercel project (set as
       # VERCEL_PROJECT_ID/VERCEL_ORG_ID secrets -- find both under that
       # project's Settings -> General on vercel.com) rather than creating

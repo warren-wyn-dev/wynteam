@@ -1,15 +1,49 @@
-// Custom bootstrap for the GitHub Pages preview deploy.
+// Custom bootstrap for WYNOS Web.
 //
-// The default generated bootstrap registers a service worker that caches
-// main.dart.js/assets aggressively client-side. That's the right call for
-// an installable PWA, but it's actively harmful for this use case: it's an
-// internal preview site the Founder re-checks after every push, and the
-// service worker's own update dance (new SW installs in the background,
-// only takes over after a *second* reload) makes every redeploy look like
-// it silently failed unless the tab is force-reloaded or reopened in
-// Private Browsing. Omitting `serviceWorker`/`serviceWorkerSettings` here
-// skips that registration entirely, so the browser falls back to plain
-// HTTP caching -- a normal reload always sees the latest deploy.
+// Flutter's default generated bootstrap registers flutter_service_worker.js,
+// which aggressively caches the shell and main.dart.js. WYNOS no longer uses
+// that app-shell worker because it can make a fresh production deploy look
+// unchanged on an already-installed PWA. Firebase Messaging has its own
+// firebase-messaging-sw.js and must remain registered for background push.
 {{flutter_js}}
 {{flutter_build_config}}
-_flutter.loader.load();
+
+async function retireLegacyFlutterServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations
+        .filter((registration) => {
+          const workers = [
+            registration.installing,
+            registration.waiting,
+            registration.active,
+          ].filter(Boolean);
+          return workers.some((worker) =>
+            worker.scriptURL.includes('/flutter_service_worker.js'),
+          );
+        })
+        .map((registration) => registration.unregister()),
+    );
+
+    // Delete only the cache names used by Flutter's retired app-shell worker.
+    // Do not clear unrelated browser caches or Firebase Messaging state.
+    if ('caches' in window) {
+      await Promise.all([
+        'flutter-app-cache',
+        'flutter-temp-cache',
+        'flutter-app-manifest',
+      ].map((name) => caches.delete(name)));
+    }
+  } catch (_) {
+    // A cleanup failure must never block app startup. The deployed retirement
+    // worker also removes old Flutter caches when an existing registration
+    // checks for an update.
+  }
+}
+
+retireLegacyFlutterServiceWorker().finally(() => {
+  _flutter.loader.load();
+});
