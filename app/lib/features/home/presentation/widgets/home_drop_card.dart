@@ -226,10 +226,10 @@ class HomeDropCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          // WYN-107: 16 top and bottom, matching design-reference/
-          // 01-home.tsx's own `pt-4 pb-4` per post -- the card is
-          // wider-set now, and the old 8 left it looking cramped
-          // against the extra horizontal room.
+          // Compact post header: 8px above the author row and 16px
+          // below the card. The reduced top gap, one-line author/time row,
+          // and tighter caption spacing pull media/caption upward without
+          // changing the card's horizontal alignment.
           padding: const EdgeInsets.fromLTRB(
             0,
             WynSpacing.space2,
