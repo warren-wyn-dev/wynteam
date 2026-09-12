@@ -24,10 +24,10 @@ import '../../../../core/design/wyn_spacing.dart';
 /// bleeds past the right one (Design Rule 2: overflow the right edge
 /// only, never the left, which is the whole alignment this task is
 /// about).
-const double homeCardEdgeInset = WynSpacing.space6;
+const double homeCardEdgeInset = WynSpacing.space5;
 
 /// The avatar's diameter, and so the width of the card's left column.
-const double homeCardAvatarDiameter = 40;
+const double homeCardAvatarDiameter = 48;
 
 /// Gap between the avatar column and the content column.
 ///
@@ -36,10 +36,10 @@ const double homeCardAvatarDiameter = 40;
 /// (it has 12 and 16). A micro-spacing exception of the same kind
 /// DS-008 §2 already accepted -- copied from the reference the Founder
 /// approved, not a number invented here.
-const double homeCardAvatarGap = 14;
+const double homeCardAvatarGap = WynSpacing.space3;
 
 /// Where the content column starts, measured from the screen edge:
-/// 24 + 40 + 14 = 78 on any width. Every section of a card lines up
+/// 20 + 48 + 12 = 80 on any width. Every section of a card lines up
 /// here, including the photo row's left edge.
 const double homeCardContentInset =
     homeCardEdgeInset + homeCardAvatarDiameter + homeCardAvatarGap;

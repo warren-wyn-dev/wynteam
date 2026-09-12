@@ -7,6 +7,7 @@ import '../../../pop/presentation/widgets/pop_clip_view.dart' show popShareLink;
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/text_utils.dart';
 import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/wyn_heart_icon.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
@@ -41,6 +42,8 @@ class HomePopCard extends StatelessWidget {
     this.onTapComment,
     this.onHide,
     this.showViewCount = true,
+    this.showLikedBy = true,
+    this.hideZeroActionCounts = false,
   });
 
   final HomeFeedItem item;
@@ -66,61 +69,71 @@ class HomePopCard extends StatelessWidget {
   /// as [HomeDropCard]'s identical field -- see that doc comment.
   /// Defaults to true; only home_feed_screen.dart passes false.
   final bool showViewCount;
+  final bool showLikedBy;
+  final bool hideZeroActionCounts;
 
   bool get _isOwnPop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
 
   Future<void> _share() async {
-    await SharePlus.instance.share(
-      ShareParams(text: popShareLink(item.id)),
-    );
+    await SharePlus.instance.share(ShareParams(text: popShareLink(item.id)));
   }
 
   Future<void> _openMoreMenu(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(rows: [
-        // WYNOSHomeSpec.md 4.6: Share/Save deliberately live here now,
-        // not in the action bar (see that section's own "deliberate
-        // simplification" note) -- always offered first, regardless of
-        // authorship, ahead of the authorship-gated Hide row below.
-        ActionSheetRow(
-          icon: Icons.share_outlined,
-          label: 'แชร์',
-          onTap: () {
-            Navigator.of(sheetContext).pop();
-            _share();
-          },
-        ),
-        ActionSheetRow(
-          icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
-          label: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
-          onTap: () {
-            Navigator.of(sheetContext).pop();
-            onToggleSave();
-          },
-        ),
-        // WYNOS Unified Home Feed Algorithm V1.0 -- only someone else's
-        // Pop can be Hidden from your own feed. Previously this whole
-        // row's *visibility* was gated by never showing the "..."
-        // button at all on your own Pop (the button is now always
-        // shown, since Share/Save above apply regardless of
-        // authorship), so the guard moves onto this row directly.
-        if (!_isOwnPop && onHide != null)
+      builder: (sheetContext) => ActionSheetBody(
+        rows: [
+          // WYNOSHomeSpec.md 4.6: Share/Save deliberately live here now,
+          // not in the action bar (see that section's own "deliberate
+          // simplification" note) -- always offered first, regardless of
+          // authorship, ahead of the authorship-gated Hide row below.
           ActionSheetRow(
-            icon: Icons.visibility_off_outlined,
-            label: 'ไม่สนใจโพสต์นี้',
+            icon: Icons.share_outlined,
+            label: 'แชร์',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              onHide?.call();
+              _share();
             },
           ),
-      ]),
+          ActionSheetRow(
+            icon: item.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+            label: item.savedByMe ? 'เอาออกจากบันทึก' : 'บันทึก',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              onToggleSave();
+            },
+          ),
+          // WYNOS Unified Home Feed Algorithm V1.0 -- only someone else's
+          // Pop can be Hidden from your own feed. Previously this whole
+          // row's *visibility* was gated by never showing the "..."
+          // button at all on your own Pop (the button is now always
+          // shown, since Share/Save above apply regardless of
+          // authorship), so the guard moves onto this row directly.
+          if (!_isOwnPop && onHide != null)
+            ActionSheetRow(
+              icon: Icons.visibility_off_outlined,
+              label: 'ไม่สนใจโพสต์นี้',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                onHide?.call();
+              },
+            ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final captionStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
+      fontSize: 17,
+      height: 1.35,
+      fontWeight: FontWeight.w400,
+      color: WynColors.ink,
+    );
+    final actionCountStyle = Theme.of(context).textTheme.bodyMedium
+        ?.copyWith(fontSize: 15, height: 1.1, fontWeight: FontWeight.w400);
     return Semantics(
       label:
           'วิดีโอของ ${item.authorNameOrUsername} ความยาว ${item.durationSeconds} วินาที',
@@ -128,7 +141,7 @@ class HomePopCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -144,8 +157,9 @@ class HomePopCard extends StatelessWidget {
                     padding: const EdgeInsets.only(left: homeCardEdgeInset),
                     child: InkWell(
                       onTap: onOpenProfile,
-                      borderRadius:
-                          BorderRadius.circular(WynSpacing.radiusFull),
+                      borderRadius: BorderRadius.circular(
+                        WynSpacing.radiusFull,
+                      ),
                       child: AvatarCircle(
                         imageUrl: item.authorAvatarUrl,
                         fallbackText: item.authorUsername,
@@ -159,15 +173,17 @@ class HomePopCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding:
-                              const EdgeInsets.only(right: homeCardEdgeInset),
+                          padding: const EdgeInsets.only(
+                            right: homeCardEdgeInset,
+                          ),
                           child: Row(
                             children: [
                               Expanded(
                                 child: InkWell(
                                   onTap: onOpenProfile,
                                   borderRadius: BorderRadius.circular(
-                                      WynSpacing.radiusSm),
+                                    WynSpacing.radiusSm,
+                                  ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -176,15 +192,44 @@ class HomePopCard extends StatelessWidget {
                                           item.authorNameOrUsername,
                                           style: Theme.of(context)
                                               .textTheme
-                                              .titleSmall,
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontSize: 17,
+                                                height: 1.15,
+                                                fontWeight: FontWeight.w700,
+                                                color: WynColors.ink,
+                                              ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                       if (item.authorIsVerified) ...[
                                         const SizedBox(
-                                            width: WynSpacing.space1),
+                                          width: WynSpacing.space1,
+                                        ),
                                         const VerifiedBadge(),
                                       ],
+                                      const SizedBox(width: WynSpacing.space2),
+                                      Flexible(
+                                        child: Text(
+                                          relativeTimeLabel(
+                                            item.createdAt,
+                                            now: DateTime.now(),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontSize: 15,
+                                                height: 1.15,
+                                                fontWeight: FontWeight.w400,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .outline,
+                                              ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -197,12 +242,12 @@ class HomePopCard extends StatelessWidget {
                               // whether the authorship-gated Hide row
                               // appears underneath those two.
                               IconButton(
-                                icon: const Icon(Icons.more_vert),
+                                icon: const Icon(Icons.more_horiz),
                                 tooltip: 'เพิ่มเติม',
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
-                                  height: WynSpacing.touchTargetMin,
+                                  height: homeCardAvatarDiameter,
                                 ),
                                 onPressed: () => _openMoreMenu(context),
                               ),
@@ -210,8 +255,9 @@ class HomePopCard extends StatelessWidget {
                           ),
                         ),
                         Padding(
-                          padding:
-                              const EdgeInsets.only(right: homeCardEdgeInset),
+                          padding: const EdgeInsets.only(
+                            right: homeCardEdgeInset,
+                          ),
                           child: DoubleTapLike(
                             onLike: onToggleLike,
                             alreadyLiked: item.likedByMe,
@@ -220,8 +266,9 @@ class HomePopCard extends StatelessWidget {
                               // card's own photo is (WYN-107): inside
                               // the column, a square corner on white
                               // reads as unfinished.
-                              borderRadius:
-                                  BorderRadius.circular(WynSpacing.radiusLg),
+                              borderRadius: BorderRadius.circular(
+                                WynSpacing.radiusLg,
+                              ),
                               child: AspectRatio(
                                 aspectRatio: 1,
                                 child: Stack(
@@ -257,12 +304,14 @@ class HomePopCard extends StatelessWidget {
                                           ),
                                           decoration: BoxDecoration(
                                             color: WynColors.imageScrim,
-                                            borderRadius:
-                                                BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                           child: Text(
                                             _formatDuration(
-                                                item.durationSeconds!),
+                                              item.durationSeconds!,
+                                            ),
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 12,
@@ -285,13 +334,24 @@ class HomePopCard extends StatelessWidget {
                         if (item.caption != null && item.caption!.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
-                                0, 0, homeCardEdgeInset, WynSpacing.space3),
-                            child: HashtagText(item.caption!),
+                              0,
+                              0,
+                              homeCardEdgeInset,
+                              WynSpacing.space3,
+                            ),
+                            child: HashtagText(
+                              item.caption!,
+                              style: captionStyle,
+                            ),
                           ),
-                        if (item.likedBy.isNotEmpty)
+                        if (showLikedBy && item.likedBy.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
-                                0, 0, homeCardEdgeInset, 0),
+                              0,
+                              0,
+                              homeCardEdgeInset,
+                              0,
+                            ),
                             child: LikedByRow(
                               likedBy: item.likedBy,
                               totalLikeCount: item.likeCount,
@@ -303,8 +363,9 @@ class HomePopCard extends StatelessWidget {
                           // content column, so that alignment is now the
                           // column's own left edge -- same change, same
                           // reason, as HomeDropCard's identical row.
-                          padding:
-                              const EdgeInsets.only(right: homeCardEdgeInset),
+                          padding: const EdgeInsets.only(
+                            right: homeCardEdgeInset,
+                          ),
                           child: Row(
                             children: [
                               // Same WYNOSHomeSpec.md 4.9 sizing/color as
@@ -315,7 +376,7 @@ class HomePopCard extends StatelessWidget {
                               ActionMetric(
                                 icon: WynHeartIcon(
                                   filled: item.likedByMe,
-                                  size: 17,
+                                  size: 24,
                                   color: item.likedByMe
                                       ? WynColors.iconLikeActive
                                       : WynColors.iconIdle,
@@ -329,16 +390,35 @@ class HomePopCard extends StatelessWidget {
                                     ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                                     : 'กดเพื่อถูกใจ',
                                 onTap: onToggleLike,
+                                hideZeroCount: hideZeroActionCounts,
+                                countTextStyle: actionCountStyle,
                               ),
-                              const SizedBox(width: WynSpacing.space5),
+                              const SizedBox(width: WynSpacing.space4),
                               ActionMetric(
-                                icon: const Icon(Icons.mode_comment_outlined,
-                                    size: 17, color: WynColors.graphite),
+                                icon: const Icon(
+                                  Icons.mode_comment_outlined,
+                                  size: 24,
+                                  color: WynColors.graphite,
+                                ),
                                 iconState: Icons.mode_comment_outlined,
                                 count: item.commentCount,
                                 color: WynColors.graphite,
                                 semanticsLabel: 'ดูคอมเมนต์',
                                 onTap: onTapComment ?? onTap,
+                                hideZeroCount: hideZeroActionCounts,
+                                countTextStyle: actionCountStyle,
+                              ),
+                              const SizedBox(width: WynSpacing.space4),
+                              IconButton(
+                                icon: const Icon(Icons.send_outlined, size: 24),
+                                tooltip: 'แชร์',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: WynSpacing.touchTargetMin,
+                                  height: WynSpacing.touchTargetMin,
+                                ),
+                                color: WynColors.graphite,
+                                onPressed: _share,
                               ),
                               // WYN-088: hidden on the Home feed (showViewCount:
                               // false there) -- HomePopCard has no other call
@@ -347,16 +427,21 @@ class HomePopCard extends StatelessWidget {
                               // returns to Profile (ProfilePopGridTab already
                               // exists, just unwired -- see its own doc comment).
                               if (showViewCount) ...[
-                                const SizedBox(width: WynSpacing.space5),
+                                const SizedBox(width: WynSpacing.space4),
                                 ActionMetric(
-                                  icon: const Icon(Icons.visibility_outlined,
-                                      size: 16, color: WynColors.faint),
+                                  icon: const Icon(
+                                    Icons.visibility_outlined,
+                                    size: 22,
+                                    color: WynColors.faint,
+                                  ),
                                   iconState: Icons.visibility_outlined,
                                   count: item.viewCount,
                                   color: WynColors.faint,
                                   semanticsLabel:
                                       'เข้าชมแล้ว ${item.viewCount} ครั้ง',
                                   onTap: null,
+                                  hideZeroCount: hideZeroActionCounts,
+                                  countTextStyle: actionCountStyle,
                                 ),
                               ],
                             ],
@@ -364,8 +449,9 @@ class HomePopCard extends StatelessWidget {
                         ),
                         if (item.topReply != null)
                           Padding(
-                            padding:
-                                const EdgeInsets.only(right: homeCardEdgeInset),
+                            padding: const EdgeInsets.only(
+                              right: homeCardEdgeInset,
+                            ),
                             child: TopReplyPreview(
                               reply: item.topReply!,
                               onTap: onTapComment ?? onTap,

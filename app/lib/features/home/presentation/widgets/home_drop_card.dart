@@ -46,6 +46,8 @@ class HomeDropCard extends StatelessWidget {
     this.onVotePoll,
     this.onHide,
     this.showViewCount = true,
+    this.showLikedBy = true,
+    this.hideZeroActionCounts = false,
   });
 
   final HomeFeedItem item;
@@ -102,6 +104,13 @@ class HomeDropCard extends StatelessWidget {
   /// every other call site (Profile's 3 tabs, hashtag feed) is
   /// unaffected -- only home_feed_screen.dart passes false.
   final bool showViewCount;
+
+  /// Home hides the extra "ถูกใจโดย ..." row to keep each post as one
+  /// compact block. Other surfaces keep the old row by default.
+  final bool showLikedBy;
+
+  /// Threads-like Home presentation: zero metrics render as icon-only.
+  final bool hideZeroActionCounts;
 
   bool get _isOwnDrop =>
       item.authorId == Supabase.instance.client.auth.currentUser!.id;
@@ -220,6 +229,14 @@ class HomeDropCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final captionStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
+      fontSize: 17,
+      height: 1.35,
+      fontWeight: FontWeight.w400,
+      color: WynColors.ink,
+    );
+    final actionCountStyle = Theme.of(context).textTheme.bodyMedium
+        ?.copyWith(fontSize: 15, height: 1.1, fontWeight: FontWeight.w400);
     return Semantics(
       label: 'รูปของ ${item.authorNameOrUsername}',
       button: true,
@@ -356,7 +373,13 @@ class HomeDropCard extends StatelessWidget {
                                           item.authorNameOrUsername,
                                           style: Theme.of(context)
                                               .textTheme
-                                              .titleSmall,
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontSize: 17,
+                                                height: 1.15,
+                                                fontWeight: FontWeight.w700,
+                                                color: WynColors.ink,
+                                              ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -381,6 +404,9 @@ class HomeDropCard extends StatelessWidget {
                                               .textTheme
                                               .bodySmall
                                               ?.copyWith(
+                                                fontSize: 15,
+                                                height: 1.15,
+                                                fontWeight: FontWeight.w400,
                                                 color: Theme.of(context)
                                                     .colorScheme
                                                     .outline,
@@ -445,9 +471,15 @@ class HomeDropCard extends StatelessWidget {
                                 ? DoubleTapLike(
                                     onLike: onToggleLike,
                                     alreadyLiked: item.likedByMe,
-                                    child: HashtagText(item.caption!),
+                                    child: HashtagText(
+                                      item.caption!,
+                                      style: captionStyle,
+                                    ),
                                   )
-                                : HashtagText(item.caption!),
+                                : HashtagText(
+                                    item.caption!,
+                                    style: captionStyle,
+                                  ),
                           ),
                         if (item.isPoll)
                           Padding(
@@ -516,7 +548,7 @@ class HomeDropCard extends StatelessWidget {
                         // the same 8px from the caption's own bottom padding.
                         if (item.isPoll || item.imageUrl != null)
                           const SizedBox(height: WynSpacing.space2),
-                        if (item.likedBy.isNotEmpty)
+                        if (showLikedBy && item.likedBy.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
                               0,
@@ -559,7 +591,7 @@ class HomeDropCard extends StatelessWidget {
                                 ActionMetric(
                                   icon: WynHeartIcon(
                                     filled: item.likedByMe,
-                                    size: 17,
+                                    size: 24,
                                     color: item.likedByMe
                                         ? WynColors.iconLikeActive
                                         : WynColors.iconIdle,
@@ -573,12 +605,14 @@ class HomeDropCard extends StatelessWidget {
                                       ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
                                       : 'กดเพื่อถูกใจ',
                                   onTap: onToggleLike,
+                                  hideZeroCount: hideZeroActionCounts,
+                                  countTextStyle: actionCountStyle,
                                 ),
-                                const SizedBox(width: WynSpacing.space5),
+                                const SizedBox(width: WynSpacing.space4),
                                 ActionMetric(
                                   icon: const Icon(
                                     Icons.mode_comment_outlined,
-                                    size: 17,
+                                    size: 24,
                                     color: WynColors.graphite,
                                   ),
                                   iconState: Icons.mode_comment_outlined,
@@ -586,6 +620,8 @@ class HomeDropCard extends StatelessWidget {
                                   color: WynColors.graphite,
                                   semanticsLabel: 'ดูคอมเมนต์',
                                   onTap: onTap,
+                                  hideZeroCount: hideZeroActionCounts,
+                                  countTextStyle: actionCountStyle,
                                 ),
                                 // WYN-097, Design spec Screen 6: hidden entirely
                                 // (not disabled/greyed) once this post's audience
@@ -595,11 +631,11 @@ class HomeDropCard extends StatelessWidget {
                                 // already established.
                                 if (item.audience ==
                                     AudienceOption.everyone) ...[
-                                  const SizedBox(width: WynSpacing.space5),
+                                  const SizedBox(width: WynSpacing.space4),
                                   ActionMetric(
                                     icon: Icon(
                                       Icons.repeat,
-                                      size: 17,
+                                      size: 24,
                                       color: item.redroppedByMe
                                           ? WynColors.iconActive
                                           : WynColors.iconIdle,
@@ -619,17 +655,34 @@ class HomeDropCard extends StatelessWidget {
                                         ? 'รีโพสต์แล้ว กดเพื่อเลือกดำเนินการ'
                                         : 'กดเพื่อรีโพสต์',
                                     onTap: () => _openRedropSheet(context),
+                                    hideZeroCount: hideZeroActionCounts,
+                                    countTextStyle: actionCountStyle,
                                   ),
                                 ],
+                                const SizedBox(width: WynSpacing.space4),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.send_outlined,
+                                    size: 24,
+                                  ),
+                                  tooltip: 'แชร์',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: WynSpacing.touchTargetMin,
+                                    height: WynSpacing.touchTargetMin,
+                                  ),
+                                  color: WynColors.graphite,
+                                  onPressed: _share,
+                                ),
                                 // WYN-088: hidden on the Home feed (showViewCount:
                                 // false there) -- still shown everywhere else this
                                 // card is reused (Profile's 3 tabs, hashtag feed).
                                 if (showViewCount) ...[
-                                  const SizedBox(width: WynSpacing.space5),
+                                  const SizedBox(width: WynSpacing.space4),
                                   ActionMetric(
                                     icon: const Icon(
                                       Icons.visibility_outlined,
-                                      size: 16,
+                                      size: 22,
                                       color: WynColors.faint,
                                     ),
                                     iconState: Icons.visibility_outlined,
@@ -638,6 +691,8 @@ class HomeDropCard extends StatelessWidget {
                                     semanticsLabel:
                                         'เข้าชมแล้ว ${item.viewCount} ครั้ง',
                                     onTap: null,
+                                    hideZeroCount: hideZeroActionCounts,
+                                    countTextStyle: actionCountStyle,
                                   ),
                                 ],
                               ],

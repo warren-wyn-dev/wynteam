@@ -21,6 +21,8 @@ class ActionMetric extends StatefulWidget {
     required this.color,
     required this.semanticsLabel,
     required this.onTap,
+    this.hideZeroCount = false,
+    this.countTextStyle,
   });
 
   /// The glyph itself, already sized and coloured by the caller.
@@ -45,6 +47,13 @@ class ActionMetric extends StatefulWidget {
   final int? count;
   final Color color;
   final String semanticsLabel;
+
+  /// Threads-like Home cards omit a numeric label when the metric is zero.
+  /// Defaults to false so Profile/Club/legacy call sites keep their existing UI.
+  final bool hideZeroCount;
+
+  /// Optional per-surface typography for the number next to the icon.
+  final TextStyle? countTextStyle;
 
   /// Null for a display-only, non-tappable metric (e.g. view count).
   final VoidCallback? onTap;
@@ -98,15 +107,18 @@ class _ActionMetricState extends State<ActionMetric> {
       icon = WynPressScale(pressed: _pressed, child: icon);
     }
 
+    final countStyle =
+        (widget.countTextStyle ?? Theme.of(context).textTheme.labelSmall)
+            ?.copyWith(color: color);
+    final showCount = !(widget.hideZeroCount && (count ?? 0) == 0);
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         icon,
-        const SizedBox(width: 6),
-        Text(
-          '${count ?? 0}',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
-        ),
+        if (showCount) ...[
+          const SizedBox(width: 6),
+          Text('${count ?? 0}', style: countStyle),
+        ],
       ],
     );
 
@@ -135,9 +147,7 @@ class _ActionMetricState extends State<ActionMetric> {
       // where mis-taps come from, and a mis-tapped Like is a mis-tap the
       // user has to notice and undo.
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minHeight: WynSpacing.touchTargetMin,
-        ),
+        constraints: const BoxConstraints(minHeight: WynSpacing.touchTargetMin),
         child: InkWell(
           onTap: _handleTap,
           // Press state comes off the same InkWell that already owns the
