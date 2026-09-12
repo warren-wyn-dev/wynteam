@@ -41,6 +41,7 @@ jobs:
               'BottomNavigationBarItem(': r'(?<![A-Za-z0-9_])BottomNavigationBarItem\s*\(',
               'Tab(text:)': r'Tab\s*\([^\)]*?text\s*:',
               'SnackBar(content:)': r'SnackBar\s*\([^\)]*?content\s*:',
+              'SnackBarAction(': r'(?<![A-Za-z0-9_])SnackBarAction\s*\(',
               'InputDecoration(': r'(?<![A-Za-z0-9_])InputDecoration\s*\(',
               'DropdownMenuItem(': r'(?<![A-Za-z0-9_])DropdownMenuItem(?:<[^>]+>)?\s*\(',
               'PopupMenuItem(': r'(?<![A-Za-z0-9_])PopupMenuItem(?:<[^>]+>)?\s*\(',
@@ -48,7 +49,9 @@ jobs:
               'AlertDialog(': r'(?<![A-Za-z0-9_])AlertDialog\s*\(',
               'SimpleDialog(': r'(?<![A-Za-z0-9_])SimpleDialog\s*\(',
               'CupertinoAlertDialog(': r'(?<![A-Za-z0-9_])CupertinoAlertDialog\s*\(',
-              'Tooltip(message:)': r'Tooltip\s*\([^\)]*?message\s*:',
+              'Tooltip(': r'(?<![A-Za-z0-9_])Tooltip\s*\(',
+              'showDatePicker(': r'(?<![A-Za-z0-9_])showDatePicker\s*\(',
+              'showTimePicker(': r'(?<![A-Za-z0-9_])showTimePicker\s*\(',
           }
 
           print(f'Dart files: {len(files)}')
@@ -159,7 +162,7 @@ jobs:
                   if m: names.append(m.group(1))
               return names
 
-          for token in ['Text', 'Text.rich', 'TextField']:
+          for token in ['Text', 'Text.rich', 'TextField', 'InputDecoration', 'Tab', 'SnackBarAction', 'Tooltip']:
               counts=Counter(); file_sets=defaultdict(set); total=0
               for p in files:
                   source=p.read_text(encoding='utf-8')
@@ -171,14 +174,4 @@ jobs:
               print(f'--- {token} named args ({total} invocations) ---')
               for name,count in counts.most_common():
                   print(f'{name}: {count} across {len(file_sets[name])} files')
-
-          print('--- files with direct Text/RichText/input surfaces ---')
-          interesting = ['Text(', 'Text.rich(', 'RichText(', 'SelectableText(', 'SelectableText.rich(', 'TextField(', 'TextFormField(', 'EditableText(', 'CupertinoTextField(']
-          merged = {}
-          for label in interesting:
-              for path, n in per_pattern_files[label]:
-                  merged.setdefault(path, {})[label] = n
-          for path in sorted(merged):
-              details = ', '.join(f'{k}={v}' for k,v in merged[path].items())
-              print(f'{path}: {details}')
           PY
