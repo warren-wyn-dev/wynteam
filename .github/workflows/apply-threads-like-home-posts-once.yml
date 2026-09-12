@@ -49,6 +49,36 @@ jobs:
           '''                                icon: const Icon(Icons.mode_comment_outlined,
                                               size: 24, color: WynColors.graphite),''')
           """, "")
+          old_mode = """replace_all_checked(mode,
+          '''                showViewCount: false,
+          ''',
+          '''                showViewCount: false,
+                          showLikedBy: false,
+                          hideZeroActionCounts: true,
+          ''', 2)
+          """
+          new_mode = """replace_once(mode,
+          '''                showViewCount: false,
+                        );
+                      }
+                      return HomePopCard(''',
+          '''                showViewCount: false,
+                          showLikedBy: false,
+                          hideZeroActionCounts: true,
+                        );
+                      }
+                      return HomePopCard(''')
+          replace_once(mode,
+          '''              showViewCount: false,
+                      );''',
+          '''              showViewCount: false,
+                        showLikedBy: false,
+                        hideZeroActionCounts: true,
+                      );''')
+          """
+          if old_mode not in s:
+              raise SystemExit('mode wiring patch block not found')
+          s = s.replace(old_mode, new_mode, 1)
           p.write_text(s)
           PY
 
