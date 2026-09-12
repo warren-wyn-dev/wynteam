@@ -232,7 +232,10 @@ class ChatRepository {
       query = query.lt('created_at', beforeCreatedAt.toIso8601String());
     }
     final rows = await query.order('created_at', ascending: false).limit(messagePageSize);
-    return rows.map((row) => ChatMessage.fromMap(row)).toList();
+    final hydratedRows = await Future.wait(
+      rows.map((row) => _hydrateReplyPreviewRow(Map<String, dynamic>.from(row))),
+    );
+    return hydratedRows.map(ChatMessage.fromMap).toList();
   }
 
   /// Uploads [imageBytes] to `chat-media` (if given) then inserts the
@@ -289,7 +292,9 @@ class ChatRepository {
         })
         .select(_messageColumns)
         .single();
-    return ChatMessage.fromMap(row);
+    final hydratedRow =
+        await _hydrateReplyPreviewRow(Map<String, dynamic>.from(row));
+    return ChatMessage.fromMap(hydratedRow);
   }
 
   /// The recipient's one explicit "I'm opening this now" for a View
@@ -446,13 +451,46 @@ class ChatRepository {
     return channel;
   }
 
+  Future<Map<String, dynamic>> _hydrateReplyPreviewRow(
+    Map<String, dynamic> row,
+  ) async {
+    final replyId = row['reply_to_message_id'] as String?;
+    if (replyId == null) return row;
+
+    final rawReply = row['reply_to'];
+    Map<String, dynamic>? embedded;
+    if (rawReply is Map<String, dynamic>) {
+      embedded = rawReply;
+    } else if (rawReply is List &&
+        rawReply.isNotEmpty &&
+        rawReply.first is Map<String, dynamic>) {
+      embedded = rawReply.first as Map<String, dynamic>;
+    }
+    final embeddedHasPreview = embedded != null &&
+        (embedded['deleted_at'] != null ||
+            (embedded['text'] as String?)?.isNotEmpty == true ||
+            embedded['image_url'] != null);
+    if (embeddedHasPreview) return row;
+
+    final reply = await _client
+        .from('messages')
+        .select('text, image_url, deleted_at')
+        .eq('id', replyId)
+        .maybeSingle();
+    if (reply == null) return row;
+    return <String, dynamic>{...row, 'reply_to': reply};
+  }
+
   Future<ChatMessage?> fetchMessage(String messageId) async {
     final row = await _client
         .from('messages')
         .select(_messageColumns)
         .eq('id', messageId)
         .maybeSingle();
-    return row == null ? null : ChatMessage.fromMap(row);
+    if (row == null) return null;
+    final hydratedRow =
+        await _hydrateReplyPreviewRow(Map<String, dynamic>.from(row));
+    return ChatMessage.fromMap(hydratedRow);
   }
 
   /// A fresh signed URL for one chat-media path -- null on failure
@@ -552,8 +590,10 @@ class ChatRepository {
       onInsert(ChatMessage.fromMap(rawRow));
       return;
     }
-    final full = await fetchMessage(rawRow['id'] as String);
-    onInsert(full ?? ChatMessage.fromMap(rawRow));
+    final hydratedRow = await _hydrateReplyPreviewRow(
+      Map<String, dynamic>.from(rawRow),
+    );
+    onInsert(ChatMessage.fromMap(hydratedRow));
   }
 
   /// Subscribes to every new message across *all* of this user's

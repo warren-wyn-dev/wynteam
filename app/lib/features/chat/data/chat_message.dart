@@ -71,6 +71,14 @@ class ChatMessage {
 
   bool get isDeleted => deletedAt != null;
 
+  /// True only when a reply has something meaningful to quote. Raw
+  /// postgres_changes payloads carry reply_to_message_id but no embedded
+  /// reply row, so this must stay false until the preview is hydrated.
+  bool get hasReplyPreview =>
+      replyPreviewDeletedAt != null ||
+      replyPreviewText?.isNotEmpty == true ||
+      replyPreviewImageUrl != null;
+
   /// The replied-to message's own content, embedded at fetch time so
   /// the reply quote can render without a second round-trip. Null when
   /// this message isn't a reply. Follows the same "content is null

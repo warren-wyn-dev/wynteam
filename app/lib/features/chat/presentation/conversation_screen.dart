@@ -2724,7 +2724,9 @@ class _MessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (message.replyToMessageId != null && !message.isDeleted)
+          if (message.replyToMessageId != null &&
+              !message.isDeleted &&
+              message.hasReplyPreview)
             GestureDetector(
               key: Key('reply_quote_${message.id}'),
               onTap: onTapReplyQuote,
