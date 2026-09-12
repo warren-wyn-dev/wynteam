@@ -8,11 +8,7 @@ import 'package:flutter/services.dart';
 const bool usesBrowserSystemTextDom = false;
 
 class BrowserSystemSpan {
-  const BrowserSystemSpan({
-    required this.text,
-    this.style,
-    this.onTap,
-  });
+  const BrowserSystemSpan({required this.text, this.style, this.onTap});
 
   final String text;
   final TextStyle? style;
@@ -147,8 +143,9 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
             TextSpan(
               text: span.text,
               style: span.style,
-              recognizer:
-                  span.onTap == null ? null : _recognizerFor(span.onTap!),
+              recognizer: span.onTap == null
+                  ? null
+                  : _recognizerFor(span.onTap!),
             ),
         ],
       ),

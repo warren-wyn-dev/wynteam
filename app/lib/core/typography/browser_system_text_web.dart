@@ -19,11 +19,7 @@ const String _systemFontStack =
     '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
 class BrowserSystemSpan {
-  const BrowserSystemSpan({
-    required this.text,
-    this.style,
-    this.onTap,
-  });
+  const BrowserSystemSpan({required this.text, this.style, this.onTap});
 
   final String text;
   final TextStyle? style;
@@ -98,12 +94,7 @@ class BrowserSystemText extends StatelessWidget {
       // WYNOS' web-visible rich-text call sites use TextSpan trees. Keeping an
       // explicit replacement marker here is safer than silently handing an
       // unsupported WidgetSpan back to Flutter canvas text.
-      target.add(
-        BrowserSystemSpan(
-          text: '\uFFFC',
-          style: inheritedStyle,
-        ),
-      );
+      target.add(BrowserSystemSpan(text: '\uFFFC', style: inheritedStyle));
       return;
     }
 
@@ -281,8 +272,10 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     required TextDirection direction,
   }) {
     final spanSignature = widget.spans
-        .map((span) =>
-            '${span.text}:${span.style?.hashCode}:${span.onTap != null}')
+        .map(
+          (span) =>
+              '${span.text}:${span.style?.hashCode}:${span.onTap != null}',
+        )
         .join('|');
     return Object.hash(
       spanSignature,
@@ -344,17 +337,16 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     }
     root.appendChild(content);
 
-    final observer = web.ResizeObserver((
-      JSArray<web.ResizeObserverEntry> entries,
-      web.ResizeObserver observer,
-    ) {
-      if (!mounted || !root.isConnected) return;
-      final measured = content.getBoundingClientRect().height;
-      if (measured <= 0) return;
-      final nextHeight = measured.ceilToDouble();
-      if ((_measuredHeight ?? 0) == nextHeight) return;
-      setState(() => _measuredHeight = nextHeight);
-    }.toJS);
+    final observer = web.ResizeObserver(
+      (JSArray<web.ResizeObserverEntry> entries, web.ResizeObserver observer) {
+        if (!mounted || !root.isConnected) return;
+        final measured = content.getBoundingClientRect().height;
+        if (measured <= 0) return;
+        final nextHeight = measured.ceilToDouble();
+        if ((_measuredHeight ?? 0) == nextHeight) return;
+        setState(() => _measuredHeight = nextHeight);
+      }.toJS,
+    );
     _resizeObserver = observer;
     observer.observe(content);
   }
@@ -381,10 +373,11 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
           : 'pre-wrap'
       ..overflow =
           widget.overflow == null || widget.overflow == TextOverflow.visible
-              ? 'visible'
-              : 'hidden'
-      ..textOverflow =
-          widget.overflow == TextOverflow.ellipsis ? 'ellipsis' : 'clip'
+          ? 'visible'
+          : 'hidden'
+      ..textOverflow = widget.overflow == TextOverflow.ellipsis
+          ? 'ellipsis'
+          : 'clip'
       ..overflowWrap = 'break-word'
       ..boxSizing = 'border-box'
       ..width = '100%'
@@ -412,8 +405,9 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       element.style.fontWeight = '${style.fontWeight!.value}';
     }
     if (style.fontStyle != null) {
-      element.style.fontStyle =
-          style.fontStyle == FontStyle.italic ? 'italic' : 'normal';
+      element.style.fontStyle = style.fontStyle == FontStyle.italic
+          ? 'italic'
+          : 'normal';
     }
     if (style.letterSpacing != null) {
       element.style.letterSpacing = '${style.letterSpacing}px';
@@ -427,7 +421,8 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     final decoration = style.decoration;
     if (decoration != null && decoration != TextDecoration.none) {
       final values = <String>[];
-      if (decoration.contains(TextDecoration.underline)) values.add('underline');
+      if (decoration.contains(TextDecoration.underline))
+        values.add('underline');
       if (decoration.contains(TextDecoration.lineThrough)) {
         values.add('line-through');
       }
@@ -492,7 +487,8 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
 
   TextEditingController get _controller =>
       widget.controller ?? (_ownedController ??= TextEditingController());
-  FocusNode get _focusNode => widget.focusNode ?? (_ownedFocusNode ??= FocusNode());
+  FocusNode get _focusNode =>
+      widget.focusNode ?? (_ownedFocusNode ??= FocusNode());
   bool get _enabled => widget.enabled ?? true;
   bool get _multiline => widget.maxLines != 1 || (widget.minLines ?? 1) > 1;
 
@@ -547,7 +543,10 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
         ? math.max(minimumLines, '\n'.allMatches(_controller.text).length + 1)
         : math.max(minimumLines, widget.maxLines ?? 1);
     final initialHeight = math.max(lineHeight * initialLines, lineHeight + 2);
-    final inputHeight = math.max(_measuredInputHeight ?? initialHeight, initialHeight);
+    final inputHeight = math.max(
+      _measuredInputHeight ?? initialHeight,
+      initialHeight,
+    );
 
     var decoration = widget.decoration;
     if (widget.maxLength != null &&
@@ -603,7 +602,8 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
     element.setAttribute('spellcheck', widget.autocorrect ? 'true' : 'false');
     element.setAttribute('inputmode', _inputMode());
     final enterKeyHint = _enterKeyHint();
-    if (enterKeyHint != null) element.setAttribute('enterkeyhint', enterKeyHint);
+    if (enterKeyHint != null)
+      element.setAttribute('enterkeyhint', enterKeyHint);
     if (!_enabled) element.setAttribute('disabled', 'disabled');
     if (widget.maxLength != null) {
       element.setAttribute('maxlength', '${widget.maxLength}');
@@ -626,8 +626,9 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
       ..fontFamily = _systemFontStack
       ..fontSize = '${scaledFontSize}px'
       ..fontWeight = '${effectiveStyle.fontWeight?.value ?? 400}'
-      ..fontStyle =
-          effectiveStyle.fontStyle == FontStyle.italic ? 'italic' : 'normal'
+      ..fontStyle = effectiveStyle.fontStyle == FontStyle.italic
+          ? 'italic'
+          : 'normal'
       ..lineHeight = '${effectiveStyle.height ?? 1.25}'
       ..letterSpacing = '${effectiveStyle.letterSpacing ?? 0}px'
       ..color = _cssColor(effectiveStyle.color ?? const Color(0xFF000000))
@@ -647,7 +648,8 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
           text: rawText,
           selection: TextSelection.collapsed(offset: rawText.length),
         );
-        for (final formatter in widget.inputFormatters ?? const <TextInputFormatter>[]) {
+        for (final formatter
+            in widget.inputFormatters ?? const <TextInputFormatter>[]) {
           nextValue = formatter.formatEditUpdate(oldValue, nextValue);
         }
         if (widget.maxLength != null &&
@@ -754,7 +756,8 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
     if (type == TextInputType.emailAddress) return 'email';
     if (type == TextInputType.url) return 'url';
     if (type == TextInputType.phone) return 'tel';
-    if (type == TextInputType.number || type == TextInputType.numberWithOptions()) {
+    if (type == TextInputType.number ||
+        type == TextInputType.numberWithOptions()) {
       return 'numeric';
     }
     return 'text';

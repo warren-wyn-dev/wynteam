@@ -76,10 +76,7 @@ Future<String?> _pickWithNativeInput({
     'change',
     ((web.Event event) => finish(input.value)).toJS,
   );
-  input.addEventListener(
-    'cancel',
-    ((web.Event event) => finish(null)).toJS,
-  );
+  input.addEventListener('cancel', ((web.Event event) => finish(null)).toJS);
   input.addEventListener(
     'blur',
     ((web.Event event) {

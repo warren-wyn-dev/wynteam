@@ -18,8 +18,5 @@ Future<TimeOfDay?> pickBrowserSystemTime(
   BuildContext context, {
   required TimeOfDay initialTime,
 }) {
-  return showTimePicker(
-    context: context,
-    initialTime: initialTime,
-  );
+  return showTimePicker(context: context, initialTime: initialTime);
 }
