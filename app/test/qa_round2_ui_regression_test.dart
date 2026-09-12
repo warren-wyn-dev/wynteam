@@ -300,8 +300,8 @@ void main() {
   );
 
   testWidgets(
-    'QA-R2-21 WYN-107: the compact Home card opens its content column at '
-    'x=80 on a 390 screen and the photo row still bleeds to the edge',
+    'QA-R2-21 WYN-107: the approved compact Home card opens its content '
+    'column at x=68 on a 390 screen and the photo row still bleeds to the edge',
     (tester) async {
       await _pump(
         tester,
@@ -321,7 +321,7 @@ void main() {
       tester.takeException();
 
       final row = tester.getRect(find.byType(PostImageCarousel));
-      expect(row.left, closeTo(80.0, 0.5));
+      expect(row.left, closeTo(68.0, 0.5));
       expect(row.right, closeTo(390.0, 0.5));
     },
   );
