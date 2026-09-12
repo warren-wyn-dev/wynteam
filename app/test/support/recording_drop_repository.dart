@@ -19,15 +19,15 @@ class RecordingDropRepository extends DropRepository {
     List<Drop>? followingFeedDrops,
     List<Drop>? rankedFeedDrops,
     List<DropComment>? comments,
-  })  : feedDrops = feedDrops ?? [],
-        followingFeedDrops = followingFeedDrops ?? [],
-        // Defaults to the same list as feedDrops -- see
-        // RecordingHomeRepository's identical rationale (WYN-018): most
-        // call sites predating this follow-up only care that "the feed
-        // shows these drops", not which of the two queries served them.
-        rankedFeedDrops = rankedFeedDrops ?? feedDrops ?? [],
-        comments = comments ?? [],
-        super(SupabaseClient('https://example.supabase.co', 'test-key'));
+  }) : feedDrops = feedDrops ?? [],
+       followingFeedDrops = followingFeedDrops ?? [],
+       // Defaults to the same list as feedDrops -- see
+       // RecordingHomeRepository's identical rationale (WYN-018): most
+       // call sites predating this follow-up only care that "the feed
+       // shows these drops", not which of the two queries served them.
+       rankedFeedDrops = rankedFeedDrops ?? feedDrops ?? [],
+       comments = comments ?? [],
+       super(SupabaseClient('https://example.supabase.co', 'test-key'));
 
   /// Returned by [fetchFeed] for page 0 only (page 1+ returns empty).
   final List<Drop> feedDrops;
@@ -162,6 +162,29 @@ class RecordingDropRepository extends DropRepository {
       if (drop.id == dropId) return drop;
     }
     return null;
+  }
+
+  /// Canned activity actor ids used by DropDetailScreen's activity sheet.
+  /// Keys are Drop ids; list order is newest interaction first, matching
+  /// the real repository methods.
+  Map<String, List<String>> likeUserIdsByDrop = {};
+  Map<String, List<String>> redropperIdsByDrop = {};
+  Object? fetchActivityPeopleError;
+  int fetchLikeUserIdsCalls = 0;
+  int fetchRedropperIdsCalls = 0;
+
+  @override
+  Future<List<String>> fetchLikeUserIds(String dropId) async {
+    fetchLikeUserIdsCalls++;
+    if (fetchActivityPeopleError != null) throw fetchActivityPeopleError!;
+    return likeUserIdsByDrop[dropId] ?? const <String>[];
+  }
+
+  @override
+  Future<List<String>> fetchRedropperIds(String dropId) async {
+    fetchRedropperIdsCalls++;
+    if (fetchActivityPeopleError != null) throw fetchActivityPeopleError!;
+    return redropperIdsByDrop[dropId] ?? const <String>[];
   }
 
   /// Returned by [searchByCaption] for page 0 only, filtered by whether
@@ -377,7 +400,10 @@ class RecordingDropRepository extends DropRepository {
   Object? editDropError;
 
   @override
-  Future<void> editDrop({required String dropId, required String caption}) async {
+  Future<void> editDrop({
+    required String dropId,
+    required String caption,
+  }) async {
     if (editDropError != null) throw editDropError!;
     editDropArgs.add({'dropId': dropId, 'caption': caption});
   }
