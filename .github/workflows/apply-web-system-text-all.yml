@@ -1,0 +1,343 @@
+name: Apply all-page web system text migration
+
+on:
+  push:
+    branches:
+      - feat/web-system-text-all
+    paths:
+      - .github/workflows/apply-web-system-text-all.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/web-system-text-all
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Migrate every app-owned text surface
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          ROOT = Path('app/lib')
+          EXCLUDED = {
+              ROOT / 'core/typography/browser_system_text_stub.dart',
+              ROOT / 'core/typography/browser_system_text_web.dart',
+              ROOT / 'core/typography/browser_system_picker_stub.dart',
+              ROOT / 'core/typography/browser_system_picker_web.dart',
+          }
+          SYSTEM_IMPORT = "import 'package:wyn/core/typography/browser_system_text.dart';"
+          PICKER_IMPORT = "import 'package:wyn/core/typography/browser_system_picker.dart';"
+
+          def code_positions(source):
+              mask = bytearray(b'1' * len(source))
+              i = 0
+              quote = None
+              triple = False
+              escape = False
+              line = False
+              block = False
+              while i < len(source):
+                  ch = source[i]
+                  pair = source[i:i+2]
+                  if line:
+                      mask[i] = 0
+                      if ch == '\n': line = False
+                      i += 1; continue
+                  if block:
+                      mask[i] = 0
+                      if pair == '*/':
+                          mask[i:i+2] = b'00'; block = False; i += 2; continue
+                      i += 1; continue
+                  if quote:
+                      mask[i] = 0
+                      if escape:
+                          escape = False; i += 1; continue
+                      if ch == '\\': escape = True; i += 1; continue
+                      if triple and source.startswith(quote * 3, i):
+                          mask[i:i+3] = b'000'; quote = None; triple = False; i += 3; continue
+                      if not triple and ch == quote:
+                          quote = None; i += 1; continue
+                      i += 1; continue
+                  if pair == '//':
+                      mask[i:i+2] = b'00'; line = True; i += 2; continue
+                  if pair == '/*':
+                      mask[i:i+2] = b'00'; block = True; i += 2; continue
+                  if source.startswith("'''", i):
+                      mask[i:i+3] = b'000'; quote = "'"; triple = True; i += 3; continue
+                  if source.startswith('"""', i):
+                      mask[i:i+3] = b'000'; quote = '"'; triple = True; i += 3; continue
+                  if ch in "'\"":
+                      mask[i] = 0; quote = ch; i += 1; continue
+                  i += 1
+              return mask
+
+          def match_close(source, open_index):
+              depth = 0; i = open_index
+              quote = None; triple = False; escape = False; line = False; block = False
+              while i < len(source):
+                  ch = source[i]; pair = source[i:i+2]
+                  if line:
+                      if ch == '\n': line = False
+                      i += 1; continue
+                  if block:
+                      if pair == '*/': block = False; i += 2; continue
+                      i += 1; continue
+                  if quote:
+                      if escape: escape = False; i += 1; continue
+                      if ch == '\\': escape = True; i += 1; continue
+                      if triple and source.startswith(quote*3, i): quote=None; triple=False; i += 3; continue
+                      if not triple and ch == quote: quote=None; i += 1; continue
+                      i += 1; continue
+                  if pair == '//': line=True; i += 2; continue
+                  if pair == '/*': block=True; i += 2; continue
+                  if source.startswith("'''", i): quote="'"; triple=True; i += 3; continue
+                  if source.startswith('"""', i): quote='"'; triple=True; i += 3; continue
+                  if ch in "'\"": quote=ch; i += 1; continue
+                  if ch == '(': depth += 1
+                  elif ch == ')':
+                      depth -= 1
+                      if depth == 0: return i
+                  i += 1
+              raise RuntimeError('unbalanced call')
+
+          def find_calls(source, token, generic=False):
+              mask = code_positions(source)
+              out = []; i = 0
+              while i < len(source):
+                  idx = source.find(token, i)
+                  if idx < 0: break
+                  if not mask[idx] or (idx and (source[idx-1].isalnum() or source[idx-1] == '_')):
+                      i = idx + len(token); continue
+                  j = idx + len(token)
+                  if j < len(source) and (source[j].isalnum() or source[j] == '_'):
+                      i = j; continue
+                  while j < len(source) and source[j].isspace(): j += 1
+                  if generic and j < len(source) and source[j] == '<':
+                      depth = 0
+                      while j < len(source):
+                          if source[j] == '<': depth += 1
+                          elif source[j] == '>':
+                              depth -= 1
+                              if depth == 0:
+                                  j += 1; break
+                          j += 1
+                      while j < len(source) and source[j].isspace(): j += 1
+                  if j >= len(source) or source[j] != '(':
+                      i = idx + len(token); continue
+                  close = match_close(source, j)
+                  out.append((idx, j, close))
+                  i = close + 1
+              return out
+
+          def split_args(body):
+              parts=[]; start=0; i=0; par=br=cur=0
+              quote=None; triple=False; escape=False; line=False; block=False
+              while i < len(body):
+                  ch=body[i]; pair=body[i:i+2]
+                  if line:
+                      if ch=='\n': line=False
+                      i+=1; continue
+                  if block:
+                      if pair=='*/': block=False; i+=2; continue
+                      i+=1; continue
+                  if quote:
+                      if escape: escape=False; i+=1; continue
+                      if ch=='\\': escape=True; i+=1; continue
+                      if triple and body.startswith(quote*3,i): quote=None; triple=False; i+=3; continue
+                      if not triple and ch==quote: quote=None; i+=1; continue
+                      i+=1; continue
+                  if pair=='//': line=True; i+=2; continue
+                  if pair=='/*': block=True; i+=2; continue
+                  if body.startswith("'''",i): quote="'"; triple=True; i+=3; continue
+                  if body.startswith('"""',i): quote='"'; triple=True; i+=3; continue
+                  if ch in "'\"": quote=ch; i+=1; continue
+                  if ch=='(': par+=1
+                  elif ch==')': par-=1
+                  elif ch=='[': br+=1
+                  elif ch==']': br-=1
+                  elif ch=='{': cur+=1
+                  elif ch=='}': cur-=1
+                  elif ch==',' and par==0 and br==0 and cur==0:
+                      parts.append(body[start:i]); start=i+1
+                  i+=1
+              parts.append(body[start:])
+              return parts
+
+          def named_part(part):
+              m = re.match(r'(?s)(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*?)(\s*)$', part)
+              if not m: return None
+              return m.group(1), m.group(2), m.group(3), m.group(4)
+
+          def rewrite_calls(source, token, transform, generic=False):
+              calls = find_calls(source, token, generic=generic)
+              for start, open_i, close_i in reversed(calls):
+                  body = source[open_i+1:close_i]
+                  replacement = transform(source[start:open_i], body)
+                  if replacement is not None:
+                      source = source[:start] + replacement + source[close_i+1:]
+              return source
+
+          def transform_input_decoration(prefix, body):
+              mapping = {
+                  'hintText': 'hint', 'labelText': 'label', 'helperText': 'helper',
+                  'errorText': 'error', 'prefixText': 'prefix',
+              }
+              changed = False; new=[]
+              for part in split_args(body):
+                  info = named_part(part)
+                  if not info:
+                      new.append(part); continue
+                  lead, name, expr, tail = info
+                  if name in mapping:
+                      new.append(f'{lead}{mapping[name]}: BrowserSystemText({expr.strip()}){tail}')
+                      changed = True
+                  elif name == 'counterText':
+                      value = expr.strip()
+                      widget = 'const SizedBox.shrink()' if value in {"''", '""'} else f'BrowserSystemText({value})'
+                      new.append(f'{lead}counter: {widget}{tail}')
+                      changed = True
+                  else:
+                      new.append(part)
+              if not changed: return None
+              return prefix + '(' + ','.join(new) + ')'
+
+          def transform_tab(prefix, body):
+              changed=False; new=[]
+              for part in split_args(body):
+                  info=named_part(part)
+                  if info and info[1]=='text':
+                      lead,_,expr,tail=info
+                      new.append(f'{lead}child: BrowserSystemText({expr.strip()}){tail}')
+                      changed=True
+                  else: new.append(part)
+              if not changed: return None
+              return prefix + '(' + ','.join(new) + ')'
+
+          def wrap_tooltip(prefix, body):
+              tooltip_expr=None; new=[]
+              for part in split_args(body):
+                  info=named_part(part)
+                  if info and info[1]=='tooltip':
+                      lead,_,expr,tail=info
+                      if expr.strip() == 'null':
+                          new.append(part); continue
+                      tooltip_expr=expr.strip()
+                      new.append(f'{lead}tooltip: null{tail}')
+                  else: new.append(part)
+              if tooltip_expr is None: return None
+              inner = prefix + '(' + ','.join(new) + ')'
+              return f'BrowserSystemTooltip(message: {tooltip_expr}, child: {inner})'
+
+          def replace_constructor(source, old, new):
+              calls=find_calls(source, old)
+              for start, open_i, close_i in reversed(calls):
+                  prefix=source[start:open_i]
+                  source=source[:start] + prefix.replace(old,new,1) + source[open_i:]
+              return source
+
+          def add_import(source, imp):
+              if imp in source: return source
+              lines=source.splitlines(keepends=True)
+              indexes=[i for i,line in enumerate(lines) if line.lstrip().startswith('import ')]
+              if not indexes: return imp+'\n\n'+source
+              lines.insert(indexes[-1]+1, imp+'\n')
+              return ''.join(lines)
+
+          # SnackBarAction renders its label internally with Flutter canvas.
+          # Move the two WYNOS-owned actions into the SnackBar content row so
+          # both the message and action label can use BrowserSystemText.
+          report = ROOT / 'features/report/presentation/report_sheet.dart'
+          text = report.read_text()
+          text = text.replace('SnackBarAction? blockAction;', 'VoidCallback? blockAction;')
+          text = re.sub(
+              r"blockAction = SnackBarAction\(\s*label: 'บล็อก',\s*onPressed: \(\) => _offerBlockAfterReport\(context, associatedUserId\),\s*\);",
+              "blockAction = () => _offerBlockAfterReport(context, associatedUserId);",
+              text,
+          )
+          text = re.sub(
+              r"content: const Text\('ส่งรายงานแล้ว ทีมงานจะตรวจสอบเร็วๆ นี้'\),\s*action: blockAction,",
+              "content: Row(children: [const Expanded(child: BrowserSystemText('ส่งรายงานแล้ว ทีมงานจะตรวจสอบเร็วๆ นี้')), if (blockAction != null) TextButton(onPressed: blockAction, child: const BrowserSystemText('บล็อก'))]),",
+              text,
+          )
+          report.write_text(text)
+
+          mode = ROOT / 'features/home/presentation/widgets/mode_feed_page.dart'
+          text = mode.read_text()
+          text = re.sub(
+              r"content: const Text\('ไม่สนใจโพสต์นี้แล้ว'\),\s*action: SnackBarAction\(\s*label: 'เลิกทำ',\s*onPressed: \(\) => _undoHideItem\(index, item\),\s*\),",
+              "content: Row(children: [const Expanded(child: BrowserSystemText('ไม่สนใจโพสต์นี้แล้ว')), TextButton(onPressed: () => _undoHideItem(index, item), child: const BrowserSystemText('เลิกทำ'))]),",
+              text,
+          )
+          mode.write_text(text)
+
+          touched = set()
+          for path in sorted(ROOT.rglob('*.dart')):
+              if path in EXCLUDED: continue
+              source = path.read_text()
+              original = source
+
+              source = rewrite_calls(source, 'InputDecoration', transform_input_decoration)
+              source = rewrite_calls(source, 'Tab', transform_tab)
+              for token, generic in [('IconButton', False), ('FloatingActionButton', False), ('PopupMenuButton', True)]:
+                  source = rewrite_calls(source, token, wrap_tooltip, generic=generic)
+              source = replace_constructor(source, 'Tooltip', 'BrowserSystemTooltip')
+              source = replace_constructor(source, 'Text.rich', 'BrowserSystemText.rich')
+              source = replace_constructor(source, 'TextField', 'BrowserSystemTextField')
+              source = replace_constructor(source, 'Text', 'BrowserSystemText')
+
+              # The chat search field applies a dynamic hint through
+              # InputDecoration.copyWith rather than its constructor.
+              if path.name == 'chat_ui.dart':
+                  source = source.replace(
+                      'hintText: hintText,',
+                      'hint: BrowserSystemText(hintText),',
+                  )
+
+              if source != original or path in {report, mode}:
+                  source = add_import(source, SYSTEM_IMPORT)
+                  path.write_text(source)
+                  touched.add(path)
+
+          # The one app-owned date/time picker must also avoid Flutter's
+          # canvas-rendered Material dialog on Web.
+          event_path = ROOT / 'features/club/presentation/create_club_event_screen.dart'
+          event = event_path.read_text()
+          event = event.replace('showDatePicker(', 'pickBrowserSystemDate(')
+          event = event.replace('showTimePicker(', 'pickBrowserSystemTime(')
+          event = add_import(event, PICKER_IMPORT)
+          event_path.write_text(event)
+          touched.add(event_path)
+
+          print(f'Migrated {len(touched)} Dart files')
+          PY
+
+      - name: Format migrated Dart files
+        run: |
+          mapfile -t files < <(git diff --name-only -- 'app/lib/**/*.dart' 'app/lib/*.dart' | grep '\.dart$' || true)
+          if [ ${#files[@]} -gt 0 ]; then dart format "${files[@]}"; fi
+
+      - name: Commit migration for compiler verification
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/lib
+          git commit -m 'feat(web): migrate all app text to system DOM surfaces'
+          git push origin HEAD:feat/web-system-text-all
+
+      - name: Compile verification
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter build web --release
