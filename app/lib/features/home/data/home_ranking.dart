@@ -88,10 +88,12 @@ List<RankedCandidateRow> rankedCandidateRows(
         Map<String, dynamic>.from(raw['row_data'] as Map<String, dynamic>);
     if (excludeContentTypes.contains(row['content_type'])) continue;
     final sources = <FeedSource>{FeedSource.recommended};
-    if (raw['is_following'] as bool? ?? false)
+    if (raw['is_following'] as bool? ?? false) {
       sources.add(FeedSource.following);
-    if (raw['is_discovery'] as bool? ?? false)
+    }
+    if (raw['is_discovery'] as bool? ?? false) {
       sources.add(FeedSource.exploration);
+    }
     if (row['feed_is_trending'] as bool? ?? false) {
       sources.add(FeedSource.trending);
     }
