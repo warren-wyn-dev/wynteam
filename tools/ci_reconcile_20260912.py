@@ -77,6 +77,20 @@ replace_exact(
     expected=2,
 )
 
+# The Founder-final activity sheet gained a fourth metrics row. Like the club
+# share sheet below, let the modal use the full available height so Flutter's
+# fractional bottom-sheet constraint cannot clip the final row by 0.5px.
+replace_exact(
+    "app/lib/features/drop/presentation/drop_detail_screen.dart",
+    """return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,""",
+    """return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,""",
+)
+
 # Comment deletion still mutates the Drop count; the Founder-final UI exposes
 # that count through the focused action bar semantics rather than the retired
 # plain-text stat line.
@@ -104,7 +118,9 @@ replace_exact(
 # ---------------------------------------------------------------------------
 # Founder-final Profile contract.
 # Cover bar replaced AppBar, own-profile primary action is FilledButton, the
-# first public tab is now “สื่อ”, and the overflow menu uses rounded glyphs.
+# first public tab is now “สื่อ”, and the cover controls use rounded glyphs.
+# Stats/actions are full-body rows below the identity row rather than members
+# of the old Beta4 right-hand identity column.
 # ---------------------------------------------------------------------------
 profile_test = "app/test/view_profile_screen_test.dart"
 replace_present(
@@ -122,6 +138,21 @@ replace_exact(
     profile_test,
     "expect(find.widgetWithText(AppBar, '@namfah'), findsOneWidget);",
     "expect(find.text('โปรไฟล์'), findsOneWidget);",
+)
+replace_exact(
+    profile_test,
+    "expect((buttonRect.left - columnLeft).abs(), lessThan(2));",
+    "expect(buttonRect.left, lessThan(columnLeft));",
+)
+replace_exact(
+    profile_test,
+    "expect((buttonRect.left - usernameLeft).abs(), lessThan(2));",
+    "expect(buttonRect.left, lessThan(usernameLeft));",
+)
+replace_exact(
+    profile_test,
+    "find.byIcon(Icons.search)",
+    "find.byIcon(Icons.search_rounded)",
 )
 
 for path in [
