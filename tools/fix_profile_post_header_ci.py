@@ -29,8 +29,19 @@ def switch_more_icon_in_test(text: str, anchor: str, expected: int = 1) -> str:
 # Keep Pop and other surfaces unchanged; only touch tests whose target is a Drop card.
 test_path = Path('app/test/home_feed_screen_test.dart')
 text = test_path.read_text()
+text = replace_once(
+    text,
+    """    final dropMoreButton = find.descendant(
+      of: find.byType(HomeDropCard),
+      matching: find.widgetWithIcon(IconButton, Icons.more_vert),
+    );""",
+    """    final dropMoreButton = find.descendant(
+      of: find.byType(HomeDropCard),
+      matching: find.widgetWithIcon(IconButton, Icons.more_horiz),
+    );""",
+    'mixed-card Drop More finder',
+)
 for anchor, count in [
-    ('renders a mix of Drop and Pop cards with type-specific UI', 1),
     (r"the More menu on the viewer\'s own ReDrop card offers", 1),
     ('tapping "ไม่สนใจโพสต์นี้" on a Drop card calls hideContent', 1),
     ('a failed hideContent call restores the card and stays', 2),
