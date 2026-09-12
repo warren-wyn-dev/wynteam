@@ -1,0 +1,72 @@
+name: Apply Threads-like Home posts once
+
+on:
+  push:
+    branches: [feat/threads-like-home-posts]
+    paths:
+      - tools/apply_threads_like_home_posts.py
+      - .github/workflows/apply-threads-like-home-posts-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/threads-like-home-posts
+          fetch-depth: 0
+
+      - name: Apply Home post polish
+        run: python3 tools/apply_threads_like_home_posts.py
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Format changed Dart files
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACM -- '*.dart')
+          if [ ${#files[@]} -gt 0 ]; then
+            dart format "${files[@]}"
+          fi
+          git diff --check
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Home feed regression tests
+        working-directory: app
+        run: |
+          flutter test test/home_feed_screen_test.dart
+          flutter test test/home_drop_card_overflow_test.dart
+          flutter test test/qa_round2_ui_regression_test.dart
+          flutter test test/liked_by_row_test.dart
+          flutter test test/system_typography_ios_accessibility_test.dart
+
+      - name: Verify compact Home wiring
+        run: |
+          grep -q "showLikedBy: false" app/lib/features/home/presentation/widgets/mode_feed_page.dart
+          grep -q "hideZeroActionCounts: true" app/lib/features/home/presentation/widgets/mode_feed_page.dart
+          grep -q "Icons.send_outlined" app/lib/features/home/presentation/widgets/home_drop_card.dart
+          grep -q "Icons.more_horiz" app/lib/features/home/presentation/widgets/home_pop_card.dart
+
+      - name: Commit validated UI change
+        run: |
+          rm -f tools/apply_threads_like_home_posts.py
+          rm -f .github/workflows/apply-threads-like-home-posts-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(home): match compact Threads-like post rhythm"
+          git push origin feat/threads-like-home-posts
