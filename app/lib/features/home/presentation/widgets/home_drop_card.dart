@@ -243,12 +243,11 @@ class HomeDropCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          // Threads-like compact rhythm: keep 8px above the author
-          // row, but only 8px after the action row before the divider.
-          // The card stays easy to scan without carrying a large blank tail.
+          // Tighten the top rhythm so the author, caption and media
+          // sit closer to the divider while keeping 8px below the action row.
           padding: const EdgeInsets.fromLTRB(
             0,
-            WynSpacing.space2,
+            WynSpacing.space1,
             0,
             WynSpacing.space2,
           ),
@@ -357,6 +356,7 @@ class HomeDropCard extends StatelessWidget {
                             right: homeCardEdgeInset,
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: InkWell(
@@ -428,17 +428,17 @@ class HomeDropCard extends StatelessWidget {
                               // underneath those two.
                               //
                               // Compact header: keep the More action
-                              // aligned to the 40px avatar so media/caption
-                              // can begin closer to the author row. The button
-                              // stays 44px wide for a forgiving horizontal
-                              // target while its visual row is 40px tall.
+                              // at 40px tall even though the avatar is 48px, so
+                              // the author stays top-aligned and caption/media
+                              // can start 8px sooner. Width remains 44px for a
+                              // forgiving horizontal target.
                               IconButton(
                                 icon: const Icon(Icons.more_horiz),
                                 tooltip: 'เพิ่มเติม',
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
-                                  height: homeCardAvatarDiameter,
+                                  height: 40,
                                 ),
                                 onPressed: () => _openMoreMenu(context),
                               ),
