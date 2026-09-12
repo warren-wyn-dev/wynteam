@@ -1,40 +1,12 @@
-name: Smoke test system font emoji production once
+name: Archived system font emoji production smoke (2026-09-13)
 
+# Archived after the live production smoke test passed.
+# Manual-only and intentionally performs no network check.
 on:
-  push:
-    branches:
-      - ops/dispatch-system-font-emoji-deploy
-    paths:
-      - .github/workflows/smoke-system-font-emoji-prod-once.yml
-
-permissions:
-  contents: read
+  workflow_dispatch: {}
 
 jobs:
-  smoke:
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify live WYNOS production
-        run: |
-          set -euo pipefail
-          base='https://wynos.online'
-          cache_bust="$(date +%s)"
-
-          root_code="$(curl -L -sS -o /tmp/wynos-index.html -w '%{http_code}' "$base/?v=$cache_bust")"
-          test "$root_code" = '200'
-
-          js_code="$(curl -L -sS -o /tmp/main.dart.js -w '%{http_code}' "$base/main.dart.js?v=$cache_bust")"
-          test "$js_code" = '200'
-
-          grep -Fq 'Apple Color Emoji' /tmp/main.dart.js
-          grep -Fq 'Noto Color Emoji' /tmp/main.dart.js
-          grep -Fq 'Thonburi' /tmp/main.dart.js
-
-          if grep -Fq 'WYNThaiLooped' /tmp/main.dart.js; then
-            echo '::error::Legacy downloaded Thai fallback is still present in production bundle.'
-            exit 1
-          fi
-
-          echo "wynos.online root: HTTP $root_code"
-          echo "main.dart.js: HTTP $js_code"
-          echo 'System font + system emoji DOM stack found in live production bundle.'
+      - run: echo "Archived system font/emoji production smoke test; no check action."
