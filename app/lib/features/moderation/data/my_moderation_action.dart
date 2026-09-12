@@ -20,8 +20,7 @@ class MyModerationAction {
   final DateTime? expiresAt;
   final DateTime createdAt;
 
-  factory MyModerationAction.fromMap(Map<String, dynamic> map) =>
-      MyModerationAction(
+  factory MyModerationAction.fromMap(Map<String, dynamic> map) => MyModerationAction(
         actionType: moderationActionTypeFromWire(map['action_type'] as String),
         reason: map['reason'] as String,
         durationDays: map['duration_days'] as int?,

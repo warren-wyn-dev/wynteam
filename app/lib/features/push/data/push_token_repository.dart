@@ -83,6 +83,7 @@ class PushTokenRepository {
   }
 }
 
+
 /// A device registered to receive push for the signed-in account.
 class RegisteredPushDevice {
   const RegisteredPushDevice({

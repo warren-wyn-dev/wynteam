@@ -35,8 +35,6 @@ class PinnedMessage {
         senderId: map['sender_id'] as String,
         text: map['text'] as String?,
         imageUrl: map['image_url'] as String?,
-        deletedAt: map['deleted_at'] == null
-            ? null
-            : DateTime.parse(map['deleted_at'] as String),
+        deletedAt: map['deleted_at'] == null ? null : DateTime.parse(map['deleted_at'] as String),
       );
 }

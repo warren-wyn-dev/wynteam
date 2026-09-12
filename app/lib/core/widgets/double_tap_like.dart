@@ -86,8 +86,7 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
     TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 25),
     TweenSequenceItem(tween: ConstantTween(1.0), weight: 15),
     TweenSequenceItem(
-        tween:
-            Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)),
         weight: 60),
   ]).animate(_controller);
 
@@ -104,8 +103,9 @@ class _DoubleTapLikeState extends State<DoubleTapLike>
     // photo), so reduced motion shortens it rather than removing it --
     // the user still sees the heart appear and clear, just without the
     // 700ms of travel.
-    _controller.duration =
-        WynMotion.isReduced(context) ? WynMotion.emphasized : _burstDuration;
+    _controller.duration = WynMotion.isReduced(context)
+        ? WynMotion.emphasized
+        : _burstDuration;
     _controller.forward(from: 0);
   }
 

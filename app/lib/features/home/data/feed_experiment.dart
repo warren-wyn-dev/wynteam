@@ -34,7 +34,8 @@ class EffectiveHomeExperiment {
           }
           candidate[source] = raw.toInt();
         }
-        if (candidate.values.fold<int>(0, (sum, value) => sum + value) != 100) {
+        if (candidate.values.fold<int>(0, (sum, value) => sum + value) !=
+            100) {
           return const EffectiveHomeExperiment.production();
         }
         weights = Map.unmodifiable(candidate);
@@ -53,8 +54,10 @@ class EffectiveHomeExperiment {
         fatigue: FeedFatigueConfig(
           creatorFactor: boundedFactor('fatigue.creator_factor', 0.82),
           topicFactor: boundedFactor('fatigue.topic_factor', 0.88),
-          contentTypeFactor: boundedFactor('fatigue.content_type_factor', 0.94),
-          repetitionFactor: boundedFactor('fatigue.repetition_factor', 0.35),
+          contentTypeFactor:
+              boundedFactor('fatigue.content_type_factor', 0.94),
+          repetitionFactor:
+              boundedFactor('fatigue.repetition_factor', 0.35),
         ),
         assignments: (map['_assignments'] as List?)
                 ?.whereType<String>()

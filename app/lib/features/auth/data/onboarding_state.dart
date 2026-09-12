@@ -4,13 +4,7 @@
 /// `.wyn/docs/design/wyn-002-authentication-onboarding.md`'s successor
 /// flow: WELCOME -> GOOGLE AUTH -> BIRTHDAY -> USERNAME -> DISPLAY NAME ->
 /// PASSWORD -> PROFILE OPTIONAL -> FINISH -> HOME.
-enum OnboardingStep {
-  birthday,
-  username,
-  displayName,
-  password,
-  profileOptional
-}
+enum OnboardingStep { birthday, username, displayName, password, profileOptional }
 
 /// A signed-in user's onboarding progress, read in one query by
 /// [AuthRepository.fetchOnboardingState] so AuthGate/OnboardingFlow never

@@ -32,8 +32,7 @@ import '../../data/club.dart';
 /// which is what makes §8.1's "one image per Club" hold at every one of
 /// these call sites at once.
 class ClubAvatar extends StatelessWidget {
-  const ClubAvatar(
-      {super.key, required this.club, this.radius = 20, this.ring = false});
+  const ClubAvatar({super.key, required this.club, this.radius = 20, this.ring = false});
 
   final Club club;
   final double radius;

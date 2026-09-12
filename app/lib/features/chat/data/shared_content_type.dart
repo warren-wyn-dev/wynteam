@@ -16,8 +16,7 @@ extension SharedContentTypeWire on SharedContentType {
       };
 }
 
-SharedContentType sharedContentTypeFromWireValue(String value) =>
-    switch (value) {
+SharedContentType sharedContentTypeFromWireValue(String value) => switch (value) {
       'drop' => SharedContentType.drop,
       'profile' => SharedContentType.profile,
       'club' => SharedContentType.club,

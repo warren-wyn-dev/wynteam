@@ -28,8 +28,7 @@ class DashedRectBorderPainter extends CustomPainter {
       ..strokeWidth = strokeWidth;
 
     final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(strokeWidth / 2, strokeWidth / 2, size.width - strokeWidth,
-          size.height - strokeWidth),
+      Rect.fromLTWH(strokeWidth / 2, strokeWidth / 2, size.width - strokeWidth, size.height - strokeWidth),
       Radius.circular(borderRadius),
     );
     final path = Path()..addRRect(rrect);
@@ -38,8 +37,7 @@ class DashedRectBorderPainter extends CustomPainter {
       var distance = 0.0;
       while (distance < metric.length) {
         final next = distance + dashLength;
-        canvas.drawPath(
-            metric.extractPath(distance, next.clamp(0, metric.length)), paint);
+        canvas.drawPath(metric.extractPath(distance, next.clamp(0, metric.length)), paint);
         distance = next + gapLength;
       }
     }

@@ -60,9 +60,7 @@ class ClubChannelMessage {
     final rawReply = map['reply_to'];
     final reply = rawReply is Map<String, dynamic>
         ? rawReply
-        : (rawReply is List && rawReply.isNotEmpty
-            ? rawReply.first as Map<String, dynamic>
-            : null);
+        : (rawReply is List && rawReply.isNotEmpty ? rawReply.first as Map<String, dynamic> : null);
 
     return ClubChannelMessage(
       id: map['id'] as String,

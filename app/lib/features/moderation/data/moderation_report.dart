@@ -27,8 +27,7 @@ class ModerationReport {
   final String status;
   final DateTime createdAt;
 
-  factory ModerationReport.fromMap(Map<String, dynamic> map) =>
-      ModerationReport(
+  factory ModerationReport.fromMap(Map<String, dynamic> map) => ModerationReport(
         id: map['id'] as String,
         targetType: reportTargetTypeFromWireValue(map['target_type'] as String),
         targetId: map['target_id'] as String,

@@ -58,7 +58,8 @@ class HomeFeedSkeleton extends StatelessWidget {
               const SizedBox(width: homeCardAvatarGap),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.only(right: homeCardEdgeInset),
+                  padding:
+                      const EdgeInsets.only(right: homeCardEdgeInset),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

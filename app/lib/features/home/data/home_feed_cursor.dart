@@ -27,8 +27,7 @@ class HomeFeedCursor {
         throw const FormatException('Invalid feed cursor');
       }
       final seen = (decoded['s'] as List).whereType<String>().toSet();
-      if (seen.length > maxSeen ||
-          seen.length != (decoded['s'] as List).length) {
+      if (seen.length > maxSeen || seen.length != (decoded['s'] as List).length) {
         throw const FormatException('Invalid feed cursor identities');
       }
       return HomeFeedCursor(userId: expectedUserId, seen: seen);

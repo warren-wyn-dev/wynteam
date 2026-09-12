@@ -8,8 +8,7 @@ import '../../../analytics/data/analytics_repository.dart';
 // separately-declared type with the same name as AuthRepository's (see
 // that file's own doc comment on why the two aren't shared), which
 // _messageFor below would otherwise be unable to resolve unambiguously.
-import '../../../profile/data/profile_repository.dart'
-    hide UsernameTakenException;
+import '../../../profile/data/profile_repository.dart' hide UsernameTakenException;
 import '../../data/auth_repository.dart';
 import '../../data/onboarding_state.dart';
 import '../../data/pending_referral_code.dart';
@@ -190,8 +189,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           isLoading: _isLoading,
           errorText: _errorText,
           onSubmit: (dateOfBirth) => _run(() async {
-            await widget.authRepository
-                .setDateOfBirth(widget.user.id, dateOfBirth);
+            await widget.authRepository.setDateOfBirth(widget.user.id, dateOfBirth);
             // WYN-113 (Invite-Only Access Gate): the profiles row (and
             // its referral_code) exists for the first time as of the
             // line above -- the earliest point a redemption can be
@@ -238,13 +236,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           initialValue: googleName,
           onBack: () => _goBack(_LocalStep.username),
           onSubmit: (displayName) => _run(() async {
-            await widget.authRepository
-                .setDisplayName(widget.user.id, displayName);
+            await widget.authRepository.setDisplayName(widget.user.id, displayName);
             _displayName = displayName;
-          },
-              next: _skipPassword
-                  ? _LocalStep.profileOptional
-                  : _LocalStep.password),
+          }, next: _skipPassword ? _LocalStep.profileOptional : _LocalStep.password),
         );
 
       case _LocalStep.password:
@@ -262,9 +256,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         );
 
       case _LocalStep.profileOptional:
-        final googleAvatar =
-            widget.user.userMetadata?['avatar_url'] as String? ??
-                widget.user.userMetadata?['picture'] as String?;
+        final googleAvatar = widget.user.userMetadata?['avatar_url'] as String? ??
+            widget.user.userMetadata?['picture'] as String?;
         return ProfileOptionalStep(
           key: const ValueKey(_LocalStep.profileOptional),
           stepIndex: _stepIndex,
@@ -281,8 +274,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             fileExtension: extension,
           ),
           onContinue: (avatarUrl, bio) => _run(
-            () => widget.authRepository.saveOptionalProfile(widget.user.id,
-                avatarUrl: avatarUrl, bio: bio),
+            () => widget.authRepository
+                .saveOptionalProfile(widget.user.id, avatarUrl: avatarUrl, bio: bio),
             next: _LocalStep.finish,
           ),
         );

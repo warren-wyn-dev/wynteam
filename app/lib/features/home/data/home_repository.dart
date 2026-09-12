@@ -370,8 +370,7 @@ class HomeRepository {
 
   /// Cursor adapter for callers that need deduplication to survive repository
   /// recreation. Existing page-number callers remain supported unchanged.
-  Future<HomeFeedPage<HomeFeedItem>> fetchRankedFeedPage(
-      {String? cursor}) async {
+  Future<HomeFeedPage<HomeFeedItem>> fetchRankedFeedPage({String? cursor}) async {
     final userId = _client.auth.currentUser!.id;
     final previous = cursor == null
         ? HomeFeedCursor(userId: userId, seen: const {})
@@ -525,8 +524,9 @@ class HomeRepository {
           isDiscovery: ranked[i].discovery,
           feedSource: source,
           topic: ranked[i].topic,
-          contentType:
-              items[i].quoteText != null ? 'quote' : items[i].contentType.name,
+          contentType: items[i].quoteText != null
+              ? 'quote'
+              : items[i].contentType.name,
           contentIdentity: _contentIdentity(items[i]),
           fatigueIdentity: '${items[i].contentType.name}:${items[i].id}',
         ));

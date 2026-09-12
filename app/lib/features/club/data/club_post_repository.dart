@@ -251,10 +251,8 @@ class ClubPostRepository {
         .maybeSingle();
     if (row == null) return null;
 
-    final likedIds =
-        await _fetchLikedPostIds(userId: userId, postIds: [postId]);
-    final savedIds =
-        await _fetchSavedPostIds(userId: userId, postIds: [postId]);
+    final likedIds = await _fetchLikedPostIds(userId: userId, postIds: [postId]);
+    final savedIds = await _fetchSavedPostIds(userId: userId, postIds: [postId]);
     final pollId = _pollIdFromRow(row);
     final pollStates = await _fetchPollStates(
       userId: userId,

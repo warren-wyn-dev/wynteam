@@ -83,9 +83,7 @@ class AppealRepository {
   /// thumbnail is better than a broken screen).
   Future<String?> evidenceSignedUrl(String path) async {
     try {
-      return await _client.storage
-          .from(_bucket)
-          .createSignedUrl(path, _signedUrlTtlSeconds);
+      return await _client.storage.from(_bucket).createSignedUrl(path, _signedUrlTtlSeconds);
     } catch (_) {
       return null;
     }

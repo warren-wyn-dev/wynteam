@@ -34,8 +34,7 @@ class ClubInviteLink {
   final DateTime? revokedAt;
 
   bool get isRevoked => revokedAt != null;
-  bool get isExpired =>
-      expiresAt != null && expiresAt!.isBefore(DateTime.now());
+  bool get isExpired => expiresAt != null && expiresAt!.isBefore(DateTime.now());
   bool get isExhausted => maxUses != null && useCount >= maxUses!;
 
   /// True only for a link an Owner/Admin can still hand out -- a
@@ -49,14 +48,10 @@ class ClubInviteLink {
         code: map['code'] as String,
         createdBy: map['created_by'] as String,
         createdAt: DateTime.parse(map['created_at'] as String),
-        expiresAt: map['expires_at'] == null
-            ? null
-            : DateTime.parse(map['expires_at'] as String),
+        expiresAt: map['expires_at'] == null ? null : DateTime.parse(map['expires_at'] as String),
         maxUses: map['max_uses'] as int?,
         useCount: map['use_count'] as int? ?? 0,
-        revokedAt: map['revoked_at'] == null
-            ? null
-            : DateTime.parse(map['revoked_at'] as String),
+        revokedAt: map['revoked_at'] == null ? null : DateTime.parse(map['revoked_at'] as String),
       );
 }
 
@@ -101,8 +96,7 @@ class ClubInvitePreview {
   final String? clubPrivacy;
   final String? clubIconUrl;
 
-  factory ClubInvitePreview.fromMap(Map<String, dynamic> map,
-          {String? signedIconUrl}) =>
+  factory ClubInvitePreview.fromMap(Map<String, dynamic> map, {String? signedIconUrl}) =>
       ClubInvitePreview(
         status: _statusFromWireValue(map['status'] as String),
         clubId: map['club_id'] as String?,

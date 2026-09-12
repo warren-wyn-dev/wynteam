@@ -172,9 +172,7 @@ class ClubPost {
 
     return copyWith(
       pollMyVoteIndex: optionIndex,
-      pollTotalVotes: previousVote == null
-          ? (pollTotalVotes ?? 0) + 1
-          : pollTotalVotes ?? 1,
+      pollTotalVotes: previousVote == null ? (pollTotalVotes ?? 0) + 1 : pollTotalVotes ?? 1,
       pollOptionCounts: counts,
     );
   }
@@ -213,7 +211,8 @@ class ClubPost {
       pinned: map['pinned'] as bool,
       createdAt: DateTime.parse(map['created_at'] as String),
       likeCount: _embeddedCount(map['club_post_likes'] as List<dynamic>?),
-      commentCount: _embeddedCount(map['club_post_comments'] as List<dynamic>?),
+      commentCount:
+          _embeddedCount(map['club_post_comments'] as List<dynamic>?),
       likedByMe: likedByMe,
       savedByMe: savedByMe,
       pollId: poll?['id'] as String?,

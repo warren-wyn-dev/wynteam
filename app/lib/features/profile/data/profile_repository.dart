@@ -72,15 +72,18 @@ class ProfileRepository {
     required String bio,
     Map<String, String>? socialLinks,
   }) {
-    return _client.from('profiles').update({
-      // profiles_display_name_length requires display_name to be either
-      // NULL or 1-50 characters (see supabase/schema.sql) -- an empty
-      // string satisfies neither, so "no display name set" must be sent
-      // as null, not ''. bio has no such minimum, so it's fine as-is.
-      'display_name': normalizeOptionalText(displayName),
-      'bio': bio,
-      if (socialLinks != null) 'social_links': socialLinks,
-    }).eq('id', userId);
+    return _client
+        .from('profiles')
+        .update({
+          // profiles_display_name_length requires display_name to be either
+          // NULL or 1-50 characters (see supabase/schema.sql) -- an empty
+          // string satisfies neither, so "no display name set" must be sent
+          // as null, not ''. bio has no such minimum, so it's fine as-is.
+          'display_name': normalizeOptionalText(displayName),
+          'bio': bio,
+          if (socialLinks != null) 'social_links': socialLinks,
+        })
+        .eq('id', userId);
   }
 
   /// Whether [username] is free to take -- WYNOS V1.0.0 Beta requirement
@@ -120,7 +123,8 @@ class ProfileRepository {
     try {
       await _client
           .from('profiles')
-          .update({'username': username}).eq('id', userId);
+          .update({'username': username})
+          .eq('id', userId);
     } on PostgrestException catch (e) {
       // 23505 = unique_violation -- a concurrent request can still take
       // this username between the availability check above and this
@@ -143,7 +147,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'is_private': isPrivate}).eq('id', userId);
+        .update({'is_private': isPrivate})
+        .eq('id', userId);
   }
 
   /// WYN-045 Settings -- who can start a new DM conversation with this
@@ -155,7 +160,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'dm_permission': value.dbValue}).eq('id', userId);
+        .update({'dm_permission': value.dbValue})
+        .eq('id', userId);
   }
 
   /// WYN-045 Settings -- who can @mention this user in a Drop (or Poll
@@ -167,7 +173,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'mention_permission': value.dbValue}).eq('id', userId);
+        .update({'mention_permission': value.dbValue})
+        .eq('id', userId);
   }
 
   /// WYN-045 Settings -- who can comment on this user's Drops/Pops
@@ -181,7 +188,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'comment_permission': value.dbValue}).eq('id', userId);
+        .update({'comment_permission': value.dbValue})
+        .eq('id', userId);
   }
 
   /// WYN-099 -- whether the *current viewer* is allowed to see
@@ -207,7 +215,8 @@ class ProfileRepository {
   }) {
     return _client
         .from('profiles')
-        .update({'likes_visibility': value.dbValue}).eq('id', userId);
+        .update({'likes_visibility': value.dbValue})
+        .eq('id', userId);
   }
 
   /// Uploads [bytes] to the `avatars` bucket under the user's own folder
@@ -220,7 +229,9 @@ class ProfileRepository {
   }) async {
     final path = '$userId/avatar.$fileExtension';
 
-    await _client.storage.from('avatars').uploadBinary(
+    await _client.storage
+        .from('avatars')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: const FileOptions(upsert: true),
@@ -246,7 +257,9 @@ class ProfileRepository {
     required String fileExtension,
   }) async {
     final path = '$userId/cover.$fileExtension';
-    await _client.storage.from('avatars').uploadBinary(
+    await _client.storage
+        .from('avatars')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: const FileOptions(upsert: true),

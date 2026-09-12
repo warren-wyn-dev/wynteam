@@ -165,8 +165,7 @@ class PresenceRepository {
   bool isOtherTyping(RealtimeChannel channel, String otherUserId) {
     for (final state in channel.presenceState()) {
       if (state.key != otherUserId) continue;
-      return state.presences
-          .any((presence) => presence.payload['typing'] == true);
+      return state.presences.any((presence) => presence.payload['typing'] == true);
     }
     return false;
   }
@@ -228,19 +227,15 @@ class PresenceRepository {
   /// own doc comment in supabase/schema.sql for the exact logic --
   /// deliberately not re-implemented client-side, so there is exactly
   /// one place this privacy rule can ever be wrong.
-  Future<PartnerPresence> fetchConversationPartnerPresence(
-      String conversationId) async {
-    final rows =
-        await _client.rpc('get_conversation_partner_presence', params: {
+  Future<PartnerPresence> fetchConversationPartnerPresence(String conversationId) async {
+    final rows = await _client.rpc('get_conversation_partner_presence', params: {
       'p_conversation_id': conversationId,
     }) as List<dynamic>;
     if (rows.isEmpty) return (showOnline: false, lastSeenAt: null);
     final row = rows.first as Map<String, dynamic>;
     return (
       showOnline: row['show_online'] as bool? ?? false,
-      lastSeenAt: row['last_seen_at'] == null
-          ? null
-          : DateTime.parse(row['last_seen_at'] as String),
+      lastSeenAt: row['last_seen_at'] == null ? null : DateTime.parse(row['last_seen_at'] as String),
     );
   }
 }

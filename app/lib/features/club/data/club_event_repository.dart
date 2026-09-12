@@ -13,9 +13,7 @@ class ClubEventRepository {
 
   final SupabaseClient _client;
 
-  Future<
-          Map<String,
-              ({RsvpStatus? myStatus, int going, int maybe, int notGoing})>>
+  Future<Map<String, ({RsvpStatus? myStatus, int going, int maybe, int notGoing})>>
       _fetchRsvpStates(List<String> eventIds) async {
     if (eventIds.isEmpty) return {};
     final userId = _client.auth.currentUser!.id;
@@ -27,8 +25,7 @@ class ClubEventRepository {
         .inFilter('event_id', eventIds);
     final myStatusByEventId = <String, RsvpStatus>{
       for (final row in myRows)
-        row['event_id'] as String:
-            _rsvpStatusFromString(row['status'] as String),
+        row['event_id'] as String: _rsvpStatusFromString(row['status'] as String),
     };
 
     final countRows = await _client
@@ -52,8 +49,7 @@ class ClubEventRepository {
     };
   }
 
-  Future<List<ClubEvent>> _withRsvpStates(
-      List<Map<String, dynamic>> rows) async {
+  Future<List<ClubEvent>> _withRsvpStates(List<Map<String, dynamic>> rows) async {
     final ids = rows.map((row) => row['id'] as String).toList();
     final states = await _fetchRsvpStates(ids);
     return rows.map((row) {
@@ -108,8 +104,7 @@ class ClubEventRepository {
       'club_id': clubId,
       'creator_id': userId,
       'title': title.trim(),
-      'description':
-          description?.trim().isEmpty ?? true ? null : description!.trim(),
+      'description': description?.trim().isEmpty ?? true ? null : description!.trim(),
       'starts_at': startsAt.toUtc().toIso8601String(),
       'location_type': locationType.name,
       'location': location.trim(),
@@ -126,8 +121,7 @@ class ClubEventRepository {
   }) {
     return _client.from('club_events').update({
       'title': title.trim(),
-      'description':
-          description?.trim().isEmpty ?? true ? null : description!.trim(),
+      'description': description?.trim().isEmpty ?? true ? null : description!.trim(),
       'starts_at': startsAt.toUtc().toIso8601String(),
       'location_type': locationType.name,
       'location': location.trim(),

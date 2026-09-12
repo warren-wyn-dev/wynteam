@@ -87,7 +87,8 @@ Future<Uint8List> centerCropToRatio(
     ui.Paint(),
   );
 
-  final cropped = await recorder.endRecording().toImage(outWidth, outHeight);
+  final cropped =
+      await recorder.endRecording().toImage(outWidth, outHeight);
   final byteData = await cropped.toByteData(format: ui.ImageByteFormat.png);
   return byteData!.buffer.asUint8List();
 }

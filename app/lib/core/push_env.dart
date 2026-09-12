@@ -37,8 +37,7 @@ class PushEnv {
       String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
   static const projectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
   static const authDomain = String.fromEnvironment('FIREBASE_AUTH_DOMAIN');
-  static const storageBucket =
-      String.fromEnvironment('FIREBASE_STORAGE_BUCKET');
+  static const storageBucket = String.fromEnvironment('FIREBASE_STORAGE_BUCKET');
 
   /// Public Web Push (VAPID) key. Web-only; ignored on Android/iOS.
   static const vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');

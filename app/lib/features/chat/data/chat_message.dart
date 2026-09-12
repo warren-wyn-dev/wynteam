@@ -100,9 +100,7 @@ class ChatMessage {
     final rawReply = map['reply_to'];
     final reply = rawReply is Map<String, dynamic>
         ? rawReply
-        : (rawReply is List && rawReply.isNotEmpty
-            ? rawReply.first as Map<String, dynamic>
-            : null);
+        : (rawReply is List && rawReply.isNotEmpty ? rawReply.first as Map<String, dynamic> : null);
     return ChatMessage(
       id: map['id'] as String,
       conversationId: map['conversation_id'] as String,
@@ -111,9 +109,7 @@ class ChatMessage {
       text: map['text'] as String?,
       imageUrl: map['image_url'] as String?,
       replyToMessageId: map['reply_to_message_id'] as String?,
-      deletedAt: map['deleted_at'] == null
-          ? null
-          : DateTime.parse(map['deleted_at'] as String),
+      deletedAt: map['deleted_at'] == null ? null : DateTime.parse(map['deleted_at'] as String),
       replyPreviewText: reply?['text'] as String?,
       replyPreviewImageUrl: reply?['image_url'] as String?,
       replyPreviewDeletedAt: reply?['deleted_at'] == null
@@ -121,16 +117,11 @@ class ChatMessage {
           : DateTime.parse(reply!['deleted_at'] as String),
       sharedContentType: map['shared_content_type'] == null
           ? null
-          : sharedContentTypeFromWireValue(
-              map['shared_content_type'] as String),
+          : sharedContentTypeFromWireValue(map['shared_content_type'] as String),
       sharedContentId: map['shared_content_id'] as String?,
       viewOnce: map['view_once'] as bool? ?? false,
-      viewedAt: map['viewed_at'] == null
-          ? null
-          : DateTime.parse(map['viewed_at'] as String),
-      editedAt: map['edited_at'] == null
-          ? null
-          : DateTime.parse(map['edited_at'] as String),
+      viewedAt: map['viewed_at'] == null ? null : DateTime.parse(map['viewed_at'] as String),
+      editedAt: map['edited_at'] == null ? null : DateTime.parse(map['edited_at'] as String),
     );
   }
 }

@@ -364,9 +364,7 @@ class Drop {
 
     return copyWith(
       pollMyVoteIndex: optionIndex,
-      pollTotalVotes: previousVote == null
-          ? (pollTotalVotes ?? 0) + 1
-          : pollTotalVotes ?? 1,
+      pollTotalVotes: previousVote == null ? (pollTotalVotes ?? 0) + 1 : pollTotalVotes ?? 1,
       pollOptionCounts: counts,
     );
   }

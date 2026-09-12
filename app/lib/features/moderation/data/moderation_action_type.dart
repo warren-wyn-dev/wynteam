@@ -17,8 +17,7 @@ enum ModerationActionType {
 /// off a row (e.g. `notifications.moderation_action_type`,
 /// `get_my_moderation_action()`'s `action_type` column) rather than
 /// being chosen by the current user in a picker.
-ModerationActionType moderationActionTypeFromWire(String value) =>
-    switch (value) {
+ModerationActionType moderationActionTypeFromWire(String value) => switch (value) {
       'no_action' => ModerationActionType.noAction,
       'warning' => ModerationActionType.warning,
       'remove_content' => ModerationActionType.removeContent,
@@ -57,8 +56,7 @@ extension ModerationActionTypeWire on ModerationActionType {
   /// ModerationActionSheet (Screen 4) -- Ban is permanent, the other 3
   /// have no time dimension at all.
   bool get needsDuration =>
-      this == ModerationActionType.restrict ||
-      this == ModerationActionType.suspend;
+      this == ModerationActionType.restrict || this == ModerationActionType.suspend;
 
   /// Helper text under the reason field, changes per action (Screen 4)
   /// -- No Action's reason is an internal-only note, every other
