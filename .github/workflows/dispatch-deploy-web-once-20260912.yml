@@ -1,23 +1,39 @@
-name: Dispatch production web deploy once (2026-09-12 stale-cache hotfix)
+name: Production stale-cache hotfix smoke (2026-09-12)
 
-# One-shot dispatcher for the approved production hotfix. A push to this file
-# starts the existing manual deploy workflow on main. Archive this file again
-# immediately after the dispatch run is observed.
+# One-shot external verification for the production stale-cache hotfix. Archive
+# this workflow again after the run completes.
 on:
   push:
     branches: [main]
     paths:
       - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
 
-permissions:
-  actions: write
-  contents: read
-
 jobs:
-  dispatch:
+  smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Start canonical production deploy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy-web.yml --repo "$GITHUB_REPOSITORY" --ref main
+      - name: Verify production shell, chat bundle, and service workers
+        run: |
+          set -euo pipefail
+          curl --retry 3 --retry-delay 2 --fail --silent --show-error https://wynos.online/ -o /tmp/index.html
+          grep -q '<title>WYNOS Beta</title>' /tmp/index.html
+
+          curl --retry 3 --retry-delay 2 --fail --silent --show-error https://wynos.online/flutter_bootstrap.js -o /tmp/flutter_bootstrap.js
+          grep -q 'retireLegacyFlutterServiceWorker' /tmp/flutter_bootstrap.js
+          grep -q 'flutter_service_worker.js' /tmp/flutter_bootstrap.js
+
+          curl --retry 3 --retry-delay 2 --fail --silent --show-error https://wynos.online/flutter_service_worker.js -o /tmp/flutter_service_worker.js
+          grep -q 'LEGACY_FLUTTER_CACHES' /tmp/flutter_service_worker.js
+          grep -q 'registration.unregister' /tmp/flutter_service_worker.js
+
+          curl --retry 3 --retry-delay 2 --fail --silent --show-error https://wynos.online/main.dart.js -o /tmp/main.dart.js
+          test -s /tmp/main.dart.js
+          grep -q 'chat_threads_tabs' /tmp/main.dart.js
+
+          curl --retry 3 --retry-delay 2 --fail --silent --show-error https://wynos.online/firebase-messaging-sw.js -o /tmp/firebase-messaging-sw.js
+          test -s /tmp/firebase-messaging-sw.js
+          grep -q 'showNotification' /tmp/firebase-messaging-sw.js
+          if grep -qE '__FIREBASE_[A-Z_]+__' /tmp/firebase-messaging-sw.js; then
+            echo 'Unresolved Firebase placeholder found in production worker' >&2
+            exit 1
+          fi
