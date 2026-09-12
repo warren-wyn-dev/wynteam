@@ -429,7 +429,7 @@ class HomeDropCard extends StatelessWidget {
                               //
                               // Final mockup rhythm: the visual dots sit
                               // on the same top line as name/time, and the row is
-                              // only 32px tall so the caption follows immediately.
+                              // only 24px tall so the caption follows immediately.
                               IconButton(
                                 icon: const Icon(Icons.more_horiz, size: 22),
                                 tooltip: 'เพิ่มเติม',
@@ -437,7 +437,7 @@ class HomeDropCard extends StatelessWidget {
                                 alignment: Alignment.topCenter,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
-                                  height: 32,
+                                  height: 24,
                                 ),
                                 onPressed: () => _openMoreMenu(context),
                               ),
