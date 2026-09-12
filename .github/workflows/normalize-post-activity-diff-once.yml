@@ -32,6 +32,18 @@ jobs:
           git show 8e9bfa2c2598a7c6e16b61dc265bdce1a54f2dee:tools/fix_post_activity_view_tests.py > /tmp/fix_post_activity_view_tests.py
           python3 /tmp/apply_post_activity_people.py
           python3 /tmp/fix_post_activity_view_tests.py
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in [
+              'app/lib/features/drop/data/drop_repository.dart',
+              'app/lib/features/drop/presentation/drop_detail_screen.dart',
+              'app/test/drop_detail_screen_test.dart',
+              'app/test/support/recording_drop_repository.dart',
+              'app/test/support/recording_profile_repository.dart',
+          ]:
+              path = Path(name)
+              path.write_text(path.read_text().rstrip() + '\n')
+          PY
           git diff --check
           git diff --stat origin/main
 
