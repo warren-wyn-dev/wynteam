@@ -31,12 +31,12 @@ test_path = Path('app/test/home_feed_screen_test.dart')
 text = test_path.read_text()
 for anchor, count in [
     ('renders a mix of Drop and Pop cards with type-specific UI', 1),
-    ("the More menu on the viewer\\'s own ReDrop card offers", 1),
+    (r"the More menu on the viewer\'s own ReDrop card offers", 1),
     ('tapping "ไม่สนใจโพสต์นี้" on a Drop card calls hideContent', 1),
     ('a failed hideContent call restores the card and stays', 2),
     ('WYN-079: hiding a card offers a Snackbar', 1),
     ('WYN-079: letting the Undo Snackbar time out', 1),
-    ('the "..." menu is shown even on the viewer\\'s own plain Drop', 1),
+    (r'the "..." menu is shown even on the viewer\'s own plain Drop', 1),
     ('tapping "บันทึก" in the menu calls DropRepository.toggleSave', 1),
 ]:
     text = switch_more_icon_in_test(text, anchor, count)
