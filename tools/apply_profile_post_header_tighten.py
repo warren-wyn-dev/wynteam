@@ -113,7 +113,6 @@ text = replace_once(
     'caption top spacing',
 )
 
-# Keep the comment accurate after compacting the header.
 text = text.replace(
     """                              // WYN-107: pinned to a 44x44 box so the
                               // header row is the height of the name
@@ -162,7 +161,7 @@ insert = r'''
     await _pump(tester, card(_item(createdAt: createdAt)), width: 390);
     await tester.pump();
 
-    final author = find.text('namfah');
+    final author = find.text('@namfah');
     final time = find.text('3 วันที่แล้ว');
     expect(author, findsOneWidget);
     expect(time, findsOneWidget);
