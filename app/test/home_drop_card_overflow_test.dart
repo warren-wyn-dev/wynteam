@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wyn/features/drop/data/square_crop.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
+import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
+import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
 
 import 'support/recording_drop_repository.dart';
 
@@ -33,6 +35,21 @@ HomeFeedItem _item({
   savedByMe: false,
   imageCount: 1,
   aspectRatio: DropAspectRatio.portrait,
+);
+
+HomeFeedItem _popItem({DateTime? createdAt}) => HomeFeedItem(
+  id: 'p1',
+  contentType: HomeContentType.pop,
+  authorId: 'someone-else',
+  authorUsername: 'ploy',
+  createdAt: createdAt ?? DateTime.now(),
+  caption: 'hello pop',
+  videoUrl: 'https://example.supabase.co/pops/p1.mp4',
+  durationSeconds: 12,
+  likeCount: 0,
+  commentCount: 0,
+  likedByMe: false,
+  savedByMe: false,
 );
 
 Future<void> _pump(
@@ -70,6 +87,14 @@ void main() {
     onOpenProfile: () {},
     onToggleRedrop: () {},
     onQuoteRedrop: () {},
+  );
+
+  Widget popCard(HomeFeedItem item) => HomePopCard(
+    item: item,
+    onTap: () {},
+    onToggleLike: () {},
+    onToggleSave: () {},
+    onOpenProfile: () {},
   );
 
   for (final width in [320.0, 360.0, 390.0, 430.0]) {
@@ -118,6 +143,42 @@ void main() {
       expect((authorCenter.dy - moreCenter.dy).abs(), lessThan(3));
 
       expect(find.byIcon(Icons.more_vert), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Drop avatar top aligns with the author header row',
+    (tester) async {
+      await _pump(tester, card(_item()), width: 390);
+      await tester.pump();
+
+      final avatar = find.byType(AvatarCircle);
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
+      expect(avatar, findsOneWidget);
+      expect(moreButton, findsOneWidget);
+
+      final avatarTop = tester.getTopLeft(avatar).dy;
+      final headerTop = tester.getTopLeft(moreButton).dy;
+      expect((avatarTop - headerTop).abs(), lessThan(0.5));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Pop avatar top aligns with the author header row',
+    (tester) async {
+      await _pump(tester, popCard(_popItem()), width: 390);
+      await tester.pump();
+
+      final avatar = find.byType(AvatarCircle);
+      final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
+      expect(avatar, findsOneWidget);
+      expect(moreButton, findsOneWidget);
+
+      final avatarTop = tester.getTopLeft(avatar).dy;
+      final headerTop = tester.getTopLeft(moreButton).dy;
+      expect((avatarTop - headerTop).abs(), lessThan(0.5));
       expect(tester.takeException(), isNull);
     },
   );
