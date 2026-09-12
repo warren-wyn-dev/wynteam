@@ -1,0 +1,100 @@
+name: Fix all-page system text analyzer issues
+
+on:
+  push:
+    branches:
+      - feat/web-system-text-all
+    paths:
+      - .github/workflows/fix-web-system-text-all-analyzer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/web-system-text-all
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - name: Resolve packages
+        working-directory: app
+        run: flutter pub get
+
+      - name: Fix migration-specific compile issues
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          mention = Path('app/lib/core/widgets/mention_input.dart')
+          text = mention.read_text()
+          text = text.replace(
+              'decoration: widget.decoration,',
+              'decoration: widget.decoration ?? const InputDecoration(),',
+          )
+          mention.write_text(text)
+
+          for name in [
+              'app/lib/core/typography/browser_system_picker_stub.dart',
+              'app/lib/core/typography/browser_system_picker_web.dart',
+          ]:
+              path = Path(name)
+              text = path.read_text()
+              text = text.replace(
+                  'Future<DateTime?> pickBrowserSystemDate(\n  BuildContext context, {',
+                  'Future<DateTime?> pickBrowserSystemDate({\n  required BuildContext context,',
+              )
+              text = text.replace(
+                  'Future<TimeOfDay?> pickBrowserSystemTime(\n  BuildContext context, {',
+                  'Future<TimeOfDay?> pickBrowserSystemTime({\n  required BuildContext context,',
+              )
+              path.write_text(text)
+
+          # The first Home migration already imported the wrapper in a handful
+          # of files. The all-page pass added the same one-line import again.
+          target = "import 'package:wyn/core/typography/browser_system_text.dart';"
+          for path in Path('app/lib').rglob('*.dart'):
+              lines = path.read_text().splitlines()
+              seen = False
+              out = []
+              changed = False
+              for line in lines:
+                  if line == target:
+                      if seen:
+                          changed = True
+                          continue
+                      seen = True
+                  out.append(line)
+              if changed:
+                  path.write_text('\n'.join(out) + '\n')
+          PY
+
+      - name: Apply analyzer-safe mechanical fixes
+        working-directory: app
+        run: |
+          dart format lib/core/widgets/mention_input.dart \
+            lib/core/typography/browser_system_picker_stub.dart \
+            lib/core/typography/browser_system_picker_web.dart
+          dart fix --apply
+          dart format lib
+
+      - name: Persist fixes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/lib
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(web): resolve all-page system text migration issues'
+            git push origin HEAD:feat/web-system-text-all
+          fi
+
+      - name: Verify compile and release build
+        working-directory: app
+        run: |
+          flutter analyze
+          flutter build web --release
