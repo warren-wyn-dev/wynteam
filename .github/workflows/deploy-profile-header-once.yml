@@ -1,6 +1,6 @@
 name: Deploy approved final Home feed once
 
-# Deploy trigger 2026-09-12: ship caption closer to author row.
+# Deploy trigger 2026-09-12: align three-dot menu with author/date row.
 on:
   push:
     branches: [main]
