@@ -18,7 +18,9 @@ jobs:
           ref: fix/web-system-font-emoji
 
       - name: Apply focused web typography patch
-        run: python3 tools/patch_web_system_font_emoji.py
+        run: |
+          python3 tools/patch_web_system_font_emoji.py
+          python3 tools/fix_browser_system_text_api.py
 
       - uses: subosito/flutter-action@v2
         with:
@@ -28,8 +30,22 @@ jobs:
       - name: Format and verify
         working-directory: app
         run: |
-          dart format lib test/system_typography_ios_accessibility_test.dart
           flutter pub get
+          dart format \
+            lib/core/design/wyn_theme.dart \
+            lib/core/typography/browser_system_text.dart \
+            lib/core/typography/browser_system_text_stub.dart \
+            lib/core/typography/browser_system_text_web.dart \
+            lib/core/widgets/hashtag_text.dart \
+            lib/core/widgets/wynos_social_chrome.dart \
+            lib/features/home/presentation/home_feed_screen.dart \
+            lib/features/home/presentation/widgets/home_drop_card.dart \
+            lib/features/home/presentation/widgets/home_pop_card.dart \
+            lib/features/home/presentation/widgets/liked_by_row.dart \
+            lib/features/home/presentation/widgets/top_reply_preview.dart \
+            lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart \
+            lib/main.dart \
+            test/system_typography_ios_accessibility_test.dart
           flutter analyze
           flutter test test/hashtag_text_test.dart test/system_typography_ios_accessibility_test.dart
           flutter build web --release
