@@ -1,4 +1,4 @@
-name: Deploy tighter Home post rhythm once
+name: Deploy approved final Home feed once
 
 on:
   push:
