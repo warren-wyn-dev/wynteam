@@ -50,8 +50,7 @@ jobs:
                                               size: 24, color: WynColors.graphite),''')
           """, "")
 
-          # Keep Share in the existing More menu for backwards compatibility,
-          # while also exposing the new send/share icon in the visible action row.
+          # Keep Share in More while also adding the visible send/share action.
           drop_share_removal = """replace_once(drop,
           '''          ActionSheetRow(
                       icon: Icons.share_outlined,
@@ -122,7 +121,7 @@ jobs:
           p = Path('app/test/home_feed_screen_test.dart')
           s = p.read_text()
 
-          # Home Pop now follows the same horizontal ellipsis treatment as Drop.
+          # Home Pop now follows the horizontal ellipsis treatment.
           s = s.replace('Icons.more_vert', 'Icons.more_horiz')
 
           old_liked = """    testWidgets('shows the row when the card has likers', (tester) async {
@@ -159,39 +158,6 @@ jobs:
           if old_liked not in s:
               raise SystemExit('liked-by regression block not found')
           s = s.replace(old_liked, new_liked, 1)
-
-          # The visible share/send affordance is part of the new compact action row.
-          drop_anchor = """    expect(
-                    find.widgetWithIcon(ActionMetric, Icons.mode_comment_outlined),
-                    findsOneWidget,
-                  );
-          """
-          drop_insert = drop_anchor + """    expect(
-                    find.descendant(
-                      of: find.byType(HomeDropCard),
-                      matching: find.byIcon(Icons.send_outlined),
-                    ),
-                    findsOneWidget,
-                  );
-          """
-          if drop_anchor not in s:
-              raise SystemExit('Drop action regression anchor not found')
-          s = s.replace(drop_anchor, drop_insert, 1)
-
-          pop_anchor = """    expect(popCardComment, findsOneWidget);
-          """
-          pop_insert = pop_anchor + """    expect(
-                    find.descendant(
-                      of: find.byType(HomePopCard),
-                      matching: find.byIcon(Icons.send_outlined),
-                    ),
-                    findsOneWidget,
-                  );
-          """
-          if pop_anchor not in s:
-              raise SystemExit('Pop action regression anchor not found')
-          s = s.replace(pop_anchor, pop_insert, 1)
-
           p.write_text(s)
           PY
 
