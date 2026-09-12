@@ -394,10 +394,15 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.scrollUntilVisible(
-        find.byType(CircularProgressIndicator),
-        600,
-        scrollable: find.byType(Scrollable).first,
+      // Do not use scrollUntilVisible() with the lazy loading footer as
+      // the target. SliverList has not built that off-screen child yet,
+      // so WidgetTester.element() can throw "Bad state: No element"
+      // before any scroll happens. A real drag is both deterministic and
+      // closer to the user gesture this regression is meant to exercise.
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       tester.takeException();
@@ -414,42 +419,17 @@ void main() {
               'notifications queued within the same frame all schedule '
               'their own _loadMore(), each re-fetching the same next page.');
 
-      // Whatever the call count, the *content* must still be correct --
-      // no duplicate rows, no crash. Verifying that independently here
-      // rather than assuming it from the call count alone.
-      //
-      // QA round 2 fix: this used to pass `-300`. For a vertical
-      // (AxisDirection.down) Scrollable, scrollUntilVisible's internal
-      // moveStep is `Offset(0, -delta)` -- delta must be *positive* to
-      // keep swiping forward/down towards content appended at the end
-      // of the list (WidgetController.dragUntilVisible: "a negative
-      // Offset.dy swipes up, revealing items below" -- negative dy
-      // needs a positive delta here). `gp-new-2` is the very last row
-      // (page 1's second and final item), further down than wherever
-      // the first scrollUntilVisible above already landed, so this
-      // must keep scrolling in the same forward direction, not reverse.
-      // A negative delta here happened to still find the element before
-      // the QA-WYN-110-001 fix only because the redundant extra fetches
-      // pushed the scroll position further than intended, so scrolling
-      // "backward" still landed on already-passed content; once the
-      // fix removed that over-scroll, the backward search found nothing.
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ gp-new-2'),
-        300,
-        scrollable: find.byType(Scrollable).first,
+      // Page 1 is appended after the first drag settles. Drag once more
+      // to mount its lazy tail child, then verify the final row exactly
+      // once. This avoids asking a Finder to locate an element that the
+      // SliverList has not built yet.
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       tester.takeException();
-      // If the redundant fetches above (before the fix) had each
-      // appended their own copy of page 1 without _seenKeys' dedup,
-      // several 'gp-new-2' rows would sit right next to each other at
-      // the tail of the list and at least one extra copy would be
-      // mounted in this same viewport alongside the one found here --
-      // findsOneWidget below would fail. (An exact total count via
-      // find.byType(HomeDropCard) is not a valid check here: this is a
-      // lazily-built CustomScrollView, so only the rows near the
-      // current scroll position -- not all pageSize + 2 of them -- are
-      // ever mounted at once.)
       expect(find.text('โพสต์ gp-new-2'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
@@ -457,10 +437,10 @@ void main() {
       // reads correctly too -- the redundant-fetch bug only ever
       // touched page 1, but this rules out any knock-on corruption of
       // page 0's own rows.
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ gp0'),
-        -600,
-        scrollable: find.byType(Scrollable).first,
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, 4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       expect(find.text('โพสต์ gp0'), findsOneWidget);
@@ -483,10 +463,10 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.scrollUntilVisible(
-        find.byType(CircularProgressIndicator),
-        600,
-        scrollable: find.byType(Scrollable).first,
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       tester.takeException();
@@ -494,24 +474,20 @@ void main() {
       expect(pagedRedropsRepo.fetchRedropsByUserCallsSeen, 2,
           reason: 'QA-WYN-110-001 (see ProfileDropGridTab\'s identical case)');
 
-      // QA round 2 fix: see the identical `gp-new-2` case above for why
-      // this must be a positive delta, not -300.
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ rp-new-2'),
-        300,
-        scrollable: find.byType(Scrollable).first,
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       tester.takeException();
-      // See the identical ProfileDropGridTab case above for why this
-      // is a findsOneWidget + scroll-back check, not a total-count one.
       expect(find.text('โพสต์ rp-new-2'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ rp0'),
-        -600,
-        scrollable: find.byType(Scrollable).first,
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, 4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       expect(find.text('โพสต์ rp0'), findsOneWidget);
@@ -534,10 +510,10 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.scrollUntilVisible(
-        find.byType(CircularProgressIndicator),
-        600,
-        scrollable: find.byType(Scrollable).first,
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       tester.takeException();
@@ -545,24 +521,20 @@ void main() {
       expect(pagedLikesRepo.fetchLikedByAuthorCalls, 2,
           reason: 'QA-WYN-110-001 (see ProfileDropGridTab\'s identical case)');
 
-      // QA round 2 fix: see the identical `gp-new-2` case above for why
-      // this must be a positive delta, not -300.
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ lp-new-2'),
-        300,
-        scrollable: find.byType(Scrollable).first,
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       tester.takeException();
-      // See the identical ProfileDropGridTab case above for why this
-      // is a findsOneWidget + scroll-back check, not a total-count one.
       expect(find.text('โพสต์ lp-new-2'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      await tester.scrollUntilVisible(
-        find.text('โพสต์ lp0'),
-        -600,
-        scrollable: find.byType(Scrollable).first,
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, 4000),
+        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
       expect(find.text('โพสต์ lp0'), findsOneWidget);
