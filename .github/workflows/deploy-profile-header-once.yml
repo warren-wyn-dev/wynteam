@@ -1,4 +1,4 @@
-name: Deploy compact profile post header once
+name: Deploy compact Home feed once
 
 on:
   push:
