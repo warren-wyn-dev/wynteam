@@ -36,7 +36,7 @@ jobs:
         with:
           ref: fix/ci-reconcile-20260912
 
-      - name: Align WYN-143 and WYN-144 harnesses and run maintained SQL suite
+      - name: Align SQL harness contracts and run maintained suite
         shell: bash
         run: |
           set -euo pipefail
@@ -54,13 +54,13 @@ jobs:
               'grant execute on function auth.uid() to authenticated, anon;\n'
               'grant execute on function auth.role() to authenticated, anon;\n'
           )
-          old_contract = (
+          old_top100 = (
               "position('top100_quality_bonus' in pg_get_functiondef(\n"
               "   'public.get_wynos_ranked_feed()'::regprocedure))>0\n"
               "   and position('(101 - t100.current_rank) / 10.0' in pg_get_functiondef(\n"
               "   'public.get_wynos_ranked_feed()'::regprocedure))>0"
           )
-          new_contract = (
+          new_top100 = (
               "position('top100_quality_bonus' in pg_get_functiondef(\n"
               "   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0\n"
               "   and position('(101 - t100.current_rank) / 10.0' in pg_get_functiondef(\n"
@@ -73,11 +73,33 @@ jobs:
                   if grant_anchor not in text:
                       raise SystemExit(f'expected grant anchor not found in {path}')
                   text = text.replace(grant_anchor, grants, 1)
-              if old_contract in text:
-                  text = text.replace(old_contract, new_contract, 1)
-              elif new_contract not in text:
+              if old_top100 in text:
+                  text = text.replace(old_top100, new_top100, 1)
+              elif new_top100 not in text:
                   raise SystemExit(f'expected Top100 contract anchor not found in {path}')
               path.write_text(text)
+
+          path = Path('supabase/tests/wyn_144_feed_quality_test.sh')
+          text = path.read_text()
+          old_quality = (
+              "((position('feed_content_quality' in pg_get_functiondef(\n"
+              "   'public.get_wynos_ranked_feed()'::regprocedure))>0\n"
+              "   and position('from public.reports' in pg_get_functiondef(\n"
+              "   'public.get_wynos_ranked_feed()'::regprocedure))=0)::int),1;"
+          )
+          new_quality = (
+              "((position('internal.content_quality_factors' in pg_get_functiondef(\n"
+              "   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0\n"
+              "   and position('feed_content_quality' in pg_get_functiondef(\n"
+              "   'internal.content_quality_factors(uuid[])'::regprocedure))>0\n"
+              "   and position('from public.reports' in pg_get_functiondef(\n"
+              "   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))=0)::int),1;"
+          )
+          if old_quality in text:
+              text = text.replace(old_quality, new_quality, 1)
+          elif new_quality not in text:
+              raise SystemExit('expected WYN-144 quality contract anchor not found')
+          path.write_text(text)
           PY
 
           chmod +x tools/sql_ci_diagnostic_20260912.sh
@@ -90,7 +112,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add supabase/tests/wyn_143_cold_start_test.sh supabase/tests/wyn_144_feed_quality_test.sh sql_failure_diagnostic.txt
           if ! git diff --cached --quiet; then
-            git commit -m 'fix: align WYN-143 and WYN-144 SQL harnesses'
+            git commit -m 'fix: align WYN-144 precomputed quality harness'
             git push origin HEAD:fix/ci-reconcile-20260912
           fi
 
