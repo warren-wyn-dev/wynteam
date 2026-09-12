@@ -87,6 +87,12 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     _recognizers.clear();
   }
 
+  TapGestureRecognizer _recognizerFor(VoidCallback onTap) {
+    final recognizer = TapGestureRecognizer()..onTap = onTap;
+    _recognizers.add(recognizer);
+    return recognizer;
+  }
+
   @override
   Widget build(BuildContext context) {
     _disposeRecognizers();
@@ -99,10 +105,8 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
             TextSpan(
               text: span.text,
               style: span.style,
-              recognizer: span.onTap == null
-                  ? null
-                  : (_recognizers.add(TapGestureRecognizer()..onTap = span.onTap),
-                      _recognizers.last),
+              recognizer:
+                  span.onTap == null ? null : _recognizerFor(span.onTap!),
             ),
         ],
       ),
