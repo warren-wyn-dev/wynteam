@@ -1,12 +1,23 @@
-name: Archived production full chat UI verification (2026-09-12)
+name: Dispatch production web deploy once (2026-09-12 stale-cache hotfix)
 
-# Archived after the production deploy and smoke completed successfully. This
-# workflow is intentionally manual-only and performs no deployment or mutation.
+# One-shot dispatcher for the approved production hotfix. A push to this file
+# starts the existing manual deploy workflow on main. Archive this file again
+# immediately after the dispatch run is observed.
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dispatch-deploy-web-once-20260912.yml'
+
+permissions:
+  actions: write
+  contents: read
 
 jobs:
-  archived:
+  dispatch:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Archived production verification; no deployment action."
+      - name: Start canonical production deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-web.yml --repo "$GITHUB_REPOSITORY" --ref main
