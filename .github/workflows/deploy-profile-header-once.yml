@@ -1,5 +1,6 @@
 name: Deploy approved final Home feed once
 
+# Deploy trigger 2026-09-12: ship caption closer to author row.
 on:
   push:
     branches: [main]
