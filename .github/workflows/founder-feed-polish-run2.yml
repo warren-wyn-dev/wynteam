@@ -1,0 +1,169 @@
+name: Founder feed polish run 2
+on:
+  push:
+    branches: [ui/founder-feed-polish]
+    paths: [.github/workflows/founder-feed-polish-run2.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/founder-feed-polish
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          def one(path, old, new):
+              p=Path(path); s=p.read_text(); n=s.count(old)
+              if n!=1: raise SystemExit(f'{path}: expected 1, found {n}')
+              p.write_text(s.replace(old,new,1))
+
+          one('app/lib/core/widgets/hashtag_text.dart',
+              "    final hashtagStyle = baseStyle.copyWith(\n      color: _hashtagLinkBlue,\n      fontWeight: FontWeight.w600,\n    );\n",
+              "    final hashtagStyle = baseStyle.copyWith(\n      color: _hashtagLinkBlue,\n    );\n")
+
+          p=Path('app/lib/core/widgets/hashtag_text.dart'); s=p.read_text()
+          start=s.index('    final spans = <InlineSpan>[];\n')
+          end=s.index('\n    );\n  }\n}', start)+len('\n    );')
+          old=s[start:end]
+          new="""    Text buildRichText(String text) {
+      final spans = <InlineSpan>[];
+      var lastEnd = 0;
+      for (final token in _findTokens(text)) {
+        if (token.start < lastEnd) continue;
+        if (token.start > lastEnd) {
+          _appendPlainText(spans, text.substring(lastEnd, token.start), baseStyle);
+        }
+        final recognizer = TapGestureRecognizer()
+          ..onTap = token.kind == _SpanKind.hashtag
+              ? () => _openHashtagFeed(token.value)
+              : () => _openMentionedProfile(token.value);
+        _recognizers.add(recognizer);
+        spans.add(TextSpan(
+          text: text.substring(token.start, token.end),
+          style: token.kind == _SpanKind.hashtag ? hashtagStyle : mentionStyle,
+          recognizer: recognizer,
+        ));
+        lastEnd = token.end;
+      }
+      if (lastEnd < text.length) {
+        _appendPlainText(spans, text.substring(lastEnd), baseStyle);
+      }
+      return Text.rich(
+        TextSpan(style: baseStyle, children: spans),
+        maxLines: widget.maxLines,
+        overflow: widget.overflow ?? TextOverflow.clip,
+        textHeightBehavior: compactFeedCard
+            ? const TextHeightBehavior(
+                applyHeightToFirstAscent: false,
+                applyHeightToLastDescent: false,
+              )
+            : null,
+      );
+    }
+
+    if (compactFeedCard && widget.maxLines == null) {
+      final boundary = RegExp(r'\r?\n(?=[ \t]*#)').firstMatch(displayText);
+      if (boundary != null) {
+        final caption = displayText.substring(0, boundary.start).trimRight();
+        final hashtagBlock = displayText.substring(boundary.end).trimLeft();
+        if (caption.isNotEmpty && hashtagBlock.isNotEmpty) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              buildRichText(caption),
+              const SizedBox(
+                key: ValueKey<String>('feed_caption_hashtag_gap'),
+                height: 4,
+              ),
+              buildRichText(hashtagBlock),
+            ],
+          );
+        }
+      }
+    }
+
+    return buildRichText(displayText);"""
+          p.write_text(s[:start]+new+s[end:])
+
+          for card in ['app/lib/features/home/presentation/widgets/home_drop_card.dart','app/lib/features/home/presentation/widgets/home_pop_card.dart']:
+              one(card,
+                  "          padding: const EdgeInsets.fromLTRB(\n            0,\n            WynSpacing.space3,\n            0,\n            WynSpacing.space2,\n          ),\n",
+                  "          padding: EdgeInsets.fromLTRB(\n            0,\n            WynSpacing.space3,\n            0,\n            item.topReply == null ? 0 : WynSpacing.space2,\n          ),\n")
+              p=Path(card); s=p.read_text()
+              old="                                      Flexible(\n                                        child: Text(\n                                          item.authorNameOrUsername,\n"
+              new="                                      Expanded(\n                                        flex: 3,\n                                        child: Text(\n                                          item.authorNameOrUsername,\n                                          maxLines: 1,\n                                          softWrap: false,\n"
+              if s.count(old)!=1: raise SystemExit(f'{card}: author pattern count {s.count(old)}')
+              s=s.replace(old,new,1)
+              old="                                      Flexible(\n                                        child: Text(\n"
+              new="                                      Flexible(\n                                        flex: 2,\n                                        child: Text(\n"
+              if s.count(old)!=1: raise SystemExit(f'{card}: date pattern count {s.count(old)}')
+              p.write_text(s.replace(old,new,1))
+
+          p=Path('app/test/hashtag_text_test.dart'); s=p.read_text()
+          a=s.index('TextSpan _spanWithText')
+          b=s.index('\n}\n\n/// Finds',a)+2
+          helper="""TextSpan _spanWithText(WidgetTester tester, String text) {
+  TextSpan? found;
+  for (final richText in tester.widgetList<RichText>(find.byType(RichText))) {
+    final rootSpan = richText.text as TextSpan;
+    rootSpan.visitChildren((span) {
+      if (span is TextSpan && span.text == text) {
+        found = span;
+        return false;
+      }
+      return true;
+    });
+    if (found != null) break;
+  }
+  expect(found, isNotNull, reason: 'no span found for "$text"');
+  return found!;
+}"""
+          s=s[:a]+helper+s[b:]
+          old="""    final richText = tester.widget<RichText>(find.byType(RichText).first);
+    expect(
+      richText.text.toPlainText(),
+      'ชีวิตไม่ต้องสมบูรณ์แบบ\n#คำคม #ชีวิตดีๆ #WYNOS',
+    );
+"""
+          new="""    final richTexts = tester.widgetList<RichText>(find.byType(RichText)).toList();
+    expect(richTexts, hasLength(2));
+    expect(richTexts[0].text.toPlainText(), 'ชีวิตไม่ต้องสมบูรณ์แบบ');
+    expect(richTexts[1].text.toPlainText(), '#คำคม #ชีวิตดีๆ #WYNOS');
+    final gap = find.byKey(const ValueKey<String>('feed_caption_hashtag_gap'));
+    expect(gap, findsOneWidget);
+    expect(tester.getSize(gap).height, 4);
+    final hashtagSpan = _spanWithText(tester, '#คำคม');
+    expect(hashtagSpan.style?.fontSize, 17.5);
+    expect(hashtagSpan.style?.fontWeight, FontWeight.w400);
+    expect(hashtagSpan.style?.color, const Color(0xFF1D9BF0));
+"""
+          if s.count(old)!=1: raise SystemExit('compact test pattern mismatch')
+          s=s.replace(old,new,1)
+          old="""    final richText = tester.widget<RichText>(find.byType(RichText).first);
+    expect(richText.text.toPlainText(), 'ข้อความ\n#WYN');
+"""
+          new="""    final richTexts = tester.widgetList<RichText>(find.byType(RichText)).toList();
+    expect(richTexts, hasLength(2));
+    expect(richTexts[0].text.toPlainText(), 'ข้อความ');
+    expect(richTexts[1].text.toPlainText(), '#WYN');
+"""
+          if s.count(old)!=1: raise SystemExit('trailing test pattern mismatch')
+          p.write_text(s.replace(old,new,1))
+          PY
+          dart format app/lib/core/widgets/hashtag_text.dart app/lib/features/home/presentation/widgets/home_drop_card.dart app/lib/features/home/presentation/widgets/home_pop_card.dart app/test/hashtag_text_test.dart
+          cd app
+          flutter test test/hashtag_text_test.dart
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/lib/core/widgets/hashtag_text.dart app/lib/features/home/presentation/widgets/home_drop_card.dart app/lib/features/home/presentation/widgets/home_pop_card.dart app/test/hashtag_text_test.dart
+          git commit -m "fix(feed): match approved spacing and hashtag typography"
+          git push origin HEAD:ui/founder-feed-polish
