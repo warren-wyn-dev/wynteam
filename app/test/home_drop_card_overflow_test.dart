@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wyn/features/drop/data/square_crop.dart';
 import 'package:wyn/features/home/data/home_feed_item.dart';
+import 'package:wyn/features/home/presentation/widgets/home_card_metrics.dart';
 import 'package:wyn/features/home/presentation/widgets/home_drop_card.dart';
 import 'package:wyn/features/home/presentation/widgets/home_pop_card.dart';
 import 'package:wyn/features/profile/presentation/widgets/avatar_circle.dart';
@@ -148,37 +149,49 @@ void main() {
   );
 
   testWidgets(
-    'Drop avatar top aligns with the author header row',
+    'Drop avatar visual top starts at the requested text-line inset',
     (tester) async {
       await _pump(tester, card(_item()), width: 390);
       await tester.pump();
 
-      final avatar = find.byType(AvatarCircle);
+      final avatar = find.descendant(
+        of: find.byType(AvatarCircle),
+        matching: find.byType(CircleAvatar),
+      );
       final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
       expect(avatar, findsOneWidget);
       expect(moreButton, findsOneWidget);
 
       final avatarTop = tester.getTopLeft(avatar).dy;
       final headerTop = tester.getTopLeft(moreButton).dy;
-      expect((avatarTop - headerTop).abs(), lessThan(0.5));
+      expect(
+        avatarTop - headerTop,
+        closeTo(homeCardAvatarTopInset, 0.5),
+      );
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'Pop avatar top aligns with the author header row',
+    'Pop avatar visual top starts at the requested text-line inset',
     (tester) async {
       await _pump(tester, popCard(_popItem()), width: 390);
       await tester.pump();
 
-      final avatar = find.byType(AvatarCircle);
+      final avatar = find.descendant(
+        of: find.byType(AvatarCircle),
+        matching: find.byType(CircleAvatar),
+      );
       final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
       expect(avatar, findsOneWidget);
       expect(moreButton, findsOneWidget);
 
       final avatarTop = tester.getTopLeft(avatar).dy;
       final headerTop = tester.getTopLeft(moreButton).dy;
-      expect((avatarTop - headerTop).abs(), lessThan(0.5));
+      expect(
+        avatarTop - headerTop,
+        closeTo(homeCardAvatarTopInset, 0.5),
+      );
       expect(tester.takeException(), isNull);
     },
   );
