@@ -1,5 +1,6 @@
 name: Apply home compact feed polish once
 
+# Validation rerun after preserving the scrollable tab-width contract.
 on:
   push:
     branches: [feat/home-compact-feed-polish]
