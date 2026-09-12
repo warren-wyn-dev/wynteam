@@ -390,8 +390,7 @@ class HomeDropCard extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
                                     children: [
-                                      Expanded(
-                                        flex: 3,
+                                      Flexible(
                                         child: Text(
                                           item.authorNameOrUsername,
                                           maxLines: 1,
@@ -415,8 +414,10 @@ class HomeDropCard extends StatelessWidget {
                                         const VerifiedBadge(),
                                       ],
                                       const SizedBox(width: WynSpacing.space2),
-                                      Flexible(
-                                        flex: 2,
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 112,
+                                        ),
                                         child: Text(
                                           item.location != null
                                               ? '${relativeTimeLabel(item.createdAt, now: DateTime.now())} · 📍 ${item.location}'
@@ -513,19 +514,22 @@ class HomeDropCard extends StatelessWidget {
                               homeCardEdgeInset,
                               WynSpacing.space2,
                             ),
-                            child: !item.isPoll && item.imageUrl == null
-                                ? DoubleTapLike(
-                                    onLike: onToggleLike,
-                                    alreadyLiked: item.likedByMe,
-                                    child: HashtagText(
+                            child: Transform.translate(
+                              offset: const Offset(0, -3),
+                              child: !item.isPoll && item.imageUrl == null
+                                  ? DoubleTapLike(
+                                      onLike: onToggleLike,
+                                      alreadyLiked: item.likedByMe,
+                                      child: HashtagText(
+                                        item.caption!,
+                                        style: captionStyle,
+                                      ),
+                                    )
+                                  : HashtagText(
                                       item.caption!,
                                       style: captionStyle,
                                     ),
-                                  )
-                                : HashtagText(
-                                    item.caption!,
-                                    style: captionStyle,
-                                  ),
+                            ),
                           ),
                         if (item.isPoll)
                           Padding(

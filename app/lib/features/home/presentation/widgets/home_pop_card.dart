@@ -193,8 +193,7 @@ class HomePopCard extends StatelessWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Expanded(
-                                        flex: 3,
+                                      Flexible(
                                         child: Text(
                                           item.authorNameOrUsername,
                                           maxLines: 1,
@@ -218,8 +217,10 @@ class HomePopCard extends StatelessWidget {
                                         const VerifiedBadge(),
                                       ],
                                       const SizedBox(width: WynSpacing.space2),
-                                      Flexible(
-                                        flex: 2,
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 112,
+                                        ),
                                         child: Text(
                                           relativeTimeLabel(
                                             item.createdAt,
@@ -273,9 +274,12 @@ class HomePopCard extends StatelessWidget {
                               homeCardEdgeInset,
                               WynSpacing.space2,
                             ),
-                            child: HashtagText(
-                              item.caption!,
-                              style: captionStyle,
+                            child: Transform.translate(
+                              offset: const Offset(0, -3),
+                              child: HashtagText(
+                                item.caption!,
+                                style: captionStyle,
+                              ),
                             ),
                           ),
                         Padding(
