@@ -54,7 +54,8 @@ class ClubChannelCategory {
   final String createdBy;
   final DateTime createdAt;
 
-  factory ClubChannelCategory.fromMap(Map<String, dynamic> map) => ClubChannelCategory(
+  factory ClubChannelCategory.fromMap(Map<String, dynamic> map) =>
+      ClubChannelCategory(
         id: map['id'] as String,
         clubId: map['club_id'] as String,
         name: map['name'] as String,

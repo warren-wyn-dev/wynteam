@@ -75,8 +75,8 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  label: BrowserSystemText('หมายเลขโทรศัพท์'),
-                  prefix: BrowserSystemText('+66 '),
+                  label: const BrowserSystemText('หมายเลขโทรศัพท์'),
+                  prefix: const BrowserSystemText('+66 '),
                   error: BrowserSystemText(_errorMessage),
                 ),
                 onChanged: (_) => setState(() {}),

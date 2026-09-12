@@ -283,8 +283,7 @@ class WynNotification {
       moderationActionId: map['moderation_action_id'] as String?,
       moderationActionType: map['moderation_action_type'] as String?,
       conversationId: map['conversation_id'] as String?,
-      contentPreview:
-          (drop?['caption'] ?? pop?['caption']) as String?,
+      contentPreview: (drop?['caption'] ?? pop?['caption']) as String?,
       isRead: map['is_read'] as bool,
       createdAt: DateTime.parse(map['created_at'] as String),
     );

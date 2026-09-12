@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
 import 'pwa_display_mode_stub.dart'
-    if (dart.library.js_interop) 'pwa_display_mode_web.dart' as pwa_display_mode;
+    if (dart.library.js_interop) 'pwa_display_mode_web.dart'
+    as pwa_display_mode;
 
 /// Which "add to home screen" instructions (if any) apply to the browser
 /// currently running this Flutter Web build. Both branches are manual
@@ -43,5 +44,7 @@ class PwaInstallHint {
   /// separate entry point into the same guide) can hide under the exact
   /// same conditions without re-deriving them.
   static bool get shouldOfferInstall =>
-      kIsWeb && guidance != AddToHomeScreenGuidance.unsupported && !isRunningAsInstalledApp;
+      kIsWeb &&
+      guidance != AddToHomeScreenGuidance.unsupported &&
+      !isRunningAsInstalledApp;
 }

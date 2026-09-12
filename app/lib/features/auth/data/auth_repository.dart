@@ -172,10 +172,30 @@ class AuthRepository {
   /// client-side-only check can always be bypassed by calling the REST
   /// API directly. Keep both lists in sync.
   static const reservedUsernames = {
-    'admin', 'administrator', 'support', 'help', 'wynos', 'wyn',
-    'official', 'root', 'api', 'moderator', 'staff', 'security', 'system',
-    'null', 'undefined', 'everyone', 'here', 'channel', 'settings',
-    'about', 'terms', 'privacy', 'www', 'app',
+    'admin',
+    'administrator',
+    'support',
+    'help',
+    'wynos',
+    'wyn',
+    'official',
+    'root',
+    'api',
+    'moderator',
+    'staff',
+    'security',
+    'system',
+    'null',
+    'undefined',
+    'everyone',
+    'here',
+    'channel',
+    'settings',
+    'about',
+    'terms',
+    'privacy',
+    'www',
+    'app',
   };
 
   Future<bool> isUsernameAvailable(String username) async {
@@ -241,8 +261,8 @@ class AuthRepository {
       displayName: row['display_name'] as String?,
       avatarUrl: row['avatar_url'] as String?,
       isVerified: row['is_verified'] as bool? ?? false,
-      hasPassword:
-          signedUpWithEmailPassword || (private?['password_set'] as bool? ?? false),
+      hasPassword: signedUpWithEmailPassword ||
+          (private?['password_set'] as bool? ?? false),
       completed: private?['onboarding_completed'] as bool? ?? false,
     );
   }
@@ -296,7 +316,8 @@ class AuthRepository {
             .select('id')
             .maybeSingle();
         if (row != null) return;
-        lastError = StateError('profile_private row missing after password update');
+        lastError =
+            StateError('profile_private row missing after password update');
       } catch (error) {
         lastError = error;
       }
@@ -304,7 +325,8 @@ class AuthRepository {
         await Future<void>.delayed(Duration(milliseconds: 150 * (attempt + 1)));
       }
     }
-    throw lastError ?? StateError('Unable to synchronize password onboarding state');
+    throw lastError ??
+        StateError('Unable to synchronize password onboarding state');
   }
 
   /// Profile Optional step -- both [avatarUrl] and [bio] are genuinely

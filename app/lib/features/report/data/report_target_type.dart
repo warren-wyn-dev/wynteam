@@ -47,8 +47,7 @@ extension ReportTargetTypeWire on ReportTargetType {
 /// WYN-029's Moderation Queue, which reads `target_type` back off
 /// `moderation_queue` rows (every other report entry point only ever
 /// writes [ReportTargetTypeWire.wireValue], never reads it back).
-ReportTargetType reportTargetTypeFromWireValue(String value) =>
-    switch (value) {
+ReportTargetType reportTargetTypeFromWireValue(String value) => switch (value) {
       'user' => ReportTargetType.user,
       'drop' => ReportTargetType.drop,
       'drop_comment' => ReportTargetType.dropComment,

@@ -281,7 +281,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           keyboardType: TextInputType.url,
           textInputAction: TextInputAction.done,
           decoration: InputDecoration(
-            hint: BrowserSystemText('https://'),
+            hint: const BrowserSystemText('https://'),
             filled: true,
             fillColor: WynColors.surfaceTint,
             border: OutlineInputBorder(

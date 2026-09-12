@@ -32,7 +32,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// make a developer account look like a regular user, never the
 /// reverse.
 class DeveloperAccessService {
-  DeveloperAccessService([SupabaseClient? client]) : _client = client ?? Supabase.instance.client {
+  DeveloperAccessService([SupabaseClient? client])
+      : _client = client ?? Supabase.instance.client {
     _ensureAuthListener();
   }
 

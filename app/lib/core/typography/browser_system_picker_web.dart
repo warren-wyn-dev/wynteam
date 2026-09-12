@@ -4,8 +4,8 @@ import 'dart:js_interop';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-Future<DateTime?> pickBrowserSystemDate(
-  BuildContext context, {
+Future<DateTime?> pickBrowserSystemDate({
+  required BuildContext context,
   required DateTime initialDate,
   required DateTime firstDate,
   DateTime? lastDate,
@@ -26,8 +26,8 @@ Future<DateTime?> pickBrowserSystemDate(
   return DateTime(year, month, day);
 }
 
-Future<TimeOfDay?> pickBrowserSystemTime(
-  BuildContext context, {
+Future<TimeOfDay?> pickBrowserSystemTime({
+  required BuildContext context,
   required TimeOfDay initialTime,
 }) async {
   final value = await _pickWithNativeInput(

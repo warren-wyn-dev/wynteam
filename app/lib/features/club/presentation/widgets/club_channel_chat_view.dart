@@ -516,7 +516,7 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                           fontSize: 16, color: WynColors.mutedNeutral),
                       border: InputBorder.none,
                       isCollapsed: true,
-                      counter: const SizedBox.shrink(),
+                      counter: SizedBox.shrink(),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),

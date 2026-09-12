@@ -29,7 +29,8 @@ class ClubBadgeRepository {
     final rows =
         await _client.from('club_member_badges').select().eq('club_id', clubId);
     return {
-      for (final row in rows) row['user_id'] as String: ClubMemberBadge.fromMap(row),
+      for (final row in rows)
+        row['user_id'] as String: ClubMemberBadge.fromMap(row),
     };
   }
 

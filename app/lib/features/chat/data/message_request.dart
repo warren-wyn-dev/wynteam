@@ -29,7 +29,8 @@ class MessageRequest {
 
   factory MessageRequest.fromMap(Map<String, dynamic> map) => MessageRequest(
         conversationId: map['conversation_id'] as String,
-        conversationCreatedAt: DateTime.parse(map['conversation_created_at'] as String),
+        conversationCreatedAt:
+            DateTime.parse(map['conversation_created_at'] as String),
         otherUserId: map['other_user_id'] as String,
         otherUsername: map['other_username'] as String,
         otherDisplayName: map['other_display_name'] as String?,

@@ -51,7 +51,8 @@ String newDropPublicationOperationId() {
   final bytes = List<int>.generate(16, (_) => random.nextInt(256));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  final hex = bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+  final hex =
+      bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
   return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
       '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
       '${hex.substring(20)}';
@@ -1229,10 +1230,9 @@ class DropRepository {
       // caller's catch rolls the card back to "not liked" while the row
       // is in fact stored. Reaches here from a second device, a retry,
       // or a tap that raced its predecessor.
-      await _client
-          .from('drop_likes')
-          .upsert({'drop_id': dropId, 'user_id': userId},
-              ignoreDuplicates: true);
+      await _client.from('drop_likes').upsert(
+          {'drop_id': dropId, 'user_id': userId},
+          ignoreDuplicates: true);
     }
   }
 

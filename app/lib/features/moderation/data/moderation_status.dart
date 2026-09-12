@@ -50,7 +50,8 @@ class ModerationStatus {
   /// once, since it's the more severe, permanent state.
   bool get blocksLogin => isBanned || isSuspended;
 
-  factory ModerationStatus.fromMap(Map<String, dynamic> map) => ModerationStatus(
+  factory ModerationStatus.fromMap(Map<String, dynamic> map) =>
+      ModerationStatus(
         isRestricted: map['is_restricted'] as bool,
         restrictReason: map['restrict_reason'] as String?,
         restrictExpiresAt: map['restrict_expires_at'] == null

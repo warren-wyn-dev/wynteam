@@ -375,7 +375,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
                 controller: _searchController,
                 style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
-                  hint: BrowserSystemText('ค้นหา'),
+                  hint: const BrowserSystemText('ค้นหา'),
                   hintStyle:
                       _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                   border: InputBorder.none,

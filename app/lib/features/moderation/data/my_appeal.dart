@@ -24,7 +24,8 @@ class MyAppeal {
 
   factory MyAppeal.fromMap(Map<String, dynamic> map) => MyAppeal(
         reason: map['reason'] as String,
-        evidencePaths: (map['evidence_paths'] as List<dynamic>?)?.cast<String>(),
+        evidencePaths:
+            (map['evidence_paths'] as List<dynamic>?)?.cast<String>(),
         status: AppealStatus.fromWire(map['status'] as String),
         decisionReason: map['decision_reason'] as String?,
         createdAt: DateTime.parse(map['created_at'] as String),

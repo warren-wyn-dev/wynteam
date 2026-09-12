@@ -42,7 +42,8 @@ class ModerationRepository {
 
     final rows = await _client
         .from('moderation_queue')
-        .select('id, target_type, target_id, category, detail, status, created_at')
+        .select(
+            'id, target_type, target_id, category, detail, status, created_at')
         .inFilter('status', _openStatuses)
         .order('created_at', ascending: true)
         .range(from, to);
@@ -56,7 +57,8 @@ class ModerationRepository {
   Future<ModerationReport?> fetchReport(String reportId) async {
     final row = await _client
         .from('moderation_queue')
-        .select('id, target_type, target_id, category, detail, status, created_at')
+        .select(
+            'id, target_type, target_id, category, detail, status, created_at')
         .eq('id', reportId)
         .maybeSingle();
     return row == null ? null : ModerationReport.fromMap(row);
@@ -93,7 +95,8 @@ class ModerationRepository {
         .eq('id', userId)
         .maybeSingle();
     if (row == null) {
-      return const ModerationTargetSummary(exists: false, label: '(บัญชีนี้ถูกลบไปแล้ว)');
+      return const ModerationTargetSummary(
+          exists: false, label: '(บัญชีนี้ถูกลบไปแล้ว)');
     }
     // Same nullable-username case as Profile.fromMap's own comment -- and
     // reachable here in particular: an account that accepted the platform
@@ -108,7 +111,8 @@ class ModerationRepository {
         label: '(บัญชีที่ยังตั้งค่าไม่เสร็จ)',
       );
     }
-    return ModerationTargetSummary(exists: true, label: '@$username', ownerUsername: username);
+    return ModerationTargetSummary(
+        exists: true, label: '@$username', ownerUsername: username);
   }
 
   Future<ModerationTargetSummary> _fetchDropSummary(String dropId) async {
@@ -118,7 +122,8 @@ class ModerationRepository {
         .eq('id', dropId)
         .maybeSingle();
     if (row == null) {
-      return const ModerationTargetSummary(exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
+      return const ModerationTargetSummary(
+          exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
     }
     final caption = row['caption'] as String?;
     final author = row['author'] as Map<String, dynamic>?;
@@ -129,14 +134,16 @@ class ModerationRepository {
     );
   }
 
-  Future<ModerationTargetSummary> _fetchDropCommentSummary(String commentId) async {
+  Future<ModerationTargetSummary> _fetchDropCommentSummary(
+      String commentId) async {
     final row = await _client
         .from('drop_comments')
         .select('text_content, drop_id, $_dropCommentAuthorUsername')
         .eq('id', commentId)
         .maybeSingle();
     if (row == null) {
-      return const ModerationTargetSummary(exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
+      return const ModerationTargetSummary(
+          exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
     }
     final author = row['author'] as Map<String, dynamic>?;
     return ModerationTargetSummary(
@@ -154,7 +161,8 @@ class ModerationRepository {
         .eq('id', clubId)
         .maybeSingle();
     if (row == null) {
-      return const ModerationTargetSummary(exists: false, label: '(Club นี้ถูกลบไปแล้ว)');
+      return const ModerationTargetSummary(
+          exists: false, label: '(Club นี้ถูกลบไปแล้ว)');
     }
     return ModerationTargetSummary(exists: true, label: row['name'] as String);
   }
@@ -166,25 +174,30 @@ class ModerationRepository {
         .eq('id', postId)
         .maybeSingle();
     if (row == null) {
-      return const ModerationTargetSummary(exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
+      return const ModerationTargetSummary(
+          exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
     }
     final content = row['content'] as String?;
     final author = row['author'] as Map<String, dynamic>?;
     return ModerationTargetSummary(
       exists: true,
-      label: (content == null || content.isEmpty) ? '(โพสต์ไม่มีข้อความ)' : content,
+      label: (content == null || content.isEmpty)
+          ? '(โพสต์ไม่มีข้อความ)'
+          : content,
       ownerUsername: author?['username'] as String?,
     );
   }
 
-  Future<ModerationTargetSummary> _fetchClubPostCommentSummary(String commentId) async {
+  Future<ModerationTargetSummary> _fetchClubPostCommentSummary(
+      String commentId) async {
     final row = await _client
         .from('club_post_comments')
         .select('text_content, club_post_id, $_clubPostCommentAuthorUsername')
         .eq('id', commentId)
         .maybeSingle();
     if (row == null) {
-      return const ModerationTargetSummary(exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
+      return const ModerationTargetSummary(
+          exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
     }
     final author = row['author'] as Map<String, dynamic>?;
     return ModerationTargetSummary(
@@ -206,7 +219,8 @@ class ModerationRepository {
       'p_message_id': messageId,
     }) as List<dynamic>;
     if (rows.isEmpty) {
-      return const ModerationTargetSummary(exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
+      return const ModerationTargetSummary(
+          exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
     }
     final row = rows.first as Map<String, dynamic>;
     final deletedAt = row['deleted_at'] as String?;
@@ -234,7 +248,8 @@ class ModerationRepository {
                 _ => '(ข้อความว่าง)',
               })
         : text;
-    return ModerationTargetSummary(exists: true, label: label, ownerUsername: sender);
+    return ModerationTargetSummary(
+        exists: true, label: label, ownerUsername: sender);
   }
 
   /// A plain `.from('club_channel_messages')` select, mirroring
@@ -246,14 +261,16 @@ class ModerationRepository {
   /// returns no row), same as club_post/club_post_comment already do.
   /// See .wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md's
   /// fix note: "mirror the existing club_post_comment handling closely".
-  Future<ModerationTargetSummary> _fetchClubChannelMessageSummary(String messageId) async {
+  Future<ModerationTargetSummary> _fetchClubChannelMessageSummary(
+      String messageId) async {
     final row = await _client
         .from('club_channel_messages')
         .select('content, image_url, $_clubChannelMessageAuthorUsername')
         .eq('id', messageId)
         .maybeSingle();
     if (row == null) {
-      return const ModerationTargetSummary(exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
+      return const ModerationTargetSummary(
+          exists: false, label: '(เนื้อหานี้ถูกลบไปแล้ว)');
     }
     final content = row['content'] as String?;
     final author = row['author'] as Map<String, dynamic>?;

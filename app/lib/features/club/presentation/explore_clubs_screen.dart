@@ -298,7 +298,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
                     setState(() => _searchQuery = value.trim()),
                 style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
-                  hint: BrowserSystemText('ค้นหา Club'),
+                  hint: const BrowserSystemText('ค้นหา Club'),
                   hintStyle:
                       _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                   border: InputBorder.none,

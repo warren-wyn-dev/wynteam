@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-Future<DateTime?> pickBrowserSystemDate(
-  BuildContext context, {
+Future<DateTime?> pickBrowserSystemDate({
+  required BuildContext context,
   required DateTime initialDate,
   required DateTime firstDate,
   DateTime? lastDate,
@@ -14,8 +14,8 @@ Future<DateTime?> pickBrowserSystemDate(
   );
 }
 
-Future<TimeOfDay?> pickBrowserSystemTime(
-  BuildContext context, {
+Future<TimeOfDay?> pickBrowserSystemTime({
+  required BuildContext context,
   required TimeOfDay initialTime,
 }) {
   return showTimePicker(context: context, initialTime: initialTime);

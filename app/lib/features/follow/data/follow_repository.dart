@@ -35,7 +35,8 @@ class FollowRepository {
     // database role; guard explicitly here as defense-in-depth on top of
     // the restrictive RLS policy on `follows`.
     if (currentUser.isAnonymous) {
-      throw const AuthException('A permanent account is required to follow users.');
+      throw const AuthException(
+          'A permanent account is required to follow users.');
     }
 
     final currentUserId = currentUser.id;
@@ -170,8 +171,9 @@ class FollowRepository {
   /// mutual follow of the caller.
   Future<void> addCloseFriend({required String friendId}) {
     final currentUserId = _client.auth.currentUser!.id;
-    return _client.from('close_friends').insert(
-        {'owner_id': currentUserId, 'friend_id': friendId});
+    return _client
+        .from('close_friends')
+        .insert({'owner_id': currentUserId, 'friend_id': friendId});
   }
 
   Future<void> removeCloseFriend({required String friendId}) {

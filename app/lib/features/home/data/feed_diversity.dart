@@ -83,8 +83,7 @@ List<FeedDiversityCandidate> allocateFeedSources(
     for (final source in FeedSource.values)
       source: <FeedDiversityCandidate>[
         ...(pools[source] ?? const <FeedDiversityCandidate>[]),
-      ]
-        ..sort((a, b) => b.wynosScore.compareTo(a.wynosScore)),
+      ]..sort((a, b) => b.wynosScore.compareTo(a.wynosScore)),
   };
   final used = <String>{...seenContentIdentities};
   final result = <FeedDiversityCandidate>[];
@@ -291,7 +290,8 @@ List<FeedDiversityCandidate> applyFeedDiversity(
       pickIndex = remaining.indexWhere((c) =>
           c.authorId != blockedAuthor &&
           (topicStreak < maxConsecutiveSameTopic || c.topic != tailTopic) &&
-          (sourceStreak < maxConsecutiveSameSource || c.feedSource != tailSource));
+          (sourceStreak < maxConsecutiveSameSource ||
+              c.feedSource != tailSource));
       // Topic/source constraints are soft: retry with only the creator hard
       // preference before giving up completely.
       if (pickIndex == -1) {

@@ -18,9 +18,7 @@ enum PersonalizationMaturity {
 /// Phase 1 owns allocation in Dart, so cold-start redistribution lives beside
 /// the normal source weights rather than duplicating it in SQL/UI. Every map
 /// totals 100; exhausted pools still use the existing deterministic fallback.
-const coldStartSourceWeights = <
-    PersonalizationMaturity,
-    Map<FeedSource, int>>{
+const coldStartSourceWeights = <PersonalizationMaturity, Map<FeedSource, int>>{
   PersonalizationMaturity.zeroHistory: {
     FeedSource.following: 0,
     FeedSource.recommended: 25,

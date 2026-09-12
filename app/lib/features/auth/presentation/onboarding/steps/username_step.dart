@@ -74,8 +74,7 @@ class _UsernameStepState extends State<UsernameStep> {
       final available = await widget.checkAvailability(normalized);
       if (!mounted) return;
       setState(() {
-        _status =
-            available ? _UsernameStatus.available : _UsernameStatus.taken;
+        _status = available ? _UsernameStatus.available : _UsernameStatus.taken;
       });
     });
   }
@@ -93,8 +92,7 @@ class _UsernameStepState extends State<UsernameStep> {
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit =
-        _status == _UsernameStatus.available && !widget.isLoading;
+    final canSubmit = _status == _UsernameStatus.available && !widget.isLoading;
 
     return OnboardingScaffold(
       title: 'ตั้งชื่อผู้ใช้ของคุณ',
@@ -130,8 +128,8 @@ class _UsernameStepState extends State<UsernameStep> {
             ),
           _UsernameStatus.available => const Padding(
               padding: EdgeInsets.only(left: WynSpacing.space2),
-              child: Icon(Icons.check_circle,
-                  size: 18, color: WynColors.sapphire),
+              child:
+                  Icon(Icons.check_circle, size: 18, color: WynColors.sapphire),
             ),
           _ => null,
         },

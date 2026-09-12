@@ -5,7 +5,6 @@ import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/interaction/wyn_motion.dart';
-import '../../../core/typography/browser_system_text.dart';
 import '../../../core/widgets/wynos_social_chrome.dart';
 import '../../auth/presentation/widgets/guest_gate.dart';
 import '../../chat/data/chat_repository.dart';

@@ -222,7 +222,7 @@ class _MentionInputState extends State<MentionInput> {
           maxLines: widget.maxLines,
           minLines: widget.minLines,
           enabled: widget.enabled,
-          decoration: widget.decoration,
+          decoration: widget.decoration ?? const InputDecoration(),
           onChanged: widget.onChanged,
           style: widget.style,
         ),

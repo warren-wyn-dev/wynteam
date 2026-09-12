@@ -15,7 +15,6 @@ import '../../features/profile/data/profile_repository.dart';
 import '../../features/profile/presentation/view_profile_screen.dart';
 import '../../features/saved/data/saved_repository.dart';
 import '../text_utils.dart';
-import '../typography/browser_system_text.dart';
 import '../typography/native_emoji.dart';
 
 /// Founder-approved bright blue for tappable hashtags in post copy.

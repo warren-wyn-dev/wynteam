@@ -244,8 +244,7 @@ class PopRepository {
       // or a tap that raced its predecessor.
       await _client
           .from('pop_likes')
-          .upsert({'pop_id': popId, 'user_id': userId},
-              ignoreDuplicates: true);
+          .upsert({'pop_id': popId, 'user_id': userId}, ignoreDuplicates: true);
     }
   }
 

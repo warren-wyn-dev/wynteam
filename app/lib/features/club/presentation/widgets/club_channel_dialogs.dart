@@ -188,7 +188,7 @@ class _ClubChannelNameDialogState extends State<_ClubChannelNameDialog> {
             autofocus: true,
             maxLength: 50,
             decoration: InputDecoration(
-              hint: BrowserSystemText('ชื่อห้อง'),
+              hint: const BrowserSystemText('ชื่อห้อง'),
               error: BrowserSystemText(
                   isDuplicate ? 'มีห้องชื่อนี้อยู่แล้ว' : null),
             ),
@@ -303,7 +303,7 @@ class _ClubCategoryNameDialogState extends State<_ClubCategoryNameDialog> {
         autofocus: true,
         maxLength: 50,
         decoration: InputDecoration(
-          hint: BrowserSystemText('ชื่อกลุ่ม'),
+          hint: const BrowserSystemText('ชื่อกลุ่ม'),
           error:
               BrowserSystemText(isDuplicate ? 'มีกลุ่มชื่อนี้อยู่แล้ว' : null),
         ),
@@ -383,8 +383,9 @@ Future<bool> _showDestructiveConfirmDialog(
                         try {
                           await onConfirm();
                           succeeded = true;
-                          if (dialogContext.mounted)
+                          if (dialogContext.mounted) {
                             Navigator.of(dialogContext).pop();
+                          }
                         } catch (_) {
                           setState(() => isDeleting = false);
                         }

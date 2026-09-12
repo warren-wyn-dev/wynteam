@@ -131,7 +131,7 @@ class _LabeledFieldState extends State<LabeledField> {
                       isDense: true,
                       isCollapsed: true,
                       border: InputBorder.none,
-                      counter: const SizedBox.shrink(),
+                      counter: SizedBox.shrink(),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),

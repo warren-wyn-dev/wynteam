@@ -9,7 +9,8 @@ import 'club_channel_message.dart';
 // ChatRepository._replyEmbed's identical reasoning: PostgREST 400s on
 // the constraint-name form for this exact shape of self-referencing
 // relationship.
-const _replyEmbed = 'reply_to:club_channel_messages!reply_to_message_id(content, image_url)';
+const _replyEmbed =
+    'reply_to:club_channel_messages!reply_to_message_id(content, image_url)';
 const _authorSelect =
     'author:profiles!club_channel_messages_author_id_fkey(username, display_name, avatar_url)';
 const _messageColumns =
@@ -51,7 +52,9 @@ class ClubChannelChatRepository {
     if (beforeCreatedAt != null) {
       query = query.lt('created_at', beforeCreatedAt.toIso8601String());
     }
-    final rows = await query.order('created_at', ascending: false).limit(messagePageSize);
+    final rows = await query
+        .order('created_at', ascending: false)
+        .limit(messagePageSize);
     return rows.map((row) => ClubChannelMessage.fromMap(row)).toList();
   }
 
@@ -80,7 +83,8 @@ class ClubChannelChatRepository {
     String? imagePath;
     if (imageBytes != null) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      imagePath = '$clubId/chat/$channelId/$_myUserId-$timestamp.${imageExtension ?? 'jpg'}';
+      imagePath =
+          '$clubId/chat/$channelId/$_myUserId-$timestamp.${imageExtension ?? 'jpg'}';
       await _client.storage.from(_bucket).uploadBinary(
             imagePath,
             imageBytes,
@@ -93,7 +97,9 @@ class ClubChannelChatRepository {
         .insert({
           'channel_id': channelId,
           'author_id': _myUserId,
-          'content': (content == null || content.trim().isEmpty) ? null : content.trim(),
+          'content': (content == null || content.trim().isEmpty)
+              ? null
+              : content.trim(),
           'image_url': imagePath,
           'reply_to_message_id': replyToMessageId,
         })
@@ -110,22 +116,25 @@ class ClubChannelChatRepository {
 
   Future<String?> imageSignedUrl(String path) async {
     try {
-      return await _client.storage.from(_bucket).createSignedUrl(path, _signedUrlTtlSeconds);
+      return await _client.storage
+          .from(_bucket)
+          .createSignedUrl(path, _signedUrlTtlSeconds);
     } catch (_) {
       return null;
     }
   }
 
   Future<void> markChannelRead(String channelId) {
-    return _client.rpc('mark_club_channel_read', params: {'p_channel_id': channelId});
+    return _client
+        .rpc('mark_club_channel_read', params: {'p_channel_id': channelId});
   }
 
   /// Every channel's unread count in [clubId], keyed by channel id --
   /// batched in one RPC call the same way ClubRepository.fetchChannels
   /// batches every channel's name.
   Future<Map<String, int>> fetchUnreadCounts(String clubId) async {
-    final rows = await _client.rpc('get_unread_channel_counts', params: {'p_club_id': clubId})
-        as List<dynamic>;
+    final rows = await _client.rpc('get_unread_channel_counts',
+        params: {'p_club_id': clubId}) as List<dynamic>;
     return {
       for (final row in rows)
         (row as Map<String, dynamic>)['channel_id'] as String:
@@ -173,10 +182,12 @@ class ClubChannelChatRepository {
       callback: (payload) => _handleRealtimeInsert(payload.newRecord, onInsert),
     );
     if (onPresenceChange != null) {
-      channel.onPresenceSync((_) => onPresenceChange(channel.presenceState().length));
+      channel.onPresenceSync(
+          (_) => onPresenceChange(channel.presenceState().length));
     }
     channel.subscribe((status, error) async {
-      if (status == RealtimeSubscribeStatus.subscribed && onPresenceChange != null) {
+      if (status == RealtimeSubscribeStatus.subscribed &&
+          onPresenceChange != null) {
         await channel.track({'online_at': DateTime.now().toIso8601String()});
       }
     });
@@ -203,7 +214,8 @@ class ClubChannelChatRepository {
             column: 'channel_id',
             value: channelId,
           ),
-          callback: (payload) => _handleRealtimeInsert(payload.newRecord, onInsert),
+          callback: (payload) =>
+              _handleRealtimeInsert(payload.newRecord, onInsert),
         )
         .subscribe();
     return channel;

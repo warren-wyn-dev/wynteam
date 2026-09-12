@@ -2226,7 +2226,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                     // left for disabling this to protect against.
                     style: _textStyle(fontSize: 16, color: WynColors.ink),
                     decoration: InputDecoration(
-                      hint: BrowserSystemText('พิมพ์ข้อความ...'),
+                      hint: const BrowserSystemText('พิมพ์ข้อความ...'),
                       hintStyle: _textStyle(
                           fontSize: 15, color: WynColors.mutedNeutral),
                       border: InputBorder.none,

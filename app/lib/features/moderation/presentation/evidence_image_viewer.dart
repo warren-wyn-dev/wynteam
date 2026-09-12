@@ -17,7 +17,9 @@ class EvidenceImageViewer extends StatelessWidget {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Center(child: Image.network(signedUrl,
+          Center(
+              child: Image.network(
+            signedUrl,
             errorBuilder: networkImageErrorBuilder,
           )),
           SafeArea(

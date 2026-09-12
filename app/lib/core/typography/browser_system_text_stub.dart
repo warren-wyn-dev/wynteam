@@ -143,9 +143,8 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
             TextSpan(
               text: span.text,
               style: span.style,
-              recognizer: span.onTap == null
-                  ? null
-                  : _recognizerFor(span.onTap!),
+              recognizer:
+                  span.onTap == null ? null : _recognizerFor(span.onTap!),
             ),
         ],
       ),

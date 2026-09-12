@@ -9,7 +9,8 @@ import 'club_insights.dart';
 import 'club_invite_link.dart';
 import 'club_member.dart';
 
-const _memberProfileSelect = 'profile:profiles(username, display_name, avatar_url)';
+const _memberProfileSelect =
+    'profile:profiles(username, display_name, avatar_url)';
 
 /// Wraps the `clubs`/`club_members` reads/writes and club-media storage
 /// needed for WYN-014 (Club Core). See supabase/schema.sql for the RLS
@@ -127,7 +128,8 @@ class ClubRepository {
     final joinedIds = await _fetchJoinedClubIds(userId);
 
     final query = _client.from('clubs').select();
-    final rows = category == null ? await query : await query.eq('category', category);
+    final rows =
+        category == null ? await query : await query.eq('category', category);
 
     final clubs = <Club>[];
     for (final row in rows) {
@@ -137,7 +139,8 @@ class ClubRepository {
     return clubs;
   }
 
-  Future<List<Club>> fetchPopularClubs({String? category, int limit = 10}) async {
+  Future<List<Club>> fetchPopularClubs(
+      {String? category, int limit = 10}) async {
     final clubs = await _fetchDiscoverableClubs(category: category);
     clubs.sort((a, b) => b.memberCount.compareTo(a.memberCount));
     return clubs.take(limit).toList();
@@ -159,7 +162,8 @@ class ClubRepository {
   /// -- for WYN-009 Search's new Club tab. Unlike Explore, this doesn't
   /// exclude already-joined clubs (Search finds any Club by name, same
   /// as the User tab doesn't exclude already-followed users).
-  Future<List<Club>> searchClubs({required String query, required int page}) async {
+  Future<List<Club>> searchClubs(
+      {required String query, required int page}) async {
     final from = page * searchPageSize;
     final to = from + searchPageSize - 1;
 
@@ -293,7 +297,9 @@ class ClubRepository {
         filename: 'icon.$imageExtension',
         bytes: imageBytes,
       );
-      await _client.from('clubs').update({'icon_url': imagePath}).eq('id', clubId);
+      await _client
+          .from('clubs')
+          .update({'icon_url': imagePath}).eq('id', clubId);
     }
 
     final imageUrl = await _signedUrl(imagePath);
@@ -320,13 +326,14 @@ class ClubRepository {
     required String clubId,
     required ClubPrivacy privacy,
   }) {
-    return _client.from('clubs').update({'privacy': privacy.name}).eq('id', clubId);
+    return _client
+        .from('clubs')
+        .update({'privacy': privacy.name}).eq('id', clubId);
   }
 
   Future<void> updateRules({required String clubId, required String rules}) {
-    return _client
-        .from('clubs')
-        .update({'rules': normalizeOptionalText(rules.trim())}).eq('id', clubId);
+    return _client.from('clubs').update(
+        {'rules': normalizeOptionalText(rules.trim())}).eq('id', clubId);
   }
 
   /// Replaces this Club's single identity image (Beta4 §8.1).
@@ -543,7 +550,8 @@ class ClubRepository {
   /// to the UI as an ordinary error (the row disappearing from a live
   /// list mid-tap is the only way this is normally reachable at all).
   Future<void> revokeInviteLink(String linkId) {
-    return _client.rpc('revoke_club_invite_link', params: {'p_link_id': linkId});
+    return _client
+        .rpc('revoke_club_invite_link', params: {'p_link_id': linkId});
   }
 
   /// WYN-136 -- every not-yet-revoked invite link for [clubId], newest
@@ -642,9 +650,8 @@ class ClubRepository {
     required String name,
     String? categoryId,
   }) {
-    return _client
-        .from('club_channels')
-        .update({'name': name.trim(), 'category_id': categoryId}).eq('id', channelId);
+    return _client.from('club_channels').update(
+        {'name': name.trim(), 'category_id': categoryId}).eq('id', channelId);
   }
 
   /// Cascade-deletes every post inside this channel (club_posts.
@@ -658,7 +665,8 @@ class ClubRepository {
   /// WYN-133 (requirement 7) -- [clubId]'s channel categories, oldest
   /// first (new categories append to the end of the list, same ordering
   /// convention as [fetchChannels]).
-  Future<List<ClubChannelCategory>> fetchChannelCategories(String clubId) async {
+  Future<List<ClubChannelCategory>> fetchChannelCategories(
+      String clubId) async {
     final rows = await _client
         .from('club_channel_categories')
         .select()
@@ -696,7 +704,10 @@ class ClubRepository {
   /// this at the database level, so no channel is ever deleted or
   /// touched by this call.
   Future<void> deleteChannelCategory(String categoryId) {
-    return _client.from('club_channel_categories').delete().eq('id', categoryId);
+    return _client
+        .from('club_channel_categories')
+        .delete()
+        .eq('id', categoryId);
   }
 
   /// WYN-128 -- watches this user's own `club_members` row for [clubId],
@@ -725,7 +736,9 @@ class ClubRepository {
           callback: (payload) {
             final oldRecord = payload.oldRecord;
             final newRecord = payload.newRecord;
-            final rowClubId = (newRecord.isNotEmpty ? newRecord : oldRecord)['club_id'] as String?;
+            final rowClubId = (newRecord.isNotEmpty
+                ? newRecord
+                : oldRecord)['club_id'] as String?;
             if (rowClubId != clubId) return;
             final wasRemoved = payload.eventType == PostgresChangeEvent.delete;
             final wasBanned = newRecord['status'] == 'banned';
