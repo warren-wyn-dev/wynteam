@@ -44,102 +44,70 @@ jobs:
           done
 
           python3 - <<'PY'
+          import re
           from pathlib import Path
 
-          def replace(path, old, new):
+          def sub(path, pattern, replacement, label):
               p = Path(path)
               text = p.read_text()
-              if old not in text:
-                  raise SystemExit(f'{path}: missing expected merge pattern: {old[:100]!r}')
-              p.write_text(text.replace(old, new, 1))
+              text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one {label} match, got {count}')
+              p.write_text(text)
 
           drop = 'app/lib/features/home/presentation/widgets/home_drop_card.dart'
           pop = 'app/lib/features/home/presentation/widgets/home_pop_card.dart'
 
-          replace(
+          for path in (drop, pop):
+              sub(
+                  path,
+                  r'Expanded\(\s*flex: 3,\s*child: BrowserSystemText\(',
+                  'Flexible(\n                                        child: BrowserSystemText(',
+                  'author layout',
+              )
+              sub(
+                  path,
+                  r'Flexible\(\s*flex: 2,\s*child: BrowserSystemText\(',
+                  'ConstrainedBox(\n                                        constraints: const BoxConstraints(\n                                          maxWidth: 112,\n                                        ),\n                                        child: BrowserSystemText(',
+                  'timestamp layout',
+              )
+
+          sub(
               drop,
-              '''                                      Expanded(
-                                        flex: 3,
-                                        child: BrowserSystemText(''',
-              '''                                      Flexible(
-                                        child: BrowserSystemText(''',
-          )
-          replace(
-              drop,
-              '''                                      Flexible(
-                                        flex: 2,
-                                        child: BrowserSystemText(''',
-              '''                                      ConstrainedBox(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 112,
-                                        ),
-                                        child: BrowserSystemText(''',
-          )
-          replace(
-              drop,
-              '''                            child: !item.isPoll && item.imageUrl == null
-                                ? DoubleTapLike(
-                                    onLike: onToggleLike,
-                                    alreadyLiked: item.likedByMe,
-                                    child: HashtagText(
-                                      item.caption!,
-                                      style: captionStyle,
-                                    ),
-                                  )
-                                : HashtagText(
-                                    item.caption!,
-                                    style: captionStyle,
-                                  ),''',
-              '''                            child: Transform.translate(
+              r'''child: !item\.isPoll && item\.imageUrl == null\s*
+\s*\? DoubleTapLike\(
+(?P<body>.*?)
+\s*: HashtagText\(
+\s*item\.caption!,
+\s*style: captionStyle,
+\s*\),''',
+              '''child: Transform.translate(
                               offset: const Offset(0, -3),
                               child: !item.isPoll && item.imageUrl == null
                                   ? DoubleTapLike(
-                                      onLike: onToggleLike,
-                                      alreadyLiked: item.likedByMe,
-                                      child: HashtagText(
-                                        item.caption!,
-                                        style: captionStyle,
-                                      ),
-                                    )
+\g<body>
                                   : HashtagText(
                                       item.caption!,
                                       style: captionStyle,
                                     ),
                             ),''',
+              'Drop caption nudge',
           )
 
-          replace(
+          sub(
               pop,
-              '''                                      Expanded(
-                                        flex: 3,
-                                        child: BrowserSystemText(''',
-              '''                                      Flexible(
-                                        child: BrowserSystemText(''',
-          )
-          replace(
-              pop,
-              '''                                      Flexible(
-                                        flex: 2,
-                                        child: BrowserSystemText(''',
-              '''                                      ConstrainedBox(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 112,
-                                        ),
-                                        child: BrowserSystemText(''',
-          )
-          replace(
-              pop,
-              '''                            child: HashtagText(
-                              item.caption!,
-                              style: captionStyle,
-                            ),''',
-              '''                            child: Transform.translate(
+              r'''child: HashtagText\(
+\s*item\.caption!,
+\s*style: captionStyle,
+\s*\),''',
+              '''child: Transform.translate(
                               offset: const Offset(0, -3),
                               child: HashtagText(
                                 item.caption!,
                                 style: captionStyle,
                               ),
                             ),''',
+              'Pop caption nudge',
           )
           PY
 
