@@ -24,15 +24,15 @@ class _PagedCommentDropRepository extends RecordingDropRepository {
   _PagedCommentDropRepository();
 
   static DropComment _comment(String id) => DropComment(
-    id: id,
-    dropId: 'd1',
-    authorId: 'someone-else',
-    authorUsername: 'namfah',
-    textContent: 'คอมเมนต์ $id',
-    createdAt: DateTime.now(),
-    likeCount: 0,
-    likedByMe: false,
-  );
+        id: id,
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        textContent: 'คอมเมนต์ $id',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      );
 
   static final page0 = [
     for (var i = 0; i < DropRepository.commentPageSize; i++) _comment('p0-$i'),
@@ -88,73 +88,65 @@ void main() {
     await initFakeSupabaseSession(userId: 'me');
     repo = RecordingDropRepository();
     pagedCommentRepo = _PagedCommentDropRepository();
-    singleCommentRepo = RecordingDropRepository(
-      comments: [
-        DropComment(
-          id: 'only-one',
-          dropId: 'd1',
-          authorId: 'someone-else',
-          authorUsername: 'namfah',
-          textContent: 'คอมเมนต์เดียว',
-          createdAt: DateTime.now(),
-          likeCount: 0,
-          likedByMe: false,
-        ),
-      ],
-    );
-    ownCommentRepo = RecordingDropRepository(
-      comments: [
-        DropComment(
-          id: 'c1',
-          dropId: 'd1',
-          authorId: 'me',
-          authorUsername: 'me_user',
-          textContent: 'ความคิดเห็นของฉัน',
-          createdAt: DateTime.now(),
-          likeCount: 0,
-          likedByMe: false,
-        ),
-      ],
-    );
-    replyTestRepo = RecordingDropRepository(
-      comments: [
-        DropComment(
-          id: 'top-1',
-          dropId: 'd1',
-          authorId: 'someone-else',
-          authorUsername: 'namfah',
-          textContent: 'ความคิดเห็นระดับบนสุด',
-          createdAt: DateTime.now(),
-          likeCount: 0,
-          likedByMe: false,
-        ),
-      ],
-    );
-    existingReplyRepo = RecordingDropRepository(
-      comments: [
-        DropComment(
-          id: 'top-1',
-          dropId: 'd1',
-          authorId: 'someone-else',
-          authorUsername: 'namfah',
-          textContent: 'ความคิดเห็นระดับบนสุด',
-          createdAt: DateTime.now(),
-          likeCount: 0,
-          likedByMe: false,
-        ),
-        DropComment(
-          id: 'reply-1',
-          dropId: 'd1',
-          authorId: 'someone-else',
-          authorUsername: 'ploy',
-          textContent: 'ตอบกลับความคิดเห็นด้านบน',
-          createdAt: DateTime.now(),
-          likeCount: 0,
-          likedByMe: false,
-          parentCommentId: 'top-1',
-        ),
-      ],
-    );
+    singleCommentRepo = RecordingDropRepository(comments: [
+      DropComment(
+        id: 'only-one',
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        textContent: 'คอมเมนต์เดียว',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      ),
+    ]);
+    ownCommentRepo = RecordingDropRepository(comments: [
+      DropComment(
+        id: 'c1',
+        dropId: 'd1',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        textContent: 'ความคิดเห็นของฉัน',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      ),
+    ]);
+    replyTestRepo = RecordingDropRepository(comments: [
+      DropComment(
+        id: 'top-1',
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        textContent: 'ความคิดเห็นระดับบนสุด',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      ),
+    ]);
+    existingReplyRepo = RecordingDropRepository(comments: [
+      DropComment(
+        id: 'top-1',
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'namfah',
+        textContent: 'ความคิดเห็นระดับบนสุด',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+      ),
+      DropComment(
+        id: 'reply-1',
+        dropId: 'd1',
+        authorId: 'someone-else',
+        authorUsername: 'ploy',
+        textContent: 'ตอบกลับความคิดเห็นด้านบน',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        likedByMe: false,
+        parentCommentId: 'top-1',
+      ),
+    ]);
     followRepo = RecordingFollowRepository();
     popRepo = RecordingPopRepository();
     profileRepo = RecordingProfileRepository(
@@ -164,9 +156,8 @@ void main() {
     ownDropRepo = RecordingDropRepository();
     ownDropFollowRepo = RecordingFollowRepository();
     followToggleTestDropRepo = RecordingDropRepository();
-    followToggleTestFollowRepo = RecordingFollowRepository(
-      initiallyFollowing: false,
-    );
+    followToggleTestFollowRepo =
+        RecordingFollowRepository(initiallyFollowing: false);
     tapProfileTestDropRepo = RecordingDropRepository();
     tapProfileTestFollowRepo = RecordingFollowRepository();
     tapProfileTestProfileRepo = RecordingProfileRepository(
@@ -216,25 +207,23 @@ void main() {
     savedByMe: false,
   );
 
-  testWidgets('a tall Drop header (long caption + image) scrolls instead of '
+  testWidgets(
+      'a tall Drop header (long caption + image) scrolls instead of '
       'overflowing on a short viewport', (tester) async {
     // The default flutter_test surface (800x600) is wide/short -- the
     // exact shape that overflowed WYN-004's PostDetailScreen before it
     // merged the header into the comment list's scrollable. This spec
     // (.wyn/docs/design/wyn-005-drop.md) called out building it that way
     // from the start, so this test exists to prove it actually was.
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DropDetailScreen(
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
           dropRepository: repo,
           followRepository: followRepo,
           profileRepository: profileRepo,
           popRepository: popRepo,
           savedRepository: savedRepo,
-          drop: tallDrop,
-        ),
-      ),
-    );
+          drop: tallDrop),
+    ));
     // fetchComments() fails against the fake network, and the image
     // fails to load -- both expected, neither is what this test checks.
     await tester.pump();
@@ -245,46 +234,41 @@ void main() {
   });
 
   testWidgets(
-    'WYN-086: a Drop with both a caption and an image shows the caption '
-    'above the image, not below it',
-    (tester) async {
-      final captionAboveImageDrop = Drop(
-        id: 'd-caption-image-order',
-        authorId: 'u1',
-        authorUsername: 'namfah',
-        imageUrl: 'https://example.supabase.co/drops/order.jpg',
-        caption: 'ข้อความโพสต์',
-        createdAt: DateTime.now(),
-        likeCount: 0,
-        commentCount: 0,
-        likedByMe: false,
-        savedByMe: false,
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: repo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: captionAboveImageDrop,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
-      tester.takeException();
+      'WYN-086: a Drop with both a caption and an image shows the caption '
+      'above the image, not below it', (tester) async {
+    final captionAboveImageDrop = Drop(
+      id: 'd-caption-image-order',
+      authorId: 'u1',
+      authorUsername: 'namfah',
+      imageUrl: 'https://example.supabase.co/drops/order.jpg',
+      caption: 'ข้อความโพสต์',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      savedByMe: false,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: captionAboveImageDrop,
+      ),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    tester.takeException();
 
-      final captionTop = tester.getTopLeft(find.text('ข้อความโพสต์')).dy;
-      final imageTop = tester.getTopLeft(find.byType(Image)).dy;
-      expect(captionTop, lessThan(imageTop));
-    },
-  );
+    final captionTop = tester.getTopLeft(find.text('ข้อความโพสต์')).dy;
+    final imageTop = tester.getTopLeft(find.byType(Image)).dy;
+    expect(captionTop, lessThan(imageTop));
+  });
 
-  testWidgets('toggling Like flips the icon and count optimistically', (
-    tester,
-  ) async {
+  testWidgets('toggling Like flips the icon and count optimistically',
+      (tester) async {
     final drop = Drop(
       id: 'd2',
       authorId: 'someone-else',
@@ -297,18 +281,15 @@ void main() {
       savedByMe: false,
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DropDetailScreen(
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
           dropRepository: repo,
           followRepository: followRepo,
           profileRepository: profileRepo,
           popRepository: popRepo,
           savedRepository: savedRepo,
-          drop: drop,
-        ),
-      ),
-    );
+          drop: drop),
+    ));
     await tester.pump();
     // No real network access in the test environment -- expected and
     // irrelevant to what this test checks (that the like state toggles).
@@ -345,7 +326,8 @@ void main() {
   // authorIsVerified through) but not here -- DropDetailScreen's own
   // header never rendered VerifiedBadge at all, so tapping into the
   // exact same Drop lost the mark it had a moment ago.
-  testWidgets('shows VerifiedBadge in the header for a verified account\'s '
+  testWidgets(
+      'shows VerifiedBadge in the header for a verified account\'s '
       'Drop', (tester) async {
     final verifiedDrop = Drop(
       id: 'd-verified',
@@ -360,18 +342,16 @@ void main() {
       savedByMe: false,
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DropDetailScreen(
-          dropRepository: repo,
-          followRepository: followRepo,
-          profileRepository: profileRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          drop: verifiedDrop,
-        ),
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: verifiedDrop,
       ),
-    );
+    ));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -391,18 +371,16 @@ void main() {
       savedByMe: false,
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DropDetailScreen(
-          dropRepository: repo,
-          followRepository: followRepo,
-          profileRepository: profileRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          drop: otherDrop,
-        ),
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: otherDrop,
       ),
-    );
+    ));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -422,75 +400,72 @@ void main() {
   });
 
   testWidgets(
-    'DS-008: the per-comment delete and like buttons meet the 44px touch '
-    'target minimum (WCAG 2.5.5), not the 32px box they used to be '
-    'squeezed into',
-    (tester) async {
-      // The 1:1 header image is 800px tall on the default 800x600 test
-      // viewport, pushing the comment list (and its delete/like buttons)
-      // out of ListView's cache extent -- use a tall custom viewport
-      // instead, same fix as DS-003's divider test.
-      tester.view.physicalSize = const Size(800, 2200);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
+      'DS-008: the per-comment delete and like buttons meet the 44px touch '
+      'target minimum (WCAG 2.5.5), not the 32px box they used to be '
+      'squeezed into', (tester) async {
+    // The 1:1 header image is 800px tall on the default 800x600 test
+    // viewport, pushing the comment list (and its delete/like buttons)
+    // out of ListView's cache extent -- use a tall custom viewport
+    // instead, same fix as DS-003's divider test.
+    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
-      // Someone else's Drop (so the top-level "ลบ Drop" IconButton, which
-      // shares the same delete_outline icon, never renders) with one
-      // comment authored by the current user, so the comment's own
-      // delete/like buttons are the only delete_outline/favorite_border
-      // IconButtons on screen.
-      final otherDropWithOwnComment = Drop(
-        id: 'd1',
-        authorId: 'someone-else',
-        authorUsername: 'namfah',
-        imageUrl: 'https://example.supabase.co/drops/d1.jpg',
-        createdAt: DateTime.now(),
-        likeCount: 0,
-        commentCount: 1,
-        likedByMe: false,
-        savedByMe: false,
-      );
+    // Someone else's Drop (so the top-level "ลบ Drop" IconButton, which
+    // shares the same delete_outline icon, never renders) with one
+    // comment authored by the current user, so the comment's own
+    // delete/like buttons are the only delete_outline/favorite_border
+    // IconButtons on screen.
+    final otherDropWithOwnComment = Drop(
+      id: 'd1',
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      imageUrl: 'https://example.supabase.co/drops/d1.jpg',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 1,
+      likedByMe: false,
+      savedByMe: false,
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: ownCommentRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: otherDropWithOwnComment,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      tester.takeException();
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: ownCommentRepo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: otherDropWithOwnComment,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
 
-      final deleteButtonSize = tester.getSize(
-        find
-            .ancestor(
-              of: find.widgetWithIcon(IconButton, Icons.delete_outline),
-              matching: find.byType(SizedBox),
-            )
-            .first,
-      );
-      expect(deleteButtonSize.width, greaterThanOrEqualTo(44));
-      expect(deleteButtonSize.height, greaterThanOrEqualTo(44));
+    final deleteButtonSize = tester.getSize(
+      find
+          .ancestor(
+            of: find.widgetWithIcon(IconButton, Icons.delete_outline),
+            matching: find.byType(SizedBox),
+          )
+          .first,
+    );
+    expect(deleteButtonSize.width, greaterThanOrEqualTo(44));
+    expect(deleteButtonSize.height, greaterThanOrEqualTo(44));
 
-      final likeButtonSize = tester.getSize(
-        find
-            .ancestor(
-              of: findHeartButton<IconButton>(filled: false),
-              matching: find.byType(SizedBox),
-            )
-            .first,
-      );
-      expect(likeButtonSize.width, greaterThanOrEqualTo(44));
-      expect(likeButtonSize.height, greaterThanOrEqualTo(44));
-    },
-  );
+    final likeButtonSize = tester.getSize(
+      find
+          .ancestor(
+            of: findHeartButton<IconButton>(filled: false),
+            matching: find.byType(SizedBox),
+          )
+          .first,
+    );
+    expect(likeButtonSize.width, greaterThanOrEqualTo(44));
+    expect(likeButtonSize.height, greaterThanOrEqualTo(44));
+  });
 
-  testWidgets('does not show a Follow button for the current user\'s own '
+  testWidgets(
+      'does not show a Follow button for the current user\'s own '
       'Drop', (tester) async {
     final ownDrop = Drop(
       id: 'd4',
@@ -504,18 +479,16 @@ void main() {
       savedByMe: false,
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DropDetailScreen(
-          dropRepository: ownDropRepo,
-          followRepository: ownDropFollowRepo,
-          profileRepository: profileRepo,
-          popRepository: popRepo,
-          savedRepository: savedRepo,
-          drop: ownDrop,
-        ),
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: ownDropRepo,
+        followRepository: ownDropFollowRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: ownDrop,
       ),
-    );
+    ));
     await tester.pumpAndSettle();
     tester.takeException();
 
@@ -524,95 +497,87 @@ void main() {
   });
 
   testWidgets(
-    'rapid double-tap on Follow sends a fresh currentlyFollowing value '
-    'each time instead of reusing the stale pre-tap state',
-    (tester) async {
-      final drop = Drop(
-        id: 'd5',
-        authorId: 'someone-else',
-        authorUsername: 'namfah',
-        imageUrl: 'https://example.supabase.co/drops/d5.jpg',
-        createdAt: DateTime.now(),
-        likeCount: 0,
-        commentCount: 0,
-        likedByMe: false,
-        savedByMe: false,
-      );
+      'rapid double-tap on Follow sends a fresh currentlyFollowing value '
+      'each time instead of reusing the stale pre-tap state', (tester) async {
+    final drop = Drop(
+      id: 'd5',
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      imageUrl: 'https://example.supabase.co/drops/d5.jpg',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      savedByMe: false,
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: followToggleTestDropRepo,
-            followRepository: followToggleTestFollowRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      tester.takeException();
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: followToggleTestDropRepo,
+        followRepository: followToggleTestFollowRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: drop,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
 
-      final followButton = find.widgetWithText(OutlinedButton, 'ติดตาม');
-      expect(followButton, findsOneWidget);
+    final followButton = find.widgetWithText(OutlinedButton, 'ติดตาม');
+    expect(followButton, findsOneWidget);
 
-      final onPressed = tester.widget<OutlinedButton>(followButton).onPressed!;
-      onPressed();
-      onPressed();
-      await tester.pumpAndSettle();
+    final onPressed = tester.widget<OutlinedButton>(followButton).onPressed!;
+    onPressed();
+    onPressed();
+    await tester.pumpAndSettle();
 
-      expect(followToggleTestFollowRepo.toggleFollowCalls, 2);
-      expect(followToggleTestFollowRepo.toggleFollowCurrentlyFollowingArgs, [
-        false,
-        true,
-      ]);
-    },
-  );
+    expect(followToggleTestFollowRepo.toggleFollowCalls, 2);
+    expect(
+      followToggleTestFollowRepo.toggleFollowCurrentlyFollowingArgs,
+      [false, true],
+    );
+  });
 
   testWidgets(
-    'tapping the avatar/name opens the author\'s profile, without also '
-    'toggling Follow (WYN-013)',
-    (tester) async {
-      final drop = Drop(
-        id: 'd6',
-        authorId: 'someone-else',
-        authorUsername: 'namfah',
-        imageUrl: 'https://example.supabase.co/drops/d6.jpg',
-        createdAt: DateTime.now(),
-        likeCount: 0,
-        commentCount: 0,
-        likedByMe: false,
-        savedByMe: false,
-      );
+      'tapping the avatar/name opens the author\'s profile, without also '
+      'toggling Follow (WYN-013)', (tester) async {
+    final drop = Drop(
+      id: 'd6',
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      imageUrl: 'https://example.supabase.co/drops/d6.jpg',
+      createdAt: DateTime.now(),
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      savedByMe: false,
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: tapProfileTestDropRepo,
-            followRepository: tapProfileTestFollowRepo,
-            profileRepository: tapProfileTestProfileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      tester.takeException();
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: tapProfileTestDropRepo,
+        followRepository: tapProfileTestFollowRepo,
+        profileRepository: tapProfileTestProfileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: drop,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
 
-      final nameFinder = find.text('@namfah');
-      await tester.ensureVisible(nameFinder);
-      await tester.pumpAndSettle();
-      tester.takeException();
-      await tester.tap(nameFinder);
-      await tester.pumpAndSettle();
-      tester.takeException();
+    final nameFinder = find.text('@namfah');
+    await tester.ensureVisible(nameFinder);
+    await tester.pumpAndSettle();
+    tester.takeException();
+    await tester.tap(nameFinder);
+    await tester.pumpAndSettle();
+    tester.takeException();
 
-      expect(find.byType(ViewProfileScreen), findsOneWidget);
-      expect(tapProfileTestFollowRepo.toggleFollowCalls, 0);
-    },
-  );
+    expect(find.byType(ViewProfileScreen), findsOneWidget);
+    expect(tapProfileTestFollowRepo.toggleFollowCalls, 0);
+  });
 
   final repoTestDrop = Drop(
     id: 'd1',
@@ -627,110 +592,99 @@ void main() {
   );
 
   group('Comment reply (WYN-022)', () {
-    testWidgets(
-      'a top-level comment has a "ตอบกลับ" button, a reply does not',
-      (tester) async {
-        tester.view.physicalSize = const Size(800, 2200);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
+    testWidgets('a top-level comment has a "ตอบกลับ" button, a reply does not',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: DropDetailScreen(
-              dropRepository: existingReplyRepo,
-              followRepository: followRepo,
-              profileRepository: profileRepo,
-              popRepository: popRepo,
-              savedRepository: savedRepo,
-              drop: repoTestDrop,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        tester.takeException();
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: existingReplyRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: repoTestDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-        // Exactly one "ตอบกลับ" button -- the top-level comment's, not
-        // the reply's.
-        expect(find.text('ตอบกลับ'), findsOneWidget);
-        expect(find.text('ความคิดเห็นระดับบนสุด'), findsOneWidget);
-        expect(find.text('ตอบกลับความคิดเห็นด้านบน'), findsOneWidget);
-      },
-    );
+      // Exactly one "ตอบกลับ" button -- the top-level comment's, not
+      // the reply's.
+      expect(find.text('ตอบกลับ'), findsOneWidget);
+      expect(find.text('ความคิดเห็นระดับบนสุด'), findsOneWidget);
+      expect(find.text('ตอบกลับความคิดเห็นด้านบน'), findsOneWidget);
+    });
 
     testWidgets(
-      'tapping "ตอบกลับ" shows a reply chip, and sending calls addComment '
-      'with the parent id',
-      (tester) async {
-        tester.view.physicalSize = const Size(800, 2200);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
+        'tapping "ตอบกลับ" shows a reply chip, and sending calls addComment '
+        'with the parent id', (tester) async {
+      tester.view.physicalSize = const Size(800, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: DropDetailScreen(
-              dropRepository: replyTestRepo,
-              followRepository: followRepo,
-              profileRepository: profileRepo,
-              popRepository: popRepo,
-              savedRepository: savedRepo,
-              drop: repoTestDrop,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        tester.takeException();
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: replyTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: repoTestDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-        await tester.tap(find.text('ตอบกลับ'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('ตอบกลับ'));
+      await tester.pumpAndSettle();
 
-        expect(find.text('ตอบกลับ @namfah'), findsOneWidget);
+      expect(find.text('ตอบกลับ @namfah'), findsOneWidget);
 
-        await tester.enterText(find.byType(TextField), 'คำตอบของฉัน');
-        await tester.pump();
-        await tester.tap(find.byIcon(Icons.send_rounded));
-        await tester.pumpAndSettle();
-        tester.takeException();
+      await tester.enterText(find.byType(TextField), 'คำตอบของฉัน');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-        expect(replyTestRepo.addCommentCalls, 1);
-        expect(replyTestRepo.addCommentParentIdArgs, ['top-1']);
-        // The reply chip clears after sending -- back to composing a new
-        // top-level comment.
-        expect(find.text('ตอบกลับ @namfah'), findsNothing);
-      },
-    );
+      expect(replyTestRepo.addCommentCalls, 1);
+      expect(replyTestRepo.addCommentParentIdArgs, ['top-1']);
+      // The reply chip clears after sending -- back to composing a new
+      // top-level comment.
+      expect(find.text('ตอบกลับ @namfah'), findsNothing);
+    });
 
     testWidgets(
-      'cancelling a reply (tapping the X) clears the chip and reply state',
-      (tester) async {
-        tester.view.physicalSize = const Size(800, 2200);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
+        'cancelling a reply (tapping the X) clears the chip and reply state',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: DropDetailScreen(
-              dropRepository: replyTestRepo,
-              followRepository: followRepo,
-              profileRepository: profileRepo,
-              popRepository: popRepo,
-              savedRepository: savedRepo,
-              drop: repoTestDrop,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        tester.takeException();
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: replyTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: repoTestDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-        await tester.tap(find.text('ตอบกลับ'));
-        await tester.pumpAndSettle();
-        expect(find.text('ตอบกลับ @namfah'), findsOneWidget);
+      await tester.tap(find.text('ตอบกลับ'));
+      await tester.pumpAndSettle();
+      expect(find.text('ตอบกลับ @namfah'), findsOneWidget);
 
-        await tester.tap(find.byIcon(Icons.close_rounded));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
 
-        expect(find.text('ตอบกลับ @namfah'), findsNothing);
-      },
-    );
+      expect(find.text('ตอบกลับ @namfah'), findsNothing);
+    });
   });
 
   group('Poll (WYN-035)', () {
@@ -738,38 +692,38 @@ void main() {
       int? myVoteIndex,
       int? totalVotes,
       List<int>? optionCounts,
-    }) => Drop(
-      id: 'poll-d1',
-      authorId: 'someone-else',
-      authorUsername: 'namfah',
-      caption: 'กินอะไรดี?',
-      createdAt: DateTime.now(),
-      likeCount: 0,
-      commentCount: 0,
-      likedByMe: false,
-      savedByMe: false,
-      pollId: 'p1',
-      pollOptions: const ['Pizza', 'Sushi'],
-      pollExpiresAt: DateTime.now().toUtc().add(const Duration(days: 1)),
-      pollMyVoteIndex: myVoteIndex,
-      pollTotalVotes: totalVotes,
-      pollOptionCounts: optionCounts,
-    );
+    }) =>
+        Drop(
+          id: 'poll-d1',
+          authorId: 'someone-else',
+          authorUsername: 'namfah',
+          caption: 'กินอะไรดี?',
+          createdAt: DateTime.now(),
+          likeCount: 0,
+          commentCount: 0,
+          likedByMe: false,
+          savedByMe: false,
+          pollId: 'p1',
+          pollOptions: const ['Pizza', 'Sushi'],
+          pollExpiresAt: DateTime.now().toUtc().add(const Duration(days: 1)),
+          pollMyVoteIndex: myVoteIndex,
+          pollTotalVotes: totalVotes,
+          pollOptionCounts: optionCounts,
+        );
 
-    testWidgets('shows the Poll widget instead of an image, and voting '
+    testWidgets(
+        'shows the Poll widget instead of an image, and voting '
         'calls votePoll and updates optimistically', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: pollVoteTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: pollDrop(),
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: pollVoteTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: pollDrop(),
         ),
-      );
+      ));
       await tester.pump();
       // No real network access in the test environment -- expected and
       // irrelevant to what this test checks.
@@ -786,9 +740,8 @@ void main() {
       expect(find.text('100%'), findsOneWidget);
     });
 
-    testWidgets('the poll author cannot vote on their own poll', (
-      tester,
-    ) async {
+    testWidgets('the poll author cannot vote on their own poll',
+        (tester) async {
       final ownPoll = Drop(
         id: 'poll-own',
         authorId: 'me',
@@ -806,18 +759,16 @@ void main() {
         pollOptionCounts: const [0, 0],
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: pollOwnAuthorTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: ownPoll,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: pollOwnAuthorTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: ownPoll,
         ),
-      );
+      ));
       await tester.pump();
       tester.takeException();
 
@@ -830,93 +781,83 @@ void main() {
 
   group('Edit/Delete (WYN-037)', () {
     testWidgets(
-      'own Drop within the 30-minute edit window shows both "แก้ไข" and '
-      '"ลบ" in the more_vert menu',
-      (tester) async {
-        final freshOwnDrop = Drop(
-          id: 'edit-1',
-          authorId: 'me',
-          authorUsername: 'me_user',
-          imageUrl: 'https://example.supabase.co/drops/edit-1.jpg',
-          caption: 'เดิม',
-          createdAt: DateTime.now(),
-          likeCount: 0,
-          commentCount: 0,
-          likedByMe: false,
-          savedByMe: false,
-        );
+        'own Drop within the 30-minute edit window shows both "แก้ไข" and '
+        '"ลบ" in the more_vert menu', (tester) async {
+      final freshOwnDrop = Drop(
+        id: 'edit-1',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/edit-1.jpg',
+        caption: 'เดิม',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: DropDetailScreen(
-              dropRepository: editMenuTestRepo,
-              followRepository: followRepo,
-              profileRepository: profileRepo,
-              popRepository: popRepo,
-              savedRepository: savedRepo,
-              drop: freshOwnDrop,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        tester.takeException();
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: editMenuTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: freshOwnDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-        tester
-            .widget<IconButton>(
-              find.widgetWithIcon(IconButton, Icons.more_vert),
-            )
-            .onPressed!();
-        await tester.pumpAndSettle();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
+      await tester.pumpAndSettle();
 
-        expect(find.text('แก้ไข'), findsOneWidget);
-        expect(find.text('ลบ'), findsOneWidget);
-      },
-    );
+      expect(find.text('แก้ไข'), findsOneWidget);
+      expect(find.text('ลบ'), findsOneWidget);
+    });
 
     testWidgets(
-      'own Drop past the 30-minute edit window hides "แก้ไข", keeps "ลบ"',
-      (tester) async {
-        final oldOwnDrop = Drop(
-          id: 'edit-2',
-          authorId: 'me',
-          authorUsername: 'me_user',
-          imageUrl: 'https://example.supabase.co/drops/edit-2.jpg',
-          caption: 'เก่าแล้ว',
-          createdAt: DateTime.now().subtract(const Duration(minutes: 31)),
-          likeCount: 0,
-          commentCount: 0,
-          likedByMe: false,
-          savedByMe: false,
-        );
+        'own Drop past the 30-minute edit window hides "แก้ไข", keeps "ลบ"',
+        (tester) async {
+      final oldOwnDrop = Drop(
+        id: 'edit-2',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/edit-2.jpg',
+        caption: 'เก่าแล้ว',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 31)),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: DropDetailScreen(
-              dropRepository: oldDropMenuTestRepo,
-              followRepository: followRepo,
-              profileRepository: profileRepo,
-              popRepository: popRepo,
-              savedRepository: savedRepo,
-              drop: oldOwnDrop,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        tester.takeException();
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: oldDropMenuTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: oldOwnDrop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-        tester
-            .widget<IconButton>(
-              find.widgetWithIcon(IconButton, Icons.more_vert),
-            )
-            .onPressed!();
-        await tester.pumpAndSettle();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
+      await tester.pumpAndSettle();
 
-        expect(find.text('แก้ไข'), findsNothing);
-        expect(find.text('ลบ'), findsOneWidget);
-      },
-    );
+      expect(find.text('แก้ไข'), findsNothing);
+      expect(find.text('ลบ'), findsOneWidget);
+    });
 
-    testWidgets('tapping "แก้ไข" opens EditDropCaptionScreen prefilled, and '
+    testWidgets(
+        'tapping "แก้ไข" opens EditDropCaptionScreen prefilled, and '
         'returning the new caption updates the caption and shows '
         '"แก้ไขแล้ว"', (tester) async {
       final drop = Drop(
@@ -932,18 +873,16 @@ void main() {
         savedByMe: false,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: editFlowTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: editFlowTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -970,9 +909,8 @@ void main() {
       expect(find.text('แก้ไขแล้ว'), findsOneWidget);
     });
 
-    testWidgets('tapping "ลบ" confirms then soft-deletes via deleteDrop', (
-      tester,
-    ) async {
+    testWidgets('tapping "ลบ" confirms then soft-deletes via deleteDrop',
+        (tester) async {
       final drop = Drop(
         id: 'delete-1',
         authorId: 'me',
@@ -985,18 +923,16 @@ void main() {
         savedByMe: false,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: deleteFlowTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: deleteFlowTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1017,69 +953,62 @@ void main() {
     });
 
     testWidgets(
-      'WYN-121: deleteDrop() throwing (e.g. a response lost after the '
-      'server already committed) still closes the screen once fetchById '
-      'confirms the Drop is actually gone',
-      (tester) async {
-        final drop = Drop(
-          id: 'delete-2',
-          authorId: 'me',
-          authorUsername: 'me_user',
-          imageUrl: 'https://example.supabase.co/drops/delete-2.jpg',
-          createdAt: DateTime.now(),
-          likeCount: 0,
-          commentCount: 0,
-          likedByMe: false,
-          savedByMe: false,
-        );
-        deleteThrowsButServerSucceededTestRepo.deleteDropError = Exception(
-          'connection dropped after the request was sent',
-        );
-        // The server actually committed the delete despite the client-side
-        // exception above -- fetchById() (WYN-120) now correctly reports
-        // the Drop as gone.
-        deleteThrowsButServerSucceededTestRepo.fetchByIdResults['delete-2'] =
-            null;
+        'WYN-121: deleteDrop() throwing (e.g. a response lost after the '
+        'server already committed) still closes the screen once fetchById '
+        'confirms the Drop is actually gone', (tester) async {
+      final drop = Drop(
+        id: 'delete-2',
+        authorId: 'me',
+        authorUsername: 'me_user',
+        imageUrl: 'https://example.supabase.co/drops/delete-2.jpg',
+        createdAt: DateTime.now(),
+        likeCount: 0,
+        commentCount: 0,
+        likedByMe: false,
+        savedByMe: false,
+      );
+      deleteThrowsButServerSucceededTestRepo.deleteDropError =
+          Exception('connection dropped after the request was sent');
+      // The server actually committed the delete despite the client-side
+      // exception above -- fetchById() (WYN-120) now correctly reports
+      // the Drop as gone.
+      deleteThrowsButServerSucceededTestRepo.fetchByIdResults['delete-2'] =
+          null;
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: DropDetailScreen(
-              dropRepository: deleteThrowsButServerSucceededTestRepo,
-              followRepository: followRepo,
-              profileRepository: profileRepo,
-              popRepository: popRepo,
-              savedRepository: savedRepo,
-              drop: drop,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        tester.takeException();
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: deleteThrowsButServerSucceededTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-        tester
-            .widget<IconButton>(
-              find.widgetWithIcon(IconButton, Icons.more_vert),
-            )
-            .onPressed!();
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('ลบ'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-        await tester.pumpAndSettle();
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.more_vert))
+          .onPressed!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ลบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await tester.pumpAndSettle();
 
-        // The screen closes as if the delete had succeeded outright --
-        // never the "ลบโพสต์ไม่สำเร็จ" failure SnackBar for a Drop that
-        // was, in fact, already deleted.
-        expect(find.byType(DropDetailScreen), findsNothing);
-        expect(find.text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'), findsNothing);
-        expect(deleteThrowsButServerSucceededTestRepo.fetchByIdCalls, 1);
-      },
-    );
+      // The screen closes as if the delete had succeeded outright --
+      // never the "ลบโพสต์ไม่สำเร็จ" failure SnackBar for a Drop that
+      // was, in fact, already deleted.
+      expect(find.byType(DropDetailScreen), findsNothing);
+      expect(find.text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง'), findsNothing);
+      expect(deleteThrowsButServerSucceededTestRepo.fetchByIdCalls, 1);
+    });
 
-    testWidgets('WYN-121 regression: deleteDrop() throwing for a real failure '
-        '(the Drop is still live) still shows the failure SnackBar', (
-      tester,
-    ) async {
+    testWidgets(
+        'WYN-121 regression: deleteDrop() throwing for a real failure '
+        '(the Drop is still live) still shows the failure SnackBar',
+        (tester) async {
       final drop = Drop(
         id: 'delete-3',
         authorId: 'me',
@@ -1091,25 +1020,22 @@ void main() {
         likedByMe: false,
         savedByMe: false,
       );
-      deleteThrowsAndStillLiveTestRepo.deleteDropError = Exception(
-        'permission denied',
-      );
+      deleteThrowsAndStillLiveTestRepo.deleteDropError =
+          Exception('permission denied');
       // fetchById() confirms the Drop is still there -- a genuine
       // failure, not a lost-response false negative.
       deleteThrowsAndStillLiveTestRepo.fetchByIdResults['delete-3'] = drop;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: deleteThrowsAndStillLiveTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: deleteThrowsAndStillLiveTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1128,7 +1054,8 @@ void main() {
   });
 
   group('View count (WYN-038)', () {
-    testWidgets("opening someone else's Drop records a View exactly once, and "
+    testWidgets(
+        "opening someone else's Drop records a View exactly once, and "
         'bumps the count optimistically', (tester) async {
       final drop = Drop(
         id: 'view-1',
@@ -1143,18 +1070,16 @@ void main() {
         viewCount: 5,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: viewCountTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: viewCountTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1169,7 +1094,8 @@ void main() {
       expect(find.text('การเข้าชม'), findsNothing);
     });
 
-    testWidgets('WYN-083: also calls recordView for the current user\'s own Drop '
+    testWidgets(
+        'WYN-083: also calls recordView for the current user\'s own Drop '
         'now -- Founder wants the author\'s own views counted', (tester) async {
       final ownDrop = Drop(
         id: 'view-own-1',
@@ -1184,18 +1110,16 @@ void main() {
         viewCount: 5,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: ownDropViewCountTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: ownDrop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: ownDropViewCountTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: ownDrop,
         ),
-      );
+      ));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1210,7 +1134,8 @@ void main() {
       expect(find.text('การเข้าชม'), findsNothing);
     });
 
-    testWidgets('recordView fires only once per screen open, even after later '
+    testWidgets(
+        'recordView fires only once per screen open, even after later '
         'rebuilds (e.g. toggling Like)', (tester) async {
       final drop = Drop(
         id: 'view-2',
@@ -1225,18 +1150,16 @@ void main() {
         viewCount: 0,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: viewCountNoRepeatTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: viewCountNoRepeatTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pumpAndSettle();
       tester.takeException();
       expect(viewCountNoRepeatTestRepo.recordViewCalls, 1);
@@ -1253,9 +1176,9 @@ void main() {
       expect(viewCountNoRepeatTestRepo.recordViewCalls, 1);
     });
 
-    testWidgets('view recording stays active while post activity omits views', (
-      tester,
-    ) async {
+    testWidgets(
+        'view recording stays active while post activity omits views',
+        (tester) async {
       final drop = Drop(
         id: 'view-3',
         authorId: 'me',
@@ -1269,18 +1192,16 @@ void main() {
         viewCount: 42,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: viewCountSemanticsTestRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: viewCountSemanticsTestRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1296,7 +1217,8 @@ void main() {
 
   // WYN-097, Design spec Screen 6.
   group('ReDrop button hidden for non-"ทุกคน" audience (WYN-097)', () {
-    testWidgets('the FocusedActionBar has no ReDrop icon when the '
+    testWidgets(
+        'the FocusedActionBar has no ReDrop icon when the '
         "Drop's audience is not everyone", (tester) async {
       final drop = Drop(
         id: 'd-audience',
@@ -1311,18 +1233,16 @@ void main() {
         audience: AudienceOption.onlyMe,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: repo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pump();
       tester.takeException();
 
@@ -1331,7 +1251,8 @@ void main() {
       expect(findHeart(filled: false), findsOneWidget);
     });
 
-    testWidgets('the ReDrop icon is shown as usual for audience == '
+    testWidgets(
+        'the ReDrop icon is shown as usual for audience == '
         'everyone (no regression)', (tester) async {
       final drop = Drop(
         id: 'd-audience-2',
@@ -1345,18 +1266,16 @@ void main() {
         savedByMe: false,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: repo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pump();
       tester.takeException();
 
@@ -1366,7 +1285,8 @@ void main() {
 
   // WYN-098, Design spec Screen 4.
   group('Location check-in display (WYN-098)', () {
-    testWidgets('shows "· 📍 {location}" appended to the relative-time '
+    testWidgets(
+        'shows "· 📍 {location}" appended to the relative-time '
         'text when the Drop has a check-in', (tester) async {
       final drop = Drop(
         id: 'd-location',
@@ -1381,25 +1301,24 @@ void main() {
         location: 'สยามพารากอน',
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: repo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pump();
       tester.takeException();
 
       expect(find.textContaining('📍 สยามพารากอน'), findsOneWidget);
     });
 
-    testWidgets('shows nothing extra when the Drop has no location '
+    testWidgets(
+        'shows nothing extra when the Drop has no location '
         '(no regression)', (tester) async {
       final drop = Drop(
         id: 'd-no-location',
@@ -1413,18 +1332,16 @@ void main() {
         savedByMe: false,
       );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: repo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: repo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pump();
       tester.takeException();
 
@@ -1446,22 +1363,20 @@ void main() {
       savedByMe: false,
     );
 
-    testWidgets('a full first page offers "ดูคอมเมนต์เพิ่มเติม" and loading it '
-        'appends the next page rather than refetching everything', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: pagedCommentRepo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: drop,
-          ),
+    testWidgets(
+        'a full first page offers "ดูคอมเมนต์เพิ่มเติม" and loading it '
+        'appends the next page rather than refetching everything',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: pagedCommentRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
         ),
-      );
+      ));
       await tester.pumpAndSettle();
       tester.takeException();
 
@@ -1484,107 +1399,97 @@ void main() {
 
       expect(pagedCommentRepo.pagesRequested, [0, 1]);
       // Page 1 was short, so the thread really has ended now.
-      expect(
-        find.byKey(const Key('drop_detail_load_more_comments')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('drop_detail_load_more_comments')),
+          findsNothing);
     });
 
     testWidgets(
-      'a short first page shows the end-of-thread line and never asks '
-      'for a second page',
-      (tester) async {
-        await tester.pumpWidget(
-          MaterialApp(
-            home: DropDetailScreen(
-              dropRepository: singleCommentRepo,
-              followRepository: followRepo,
-              profileRepository: profileRepo,
-              popRepository: popRepo,
-              savedRepository: savedRepo,
-              drop: drop,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        tester.takeException();
+        'a short first page shows the end-of-thread line and never asks '
+        'for a second page', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: DropDetailScreen(
+          dropRepository: singleCommentRepo,
+          followRepository: followRepo,
+          profileRepository: profileRepo,
+          popRepository: popRepo,
+          savedRepository: savedRepo,
+          drop: drop,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      tester.takeException();
 
-        expect(singleCommentRepo.fetchCommentsPageArgs, [0]);
-        expect(
-          find.byKey(const Key('drop_detail_load_more_comments')),
-          findsNothing,
-        );
-        expect(find.text('ไม่มีความคิดเห็นเพิ่มเติมแล้ว'), findsOneWidget);
-      },
-    );
+      expect(singleCommentRepo.fetchCommentsPageArgs, [0]);
+      expect(find.byKey(const Key('drop_detail_load_more_comments')),
+          findsNothing);
+      expect(find.text('ไม่มีความคิดเห็นเพิ่มเติมแล้ว'), findsOneWidget);
+    });
   });
 
   testWidgets(
-    'post activity shows only Like and ReDrop tabs and the people in each',
-    (tester) async {
-      repo.likeUserIdsByDrop['d-activity'] = ['liker-1'];
-      repo.redropperIdsByDrop['d-activity'] = ['redropper-1'];
-      profileRepo.profilesById = {
-        'liker-1': const Profile(
-          id: 'liker-1',
-          username: 'mint',
-          displayName: 'Mint',
-        ),
-        'redropper-1': const Profile(
-          id: 'redropper-1',
-          username: 'nine',
-          displayName: 'Nine',
-        ),
-      };
+      'post activity shows only Like and ReDrop tabs and the people in each',
+      (tester) async {
+    repo.likeUserIdsByDrop['d-activity'] = ['liker-1'];
+    repo.redropperIdsByDrop['d-activity'] = ['redropper-1'];
+    profileRepo.profilesById = {
+      'liker-1': const Profile(
+        id: 'liker-1',
+        username: 'mint',
+        displayName: 'Mint',
+      ),
+      'redropper-1': const Profile(
+        id: 'redropper-1',
+        username: 'nine',
+        displayName: 'Nine',
+      ),
+    };
 
-      final activityDrop = Drop(
-        id: 'd-activity',
-        authorId: 'someone-else',
-        authorUsername: 'namfah',
-        createdAt: DateTime.now(),
-        likeCount: 1,
-        commentCount: 9,
-        redropCount: 1,
-        viewCount: 20,
-        likedByMe: false,
-        savedByMe: false,
-      );
+    final activityDrop = Drop(
+      id: 'd-activity',
+      authorId: 'someone-else',
+      authorUsername: 'namfah',
+      createdAt: DateTime.now(),
+      likeCount: 1,
+      commentCount: 9,
+      redropCount: 1,
+      viewCount: 20,
+      likedByMe: false,
+      savedByMe: false,
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DropDetailScreen(
-            dropRepository: repo,
-            followRepository: followRepo,
-            profileRepository: profileRepo,
-            popRepository: popRepo,
-            savedRepository: savedRepo,
-            drop: activityDrop,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(MaterialApp(
+      home: DropDetailScreen(
+        dropRepository: repo,
+        followRepository: followRepo,
+        profileRepository: profileRepo,
+        popRepository: popRepo,
+        savedRepository: savedRepo,
+        drop: activityDrop,
+      ),
+    ));
+    await tester.pumpAndSettle();
 
-      final activityEntry = find.text('ดูกิจกรรม');
-      await tester.ensureVisible(activityEntry);
-      await tester.pumpAndSettle();
-      await tester.tap(activityEntry);
-      await tester.pumpAndSettle();
+    final activityEntry = find.text('ดูกิจกรรม');
+    await tester.ensureVisible(activityEntry);
+    await tester.pumpAndSettle();
+    await tester.tap(activityEntry);
+    await tester.pumpAndSettle();
 
-      expect(find.text('กิจกรรมโพสต์'), findsOneWidget);
-      expect(find.text('ถูกใจ'), findsOneWidget);
-      expect(find.text('รีโพสต์'), findsOneWidget);
-      expect(find.text('ทั้งหมด'), findsNothing);
-      expect(find.text('ความคิดเห็น'), findsNothing);
-      expect(find.text('การเข้าชม'), findsNothing);
+    expect(find.text('กิจกรรมโพสต์'), findsOneWidget);
+    expect(find.text('ถูกใจ'), findsOneWidget);
+    expect(find.text('รีโพสต์'), findsOneWidget);
+    expect(find.text('ทั้งหมด'), findsNothing);
+    expect(find.text('ความคิดเห็น'), findsNothing);
+    expect(find.text('การเข้าชม'), findsNothing);
 
-      expect(find.text('Mint'), findsOneWidget);
-      expect(find.text('@mint'), findsOneWidget);
+    expect(find.text('Mint'), findsOneWidget);
+    expect(find.text('@mint'), findsOneWidget);
 
-      await tester.tap(find.text('รีโพสต์'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('รีโพสต์'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Nine'), findsOneWidget);
-      expect(find.text('@nine'), findsOneWidget);
-    },
-  );
+    expect(find.text('Nine'), findsOneWidget);
+    expect(find.text('@nine'), findsOneWidget);
+  });
+
 }

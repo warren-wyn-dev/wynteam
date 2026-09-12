@@ -138,7 +138,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   final _reportRepository = ReportRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
       widget.moderationRepository ??
-      ModerationRepository(Supabase.instance.client);
+          ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
   late final ChatRepository _chatRepository =
@@ -173,9 +173,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
 
   Future<void> _loadMyProfile() async {
     try {
-      final profile = await widget.profileRepository.fetchProfile(
-        Supabase.instance.client.auth.currentUser!.id,
-      );
+      final profile = await widget.profileRepository
+          .fetchProfile(Supabase.instance.client.auth.currentUser!.id);
       if (!mounted) return;
       setState(() => _myProfile = profile);
     } catch (_) {
@@ -276,10 +275,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     });
     try {
       final nextPage = _commentPage + 1;
-      final more = await widget.dropRepository.fetchComments(
-        _drop.id,
-        page: nextPage,
-      );
+      final more =
+          await widget.dropRepository.fetchComments(_drop.id, page: nextPage);
       if (!mounted) return;
       setState(() {
         _comments = [...?_comments, ...more];
@@ -500,18 +497,16 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   Future<void> _openDropMoreMenu() async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(
-        rows: [
-          ActionSheetRow(
-            icon: Icons.flag_outlined,
-            label: 'รายงานโพสต์',
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              _reportDrop();
-            },
-          ),
-        ],
-      ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        ActionSheetRow(
+          icon: Icons.flag_outlined,
+          label: 'รายงานโพสต์',
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _reportDrop();
+          },
+        ),
+      ]),
     );
   }
 
@@ -531,35 +526,31 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   // additional entry point, not a replacement, per
   // .wyn/docs/design/wyn-026-report-system.md, Screen 5.
   Future<void> _openCommentMenu(
-    DropComment comment,
-    String currentUserId,
-  ) async {
+      DropComment comment, String currentUserId) async {
     final isOwnComment = comment.authorId == currentUserId;
 
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(
-        rows: [
-          if (isOwnComment)
-            ActionSheetRow(
-              icon: Icons.delete_outline,
-              label: 'ลบคอมเมนต์',
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _deleteComment(comment.id);
-              },
-            )
-          else
-            ActionSheetRow(
-              icon: Icons.flag_outlined,
-              label: 'รายงานคอมเมนต์',
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _reportComment(comment);
-              },
-            ),
-        ],
-      ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        if (isOwnComment)
+          ActionSheetRow(
+            icon: Icons.delete_outline,
+            label: 'ลบคอมเมนต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _deleteComment(comment.id);
+            },
+          )
+        else
+          ActionSheetRow(
+            icon: Icons.flag_outlined,
+            label: 'รายงานคอมเมนต์',
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              _reportComment(comment);
+            },
+          ),
+      ]),
     );
   }
 
@@ -614,28 +605,26 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   Future<void> _openOwnDropMoreMenu() async {
     await showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => ActionSheetBody(
-        rows: [
-          if (_canEditDrop)
-            ActionSheetRow(
-              icon: Icons.edit_outlined,
-              label: 'แก้ไข',
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _editDrop();
-              },
-            ),
+      builder: (sheetContext) => ActionSheetBody(rows: [
+        if (_canEditDrop)
           ActionSheetRow(
-            icon: Icons.delete_outline,
-            label: 'ลบ',
-            color: Theme.of(sheetContext).colorScheme.error,
+            icon: Icons.edit_outlined,
+            label: 'แก้ไข',
             onTap: () {
               Navigator.of(sheetContext).pop();
-              _deleteDrop();
+              _editDrop();
             },
           ),
-        ],
-      ),
+        ActionSheetRow(
+          icon: Icons.delete_outline,
+          label: 'ลบ',
+          color: Theme.of(sheetContext).colorScheme.error,
+          onTap: () {
+            Navigator.of(sheetContext).pop();
+            _deleteDrop();
+          },
+        ),
+      ]),
     );
   }
 
@@ -847,15 +836,12 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                         // comment.
                                         _drop.location != null
                                             ? '${relativeTimeLabel(_drop.createdAt, now: DateTime.now())} · 📍 ${_drop.location}'
-                                            : relativeTimeLabel(
-                                                _drop.createdAt,
-                                                now: DateTime.now(),
-                                              ),
+                                            : relativeTimeLabel(_drop.createdAt,
+                                                now: DateTime.now()),
                                         overflow: TextOverflow.ellipsis,
                                         style: _textStyle(
-                                          fontSize: 13,
-                                          color: WynColors.mutedNeutral,
-                                        ),
+                                            fontSize: 13,
+                                            color: WynColors.mutedNeutral),
                                       ),
                                     ),
                                   ],
@@ -863,17 +849,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                 Text(
                                   '@${_drop.authorUsername}',
                                   style: _textStyle(
-                                    fontSize: 13,
-                                    color: WynColors.mutedNeutral,
-                                  ),
+                                      fontSize: 13,
+                                      color: WynColors.mutedNeutral),
                                 ),
                                 if (_drop.wasEdited)
                                   Text(
                                     'แก้ไขแล้ว',
                                     style: _textStyle(
-                                      fontSize: 13,
-                                      color: WynColors.faint,
-                                    ),
+                                        fontSize: 13, color: WynColors.faint),
                                   ),
                               ],
                             ),
@@ -903,21 +886,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     ),
                   if (isOwnDrop)
                     IconButton(
-                      icon: const Icon(
-                        Icons.more_vert,
-                        size: 18,
-                        color: WynColors.faint,
-                      ),
+                      icon: const Icon(Icons.more_vert,
+                          size: 18, color: WynColors.faint),
                       tooltip: 'เพิ่มเติม',
                       onPressed: _openOwnDropMoreMenu,
                     )
                   else
                     IconButton(
-                      icon: const Icon(
-                        Icons.more_vert,
-                        size: 18,
-                        color: WynColors.faint,
-                      ),
+                      icon: const Icon(Icons.more_vert,
+                          size: 18, color: WynColors.faint),
                       tooltip: 'เพิ่มเติม',
                       onPressed: _openDropMoreMenu,
                     ),
@@ -932,10 +909,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 HashtagText(
                   _drop.caption!,
                   style: _textStyle(
-                    fontSize: 16,
-                    color: WynColors.ink,
-                    height: 1.5,
-                  ),
+                      fontSize: 16, color: WynColors.ink, height: 1.5),
                 ),
               ],
             ],
@@ -975,104 +949,103 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     );
 
     if (_commentsErrored) {
-      return _buildScrollView([
-        header,
-        Padding(
-          padding: const EdgeInsets.all(WynSpacing.space6),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
-                const SizedBox(height: WynSpacing.space2),
-                TextButton(
-                  onPressed: _loadComments,
-                  child: const Text('ลองใหม่'),
-                ),
-              ],
+      return _buildScrollView(
+        [
+          header,
+          Padding(
+            padding: const EdgeInsets.all(WynSpacing.space6),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
+                  const SizedBox(height: WynSpacing.space2),
+                  TextButton(
+                    onPressed: _loadComments,
+                    child: const Text('ลองใหม่'),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ]);
+        ],
+      );
     }
 
     final comments = _comments;
     if (comments == null) {
-      return _buildScrollView([
-        header,
-        const Padding(
-          padding: EdgeInsets.all(WynSpacing.space6),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ]);
+      return _buildScrollView(
+        [
+          header,
+          const Padding(
+            padding: EdgeInsets.all(WynSpacing.space6),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ],
+      );
     }
 
-    return _buildScrollView([
-      header,
-      if (comments.isEmpty)
-        const Padding(
-          padding: EdgeInsets.all(WynSpacing.space6),
-          child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
-        )
-      else ...[
-        // Each top-level comment immediately followed by its own
-        // replies (WYN-022) -- one flat fetch already returns every
-        // comment for this Drop, so this just orders them for display
-        // rather than issuing a second query. 07-post-detail.tsx: a
-        // hairline divider between comments, never after the last one.
-        for (final (index, comment)
-            in comments.where((c) => c.parentCommentId == null).indexed) ...[
-          if (index > 0) const Divider(height: 1, color: WynColors.hairline),
-          _buildCommentRow(comment, currentUserId, isReply: false),
-          for (final reply in comments.where(
-            (c) => c.parentCommentId == comment.id,
-          ))
-            _buildCommentRow(reply, currentUserId, isReply: true),
-        ],
-        // "That's all of them" is only true once there is nothing
-        // left to page in -- otherwise the reader gets the button.
-        if (_hasMoreComments || _moreCommentsErrored)
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WynSpacing.space6,
-              vertical: WynSpacing.space6,
-            ),
-            child: Center(
-              child: _isLoadingMoreComments
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : TextButton(
-                      key: const Key('drop_detail_load_more_comments'),
-                      onPressed: _loadMoreComments,
-                      child: Text(
-                        _moreCommentsErrored
-                            ? 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'
-                            : 'ดูคอมเมนต์เพิ่มเติม',
-                      ),
-                    ),
-            ),
+    return _buildScrollView(
+      [
+        header,
+        if (comments.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(WynSpacing.space6),
+            child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
-        else
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WynSpacing.space6,
-              vertical: WynSpacing.space8,
-            ),
-            child: Center(
-              child: Text(
-                'ไม่มีความคิดเห็นเพิ่มเติมแล้ว',
-                style: _textStyle(fontSize: 13, color: WynColors.faint),
+        else ...[
+          // Each top-level comment immediately followed by its own
+          // replies (WYN-022) -- one flat fetch already returns every
+          // comment for this Drop, so this just orders them for display
+          // rather than issuing a second query. 07-post-detail.tsx: a
+          // hairline divider between comments, never after the last one.
+          for (final (index, comment)
+              in comments.where((c) => c.parentCommentId == null).indexed) ...[
+            if (index > 0) const Divider(height: 1, color: WynColors.hairline),
+            _buildCommentRow(comment, currentUserId, isReply: false),
+            for (final reply
+                in comments.where((c) => c.parentCommentId == comment.id))
+              _buildCommentRow(reply, currentUserId, isReply: true),
+          ],
+          // "That's all of them" is only true once there is nothing
+          // left to page in -- otherwise the reader gets the button.
+          if (_hasMoreComments || _moreCommentsErrored)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space6, vertical: WynSpacing.space6),
+              child: Center(
+                child: _isLoadingMoreComments
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : TextButton(
+                        key: const Key('drop_detail_load_more_comments'),
+                        onPressed: _loadMoreComments,
+                        child: Text(_moreCommentsErrored
+                            ? 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'
+                            : 'ดูคอมเมนต์เพิ่มเติม'),
+                      ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space6, vertical: WynSpacing.space8),
+              child: Center(
+                child: Text(
+                  'ไม่มีความคิดเห็นเพิ่มเติมแล้ว',
+                  style: _textStyle(fontSize: 13, color: WynColors.faint),
+                ),
               ),
             ),
-          ),
+        ],
+        // Replaces the bottom padding the ListView this replaced
+        // carried, so the last comment still clears the composer.
+        const SizedBox(height: WynSpacing.space4),
       ],
-      // Replaces the bottom padding the ListView this replaced
-      // carried, so the last comment still clears the composer.
-      const SizedBox(height: WynSpacing.space4),
-    ]);
+    );
   }
 
   Widget _detailAction({
@@ -1125,9 +1098,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               child: WynHeartIcon(
                 filled: _drop.likedByMe,
                 size: 26,
-                color: _drop.likedByMe
-                    ? WynColors.iconLikeActive
-                    : WynColors.ink,
+                color:
+                    _drop.likedByMe ? WynColors.iconLikeActive : WynColors.ink,
               ),
             ),
             count: _drop.likeCount,
@@ -1151,9 +1123,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               icon: Icon(
                 Icons.repeat_rounded,
                 size: 27,
-                color: _drop.redroppedByMe
-                    ? WynColors.iconActive
-                    : WynColors.ink,
+                color:
+                    _drop.redroppedByMe ? WynColors.iconActive : WynColors.ink,
               ),
               count: _drop.redropCount,
               semanticsLabel: 'รีโพสต์ ${_drop.redropCount} ครั้ง',
@@ -1179,9 +1150,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 color: WynColors.ink,
               ),
             ),
-            semanticsLabel: _drop.savedByMe
-                ? 'บันทึกแล้ว กดเพื่อเอาออก'
-                : 'บันทึกโพสต์',
+            semanticsLabel:
+                _drop.savedByMe ? 'บันทึกแล้ว กดเพื่อเอาออก' : 'บันทึกโพสต์',
             onPressed: _toggleSave,
           ),
         ],
@@ -1258,11 +1228,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
     );
   }
 
-  Widget _buildCommentRow(
-    DropComment comment,
-    String currentUserId, {
-    required bool isReply,
-  }) {
+  Widget _buildCommentRow(DropComment comment, String currentUserId,
+      {required bool isReply}) {
     final isOwnComment = comment.authorId == currentUserId;
 
     return Semantics(
@@ -1272,18 +1239,13 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       customSemanticsActions: {
         CustomSemanticsAction(
           label: isOwnComment ? 'ลบคอมเมนต์' : 'รายงานคอมเมนต์',
-        ): () =>
-            _openCommentMenu(comment, currentUserId),
+        ): () => _openCommentMenu(comment, currentUserId),
       },
       child: GestureDetector(
         onLongPress: () => _openCommentMenu(comment, currentUserId),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            isReply ? 52 : WynSpacing.space4,
-            WynSpacing.space3,
-            WynSpacing.space4,
-            0,
-          ),
+          padding: EdgeInsets.fromLTRB(isReply ? 52 : WynSpacing.space4,
+              WynSpacing.space3, WynSpacing.space4, 0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1327,14 +1289,10 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         ),
                         const SizedBox(width: WynSpacing.space2),
                         Text(
-                          relativeTimeLabel(
-                            comment.createdAt,
-                            now: DateTime.now(),
-                          ),
+                          relativeTimeLabel(comment.createdAt,
+                              now: DateTime.now()),
                           style: _textStyle(
-                            fontSize: 13,
-                            color: WynColors.mutedNeutral,
-                          ),
+                              fontSize: 13, color: WynColors.mutedNeutral),
                         ),
                       ],
                     ),
@@ -1343,10 +1301,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       child: Text(
                         comment.textContent,
                         style: _textStyle(
-                          fontSize: 15,
-                          color: WynColors.ink,
-                          height: 1.45,
-                        ),
+                            fontSize: 15, color: WynColors.ink, height: 1.45),
                       ),
                     ),
                     // Replies don't get their own "ตอบกลับ" button -- that's
@@ -1377,10 +1332,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     iconSize: 16,
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      color: WynColors.graphite,
-                    ),
+                    icon: const Icon(Icons.delete_outline,
+                        color: WynColors.graphite),
                     tooltip: 'ลบคอมเมนต์',
                     onPressed: () => _deleteComment(comment.id),
                   ),
@@ -1417,10 +1370,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   if (comment.likeCount > 0)
                     Text(
                       '${comment.likeCount}',
-                      style: _textStyle(
-                        fontSize: 13,
-                        color: WynColors.graphite,
-                      ),
+                      style:
+                          _textStyle(fontSize: 13, color: WynColors.graphite),
                     ),
                 ],
               ),
@@ -1432,8 +1383,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
   }
 
   Widget _buildCommentInput() {
-    final canSend =
-        _commentController.text.trim().isNotEmpty &&
+    final canSend = _commentController.text.trim().isNotEmpty &&
         !_isSendingComment &&
         !_isRestricted;
 
@@ -1486,8 +1436,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               children: [
                 AvatarCircle(
                   imageUrl: _myProfile?.avatarUrl,
-                  fallbackText:
-                      _myProfile?.username ??
+                  fallbackText: _myProfile?.username ??
                       Supabase.instance.client.auth.currentUser!.id,
                   radius: 18,
                   ring: true,
@@ -1517,10 +1466,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       decoration: const InputDecoration(
                         isDense: true,
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 13,
-                        ),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                         hintText: 'แสดงความคิดเห็น...',
                         hintStyle: TextStyle(
                           fontSize: 15,
@@ -1560,12 +1507,13 @@ TextStyle _textStyle({
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double? height,
-}) => TextStyle(
-  fontSize: fontSize,
-  fontWeight: fontWeight,
-  color: color,
-  height: height,
-);
+}) =>
+    TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+    );
 
 class _DropActivitySheet extends StatefulWidget {
   const _DropActivitySheet({
@@ -1598,7 +1546,7 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
   }
 
   Future<({List<Profile> liked, List<Profile> redropped})>
-  _loadActivity() async {
+      _loadActivity() async {
     final idLists = await Future.wait<List<String>>([
       widget.dropRepository.fetchLikeUserIds(widget.dropId),
       widget.dropRepository.fetchRedropperIds(widget.dropId),
@@ -1659,8 +1607,11 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: profiles.length,
-      separatorBuilder: (_, __) =>
-          const Divider(height: 1, indent: 72, color: WynColors.hairline),
+      separatorBuilder: (_, __) => const Divider(
+        height: 1,
+        indent: 72,
+        color: WynColors.hairline,
+      ),
       itemBuilder: (context, index) {
         final profile = profiles[index];
         return ListTile(
@@ -1737,47 +1688,43 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
               ),
               const Divider(height: 1, color: WynColors.hairline),
               Expanded(
-                child:
-                    FutureBuilder<
-                      ({List<Profile> liked, List<Profile> redropped})
-                    >(
-                      future: _activity,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState != ConnectionState.done) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (snapshot.hasError || snapshot.data == null) {
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('โหลดกิจกรรมไม่สำเร็จ'),
-                                const SizedBox(height: 8),
-                                TextButton(
-                                  onPressed: _retry,
-                                  child: const Text('ลองใหม่'),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        final data = snapshot.data!;
-                        return TabBarView(
+                child: FutureBuilder<
+                    ({List<Profile> liked, List<Profile> redropped})>(
+                  future: _activity,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError || snapshot.data == null) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            _peopleList(
-                              data.liked,
-                              emptyLabel: 'ยังไม่มีใครถูกใจโพสต์นี้',
-                            ),
-                            _peopleList(
-                              data.redropped,
-                              emptyLabel: 'ยังไม่มีใครรีโพสต์โพสต์นี้',
+                            const Text('โหลดกิจกรรมไม่สำเร็จ'),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _retry,
+                              child: const Text('ลองใหม่'),
                             ),
                           ],
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    }
+                    final data = snapshot.data!;
+                    return TabBarView(
+                      children: [
+                        _peopleList(
+                          data.liked,
+                          emptyLabel: 'ยังไม่มีใครถูกใจโพสต์นี้',
+                        ),
+                        _peopleList(
+                          data.redropped,
+                          emptyLabel: 'ยังไม่มีใครรีโพสต์โพสต์นี้',
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),
