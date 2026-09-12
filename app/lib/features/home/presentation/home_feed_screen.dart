@@ -69,8 +69,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
   final _forYouKey = GlobalKey<ModeFeedPageState>();
   final _followingKey = GlobalKey<ModeFeedPageState>();
 
-  late final PageController _feedPageController =
-      PageController(initialPage: _feedModeOrder.indexOf(_feedMode));
+  late final PageController _feedPageController = PageController(
+    initialPage: _feedModeOrder.indexOf(_feedMode),
+  );
 
   _HomeFeedMode _feedMode = _HomeFeedMode.forYou;
   int _unreadChatCount = 0;
@@ -218,6 +219,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
   Widget _buildHeader() {
     return WynosSocialHeader(
       title: 'WYNOS',
+      // Keep the 48px actions fully tappable while pulling the feed tabs
+      // 8px closer to the WYNOS wordmark. Home is intentionally denser
+      // than the generic social-screen header; other screens keep 60px.
+      height: 52,
+      showBottomDivider: false,
       leading: IconButton(
         icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
         tooltip: 'เมนู',
@@ -260,7 +266,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
                     horizontal: WynSpacing.space1,
                     vertical: 1,
                   ),
-                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.error,
                     borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
@@ -292,17 +301,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
       onSelected: _selectFeedMode,
       scrollable: true,
       items: const [
-        WynosSocialTabItem(
-          value: _HomeFeedMode.forYou,
-          label: 'สำหรับคุณ',
-        ),
+        WynosSocialTabItem(value: _HomeFeedMode.forYou, label: 'สำหรับคุณ'),
         WynosSocialTabItem(
           value: _HomeFeedMode.following,
-          label: 'ติดตาม',
+          label: 'กำลังติดตาม',
         ),
         WynosSocialTabItem(
           value: _HomeFeedMode.fromYourClubs,
-          label: 'Club',
+          label: 'คลับของฉัน',
         ),
       ],
     );

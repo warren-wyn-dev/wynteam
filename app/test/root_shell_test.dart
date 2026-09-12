@@ -77,16 +77,19 @@ void main() {
     sharedPopRepository = RecordingPopRepository();
     sharedFollowRepository = RecordingFollowRepository();
     sharedProfileRepository = RecordingProfileRepository(
-        profile: const Profile(id: 'me', username: 'me'));
+      profile: const Profile(id: 'me', username: 'me'),
+    );
     sharedSavedRepository = RecordingSavedRepository();
     sharedClubRepository = RecordingClubRepository();
     sharedClubPostRepository = RecordingClubPostRepository();
     defaultHomeRepository = RecordingHomeRepository(feedItems: []);
     defaultNotificationRepository = RecordingNotificationRepository();
-    fewUnreadNotificationRepository =
-        RecordingNotificationRepository(unreadCount: 3);
-    manyUnreadNotificationRepository =
-        RecordingNotificationRepository(unreadCount: 15);
+    fewUnreadNotificationRepository = RecordingNotificationRepository(
+      unreadCount: 3,
+    );
+    manyUnreadNotificationRepository = RecordingNotificationRepository(
+      unreadCount: 15,
+    );
     sharedPresenceRepository = RecordingPresenceRepository();
   });
 
@@ -95,26 +98,26 @@ void main() {
     RecordingHomeRepository? homeRepository,
     bool startOnProfileTab = false,
     RecordingPresenceRepository? presenceRepository,
-  }) =>
-      MaterialApp(
-        home: RootShell(
-          dropRepository: sharedDropRepository,
-          popRepository: sharedPopRepository,
-          followRepository: sharedFollowRepository,
-          profileRepository: sharedProfileRepository,
-          savedRepository: sharedSavedRepository,
-          notificationRepository:
-              notificationRepository ?? defaultNotificationRepository,
-          clubRepository: sharedClubRepository,
-          clubPostRepository: sharedClubPostRepository,
-          homeRepository: homeRepository ?? defaultHomeRepository,
-          startOnProfileTab: startOnProfileTab,
-          presenceRepository: presenceRepository ?? sharedPresenceRepository,
-        ),
-      );
+  }) => MaterialApp(
+    home: RootShell(
+      dropRepository: sharedDropRepository,
+      popRepository: sharedPopRepository,
+      followRepository: sharedFollowRepository,
+      profileRepository: sharedProfileRepository,
+      savedRepository: sharedSavedRepository,
+      notificationRepository:
+          notificationRepository ?? defaultNotificationRepository,
+      clubRepository: sharedClubRepository,
+      clubPostRepository: sharedClubPostRepository,
+      homeRepository: homeRepository ?? defaultHomeRepository,
+      startOnProfileTab: startOnProfileTab,
+      presenceRepository: presenceRepository ?? sharedPresenceRepository,
+    ),
+  );
 
-  testWidgets('defaults to the Home tab with all 5 destinations present',
-      (tester) async {
+  testWidgets('defaults to the Home tab with all 5 destinations present', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
@@ -126,11 +129,12 @@ void main() {
     // Home's own content is showing by default: the feed-mode toggle is
     // Home's, not any other tab's.
     await _expectFeedToggleVisible(tester);
-    expect(find.text('ติดตาม'), findsOneWidget);
+    expect(find.text('กำลังติดตาม'), findsOneWidget);
   });
 
-  testWidgets('tapping Search switches to SearchScreen without autofocus',
-      (tester) async {
+  testWidgets('tapping Search switches to SearchScreen without autofocus', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
@@ -142,35 +146,35 @@ void main() {
   });
 
   testWidgets(
-      'tapping Drop pushes CreateDropScreen without changing the selected tab',
-      (tester) async {
-    await tester.pumpWidget(buildShell());
-    await tester.pumpAndSettle();
+    'tapping Drop pushes CreateDropScreen without changing the selected tab',
+    (tester) async {
+      await tester.pumpWidget(buildShell());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('โพสต์'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('โพสต์'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(CreateDropScreen), findsOneWidget);
+      expect(find.byType(CreateDropScreen), findsOneWidget);
 
-    // CreateDropScreen has no AppBar/default back button at all -- its
-    // own header supplies a plain "ยกเลิก" text button (Key
-    // 'cancel_button') that calls Navigator.pop(false), so
-    // tester.pageBack() (which looks for a BackButton/
-    // CupertinoNavigationBarBackButton specifically) would find neither.
-    await tester.tap(find.byKey(const Key('cancel_button')));
-    await tester.pumpAndSettle();
+      // CreateDropScreen has no AppBar/default back button at all -- its
+      // own header supplies a plain "ยกเลิก" text button (Key
+      // 'cancel_button') that calls Navigator.pop(false), so
+      // tester.pageBack() (which looks for a BackButton/
+      // CupertinoNavigationBarBackButton specifically) would find neither.
+      await tester.tap(find.byKey(const Key('cancel_button')));
+      await tester.pumpAndSettle();
 
-    // Still on Home, not stuck on some "Drop tab" -- there is none.
-    await _expectFeedToggleVisible(tester);
-    expect(find.byType(FromYourClubsFeed), findsNothing);
-  });
+      // Still on Home, not stuck on some "Drop tab" -- there is none.
+      await _expectFeedToggleVisible(tester);
+      expect(find.byType(FromYourClubsFeed), findsNothing);
+    },
+  );
 
-  testWidgets(
-      'shows the unread notification count as a badge, and clears '
+  testWidgets('shows the unread notification count as a badge, and clears '
       'it optimistically after switching to Notifications', (tester) async {
-    await tester.pumpWidget(buildShell(
-      notificationRepository: fewUnreadNotificationRepository,
-    ));
+    await tester.pumpWidget(
+      buildShell(notificationRepository: fewUnreadNotificationRepository),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('3'), findsOneWidget);
@@ -187,13 +191,13 @@ void main() {
   WidgetsBindingObserver lifecycleObserverOf(WidgetTester tester) =>
       tester.state(find.byType(RootShell)) as WidgetsBindingObserver;
 
-  testWidgets(
-      'RootShell registers itself as a lifecycle observer, so the real '
-      'binding reaches the handler the tests below drive directly',
-      (tester) async {
-    await tester.pumpWidget(buildShell(
-      notificationRepository: fewUnreadNotificationRepository,
-    ));
+  testWidgets('RootShell registers itself as a lifecycle observer, so the real '
+      'binding reaches the handler the tests below drive directly', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildShell(notificationRepository: fewUnreadNotificationRepository),
+    );
     await tester.pumpAndSettle();
 
     expect(tester.state(find.byType(RootShell)), isA<WidgetsBindingObserver>());
@@ -213,71 +217,81 @@ void main() {
   // picture is most likely to be wrong and the only moment a person can
   // see the badge again anyway.
   testWidgets(
-      'the badge re-reads the unread count when the app is resumed, so it '
-      'is not stale after time in the background', (tester) async {
-    await tester.pumpWidget(buildShell(
-      notificationRepository: fewUnreadNotificationRepository,
-    ));
-    await tester.pumpAndSettle();
+    'the badge re-reads the unread count when the app is resumed, so it '
+    'is not stale after time in the background',
+    (tester) async {
+      await tester.pumpWidget(
+        buildShell(notificationRepository: fewUnreadNotificationRepository),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('3'), findsOneWidget);
-    final readsAfterFirstBuild =
-        fewUnreadNotificationRepository.countUnreadCalls;
+      expect(find.text('3'), findsOneWidget);
+      final readsAfterFirstBuild =
+          fewUnreadNotificationRepository.countUnreadCalls;
 
-    // Two notifications arrived while the app was away.
-    fewUnreadNotificationRepository.unreadCount = 5;
+      // Two notifications arrived while the app was away.
+      fewUnreadNotificationRepository.unreadCount = 5;
 
-    // Delivered to RootShell's own observer rather than through
-    // `tester.binding.handleAppLifecycleStateChanged`. Driving the
-    // global binding also wakes supabase_flutter's own lifecycle
-    // observer, which restarts GoTrue's auto-refresh on `resumed` and
-    // leaves a periodic Timer inside the test's FakeAsync zone --
-    // `!timersPending` then fails at teardown for a reason that has
-    // nothing to do with the badge. This delivers the same callback the
-    // real binding would, to the object under test.
-    lifecycleObserverOf(tester)
-        .didChangeAppLifecycleState(AppLifecycleState.paused);
-    lifecycleObserverOf(tester)
-        .didChangeAppLifecycleState(AppLifecycleState.resumed);
-    await tester.pumpAndSettle();
+      // Delivered to RootShell's own observer rather than through
+      // `tester.binding.handleAppLifecycleStateChanged`. Driving the
+      // global binding also wakes supabase_flutter's own lifecycle
+      // observer, which restarts GoTrue's auto-refresh on `resumed` and
+      // leaves a periodic Timer inside the test's FakeAsync zone --
+      // `!timersPending` then fails at teardown for a reason that has
+      // nothing to do with the badge. This delivers the same callback the
+      // real binding would, to the object under test.
+      lifecycleObserverOf(tester)
+          .didChangeAppLifecycleState(AppLifecycleState.paused);
+      lifecycleObserverOf(tester)
+          .didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
 
-    expect(fewUnreadNotificationRepository.countUnreadCalls,
-        greaterThan(readsAfterFirstBuild));
-    expect(find.text('5'), findsOneWidget);
-    expect(find.text('3'), findsNothing);
-  });
+      expect(
+        fewUnreadNotificationRepository.countUnreadCalls,
+        greaterThan(readsAfterFirstBuild),
+      );
+      expect(find.text('5'), findsOneWidget);
+      expect(find.text('3'), findsNothing);
+    },
+  );
 
   testWidgets(
-      'going to the background alone does not re-read -- only coming back '
-      'does', (tester) async {
-    await tester.pumpWidget(buildShell(
-      notificationRepository: manyUnreadNotificationRepository,
-    ));
-    await tester.pumpAndSettle();
+    'going to the background alone does not re-read -- only coming back '
+    'does',
+    (tester) async {
+      await tester.pumpWidget(
+        buildShell(notificationRepository: manyUnreadNotificationRepository),
+      );
+      await tester.pumpAndSettle();
 
-    final before = manyUnreadNotificationRepository.countUnreadCalls;
-    lifecycleObserverOf(tester)
-        .didChangeAppLifecycleState(AppLifecycleState.inactive);
-    lifecycleObserverOf(tester)
-        .didChangeAppLifecycleState(AppLifecycleState.paused);
-    await tester.pumpAndSettle();
+      final before = manyUnreadNotificationRepository.countUnreadCalls;
+      lifecycleObserverOf(tester)
+          .didChangeAppLifecycleState(AppLifecycleState.inactive);
+      lifecycleObserverOf(tester)
+          .didChangeAppLifecycleState(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
 
-    expect(manyUnreadNotificationRepository.countUnreadCalls, before,
-        reason: 'a query on the way out is spent on a badge nobody can see');
-  });
+      expect(
+        manyUnreadNotificationRepository.countUnreadCalls,
+        before,
+        reason: 'a query on the way out is spent on a badge nobody can see',
+      );
+    },
+  );
 
   testWidgets('caps the notification badge at "9+"', (tester) async {
-    await tester.pumpWidget(buildShell(
-      notificationRepository: manyUnreadNotificationRepository,
-    ));
+    await tester.pumpWidget(
+      buildShell(notificationRepository: manyUnreadNotificationRepository),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('9+'), findsOneWidget);
     expect(find.text('15'), findsNothing);
   });
 
-  testWidgets('tapping Profile shows ViewProfileScreen for the current user',
-      (tester) async {
+  testWidgets('tapping Profile shows ViewProfileScreen for the current user', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
@@ -293,8 +307,7 @@ void main() {
   // Account Switcher switch -- this proves RootShell itself honours that
   // flag, independent of AuthGate's own logic for deriving it (covered by
   // auth_gate_test.dart).
-  testWidgets(
-      'startOnProfileTab: true opens straight to ViewProfileScreen '
+  testWidgets('startOnProfileTab: true opens straight to ViewProfileScreen '
       'instead of Home', (tester) async {
     await tester.pumpWidget(buildShell(startOnProfileTab: true));
     await tester.pumpAndSettle();
@@ -322,8 +335,9 @@ void main() {
   // signal directly rather than through the Bottom Nav). This just
   // proves the wiring: still on Home, no crash, no accidental remount of
   // Profile/Notifications' visit-key state.
-  testWidgets('tapping Home while already on Home stays on Home, no crash',
-      (tester) async {
+  testWidgets('tapping Home while already on Home stays on Home, no crash', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
@@ -342,8 +356,9 @@ void main() {
   // which can reach the signal directly; this just proves the wiring:
   // switching away from Home and back doesn't crash or leave Home
   // unselected.
-  testWidgets('switching to Home from Notifications does not crash',
-      (tester) async {
+  testWidgets('switching to Home from Notifications does not crash', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildShell());
     await tester.pumpAndSettle();
 
@@ -358,37 +373,41 @@ void main() {
   });
 
   group('WYN-139: DM Presence global channel lifecycle', () {
-    testWidgets('starts the global presence channel once on launch',
-        (tester) async {
+    testWidgets('starts the global presence channel once on launch', (
+      tester,
+    ) async {
       final presenceRepository = RecordingPresenceRepository();
-      await tester
-          .pumpWidget(buildShell(presenceRepository: presenceRepository));
+      await tester.pumpWidget(
+        buildShell(presenceRepository: presenceRepository),
+      );
       await tester.pumpAndSettle();
 
       expect(presenceRepository.startGlobalPresenceCalls, 1);
     });
 
     testWidgets(
-        'untracks + persists last_seen_at on pause, re-tracks on resume',
-        (tester) async {
-      final presenceRepository = RecordingPresenceRepository();
-      await tester
-          .pumpWidget(buildShell(presenceRepository: presenceRepository));
-      await tester.pumpAndSettle();
+      'untracks + persists last_seen_at on pause, re-tracks on resume',
+      (tester) async {
+        final presenceRepository = RecordingPresenceRepository();
+        await tester.pumpWidget(
+          buildShell(presenceRepository: presenceRepository),
+        );
+        await tester.pumpAndSettle();
 
-      lifecycleObserverOf(tester)
-          .didChangeAppLifecycleState(AppLifecycleState.paused);
-      await tester.pumpAndSettle();
+        lifecycleObserverOf(tester)
+            .didChangeAppLifecycleState(AppLifecycleState.paused);
+        await tester.pumpAndSettle();
 
-      expect(presenceRepository.untrackOnlineCalls, 1);
-      expect(presenceRepository.touchMyPresenceCalls, 1);
-      expect(presenceRepository.trackOnlineCalls, 0);
+        expect(presenceRepository.untrackOnlineCalls, 1);
+        expect(presenceRepository.touchMyPresenceCalls, 1);
+        expect(presenceRepository.trackOnlineCalls, 0);
 
-      lifecycleObserverOf(tester)
-          .didChangeAppLifecycleState(AppLifecycleState.resumed);
-      await tester.pumpAndSettle();
+        lifecycleObserverOf(tester)
+            .didChangeAppLifecycleState(AppLifecycleState.resumed);
+        await tester.pumpAndSettle();
 
-      expect(presenceRepository.trackOnlineCalls, 1);
-    });
+        expect(presenceRepository.trackOnlineCalls, 1);
+      },
+    );
   });
 }

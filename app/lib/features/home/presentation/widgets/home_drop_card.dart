@@ -226,15 +226,14 @@ class HomeDropCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          // Compact post header: 8px above the author row and 16px
-          // below the card. The reduced top gap, one-line author/time row,
-          // and tighter caption spacing pull media/caption upward without
-          // changing the card's horizontal alignment.
+          // Threads-like compact rhythm: keep 8px above the author
+          // row, but only 8px after the action row before the divider.
+          // The card stays easy to scan without carrying a large blank tail.
           padding: const EdgeInsets.fromLTRB(
             0,
             WynSpacing.space2,
             0,
-            WynSpacing.space4,
+            WynSpacing.space2,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,16 +431,15 @@ class HomeDropCard extends StatelessWidget {
                         if (item.caption != null && item.caption!.isNotEmpty)
                           Padding(
                             // WYN-107: no left inset -- the content column already
-                            // starts at the name. Only the right edge is held off
-                            // the screen. WYN-140: bottom bumped 8->12 so the
-                            // gap to whatever follows (poll/media, or the
-                            // action bar on a caption-only Drop) reads as a
-                            // deliberate break rather than a cramped one.
+                            // starts at the name. Compact feed polish removes the
+                            // extra top spacer and uses an 8px bottom rhythm so
+                            // caption -> media/action reads as one post, not two
+                            // vertically separated blocks.
                             padding: const EdgeInsets.fromLTRB(
                               0,
-                              WynSpacing.space1,
+                              0,
                               homeCardEdgeInset,
-                              WynSpacing.space3,
+                              WynSpacing.space2,
                             ),
                             child: !item.isPoll && item.imageUrl == null
                                 ? DoubleTapLike(
@@ -513,17 +511,11 @@ class HomeDropCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                        // WYN-140: one fixed 12px gap after whatever media
-                        // rendered above (Poll/carousel/single image), same
-                        // value regardless of what follows it (LikedByRow or
-                        // straight to the action bar) -- previously this gap
-                        // was 0 with no LikedByRow and ~10 with one, an
-                        // inconsistency nothing asked for. Absent entirely for
-                        // a caption-only Drop, which has no media block to
-                        // follow -- the caption's own bottom padding already
-                        // provides the gap in that case.
+                        // Compact feed polish: one fixed 8px gap after media
+                        // before liked-by/actions. Caption-only Drops already get
+                        // the same 8px from the caption's own bottom padding.
                         if (item.isPoll || item.imageUrl != null)
-                          const SizedBox(height: WynSpacing.space3),
+                          const SizedBox(height: WynSpacing.space2),
                         if (item.likedBy.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(

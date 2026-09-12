@@ -1773,7 +1773,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('Club'));
+      await tester.tap(find.text('คลับของฉัน'));
       await tester.pumpAndSettle();
 
       expect(find.text('โพสต์จาก Club ที่เข้าร่วม'), findsOneWidget);
@@ -1793,7 +1793,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('Club'));
+      await tester.tap(find.text('คลับของฉัน'));
       await tester.pumpAndSettle();
 
       expect(find.text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่'), findsOneWidget);
@@ -1825,7 +1825,7 @@ void main() {
         await tester.pumpAndSettle();
         tester.takeException();
 
-        await tester.tap(find.text('Club'));
+        await tester.tap(find.text('คลับของฉัน'));
         await tester.pumpAndSettle();
         final callsBeforeExplore =
             emptyFromClubsPostRepository.fetchFromJoinedClubsCalls;
@@ -1875,7 +1875,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      await tester.tap(find.text('Club'));
+      await tester.tap(find.text('คลับของฉัน'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('สำหรับคุณ'));
       await tester.pumpAndSettle();
@@ -1985,7 +1985,7 @@ void main() {
         await tester.pumpAndSettle();
         tester.takeException();
 
-        await tester.tap(find.text('Club'));
+        await tester.tap(find.text('คลับของฉัน'));
         await tester.pumpAndSettle();
         tester.takeException();
         expect(currentPage(tester), closeTo(2, 0.01));
@@ -2167,9 +2167,9 @@ void main() {
       tester.takeException();
 
       expect(find.text('สำหรับคุณ'), findsOneWidget);
-      expect(find.text('ติดตาม'), findsOneWidget);
+      expect(find.text('กำลังติดตาม'), findsOneWidget);
       expect(find.text('ล่าสุด'), findsNothing);
-      expect(find.text('Club'), findsOneWidget);
+      expect(find.text('คลับของฉัน'), findsOneWidget);
     });
 
     testWidgets(
@@ -2187,7 +2187,7 @@ void main() {
 
         expect(find.byKey(const Key('active_segment_accent')), findsOneWidget);
 
-        await tester.tap(find.text('ติดตาม'));
+        await tester.tap(find.text('กำลังติดตาม'));
         await tester.pumpAndSettle();
         tester.takeException();
 
@@ -2226,16 +2226,16 @@ void main() {
         // viewport -- scroll it into view before tapping, or the tap can
         // silently miss.
         await tester.dragUntilVisible(
-          find.text('Club'),
+          find.text('คลับของฉัน'),
           find.byType(SingleChildScrollView).first,
           const Offset(-60, 0),
         );
-        await tester.tap(find.text('Club'));
+        await tester.tap(find.text('คลับของฉัน'));
         await tester.pumpAndSettle();
         final exception = tester.takeException();
         expect(exception, isNull);
 
-        final labelFinder = find.text('Club');
+        final labelFinder = find.text('คลับของฉัน');
         expect(labelFinder, findsOneWidget);
         final renderParagraph =
             tester.renderObject(labelFinder) as RenderParagraph;
@@ -2273,7 +2273,7 @@ void main() {
         // active segment or any other.
         expect(find.byIcon(Icons.check), findsNothing);
 
-        await tester.tap(find.text('ติดตาม'));
+        await tester.tap(find.text('กำลังติดตาม'));
         await tester.pumpAndSettle();
         tester.takeException();
         expect(find.byIcon(Icons.check), findsNothing);
@@ -2308,7 +2308,7 @@ void main() {
       await tester.pumpAndSettle();
       tester.takeException();
 
-      for (final label in ['ติดตาม']) {
+      for (final label in ['กำลังติดตาม']) {
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
         final exception = tester.takeException();
@@ -2351,7 +2351,7 @@ void main() {
           await tester.pumpAndSettle();
           tester.takeException();
 
-          for (final label in ['สำหรับคุณ', 'ติดตาม', 'Club']) {
+          for (final label in ['สำหรับคุณ', 'กำลังติดตาม', 'คลับของฉัน']) {
             await tester.dragUntilVisible(
               find.text(label),
               find.byType(SingleChildScrollView).first,
@@ -2407,7 +2407,7 @@ void main() {
         await tester.pumpAndSettle();
         tester.takeException();
 
-        await tester.tap(find.text('ติดตาม'));
+        await tester.tap(find.text('กำลังติดตาม'));
         await tester.pumpAndSettle();
         tester.takeException();
 
@@ -2431,7 +2431,7 @@ void main() {
         await tester.pumpAndSettle();
         tester.takeException();
 
-        await tester.tap(find.text('ติดตาม'));
+        await tester.tap(find.text('กำลังติดตาม'));
         await tester.pumpAndSettle();
         tester.takeException();
 
@@ -2457,7 +2457,7 @@ void main() {
         await tester.pumpAndSettle();
         tester.takeException();
 
-        await tester.tap(find.text('ติดตาม'));
+        await tester.tap(find.text('กำลังติดตาม'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('สำหรับคุณ'));
         await tester.pumpAndSettle();
