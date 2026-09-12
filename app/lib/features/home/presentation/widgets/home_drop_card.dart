@@ -356,7 +356,7 @@ class HomeDropCard extends StatelessWidget {
                             right: homeCardEdgeInset,
                           ),
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Expanded(
                                 child: InkWell(
@@ -427,14 +427,15 @@ class HomeDropCard extends StatelessWidget {
                               // Delete ReDrop) actually appear
                               // underneath those two.
                               //
-                              // Final mockup rhythm: the visual dots sit
-                              // on the same top line as name/time, and the row is
-                              // only 24px tall so the caption follows immediately.
+                              // Keep the visible dots centered on the
+                              // author/date line. The button still owns the
+                              // compact 24px header height so the caption stays
+                              // close underneath.
                               IconButton(
                                 icon: const Icon(Icons.more_horiz, size: 22),
                                 tooltip: 'เพิ่มเติม',
-                                padding: const EdgeInsets.only(top: 2),
-                                alignment: Alignment.topCenter,
+                                padding: EdgeInsets.zero,
+                                alignment: Alignment.center,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
                                   height: 24,
