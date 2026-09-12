@@ -127,8 +127,8 @@ class HomePopCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final captionStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      fontSize: 17,
-      height: 1.35,
+      fontSize: 17.5,
+      height: 1.32,
       fontWeight: FontWeight.w400,
       color: WynColors.ink,
     );
@@ -143,7 +143,7 @@ class HomePopCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             0,
-            WynSpacing.space1,
+            WynSpacing.space3,
             0,
             WynSpacing.space2,
           ),
@@ -248,18 +248,32 @@ class HomePopCard extends StatelessWidget {
                               // whether the authorship-gated Hide row
                               // appears underneath those two.
                               IconButton(
-                                icon: const Icon(Icons.more_horiz),
+                                icon: const Icon(Icons.more_horiz, size: 22),
                                 tooltip: 'เพิ่มเติม',
-                                padding: EdgeInsets.zero,
+                                padding: const EdgeInsets.only(top: 2),
+                                alignment: Alignment.topCenter,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
-                                  height: 40,
+                                  height: 32,
                                 ),
                                 onPressed: () => _openMoreMenu(context),
                               ),
                             ],
                           ),
                         ),
+                        if (item.caption != null && item.caption!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              0,
+                              0,
+                              homeCardEdgeInset,
+                              WynSpacing.space2,
+                            ),
+                            child: HashtagText(
+                              item.caption!,
+                              style: captionStyle,
+                            ),
+                          ),
                         Padding(
                           padding: const EdgeInsets.only(
                             right: homeCardEdgeInset,
@@ -268,10 +282,6 @@ class HomePopCard extends StatelessWidget {
                             onLike: onToggleLike,
                             alreadyLiked: item.likedByMe,
                             child: ClipRRect(
-                              // Rounded for the same reason the Drop
-                              // card's own photo is (WYN-107): inside
-                              // the column, a square corner on white
-                              // reads as unfinished.
                               borderRadius: BorderRadius.circular(
                                 WynSpacing.radiusLg,
                               ),
@@ -331,25 +341,7 @@ class HomePopCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        // WYN-140: fixed 12px gap after the video thumbnail
-                        // (always present, unlike Drop's optional image) --
-                        // previously this was 8px only when a caption
-                        // followed, and 0px straight to LikedByRow/the action
-                        // bar when it didn't.
-                        const SizedBox(height: WynSpacing.space3),
-                        if (item.caption != null && item.caption!.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              0,
-                              0,
-                              homeCardEdgeInset,
-                              WynSpacing.space3,
-                            ),
-                            child: HashtagText(
-                              item.caption!,
-                              style: captionStyle,
-                            ),
-                          ),
+                        const SizedBox(height: WynSpacing.space2),
                         if (showLikedBy && item.likedBy.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(

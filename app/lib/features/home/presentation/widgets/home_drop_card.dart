@@ -230,8 +230,8 @@ class HomeDropCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final captionStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      fontSize: 17,
-      height: 1.35,
+      fontSize: 17.5,
+      height: 1.32,
       fontWeight: FontWeight.w400,
       color: WynColors.ink,
     );
@@ -243,11 +243,11 @@ class HomeDropCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          // Tighten the top rhythm so the author, caption and media
-          // sit closer to the divider while keeping 8px below the action row.
+          // Approved final mockup: each post gets breathing room above
+          // the avatar/name, while the content inside the post stays compact.
           padding: const EdgeInsets.fromLTRB(
             0,
-            WynSpacing.space1,
+            WynSpacing.space3,
             0,
             WynSpacing.space2,
           ),
@@ -427,18 +427,17 @@ class HomeDropCard extends StatelessWidget {
                               // Delete ReDrop) actually appear
                               // underneath those two.
                               //
-                              // Compact header: keep the More action
-                              // at 40px tall even though the avatar is 48px, so
-                              // the author stays top-aligned and caption/media
-                              // can start 8px sooner. Width remains 44px for a
-                              // forgiving horizontal target.
+                              // Final mockup rhythm: the visual dots sit
+                              // on the same top line as name/time, and the row is
+                              // only 32px tall so the caption follows immediately.
                               IconButton(
-                                icon: const Icon(Icons.more_horiz),
+                                icon: const Icon(Icons.more_horiz, size: 22),
                                 tooltip: 'เพิ่มเติม',
-                                padding: EdgeInsets.zero,
+                                padding: const EdgeInsets.only(top: 2),
+                                alignment: Alignment.topCenter,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
-                                  height: 40,
+                                  height: 32,
                                 ),
                                 onPressed: () => _openMoreMenu(context),
                               ),
