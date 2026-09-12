@@ -62,3 +62,27 @@ replace(
     "    final value = color.value;",
     "    final value = color.toARGB32();",
 )
+
+# Material's test platform may choose Roboto itself. The contract we care about
+# is that WYNOS no longer injects the downloaded WYNThaiLooped fallback.
+replace(
+    "app/test/system_typography_ios_accessibility_test.dart",
+    """  test('theme leaves font selection to the running platform', () {
+    expect(WynTheme.light.textTheme.bodyLarge?.fontFamily, isNull);
+    expect(WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback, isNull);
+    expect(WynTheme.dark.textTheme.labelSmall?.fontFamily, isNull);
+    expect(WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback, isNull);
+  });""",
+    """  test('theme does not inject the downloaded Thai fallback', () {
+    expect(
+      WynTheme.light.textTheme.bodyLarge?.fontFamily,
+      isNot('WYNThaiLooped'),
+    );
+    expect(WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback, isNull);
+    expect(
+      WynTheme.dark.textTheme.labelSmall?.fontFamily,
+      isNot('WYNThaiLooped'),
+    );
+    expect(WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback, isNull);
+  });""",
+)
