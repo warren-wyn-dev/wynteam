@@ -1,0 +1,176 @@
+name: Reconcile latest main for web system text
+
+on:
+  push:
+    branches:
+      - fix/web-system-font-emoji
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-system-font-emoji
+          fetch-depth: 0
+
+      - name: Merge main and preserve both feed changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          set +e
+          git merge origin/main --no-commit --no-ff
+          set -e
+
+          unresolved="$(git diff --name-only --diff-filter=U)"
+          unexpected="$(printf '%s\n' "$unresolved" | grep -v '^$' | grep -vE '^app/lib/features/home/presentation/widgets/home_(drop|pop)_card\.dart$' || true)"
+          if [ -n "$unexpected" ]; then
+            echo '::error::Unexpected merge conflicts:'
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+
+          for file in \
+            app/lib/features/home/presentation/widgets/home_drop_card.dart \
+            app/lib/features/home/presentation/widgets/home_pop_card.dart; do
+            if printf '%s\n' "$unresolved" | grep -Fxq "$file"; then
+              git checkout --ours -- "$file"
+            fi
+          done
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'{path}: missing expected merge pattern: {old[:100]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          drop = 'app/lib/features/home/presentation/widgets/home_drop_card.dart'
+          pop = 'app/lib/features/home/presentation/widgets/home_pop_card.dart'
+
+          replace(
+              drop,
+              '''                                      Expanded(
+                                        flex: 3,
+                                        child: BrowserSystemText(''',
+              '''                                      Flexible(
+                                        child: BrowserSystemText(''',
+          )
+          replace(
+              drop,
+              '''                                      Flexible(
+                                        flex: 2,
+                                        child: BrowserSystemText(''',
+              '''                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 112,
+                                        ),
+                                        child: BrowserSystemText(''',
+          )
+          replace(
+              drop,
+              '''                            child: !item.isPoll && item.imageUrl == null
+                                ? DoubleTapLike(
+                                    onLike: onToggleLike,
+                                    alreadyLiked: item.likedByMe,
+                                    child: HashtagText(
+                                      item.caption!,
+                                      style: captionStyle,
+                                    ),
+                                  )
+                                : HashtagText(
+                                    item.caption!,
+                                    style: captionStyle,
+                                  ),''',
+              '''                            child: Transform.translate(
+                              offset: const Offset(0, -3),
+                              child: !item.isPoll && item.imageUrl == null
+                                  ? DoubleTapLike(
+                                      onLike: onToggleLike,
+                                      alreadyLiked: item.likedByMe,
+                                      child: HashtagText(
+                                        item.caption!,
+                                        style: captionStyle,
+                                      ),
+                                    )
+                                  : HashtagText(
+                                      item.caption!,
+                                      style: captionStyle,
+                                    ),
+                            ),''',
+          )
+
+          replace(
+              pop,
+              '''                                      Expanded(
+                                        flex: 3,
+                                        child: BrowserSystemText(''',
+              '''                                      Flexible(
+                                        child: BrowserSystemText(''',
+          )
+          replace(
+              pop,
+              '''                                      Flexible(
+                                        flex: 2,
+                                        child: BrowserSystemText(''',
+              '''                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 112,
+                                        ),
+                                        child: BrowserSystemText(''',
+          )
+          replace(
+              pop,
+              '''                            child: HashtagText(
+                              item.caption!,
+                              style: captionStyle,
+                            ),''',
+              '''                            child: Transform.translate(
+                              offset: const Offset(0, -3),
+                              child: HashtagText(
+                                item.caption!,
+                                style: captionStyle,
+                              ),
+                            ),''',
+          )
+          PY
+
+          git add -A
+          if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+            echo '::error::Unresolved merge conflicts remain.'
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Verify reconciled tree
+        working-directory: app
+        run: |
+          flutter pub get
+          dart format \
+            lib/features/home/presentation/widgets/home_drop_card.dart \
+            lib/features/home/presentation/widgets/home_pop_card.dart
+          flutter analyze
+          flutter test \
+            test/hashtag_text_test.dart \
+            test/system_typography_ios_accessibility_test.dart \
+            test/home_drop_card_overflow_test.dart
+          flutter build web --release
+
+      - name: Commit merge
+        run: |
+          git add -A
+          git commit -m 'merge(main): preserve latest feed polish'
+          git push origin HEAD:fix/web-system-font-emoji
