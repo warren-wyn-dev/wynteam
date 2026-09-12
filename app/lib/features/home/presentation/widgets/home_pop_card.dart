@@ -141,7 +141,12 @@ class HomePopCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            WynSpacing.space1,
+            0,
+            WynSpacing.space2,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -177,6 +182,7 @@ class HomePopCard extends StatelessWidget {
                             right: homeCardEdgeInset,
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: InkWell(
@@ -247,7 +253,7 @@ class HomePopCard extends StatelessWidget {
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,
-                                  height: homeCardAvatarDiameter,
+                                  height: 40,
                                 ),
                                 onPressed: () => _openMoreMenu(context),
                               ),
