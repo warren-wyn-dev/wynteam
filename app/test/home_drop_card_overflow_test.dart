@@ -178,10 +178,7 @@ void main() {
 
       final avatarTop = tester.getTopLeft(avatar).dy;
       final headerTop = tester.getTopLeft(moreButton).dy;
-      expect(
-        avatarTop - headerTop,
-        closeTo(homeCardAvatarTopInset, 0.5),
-      );
+      expect(avatarTop - headerTop, closeTo(homeCardAvatarTopInset, 0.5));
       final circle = tester.widget<CircleAvatar>(avatar);
       expect(circle.radius, homeCardAvatarDiameter / 2);
       expect(homeCardAvatarDiameter, 44);
@@ -205,10 +202,7 @@ void main() {
 
       final avatarTop = tester.getTopLeft(avatar).dy;
       final headerTop = tester.getTopLeft(moreButton).dy;
-      expect(
-        avatarTop - headerTop,
-        closeTo(homeCardAvatarTopInset, 0.5),
-      );
+      expect(avatarTop - headerTop, closeTo(homeCardAvatarTopInset, 0.5));
       final circle = tester.widget<CircleAvatar>(avatar);
       expect(circle.radius, homeCardAvatarDiameter / 2);
       expect(tester.takeException(), isNull);
@@ -216,34 +210,37 @@ void main() {
   );
 
   testWidgets(
-    'Home feed caption removes visual translation so no phantom gap remains',
+    'Home feed caption moves 3px closer without moving its layout slot',
     (tester) async {
       await _pump(tester, card(_item()), width: 390, asHomeFeed: true);
       await tester.pump();
 
       final caption = find.byType(HashtagText);
       expect(caption, findsOneWidget);
-      expect(
-        find.descendant(of: caption, matching: find.byType(Transform)),
-        findsNothing,
+      final transformFinder = find.ancestor(
+        of: caption,
+        matching: find.byType(Transform),
       );
+      final transforms = tester.widgetList<Transform>(transformFinder);
+      expect(transforms.any((t) => t.transform.storage[13] == -3), isTrue);
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets(
-    'reused HomeDropCard outside Home also has no caption translation',
-    (tester) async {
-      await _pump(tester, card(_item()), width: 390);
-      await tester.pump();
+  testWidgets('reused HomeDropCard keeps the same 3px caption nudge', (
+    tester,
+  ) async {
+    await _pump(tester, card(_item()), width: 390);
+    await tester.pump();
 
-      final caption = find.byType(HashtagText);
-      expect(caption, findsOneWidget);
-      expect(
-        find.descendant(of: caption, matching: find.byType(Transform)),
-        findsNothing,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+    final caption = find.byType(HashtagText);
+    expect(caption, findsOneWidget);
+    final transformFinder = find.ancestor(
+      of: caption,
+      matching: find.byType(Transform),
+    );
+    final transforms = tester.widgetList<Transform>(transformFinder);
+    expect(transforms.any((t) => t.transform.storage[13] == -3), isTrue);
+    expect(tester.takeException(), isNull);
+  });
 }
