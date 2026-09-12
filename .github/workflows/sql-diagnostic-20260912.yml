@@ -36,25 +36,47 @@ jobs:
         with:
           ref: fix/ci-reconcile-20260912
 
-      - name: Patch WYN-143 harness and run maintained SQL suite
+      - name: Align WYN-143 and WYN-144 harnesses and run maintained SQL suite
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('supabase/tests/wyn_143_cold_start_test.sh')
-          text = path.read_text()
-          needle = 'grant usage on schema public to authenticated, anon;\n'
+
+          paths = [
+              Path('supabase/tests/wyn_143_cold_start_test.sh'),
+              Path('supabase/tests/wyn_144_feed_quality_test.sh'),
+          ]
+          grant_anchor = 'grant usage on schema public to authenticated, anon;\n'
           grants = (
               'grant usage on schema public to authenticated, anon;\n'
               'grant usage on schema auth to authenticated, anon;\n'
               'grant execute on function auth.uid() to authenticated, anon;\n'
               'grant execute on function auth.role() to authenticated, anon;\n'
           )
-          if 'grant usage on schema auth to authenticated, anon;' not in text:
-              if needle not in text:
-                  raise SystemExit('expected WYN-143 grant anchor not found')
-              text = text.replace(needle, grants, 1)
+          old_contract = (
+              "position('top100_quality_bonus' in pg_get_functiondef(\n"
+              "   'public.get_wynos_ranked_feed()'::regprocedure))>0\n"
+              "   and position('(101 - t100.current_rank) / 10.0' in pg_get_functiondef(\n"
+              "   'public.get_wynos_ranked_feed()'::regprocedure))>0"
+          )
+          new_contract = (
+              "position('top100_quality_bonus' in pg_get_functiondef(\n"
+              "   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0\n"
+              "   and position('(101 - t100.current_rank) / 10.0' in pg_get_functiondef(\n"
+              "   'internal.get_wynos_ranked_feed_base_v1()'::regprocedure))>0"
+          )
+
+          for path in paths:
+              text = path.read_text()
+              if 'grant usage on schema auth to authenticated, anon;' not in text:
+                  if grant_anchor not in text:
+                      raise SystemExit(f'expected grant anchor not found in {path}')
+                  text = text.replace(grant_anchor, grants, 1)
+              if old_contract in text:
+                  text = text.replace(old_contract, new_contract, 1)
+              elif new_contract not in text:
+                  raise SystemExit(f'expected Top100 contract anchor not found in {path}')
               path.write_text(text)
           PY
 
@@ -66,9 +88,9 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add supabase/tests/wyn_143_cold_start_test.sh sql_failure_diagnostic.txt
+          git add supabase/tests/wyn_143_cold_start_test.sh supabase/tests/wyn_144_feed_quality_test.sh sql_failure_diagnostic.txt
           if ! git diff --cached --quiet; then
-            git commit -m 'fix: align WYN-143 auth test harness'
+            git commit -m 'fix: align WYN-143 and WYN-144 SQL harnesses'
             git push origin HEAD:fix/ci-reconcile-20260912
           fi
 
