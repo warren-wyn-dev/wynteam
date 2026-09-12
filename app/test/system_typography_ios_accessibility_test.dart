@@ -26,8 +26,7 @@ Widget _scaledApp({required double textScale, required Widget child}) {
 Text _textWithPlainSpan(WidgetTester tester, String expected) {
   return tester.widget<Text>(
     find.byWidgetPredicate(
-      (widget) =>
-          widget is Text && widget.textSpan?.toPlainText() == expected,
+      (widget) => widget is Text && widget.textSpan?.toPlainText() == expected,
     ),
   );
 }
@@ -45,15 +44,17 @@ void main() {
     text: 'ชอบโพสต์นี้มาก 👨‍👩‍👧‍👦 🇹🇭',
   );
 
-  test('theme keeps the looped Thai family in the fallback chain', () {
+  test('theme does not inject the downloaded Thai fallback', () {
     expect(
-      WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback,
-      contains('WYNThaiLooped'),
+      WynTheme.light.textTheme.bodyLarge?.fontFamily,
+      isNot('WYNThaiLooped'),
     );
+    expect(WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback, isNull);
     expect(
-      WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback,
-      contains('WYNThaiLooped'),
+      WynTheme.dark.textTheme.labelSmall?.fontFamily,
+      isNot('WYNThaiLooped'),
     );
+    expect(WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback, isNull);
   });
 
   testWidgets('liked-by metadata uses the shared labelSmall token',

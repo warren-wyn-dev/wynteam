@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../../../../core/typography/browser_system_text.dart';
 import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_liker.dart';
 
@@ -58,7 +59,8 @@ class LikedByRow extends StatelessWidget {
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.fromBorderSide(
-                          BorderSide(color: WynColors.paper, width: _borderWidth),
+                          BorderSide(
+                              color: WynColors.paper, width: _borderWidth),
                         ),
                       ),
                       child: AvatarCircle(
@@ -73,21 +75,19 @@ class LikedByRow extends StatelessWidget {
           ),
           const SizedBox(width: WynSpacing.space2),
           Expanded(
-            child: Text.rich(
-              TextSpan(
-                style: baseStyle,
-                children: [
-                  const TextSpan(text: 'ถูกใจโดย '),
-                  TextSpan(
-                    text: shown[0].nameOrUsername,
-                    style: baseStyle?.copyWith(
-                      color: WynColors.ink,
-                      fontWeight: FontWeight.w600,
-                    ),
+            child: BrowserSystemRichText(
+              style: baseStyle,
+              spans: [
+                const BrowserSystemSpan(text: 'ถูกใจโดย '),
+                BrowserSystemSpan(
+                  text: shown[0].nameOrUsername,
+                  style: baseStyle?.copyWith(
+                    color: WynColors.ink,
+                    fontWeight: FontWeight.w600,
                   ),
-                  if (extra > 0) TextSpan(text: ' และอีก $extra คน'),
-                ],
-              ),
+                ),
+                if (extra > 0) BrowserSystemSpan(text: ' และอีก $extra คน'),
+              ],
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wynos_founder_metrics.dart';
+import '../../../../core/typography/browser_system_text.dart';
 
 class WynosFounderBottomNavigation extends StatelessWidget {
   const WynosFounderBottomNavigation({
@@ -63,7 +64,7 @@ class WynosFounderBottomNavigation extends StatelessWidget {
                       children: [
                         createAction,
                         const SizedBox(height: 6),
-                        const Text(
+                        const BrowserSystemText(
                           'โพสต์',
                           style: TextStyle(
                             fontSize: 11.5,
@@ -157,7 +158,7 @@ class _DestinationWidget extends StatelessWidget {
             children: [
               icon,
               const SizedBox(height: 4),
-              Text(
+              BrowserSystemText(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.fade,

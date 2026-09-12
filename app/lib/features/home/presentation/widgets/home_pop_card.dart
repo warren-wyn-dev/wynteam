@@ -8,6 +8,7 @@ import '../../../profile/presentation/widgets/avatar_circle.dart';
 import '../../data/home_feed_item.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
+import '../../../../core/typography/browser_system_text.dart';
 import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/wyn_heart_icon.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
@@ -127,12 +128,14 @@ class HomePopCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final captionStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      fontSize: 17.5,
-      height: 1.32,
-      fontWeight: FontWeight.w400,
-      color: WynColors.ink,
-    );
-    final actionCountStyle = Theme.of(context).textTheme.bodyMedium
+          fontSize: 17.5,
+          height: 1.32,
+          fontWeight: FontWeight.w400,
+          color: WynColors.ink,
+        );
+    final actionCountStyle = Theme.of(context)
+        .textTheme
+        .bodyMedium
         ?.copyWith(fontSize: 15, height: 1.1, fontWeight: FontWeight.w400);
     return Semantics(
       label:
@@ -194,7 +197,7 @@ class HomePopCard extends StatelessWidget {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Flexible(
-                                        child: Text(
+                                        child: BrowserSystemText(
                                           item.authorNameOrUsername,
                                           maxLines: 1,
                                           softWrap: false,
@@ -221,7 +224,7 @@ class HomePopCard extends StatelessWidget {
                                         constraints: const BoxConstraints(
                                           maxWidth: 112,
                                         ),
-                                        child: Text(
+                                        child: BrowserSystemText(
                                           relativeTimeLabel(
                                             item.createdAt,
                                             now: DateTime.now(),

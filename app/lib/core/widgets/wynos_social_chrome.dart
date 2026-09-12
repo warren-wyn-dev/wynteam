@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../design/wyn_colors.dart';
 import '../design/wyn_spacing.dart';
 import '../design/wyn_typography.dart';
+import '../typography/browser_system_text.dart';
 
 /// Shared visual chrome for WYNOS social surfaces.
 ///
@@ -89,9 +90,8 @@ class WynosSocialHeader extends StatelessWidget {
           ),
           Expanded(
             child: Center(
-              child:
-                  titleWidget ??
-                  Text(
+              child: titleWidget ??
+                  BrowserSystemText(
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -224,7 +224,7 @@ class _WynosSocialTab<T> extends StatelessWidget {
             children: [
               Expanded(
                 child: Center(
-                  child: Text(
+                  child: BrowserSystemText(
                     item.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -283,7 +283,16 @@ class WynosSocialTabBar extends StatelessWidget implements PreferredSizeWidget {
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
-        tabs: [for (final label in labels) Tab(text: label)],
+        tabs: [
+          for (final label in labels)
+            Tab(
+              child: BrowserSystemText(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
       ),
     );
   }

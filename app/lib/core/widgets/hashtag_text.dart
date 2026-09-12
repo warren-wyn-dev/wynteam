@@ -14,6 +14,7 @@ import '../../features/profile/data/profile_repository.dart';
 import '../../features/profile/presentation/view_profile_screen.dart';
 import '../../features/saved/data/saved_repository.dart';
 import '../text_utils.dart';
+import '../typography/browser_system_text.dart';
 import '../typography/native_emoji.dart';
 
 /// Founder-approved bright blue for tappable hashtags in post copy.
@@ -138,8 +139,8 @@ class _HashtagTextState extends State<HashtagText> {
     // non-navigable, same silent no-op as an unresolvable mention above
     // -- see .wyn/docs/design/wyn-027-block-system.md, Screen 9.
     try {
-      final blockRelationship = await BlockRepository(client)
-          .blockRelationship(profile.id);
+      final blockRelationship =
+          await BlockRepository(client).blockRelationship(profile.id);
       if (blockRelationship.isBlockedEitherWay) return;
     } catch (_) {
       return;
@@ -229,9 +230,9 @@ class _HashtagTextState extends State<HashtagText> {
     final compactFeedCard = _usesCompactFeedCardRhythm;
     final displayText = compactFeedCard
         ? widget.text.trimRight().replaceAll(
-            _feedCardHashtagBlankLinePattern,
-            '\n',
-          )
+              _feedCardHashtagBlankLinePattern,
+              '\n',
+            )
         : widget.text;
     final baseStyle = widget.style ?? DefaultTextStyle.of(context).style;
     final hashtagStyle = baseStyle.copyWith(color: _hashtagLinkBlue);
@@ -240,7 +241,44 @@ class _HashtagTextState extends State<HashtagText> {
       fontWeight: FontWeight.w600,
     );
 
-    Text buildRichText(String text) {
+    Widget buildRichText(String text) {
+      if (usesBrowserSystemTextDom) {
+        final browserSpans = <BrowserSystemSpan>[];
+        var browserLastEnd = 0;
+        for (final token in _findTokens(text)) {
+          if (token.start < browserLastEnd) continue;
+          if (token.start > browserLastEnd) {
+            browserSpans.add(
+              BrowserSystemSpan(
+                  text: text.substring(browserLastEnd, token.start)),
+            );
+          }
+          browserSpans.add(
+            BrowserSystemSpan(
+              text: text.substring(token.start, token.end),
+              style:
+                  token.kind == _SpanKind.hashtag ? hashtagStyle : mentionStyle,
+              onTap: token.kind == _SpanKind.hashtag
+                  ? () => _openHashtagFeed(token.value)
+                  : () => _openMentionedProfile(token.value),
+            ),
+          );
+          browserLastEnd = token.end;
+        }
+        if (browserLastEnd < text.length) {
+          browserSpans.add(
+            BrowserSystemSpan(text: text.substring(browserLastEnd)),
+          );
+        }
+        return BrowserSystemRichText(
+          spans: browserSpans,
+          style: baseStyle,
+          maxLines: widget.maxLines,
+          overflow: widget.overflow ?? TextOverflow.clip,
+          semanticsLabel: text,
+        );
+      }
+
       final spans = <InlineSpan>[];
       var lastEnd = 0;
       for (final token in _findTokens(text)) {
@@ -261,9 +299,8 @@ class _HashtagTextState extends State<HashtagText> {
         spans.add(
           TextSpan(
             text: text.substring(token.start, token.end),
-            style: token.kind == _SpanKind.hashtag
-                ? hashtagStyle
-                : mentionStyle,
+            style:
+                token.kind == _SpanKind.hashtag ? hashtagStyle : mentionStyle,
             recognizer: recognizer,
           ),
         );
