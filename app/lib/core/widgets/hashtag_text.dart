@@ -13,6 +13,7 @@ import '../../features/profile/data/profile.dart';
 import '../../features/profile/data/profile_repository.dart';
 import '../../features/profile/presentation/view_profile_screen.dart';
 import '../../features/saved/data/saved_repository.dart';
+import '../design/wyn_spacing.dart';
 import '../text_utils.dart';
 import '../typography/native_emoji.dart';
 
@@ -182,6 +183,31 @@ class _HashtagTextState extends State<HashtagText> {
     }
   }
 
+  bool _isHomeFeedCaption(BuildContext context) {
+    // Only the Home feed captions use the explicit 17.5px caption style.
+    // Quote text and every HashtagText on detail/club/profile surfaces stay
+    // untouched. The card-level semantics label mirrors the same scoping
+    // already used by the Home feed avatar alignment.
+    if ((widget.style?.fontSize ?? 0) != 17.5) return false;
+
+    var isHomePost = false;
+    context.visitAncestorElements((element) {
+      final ancestor = element.widget;
+      if (ancestor is Semantics) {
+        final label = ancestor.properties.label;
+        final isPostLabel =
+            label != null &&
+            (label.startsWith('รูปของ ') || label.startsWith('วิดีโอของ '));
+        if (ancestor.properties.button == true && isPostLabel) {
+          isHomePost = true;
+          return false;
+        }
+      }
+      return true;
+    });
+    return isHomePost;
+  }
+
   @override
   Widget build(BuildContext context) {
     for (final recognizer in _recognizers) {
@@ -232,10 +258,16 @@ class _HashtagTextState extends State<HashtagText> {
       );
     }
 
-    return Text.rich(
+    final richText = Text.rich(
       TextSpan(style: baseStyle, children: spans),
       maxLines: widget.maxLines,
       overflow: widget.overflow ?? TextOverflow.clip,
+    );
+
+    if (!_isHomeFeedCaption(context)) return richText;
+    return Transform.translate(
+      offset: const Offset(0, -WynSpacing.space1),
+      child: richText,
     );
   }
 }
