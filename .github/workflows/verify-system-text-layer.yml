@@ -1,0 +1,29 @@
+name: Verify expanded web system text layer
+
+on:
+  push:
+    branches:
+      - feat/web-system-text-all
+    paths:
+      - .github/workflows/verify-system-text-layer.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/web-system-text-all
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - working-directory: app
+        run: |
+          flutter pub get
+          dart format --output=none --set-exit-if-changed lib/core/typography/browser_system_text_stub.dart lib/core/typography/browser_system_text_web.dart
+          flutter analyze
+          flutter build web --release
