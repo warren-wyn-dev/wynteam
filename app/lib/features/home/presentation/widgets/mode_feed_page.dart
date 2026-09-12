@@ -7,6 +7,7 @@ import '../../../drop/presentation/quote_redrop_screen.dart';
 import '../../../follow/data/follow_repository.dart';
 import '../../../follow/data/follow_request_repository.dart';
 import '../../../pop/data/pop_repository.dart';
+import '../../../profile/data/profile.dart';
 import '../../../profile/data/profile_repository.dart';
 import '../../../profile/presentation/view_profile_screen.dart';
 import '../../../saved/data/saved_repository.dart';
@@ -92,6 +93,7 @@ class ModeFeedPageState extends State<ModeFeedPage>
   final _scrollController = ScrollController();
   final _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
   final List<HomeFeedItem> _items = [];
+  final Map<String, Profile> _authorProfiles = {};
 
   /// Keys of every row already shown this load cycle -- see [_loadMore]
   /// for why offset pagination can hand back a row twice. Cleared and
@@ -219,6 +221,25 @@ class ModeFeedPageState extends State<ModeFeedPage>
     }
   }
 
+  Future<Map<String, Profile>> _fetchAuthorProfiles(
+    List<HomeFeedItem> items,
+  ) async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final ids = <String>{
+      for (final item in items)
+        if (item.authorId != currentUserId) item.authorId,
+    }.toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final profiles = await widget.profileRepository.fetchProfilesByIds(ids);
+      return {for (final profile in profiles) profile.id: profile};
+    } catch (_) {
+      // Follow is secondary UI: never fail the feed because this hydration
+      // request had a transient error. A refresh gets another chance.
+      return const {};
+    }
+  }
+
   Future<void> _loadInitial() async {
     setState(() {
       _isLoadingInitial = true;
@@ -230,11 +251,15 @@ class ModeFeedPageState extends State<ModeFeedPage>
     });
     try {
       final items = await _fetchPage(0);
+      final authorProfiles = await _fetchAuthorProfiles(items);
       if (!mounted) return;
       setState(() {
         _items
           ..clear()
           ..addAll(items);
+        _authorProfiles
+          ..clear()
+          ..addAll(authorProfiles);
         _seenKeys
           ..clear()
           ..addAll(items.map(_keyFor));
@@ -262,8 +287,10 @@ class ModeFeedPageState extends State<ModeFeedPage>
     try {
       final nextPage = _page + 1;
       final items = await _fetchPage(nextPage);
+      final authorProfiles = await _fetchAuthorProfiles(items);
       if (!mounted) return;
       setState(() {
+        _authorProfiles.addAll(authorProfiles);
         // Offset pagination re-reads a list that may have grown at the
         // top since the previous page: someone posting while the viewer
         // scrolls shifts every row down one, so the last item of page N
@@ -855,6 +882,10 @@ class ModeFeedPageState extends State<ModeFeedPage>
               onDeleteRedrop: () => _deleteRedrop(index),
               onVotePoll: (optionIndex) => _votePoll(index, optionIndex),
               onHide: () => _hideItem(index),
+              authorProfile: _authorProfiles[item.authorId],
+              followRepository: widget.followRepository,
+              followRequestRepository: _followRequestRepository,
+              showHomeFollowButton: true,
               // WYN-088 (Wynos V1.0.0 Beta2, item 27): Founder wants
               // the eye/view-count icon off the Home feed specifically
               // (every tab -- this widget serves both ranked modes),

@@ -31,6 +31,8 @@ class FollowActionButton extends StatefulWidget {
     required this.followRequestRepository,
     this.compact = false,
     this.filled = false,
+    this.headerCompact = false,
+    this.hideWhenFollowing = false,
   });
 
   final Profile profile;
@@ -44,6 +46,13 @@ class FollowActionButton extends StatefulWidget {
   /// existing Discovery/Profile recommendation surfaces keep their original
   /// outlined appearance by default.
   final bool filled;
+
+  /// Extra-small filled pill for an inline post header. Kept separate
+  /// from [compact] so recommendation surfaces retain their 36px button.
+  final bool headerCompact;
+
+  /// IG-like feed behavior: hide the pill after a follow is established.
+  final bool hideWhenFollowing;
 
   @override
   State<FollowActionButton> createState() => _FollowActionButtonState();
@@ -65,8 +74,9 @@ class _FollowActionButtonState extends State<FollowActionButton> {
 
   Future<void> _load() async {
     try {
-      final isFollowing =
-          await widget.followRepository.isFollowing(userId: widget.profile.id);
+      final isFollowing = await widget.followRepository.isFollowing(
+        userId: widget.profile.id,
+      );
       if (!mounted) return;
       setState(() => _isFollowing = isFollowing);
     } catch (_) {
@@ -74,8 +84,9 @@ class _FollowActionButtonState extends State<FollowActionButton> {
     }
     if (!widget.profile.isPrivate) return;
     try {
-      final hasPending = await widget.followRequestRepository
-          .hasPendingRequest(userId: widget.profile.id);
+      final hasPending = await widget.followRequestRepository.hasPendingRequest(
+        userId: widget.profile.id,
+      );
       if (!mounted) return;
       setState(() => _hasPendingRequest = hasPending);
     } catch (_) {
@@ -124,8 +135,9 @@ class _FollowActionButtonState extends State<FollowActionButton> {
     });
     WynFeedback.follow();
     try {
-      await widget.followRequestRepository
-          .sendRequest(userId: widget.profile.id);
+      await widget.followRequestRepository.sendRequest(
+        userId: widget.profile.id,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _hasPendingRequest = false);
@@ -135,7 +147,8 @@ class _FollowActionButtonState extends State<FollowActionButton> {
   }
 
   Future<void> _cancelRequest() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text('ยกเลิกคำขอติดตาม ${widget.profile.nameOrUsername}?'),
@@ -160,8 +173,9 @@ class _FollowActionButtonState extends State<FollowActionButton> {
     });
     WynFeedback.follow();
     try {
-      await widget.followRequestRepository
-          .cancelRequest(userId: widget.profile.id);
+      await widget.followRequestRepository.cancelRequest(
+        userId: widget.profile.id,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _hasPendingRequest = true);
@@ -196,7 +210,10 @@ class _FollowActionButtonState extends State<FollowActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isFollowing == null) return const SizedBox.shrink();
+    if (_isFollowing == null ||
+        (widget.hideWhenFollowing && _isFollowing == true)) {
+      return const SizedBox.shrink();
+    }
 
     final primary = Theme.of(context).colorScheme.primary;
     final onPressed = _isActionInFlight ? null : _onPressed;
@@ -210,14 +227,22 @@ class _FollowActionButtonState extends State<FollowActionButton> {
           foregroundColor: WynColors.paper,
           disabledBackgroundColor: WynColors.surfaceTint,
           disabledForegroundColor: WynColors.graphite,
-          minimumSize: Size(widget.compact ? 84 : 0, widget.compact ? 36 : 44),
+          minimumSize: widget.headerCompact
+              ? const Size(0, 28)
+              : Size(widget.compact ? 84 : 0, widget.compact ? 36 : 44),
           padding: EdgeInsets.symmetric(
-            horizontal: widget.compact ? 16 : 20,
+            horizontal: widget.headerCompact ? 12 : (widget.compact ? 16 : 20),
           ),
           shape: const StadiumBorder(),
-          textStyle: widget.compact
-              ? Theme.of(context).textTheme.labelMedium
-              : Theme.of(context).textTheme.labelLarge,
+          tapTargetSize: widget.headerCompact
+              ? MaterialTapTargetSize.shrinkWrap
+              : null,
+          textStyle: widget.headerCompact
+              ? Theme.of(context).textTheme.labelSmall
+                    ?.copyWith(fontWeight: FontWeight.w700)
+              : (widget.compact
+                    ? Theme.of(context).textTheme.labelMedium
+                    : Theme.of(context).textTheme.labelLarge),
           elevation: 0,
         ),
         child: _labelWidget(context),
