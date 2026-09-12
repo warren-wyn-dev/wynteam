@@ -1,6 +1,6 @@
 name: Deploy approved final Home feed once
 
-# Deploy trigger 2026-09-12: ship compact Home feed spacing toward Threads reference.
+# Deploy trigger 2026-09-13: ship compact Home feed spacing and bright-blue hashtags to production.
 on:
   push:
     branches: [main]
