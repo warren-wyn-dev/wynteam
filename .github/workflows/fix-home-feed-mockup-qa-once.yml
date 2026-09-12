@@ -1,0 +1,52 @@
+name: Align Home mockup QA once
+
+on:
+  push:
+    branches: [fix/home-feed-final-mockup]
+    paths:
+      - .github/workflows/fix-home-feed-mockup-qa-once.yml
+      - tools/fix_home_feed_mockup_qa_expectation.py
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/home-feed-final-mockup
+          fetch-depth: 0
+
+      - name: Align intentional Home geometry expectation
+        run: python3 tools/fix_home_feed_mockup_qa_expectation.py
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Format test
+        run: dart format app/test/qa_round2_ui_regression_test.dart
+
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Focused QA regression
+        working-directory: app
+        run: flutter test test/qa_round2_ui_regression_test.dart
+
+      - name: Commit QA expectation
+        run: |
+          rm -f tools/fix_home_feed_mockup_qa_expectation.py
+          rm -f .github/workflows/fix-home-feed-mockup-qa-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "test(home): align approved compact geometry"
+          git push origin fix/home-feed-final-mockup
