@@ -70,7 +70,9 @@ class AccountRestrictedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: WynSpacing.space4),
                 BrowserSystemText(
-                  isBanned ? 'บัญชีของคุณถูกระงับถาวร' : 'บัญชีของคุณถูกระงับชั่วคราว',
+                  isBanned
+                      ? 'บัญชีของคุณถูกระงับถาวร'
+                      : 'บัญชีของคุณถูกระงับชั่วคราว',
                   style: Theme.of(context).textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),

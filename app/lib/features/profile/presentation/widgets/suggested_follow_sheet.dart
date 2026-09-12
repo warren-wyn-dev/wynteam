@@ -144,15 +144,17 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
                         ],
                       ),
                     ),
-                    BrowserSystemTooltip(message: 'ปิด', child: IconButton(
-                      tooltip: null,
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        size: 28,
-                        color: WynColors.ink,
-                      ),
-                    )),
+                    BrowserSystemTooltip(
+                        message: 'ปิด',
+                        child: IconButton(
+                          tooltip: null,
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            size: 28,
+                            color: WynColors.ink,
+                          ),
+                        )),
                   ],
                 ),
               ),
@@ -200,7 +202,8 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
               style: TextStyle(color: WynColors.graphite),
             ),
             const SizedBox(height: WynSpacing.space2),
-            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );

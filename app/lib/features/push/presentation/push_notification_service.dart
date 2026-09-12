@@ -380,7 +380,8 @@ class PushNotificationService {
       return;
     }
     if (token == null) return;
-    await _tokenRepository.upsertToken(token: token, platform: _currentPlatform);
+    await _tokenRepository.upsertToken(
+        token: token, platform: _currentPlatform);
   }
 
   PushPlatform get _currentPlatform {
@@ -431,10 +432,12 @@ class PushNotificationService {
       case 'follow_request_accepted':
         _openProfile(navigator, data['actor_id'] as String?);
       case 'club_join_request':
-        _openClub(navigator, client, data['club_id'] as String?, openToMembers: true);
+        _openClub(navigator, client, data['club_id'] as String?,
+            openToMembers: true);
       case 'club_join_approved':
       case 'club_invite':
-        _openClub(navigator, client, data['club_id'] as String?, openToMembers: false);
+        _openClub(navigator, client, data['club_id'] as String?,
+            openToMembers: false);
       case 'club_post_like':
       case 'club_post_comment':
       case 'mention_club_post':
@@ -445,7 +448,8 @@ class PushNotificationService {
       case 'moderation_content_removed':
       case 'appeal_approved':
       case 'appeal_rejected':
-        _openModerationAction(navigator, data['moderation_action_id'] as String?);
+        _openModerationAction(
+            navigator, data['moderation_action_id'] as String?);
       case 'message_request':
       case 'new_message':
         await _openConversation(
@@ -502,7 +506,8 @@ class PushNotificationService {
     String? popId,
   ) async {
     appScaffoldMessengerKey.currentState?.showSnackBar(
-      const SnackBar(content: BrowserSystemText('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
+      const SnackBar(
+          content: BrowserSystemText('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
     );
   }
 
@@ -629,7 +634,6 @@ class PushNotificationService {
     );
   }
 }
-
 
 /// A snapshot of one device's push setup, produced by
 /// [PushNotificationService.collectDiagnostics].

@@ -35,7 +35,8 @@ class _HashtagEntry {
 
   DateTime get createdAt => drop?.createdAt ?? clubPost!.createdAt;
   int get engagement =>
-      (drop?.likeCount ?? clubPost!.likeCount) + (drop?.commentCount ?? clubPost!.commentCount);
+      (drop?.likeCount ?? clubPost!.likeCount) +
+      (drop?.commentCount ?? clubPost!.commentCount);
 }
 
 /// WYN-020: everything using #[tag] across Drop and Club posts, with
@@ -129,13 +130,17 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
   }
 
   Future<void> _resolveRolesFor(List<ClubPost> posts) async {
-    final unknownClubIds =
-        posts.map((p) => p.clubId).toSet().difference(_roleByClubId.keys.toSet());
+    final unknownClubIds = posts
+        .map((p) => p.clubId)
+        .toSet()
+        .difference(_roleByClubId.keys.toSet());
     if (unknownClubIds.isEmpty) return;
 
     final entries = await Future.wait(unknownClubIds.map((clubId) async {
       final membership = await widget.clubRepository.fetchMyMembership(clubId);
-      final role = membership?.status == ClubMemberStatus.approved ? membership!.role : null;
+      final role = membership?.status == ClubMemberStatus.approved
+          ? membership!.role
+          : null;
       return MapEntry(clubId, role);
     }));
     _roleByClubId.addEntries(entries);
@@ -160,7 +165,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     final previous = _drops[index];
     setState(() => _drops[index] = previous.toggledLike());
     try {
-      await widget.dropRepository.toggleLike(dropId: dropId, currentlyLiked: previous.likedByMe);
+      await widget.dropRepository
+          .toggleLike(dropId: dropId, currentlyLiked: previous.likedByMe);
     } catch (_) {
       if (!mounted) return;
       setState(() => _drops[index] = previous);
@@ -173,7 +179,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     final previous = _drops[index];
     setState(() => _drops[index] = previous.toggledSave());
     try {
-      await widget.dropRepository.toggleSave(dropId: dropId, currentlySaved: previous.savedByMe);
+      await widget.dropRepository
+          .toggleSave(dropId: dropId, currentlySaved: previous.savedByMe);
     } catch (_) {
       if (!mounted) return;
       setState(() => _drops[index] = previous);
@@ -228,7 +235,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     if (posted != true || !mounted) return;
     final currentIndex = _drops.indexWhere((d) => d.id == dropId);
     if (currentIndex == -1) return;
-    setState(() => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop());
+    setState(
+        () => _drops[currentIndex] = _drops[currentIndex].withExtraRedrop());
   }
 
   Future<void> _toggleClubPostLike(String postId) async {
@@ -297,7 +305,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -388,9 +397,13 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
         appBar: AppBar(
           title: BrowserSystemText('#${widget.tag}'),
           bottom: TabBar(
-            tabs: const [Tab(child: BrowserSystemText('Latest')), Tab(child: BrowserSystemText('Trending'))],
+            tabs: const [
+              Tab(child: BrowserSystemText('Latest')),
+              Tab(child: BrowserSystemText('Trending'))
+            ],
             onTap: (index) => setState(
-              () => _tab = index == 0 ? _HashtagTab.latest : _HashtagTab.trending,
+              () =>
+                  _tab = index == 0 ? _HashtagTab.latest : _HashtagTab.trending,
             ),
           ),
         ),
@@ -410,7 +423,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -418,7 +432,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
 
     final entries = _sortedEntries;
     if (entries.isEmpty) {
-      return Center(child: BrowserSystemText('ยังไม่มีโพสต์ที่ใช้ #${widget.tag}'));
+      return Center(
+          child: BrowserSystemText('ยังไม่มีโพสต์ที่ใช้ #${widget.tag}'));
     }
 
     return RefreshIndicator(
@@ -454,7 +469,8 @@ class _HashtagFeedScreenState extends State<HashtagFeedScreen> {
             onToggleSave: () => _toggleClubPostSave(post.id),
             onTogglePin: () => _togglePin(post.id),
             onDelete: () => _deleteClubPost(post.id),
-            onVotePoll: (optionIndex) => _voteClubPostPoll(post.id, optionIndex),
+            onVotePoll: (optionIndex) =>
+                _voteClubPostPoll(post.id, optionIndex),
           );
         },
       ),

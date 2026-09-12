@@ -173,7 +173,8 @@ class _DiscoveryViewState extends State<DiscoveryView> {
             InkWell(
               onTap: _openTop100,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: WynSpacing.space4),
+                padding:
+                    const EdgeInsets.symmetric(vertical: WynSpacing.space4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
@@ -181,10 +182,13 @@ class _DiscoveryViewState extends State<DiscoveryView> {
                     BrowserSystemText(
                       'ดูอันดับทั้งหมด (Top 100)',
                       style: _textStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.sapphire),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: WynColors.sapphire),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right, size: 14, color: WynColors.sapphire),
+                    const Icon(Icons.chevron_right,
+                        size: 14, color: WynColors.sapphire),
                   ],
                 ),
               ),
@@ -252,8 +256,10 @@ class _DiscoveryViewState extends State<DiscoveryView> {
                   children: [
                     BrowserSystemText(
                       profile.nameOrUsername,
-                      style:
-                          _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
+                      style: _textStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: WynColors.ink),
                     ),
                     BrowserSystemText(
                       '@${profile.username}',
@@ -284,11 +290,14 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(WynSpacing.space4,
-          WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
+      padding: const EdgeInsets.fromLTRB(WynSpacing.space4, WynSpacing.space2,
+          WynSpacing.space4, WynSpacing.space3),
       child: BrowserSystemText(
         label,
-        style: _textStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.mutedNeutral)
+        style: _textStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: WynColors.mutedNeutral)
             .copyWith(letterSpacing: 13 * 0.14),
       ),
     );

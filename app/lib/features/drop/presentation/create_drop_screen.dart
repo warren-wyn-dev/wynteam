@@ -75,12 +75,12 @@ class CreateDropScreen extends StatefulWidget {
     LocationRepository? locationRepository,
     this.draft,
     @visibleForTesting this.debugInitialImagesBytes,
-  }) : _profileRepository = profileRepository,
-       _hashtagRepository = hashtagRepository,
-       _moderationRepository = moderationRepository,
-       _appealRepository = appealRepository,
-       _followRepository = followRepository,
-       _locationRepository = locationRepository;
+  })  : _profileRepository = profileRepository,
+        _hashtagRepository = hashtagRepository,
+        _moderationRepository = moderationRepository,
+        _appealRepository = appealRepository,
+        _followRepository = followRepository,
+        _locationRepository = locationRepository;
 
   final DropRepository dropRepository;
 
@@ -142,14 +142,14 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       widget._profileRepository ?? ProfileRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
       widget._moderationRepository ??
-      ModerationRepository(Supabase.instance.client);
+          ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget._appealRepository ?? AppealRepository(Supabase.instance.client);
   late final FollowRepository _followRepository =
       widget._followRepository ?? FollowRepository(Supabase.instance.client);
   late final LocationRepository _locationRepository =
       widget._locationRepository ??
-      LocationRepository(Supabase.instance.client);
+          LocationRepository(Supabase.instance.client);
   Set<String> _mentionedUserIds = {};
 
   // WYN-097: who can see this Drop -- see AudienceOption's own doc
@@ -615,7 +615,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
   /// is confusing on its own.
   void _showImageLimitSnackBar() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: BrowserSystemText('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
+      const SnackBar(
+          content: BrowserSystemText('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
     );
   }
 
@@ -809,7 +810,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       if (!mounted) return;
       WynFeedback.failed();
       setState(
-        () => _errorMessage = 'ยังยืนยันสถานะการแชร์ไม่ได้ กรุณาต่ออินเทอร์เน็ตแล้วกดตรวจสอบอีกครั้ง',
+        () => _errorMessage =
+            'ยังยืนยันสถานะการแชร์ไม่ได้ กรุณาต่ออินเทอร์เน็ตแล้วกดตรวจสอบอีกครั้ง',
       );
     } catch (_) {
       if (!mounted) return;
@@ -906,15 +908,12 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
       // you left off," not a byte-for-byte snapshot.
       await widget.dropRepository.saveDraft(
         draftId: _draftId,
-        imageBytes: isImageMode && _imagesBytes.isNotEmpty
-            ? _imagesBytes.first
-            : null,
-        imageExtension: _imageExtensions.isNotEmpty
-            ? _imageExtensions.first
-            : 'jpg',
-        existingImageUrl: isImageMode && _imagesBytes.isEmpty
-            ? _existingImageUrl
-            : null,
+        imageBytes:
+            isImageMode && _imagesBytes.isNotEmpty ? _imagesBytes.first : null,
+        imageExtension:
+            _imageExtensions.isNotEmpty ? _imageExtensions.first : 'jpg',
+        existingImageUrl:
+            isImageMode && _imagesBytes.isEmpty ? _existingImageUrl : null,
         caption: _captionController.text,
         pollOptions: _mode == _ComposeMode.poll
             ? _pollOptionControllers.map((c) => c.text.trim()).toList()
@@ -926,7 +925,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isSavingDraft = false);
@@ -1202,12 +1202,10 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                   key: const Key('post_button'),
                   onPressed: _canShare ? _share : null,
                   style: TextButton.styleFrom(
-                    backgroundColor: _canShare
-                        ? WynColors.ink
-                        : WynColors.hairline,
-                    foregroundColor: _canShare
-                        ? WynColors.paper
-                        : WynColors.mutedNeutral,
+                    backgroundColor:
+                        _canShare ? WynColors.ink : WynColors.hairline,
+                    foregroundColor:
+                        _canShare ? WynColors.paper : WynColors.mutedNeutral,
                     minimumSize: const Size(72, 42),
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     shape: const StadiumBorder(),
@@ -1389,9 +1387,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                 child: _AspectRatioChip(
                   ratio: ratio,
                   selected: ratio == _aspectRatio,
-                  onTap: _isCropping
-                      ? null
-                      : () => _onAspectRatioChanged(ratio),
+                  onTap:
+                      _isCropping ? null : () => _onAspectRatioChanged(ratio),
                 ),
               ),
           ],
@@ -1492,12 +1489,16 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                   // Only the 3rd/4th option can be removed -- the
                   // first 2 are the minimum a Poll must always have.
                   if (i >= _minPollOptions)
-                    BrowserSystemTooltip(message: 'ลบตัวเลือกนี้', child: IconButton(
-                      key: ValueKey('remove_poll_option_$i'),
-                      icon: const Icon(Icons.close, color: WynColors.graphite),
-                      tooltip: null,
-                      onPressed: _isSharing ? null : () => _removePollOption(i),
-                    )),
+                    BrowserSystemTooltip(
+                        message: 'ลบตัวเลือกนี้',
+                        child: IconButton(
+                          key: ValueKey('remove_poll_option_$i'),
+                          icon: const Icon(Icons.close,
+                              color: WynColors.graphite),
+                          tooltip: null,
+                          onPressed:
+                              _isSharing ? null : () => _removePollOption(i),
+                        )),
                 ],
               ),
             ),
@@ -1537,7 +1538,7 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
             onSelectionChanged: _isSharing
                 ? null
                 : (selection) =>
-                      setState(() => _pollDurationDays = selection.first),
+                    setState(() => _pollDurationDays = selection.first),
           ),
         ],
       ),
@@ -1625,9 +1626,8 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                         ? _ComposeMode.image
                         : _ComposeMode.poll,
                   ),
-                  semanticsLabel: _mode == _ComposeMode.poll
-                      ? 'ยกเลิกโพล'
-                      : 'สร้างโพล',
+                  semanticsLabel:
+                      _mode == _ComposeMode.poll ? 'ยกเลิกโพล' : 'สร้างโพล',
                 ),
               ),
               const SizedBox(width: WynSpacing.space2),
@@ -1656,28 +1656,29 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
 /// border/radius as the reference's original static chip -- only the
 /// text and the `InkWell`/tap handler are new.
 String audienceOptionLabel(AudienceOption value) => switch (value) {
-  AudienceOption.everyone => 'ทุกคน',
-  AudienceOption.friends => 'เพื่อน',
-  AudienceOption.friendsExcept => 'ซ่อนเพื่อนบางคน',
-  AudienceOption.closeFriends => 'เพื่อนที่สนิท',
-  AudienceOption.onlyMe => 'เฉพาะฉัน',
-};
+      AudienceOption.everyone => 'ทุกคน',
+      AudienceOption.friends => 'เพื่อน',
+      AudienceOption.friendsExcept => 'ซ่อนเพื่อนบางคน',
+      AudienceOption.closeFriends => 'เพื่อนที่สนิท',
+      AudienceOption.onlyMe => 'เฉพาะฉัน',
+    };
 
 String audienceOptionDescription(AudienceOption value) => switch (value) {
-  AudienceOption.everyone => 'ทุกคนเห็นโพสต์นี้ได้',
-  AudienceOption.friends => 'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นได้',
-  AudienceOption.friendsExcept => 'เพื่อนทุกคนเห็นได้ ยกเว้นคนที่คุณเลือกซ่อน',
-  AudienceOption.closeFriends => 'เฉพาะเพื่อนที่สนิทที่คุณเลือกไว้เท่านั้น',
-  AudienceOption.onlyMe => 'เห็นเฉพาะคุณคนเดียว',
-};
+      AudienceOption.everyone => 'ทุกคนเห็นโพสต์นี้ได้',
+      AudienceOption.friends => 'เฉพาะเพื่อนของคุณเท่านั้นที่เห็นได้',
+      AudienceOption.friendsExcept =>
+        'เพื่อนทุกคนเห็นได้ ยกเว้นคนที่คุณเลือกซ่อน',
+      AudienceOption.closeFriends => 'เฉพาะเพื่อนที่สนิทที่คุณเลือกไว้เท่านั้น',
+      AudienceOption.onlyMe => 'เห็นเฉพาะคุณคนเดียว',
+    };
 
 IconData _audienceOptionIcon(AudienceOption value) => switch (value) {
-  AudienceOption.everyone => Icons.public,
-  AudienceOption.friends => Icons.people_outline,
-  AudienceOption.friendsExcept => Icons.person_off_outlined,
-  AudienceOption.closeFriends => Icons.star_outline,
-  AudienceOption.onlyMe => Icons.lock_outline,
-};
+      AudienceOption.everyone => Icons.public,
+      AudienceOption.friends => Icons.people_outline,
+      AudienceOption.friendsExcept => Icons.person_off_outlined,
+      AudienceOption.closeFriends => Icons.star_outline,
+      AudienceOption.onlyMe => Icons.lock_outline,
+    };
 
 class _AudienceChip extends StatelessWidget {
   const _AudienceChip({required this.value, required this.onTap});
@@ -1791,12 +1792,14 @@ class _AudiencePickerSheet extends StatelessWidget {
                   SizedBox(
                     width: WynSpacing.touchTargetMin,
                     height: WynSpacing.touchTargetMin,
-                    child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.close),
-                      tooltip: null,
-                      onPressed: () => Navigator.of(context).pop(),
-                    )),
+                    child: BrowserSystemTooltip(
+                        message: 'ปิด',
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.close),
+                          tooltip: null,
+                          onPressed: () => Navigator.of(context).pop(),
+                        )),
                   ),
                 ],
               ),
@@ -1811,7 +1814,8 @@ class _AudiencePickerSheet extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(_audienceOptionIcon(option)),
                     title: BrowserSystemText(audienceOptionLabel(option)),
-                    subtitle: BrowserSystemText(audienceOptionDescription(option)),
+                    subtitle:
+                        BrowserSystemText(audienceOptionDescription(option)),
                     // "ซ่อนเพื่อนบางคน"/"เพื่อนที่สนิท" always show both a
                     // radio (when currently selected) and a chevron
                     // (Design spec's "โชว์ทั้ง radio (checked) และ chevron
@@ -1819,25 +1823,26 @@ class _AudiencePickerSheet extends StatelessWidget {
                     // list" at once for those 2 options specifically).
                     trailing: switch (option) {
                       AudienceOption.friendsExcept ||
-                      AudienceOption.closeFriends => Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (option == currentValue)
-                            Icon(
-                              Icons.radio_button_checked,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          const Icon(Icons.chevron_right),
-                        ],
-                      ),
+                      AudienceOption.closeFriends =>
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (option == currentValue)
+                              Icon(
+                                Icons.radio_button_checked,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
                       _ => Icon(
-                        option == currentValue
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        color: option == currentValue
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
+                          option == currentValue
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          color: option == currentValue
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
                     },
                     onTap: () => Navigator.of(context).pop(option),
                   ),
@@ -1935,8 +1940,8 @@ class _ToolbarIcon extends StatelessWidget {
     final foreground = !enabled
         ? WynColors.faint
         : active
-        ? WynColors.sapphire
-        : WynColors.ink;
+            ? WynColors.sapphire
+            : WynColors.ink;
     final background = active ? WynColors.sapphireRing : WynColors.surfaceTint;
 
     return Semantics(
@@ -2018,12 +2023,10 @@ class _AspectRatioChip extends StatelessWidget {
     // sit on the label's line.
     final glyphRatio = ratio.ratio ?? 4 / 3;
     const glyphLongSide = 14.0;
-    final glyphWidth = glyphRatio >= 1
-        ? glyphLongSide
-        : glyphLongSide * glyphRatio;
-    final glyphHeight = glyphRatio >= 1
-        ? glyphLongSide / glyphRatio
-        : glyphLongSide;
+    final glyphWidth =
+        glyphRatio >= 1 ? glyphLongSide : glyphLongSide * glyphRatio;
+    final glyphHeight =
+        glyphRatio >= 1 ? glyphLongSide / glyphRatio : glyphLongSide;
 
     return Semantics(
       label: 'สัดส่วน ${_labels[ratio]}',

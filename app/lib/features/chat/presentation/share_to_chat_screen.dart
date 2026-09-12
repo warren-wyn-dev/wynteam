@@ -135,7 +135,8 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
       if (!mounted) return;
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -156,7 +157,8 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
       if (!mounted) return;
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -260,10 +262,12 @@ class _ShareToChatScreenState extends State<ShareToChatScreen> {
             const Icon(Icons.error_outline,
                 size: 28, color: WynColors.graphite),
             const SizedBox(height: WynSpacing.space2),
-            BrowserSystemText(_error!, style: const TextStyle(color: WynColors.graphite)),
+            BrowserSystemText(_error!,
+                style: const TextStyle(color: WynColors.graphite)),
             const SizedBox(height: WynSpacing.space2),
             TextButton(
-                onPressed: _loadConversations, child: const BrowserSystemText('ลองใหม่')),
+                onPressed: _loadConversations,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );

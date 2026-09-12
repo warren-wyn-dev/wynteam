@@ -205,7 +205,8 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
           child: InkWell(
             onTap: () => _openProfile(profile),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
               child: Row(
                 children: [
                   AvatarCircle(
@@ -236,7 +237,10 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
                         ),
                         BrowserSystemText(
                           '@${profile.username}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
                                 color: Theme.of(context).colorScheme.outline,
                               ),
                         ),

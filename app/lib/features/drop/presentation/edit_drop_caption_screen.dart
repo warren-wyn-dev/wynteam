@@ -124,7 +124,8 @@ class _EditDropCaptionScreenState extends State<EditDropCaptionScreen> {
             minLines: 3,
             autofocus: true,
             decoration: InputDecoration(
-              hint: BrowserSystemText(widget.isPollQuestion ? 'คำถามโพล...' : 'เขียนแคปชัน...'),
+              hint: BrowserSystemText(
+                  widget.isPollQuestion ? 'คำถามโพล...' : 'เขียนแคปชัน...'),
               border: InputBorder.none,
             ),
             onChanged: (_) => setState(() {}),

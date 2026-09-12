@@ -25,7 +25,8 @@ Future<bool> requireRealAccount(BuildContext context) async {
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const BrowserSystemText('เข้าสู่ระบบเพื่อดำเนินการต่อ'),
-      content: const BrowserSystemText('ฟีเจอร์นี้ต้องมีบัญชีจริง สมัครใช้เวลาไม่ถึงนาที'),
+      content: const BrowserSystemText(
+          'ฟีเจอร์นี้ต้องมีบัญชีจริง สมัครใช้เวลาไม่ถึงนาที'),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),

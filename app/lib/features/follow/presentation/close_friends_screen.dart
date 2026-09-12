@@ -100,7 +100,9 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
     final wasOn = _closeFriendIds.contains(friend.id);
     setState(() {
       _pendingIds.add(friend.id);
-      wasOn ? _closeFriendIds.remove(friend.id) : _closeFriendIds.add(friend.id);
+      wasOn
+          ? _closeFriendIds.remove(friend.id)
+          : _closeFriendIds.add(friend.id);
     });
     try {
       if (wasOn) {
@@ -111,10 +113,13 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        wasOn ? _closeFriendIds.add(friend.id) : _closeFriendIds.remove(friend.id);
+        wasOn
+            ? _closeFriendIds.add(friend.id)
+            : _closeFriendIds.remove(friend.id);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _pendingIds.remove(friend.id));
@@ -133,7 +138,8 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: BrowserSystemText('เพื่อนที่สนิท',
-            style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
+            style:
+                WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -151,7 +157,10 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space3, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space3,
+        WynSpacing.space6,
+        WynSpacing.space2,
       ),
       child: Container(
         height: 40,
@@ -191,7 +200,8 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -214,7 +224,8 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: BrowserSystemText('ไม่พบผู้ใช้ที่ตรงกับ "$_searchQuery"', textAlign: TextAlign.center),
+          child: BrowserSystemText('ไม่พบผู้ใช้ที่ตรงกับ "$_searchQuery"',
+              textAlign: TextAlign.center),
         ),
       );
     }
@@ -234,7 +245,10 @@ class _CloseFriendsScreenState extends State<CloseFriendsScreen> {
   Widget _buildWelcomeBanner() {
     return Container(
       margin: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space2, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space2,
       ),
       padding: const EdgeInsets.all(WynSpacing.space4),
       decoration: BoxDecoration(

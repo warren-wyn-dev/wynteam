@@ -45,8 +45,7 @@ class _QuoteRedropScreenState extends State<QuoteRedropScreen> {
     super.dispose();
   }
 
-  bool get _canPost =>
-      !_isPosting && _textController.text.trim().isNotEmpty;
+  bool get _canPost => !_isPosting && _textController.text.trim().isNotEmpty;
 
   Future<void> _post() async {
     if (!_canPost) return;

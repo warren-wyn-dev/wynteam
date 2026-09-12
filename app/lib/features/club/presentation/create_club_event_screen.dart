@@ -52,7 +52,8 @@ class _CreateClubEventScreenState extends State<CreateClubEventScreen> {
     super.initState();
     final existing = widget.existingEvent;
     _titleController = TextEditingController(text: existing?.title ?? '');
-    _descriptionController = TextEditingController(text: existing?.description ?? '');
+    _descriptionController =
+        TextEditingController(text: existing?.description ?? '');
     _locationController = TextEditingController(text: existing?.location ?? '');
     _startsAt = existing?.startsAt ??
         DateTime.now().add(const Duration(days: 1, hours: 1));
@@ -77,7 +78,11 @@ class _CreateClubEventScreenState extends State<CreateClubEventScreen> {
     if (picked == null) return;
     setState(() {
       _startsAt = DateTime(
-        picked.year, picked.month, picked.day, _startsAt.hour, _startsAt.minute,
+        picked.year,
+        picked.month,
+        picked.day,
+        _startsAt.hour,
+        _startsAt.minute,
       );
     });
   }
@@ -90,13 +95,18 @@ class _CreateClubEventScreenState extends State<CreateClubEventScreen> {
     if (picked == null) return;
     setState(() {
       _startsAt = DateTime(
-        _startsAt.year, _startsAt.month, _startsAt.day, picked.hour, picked.minute,
+        _startsAt.year,
+        _startsAt.month,
+        _startsAt.day,
+        picked.hour,
+        picked.minute,
       );
     });
   }
 
   Future<void> _save() async {
-    if (_titleController.text.trim().isEmpty || _locationController.text.trim().isEmpty) {
+    if (_titleController.text.trim().isEmpty ||
+        _locationController.text.trim().isEmpty) {
       return;
     }
 
@@ -149,7 +159,9 @@ class _CreateClubEventScreenState extends State<CreateClubEventScreen> {
         _locationController.text.trim().isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: BrowserSystemText(_isEditing ? 'แก้ไขกิจกรรม' : 'สร้างกิจกรรม')),
+      appBar: AppBar(
+          title:
+              BrowserSystemText(_isEditing ? 'แก้ไขกิจกรรม' : 'สร้างกิจกรรม')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(WynSpacing.space4),
@@ -160,7 +172,8 @@ class _CreateClubEventScreenState extends State<CreateClubEventScreen> {
                 controller: _titleController,
                 maxLength: _titleMaxLength,
                 enabled: !_isSaving,
-                decoration: const InputDecoration(label: BrowserSystemText('ชื่อกิจกรรม')),
+                decoration: const InputDecoration(
+                    label: BrowserSystemText('ชื่อกิจกรรม')),
                 onChanged: (_) => setState(() {}),
               ),
               BrowserSystemTextField(
@@ -168,22 +181,27 @@ class _CreateClubEventScreenState extends State<CreateClubEventScreen> {
                 maxLength: _descriptionMaxLength,
                 maxLines: 4,
                 enabled: !_isSaving,
-                decoration: const InputDecoration(label: BrowserSystemText('รายละเอียด (ไม่บังคับ)')),
+                decoration: const InputDecoration(
+                    label: BrowserSystemText('รายละเอียด (ไม่บังคับ)')),
               ),
               const SizedBox(height: WynSpacing.space3),
-              BrowserSystemText('วันเวลา', style: Theme.of(context).textTheme.labelMedium),
+              BrowserSystemText('วันเวลา',
+                  style: Theme.of(context).textTheme.labelMedium),
               const SizedBox(height: WynSpacing.space1),
               OutlinedButton.icon(
-                onPressed: _isSaving ? null : () async {
-                  await _pickDate();
-                  if (!mounted) return;
-                  await _pickTime();
-                },
+                onPressed: _isSaving
+                    ? null
+                    : () async {
+                        await _pickDate();
+                        if (!mounted) return;
+                        await _pickTime();
+                      },
                 icon: const Icon(Icons.schedule),
                 label: BrowserSystemText(_formatDateTime(_startsAt)),
               ),
               const SizedBox(height: WynSpacing.space3),
-              BrowserSystemText('สถานที่', style: Theme.of(context).textTheme.labelMedium),
+              BrowserSystemText('สถานที่',
+                  style: Theme.of(context).textTheme.labelMedium),
               const SizedBox(height: WynSpacing.space1),
               SegmentedButton<ClubEventLocationType>(
                 segments: const [
@@ -201,7 +219,8 @@ class _CreateClubEventScreenState extends State<CreateClubEventScreen> {
                 selected: {_locationType},
                 onSelectionChanged: _isSaving
                     ? null
-                    : (selection) => setState(() => _locationType = selection.first),
+                    : (selection) =>
+                        setState(() => _locationType = selection.first),
               ),
               const SizedBox(height: WynSpacing.space2),
               BrowserSystemTextField(
@@ -209,10 +228,14 @@ class _CreateClubEventScreenState extends State<CreateClubEventScreen> {
                 maxLength: _locationMaxLength,
                 enabled: !_isSaving,
                 decoration: InputDecoration(
-                  label: BrowserSystemText(_locationType == ClubEventLocationType.online ? 'ลิงก์' : 'ที่อยู่'),
-                  hint: BrowserSystemText(_locationType == ClubEventLocationType.online
-                      ? 'https://...'
-                      : 'สถานที่จัดกิจกรรม'),
+                  label: BrowserSystemText(
+                      _locationType == ClubEventLocationType.online
+                          ? 'ลิงก์'
+                          : 'ที่อยู่'),
+                  hint: BrowserSystemText(
+                      _locationType == ClubEventLocationType.online
+                          ? 'https://...'
+                          : 'สถานที่จัดกิจกรรม'),
                 ),
                 onChanged: (_) => setState(() {}),
               ),

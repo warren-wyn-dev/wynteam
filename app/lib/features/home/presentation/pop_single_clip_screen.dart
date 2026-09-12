@@ -93,11 +93,13 @@ class _PopSingleClipScreenState extends State<PopSingleClipScreen> {
                     setState(() => _deleted = true);
                     Navigator.of(context).pop();
                   },
-                  topLeading: BrowserSystemTooltip(message: 'ย้อนกลับ', child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    tooltip: null,
-                    onPressed: () => Navigator.of(context).pop(),
-                  )),
+                  topLeading: BrowserSystemTooltip(
+                      message: 'ย้อนกลับ',
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        tooltip: null,
+                        onPressed: () => Navigator.of(context).pop(),
+                      )),
                 ),
     );
   }

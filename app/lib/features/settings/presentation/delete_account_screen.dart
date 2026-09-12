@@ -114,7 +114,8 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       if (!mounted) return;
       setState(() => _isDeleting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
       return;
     }
@@ -180,7 +181,8 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                 ],
               ),
               const SizedBox(height: WynSpacing.space3),
-              const BrowserSystemText('การลบบัญชีจะทำให้สิ่งต่อไปนี้หายไปทั้งหมด:'),
+              const BrowserSystemText(
+                  'การลบบัญชีจะทำให้สิ่งต่อไปนี้หายไปทั้งหมด:'),
               const SizedBox(height: WynSpacing.space2),
               const _BulletItem('โพสต์, Pop และ Comment ทั้งหมดของคุณ'),
               const _BulletItem('Follower และ Following ทั้งหมด'),

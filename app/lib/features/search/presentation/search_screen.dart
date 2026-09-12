@@ -175,8 +175,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               query: _query,
                               profileRepository: widget.profileRepository,
                               followRepository: widget.followRepository,
-                              followRequestRepository:
-                                  _followRequestRepository,
+                              followRequestRepository: _followRequestRepository,
                               dropRepository: widget.dropRepository,
                               popRepository: widget.popRepository,
                               savedRepository: widget.savedRepository,
@@ -216,20 +215,22 @@ class _SearchScreenState extends State<SearchScreen> {
       child: WynosSearchSurface(
         child: Row(
           children: [
-            BrowserSystemTooltip(message: 'ค้นหา', child: IconButton(
-              onPressed: _submit,
-              tooltip: null,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: WynSpacing.touchTargetMin,
-                minHeight: WynSpacing.touchTargetMin,
-              ),
-              icon: const Icon(
-                Icons.search,
-                size: 20,
-                color: WynColors.graphite,
-              ),
-            )),
+            BrowserSystemTooltip(
+                message: 'ค้นหา',
+                child: IconButton(
+                  onPressed: _submit,
+                  tooltip: null,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: WynSpacing.touchTargetMin,
+                    minHeight: WynSpacing.touchTargetMin,
+                  ),
+                  icon: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: WynColors.graphite,
+                  ),
+                )),
             const SizedBox(width: WynSpacing.space1),
             Expanded(
               child: BrowserSystemTextField(
@@ -257,20 +258,22 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
             if (_controller.text.isNotEmpty)
-              BrowserSystemTooltip(message: 'ล้างคำค้นหา', child: IconButton(
-                onPressed: _clear,
-                tooltip: null,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: WynSpacing.touchTargetMin,
-                  minHeight: WynSpacing.touchTargetMin,
-                ),
-                icon: const Icon(
-                  Icons.close,
-                  size: 18,
-                  color: WynColors.graphite,
-                ),
-              )),
+              BrowserSystemTooltip(
+                  message: 'ล้างคำค้นหา',
+                  child: IconButton(
+                    onPressed: _clear,
+                    tooltip: null,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: WynSpacing.touchTargetMin,
+                      minHeight: WynSpacing.touchTargetMin,
+                    ),
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: WynColors.graphite,
+                    ),
+                  )),
           ],
         ),
       ),

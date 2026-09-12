@@ -91,8 +91,8 @@ class OnboardingScaffold extends StatelessWidget {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: WynSpacing.space6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: WynSpacing.space6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -120,8 +120,8 @@ class OnboardingScaffold extends StatelessWidget {
                       const SizedBox(height: WynSpacing.space4),
                       BrowserSystemText(
                         errorText!,
-                        style:
-                            const TextStyle(fontSize: 13, color: WynColors.errorLight),
+                        style: const TextStyle(
+                            fontSize: 13, color: WynColors.errorLight),
                       ),
                     ],
                   ],

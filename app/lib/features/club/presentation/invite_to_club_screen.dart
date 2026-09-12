@@ -157,12 +157,12 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
 
       final results = await Future.wait([
         _followersHasMore
-            ? widget.followRepository.fetchFollowers(
-                userId: _currentUserId, page: _followersPage)
+            ? widget.followRepository
+                .fetchFollowers(userId: _currentUserId, page: _followersPage)
             : Future.value(<Profile>[]),
         _followingHasMore
-            ? widget.followRepository.fetchFollowing(
-                userId: _currentUserId, page: _followingPage)
+            ? widget.followRepository
+                .fetchFollowing(userId: _currentUserId, page: _followingPage)
             : Future.value(<Profile>[]),
       ]);
 
@@ -211,7 +211,8 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
       if (!mounted) return;
       setState(() => _inviteStates[profile.id] = _InviteState.idle);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เชิญไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เชิญไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -240,7 +241,10 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, 0,
+              WynSpacing.space4,
+              WynSpacing.space3,
+              WynSpacing.space4,
+              0,
             ),
             child: BrowserSystemText.rich(
               TextSpan(
@@ -269,7 +273,10 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space3, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space3,
+        WynSpacing.space6,
+        WynSpacing.space2,
       ),
       child: Container(
         height: 40,
@@ -289,7 +296,8 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
                 style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
                   hint: BrowserSystemText('ค้นหา'),
-                  hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
+                  hintStyle:
+                      _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                   border: InputBorder.none,
                   isCollapsed: true,
                 ),
@@ -313,7 +321,9 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -368,7 +378,8 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
       child: Row(
         children: [
           Semantics(
-            label: 'ผู้ใช้ ${profile.nameOrUsername} ยูสเซอร์เนม ${profile.username}',
+            label:
+                'ผู้ใช้ ${profile.nameOrUsername} ยูสเซอร์เนม ${profile.username}',
             excludeSemantics: true,
             child: AvatarCircle(
               imageUrl: profile.avatarUrl,
@@ -384,11 +395,15 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
               children: [
                 BrowserSystemText(
                   profile.nameOrUsername,
-                  style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
+                  style: _textStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: WynColors.ink),
                 ),
                 BrowserSystemText(
                   '@${profile.username}',
-                  style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
+                  style:
+                      _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                 ),
               ],
             ),
@@ -421,10 +436,12 @@ class _InviteToClubScreenState extends State<InviteToClubScreen> {
             excludeSemantics: true,
             child: OutlinedButton.icon(
               onPressed: null,
-              icon: const Icon(Icons.check, size: 14, color: WynColors.mutedNeutral),
+              icon: const Icon(Icons.check,
+                  size: 14, color: WynColors.mutedNeutral),
               label: BrowserSystemText(
                 'เชิญแล้ว',
-                style: _textStyle(fontSize: 12.5, color: WynColors.mutedNeutral),
+                style:
+                    _textStyle(fontSize: 12.5, color: WynColors.mutedNeutral),
               ),
             ),
           ),

@@ -48,7 +48,8 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.club.name);
-    _descriptionController = TextEditingController(text: widget.club.description ?? '');
+    _descriptionController =
+        TextEditingController(text: widget.club.description ?? '');
     _category = widget.club.category;
   }
 
@@ -71,8 +72,9 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
     );
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
-    final extension =
-        picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
+    final extension = picked.name.contains('.')
+        ? picked.name.split('.').last.toLowerCase()
+        : 'jpg';
     if (!mounted) return;
     setState(() {
       _imageBytes = bytes;
@@ -128,7 +130,8 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
                 controller: _nameController,
                 maxLength: _nameMaxLength,
                 enabled: !_isSaving,
-                decoration: const InputDecoration(label: BrowserSystemText('ชื่อ Club')),
+                decoration: const InputDecoration(
+                    label: BrowserSystemText('ชื่อ Club')),
                 onChanged: (_) => setState(() {}),
               ),
               BrowserSystemTextField(
@@ -136,16 +139,21 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
                 maxLength: _descriptionMaxLength,
                 maxLines: 4,
                 enabled: !_isSaving,
-                decoration: const InputDecoration(label: BrowserSystemText('คำอธิบาย')),
+                decoration:
+                    const InputDecoration(label: BrowserSystemText('คำอธิบาย')),
               ),
               const SizedBox(height: WynSpacing.space2),
               DropdownButtonFormField<String>(
                 initialValue: _category,
-                decoration: const InputDecoration(label: BrowserSystemText('หมวดหมู่')),
+                decoration:
+                    const InputDecoration(label: BrowserSystemText('หมวดหมู่')),
                 items: clubCategories
-                    .map((category) => DropdownMenuItem(value: category, child: BrowserSystemText(category)))
+                    .map((category) => DropdownMenuItem(
+                        value: category, child: BrowserSystemText(category)))
                     .toList(),
-                onChanged: _isSaving ? null : (value) => setState(() => _category = value),
+                onChanged: _isSaving
+                    ? null
+                    : (value) => setState(() => _category = value),
               ),
               const SizedBox(height: WynSpacing.space4),
               if (_errorMessage != null) ...[
@@ -200,7 +208,8 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
                   width: 96,
                   height: 96,
                   child: ColoredBox(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: _imageBytes != null
                         ? Image.memory(_imageBytes!, fit: BoxFit.cover)
                         : existingUrl != null
@@ -229,5 +238,4 @@ class _EditClubInfoScreenState extends State<EditClubInfoScreen> {
       ),
     );
   }
-
 }

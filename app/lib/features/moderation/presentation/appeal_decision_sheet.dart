@@ -128,19 +128,25 @@ class _AppealDecisionSheetState extends State<AppealDecisionSheet> {
               children: [
                 Expanded(
                   child: BrowserSystemText(
-                    widget.approve ? 'ยืนยัน: อนุมัติอุทธรณ์' : 'ยืนยัน: ปฏิเสธอุทธรณ์',
+                    widget.approve
+                        ? 'ยืนยัน: อนุมัติอุทธรณ์'
+                        : 'ยืนยัน: ปฏิเสธอุทธรณ์',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.close),
-                    tooltip: null,
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: 'ปิด',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        tooltip: null,
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                      )),
                 ),
               ],
             ),
@@ -166,7 +172,10 @@ class _AppealDecisionSheetState extends State<AppealDecisionSheet> {
         ] else ...[
           BrowserSystemText(
             'เหตุผล (จำเป็น)',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: WynSpacing.space1),
           BrowserSystemTextField(
@@ -175,7 +184,8 @@ class _AppealDecisionSheetState extends State<AppealDecisionSheet> {
             minLines: 3,
             maxLines: 5,
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(hint: BrowserSystemText('อธิบายเหตุผลที่ปฏิเสธอุทธรณ์นี้')),
+            decoration: const InputDecoration(
+                hint: BrowserSystemText('อธิบายเหตุผลที่ปฏิเสธอุทธรณ์นี้')),
           ),
           const SizedBox(height: WynSpacing.space1),
           BrowserSystemText(

@@ -46,7 +46,8 @@ class SavedGridTile extends StatelessWidget {
                   NetworkThumbnail(imageUrl: item.thumbnailUrl!)
                 else
                   Container(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                   )
               else if (item.imageUrl != null)
                 NetworkThumbnail(imageUrl: item.imageUrl!)
@@ -56,7 +57,8 @@ class SavedGridTile extends StatelessWidget {
                 TextDropPlaceholderTile(caption: item.caption ?? ''),
               if (isPop) ...[
                 const Center(
-                  child: Icon(Icons.play_circle_fill, color: Colors.white, size: 36),
+                  child: Icon(Icons.play_circle_fill,
+                      color: Colors.white, size: 36),
                 ),
                 if (item.durationSeconds != null)
                   Positioned(
@@ -64,15 +66,16 @@ class SavedGridTile extends StatelessWidget {
                     bottom: 4,
                     child: ExcludeSemantics(
                       child: Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: WynSpacing.space1, vertical: 1),
                         decoration: BoxDecoration(
                           color: WynColors.imageScrim,
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: BrowserSystemText(
                           _formatDuration(item.durationSeconds!),
-                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 11),
                         ),
                       ),
                     ),

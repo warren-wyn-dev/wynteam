@@ -858,7 +858,8 @@ class _ConversationScreenState extends State<ConversationScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -872,7 +873,8 @@ class _ConversationScreenState extends State<ConversationScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const BrowserSystemText('ลบคำขอนี้?'),
-        content: const BrowserSystemText('ผู้ส่งจะไม่ได้รับแจ้งเตือนว่าคำขอถูกลบ'),
+        content:
+            const BrowserSystemText('ผู้ส่งจะไม่ได้รับแจ้งเตือนว่าคำขอถูกลบ'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -900,7 +902,8 @@ class _ConversationScreenState extends State<ConversationScreen>
       }
       setState(() => _isDecidingRequest = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -922,7 +925,8 @@ class _ConversationScreenState extends State<ConversationScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -1095,7 +1099,8 @@ class _ConversationScreenState extends State<ConversationScreen>
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -1131,7 +1136,8 @@ class _ConversationScreenState extends State<ConversationScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -1212,7 +1218,9 @@ class _ConversationScreenState extends State<ConversationScreen>
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content:
+                BrowserSystemText('แก้ไขข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -1261,8 +1269,8 @@ class _ConversationScreenState extends State<ConversationScreen>
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                BrowserSystemText('ปักหมุดได้สูงสุด 3 ข้อความต่อบทสนทนา ยกเลิกอันเก่าก่อน')),
+            content: BrowserSystemText(
+                'ปักหมุดได้สูงสุด 3 ข้อความต่อบทสนทนา ยกเลิกอันเก่าก่อน')),
       );
     }
   }
@@ -1278,7 +1286,8 @@ class _ConversationScreenState extends State<ConversationScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เลิกปักหมุดไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เลิกปักหมุดไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -1330,7 +1339,8 @@ class _ConversationScreenState extends State<ConversationScreen>
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: BrowserSystemText('เปิดรูปไม่สำเร็จ ลองใหม่อีกครั้ง')),
+          const SnackBar(
+              content: BrowserSystemText('เปิดรูปไม่สำเร็จ ลองใหม่อีกครั้ง')),
         );
         return;
       }
@@ -1672,7 +1682,8 @@ class _ConversationScreenState extends State<ConversationScreen>
                 }
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+                      content:
+                          BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
                 );
               }
             },
@@ -1818,11 +1829,13 @@ class _ConversationScreenState extends State<ConversationScreen>
           ),
         ),
         actions: [
-          BrowserSystemTooltip(message: 'ตัวเลือกเพิ่มเติม', child: IconButton(
-            icon: const Icon(Icons.more_horiz, color: WynColors.ink),
-            tooltip: null,
-            onPressed: _showConversationMenu,
-          )),
+          BrowserSystemTooltip(
+              message: 'ตัวเลือกเพิ่มเติม',
+              child: IconButton(
+                icon: const Icon(Icons.more_horiz, color: WynColors.ink),
+                tooltip: null,
+                onPressed: _showConversationMenu,
+              )),
         ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -2239,33 +2252,36 @@ class _ConversationScreenState extends State<ConversationScreen>
                 child: Material(
                   color: _canSend ? WynColors.ink : WynColors.surfaceTint,
                   shape: const CircleBorder(),
-                  child: BrowserSystemTooltip(message: _isEditingMessage ? 'บันทึกการแก้ไข' : 'ส่งข้อความ', child: IconButton(
-                    // WYN-138: edit mode's own "บันทึก" (confirm edit)
-                    // affordance -- a checkmark instead of the paper
-                    // plane, per the design doc's own wording.
-                    icon: (_isEditingMessage ? _isSavingEdit : _isSending)
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: _canSend
-                                  ? WynColors.paper
-                                  : WynColors.mutedNeutral,
-                            ),
-                          )
-                        : Icon(
-                            _isEditingMessage ? Icons.check : Icons.send,
-                            size: 15,
-                            color: _canSend
-                                ? WynColors.paper
-                                : WynColors.mutedNeutral,
-                          ),
-                    tooltip: null,
-                    onPressed: _canSend
-                        ? (_isEditingMessage ? _confirmEdit : _send)
-                        : null,
-                  )),
+                  child: BrowserSystemTooltip(
+                      message:
+                          _isEditingMessage ? 'บันทึกการแก้ไข' : 'ส่งข้อความ',
+                      child: IconButton(
+                        // WYN-138: edit mode's own "บันทึก" (confirm edit)
+                        // affordance -- a checkmark instead of the paper
+                        // plane, per the design doc's own wording.
+                        icon: (_isEditingMessage ? _isSavingEdit : _isSending)
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: _canSend
+                                      ? WynColors.paper
+                                      : WynColors.mutedNeutral,
+                                ),
+                              )
+                            : Icon(
+                                _isEditingMessage ? Icons.check : Icons.send,
+                                size: 15,
+                                color: _canSend
+                                    ? WynColors.paper
+                                    : WynColors.mutedNeutral,
+                              ),
+                        tooltip: null,
+                        onPressed: _canSend
+                            ? (_isEditingMessage ? _confirmEdit : _send)
+                            : null,
+                      )),
                 ),
               ),
             ],
@@ -2510,16 +2526,18 @@ class _ConversationScreenState extends State<ConversationScreen>
             label: _isViewOnce ? 'ปิดโหมดดูครั้งเดียว' : 'ส่งแบบดูครั้งเดียว',
             button: true,
             excludeSemantics: true,
-            child: BrowserSystemTooltip(message: 'ส่งแบบดูครั้งเดียว', child: IconButton(
-              key: const Key('view_once_toggle_button'),
-              icon: Icon(
-                _isViewOnce ? Icons.filter_1 : Icons.filter_1_outlined,
-                size: 20,
-                color: _isViewOnce ? WynColors.ink : WynColors.graphite,
-              ),
-              tooltip: null,
-              onPressed: () => setState(() => _isViewOnce = !_isViewOnce),
-            )),
+            child: BrowserSystemTooltip(
+                message: 'ส่งแบบดูครั้งเดียว',
+                child: IconButton(
+                  key: const Key('view_once_toggle_button'),
+                  icon: Icon(
+                    _isViewOnce ? Icons.filter_1 : Icons.filter_1_outlined,
+                    size: 20,
+                    color: _isViewOnce ? WynColors.ink : WynColors.graphite,
+                  ),
+                  tooltip: null,
+                  onPressed: () => setState(() => _isViewOnce = !_isViewOnce),
+                )),
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),

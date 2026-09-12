@@ -78,8 +78,9 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
     if (picked == null) return;
 
     final bytes = await picked.readAsBytes();
-    final extension =
-        picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
+    final extension = picked.name.contains('.')
+        ? picked.name.split('.').last.toLowerCase()
+        : 'jpg';
 
     if (!mounted) return;
     setState(() {
@@ -127,8 +128,8 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
       if (!mounted) return;
       setState(() => _isUploading = true);
       try {
-        avatarUrl = await widget.uploadAvatar(
-            _pickedBytes!, _pickedExtension ?? 'jpg');
+        avatarUrl =
+            await widget.uploadAvatar(_pickedBytes!, _pickedExtension ?? 'jpg');
       } finally {
         if (mounted) setState(() => _isUploading = false);
       }
@@ -142,7 +143,8 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
     final busy = widget.isLoading || _isUploading;
     return OnboardingScaffold(
       title: 'เติมเต็มโปรไฟล์ของคุณ',
-      description: 'ขั้นตอนนี้ไม่บังคับ ข้ามไปก่อนแล้วค่อยกลับมาแก้ทีหลังได้เสมอ',
+      description:
+          'ขั้นตอนนี้ไม่บังคับ ข้ามไปก่อนแล้วค่อยกลับมาแก้ทีหลังได้เสมอ',
       stepIndex: widget.stepIndex,
       stepCount: widget.stepCount,
       primaryLabel: 'ต่อไป',

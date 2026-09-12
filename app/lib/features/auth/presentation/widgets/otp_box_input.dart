@@ -27,8 +27,7 @@ class OtpBoxInputState extends State<OtpBoxInput> {
   @override
   void initState() {
     super.initState();
-    _controllers =
-        List.generate(widget.length, (_) => TextEditingController());
+    _controllers = List.generate(widget.length, (_) => TextEditingController());
     _focusNodes = List.generate(widget.length, (_) => FocusNode());
   }
 
@@ -85,7 +84,8 @@ class OtpBoxInputState extends State<OtpBoxInput> {
                 maxLength: 1,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: const TextStyle(fontSize: 24),
-                decoration: const InputDecoration(counter: const SizedBox.shrink()),
+                decoration:
+                    const InputDecoration(counter: const SizedBox.shrink()),
                 onChanged: (value) => _handleChanged(index, value),
               ),
             ),

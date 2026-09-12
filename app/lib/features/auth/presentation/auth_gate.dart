@@ -96,9 +96,11 @@ class _AuthGateState extends State<AuthGate> {
   late final AuthRepository _authRepository =
       widget.authRepository ?? AuthRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
-      widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+      widget.moderationRepository ??
+          ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
+
   /// Beta4 §13 (Account Switching Safety): keyed by the signed-in
   /// user's id, not `const RootShell()`.
   ///
@@ -299,8 +301,9 @@ class _AuthGateState extends State<AuthGate> {
         reason: status.isBanned ? status.banReason : status.suspendReason,
         expiresAt: status.isBanned ? null : status.suspendExpiresAt,
         actionId: status.isBanned ? status.banActionId : status.suspendActionId,
-        appealStatus:
-            status.isBanned ? status.banAppealStatus : status.suspendAppealStatus,
+        appealStatus: status.isBanned
+            ? status.banAppealStatus
+            : status.suspendAppealStatus,
       );
       _isHandlingBlockedLogin = false;
     });
@@ -312,7 +315,8 @@ class _AuthGateState extends State<AuthGate> {
   /// first, same posture as ViewProfileScreen._signOut.
   Future<void> _leaveBlockedScreen() async {
     try {
-      await PushNotificationService(PushTokenRepository(Supabase.instance.client))
+      await PushNotificationService(
+              PushTokenRepository(Supabase.instance.client))
           .unregisterCurrentDevice();
     } catch (_) {
       // Intentionally silent -- see ViewProfileScreen._signOut.
@@ -334,7 +338,8 @@ class _AuthGateState extends State<AuthGate> {
         builder: (_) => AppealFormScreen(
           appealRepository: _appealRepository,
           actionId: info.actionId!,
-          actionLabel: info.isBanned ? 'ระงับถาวร (Ban)' : 'ระงับชั่วคราว (Suspend)',
+          actionLabel:
+              info.isBanned ? 'ระงับถาวร (Ban)' : 'ระงับชั่วคราว (Suspend)',
         ),
       ),
     );
@@ -431,7 +436,8 @@ class _AuthGateState extends State<AuthGate> {
             }
 
             return FutureBuilder<bool>(
-              future: _platformDocumentRepository.hasAcceptedMandatoryDocuments(),
+              future:
+                  _platformDocumentRepository.hasAcceptedMandatoryDocuments(),
               builder: (context, acceptanceSnapshot) {
                 // Fails open on a transient load error -- same "never lock
                 // the whole app out over a network hiccup" reasoning as the
@@ -614,7 +620,8 @@ class _ErrorRetryScreen extends StatelessWidget {
           children: [
             const BrowserSystemText('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: onRetry, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: onRetry, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       ),

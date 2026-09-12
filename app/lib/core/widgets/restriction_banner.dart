@@ -99,7 +99,8 @@ class RestrictionBanner extends StatelessWidget {
   Widget _buildAppealRow(BuildContext context) {
     switch (appealStatus ?? AppealStatus.none) {
       case AppealStatus.none:
-        return TextButton(onPressed: onAppeal, child: const BrowserSystemText('อุทธรณ์'));
+        return TextButton(
+            onPressed: onAppeal, child: const BrowserSystemText('อุทธรณ์'));
       case AppealStatus.pending:
         return BrowserSystemText(
           'อยู่ระหว่างพิจารณาอุทธรณ์',

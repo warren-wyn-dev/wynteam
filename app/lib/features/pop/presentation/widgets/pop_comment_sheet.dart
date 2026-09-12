@@ -130,7 +130,8 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -178,7 +179,8 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
         children: [
           const Padding(
             padding: EdgeInsets.symmetric(vertical: WynSpacing.space3),
-            child: BrowserSystemText('ความคิดเห็น', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: BrowserSystemText('ความคิดเห็น',
+                style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           const Divider(height: 1),
           Expanded(child: _buildCommentList(currentUserId)),
@@ -197,7 +199,9 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
           children: [
             const BrowserSystemText('โหลดคอมเมนต์ไม่สำเร็จ'),
             const SizedBox(height: WynSpacing.space2),
-            TextButton(onPressed: _loadComments, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _loadComments,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -209,16 +213,19 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
     }
 
     if (comments.isEmpty) {
-      return const Center(child: BrowserSystemText('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!'));
+      return const Center(
+          child: BrowserSystemText('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!'));
     }
 
     // Each top-level comment immediately followed by its own replies
     // (WYN-022) -- flattened once here so ListView.builder can stay
     // simple index-based, same ordering DropDetailScreen builds inline.
     final ordered = <(PopComment, bool)>[
-      for (final comment in comments.where((c) => c.parentCommentId == null)) ...[
+      for (final comment
+          in comments.where((c) => c.parentCommentId == null)) ...[
         (comment, false),
-        for (final reply in comments.where((c) => c.parentCommentId == comment.id))
+        for (final reply
+            in comments.where((c) => c.parentCommentId == comment.id))
           (reply, true),
       ],
     ];
@@ -233,7 +240,8 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
     );
   }
 
-  Widget _buildCommentRow(PopComment comment, String currentUserId, {required bool isReply}) {
+  Widget _buildCommentRow(PopComment comment, String currentUserId,
+      {required bool isReply}) {
     return Padding(
       padding: EdgeInsets.fromLTRB(isReply ? 52 : 16, 12, 16, 0),
       child: Row(
@@ -275,13 +283,15 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
             SizedBox(
               width: 32,
               height: 32,
-              child: BrowserSystemTooltip(message: 'ลบคอมเมนต์', child: IconButton(
-                padding: EdgeInsets.zero,
-                iconSize: 16,
-                icon: const Icon(Icons.delete_outline),
-                tooltip: null,
-                onPressed: () => _deleteComment(comment.id),
-              )),
+              child: BrowserSystemTooltip(
+                  message: 'ลบคอมเมนต์',
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 16,
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: null,
+                    onPressed: () => _deleteComment(comment.id),
+                  )),
             ),
           Column(
             children: [
@@ -297,8 +307,11 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
                     padding: EdgeInsets.zero,
                     iconSize: 16,
                     icon: Icon(
-                      comment.likedByMe ? Icons.favorite : Icons.favorite_border,
-                      color: comment.likedByMe ? WynColors.iconLikeActive : null,
+                      comment.likedByMe
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color:
+                          comment.likedByMe ? WynColors.iconLikeActive : null,
                     ),
                     onPressed: () => _toggleCommentLike(comment.id),
                   ),
@@ -351,15 +364,18 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
                   controller: _commentController,
                   focusNode: _commentFocusNode,
                   enabled: !_isSendingComment,
-                  decoration: const InputDecoration(hint: BrowserSystemText('เขียนคอมเมนต์')),
+                  decoration: const InputDecoration(
+                      hint: BrowserSystemText('เขียนคอมเมนต์')),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              BrowserSystemTooltip(message: 'ส่งคอมเมนต์', child: IconButton(
-                icon: const Icon(Icons.send),
-                tooltip: null,
-                onPressed: canSend ? _sendComment : null,
-              )),
+              BrowserSystemTooltip(
+                  message: 'ส่งคอมเมนต์',
+                  child: IconButton(
+                    icon: const Icon(Icons.send),
+                    tooltip: null,
+                    onPressed: canSend ? _sendComment : null,
+                  )),
             ],
           ),
         ],

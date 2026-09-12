@@ -47,7 +47,8 @@ class PushPermissionCard extends StatefulWidget {
 }
 
 class _PushPermissionCardState extends State<PushPermissionCard> {
-  late final PushNotificationService _service = widget.pushNotificationService ??
+  late final PushNotificationService _service = widget
+          .pushNotificationService ??
       PushNotificationService(PushTokenRepository(Supabase.instance.client));
 
   /// Null while the first read is in flight -- the card renders nothing
@@ -167,9 +168,11 @@ class _PushPermissionCardState extends State<PushPermissionCard> {
               const SizedBox(width: WynSpacing.space2),
               TextButton(
                 key: const Key('push_permission_dismiss_button'),
-                style: TextButton.styleFrom(foregroundColor: WynColors.graphite),
-                onPressed:
-                    _isRequesting ? null : () => setState(() => _dismissed = true),
+                style:
+                    TextButton.styleFrom(foregroundColor: WynColors.graphite),
+                onPressed: _isRequesting
+                    ? null
+                    : () => setState(() => _dismissed = true),
                 child: const BrowserSystemText('ไม่ใช่ตอนนี้',
                     style: TextStyle(fontSize: 15, color: WynColors.graphite)),
               ),

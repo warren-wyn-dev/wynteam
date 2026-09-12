@@ -54,7 +54,8 @@ class _RecentlyDeletedDropsScreenState
       if (!mounted) return;
       setState(() => _drops = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('กู้คืนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('กู้คืนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -72,7 +73,9 @@ class _RecentlyDeletedDropsScreenState
                 children: [
                   BrowserSystemText(_error!),
                   const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+                  TextButton(
+                      onPressed: _load,
+                      child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             )
@@ -123,6 +126,5 @@ class _RecentlyDeletedDropsScreenState
     );
   }
 
-  String _formatDate(DateTime dt) =>
-      '${dt.day}/${dt.month}/${dt.year}';
+  String _formatDate(DateTime dt) => '${dt.day}/${dt.month}/${dt.year}';
 }

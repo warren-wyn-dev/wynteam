@@ -45,13 +45,16 @@ class FinishStep extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: WynColors.sapphire,
                 ),
-                child: const Icon(Icons.check, size: 44, color: WynColors.paper),
+                child:
+                    const Icon(Icons.check, size: 44, color: WynColors.paper),
               ),
               const SizedBox(height: WynSpacing.space8),
               BrowserSystemText(
                 'พร้อมแล้ว',
                 style: WynTypography.screenTitle(
-                    fontSize: 26, fontWeight: FontWeight.w700, color: WynColors.ink),
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: WynColors.ink),
               ),
               const SizedBox(height: WynSpacing.space2),
               BrowserSystemText(
@@ -66,7 +69,8 @@ class FinishStep extends StatelessWidget {
                 BrowserSystemText(
                   errorText!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 13, color: WynColors.errorLight),
+                  style: const TextStyle(
+                      fontSize: 13, color: WynColors.errorLight),
                 ),
                 const SizedBox(height: WynSpacing.space4),
               ],
@@ -75,14 +79,14 @@ class FinishStep extends StatelessWidget {
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                     shape: const StadiumBorder(),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: WynSpacing.space3 + 2),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: WynSpacing.space3 + 2),
                     backgroundColor: WynColors.sapphire,
                     foregroundColor: WynColors.paper,
                     disabledBackgroundColor: WynColors.hairline,
                     disabledForegroundColor: WynColors.mutedNeutral,
-                    textStyle:
-                        const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    textStyle: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   onPressed: isLoading ? null : onEnter,
                   child: isLoading

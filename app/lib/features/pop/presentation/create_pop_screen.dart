@@ -43,8 +43,7 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
   bool _isSharing = false;
   String? _errorMessage;
 
-  bool get _canShare =>
-      !_isSharing && !_isLoadingVideo && _videoPath != null;
+  bool get _canShare => !_isSharing && !_isLoadingVideo && _videoPath != null;
 
   @override
   void dispose() {
@@ -220,7 +219,8 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
               _buildVideoArea(),
               if (_previewController != null)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: WynSpacing.space2),
                   child: Center(
                     child: BrowserSystemText(
                       '${_formatDuration(_durationSeconds)} / ${_formatDuration(_maxDurationSeconds)}',
@@ -239,7 +239,8 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                       minLines: 2,
                       enabled: !_isSharing,
                       decoration: const InputDecoration(
-                        hint: BrowserSystemText('เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้'),
+                        hint: BrowserSystemText(
+                            'เขียนแคปชัน... ใส่ #hashtag หรือ @mention ได้'),
                         border: InputBorder.none,
                       ),
                     ),
@@ -247,8 +248,8 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
                       const SizedBox(height: WynSpacing.space2),
                       BrowserSystemText(
                         _errorMessage!,
-                        style:
-                            TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
                       ),
                     ],
                   ],
@@ -269,7 +270,9 @@ class _CreatePopScreenState extends State<CreatePopScreen> {
       child: AspectRatio(
         aspectRatio: 9 / 16,
         child: Semantics(
-          label: controller == null ? 'แตะเพื่อเลือกหรือถ่ายวิดีโอ' : 'วิดีโอที่เลือก',
+          label: controller == null
+              ? 'แตะเพื่อเลือกหรือถ่ายวิดีโอ'
+              : 'วิดีโอที่เลือก',
           button: controller == null,
           child: Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,

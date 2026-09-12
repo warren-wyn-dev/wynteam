@@ -83,7 +83,8 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
     updated[index] = previous.withRsvp(status);
     setState(() => setter(updated));
     try {
-      await widget.clubEventRepository.setRsvp(eventId: event.id, status: status);
+      await widget.clubEventRepository
+          .setRsvp(eventId: event.id, status: status);
     } catch (_) {
       if (!mounted) return;
       final reverted = [...list];
@@ -110,7 +111,8 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (_) => ClubEventAttendeesSheet(title: label, attendees: attendees),
+      builder: (_) =>
+          ClubEventAttendeesSheet(title: label, attendees: attendees),
     );
   }
 
@@ -163,7 +165,8 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -173,13 +176,15 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
     return Scaffold(
       body: _buildBody(),
       floatingActionButton: widget.canManage
-          ? BrowserSystemTooltip(message: 'สร้างกิจกรรม', child: FloatingActionButton(
-              backgroundColor: WynColors.sapphire,
-              foregroundColor: WynColors.paper,
-              onPressed: _openCreate,
-              tooltip: null,
-              child: const Icon(Icons.add),
-            ))
+          ? BrowserSystemTooltip(
+              message: 'สร้างกิจกรรม',
+              child: FloatingActionButton(
+                backgroundColor: WynColors.sapphire,
+                foregroundColor: WynColors.paper,
+                onPressed: _openCreate,
+                tooltip: null,
+                child: const Icon(Icons.add),
+              ))
           : null,
     );
   }
@@ -201,7 +206,9 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
                   children: [
                     const BrowserSystemText('โหลดกิจกรรมไม่สำเร็จ'),
                     const SizedBox(height: WynSpacing.space3),
-                    TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+                    TextButton(
+                        onPressed: _load,
+                        child: const BrowserSystemText('ลองใหม่')),
                   ],
                 ),
               ),
@@ -227,7 +234,8 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
           children: const [
             Padding(
               padding: EdgeInsets.symmetric(vertical: WynSpacing.space8),
-              child: Center(child: BrowserSystemText('ยังไม่มีกิจกรรมใน Club นี้')),
+              child: Center(
+                  child: BrowserSystemText('ยังไม่มีกิจกรรมใน Club นี้')),
             ),
           ],
         ),
@@ -255,9 +263,13 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
                       event: event,
                       canManage: widget.canManage,
                       onRsvp: (status) => _rsvp(
-                        event, status, upcoming, (list) => _upcoming = list,
+                        event,
+                        status,
+                        upcoming,
+                        (list) => _upcoming = list,
                       ),
-                      onShowAttendees: (status) => _showAttendees(event, status),
+                      onShowAttendees: (status) =>
+                          _showAttendees(event, status),
                       onEdit: () => _openEdit(event),
                       onDelete: () => _delete(event),
                     ),
@@ -269,9 +281,13 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
                       event: event,
                       canManage: widget.canManage,
                       onRsvp: (status) => _rsvp(
-                        event, status, past, (list) => _past = list,
+                        event,
+                        status,
+                        past,
+                        (list) => _past = list,
                       ),
-                      onShowAttendees: (status) => _showAttendees(event, status),
+                      onShowAttendees: (status) =>
+                          _showAttendees(event, status),
                       onEdit: () => _openEdit(event),
                       onDelete: () => _delete(event),
                     ),
@@ -294,7 +310,10 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, WynSpacing.space1,
+        WynSpacing.space4,
+        WynSpacing.space4,
+        WynSpacing.space4,
+        WynSpacing.space1,
       ),
       child: BrowserSystemText(
         label,

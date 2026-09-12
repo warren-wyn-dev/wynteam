@@ -169,8 +169,7 @@ class _DropImageGalleryState extends State<DropImageGallery> {
             right: 8,
             child: ExcludeSemantics(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: WynColors.imageScrim,
                   borderRadius: BorderRadius.circular(12),

@@ -26,7 +26,8 @@ class ClubMiniCard extends StatelessWidget {
         child: SizedBox(
           width: 96,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: WynSpacing.space2),
+            padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space1, vertical: WynSpacing.space2),
             child: Column(
               children: [
                 ClubAvatar(club: club, radius: 24),

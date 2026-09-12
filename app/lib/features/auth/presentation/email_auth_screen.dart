@@ -123,7 +123,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: BrowserSystemText(_isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ')),
+      appBar: AppBar(
+          title: BrowserSystemText(_isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(WynSpacing.space6),
@@ -134,7 +135,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
-                decoration: const InputDecoration(label: BrowserSystemText('อีเมล')),
+                decoration:
+                    const InputDecoration(label: BrowserSystemText('อีเมล')),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: WynSpacing.space4),
@@ -157,7 +159,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : BrowserSystemText(_isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ'),
+                    : BrowserSystemText(
+                        _isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ'),
               ),
               const SizedBox(height: WynSpacing.space3),
               TextButton(

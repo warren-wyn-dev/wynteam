@@ -47,9 +47,8 @@ class ClubPollCard extends StatelessWidget {
 
   String get _statusLabel {
     final votes = totalVotes;
-    final voteCountLabel = votes == null
-        ? null
-        : (votes == 0 ? 'ยังไม่มีใครโหวต' : '$votes โหวต');
+    final voteCountLabel =
+        votes == null ? null : (votes == 0 ? 'ยังไม่มีใครโหวต' : '$votes โหวต');
     final timeLabel = _isClosed ? 'โพลปิดแล้ว' : _remainingLabel();
     if (voteCountLabel == null) return timeLabel;
     return '$voteCountLabel · $timeLabel';
@@ -119,7 +118,8 @@ class _ClubPollOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final percentValue = percent;
-    final percentLabel = percentValue == null ? '' : ', ${percentValue.round()}%';
+    final percentLabel =
+        percentValue == null ? '' : ', ${percentValue.round()}%';
 
     return Semantics(
       label: isMine
@@ -154,7 +154,8 @@ class _ClubPollOption extends StatelessWidget {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
                 child: Row(
                   children: [
                     if (isMine) ...[
@@ -162,7 +163,8 @@ class _ClubPollOption extends StatelessWidget {
                       const SizedBox(width: WynSpacing.space1),
                     ],
                     Expanded(
-                      child: BrowserSystemText(text, overflow: TextOverflow.ellipsis),
+                      child: BrowserSystemText(text,
+                          overflow: TextOverflow.ellipsis),
                     ),
                     if (percent != null)
                       BrowserSystemText(

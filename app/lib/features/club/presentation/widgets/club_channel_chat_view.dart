@@ -292,7 +292,8 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) {
@@ -317,7 +318,8 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบข้อความไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -527,26 +529,28 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                 child: Material(
                   color: _canSend ? WynColors.ink : WynColors.surfaceTint,
                   shape: const CircleBorder(),
-                  child: BrowserSystemTooltip(message: 'ส่งข้อความ', child: IconButton(
-                    icon: _isSending
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: _canSend
-                                  ? WynColors.paper
-                                  : WynColors.mutedNeutral,
-                            ),
-                          )
-                        : Icon(Icons.send,
-                            size: 15,
-                            color: _canSend
-                                ? WynColors.paper
-                                : WynColors.mutedNeutral),
-                    tooltip: null,
-                    onPressed: _canSend ? _send : null,
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: 'ส่งข้อความ',
+                      child: IconButton(
+                        icon: _isSending
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: _canSend
+                                      ? WynColors.paper
+                                      : WynColors.mutedNeutral,
+                                ),
+                              )
+                            : Icon(Icons.send,
+                                size: 15,
+                                color: _canSend
+                                    ? WynColors.paper
+                                    : WynColors.mutedNeutral),
+                        tooltip: null,
+                        onPressed: _canSend ? _send : null,
+                      )),
                 ),
               ),
             ],
@@ -572,8 +576,10 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
       child: Row(
         children: [
           Expanded(
-            child: BrowserSystemText('ตอบกลับ ${replyTo.authorUsername}: $preview',
-                maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: BrowserSystemText(
+                'ตอบกลับ ${replyTo.authorUsername}: $preview',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),

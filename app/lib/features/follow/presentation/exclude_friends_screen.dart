@@ -104,7 +104,8 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
           onPressed: () => Navigator.of(context).pop(_selected),
         ),
         title: BrowserSystemText('เลือกเพื่อนที่จะซ่อนโพสต์นี้',
-            style: WynTypography.screenTitle(fontSize: 14, color: WynColors.ink)),
+            style:
+                WynTypography.screenTitle(fontSize: 14, color: WynColors.ink)),
         actions: [
           Semantics(
             label: 'ยืนยัน ซ่อนโพสต์จาก ${_selected.length} คน',
@@ -134,7 +135,10 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space3, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space3,
+        WynSpacing.space6,
+        WynSpacing.space2,
       ),
       child: Container(
         height: 40,
@@ -174,7 +178,8 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -197,7 +202,8 @@ class _ExcludeFriendsScreenState extends State<ExcludeFriendsScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: BrowserSystemText('ไม่พบผู้ใช้ที่ตรงกับ "$_searchQuery"', textAlign: TextAlign.center),
+          child: BrowserSystemText('ไม่พบผู้ใช้ที่ตรงกับ "$_searchQuery"',
+              textAlign: TextAlign.center),
         ),
       );
     }

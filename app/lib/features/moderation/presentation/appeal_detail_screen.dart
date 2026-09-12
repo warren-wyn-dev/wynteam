@@ -89,7 +89,8 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(WynSpacing.space4),
         children: [
-          BrowserSystemText('ผู้ยื่นอุทธรณ์', style: Theme.of(context).textTheme.titleSmall),
+          BrowserSystemText('ผู้ยื่นอุทธรณ์',
+              style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: WynSpacing.space1),
           BrowserSystemText(appellantLabel),
           const SizedBox(height: WynSpacing.space6),
@@ -122,7 +123,8 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
             title: 'เหตุผลของผู้ยื่นอุทธรณ์',
             children: [
               BrowserSystemText(appeal.reason),
-              if (appeal.evidencePaths != null && appeal.evidencePaths!.isNotEmpty) ...[
+              if (appeal.evidencePaths != null &&
+                  appeal.evidencePaths!.isNotEmpty) ...[
                 const SizedBox(height: WynSpacing.space3),
                 _buildEvidenceRow(context, appeal.evidencePaths!),
               ],
@@ -174,7 +176,8 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BrowserSystemText(title, style: Theme.of(context).textTheme.titleMedium),
+          BrowserSystemText(title,
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: WynSpacing.space2),
           ...children,
         ],
@@ -188,7 +191,8 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: evidencePaths.length,
-        separatorBuilder: (context, index) => const SizedBox(width: WynSpacing.space2),
+        separatorBuilder: (context, index) =>
+            const SizedBox(width: WynSpacing.space2),
         itemBuilder: (context, index) {
           return Semantics(
             label: 'หลักฐานรูปที่ ${index + 1}',

@@ -319,7 +319,8 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           children: [
             BrowserSystemText(_searchError!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _search, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _search, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );

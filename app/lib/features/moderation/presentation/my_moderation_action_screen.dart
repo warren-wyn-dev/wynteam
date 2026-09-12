@@ -30,7 +30,8 @@ class MyModerationActionScreen extends StatefulWidget {
   final String actionId;
 
   @override
-  State<MyModerationActionScreen> createState() => _MyModerationActionScreenState();
+  State<MyModerationActionScreen> createState() =>
+      _MyModerationActionScreenState();
 }
 
 class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
@@ -43,7 +44,8 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
   }
 
   Future<_ActionWithAppeal> _load() async {
-    final action = await widget.appealRepository.fetchMyModerationAction(widget.actionId);
+    final action =
+        await widget.appealRepository.fetchMyModerationAction(widget.actionId);
     final appeal = await widget.appealRepository.fetchMyAppeal(widget.actionId);
     return (action: action, appeal: appeal);
   }
@@ -90,7 +92,9 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
                 children: [
                   const BrowserSystemText('โหลดข้อมูลไม่สำเร็จ'),
                   const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _reload, child: const BrowserSystemText('ลองใหม่')),
+                  TextButton(
+                      onPressed: _reload,
+                      child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             );
@@ -130,7 +134,8 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BrowserSystemText(action.actionType.label, style: Theme.of(context).textTheme.titleMedium),
+          BrowserSystemText(action.actionType.label,
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: WynSpacing.space2),
           BrowserSystemText(action.reason),
           const SizedBox(height: WynSpacing.space2),
@@ -188,7 +193,8 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
     }
   }
 
-  String _approvedMessage(ModerationActionType actionType) => switch (actionType) {
+  String _approvedMessage(ModerationActionType actionType) =>
+      switch (actionType) {
         ModerationActionType.warning =>
           'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว คำเตือนนี้ถูกลบออกจากประวัติบัญชีของคุณแล้ว',
         ModerationActionType.restrict =>
@@ -204,7 +210,8 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
         ModerationActionType.noAction => 'อุทธรณ์ของคุณได้รับการอนุมัติแล้ว',
       };
 
-  Widget _buildStatusCard(BuildContext context, {required String title, Widget? child}) {
+  Widget _buildStatusCard(BuildContext context,
+      {required String title, Widget? child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(WynSpacing.space4),
@@ -215,7 +222,8 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BrowserSystemText(title, style: Theme.of(context).textTheme.titleSmall),
+          BrowserSystemText(title,
+              style: Theme.of(context).textTheme.titleSmall),
           if (child != null) ...[
             const SizedBox(height: WynSpacing.space2),
             child,
@@ -238,7 +246,8 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: evidencePaths.length,
-              separatorBuilder: (context, index) => const SizedBox(width: WynSpacing.space2),
+              separatorBuilder: (context, index) =>
+                  const SizedBox(width: WynSpacing.space2),
               itemBuilder: (context, index) {
                 return Semantics(
                   label: 'หลักฐานรูปที่ ${index + 1}',
@@ -250,8 +259,10 @@ class _MyModerationActionScreenState extends State<MyModerationActionScreen> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                        color:
+                            Theme.of(context).colorScheme.surfaceContainerHigh,
+                        borderRadius:
+                            BorderRadius.circular(WynSpacing.radiusSm),
                       ),
                       child: Icon(
                         Icons.image_outlined,

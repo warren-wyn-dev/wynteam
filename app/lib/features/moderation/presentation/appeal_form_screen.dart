@@ -39,7 +39,8 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
-  bool get _canSubmit => !_isSubmitting && _reasonController.text.trim().isNotEmpty;
+  bool get _canSubmit =>
+      !_isSubmitting && _reasonController.text.trim().isNotEmpty;
 
   @override
   void dispose() {
@@ -61,8 +62,9 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
 
     for (final file in picked.take(remaining)) {
       final bytes = await file.readAsBytes();
-      final extension =
-          file.name.contains('.') ? file.name.split('.').last.toLowerCase() : 'jpg';
+      final extension = file.name.contains('.')
+          ? file.name.split('.').last.toLowerCase()
+          : 'jpg';
       _images.add(bytes);
       _imageExtensions.add(extension);
     }
@@ -122,7 +124,8 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                 maxLines: 8,
                 onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
-                  label: BrowserSystemText('เหตุผลที่คุณคิดว่าคำตัดสินนี้ไม่ถูกต้อง (จำเป็น)'),
+                  label: BrowserSystemText(
+                      'เหตุผลที่คุณคิดว่าคำตัดสินนี้ไม่ถูกต้อง (จำเป็น)'),
                 ),
               ),
               const SizedBox(height: WynSpacing.space4),
@@ -131,9 +134,12 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                 const SizedBox(height: WynSpacing.space2),
               ],
               OutlinedButton.icon(
-                onPressed: (_isSubmitting || _images.length >= _maxImages) ? null : _pickImages,
+                onPressed: (_isSubmitting || _images.length >= _maxImages)
+                    ? null
+                    : _pickImages,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: const BrowserSystemText('แนบรูปหลักฐาน (ไม่บังคับ, สูงสุด 3 รูป)'),
+                label: const BrowserSystemText(
+                    'แนบรูปหลักฐาน (ไม่บังคับ, สูงสุด 3 รูป)'),
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: WynSpacing.space4),
@@ -167,7 +173,8 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _images.length,
-        separatorBuilder: (context, index) => const SizedBox(width: WynSpacing.space2),
+        separatorBuilder: (context, index) =>
+            const SizedBox(width: WynSpacing.space2),
         itemBuilder: (context, index) {
           return Stack(
             clipBehavior: Clip.none,
@@ -207,7 +214,8 @@ class _AppealFormScreenState extends State<AppealFormScreen> {
                               color: Colors.black54,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.close, size: 14, color: Colors.white),
+                            child: const Icon(Icons.close,
+                                size: 14, color: Colors.white),
                           ),
                         ),
                       ),

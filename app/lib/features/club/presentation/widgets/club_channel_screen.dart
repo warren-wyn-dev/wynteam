@@ -61,11 +61,13 @@ class ClubChannelScreen extends StatelessWidget {
         title: BrowserSystemText('#$channelName'),
         actions: [
           if (manage != null)
-            BrowserSystemTooltip(message: 'จัดการห้อง', child: IconButton(
-              icon: const Icon(Icons.more_vert),
-              tooltip: null,
-              onPressed: () => manage(context),
-            )),
+            BrowserSystemTooltip(
+                message: 'จัดการห้อง',
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: null,
+                  onPressed: () => manage(context),
+                )),
         ],
       ),
       body: ClubChannelChatView(

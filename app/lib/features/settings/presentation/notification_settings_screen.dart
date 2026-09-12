@@ -47,9 +47,9 @@ class _NotificationSettingsScreenState
   /// with, so a shared flag there is harmless).
   final Set<String> _saving = {};
 
-  late final PushNotificationService _pushService =
-      widget.pushNotificationService ??
-          PushNotificationService(PushTokenRepository(Supabase.instance.client));
+  late final PushNotificationService _pushService = widget
+          .pushNotificationService ??
+      PushNotificationService(PushTokenRepository(Supabase.instance.client));
 
   /// Beta4 §11.2. Null while the first read is in flight -- the device
   /// row renders a disabled placeholder rather than guessing "off" and
@@ -132,7 +132,8 @@ class _NotificationSettingsScreenState
       if (!mounted) return;
       setState(() => _settings = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _saving.remove(category));
@@ -159,7 +160,8 @@ class _NotificationSettingsScreenState
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -176,7 +178,8 @@ class _NotificationSettingsScreenState
           // WYN-102: was "...โพสต์, Pop หรือรีโพสต์..." -- the setting
           // still governs Pop-like notifications too (unchanged), just
           // no longer names Pop in UI copy.
-          subtitle: const BrowserSystemText('เมื่อมีคนถูกใจโพสต์หรือรีโพสต์ของคุณ'),
+          subtitle:
+              const BrowserSystemText('เมื่อมีคนถูกใจโพสต์หรือรีโพสต์ของคุณ'),
           value: _settings.likes,
           onChanged:
               _saving.contains('likes') ? null : (v) => _toggle('likes', v),
@@ -184,7 +187,8 @@ class _NotificationSettingsScreenState
         SwitchListTile(
           secondary: const Icon(Icons.mode_comment_outlined),
           title: const BrowserSystemText('คอมเมนต์'),
-          subtitle: const BrowserSystemText('เมื่อมีคนแสดงความคิดเห็นหรือกล่าวถึงคุณในโพสต์'),
+          subtitle: const BrowserSystemText(
+              'เมื่อมีคนแสดงความคิดเห็นหรือกล่าวถึงคุณในโพสต์'),
           value: _settings.comments,
           onChanged: _saving.contains('comments')
               ? null
@@ -193,16 +197,17 @@ class _NotificationSettingsScreenState
         SwitchListTile(
           secondary: const Icon(Icons.person_add_outlined),
           title: const BrowserSystemText('ผู้ติดตาม'),
-          subtitle: const BrowserSystemText('เมื่อมีคนติดตามคุณ หรือส่ง/ยอมรับคำขอติดตาม'),
+          subtitle: const BrowserSystemText(
+              'เมื่อมีคนติดตามคุณ หรือส่ง/ยอมรับคำขอติดตาม'),
           value: _settings.follows,
-          onChanged: _saving.contains('follows')
-              ? null
-              : (v) => _toggle('follows', v),
+          onChanged:
+              _saving.contains('follows') ? null : (v) => _toggle('follows', v),
         ),
         SwitchListTile(
           secondary: const Icon(Icons.mail_outline),
           title: const BrowserSystemText('ข้อความ'),
-          subtitle: const BrowserSystemText('เมื่อมีคนที่ไม่ได้ติดตามกันส่งคำขอข้อความถึงคุณ'),
+          subtitle: const BrowserSystemText(
+              'เมื่อมีคนที่ไม่ได้ติดตามกันส่งคำขอข้อความถึงคุณ'),
           value: _settings.messages,
           onChanged: _saving.contains('messages')
               ? null
@@ -220,7 +225,8 @@ class _NotificationSettingsScreenState
         SwitchListTile(
           secondary: const Icon(Icons.trending_up),
           title: const BrowserSystemText('กำลังนิยม'),
-          subtitle: const BrowserSystemText('เมื่อโพสต์ของคุณกำลังเป็นที่นิยมหรือติด WYN Top 100'),
+          subtitle: const BrowserSystemText(
+              'เมื่อโพสต์ของคุณกำลังเป็นที่นิยมหรือติด WYN Top 100'),
           value: _settings.trending,
           onChanged: _saving.contains('trending')
               ? null
@@ -260,7 +266,8 @@ class _NotificationSettingsScreenState
           leading: Icon(Icons.notifications_active_outlined,
               color: WynColors.sapphire),
           title: BrowserSystemText('การแจ้งเตือนบนเครื่องนี้'),
-          subtitle: BrowserSystemText('เปิดอยู่ — เครื่องนี้จะได้รับการแจ้งเตือนตามหมวดหมู่ด้านล่าง'),
+          subtitle: BrowserSystemText(
+              'เปิดอยู่ — เครื่องนี้จะได้รับการแจ้งเตือนตามหมวดหมู่ด้านล่าง'),
           trailing: Icon(Icons.check_circle, color: WynColors.sapphire),
         ),
       PushPermissionState.notDetermined => ListTile(

@@ -40,7 +40,8 @@ import '../../../core/widgets/wyn_heart_icon.dart';
 /// already mounted -- a guest who has never signed in still lands on
 /// Welcome first, not this content. WYN-119's own guest-preview
 /// requirement is not met yet; see that task's Known Follow-up.
-String clubPostShareLink(String postId) => 'https://wynos.online/club-post/$postId';
+String clubPostShareLink(String postId) =>
+    'https://wynos.online/club-post/$postId';
 
 /// Club post detail + full comment thread. Mirrors DropDetailScreen
 /// (WYN-005) -- Design's Posts tab spec describes the Posts list itself
@@ -105,11 +106,13 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
 
   final _reportRepository = ReportRepository(Supabase.instance.client);
   late final ModerationRepository _moderationRepository =
-      widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+      widget.moderationRepository ??
+          ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
   late final ClubBadgeRepository _clubBadgeRepository =
-      widget.clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+      widget.clubBadgeRepository ??
+          ClubBadgeRepository(Supabase.instance.client);
 
   /// WYN-129: every badge in this post's Club, keyed by user id -- shown
   /// next to the post author's name and each comment author's name.
@@ -199,8 +202,7 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       setState(() {
         _comments = [...?_comments, ...more];
         _commentPage = nextPage;
-        _hasMoreComments =
-            more.length == ClubPostRepository.commentPageSize;
+        _hasMoreComments = more.length == ClubPostRepository.commentPageSize;
       });
     } catch (_) {
       if (!mounted) return;
@@ -296,7 +298,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
 
   Future<void> _share() async {
     await SharePlus.instance.share(
-      ShareParams(text: clubPostShareLink(_post.id), title: 'โพสต์ใน Club บน WYN'),
+      ShareParams(
+          text: clubPostShareLink(_post.id), title: 'โพสต์ใน Club บน WYN'),
     );
   }
 
@@ -321,7 +324,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -342,7 +346,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -387,7 +392,8 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
 
   // Long-press fallback, additional to the existing own-comment delete
   // icon -- see .wyn/docs/design/wyn-026-report-system.md, Screen 6.
-  Future<void> _openCommentMenu(ClubPostComment comment, String currentUserId) async {
+  Future<void> _openCommentMenu(
+      ClubPostComment comment, String currentUserId) async {
     final isOwnComment = comment.authorId == currentUserId;
 
     await showModalBottomSheet<void>(
@@ -431,11 +437,13 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         title: const BrowserSystemText('โพสต์'),
         actions: [
           if (_isOwnPost || _canModerate)
-            BrowserSystemTooltip(message: 'ลบโพสต์', child: IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: null,
-              onPressed: _deletePost,
-            )),
+            BrowserSystemTooltip(
+                message: 'ลบโพสต์',
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: null,
+                  onPressed: _deletePost,
+                )),
         ],
       ),
       body: Column(
@@ -485,8 +493,12 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                           ],
                         ),
                         BrowserSystemText(
-                          relativeTimeLabel(_post.createdAt, now: DateTime.now()),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          relativeTimeLabel(_post.createdAt,
+                              now: DateTime.now()),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
                                 color: Theme.of(context).colorScheme.outline,
                               ),
                         ),
@@ -494,11 +506,15 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                     ),
                   ),
                   if (!_isOwnPost && _canModerate)
-                    BrowserSystemTooltip(message: _post.pinned ? 'เลิกปักหมุด' : 'ปักหมุด', child: IconButton(
-                      icon: Icon(_post.pinned ? Icons.push_pin : Icons.push_pin_outlined),
-                      tooltip: null,
-                      onPressed: _togglePin,
-                    )),
+                    BrowserSystemTooltip(
+                        message: _post.pinned ? 'เลิกปักหมุด' : 'ปักหมุด',
+                        child: IconButton(
+                          icon: Icon(_post.pinned
+                              ? Icons.push_pin
+                              : Icons.push_pin_outlined),
+                          tooltip: null,
+                          onPressed: _togglePin,
+                        )),
                 ],
               ),
               if (_post.content != null && _post.content!.isNotEmpty) ...[
@@ -507,7 +523,9 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
               ],
               // WYN-115: a Poll Club Post never carries a link (see
               // create_poll_club_post() in supabase/schema.sql).
-              if (!_post.isPoll && _post.linkUrl != null && _post.linkUrl!.isNotEmpty) ...[
+              if (!_post.isPoll &&
+                  _post.linkUrl != null &&
+                  _post.linkUrl!.isNotEmpty) ...[
                 const SizedBox(height: WynSpacing.space2),
                 Row(
                   children: [
@@ -533,11 +551,14 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         else if (_post.imageUrls != null && _post.imageUrls!.isNotEmpty)
           ClubPostImages(imageUrls: _post.imageUrls!),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+          padding: const EdgeInsets.symmetric(
+              horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
           child: Row(
             children: [
               Semantics(
-                label: _post.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
+                label: _post.likedByMe
+                    ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                    : 'กดเพื่อถูกใจ',
                 excludeSemantics: true,
                 child: IconButton(
                   icon: WynHeartIcon(
@@ -557,22 +578,29 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
               ),
               BrowserSystemText('${_post.likeCount}'),
               const SizedBox(width: WynSpacing.space3),
-              BrowserSystemTooltip(message: 'แชร์', child: IconButton(
-                icon: const Icon(Icons.share_outlined),
-                tooltip: null,
-                onPressed: _share,
-              )),
-              BrowserSystemTooltip(message: 'คัดลอกลิงก์', child: IconButton(
-                icon: const Icon(Icons.link),
-                tooltip: null,
-                onPressed: _copyLink,
-              )),
+              BrowserSystemTooltip(
+                  message: 'แชร์',
+                  child: IconButton(
+                    icon: const Icon(Icons.share_outlined),
+                    tooltip: null,
+                    onPressed: _share,
+                  )),
+              BrowserSystemTooltip(
+                  message: 'คัดลอกลิงก์',
+                  child: IconButton(
+                    icon: const Icon(Icons.link),
+                    tooltip: null,
+                    onPressed: _copyLink,
+                  )),
               const Spacer(),
               Semantics(
-                label: _post.savedByMe ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved' : 'กดเพื่อบันทึก',
+                label: _post.savedByMe
+                    ? 'บันทึกแล้ว กดเพื่อเอาออกจาก Saved'
+                    : 'กดเพื่อบันทึก',
                 excludeSemantics: true,
                 child: IconButton(
-                  icon: Icon(_post.savedByMe ? Icons.bookmark : Icons.bookmark_border),
+                  icon: Icon(
+                      _post.savedByMe ? Icons.bookmark : Icons.bookmark_border),
                   onPressed: _toggleSave,
                 ),
               ),
@@ -595,7 +623,9 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 children: [
                   const BrowserSystemText('โหลดคอมเมนต์ไม่สำเร็จ'),
                   const SizedBox(height: WynSpacing.space2),
-                  TextButton(onPressed: _loadComments, child: const BrowserSystemText('ลองใหม่')),
+                  TextButton(
+                      onPressed: _loadComments,
+                      child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             ),
@@ -624,14 +654,17 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
         if (comments.isEmpty)
           const Padding(
             padding: EdgeInsets.all(WynSpacing.space6),
-            child: Center(child: BrowserSystemText('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
+            child: Center(
+                child: BrowserSystemText('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
         else
           // Each top-level comment immediately followed by its own
           // replies (WYN-022) -- same ordering DropDetailScreen builds.
-          for (final comment in comments.where((c) => c.parentCommentId == null)) ...[
+          for (final comment
+              in comments.where((c) => c.parentCommentId == null)) ...[
             _buildCommentRow(comment, currentUserId, isReply: false),
-            for (final reply in comments.where((c) => c.parentCommentId == comment.id))
+            for (final reply
+                in comments.where((c) => c.parentCommentId == comment.id))
               _buildCommentRow(reply, currentUserId, isReply: true),
           ],
         if (_hasMoreComments || _moreCommentsErrored)
@@ -674,68 +707,73 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
       child: GestureDetector(
         onLongPress: () => _openCommentMenu(comment, currentUserId),
         child: Padding(
-      padding: EdgeInsets.fromLTRB(isReply ? 52 : 16, 12, 16, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AvatarCircle(
-            imageUrl: comment.authorAvatarUrl,
-            fallbackText: comment.authorUsername,
-            radius: 16,
-          ),
-          const SizedBox(width: WynSpacing.space2),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          padding: EdgeInsets.fromLTRB(isReply ? 52 : 16, 12, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AvatarCircle(
+                imageUrl: comment.authorAvatarUrl,
+                fallbackText: comment.authorUsername,
+                radius: 16,
+              ),
+              const SizedBox(width: WynSpacing.space2),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: BrowserSystemText(
-                        comment.authorNameOrUsername,
-                        style: Theme.of(context).textTheme.titleSmall,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: BrowserSystemText(
+                            comment.authorNameOrUsername,
+                            style: Theme.of(context).textTheme.titleSmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // WYN-129
+                        if (_badges[comment.authorId] != null) ...[
+                          const SizedBox(width: WynSpacing.space1),
+                          ClubBadgePill(badge: _badges[comment.authorId]!),
+                        ],
+                      ],
                     ),
-                    // WYN-129
-                    if (_badges[comment.authorId] != null) ...[
-                      const SizedBox(width: WynSpacing.space1),
-                      ClubBadgePill(badge: _badges[comment.authorId]!),
-                    ],
+                    BrowserSystemText(comment.textContent),
+                    if (!isReply)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: InkWell(
+                          onTap: () => _startReply(comment),
+                          child: BrowserSystemText(
+                            'ตอบกลับ',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-                BrowserSystemText(comment.textContent),
-                if (!isReply)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: InkWell(
-                      onTap: () => _startReply(comment),
-                      child: BrowserSystemText(
-                        'ตอบกลับ',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+              ),
+              if (comment.authorId == currentUserId)
+                SizedBox(
+                  width: WynSpacing.touchTargetMin,
+                  height: WynSpacing.touchTargetMin,
+                  child: BrowserSystemTooltip(
+                      message: 'ลบคอมเมนต์',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        iconSize: 16,
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: null,
+                        onPressed: () => _deleteComment(comment.id),
+                      )),
+                ),
+            ],
           ),
-          if (comment.authorId == currentUserId)
-            SizedBox(
-              width: WynSpacing.touchTargetMin,
-              height: WynSpacing.touchTargetMin,
-              child: BrowserSystemTooltip(message: 'ลบคอมเมนต์', child: IconButton(
-                padding: EdgeInsets.zero,
-                iconSize: 16,
-                icon: const Icon(Icons.delete_outline),
-                tooltip: null,
-                onPressed: () => _deleteComment(comment.id),
-              )),
-            ),
-        ],
-      ),
         ),
       ),
     );
@@ -787,18 +825,23 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                     controller: _commentController,
                     focusNode: _commentFocusNode,
                     enabled: !_isSendingComment,
-                    decoration: const InputDecoration(hint: BrowserSystemText('เขียนคอมเมนต์')),
+                    decoration: const InputDecoration(
+                        hint: BrowserSystemText('เขียนคอมเมนต์')),
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
                 Semantics(
-                  label: _isRestricted ? 'ส่งคอมเมนต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
+                  label: _isRestricted
+                      ? 'ส่งคอมเมนต์ ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว'
+                      : null,
                   excludeSemantics: _isRestricted,
-                  child: BrowserSystemTooltip(message: 'ส่งคอมเมนต์', child: IconButton(
-                    icon: const Icon(Icons.send),
-                    tooltip: null,
-                    onPressed: canSend ? _sendComment : null,
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: 'ส่งคอมเมนต์',
+                      child: IconButton(
+                        icon: const Icon(Icons.send),
+                        tooltip: null,
+                        onPressed: canSend ? _sendComment : null,
+                      )),
                 ),
               ],
             ),

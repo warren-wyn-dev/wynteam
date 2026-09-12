@@ -167,9 +167,12 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            BrowserSystemText(_error!, style: const TextStyle(color: Colors.white)),
+            BrowserSystemText(_error!,
+                style: const TextStyle(color: Colors.white)),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -213,11 +216,13 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
           muted: _muted,
           onMutedToggle: _toggleMuted,
           onDeleted: () => _removePop(pop.id),
-          topLeading: BrowserSystemTooltip(message: 'สร้าง Pop ใหม่', child: IconButton(
-            icon: const Icon(Icons.add_box_outlined, color: Colors.white),
-            tooltip: null,
-            onPressed: _openCreatePop,
-          )),
+          topLeading: BrowserSystemTooltip(
+              message: 'สร้าง Pop ใหม่',
+              child: IconButton(
+                icon: const Icon(Icons.add_box_outlined, color: Colors.white),
+                tooltip: null,
+                onPressed: _openCreatePop,
+              )),
         );
       },
     );

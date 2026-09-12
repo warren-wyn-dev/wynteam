@@ -38,8 +38,8 @@ class _HomeExplainerBannerState extends State<HomeExplainerBanner> {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
-      setState(() =>
-          _shouldShow = !(prefs.getBool(HomeExplainerBanner._prefsKey) ?? false));
+      setState(() => _shouldShow =
+          !(prefs.getBool(HomeExplainerBanner._prefsKey) ?? false));
     } catch (_) {
       if (!mounted) return;
       setState(() => _shouldShow = false);
@@ -63,11 +63,15 @@ class _HomeExplainerBannerState extends State<HomeExplainerBanner> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, WynSpacing.space1,
+        WynSpacing.space4,
+        WynSpacing.space3,
+        WynSpacing.space4,
+        WynSpacing.space1,
       ),
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: WynSpacing.space4, vertical: WynSpacing.space3,
+          horizontal: WynSpacing.space4,
+          vertical: WynSpacing.space3,
         ),
         decoration: BoxDecoration(
           color: WynColors.ink,
@@ -127,7 +131,8 @@ class _HomeExplainerBannerState extends State<HomeExplainerBanner> {
                     alignment: Alignment.topRight,
                     child: Padding(
                       padding: EdgeInsets.all(2),
-                      child: Icon(Icons.close, size: 15, color: WynColors.graphite),
+                      child: Icon(Icons.close,
+                          size: 15, color: WynColors.graphite),
                     ),
                   ),
                 ),

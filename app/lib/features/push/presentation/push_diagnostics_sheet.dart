@@ -51,7 +51,8 @@ class PushDiagnosticsSheet extends StatefulWidget {
 }
 
 class _PushDiagnosticsSheetState extends State<PushDiagnosticsSheet> {
-  late final PushNotificationService _service = widget.pushNotificationService ??
+  late final PushNotificationService _service = widget
+          .pushNotificationService ??
       PushNotificationService(PushTokenRepository(Supabase.instance.client));
 
   PushDiagnostics? _result;
@@ -146,7 +147,9 @@ class _PushDiagnosticsSheetState extends State<PushDiagnosticsSheet> {
         ok: result.hasToken,
         label: 'เครื่องนี้ได้รับรหัสอุปกรณ์แล้ว',
         detail: result.hasToken
-            ? (result.tokenTail == null ? null : 'ลงท้ายด้วย ${result.tokenTail}')
+            ? (result.tokenTail == null
+                ? null
+                : 'ลงท้ายด้วย ${result.tokenTail}')
             : 'ยังไม่ได้รับ — ปกติเกิดจากสองข้อบน',
       ),
       _CheckRow(
@@ -184,8 +187,9 @@ class _PushDiagnosticsSheetState extends State<PushDiagnosticsSheet> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color:
-                result.isReadyToReceive ? WynColors.sapphire : WynColors.graphite,
+            color: result.isReadyToReceive
+                ? WynColors.sapphire
+                : WynColors.graphite,
           ),
         ),
       ),

@@ -72,7 +72,9 @@ class ClubRecommendedCard extends StatelessWidget {
                               color: scheme.primaryContainer,
                               alignment: Alignment.center,
                               child: BrowserSystemText(
-                                club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
+                                club.name.isNotEmpty
+                                    ? club.name[0].toUpperCase()
+                                    : '?',
                                 style: TextStyle(
                                   color: scheme.onPrimaryContainer,
                                   fontWeight: FontWeight.bold,
@@ -126,20 +128,25 @@ class ClubRecommendedCard extends StatelessWidget {
                               club.category!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                   ),
                             ),
                           ),
                           const SizedBox(width: 4),
-                          BrowserSystemText('·', style: TextStyle(color: scheme.onSurfaceVariant)),
+                          BrowserSystemText('·',
+                              style: TextStyle(color: scheme.onSurfaceVariant)),
                           const SizedBox(width: 4),
                         ],
                         BrowserSystemText(
                           '${club.memberCount} สมาชิก',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ),
@@ -175,16 +182,18 @@ class _MoreMenuButton extends StatelessWidget {
         shape: BoxShape.circle,
         color: WynColors.imageScrim,
       ),
-      child: BrowserSystemTooltip(message: 'เพิ่มเติม', child: PopupMenuButton<String>(
-        padding: EdgeInsets.zero,
-        icon: const Icon(Icons.more_vert, size: 16, color: Colors.white),
-        tooltip: null,
-        onSelected: (_) => onReport(),
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: 'report', child: BrowserSystemText('รายงาน Club')),
-        ],
-      )),
+      child: BrowserSystemTooltip(
+          message: 'เพิ่มเติม',
+          child: PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.more_vert, size: 16, color: Colors.white),
+            tooltip: null,
+            onSelected: (_) => onReport(),
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                  value: 'report', child: BrowserSystemText('รายงาน Club')),
+            ],
+          )),
     );
   }
 }
-

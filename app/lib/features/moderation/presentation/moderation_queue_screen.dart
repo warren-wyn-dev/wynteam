@@ -174,7 +174,8 @@ class _ReportsTabState extends State<_ReportsTab> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final reports = await widget.moderationRepository.fetchQueue(page: nextPage);
+      final reports =
+          await widget.moderationRepository.fetchQueue(page: nextPage);
       setState(() {
         _reports.addAll(reports);
         _page = nextPage;
@@ -209,7 +210,8 @@ class _ReportsTabState extends State<_ReportsTab> {
     // action already succeeded server-side by the time this screen sees
     // a non-null result, so there's nothing to roll back on failure.
     setState(() => _reports.removeWhere((r) => r.id == report.id));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: BrowserSystemText(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: BrowserSystemText(message)));
   }
 
   @override
@@ -225,7 +227,9 @@ class _ReportsTabState extends State<_ReportsTab> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -244,7 +248,8 @@ class _ReportsTabState extends State<_ReportsTab> {
                 color: Theme.of(context).colorScheme.outline,
               ),
               const SizedBox(height: WynSpacing.space4),
-              const BrowserSystemText('ไม่มีรายงานที่รอตรวจสอบ', textAlign: TextAlign.center),
+              const BrowserSystemText('ไม่มีรายงานที่รอตรวจสอบ',
+                  textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -297,7 +302,8 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
   @override
   void initState() {
     super.initState();
-    _summaryFuture = widget.moderationRepository.fetchTargetSummary(widget.report);
+    _summaryFuture =
+        widget.moderationRepository.fetchTargetSummary(widget.report);
   }
 
   IconData _targetIcon() => switch (widget.report.targetType) {
@@ -340,7 +346,8 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainerHigh,
                     child: Icon(
                       _targetIcon(),
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -352,7 +359,8 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        BrowserSystemText(headline, style: Theme.of(context).textTheme.titleSmall),
+                        BrowserSystemText(headline,
+                            style: Theme.of(context).textTheme.titleSmall),
                         BrowserSystemText(
                           summaryLabel,
                           maxLines: 1,
@@ -364,9 +372,12 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
                             detail,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
                           ),
                       ],
                     ),
@@ -392,7 +403,8 @@ class _ModerationQueueRowState extends State<_ModerationQueueRow> {
 /// removal shape, querying `appeals` (status = 'pending') instead of
 /// `reports`.
 class _AppealsTab extends StatefulWidget {
-  const _AppealsTab({required this.appealRepository, required this.currentModeratorId});
+  const _AppealsTab(
+      {required this.appealRepository, required this.currentModeratorId});
 
   final AppealRepository appealRepository;
   final String? currentModeratorId;
@@ -437,7 +449,8 @@ class _AppealsTabState extends State<_AppealsTab> {
       _error = null;
     });
     try {
-      final appeals = await widget.appealRepository.fetchPendingAppeals(page: 0);
+      final appeals =
+          await widget.appealRepository.fetchPendingAppeals(page: 0);
       setState(() {
         _appeals
           ..clear()
@@ -456,7 +469,8 @@ class _AppealsTabState extends State<_AppealsTab> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final appeals = await widget.appealRepository.fetchPendingAppeals(page: nextPage);
+      final appeals =
+          await widget.appealRepository.fetchPendingAppeals(page: nextPage);
       setState(() {
         _appeals.addAll(appeals);
         _page = nextPage;
@@ -482,7 +496,8 @@ class _AppealsTabState extends State<_AppealsTab> {
     if (message == null || !mounted) return;
 
     setState(() => _appeals.removeWhere((a) => a.id == appeal.id));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: BrowserSystemText(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: BrowserSystemText(message)));
   }
 
   @override
@@ -498,7 +513,9 @@ class _AppealsTabState extends State<_AppealsTab> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -517,7 +534,8 @@ class _AppealsTabState extends State<_AppealsTab> {
                 color: Theme.of(context).colorScheme.outline,
               ),
               const SizedBox(height: WynSpacing.space4),
-              const BrowserSystemText('ไม่มีอุทธรณ์ที่รอตรวจสอบ', textAlign: TextAlign.center),
+              const BrowserSystemText('ไม่มีอุทธรณ์ที่รอตรวจสอบ',
+                  textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -538,7 +556,8 @@ class _AppealsTabState extends State<_AppealsTab> {
           }
 
           final appeal = _appeals[index];
-          return _AppealQueueRow(appeal: appeal, onTap: () => _openAppeal(appeal));
+          return _AppealQueueRow(
+              appeal: appeal, onTap: () => _openAppeal(appeal));
         },
       ),
     );
@@ -573,7 +592,8 @@ class _AppealQueueRow extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceContainerHigh,
                 child: Icon(
                   Icons.gavel_outlined,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -585,7 +605,8 @@ class _AppealQueueRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    BrowserSystemText(headline, style: Theme.of(context).textTheme.titleSmall),
+                    BrowserSystemText(headline,
+                        style: Theme.of(context).textTheme.titleSmall),
                     BrowserSystemText(
                       appellant,
                       maxLines: 1,
@@ -597,7 +618,8 @@ class _AppealQueueRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],

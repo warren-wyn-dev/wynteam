@@ -273,7 +273,8 @@ class _PopClipViewState extends State<PopClipView> {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบ Pop ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบ Pop ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -318,7 +319,8 @@ class _PopClipViewState extends State<PopClipView> {
       onCommentCountChanged: (delta) {
         if (!mounted) return;
         setState(() {
-          _pop = delta > 0 ? _pop.withExtraComment() : _pop.withRemovedComment();
+          _pop =
+              delta > 0 ? _pop.withExtraComment() : _pop.withRemovedComment();
         });
       },
     );
@@ -353,7 +355,8 @@ class _PopClipViewState extends State<PopClipView> {
               children: [
                 Icon(Icons.error_outline, color: Colors.white70, size: 40),
                 SizedBox(height: WynSpacing.space2),
-                BrowserSystemText('โหลดคลิปไม่สำเร็จ', style: TextStyle(color: Colors.white70)),
+                BrowserSystemText('โหลดคลิปไม่สำเร็จ',
+                    style: TextStyle(color: Colors.white70)),
               ],
             ),
           )
@@ -385,7 +388,9 @@ class _PopClipViewState extends State<PopClipView> {
           top: 8,
           right: 8,
           child: Semantics(
-            label: widget.muted ? 'ปิดเสียงอยู่ กดเพื่อเปิดเสียง' : 'กดเพื่อปิดเสียง',
+            label: widget.muted
+                ? 'ปิดเสียงอยู่ กดเพื่อเปิดเสียง'
+                : 'กดเพื่อปิดเสียง',
             excludeSemantics: true,
             child: IconButton(
               icon: Icon(
@@ -450,17 +455,21 @@ class _PopClipViewState extends State<PopClipView> {
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
                           onPressed: _toggleFollow,
-                          child: BrowserSystemText(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
+                          child: BrowserSystemText(
+                              _isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
                         ),
                       ),
                     ),
                   ],
                   if (isOwnPop)
-                    BrowserSystemTooltip(message: 'ลบ Pop', child: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.white),
-                      tooltip: null,
-                      onPressed: _deletePop,
-                    )),
+                    BrowserSystemTooltip(
+                        message: 'ลบ Pop',
+                        child: IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.white),
+                          tooltip: null,
+                          onPressed: _deletePop,
+                        )),
                 ],
               ),
               if (_pop.caption != null && _pop.caption!.isNotEmpty) ...[
@@ -487,8 +496,9 @@ class _PopClipViewState extends State<PopClipView> {
           child: Row(
             children: [
               Semantics(
-                label:
-                    _pop.likedByMe ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ' : 'กดเพื่อถูกใจ',
+                label: _pop.likedByMe
+                    ? 'ถูกใจแล้ว กดเพื่อเลิกถูกใจ'
+                    : 'กดเพื่อถูกใจ',
                 excludeSemantics: true,
                 child: IconButton(
                   // Same shared state-change pop the feed's ActionMetric
@@ -497,37 +507,48 @@ class _PopClipViewState extends State<PopClipView> {
                     state: _pop.likedByMe,
                     child: Icon(
                       _pop.likedByMe ? Icons.favorite : Icons.favorite_border,
-                      color:
-                          _pop.likedByMe ? WynColors.iconLikeActive : Colors.white,
+                      color: _pop.likedByMe
+                          ? WynColors.iconLikeActive
+                          : Colors.white,
                     ),
                   ),
                   onPressed: _toggleLike,
                 ),
               ),
-              BrowserSystemText('${_pop.likeCount}', style: const TextStyle(color: Colors.white)),
+              BrowserSystemText('${_pop.likeCount}',
+                  style: const TextStyle(color: Colors.white)),
               const SizedBox(width: WynSpacing.space2),
-              BrowserSystemTooltip(message: 'ความคิดเห็น', child: IconButton(
-                icon: const Icon(Icons.mode_comment_outlined, color: Colors.white),
-                tooltip: null,
-                onPressed: _openComments,
-              )),
+              BrowserSystemTooltip(
+                  message: 'ความคิดเห็น',
+                  child: IconButton(
+                    icon: const Icon(Icons.mode_comment_outlined,
+                        color: Colors.white),
+                    tooltip: null,
+                    onPressed: _openComments,
+                  )),
               BrowserSystemText('${_pop.commentCount}',
                   style: const TextStyle(color: Colors.white)),
               const SizedBox(width: WynSpacing.space2),
-              BrowserSystemTooltip(message: 'แชร์', child: IconButton(
-                icon: const Icon(Icons.share_outlined, color: Colors.white),
-                tooltip: null,
-                onPressed: _share,
-              )),
-              BrowserSystemTooltip(message: 'คัดลอกลิงก์', child: IconButton(
-                icon: const Icon(Icons.link, color: Colors.white),
-                tooltip: null,
-                onPressed: _copyLink,
-              )),
+              BrowserSystemTooltip(
+                  message: 'แชร์',
+                  child: IconButton(
+                    icon: const Icon(Icons.share_outlined, color: Colors.white),
+                    tooltip: null,
+                    onPressed: _share,
+                  )),
+              BrowserSystemTooltip(
+                  message: 'คัดลอกลิงก์',
+                  child: IconButton(
+                    icon: const Icon(Icons.link, color: Colors.white),
+                    tooltip: null,
+                    onPressed: _copyLink,
+                  )),
               const Spacer(),
-              const Icon(Icons.visibility_outlined, color: Colors.white, size: 18),
+              const Icon(Icons.visibility_outlined,
+                  color: Colors.white, size: 18),
               const SizedBox(width: WynSpacing.space1),
-              BrowserSystemText('${_pop.viewCount}', style: const TextStyle(color: Colors.white)),
+              BrowserSystemText('${_pop.viewCount}',
+                  style: const TextStyle(color: Colors.white)),
               const SizedBox(width: WynSpacing.space2),
               Semantics(
                 label: _pop.savedByMe

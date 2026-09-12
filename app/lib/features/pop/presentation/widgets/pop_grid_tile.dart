@@ -43,14 +43,16 @@ class PopGridTile extends StatelessWidget {
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 ),
               const Center(
-                child: Icon(Icons.play_circle_fill, color: Colors.white, size: 36),
+                child:
+                    Icon(Icons.play_circle_fill, color: Colors.white, size: 36),
               ),
               Positioned(
                 right: 4,
                 bottom: 4,
                 child: ExcludeSemantics(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: WynSpacing.space1, vertical: 1),
                     decoration: BoxDecoration(
                       color: WynColors.imageScrim,
                       borderRadius: BorderRadius.circular(3),

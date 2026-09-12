@@ -82,7 +82,8 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
   String? _errorMessage;
 
   late final ModerationRepository _moderationRepository =
-      widget.moderationRepository ?? ModerationRepository(Supabase.instance.client);
+      widget.moderationRepository ??
+          ModerationRepository(Supabase.instance.client);
   late final AppealRepository _appealRepository =
       widget.appealRepository ?? AppealRepository(Supabase.instance.client);
 
@@ -265,7 +266,10 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(
-            WynSpacing.space6, WynSpacing.space5, WynSpacing.space6, WynSpacing.space6,
+            WynSpacing.space6,
+            WynSpacing.space5,
+            WynSpacing.space6,
+            WynSpacing.space6,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -295,7 +299,8 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                     // first, where they belong. The image picker used to
                     // sit above these.
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: WynSpacing.space5),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -336,7 +341,10 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                       onTap: _pickCategory,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
-                          WynSpacing.space5, WynSpacing.space4, WynSpacing.space5, WynSpacing.space4,
+                          WynSpacing.space5,
+                          WynSpacing.space4,
+                          WynSpacing.space5,
+                          WynSpacing.space4,
                         ),
                         child: Row(
                           children: [
@@ -374,7 +382,10 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                     const Divider(height: 1, color: WynColors.hairline),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
-                        WynSpacing.space5, WynSpacing.space4, WynSpacing.space5, WynSpacing.space4,
+                        WynSpacing.space5,
+                        WynSpacing.space4,
+                        WynSpacing.space5,
+                        WynSpacing.space4,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,7 +393,9 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                           BrowserSystemText(
                             'ความเป็นส่วนตัว',
                             style: _textStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500, color: WynColors.ink),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: WynColors.ink),
                           ),
                           const SizedBox(height: WynSpacing.space3),
                           _buildPrivacyToggle(),
@@ -392,7 +405,8 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                               _privacy == ClubPrivacy.public
                                   ? 'ทุกคนค้นหาและเข้าร่วมได้ทันที'
                                   : 'ต้องส่งคำขอ ผู้ดูแลต้องอนุมัติก่อน',
-                              style: _textStyle(fontSize: 13, color: WynColors.graphite),
+                              style: _textStyle(
+                                  fontSize: 13, color: WynColors.graphite),
                             ),
                           ],
                         ],
@@ -423,17 +437,21 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
                 const SizedBox(height: WynSpacing.space3),
               ],
               Semantics(
-                label: _isRestricted ? 'สร้าง Club ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว' : null,
+                label: _isRestricted
+                    ? 'สร้าง Club ปิดใช้งานเนื่องจากบัญชีถูกจำกัดการโพสต์ชั่วคราว'
+                    : null,
                 excludeSemantics: _isRestricted,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                     shape: const StadiumBorder(),
-                    padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3 + 2),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: WynSpacing.space3 + 2),
                     backgroundColor: WynColors.sapphire,
                     foregroundColor: WynColors.paper,
                     disabledBackgroundColor: WynColors.hairline,
                     disabledForegroundColor: WynColors.mutedNeutral,
-                    textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    textStyle:
+                        _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   onPressed: _canCreate ? _create : null,
                   child: _isCreating
@@ -466,7 +484,8 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
           onTap: _isCreating ? null : () => setState(() => _privacy = value),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2 + 2),
+            padding:
+                const EdgeInsets.symmetric(vertical: WynSpacing.space2 + 2),
             decoration: BoxDecoration(
               color: selected ? WynColors.paper : Colors.transparent,
               borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
@@ -529,7 +548,9 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
   Widget _buildImagePicker() {
     final hasImage = _imageBytes != null;
     return Semantics(
-      label: hasImage ? 'รูป Club ที่เลือก แตะเพื่อเปลี่ยน' : 'แตะเพื่อเลือกรูป Club',
+      label: hasImage
+          ? 'รูป Club ที่เลือก แตะเพื่อเปลี่ยน'
+          : 'แตะเพื่อเลือกรูป Club',
       button: true,
       excludeSemantics: true,
       child: InkWell(
@@ -537,7 +558,10 @@ class _CreateClubScreenState extends State<CreateClubScreen> {
         onTap: _isCreating ? null : _pickImage,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
-            WynSpacing.space5, WynSpacing.space4, WynSpacing.space5, WynSpacing.space4,
+            WynSpacing.space5,
+            WynSpacing.space4,
+            WynSpacing.space5,
+            WynSpacing.space4,
           ),
           child: Row(
             children: [

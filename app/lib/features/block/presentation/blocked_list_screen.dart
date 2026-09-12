@@ -78,7 +78,8 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final profiles = await widget.blockRepository.fetchBlockedUsers(page: nextPage);
+      final profiles =
+          await widget.blockRepository.fetchBlockedUsers(page: nextPage);
       setState(() {
         _profiles.addAll(profiles);
         _page = nextPage;
@@ -107,7 +108,8 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
       if (!mounted) return;
       setState(() => _unblockingIds.remove(profile.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เลิกบล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เลิกบล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -132,7 +134,9 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -142,7 +146,8 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: BrowserSystemText('ยังไม่มีบัญชีที่ถูกบล็อก', textAlign: TextAlign.center),
+          child: BrowserSystemText('ยังไม่มีบัญชีที่ถูกบล็อก',
+              textAlign: TextAlign.center),
         ),
       );
     }
@@ -163,7 +168,8 @@ class _BlockedListScreenState extends State<BlockedListScreen> {
           final profile = _profiles[index];
           final isUnblocking = _unblockingIds.contains(profile.id);
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+            padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
             child: Row(
               children: [
                 AvatarCircle(

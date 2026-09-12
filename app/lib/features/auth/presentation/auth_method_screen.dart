@@ -153,7 +153,9 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
             children: [
               const SizedBox(height: WynSpacing.space6),
               BrowserSystemText(
-                widget.isAddingAccount ? 'เพิ่มบัญชี WYNOS' : 'เข้าสู่ระบบ WYNOS',
+                widget.isAddingAccount
+                    ? 'เพิ่มบัญชี WYNOS'
+                    : 'เข้าสู่ระบบ WYNOS',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: WynSpacing.space8),

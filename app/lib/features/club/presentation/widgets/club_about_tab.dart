@@ -71,9 +71,11 @@ class ClubAboutTab extends StatefulWidget {
 
 class _ClubAboutTabState extends State<ClubAboutTab> {
   late final ClubEventRepository _clubEventRepository =
-      widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
+      widget._clubEventRepository ??
+          ClubEventRepository(Supabase.instance.client);
   late final ClubBadgeRepository _clubBadgeRepository =
-      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+      widget._clubBadgeRepository ??
+          ClubBadgeRepository(Supabase.instance.client);
 
   late ClubAboutSection _section = widget.initialSection;
 
@@ -83,12 +85,19 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
   @override
   Widget build(BuildContext context) {
     final segments = <ButtonSegment<ClubAboutSection>>[
-      const ButtonSegment(value: ClubAboutSection.details, label: BrowserSystemText('รายละเอียด')),
-      const ButtonSegment(value: ClubAboutSection.members, label: BrowserSystemText('สมาชิก')),
+      const ButtonSegment(
+          value: ClubAboutSection.details,
+          label: BrowserSystemText('รายละเอียด')),
+      const ButtonSegment(
+          value: ClubAboutSection.members, label: BrowserSystemText('สมาชิก')),
       if (_isMember)
-        const ButtonSegment(value: ClubAboutSection.events, label: BrowserSystemText('กิจกรรม')),
+        const ButtonSegment(
+            value: ClubAboutSection.events,
+            label: BrowserSystemText('กิจกรรม')),
       if (_canManageClub)
-        const ButtonSegment(value: ClubAboutSection.insights, label: BrowserSystemText('Insights')),
+        const ButtonSegment(
+            value: ClubAboutSection.insights,
+            label: BrowserSystemText('Insights')),
     ];
     // A role change (e.g. losing Owner/Admin) could make [_section] no
     // longer valid -- fall back to "รายละเอียด" rather than rendering a
@@ -101,14 +110,18 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, WynSpacing.space2,
+            WynSpacing.space4,
+            WynSpacing.space3,
+            WynSpacing.space4,
+            WynSpacing.space2,
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<ClubAboutSection>(
               segments: segments,
               selected: {effectiveSection},
-              onSelectionChanged: (selection) => setState(() => _section = selection.first),
+              onSelectionChanged: (selection) =>
+                  setState(() => _section = selection.first),
             ),
           ),
         ),
@@ -215,7 +228,8 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('บันทึกกฎไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('บันทึกกฎไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isSavingRules = false);
@@ -284,7 +298,9 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
                         size: 18,
                       ),
                       const SizedBox(width: 6),
-                      BrowserSystemText(club.privacy == ClubPrivacy.private ? 'ส่วนตัว' : 'สาธารณะ'),
+                      BrowserSystemText(club.privacy == ClubPrivacy.private
+                          ? 'ส่วนตัว'
+                          : 'สาธารณะ'),
                     ],
                   ),
                 ),
@@ -294,7 +310,9 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
                 ),
                 _buildSection(
                   label: 'กฎของ Club',
-                  child: _isEditingRules ? _buildRulesEditor() : _buildRulesText(club),
+                  child: _isEditingRules
+                      ? _buildRulesEditor()
+                      : _buildRulesText(club),
                 ),
               ]),
             ),
@@ -333,7 +351,8 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
           maxLines: 6,
           maxLength: 2000,
           enabled: !_isSavingRules,
-          decoration: const InputDecoration(hint: BrowserSystemText('เขียนกฎของ Club')),
+          decoration:
+              const InputDecoration(hint: BrowserSystemText('เขียนกฎของ Club')),
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -382,5 +401,6 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
     );
   }
 
-  String _formatFullDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
+  String _formatFullDate(DateTime date) =>
+      '${date.day}/${date.month}/${date.year}';
 }

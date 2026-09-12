@@ -87,8 +87,7 @@ class ProfilePhotoCropScreen extends StatefulWidget {
   final (int, int)? debugInitialDimensions;
 
   @override
-  State<ProfilePhotoCropScreen> createState() =>
-      _ProfilePhotoCropScreenState();
+  State<ProfilePhotoCropScreen> createState() => _ProfilePhotoCropScreenState();
 }
 
 class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
@@ -137,8 +136,8 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
   Future<void> _loadDimensions() async {
     try {
       final debugDimensions = widget.debugInitialDimensions;
-      final (width, height) = debugDimensions ??
-          await decodeCropImageDimensions(widget.imageBytes);
+      final (width, height) =
+          debugDimensions ?? await decodeCropImageDimensions(widget.imageBytes);
       if (!mounted) return;
       setState(() {
         _originalWidth = width;
@@ -153,7 +152,8 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage = 'เปิดรูปไม่สำเร็จ ลองเลือกรูปใหม่อีกครั้ง');
+      setState(
+          () => _errorMessage = 'เปิดรูปไม่สำเร็จ ลองเลือกรูปใหม่อีกครั้ง');
     }
   }
 
@@ -257,7 +257,8 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
         leadingWidth: 88,
         leading: TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const BrowserSystemText('ยกเลิก', style: TextStyle(color: Colors.white)),
+          child: const BrowserSystemText('ยกเลิก',
+              style: TextStyle(color: Colors.white)),
         ),
         centerTitle: true,
         title: const BrowserSystemText(
@@ -374,8 +375,7 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
             IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  shape:
-                      widget.circular ? BoxShape.circle : BoxShape.rectangle,
+                  shape: widget.circular ? BoxShape.circle : BoxShape.rectangle,
                   borderRadius: widget.circular
                       ? null
                       : BorderRadius.circular(WynSpacing.radiusLg),
@@ -395,11 +395,14 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
           WynSpacing.space6, 8, WynSpacing.space6, WynSpacing.space6),
       child: Row(
         children: [
-          BrowserSystemTooltip(message: 'ลดการซูม', child: IconButton(
-            tooltip: null,
-            icon: const Icon(Icons.remove, color: Colors.white),
-            onPressed: ready ? () => _setScale(_scale - _zoomButtonStep) : null,
-          )),
+          BrowserSystemTooltip(
+              message: 'ลดการซูม',
+              child: IconButton(
+                tooltip: null,
+                icon: const Icon(Icons.remove, color: Colors.white),
+                onPressed:
+                    ready ? () => _setScale(_scale - _zoomButtonStep) : null,
+              )),
           Expanded(
             child: Semantics(
               label: 'ระดับการซูม',
@@ -415,11 +418,14 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
               ),
             ),
           ),
-          BrowserSystemTooltip(message: 'เพิ่มการซูม', child: IconButton(
-            tooltip: null,
-            icon: const Icon(Icons.add, color: Colors.white),
-            onPressed: ready ? () => _setScale(_scale + _zoomButtonStep) : null,
-          )),
+          BrowserSystemTooltip(
+              message: 'เพิ่มการซูม',
+              child: IconButton(
+                tooltip: null,
+                icon: const Icon(Icons.add, color: Colors.white),
+                onPressed:
+                    ready ? () => _setScale(_scale + _zoomButtonStep) : null,
+              )),
         ],
       ),
     );

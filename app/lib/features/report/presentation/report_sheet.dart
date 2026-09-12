@@ -85,7 +85,13 @@ Future<void> showReportSheet(
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Row(children: [const Expanded(child: BrowserSystemText('ส่งรายงานแล้ว ทีมงานจะตรวจสอบเร็วๆ นี้')), if (blockAction != null) TextButton(onPressed: blockAction, child: const BrowserSystemText('บล็อก'))]),
+      content: Row(children: [
+        const Expanded(
+            child: BrowserSystemText('ส่งรายงานแล้ว ทีมงานจะตรวจสอบเร็วๆ นี้')),
+        if (blockAction != null)
+          TextButton(
+              onPressed: blockAction, child: const BrowserSystemText('บล็อก'))
+      ]),
     ),
   );
 }
@@ -93,7 +99,8 @@ Future<void> showReportSheet(
 Future<void> _offerBlockAfterReport(BuildContext context, String userId) async {
   final Profile profile;
   try {
-    profile = await ProfileRepository(Supabase.instance.client).fetchProfile(userId);
+    profile =
+        await ProfileRepository(Supabase.instance.client).fetchProfile(userId);
   } catch (_) {
     return;
   }
@@ -111,7 +118,8 @@ Future<void> _offerBlockAfterReport(BuildContext context, String userId) async {
   } catch (_) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      const SnackBar(
+          content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
     );
   }
 }
@@ -164,7 +172,8 @@ class _ReportSheetState extends State<ReportSheet> {
       );
       if (!mounted) return;
       setState(() {
-        _loadState = hasOpenReport ? _LoadState.alreadyReported : _LoadState.ready;
+        _loadState =
+            hasOpenReport ? _LoadState.alreadyReported : _LoadState.ready;
       });
     } catch (_) {
       if (!mounted) return;
@@ -243,18 +252,21 @@ class _ReportSheetState extends State<ReportSheet> {
                     // ("ทำไมคุณถึงรายงานโพสต์นี้") uses the screen-title style -- same
                     // wordmark/screen-title spot every other reference
                     // screen reserves for it.
-                    style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
+                    style: WynTypography.screenTitle(
+                        fontSize: 16, color: WynColors.ink),
                   ),
                 ),
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.close),
-                    tooltip: null,
-                    onPressed: () => Navigator.of(context).pop(),
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: 'ปิด',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        tooltip: null,
+                        onPressed: () => Navigator.of(context).pop(),
+                      )),
                 ),
               ],
             ),
@@ -340,13 +352,15 @@ class _ReportSheetState extends State<ReportSheet> {
                       bottom: const BorderSide(color: WynColors.hairline),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: WynSpacing.space3),
                   child: Row(
                     children: [
                       Expanded(
                         child: BrowserSystemText(
                           category.label,
-                          style: const TextStyle(fontSize: 15, color: WynColors.ink),
+                          style: const TextStyle(
+                              fontSize: 15, color: WynColors.ink),
                         ),
                       ),
                       Container(
@@ -360,7 +374,8 @@ class _ReportSheetState extends State<ReportSheet> {
                                 : WynColors.faint,
                             width: 1.5,
                           ),
-                          color: _category == category ? WynColors.sapphire : null,
+                          color:
+                              _category == category ? WynColors.sapphire : null,
                         ),
                       ),
                     ],

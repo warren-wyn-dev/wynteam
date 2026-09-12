@@ -26,8 +26,7 @@ class RedeemInviteCodeScreen extends StatefulWidget {
   final AuthRepository authRepository;
 
   @override
-  State<RedeemInviteCodeScreen> createState() =>
-      _RedeemInviteCodeScreenState();
+  State<RedeemInviteCodeScreen> createState() => _RedeemInviteCodeScreenState();
 }
 
 class _RedeemInviteCodeScreenState extends State<RedeemInviteCodeScreen> {
@@ -101,7 +100,8 @@ class _RedeemInviteCodeScreenState extends State<RedeemInviteCodeScreen> {
                 key: const Key('invite_code_field'),
                 controller: _controller,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(label: BrowserSystemText('โค้ดเชิญ')),
+                decoration:
+                    const InputDecoration(label: BrowserSystemText('โค้ดเชิญ')),
                 onChanged: (_) {
                   if (_errorText != null) setState(() => _errorText = null);
                 },

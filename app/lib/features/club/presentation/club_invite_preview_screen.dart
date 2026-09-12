@@ -31,7 +31,8 @@ class ClubInvitePreviewScreen extends StatefulWidget {
   final ClubPostRepository clubPostRepository;
 
   @override
-  State<ClubInvitePreviewScreen> createState() => _ClubInvitePreviewScreenState();
+  State<ClubInvitePreviewScreen> createState() =>
+      _ClubInvitePreviewScreenState();
 }
 
 class _ClubInvitePreviewScreenState extends State<ClubInvitePreviewScreen> {
@@ -52,12 +53,14 @@ class _ClubInvitePreviewScreenState extends State<ClubInvitePreviewScreen> {
       _joinError = null;
     });
     try {
-      final preview = await widget.clubRepository.previewInviteLink(widget.code);
+      final preview =
+          await widget.clubRepository.previewInviteLink(widget.code);
       if (!mounted) return;
       setState(() => _preview = preview);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _preview = const ClubInvitePreview(status: ClubInviteLinkStatus.notFound));
+      setState(() => _preview =
+          const ClubInvitePreview(status: ClubInviteLinkStatus.notFound));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -106,7 +109,9 @@ class _ClubInvitePreviewScreenState extends State<ClubInvitePreviewScreen> {
           onPressed: () => Navigator.of(context).maybePop(),
         ),
       ),
-      body: _isLoading ? const Center(child: CircularProgressIndicator()) : _buildBody(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildBody(),
     );
   }
 
@@ -120,10 +125,13 @@ class _ClubInvitePreviewScreenState extends State<ClubInvitePreviewScreen> {
             EmptyStateBlock(
               icon: Icons.link_off,
               title: 'ลิงก์เชิญใช้งานไม่ได้',
-              subtitle: _statusMessage(preview?.status ?? ClubInviteLinkStatus.notFound),
+              subtitle: _statusMessage(
+                  preview?.status ?? ClubInviteLinkStatus.notFound),
             ),
             const SizedBox(height: WynSpacing.space4),
-            TextButton(onPressed: _goHome, child: const BrowserSystemText('ไปที่ WYN')),
+            TextButton(
+                onPressed: _goHome,
+                child: const BrowserSystemText('ไปที่ WYN')),
           ],
         ),
       );
@@ -169,7 +177,10 @@ class _ClubInvitePreviewScreenState extends State<ClubInvitePreviewScreen> {
             child: FilledButton(
               onPressed: _isJoining ? null : _join,
               child: _isJoining
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
                   : const BrowserSystemText('เข้าร่วม'),
             ),
           ),

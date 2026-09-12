@@ -60,10 +60,12 @@ class ClubJoinButton extends StatelessWidget {
             onPressed: onPressed,
             style: FilledButton.styleFrom(
               padding: EdgeInsets.zero,
-              backgroundColor:
-                  status == ClubMemberStatus.approved ? scheme.surfaceContainerHigh : null,
-              foregroundColor:
-                  status == ClubMemberStatus.approved ? scheme.onSurfaceVariant : null,
+              backgroundColor: status == ClubMemberStatus.approved
+                  ? scheme.surfaceContainerHigh
+                  : null,
+              foregroundColor: status == ClubMemberStatus.approved
+                  ? scheme.onSurfaceVariant
+                  : null,
               textStyle: Theme.of(context).textTheme.labelMedium,
             ),
             child: _buildChild(label, isInFlight),
@@ -75,10 +77,13 @@ class ClubJoinButton extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               visualDensity: VisualDensity.compact,
               textStyle: Theme.of(context).textTheme.labelSmall,
-              foregroundColor:
-                  status == ClubMemberStatus.approved ? scheme.outline : scheme.primary,
+              foregroundColor: status == ClubMemberStatus.approved
+                  ? scheme.outline
+                  : scheme.primary,
               side: BorderSide(
-                color: status == ClubMemberStatus.approved ? scheme.outline : scheme.primary,
+                color: status == ClubMemberStatus.approved
+                    ? scheme.outline
+                    : scheme.primary,
               ),
             ),
             child: _buildChild(label, isInFlight),
@@ -87,7 +92,9 @@ class ClubJoinButton extends StatelessWidget {
     return Semantics(
       label: semanticsLabel,
       excludeSemantics: true,
-      child: expand ? SizedBox(width: double.infinity, height: 32, child: button) : button,
+      child: expand
+          ? SizedBox(width: double.infinity, height: 32, child: button)
+          : button,
     );
   }
 

@@ -60,7 +60,9 @@ class ClubRankedRow extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: isTopThree ? scheme.primary : scheme.onSurfaceVariant,
+                          color: isTopThree
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
                         ),
                   ),
                 ),
@@ -82,14 +84,18 @@ class ClubRankedRow extends StatelessWidget {
                       ),
                       Row(
                         children: [
-                          Icon(Icons.trending_up, size: 14, color: scheme.primary),
+                          Icon(Icons.trending_up,
+                              size: 14, color: scheme.primary),
                           const SizedBox(width: 2),
                           Flexible(
                             child: BrowserSystemText(
                               '${club.memberCount} สมาชิก',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                   ),
                             ),

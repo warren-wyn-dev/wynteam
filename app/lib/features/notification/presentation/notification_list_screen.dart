@@ -370,7 +370,8 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   // (tap it, it's gone).
   Future<void> _openPop(String popId) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: BrowserSystemText('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
+      const SnackBar(
+          content: BrowserSystemText('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
     );
   }
 
@@ -617,11 +618,13 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       ),
       child: Row(
         children: [
-          BrowserSystemTooltip(message: 'เมนู', child: IconButton(
-            icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
-            tooltip: null,
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          )),
+          BrowserSystemTooltip(
+              message: 'เมนู',
+              child: IconButton(
+                icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
+                tooltip: null,
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              )),
           Expanded(
             child: Center(
               child: BrowserSystemText(
@@ -634,11 +637,13 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               ),
             ),
           ),
-          BrowserSystemTooltip(message: 'ค้นหา', child: IconButton(
-            icon: const Icon(Icons.search, size: 21, color: WynColors.ink),
-            tooltip: null,
-            onPressed: _openSearch,
-          )),
+          BrowserSystemTooltip(
+              message: 'ค้นหา',
+              child: IconButton(
+                icon: const Icon(Icons.search, size: 21, color: WynColors.ink),
+                tooltip: null,
+                onPressed: _openSearch,
+              )),
         ],
       ),
     );
@@ -709,7 +714,9 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );

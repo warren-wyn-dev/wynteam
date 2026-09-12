@@ -103,7 +103,8 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
       // report first -- surfaced here instead of a generic retry error,
       // since retrying would never succeed.
       if (e.toString().contains('already been actioned')) {
-        Navigator.of(context).pop(ModerationActionSheetOutcome.alreadyActionedByOthers);
+        Navigator.of(context)
+            .pop(ModerationActionSheetOutcome.alreadyActionedByOthers);
         return;
       }
       setState(() {
@@ -145,12 +146,16 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.close),
-                    tooltip: null,
-                    onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: 'ปิด',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        tooltip: null,
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                      )),
                 ),
               ],
             ),
@@ -169,7 +174,8 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.actionType.needsDuration) ...[
-          BrowserSystemText('ระยะเวลา', style: Theme.of(context).textTheme.titleSmall),
+          BrowserSystemText('ระยะเวลา',
+              style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: WynSpacing.space2),
           Wrap(
             spacing: WynSpacing.space2,
@@ -180,7 +186,8 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
                   selected: _durationDays == days,
                   onSelected: _isSubmitting
                       ? null
-                      : (selected) => setState(() => _durationDays = selected ? days : null),
+                      : (selected) => setState(
+                          () => _durationDays = selected ? days : null),
                 ),
             ],
           ),
@@ -188,7 +195,10 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
         ],
         BrowserSystemText(
           'เหตุผล (จำเป็น)',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(context)
+              .textTheme
+              .titleSmall
+              ?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: WynSpacing.space1),
         BrowserSystemTextField(
@@ -197,7 +207,8 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
           minLines: 3,
           maxLines: 5,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(hint: BrowserSystemText('อธิบายเหตุผลของการดำเนินการนี้')),
+          decoration: const InputDecoration(
+              hint: BrowserSystemText('อธิบายเหตุผลของการดำเนินการนี้')),
         ),
         const SizedBox(height: WynSpacing.space1),
         BrowserSystemText(

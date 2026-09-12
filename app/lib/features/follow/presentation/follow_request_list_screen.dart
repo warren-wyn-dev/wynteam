@@ -109,7 +109,8 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ยอมรับคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _inFlight.remove(requester.id));
@@ -120,7 +121,8 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: BrowserSystemText('ปฏิเสธคำขอติดตามจาก ${requester.nameOrUsername}?'),
+            title: BrowserSystemText(
+                'ปฏิเสธคำขอติดตามจาก ${requester.nameOrUsername}?'),
             content: const BrowserSystemText('ผู้ขอจะไม่ได้รับแจ้งเตือน'),
             actions: [
               TextButton(
@@ -147,7 +149,8 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ปฏิเสธคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ปฏิเสธคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _inFlight.remove(requester.id));
@@ -174,7 +177,9 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -184,7 +189,8 @@ class _FollowRequestListScreenState extends State<FollowRequestListScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: BrowserSystemText('ยังไม่มีคำขอติดตาม', textAlign: TextAlign.center),
+          child: BrowserSystemText('ยังไม่มีคำขอติดตาม',
+              textAlign: TextAlign.center),
         ),
       );
     }

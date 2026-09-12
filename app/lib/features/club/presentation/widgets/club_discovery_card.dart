@@ -44,11 +44,12 @@ class ClubDiscoveryCard extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            layout == ClubDiscoveryCardLayout.grid
-                ? BorderRadius.circular(WynSpacing.radiusMd)
-                : null,
-        child: layout == ClubDiscoveryCardLayout.grid ? _buildGrid(context) : _buildRow(context),
+        borderRadius: layout == ClubDiscoveryCardLayout.grid
+            ? BorderRadius.circular(WynSpacing.radiusMd)
+            : null,
+        child: layout == ClubDiscoveryCardLayout.grid
+            ? _buildGrid(context)
+            : _buildRow(context),
       ),
     );
     return semantics;
@@ -65,8 +66,8 @@ class ClubDiscoveryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(WynSpacing.radiusMd)),
+            borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(WynSpacing.radiusMd)),
             child: AspectRatio(
               aspectRatio: 4 / 3,
               // Beta4 §8.1: the Club's single identity image, not a
@@ -122,7 +123,8 @@ class ClubDiscoveryCard extends StatelessWidget {
 
   Widget _buildRow(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space4, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -132,7 +134,8 @@ class ClubDiscoveryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                BrowserSystemText(club.name, style: Theme.of(context).textTheme.titleSmall),
+                BrowserSystemText(club.name,
+                    style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 2),
                 Row(
                   children: [
@@ -153,7 +156,8 @@ class ClubDiscoveryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (club.description != null && club.description!.isNotEmpty) ...[
+                if (club.description != null &&
+                    club.description!.isNotEmpty) ...[
                   const SizedBox(height: WynSpacing.space1),
                   BrowserSystemText(
                     club.description!,

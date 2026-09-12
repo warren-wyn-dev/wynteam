@@ -86,7 +86,9 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
                 children: [
                   const BrowserSystemText('โหลดรายชื่อ Club ไม่สำเร็จ'),
                   const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _reload, child: const BrowserSystemText('ลองใหม่')),
+                  TextButton(
+                      onPressed: _reload,
+                      child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             );

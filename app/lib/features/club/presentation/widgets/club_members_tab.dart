@@ -52,7 +52,8 @@ class ClubMembersTab extends StatefulWidget {
 
 class _ClubMembersTabState extends State<ClubMembersTab> {
   late final ClubBadgeRepository _clubBadgeRepository =
-      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+      widget._clubBadgeRepository ??
+          ClubBadgeRepository(Supabase.instance.client);
 
   List<ClubMember>? _approved;
   List<ClubMember>? _pending;
@@ -91,7 +92,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
       // heterogeneous list loses static typing for no benefit): neither
       // depends on another, and awaiting them in sequence just tripled
       // the tab's time to first paint.
-      final approvedFuture = widget.clubRepository.fetchApprovedMembers(widget.club.id);
+      final approvedFuture =
+          widget.clubRepository.fetchApprovedMembers(widget.club.id);
       final pendingFuture = _canManage
           ? widget.clubRepository.fetchPendingMembers(widget.club.id)
           : Future.value(<ClubMember>[]);
@@ -162,12 +164,14 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: BrowserSystemText(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: BrowserSystemText(message)));
   }
 
   Future<void> _approve(ClubMember member) async {
     try {
-      await widget.clubRepository.approveMember(clubId: widget.club.id, userId: member.userId);
+      await widget.clubRepository
+          .approveMember(clubId: widget.club.id, userId: member.userId);
       _load();
       widget.onChanged();
     } catch (_) {
@@ -178,7 +182,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
 
   Future<void> _reject(ClubMember member) async {
     try {
-      await widget.clubRepository.rejectMember(clubId: widget.club.id, userId: member.userId);
+      await widget.clubRepository
+          .rejectMember(clubId: widget.club.id, userId: member.userId);
       _load();
       widget.onChanged();
     } catch (_) {
@@ -189,8 +194,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
 
   Future<void> _setRole(ClubMember member, ClubMemberRole role) async {
     try {
-      await widget.clubRepository
-          .setMemberRole(clubId: widget.club.id, userId: member.userId, role: role);
+      await widget.clubRepository.setMemberRole(
+          clubId: widget.club.id, userId: member.userId, role: role);
       _load();
       widget.onChanged();
     } catch (_) {
@@ -202,7 +207,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
   Future<void> _remove(ClubMember member) async {
     if (!await _confirm('ลบ ${member.nameOrUsername} ออกจาก Club?')) return;
     try {
-      await widget.clubRepository.removeMember(clubId: widget.club.id, userId: member.userId);
+      await widget.clubRepository
+          .removeMember(clubId: widget.club.id, userId: member.userId);
       _load();
       widget.onChanged();
     } catch (_) {
@@ -214,7 +220,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
   Future<void> _ban(ClubMember member) async {
     if (!await _confirm('แบน ${member.nameOrUsername}?')) return;
     try {
-      await widget.clubRepository.banMember(clubId: widget.club.id, userId: member.userId);
+      await widget.clubRepository
+          .banMember(clubId: widget.club.id, userId: member.userId);
       _load();
       widget.onChanged();
     } catch (_) {
@@ -265,7 +272,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
 
   Future<void> _removeBadge(ClubMember member) async {
     try {
-      await _clubBadgeRepository.removeBadge(clubId: widget.club.id, userId: member.userId);
+      await _clubBadgeRepository.removeBadge(
+          clubId: widget.club.id, userId: member.userId);
       if (!mounted) return;
       setState(() {
         _badges = {..._badges}..remove(member.userId);
@@ -318,11 +326,14 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
     if (viewer == ClubMemberRole.owner) {
       return [
         if (member.role != ClubMemberRole.admin)
-          _MemberAction('ตั้งเป็น Admin', () => _setRole(member, ClubMemberRole.admin)),
+          _MemberAction(
+              'ตั้งเป็น Admin', () => _setRole(member, ClubMemberRole.admin)),
         if (member.role != ClubMemberRole.moderator)
-          _MemberAction('ตั้งเป็น Moderator', () => _setRole(member, ClubMemberRole.moderator)),
+          _MemberAction('ตั้งเป็น Moderator',
+              () => _setRole(member, ClubMemberRole.moderator)),
         if (member.role != ClubMemberRole.member)
-          _MemberAction('ตั้งเป็นสมาชิกทั่วไป', () => _setRole(member, ClubMemberRole.member)),
+          _MemberAction('ตั้งเป็นสมาชิกทั่วไป',
+              () => _setRole(member, ClubMemberRole.member)),
         _MemberAction('ลบออกจาก Club', () => _remove(member)),
         _MemberAction('แบน', () => _ban(member)),
       ];
@@ -331,15 +342,18 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
     if (viewer == ClubMemberRole.admin && member.role != ClubMemberRole.admin) {
       return [
         if (member.role != ClubMemberRole.moderator)
-          _MemberAction('ตั้งเป็น Moderator', () => _setRole(member, ClubMemberRole.moderator)),
+          _MemberAction('ตั้งเป็น Moderator',
+              () => _setRole(member, ClubMemberRole.moderator)),
         if (member.role != ClubMemberRole.member)
-          _MemberAction('ตั้งเป็นสมาชิกทั่วไป', () => _setRole(member, ClubMemberRole.member)),
+          _MemberAction('ตั้งเป็นสมาชิกทั่วไป',
+              () => _setRole(member, ClubMemberRole.member)),
         _MemberAction('ลบออกจาก Club', () => _remove(member)),
         _MemberAction('แบน', () => _ban(member)),
       ];
     }
 
-    if (viewer == ClubMemberRole.moderator && member.role == ClubMemberRole.member) {
+    if (viewer == ClubMemberRole.moderator &&
+        member.role == ClubMemberRole.member) {
       return [
         _MemberAction('ลบออกจาก Club', () => _remove(member)),
         _MemberAction('แบน', () => _ban(member)),
@@ -406,7 +420,9 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
                   children: [
                     const BrowserSystemText('โหลดรายชื่อสมาชิกไม่สำเร็จ'),
                     const SizedBox(height: WynSpacing.space3),
-                    TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+                    TextButton(
+                        onPressed: _load,
+                        child: const BrowserSystemText('ลองใหม่')),
                   ],
                 ),
               ),
@@ -439,8 +455,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
               // (see ClubPage's role gating).
               if (widget.myRole != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                      WynSpacing.space4, WynSpacing.space4, WynSpacing.space4, 0),
+                  padding: const EdgeInsets.fromLTRB(WynSpacing.space4,
+                      WynSpacing.space4, WynSpacing.space4, 0),
                   child: SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -488,7 +504,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
 
   Widget _buildPendingRow(ClubMember member) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Row(
         children: [
           AvatarCircle(
@@ -501,7 +518,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                BrowserSystemText(member.nameOrUsername, style: Theme.of(context).textTheme.titleSmall),
+                BrowserSystemText(member.nameOrUsername,
+                    style: Theme.of(context).textTheme.titleSmall),
                 BrowserSystemText(
                   '@${member.username}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -511,8 +529,12 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
               ],
             ),
           ),
-          TextButton(onPressed: () => _approve(member), child: const BrowserSystemText('อนุมัติ')),
-          TextButton(onPressed: () => _reject(member), child: const BrowserSystemText('ปฏิเสธ')),
+          TextButton(
+              onPressed: () => _approve(member),
+              child: const BrowserSystemText('อนุมัติ')),
+          TextButton(
+              onPressed: () => _reject(member),
+              child: const BrowserSystemText('ปฏิเสธ')),
         ],
       ),
     );
@@ -524,7 +546,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
     final memberBadge = _badges[member.userId];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
       child: Row(
         children: [
           AvatarCircle(
@@ -537,7 +560,8 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                BrowserSystemText(member.nameOrUsername, style: Theme.of(context).textTheme.titleSmall),
+                BrowserSystemText(member.nameOrUsername,
+                    style: Theme.of(context).textTheme.titleSmall),
                 BrowserSystemText(
                   '@${member.username}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -566,18 +590,21 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
           // (and its own "no menu on own/Owner row" rule) rather than
           // merging the two into one "..." button.
           if (_canManage)
-            BrowserSystemTooltip(message: memberBadge != null ? 'จัดการป้าย' : 'ตั้งป้าย', child: IconButton(
-              key: ValueKey('member-badge-menu-${member.userId}'),
-              icon: const Icon(Icons.local_offer_outlined, size: 18),
-              tooltip: null,
-              onPressed: () => _openBadgeMenu(member),
-            )),
+            BrowserSystemTooltip(
+                message: memberBadge != null ? 'จัดการป้าย' : 'ตั้งป้าย',
+                child: IconButton(
+                  key: ValueKey('member-badge-menu-${member.userId}'),
+                  icon: const Icon(Icons.local_offer_outlined, size: 18),
+                  tooltip: null,
+                  onPressed: () => _openBadgeMenu(member),
+                )),
           if (actions.isNotEmpty)
             PopupMenuButton<_MemberAction>(
               key: ValueKey('member-menu-${member.userId}'),
               onSelected: (action) => action.onSelected(),
               itemBuilder: (context) => actions
-                  .map((action) => PopupMenuItem(value: action, child: BrowserSystemText(action.label)))
+                  .map((action) => PopupMenuItem(
+                      value: action, child: BrowserSystemText(action.label)))
                   .toList(),
             ),
         ],

@@ -93,7 +93,9 @@ class _LabeledFieldState extends State<LabeledField> {
           BrowserSystemText(
             widget.label,
             style: _textStyle(
-                fontSize: 13, fontWeight: FontWeight.w500, color: WynColors.ink),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: WynColors.ink),
           ),
           Container(
             margin: const EdgeInsets.only(top: WynSpacing.space2),
@@ -157,7 +159,8 @@ class _LabeledFieldState extends State<LabeledField> {
                         Expanded(
                           child: BrowserSystemText(
                             widget.helper,
-                            style: _textStyle(fontSize: 13, color: WynColors.faint),
+                            style: _textStyle(
+                                fontSize: 13, color: WynColors.faint),
                           ),
                         ),
                         BrowserSystemText(
@@ -170,7 +173,9 @@ class _LabeledFieldState extends State<LabeledField> {
                             // characters remain, same 20-character
                             // threshold the Material InputDecoration
                             // counter used before this widget existed.
-                            color: widget.maxLength - widget.controller.text.length < 20
+                            color: widget.maxLength -
+                                        widget.controller.text.length <
+                                    20
                                 ? WynColors.errorLight
                                 : WynColors.faint,
                           ),

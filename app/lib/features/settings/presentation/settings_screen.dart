@@ -528,7 +528,8 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: BrowserSystemText('ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง')),
+            content:
+                BrowserSystemText('ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -801,7 +802,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       if (!mounted) return;
       setState(() => _isPrivate = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isTogglingPrivate = false);
@@ -851,7 +853,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       if (!mounted) return;
       setState(() => apply(previous));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -872,7 +875,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       if (!mounted) return;
       setState(() => _likesVisibility = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -894,7 +898,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       if (!mounted) return;
       setState(() => _showOnline = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isTogglingShowOnline = false);
@@ -922,7 +927,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           ListTile(
             leading: const Icon(Icons.star_outline),
             title: const BrowserSystemText('เพื่อนที่สนิท'),
-            subtitle: const BrowserSystemText('จัดการรายชื่อเพื่อนที่สนิทของคุณ'),
+            subtitle:
+                const BrowserSystemText('จัดการรายชื่อเพื่อนที่สนิทของคุณ'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -965,7 +971,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           SwitchListTile(
             key: const Key('show_online_status_toggle'),
             secondary: const Icon(Icons.wifi_tethering),
-            title: const BrowserSystemText('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'),
+            title:
+                const BrowserSystemText('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'),
             subtitle: const BrowserSystemText(
                 'ถ้าปิด คุณจะไม่เห็นสถานะออนไลน์และเข้าใช้งานล่าสุดของคนอื่นด้วยเช่นกัน'),
             value: _showOnline ?? true,
@@ -1173,12 +1180,14 @@ Future<InteractionPermission?> _showPermissionPicker(
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.close),
-                    tooltip: null,
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: 'ปิด',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        tooltip: null,
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                      )),
                 ),
               ],
             ),
@@ -1245,7 +1254,8 @@ class _LikesVisibilitySettingTile extends StatelessWidget {
     return ListTile(
       leading: const Icon(Icons.favorite_border),
       title: const BrowserSystemText('ใครเห็นสิ่งที่คุณถูกใจได้'),
-      subtitle: const BrowserSystemText('ควบคุมว่าใครเห็นแท็บถูกใจบนโปรไฟล์ของคุณ'),
+      subtitle:
+          const BrowserSystemText('ควบคุมว่าใครเห็นแท็บถูกใจบนโปรไฟล์ของคุณ'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1304,12 +1314,14 @@ Future<LikesVisibility?> _showLikesVisibilityPicker(
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.close),
-                    tooltip: null,
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: 'ปิด',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        tooltip: null,
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                      )),
                 ),
               ],
             ),
@@ -1332,7 +1344,8 @@ Future<LikesVisibility?> _showLikesVisibilityPicker(
                         : null,
                   ),
                   title: BrowserSystemText(_likesVisibilityLabel(option)),
-                  subtitle: BrowserSystemText(_likesVisibilityDescription(option)),
+                  subtitle:
+                      BrowserSystemText(_likesVisibilityDescription(option)),
                   trailing: Icon(
                     option == currentValue
                         ? Icons.radio_button_checked

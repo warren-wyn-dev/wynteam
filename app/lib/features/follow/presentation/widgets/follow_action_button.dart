@@ -148,11 +148,11 @@ class _FollowActionButtonState extends State<FollowActionButton> {
   }
 
   Future<void> _cancelRequest() async {
-    final confirmed =
-        await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: BrowserSystemText('ยกเลิกคำขอติดตาม ${widget.profile.nameOrUsername}?'),
+            title: BrowserSystemText(
+                'ยกเลิกคำขอติดตาม ${widget.profile.nameOrUsername}?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
@@ -235,15 +235,16 @@ class _FollowActionButtonState extends State<FollowActionButton> {
             horizontal: widget.headerCompact ? 12 : (widget.compact ? 16 : 20),
           ),
           shape: const StadiumBorder(),
-          tapTargetSize: widget.headerCompact
-              ? MaterialTapTargetSize.shrinkWrap
-              : null,
+          tapTargetSize:
+              widget.headerCompact ? MaterialTapTargetSize.shrinkWrap : null,
           textStyle: widget.headerCompact
-              ? Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(fontWeight: FontWeight.w700)
+              ? Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(fontWeight: FontWeight.w700)
               : (widget.compact
-                    ? Theme.of(context).textTheme.labelMedium
-                    : Theme.of(context).textTheme.labelLarge),
+                  ? Theme.of(context).textTheme.labelMedium
+                  : Theme.of(context).textTheme.labelLarge),
           elevation: 0,
         ),
         child: _labelWidget(context),

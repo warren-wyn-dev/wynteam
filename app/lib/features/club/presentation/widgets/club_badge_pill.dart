@@ -15,14 +15,24 @@ class ClubBadgePill extends StatelessWidget {
 
   final ClubMemberBadge badge;
 
-  static ({Color background, Color foreground}) _colorsFor(ClubBadgeColor color) {
+  static ({Color background, Color foreground}) _colorsFor(
+      ClubBadgeColor color) {
     switch (color) {
       case ClubBadgeColor.gold:
-        return (background: WynColors.clubBadgeGoldBg, foreground: WynColors.clubBadgeGoldFg);
+        return (
+          background: WynColors.clubBadgeGoldBg,
+          foreground: WynColors.clubBadgeGoldFg
+        );
       case ClubBadgeColor.sage:
-        return (background: WynColors.clubBadgeSageBg, foreground: WynColors.clubBadgeSageFg);
+        return (
+          background: WynColors.clubBadgeSageBg,
+          foreground: WynColors.clubBadgeSageFg
+        );
       case ClubBadgeColor.plum:
-        return (background: WynColors.clubBadgePlumBg, foreground: WynColors.clubBadgePlumFg);
+        return (
+          background: WynColors.clubBadgePlumBg,
+          foreground: WynColors.clubBadgePlumFg
+        );
     }
   }
 
@@ -35,14 +45,18 @@ class ClubBadgePill extends StatelessWidget {
       label: 'ป้าย: ${badge.label}',
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: 2),
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space2, vertical: 2),
         decoration: BoxDecoration(
           color: colors.background,
           borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
         ),
         child: BrowserSystemText(
           badge.label,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colors.foreground),
+          style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colors.foreground),
         ),
       ),
     );
@@ -68,7 +82,8 @@ Future<(String, ClubBadgeColor)?> showSetClubBadgeDialog(
 }
 
 class _SetClubBadgeDialog extends StatefulWidget {
-  const _SetClubBadgeDialog({required this.initialLabel, required this.initialColor});
+  const _SetClubBadgeDialog(
+      {required this.initialLabel, required this.initialColor});
 
   final String initialLabel;
   final ClubBadgeColor initialColor;
@@ -106,7 +121,8 @@ class _SetClubBadgeDialogState extends State<_SetClubBadgeDialog> {
             controller: _controller,
             autofocus: true,
             maxLength: 20,
-            decoration: const InputDecoration(hint: BrowserSystemText('ข้อความป้าย เช่น VIP')),
+            decoration: const InputDecoration(
+                hint: BrowserSystemText('ข้อความป้าย เช่น VIP')),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: WynSpacing.space2),
@@ -130,8 +146,9 @@ class _SetClubBadgeDialogState extends State<_SetClubBadgeDialog> {
           child: const BrowserSystemText('ยกเลิก'),
         ),
         TextButton(
-          onPressed:
-              isValid ? () => Navigator.of(context).pop((trimmed, _selectedColor)) : null,
+          onPressed: isValid
+              ? () => Navigator.of(context).pop((trimmed, _selectedColor))
+              : null,
           child: const BrowserSystemText('บันทึก'),
         ),
       ],

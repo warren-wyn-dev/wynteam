@@ -14,7 +14,8 @@ import '../../../../core/design/wyn_spacing.dart';
 /// underneath -- that still scrolls normally whether or not this is
 /// still visible.
 class PrivacyNoticeBanner extends StatefulWidget {
-  const PrivacyNoticeBanner({super.key, required this.prefsKey, required this.message});
+  const PrivacyNoticeBanner(
+      {super.key, required this.prefsKey, required this.message});
 
   final String prefsKey;
   final String message;

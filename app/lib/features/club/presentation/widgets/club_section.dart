@@ -133,7 +133,9 @@ class _ClubSectionState extends State<ClubSection> {
                     ),
               ),
               const Spacer(),
-              TextButton(onPressed: _openMyClubs, child: const BrowserSystemText('ดูทั้งหมด')),
+              TextButton(
+                  onPressed: _openMyClubs,
+                  child: const BrowserSystemText('ดูทั้งหมด')),
             ],
           ),
         ),
@@ -230,11 +232,13 @@ class _ClubSectionState extends State<ClubSection> {
 
                 return ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
                   itemCount: clubs.length,
                   itemBuilder: (context, index) {
                     final club = clubs[index];
-                    return ClubMiniCard(club: club, onTap: () => _openClub(club));
+                    return ClubMiniCard(
+                        club: club, onTap: () => _openClub(club));
                   },
                 );
               },

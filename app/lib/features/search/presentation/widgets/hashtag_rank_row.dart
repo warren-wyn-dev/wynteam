@@ -56,7 +56,9 @@ class HashtagRankRow extends StatelessWidget {
                   '$rank',
                   textAlign: TextAlign.right,
                   style: WynTypography.screenTitle(
-                      fontSize: 16, fontWeight: FontWeight.w500, color: WynColors.faint),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: WynColors.faint),
                 ),
               ),
               const SizedBox(width: WynSpacing.space3),
@@ -69,7 +71,9 @@ class HashtagRankRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: WynColors.ink),
                     ),
                     const SizedBox(height: 2),
                     const BrowserSystemText(

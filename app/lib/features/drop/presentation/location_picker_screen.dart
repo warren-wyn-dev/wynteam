@@ -101,7 +101,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 450), () => _search(trimmed));
+    _debounce =
+        Timer(const Duration(milliseconds: 450), () => _search(trimmed));
   }
 
   Future<void> _search(String query) async {
@@ -119,10 +120,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       });
     } on LocationSearchRateLimitedException {
       if (!mounted || requestId != _searchRequestId) return;
-      setState(() => _errorMessage = 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
+      setState(
+          () => _errorMessage = 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
     } catch (_) {
       if (!mounted || requestId != _searchRequestId) return;
-      setState(() => _errorMessage = 'ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่');
+      setState(() => _errorMessage =
+          'ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่');
     } finally {
       if (mounted && requestId == _searchRequestId) {
         setState(() => _isSearching = false);
@@ -156,10 +159,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           'WYN ไม่มีสิทธิ์เข้าถึงตำแหน่งของคุณ กรุณาเปิดสิทธิ์ในการตั้งค่าเครื่อง');
     } on LocationSearchRateLimitedException {
       if (!mounted) return;
-      setState(() => _errorMessage = 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
+      setState(
+          () => _errorMessage = 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage = 'ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่');
+      setState(() => _errorMessage =
+          'ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่');
     } finally {
       if (mounted) setState(() => _isLocatingCurrent = false);
     }
@@ -200,7 +205,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space3, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space3,
+        WynSpacing.space6,
+        WynSpacing.space2,
       ),
       child: Container(
         height: 40,
@@ -271,7 +279,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           const Padding(
             padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(
-              child: BrowserSystemText('ไม่พบสถานที่ที่ค้นหา ลองพิมพ์คำอื่นดูนะ'),
+              child:
+                  BrowserSystemText('ไม่พบสถานที่ที่ค้นหา ลองพิมพ์คำอื่นดูนะ'),
             ),
           )
         else
@@ -282,10 +291,13 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   Widget _buildResultRow(LocationResult result) {
     return Semantics(
-      label: result.address != null ? '${result.name}, ${result.address}' : result.name,
+      label: result.address != null
+          ? '${result.name}, ${result.address}'
+          : result.name,
       excludeSemantics: true,
       child: ListTile(
-        leading: const Icon(Icons.place_outlined, color: WynColors.mutedNeutral),
+        leading:
+            const Icon(Icons.place_outlined, color: WynColors.mutedNeutral),
         title: BrowserSystemText(result.name),
         subtitle: result.address != null
             ? BrowserSystemText(

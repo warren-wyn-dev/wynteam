@@ -98,9 +98,8 @@ class BrowserSystemText extends StatelessWidget {
       return;
     }
 
-    final effectiveStyle = inheritedStyle == null
-        ? span.style
-        : inheritedStyle.merge(span.style);
+    final effectiveStyle =
+        inheritedStyle == null ? span.style : inheritedStyle.merge(span.style);
     final recognizer = span.recognizer;
     VoidCallback? onTap;
     if (recognizer is TapGestureRecognizer && recognizer.onTap != null) {
@@ -373,11 +372,10 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
           : 'pre-wrap'
       ..overflow =
           widget.overflow == null || widget.overflow == TextOverflow.visible
-          ? 'visible'
-          : 'hidden'
-      ..textOverflow = widget.overflow == TextOverflow.ellipsis
-          ? 'ellipsis'
-          : 'clip'
+              ? 'visible'
+              : 'hidden'
+      ..textOverflow =
+          widget.overflow == TextOverflow.ellipsis ? 'ellipsis' : 'clip'
       ..overflowWrap = 'break-word'
       ..boxSizing = 'border-box'
       ..width = '100%'
@@ -405,9 +403,8 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       element.style.fontWeight = '${style.fontWeight!.value}';
     }
     if (style.fontStyle != null) {
-      element.style.fontStyle = style.fontStyle == FontStyle.italic
-          ? 'italic'
-          : 'normal';
+      element.style.fontStyle =
+          style.fontStyle == FontStyle.italic ? 'italic' : 'normal';
     }
     if (style.letterSpacing != null) {
       element.style.letterSpacing = '${style.letterSpacing}px';
@@ -536,8 +533,8 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
   Widget build(BuildContext context) {
     final defaultStyle = DefaultTextStyle.of(context).style;
     final effectiveStyle = defaultStyle.merge(widget.style);
-    final fontSize = MediaQuery.textScalerOf(context)
-        .scale(effectiveStyle.fontSize ?? 16);
+    final fontSize =
+        MediaQuery.textScalerOf(context).scale(effectiveStyle.fontSize ?? 16);
     final lineHeight = fontSize * (effectiveStyle.height ?? 1.25);
     final minimumLines = math.max(widget.minLines ?? 1, 1);
     final initialLines = widget.maxLines == null
@@ -628,9 +625,8 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
       ..fontFamily = _systemFontStack
       ..fontSize = '${scaledFontSize}px'
       ..fontWeight = '${effectiveStyle.fontWeight?.value ?? 400}'
-      ..fontStyle = effectiveStyle.fontStyle == FontStyle.italic
-          ? 'italic'
-          : 'normal'
+      ..fontStyle =
+          effectiveStyle.fontStyle == FontStyle.italic ? 'italic' : 'normal'
       ..lineHeight = '${effectiveStyle.height ?? 1.25}'
       ..letterSpacing = '${effectiveStyle.letterSpacing ?? 0}px'
       ..color = _cssColor(effectiveStyle.color ?? const Color(0xFF000000))

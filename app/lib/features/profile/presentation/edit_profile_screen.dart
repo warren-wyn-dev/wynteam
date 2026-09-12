@@ -117,9 +117,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _usernameStatus = available
-            ? _UsernameStatus.available
-            : _UsernameStatus.taken;
+        _usernameStatus =
+            available ? _UsernameStatus.available : _UsernameStatus.taken;
       });
     });
   }
@@ -626,21 +625,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       },
                       suffix: switch (_usernameStatus) {
                         _UsernameStatus.checking => const Padding(
-                          padding: EdgeInsets.only(left: WynSpacing.space2),
-                          child: SizedBox(
-                            height: 14,
-                            width: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            padding: EdgeInsets.only(left: WynSpacing.space2),
+                            child: SizedBox(
+                              height: 14,
+                              width: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           ),
-                        ),
                         _UsernameStatus.available => const Padding(
-                          padding: EdgeInsets.only(left: WynSpacing.space2),
-                          child: Icon(
-                            Icons.check_circle,
-                            size: 18,
-                            color: WynColors.ink,
+                            padding: EdgeInsets.only(left: WynSpacing.space2),
+                            child: Icon(
+                              Icons.check_circle,
+                              size: 18,
+                              color: WynColors.ink,
+                            ),
                           ),
-                        ),
                         _ => null,
                       },
                       onChanged: _onUsernameChanged,
@@ -678,9 +677,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       onTap: _isSaving
                           ? null
                           : () => _editSocialLink(
-                              label: 'Instagram',
-                              controller: _instagramController,
-                            ),
+                                label: 'Instagram',
+                                controller: _instagramController,
+                              ),
                     ),
                     const Divider(height: 1, color: WynColors.hairline),
                     _SocialLinkRow(
@@ -689,9 +688,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       onTap: _isSaving
                           ? null
                           : () => _editSocialLink(
-                              label: 'Twitter (X)',
-                              controller: _twitterController,
-                            ),
+                                label: 'Twitter (X)',
+                                controller: _twitterController,
+                              ),
                     ),
                     const Divider(height: 1, color: WynColors.hairline),
                     _SocialLinkRow(
@@ -700,9 +699,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       onTap: _isSaving
                           ? null
                           : () => _editSocialLink(
-                              label: 'YouTube',
-                              controller: _youtubeController,
-                            ),
+                                label: 'YouTube',
+                                controller: _youtubeController,
+                              ),
                     ),
                   ],
                 ),
@@ -785,4 +784,5 @@ TextStyle _textStyle({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
-}) => TextStyle(fontSize: fontSize, fontWeight: fontWeight, color: color);
+}) =>
+    TextStyle(fontSize: fontSize, fontWeight: fontWeight, color: color);

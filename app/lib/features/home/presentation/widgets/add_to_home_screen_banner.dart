@@ -143,7 +143,8 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const BrowserSystemText('เพิ่ม WYNOS ไปหน้าจอโฮม', style: _titleStyle),
+                const BrowserSystemText('เพิ่ม WYNOS ไปหน้าจอโฮม',
+                    style: _titleStyle),
                 const SizedBox(height: WynSpacing.space1),
                 BrowserSystemText(body, style: _bodyStyle),
                 // Same brief per-platform text as before this addition --
@@ -189,7 +190,8 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
                   alignment: Alignment.topRight,
                   child: Padding(
                     padding: EdgeInsets.all(2),
-                    child: Icon(Icons.close, size: 18, color: WynColors.graphite),
+                    child:
+                        Icon(Icons.close, size: 18, color: WynColors.graphite),
                   ),
                 ),
               ),

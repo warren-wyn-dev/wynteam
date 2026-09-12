@@ -44,13 +44,15 @@ class EmptyStateBlock extends StatelessWidget {
           BrowserSystemText(
             title,
             textAlign: TextAlign.center,
-            style: WynTypography.screenTitle(fontSize: 20, color: WynColors.ink),
+            style:
+                WynTypography.screenTitle(fontSize: 20, color: WynColors.ink),
           ),
           const SizedBox(height: WynSpacing.space1 + 2),
           BrowserSystemText(
             subtitle,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),
+            style: const TextStyle(
+                fontSize: 13, color: WynColors.graphite, height: 1.4),
           ),
         ],
       ),

@@ -43,8 +43,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       _error = null;
     });
     try {
-      final document =
-          await widget.platformDocumentRepository.fetchLatest(widget.documentType);
+      final document = await widget.platformDocumentRepository
+          .fetchLatest(widget.documentType);
       if (!mounted) return;
       setState(() => _document = document);
     } catch (_) {
@@ -76,7 +76,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );

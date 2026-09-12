@@ -93,7 +93,8 @@ class _DraftListState extends State<DraftList>
       if (!mounted) return;
       setState(() => _drafts = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -111,7 +112,8 @@ class _DraftListState extends State<DraftList>
           children: [
             BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );

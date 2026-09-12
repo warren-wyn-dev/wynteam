@@ -142,7 +142,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
 
   Future<void> _loadOwnerName() async {
     try {
-      final profile = await widget.profileRepository.fetchProfile(widget.userId);
+      final profile =
+          await widget.profileRepository.fetchProfile(widget.userId);
       if (mounted) setState(() => _ownerDisplayName = profile.nameOrUsername);
     } catch (_) {
       // Silent -- same posture as every other identity-summary fetch in
@@ -241,7 +242,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: BrowserSystemText('เอา ${profile.nameOrUsername} ออกจากผู้ติดตาม?'),
+            title: BrowserSystemText(
+                'เอา ${profile.nameOrUsername} ออกจากผู้ติดตาม?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
@@ -267,7 +269,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _removingIds.remove(profile.id));
@@ -350,7 +353,10 @@ class _FollowListScreenState extends State<FollowListScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space3, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space3,
+        WynSpacing.space6,
+        WynSpacing.space2,
       ),
       child: Container(
         height: 40,
@@ -370,7 +376,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
                 style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
                   hint: BrowserSystemText('ค้นหา'),
-                  hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
+                  hintStyle:
+                      _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                   border: InputBorder.none,
                   isCollapsed: true,
                 ),
@@ -436,7 +443,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
       onRefresh: () => _loadTab(_selectedMode, initial: true),
       child: ListView.builder(
         controller: _scrollController,
-        itemCount: visible.length + (tab.hasMore && _searchQuery.isEmpty ? 1 : 0),
+        itemCount:
+            visible.length + (tab.hasMore && _searchQuery.isEmpty ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= visible.length) {
             return const Padding(
@@ -476,11 +484,15 @@ class _FollowListScreenState extends State<FollowListScreen> {
                   children: [
                     BrowserSystemText(
                       profile.nameOrUsername,
-                      style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
+                      style: _textStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: WynColors.ink),
                     ),
                     BrowserSystemText(
                       '@${profile.username}',
-                      style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
+                      style: _textStyle(
+                          fontSize: 13, color: WynColors.mutedNeutral),
                     ),
                   ],
                 ),

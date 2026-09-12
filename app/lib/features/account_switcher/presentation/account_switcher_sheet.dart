@@ -24,7 +24,8 @@ Future<void> showAccountSwitcherSheet(BuildContext context) {
     isScrollControlled: true,
     backgroundColor: WynColors.paper,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(WynSpacing.radiusLg)),
+      borderRadius:
+          BorderRadius.vertical(top: Radius.circular(WynSpacing.radiusLg)),
     ),
     builder: (_) => const AccountSwitcherSheet(),
   );
@@ -109,7 +110,8 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const BrowserSystemText('ลบ', style: TextStyle(color: WynColors.errorLight)),
+            child: const BrowserSystemText('ลบ',
+                style: TextStyle(color: WynColors.errorLight)),
           ),
         ],
       ),
@@ -167,8 +169,10 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
-              child: BrowserSystemText('บัญชีของฉัน', style: Theme.of(context).textTheme.titleMedium),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+              child: BrowserSystemText('บัญชีของฉัน',
+                  style: Theme.of(context).textTheme.titleMedium),
             ),
             const SizedBox(height: WynSpacing.space2),
             FutureBuilder<List<StoredAccount>>(
@@ -213,7 +217,8 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                 padding: const EdgeInsets.only(bottom: WynSpacing.space4),
                 child: BrowserSystemText(
                   _errorText!,
-                  style: const TextStyle(fontSize: 13, color: WynColors.errorLight),
+                  style: const TextStyle(
+                      fontSize: 13, color: WynColors.errorLight),
                 ),
               ),
             const SizedBox(height: WynSpacing.space4),
@@ -276,11 +281,14 @@ class _AccountRow extends StatelessWidget {
               ? const Icon(Icons.check_circle, color: WynColors.sapphire)
               : onRemove == null
                   ? null
-                  : BrowserSystemTooltip(message: 'ลบบัญชีนี้ออกจากเครื่อง', child: IconButton(
-                      icon: const Icon(Icons.close, size: 18, color: WynColors.faint),
-                      tooltip: null,
-                      onPressed: onRemove,
-                    )),
+                  : BrowserSystemTooltip(
+                      message: 'ลบบัญชีนี้ออกจากเครื่อง',
+                      child: IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 18, color: WynColors.faint),
+                        tooltip: null,
+                        onPressed: onRemove,
+                      )),
       onTap: isActive ? null : onTap,
     );
   }

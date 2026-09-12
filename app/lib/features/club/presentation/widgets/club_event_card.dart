@@ -87,11 +87,13 @@ class ClubEventCard extends StatelessWidget {
                 ),
               ),
               if (canManage)
-                BrowserSystemTooltip(message: 'เพิ่มเติม', child: IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  tooltip: null,
-                  onPressed: () => _openMoreMenu(context),
-                )),
+                BrowserSystemTooltip(
+                    message: 'เพิ่มเติม',
+                    child: IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: null,
+                      onPressed: () => _openMoreMenu(context),
+                    )),
             ],
           ),
           if (event.description != null && event.description!.isNotEmpty) ...[
@@ -117,7 +119,8 @@ class ClubEventCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: BrowserSystemText(event.location, maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: BrowserSystemText(event.location,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
@@ -201,10 +204,12 @@ class _RsvpButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         backgroundColor: selected ? scheme.primary : null,
         foregroundColor: selected ? scheme.onPrimary : scheme.onSurface,
-        side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant),
+        side: BorderSide(
+            color: selected ? scheme.primary : scheme.outlineVariant),
         padding: const EdgeInsets.symmetric(vertical: WynSpacing.space2),
       ),
-      child: BrowserSystemText(label, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
+      child: BrowserSystemText(label,
+          style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
     );
   }
 }
@@ -231,7 +236,8 @@ class ClubEventAttendeesSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            BrowserSystemText(title, style: Theme.of(context).textTheme.titleMedium),
+            BrowserSystemText(title,
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: WynSpacing.space3),
             if (attendees.isEmpty)
               const Padding(

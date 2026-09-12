@@ -132,8 +132,9 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
   /// case-insensitively after trim -- mirrors `valid_poll_options()` in
   /// supabase/schema.sql and CreateDropScreen's identical getter.
   bool get _pollOptionsValid {
-    final trimmed =
-        _pollOptionControllers.map((c) => c.text.trim()).toList(growable: false);
+    final trimmed = _pollOptionControllers
+        .map((c) => c.text.trim())
+        .toList(growable: false);
     if (trimmed.any((t) => t.isEmpty || t.length > _pollOptionMaxLength)) {
       return false;
     }
@@ -190,7 +191,8 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
       // `onPressed:` below -- it no longer disables on image count) so
       // this is reachable, rather than the button just going inert.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
+        const SnackBar(
+            content: BrowserSystemText('เพิ่มรูปได้สูงสุด 9 รูปต่อโพสต์')),
       );
       return;
     }
@@ -205,8 +207,9 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
 
     for (final file in picked.take(remaining)) {
       final bytes = await file.readAsBytes();
-      final extension =
-          file.name.contains('.') ? file.name.split('.').last.toLowerCase() : 'jpg';
+      final extension = file.name.contains('.')
+          ? file.name.split('.').last.toLowerCase()
+          : 'jpg';
       _images.add(bytes);
       _imageExtensions.add(extension);
     }
@@ -313,13 +316,17 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                             minLines: 3,
                             enabled: !_isPosting,
                             style: const TextStyle(
-                                fontSize: 20, color: WynColors.ink, height: 1.4),
+                                fontSize: 20,
+                                color: WynColors.ink,
+                                height: 1.4),
                             decoration: InputDecoration(
                               hint: BrowserSystemText(_mode == _ComposeMode.poll
                                   ? 'ตั้งคำถามโพล...'
                                   : 'มีอะไรอยากบอก Club นี้บ้าง?'),
                               hintStyle: const TextStyle(
-                                  fontSize: 20, color: WynColors.faint, height: 1.4),
+                                  fontSize: 20,
+                                  color: WynColors.faint,
+                                  height: 1.4),
                               border: InputBorder.none,
                               counter: const SizedBox.shrink(),
                               contentPadding: EdgeInsets.zero,
@@ -341,7 +348,8 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                               // than a disabled button the user can't tell
                               // apart from "posting".
                               onPressed: _isPosting ? null : _pickImages,
-                              icon: const Icon(Icons.add_photo_alternate_outlined),
+                              icon: const Icon(
+                                  Icons.add_photo_alternate_outlined),
                               label: const BrowserSystemText('แนบรูป'),
                             ),
                             const SizedBox(height: WynSpacing.space4),
@@ -359,7 +367,8 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                             const SizedBox(height: WynSpacing.space4),
                             BrowserSystemText(
                               _errorMessage!,
-                              style: TextStyle(color: Theme.of(context).colorScheme.error),
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error),
                             ),
                           ],
                         ],
@@ -381,8 +390,8 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
   Widget _buildHeader() {
     final canPost = _canPost;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          WynSpacing.space4, WynSpacing.space2, WynSpacing.space4, WynSpacing.space3),
+      padding: const EdgeInsets.fromLTRB(WynSpacing.space4, WynSpacing.space2,
+          WynSpacing.space4, WynSpacing.space3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -394,13 +403,16 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const BrowserSystemText('ยกเลิก', style: TextStyle(fontSize: 15, color: WynColors.ink)),
+            child: const BrowserSystemText('ยกเลิก',
+                style: TextStyle(fontSize: 15, color: WynColors.ink)),
           ),
           TextButton(
             onPressed: canPost ? _post : null,
             style: TextButton.styleFrom(
-              backgroundColor: canPost ? WynColors.sapphire : WynColors.hairline,
-              foregroundColor: canPost ? WynColors.paper : WynColors.mutedNeutral,
+              backgroundColor:
+                  canPost ? WynColors.sapphire : WynColors.hairline,
+              foregroundColor:
+                  canPost ? WynColors.paper : WynColors.mutedNeutral,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               shape: const StadiumBorder(),
             ),
@@ -413,7 +425,9 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                       color: canPost ? WynColors.paper : WynColors.mutedNeutral,
                     ),
                   )
-                : const BrowserSystemText('โพสต์', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                : const BrowserSystemText('โพสต์',
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -495,20 +509,25 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                     style: const TextStyle(fontSize: 16, color: WynColors.ink),
                     decoration: InputDecoration(
                       hint: BrowserSystemText('ตัวเลือกที่ ${i + 1}'),
-                      hintStyle: const TextStyle(fontSize: 16, color: WynColors.faint),
+                      hintStyle:
+                          const TextStyle(fontSize: 16, color: WynColors.faint),
                       counter: const SizedBox.shrink(),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: WynSpacing.space3, vertical: WynSpacing.space2),
+                          horizontal: WynSpacing.space3,
+                          vertical: WynSpacing.space2),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                        borderRadius:
+                            BorderRadius.circular(WynSpacing.radiusMd),
                         borderSide: const BorderSide(color: WynColors.hairline),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                        borderRadius:
+                            BorderRadius.circular(WynSpacing.radiusMd),
                         borderSide: const BorderSide(color: WynColors.hairline),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(WynSpacing.radiusMd),
+                        borderRadius:
+                            BorderRadius.circular(WynSpacing.radiusMd),
                         borderSide: const BorderSide(color: WynColors.sapphire),
                       ),
                     ),
@@ -518,12 +537,16 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                 // Only the 3rd/4th option can be removed -- the first 2
                 // are the minimum a Poll must always have.
                 if (i >= _minPollOptions)
-                  BrowserSystemTooltip(message: 'ลบตัวเลือกนี้', child: IconButton(
-                    key: ValueKey('remove_club_poll_option_$i'),
-                    icon: const Icon(Icons.close, color: WynColors.graphite),
-                    tooltip: null,
-                    onPressed: _isPosting ? null : () => _removePollOption(i),
-                  )),
+                  BrowserSystemTooltip(
+                      message: 'ลบตัวเลือกนี้',
+                      child: IconButton(
+                        key: ValueKey('remove_club_poll_option_$i'),
+                        icon:
+                            const Icon(Icons.close, color: WynColors.graphite),
+                        tooltip: null,
+                        onPressed:
+                            _isPosting ? null : () => _removePollOption(i),
+                      )),
               ],
             ),
           ),
@@ -532,12 +555,15 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
             onPressed: _isPosting ? null : _addPollOption,
             style: TextButton.styleFrom(foregroundColor: WynColors.sapphire),
             icon: const Icon(Icons.add, size: 18),
-            label: const BrowserSystemText('เพิ่มตัวเลือก', style: TextStyle(fontSize: 15)),
+            label: const BrowserSystemText('เพิ่มตัวเลือก',
+                style: TextStyle(fontSize: 15)),
           ),
         const SizedBox(height: WynSpacing.space2),
         const BrowserSystemText('ระยะเวลาโหวต',
-            style:
-                TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.ink)),
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: WynColors.ink)),
         const SizedBox(height: WynSpacing.space2),
         SegmentedButton<int>(
           style: SegmentedButton.styleFrom(
@@ -554,7 +580,8 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
           selected: {_pollDurationDays},
           onSelectionChanged: _isPosting
               ? null
-              : (selection) => setState(() => _pollDurationDays = selection.first),
+              : (selection) =>
+                  setState(() => _pollDurationDays = selection.first),
         ),
       ],
     );
@@ -577,7 +604,8 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _images.length,
-              separatorBuilder: (_, __) => const SizedBox(width: WynSpacing.space2),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(width: WynSpacing.space2),
               itemBuilder: (context, index) => ClipRRect(
                 borderRadius: BorderRadius.circular(WynSpacing.radiusLg),
                 child: SizedBox(
@@ -595,7 +623,8 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                           button: true,
                           excludeSemantics: true,
                           child: InkWell(
-                            onTap: _isPosting ? null : () => _removeImage(index),
+                            onTap:
+                                _isPosting ? null : () => _removeImage(index),
                             customBorder: const CircleBorder(),
                             child: const DecoratedBox(
                               decoration: BoxDecoration(
@@ -604,7 +633,8 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                               ),
                               child: Padding(
                                 padding: EdgeInsets.all(5),
-                                child: Icon(Icons.close, size: 13, color: WynColors.paper),
+                                child: Icon(Icons.close,
+                                    size: 13, color: WynColors.paper),
                               ),
                             ),
                           ),
@@ -644,7 +674,8 @@ class _LockedClubChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space3, vertical: 6),
       decoration: BoxDecoration(
         color: WynColors.hairline,
         borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
@@ -652,7 +683,8 @@ class _LockedClubChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.groups_outlined, size: 14, color: WynColors.graphite),
+          const Icon(Icons.groups_outlined,
+              size: 14, color: WynColors.graphite),
           const SizedBox(width: 6),
           Flexible(
             child: BrowserSystemText(
@@ -661,7 +693,9 @@ class _LockedClubChip extends StatelessWidget {
                   : 'โพสต์ใน $clubName · #$channelName',
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.graphite),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: WynColors.graphite),
             ),
           ),
         ],

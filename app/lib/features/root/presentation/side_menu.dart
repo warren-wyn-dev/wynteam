@@ -196,11 +196,14 @@ class _SideMenuState extends State<SideMenu> {
               height: 52,
               child: Align(
                 alignment: Alignment.centerRight,
-                child: BrowserSystemTooltip(message: 'ปิด', child: IconButton(
-                  icon: const Icon(Icons.close, size: 22, color: WynColors.ink),
-                  onPressed: () => Navigator.of(context).pop(),
-                  tooltip: null,
-                )),
+                child: BrowserSystemTooltip(
+                    message: 'ปิด',
+                    child: IconButton(
+                      icon: const Icon(Icons.close,
+                          size: 22, color: WynColors.ink),
+                      onPressed: () => Navigator.of(context).pop(),
+                      tooltip: null,
+                    )),
               ),
             ),
             Padding(

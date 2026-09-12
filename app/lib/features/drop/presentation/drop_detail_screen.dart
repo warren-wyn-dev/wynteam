@@ -466,7 +466,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -589,7 +590,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       }
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -881,24 +883,29 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
                           onPressed: _toggleFollow,
-                          child: BrowserSystemText(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
+                          child: BrowserSystemText(
+                              _isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
                         ),
                       ),
                     ),
                   if (isOwnDrop)
-                    BrowserSystemTooltip(message: 'เพิ่มเติม', child: IconButton(
-                      icon: const Icon(Icons.more_vert,
-                          size: 18, color: WynColors.faint),
-                      tooltip: null,
-                      onPressed: _openOwnDropMoreMenu,
-                    ))
+                    BrowserSystemTooltip(
+                        message: 'เพิ่มเติม',
+                        child: IconButton(
+                          icon: const Icon(Icons.more_vert,
+                              size: 18, color: WynColors.faint),
+                          tooltip: null,
+                          onPressed: _openOwnDropMoreMenu,
+                        ))
                   else
-                    BrowserSystemTooltip(message: 'เพิ่มเติม', child: IconButton(
-                      icon: const Icon(Icons.more_vert,
-                          size: 18, color: WynColors.faint),
-                      tooltip: null,
-                      onPressed: _openDropMoreMenu,
-                    )),
+                    BrowserSystemTooltip(
+                        message: 'เพิ่มเติม',
+                        child: IconButton(
+                          icon: const Icon(Icons.more_vert,
+                              size: 18, color: WynColors.faint),
+                          tooltip: null,
+                          onPressed: _openDropMoreMenu,
+                        )),
                 ],
               ),
               if (_drop.caption != null && _drop.caption!.isNotEmpty) ...[
@@ -992,7 +999,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         if (comments.isEmpty)
           const Padding(
             padding: EdgeInsets.all(WynSpacing.space6),
-            child: Center(child: BrowserSystemText('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
+            child: Center(
+                child: BrowserSystemText('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
         else ...[
           // Each top-level comment immediately followed by its own
@@ -1330,14 +1338,16 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: BrowserSystemTooltip(message: 'ลบคอมเมนต์', child: IconButton(
-                    padding: EdgeInsets.zero,
-                    iconSize: 16,
-                    icon: const Icon(Icons.delete_outline,
-                        color: WynColors.graphite),
-                    tooltip: null,
-                    onPressed: () => _deleteComment(comment.id),
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: 'ลบคอมเมนต์',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        iconSize: 16,
+                        icon: const Icon(Icons.delete_outline,
+                            color: WynColors.graphite),
+                        tooltip: null,
+                        onPressed: () => _deleteComment(comment.id),
+                      )),
                 ),
               Column(
                 children: [

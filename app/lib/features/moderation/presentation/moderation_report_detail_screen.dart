@@ -64,16 +64,19 @@ class ModerationReportDetailScreen extends StatefulWidget {
   final ClubPostRepository clubPostRepository;
 
   @override
-  State<ModerationReportDetailScreen> createState() => _ModerationReportDetailScreenState();
+  State<ModerationReportDetailScreen> createState() =>
+      _ModerationReportDetailScreenState();
 }
 
-class _ModerationReportDetailScreenState extends State<ModerationReportDetailScreen> {
+class _ModerationReportDetailScreenState
+    extends State<ModerationReportDetailScreen> {
   late Future<ModerationTargetSummary> _summaryFuture;
 
   @override
   void initState() {
     super.initState();
-    _summaryFuture = widget.moderationRepository.fetchTargetSummary(widget.report);
+    _summaryFuture =
+        widget.moderationRepository.fetchTargetSummary(widget.report);
   }
 
   Future<void> _openTarget(ModerationTargetSummary summary) async {
@@ -81,7 +84,8 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
       final label = widget.report.targetType == ReportTargetType.user
           ? 'บัญชีนี้ถูกลบไปแล้ว'
           : 'เนื้อหานี้ถูกลบไปแล้ว';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: BrowserSystemText(label)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: BrowserSystemText(label)));
       return;
     }
 
@@ -109,14 +113,16 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
         // target card itself (see ModerationTargetSummary), so this is
         // an honest no-op rather than a broken navigation attempt.
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: BrowserSystemText('ไม่สามารถเปิดดูบทสนทนานี้ได้')),
+          const SnackBar(
+              content: BrowserSystemText('ไม่สามารถเปิดดูบทสนทนานี้ได้')),
         );
       case ReportTargetType.clubChannelMessage:
         // Same reasoning as ReportTargetType.message above -- no
         // moderator-facing Club chat room view exists this round either;
         // the reported text/image is already in the target card itself.
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: BrowserSystemText('ไม่สามารถเปิดดูห้องแชทนี้ได้')),
+          const SnackBar(
+              content: BrowserSystemText('ไม่สามารถเปิดดูห้องแชทนี้ได้')),
         );
     }
   }
@@ -205,9 +211,10 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
     );
     if (outcome == null || !mounted) return;
 
-    final message = outcome == ModerationActionSheetOutcome.alreadyActionedByOthers
-        ? 'รายงานนี้ถูกดำเนินการไปแล้วโดยผู้ตรวจสอบคนอื่น'
-        : 'ดำเนินการแล้ว: ${actionType.label}';
+    final message =
+        outcome == ModerationActionSheetOutcome.alreadyActionedByOthers
+            ? 'รายงานนี้ถูกดำเนินการไปแล้วโดยผู้ตรวจสอบคนอื่น'
+            : 'ดำเนินการแล้ว: ${actionType.label}';
     Navigator.of(context).pop(message);
   }
 
@@ -275,10 +282,13 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
           ),
         ),
         const SizedBox(height: WynSpacing.space6),
-        BrowserSystemText(report.category.label, style: Theme.of(context).textTheme.titleMedium),
+        BrowserSystemText(report.category.label,
+            style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: WynSpacing.space2),
         BrowserSystemText(
-          (report.detail == null || report.detail!.isEmpty) ? 'ไม่มีรายละเอียดเพิ่มเติม' : report.detail!,
+          (report.detail == null || report.detail!.isEmpty)
+              ? 'ไม่มีรายละเอียดเพิ่มเติม'
+              : report.detail!,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: (report.detail == null || report.detail!.isEmpty)
                     ? Theme.of(context).colorScheme.outline
@@ -311,7 +321,8 @@ class _ModerationReportDetailScreenState extends State<ModerationReportDetailScr
     );
   }
 
-  String _targetCardLabel(ModerationReport report, ModerationTargetSummary summary) {
+  String _targetCardLabel(
+      ModerationReport report, ModerationTargetSummary summary) {
     if (!summary.exists) return summary.label;
     if (report.targetType == ReportTargetType.user ||
         report.targetType == ReportTargetType.club) {

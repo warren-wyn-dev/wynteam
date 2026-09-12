@@ -226,11 +226,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
       // than the generic social-screen header; other screens keep 60px.
       height: 52,
       showBottomDivider: false,
-      leading: BrowserSystemTooltip(message: 'เมนู', child: IconButton(
-        icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
-        tooltip: null,
-        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-      )),
+      leading: BrowserSystemTooltip(
+          message: 'เมนู',
+          child: IconButton(
+            icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
+            tooltip: null,
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          )),
       titleWidget: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -290,11 +292,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
             ],
           );
 
-    return BrowserSystemTooltip(message: count > 0 ? 'ข้อความ, $count บทสนทนายังไม่อ่าน' : 'ข้อความ', child: IconButton(
-      icon: badge,
-      tooltip: null,
-      onPressed: _openChatInbox,
-    ));
+    return BrowserSystemTooltip(
+        message: count > 0 ? 'ข้อความ, $count บทสนทนายังไม่อ่าน' : 'ข้อความ',
+        child: IconButton(
+          icon: badge,
+          tooltip: null,
+          onPressed: _openChatInbox,
+        ));
   }
 
   Widget _buildFeedModeToggle() {

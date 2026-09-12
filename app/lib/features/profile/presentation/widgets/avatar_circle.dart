@@ -82,8 +82,7 @@ class _AvatarCircleState extends State<AvatarCircle> {
       final ancestor = element.widget;
       if (ancestor is Semantics) {
         final label = ancestor.properties.label;
-        final isPostLabel =
-            label != null &&
+        final isPostLabel = label != null &&
             (label.startsWith('รูปของ ') || label.startsWith('วิดีโอของ '));
         if (ancestor.properties.button == true && isPostLabel) {
           isHomePost = true;
@@ -123,7 +122,8 @@ class _AvatarCircleState extends State<AvatarCircle> {
               null,
               NetworkImage(imageUrl),
             ),
-      onBackgroundImageError: imageUrl == null ? null : (_, __) => _onImageError(),
+      onBackgroundImageError:
+          imageUrl == null ? null : (_, __) => _onImageError(),
       child: imageUrl == null
           ? BrowserSystemText(
               initial,
