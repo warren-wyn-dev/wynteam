@@ -27,7 +27,9 @@ import '../../../../core/design/wyn_spacing.dart';
 const double homeCardEdgeInset = WynSpacing.space4;
 
 /// The avatar's diameter, and so the width of the card's left column.
-const double homeCardAvatarDiameter = 40;
+/// 44px keeps the feed compact while matching the slightly larger
+/// profile treatment requested for the X/Threads-like visual weight.
+const double homeCardAvatarDiameter = 44;
 
 /// Founder-marked vertical position: the avatar's top edge starts on the
 /// visual text line instead of at the top edge of the whole post row.
@@ -43,7 +45,7 @@ const double homeCardAvatarTopInset = WynSpacing.space4;
 const double homeCardAvatarGap = WynSpacing.space3;
 
 /// Where the content column starts, measured from the screen edge:
-/// 16 + 40 + 12 = 68 on any width. Every section of a card lines up
+/// 16 + 44 + 12 = 72 on any width. Every section of a card lines up
 /// here, including the photo row's left edge. This matches the approved
 /// compact Home mockup while leaving enough room for a clear avatar.
 const double homeCardContentInset =
