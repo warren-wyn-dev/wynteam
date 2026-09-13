@@ -50,8 +50,11 @@ jobs:
             app/lib/core/typography/native_emoji_stub.dart \
             app/test/system_typography_ios_accessibility_test.dart
 
+          # Keep the latest Founder-approved Home spacing from main.
           git checkout origin/main -- app/lib/features/home/presentation/widgets/home_card_metrics.dart
 
+          # Remove the bundled Web font workaround. Web text will use the
+          # browser DOM system stack; native iOS/Android remain OS-default.
           git rm -r -f --ignore-unmatch app/assets/fonts/NotoSansThai
           git rm -f --ignore-unmatch app/test/web_typography_assets_test.dart
           python3 - <<'PY'
@@ -68,6 +71,7 @@ jobs:
           p.write_text(s)
           PY
 
+          # Do not carry temporary migration workflows into the product branch.
           git rm -f --ignore-unmatch \
             .github/workflows/apply-web-system-text-all-retry.yml \
             .github/workflows/apply-web-system-text-all.yml \
@@ -92,6 +96,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
+
           root = Path('app/lib')
           excluded = {
             root/'core/typography/browser_system_text_stub.dart',
@@ -99,32 +104,139 @@ jobs:
             root/'core/typography/browser_system_picker_stub.dart',
             root/'core/typography/browser_system_picker_web.dart',
           }
-          patterns = {
-            'Text': r'(?<![A-Za-z0-9_])Text(?:\.rich)?\s*\(',
-            'RichText': r'(?<![A-Za-z0-9_])RichText\s*\(',
-            'TextField': r'(?<![A-Za-z0-9_])TextField\s*\(',
-            'TextFormField': r'(?<![A-Za-z0-9_])TextFormField\s*\(',
-            'SelectableText': r'(?<![A-Za-z0-9_])SelectableText(?:\.rich)?\s*\(',
-            'Tooltip': r'(?<!BrowserSystem)(?<![A-Za-z0-9_])Tooltip\s*\(',
-            'showDatePicker': r'(?<![A-Za-z0-9_])showDatePicker\s*\(',
-            'showTimePicker': r'(?<![A-Za-z0-9_])showTimePicker\s*\(',
-            'SnackBarAction': r'(?<![A-Za-z0-9_])SnackBarAction\s*\(',
-            'Tab text': r'\bTab\s*\([^\)]*\btext\s*:',
+
+          # Replace comments and string literal contents with spaces while
+          # preserving indexes/newlines. This prevents documentation examples
+          # such as `Text(...)` from being misclassified as executable UI.
+          def code_only(source: str) -> str:
+            out = list(source)
+            i = 0
+            quote = None
+            triple = False
+            escape = False
+            line = False
+            block = False
+            while i < len(source):
+              ch = source[i]
+              pair = source[i:i+2]
+              if line:
+                if ch != '\n': out[i] = ' '
+                else: line = False
+                i += 1; continue
+              if block:
+                if pair == '*/':
+                  out[i] = out[i+1] = ' '; block = False; i += 2; continue
+                if ch != '\n': out[i] = ' '
+                i += 1; continue
+              if quote:
+                if ch != '\n': out[i] = ' '
+                if escape:
+                  escape = False; i += 1; continue
+                if ch == '\\': escape = True; i += 1; continue
+                if triple and source.startswith(quote*3, i):
+                  for j in range(i, min(i+3, len(out))): out[j] = ' '
+                  quote = None; triple = False; i += 3; continue
+                if not triple and ch == quote:
+                  quote = None
+                i += 1; continue
+              if pair == '//':
+                out[i] = out[i+1] = ' '; line = True; i += 2; continue
+              if pair == '/*':
+                out[i] = out[i+1] = ' '; block = True; i += 2; continue
+              if source.startswith("'''", i):
+                out[i:i+3] = [' ', ' ', ' ']; quote = "'"; triple = True; i += 3; continue
+              if source.startswith('"""', i):
+                out[i:i+3] = [' ', ' ', ' ']; quote = '"'; triple = True; i += 3; continue
+              if ch in "'\"":
+                out[i] = ' '; quote = ch; i += 1; continue
+              i += 1
+            return ''.join(out)
+
+          direct_patterns = {
+            'Text': re.compile(r'(?<![A-Za-z0-9_])Text(?:\.rich)?\s*\('),
+            'RichText': re.compile(r'(?<![A-Za-z0-9_])RichText\s*\('),
+            'TextField': re.compile(r'(?<![A-Za-z0-9_])TextField\s*\('),
+            'TextFormField': re.compile(r'(?<![A-Za-z0-9_])TextFormField\s*\('),
+            'SelectableText': re.compile(r'(?<![A-Za-z0-9_])SelectableText(?:\.rich)?\s*\('),
+            'Tooltip': re.compile(r'(?<!BrowserSystem)(?<![A-Za-z0-9_])Tooltip\s*\('),
+            'showDatePicker': re.compile(r'(?<![A-Za-z0-9_])showDatePicker\s*\('),
+            'showTimePicker': re.compile(r'(?<![A-Za-z0-9_])showTimePicker\s*\('),
+            'SnackBarAction': re.compile(r'(?<![A-Za-z0-9_])SnackBarAction\s*\('),
+            'Tab(text:)': re.compile(r'\bTab\s*\([^\)]*\btext\s*:', re.S),
           }
-          compiled = {k: re.compile(v, re.S) for k,v in patterns.items()}
-          failures=[]
+
+          def call_bodies(clean: str, token: str):
+            bodies = []
+            i = 0
+            while True:
+              m = re.search(r'(?<![A-Za-z0-9_])' + re.escape(token) + r'\b', clean[i:])
+              if not m: break
+              start = i + m.start()
+              j = i + m.end()
+              while j < len(clean) and clean[j].isspace(): j += 1
+              if j < len(clean) and clean[j] == '<':
+                depth = 0
+                while j < len(clean):
+                  if clean[j] == '<': depth += 1
+                  elif clean[j] == '>':
+                    depth -= 1
+                    if depth == 0:
+                      j += 1; break
+                  j += 1
+                while j < len(clean) and clean[j].isspace(): j += 1
+              if j >= len(clean) or clean[j] != '(':
+                i = max(j, start + 1); continue
+              open_i = j
+              depth = 0
+              while j < len(clean):
+                if clean[j] == '(': depth += 1
+                elif clean[j] == ')':
+                  depth -= 1
+                  if depth == 0:
+                    bodies.append(clean[open_i+1:j])
+                    j += 1
+                    break
+                j += 1
+              i = max(j, start + 1)
+            return bodies
+
+          def has_top_level_named_arg(body: str, name: str) -> bool:
+            par = br = cur = 0
+            start = 0
+            for idx, ch in enumerate(body + ','):
+              if ch == '(': par += 1
+              elif ch == ')': par -= 1
+              elif ch == '[': br += 1
+              elif ch == ']': br -= 1
+              elif ch == '{': cur += 1
+              elif ch == '}': cur -= 1
+              elif ch == ',' and par == 0 and br == 0 and cur == 0:
+                part = body[start:idx]
+                if re.match(r'\s*' + re.escape(name) + r'\s*:', part): return True
+                start = idx + 1
+            return False
+
+          failures = []
           for p in sorted(root.rglob('*.dart')):
             if p in excluded: continue
-            s=p.read_text()
-            for label,rx in compiled.items():
-              if rx.search(s): failures.append(f'{p}: {label}')
-            for m in re.finditer(r'\btooltip\s*:\s*([^,\n\)]+)', s):
-              if m.group(1).strip() != 'null': failures.append(f'{p}: tooltip parameter')
+            clean = code_only(p.read_text())
+            for label, rx in direct_patterns.items():
+              if rx.search(clean): failures.append(f'{p}: {label}')
+            # Flutter's built-in tooltip parameter paints framework tooltip text.
+            # Custom widgets may safely expose a `tooltip` property if they route it
+            # into BrowserSystemTooltip, so only framework constructors are gated.
+            for token in ('IconButton', 'FloatingActionButton', 'PopupMenuButton'):
+              for body in call_bodies(clean, token):
+                if has_top_level_named_arg(body, 'tooltip'):
+                  # tooltip:null is allowed only when wrapped by BrowserSystemTooltip;
+                  # checking the presence conservatively catches any missed migration.
+                  failures.append(f'{p}: {token}(tooltip:)')
+
           if failures:
             print('Legacy text surfaces remain:')
             print('\n'.join(failures[:250]))
             raise SystemExit(31)
-          print('Source gate passed: no legacy app-owned text surface found.')
+          print('Source gate passed: executable app-owned text uses browser system surfaces.')
           PY
       - name: Flutter analyze and full tests
         working-directory: app
