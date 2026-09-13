@@ -98,8 +98,9 @@ class BrowserSystemText extends StatelessWidget {
       return;
     }
 
-    final effectiveStyle =
-        inheritedStyle == null ? span.style : inheritedStyle.merge(span.style);
+    final effectiveStyle = inheritedStyle == null
+        ? span.style
+        : inheritedStyle.merge(span.style);
     final recognizer = span.recognizer;
     VoidCallback? onTap;
     if (recognizer is TapGestureRecognizer && recognizer.onTap != null) {
@@ -150,17 +151,69 @@ class BrowserSystemRichText extends StatefulWidget {
   State<BrowserSystemRichText> createState() => _BrowserSystemRichTextState();
 }
 
-class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
-  web.ResizeObserver? _resizeObserver;
-  double? _measuredHeight;
-  String? _measurementKey;
+class _BrowserTextMetrics {
+  const _BrowserTextMetrics({
+    required this.width,
+    required this.height,
+    required this.alphabeticBaseline,
+  });
+
+  final double width;
+  final double height;
+  final double alphabeticBaseline;
+}
+
+/// Reports the browser-measured alphabetic baseline to Flutter's flex
+/// layout without moving the DOM platform view itself. This keeps mixed
+/// author/time rows aligned exactly like normal [Text] widgets.
+class _BrowserTextBaselineBox extends SingleChildRenderObjectWidget {
+  const _BrowserTextBaselineBox({
+    required this.alphabeticBaseline,
+    required super.child,
+  });
+
+  final double alphabeticBaseline;
 
   @override
-  void dispose() {
-    _resizeObserver?.disconnect();
-    super.dispose();
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderBrowserTextBaselineBox(alphabeticBaseline);
   }
 
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderBrowserTextBaselineBox renderObject,
+  ) {
+    renderObject.alphabeticBaseline = alphabeticBaseline;
+  }
+}
+
+class _RenderBrowserTextBaselineBox extends RenderProxyBox {
+  _RenderBrowserTextBaselineBox(this._alphabeticBaseline);
+
+  double _alphabeticBaseline;
+
+  set alphabeticBaseline(double value) {
+    if (_alphabeticBaseline == value) return;
+    _alphabeticBaseline = value;
+    markNeedsLayout();
+  }
+
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) {
+    return _alphabeticBaseline;
+  }
+
+  @override
+  double? computeDryBaseline(
+    covariant BoxConstraints constraints,
+    TextBaseline baseline,
+  ) {
+    return _alphabeticBaseline;
+  }
+}
+
+class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
   @override
   Widget build(BuildContext context) {
     final defaultStyle = DefaultTextStyle.of(context).style;
@@ -169,103 +222,280 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     final baseFontSize = effectiveStyle.fontSize ?? 14;
     final scaledFontSize = textScaler.scale(baseFontSize);
     final direction = widget.textDirection ?? Directionality.of(context);
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final spanScale = baseFontSize == 0 ? 1.0 : scaledFontSize / baseFontSize;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = _resolveWidth(
-          constraints: constraints,
-          style: effectiveStyle,
-          scaledFontSize: scaledFontSize,
-          direction: direction,
-        );
-        final estimatedHeight = _estimateHeight(
-          width: width,
-          style: effectiveStyle,
-          scaledFontSize: scaledFontSize,
-          direction: direction,
-        );
-        final key = _contentKey(
-          width: width,
-          style: effectiveStyle,
-          scaledFontSize: scaledFontSize,
-          direction: direction,
-        );
-        if (_measurementKey != key) {
-          _measurementKey = key;
-          _measuredHeight = estimatedHeight;
-        }
+    final rootAlphabeticBaseline = _measureRootAlphabeticBaseline(
+      style: effectiveStyle,
+      scaledFontSize: scaledFontSize,
+      spanScale: spanScale,
+      direction: direction,
+      devicePixelRatio: devicePixelRatio,
+    );
 
-        final height = math.max(_measuredHeight ?? estimatedHeight, 1.0);
-        return Semantics(
-          label: widget.semanticsLabel ?? widget.plainText,
-          excludeSemantics: true,
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: HtmlElementView.fromTagName(
-              key: ValueKey<String>(key),
-              tagName: 'div',
-              hitTestBehavior: PlatformViewHitTestBehavior.transparent,
-              onElementCreated: (object) {
-                final root = object as web.HTMLDivElement;
-                _configureDom(
-                  root: root,
-                  style: effectiveStyle,
-                  scaledFontSize: scaledFontSize,
-                  direction: direction,
-                );
-              },
+    return _BrowserTextBaselineBox(
+      alphabeticBaseline: rootAlphabeticBaseline,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _measureWithBrowser(
+            constraints: constraints,
+            style: effectiveStyle,
+            scaledFontSize: scaledFontSize,
+            spanScale: spanScale,
+            direction: direction,
+            devicePixelRatio: devicePixelRatio,
+          );
+          final key = _contentKey(
+            width: metrics.width,
+            height: metrics.height,
+            style: effectiveStyle,
+            scaledFontSize: scaledFontSize,
+            direction: direction,
+          );
+
+          return _BrowserTextBaselineBox(
+            alphabeticBaseline: metrics.alphabeticBaseline,
+            child: Semantics(
+              label: widget.semanticsLabel ?? widget.plainText,
+              excludeSemantics: true,
+              child: SizedBox(
+                width: metrics.width,
+                height: metrics.height,
+                child: HtmlElementView.fromTagName(
+                  key: ValueKey<String>(key),
+                  tagName: 'div',
+                  hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+                  onElementCreated: (object) {
+                    final root = object as web.HTMLDivElement;
+                    _configureDom(
+                      root: root,
+                      style: effectiveStyle,
+                      scaledFontSize: scaledFontSize,
+                      spanScale: spanScale,
+                      direction: direction,
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  double _resolveWidth({
+  double _measureRootAlphabeticBaseline({
+    required TextStyle style,
+    required double scaledFontSize,
+    required double spanScale,
+    required TextDirection direction,
+    required double devicePixelRatio,
+  }) {
+    final fallback = scaledFontSize * 0.82;
+    final body = web.document.body;
+    if (body == null) return fallback;
+
+    final probe = web.document.createElement('div') as web.HTMLDivElement;
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style
+      ..position = 'fixed'
+      ..left = '-100000px'
+      ..top = '-100000px'
+      ..visibility = 'hidden'
+      ..pointerEvents = 'none'
+      ..margin = '0'
+      ..padding = '0'
+      ..width = 'auto'
+      ..maxWidth = 'none'
+      ..height = 'auto'
+      ..boxSizing = 'border-box';
+
+    _applyBaseCss(
+      probe,
+      style: style,
+      scaledFontSize: scaledFontSize,
+      direction: direction,
+      fillWidth: false,
+      allowWrap: false,
+    );
+    probe.style.display = 'inline-block';
+
+    final marker = web.document.createElement('span') as web.HTMLSpanElement;
+    marker.style
+      ..display = 'inline-block'
+      ..width = '0'
+      ..height = '0'
+      ..margin = '0'
+      ..padding = '0'
+      ..verticalAlign = 'baseline';
+    probe.appendChild(marker);
+    _appendSpans(probe, spanScale: spanScale);
+    body.appendChild(probe);
+
+    final rect = probe.getBoundingClientRect();
+    final markerRect = marker.getBoundingClientRect();
+    final rawBaseline = markerRect.top - rect.top;
+    probe.remove();
+
+    final lineHeight = _snapUp(
+      scaledFontSize * (style.height ?? 1.2),
+      devicePixelRatio,
+    );
+    if (!rawBaseline.isFinite || rawBaseline <= 0) {
+      return math.min(_snapUp(fallback, devicePixelRatio), lineHeight);
+    }
+    return math.min(_snapUp(rawBaseline, devicePixelRatio), lineHeight);
+  }
+
+  _BrowserTextMetrics _measureWithBrowser({
+    required BoxConstraints constraints,
+    required TextStyle style,
+    required double scaledFontSize,
+    required double spanScale,
+    required TextDirection direction,
+    required double devicePixelRatio,
+  }) {
+    final body = web.document.body;
+    if (body == null) {
+      return _fallbackMetrics(
+        constraints: constraints,
+        style: style,
+        scaledFontSize: scaledFontSize,
+        direction: direction,
+        devicePixelRatio: devicePixelRatio,
+      );
+    }
+
+    final probe = web.document.createElement('div') as web.HTMLDivElement;
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style
+      ..position = 'fixed'
+      ..left = '-100000px'
+      ..top = '-100000px'
+      ..visibility = 'hidden'
+      ..pointerEvents = 'none'
+      ..margin = '0'
+      ..padding = '0'
+      ..height = 'auto'
+      ..boxSizing = 'border-box';
+
+    final tightWidth =
+        constraints.hasBoundedWidth &&
+        (constraints.maxWidth - constraints.minWidth).abs() < 0.001;
+    if (tightWidth) {
+      probe.style
+        ..width = '${constraints.maxWidth}px'
+        ..maxWidth = '${constraints.maxWidth}px';
+    } else {
+      probe.style.width = 'auto';
+      if (constraints.hasBoundedWidth) {
+        probe.style.maxWidth = '${constraints.maxWidth}px';
+      } else {
+        probe.style.maxWidth = 'none';
+      }
+      if (constraints.minWidth > 0) {
+        probe.style.minWidth = '${constraints.minWidth}px';
+      }
+    }
+
+    _applyBaseCss(
+      probe,
+      style: style,
+      scaledFontSize: scaledFontSize,
+      direction: direction,
+      fillWidth: false,
+      allowWrap: constraints.hasBoundedWidth,
+    );
+
+    // A zero-size inline block sits exactly on the first alphabetic
+    // baseline. Measuring it gives Flutter the same baseline Safari
+    // is actually using for the visible DOM text.
+    final baselineMarker =
+        web.document.createElement('span') as web.HTMLSpanElement;
+    baselineMarker.style
+      ..display = 'inline-block'
+      ..width = '0'
+      ..height = '0'
+      ..margin = '0'
+      ..padding = '0'
+      ..verticalAlign = 'baseline';
+    probe.appendChild(baselineMarker);
+    _appendSpans(probe, spanScale: spanScale);
+    body.appendChild(probe);
+
+    final rect = probe.getBoundingClientRect();
+    final markerRect = baselineMarker.getBoundingClientRect();
+    final rawWidth = math.max(rect.width, 1.0);
+    final rawHeight = math.max(
+      rect.height,
+      scaledFontSize * (style.height ?? 1.2),
+    );
+    final measuredWidth = constraints.constrainWidth(
+      _snapUp(rawWidth, devicePixelRatio),
+    );
+    final measuredHeight = constraints.constrainHeight(
+      _snapUp(rawHeight, devicePixelRatio),
+    );
+    final rawBaseline = markerRect.top - rect.top;
+    final measuredBaseline = rawBaseline.isFinite && rawBaseline > 0
+        ? math.min(_snapUp(rawBaseline, devicePixelRatio), measuredHeight)
+        : math.min(scaledFontSize * 0.82, measuredHeight);
+
+    probe.remove();
+    return _BrowserTextMetrics(
+      width: math.max(measuredWidth, 1.0),
+      height: math.max(measuredHeight, 1.0),
+      alphabeticBaseline: math.max(measuredBaseline, 0.0),
+    );
+  }
+
+  _BrowserTextMetrics _fallbackMetrics({
     required BoxConstraints constraints,
     required TextStyle style,
     required double scaledFontSize,
     required TextDirection direction,
+    required double devicePixelRatio,
   }) {
-    if (constraints.hasBoundedWidth) {
-      return math.max(constraints.maxWidth, 1);
-    }
-
-    final painter = TextPainter(
-      text: TextSpan(
-        text: widget.plainText,
-        style: style.copyWith(fontSize: scaledFontSize),
+    final painter =
+        TextPainter(
+          text: TextSpan(
+            text: widget.plainText,
+            style: style.copyWith(fontSize: scaledFontSize),
+          ),
+          maxLines: widget.maxLines,
+          ellipsis: widget.overflow == TextOverflow.ellipsis ? '…' : null,
+          textDirection: direction,
+          textAlign: widget.textAlign,
+          textHeightBehavior: widget.textHeightBehavior,
+        )..layout(
+          maxWidth: constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : double.infinity,
+        );
+    final width = constraints.constrainWidth(
+      _snapUp(math.max(painter.width, 1.0), devicePixelRatio),
+    );
+    final height = constraints.constrainHeight(
+      _snapUp(
+        math.max(painter.height, scaledFontSize * (style.height ?? 1.2)),
+        devicePixelRatio,
       ),
-      maxLines: 1,
-      textDirection: direction,
-    )..layout();
-    return math.max(painter.width.ceilToDouble() + 2, 1);
+    );
+    return _BrowserTextMetrics(
+      width: math.max(width, 1.0),
+      height: math.max(height, 1.0),
+      alphabeticBaseline: math.min(scaledFontSize * 0.82, height),
+    );
   }
 
-  double _estimateHeight({
-    required double width,
-    required TextStyle style,
-    required double scaledFontSize,
-    required TextDirection direction,
-  }) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: widget.plainText,
-        style: style.copyWith(fontSize: scaledFontSize),
-      ),
-      maxLines: widget.maxLines,
-      ellipsis: widget.overflow == TextOverflow.ellipsis ? '…' : null,
-      textDirection: direction,
-      textAlign: widget.textAlign,
-      textHeightBehavior: widget.textHeightBehavior,
-    )..layout(maxWidth: width);
-    final explicitLineHeight = scaledFontSize * (style.height ?? 1.2);
-    return math.max(painter.height, explicitLineHeight).ceilToDouble();
+  double _snapUp(double value, double devicePixelRatio) {
+    final ratio = devicePixelRatio <= 0 ? 1.0 : devicePixelRatio;
+    return (value * ratio).ceilToDouble() / ratio;
   }
 
   String _contentKey({
     required double width,
+    required double height,
     required TextStyle style,
     required double scaledFontSize,
     required TextDirection direction,
@@ -281,7 +511,9 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       style.hashCode,
       scaledFontSize,
       width,
+      height,
       widget.maxLines,
+      widget.softWrap,
       widget.overflow,
       widget.textAlign,
       direction,
@@ -293,10 +525,9 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     required web.HTMLDivElement root,
     required TextStyle style,
     required double scaledFontSize,
+    required double spanScale,
     required TextDirection direction,
   }) {
-    _resizeObserver?.disconnect();
-
     root.setAttribute('aria-hidden', 'true');
     root.style
       ..width = '100%'
@@ -305,7 +536,8 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       ..padding = '0'
       ..overflow = 'visible'
       ..backgroundColor = 'transparent'
-      ..pointerEvents = 'none';
+      ..pointerEvents = 'none'
+      ..boxSizing = 'border-box';
 
     final content = web.document.createElement('div') as web.HTMLDivElement;
     _applyBaseCss(
@@ -313,12 +545,18 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       style: style,
       scaledFontSize: scaledFontSize,
       direction: direction,
+      fillWidth: true,
+      allowWrap: true,
     );
+    _appendSpans(content, spanScale: spanScale);
+    root.appendChild(content);
+  }
 
+  void _appendSpans(web.HTMLElement parent, {required double spanScale}) {
     for (final span in widget.spans) {
       final element = web.document.createElement('span') as web.HTMLSpanElement;
       element.textContent = span.text;
-      _applySpanCss(element, span.style);
+      _applySpanCss(element, span.style, spanScale: spanScale);
       if (span.onTap != null) {
         element.style
           ..pointerEvents = 'auto'
@@ -332,22 +570,8 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
           }).toJS,
         );
       }
-      content.appendChild(element);
+      parent.appendChild(element);
     }
-    root.appendChild(content);
-
-    final observer = web.ResizeObserver(
-      (JSArray<web.ResizeObserverEntry> entries, web.ResizeObserver observer) {
-        if (!mounted || !root.isConnected) return;
-        final measured = content.getBoundingClientRect().height;
-        if (measured <= 0) return;
-        final nextHeight = measured.ceilToDouble();
-        if ((_measuredHeight ?? 0) == nextHeight) return;
-        setState(() => _measuredHeight = nextHeight);
-      }.toJS,
-    );
-    _resizeObserver = observer;
-    observer.observe(content);
   }
 
   void _applyBaseCss(
@@ -355,8 +579,12 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
     required TextStyle style,
     required double scaledFontSize,
     required TextDirection direction,
+    required bool fillWidth,
+    required bool allowWrap,
   }) {
     final css = element.style;
+    final singleLine = widget.maxLines == 1;
+    final canWrap = allowWrap && widget.softWrap != false && !singleLine;
     css
       ..fontFamily = _systemFontStack
       ..fontSize = '${scaledFontSize}px'
@@ -367,18 +595,21 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       ..color = _cssColor(style.color ?? const Color(0xFF000000))
       ..textAlign = _cssTextAlign(widget.textAlign, direction)
       ..direction = direction == TextDirection.rtl ? 'rtl' : 'ltr'
-      ..whiteSpace = widget.softWrap == false || widget.maxLines == 1
+      ..whiteSpace = singleLine
           ? 'nowrap'
-          : 'pre-wrap'
+          : canWrap
+          ? 'pre-wrap'
+          : 'pre'
       ..overflow =
           widget.overflow == null || widget.overflow == TextOverflow.visible
-              ? 'visible'
-              : 'hidden'
-      ..textOverflow =
-          widget.overflow == TextOverflow.ellipsis ? 'ellipsis' : 'clip'
-      ..overflowWrap = 'break-word'
+          ? 'visible'
+          : 'hidden'
+      ..textOverflow = widget.overflow == TextOverflow.ellipsis
+          ? 'ellipsis'
+          : 'clip'
+      ..overflowWrap = canWrap ? 'break-word' : 'normal'
       ..boxSizing = 'border-box'
-      ..width = '100%'
+      ..width = fillWidth ? '100%' : css.width
       ..margin = '0'
       ..padding = '0'
       ..backgroundColor = 'transparent'
@@ -392,25 +623,30 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       css.setProperty('-webkit-box-orient', 'vertical');
       css.setProperty('-webkit-line-clamp', '${widget.maxLines}');
     } else {
-      css.display = 'block';
+      css.display = fillWidth ? 'block' : 'inline-block';
     }
   }
 
-  void _applySpanCss(web.HTMLSpanElement element, TextStyle? style) {
+  void _applySpanCss(
+    web.HTMLSpanElement element,
+    TextStyle? style, {
+    required double spanScale,
+  }) {
     if (style == null) return;
     if (style.color != null) element.style.color = _cssColor(style.color!);
     if (style.fontWeight != null) {
       element.style.fontWeight = '${style.fontWeight!.value}';
     }
     if (style.fontStyle != null) {
-      element.style.fontStyle =
-          style.fontStyle == FontStyle.italic ? 'italic' : 'normal';
+      element.style.fontStyle = style.fontStyle == FontStyle.italic
+          ? 'italic'
+          : 'normal';
     }
     if (style.letterSpacing != null) {
       element.style.letterSpacing = '${style.letterSpacing}px';
     }
     if (style.fontSize != null) {
-      element.style.fontSize = '${style.fontSize}px';
+      element.style.fontSize = '${style.fontSize! * spanScale}px';
     }
     if (style.height != null) {
       element.style.lineHeight = '${style.height}';
@@ -424,7 +660,9 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
       if (decoration.contains(TextDecoration.lineThrough)) {
         values.add('line-through');
       }
-      if (decoration.contains(TextDecoration.overline)) values.add('overline');
+      if (decoration.contains(TextDecoration.overline)) {
+        values.add('overline');
+      }
       element.style.textDecoration = values.join(' ');
     }
   }
@@ -533,8 +771,8 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
   Widget build(BuildContext context) {
     final defaultStyle = DefaultTextStyle.of(context).style;
     final effectiveStyle = defaultStyle.merge(widget.style);
-    final fontSize =
-        MediaQuery.textScalerOf(context).scale(effectiveStyle.fontSize ?? 16);
+    final fontSize = MediaQuery.textScalerOf(context)
+        .scale(effectiveStyle.fontSize ?? 16);
     final lineHeight = fontSize * (effectiveStyle.height ?? 1.25);
     final minimumLines = math.max(widget.minLines ?? 1, 1);
     final initialLines = widget.maxLines == null
@@ -625,8 +863,9 @@ class _BrowserSystemTextFieldState extends State<BrowserSystemTextField> {
       ..fontFamily = _systemFontStack
       ..fontSize = '${scaledFontSize}px'
       ..fontWeight = '${effectiveStyle.fontWeight?.value ?? 400}'
-      ..fontStyle =
-          effectiveStyle.fontStyle == FontStyle.italic ? 'italic' : 'normal'
+      ..fontStyle = effectiveStyle.fontStyle == FontStyle.italic
+          ? 'italic'
+          : 'normal'
       ..lineHeight = '${effectiveStyle.height ?? 1.25}'
       ..letterSpacing = '${effectiveStyle.letterSpacing ?? 0}px'
       ..color = _cssColor(effectiveStyle.color ?? const Color(0xFF000000))
