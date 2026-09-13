@@ -1,0 +1,159 @@
+name: Integrate and verify DOM typography once
+on:
+  push:
+    branches: [ops/apply-system-font-dom-fix-20260913]
+    paths: [.github/workflows/apply-dom-typography-once.yml]
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-system-dom-all
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - name: Merge complete browser-system text layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main feat/web-system-text-all
+          set +e
+          git merge --no-commit --no-ff origin/feat/web-system-text-all
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            git checkout --theirs -- app/lib/core/typography/browser_system_text_web.dart
+            git add app/lib/core/typography/browser_system_text_web.dart
+          fi
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo 'Unexpected unresolved conflicts:'
+            git diff --name-only --diff-filter=U
+            exit 20
+          fi
+
+          # Force the reviewed DOM bridge/theme versions from the all-page migration.
+          git checkout origin/feat/web-system-text-all -- \
+            app/lib/core/design/wyn_theme.dart \
+            app/lib/core/design/wyn_typography.dart \
+            app/lib/core/typography/browser_system_picker.dart \
+            app/lib/core/typography/browser_system_picker_stub.dart \
+            app/lib/core/typography/browser_system_picker_web.dart \
+            app/lib/core/typography/browser_system_text.dart \
+            app/lib/core/typography/browser_system_text_stub.dart \
+            app/lib/core/typography/browser_system_text_web.dart \
+            app/lib/core/typography/native_emoji_stub.dart \
+            app/test/system_typography_ios_accessibility_test.dart
+
+          # Preserve the Founder's latest 3px Home rhythm from current main.
+          git checkout origin/main -- app/lib/features/home/presentation/widgets/home_card_metrics.dart
+
+          # Remove the forced bundled Noto workaround that caused the iPhone mismatch.
+          git rm -r --ignore-unmatch app/assets/fonts/NotoSansThai
+          git rm --ignore-unmatch app/test/web_typography_assets_test.dart
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('app/pubspec.yaml')
+          s = p.read_text()
+          s = s.replace('    - assets/fonts/NotoSansThai/OFL.txt\n', '')
+          s, n = re.subn(
+              r'\n  fonts:\n    # Web-only at runtime: WynTheme selects this family only when kIsWeb\.\n    # Native iOS/Android keep their platform system typography\.\n    - family: WYNWebNotoThai\n      fonts:\n        - asset: assets/fonts/NotoSansThai/NotoSansThai\[wdth,wght\]\.ttf\n',
+              '\n', s)
+          if n != 1:
+              raise SystemExit(f'Expected exactly one WYNWebNotoThai font block, removed {n}')
+          p.write_text(s)
+          PY
+
+          # Migration-only CI helpers must not ship in the product branch.
+          git rm --ignore-unmatch \
+            .github/workflows/apply-web-system-text-all-retry.yml \
+            .github/workflows/apply-web-system-text-all.yml \
+            .github/workflows/audit-web-system-text-all.yml \
+            .github/workflows/cleanup-gate-web-system-text-all.yml \
+            .github/workflows/fix-web-system-text-all-analyzer.yml \
+            .github/workflows/format-verify-system-text-layer.yml \
+            .github/workflows/verify-system-text-layer.yml
+
+          # Only format Dart files changed by this task.
+          mapfile -t files < <(git diff --name-only -- '*.dart' | grep '^app/' || true)
+          if [ ${#files[@]} -gt 0 ]; then dart format "${files[@]}"; fi
+          git add -A
+
+      - name: Gate forced fonts and legacy Flutter text surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -E 'WYNWebNotoThai|assets/fonts/NotoSansThai' -- app ':!app/build'; then
+            echo 'Forced bundled Web font remains.'
+            exit 30
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path('app/lib')
+          excluded = {
+            root/'core/typography/browser_system_text_stub.dart',
+            root/'core/typography/browser_system_text_web.dart',
+            root/'core/typography/browser_system_picker_stub.dart',
+            root/'core/typography/browser_system_picker_web.dart',
+          }
+          patterns = {
+            'Text': r'(?<![A-Za-z0-9_])Text(?:\.rich)?\s*\(',
+            'RichText': r'(?<![A-Za-z0-9_])RichText\s*\(',
+            'TextField': r'(?<![A-Za-z0-9_])TextField\s*\(',
+            'TextFormField': r'(?<![A-Za-z0-9_])TextFormField\s*\(',
+            'SelectableText': r'(?<![A-Za-z0-9_])SelectableText(?:\.rich)?\s*\(',
+            'Tooltip': r'(?<!BrowserSystem)(?<![A-Za-z0-9_])Tooltip\s*\(',
+            'showDatePicker': r'(?<![A-Za-z0-9_])showDatePicker\s*\(',
+            'showTimePicker': r'(?<![A-Za-z0-9_])showTimePicker\s*\(',
+            'SnackBarAction': r'(?<![A-Za-z0-9_])SnackBarAction\s*\(',
+            'Tab text': r'\bTab\s*\([^\)]*\btext\s*:',
+          }
+          compiled = {k: re.compile(v, re.S) for k,v in patterns.items()}
+          failures=[]
+          for p in sorted(root.rglob('*.dart')):
+            if p in excluded: continue
+            s=p.read_text()
+            for label,rx in compiled.items():
+              if rx.search(s): failures.append(f'{p}: {label}')
+            for m in re.finditer(r'\btooltip\s*:\s*([^,\n\)]+)', s):
+              if m.group(1).strip() != 'null':
+                failures.append(f'{p}: tooltip parameter')
+          if failures:
+            print('Legacy text surfaces remain:')
+            print('\n'.join(failures[:250]))
+            raise SystemExit(31)
+          print('Source gate passed: no legacy app-owned text surface found.')
+          PY
+      - name: Flutter analyze and full tests
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze
+          flutter test
+      - name: Production Web build typography gate
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter build web --release
+          test -f build/web/main.dart.js
+          grep -q 'Apple Color Emoji' build/web/main.dart.js
+          grep -q 'Thonburi' build/web/main.dart.js
+          ! grep -q 'WYNWebNotoThai' build/web/main.dart.js
+          ! test -e build/web/assets/assets/fonts/NotoSansThai
+      - name: Commit verified result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git status --short
+          git commit -m 'fix(web): use browser system typography across app'
+          git push origin HEAD:fix/web-system-dom-all
