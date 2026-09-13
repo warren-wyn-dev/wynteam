@@ -41,6 +41,13 @@ class DeepLinkService {
 
   static bool _handled = false;
 
+  // Guest browsing is paused product-wide. Keep signed-in deep-link handling
+  // intact, but do not silently manufacture an Anonymous Sign-In session just
+  // because a signed-out browser opened a shared URL. The database also
+  // enforces this boundary (WYN-157); this switch prevents the unwanted auth
+  // users/sessions from being created in the first place.
+  static const _anonymousDeepLinkBrowsingEnabled = false;
+
   /// Test-only: the "fires once per app load" guard is static (deep
   /// links aren't scoped to a widget instance the way most other
   /// per-session state in this app is), so it leaks across tests in the
@@ -68,19 +75,16 @@ class DeepLinkService {
   @visibleForTesting
   static bool? debugForceHasContentPath;
 
-  /// True when the browser's current URL points at a specific piece of
-  /// content this service knows how to open (drop/pop/club/club-post/
-  /// @username) -- used by [AuthGate] to decide whether a signed-out
-  /// visitor should be silently dropped into a guest (Anonymous Sign-In)
-  /// session instead of WelcomeScreen, so a shared link opens the
-  /// content it actually points at (WYN-119's Requirement 2) rather than
-  /// forcing a login first. Deliberately mirrors only the *shape check*
-  /// half of [_handle]'s routing -- never touches Supabase, never
-  /// navigates -- so it is safe to call from a build() method on every
-  /// rebuild.
+  /// True only when signed-out deep-link guest browsing is enabled and the
+  /// browser URL points at a known content route. Guest browsing is currently
+  /// paused, so production returns false and [AuthGate] shows the normal auth
+  /// entry instead of calling Anonymous Sign-In. [debugForceHasContentPath]
+  /// remains first so existing isolated tests can still exercise AuthGate's
+  /// historical guest branch without changing production behavior.
   static bool hasContentPath() {
     final forced = debugForceHasContentPath;
     if (forced != null) return forced;
+    if (!_anonymousDeepLinkBrowsingEnabled) return false;
     if (!kIsWeb) return false;
     final segments =
         Uri.base.path.split('/').where((s) => s.isNotEmpty).toList();
