@@ -32,12 +32,14 @@ export function AppChrome({
   userId,
   backHref,
   actions,
+  headerMode = "standard",
   children,
 }: {
   title: string;
   userId: string;
   backHref?: string;
   actions?: React.ReactNode;
+  headerMode?: "standard" | "hidden" | "overlay";
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -52,17 +54,19 @@ export function AppChrome({
     : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <div className="route-app">
+    <div className={`route-app route-app-header-${headerMode}`}>
       <main className="route-main">
-        <header className="route-header">
-          <div className="route-title-row">
-            {backHref ? (
-              <Link className="route-icon-link" href={backHref} aria-label="ย้อนกลับ"><ChevronLeft size={24} strokeWidth={1.8} /></Link>
-            ) : <span className="route-header-slot" />}
-            <h1>{title}</h1>
-            <div className="route-header-actions">{actions}</div>
-          </div>
-        </header>
+        {headerMode !== "hidden" ? (
+          <header className={`route-header route-header-${headerMode}`}>
+            <div className="route-title-row">
+              {backHref ? (
+                <Link className="route-icon-link" href={backHref} aria-label="ย้อนกลับ"><ChevronLeft size={headerMode === "overlay" ? 32 : 24} strokeWidth={1.8} /></Link>
+              ) : <span className="route-header-slot" />}
+              <h1>{title}</h1>
+              <div className="route-header-actions">{actions}</div>
+            </div>
+          </header>
+        ) : null}
         {children}
       </main>
       <nav className="route-bottom-nav" aria-label="เมนูหลัก">
