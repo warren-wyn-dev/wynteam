@@ -25,13 +25,6 @@ export type DropCommentRow = {
   liked_by_me: boolean;
 };
 
-type ImageMetadata = {
-  image_url: string;
-  position: number;
-  image_width: number;
-  image_height: number;
-};
-
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
 }
@@ -346,91 +339,4 @@ export async function toggleDropCommentLike(
     { onConflict: "comment_id,user_id", ignoreDuplicates: true },
   );
   throwIfError(error);
-}
-
-function extensionFor(file: File): string {
-  const fromName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
-  if (fromName) return fromName;
-  if (file.type === "image/png") return "png";
-  if (file.type === "image/webp") return "webp";
-  if (file.type === "image/heic" || file.type === "image/heif") return "heic";
-  return "jpg";
-}
-
-async function imageDimensions(file: File): Promise<{ width: number; height: number }> {
-  const url = URL.createObjectURL(file);
-  try {
-    const image = new Image();
-    const loaded = new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error("อ่านขนาดรูปไม่สำเร็จ"));
-    });
-    image.src = url;
-    await loaded;
-    return { width: image.naturalWidth || 1, height: image.naturalHeight || 1 };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-export async function publishDrop(
-  client: SupabaseClient,
-  userId: string,
-  input: { caption: string; files: File[] },
-): Promise<string> {
-  const caption = input.caption.trim();
-  const files = input.files.slice(0, 9);
-  if (!caption && !files.length) throw new Error("Drop ต้องมีข้อความหรือรูปภาพ");
-  if (caption.length > 500) throw new Error("ข้อความยาวเกิน 500 ตัวอักษร");
-
-  const operationId = crypto.randomUUID();
-  const uploadedPaths: string[] = [];
-  const metadata: ImageMetadata[] = [];
-
-  try {
-    for (let index = 0; index < files.length; index += 1) {
-      const file = files[index];
-      const path = `${userId}/publications/${operationId}/${index}.${extensionFor(file)}`;
-      const dimensions = await imageDimensions(file);
-      const uploaded = await client.storage.from("drop-images").upload(path, file, {
-        cacheControl: "31536000",
-        contentType: file.type || undefined,
-        upsert: false,
-      });
-      throwIfError(uploaded.error);
-      uploadedPaths.push(path);
-      const { data } = client.storage.from("drop-images").getPublicUrl(path);
-      metadata.push({
-        image_url: data.publicUrl,
-        position: index,
-        image_width: dimensions.width,
-        image_height: dimensions.height,
-      });
-    }
-
-    const primary = metadata[0];
-    const result = await client.rpc("publish_drop", {
-      p_operation_id: operationId,
-      p_image_url: primary?.image_url ?? null,
-      p_caption: caption || null,
-      p_audience: "everyone",
-      p_excluded_friend_ids: [],
-      p_images: metadata,
-      p_mentioned_user_ids: [],
-      p_location: null,
-      p_location_lat: null,
-      p_location_lon: null,
-      p_location_place_id: null,
-      p_image_width: primary?.image_width ?? null,
-      p_image_height: primary?.image_height ?? null,
-      p_image_aspect_ratio: null,
-    });
-    throwIfError(result.error);
-    return String(result.data);
-  } catch (error) {
-    if (uploadedPaths.length) {
-      await client.storage.from("drop-images").remove(uploadedPaths);
-    }
-    throw error;
-  }
 }
