@@ -10,6 +10,7 @@ import "./parity-auth-email.css";
 import "./parity-final.css";
 import "./parity-fixes.css";
 import "./parity-completion.css";
+import "./parity-closure.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
