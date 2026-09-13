@@ -40,7 +40,7 @@ test("Welcome continues to the original auth-method and email flows", async ({ p
 
 test("source contracts cannot regress to the staged migration UI", async () => {
   const root = process.cwd();
-  const [gate, auth, home, pageSource, routeUi, finalCss, completionCss, closureCss, search, profile, chat, notifications, settings, drawerRoutes] = await Promise.all([
+  const [gate, auth, home, pageSource, routeUi, finalCss, completionCss, closureCss, postDetailCss, search, profile, chat, notifications, settings, drawerRoutes, postDetail, dropPage] = await Promise.all([
     readFile(path.join(root, "components/developer-route-gate.tsx"), "utf8"),
     readFile(path.join(root, "components/parity-auth-entry.tsx"), "utf8"),
     readFile(path.join(root, "components/parity-home.tsx"), "utf8"),
@@ -49,12 +49,15 @@ test("source contracts cannot regress to the staged migration UI", async () => {
     readFile(path.join(root, "app/parity-final.css"), "utf8"),
     readFile(path.join(root, "app/parity-completion.css"), "utf8"),
     readFile(path.join(root, "app/parity-closure.css"), "utf8"),
+    readFile(path.join(root, "app/post-detail-parity.css"), "utf8"),
     readFile(path.join(root, "components/search-route.tsx"), "utf8"),
     readFile(path.join(root, "components/profile-route.tsx"), "utf8"),
     readFile(path.join(root, "components/chat-routes.tsx"), "utf8"),
     readFile(path.join(root, "components/notifications-route.tsx"), "utf8"),
     readFile(path.join(root, "components/settings-route.tsx"), "utf8"),
     readFile(path.join(root, "components/drawer-route-adapter.tsx"), "utf8"),
+    readFile(path.join(root, "components/post-detail-route.tsx"), "utf8"),
+    readFile(path.join(root, "app/drop/[id]/page.tsx"), "utf8"),
   ]);
 
   expect(gate).not.toContain("is_developer_account");
@@ -95,6 +98,16 @@ test("source contracts cannot regress to the staged migration UI", async () => {
   for (const [label, href] of [["สำรวจ Club", "/clubs"], ["สร้าง Club", "/clubs/new"], ["Club ของฉัน", "/clubs?mine=1"], ["บันทึกไว้", "/bookmarks"]]) {
     expect(drawerRoutes).toContain(`"${label}": "${href}"`);
   }
+
+  expect(dropPage).toContain("PostDetailRoute");
+  for (const label of ["ความคิดเห็น", "แชร์โพสต์", "ดูกิจกรรม", "กิจกรรมโพสต์", "ถูกใจ", "รีโพสต์", "ตอบกลับ", "ดูคอมเมนต์เพิ่มเติม"]) expect(postDetail).toContain(label);
+  expect(postDetail).not.toContain('>ทั้งหมด<');
+  expect(postDetail).toContain('showBottomNav={false}');
+  expect(postDetail).toContain('from("drop_images")');
+  expect(postDetailCss).toContain("height: 54px");
+  expect(postDetailCss).toContain("height: 46px");
+  expect(postDetailCss).toContain("border-radius: 18px");
+  expect(postDetailCss).toContain("grid-template-columns: repeat(5, 1fr)");
 
   for (const metric of [
     "--wyn-social-header: 60px",
