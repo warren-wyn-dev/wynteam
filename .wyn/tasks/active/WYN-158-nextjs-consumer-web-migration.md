@@ -6,7 +6,7 @@ Owner: Founder
 
 ## Founder approval
 
-Founder approved moving the consumer web frontend toward **Next.js/React + browser/OS system fonts + the existing Supabase backend**, while preserving the current WYNOS UX/UI. Founder explicitly approved **starting Phase 5** on 2026-09-13. The actual `wynos.online` production alias switch remains protected by the Phase 5 real-device gate and the dedicated double-confirmed cutover workflow.
+Founder approved moving the consumer web frontend toward **Next.js/React + browser/OS system fonts + the existing Supabase backend**, while preserving the current WYNOS UX/UI. Founder explicitly approved **starting Phase 5** on 2026-09-13. Founder confirmed the **physical iPhone Safari release-candidate gate passed** on 2026-09-13. The actual `wynos.online` production alias switch remains protected by the dedicated double-confirmed cutover workflow.
 
 ## Approved direction
 
@@ -14,7 +14,7 @@ Build the consumer web in `web/` with Next.js + React. Keep Supabase Auth/RLS/RP
 
 ## Rollout boundary
 
-1. Flutter `app/` and current Production remain unchanged until the Phase 5 cutover gate is satisfied.
+1. Flutter `app/` and current Production remain unchanged until the Phase 5 production cutover is deliberately executed.
 2. New consumer web stays developer/staging-only until the production switch is explicitly executed.
 3. Production domain cutover is Phase 5 and uses a separate manual workflow with explicit confirmation.
 4. No automatic rollback of WYNOS versions or production deployments.
@@ -73,10 +73,11 @@ Founder explicitly approved starting Phase 5 on 2026-09-13.
 
 - Phase 5 cutover-readiness infrastructure merged through PR #415.
 - Hosted Vercel Preview browser QA hardened and merged through PR #416 at `68b04d3321b9e39032b46a8f601e9ef4cf812b76`.
+- Release-candidate hardening and the physical-iPhone checklist merged through PR #417 at `9a296f22db8ced79c1cd8d94a3f6f0e3c18156b0`.
 - The deployed preview passed route smoke checks and the full Playwright suite against the hosted Vercel deployment across iPhone-like WebKit, Android Chromium and desktop Chromium.
 - Vercel Deployment Protection remains enabled. CI creates a masked temporary automation bypass only for hosted QA and revokes it at the end of the run.
-- Consumer Web lint/type/build, Phase 4 browser QA, hosted Phase 5 QA and full repository CI all passed on the reviewed PR head before merge.
-- No production alias was moved during readiness or hosted QA. `wynos.online` still serves the current Flutter production deployment.
+- Consumer Web lint/type/build, Phase 4 browser QA, hosted Phase 5 QA and full repository CI all passed on the reviewed release-candidate head before merge.
+- No production alias was moved during readiness or hosted QA. `wynos.online` still serves the current Flutter production deployment until the production workflow is deliberately executed.
 
 ### Cutover architecture
 
@@ -85,15 +86,15 @@ Founder explicitly approved starting Phase 5 on 2026-09-13.
 - The production workflow runs lint/type/build preflight before deployment and verifies after deployment that core `wynos.online` routes respond, Next.js assets are present, and the legacy Flutter bootstrap is absent.
 - Neither workflow performs an automatic rollback. If a production regression is found, preserve evidence and wait for Founder-directed recovery.
 
-### Required gate before production switch
+### Production cutover gate
 
 1. Phase 5 preview workflow succeeds against the existing Vercel project. **PASS**
 2. Hosted preview smoke + Playwright/WebKit/Chromium QA succeeds against the deployed Vercel preview. **PASS**
-3. Preview is tested on a **real iPhone in Safari** for layout, safe areas, scrolling, media behavior, typography, authentication and reload/crash stability. **PENDING**
-4. Any real-device blocker is fixed and the preview/CI gates are green again. **PENDING only if a blocker is found**
-5. Only after real-device QA passes may the production workflow be run with both confirmations.
-6. After cutover, verify `wynos.online` core routes and normal signed-in flows before Phase 5 is marked complete.
+3. Preview is tested on a **real iPhone in Safari** for layout, safe areas, scrolling, media behavior, typography, authentication and reload/crash stability. **PASS — Founder confirmed 2026-09-13**
+4. Any real-device blocker is fixed and the preview/CI gates are green again. **N/A — no blocker reported in the passing gate**
+5. Production workflow may now be run from `main` with exact confirmations `CUTOVER-WYNOS-ONLINE` and `IPHONE-PASS`. **READY**
+6. After cutover, verify `wynos.online` core routes and normal signed-in flows before Phase 5 is marked complete. **PENDING**
 
 ### Current production state
 
-Until the production workflow is deliberately executed, `wynos.online` remains on the current Flutter Web deployment. The Flutter source is not deleted or reverted as part of Phase 5 readiness work.
+The real-device gate is complete. Until the production workflow is deliberately executed, `wynos.online` remains on the current Flutter Web deployment. The Flutter source is not deleted or reverted as part of Phase 5 readiness work.
