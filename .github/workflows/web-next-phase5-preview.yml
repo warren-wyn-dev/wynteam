@@ -67,8 +67,10 @@ jobs:
             --token="$VERCEL_TOKEN" \
             --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --build-env VERCEL_PREVIEW_FEEDBACK_ENABLED=0 \
             --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --env VERCEL_PREVIEW_FEEDBACK_ENABLED=0 \
             | tail -n 1)
 
           test -n "$url"
@@ -77,6 +79,8 @@ jobs:
             echo "## Phase 5 Next.js preview"
             echo
             echo "Preview URL: $url"
+            echo
+            echo "Vercel Preview Toolbar is disabled for this CI deployment so hosted QA exercises the consumer app rather than preview-feedback tooling. Deployment Protection remains enabled."
             echo
             echo "This is a preview deployment only. The production alias was not changed."
           } >> "$GITHUB_STEP_SUMMARY"
