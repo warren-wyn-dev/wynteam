@@ -1,0 +1,25 @@
+name: Probe DOM typography merge once
+on:
+  push:
+    branches: [ops/apply-system-font-dom-fix-20260913]
+    paths: [.github/workflows/probe-dom-merge-once.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-system-dom-all
+          fetch-depth: 0
+      - name: Probe merge conflicts
+        shell: bash
+        run: |
+          set -u
+          git fetch origin main feat/web-system-text-all
+          git merge --no-commit --no-ff origin/feat/web-system-text-all || true
+          echo '=== UNMERGED ==='
+          git diff --name-only --diff-filter=U
+          echo '=== COUNT ==='
+          git diff --name-only --diff-filter=U | wc -l
