@@ -48,7 +48,7 @@ jobs:
       - name: Browser QA in Chromium and WebKit
         shell: bash
         run: |
-          cat > /tmp/wynos-qa.js <<'NODE'
+          cat > wynos-qa.js <<'NODE'
           const { chromium, webkit } = require('playwright');
           const fs = require('fs');
           const path = require('path');
@@ -94,19 +94,16 @@ jobs:
               return data;
             }
 
-            // Fresh production boot.
             let start = Date.now();
             await page.goto('https://wynos.online/', { waitUntil: 'domcontentloaded', timeout: 45000 });
             await page.waitForTimeout(12000);
             await snapshot('root');
             if (Date.now() - start > 40000) push('warning', 'root boot exceeded 40s');
 
-            // Direct deep-link probe: path strategy requires SPA fallback.
             await page.goto('https://wynos.online/__qa_deep_link_probe__', { waitUntil: 'domcontentloaded', timeout: 45000 });
             await page.waitForTimeout(6000);
             await snapshot('deep-link');
 
-            // Invalid PKCE callback must fail once, never reload/loop/crash indefinitely.
             mainFrameNavigations = 0; loadEvents = 0; events.length = 0;
             await page.goto('https://wynos.online/?code=WYNOS_QA_INVALID_AUTH_CODE', { waitUntil: 'domcontentloaded', timeout: 45000 });
             await page.waitForTimeout(15000);
@@ -118,7 +115,6 @@ jobs:
               throw new Error(`${name}: page crashed during callback handling`);
             }
 
-            // Reload the same stale callback once to mimic Safari reopening/restoring the tab.
             mainFrameNavigations = 0; loadEvents = 0; events.length = 0;
             await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
             await page.waitForTimeout(10000);
@@ -143,7 +139,7 @@ jobs:
             }
           })();
           NODE
-          node /tmp/wynos-qa.js
+          node wynos-qa.js
 
       - name: Upload QA artifacts
         if: always()
