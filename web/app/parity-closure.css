@@ -1,0 +1,14 @@
+/* Final WYN-158 closure surfaces that are intentionally separate from the base migration CSS. */
+.profile-recommendations { padding: 8px 0 0; background: var(--paper); }
+.profile-recommendations > h2 { margin: 0; padding: 0 16px 8px; font-size: 14px; font-weight: 700; }
+.profile-recommendation-scroll { height: 210px; display: flex; gap: 16px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; padding: 0 16px 14px; scrollbar-width: none; }
+.profile-recommendation-scroll::-webkit-scrollbar { display: none; }
+.profile-recommendation-card { position: relative; flex: 0 0 132px; width: 132px; height: 190px; padding: 12px; border: 1px solid var(--hairline); border-radius: 14px; background: var(--paper); display: flex; flex-direction: column; align-items: center; scroll-snap-align: start; }
+.recommendation-dismiss { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--graphite); }
+.recommendation-person { width: 100%; padding: 12px 0 0; border: 0; background: transparent; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+.recommendation-person strong, .recommendation-person small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recommendation-person strong { margin-top: 5px; font-size: 13.5px; }
+.recommendation-person small { color: var(--graphite); font-size: 11.5px; }
+.recommendation-follow { margin-top: auto; width: 100%; min-height: 34px; border: 1px solid var(--ink); border-radius: 999px; background: var(--ink); color: var(--paper); font-size: 12px; font-weight: 650; }
+.recommendation-follow.soft { background: var(--surface-tint, #f1efe9); color: var(--ink); border-color: var(--hairline); }
+.settings-version-footer { margin: 18px 0 0; padding: 0 16px 24px; text-align: center; color: var(--faint); font-size: 12px; }
