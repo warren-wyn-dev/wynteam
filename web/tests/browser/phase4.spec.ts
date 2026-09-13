@@ -66,7 +66,11 @@ test("consumer routes render without fatal errors or horizontal overflow", async
 
   for (const route of routes) {
     currentRoute = route;
-    const response = await page.goto(route, { waitUntil: "domcontentloaded" });
+    // Hosted previews can still be hydrating and fetching immutable chunks after
+    // DOMContentLoaded. Waiting for network idle prevents the next deliberate
+    // navigation from cancelling the previous route's own Next.js resources and
+    // turning that cancellation into a misleading WebKit pageerror.
+    const response = await page.goto(route, { waitUntil: "networkidle" });
     expect(response, `${route} should return a document response`).not.toBeNull();
     expect(response!.status(), `${route} should not return a server error`).toBeLessThan(500);
     await expect(page.locator("body")).toBeVisible();
