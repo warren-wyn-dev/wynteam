@@ -69,6 +69,15 @@ Automated WebKit emulation is not physical-device confirmation.
 
 Founder explicitly approved starting Phase 5 on 2026-09-13.
 
+### Hosted readiness completed
+
+- Phase 5 cutover-readiness infrastructure merged through PR #415.
+- Hosted Vercel Preview browser QA hardened and merged through PR #416 at `68b04d3321b9e39032b46a8f601e9ef4cf812b76`.
+- The deployed preview passed route smoke checks and the full Playwright suite against the hosted Vercel deployment across iPhone-like WebKit, Android Chromium and desktop Chromium.
+- Vercel Deployment Protection remains enabled. CI creates a masked temporary automation bypass only for hosted QA and revokes it at the end of the run.
+- Consumer Web lint/type/build, Phase 4 browser QA, hosted Phase 5 QA and full repository CI all passed on the reviewed PR head before merge.
+- No production alias was moved during readiness or hosted QA. `wynos.online` still serves the current Flutter production deployment.
+
 ### Cutover architecture
 
 - `.github/workflows/web-next-phase5-preview.yml` deploys the Next.js consumer web to the **existing Vercel production project as a preview deployment only**. It reuses the existing Vercel project/org/token secrets and Supabase public configuration, and does not move the `wynos.online` production alias.
@@ -78,11 +87,12 @@ Founder explicitly approved starting Phase 5 on 2026-09-13.
 
 ### Required gate before production switch
 
-1. Phase 5 preview workflow succeeds against the existing Vercel project.
-2. Preview is tested on a **real iPhone in Safari** for layout, safe areas, scrolling, media behavior, typography, authentication and reload/crash stability.
-3. Any preview blocker is fixed and the preview/CI gates are green again.
-4. Only after real-device QA passes may the production workflow be run with both confirmations.
-5. After cutover, verify `wynos.online` core routes and normal signed-in flows before Phase 5 is marked complete.
+1. Phase 5 preview workflow succeeds against the existing Vercel project. **PASS**
+2. Hosted preview smoke + Playwright/WebKit/Chromium QA succeeds against the deployed Vercel preview. **PASS**
+3. Preview is tested on a **real iPhone in Safari** for layout, safe areas, scrolling, media behavior, typography, authentication and reload/crash stability. **PENDING**
+4. Any real-device blocker is fixed and the preview/CI gates are green again. **PENDING only if a blocker is found**
+5. Only after real-device QA passes may the production workflow be run with both confirmations.
+6. After cutover, verify `wynos.online` core routes and normal signed-in flows before Phase 5 is marked complete.
 
 ### Current production state
 
