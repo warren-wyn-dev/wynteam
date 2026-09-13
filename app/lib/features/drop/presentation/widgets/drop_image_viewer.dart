@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -119,12 +120,13 @@ class _DropImageViewerState extends State<DropImageViewer> {
                     button: true,
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: const Icon(Icons.close, size: 22, color: WynColors.paper),
+                      icon: const Icon(Icons.close,
+                          size: 22, color: WynColors.paper),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
                   Expanded(
-                    child: Text(
+                    child: BrowserSystemText(
                       '${_currentIndex + 1} / ${widget.imageUrls.length}',
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -144,7 +146,8 @@ class _DropImageViewerState extends State<DropImageViewer> {
                 onPageChanged: (index) => setState(() => _currentIndex = index),
                 itemBuilder: (context, index) => InteractiveViewer(
                   child: Center(
-                    child: Image.network(widget.imageUrls[index],
+                    child: Image.network(
+                      widget.imageUrls[index],
                       errorBuilder: networkImageErrorBuilder,
                     ),
                   ),
@@ -153,7 +156,8 @@ class _DropImageViewerState extends State<DropImageViewer> {
             ),
             if (widget.imageUrls.length > 1)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+                padding:
+                    const EdgeInsets.symmetric(vertical: WynSpacing.space3),
                 child: Semantics(
                   label:
                       'รูปที่ ${_currentIndex + 1} จาก ${widget.imageUrls.length}',
@@ -180,7 +184,10 @@ class _DropImageViewerState extends State<DropImageViewer> {
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                WynSpacing.space6, 0, WynSpacing.space6, WynSpacing.space8,
+                WynSpacing.space6,
+                0,
+                WynSpacing.space6,
+                WynSpacing.space8,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -195,7 +202,9 @@ class _DropImageViewerState extends State<DropImageViewer> {
                       icon: WynHeartIcon(
                         filled: _drop.likedByMe,
                         size: 22,
-                        color: _drop.likedByMe ? WynColors.iconLikeActive : WynColors.paper,
+                        color: _drop.likedByMe
+                            ? WynColors.iconLikeActive
+                            : WynColors.paper,
                       ),
                       onPressed: _toggleLike,
                     ),
@@ -206,7 +215,8 @@ class _DropImageViewerState extends State<DropImageViewer> {
                     button: true,
                     excludeSemantics: true,
                     child: IconButton(
-                      icon: const Icon(Icons.send_outlined, size: 20, color: WynColors.paper),
+                      icon: const Icon(Icons.send_outlined,
+                          size: 20, color: WynColors.paper),
                       onPressed: _share,
                     ),
                   ),
@@ -219,9 +229,13 @@ class _DropImageViewerState extends State<DropImageViewer> {
                     excludeSemantics: true,
                     child: IconButton(
                       icon: Icon(
-                        _drop.savedByMe ? Icons.bookmark : Icons.bookmark_border,
+                        _drop.savedByMe
+                            ? Icons.bookmark
+                            : Icons.bookmark_border,
                         size: 20,
-                        color: _drop.savedByMe ? WynColors.sapphire : WynColors.paper,
+                        color: _drop.savedByMe
+                            ? WynColors.sapphire
+                            : WynColors.paper,
                       ),
                       onPressed: _toggleSave,
                     ),

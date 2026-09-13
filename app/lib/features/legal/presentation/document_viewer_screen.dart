@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -42,8 +43,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       _error = null;
     });
     try {
-      final document =
-          await widget.platformDocumentRepository.fetchLatest(widget.documentType);
+      final document = await widget.platformDocumentRepository
+          .fetchLatest(widget.documentType);
       if (!mounted) return;
       setState(() => _document = document);
     } catch (_) {
@@ -58,7 +59,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   Widget build(BuildContext context) {
     final document = _document;
     return Scaffold(
-      appBar: AppBar(title: Text(document?.title ?? '')),
+      appBar: AppBar(title: BrowserSystemText(document?.title ?? '')),
       body: _buildBody(document),
     );
   }
@@ -73,9 +74,10 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -88,14 +90,14 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          BrowserSystemText(
             'เวอร์ชัน ${document.version} · มีผลตั้งแต่ ${dateLabel(document.effectiveAt)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.outline,
                 ),
           ),
           const SizedBox(height: WynSpacing.space4),
-          Text(
+          BrowserSystemText(
             document.content,
             style: Theme.of(context).textTheme.bodyMedium,
           ),

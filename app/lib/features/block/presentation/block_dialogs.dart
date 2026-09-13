@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -13,7 +14,8 @@ import '../../../core/widgets/action_sheet_row.dart';
 /// unblock isn't the consequential action block is (WYN-027 Design,
 /// Screen 5's own "reversible but still consequential" framing is about
 /// block specifically).
-Future<bool> confirmBlock(BuildContext context, {required String username}) async {
+Future<bool> confirmBlock(BuildContext context,
+    {required String username}) async {
   final confirmed = await showModalBottomSheet<bool>(
     context: context,
     builder: (sheetContext) => SafeArea(
@@ -23,23 +25,29 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
           const SheetDragHandle(),
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              WynSpacing.space6, 0, WynSpacing.space6, WynSpacing.space4,
+              WynSpacing.space6,
+              0,
+              WynSpacing.space6,
+              WynSpacing.space4,
             ),
             child: Column(
               children: [
-                const Icon(Icons.error_outline, size: 28, color: WynColors.sapphire),
+                const Icon(Icons.error_outline,
+                    size: 28, color: WynColors.sapphire),
                 const SizedBox(height: WynSpacing.space3),
-                Text(
+                BrowserSystemText(
                   'บล็อก @$username?',
                   textAlign: TextAlign.center,
-                  style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
+                  style: WynTypography.screenTitle(
+                      fontSize: 16, color: WynColors.ink),
                 ),
                 const SizedBox(height: WynSpacing.space2),
-                const Text(
+                const BrowserSystemText(
                   'คุณจะไม่เห็นเนื้อหาของกันและกันอีกต่อไป การติดตามระหว่างกัน '
                   '(ถ้ามี) จะถูกยกเลิกทันที ยกเลิกการบล็อกได้ภายหลังที่ตั้งค่า',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),
+                  style: TextStyle(
+                      fontSize: 13, color: WynColors.graphite, height: 1.4),
                 ),
               ],
             ),
@@ -52,7 +60,7 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () => Navigator.of(sheetContext).pop(true),
-                    child: const Text('บล็อก'),
+                    child: const BrowserSystemText('บล็อก'),
                   ),
                 ),
                 const SizedBox(height: WynSpacing.space2 + 2),
@@ -64,7 +72,7 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
                       side: const BorderSide(color: WynColors.hairline),
                     ),
                     onPressed: () => Navigator.of(sheetContext).pop(false),
-                    child: const Text('ยกเลิก'),
+                    child: const BrowserSystemText('ยกเลิก'),
                   ),
                 ),
               ],
@@ -78,23 +86,24 @@ Future<bool> confirmBlock(BuildContext context, {required String username}) asyn
   return confirmed ?? false;
 }
 
-Future<bool> confirmUnblock(BuildContext context, {required String username}) async {
+Future<bool> confirmUnblock(BuildContext context,
+    {required String username}) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text('เลิกบล็อก @$username?'),
-      content: const Text(
+      title: BrowserSystemText('เลิกบล็อก @$username?'),
+      content: const BrowserSystemText(
         'คุณจะเห็นเนื้อหาของกันและกันได้อีกครั้ง — การติดตามเดิม (ถ้ามี) '
         'จะไม่กลับมาอัตโนมัติ',
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('ยกเลิก'),
+          child: const BrowserSystemText('ยกเลิก'),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('เลิกบล็อก'),
+          child: const BrowserSystemText('เลิกบล็อก'),
         ),
       ],
     ),

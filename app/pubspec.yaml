@@ -69,10 +69,3 @@ flutter:
     - assets/images/wynos_logo_mark.png
     # Distributed with the bundled web font to satisfy SIL OFL 1.1 notice
     # requirements. The font itself is declared below under `fonts`.
-    - assets/fonts/NotoSansThai/OFL.txt
-  fonts:
-    # Web-only at runtime: WynTheme selects this family only when kIsWeb.
-    # Native iOS/Android keep their platform system typography.
-    - family: WYNWebNotoThai
-      fonts:
-        - asset: assets/fonts/NotoSansThai/NotoSansThai[wdth,wght].ttf

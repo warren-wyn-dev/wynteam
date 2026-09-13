@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_spacing.dart';
@@ -43,9 +44,8 @@ class PollCard extends StatelessWidget {
 
   String get _statusLabel {
     final votes = totalVotes;
-    final voteCountLabel = votes == null
-        ? null
-        : (votes == 0 ? 'ยังไม่มีใครโหวต' : '$votes โหวต');
+    final voteCountLabel =
+        votes == null ? null : (votes == 0 ? 'ยังไม่มีใครโหวต' : '$votes โหวต');
     final timeLabel = _isClosed ? 'โพลปิดแล้ว' : _remainingLabel();
     if (voteCountLabel == null) return timeLabel;
     return '$voteCountLabel · $timeLabel';
@@ -82,7 +82,7 @@ class PollCard extends StatelessWidget {
               const SizedBox(height: WynSpacing.space2),
           ],
           const SizedBox(height: WynSpacing.space2),
-          Text(
+          BrowserSystemText(
             _statusLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -115,7 +115,8 @@ class _PollOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final percentValue = percent;
-    final percentLabel = percentValue == null ? '' : ', ${percentValue.round()}%';
+    final percentLabel =
+        percentValue == null ? '' : ', ${percentValue.round()}%';
 
     return Semantics(
       label: isMine
@@ -150,7 +151,8 @@ class _PollOption extends StatelessWidget {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: WynSpacing.space3),
                 child: Row(
                   children: [
                     if (isMine) ...[
@@ -158,10 +160,11 @@ class _PollOption extends StatelessWidget {
                       const SizedBox(width: WynSpacing.space1),
                     ],
                     Expanded(
-                      child: Text(text, overflow: TextOverflow.ellipsis),
+                      child: BrowserSystemText(text,
+                          overflow: TextOverflow.ellipsis),
                     ),
                     if (percent != null)
-                      Text(
+                      BrowserSystemText(
                         '${percent!.round()}%',
                         style: Theme.of(context).textTheme.labelMedium,
                       ),

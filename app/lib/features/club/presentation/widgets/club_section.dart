@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../auth/presentation/widgets/guest_gate.dart';
@@ -125,14 +126,16 @@ class _ClubSectionState extends State<ClubSection> {
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
           child: Row(
             children: [
-              Text(
+              BrowserSystemText(
                 'CLUB',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
               const Spacer(),
-              TextButton(onPressed: _openMyClubs, child: const Text('ดูทั้งหมด')),
+              TextButton(
+                  onPressed: _openMyClubs,
+                  child: const BrowserSystemText('ดูทั้งหมด')),
             ],
           ),
         ),
@@ -145,13 +148,13 @@ class _ClubSectionState extends State<ClubSection> {
               OutlinedButton.icon(
                 onPressed: _openCreateClub,
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('สร้าง Club'),
+                label: const BrowserSystemText('สร้าง Club'),
               ),
               const SizedBox(width: WynSpacing.space2),
               OutlinedButton.icon(
                 onPressed: _openExploreClubs,
                 icon: const Icon(Icons.explore_outlined, size: 18),
-                label: const Text('สำรวจ Club'),
+                label: const BrowserSystemText('สำรวจ Club'),
               ),
             ],
           ),
@@ -182,7 +185,7 @@ class _ClubSectionState extends State<ClubSection> {
           return const Padding(
             padding: EdgeInsets.symmetric(horizontal: WynSpacing.space3),
             child: Center(
-              child: Text(
+              child: BrowserSystemText(
                 'ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ',
                 textAlign: TextAlign.center,
               ),
@@ -211,7 +214,7 @@ class _ClubSectionState extends State<ClubSection> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            child: Text(
+            child: BrowserSystemText(
               'Club แนะนำ',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
@@ -229,11 +232,13 @@ class _ClubSectionState extends State<ClubSection> {
 
                 return ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: WynSpacing.space2),
                   itemCount: clubs.length,
                   itemBuilder: (context, index) {
                     final club = clubs[index];
-                    return ClubMiniCard(club: club, onTap: () => _openClub(club));
+                    return ClubMiniCard(
+                        club: club, onTap: () => _openClub(club));
                   },
                 );
               },

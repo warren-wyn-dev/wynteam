@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -215,13 +216,13 @@ class _MentionInputState extends State<MentionInput> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
+        BrowserSystemTextField(
           controller: widget.controller,
           maxLength: widget.maxLength,
           maxLines: widget.maxLines,
           minLines: widget.minLines,
           enabled: widget.enabled,
-          decoration: widget.decoration,
+          decoration: widget.decoration ?? const InputDecoration(),
           onChanged: widget.onChanged,
           style: widget.style,
         ),
@@ -247,8 +248,8 @@ class _MentionInputState extends State<MentionInput> {
                     fallbackText: profile.username,
                     radius: 16,
                   ),
-                  title: Text(profile.nameOrUsername),
-                  subtitle: Text('@${profile.username}'),
+                  title: BrowserSystemText(profile.nameOrUsername),
+                  subtitle: BrowserSystemText('@${profile.username}'),
                   onTap: () => _selectSuggestion(profile),
                 );
               },
@@ -275,8 +276,8 @@ class _MentionInputState extends State<MentionInput> {
                     Icons.tag,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  title: Text('#${suggestion.tag}'),
-                  subtitle: Text(
+                  title: BrowserSystemText('#${suggestion.tag}'),
+                  subtitle: BrowserSystemText(
                     '${_formatPostCount(suggestion.postCount)} โพสต์',
                   ),
                   onTap: () => _selectHashtagSuggestion(suggestion),

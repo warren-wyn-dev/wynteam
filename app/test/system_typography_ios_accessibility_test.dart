@@ -44,20 +44,17 @@ void main() {
     text: 'ชอบโพสต์นี้มาก 👨‍👩‍👧‍👦 🇹🇭',
   );
 
-  test('native test target keeps platform typography', () {
-    // `flutter test` runs as a non-Web Material target and ThemeData may
-    // materialize that target's system family (for example Roboto) instead of
-    // leaving fontFamily null. The invariant we actually need is that native
-    // builds never select the bundled Web-only family.
+  test('theme does not inject the downloaded Thai fallback', () {
     expect(
       WynTheme.light.textTheme.bodyLarge?.fontFamily,
-      isNot(WynTheme.webFontFamily),
+      isNot('WYNThaiLooped'),
     );
+    expect(WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback, isNull);
     expect(
       WynTheme.dark.textTheme.labelSmall?.fontFamily,
-      isNot(WynTheme.webFontFamily),
+      isNot('WYNThaiLooped'),
     );
-    expect(WynTheme.webFontFamily, 'WYNWebNotoThai');
+    expect(WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback, isNull);
   });
 
   testWidgets('liked-by metadata uses the shared labelSmall token',

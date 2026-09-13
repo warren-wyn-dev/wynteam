@@ -1509,8 +1509,8 @@ void main() {
         // of the 800x600 test viewport, below where tester.tap() can
         // reliably hit-test, so this invokes SnackBarAction.onPressed
         // directly instead.
-        final undoAction = find.widgetWithText(SnackBarAction, 'เลิกทำ');
-        tester.widget<SnackBarAction>(undoAction).onPressed();
+        final undoButton = find.widgetWithText(TextButton, 'เลิกทำ');
+        tester.widget<TextButton>(undoButton).onPressed!();
         await tester.pumpAndSettle();
 
         expect(find.text('แคปชัน Drop'), findsOneWidget);

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../core/design/wyn_colors.dart';
@@ -12,7 +13,8 @@ _Strength _strengthOf(String password) {
   if (password.length >= 8) score++;
   if (password.length >= 12) score++;
   if (RegExp(r'[0-9]').hasMatch(password)) score++;
-  if (RegExp(r'[a-z]').hasMatch(password) && RegExp(r'[A-Z]').hasMatch(password)) {
+  if (RegExp(r'[a-z]').hasMatch(password) &&
+      RegExp(r'[A-Z]').hasMatch(password)) {
     score++;
   }
   if (RegExp(r'[^a-zA-Z0-9]').hasMatch(password)) score++;
@@ -104,7 +106,8 @@ class _PasswordStepState extends State<PasswordStep> {
             ),
           ),
           const SizedBox(height: WynSpacing.space1),
-          Text(label, style: TextStyle(fontSize: 12, color: color)),
+          BrowserSystemText(label,
+              style: TextStyle(fontSize: 12, color: color)),
         ],
       ),
     );

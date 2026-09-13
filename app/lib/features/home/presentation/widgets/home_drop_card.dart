@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,7 +17,6 @@ import 'home_feed_image_peek_carousel.dart';
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
 import '../../../../core/text_utils.dart';
-import '../../../../core/typography/browser_system_text.dart';
 import '../../../../core/widgets/action_metric.dart';
 import '../../../../core/widgets/wyn_heart_icon.dart';
 import '../../../../core/widgets/action_sheet_row.dart';
@@ -481,17 +481,19 @@ class HomeDropCard extends StatelessWidget {
                               // author/date line. The button still owns the
                               // compact 24px header height so the caption stays
                               // close underneath.
-                              IconButton(
-                                icon: const Icon(Icons.more_horiz, size: 22),
-                                tooltip: 'เพิ่มเติม',
-                                padding: EdgeInsets.zero,
-                                alignment: Alignment.center,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: WynSpacing.touchTargetMin,
-                                  height: 24,
-                                ),
-                                onPressed: () => _openMoreMenu(context),
-                              ),
+                              BrowserSystemTooltip(
+                                  message: 'เพิ่มเติม',
+                                  child: IconButton(
+                                    icon:
+                                        const Icon(Icons.more_horiz, size: 22),
+                                    padding: EdgeInsets.zero,
+                                    alignment: Alignment.center,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: WynSpacing.touchTargetMin,
+                                      height: 24,
+                                    ),
+                                    onPressed: () => _openMoreMenu(context),
+                                  )),
                             ],
                           ),
                         ),
@@ -712,20 +714,22 @@ class HomeDropCard extends StatelessWidget {
                                   ),
                                 ],
                                 const SizedBox(width: WynSpacing.space4),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.send_outlined,
-                                    size: 24,
-                                  ),
-                                  tooltip: 'แชร์',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: WynSpacing.touchTargetMin,
-                                    height: WynSpacing.touchTargetMin,
-                                  ),
-                                  color: WynColors.graphite,
-                                  onPressed: _share,
-                                ),
+                                BrowserSystemTooltip(
+                                    message: 'แชร์',
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.send_outlined,
+                                        size: 24,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints:
+                                          const BoxConstraints.tightFor(
+                                        width: WynSpacing.touchTargetMin,
+                                        height: WynSpacing.touchTargetMin,
+                                      ),
+                                      color: WynColors.graphite,
+                                      onPressed: _share,
+                                    )),
                                 // WYN-088: hidden on the Home feed (showViewCount:
                                 // false there) -- still shown everywhere else this
                                 // card is reused (Profile's 3 tabs, hashtag feed).

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -353,7 +354,7 @@ class PushReliabilityController with WidgetsBindingObserver {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              BrowserSystemText(
                                 resolvedTitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -363,7 +364,7 @@ class PushReliabilityController with WidgetsBindingObserver {
                                     ?.copyWith(fontWeight: FontWeight.w700),
                               ),
                               const SizedBox(height: 2),
-                              Text(
+                              BrowserSystemText(
                                 resolvedBody,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,

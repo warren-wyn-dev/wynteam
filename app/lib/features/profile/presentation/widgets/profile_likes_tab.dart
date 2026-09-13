@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../drop/data/drop.dart';
@@ -367,9 +368,11 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -380,7 +383,7 @@ class _ProfileLikesTabState extends State<ProfileLikesTab>
       // state -- not an error, and not the ordinary "no Likes yet"
       // empty text (see [_canViewLikes]'s own doc comment).
       return Center(
-        child: Text(
+        child: BrowserSystemText(
           _canViewLikes == false
               ? 'บัญชีนี้ซ่อนรายการที่ถูกใจไว้'
               : widget.emptyText,

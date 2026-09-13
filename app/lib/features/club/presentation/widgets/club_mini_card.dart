@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
@@ -25,19 +26,20 @@ class ClubMiniCard extends StatelessWidget {
         child: SizedBox(
           width: 96,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: WynSpacing.space2),
+            padding: const EdgeInsets.symmetric(
+                horizontal: WynSpacing.space1, vertical: WynSpacing.space2),
             child: Column(
               children: [
                 ClubAvatar(club: club, radius: 24),
                 const SizedBox(height: WynSpacing.space1),
-                Text(
+                BrowserSystemText(
                   club.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                Text(
+                BrowserSystemText(
                   '${club.memberCount} สมาชิก',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

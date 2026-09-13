@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -122,27 +123,29 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ')),
+      appBar: AppBar(
+          title: BrowserSystemText(_isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              BrowserSystemTextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
-                decoration: const InputDecoration(labelText: 'อีเมล'),
+                decoration:
+                    const InputDecoration(label: BrowserSystemText('อีเมล')),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: WynSpacing.space4),
-              TextField(
+              BrowserSystemTextField(
                 controller: _passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  labelText: 'รหัสผ่าน',
-                  helperText: 'อย่างน้อย 6 ตัวอักษร',
+                  label: BrowserSystemText('รหัสผ่าน'),
+                  helper: BrowserSystemText('อย่างน้อย 6 ตัวอักษร'),
                 ),
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => _canSubmit ? _submit() : null,
@@ -156,7 +159,8 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(_isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ'),
+                    : BrowserSystemText(
+                        _isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ'),
               ),
               const SizedBox(height: WynSpacing.space3),
               TextButton(
@@ -166,7 +170,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                           _isSignUp = !_isSignUp;
                           _errorMessage = null;
                         }),
-                child: Text(
+                child: BrowserSystemText(
                   _isSignUp
                       ? 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ'
                       : 'ยังไม่มีบัญชี? สมัครสมาชิก',
@@ -174,7 +178,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: WynSpacing.space2),
-                Text(
+                BrowserSystemText(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -115,7 +116,7 @@ Future<void> showShareSheet(
             await Clipboard.setData(ClipboardData(text: nativeShareText));
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('คัดลอกลิงก์แล้ว')),
+              const SnackBar(content: BrowserSystemText('คัดลอกลิงก์แล้ว')),
             );
           },
         ),

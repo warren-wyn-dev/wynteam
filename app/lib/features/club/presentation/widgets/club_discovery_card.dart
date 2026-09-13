@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
@@ -43,11 +44,12 @@ class ClubDiscoveryCard extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            layout == ClubDiscoveryCardLayout.grid
-                ? BorderRadius.circular(WynSpacing.radiusMd)
-                : null,
-        child: layout == ClubDiscoveryCardLayout.grid ? _buildGrid(context) : _buildRow(context),
+        borderRadius: layout == ClubDiscoveryCardLayout.grid
+            ? BorderRadius.circular(WynSpacing.radiusMd)
+            : null,
+        child: layout == ClubDiscoveryCardLayout.grid
+            ? _buildGrid(context)
+            : _buildRow(context),
       ),
     );
     return semantics;
@@ -64,8 +66,8 @@ class ClubDiscoveryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(WynSpacing.radiusMd)),
+            borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(WynSpacing.radiusMd)),
             child: AspectRatio(
               aspectRatio: 4 / 3,
               // Beta4 §8.1: the Club's single identity image, not a
@@ -78,7 +80,7 @@ class ClubDiscoveryCard extends StatelessWidget {
                   : Container(
                       color: scheme.primaryContainer,
                       alignment: Alignment.center,
-                      child: Text(
+                      child: BrowserSystemText(
                         club.name.isNotEmpty ? club.name[0].toUpperCase() : '?',
                         style: TextStyle(
                           color: scheme.onPrimaryContainer,
@@ -94,14 +96,14 @@ class ClubDiscoveryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                BrowserSystemText(
                   club.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 2),
-                Text(
+                BrowserSystemText(
                   club.category != null
                       ? '${club.category} · ${club.memberCount} สมาชิก'
                       : '${club.memberCount} สมาชิก',
@@ -121,7 +123,8 @@ class ClubDiscoveryCard extends StatelessWidget {
 
   Widget _buildRow(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+          horizontal: WynSpacing.space4, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -131,20 +134,21 @@ class ClubDiscoveryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(club.name, style: Theme.of(context).textTheme.titleSmall),
+                BrowserSystemText(club.name,
+                    style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 2),
                 Row(
                   children: [
                     if (club.category != null) ...[
                       Chip(
-                        label: Text(club.category!),
+                        label: BrowserSystemText(club.category!),
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         labelStyle: Theme.of(context).textTheme.labelSmall,
                       ),
                       const SizedBox(width: 6),
                     ],
-                    Text(
+                    BrowserSystemText(
                       '${club.memberCount} สมาชิก',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.outline,
@@ -152,9 +156,10 @@ class ClubDiscoveryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (club.description != null && club.description!.isNotEmpty) ...[
+                if (club.description != null &&
+                    club.description!.isNotEmpty) ...[
                   const SizedBox(height: WynSpacing.space1),
-                  Text(
+                  BrowserSystemText(
                     club.description!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

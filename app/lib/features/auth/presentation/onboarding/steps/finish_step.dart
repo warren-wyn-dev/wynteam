@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../core/design/wyn_colors.dart';
@@ -44,16 +45,19 @@ class FinishStep extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: WynColors.sapphire,
                 ),
-                child: const Icon(Icons.check, size: 44, color: WynColors.paper),
+                child:
+                    const Icon(Icons.check, size: 44, color: WynColors.paper),
               ),
               const SizedBox(height: WynSpacing.space8),
-              Text(
+              BrowserSystemText(
                 'พร้อมแล้ว',
                 style: WynTypography.screenTitle(
-                    fontSize: 26, fontWeight: FontWeight.w700, color: WynColors.ink),
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: WynColors.ink),
               ),
               const SizedBox(height: WynSpacing.space2),
-              Text(
+              BrowserSystemText(
                 displayName == null || displayName!.isEmpty
                     ? 'ยินดีต้อนรับสู่ WYNOS 👋'
                     : 'ยินดีต้อนรับสู่ WYNOS, $displayName 👋',
@@ -62,10 +66,11 @@ class FinishStep extends StatelessWidget {
               ),
               const Spacer(flex: 4),
               if (errorText != null) ...[
-                Text(
+                BrowserSystemText(
                   errorText!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 13, color: WynColors.errorLight),
+                  style: const TextStyle(
+                      fontSize: 13, color: WynColors.errorLight),
                 ),
                 const SizedBox(height: WynSpacing.space4),
               ],
@@ -74,14 +79,14 @@ class FinishStep extends StatelessWidget {
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                     shape: const StadiumBorder(),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: WynSpacing.space3 + 2),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: WynSpacing.space3 + 2),
                     backgroundColor: WynColors.sapphire,
                     foregroundColor: WynColors.paper,
                     disabledBackgroundColor: WynColors.hairline,
                     disabledForegroundColor: WynColors.mutedNeutral,
-                    textStyle:
-                        const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    textStyle: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   onPressed: isLoading ? null : onEnter,
                   child: isLoading
@@ -91,7 +96,7 @@ class FinishStep extends StatelessWidget {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: WynColors.paper),
                         )
-                      : const Text('เข้าสู่ WYNOS'),
+                      : const BrowserSystemText('เข้าสู่ WYNOS'),
                 ),
               ),
               const SizedBox(height: WynSpacing.space8),

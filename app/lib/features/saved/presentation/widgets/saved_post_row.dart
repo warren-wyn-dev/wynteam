@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -87,23 +88,26 @@ class SavedPostRow extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
+                        BrowserSystemText(
                           item.authorNameOrUsername,
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const SizedBox(width: WynSpacing.space2),
-                        Text(
-                          relativeTimeLabel(item.createdAt, now: DateTime.now()),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: WynColors.mutedNeutral,
-                              ),
+                        BrowserSystemText(
+                          relativeTimeLabel(item.createdAt,
+                              now: DateTime.now()),
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: WynColors.mutedNeutral,
+                                  ),
                         ),
                       ],
                     ),
                   ),
                   if (item.caption != null && item.caption!.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: WynSpacing.space1 + 2),
+                      padding:
+                          const EdgeInsets.only(top: WynSpacing.space1 + 2),
                       child: HashtagText(
                         item.caption!,
                         style: Theme.of(context).textTheme.bodyMedium,
@@ -117,7 +121,9 @@ class SavedPostRow extends StatelessWidget {
                       children: [
                         _Metric.heart(count: item.likeCount),
                         const SizedBox(width: WynSpacing.space5),
-                        _Metric(icon: Icons.mode_comment_outlined, count: item.commentCount),
+                        _Metric(
+                            icon: Icons.mode_comment_outlined,
+                            count: item.commentCount),
                         const SizedBox(width: WynSpacing.space5),
                         _Metric(icon: Icons.repeat, count: item.redropCount),
                         const Spacer(),
@@ -127,7 +133,8 @@ class SavedPostRow extends StatelessWidget {
                           excludeSemantics: true,
                           child: InkWell(
                             onTap: onUnsave,
-                            borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                            borderRadius:
+                                BorderRadius.circular(WynSpacing.radiusSm),
                             child: const Padding(
                               padding: EdgeInsets.all(WynSpacing.space1),
                               child: Icon(
@@ -191,12 +198,11 @@ class _Metric extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (isHeart)
-          const WynHeartIcon(
-              filled: false, size: 16, color: WynColors.graphite)
+          const WynHeartIcon(filled: false, size: 16, color: WynColors.graphite)
         else
           Icon(icon!, size: 16, color: WynColors.graphite),
         const SizedBox(width: WynSpacing.space1),
-        Text(
+        BrowserSystemText(
           '$count',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: WynColors.graphite,

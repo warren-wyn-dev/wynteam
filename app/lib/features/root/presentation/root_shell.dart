@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -552,7 +553,7 @@ class _RootShellState extends State<RootShell> with WidgetsBindingObserver {
                 color: Theme.of(context).colorScheme.error,
                 borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
               ),
-              child: Text(
+              child: BrowserSystemText(
                 badgeText,
                 textAlign: TextAlign.center,
                 style: TextStyle(

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -159,11 +160,11 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
             TextButton(
               onPressed: () => _search(reset: true),
-              child: const Text('ลองใหม่'),
+              child: const BrowserSystemText('ลองใหม่'),
             ),
           ],
         ),
@@ -204,7 +205,8 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
           child: InkWell(
             onTap: () => _openProfile(profile),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space4, vertical: WynSpacing.space2),
               child: Row(
                 children: [
                   AvatarCircle(
@@ -220,7 +222,7 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
                         Row(
                           children: [
                             Flexible(
-                              child: Text(
+                              child: BrowserSystemText(
                                 profile.nameOrUsername,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -233,9 +235,12 @@ class _SearchUserResultsTabState extends State<SearchUserResultsTab>
                             ],
                           ],
                         ),
-                        Text(
+                        BrowserSystemText(
                           '@${profile.username}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
                                 color: Theme.of(context).colorScheme.outline,
                               ),
                         ),

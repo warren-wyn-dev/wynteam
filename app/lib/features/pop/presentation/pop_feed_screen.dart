@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../drop/data/drop_repository.dart';
@@ -166,9 +167,12 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!, style: const TextStyle(color: Colors.white)),
+            BrowserSystemText(_error!,
+                style: const TextStyle(color: Colors.white)),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -179,14 +183,14 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            const BrowserSystemText(
               'ยังไม่มีใครโพสต์คลิปเลย เป็นคนแรกสิ!',
               style: TextStyle(color: Colors.white),
             ),
             const SizedBox(height: WynSpacing.space3),
             FilledButton(
               onPressed: _openCreatePop,
-              child: const Text('สร้าง Pop'),
+              child: const BrowserSystemText('สร้าง Pop'),
             ),
           ],
         ),
@@ -212,11 +216,12 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
           muted: _muted,
           onMutedToggle: _toggleMuted,
           onDeleted: () => _removePop(pop.id),
-          topLeading: IconButton(
-            icon: const Icon(Icons.add_box_outlined, color: Colors.white),
-            tooltip: 'สร้าง Pop ใหม่',
-            onPressed: _openCreatePop,
-          ),
+          topLeading: BrowserSystemTooltip(
+              message: 'สร้าง Pop ใหม่',
+              child: IconButton(
+                icon: const Icon(Icons.add_box_outlined, color: Colors.white),
+                onPressed: _openCreatePop,
+              )),
         );
       },
     );

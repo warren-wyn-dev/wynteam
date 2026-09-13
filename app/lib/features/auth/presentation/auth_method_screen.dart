@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -151,8 +152,10 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: WynSpacing.space6),
-              Text(
-                widget.isAddingAccount ? 'เพิ่มบัญชี WYNOS' : 'เข้าสู่ระบบ WYNOS',
+              BrowserSystemText(
+                widget.isAddingAccount
+                    ? 'เพิ่มบัญชี WYNOS'
+                    : 'เข้าสู่ระบบ WYNOS',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: WynSpacing.space8),
@@ -166,7 +169,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
               if (_checkingInviteGate) ...[
                 const Center(child: CircularProgressIndicator()),
               ] else if (_inviteGateBlocking) ...[
-                Text(
+                BrowserSystemText(
                   'ตอนนี้ WYNOS เปิดให้เข้าใช้งานเฉพาะผู้ที่มีโค้ดเชิญจากเพื่อนเท่านั้น',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -176,7 +179,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                 const SizedBox(height: WynSpacing.space4),
                 FilledButton(
                   onPressed: _redeemInviteCode,
-                  child: const Text('กรอกโค้ดเชิญ'),
+                  child: const BrowserSystemText('กรอกโค้ดเชิญ'),
                 ),
               ] else ...[
                 FilledButton.icon(
@@ -184,7 +187,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                       ? null
                       : () => _handle(_authRepository.signInWithGoogle),
                   icon: const Icon(Icons.g_mobiledata),
-                  label: const Text('เข้าสู่ระบบด้วย Google'),
+                  label: const BrowserSystemText('เข้าสู่ระบบด้วย Google'),
                 ),
                 if (_appleLoginEnabled) ...[
                   const SizedBox(height: WynSpacing.space3),
@@ -193,7 +196,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                         ? null
                         : () => _handle(_authRepository.signInWithApple),
                     icon: const Icon(Icons.apple),
-                    label: const Text('เข้าสู่ระบบด้วย Apple'),
+                    label: const BrowserSystemText('เข้าสู่ระบบด้วย Apple'),
                   ),
                 ],
                 const SizedBox(height: WynSpacing.space3),
@@ -212,7 +215,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                               ),
                             ),
                           ),
-                  child: const Text('เข้าสู่ระบบด้วยอีเมล'),
+                  child: const BrowserSystemText('เข้าสู่ระบบด้วยอีเมล'),
                 ),
                 if (_phoneLoginEnabled) ...[
                   const SizedBox(height: WynSpacing.space3),
@@ -226,7 +229,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                                 ),
                               ),
                             ),
-                    child: const Text('ใช้เบอร์โทรศัพท์แทน'),
+                    child: const BrowserSystemText('ใช้เบอร์โทรศัพท์แทน'),
                   ),
                 ],
               ],
@@ -272,7 +275,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
                           : () => _handle(
                                 () => _authRepository.signInAnonymously(),
                               ),
-                      child: const Text('เข้าชม WYNOS ได้เลย'),
+                      child: const BrowserSystemText('เข้าชม WYNOS ได้เลย'),
                     ),
                   ),
                 ),
@@ -283,7 +286,7 @@ class _AuthMethodScreenState extends State<AuthMethodScreen> {
               ],
               if (_errorMessage != null) ...[
                 const SizedBox(height: WynSpacing.space4),
-                Text(
+                BrowserSystemText(
                   _errorMessage!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),

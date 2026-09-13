@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -313,7 +314,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
           icon: const Icon(Icons.arrow_back, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: const BrowserSystemText(
           'ข้อความ',
           style: TextStyle(
             fontSize: 22,
@@ -407,9 +408,11 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -523,7 +526,7 @@ class _ConversationRow extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
+                          child: BrowserSystemText(
                             displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -536,7 +539,7 @@ class _ConversationRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: WynSpacing.space2),
-                        Text(
+                        BrowserSystemText(
                           time,
                           style: _textStyle(
                               fontSize: 12.5, color: WynColors.graphite),
@@ -552,7 +555,7 @@ class _ConversationRow extends StatelessWidget {
                             child: _UnreadDot(),
                           ),
                         Expanded(
-                          child: Text(
+                          child: BrowserSystemText(
                             _preview,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

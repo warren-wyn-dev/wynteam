@@ -1,10 +1,10 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
 import '../../../core/design/wyn_spacing.dart';
 import '../../../core/design/wyn_typography.dart';
 import '../../../core/interaction/wyn_motion.dart';
-import '../../../core/typography/browser_system_text.dart';
 import '../../../core/widgets/wynos_social_chrome.dart';
 import '../../auth/presentation/widgets/guest_gate.dart';
 import '../../chat/data/chat_repository.dart';
@@ -225,11 +225,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
       // than the generic social-screen header; other screens keep 60px.
       height: 52,
       showBottomDivider: false,
-      leading: IconButton(
-        icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
-        tooltip: 'เมนู',
-        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-      ),
+      leading: BrowserSystemTooltip(
+          message: 'เมนู',
+          child: IconButton(
+            icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          )),
       titleWidget: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -275,7 +276,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
                     color: Theme.of(context).colorScheme.error,
                     borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
                   ),
-                  child: Text(
+                  child: BrowserSystemText(
                     count > 9 ? '9+' : '$count',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -289,11 +290,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
             ],
           );
 
-    return IconButton(
-      icon: badge,
-      tooltip: count > 0 ? 'ข้อความ, $count บทสนทนายังไม่อ่าน' : 'ข้อความ',
-      onPressed: _openChatInbox,
-    );
+    return BrowserSystemTooltip(
+        message: count > 0 ? 'ข้อความ, $count บทสนทนายังไม่อ่าน' : 'ข้อความ',
+        child: IconButton(
+          icon: badge,
+          onPressed: _openChatInbox,
+        ));
   }
 
   Widget _buildFeedModeToggle() {

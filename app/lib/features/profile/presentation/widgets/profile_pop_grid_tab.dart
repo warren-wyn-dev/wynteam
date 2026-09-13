@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../drop/data/drop_repository.dart';
@@ -147,16 +148,18 @@ class _ProfilePopGridTabState extends State<ProfilePopGridTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
     }
 
     if (_pops.isEmpty) {
-      return Center(child: Text(widget.emptyText));
+      return Center(child: BrowserSystemText(widget.emptyText));
     }
 
     return RefreshIndicator(

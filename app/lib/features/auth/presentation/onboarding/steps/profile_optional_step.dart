@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -77,8 +78,9 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
     if (picked == null) return;
 
     final bytes = await picked.readAsBytes();
-    final extension =
-        picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
+    final extension = picked.name.contains('.')
+        ? picked.name.split('.').last.toLowerCase()
+        : 'jpg';
 
     if (!mounted) return;
     setState(() {
@@ -95,7 +97,7 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera),
-              title: const Text('ถ่ายรูปใหม่'),
+              title: const BrowserSystemText('ถ่ายรูปใหม่'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickImage(ImageSource.camera);
@@ -103,7 +105,7 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('เลือกจากคลังภาพ'),
+              title: const BrowserSystemText('เลือกจากคลังภาพ'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickImage(ImageSource.gallery);
@@ -126,8 +128,8 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
       if (!mounted) return;
       setState(() => _isUploading = true);
       try {
-        avatarUrl = await widget.uploadAvatar(
-            _pickedBytes!, _pickedExtension ?? 'jpg');
+        avatarUrl =
+            await widget.uploadAvatar(_pickedBytes!, _pickedExtension ?? 'jpg');
       } finally {
         if (mounted) setState(() => _isUploading = false);
       }
@@ -141,7 +143,8 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
     final busy = widget.isLoading || _isUploading;
     return OnboardingScaffold(
       title: 'เติมเต็มโปรไฟล์ของคุณ',
-      description: 'ขั้นตอนนี้ไม่บังคับ ข้ามไปก่อนแล้วค่อยกลับมาแก้ทีหลังได้เสมอ',
+      description:
+          'ขั้นตอนนี้ไม่บังคับ ข้ามไปก่อนแล้วค่อยกลับมาแก้ทีหลังได้เสมอ',
       stepIndex: widget.stepIndex,
       stepCount: widget.stepCount,
       primaryLabel: 'ต่อไป',
@@ -151,7 +154,7 @@ class _ProfileOptionalStepState extends State<ProfileOptionalStep> {
       onPrimaryPressed: busy ? null : () => _continue(skip: false),
       footer: TextButton(
         onPressed: busy ? null : () => _continue(skip: true),
-        child: const Text('ข้ามขั้นตอนนี้',
+        child: const BrowserSystemText('ข้ามขั้นตอนนี้',
             style: TextStyle(color: WynColors.graphite)),
       ),
       body: Column(

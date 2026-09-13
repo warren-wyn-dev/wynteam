@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 /// Square grid-tile fallback for a caption-only Drop (WYNOS V1.0.0 Beta
@@ -16,7 +17,7 @@ class TextDropPlaceholderTile extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.all(8),
       alignment: Alignment.center,
-      child: Text(
+      child: BrowserSystemText(
         caption,
         maxLines: 4,
         overflow: TextOverflow.ellipsis,

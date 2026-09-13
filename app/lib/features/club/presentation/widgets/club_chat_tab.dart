@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -52,7 +53,8 @@ class ClubChatTab extends StatefulWidget {
 
 class _ClubChatTabState extends State<ClubChatTab> {
   late final ClubChannelChatRepository _clubChannelChatRepository =
-      widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
+      widget._clubChannelChatRepository ??
+          ClubChannelChatRepository(Supabase.instance.client);
 
   List<ClubChannel>? _channels;
   List<ClubChannelCategory>? _categories;
@@ -97,10 +99,14 @@ class _ClubChatTabState extends State<ClubChatTab> {
     _unsubscribeUnread();
     for (final channel in channels) {
       _unreadSubscriptions.add(
-        _clubChannelChatRepository.subscribeToNewMessagesOnly(channel.id, (message) {
+        _clubChannelChatRepository.subscribeToNewMessagesOnly(channel.id,
+            (message) {
           if (!mounted || message.authorId == _myUserId) return;
           setState(() {
-            _unreadCounts = {...(_unreadCounts), channel.id: (_unreadCounts[channel.id] ?? 0) + 1};
+            _unreadCounts = {
+              ...(_unreadCounts),
+              channel.id: (_unreadCounts[channel.id] ?? 0) + 1
+            };
           });
         }),
       );
@@ -109,7 +115,8 @@ class _ClubChatTabState extends State<ClubChatTab> {
 
   Future<void> _loadUnreadCounts() async {
     try {
-      final counts = await _clubChannelChatRepository.fetchUnreadCounts(widget.club.id);
+      final counts =
+          await _clubChannelChatRepository.fetchUnreadCounts(widget.club.id);
       if (!mounted) return;
       setState(() => _unreadCounts = counts);
     } catch (_) {
@@ -121,8 +128,10 @@ class _ClubChatTabState extends State<ClubChatTab> {
   Future<void> _loadChannels() async {
     setState(() => _channelsError = null);
     try {
-      final channels = await widget.clubRepository.fetchChannels(widget.club.id);
-      final categories = await widget.clubRepository.fetchChannelCategories(widget.club.id);
+      final channels =
+          await widget.clubRepository.fetchChannels(widget.club.id);
+      final categories =
+          await widget.clubRepository.fetchChannelCategories(widget.club.id);
       if (!mounted) return;
       setState(() {
         _channels = channels;
@@ -148,7 +157,8 @@ class _ClubChatTabState extends State<ClubChatTab> {
     final categories = _categories ?? const [];
     final lower = name.trim().toLowerCase();
     return categories.any(
-      (c) => c.id != excludingCategoryId && c.name.trim().toLowerCase() == lower,
+      (c) =>
+          c.id != excludingCategoryId && c.name.trim().toLowerCase() == lower,
     );
   }
 
@@ -183,7 +193,8 @@ class _ClubChatTabState extends State<ClubChatTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -195,7 +206,8 @@ class _ClubChatTabState extends State<ClubChatTab> {
       initialName: channel.name,
       initialCategoryId: channel.categoryId,
       categories: _categories ?? const [],
-      isNameTaken: (n) => _isChannelNameTaken(n, excludingChannelId: channel.id),
+      isNameTaken: (n) =>
+          _isChannelNameTaken(n, excludingChannelId: channel.id),
     );
     if (result == null) return;
     try {
@@ -208,7 +220,9 @@ class _ClubChatTabState extends State<ClubChatTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content:
+                BrowserSystemText('แก้ไขชื่อห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -230,7 +244,8 @@ class _ClubChatTabState extends State<ClubChatTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ย้ายห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ย้ายห้องไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -242,7 +257,9 @@ class _ClubChatTabState extends State<ClubChatTab> {
     // must always survive for posting to keep working.
     if ((_channels?.length ?? 0) <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ต้องมีอย่างน้อย 1 ห้องเสมอ ลบห้องสุดท้ายไม่ได้')),
+        const SnackBar(
+            content: BrowserSystemText(
+                'ต้องมีอย่างน้อย 1 ห้องเสมอ ลบห้องสุดท้ายไม่ได้')),
       );
       return;
     }
@@ -263,12 +280,14 @@ class _ClubChatTabState extends State<ClubChatTab> {
     );
     if (name == null) return;
     try {
-      await widget.clubRepository.createChannelCategory(clubId: widget.club.id, name: name);
+      await widget.clubRepository
+          .createChannelCategory(clubId: widget.club.id, name: name);
       await _loadChannels();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สร้างกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('สร้างกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -278,16 +297,20 @@ class _ClubChatTabState extends State<ClubChatTab> {
       context,
       title: 'แก้ไขชื่อกลุ่ม',
       initialName: category.name,
-      isNameTaken: (n) => _isCategoryNameTaken(n, excludingCategoryId: category.id),
+      isNameTaken: (n) =>
+          _isCategoryNameTaken(n, excludingCategoryId: category.id),
     );
     if (name == null || name == category.name) return;
     try {
-      await widget.clubRepository.renameChannelCategory(categoryId: category.id, name: name);
+      await widget.clubRepository
+          .renameChannelCategory(categoryId: category.id, name: name);
       await _loadChannels();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขชื่อกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content:
+                BrowserSystemText('แก้ไขชื่อกลุ่มไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -340,7 +363,9 @@ class _ClubChatTabState extends State<ClubChatTab> {
           channelId: channel.id,
           channelName: channel.name,
           myRole: widget.myRole,
-          onManage: _canManageChannels ? (_) => _showChannelManageSheet(channel) : null,
+          onManage: _canManageChannels
+              ? (_) => _showChannelManageSheet(channel)
+              : null,
           onBanned: _onBanned,
         ),
       ),
@@ -354,7 +379,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
   void _onBanned() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('คุณถูกนำออกจาก Club นี้แล้ว')),
+      const SnackBar(content: BrowserSystemText('คุณถูกนำออกจาก Club นี้แล้ว')),
     );
     widget.onBanned?.call();
   }
@@ -362,7 +387,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
   @override
   Widget build(BuildContext context) {
     if (!_isMember) {
-      return const Center(child: Text('เข้าร่วม Club เพื่อดูแชท'));
+      return const Center(child: BrowserSystemText('เข้าร่วม Club เพื่อดูแชท'));
     }
 
     final channels = _channels;
@@ -372,9 +397,11 @@ class _ClubChatTabState extends State<ClubChatTab> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_channelsError!),
+              BrowserSystemText(_channelsError!),
               const SizedBox(height: WynSpacing.space3),
-              TextButton(onPressed: _loadChannels, child: const Text('ลองใหม่')),
+              TextButton(
+                  onPressed: _loadChannels,
+                  child: const BrowserSystemText('ลองใหม่')),
             ],
           ),
         );
@@ -385,7 +412,8 @@ class _ClubChatTabState extends State<ClubChatTab> {
     return _buildChannelList(channels, _categories ?? const []);
   }
 
-  Widget _buildChannelList(List<ClubChannel> channels, List<ClubChannelCategory> categories) {
+  Widget _buildChannelList(
+      List<ClubChannel> channels, List<ClubChannelCategory> categories) {
     final unreadChannelIds = {
       for (final entry in _unreadCounts.entries)
         if (entry.value > 0) entry.key,
@@ -404,18 +432,22 @@ class _ClubChatTabState extends State<ClubChatTab> {
           child: Row(
             children: [
               const Expanded(
-                child: Text(
+                child: BrowserSystemText(
                   'ห้องแชท',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.ink),
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: WynColors.ink),
                 ),
               ),
               if (_canManageChannels)
-                IconButton(
-                  key: const Key('club_chat_add_button'),
-                  icon: const Icon(Icons.add),
-                  tooltip: 'เพิ่ม',
-                  onPressed: _openAddMenu,
-                ),
+                BrowserSystemTooltip(
+                    message: 'เพิ่ม',
+                    child: IconButton(
+                      key: const Key('club_chat_add_button'),
+                      icon: const Icon(Icons.add),
+                      onPressed: _openAddMenu,
+                    )),
             ],
           ),
         ),
@@ -424,11 +456,14 @@ class _ClubChatTabState extends State<ClubChatTab> {
         // category headers, not even an "ไม่มีกลุ่ม" one.
         for (final category in categories) ...[
           _buildCategoryHeader(category),
-          for (final channel in channels.where((c) => c.categoryId == category.id))
+          for (final channel
+              in channels.where((c) => c.categoryId == category.id))
             _buildChannelRow(channel, unreadChannelIds),
         ],
-        if (categories.isNotEmpty && ungrouped.isNotEmpty) _buildUngroupedHeader(),
-        for (final channel in ungrouped) _buildChannelRow(channel, unreadChannelIds),
+        if (categories.isNotEmpty && ungrouped.isNotEmpty)
+          _buildUngroupedHeader(),
+        for (final channel in ungrouped)
+          _buildChannelRow(channel, unreadChannelIds),
       ],
     );
   }
@@ -436,7 +471,8 @@ class _ClubChatTabState extends State<ClubChatTab> {
   Widget _buildCategoryHeader(ClubChannelCategory category) {
     return InkWell(
       key: ValueKey('club_channel_category_${category.id}'),
-      onLongPress: _canManageChannels ? () => _showCategoryManageSheet(category) : null,
+      onLongPress:
+          _canManageChannels ? () => _showCategoryManageSheet(category) : null,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           WynSpacing.space4,
@@ -444,7 +480,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
           WynSpacing.space4,
           WynSpacing.space1,
         ),
-        child: Text(
+        child: BrowserSystemText(
           category.name.toUpperCase(),
           style: const TextStyle(
             fontSize: 12,
@@ -465,7 +501,7 @@ class _ClubChatTabState extends State<ClubChatTab> {
         WynSpacing.space4,
         WynSpacing.space1,
       ),
-      child: Text(
+      child: BrowserSystemText(
         'ไม่มีกลุ่ม',
         style: TextStyle(
           fontSize: 12,
@@ -490,25 +526,34 @@ class _ClubChatTabState extends State<ClubChatTab> {
           width: 38,
           height: 38,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(color: WynColors.surfaceTint, shape: BoxShape.circle),
-          child: const Text(
+          decoration: const BoxDecoration(
+              color: WynColors.surfaceTint, shape: BoxShape.circle),
+          child: const BrowserSystemText(
             '#',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: WynColors.sapphire),
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: WynColors.sapphire),
           ),
         ),
-        title: Text(
+        title: BrowserSystemText(
           label,
-          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: WynColors.ink),
+          style: const TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: WynColors.ink),
         ),
         trailing: hasUnread
             ? Container(
                 width: 7,
                 height: 7,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: WynColors.sapphire),
+                decoration: const BoxDecoration(
+                    shape: BoxShape.circle, color: WynColors.sapphire),
               )
             : null,
         onTap: () => _openChannel(channel),
-        onLongPress: _canManageChannels ? () => _showChannelManageSheet(channel) : null,
+        onLongPress:
+            _canManageChannels ? () => _showChannelManageSheet(channel) : null,
       ),
     );
   }

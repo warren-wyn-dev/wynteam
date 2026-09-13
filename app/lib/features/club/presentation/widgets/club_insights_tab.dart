@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
@@ -92,11 +93,14 @@ class _ClubInsightsTabState extends State<ClubInsightsTab> {
                 Center(
                   child: SegmentedButton<int>(
                     segments: const [
-                      ButtonSegment(value: 7, label: Text('7 วัน')),
-                      ButtonSegment(value: 30, label: Text('30 วัน')),
+                      ButtonSegment(
+                          value: 7, label: BrowserSystemText('7 วัน')),
+                      ButtonSegment(
+                          value: 30, label: BrowserSystemText('30 วัน')),
                     ],
                     selected: {_days},
-                    onSelectionChanged: (selection) => _selectDays(selection.first),
+                    onSelectionChanged: (selection) =>
+                        _selectDays(selection.first),
                   ),
                 ),
                 const SizedBox(height: WynSpacing.space5),
@@ -105,16 +109,18 @@ class _ClubInsightsTabState extends State<ClubInsightsTab> {
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: WynSpacing.space8),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: WynSpacing.space8),
                         child: Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('โหลดข้อมูลไม่สำเร็จ'),
+                              const BrowserSystemText('โหลดข้อมูลไม่สำเร็จ'),
                               const SizedBox(height: WynSpacing.space3),
                               TextButton(
-                                onPressed: () => setState(() => _future = _load()),
-                                child: const Text('ลองใหม่'),
+                                onPressed: () =>
+                                    setState(() => _future = _load()),
+                                child: const BrowserSystemText('ลองใหม่'),
                               ),
                             ],
                           ),
@@ -124,7 +130,8 @@ class _ClubInsightsTabState extends State<ClubInsightsTab> {
 
                     if (!snapshot.hasData) {
                       return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: WynSpacing.space8),
+                        padding:
+                            EdgeInsets.symmetric(vertical: WynSpacing.space8),
                         child: Center(child: CircularProgressIndicator()),
                       );
                     }
@@ -138,11 +145,15 @@ class _ClubInsightsTabState extends State<ClubInsightsTab> {
                       crossAxisSpacing: WynSpacing.space3,
                       childAspectRatio: 1.4,
                       children: [
-                        _StatTile(label: 'สมาชิกใหม่', value: insights.newMembers),
+                        _StatTile(
+                            label: 'สมาชิกใหม่', value: insights.newMembers),
                         _StatTile(label: 'โพสต์ใหม่', value: insights.newPosts),
                         _StatTile(
-                            label: 'Like/Comment รวม', value: insights.likesAndComments),
-                        _StatTile(label: 'สมาชิก Active', value: insights.activeMembers),
+                            label: 'Like/Comment รวม',
+                            value: insights.likesAndComments),
+                        _StatTile(
+                            label: 'สมาชิก Active',
+                            value: insights.activeMembers),
                       ],
                     );
                   },
@@ -174,14 +185,14 @@ class _StatTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          BrowserSystemText(
             '$value',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: WynSpacing.space1),
-          Text(
+          BrowserSystemText(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.outline,

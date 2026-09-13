@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../drop/data/drop_repository.dart';
@@ -152,9 +153,11 @@ class _ProfileSavedTabState extends State<ProfileSavedTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -164,7 +167,7 @@ class _ProfileSavedTabState extends State<ProfileSavedTab>
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text(
+          child: BrowserSystemText(
             // WYN-102: was "...โพสต์หรือ Pop ที่ชอบดูสิ" -- Pop is
             // hidden, so suggesting it here would point at a feature
             // the user can no longer reach through this UI.

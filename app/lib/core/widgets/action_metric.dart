@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../design/wyn_spacing.dart';
@@ -117,7 +118,7 @@ class _ActionMetricState extends State<ActionMetric> {
         icon,
         if (showCount) ...[
           const SizedBox(width: 6),
-          Text('${count ?? 0}', style: countStyle),
+          BrowserSystemText('${count ?? 0}', style: countStyle),
         ],
       ],
     );
