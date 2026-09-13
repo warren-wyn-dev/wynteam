@@ -77,13 +77,13 @@ function optimisticVote(post: ClubHomePost, optionIndex: number): ClubHomePost {
   };
 }
 
-function ClubPoll({ post, onVote }: { post: ClubHomePost; onVote: (index: number) => void }) {
+function ClubPoll({ post, viewerUserId, onVote }: { post: ClubHomePost; viewerUserId: string; onVote: (index: number) => void }) {
   if (!post.poll_id || !post.poll_options || !post.poll_expires_at) return null;
   const timing = pollRemaining(post.poll_expires_at);
   const resultsVisible = post.poll_total_votes != null;
   const own = post.poll_my_vote_index;
   const total = post.poll_total_votes ?? 0;
-  const canVote = post.author_id !== post.viewer_user_id && !timing.closed;
+  const canVote = post.author_id !== viewerUserId && !timing.closed;
   const status = resultsVisible
     ? `${total === 0 ? "ยังไม่มีใครโหวต" : `${total} โหวต`} · ${timing.label}`
     : timing.label;
@@ -263,7 +263,7 @@ export function ClubPostCardWeb({ client, userId, post: initialPost, onChange, o
           </DoubleTapZone>
         ) : null}
 
-        <ClubPoll post={{ ...post, viewer_user_id: userId } as ClubHomePost & { viewer_user_id: string }} onVote={(index) => void vote(index)} />
+        <ClubPoll post={post} viewerUserId={userId} onVote={(index) => void vote(index)} />
 
         {post.link_url ? (
           <a className="web-club-post-link" href={post.link_url} target="_blank" rel="noreferrer">
