@@ -64,6 +64,16 @@ Future<void> main() async {
     ),
   );
 
+  // Guest/Anonymous browsing is paused. Some browsers/devices still carry a
+  // persisted anonymous session created before the UI/deep-link entry points
+  // were disabled. Remove that session before AuthGate mounts; otherwise the
+  // historical `session.user.isAnonymous` branch would still take an old guest
+  // straight into RootShell even though no new guest session can be created.
+  final startupSession = Supabase.instance.client.auth.currentSession;
+  if (startupSession?.user.isAnonymous == true) {
+    await Supabase.instance.client.auth.signOut();
+  }
+
   // Multi-account switching: keeps whichever account is currently active
   // fresh in the on-device switcher every time its access/refresh token
   // auto-rotates, for the whole lifetime of the app -- see
