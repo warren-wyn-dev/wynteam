@@ -25,12 +25,19 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 
-import { authorLabel, rankedDropRows, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import {
+  DropPublicationStateUnknownError,
+  publishDropSafely,
+} from "@/lib/drop-publication";
+import {
+  fetchHomeSurfaceRows,
+  type HomeSurface,
+} from "@/lib/home-feed-sources";
 import {
   addDropComment,
   fetchDropComments,
   loadHomeViewerState,
-  publishDrop,
   toggleAuthorFollow,
   toggleDropCommentLike,
   toggleDropLike,
@@ -165,7 +172,6 @@ function FeedPost({
         {row.quote_text ? <Caption value={row.quote_text} onOpen={() => onComment(row)} /> : null}
         {row.caption ? <Caption value={row.caption} onOpen={() => onComment(row)} /> : null}
         {row.image_url ? (
-          // Native browser image rendering is part of the migration goal.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             className="post-media"
@@ -248,6 +254,7 @@ export function HomeMigrationPreview() {
   const [rows, setRows] = useState<HomeFeedRow[]>([]);
   const [viewer, setViewer] = useState<HomeViewerState>(emptyViewerState);
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [surfaceLoading, setSurfaceLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [toast, setToast] = useState("");
   const [activeTab, setActiveTab] = useState("สำหรับคุณ");
@@ -256,25 +263,63 @@ export function HomeMigrationPreview() {
   const [detailPost, setDetailPost] = useState<HomeFeedRow | null>(null);
   const [comments, setComments] = useState<DropCommentRow[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsPage, setCommentsPage] = useState(0);
+  const [commentsHasMore, setCommentsHasMore] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentSending, setCommentSending] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerCaption, setComposerCaption] = useState("");
   const [composerFiles, setComposerFiles] = useState<File[]>([]);
+  const [publicationOperationId, setPublicationOperationId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const pendingRef = useRef<Set<string>>(new Set());
+  const surfaceRequestRef = useRef(0);
+  const toastTimerRef = useRef<number | null>(null);
 
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const userId = session?.user.id ?? "";
+  const currentSurface = useMemo<HomeSurface>(() => {
+    if (activeTab === "กำลังติดตาม") return { kind: "following" };
+    if (activeMode === "กำลังนิยม") return { kind: "trending" };
+    return { kind: "ranked" };
+  }, [activeMode, activeTab]);
 
   const showToast = useCallback((value: string) => {
     setToast(value);
-    window.setTimeout(() => setToast(""), 2600);
+    if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(""), 2600);
   }, []);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
+  }, []);
+
+  const loadSurface = useCallback(async (nextUserId: string, surface: HomeSurface) => {
+    if (!supabase || !nextUserId) return;
+    const requestId = ++surfaceRequestRef.current;
+    setSurfaceLoading(true);
+    setRows([]);
+    setViewer(emptyViewerState());
+    setVisibleCount(10);
+    try {
+      const nextRows = await fetchHomeSurfaceRows(supabase, nextUserId, surface);
+      const nextViewer = await loadHomeViewerState(supabase, nextUserId, nextRows);
+      if (surfaceRequestRef.current !== requestId) return;
+      setRows(nextRows);
+      setViewer(nextViewer);
+    } catch {
+      if (surfaceRequestRef.current === requestId) showToast("โหลดฟีดไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      if (surfaceRequestRef.current === requestId) setSurfaceLoading(false);
+    }
+  }, [showToast, supabase]);
 
   const loadDeveloperPreview = useCallback(async (nextSession: Session | null) => {
     setSession(nextSession);
     setMessage("");
+    surfaceRequestRef.current += 1;
 
     if (!hasSupabaseBrowserConfig() || !supabase) {
       setGate("missing-config");
@@ -295,25 +340,7 @@ export function HomeMigrationPreview() {
       setGate("regular");
       return;
     }
-
-    const feedResult = await supabase.rpc("get_wynos_ranked_feed");
-    if (feedResult.error) {
-      setMessage("โหลดฟีดไม่สำเร็จ กรุณาลองใหม่");
-      setGate("error");
-      return;
-    }
-
-    const nextRows = rankedDropRows(feedResult.data, 200);
-    try {
-      const nextViewer = await loadHomeViewerState(supabase, nextSession.user.id, nextRows);
-      setRows(nextRows);
-      setViewer(nextViewer);
-      setVisibleCount(10);
-      setGate("developer");
-    } catch {
-      setMessage("โหลดสถานะกิจกรรมไม่สำเร็จ กรุณาลองใหม่");
-      setGate("error");
-    }
+    setGate("developer");
   }, [supabase]);
 
   useEffect(() => {
@@ -330,6 +357,11 @@ export function HomeMigrationPreview() {
       authSubscription.subscription.unsubscribe();
     };
   }, [loadDeveloperPreview, supabase]);
+
+  useEffect(() => {
+    if (gate !== "developer" || !userId) return;
+    void loadSurface(userId, currentSurface);
+  }, [currentSurface, gate, loadSurface, userId]);
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -359,23 +391,15 @@ export function HomeMigrationPreview() {
   }, [supabase]);
 
   const beginPending = useCallback((key: string) => {
-    let allowed = false;
-    setPending((current) => {
-      if (current.has(key)) return current;
-      allowed = true;
-      const next = new Set(current);
-      next.add(key);
-      return next;
-    });
-    return allowed;
+    if (pendingRef.current.has(key)) return false;
+    pendingRef.current.add(key);
+    setPending(new Set(pendingRef.current));
+    return true;
   }, []);
 
   const endPending = useCallback((key: string) => {
-    setPending((current) => {
-      const next = new Set(current);
-      next.delete(key);
-      return next;
-    });
+    pendingRef.current.delete(key);
+    setPending(new Set(pendingRef.current));
   }, []);
 
   const patchCounts = useCallback((dropId: string, field: "like_count" | "redrop_count" | "comment_count", delta: number) => {
@@ -441,11 +465,16 @@ export function HomeMigrationPreview() {
 
   const onFollow = useCallback(async (row: HomeFeedRow) => {
     if (!supabase || !userId || row.author_id === userId) return;
-    const key = `follow:${row.author_id}`;
-    if (!beginPending(key)) return;
     const wasFollowing = viewer.followedAuthorIds.has(row.author_id);
     const wasRequested = viewer.pendingFollowAuthorIds.has(row.author_id);
     const isPrivate = viewer.privateAuthorIds.has(row.author_id);
+    if (isPrivate && wasRequested) {
+      const confirmed = window.confirm(`ยกเลิกคำขอติดตาม ${authorLabel(row)}?`);
+      if (!confirmed) return;
+    }
+
+    const key = `follow:${row.author_id}`;
+    if (!beginPending(key)) return;
     const optimisticState = wasFollowing ? "none" : isPrivate ? (wasRequested ? "none" : "requested") : "following";
     setViewer((current) => {
       let next = withViewerSet(current, "followedAuthorIds", row.author_id, optimisticState === "following");
@@ -475,15 +504,38 @@ export function HomeMigrationPreview() {
     setDetailPost(row);
     setComments([]);
     setCommentDraft("");
+    setCommentsPage(0);
+    setCommentsHasMore(false);
     setCommentsLoading(true);
     try {
-      setComments(await fetchDropComments(supabase, userId, row.id));
+      const firstPage = await fetchDropComments(supabase, userId, row.id, 0);
+      setComments(firstPage);
+      setCommentsHasMore(firstPage.length === 50);
     } catch {
       showToast("โหลดความคิดเห็นไม่สำเร็จ");
     } finally {
       setCommentsLoading(false);
     }
   }, [showToast, supabase, userId]);
+
+  const loadMoreComments = useCallback(async () => {
+    if (!supabase || !userId || !detailPost || commentsLoading || !commentsHasMore) return;
+    const nextPage = commentsPage + 1;
+    setCommentsLoading(true);
+    try {
+      const next = await fetchDropComments(supabase, userId, detailPost.id, nextPage);
+      setComments((current) => {
+        const seen = new Set(current.map((comment) => comment.id));
+        return [...current, ...next.filter((comment) => !seen.has(comment.id))];
+      });
+      setCommentsPage(nextPage);
+      setCommentsHasMore(next.length === 50);
+    } catch {
+      showToast("โหลดความคิดเห็นเพิ่มไม่สำเร็จ");
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [commentsHasMore, commentsLoading, commentsPage, detailPost, showToast, supabase, userId]);
 
   const submitComment = useCallback(async () => {
     if (!supabase || !userId || !detailPost || commentSending || !commentDraft.trim()) return;
@@ -520,22 +572,41 @@ export function HomeMigrationPreview() {
     }
   }, [beginPending, endPending, showToast, supabase, userId]);
 
+  const changeComposerCaption = useCallback((value: string) => {
+    setComposerCaption(value);
+    setPublicationOperationId(null);
+  }, []);
+
+  const changeComposerFiles = useCallback((files: File[]) => {
+    setComposerFiles(files.slice(0, 9));
+    setPublicationOperationId(null);
+  }, []);
+
   const submitDrop = useCallback(async () => {
     if (!supabase || !userId || publishing) return;
     setPublishing(true);
     try {
-      await publishDrop(supabase, userId, { caption: composerCaption, files: composerFiles });
+      const result = await publishDropSafely(supabase, userId, {
+        caption: composerCaption,
+        files: composerFiles,
+        operationId: publicationOperationId,
+      });
+      setPublicationOperationId(null);
       setComposerCaption("");
       setComposerFiles([]);
       setComposerOpen(false);
       showToast("เผยแพร่ Drop แล้ว");
-      await loadDeveloperPreview(session);
+      await loadSurface(userId, currentSurface);
+      void result.dropId;
     } catch (error) {
+      if (error instanceof DropPublicationStateUnknownError) {
+        setPublicationOperationId(error.operationId);
+      }
       showToast(error instanceof Error ? error.message : "เผยแพร่ Drop ไม่สำเร็จ");
     } finally {
       setPublishing(false);
     }
-  }, [composerCaption, composerFiles, loadDeveloperPreview, publishing, session, showToast, supabase, userId]);
+  }, [composerCaption, composerFiles, currentSurface, loadSurface, publicationOperationId, publishing, showToast, supabase, userId]);
 
   if (gate === "loading") {
     return <main className="center-state"><h1>WYNOS</h1><p>กำลังเปิด Web รุ่นใหม่…</p></main>;
@@ -564,7 +635,6 @@ export function HomeMigrationPreview() {
   }
 
   const visibleRows = rows.slice(0, visibleCount);
-  const phaseTwoPrimaryFeed = activeTab === "สำหรับคุณ" && (activeMode === "ทั้งหมด" || activeMode === "Drop");
 
   return (
     <div className="wynos-app">
@@ -602,8 +672,8 @@ export function HomeMigrationPreview() {
           </div>
         </header>
 
-        {!phaseTwoPrimaryFeed ? (
-          <p className="status-note">Phase 2 กำลังย้ายแหล่งฟีด “กำลังติดตาม / กำลังนิยม” ต่อจาก interaction หลัก โดย Production เดิมยังไม่เปลี่ยน</p>
+        {surfaceLoading ? (
+          <p className="status-note">กำลังโหลดฟีด…</p>
         ) : visibleRows.length ? (
           <>
             {visibleRows.map((row) => (
@@ -658,7 +728,7 @@ export function HomeMigrationPreview() {
               />
               <div className="comments-section">
                 <h2>ความคิดเห็น</h2>
-                {commentsLoading ? <p className="comment-empty">กำลังโหลด…</p> : null}
+                {commentsLoading && !comments.length ? <p className="comment-empty">กำลังโหลด…</p> : null}
                 {!commentsLoading && !comments.length ? <p className="comment-empty">ยังไม่มีความคิดเห็น</p> : null}
                 {comments.map((comment) => (
                   <article className={`comment-row ${comment.parent_comment_id ? "reply" : ""}`} key={comment.id}>
@@ -682,6 +752,11 @@ export function HomeMigrationPreview() {
                     </button>
                   </article>
                 ))}
+                {commentsHasMore ? (
+                  <button className="load-more-comments" type="button" disabled={commentsLoading} onClick={() => void loadMoreComments()}>
+                    {commentsLoading ? "กำลังโหลด…" : "ดูความคิดเห็นเพิ่มเติม"}
+                  </button>
+                ) : null}
               </div>
             </div>
             <form className="comment-composer" onSubmit={(event) => { event.preventDefault(); void submitComment(); }}>
@@ -714,7 +789,7 @@ export function HomeMigrationPreview() {
                 value={composerCaption}
                 maxLength={500}
                 placeholder="มีอะไรอยาก Drop ไหม?"
-                onChange={(event) => setComposerCaption(event.target.value)}
+                onChange={(event) => changeComposerCaption(event.target.value)}
               />
               <div className="composer-tools">
                 <label className="image-picker">
@@ -725,7 +800,7 @@ export function HomeMigrationPreview() {
                     accept="image/*"
                     multiple
                     disabled={publishing}
-                    onChange={(event) => setComposerFiles(Array.from(event.target.files ?? []).slice(0, 9))}
+                    onChange={(event) => changeComposerFiles(Array.from(event.target.files ?? []))}
                   />
                 </label>
                 <span>{composerCaption.length}/500</span>
@@ -735,6 +810,9 @@ export function HomeMigrationPreview() {
                   <strong>รูปที่เลือก {composerFiles.length}/9</strong>
                   {composerFiles.map((file) => <span key={`${file.name}:${file.size}`}>{file.name}</span>)}
                 </div>
+              ) : null}
+              {publicationOperationId ? (
+                <p className="publication-retry-note">ระบบจะลองเผยแพร่รายการเดิมอีกครั้งอย่างปลอดภัย โดยไม่สร้าง Drop ซ้ำ</p>
               ) : null}
             </div>
           </section>
