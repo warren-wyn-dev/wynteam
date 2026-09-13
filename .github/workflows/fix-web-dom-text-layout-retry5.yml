@@ -1,0 +1,145 @@
+name: Verify browser system text baseline forwarding v2
+
+on:
+  push:
+    branches: [ops/fix-web-dom-text-layout-20260913]
+    paths: [.github/workflows/fix-web-dom-text-layout-retry5.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-dom-text-layout-metrics
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply browser-exact sizing with root baseline forwarding
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin ops/fix-web-dom-text-layout-20260913
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-once.yml > /tmp/source-workflow.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, textwrap
+
+          workflow = Path('/tmp/source-workflow.yml').read_text()
+          patch = re.search(r"python3 - <<'PY'\n(.*?)\n          PY\n\n          cat > app/test/browser_system_text_web_layout_test.dart <<'DART'", workflow, re.S)
+          if not patch:
+              raise SystemExit('could not extract typography patch')
+          exec(textwrap.dedent(patch.group(1)), {'__builtins__': __builtins__})
+
+          path = Path('app/lib/core/typography/browser_system_text_web.dart')
+          source = path.read_text()
+
+          root_rx = re.compile(
+              r'(?m)^([ \t]*)return LayoutBuilder\(\n[ \t]*builder: \(context, constraints\) \{'
+          )
+          match = root_rx.search(source)
+          if not match:
+              raise SystemExit('could not locate LayoutBuilder root')
+          indent = match.group(1)
+          root_replacement = (
+              f'{indent}final rootAlphabeticBaseline = _measureRootAlphabeticBaseline(\n'
+              f'{indent}  style: effectiveStyle,\n'
+              f'{indent}  scaledFontSize: scaledFontSize,\n'
+              f'{indent}  spanScale: spanScale,\n'
+              f'{indent}  direction: direction,\n'
+              f'{indent}  devicePixelRatio: devicePixelRatio,\n'
+              f'{indent});\n\n'
+              f'{indent}return _BrowserTextBaselineBox(\n'
+              f'{indent}  alphabeticBaseline: rootAlphabeticBaseline,\n'
+              f'{indent}  child: LayoutBuilder(\n'
+              f'{indent}    builder: (context, constraints) {{'
+          )
+          source = source[:match.start()] + root_replacement + source[match.end():]
+
+          marker = '_BrowserTextMetrics _measureWithBrowser'
+          marker_pos = source.index(marker, match.start())
+          segment = source[match.start():marker_pos]
+          close_token = f'\n{indent});'
+          close_pos = segment.rfind(close_token)
+          if close_pos < 0:
+              raise SystemExit('could not locate LayoutBuilder closing token')
+          absolute_close = match.start() + close_pos
+          replacement_close = f'\n{indent}  ),\n{indent});'
+          source = (
+              source[:absolute_close]
+              + replacement_close
+              + source[absolute_close + len(close_token):]
+          )
+
+          marker_pos = source.index(marker, absolute_close)
+          line_start = source.rfind('\n', 0, marker_pos) + 1
+          method_indent = source[line_start:marker_pos]
+          method = f'''{method_indent}double _measureRootAlphabeticBaseline({{\n{method_indent}  required TextStyle style,\n{method_indent}  required double scaledFontSize,\n{method_indent}  required double spanScale,\n{method_indent}  required TextDirection direction,\n{method_indent}  required double devicePixelRatio,\n{method_indent}}}) {{\n{method_indent}  final fallback = scaledFontSize * 0.82;\n{method_indent}  final body = web.document.body;\n{method_indent}  if (body == null) return fallback;\n\n{method_indent}  final probe = web.document.createElement('div') as web.HTMLDivElement;\n{method_indent}  probe.setAttribute('aria-hidden', 'true');\n{method_indent}  probe.style\n{method_indent}    ..position = 'fixed'\n{method_indent}    ..left = '-100000px'\n{method_indent}    ..top = '-100000px'\n{method_indent}    ..visibility = 'hidden'\n{method_indent}    ..pointerEvents = 'none'\n{method_indent}    ..margin = '0'\n{method_indent}    ..padding = '0'\n{method_indent}    ..width = 'auto'\n{method_indent}    ..maxWidth = 'none'\n{method_indent}    ..height = 'auto'\n{method_indent}    ..boxSizing = 'border-box';\n\n{method_indent}  _applyBaseCss(\n{method_indent}    probe,\n{method_indent}    style: style,\n{method_indent}    scaledFontSize: scaledFontSize,\n{method_indent}    direction: direction,\n{method_indent}    fillWidth: false,\n{method_indent}    allowWrap: false,\n{method_indent}  );\n{method_indent}  probe.style.display = 'inline-block';\n\n{method_indent}  final marker = web.document.createElement('span') as web.HTMLSpanElement;\n{method_indent}  marker.style\n{method_indent}    ..display = 'inline-block'\n{method_indent}    ..width = '0'\n{method_indent}    ..height = '0'\n{method_indent}    ..margin = '0'\n{method_indent}    ..padding = '0'\n{method_indent}    ..verticalAlign = 'baseline';\n{method_indent}  probe.appendChild(marker);\n{method_indent}  _appendSpans(probe, spanScale: spanScale);\n{method_indent}  body.appendChild(probe);\n\n{method_indent}  final rect = probe.getBoundingClientRect();\n{method_indent}  final markerRect = marker.getBoundingClientRect();\n{method_indent}  final rawBaseline = markerRect.top - rect.top;\n{method_indent}  probe.remove();\n\n{method_indent}  final lineHeight = _snapUp(\n{method_indent}    scaledFontSize * (style.height ?? 1.2),\n{method_indent}    devicePixelRatio,\n{method_indent}  );\n{method_indent}  if (!rawBaseline.isFinite || rawBaseline <= 0) {{\n{method_indent}    return math.min(_snapUp(fallback, devicePixelRatio), lineHeight);\n{method_indent}  }}\n{method_indent}  return math.min(\n{method_indent}    _snapUp(rawBaseline, devicePixelRatio),\n{method_indent}    lineHeight,\n{method_indent}  );\n{method_indent}}}\n\n'''
+          source = source[:line_start] + method + source[line_start:]
+          path.write_text(source)
+
+          test = re.search(r"cat > app/test/browser_system_text_web_layout_test.dart <<'DART'\n(.*?)\n          DART", workflow, re.S)
+          if not test:
+              raise SystemExit('could not extract browser test')
+          content = textwrap.dedent(test.group(1))
+          content = content.replace(
+              '          Row(\n            mainAxisSize: MainAxisSize.min,',
+              '          const Row(\n            mainAxisSize: MainAxisSize.min,',
+          )
+          content = content.replace('            children: const [', '            children: [')
+          content = content.replace(
+              'await tester.pumpAndSettle();',
+              'await tester.pump(const Duration(milliseconds: 50));',
+          )
+          Path('app/test/browser_system_text_web_layout_test.dart').write_text(content)
+          PY
+
+          dart format \
+            app/lib/core/typography/browser_system_text_web.dart \
+            app/test/browser_system_text_web_layout_test.dart
+          git add -A
+
+      - name: Analyze
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze
+
+      - name: Browser DOM layout regression tests
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter test --platform chrome test/browser_system_text_web_layout_test.dart
+
+      - name: Full regression tests
+        working-directory: app
+        run: flutter test
+
+      - name: Release Web build
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter build web --release
+          test -f build/web/main.dart.js
+          grep -q 'Apple Color Emoji' build/web/main.dart.js
+          grep -q 'getBoundingClientRect' build/web/main.dart.js
+          ! grep -q 'WYNWebNotoThai' build/web/main.dart.js
+
+      - name: Commit verified layout fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git status --short
+          git commit -m 'fix(web): align DOM text baselines with browser metrics'
+          git push origin HEAD:fix/web-dom-text-layout-metrics
