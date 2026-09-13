@@ -12,13 +12,10 @@ import '../../../home/presentation/widgets/home_card_metrics.dart'
 /// [fallbackText] on a primary-colored background -- per the WYN-003
 /// design spec, never a broken-image placeholder.
 ///
-/// The fallback covers a failed load, not just a null [imageUrl]. It
-/// used to only cover the null case, so an avatar whose file 404s or
-/// whose request dies on a poor connection painted as an empty colored
-/// circle: a follower list on bad wifi was a column of blank discs. The
-/// letter can't simply be drawn underneath, because CircleAvatar paints
-/// `child` *over* `backgroundImage` -- hence the small piece of state
-/// below, flipped by the image's own error callback.
+/// On iOS Web the image deliberately goes through [Image.network] with
+/// WYNOS's HTML-image strategy rather than CircleAvatar.backgroundImage.
+/// That keeps full-size profile/Club uploads out of CanvasKit texture memory,
+/// which is the same mitigation used by post images in the feed.
 class AvatarCircle extends StatefulWidget {
   const AvatarCircle({
     super.key,
@@ -95,6 +92,31 @@ class _AvatarCircleState extends State<AvatarCircle> {
         (widget.radius - (homeCardAvatarDiameter / 2)).abs() < 0.001;
   }
 
+  Widget _fallbackAvatar(
+    BuildContext context, {
+    required String initial,
+    required double radius,
+  }) {
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.primary,
+      child: Center(
+        child: BrowserSystemText(
+          initial,
+          // design-reference SPEC.md, Section 2: the avatar initial is
+          // one of the few spots outside the header wordmark/empty-
+          // state headline that every reference screen (Profile,
+          // Edit Profile, Notifications, ...) independently renders
+          // in the screen-title style.
+          style: WynTypography.screenTitle(
+            fontSize: radius * 0.8,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final fallbackText = widget.fallbackText;
@@ -103,42 +125,45 @@ class _AvatarCircleState extends State<AvatarCircle> {
         fallbackText.isNotEmpty ? fallbackText[0].toUpperCase() : '?';
     final imageUrl = _imageFailed ? null : widget.imageUrl;
 
-    // An avatar is at most ~80 logical pixels across anywhere in the
-    // app, but the file behind it is a full-size upload -- decoding it
-    // at source size costs megabytes of bitmap per face on a follower
-    // list. The ResizeImage bound is in *physical* pixels, so the avatar
-    // stays sharp at every screen density; see decodeWidthFor.
+    // Native/engine-backed images still get a physical-pixel decode bound.
+    // Flutter Web ignores cacheWidth, so iOS Web instead uses the shared HTML
+    // image strategy below and never promotes these avatars to CanvasKit
+    // textures. This matters because avatar uploads are stored at source size
+    // and a feed can show many different users/Clubs while scrolling.
     final decodeWidth = decodeWidthFor(
       radius * 2,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
-    final avatar = CircleAvatar(
+
+    final fallback = _fallbackAvatar(
+      context,
+      initial: initial,
       radius: radius,
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      backgroundImage: imageUrl == null
-          ? null
-          : ResizeImage.resizeIfNeeded(
-              decodeWidth,
-              null,
-              NetworkImage(imageUrl),
-            ),
-      onBackgroundImageError:
-          imageUrl == null ? null : (_, __) => _onImageError(),
-      child: imageUrl == null
-          ? BrowserSystemText(
-              initial,
-              // design-reference SPEC.md, Section 2: the avatar initial is
-              // one of the few spots outside the header wordmark/empty-
-              // state headline that every reference screen (Profile,
-              // Edit Profile, Notifications, ...) independently renders
-              // in the screen-title style.
-              style: WynTypography.screenTitle(
-                fontSize: radius * 0.8,
-                fontWeight: FontWeight.w500,
-                color: Theme.of(context).colorScheme.onPrimary,
+    );
+
+    final avatar = SizedBox.square(
+      dimension: radius * 2,
+      child: ClipOval(
+        child: imageUrl == null
+            ? fallback
+            : ColoredBox(
+                color: Theme.of(context).colorScheme.primary,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  webHtmlElementStrategy: wynNetworkImageStrategy,
+                  cacheWidth: decodeWidth,
+                  errorBuilder: (context, error, stackTrace) {
+                    _onImageError();
+                    // Keep the same solid primary placeholder for this frame;
+                    // the scheduled state update swaps in the initial next.
+                    return ColoredBox(
+                      color: Theme.of(context).colorScheme.primary,
+                    );
+                  },
+                ),
               ),
-            )
-          : null,
+      ),
     );
 
     final semanticAvatar = Semantics(
