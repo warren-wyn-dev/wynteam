@@ -27,49 +27,14 @@ jobs:
               Path('app/lib/features/home/presentation/widgets/home_drop_card.dart'),
               Path('app/lib/features/home/presentation/widgets/home_pop_card.dart'),
           ]
-          old = """        child: Padding(
-          // Approved final mockup: each post gets breathing room above
-          // the avatar/name, while the content inside the post stays compact.
-          padding: EdgeInsets.fromLTRB(
-            0,
-            WynSpacing.space3,
-            0,
-            item.topReply == null ? 0 : WynSpacing.space2,
-          ),
-"""
-          new = """        child: Padding(
-          // Keep the divider-to-content rhythm visually balanced: the base
-          // breathing room above the post matches the space below its action
-          // row before the next divider.
-          padding: const EdgeInsets.symmetric(
-            vertical: WynSpacing.space2,
-          ),
-"""
-          old_pop = """        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            0,
-            WynSpacing.space3,
-            0,
-            item.topReply == null ? 0 : WynSpacing.space2,
-          ),
-"""
-          new_pop = """        child: Padding(
-          // Match HomeDropCard: equal breathing room above and below each
-          // post keeps the divider centered between neighboring cards.
-          padding: const EdgeInsets.symmetric(
-            vertical: WynSpacing.space2,
-          ),
-"""
+          old = "WynSpacing.space3,\n            0,\n            item.topReply == null ? 0 : WynSpacing.space2,"
+          new = "WynSpacing.space2,\n            0,\n            WynSpacing.space2,"
 
-          text = files[0].read_text()
-          if old not in text:
-              raise SystemExit('HomeDropCard spacing block not found')
-          files[0].write_text(text.replace(old, new, 1))
-
-          text = files[1].read_text()
-          if old_pop not in text:
-              raise SystemExit('HomePopCard spacing block not found')
-          files[1].write_text(text.replace(old_pop, new_pop, 1))
+          for path in files:
+              text = path.read_text()
+              if old not in text:
+                  raise SystemExit(f'Spacing block not found in {path}')
+              path.write_text(text.replace(old, new, 1))
           PY
 
       - name: Commit patch
