@@ -105,9 +105,6 @@ jobs:
             root/'core/typography/browser_system_picker_web.dart',
           }
 
-          # Replace comments and string literal contents with spaces while
-          # preserving indexes/newlines. This prevents documentation examples
-          # such as `Text(...)` from being misclassified as executable UI.
           def code_only(source: str) -> str:
             out = list(source)
             i = 0
@@ -222,14 +219,9 @@ jobs:
             clean = code_only(p.read_text())
             for label, rx in direct_patterns.items():
               if rx.search(clean): failures.append(f'{p}: {label}')
-            # Flutter's built-in tooltip parameter paints framework tooltip text.
-            # Custom widgets may safely expose a `tooltip` property if they route it
-            # into BrowserSystemTooltip, so only framework constructors are gated.
             for token in ('IconButton', 'FloatingActionButton', 'PopupMenuButton'):
               for body in call_bodies(clean, token):
                 if has_top_level_named_arg(body, 'tooltip'):
-                  # tooltip:null is allowed only when wrapped by BrowserSystemTooltip;
-                  # checking the presence conservatively catches any missed migration.
                   failures.append(f'{p}: {token}(tooltip:)')
 
           if failures:
@@ -251,10 +243,27 @@ jobs:
           set -euo pipefail
           flutter build web --release
           test -f build/web/main.dart.js
-          grep -q 'Apple Color Emoji' build/web/main.dart.js
-          grep -q 'Thonburi' build/web/main.dart.js
-          ! grep -q 'WYNWebNotoThai' build/web/main.dart.js
-          ! test -e build/web/assets/assets/fonts/NotoSansThai
+
+          # The DOM font stack is source-owned. Dart2JS may minify or move string
+          # constants, so validate the authoritative source instead of requiring
+          # literal family names to survive in main.dart.js.
+          grep -q -- '-apple-system' lib/core/typography/browser_system_text_web.dart
+          grep -q 'Thonburi' lib/core/typography/browser_system_text_web.dart
+          grep -q 'Apple Color Emoji' lib/core/typography/browser_system_text_web.dart
+
+          if grep -q 'WYNWebNotoThai' build/web/main.dart.js; then
+            echo 'Forced WYNWebNotoThai leaked into the compiled Web bundle.'
+            exit 40
+          fi
+          if find build/web -type f -print | grep -q 'NotoSansThai'; then
+            echo 'Bundled NotoSansThai asset leaked into the Web build.'
+            exit 41
+          fi
+          if [ -f build/web/assets/FontManifest.json ] && grep -Eq 'WYNWebNotoThai|NotoSansThai' build/web/assets/FontManifest.json; then
+            echo 'Forced Web font remains in FontManifest.json.'
+            exit 42
+          fi
+          echo 'Release Web build passed system-typography asset gate.'
       - name: Commit verified result
         shell: bash
         run: |
