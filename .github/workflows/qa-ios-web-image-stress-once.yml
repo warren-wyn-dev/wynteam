@@ -49,8 +49,88 @@ jobs:
             runApp(const _StressApp());
           }
 
-          class _StressApp extends StatelessWidget {
+          class _StressApp extends StatefulWidget {
             const _StressApp();
+
+            @override
+            State<_StressApp> createState() => _StressAppState();
+          }
+
+          class _StressAppState extends State<_StressApp> {
+            final ScrollController _controller = ScrollController();
+
+            @override
+            void initState() {
+              super.initState();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _runStress();
+              });
+            }
+
+            Future<void> _runStress() async {
+              await Future<void>.delayed(const Duration(seconds: 2));
+              try {
+                // Let Flutter itself drive the ListView instead of relying on
+                // Playwright mouse input, which mobile WebKit intentionally
+                // rejects. Reaching the dynamically-growing max extent forces
+                // lazy rows to be created/disposed just like a long feed scroll.
+                for (var cycle = 0; cycle < 3; cycle++) {
+                  await _travelToEnd();
+                  if (!mounted || !_controller.hasClients) return;
+                  await _controller.animateTo(
+                    0,
+                    duration: const Duration(seconds: 2),
+                    curve: Curves.linear,
+                  );
+                  await Future<void>.delayed(const Duration(milliseconds: 300));
+                }
+                html.document.documentElement?.setAttribute(
+                  'data-wyn-stress-complete',
+                  'true',
+                );
+              } catch (error) {
+                html.document.documentElement?.setAttribute(
+                  'data-wyn-stress-error',
+                  error.toString(),
+                );
+              }
+            }
+
+            Future<void> _travelToEnd() async {
+              var stableEndPasses = 0;
+              var lastMaxExtent = -1.0;
+              for (var step = 0; step < 120; step++) {
+                if (!mounted || !_controller.hasClients) return;
+                final position = _controller.position;
+                final maxExtent = position.maxScrollExtent;
+                final proposed = _controller.offset + 720;
+                final target = proposed < maxExtent ? proposed : maxExtent;
+                await _controller.animateTo(
+                  target,
+                  duration: const Duration(milliseconds: 80),
+                  curve: Curves.linear,
+                );
+
+                final atEnd =
+                    (_controller.position.maxScrollExtent - _controller.offset)
+                            .abs() <
+                        1;
+                if (atEnd && (maxExtent - lastMaxExtent).abs() < 1) {
+                  stableEndPasses++;
+                  if (stableEndPasses >= 3) return;
+                } else {
+                  stableEndPasses = 0;
+                }
+                lastMaxExtent = maxExtent;
+                await Future<void>.delayed(const Duration(milliseconds: 25));
+              }
+            }
+
+            @override
+            void dispose() {
+              _controller.dispose();
+              super.dispose();
+            }
 
             @override
             Widget build(BuildContext context) {
@@ -58,6 +138,7 @@ jobs:
                 debugShowCheckedModeBanner: false,
                 home: Scaffold(
                   body: ListView.builder(
+                    controller: _controller,
                     itemCount: 180,
                     itemBuilder: (context, index) {
                       final url = Uri.base
@@ -168,24 +249,18 @@ jobs:
               null,
               { timeout: 30000 },
             );
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(2000);
 
             const strategy = await page.getAttribute('html', 'data-wyn-image-strategy');
             const initialNavigations = navigations;
             await page.evaluate(() => { window.__wynStressMarker = 'alive'; });
 
-            // Repeatedly create/dispose image-heavy rows. This is closer to the
-            // real feed failure than a one-shot Welcome-page smoke test.
-            for (let cycle = 0; cycle < 5; cycle++) {
-              for (let i = 0; i < 70; i++) {
-                await page.mouse.wheel(0, 560);
-                await page.waitForTimeout(70);
-              }
-              for (let i = 0; i < 70; i++) {
-                await page.mouse.wheel(0, -560);
-                await page.waitForTimeout(70);
-              }
-            }
+            await page.waitForFunction(() => {
+              const root = document.documentElement;
+              const error = root.getAttribute('data-wyn-stress-error');
+              if (error) throw new Error(`Flutter stress harness failed: ${error}`);
+              return root.getAttribute('data-wyn-stress-complete') === 'true';
+            }, null, { timeout: 90000 });
             await page.waitForTimeout(8000);
 
             const marker = await page.evaluate(() => window.__wynStressMarker || null);
