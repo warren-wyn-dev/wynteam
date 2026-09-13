@@ -1,6 +1,6 @@
-import { ClubInviteRoute } from "@/components/deep-link-routes";
+import { ClubInviteLinkRoute } from "@/components/club-invite-route";
 
 export default async function Page({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  return <ClubInviteRoute code={code} />;
+  return <ClubInviteLinkRoute code={code} />;
 }
