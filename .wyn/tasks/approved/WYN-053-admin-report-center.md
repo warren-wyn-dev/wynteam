@@ -1,6 +1,6 @@
 # Product + Design Task — WYN-053
 
-Status: backlog
+Status: approved (Independent QA PASS 2026-08-24 — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — deployed to production ผ่าน Vercel ตั้งแต่ 2026-09-04, ยืนยันจาก GitHub Actions run history ของ `deploy-admin.yml`)
 Owner: AI Product Manager + AI Design (combined, low session quota — same session continuing straight through WYN-052/WYN-023)
 
 Feature: WYN Admin Report Center — Master Spec section 41: "Reports → Priority → Risk Classification → Reviewer → Action → Appeal"

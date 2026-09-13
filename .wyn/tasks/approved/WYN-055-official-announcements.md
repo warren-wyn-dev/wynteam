@@ -1,6 +1,6 @@
 # Product + Design Task — WYN-055
 
-Status: backlog
+Status: approved (Independent QA PASS 2026-08-24 — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — deployed to production ผ่าน Vercel ตั้งแต่ 2026-09-04, ยืนยันจาก GitHub Actions run history ของ `deploy-admin.yml`)
 Owner: AI Product Manager + AI Design (combined, continuing straight through WYN-052/023/053/054)
 
 Feature: WYN Official Announcement — Master Spec section 43: "Admin สร้างประกาศ: System Update, Policy Update, Maintenance, Important Announcement — กำหนดกลุ่มผู้รับได้"

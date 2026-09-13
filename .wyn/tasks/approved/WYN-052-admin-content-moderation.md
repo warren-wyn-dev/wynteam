@@ -1,6 +1,6 @@
 # Product Task — WYN-052
 
-Status: backlog
+Status: approved (Independent QA PASS 2026-08-24 — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — deployed to production ผ่าน Vercel ตั้งแต่ 2026-09-04, ยืนยันจาก GitHub Actions run history ของ `deploy-admin.yml`)
 Owner: AI Product Manager
 
 Feature: WYN Admin Content Moderation — ค้นหา Drop, Review, Remove, **Restore** (เฉพาะ Drop ในรอบนี้), ตรวจ Report, ดู Moderation History

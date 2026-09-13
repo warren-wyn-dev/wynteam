@@ -1,6 +1,6 @@
 # Product + Design Task — WYN-054
 
-Status: backlog
+Status: approved (Independent QA PASS 2026-08-24 — ดูหัวข้อ "Independent QA" ท้ายไฟล์ — deployed to production ผ่าน Vercel ตั้งแต่ 2026-09-04, ยืนยันจาก GitHub Actions run history ของ `deploy-admin.yml`)
 Owner: AI Product Manager + AI Design (combined, continuing straight through WYN-052/023/053)
 
 Feature: Audit Log — Master Spec section 42: "ทุก Admin Action สำคัญต้องบันทึก: Admin, Action, Target, Time, Reason, Previous State, New State — ห้าม Admin ปกติลบ Audit Log"
