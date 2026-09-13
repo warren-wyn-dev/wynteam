@@ -81,13 +81,46 @@ jobs:
       - name: Verify wynos.online is serving Next.js
         run: |
           set -euo pipefail
+
+          ready=0
+          last_html=''
+          for attempt in $(seq 1 24); do
+            echo "Waiting for wynos.online to serve Next.js (attempt $attempt/24)"
+            last_html=$(curl --silent --show-error --fail --location --max-time 30 \
+              --header 'Cache-Control: no-cache' \
+              "https://wynos.online/?_wyn_cutover_verify=${GITHUB_RUN_ID}-${attempt}" || true)
+
+            if grep -q '/_next/' <<< "$last_html" && ! grep -q 'flutter_bootstrap.js' <<< "$last_html"; then
+              ready=1
+              break
+            fi
+
+            echo "Current homepage bytes: ${#last_html}; Next.js marker not ready yet"
+            sleep 5
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            if grep -qi 'vercel' <<< "$last_html"; then
+              echo '::error::wynos.online appears to be returning a Vercel protection/authentication page. Production must be public while Preview protection remains enabled.'
+            elif grep -q 'flutter_bootstrap.js' <<< "$last_html"; then
+              echo '::error::wynos.online still exposes the legacy Flutter bootstrap after the propagation window.'
+            else
+              echo '::error::wynos.online did not begin serving the Next.js consumer web within the propagation window.'
+            fi
+            exit 1
+          fi
+
           for route in / /search /notifications /chat /settings /profile/me; do
             echo "Checking https://wynos.online$route"
-            curl --fail --location --retry 10 --retry-delay 3 --max-time 30 \
+            curl --fail --location --retry 5 --retry-delay 2 --max-time 30 \
+              --header 'Cache-Control: no-cache' \
               --output /dev/null "https://wynos.online$route"
           done
 
-          html=$(curl --fail --location --retry 10 --retry-delay 3 --max-time 30 https://wynos.online/)
+          html=$(curl --silent --show-error --fail --location --max-time 30 \
+            --header 'Cache-Control: no-cache' \
+            "https://wynos.online/?_wyn_cutover_verify=${GITHUB_RUN_ID}-final")
+
           grep -q '/_next/' <<< "$html" || {
             echo '::error::wynos.online does not look like the Next.js consumer web after cutover'
             exit 1
