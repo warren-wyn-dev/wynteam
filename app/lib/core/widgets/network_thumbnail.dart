@@ -1,4 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+/// Flutter Web ignores cacheWidth/cacheHeight, and CanvasKit network-image
+/// textures can exhaust WebKit's page process on image-heavy iPhone feeds.
+/// Keep the normal engine image path everywhere except iOS Web, where Flutter
+/// can host the network image as a browser <img> platform view instead.
+WebHtmlElementStrategy networkImageStrategyFor({
+  required bool isWeb,
+  required TargetPlatform platform,
+}) {
+  return isWeb && platform == TargetPlatform.iOS
+      ? WebHtmlElementStrategy.prefer
+      : WebHtmlElementStrategy.never;
+}
+
+WebHtmlElementStrategy get wynNetworkImageStrategy =>
+    networkImageStrategyFor(isWeb: kIsWeb, platform: defaultTargetPlatform);
 
 /// Decodes [imageUrl] at the size it is actually painted at, instead of
 /// at the size it was uploaded at.
@@ -45,6 +62,7 @@ class NetworkThumbnail extends StatelessWidget {
         return Image.network(
           imageUrl,
           fit: fit,
+          webHtmlElementStrategy: wynNetworkImageStrategy,
           cacheWidth: decodeWidthFor(
             constraints.maxWidth,
             devicePixelRatio: devicePixelRatio,
