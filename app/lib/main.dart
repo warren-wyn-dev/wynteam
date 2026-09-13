@@ -6,6 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/auth/web_auth_callback_stub.dart'
+    if (dart.library.js_interop) 'core/auth/web_auth_callback_web.dart';
+import 'core/auth/web_pkce_storage_stub.dart'
+    if (dart.library.js_interop) 'core/auth/web_pkce_storage_web.dart';
 import 'core/design/wyn_colors.dart';
 import 'core/design/wyn_spacing.dart';
 import 'core/design/wyn_theme.dart';
@@ -17,17 +21,18 @@ import 'features/auth/presentation/auth_gate.dart';
 import 'features/push/presentation/push_reliability_controller.dart';
 
 Future<void> main() async {
-  // Supabase Flutter's web PKCE/OAuth callback handler depends on Flutter's
-  // path URL strategy. With the default hash strategy, Google successfully
-  // redirects back to `/?code=...`, but the SDK cannot consume that callback
-  // reliably; the one-time auth code then stays in Safari's address bar and
-  // is replayed on later reloads. Configure the web strategy *before*
-  // Supabase.initialize() starts its built-in deep-link/session detector.
+  // Keep browser routes in normal path/query form so OAuth callbacks arrive as
+  // https://wynos.online/?code=... rather than being hidden behind a hash.
   if (kIsWeb) {
     usePathUrlStrategy();
   }
 
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Capture the browser URL before any auth/plugin initialization can touch
+  // navigation state. On web WYNOS owns callback handling below rather than
+  // relying on app_links to reconstruct this one initial URL.
+  final initialUri = Uri.base;
 
   // WYN-078 (Wynos V1.0.0 Beta2, item 5): without this, the OS draws its
   // own default status bar/nav bar scrim (often white or black depending
@@ -49,7 +54,28 @@ Future<void> main() async {
   await Supabase.initialize(
     url: Env.supabaseUrl,
     publishableKey: Env.supabasePublishableKey,
+    authOptions: FlutterAuthClientOptions(
+      // Native deep links still use Supabase Flutter's built-in app_links
+      // observer. Web is handled explicitly from Uri.base immediately after
+      // initialization so callback parsing is deterministic on Safari.
+      detectSessionInUri: !kIsWeb,
+      // On web, persist the PKCE verifier directly in origin localStorage so
+      // it survives the full-page Google OAuth navigation. Native platforms
+      // return null here and keep Supabase Flutter's default storage.
+      pkceAsyncStorage: createWebPkceStorage(),
+    ),
   );
+
+  if (kIsWeb) {
+    // Exchange the one-time PKCE code before the widget tree starts. The web
+    // handler always removes auth query parameters in a finally block, so a
+    // failed/expired exchange cannot leave Safari reopening `?code=...` on
+    // every tab restore/reload.
+    await handleInitialWebAuthCallback(
+      Supabase.instance.client,
+      initialUri,
+    );
+  }
 
   // Multi-account switching: keeps whichever account is currently active
   // fresh in the on-device switcher every time its access/refresh token
