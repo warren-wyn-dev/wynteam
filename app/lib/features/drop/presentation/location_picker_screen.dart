@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -100,7 +101,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 450), () => _search(trimmed));
+    _debounce =
+        Timer(const Duration(milliseconds: 450), () => _search(trimmed));
   }
 
   Future<void> _search(String query) async {
@@ -118,10 +120,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       });
     } on LocationSearchRateLimitedException {
       if (!mounted || requestId != _searchRequestId) return;
-      setState(() => _errorMessage = 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
+      setState(
+          () => _errorMessage = 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
     } catch (_) {
       if (!mounted || requestId != _searchRequestId) return;
-      setState(() => _errorMessage = 'ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่');
+      setState(() => _errorMessage =
+          'ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่');
     } finally {
       if (mounted && requestId == _searchRequestId) {
         setState(() => _isSearching = false);
@@ -155,10 +159,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           'WYN ไม่มีสิทธิ์เข้าถึงตำแหน่งของคุณ กรุณาเปิดสิทธิ์ในการตั้งค่าเครื่อง');
     } on LocationSearchRateLimitedException {
       if (!mounted) return;
-      setState(() => _errorMessage = 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
+      setState(
+          () => _errorMessage = 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่');
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage = 'ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่');
+      setState(() => _errorMessage =
+          'ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองอีกครั้งในอีกสักครู่');
     } finally {
       if (mounted) setState(() => _isLocatingCurrent = false);
     }
@@ -177,7 +183,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('เพิ่มสถานที่'),
+        title: const BrowserSystemText('เพิ่มสถานที่'),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -199,7 +205,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space3, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space3,
+        WynSpacing.space6,
+        WynSpacing.space2,
       ),
       child: Container(
         height: 40,
@@ -214,11 +223,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             const Icon(Icons.search, size: 14, color: WynColors.mutedNeutral),
             const SizedBox(width: WynSpacing.space2),
             Expanded(
-              child: TextField(
+              child: BrowserSystemTextField(
                 controller: _searchController,
                 onChanged: _onQueryChanged,
                 decoration: const InputDecoration(
-                  hintText: 'ค้นหาสถานที่...',
+                  hint: BrowserSystemText('ค้นหาสถานที่...'),
                   border: InputBorder.none,
                   isCollapsed: true,
                 ),
@@ -245,7 +254,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.my_location, color: WynColors.sapphire),
-            title: Text(
+            title: BrowserSystemText(
               _isLocatingCurrent
                   ? 'กำลังค้นหาตำแหน่งของคุณ...'
                   : 'ใช้ตำแหน่งปัจจุบันของฉัน',
@@ -260,7 +269,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         if (_errorMessage != null)
           Padding(
             padding: const EdgeInsets.all(WynSpacing.space4),
-            child: Text(
+            child: BrowserSystemText(
               _errorMessage!,
               textAlign: TextAlign.center,
               style: const TextStyle(color: WynColors.errorLight),
@@ -270,7 +279,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           const Padding(
             padding: EdgeInsets.all(WynSpacing.space6),
             child: Center(
-              child: Text('ไม่พบสถานที่ที่ค้นหา ลองพิมพ์คำอื่นดูนะ'),
+              child:
+                  BrowserSystemText('ไม่พบสถานที่ที่ค้นหา ลองพิมพ์คำอื่นดูนะ'),
             ),
           )
         else
@@ -281,13 +291,16 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   Widget _buildResultRow(LocationResult result) {
     return Semantics(
-      label: result.address != null ? '${result.name}, ${result.address}' : result.name,
+      label: result.address != null
+          ? '${result.name}, ${result.address}'
+          : result.name,
       excludeSemantics: true,
       child: ListTile(
-        leading: const Icon(Icons.place_outlined, color: WynColors.mutedNeutral),
-        title: Text(result.name),
+        leading:
+            const Icon(Icons.place_outlined, color: WynColors.mutedNeutral),
+        title: BrowserSystemText(result.name),
         subtitle: result.address != null
-            ? Text(
+            ? BrowserSystemText(
                 result.address!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

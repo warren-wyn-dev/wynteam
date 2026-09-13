@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -87,7 +88,8 @@ class DeepLinkService {
     final first = segments.first;
     if (first.startsWith('@') && first.length > 1) return true;
     if (segments.length < 2) return false;
-    return const {'drop', 'pop', 'club', 'club-post', 'club-invite'}.contains(first);
+    return const {'drop', 'pop', 'club', 'club-post', 'club-invite'}
+        .contains(first);
   }
 
   static Future<void> _handle(String path) async {
@@ -126,7 +128,8 @@ class DeepLinkService {
         // "content not available" treatment as a push notification for
         // an old like_pop/comment_pop (PushNotificationService._openPop).
         appScaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
+          const SnackBar(
+              content: BrowserSystemText('เนื้อหานี้ไม่พร้อมใช้งานแล้ว')),
         );
       case 'club':
         _openClub(navigator, Supabase.instance.client, id);

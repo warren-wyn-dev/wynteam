@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -159,15 +160,15 @@ class SettingsScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('ออกจากระบบบัญชีของคุณใช่ไหม'),
+        title: const BrowserSystemText('ออกจากระบบบัญชีของคุณใช่ไหม'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('ออกจากระบบ'),
+            child: const BrowserSystemText('ออกจากระบบ'),
           ),
         ],
       ),
@@ -192,7 +193,7 @@ class SettingsScreen extends StatelessWidget {
               size: 26, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: BrowserSystemText(
           'ตั้งค่า',
           style: WynTypography.screenTitle(
             fontSize: 17,
@@ -343,7 +344,7 @@ class _VersionFooterState extends State<_VersionFooter> {
         return Padding(
           padding: const EdgeInsets.only(bottom: WynSpacing.space6),
           child: Center(
-            child: Text(
+            child: BrowserSystemText(
               isDeveloper ? AppVersion.developerPreview : AppVersion.stable,
               style: _textStyle(fontSize: 12, color: WynColors.faint),
             ),
@@ -390,7 +391,7 @@ class _GroupLabel extends StatelessWidget {
         WynSpacing.space4,
         WynSpacing.space1,
       ),
-      child: Text(
+      child: BrowserSystemText(
         label,
         style: _textStyle(
           fontSize: 13,
@@ -451,7 +452,7 @@ class _SettingsRow extends StatelessWidget {
               ),
               const SizedBox(width: WynSpacing.space3),
               Expanded(
-                child: Text(
+                child: BrowserSystemText(
                   label,
                   style: _textStyle(
                     fontSize: 15,
@@ -527,7 +528,8 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง')),
+            content:
+                BrowserSystemText('ดาวน์โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -537,7 +539,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('บัญชี')),
+      appBar: AppBar(title: const BrowserSystemText('บัญชี')),
       body: ListView(
         children: [
           Padding(
@@ -547,7 +549,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
               WynSpacing.space4,
               WynSpacing.space1,
             ),
-            child: Text(
+            child: BrowserSystemText(
               'หลายบัญชี',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
@@ -556,8 +558,8 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.swap_horiz),
-            title: const Text('สลับบัญชี'),
-            subtitle: const Text(
+            title: const BrowserSystemText('สลับบัญชี'),
+            subtitle: const BrowserSystemText(
                 'เพิ่มได้สูงสุด ${AccountSwitcherRepository.maxAccounts} บัญชีต่อเครื่อง'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => showAccountSwitcherSheet(context),
@@ -569,7 +571,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
               WynSpacing.space4,
               WynSpacing.space1,
             ),
-            child: Text(
+            child: BrowserSystemText(
               'ความปลอดภัย',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
@@ -578,7 +580,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.block),
-            title: const Text('บัญชีที่ถูกบล็อก'),
+            title: const BrowserSystemText('บัญชีที่ถูกบล็อก'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
@@ -592,7 +594,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.volume_off),
-            title: const Text('บัญชีที่ปิดเสียง'),
+            title: const BrowserSystemText('บัญชีที่ปิดเสียง'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               final client = Supabase.instance.client;
@@ -612,7 +614,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.restore_from_trash_outlined),
-            title: const Text('รายการที่ลบ'),
+            title: const BrowserSystemText('รายการที่ลบ'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
@@ -636,7 +638,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
                 WynSpacing.space4,
                 WynSpacing.space1,
               ),
-              child: Text(
+              child: BrowserSystemText(
                 'เครื่องมือผู้ดูแล',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: Theme.of(context).colorScheme.outline,
@@ -645,7 +647,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.shield_outlined),
-              title: const Text('คิวตรวจสอบรายงาน'),
+              title: const BrowserSystemText('คิวตรวจสอบรายงาน'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 final client = Supabase.instance.client;
@@ -675,7 +677,7 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
               WynSpacing.space4,
               WynSpacing.space1,
             ),
-            child: Text(
+            child: BrowserSystemText(
               'ข้อมูลของฉัน',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
@@ -690,13 +692,13 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.download_outlined),
-            title: const Text('ดาวน์โหลดข้อมูลของฉัน'),
+            title: const BrowserSystemText('ดาวน์โหลดข้อมูลของฉัน'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _isExporting ? null : _exportData,
           ),
           ListTile(
             leading: const Icon(Icons.delete_forever_outlined),
-            title: const Text('ลบบัญชี'),
+            title: const BrowserSystemText('ลบบัญชี'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
@@ -800,7 +802,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       if (!mounted) return;
       setState(() => _isPrivate = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isTogglingPrivate = false);
@@ -850,7 +853,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       if (!mounted) return;
       setState(() => apply(previous));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -871,7 +875,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       if (!mounted) return;
       setState(() => _likesVisibility = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -893,7 +898,8 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
       if (!mounted) return;
       setState(() => _showOnline = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('เปลี่ยนไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isTogglingShowOnline = false);
@@ -903,13 +909,13 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ความเป็นส่วนตัว')),
+      appBar: AppBar(title: const BrowserSystemText('ความเป็นส่วนตัว')),
       body: ListView(
         children: [
           SwitchListTile(
             secondary: const Icon(Icons.lock_outline),
-            title: const Text('บัญชีส่วนตัว (Private Account)'),
-            subtitle: const Text(
+            title: const BrowserSystemText('บัญชีส่วนตัว (Private Account)'),
+            subtitle: const BrowserSystemText(
                 'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็นโพสต์ของคุณได้'),
             value: _isPrivate,
             onChanged: _isTogglingPrivate ? null : _setIsPrivate,
@@ -920,8 +926,9 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           // spec's Screen 5 grouping.
           ListTile(
             leading: const Icon(Icons.star_outline),
-            title: const Text('เพื่อนที่สนิท'),
-            subtitle: const Text('จัดการรายชื่อเพื่อนที่สนิทของคุณ'),
+            title: const BrowserSystemText('เพื่อนที่สนิท'),
+            subtitle:
+                const BrowserSystemText('จัดการรายชื่อเพื่อนที่สนิทของคุณ'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -964,8 +971,9 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           SwitchListTile(
             key: const Key('show_online_status_toggle'),
             secondary: const Icon(Icons.wifi_tethering),
-            title: const Text('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'),
-            subtitle: const Text(
+            title:
+                const BrowserSystemText('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'),
+            subtitle: const BrowserSystemText(
                 'ถ้าปิด คุณจะไม่เห็นสถานะออนไลน์และเข้าใช้งานล่าสุดของคนอื่นด้วยเช่นกัน'),
             value: _showOnline ?? true,
             onChanged: (_showOnline == null || _isTogglingShowOnline)
@@ -994,7 +1002,7 @@ class _LegalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('กฎหมาย')),
+      appBar: AppBar(title: const BrowserSystemText('กฎหมาย')),
       body: ListView(
         children: const [
           _LegalDocumentTile(
@@ -1044,7 +1052,7 @@ class _LegalDocumentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: const Icon(Icons.description_outlined),
-      title: Text(title),
+      title: BrowserSystemText(title),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         Navigator.of(context).push(
@@ -1105,12 +1113,12 @@ class _PermissionSettingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle),
+      title: BrowserSystemText(title),
+      subtitle: BrowserSystemText(subtitle),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_permissionLabel(value)),
+          BrowserSystemText(_permissionLabel(value)),
           const SizedBox(width: WynSpacing.space1),
           const Icon(Icons.chevron_right),
         ],
@@ -1164,7 +1172,7 @@ Future<InteractionPermission?> _showPermissionPicker(
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: BrowserSystemText(
                     title,
                     style: Theme.of(sheetContext).textTheme.titleMedium,
                   ),
@@ -1172,12 +1180,13 @@ Future<InteractionPermission?> _showPermissionPicker(
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.close),
-                    tooltip: 'ปิด',
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                  ),
+                  child: BrowserSystemTooltip(
+                      message: 'ปิด',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                      )),
                 ),
               ],
             ),
@@ -1197,8 +1206,8 @@ Future<InteractionPermission?> _showPermissionPicker(
                         ? Theme.of(sheetContext).colorScheme.primary
                         : null,
                   ),
-                  title: Text(_permissionLabel(option)),
-                  subtitle: Text(_permissionDescription(option)),
+                  title: BrowserSystemText(_permissionLabel(option)),
+                  subtitle: BrowserSystemText(_permissionDescription(option)),
                   onTap: () => Navigator.of(sheetContext).pop(option),
                 ),
               ),
@@ -1243,12 +1252,13 @@ class _LikesVisibilitySettingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: const Icon(Icons.favorite_border),
-      title: const Text('ใครเห็นสิ่งที่คุณถูกใจได้'),
-      subtitle: const Text('ควบคุมว่าใครเห็นแท็บถูกใจบนโปรไฟล์ของคุณ'),
+      title: const BrowserSystemText('ใครเห็นสิ่งที่คุณถูกใจได้'),
+      subtitle:
+          const BrowserSystemText('ควบคุมว่าใครเห็นแท็บถูกใจบนโปรไฟล์ของคุณ'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_likesVisibilityLabel(value)),
+          BrowserSystemText(_likesVisibilityLabel(value)),
           const SizedBox(width: WynSpacing.space1),
           const Icon(Icons.chevron_right),
         ],
@@ -1295,7 +1305,7 @@ Future<LikesVisibility?> _showLikesVisibilityPicker(
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: BrowserSystemText(
                     'ใครเห็นสิ่งที่คุณถูกใจได้',
                     style: Theme.of(sheetContext).textTheme.titleMedium,
                   ),
@@ -1303,12 +1313,13 @@ Future<LikesVisibility?> _showLikesVisibilityPicker(
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.close),
-                    tooltip: 'ปิด',
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                  ),
+                  child: BrowserSystemTooltip(
+                      message: 'ปิด',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                      )),
                 ),
               ],
             ),
@@ -1330,8 +1341,9 @@ Future<LikesVisibility?> _showLikesVisibilityPicker(
                         ? Theme.of(sheetContext).colorScheme.primary
                         : null,
                   ),
-                  title: Text(_likesVisibilityLabel(option)),
-                  subtitle: Text(_likesVisibilityDescription(option)),
+                  title: BrowserSystemText(_likesVisibilityLabel(option)),
+                  subtitle:
+                      BrowserSystemText(_likesVisibilityDescription(option)),
                   trailing: Icon(
                     option == currentValue
                         ? Icons.radio_button_checked

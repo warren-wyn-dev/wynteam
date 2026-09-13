@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club_channel.dart';
@@ -41,24 +42,28 @@ Future<ClubChatAddAction?> showClubChatAddMenu(BuildContext context) {
 /// left to long-press for the same actions.
 enum ClubChannelManageAction { edit, delete, move }
 
-Future<ClubChannelManageAction?> showClubChannelManageSheet(BuildContext context) {
+Future<ClubChannelManageAction?> showClubChannelManageSheet(
+    BuildContext context) {
   return showModalBottomSheet<ClubChannelManageAction>(
     context: context,
     builder: (sheetContext) => ActionSheetBody(rows: [
       ActionSheetRow(
         icon: Icons.edit_outlined,
         label: 'แก้ไขชื่อห้อง',
-        onTap: () => Navigator.of(sheetContext).pop(ClubChannelManageAction.edit),
+        onTap: () =>
+            Navigator.of(sheetContext).pop(ClubChannelManageAction.edit),
       ),
       ActionSheetRow(
         icon: Icons.drive_file_move_outline,
         label: 'ย้ายไปกลุ่มอื่น',
-        onTap: () => Navigator.of(sheetContext).pop(ClubChannelManageAction.move),
+        onTap: () =>
+            Navigator.of(sheetContext).pop(ClubChannelManageAction.move),
       ),
       ActionSheetRow(
         icon: Icons.delete_outline,
         label: 'ลบห้อง',
-        onTap: () => Navigator.of(sheetContext).pop(ClubChannelManageAction.delete),
+        onTap: () =>
+            Navigator.of(sheetContext).pop(ClubChannelManageAction.delete),
       ),
     ]),
   );
@@ -68,28 +73,35 @@ Future<ClubChannelManageAction?> showClubChannelManageSheet(BuildContext context
 /// (requirement 7).
 enum ClubCategoryManageAction { edit, delete }
 
-Future<ClubCategoryManageAction?> showClubCategoryManageSheet(BuildContext context) {
+Future<ClubCategoryManageAction?> showClubCategoryManageSheet(
+    BuildContext context) {
   return showModalBottomSheet<ClubCategoryManageAction>(
     context: context,
     builder: (sheetContext) => ActionSheetBody(rows: [
       ActionSheetRow(
         icon: Icons.edit_outlined,
         label: 'แก้ไขชื่อกลุ่ม',
-        onTap: () => Navigator.of(sheetContext).pop(ClubCategoryManageAction.edit),
+        onTap: () =>
+            Navigator.of(sheetContext).pop(ClubCategoryManageAction.edit),
       ),
       ActionSheetRow(
         icon: Icons.delete_outline,
         label: 'ลบกลุ่ม',
-        onTap: () => Navigator.of(sheetContext).pop(ClubCategoryManageAction.delete),
+        onTap: () =>
+            Navigator.of(sheetContext).pop(ClubCategoryManageAction.delete),
       ),
     ]),
   );
 }
 
-List<DropdownMenuItem<String?>> _categoryDropdownItems(List<ClubChannelCategory> categories) => [
-      const DropdownMenuItem<String?>(value: null, child: Text('ไม่มีกลุ่ม')),
+List<DropdownMenuItem<String?>> _categoryDropdownItems(
+        List<ClubChannelCategory> categories) =>
+    [
+      const DropdownMenuItem<String?>(
+          value: null, child: BrowserSystemText('ไม่มีกลุ่ม')),
       for (final category in categories)
-        DropdownMenuItem<String?>(value: category.id, child: Text(category.name)),
+        DropdownMenuItem<String?>(
+            value: category.id, child: BrowserSystemText(category.name)),
     ];
 
 /// Create/edit channel dialog -- Design's Components: "ช่องกรอกชื่อ
@@ -166,27 +178,30 @@ class _ClubChannelNameDialogState extends State<_ClubChannelNameDialog> {
     final isDuplicate = !isEmpty && widget.isNameTaken(trimmed);
     final isValid = !isEmpty && trimmed.length <= 50 && !isDuplicate;
     return AlertDialog(
-      title: Text(widget.title),
+      title: BrowserSystemText(widget.title),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
+          BrowserSystemTextField(
             controller: _controller,
             autofocus: true,
             maxLength: 50,
             decoration: InputDecoration(
-              hintText: 'ชื่อห้อง',
-              errorText: isDuplicate ? 'มีห้องชื่อนี้อยู่แล้ว' : null,
+              hint: const BrowserSystemText('ชื่อห้อง'),
+              error: BrowserSystemText(
+                  isDuplicate ? 'มีห้องชื่อนี้อยู่แล้ว' : null),
             ),
             onChanged: (_) => setState(() {}),
             onSubmitted: (_) => isValid
-                ? Navigator.of(context).pop((name: trimmed, categoryId: _categoryId))
+                ? Navigator.of(context)
+                    .pop((name: trimmed, categoryId: _categoryId))
                 : null,
           ),
           DropdownButtonFormField<String?>(
             initialValue: _categoryId,
-            decoration: const InputDecoration(labelText: 'กลุ่ม'),
+            decoration:
+                const InputDecoration(label: BrowserSystemText('กลุ่ม')),
             items: _categoryDropdownItems(widget.categories),
             onChanged: (value) => setState(() => _categoryId = value),
           ),
@@ -195,13 +210,14 @@ class _ClubChannelNameDialogState extends State<_ClubChannelNameDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('ยกเลิก'),
+          child: const BrowserSystemText('ยกเลิก'),
         ),
         TextButton(
           onPressed: isValid
-              ? () => Navigator.of(context).pop((name: trimmed, categoryId: _categoryId))
+              ? () => Navigator.of(context)
+                  .pop((name: trimmed, categoryId: _categoryId))
               : null,
-          child: const Text('บันทึก'),
+          child: const BrowserSystemText('บันทึก'),
         ),
       ],
     );
@@ -261,7 +277,8 @@ class _ClubCategoryNameDialog extends StatefulWidget {
   final bool Function(String name) isNameTaken;
 
   @override
-  State<_ClubCategoryNameDialog> createState() => _ClubCategoryNameDialogState();
+  State<_ClubCategoryNameDialog> createState() =>
+      _ClubCategoryNameDialogState();
 }
 
 class _ClubCategoryNameDialogState extends State<_ClubCategoryNameDialog> {
@@ -280,14 +297,15 @@ class _ClubCategoryNameDialogState extends State<_ClubCategoryNameDialog> {
     final isDuplicate = !isEmpty && widget.isNameTaken(trimmed);
     final isValid = !isEmpty && trimmed.length <= 50 && !isDuplicate;
     return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
+      title: BrowserSystemText(widget.title),
+      content: BrowserSystemTextField(
         controller: _controller,
         autofocus: true,
         maxLength: 50,
         decoration: InputDecoration(
-          hintText: 'ชื่อกลุ่ม',
-          errorText: isDuplicate ? 'มีกลุ่มชื่อนี้อยู่แล้ว' : null,
+          hint: const BrowserSystemText('ชื่อกลุ่ม'),
+          error:
+              BrowserSystemText(isDuplicate ? 'มีกลุ่มชื่อนี้อยู่แล้ว' : null),
         ),
         onChanged: (_) => setState(() {}),
         onSubmitted: (_) => isValid ? Navigator.of(context).pop(trimmed) : null,
@@ -295,11 +313,11 @@ class _ClubCategoryNameDialogState extends State<_ClubCategoryNameDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('ยกเลิก'),
+          child: const BrowserSystemText('ยกเลิก'),
         ),
         TextButton(
           onPressed: isValid ? () => Navigator.of(context).pop(trimmed) : null,
-          child: const Text('บันทึก'),
+          child: const BrowserSystemText('บันทึก'),
         ),
       ],
     );
@@ -345,12 +363,14 @@ Future<bool> _showDestructiveConfirmDialog(
       return StatefulBuilder(
         builder: (dialogContext, setState) {
           return AlertDialog(
-            title: Text(title),
-            content: Text(message, style: const TextStyle(color: WynColors.graphite)),
+            title: BrowserSystemText(title),
+            content: BrowserSystemText(message,
+                style: const TextStyle(color: WynColors.graphite)),
             actions: [
               TextButton(
-                onPressed: isDeleting ? null : () => Navigator.of(dialogContext).pop(),
-                child: const Text('ยกเลิก'),
+                onPressed:
+                    isDeleting ? null : () => Navigator.of(dialogContext).pop(),
+                child: const BrowserSystemText('ยกเลิก'),
               ),
               TextButton(
                 style: TextButton.styleFrom(
@@ -363,7 +383,9 @@ Future<bool> _showDestructiveConfirmDialog(
                         try {
                           await onConfirm();
                           succeeded = true;
-                          if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
                         } catch (_) {
                           setState(() => isDeleting = false);
                         }
@@ -377,7 +399,7 @@ Future<bool> _showDestructiveConfirmDialog(
                           color: Theme.of(dialogContext).colorScheme.error,
                         ),
                       )
-                    : Text(confirmLabel),
+                    : BrowserSystemText(confirmLabel),
               ),
             ],
           );
@@ -424,30 +446,33 @@ class _MoveChannelToCategoryDialog extends StatefulWidget {
   final String? currentCategoryId;
 
   @override
-  State<_MoveChannelToCategoryDialog> createState() => _MoveChannelToCategoryDialogState();
+  State<_MoveChannelToCategoryDialog> createState() =>
+      _MoveChannelToCategoryDialogState();
 }
 
-class _MoveChannelToCategoryDialogState extends State<_MoveChannelToCategoryDialog> {
+class _MoveChannelToCategoryDialogState
+    extends State<_MoveChannelToCategoryDialog> {
   late String? _categoryId = widget.currentCategoryId;
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('ย้ายไปกลุ่มอื่น'),
+      title: const BrowserSystemText('ย้ายไปกลุ่มอื่น'),
       content: DropdownButtonFormField<String?>(
         initialValue: _categoryId,
-        decoration: const InputDecoration(labelText: 'กลุ่ม'),
+        decoration: const InputDecoration(label: BrowserSystemText('กลุ่ม')),
         items: _categoryDropdownItems(widget.categories),
         onChanged: (value) => setState(() => _categoryId = value),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('ยกเลิก'),
+          child: const BrowserSystemText('ยกเลิก'),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(ClubCategorySelection(_categoryId)),
-          child: const Text('บันทึก'),
+          onPressed: () =>
+              Navigator.of(context).pop(ClubCategorySelection(_categoryId)),
+          child: const BrowserSystemText('บันทึก'),
         ),
       ],
     );

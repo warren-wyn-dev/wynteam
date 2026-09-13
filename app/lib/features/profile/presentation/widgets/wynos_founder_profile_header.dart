@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -107,7 +108,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
-              child: Text(
+              child: BrowserSystemText(
                 profile.nameOrUsername,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -134,7 +135,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 1),
-        Text(
+        BrowserSystemText(
           '@${profile.username}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -219,7 +220,7 @@ class WynosFounderProfileHeader extends StatelessWidget {
                       if (profile.bio != null &&
                           profile.bio!.trim().isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Text(
+                        BrowserSystemText(
                           profile.bio!,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
@@ -360,7 +361,7 @@ class _ProfileStat extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Column(
           children: [
-            Text(
+            BrowserSystemText(
               '$count',
               style: const TextStyle(
                 fontSize: 20,
@@ -370,7 +371,7 @@ class _ProfileStat extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
+            BrowserSystemText(
               label,
               style: const TextStyle(
                 fontSize: 12.5,
@@ -402,18 +403,19 @@ class WynosProfileIconAction extends StatelessWidget {
     return SizedBox(
       width: WynosFounderMetrics.profileSecondaryActionSize,
       height: WynosFounderMetrics.profileSecondaryActionSize,
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(icon, size: 21, color: WynColors.ink),
-        style: IconButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: WynColors.hairline),
-          ),
-          backgroundColor: WynColors.paper,
-        ),
-      ),
+      child: BrowserSystemTooltip(
+          message: tooltip,
+          child: IconButton(
+            onPressed: onPressed,
+            icon: Icon(icon, size: 21, color: WynColors.ink),
+            style: IconButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: WynColors.hairline),
+              ),
+              backgroundColor: WynColors.paper,
+            ),
+          )),
     );
   }
 }

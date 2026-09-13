@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -60,7 +61,8 @@ class ClubPostsTab extends StatefulWidget {
 
 class _ClubPostsTabState extends State<ClubPostsTab> {
   late final ClubBadgeRepository _clubBadgeRepository =
-      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+      widget._clubBadgeRepository ??
+          ClubBadgeRepository(Supabase.instance.client);
 
   final List<ClubPost> _posts = [];
   int _page = 0;
@@ -104,9 +106,11 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
       // fetchChannels() sorts oldest-first, and every Club always has at
       // least its auto-created "ทั่วไป" channel (clubs_add_default_channel()
       // in supabase/schema.sql), so `.first` always exists.
-      final channels = await widget.clubRepository.fetchChannels(widget.club.id);
+      final channels =
+          await widget.clubRepository.fetchChannels(widget.club.id);
       if (!mounted) return;
-      setState(() => _defaultChannelId = channels.isNotEmpty ? channels.first.id : null);
+      setState(() =>
+          _defaultChannelId = channels.isNotEmpty ? channels.first.id : null);
     } catch (_) {
       // Fails open for reading (the feed query below doesn't need a
       // channel id at all) -- only post-creation needs
@@ -249,7 +253,8 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -299,9 +304,12 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('เข้าร่วม Club เพื่อดูโพสต์', textAlign: TextAlign.center),
+              const BrowserSystemText('เข้าร่วม Club เพื่อดูโพสต์',
+                  textAlign: TextAlign.center),
               const SizedBox(height: WynSpacing.space3),
-              OutlinedButton(onPressed: widget.onJoinTapped, child: const Text('เข้าร่วม')),
+              OutlinedButton(
+                  onPressed: widget.onJoinTapped,
+                  child: const BrowserSystemText('เข้าร่วม')),
             ],
           ),
         ),
@@ -310,13 +318,14 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
 
     return Scaffold(
       body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: WynColors.sapphire,
-        foregroundColor: WynColors.paper,
-        onPressed: _defaultChannelId == null ? null : _openCreatePost,
-        tooltip: 'สร้างโพสต์',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: BrowserSystemTooltip(
+          message: 'สร้างโพสต์',
+          child: FloatingActionButton(
+            backgroundColor: WynColors.sapphire,
+            foregroundColor: WynColors.paper,
+            onPressed: _defaultChannelId == null ? null : _openCreatePost,
+            child: const Icon(Icons.add),
+          )),
     );
   }
 
@@ -343,9 +352,11 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(_error!),
+                  BrowserSystemText(_error!),
                   const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+                  TextButton(
+                      onPressed: _loadInitial,
+                      child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             ),
@@ -362,7 +373,9 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
           children: const [
             Padding(
               padding: EdgeInsets.symmetric(vertical: WynSpacing.space8),
-              child: Center(child: Text('ยังไม่มีโพสต์ใน Club นี้ เป็นคนแรกสิ!')),
+              child: Center(
+                  child: BrowserSystemText(
+                      'ยังไม่มีโพสต์ใน Club นี้ เป็นคนแรกสิ!')),
             ),
           ],
         ),
@@ -409,12 +422,17 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
                         child: Row(
                           children: [
                             Icon(Icons.push_pin,
-                                size: 14, color: Theme.of(context).colorScheme.outline),
+                                size: 14,
+                                color: Theme.of(context).colorScheme.outline),
                             const SizedBox(width: WynSpacing.space1),
-                            Text(
+                            BrowserSystemText(
                               'ปักหมุด',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.outline,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.outline,
                                   ),
                             ),
                           ],
@@ -430,7 +448,8 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
                       onToggleSave: () => _toggleSave(post.id),
                       onTogglePin: () => _togglePin(post.id),
                       onDelete: () => _deletePost(post.id),
-                      onVotePoll: (optionIndex) => _votePoll(post.id, optionIndex),
+                      onVotePoll: (optionIndex) =>
+                          _votePoll(post.id, optionIndex),
                     ),
                   ],
                 );
@@ -451,7 +470,7 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
                       : TextButton(
                           key: const Key('club_posts_load_more'),
                           onPressed: _loadMore,
-                          child: const Text('ดูโพสต์เพิ่มเติม'),
+                          child: const BrowserSystemText('ดูโพสต์เพิ่มเติม'),
                         ),
                 ),
               ),

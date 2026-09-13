@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -195,11 +196,13 @@ class _SideMenuState extends State<SideMenu> {
               height: 52,
               child: Align(
                 alignment: Alignment.centerRight,
-                child: IconButton(
-                  icon: const Icon(Icons.close, size: 22, color: WynColors.ink),
-                  onPressed: () => Navigator.of(context).pop(),
-                  tooltip: 'ปิด',
-                ),
+                child: BrowserSystemTooltip(
+                    message: 'ปิด',
+                    child: IconButton(
+                      icon: const Icon(Icons.close,
+                          size: 22, color: WynColors.ink),
+                      onPressed: () => Navigator.of(context).pop(),
+                    )),
               ),
             ),
             Padding(
@@ -230,7 +233,7 @@ class _SideMenuState extends State<SideMenu> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              BrowserSystemText(
                                 profile?.nameOrUsername ?? '',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -241,7 +244,7 @@ class _SideMenuState extends State<SideMenu> {
                                 ),
                               ),
                               if (profile != null)
-                                Text(
+                                BrowserSystemText(
                                   '@${profile.username}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -321,7 +324,7 @@ class _CountLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text.rich(
+    return BrowserSystemText.rich(
       TextSpan(
         children: [
           TextSpan(
@@ -377,7 +380,7 @@ class _MenuRow extends StatelessWidget {
                   ),
                   const SizedBox(width: WynSpacing.space3),
                   Expanded(
-                    child: Text(
+                    child: BrowserSystemText(
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

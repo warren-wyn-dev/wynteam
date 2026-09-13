@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,16 +24,17 @@ Future<bool> requireRealAccount(BuildContext context) async {
   final wantsToSignIn = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('เข้าสู่ระบบเพื่อดำเนินการต่อ'),
-      content: const Text('ฟีเจอร์นี้ต้องมีบัญชีจริง สมัครใช้เวลาไม่ถึงนาที'),
+      title: const BrowserSystemText('เข้าสู่ระบบเพื่อดำเนินการต่อ'),
+      content: const BrowserSystemText(
+          'ฟีเจอร์นี้ต้องมีบัญชีจริง สมัครใช้เวลาไม่ถึงนาที'),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('ไว้ทีหลัง'),
+          child: const BrowserSystemText('ไว้ทีหลัง'),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('สมัคร/เข้าสู่ระบบ'),
+          child: const BrowserSystemText('สมัคร/เข้าสู่ระบบ'),
         ),
       ],
     ),

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth/presentation/widgets/guest_gate.dart';
@@ -68,7 +69,8 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
   }
 
   Future<_Sections> _load() async {
-    final popular = await widget.clubRepository.fetchPopularClubs(limit: _limit);
+    final popular =
+        await widget.clubRepository.fetchPopularClubs(limit: _limit);
     final newest = await widget.clubRepository.fetchNewClubs(limit: _limit);
     final pendingClubIds = await widget.clubRepository.fetchPendingClubIds();
     return (popular: popular, newest: newest, pendingClubIds: pendingClubIds);
@@ -143,7 +145,9 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เข้าร่วม Club ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content:
+                BrowserSystemText('เข้าร่วม Club ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _joinInFlightClubId = null);
@@ -167,7 +171,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: BrowserSystemText(
           'สำรวจ Club',
           style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
         ),
@@ -216,24 +220,31 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
   Widget _buildHero() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space6, WynSpacing.space6, 0,
+        WynSpacing.space6,
+        WynSpacing.space6,
+        WynSpacing.space6,
+        0,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text.rich(
+          BrowserSystemText.rich(
             TextSpan(
-              style: WynTypography.screenTitle(fontSize: 20, color: WynColors.ink),
+              style:
+                  WynTypography.screenTitle(fontSize: 20, color: WynColors.ink),
               children: const [
                 TextSpan(text: 'เจอคอมมูนิตี้ที่ใช่'),
-                TextSpan(text: 'สำหรับคุณ', style: TextStyle(color: WynColors.sapphire)),
+                TextSpan(
+                    text: 'สำหรับคุณ',
+                    style: TextStyle(color: WynColors.sapphire)),
               ],
             ),
           ),
           const SizedBox(height: WynSpacing.space2),
-          Text(
+          BrowserSystemText(
             'ร่วมคอมมูนิตี้ที่คุณสนใจ เชื่อมต่อกับคนที่คิดเหมือนกัน',
-            style: _textStyle(fontSize: 13, color: WynColors.graphite, height: 1.4),
+            style: _textStyle(
+                fontSize: 13, color: WynColors.graphite, height: 1.4),
           ),
           const SizedBox(height: WynSpacing.space4),
           SizedBox(
@@ -241,14 +252,16 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(vertical: WynSpacing.space3),
+                padding:
+                    const EdgeInsets.symmetric(vertical: WynSpacing.space3),
                 backgroundColor: WynColors.sapphire,
                 foregroundColor: WynColors.paper,
-                textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                textStyle:
+                    _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
               onPressed: _openCreateClub,
               icon: const Icon(Icons.add, size: 16),
-              label: const Text('สร้าง Club'),
+              label: const BrowserSystemText('สร้าง Club'),
             ),
           ),
         ],
@@ -259,7 +272,10 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space5, WynSpacing.space6, 0,
+        WynSpacing.space6,
+        WynSpacing.space5,
+        WynSpacing.space6,
+        0,
       ),
       child: Container(
         height: 42,
@@ -277,12 +293,14 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
             const Icon(Icons.search, size: 15, color: WynColors.mutedNeutral),
             const SizedBox(width: WynSpacing.space2),
             Expanded(
-              child: TextField(
-                onChanged: (value) => setState(() => _searchQuery = value.trim()),
+              child: BrowserSystemTextField(
+                onChanged: (value) =>
+                    setState(() => _searchQuery = value.trim()),
                 style: _textStyle(fontSize: 16, color: WynColors.ink),
                 decoration: InputDecoration(
-                  hintText: 'ค้นหา Club',
-                  hintStyle: _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
+                  hint: const BrowserSystemText('ค้นหา Club'),
+                  hintStyle:
+                      _textStyle(fontSize: 16, color: WynColors.mutedNeutral),
                   border: InputBorder.none,
                   isCollapsed: true,
                 ),
@@ -305,9 +323,12 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            WynSpacing.space6, WynSpacing.space6, WynSpacing.space6, WynSpacing.space2,
+            WynSpacing.space6,
+            WynSpacing.space6,
+            WynSpacing.space6,
+            WynSpacing.space2,
           ),
-          child: Text(
+          child: BrowserSystemText(
             label,
             style: _textStyle(
               fontSize: 13,
@@ -320,9 +341,12 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
         if (clubs.isEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              WynSpacing.space6, 0, WynSpacing.space6, WynSpacing.space2,
+              WynSpacing.space6,
+              0,
+              WynSpacing.space6,
+              WynSpacing.space2,
             ),
-            child: Text(
+            child: BrowserSystemText(
               _searchQuery.isNotEmpty
                   ? 'ไม่พบ Club ที่ตรงกับ "$_searchQuery"'
                   : emptyText,
@@ -341,7 +365,8 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
       onTap: () => _openClub(club),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: WynSpacing.space6, vertical: WynSpacing.space2,
+          horizontal: WynSpacing.space6,
+          vertical: WynSpacing.space2,
         ),
         child: Row(
           children: [
@@ -356,13 +381,17 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     club.name,
-                    style: _textStyle(fontSize: 15, fontWeight: FontWeight.w600, color: WynColors.ink),
+                    style: _textStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: WynColors.ink),
                   ),
-                  Text(
+                  BrowserSystemText(
                     '${club.memberCount} สมาชิก',
-                    style: _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
+                    style:
+                        _textStyle(fontSize: 13, color: WynColors.mutedNeutral),
                   ),
                 ],
               ),
@@ -380,14 +409,18 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
 
     if (isPending) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space3, vertical: 6),
         decoration: BoxDecoration(
           color: WynColors.hairline,
           borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
         ),
-        child: Text(
+        child: BrowserSystemText(
           'รออนุมัติ',
-          style: _textStyle(fontSize: 13, fontWeight: FontWeight.w600, color: WynColors.graphite),
+          style: _textStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: WynColors.graphite),
         ),
       );
     }
@@ -397,7 +430,8 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
       style: OutlinedButton.styleFrom(
         shape: const StadiumBorder(),
         visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 2),
+        padding: const EdgeInsets.symmetric(
+            horizontal: WynSpacing.space3, vertical: 2),
         foregroundColor: WynColors.sapphire,
         side: const BorderSide(color: WynColors.sapphire),
         textStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -408,7 +442,7 @@ class _ExploreClubsScreenState extends State<ExploreClubsScreen> {
               height: 12,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Text('เข้าร่วม'),
+          : const BrowserSystemText('เข้าร่วม'),
     );
   }
 }

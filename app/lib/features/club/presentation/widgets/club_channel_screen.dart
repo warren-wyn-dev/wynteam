@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club_channel_chat_repository.dart';
@@ -57,14 +58,15 @@ class ClubChannelScreen extends StatelessWidget {
     final manage = onManage;
     return Scaffold(
       appBar: AppBar(
-        title: Text('#$channelName'),
+        title: BrowserSystemText('#$channelName'),
         actions: [
           if (manage != null)
-            IconButton(
-              icon: const Icon(Icons.more_vert),
-              tooltip: 'จัดการห้อง',
-              onPressed: () => manage(context),
-            ),
+            BrowserSystemTooltip(
+                message: 'จัดการห้อง',
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () => manage(context),
+                )),
         ],
       ),
       body: ClubChannelChatView(

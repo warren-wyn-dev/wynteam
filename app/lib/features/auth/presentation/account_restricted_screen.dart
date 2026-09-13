@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -68,25 +69,27 @@ class AccountRestrictedScreen extends StatelessWidget {
                   color: Theme.of(context).colorScheme.error,
                 ),
                 const SizedBox(height: WynSpacing.space4),
-                Text(
-                  isBanned ? 'บัญชีของคุณถูกระงับถาวร' : 'บัญชีของคุณถูกระงับชั่วคราว',
+                BrowserSystemText(
+                  isBanned
+                      ? 'บัญชีของคุณถูกระงับถาวร'
+                      : 'บัญชีของคุณถูกระงับชั่วคราว',
                   style: Theme.of(context).textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WynSpacing.space4),
-                Text(
+                BrowserSystemText(
                   'เหตุผล: ${reason ?? 'ไม่ระบุ'}',
                   style: Theme.of(context).textTheme.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
                 if (!isBanned && expiresAt != null) ...[
                   const SizedBox(height: WynSpacing.space4),
-                  Text(
+                  BrowserSystemText(
                     'ระงับถึงวันที่ ${dateLabel(expiresAt!)} (อีก $daysLeft วัน)',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: WynSpacing.space2),
-                  Text(
+                  BrowserSystemText(
                     'เมื่อครบกำหนดคุณจะกลับมาใช้งานได้ตามปกติ',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -99,7 +102,7 @@ class AccountRestrictedScreen extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: onAcknowledge,
-                    child: const Text('ตกลง'),
+                    child: const BrowserSystemText('ตกลง'),
                   ),
                 ),
                 if (actionId != null) ...[
@@ -121,11 +124,11 @@ class AccountRestrictedScreen extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton(
             onPressed: onAppeal,
-            child: const Text('อุทธรณ์'),
+            child: const BrowserSystemText('อุทธรณ์'),
           ),
         );
       case AppealStatus.pending:
-        return Text(
+        return BrowserSystemText(
           'คุณได้ส่งอุทธรณ์แล้ว อยู่ระหว่างการตรวจสอบ',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -133,7 +136,7 @@ class AccountRestrictedScreen extends StatelessWidget {
               ),
         );
       case AppealStatus.rejected:
-        return Text(
+        return BrowserSystemText(
           'อุทธรณ์ของคุณถูกปฏิเสธแล้ว',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(

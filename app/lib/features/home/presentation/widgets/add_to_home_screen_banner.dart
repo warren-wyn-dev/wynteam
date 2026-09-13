@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -142,9 +143,10 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('เพิ่ม WYNOS ไปหน้าจอโฮม', style: _titleStyle),
+                const BrowserSystemText('เพิ่ม WYNOS ไปหน้าจอโฮม',
+                    style: _titleStyle),
                 const SizedBox(height: WynSpacing.space1),
-                Text(body, style: _bodyStyle),
+                BrowserSystemText(body, style: _bodyStyle),
                 // Same brief per-platform text as before this addition --
                 // this just points anyone who wants screenshots/a fuller
                 // walkthrough (or hits the Android "ติดตั้งแอป" case,
@@ -163,7 +165,7 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       onPressed: _openDetailedGuide,
-                      child: const Text('ดูวิธีแบบละเอียด'),
+                      child: const BrowserSystemText('ดูวิธีแบบละเอียด'),
                     ),
                   ),
                 ),
@@ -188,7 +190,8 @@ class _AddToHomeScreenBannerState extends State<AddToHomeScreenBanner> {
                   alignment: Alignment.topRight,
                   child: Padding(
                     padding: EdgeInsets.all(2),
-                    child: Icon(Icons.close, size: 18, color: WynColors.graphite),
+                    child:
+                        Icon(Icons.close, size: 18, color: WynColors.graphite),
                   ),
                 ),
               ),

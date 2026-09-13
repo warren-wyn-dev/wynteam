@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/club.dart';
@@ -54,12 +55,14 @@ class ClubRankedRow extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 20,
-                  child: Text(
+                  child: BrowserSystemText(
                     '$rank',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: isTopThree ? scheme.primary : scheme.onSurfaceVariant,
+                          color: isTopThree
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
                         ),
                   ),
                 ),
@@ -71,7 +74,7 @@ class ClubRankedRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      BrowserSystemText(
                         club.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -81,14 +84,18 @@ class ClubRankedRow extends StatelessWidget {
                       ),
                       Row(
                         children: [
-                          Icon(Icons.trending_up, size: 14, color: scheme.primary),
+                          Icon(Icons.trending_up,
+                              size: 14, color: scheme.primary),
                           const SizedBox(width: 2),
                           Flexible(
-                            child: Text(
+                            child: BrowserSystemText(
                               '${club.memberCount} สมาชิก',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                   ),
                             ),

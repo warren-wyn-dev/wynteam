@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -195,7 +196,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
           : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+          .showSnackBar(SnackBar(content: BrowserSystemText(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
     }
@@ -217,7 +218,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
           icon: const Icon(Icons.close, size: 21, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: const BrowserSystemText(
           'ข้อความใหม่',
           style: TextStyle(
               fontSize: 20, fontWeight: FontWeight.w700, color: WynColors.ink),
@@ -282,7 +283,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-          child: Text(
+          child: BrowserSystemText(
             'คุณยังไม่ได้ติดตามใครเลย ลองค้นหาคนที่อยากคุยด้วยดูสิ',
             textAlign: TextAlign.center,
             style: _textStyle(fontSize: 13, color: WynColors.graphite),
@@ -316,16 +317,17 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_searchError!),
+            BrowserSystemText(_searchError!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _search, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _search, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
     }
     if (_searchResults.isEmpty) {
       return Center(
-        child: Text(
+        child: BrowserSystemText(
           'ไม่พบผู้ใช้ที่ตรงกับ "$_query"',
           style: _textStyle(fontSize: 13, color: WynColors.faint),
         ),
@@ -363,14 +365,14 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     displayName,
                     style: _textStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w600,
                         color: WynColors.ink),
                   ),
-                  Text(
+                  BrowserSystemText(
                     '@${profile.username}',
                     style:
                         _textStyle(fontSize: 13.5, color: WynColors.graphite),

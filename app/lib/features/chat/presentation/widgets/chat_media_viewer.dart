@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -52,17 +53,18 @@ class ChatMediaViewer extends StatelessWidget {
                   Material(
                     color: WynColors.imageScrimStrong,
                     shape: const CircleBorder(),
-                    child: IconButton(
-                      key: const Key('chat_media_close_button'),
-                      icon: const Icon(Icons.close,
-                          color: WynColors.paper, size: 21),
-                      tooltip: 'ปิด',
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+                    child: BrowserSystemTooltip(
+                        message: 'ปิด',
+                        child: IconButton(
+                          key: const Key('chat_media_close_button'),
+                          icon: const Icon(Icons.close,
+                              color: WynColors.paper, size: 21),
+                          onPressed: () => Navigator.of(context).pop(),
+                        )),
                   ),
                   const SizedBox(width: WynSpacing.space3),
                   Expanded(
-                    child: Text(
+                    child: BrowserSystemText(
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -86,7 +88,7 @@ class ChatMediaViewer extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.only(bottom: WynSpacing.space4),
                 child: Center(
-                  child: Text(
+                  child: BrowserSystemText(
                     'บีบนิ้วเพื่อซูม',
                     style: TextStyle(fontSize: 12, color: WynColors.faint),
                   ),

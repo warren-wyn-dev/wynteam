@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -147,19 +148,19 @@ class _FollowActionButtonState extends State<FollowActionButton> {
   }
 
   Future<void> _cancelRequest() async {
-    final confirmed =
-        await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('ยกเลิกคำขอติดตาม ${widget.profile.nameOrUsername}?'),
+            title: BrowserSystemText(
+                'ยกเลิกคำขอติดตาม ${widget.profile.nameOrUsername}?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('ไม่ยกเลิก'),
+                child: const BrowserSystemText('ไม่ยกเลิก'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('ยกเลิกคำขอ'),
+                child: const BrowserSystemText('ยกเลิกคำขอ'),
               ),
             ],
           ),
@@ -204,7 +205,7 @@ class _FollowActionButtonState extends State<FollowActionButton> {
   Widget _labelWidget(BuildContext context) {
     return AnimatedSwitcher(
       duration: WynMotion.duration(context, WynMotion.quick),
-      child: Text(_label, key: ValueKey(_label)),
+      child: BrowserSystemText(_label, key: ValueKey(_label)),
     );
   }
 
@@ -234,15 +235,16 @@ class _FollowActionButtonState extends State<FollowActionButton> {
             horizontal: widget.headerCompact ? 12 : (widget.compact ? 16 : 20),
           ),
           shape: const StadiumBorder(),
-          tapTargetSize: widget.headerCompact
-              ? MaterialTapTargetSize.shrinkWrap
-              : null,
+          tapTargetSize:
+              widget.headerCompact ? MaterialTapTargetSize.shrinkWrap : null,
           textStyle: widget.headerCompact
-              ? Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(fontWeight: FontWeight.w700)
+              ? Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(fontWeight: FontWeight.w700)
               : (widget.compact
-                    ? Theme.of(context).textTheme.labelMedium
-                    : Theme.of(context).textTheme.labelLarge),
+                  ? Theme.of(context).textTheme.labelMedium
+                  : Theme.of(context).textTheme.labelLarge),
           elevation: 0,
         ),
         child: _labelWidget(context),

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../profile/data/profile_repository.dart';
@@ -92,7 +93,8 @@ class _DraftListState extends State<DraftList>
       if (!mounted) return;
       setState(() => _drafts = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบร่างไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -108,9 +110,10 @@ class _DraftListState extends State<DraftList>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _load, child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );

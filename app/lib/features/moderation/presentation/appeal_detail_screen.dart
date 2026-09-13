@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -84,21 +85,22 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
         : '@${appeal.appellantUsername ?? '-'}';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('รายละเอียดอุทธรณ์')),
+      appBar: AppBar(title: const BrowserSystemText('รายละเอียดอุทธรณ์')),
       body: ListView(
         padding: const EdgeInsets.all(WynSpacing.space4),
         children: [
-          Text('ผู้ยื่นอุทธรณ์', style: Theme.of(context).textTheme.titleSmall),
+          BrowserSystemText('ผู้ยื่นอุทธรณ์',
+              style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: WynSpacing.space1),
-          Text(appellantLabel),
+          BrowserSystemText(appellantLabel),
           const SizedBox(height: WynSpacing.space6),
           _buildCard(
             context,
             title: 'บทลงโทษเดิม: ${appeal.actionType.label}',
             children: [
-              Text(appeal.actionReason),
+              BrowserSystemText(appeal.actionReason),
               const SizedBox(height: WynSpacing.space2),
-              Text(
+              BrowserSystemText(
                 relativeTimeLabel(appeal.actionCreatedAt, now: DateTime.now()),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.outline,
@@ -106,7 +108,7 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
               ),
               if (appeal.actionReviewerUsername != null) ...[
                 const SizedBox(height: WynSpacing.space1),
-                Text(
+                BrowserSystemText(
                   'ผู้ดำเนินการ: @${appeal.actionReviewerUsername}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.outline,
@@ -120,8 +122,9 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
             context,
             title: 'เหตุผลของผู้ยื่นอุทธรณ์',
             children: [
-              Text(appeal.reason),
-              if (appeal.evidencePaths != null && appeal.evidencePaths!.isNotEmpty) ...[
+              BrowserSystemText(appeal.reason),
+              if (appeal.evidencePaths != null &&
+                  appeal.evidencePaths!.isNotEmpty) ...[
                 const SizedBox(height: WynSpacing.space3),
                 _buildEvidenceRow(context, appeal.evidencePaths!),
               ],
@@ -129,7 +132,7 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
           ),
           const SizedBox(height: WynSpacing.space6),
           if (_isSelfReview)
-            Text(
+            BrowserSystemText(
               'คุณไม่สามารถตัดสินอุทธรณ์นี้ได้ เนื่องจากเป็นบทลงโทษที่มีต่อบัญชีของคุณเอง',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -141,7 +144,7 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _isDeciding ? null : () => _decide(true),
-                child: const Text('อนุมัติ'),
+                child: const BrowserSystemText('อนุมัติ'),
               ),
             ),
             const SizedBox(height: WynSpacing.space2),
@@ -149,7 +152,7 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: _isDeciding ? null : () => _decide(false),
-                child: const Text('ปฏิเสธ'),
+                child: const BrowserSystemText('ปฏิเสธ'),
               ),
             ),
           ],
@@ -173,7 +176,8 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          BrowserSystemText(title,
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: WynSpacing.space2),
           ...children,
         ],
@@ -187,7 +191,8 @@ class _AppealDetailScreenState extends State<AppealDetailScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: evidencePaths.length,
-        separatorBuilder: (context, index) => const SizedBox(width: WynSpacing.space2),
+        separatorBuilder: (context, index) =>
+            const SizedBox(width: WynSpacing.space2),
         itemBuilder: (context, index) {
           return Semantics(
             label: 'หลักฐานรูปที่ ${index + 1}',

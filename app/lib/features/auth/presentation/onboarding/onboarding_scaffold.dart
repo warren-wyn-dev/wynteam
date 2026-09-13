@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -77,7 +78,7 @@ class OnboardingScaffold extends StatelessWidget {
                           ),
                   ),
                   const Spacer(),
-                  Text(
+                  BrowserSystemText(
                     '$stepIndex of $stepCount',
                     style: const TextStyle(
                       fontSize: 13,
@@ -90,13 +91,13 @@ class OnboardingScaffold extends StatelessWidget {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: WynSpacing.space6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: WynSpacing.space6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: WynSpacing.space4),
-                    Text(
+                    BrowserSystemText(
                       title,
                       style: WynTypography.screenTitle(
                         fontSize: 24,
@@ -105,7 +106,7 @@ class OnboardingScaffold extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: WynSpacing.space2),
-                    Text(
+                    BrowserSystemText(
                       description,
                       style: const TextStyle(
                         fontSize: 15,
@@ -117,10 +118,10 @@ class OnboardingScaffold extends StatelessWidget {
                     body,
                     if (errorText != null) ...[
                       const SizedBox(height: WynSpacing.space4),
-                      Text(
+                      BrowserSystemText(
                         errorText!,
-                        style:
-                            const TextStyle(fontSize: 13, color: WynColors.errorLight),
+                        style: const TextStyle(
+                            fontSize: 13, color: WynColors.errorLight),
                       ),
                     ],
                   ],
@@ -157,7 +158,7 @@ class OnboardingScaffold extends StatelessWidget {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: WynColors.paper),
                           )
-                        : Text(primaryLabel),
+                        : BrowserSystemText(primaryLabel),
                   ),
                   if (footer != null) footer!,
                 ],

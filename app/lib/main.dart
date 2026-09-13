@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -118,7 +119,7 @@ class _AppErrorBox extends StatelessWidget {
       child: Center(
         child: Padding(
           padding: EdgeInsets.all(WynSpacing.space4),
-          child: Text(
+          child: BrowserSystemText(
             'ส่วนนี้แสดงผลไม่สำเร็จ ลองรีเฟรชหรือกลับมาใหม่อีกครั้ง',
             textAlign: TextAlign.center,
             textDirection: TextDirection.ltr,

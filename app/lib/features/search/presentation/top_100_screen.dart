@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_colors.dart';
@@ -108,7 +109,9 @@ class _Top100ScreenState extends State<Top100Screen> {
           icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Top 100', style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
+        title: BrowserSystemText('Top 100',
+            style:
+                WynTypography.screenTitle(fontSize: 16, color: WynColors.ink)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: WynColors.hairline),
@@ -119,9 +122,11 @@ class _Top100ScreenState extends State<Top100Screen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลด Top 100 ไม่สำเร็จ'),
+                  const BrowserSystemText('โหลด Top 100 ไม่สำเร็จ'),
                   const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+                  TextButton(
+                      onPressed: _load,
+                      child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             )
@@ -129,7 +134,8 @@ class _Top100ScreenState extends State<Top100Screen> {
               ? const Center(child: CircularProgressIndicator())
               : items.isEmpty
                   ? const Center(
-                      child: Text('ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้'))
+                      child:
+                          BrowserSystemText('ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้'))
                   : RefreshIndicator(
                       onRefresh: _load,
                       child: ListView.builder(

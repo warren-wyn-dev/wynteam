@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -70,9 +71,11 @@ class ClubAboutTab extends StatefulWidget {
 
 class _ClubAboutTabState extends State<ClubAboutTab> {
   late final ClubEventRepository _clubEventRepository =
-      widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
+      widget._clubEventRepository ??
+          ClubEventRepository(Supabase.instance.client);
   late final ClubBadgeRepository _clubBadgeRepository =
-      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+      widget._clubBadgeRepository ??
+          ClubBadgeRepository(Supabase.instance.client);
 
   late ClubAboutSection _section = widget.initialSection;
 
@@ -82,12 +85,19 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
   @override
   Widget build(BuildContext context) {
     final segments = <ButtonSegment<ClubAboutSection>>[
-      const ButtonSegment(value: ClubAboutSection.details, label: Text('รายละเอียด')),
-      const ButtonSegment(value: ClubAboutSection.members, label: Text('สมาชิก')),
+      const ButtonSegment(
+          value: ClubAboutSection.details,
+          label: BrowserSystemText('รายละเอียด')),
+      const ButtonSegment(
+          value: ClubAboutSection.members, label: BrowserSystemText('สมาชิก')),
       if (_isMember)
-        const ButtonSegment(value: ClubAboutSection.events, label: Text('กิจกรรม')),
+        const ButtonSegment(
+            value: ClubAboutSection.events,
+            label: BrowserSystemText('กิจกรรม')),
       if (_canManageClub)
-        const ButtonSegment(value: ClubAboutSection.insights, label: Text('Insights')),
+        const ButtonSegment(
+            value: ClubAboutSection.insights,
+            label: BrowserSystemText('Insights')),
     ];
     // A role change (e.g. losing Owner/Admin) could make [_section] no
     // longer valid -- fall back to "รายละเอียด" rather than rendering a
@@ -100,14 +110,18 @@ class _ClubAboutTabState extends State<ClubAboutTab> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            WynSpacing.space4, WynSpacing.space3, WynSpacing.space4, WynSpacing.space2,
+            WynSpacing.space4,
+            WynSpacing.space3,
+            WynSpacing.space4,
+            WynSpacing.space2,
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<ClubAboutSection>(
               segments: segments,
               selected: {effectiveSection},
-              onSelectionChanged: (selection) => setState(() => _section = selection.first),
+              onSelectionChanged: (selection) =>
+                  setState(() => _section = selection.first),
             ),
           ),
         ),
@@ -214,7 +228,8 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('บันทึกกฎไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('บันทึกกฎไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isSavingRules = false);
@@ -262,7 +277,7 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
               delegate: SliverChildListDelegate([
                 _buildSection(
                   label: 'คำอธิบาย',
-                  child: Text(
+                  child: BrowserSystemText(
                     (club.description != null && club.description!.isNotEmpty)
                         ? club.description!
                         : 'ยังไม่มีคำอธิบาย',
@@ -270,7 +285,7 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
                 ),
                 _buildSection(
                   label: 'หมวดหมู่',
-                  child: Text(club.category ?? 'ไม่ระบุ'),
+                  child: BrowserSystemText(club.category ?? 'ไม่ระบุ'),
                 ),
                 _buildSection(
                   label: 'ความเป็นส่วนตัว',
@@ -283,17 +298,21 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
                         size: 18,
                       ),
                       const SizedBox(width: 6),
-                      Text(club.privacy == ClubPrivacy.private ? 'ส่วนตัว' : 'สาธารณะ'),
+                      BrowserSystemText(club.privacy == ClubPrivacy.private
+                          ? 'ส่วนตัว'
+                          : 'สาธารณะ'),
                     ],
                   ),
                 ),
                 _buildSection(
                   label: 'สร้างเมื่อ',
-                  child: Text(_formatFullDate(club.createdAt)),
+                  child: BrowserSystemText(_formatFullDate(club.createdAt)),
                 ),
                 _buildSection(
                   label: 'กฎของ Club',
-                  child: _isEditingRules ? _buildRulesEditor() : _buildRulesText(club),
+                  child: _isEditingRules
+                      ? _buildRulesEditor()
+                      : _buildRulesText(club),
                 ),
               ]),
             ),
@@ -307,7 +326,7 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        BrowserSystemText(
           (club.rules != null && club.rules!.isNotEmpty)
               ? club.rules!
               : 'Club นี้ยังไม่มีกฎ',
@@ -316,7 +335,7 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
           const SizedBox(height: WynSpacing.space2),
           OutlinedButton(
             onPressed: () => setState(() => _isEditingRules = true),
-            child: const Text('แก้ไขกฎ'),
+            child: const BrowserSystemText('แก้ไขกฎ'),
           ),
         ],
       ],
@@ -327,12 +346,13 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
+        BrowserSystemTextField(
           controller: _rulesController,
           maxLines: 6,
           maxLength: 2000,
           enabled: !_isSavingRules,
-          decoration: const InputDecoration(hintText: 'เขียนกฎของ Club'),
+          decoration:
+              const InputDecoration(hint: BrowserSystemText('เขียนกฎของ Club')),
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -344,7 +364,7 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
                         _isEditingRules = false;
                         _rulesController.text = widget.club.rules ?? '';
                       }),
-              child: const Text('ยกเลิก'),
+              child: const BrowserSystemText('ยกเลิก'),
             ),
             FilledButton(
               onPressed: _isSavingRules ? null : _saveRules,
@@ -354,7 +374,7 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
                       width: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('บันทึก'),
+                  : const BrowserSystemText('บันทึก'),
             ),
           ],
         ),
@@ -368,7 +388,7 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          BrowserSystemText(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: Theme.of(context).colorScheme.outline,
@@ -381,5 +401,6 @@ class _ClubDetailsSectionState extends State<_ClubDetailsSection> {
     );
   }
 
-  String _formatFullDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
+  String _formatFullDate(DateTime date) =>
+      '${date.day}/${date.month}/${date.year}';
 }

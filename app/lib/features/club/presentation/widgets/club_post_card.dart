@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -69,23 +70,24 @@ class ClubPostCard extends StatelessWidget {
       post.authorId == Supabase.instance.client.auth.currentUser!.id;
 
   Future<void> _share() async {
-    await SharePlus.instance.share(ShareParams(text: clubPostShareLink(post.id)));
+    await SharePlus.instance
+        .share(ShareParams(text: clubPostShareLink(post.id)));
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ลบโพสต์นี้?'),
-        content: const Text('ลบแล้วไม่สามารถกู้คืนได้'),
+        title: const BrowserSystemText('ลบโพสต์นี้?'),
+        content: const BrowserSystemText('ลบแล้วไม่สามารถกู้คืนได้'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('ลบ'),
+            child: const BrowserSystemText('ลบ'),
           ),
         ],
       ),
@@ -224,9 +226,11 @@ class ClubPostCard extends StatelessWidget {
                                 Row(
                                   children: [
                                     Flexible(
-                                      child: Text(
+                                      child: BrowserSystemText(
                                         post.authorNameOrUsername,
-                                        style: Theme.of(context).textTheme.titleSmall,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -236,11 +240,17 @@ class ClubPostCard extends StatelessWidget {
                                     ],
                                   ],
                                 ),
-                                Text(
-                                  relativeTimeLabel(post.createdAt, now: DateTime.now()),
+                                BrowserSystemText(
+                                  relativeTimeLabel(post.createdAt,
+                                      now: DateTime.now()),
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.outline,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .outline,
                                       ),
                                 ),
                               ],
@@ -249,16 +259,17 @@ class ClubPostCard extends StatelessWidget {
                           // Same 44x44 tap-target-only box HomeDropCard uses --
                           // see its own comment for why this stays smaller
                           // than IconButton's default 48.
-                          IconButton(
-                            icon: const Icon(Icons.more_vert),
-                            tooltip: 'เพิ่มเติม',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: WynSpacing.touchTargetMin,
-                              height: WynSpacing.touchTargetMin,
-                            ),
-                            onPressed: () => _openMoreMenu(context),
-                          ),
+                          BrowserSystemTooltip(
+                              message: 'เพิ่มเติม',
+                              child: IconButton(
+                                icon: const Icon(Icons.more_vert),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: WynSpacing.touchTargetMin,
+                                  height: WynSpacing.touchTargetMin,
+                                ),
+                                onPressed: () => _openMoreMenu(context),
+                              )),
                         ],
                       ),
                     ),
@@ -280,7 +291,8 @@ class ClubPostCard extends StatelessWidget {
                       ),
                     if (hasImages)
                       Padding(
-                        padding: const EdgeInsets.only(right: homeCardEdgeInset),
+                        padding:
+                            const EdgeInsets.only(right: homeCardEdgeInset),
                         child: DoubleTapLike(
                           onLike: onToggleLike,
                           alreadyLiked: post.likedByMe,
@@ -292,7 +304,8 @@ class ClubPostCard extends StatelessWidget {
                     // create_poll_club_post() in supabase/schema.sql).
                     if (post.isPoll)
                       Padding(
-                        padding: const EdgeInsets.only(right: homeCardEdgeInset),
+                        padding:
+                            const EdgeInsets.only(right: homeCardEdgeInset),
                         child: ClubPollCard(
                           options: post.pollOptions!,
                           expiresAt: post.pollExpiresAt!,
@@ -306,20 +319,27 @@ class ClubPostCard extends StatelessWidget {
                     if (post.linkUrl != null && post.linkUrl!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(
-                          0, WynSpacing.space2, homeCardEdgeInset, 0,
+                          0,
+                          WynSpacing.space2,
+                          homeCardEdgeInset,
+                          0,
                         ),
                         child: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                            borderRadius: BorderRadius.circular(WynSpacing.radiusSm),
+                            border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant),
+                            borderRadius:
+                                BorderRadius.circular(WynSpacing.radiusSm),
                           ),
                           child: Row(
                             children: [
                               const Icon(Icons.link, size: 16),
                               const SizedBox(width: 6),
                               Expanded(
-                                child: Text(
+                                child: BrowserSystemText(
                                   post.linkUrl!,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -331,7 +351,8 @@ class ClubPostCard extends StatelessWidget {
                       ),
                     Padding(
                       padding: const EdgeInsets.only(
-                        right: homeCardEdgeInset, top: WynSpacing.space2,
+                        right: homeCardEdgeInset,
+                        top: WynSpacing.space2,
                       ),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,

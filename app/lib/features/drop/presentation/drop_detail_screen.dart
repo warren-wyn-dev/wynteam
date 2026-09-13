@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -465,7 +466,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       if (!mounted) return;
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบคอมเมนต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -588,7 +590,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
       }
       WynFeedback.failed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -723,7 +726,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         icon: const Icon(Icons.chevron_left, size: 22, color: WynColors.ink),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      title: Text(
+      title: BrowserSystemText(
         'โพสต์',
         style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),
       ),
@@ -810,7 +813,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Flexible(
-                                      child: Text(
+                                      child: BrowserSystemText(
                                         _drop.authorDisplayName ??
                                             _drop.authorUsername,
                                         overflow: TextOverflow.ellipsis,
@@ -827,7 +830,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                     ],
                                     const SizedBox(width: WynSpacing.space2),
                                     Flexible(
-                                      child: Text(
+                                      child: BrowserSystemText(
                                         // WYN-098, Design spec Screen 4:
                                         // same "appended to the time
                                         // text, not a new row" treatment
@@ -846,14 +849,14 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                                     ),
                                   ],
                                 ),
-                                Text(
+                                BrowserSystemText(
                                   '@${_drop.authorUsername}',
                                   style: _textStyle(
                                       fontSize: 13,
                                       color: WynColors.mutedNeutral),
                                 ),
                                 if (_drop.wasEdited)
-                                  Text(
+                                  BrowserSystemText(
                                     'แก้ไขแล้ว',
                                     style: _textStyle(
                                         fontSize: 13, color: WynColors.faint),
@@ -880,24 +883,27 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                           ),
                           onPressed: _toggleFollow,
-                          child: Text(_isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
+                          child: BrowserSystemText(
+                              _isFollowing! ? 'กำลังติดตาม' : 'ติดตาม'),
                         ),
                       ),
                     ),
                   if (isOwnDrop)
-                    IconButton(
-                      icon: const Icon(Icons.more_vert,
-                          size: 18, color: WynColors.faint),
-                      tooltip: 'เพิ่มเติม',
-                      onPressed: _openOwnDropMoreMenu,
-                    )
+                    BrowserSystemTooltip(
+                        message: 'เพิ่มเติม',
+                        child: IconButton(
+                          icon: const Icon(Icons.more_vert,
+                              size: 18, color: WynColors.faint),
+                          onPressed: _openOwnDropMoreMenu,
+                        ))
                   else
-                    IconButton(
-                      icon: const Icon(Icons.more_vert,
-                          size: 18, color: WynColors.faint),
-                      tooltip: 'เพิ่มเติม',
-                      onPressed: _openDropMoreMenu,
-                    ),
+                    BrowserSystemTooltip(
+                        message: 'เพิ่มเติม',
+                        child: IconButton(
+                          icon: const Icon(Icons.more_vert,
+                              size: 18, color: WynColors.faint),
+                          onPressed: _openDropMoreMenu,
+                        )),
                 ],
               ),
               if (_drop.caption != null && _drop.caption!.isNotEmpty) ...[
@@ -958,11 +964,11 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลดคอมเมนต์ไม่สำเร็จ'),
+                  const BrowserSystemText('โหลดคอมเมนต์ไม่สำเร็จ'),
                   const SizedBox(height: WynSpacing.space2),
                   TextButton(
                     onPressed: _loadComments,
-                    child: const Text('ลองใหม่'),
+                    child: const BrowserSystemText('ลองใหม่'),
                   ),
                 ],
               ),
@@ -991,7 +997,8 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
         if (comments.isEmpty)
           const Padding(
             padding: EdgeInsets.all(WynSpacing.space6),
-            child: Center(child: Text('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
+            child: Center(
+                child: BrowserSystemText('ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!')),
           )
         else ...[
           // Each top-level comment immediately followed by its own
@@ -1023,7 +1030,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     : TextButton(
                         key: const Key('drop_detail_load_more_comments'),
                         onPressed: _loadMoreComments,
-                        child: Text(_moreCommentsErrored
+                        child: BrowserSystemText(_moreCommentsErrored
                             ? 'โหลดคอมเมนต์เพิ่มไม่สำเร็จ แตะเพื่อลองใหม่'
                             : 'ดูคอมเมนต์เพิ่มเติม'),
                       ),
@@ -1034,7 +1041,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
               padding: const EdgeInsets.symmetric(
                   horizontal: WynSpacing.space6, vertical: WynSpacing.space8),
               child: Center(
-                child: Text(
+                child: BrowserSystemText(
                   'ไม่มีความคิดเห็นเพิ่มเติมแล้ว',
                   style: _textStyle(fontSize: 13, color: WynColors.faint),
                 ),
@@ -1070,7 +1077,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 icon,
                 if (count != null) ...[
                   const SizedBox(width: 7),
-                  Text(
+                  BrowserSystemText(
                     '$count',
                     style: const TextStyle(
                       fontSize: 14,
@@ -1188,7 +1195,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 ),
                 SizedBox(width: 7),
                 Expanded(
-                  child: Text(
+                  child: BrowserSystemText(
                     'ดูกิจกรรม',
                     style: TextStyle(
                       fontSize: 15,
@@ -1277,7 +1284,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Flexible(
-                          child: Text(
+                          child: BrowserSystemText(
                             comment.authorNameOrUsername,
                             overflow: TextOverflow.ellipsis,
                             style: _textStyle(
@@ -1288,7 +1295,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                           ),
                         ),
                         const SizedBox(width: WynSpacing.space2),
-                        Text(
+                        BrowserSystemText(
                           relativeTimeLabel(comment.createdAt,
                               now: DateTime.now()),
                           style: _textStyle(
@@ -1298,7 +1305,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     ),
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(
+                      child: BrowserSystemText(
                         comment.textContent,
                         style: _textStyle(
                             fontSize: 15, color: WynColors.ink, height: 1.45),
@@ -1312,7 +1319,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         padding: const EdgeInsets.only(top: WynSpacing.space2),
                         child: InkWell(
                           onTap: () => _startReply(comment),
-                          child: Text(
+                          child: BrowserSystemText(
                             'ตอบกลับ',
                             style: _textStyle(
                               fontSize: 13,
@@ -1329,14 +1336,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 SizedBox(
                   width: WynSpacing.touchTargetMin,
                   height: WynSpacing.touchTargetMin,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    iconSize: 16,
-                    icon: const Icon(Icons.delete_outline,
-                        color: WynColors.graphite),
-                    tooltip: 'ลบคอมเมนต์',
-                    onPressed: () => _deleteComment(comment.id),
-                  ),
+                  child: BrowserSystemTooltip(
+                      message: 'ลบคอมเมนต์',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        iconSize: 16,
+                        icon: const Icon(Icons.delete_outline,
+                            color: WynColors.graphite),
+                        onPressed: () => _deleteComment(comment.id),
+                      )),
                 ),
               Column(
                 children: [
@@ -1368,7 +1376,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                     ),
                   ),
                   if (comment.likeCount > 0)
-                    Text(
+                    BrowserSystemText(
                       '${comment.likeCount}',
                       style:
                           _textStyle(fontSize: 13, color: WynColors.graphite),
@@ -1413,7 +1421,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    BrowserSystemText(
                       'ตอบกลับ ${_replyingTo!.authorNameOrUsername}',
                       style: const TextStyle(
                         fontSize: 12.5,
@@ -1450,7 +1458,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                       color: WynColors.surfaceTint,
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: TextField(
+                    child: BrowserSystemTextField(
                       controller: _commentController,
                       focusNode: _commentFocusNode,
                       enabled: !_isSendingComment,
@@ -1468,7 +1476,7 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         border: InputBorder.none,
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                        hintText: 'แสดงความคิดเห็น...',
+                        hint: BrowserSystemText('แสดงความคิดเห็น...'),
                         hintStyle: TextStyle(
                           fontSize: 15,
                           color: WynColors.faint,
@@ -1597,7 +1605,7 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
   Widget _peopleList(List<Profile> profiles, {required String emptyLabel}) {
     if (profiles.isEmpty) {
       return Center(
-        child: Text(
+        child: BrowserSystemText(
           emptyLabel,
           style: const TextStyle(fontSize: 14, color: WynColors.graphite),
         ),
@@ -1624,7 +1632,7 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
           title: Row(
             children: [
               Flexible(
-                child: Text(
+                child: BrowserSystemText(
                   profile.nameOrUsername,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1643,7 +1651,7 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
           ),
           subtitle: profile.username.isEmpty
               ? null
-              : Text(
+              : BrowserSystemText(
                   '@${profile.username}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1668,7 +1676,7 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
             children: [
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 2, 20, 8),
-                child: Text(
+                child: BrowserSystemText(
                   'กิจกรรมโพสต์',
                   style: TextStyle(
                     fontSize: 18,
@@ -1682,8 +1690,8 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
                 unselectedLabelColor: WynColors.graphite,
                 indicatorColor: WynColors.sapphire,
                 tabs: [
-                  Tab(text: 'ถูกใจ'),
-                  Tab(text: 'รีโพสต์'),
+                  Tab(child: BrowserSystemText('ถูกใจ')),
+                  Tab(child: BrowserSystemText('รีโพสต์')),
                 ],
               ),
               const Divider(height: 1, color: WynColors.hairline),
@@ -1700,11 +1708,11 @@ class _DropActivitySheetState extends State<_DropActivitySheet> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('โหลดกิจกรรมไม่สำเร็จ'),
+                            const BrowserSystemText('โหลดกิจกรรมไม่สำเร็จ'),
                             const SizedBox(height: 8),
                             TextButton(
                               onPressed: _retry,
-                              child: const Text('ลองใหม่'),
+                              child: const BrowserSystemText('ลองใหม่'),
                             ),
                           ],
                         ),

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -77,7 +78,7 @@ class TrendingTile extends StatelessWidget {
                     const WynHeartIcon(
                         filled: true, size: 13, color: Colors.white),
                     const SizedBox(width: 3),
-                    Text(
+                    BrowserSystemText(
                       '${item.likeCount}',
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                     ),

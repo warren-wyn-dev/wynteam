@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
@@ -42,19 +43,21 @@ class PopGridTile extends StatelessWidget {
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 ),
               const Center(
-                child: Icon(Icons.play_circle_fill, color: Colors.white, size: 36),
+                child:
+                    Icon(Icons.play_circle_fill, color: Colors.white, size: 36),
               ),
               Positioned(
                 right: 4,
                 bottom: 4,
                 child: ExcludeSemantics(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space1, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: WynSpacing.space1, vertical: 1),
                     decoration: BoxDecoration(
                       color: WynColors.imageScrim,
                       borderRadius: BorderRadius.circular(3),
                     ),
-                    child: Text(
+                    child: BrowserSystemText(
                       _formatDuration(pop.durationSeconds),
                       style: const TextStyle(color: Colors.white, fontSize: 11),
                     ),

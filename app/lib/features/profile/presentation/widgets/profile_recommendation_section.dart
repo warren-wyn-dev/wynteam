@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../follow/data/follow_repository.dart';
@@ -91,7 +92,7 @@ class _ProfileRecommendationSectionState
         Padding(
           padding: const EdgeInsets.fromLTRB(
               WynSpacing.space4, WynSpacing.space2, WynSpacing.space4, 0),
-          child: Text(
+          child: BrowserSystemText(
             'แนะนำสำหรับคุณ',
             style: Theme.of(context)
                 .textTheme
@@ -171,7 +172,7 @@ class _RecommendationCard extends StatelessWidget {
             radius: 28,
           ),
           const SizedBox(height: WynSpacing.space2),
-          Text(
+          BrowserSystemText(
             profile.nameOrUsername,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -181,7 +182,7 @@ class _RecommendationCard extends StatelessWidget {
                 .bodyMedium
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
-          Text(
+          BrowserSystemText(
             '@${profile.username}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

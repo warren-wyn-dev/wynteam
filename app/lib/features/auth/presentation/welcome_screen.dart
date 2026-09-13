@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
@@ -33,7 +34,7 @@ class WelcomeScreen extends StatelessWidget {
                   // tracking via WynTypography.screenTitle rather than
                   // the plain Theme.textTheme every other bit of text on
                   // this form-heavy flow correctly uses as-is.
-                  Text(
+                  BrowserSystemText(
                     'WYNOS',
                     style: WynTypography.screenTitle(
                       fontSize: 34,
@@ -58,7 +59,7 @@ class WelcomeScreen extends StatelessWidget {
                       borderRadius:
                           BorderRadius.circular(WynSpacing.radiusFull),
                     ),
-                    child: Text(
+                    child: BrowserSystemText(
                       'BETA',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: Theme.of(context)
@@ -71,7 +72,7 @@ class WelcomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: WynSpacing.space3),
-              Text(
+              BrowserSystemText(
                 'เชื่อมต่อ แสดงตัวตน และสร้างชุมชนของคุณเอง',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -92,7 +93,7 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: WynSpacing.space4),
-                    child: Text('เริ่มต้นใช้งาน'),
+                    child: BrowserSystemText('เริ่มต้นใช้งาน'),
                   ),
                 ),
               ),

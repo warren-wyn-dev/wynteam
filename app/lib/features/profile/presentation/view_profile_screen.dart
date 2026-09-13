@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -329,7 +330,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('รีเฟรชโปรไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content:
+                BrowserSystemText('รีเฟรชโปรไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       _isProfileRefreshInFlight = false;
@@ -435,7 +438,9 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       if (!mounted) return;
       setState(() => _hasPendingRequest = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งคำขอติดตามไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content:
+                BrowserSystemText('ส่งคำขอติดตามไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isFollowActionInFlight = false);
@@ -452,15 +457,16 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('ยกเลิกคำขอติดตาม ${profile.nameOrUsername}?'),
+            title: BrowserSystemText(
+                'ยกเลิกคำขอติดตาม ${profile.nameOrUsername}?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('ไม่ยกเลิก'),
+                child: const BrowserSystemText('ไม่ยกเลิก'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('ยกเลิกคำขอ'),
+                child: const BrowserSystemText('ยกเลิกคำขอ'),
               ),
             ],
           ),
@@ -478,7 +484,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       if (!mounted) return;
       setState(() => _hasPendingRequest = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยกเลิกคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ยกเลิกคำขอไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isFollowActionInFlight = false);
@@ -677,16 +684,17 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
             height: kToolbarHeight,
             child: Row(
               children: [
-                IconButton(
-                  tooltip: 'ย้อนกลับ',
-                  icon: const Icon(
-                    Icons.chevron_left_rounded,
-                    size: 32,
-                    color: WynColors.paper,
-                  ),
-                  onPressed: _goBack,
-                ),
-                const Text(
+                BrowserSystemTooltip(
+                    message: 'ย้อนกลับ',
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.chevron_left_rounded,
+                        size: 32,
+                        color: WynColors.paper,
+                      ),
+                      onPressed: _goBack,
+                    )),
+                const BrowserSystemText(
                   'โปรไฟล์',
                   style: TextStyle(
                     color: WynColors.paper,
@@ -696,43 +704,47 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 ),
                 const Spacer(),
                 if (isOwnProfile) ...[
-                  IconButton(
-                    tooltip: 'แชร์โปรไฟล์',
-                    icon: const Icon(
-                      Icons.ios_share_outlined,
-                      size: 24,
-                      color: WynColors.paper,
-                    ),
-                    onPressed: () => _shareProfile(profile),
-                  ),
-                  IconButton(
-                    tooltip: 'ตั้งค่า',
-                    icon: const Icon(
-                      Icons.settings_outlined,
-                      size: 27,
-                      color: WynColors.paper,
-                    ),
-                    onPressed: () => _openSettings(profile),
-                  ),
+                  BrowserSystemTooltip(
+                      message: 'แชร์โปรไฟล์',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.ios_share_outlined,
+                          size: 24,
+                          color: WynColors.paper,
+                        ),
+                        onPressed: () => _shareProfile(profile),
+                      )),
+                  BrowserSystemTooltip(
+                      message: 'ตั้งค่า',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.settings_outlined,
+                          size: 27,
+                          color: WynColors.paper,
+                        ),
+                        onPressed: () => _openSettings(profile),
+                      )),
                 ] else ...[
-                  IconButton(
-                    tooltip: 'ค้นหา',
-                    icon: const Icon(
-                      Icons.search_rounded,
-                      size: 25,
-                      color: WynColors.paper,
-                    ),
-                    onPressed: _openSearch,
-                  ),
-                  IconButton(
-                    tooltip: 'เพิ่มเติม',
-                    icon: const Icon(
-                      Icons.more_vert_rounded,
-                      size: 24,
-                      color: WynColors.paper,
-                    ),
-                    onPressed: _openMoreMenu,
-                  ),
+                  BrowserSystemTooltip(
+                      message: 'ค้นหา',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.search_rounded,
+                          size: 25,
+                          color: WynColors.paper,
+                        ),
+                        onPressed: _openSearch,
+                      )),
+                  BrowserSystemTooltip(
+                      message: 'เพิ่มเติม',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          size: 24,
+                          color: WynColors.paper,
+                        ),
+                        onPressed: _openMoreMenu,
+                      )),
                 ],
                 const SizedBox(width: 4),
               ],
@@ -759,7 +771,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
               child: FilledButton.icon(
                 onPressed: () => _openEdit(profile),
                 icon: const Icon(Icons.edit_outlined, size: 20),
-                label: const Text('แก้ไขโปรไฟล์'),
+                label: const BrowserSystemText('แก้ไขโปรไฟล์'),
                 style: FilledButton.styleFrom(
                   backgroundColor: WynColors.ink,
                   foregroundColor: WynColors.paper,
@@ -819,7 +831,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 shape: const StadiumBorder(),
                 elevation: 0,
               ),
-              child: Text(_followButtonLabel(profile)),
+              child: BrowserSystemText(_followButtonLabel(profile)),
             ),
           ),
         ),
@@ -836,7 +848,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.send_outlined, size: 18),
-              label: const Text('ส่งข้อความ'),
+              label: const BrowserSystemText('ส่งข้อความ'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: WynColors.ink,
                 side: const BorderSide(color: WynColors.hairline),
@@ -863,7 +875,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           children: [
             const Icon(Icons.person_add_alt, size: 18),
             const SizedBox(width: 6),
-            Text('คำขอติดตาม ($_pendingRequestCount)'),
+            BrowserSystemText('คำขอติดตาม ($_pendingRequestCount)'),
             const Icon(Icons.chevron_right, size: 18),
           ],
         ),
@@ -958,7 +970,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           ? 'ระบบแชทปิดปรับปรุงชั่วคราว'
           : 'เริ่มบทสนทนาไม่สำเร็จ ลองใหม่อีกครั้ง';
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+          .showSnackBar(SnackBar(content: BrowserSystemText(message)));
     } finally {
       if (mounted) setState(() => _isStartingChat = false);
     }
@@ -991,12 +1003,13 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       _isFollowing = null;
       _reload();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('บล็อก @${profile.username} แล้ว')),
+        SnackBar(content: BrowserSystemText('บล็อก @${profile.username} แล้ว')),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('บล็อกไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -1030,7 +1043,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: BrowserSystemText(
             previous
                 ? 'เปิดเสียง @${profile.username} แล้ว'
                 : 'ปิดเสียง @${profile.username} แล้ว',
@@ -1041,7 +1054,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
       if (!mounted) return;
       setState(() => _isMuted = previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -1175,7 +1189,8 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
   }) async {
     if (isLockedPrivate) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ต้องติดตามก่อนถึงจะดูรายชื่อได้')),
+        const SnackBar(
+            content: BrowserSystemText('ต้องติดตามก่อนถึงจะดูรายชื่อได้')),
       );
       return;
     }
@@ -1251,7 +1266,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
           ),
           const SizedBox(width: WynSpacing.space2),
           Flexible(
-            child: Text(
+            child: BrowserSystemText(
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1286,11 +1301,11 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('โหลดโปรไฟล์ไม่สำเร็จ'),
+                    const BrowserSystemText('โหลดโปรไฟล์ไม่สำเร็จ'),
                     const SizedBox(height: WynSpacing.space3),
                     TextButton(
                       onPressed: _reload,
-                      child: const Text('ลองใหม่'),
+                      child: const BrowserSystemText('ลองใหม่'),
                     ),
                   ],
                 ),
@@ -1412,7 +1427,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                 children: [
                                   Icon(Icons.image_outlined, size: 20),
                                   SizedBox(width: 7),
-                                  Text('สื่อ'),
+                                  BrowserSystemText('สื่อ'),
                                 ],
                               ),
                             ),
@@ -1426,7 +1441,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                 children: [
                                   Icon(Icons.repeat_rounded, size: 20),
                                   SizedBox(width: 7),
-                                  Text('รีโพสต์'),
+                                  BrowserSystemText('รีโพสต์'),
                                 ],
                               ),
                             ),
@@ -1440,7 +1455,7 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                                 children: [
                                   Icon(Icons.favorite_border_rounded, size: 20),
                                   SizedBox(width: 7),
-                                  Text('ถูกใจ'),
+                                  BrowserSystemText('ถูกใจ'),
                                 ],
                               ),
                             ),

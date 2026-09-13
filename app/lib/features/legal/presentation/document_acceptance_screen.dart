@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -47,7 +48,8 @@ class _DocumentAcceptanceScreenState extends State<DocumentAcceptanceScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยอมรับไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ยอมรับไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -76,7 +78,7 @@ class _DocumentAcceptanceScreenState extends State<DocumentAcceptanceScreen> {
           child: Column(
             children: [
               const Spacer(flex: 3),
-              Text(
+              BrowserSystemText(
                 'ก่อนเริ่มใช้งาน WYN',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -84,7 +86,7 @@ class _DocumentAcceptanceScreenState extends State<DocumentAcceptanceScreen> {
                     ),
               ),
               const SizedBox(height: WynSpacing.space3),
-              Text(
+              BrowserSystemText(
                 'กรุณาอ่านและยอมรับเอกสารต่อไปนี้ก่อนใช้งาน WYN',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge,
@@ -93,7 +95,7 @@ class _DocumentAcceptanceScreenState extends State<DocumentAcceptanceScreen> {
               TextButton(
                 onPressed: () =>
                     _openDocument(PlatformDocumentType.termsOfService),
-                child: const Text(
+                child: const BrowserSystemText(
                   'ข้อกำหนดการใช้งาน',
                   style: TextStyle(decoration: TextDecoration.underline),
                 ),
@@ -101,7 +103,7 @@ class _DocumentAcceptanceScreenState extends State<DocumentAcceptanceScreen> {
               TextButton(
                 onPressed: () =>
                     _openDocument(PlatformDocumentType.privacyPolicy),
-                child: const Text(
+                child: const BrowserSystemText(
                   'นโยบายความเป็นส่วนตัว',
                   style: TextStyle(decoration: TextDecoration.underline),
                 ),
@@ -109,7 +111,7 @@ class _DocumentAcceptanceScreenState extends State<DocumentAcceptanceScreen> {
               TextButton(
                 onPressed: () =>
                     _openDocument(PlatformDocumentType.communityGuidelines),
-                child: const Text(
+                child: const BrowserSystemText(
                   'แนวทางชุมชน',
                   style: TextStyle(decoration: TextDecoration.underline),
                 ),
@@ -121,7 +123,7 @@ class _DocumentAcceptanceScreenState extends State<DocumentAcceptanceScreen> {
                     ? null
                     : (value) => setState(() => _isChecked = value ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text(
+                title: const BrowserSystemText(
                   'ฉันได้อ่านและยอมรับข้อกำหนดการใช้งาน นโยบายความเป็นส่วนตัว '
                   'และแนวทางชุมชนของ WYN',
                 ),
@@ -142,7 +144,7 @@ class _DocumentAcceptanceScreenState extends State<DocumentAcceptanceScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('ยอมรับและดำเนินการต่อ'),
+                        : const BrowserSystemText('ยอมรับและดำเนินการต่อ'),
                   ),
                 ),
               ),

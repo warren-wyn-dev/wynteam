@@ -21,7 +21,6 @@
 // (onTap wraps the whole card), so the boundary needs the same
 // WCAG-1.4.11-safe 3:1 contrast as any other interactive outline, not
 // the weaker decorative-divider value.
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'wyn_colors.dart';
@@ -31,14 +30,6 @@ import 'wyn_typography.dart';
 /// WYN Social app theme.
 class WynTheme {
   WynTheme._();
-
-  /// Self-hosted Web family. The font asset is Noto Sans Thai under SIL OFL
-  /// 1.1 and is bundled with WYNOS; native builds never select this family.
-  static const String webFontFamily = 'WYNWebNotoThai';
-
-  static final TextTheme _platformTextTheme = kIsWeb
-      ? WynTypography.textTheme.apply(fontFamily: webFontFamily)
-      : WynTypography.textTheme;
 
   static final CardThemeData _lightCardTheme = CardThemeData(
     elevation: 0,
@@ -61,16 +52,14 @@ class WynTheme {
   static final ThemeData light = ThemeData(
     useMaterial3: true,
     colorScheme: WynColors.socialLightScheme,
-    fontFamily: kIsWeb ? webFontFamily : null,
-    textTheme: _platformTextTheme,
+    textTheme: WynTypography.textTheme,
     cardTheme: _lightCardTheme,
   );
 
   static final ThemeData dark = ThemeData(
     useMaterial3: true,
     colorScheme: WynColors.socialDarkScheme,
-    fontFamily: kIsWeb ? webFontFamily : null,
-    textTheme: _platformTextTheme,
+    textTheme: WynTypography.textTheme,
     cardTheme: _darkCardTheme,
   );
 }

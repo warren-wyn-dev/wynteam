@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -88,7 +89,8 @@ class ClubPage extends StatefulWidget {
   State<ClubPage> createState() => _ClubPageState();
 }
 
-class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin {
+class _ClubPageState extends State<ClubPage>
+    with SingleTickerProviderStateMixin {
   // A plain TabController (not DefaultTabController) because the More
   // menu's "จัดการสิทธิ์สมาชิก" action needs to jump to the Members tab
   // from outside the tab bar itself, and DefaultTabController.of(context)
@@ -108,10 +110,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   // below computes that index fresh each time rather than hardcoding it.
   TabController? _tabController;
 
-  TabController _tabControllerFor(int length, {required int fallbackInitialIndex}) {
+  TabController _tabControllerFor(int length,
+      {required int fallbackInitialIndex}) {
     final existing = _tabController;
     if (existing != null && existing.length == length) return existing;
-    final initialIndex = (existing?.index ?? fallbackInitialIndex).clamp(0, length - 1);
+    final initialIndex =
+        (existing?.index ?? fallbackInitialIndex).clamp(0, length - 1);
     existing?.dispose();
     final controller =
         TabController(length: length, vsync: this, initialIndex: initialIndex);
@@ -130,8 +134,9 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   /// Which segment `ClubAboutTab` opens to. Set once from
   /// [ClubPage.openToMembers] and afterwards only by the More menu's
   /// "จัดการสิทธิ์สมาชิก" action -- see [_openMoreMenu].
-  late ClubAboutSection _aboutSection =
-      widget.openToMembers ? ClubAboutSection.members : ClubAboutSection.details;
+  late ClubAboutSection _aboutSection = widget.openToMembers
+      ? ClubAboutSection.members
+      : ClubAboutSection.details;
 
   /// Bumped whenever [_aboutSection] is force-changed from outside
   /// `ClubAboutTab` itself (the More menu jump) so its `Key` changes and
@@ -145,11 +150,14 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   final _profileRepository = ProfileRepository(Supabase.instance.client);
   final _followRepository = FollowRepository(Supabase.instance.client);
   late final ClubEventRepository _clubEventRepository =
-      widget._clubEventRepository ?? ClubEventRepository(Supabase.instance.client);
+      widget._clubEventRepository ??
+          ClubEventRepository(Supabase.instance.client);
   late final ClubBadgeRepository _clubBadgeRepository =
-      widget._clubBadgeRepository ?? ClubBadgeRepository(Supabase.instance.client);
+      widget._clubBadgeRepository ??
+          ClubBadgeRepository(Supabase.instance.client);
   late final ClubChannelChatRepository _clubChannelChatRepository =
-      widget._clubChannelChatRepository ?? ClubChannelChatRepository(Supabase.instance.client);
+      widget._clubChannelChatRepository ??
+          ClubChannelChatRepository(Supabase.instance.client);
 
   @override
   void initState() {
@@ -166,7 +174,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   Future<_ClubPageData> _load() async {
     final club = await widget.clubRepository.fetchClub(widget.clubId);
     if (club == null) throw StateError('Club not found');
-    final membership = await widget.clubRepository.fetchMyMembership(widget.clubId);
+    final membership =
+        await widget.clubRepository.fetchMyMembership(widget.clubId);
     // WYN-116: mute status only matters for an approved member (the More
     // menu's mute row only ever shows for one) -- skip the extra query
     // otherwise rather than asking about a mute that couldn't exist yet
@@ -185,22 +194,23 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       });
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: BrowserSystemText(message)));
   }
 
   Future<bool> _confirmLeave() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ออกจาก Club?'),
+        title: const BrowserSystemText('ออกจาก Club?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('ออกจาก Club'),
+            child: const BrowserSystemText('ออกจาก Club'),
           ),
         ],
       ),
@@ -268,12 +278,13 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _changePrivacy(Club club) async {
-    final target =
-        club.privacy == ClubPrivacy.public ? ClubPrivacy.private : ClubPrivacy.public;
+    final target = club.privacy == ClubPrivacy.public
+        ? ClubPrivacy.private
+        : ClubPrivacy.public;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
+        title: BrowserSystemText(
           target == ClubPrivacy.private
               ? 'เปลี่ยนเป็น Club ส่วนตัว?'
               : 'เปลี่ยนเป็น Club สาธารณะ?',
@@ -281,11 +292,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('ยกเลิก'),
+            child: const BrowserSystemText('ยกเลิก'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('เปลี่ยน'),
+            child: const BrowserSystemText('เปลี่ยน'),
           ),
         ],
       ),
@@ -293,7 +304,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     if (confirmed != true) return;
 
     try {
-      await widget.clubRepository.updatePrivacy(clubId: club.id, privacy: target);
+      await widget.clubRepository
+          .updatePrivacy(clubId: club.id, privacy: target);
       _reload();
     } catch (_) {
       if (!mounted) return;
@@ -360,8 +372,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _openMoreMenu(Club club, ClubMember? membership, bool isMuted) async {
-    final role = membership?.status == ClubMemberStatus.approved ? membership!.role : null;
+  Future<void> _openMoreMenu(
+      Club club, ClubMember? membership, bool isMuted) async {
+    final role = membership?.status == ClubMemberStatus.approved
+        ? membership!.role
+        : null;
     final isApproved = membership?.status == ClubMemberStatus.approved;
     final isPending = membership?.status == ClubMemberStatus.pending;
 
@@ -374,8 +389,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
         // on the same way.
         if (isApproved)
           ActionSheetRow(
-            icon: isMuted ? Icons.notifications_outlined : Icons.notifications_off_outlined,
-            label: isMuted ? 'เปิดการแจ้งเตือน Club นี้' : 'ปิดการแจ้งเตือน Club นี้',
+            icon: isMuted
+                ? Icons.notifications_outlined
+                : Icons.notifications_off_outlined,
+            label: isMuted
+                ? 'เปิดการแจ้งเตือน Club นี้'
+                : 'ปิดการแจ้งเตือน Club นี้',
             onTap: () {
               Navigator.of(sheetContext).pop();
               _toggleMute(club.id, isMuted);
@@ -492,9 +511,11 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('โหลด Club ไม่สำเร็จ'),
+                        const BrowserSystemText('โหลด Club ไม่สำเร็จ'),
                         const SizedBox(height: WynSpacing.space3),
-                        TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
+                        TextButton(
+                            onPressed: _reload,
+                            child: const BrowserSystemText('ลองใหม่')),
                       ],
                     ),
                   ),
@@ -537,11 +558,18 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               labelColor: WynColors.ink,
               unselectedLabelColor: WynColors.mutedNeutral,
               labelStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
+              unselectedLabelStyle:
+                  _textStyle(fontSize: 13, fontWeight: FontWeight.w400),
               tabs: const [
-                Tab(icon: Icon(Icons.article_outlined, size: 16), text: 'โพสต์'),
-                Tab(icon: Icon(Icons.forum_outlined, size: 16), text: 'แชท'),
-                Tab(icon: Icon(Icons.info_outline, size: 16), text: 'เกี่ยวกับ'),
+                Tab(
+                    icon: Icon(Icons.article_outlined, size: 16),
+                    child: BrowserSystemText('โพสต์')),
+                Tab(
+                    icon: Icon(Icons.forum_outlined, size: 16),
+                    child: BrowserSystemText('แชท')),
+                Tab(
+                    icon: Icon(Icons.info_outline, size: 16),
+                    child: BrowserSystemText('เกี่ยวกับ')),
               ],
             );
 
@@ -600,7 +628,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildBanner(data.club),
-                          _buildHeader(data.club, data.membership, data.isMuted),
+                          _buildHeader(
+                              data.club, data.membership, data.isMuted),
                         ],
                       ),
                       _buildBackButton(),
@@ -634,11 +663,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
       child: Material(
         color: WynColors.paper.withValues(alpha: 0.8),
         shape: const CircleBorder(),
-        child: IconButton(
-          icon: const Icon(Icons.chevron_left, color: WynColors.ink),
-          tooltip: 'ย้อนกลับ',
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        child: BrowserSystemTooltip(
+            message: 'ย้อนกลับ',
+            child: IconButton(
+              icon: const Icon(Icons.chevron_left, color: WynColors.ink),
+              onPressed: () => Navigator.of(context).pop(),
+            )),
       ),
     );
   }
@@ -709,7 +739,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
           // 140px tall, and it also carries the neutral placeholder and
           // broken-image fallback a bare Image.network has none of.
           if (imageUrl != null)
-            NetworkThumbnail(imageUrl: imageUrl, key: const Key('club_banner_image')),
+            NetworkThumbnail(
+                imageUrl: imageUrl, key: const Key('club_banner_image')),
           // Layer 3 -- the scrim, only where there is a photo to darken.
           // A left-to-right gradient rather than a flat wash: the text
           // is left-aligned, so the right side of the photo stays as
@@ -737,7 +768,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BrowserSystemText(
                     'CLUB',
                     style: _textStyle(
                       fontSize: 13,
@@ -747,7 +778,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  BrowserSystemText(
                     club.name,
                     // Two lines, then ellipsis: a 50-character Club name
                     // (the column's own limit) does not fit on one line
@@ -755,7 +786,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     // Text had nothing to stop it overflowing the strip.
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: WynTypography.screenTitle(fontSize: 22, color: WynColors.paper),
+                    style: WynTypography.screenTitle(
+                        fontSize: 22, color: WynColors.paper),
                   ),
                 ],
               ),
@@ -774,16 +806,17 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     return SizedBox(
       width: 36,
       height: 36,
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        icon: Icon(icon, size: 14, color: WynColors.ink),
-        tooltip: tooltip,
-        onPressed: onPressed,
-        style: IconButton.styleFrom(
-          side: const BorderSide(color: WynColors.hairline),
-          shape: const CircleBorder(),
-        ),
-      ),
+      child: BrowserSystemTooltip(
+          message: tooltip,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            icon: Icon(icon, size: 14, color: WynColors.ink),
+            onPressed: onPressed,
+            style: IconButton.styleFrom(
+              side: const BorderSide(color: WynColors.hairline),
+              shape: const CircleBorder(),
+            ),
+          )),
     );
   }
 
@@ -792,7 +825,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WynSpacing.space6, WynSpacing.space4, WynSpacing.space6, WynSpacing.space2,
+        WynSpacing.space6,
+        WynSpacing.space4,
+        WynSpacing.space6,
+        WynSpacing.space2,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -809,9 +845,12 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(top: WynSpacing.space1),
-                  child: Text(
+                  child: BrowserSystemText(
                     club.name,
-                    style: _textStyle(fontSize: 16, fontWeight: FontWeight.w700, color: WynColors.ink),
+                    style: _textStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: WynColors.ink),
                   ),
                 ),
               ),
@@ -835,18 +874,19 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             spacing: WynSpacing.space2,
             runSpacing: WynSpacing.space1,
             children: [
-              Text(
+              BrowserSystemText(
                 '${club.memberCount} สมาชิก',
                 style: _textStyle(fontSize: 13, color: WynColors.graphite),
               ),
               if (club.category != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space2, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: WynSpacing.space2, vertical: 2),
                   decoration: BoxDecoration(
                     color: WynColors.hairline,
                     borderRadius: BorderRadius.circular(WynSpacing.radiusFull),
                   ),
-                  child: Text(
+                  child: BrowserSystemText(
                     club.category!,
                     style: _textStyle(fontSize: 13, color: WynColors.graphite),
                   ),
@@ -856,14 +896,17 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
           ),
           if (club.description != null && club.description!.isNotEmpty) ...[
             const SizedBox(height: WynSpacing.space3),
-            Text(
+            BrowserSystemText(
               club.description!,
-              style: _textStyle(fontSize: 15, color: WynColors.ink, height: 1.45),
+              style:
+                  _textStyle(fontSize: 15, color: WynColors.ink, height: 1.45),
             ),
           ],
           if (status == null) ...[
             const SizedBox(height: WynSpacing.space4),
-            SizedBox(width: double.infinity, child: _buildJoinButton(club, membership)),
+            SizedBox(
+                width: double.infinity,
+                child: _buildJoinButton(club, membership)),
           ],
         ],
       ),
@@ -880,7 +923,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     if (status == ClubMemberStatus.approved) {
       label = 'เข้าร่วมแล้ว';
       semanticsLabel = 'เข้าร่วมแล้ว กดเพื่อออกจาก Club';
-      onPressed = _isJoinActionInFlight ? null : () => _toggleJoin(club, membership);
+      onPressed =
+          _isJoinActionInFlight ? null : () => _toggleJoin(club, membership);
     } else if (status == ClubMemberStatus.pending) {
       label = 'รออนุมัติ';
       semanticsLabel = 'ส่งคำขอเข้าร่วมแล้ว รอการอนุมัติ';
@@ -888,7 +932,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
     } else {
       label = 'เข้าร่วม';
       semanticsLabel = 'กดเพื่อเข้าร่วม';
-      onPressed = _isJoinActionInFlight ? null : () => _toggleJoin(club, membership);
+      onPressed =
+          _isJoinActionInFlight ? null : () => _toggleJoin(club, membership);
     }
 
     // "เข้าร่วม" (not a member yet) is the page's single most important
@@ -912,7 +957,7 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
               textStyle: _textStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             onPressed: onPressed,
-            child: Text(label),
+            child: BrowserSystemText(label),
           )
         : OutlinedButton(
             key: const Key('club-header-join-button'),
@@ -920,7 +965,8 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
             style: OutlinedButton.styleFrom(
               shape: const StadiumBorder(),
               visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: WynSpacing.space3, vertical: 2),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: WynSpacing.space3, vertical: 2),
               foregroundColor: Theme.of(context).colorScheme.outline,
               side: BorderSide(color: Theme.of(context).colorScheme.outline),
               textStyle: _textStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -931,10 +977,10 @@ class _ClubPageState extends State<ClubPage> with SingleTickerProviderStateMixin
                     children: [
                       const Icon(Icons.check, size: 11),
                       const SizedBox(width: 4),
-                      Text(label),
+                      BrowserSystemText(label),
                     ],
                   )
-                : Text(label),
+                : BrowserSystemText(label),
           );
 
     return Semantics(
@@ -963,7 +1009,8 @@ class _ClubTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     // Opaque, same reasoning as _ProfileTabBarDelegate: once pinned
     // above scrolled-past post cards, this needs its own surface so
     // they don't show through underneath it.

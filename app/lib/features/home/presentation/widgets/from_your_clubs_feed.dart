@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../club/data/club_member.dart';
@@ -74,13 +75,17 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
   }
 
   Future<void> _resolveRolesFor(List<ClubPost> posts) async {
-    final unknownClubIds =
-        posts.map((p) => p.clubId).toSet().difference(_roleByClubId.keys.toSet());
+    final unknownClubIds = posts
+        .map((p) => p.clubId)
+        .toSet()
+        .difference(_roleByClubId.keys.toSet());
     if (unknownClubIds.isEmpty) return;
 
     final entries = await Future.wait(unknownClubIds.map((clubId) async {
       final membership = await widget.clubRepository.fetchMyMembership(clubId);
-      final role = membership?.status == ClubMemberStatus.approved ? membership!.role : null;
+      final role = membership?.status == ClubMemberStatus.approved
+          ? membership!.role
+          : null;
       return MapEntry(clubId, role);
     }));
     if (!mounted) return;
@@ -93,7 +98,8 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
       _error = null;
     });
     try {
-      final posts = await widget.clubPostRepository.fetchFromJoinedClubs(page: 0);
+      final posts =
+          await widget.clubPostRepository.fetchFromJoinedClubs(page: 0);
       await _resolveRolesFor(posts);
       if (!mounted) return;
       setState(() {
@@ -115,7 +121,8 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
     setState(() => _isLoadingMore = true);
     try {
       final nextPage = _page + 1;
-      final posts = await widget.clubPostRepository.fetchFromJoinedClubs(page: nextPage);
+      final posts =
+          await widget.clubPostRepository.fetchFromJoinedClubs(page: nextPage);
       await _resolveRolesFor(posts);
       if (!mounted) return;
       setState(() {
@@ -207,7 +214,8 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
+        const SnackBar(
+            content: BrowserSystemText('ลบโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง')),
       );
     }
   }
@@ -250,9 +258,11 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!),
+            BrowserSystemText(_error!),
             const SizedBox(height: WynSpacing.space3),
-            TextButton(onPressed: _loadInitial, child: const Text('ลองใหม่')),
+            TextButton(
+                onPressed: _loadInitial,
+                child: const BrowserSystemText('ลองใหม่')),
           ],
         ),
       );
@@ -265,12 +275,13 @@ class _FromYourClubsFeedState extends State<FromYourClubsFeed>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('เข้าร่วม Club เพื่อดูโพสต์ที่นี่', textAlign: TextAlign.center),
+              const BrowserSystemText('เข้าร่วม Club เพื่อดูโพสต์ที่นี่',
+                  textAlign: TextAlign.center),
               const SizedBox(height: WynSpacing.space3),
               OutlinedButton.icon(
                 onPressed: _openExploreClubs,
                 icon: const Icon(Icons.explore_outlined, size: 18),
-                label: const Text('สำรวจ Club'),
+                label: const BrowserSystemText('สำรวจ Club'),
               ),
             ],
           ),

@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../data/auth_repository.dart';
@@ -63,20 +64,20 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('หมายเลขโทรศัพท์')),
+      appBar: AppBar(title: const BrowserSystemText('หมายเลขโทรศัพท์')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(WynSpacing.space6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              BrowserSystemTextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: 'หมายเลขโทรศัพท์',
-                  prefixText: '+66 ',
-                  errorText: _errorMessage,
+                  label: const BrowserSystemText('หมายเลขโทรศัพท์'),
+                  prefix: const BrowserSystemText('+66 '),
+                  error: BrowserSystemText(_errorMessage),
                 ),
                 onChanged: (_) => setState(() {}),
               ),
@@ -89,7 +90,7 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('ส่งรหัส OTP'),
+                    : const BrowserSystemText('ส่งรหัส OTP'),
               ),
             ],
           ),

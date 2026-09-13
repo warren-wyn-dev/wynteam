@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/design/wyn_spacing.dart';
@@ -99,7 +100,7 @@ class _EditDropCaptionScreenState extends State<EditDropCaptionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('แก้ไขโพสต์'),
+        title: const BrowserSystemText('แก้ไขโพสต์'),
         actions: [
           TextButton(
             onPressed: _canSave ? _save : null,
@@ -109,21 +110,22 @@ class _EditDropCaptionScreenState extends State<EditDropCaptionScreen> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('บันทึก'),
+                : const BrowserSystemText('บันทึก'),
           ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(WynSpacing.space4),
         children: [
-          TextField(
+          BrowserSystemTextField(
             controller: _captionController,
             maxLength: _maxLength,
             maxLines: 6,
             minLines: 3,
             autofocus: true,
             decoration: InputDecoration(
-              hintText: widget.isPollQuestion ? 'คำถามโพล...' : 'เขียนแคปชัน...',
+              hint: BrowserSystemText(
+                  widget.isPollQuestion ? 'คำถามโพล...' : 'เขียนแคปชัน...'),
               border: InputBorder.none,
             ),
             onChanged: (_) => setState(() {}),
@@ -131,7 +133,7 @@ class _EditDropCaptionScreenState extends State<EditDropCaptionScreen> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: WynSpacing.space2),
-              child: Text(
+              child: BrowserSystemText(
                 _error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),

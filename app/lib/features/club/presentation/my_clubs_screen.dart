@@ -1,3 +1,4 @@
+import 'package:wyn/core/typography/browser_system_text.dart';
 import 'package:flutter/material.dart';
 
 import '../data/club.dart';
@@ -74,7 +75,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Club ของฉัน')),
+      appBar: AppBar(title: const BrowserSystemText('Club ของฉัน')),
       body: FutureBuilder<List<Club>>(
         future: _loadFuture,
         builder: (context, snapshot) {
@@ -83,9 +84,11 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('โหลดรายชื่อ Club ไม่สำเร็จ'),
+                  const BrowserSystemText('โหลดรายชื่อ Club ไม่สำเร็จ'),
                   const SizedBox(height: WynSpacing.space3),
-                  TextButton(onPressed: _reload, child: const Text('ลองใหม่')),
+                  TextButton(
+                      onPressed: _reload,
+                      child: const BrowserSystemText('ลองใหม่')),
                 ],
               ),
             );
@@ -100,7 +103,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: WynSpacing.space8),
-                child: Text(
+                child: BrowserSystemText(
                   'ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ',
                   textAlign: TextAlign.center,
                 ),
@@ -116,8 +119,8 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
                 final club = clubs[index];
                 return ListTile(
                   leading: ClubAvatar(club: club),
-                  title: Text(club.name),
-                  subtitle: Text('${club.memberCount} สมาชิก'),
+                  title: BrowserSystemText(club.name),
+                  subtitle: BrowserSystemText('${club.memberCount} สมาชิก'),
                   onTap: () => _openClub(club),
                 );
               },
