@@ -34,37 +34,60 @@ void main() {
 
     test('maxLogicalWidth caps a box that is wider than the image needs '
         'to be sharp at', () {
-      expect(decodeWidthFor(400, devicePixelRatio: 2, maxLogicalWidth: 100),
-          200);
+      expect(
+        decodeWidthFor(400, devicePixelRatio: 2, maxLogicalWidth: 100),
+        200,
+      );
     });
 
     test('maxLogicalWidth does not upscale a box narrower than the cap', () {
-      expect(decodeWidthFor(50, devicePixelRatio: 2, maxLogicalWidth: 100),
-          100);
+      expect(
+        decodeWidthFor(50, devicePixelRatio: 2, maxLogicalWidth: 100),
+        100,
+      );
+    });
+  });
+
+  group('networkImageStrategyFor', () {
+    test('prefers browser HTML images only on iOS Web', () {
+      expect(
+        networkImageStrategyFor(isWeb: true, platform: TargetPlatform.iOS),
+        WebHtmlElementStrategy.prefer,
+      );
+      expect(
+        networkImageStrategyFor(isWeb: true, platform: TargetPlatform.android),
+        WebHtmlElementStrategy.never,
+      );
+      expect(
+        networkImageStrategyFor(isWeb: false, platform: TargetPlatform.iOS),
+        WebHtmlElementStrategy.never,
+      );
     });
   });
 
   group('NetworkThumbnail', () {
     testWidgets('decodes at the size the tile is actually painted at, not '
         'the size the photo was uploaded at', (tester) async {
-      await tester.pumpWidget(const MediaQuery(
-        data: MediaQueryData(devicePixelRatio: 2),
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          // Centered so the SizedBox actually gets to pick its own size
-          // -- the root view hands its child tight screen-sized
-          // constraints, which a bare SizedBox has to obey.
-          child: Center(
-            child: SizedBox(
-              width: 120,
-              height: 120,
-              child: NetworkThumbnail(
-                imageUrl: 'https://example.supabase.co/drop-images/a.jpg',
+      await tester.pumpWidget(
+        const MediaQuery(
+          data: MediaQueryData(devicePixelRatio: 2),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            // Centered so the SizedBox actually gets to pick its own size
+            // -- the root view hands its child tight screen-sized
+            // constraints, which a bare SizedBox has to obey.
+            child: Center(
+              child: SizedBox(
+                width: 120,
+                height: 120,
+                child: NetworkThumbnail(
+                  imageUrl: 'https://example.supabase.co/drop-images/a.jpg',
+                ),
               ),
             ),
           ),
         ),
-      ));
+      );
       tester.takeException();
 
       expect(tester.widget<Image>(find.byType(Image)).width, isNull);
@@ -75,17 +98,19 @@ void main() {
 
     testWidgets('shows a broken-image icon when the load fails, rather than '
         'an empty hole in the grid', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 120,
-            height: 120,
-            child: NetworkThumbnail(
-              imageUrl: 'https://example.supabase.co/drop-images/missing.jpg',
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 120,
+              height: 120,
+              child: NetworkThumbnail(
+                imageUrl: 'https://example.supabase.co/drop-images/missing.jpg',
+              ),
             ),
           ),
         ),
-      ));
+      );
 
       await tester.pump();
       tester.takeException();

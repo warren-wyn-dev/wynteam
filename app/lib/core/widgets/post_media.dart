@@ -49,8 +49,10 @@ const double maxPostImageAspectRatio = 1.91;
 /// any row with a non-positive height.
 double postImageAspectRatio(int? width, int? height) {
   if (width == null || height == null || height <= 0 || width <= 0) return 1;
-  return (width / height)
-      .clamp(minPostImageAspectRatio, maxPostImageAspectRatio);
+  return (width / height).clamp(
+    minPostImageAspectRatio,
+    maxPostImageAspectRatio,
+  );
 }
 
 /// A post's photo: decoded at the size it is actually painted at, with
@@ -92,6 +94,7 @@ class PostImage extends StatelessWidget {
           imageUrl,
           fit: fit,
           semanticLabel: semanticLabel,
+          webHtmlElementStrategy: wynNetworkImageStrategy,
           cacheWidth: decodeWidthFor(
             constraints.maxWidth,
             devicePixelRatio: devicePixelRatio,
@@ -339,9 +342,10 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
   /// is nothing left to scroll into.
   void _updateIndex(double stride) {
     if (!_controller.hasClients || stride <= 0) return;
-    final next = (_controller.position.pixels / stride)
-        .round()
-        .clamp(0, widget.imageUrls.length - 1);
+    final next = (_controller.position.pixels / stride).round().clamp(
+      0,
+      widget.imageUrls.length - 1,
+    );
     if (next == _index) return;
     setState(() => _index = next);
     widget.onIndexChanged?.call(next);
@@ -393,8 +397,10 @@ class _PostImageCarouselState extends State<PostImageCarousel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // The column, not the row -- see [trailingBleed].
-        final columnWidth = (constraints.maxWidth - widget.trailingBleed)
-            .clamp(0.0, double.infinity);
+        final columnWidth = (constraints.maxWidth - widget.trailingBleed).clamp(
+          0.0,
+          double.infinity,
+        );
         final cardWidth = columnWidth * postCardWidthFraction;
         final cardHeight = cardWidth / widget.aspectRatio;
         final stride = cardWidth + WynSpacing.space2;
@@ -514,8 +520,10 @@ class _CardSnapPhysics extends ScrollPhysics {
     } else {
       index = current.roundToDouble();
     }
-    return (index * stride)
-        .clamp(position.minScrollExtent, position.maxScrollExtent);
+    return (index * stride).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
   }
 
   @override
