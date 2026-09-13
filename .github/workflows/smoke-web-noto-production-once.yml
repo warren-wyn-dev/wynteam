@@ -1,0 +1,42 @@
+name: Smoke WYNOS Web Noto production once
+
+on:
+  push:
+    branches:
+      - ops/dispatch-web-noto-deploy-20260913
+    paths:
+      - .github/workflows/smoke-web-noto-production-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production build and bundled font
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://wynos.online'
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          curl -fsSL --retry 5 --retry-delay 2 "$base/" -o "$tmp/index.html"
+          grep -q 'flutter_bootstrap.js' "$tmp/index.html"
+
+          curl -fsSL --retry 5 --retry-delay 2 "$base/assets/FontManifest.json" -o "$tmp/FontManifest.json"
+          grep -q 'WYNWebNotoThai' "$tmp/FontManifest.json"
+          grep -q 'assets/fonts/NotoSansThai/NotoSansThai' "$tmp/FontManifest.json"
+
+          font_url="$base/assets/assets/fonts/NotoSansThai/NotoSansThai%5Bwdth%2Cwght%5D.ttf"
+          curl -fsSL --retry 5 --retry-delay 2 "$font_url" -o "$tmp/noto.ttf"
+          test "$(wc -c < "$tmp/noto.ttf")" -gt 100000
+
+          curl -fsSL --retry 5 --retry-delay 2 "$base/assets/assets/fonts/NotoSansThai/OFL.txt" -o "$tmp/OFL.txt"
+          grep -q 'SIL OPEN FONT LICENSE Version 1.1' "$tmp/OFL.txt"
+
+          curl -fsSL --retry 5 --retry-delay 2 "$base/main.dart.js" -o "$tmp/main.dart.js"
+          grep -q 'WYNWebNotoThai' "$tmp/main.dart.js"
+
+          echo 'Production smoke passed: reviewed main is live with bundled WYNWebNotoThai.'
