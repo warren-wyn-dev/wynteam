@@ -1,9 +1,10 @@
-"use client";
-
-import { useSearchParams } from "next/navigation";
 import { ClubsRoute } from "@/components/clubs-routes";
 
-export default function Page() {
-  const params = useSearchParams();
-  return <ClubsRoute mine={params.get("mine") === "1"} />;
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ mine?: string }>;
+}) {
+  const params = await searchParams;
+  return <ClubsRoute mine={params.mine === "1"} />;
 }
