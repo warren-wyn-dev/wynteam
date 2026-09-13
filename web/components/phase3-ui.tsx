@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronLeft, Home, MessageCircle, Search, Settings, UserRound } from "lucide-react";
+import { Bell, ChevronLeft, Home, Plus, Search, Settings, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
@@ -22,6 +22,7 @@ export function Avatar({
   if (!src || failed) {
     return <span className="route-avatar fallback" style={{ width: size, height: size }}>{text}</span>;
   }
+  // Browser-native <img> is intentional for signed Supabase media and WebKit stability.
   // eslint-disable-next-line @next/next/no-img-element
   return <img className="route-avatar" src={src} alt="" width={size} height={size} onError={() => setFailed(true)} />;
 }
@@ -40,20 +41,23 @@ export function AppChrome({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const nav = [
+  const destinations = [
     { href: "/", label: "หน้าหลัก", icon: Home },
     { href: "/search", label: "ค้นหา", icon: Search },
-    { href: "/chat", label: "แชท", icon: MessageCircle },
     { href: "/notifications", label: "การแจ้งเตือน", icon: Bell },
     { href: `/profile/${userId}`, label: "โปรไฟล์", icon: UserRound },
   ];
+  const activeFor = (href: string) => href === "/"
+    ? pathname === "/"
+    : pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <div className="route-app">
       <main className="route-main">
         <header className="route-header">
           <div className="route-title-row">
             {backHref ? (
-              <Link className="route-icon-link" href={backHref} aria-label="ย้อนกลับ"><ChevronLeft /></Link>
+              <Link className="route-icon-link" href={backHref} aria-label="ย้อนกลับ"><ChevronLeft size={24} strokeWidth={1.8} /></Link>
             ) : <span className="route-header-slot" />}
             <h1>{title}</h1>
             <div className="route-header-actions">{actions}</div>
@@ -62,14 +66,26 @@ export function AppChrome({
         {children}
       </main>
       <nav className="route-bottom-nav" aria-label="เมนูหลัก">
-        {nav.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
-          return (
-            <Link className={`route-nav-link ${active ? "active" : ""}`} href={href} aria-label={label} key={href}>
-              <Icon size={23} strokeWidth={active ? 2.2 : 1.8} />
-            </Link>
-          );
-        })}
+        <Link className={`route-nav-link ${activeFor(destinations[0].href) ? "active" : ""}`} href="/" aria-label="หน้าหลัก">
+          <Home strokeWidth={activeFor("/") ? 2.2 : 1.8} />
+          <span>หน้าหลัก</span>
+        </Link>
+        <Link className={`route-nav-link ${activeFor(destinations[1].href) ? "active" : ""}`} href="/search" aria-label="ค้นหา">
+          <Search strokeWidth={activeFor("/search") ? 2.2 : 1.8} />
+          <span>ค้นหา</span>
+        </Link>
+        <Link className="route-nav-link route-create-destination" href="/?compose=1" aria-label="สร้างโพสต์ใหม่">
+          <span className="route-create-button"><Plus strokeWidth={2} /></span>
+          <span>โพสต์</span>
+        </Link>
+        <Link className={`route-nav-link ${activeFor(destinations[2].href) ? "active" : ""}`} href="/notifications" aria-label="การแจ้งเตือน">
+          <Bell strokeWidth={activeFor("/notifications") ? 2.2 : 1.8} />
+          <span>การแจ้งเตือน</span>
+        </Link>
+        <Link className={`route-nav-link ${activeFor(destinations[3].href) ? "active" : ""}`} href={`/profile/${userId}`} aria-label="โปรไฟล์">
+          <UserRound strokeWidth={activeFor(`/profile/${userId}`) ? 2.2 : 1.8} />
+          <span>โปรไฟล์</span>
+        </Link>
       </nav>
     </div>
   );
@@ -109,10 +125,10 @@ export function DropPreviewCard({ row }: { row: HomeFeedRow }) {
         {row.caption ? <p>{row.caption}</p> : null}
         {row.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={row.image_url} alt="" loading="lazy" />
+          <img src={row.image_url} alt="" loading="lazy" decoding="async" />
         ) : null}
       </Link>
-      <div className="route-drop-metrics">
+      <div className="route-drop-metrics" aria-label="กิจกรรมโพสต์">
         <span>♡ {row.like_count ?? 0}</span>
         <span>◯ {row.comment_count ?? 0}</span>
         <span>↻ {row.redrop_count ?? 0}</span>
@@ -130,5 +146,5 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
 }
 
 export function LoadingState() {
-  return <div className="route-empty">กำลังโหลด…</div>;
+  return <div className="route-empty"><div className="route-system-spinner" aria-label="กำลังโหลด" /></div>;
 }
