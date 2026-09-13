@@ -115,3 +115,13 @@ Security Findings (รอบสอง): ไม่พบเพิ่มเติ�
 Recommendation: อนุมัติ — ช่องโหว่ที่พบจริงถูกปิดแล้วพร้อมพิสูจน์ red→green และ regression test คุ้มครองไว้ ไม่มี cross-task regression
 
 Final Status: **PASS**
+
+## รอ Founder ตัดสินใจ — 3 หัวข้อ Dashboard ที่เลื่อนไว้ (2026-09-13)
+
+3 หัวข้อจาก Master Spec section 37 ที่เลื่อนออกจากขอบเขต V1 (ดู Requirement 1 ด้านบน) ยังไม่มีใครเริ่มทำได้จนกว่า Founder จะตอบ 3 ข้อนี้ — เป็นการตัดสินใจ Infrastructure ที่ไม่ควรให้ AI เลือกแทน:
+
+1. **Storage** — ต้องเรียก Supabase Management API ซึ่งต้องมี API token ใหม่ (คนละแบบกับ publishable key ที่ใช้อยู่). Founder ต้องสร้าง token นี้เองจาก Supabase Dashboard และตัดสินใจว่าจะเก็บ/ส่งต่อให้ระบบใช้อย่างไร (ระดับสิทธิ์ที่ให้).
+2. **Error tracking** — ปัจจุบันไม่มีเครื่องมือ error tracking ใดๆ ในระบบเลย (ไม่มี Sentry/เทียบเท่า). Founder ต้องเลือกเครื่องมือและอนุมัติการผูก account ใหม่ก่อนเริ่มงานได้.
+3. **Server Health** — สถาปัตยกรรมเป็น Vercel (serverless) + Supabase (managed) ไม่มี "server" แบบเดิมให้ตรวจสุขภาพ. Founder ต้องนิยามว่า "Server Health" ในบริบทนี้หมายถึงอะไร (เช่น อิง Vercel/Supabase status API เอง หรือข้ามหัวข้อนี้ไปเลย).
+
+เมื่อ Founder ตอบครบทั้ง 3 ข้อ ถึงจะเปิด task ใหม่ (ต่อจาก WYN-055) ให้ AI Product Manager ร่าง spec และส่งต่อ AI Coding ทำต่อได้จริง.
