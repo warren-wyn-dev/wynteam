@@ -6,77 +6,66 @@ Owner: Founder
 
 ## Founder approval
 
-Founder explicitly approved moving the consumer web frontend toward **Next.js/React + browser/OS system fonts + the existing Supabase backend**, while preserving the current WYNOS UX/UI. Production cutover is a separate release gate and is **not** approved by this task alone.
-
-## Problem
-
-Flutter Web paints most UI through its web renderer rather than normal browser DOM. On iPhone/iPad this prevents WYNOS from reliably using the device's installed system text fonts through Flutter canvas rendering. Previous attempts to render every text fragment as an HTML platform view restored native browser fonts but created too many platform views in scrolling feeds and contributed to WebKit stability pressure.
+Founder approved moving the consumer web frontend toward **Next.js/React + browser/OS system fonts + the existing Supabase backend**, while preserving the current WYNOS UX/UI. Production cutover remains a separate release gate.
 
 ## Approved direction
 
-Build a consumer web frontend in `web/` using Next.js + React. Keep Supabase as the backend and preserve current authorization/RLS contracts. Do not bundle or redistribute Apple font files. Use a CSS system-font stack so the browser chooses the installed OS font.
+Build the consumer web in `web/` with Next.js + React. Keep Supabase Auth/RLS/RPC/storage contracts. Never put service-role/management keys in browser code. Do not bundle or redistribute Apple font files; use a CSS system-font stack so the browser chooses the installed OS font.
 
-## Rollout
+## Rollout boundary
 
-1. Keep Flutter `app/` and current production deployment unchanged during migration.
-2. Build and test the new web frontend independently.
-3. New frontend remains internal/developer-only until Founder approves public cutover.
-4. Production deployment/cutover requires a separate Founder approval.
-5. No automatic rollback of WYNOS versions.
+1. Flutter `app/` and current Production remain unchanged during migration.
+2. New consumer web stays developer-only until explicit Founder approval for public rollout.
+3. Production domain cutover is Phase 5 and requires separate Founder approval.
+4. No automatic rollback of WYNOS versions.
 
-## Phase 1 — Foundation (merged)
+## Phase 1 — Foundation (complete)
+
+Merged through PR #411 at `741fad1a93a97464b2e6020088324306dabccd36`.
 
 - Next.js 16 + React 19 + TypeScript foundation.
 - Browser system-font CSS stack; no font assets and no `@font-face`.
-- Existing Supabase publishable-client configuration only; no service-role key in the browser.
-- Existing `is_developer_account()` RPC used as a fail-closed internal preview gate.
-- Existing `get_wynos_ranked_feed()` RPC used for the first read-only Home feed migration slice.
-- Mobile-first WYNOS Home shell matching current palette, spacing direction, tabs, post cards and bottom navigation.
-- Native browser `<img>` for feed/avatar images.
-- CI for lint, TypeScript, production build and font-license guard.
-
-Phase 1 merged through PR #411 at `741fad1a93a97464b2e6020088324306dabccd36`. It did not cut over Production.
+- Existing Supabase publishable configuration and developer gate.
+- Initial Home shell/read-only ranked feed.
 
 ## Phase 2 — Home interactions (complete)
 
-Completed through PR #412 and squash-merged to `main` at `41ac064cc3e69cc75a2ea69c6f598f9a5540a373`.
+Merged through PR #412 at `41ac064cc3e69cc75a2ea69c6f598f9a5540a373`.
 
 - Ranked/Following/Trending Home surfaces.
-- Like, Save, Standard Repost, Follow/Follow Request.
+- Like, Save, Standard Repost and Follow/Follow Request.
 - Post detail, comments and comment likes.
-- Create Drop for text + up to nine images.
-- Retry-safe atomic publication through the existing Supabase RPC/storage contracts.
-- Browser-native text/images with no Apple/SF Pro font redistribution.
+- Create Drop with up to nine images and retry-safe atomic publication.
 
-Phase 2 acceptance passed Consumer Web CI and full repository CI; `wynos.online` remained Flutter Production.
+## Phase 3 — Main routes (complete)
 
-## Phase 3 — Main routes (active)
+Merged through PR #413 at `1ae2757917cb937e716eab20b8aafd85ddcf6019` after Consumer Web lint/type/build/font guard and full repository CI passed.
 
-Founder explicitly requested Phase 3 to be carried through to completion. This phase migrates the remaining primary consumer-web routes while preserving the same developer-only rollout gate and existing backend authorization contracts.
-
-Implemented on `feat/wyn-158-phase3-routes`:
-
-- Shared fail-closed developer/session gate for migrated routes.
-- Search + Discovery: explicit-submit User/Post/Club search, trending hashtags, rising profiles and suggested profiles.
-- Profile: own/other profile, follow/follow-request, message entry, block/mute, Posts/Reposts/Likes, edit display name/bio/username/avatar/cover.
+- Search + Discovery: User/Post/Club search, trending hashtags, rising/suggested profiles.
+- Profile: own/other profile, follow/request, DM entry, block/mute, Posts/Reposts/Likes and editing.
 - Notifications: paginated list, mark-all-read and content/profile/chat navigation.
-- Chat: inbox, message requests, user search/new conversation, request accept/delete, conversation history pagination, realtime updates, text/image sending, read markers and message delete.
-- Settings: account privacy, interaction permissions, Likes visibility, online-status privacy, notification categories, blocked/muted management, data export/account deletion, legal document viewer and sign-out.
-- Deep links: `/@username`, `/drop/:id`, `/pop/:id`, `/club/:id`, `/club-post/:id`, `/club-invite/:code`, plus migrated internal routes.
-- Home navigation bridge exposes the migrated Search/Notifications/Profile/Settings routes without rewriting the Phase 2 Home component.
-- All browser UI continues to use native DOM/system fonts; no font files or `@font-face` are added.
+- Chat: inbox, requests, new conversation, realtime thread, pagination, text/image messages, read state and delete.
+- Settings: privacy/interaction/Likes visibility, online status, notifications, blocked/muted lists, export/delete account, legal docs and sign-out.
+- Deep links: `/@username`, `/drop/:id`, `/pop/:id`, `/club/:id`, `/club-post/:id`, `/club-invite/:code`.
 
-### Phase 3 acceptance criteria
+## Phase 4 — UX/UI Parity + QA (active)
 
-- Consumer Web ESLint, TypeScript, production build and font-license guard all pass.
-- Full repository CI remains green.
-- Search/Profile/Notifications/Chat/Settings and supported deep links are reachable and use existing Supabase Auth/RLS/RPC/storage contracts.
-- No service-role/management secret or authorization bypass is introduced.
-- Public Production cutover is still excluded; `wynos.online` remains Flutter until Phase 5 approval.
+Founder explicitly requested Phase 4.
 
-## Still outside Phase 3
+Acceptance target:
 
-- Pixel-perfect/interaction parity and physical-device stress QA across iPhone/Android/Desktop (Phase 4).
-- Public staging-to-production domain cutover (Phase 5; separate Founder approval).
+- Mobile/desktop responsive parity, safe-area and overflow checks.
+- App-local navigation uses Next.js routing without unnecessary full-page reloads.
+- Browser-native DOM/system fonts remain intact; no Apple/SF Pro assets.
+- Automated browser smoke/stress coverage across Home, Search, Profile, Notifications, Chat, Settings and deep-link route shells.
+- Lint, TypeScript, production build, font/license guard and full repository CI remain green.
+- Auth/RLS/storage/realtime contracts are regression-checked without weakening authorization.
+
+Automated browser emulation is not physical-device confirmation. Real iPhone confirmation remains a distinct QA gate before public cutover.
+
+## Still outside Phase 4
+
+- Public production cutover.
 - Replacing/deleting the Flutter app.
 - Any new WYNOS version number.
+- Switching `wynos.online` to Next.js; that remains Phase 5 and requires explicit Founder approval.
