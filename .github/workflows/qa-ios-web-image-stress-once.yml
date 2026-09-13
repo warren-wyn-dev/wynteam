@@ -37,6 +37,11 @@ jobs:
           import 'core/widgets/post_media.dart';
 
           void main() {
+            // Playwright WebKit runs on Linux and therefore reports Linux through
+            // Flutter's web platform detector even with an iPhone user-agent.
+            // Force the Flutter target platform so this QA actually exercises the
+            // same iOS-only strategy branch shipped to real iPhone Safari.
+            debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
             html.document.documentElement?.setAttribute(
               'data-wyn-platform',
               defaultTargetPlatform.name,
