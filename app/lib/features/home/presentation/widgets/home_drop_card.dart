@@ -270,11 +270,11 @@ class HomeDropCard extends StatelessWidget {
         child: Padding(
           // Approved final mockup: each post gets breathing room above
           // the avatar/name, while the content inside the post stays compact.
-          padding: EdgeInsets.fromLTRB(
+          padding: const EdgeInsets.fromLTRB(
             0,
-            WynSpacing.space3,
+            WynSpacing.space2,
             0,
-            item.topReply == null ? 0 : WynSpacing.space2,
+            WynSpacing.space2,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

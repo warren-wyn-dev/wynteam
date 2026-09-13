@@ -144,11 +144,11 @@ class HomePopCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
+          padding: const EdgeInsets.fromLTRB(
             0,
-            WynSpacing.space3,
+            WynSpacing.space2,
             0,
-            item.topReply == null ? 0 : WynSpacing.space2,
+            WynSpacing.space2,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
