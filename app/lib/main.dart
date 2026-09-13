@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,21 +10,12 @@ import 'core/design/wyn_theme.dart';
 import 'core/env.dart';
 import 'core/push_env.dart';
 import 'core/navigation/app_navigator.dart';
-import 'core/typography/looped_thai_font_loader.dart';
 import 'features/account_switcher/data/account_switcher_repository.dart';
 import 'features/auth/presentation/auth_gate.dart';
 import 'features/push/presentation/push_reliability_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // BrowserSystemText already uses the device's real DOM system font on Web.
-  // Many screens still contain ordinary Flutter Text, however, and Flutter's
-  // web canvas renderer cannot use an installed Thai system font. Load a
-  // non-blocking Thai missing-glyph fallback for those remaining surfaces so
-  // the system-font migration cannot break Thai text outside Home/feed.
-  // Native builds use the no-op implementation.
-  unawaited(loadLoopedThaiFontForWeb());
 
   // WYN-078 (Wynos V1.0.0 Beta2, item 5): without this, the OS draws its
   // own default status bar/nav bar scrim (often white or black depending

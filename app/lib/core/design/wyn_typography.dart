@@ -1,24 +1,11 @@
 // WYN Design System — typography scale.
 //
-// 2026-08-30: reverts the 2026-08-29 Fraunces+Inter/`google_fonts` switch
-// (see .wyn/company/DECISIONS.md, both dates) back to the platform system
-// font, this time app-wide (`app/` only had Fraunces+Inter; `seller_app/`
-// was never switched and already used this exact no-`fontFamily`-override
-// pattern -- see the mirror file's original comment). No `fontFamily` is
-// set anywhere below, so every [TextStyle] inherits whatever
-// `Typography.material2021` resolves for the running platform via
-// `defaultTargetPlatform`: San Francisco (`.SF Pro Text`/`.SF Pro
-// Display`) on native iOS/macOS, Roboto on native Android and on every
-// Flutter Web target (Skia/CanvasKit has no access to a browser's
-// installed system fonts -- that is a browser sandboxing rule, not a
-// Flutter limitation -- so Flutter Web always renders its own bundled
-// Roboto regardless of the visitor's OS; there is no way to make Safari
-// on iPhone actually paint SF Pro through Flutter's canvas-based web
-// renderer). Thai text falls back to the engine's own on-demand Noto
-// Sans Thai fetch, same as before -- unrelated to this file.
-//
-// No new dependency, no downloaded/bundled font file, no `@font-face`:
-// `google_fonts` is removed from `app/pubspec.yaml` entirely.
+// Native iOS/Android deliberately set no `fontFamily`, so Flutter inherits
+// each platform's system typography. Flutter Web cannot reliably use arbitrary
+// installed device fonts from its canvas renderer, so WynTheme applies the
+// self-hosted `WYNWebNotoThai` family only when `kIsWeb` is true. The bundled
+// file is Noto Sans Thai under SIL OFL 1.1 and includes Thai + Latin coverage;
+// no Google Fonts CSS/CDN or Apple font file is embedded.
 //
 // Scale below is the 2026-08-30 typography-system pass (Page Title 24,
 // Section Title 20, Username 15, Post Body 16, Comment 15, Button 15,
@@ -57,10 +44,10 @@ import 'package:flutter/material.dart';
 class WynTypography {
   WynTypography._();
 
+  // Important Number / Statistic (largest tier). Not yet referenced by
+  // name anywhere in `app/` -- kept as the token for future big-number
+  // displays rather than another ad-hoc literal.
   static const TextTheme textTheme = TextTheme(
-    // Important Number / Statistic (largest tier). Not yet referenced by
-    // name anywhere in `app/` -- kept as the token for future big-number
-    // displays rather than another ad-hoc literal.
     headlineLarge: TextStyle(
       fontSize: 32,
       fontWeight: FontWeight.w700,
@@ -153,13 +140,9 @@ class WynTypography {
     ),
   );
 
-  /// Screen/nav-header title text. Was `WynTypography.fraunces` (serif,
-  /// via `google_fonts`) -- same call signature (callers pass their own
-  /// `fontSize`, which varies per header: 16-22, tuned per screen's
-  /// existing layout) so every call site needed only the name updated,
-  /// no numeric changes. Default weight bumped 500 -> 600 (semibold) to
-  /// match this pass's "titles are 600/700, never lighter" rule; system
-  /// font, no `fontFamily` override -- see file-level doc comment.
+  /// Screen/nav-header title text. Same call signature callers have used
+  /// since the platform-font typography pass: system font on native and the
+  /// WynTheme-selected self-hosted family on Web, with no per-style override.
   static TextStyle screenTitle({
     required double fontSize,
     FontWeight fontWeight = FontWeight.w600,
