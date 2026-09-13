@@ -1,0 +1,162 @@
+name: Apply Home 6px post rhythm
+
+on:
+  push:
+    branches:
+      - fix/home-post-6px-rhythm
+    paths:
+      - .github/workflows/apply-home-6px-rhythm.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/home-post-6px-rhythm
+
+      - name: Apply exact 6px Home post rhythm
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          metrics = Path('app/lib/features/home/presentation/widgets/home_card_metrics.dart')
+          drop = Path('app/lib/features/home/presentation/widgets/home_drop_card.dart')
+          pop = Path('app/lib/features/home/presentation/widgets/home_pop_card.dart')
+
+          text = metrics.read_text()
+          anchor = """const double homeCardContentInset =
+              homeCardEdgeInset + homeCardAvatarDiameter + homeCardAvatarGap;
+"""
+          replacement = anchor + """
+
+/// Founder-approved vertical rhythm around Home feed post boundaries.
+/// Divider -> post header, content/media -> action row, and action row ->
+/// divider all use this same 6px target.
+const double homePostVerticalRhythm = 6;
+
+/// Caption text is intentionally lifted 3px toward the author row. Transform
+/// does not affect layout, so the trailing layout gap is reduced by the same
+/// amount to keep the *visible* caption/hashtag -> action/media gap at 6px.
+const double homePostCaptionLift = 3;
+const double homePostCaptionTrailingLayoutGap =
+    homePostVerticalRhythm - homePostCaptionLift;
+"""
+          if anchor not in text:
+              raise SystemExit('home_card_metrics anchor not found')
+          metrics.write_text(text.replace(anchor, replacement, 1))
+
+          def patch_card(path: Path, is_drop: bool):
+              text = path.read_text()
+
+              outer = """        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            WynSpacing.space2,
+            0,
+            WynSpacing.space2,
+          ),
+"""
+              if is_drop:
+                  outer = """        child: Padding(
+          // Approved final mockup: each post gets breathing room above
+          // the avatar/name, while the content inside the post stays compact.
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            WynSpacing.space2,
+            0,
+            WynSpacing.space2,
+          ),
+"""
+                  outer_new = """        child: Padding(
+          // Founder-approved 6px rhythm: divider -> header and action row ->
+          // divider use the same exact spacing.
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            homePostVerticalRhythm,
+            0,
+            homePostVerticalRhythm,
+          ),
+"""
+              else:
+                  outer_new = """        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            homePostVerticalRhythm,
+            0,
+            homePostVerticalRhythm,
+          ),
+"""
+              if outer not in text:
+                  raise SystemExit(f'outer spacing block not found in {path}')
+              text = text.replace(outer, outer_new, 1)
+
+              caption = """                        if (item.caption != null && item.caption!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              0,
+                              0,
+                              homeCardEdgeInset,
+                              WynSpacing.space2,
+                            ),
+                            child: Transform.translate(
+                              offset: const Offset(0, -3),
+"""
+              caption_new = """                        if (item.caption != null && item.caption!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              0,
+                              0,
+                              homeCardEdgeInset,
+                              homePostCaptionTrailingLayoutGap,
+                            ),
+                            child: Transform.translate(
+                              offset: const Offset(0, -homePostCaptionLift),
+"""
+              if caption not in text:
+                  raise SystemExit(f'caption spacing block not found in {path}')
+              text = text.replace(caption, caption_new, 1)
+
+              if is_drop:
+                  media_gap = """                        // Compact feed polish: one fixed 8px gap after media
+                        // before liked-by/actions. Caption-only Drops already get
+                        // the same 8px from the caption's own bottom padding.
+                        if (item.isPoll || item.imageUrl != null)
+                          const SizedBox(height: WynSpacing.space2),
+"""
+                  media_gap_new = """                        // Keep media -> actions on the same Founder-approved
+                        // 6px vertical rhythm used by text-only posts.
+                        if (item.isPoll || item.imageUrl != null)
+                          const SizedBox(height: homePostVerticalRhythm),
+"""
+              else:
+                  media_gap = """                        ),
+                        const SizedBox(height: WynSpacing.space2),
+                        if (showLikedBy && item.likedBy.isNotEmpty)
+"""
+                  media_gap_new = """                        ),
+                        const SizedBox(height: homePostVerticalRhythm),
+                        if (showLikedBy && item.likedBy.isNotEmpty)
+"""
+              if media_gap not in text:
+                  raise SystemExit(f'media/action gap block not found in {path}')
+              text = text.replace(media_gap, media_gap_new, 1)
+
+              path.write_text(text)
+
+          patch_card(drop, True)
+          patch_card(pop, False)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "warren-wyn-dev"
+          git config user.email "warren.wyn.dev@gmail.com"
+          git add app/lib/features/home/presentation/widgets/home_card_metrics.dart \
+                  app/lib/features/home/presentation/widgets/home_drop_card.dart \
+                  app/lib/features/home/presentation/widgets/home_pop_card.dart
+          git commit -m "fix(feed): set Home post rhythm to 6px"
+          git push origin HEAD:fix/home-post-6px-rhythm
