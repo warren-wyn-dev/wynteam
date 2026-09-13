@@ -1,0 +1,48 @@
+name: Consumer Web (Next.js)
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-next-ci.yml'
+  push:
+    branches:
+      - feat/wyn-158-nextjs-consumer-web
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-next-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: License/font guard
+        run: |
+          if find . -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.woff' -o -iname '*.woff2' \) -print -quit | grep -q .; then
+            echo '::error::Consumer web must not bundle font files; use the OS/browser system font stack.'
+            exit 1
+          fi
+          if grep -R --include='*.css' -n '@font-face' app; then
+            echo '::error::Consumer web must not self-host fonts.'
+            exit 1
+          fi
