@@ -1,0 +1,109 @@
+name: Verify browser system text alignment geometry
+
+on:
+  push:
+    branches: [ops/fix-web-dom-text-layout-20260913]
+    paths: [.github/workflows/fix-web-dom-text-layout-retry8.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-dom-text-layout-metrics
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply browser sizing and baseline patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin ops/fix-web-dom-text-layout-20260913
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-once.yml > /tmp/source-workflow.yml
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-retry5.yml > /tmp/retry5.yml
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-retry7.yml > /tmp/retry7.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, textwrap
+
+          workflow = Path('/tmp/retry7.yml').read_text()
+          block = re.search(
+              r"          python3 - <<'PY'\n(.*?)\n          PY\n\n          dart format",
+              workflow,
+              re.S,
+          )
+          if not block:
+              raise SystemExit('could not extract retry7 patch')
+          exec(textwrap.dedent(block.group(1)), {'__builtins__': __builtins__})
+
+          p = Path('app/test/browser_system_text_web_layout_test.dart')
+          s = p.read_text()
+          rx = re.compile(
+              r"\s*final author = tester\.renderObject<RenderBox>\(.*?"
+              r"expect\(tester\.takeException\(\), isNull\);",
+              re.S,
+          )
+          m = rx.search(s)
+          if not m:
+              raise SystemExit('baseline assertion block not found')
+          replacement = '''
+                final authorRect = tester.getRect(find.byKey(const Key('author')));
+                final timeRect = tester.getRect(find.byKey(const Key('time')));
+                // RenderFlex consumes computeDryBaseline during layout. A smaller
+                // timestamp should therefore sit only slightly lower than the
+                // larger author label, rather than falling onto a different row.
+                expect(tester.takeException(), isNull);
+                expect(authorRect.height, greaterThan(timeRect.height));
+                expect(timeRect.top, greaterThanOrEqualTo(authorRect.top));
+                expect(timeRect.top - authorRect.top, lessThanOrEqualTo(5));
+                expect((timeRect.bottom - authorRect.bottom).abs(), lessThanOrEqualTo(5));'''
+          s = s[:m.start()] + replacement + s[m.end():]
+          p.write_text(s)
+          PY
+          dart format app/lib/core/typography/browser_system_text_web.dart app/test/browser_system_text_web_layout_test.dart
+          git add -A
+
+      - name: Analyze
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze
+
+      - name: Browser DOM layout regression tests
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter test --platform chrome test/browser_system_text_web_layout_test.dart
+
+      - name: Full regression tests
+        working-directory: app
+        run: flutter test
+
+      - name: Release Web build
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter build web --release
+          test -f build/web/main.dart.js
+          grep -q 'Apple Color Emoji' build/web/main.dart.js
+          grep -q 'getBoundingClientRect' build/web/main.dart.js
+          ! grep -q 'WYNWebNotoThai' build/web/main.dart.js
+
+      - name: Commit verified layout fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git status --short
+          git commit -m 'fix(web): align DOM text with browser metrics'
+          git push origin HEAD:fix/web-dom-text-layout-metrics
