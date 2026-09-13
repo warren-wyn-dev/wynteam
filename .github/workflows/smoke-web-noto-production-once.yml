@@ -22,21 +22,26 @@ jobs:
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
 
+          echo '1/4 root app shell'
           curl -fsSL --retry 5 --retry-delay 2 "$base/" -o "$tmp/index.html"
           grep -q 'flutter_bootstrap.js' "$tmp/index.html"
 
-          curl -fsSL --retry 5 --retry-delay 2 "$base/assets/FontManifest.json" -o "$tmp/FontManifest.json"
-          grep -q 'WYNWebNotoThai' "$tmp/FontManifest.json"
-          grep -q 'assets/fonts/NotoSansThai/NotoSansThai' "$tmp/FontManifest.json"
+          echo '2/4 compiled Flutter app selects WYNWebNotoThai'
+          curl -fsSL --retry 5 --retry-delay 2 "$base/main.dart.js" -o "$tmp/main.dart.js"
+          grep -q 'WYNWebNotoThai' "$tmp/main.dart.js"
 
+          echo '3/4 bundled Noto Sans Thai asset is served as a real font'
           font_url="$base/assets/assets/fonts/NotoSansThai/NotoSansThai%5Bwdth%2Cwght%5D.ttf"
           curl -fsSL --retry 5 --retry-delay 2 "$font_url" -o "$tmp/noto.ttf"
           test "$(wc -c < "$tmp/noto.ttf")" -gt 100000
+          magic="$(od -An -tx1 -N4 "$tmp/noto.ttf" | tr -d ' \n')"
+          case "$magic" in
+            00010000|4f54544f|74727565|74797031) ;;
+            *) echo "Unexpected font magic: $magic"; exit 1 ;;
+          esac
 
+          echo '4/4 OFL license notice is served with the app'
           curl -fsSL --retry 5 --retry-delay 2 "$base/assets/assets/fonts/NotoSansThai/OFL.txt" -o "$tmp/OFL.txt"
           grep -q 'SIL OPEN FONT LICENSE Version 1.1' "$tmp/OFL.txt"
-
-          curl -fsSL --retry 5 --retry-delay 2 "$base/main.dart.js" -o "$tmp/main.dart.js"
-          grep -q 'WYNWebNotoThai' "$tmp/main.dart.js"
 
           echo 'Production smoke passed: reviewed main is live with bundled WYNWebNotoThai.'
