@@ -1,0 +1,46 @@
+name: Smoke WYNOS DOM layout production once
+
+on:
+  push:
+    branches:
+      - ops/dispatch-dom-layout-deploy-20260913
+    paths:
+      - .github/workflows/smoke-dom-layout-production-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production browser-system typography build
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://wynos.online'
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          echo '1/5 root app shell'
+          curl -fsSL --retry 8 --retry-delay 2 "$base/" -o "$tmp/index.html"
+          grep -q 'flutter_bootstrap.js' "$tmp/index.html"
+
+          echo '2/5 compiled Flutter app bundle'
+          curl -fsSL --retry 8 --retry-delay 2 "$base/main.dart.js" -o "$tmp/main.dart.js"
+          test "$(wc -c < "$tmp/main.dart.js")" -gt 100000
+
+          echo '3/5 system font and emoji stack is live'
+          grep -q 'Apple Color Emoji' "$tmp/main.dart.js"
+          grep -q 'Thonburi' "$tmp/main.dart.js"
+
+          echo '4/5 browser layout-metric renderer is live'
+          grep -q 'getBoundingClientRect' "$tmp/main.dart.js"
+
+          echo '5/5 forced bundled Noto workaround is absent'
+          if grep -q 'WYNWebNotoThai' "$tmp/main.dart.js"; then
+            echo 'WYNWebNotoThai unexpectedly present in production bundle.'
+            exit 1
+          fi
+
+          echo 'Production smoke passed: browser system typography and DOM layout metrics are live.'
