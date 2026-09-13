@@ -5,6 +5,7 @@ import "./phase2-polish.css";
 import "./phase3.css";
 import "./phase3-bridge.css";
 import "./parity.css";
+import "./parity-auth-email.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
