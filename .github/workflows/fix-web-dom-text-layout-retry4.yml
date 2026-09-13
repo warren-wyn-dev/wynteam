@@ -1,0 +1,114 @@
+name: Verify browser system text baseline forwarding
+
+on:
+  push:
+    branches: [ops/fix-web-dom-text-layout-20260913]
+    paths: [.github/workflows/fix-web-dom-text-layout-retry4.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-dom-text-layout-metrics
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply browser-exact sizing and forward baseline through the root render box
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin ops/fix-web-dom-text-layout-20260913
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-once.yml > /tmp/source-workflow.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, textwrap
+
+          workflow = Path('/tmp/source-workflow.yml').read_text()
+          patch = re.search(r"python3 - <<'PY'\n(.*?)\n          PY\n\n          cat > app/test/browser_system_text_web_layout_test.dart <<'DART'", workflow, re.S)
+          if not patch:
+              raise SystemExit('could not extract typography patch')
+          exec(textwrap.dedent(patch.group(1)), {'__builtins__': __builtins__})
+
+          path = Path('app/lib/core/typography/browser_system_text_web.dart')
+          source = path.read_text()
+
+          needle = '''              return LayoutBuilder(\n                builder: (context, constraints) {'''
+          replacement = '''              final rootAlphabeticBaseline = _measureRootAlphabeticBaseline(\n                style: effectiveStyle,\n                scaledFontSize: scaledFontSize,\n                spanScale: spanScale,\n                direction: direction,\n                devicePixelRatio: devicePixelRatio,\n              );\n\n              return _BrowserTextBaselineBox(\n                alphabeticBaseline: rootAlphabeticBaseline,\n                child: LayoutBuilder(\n                  builder: (context, constraints) {'''
+          if source.count(needle) != 1:
+              raise SystemExit(f'expected one LayoutBuilder root, found {source.count(needle)}')
+          source = source.replace(needle, replacement, 1)
+
+          close_needle = '''                  );\n                },\n              );\n            }\n\n            _BrowserTextMetrics _measureWithBrowser'''
+          close_replacement = '''                  );\n                },\n              ),\n            );\n          }\n\n          double _measureRootAlphabeticBaseline({\n            required TextStyle style,\n            required double scaledFontSize,\n            required double spanScale,\n            required TextDirection direction,\n            required double devicePixelRatio,\n          }) {\n            final fallback = scaledFontSize * 0.82;\n            final body = web.document.body;\n            if (body == null) return fallback;\n\n            final probe = web.document.createElement('div') as web.HTMLDivElement;\n            probe.setAttribute('aria-hidden', 'true');\n            probe.style\n              ..position = 'fixed'\n              ..left = '-100000px'\n              ..top = '-100000px'\n              ..visibility = 'hidden'\n              ..pointerEvents = 'none'\n              ..margin = '0'\n              ..padding = '0'\n              ..width = 'auto'\n              ..maxWidth = 'none'\n              ..height = 'auto'\n              ..boxSizing = 'border-box';\n\n            _applyBaseCss(\n              probe,\n              style: style,\n              scaledFontSize: scaledFontSize,\n              direction: direction,\n              fillWidth: false,\n              allowWrap: false,\n            );\n            probe.style.display = 'inline-block';\n\n            final marker =\n                web.document.createElement('span') as web.HTMLSpanElement;\n            marker.style\n              ..display = 'inline-block'\n              ..width = '0'\n              ..height = '0'\n              ..margin = '0'\n              ..padding = '0'\n              ..verticalAlign = 'baseline';\n            probe.appendChild(marker);\n            _appendSpans(probe, spanScale: spanScale);\n            body.appendChild(probe);\n\n            final rect = probe.getBoundingClientRect();\n            final markerRect = marker.getBoundingClientRect();\n            final rawBaseline = markerRect.top - rect.top;\n            probe.remove();\n\n            final lineHeight = _snapUp(\n              scaledFontSize * (style.height ?? 1.2),\n              devicePixelRatio,\n            );\n            if (!rawBaseline.isFinite || rawBaseline <= 0) {\n              return math.min(_snapUp(fallback, devicePixelRatio), lineHeight);\n            }\n            return math.min(\n              _snapUp(rawBaseline, devicePixelRatio),\n              lineHeight,\n            );\n          }\n\n          _BrowserTextMetrics _measureWithBrowser'''
+          if source.count(close_needle) != 1:
+              raise SystemExit(f'expected one build closure, found {source.count(close_needle)}')
+          source = source.replace(close_needle, close_replacement, 1)
+          path.write_text(source)
+
+          test = re.search(r"cat > app/test/browser_system_text_web_layout_test.dart <<'DART'\n(.*?)\n          DART", workflow, re.S)
+          if not test:
+              raise SystemExit('could not extract browser test')
+          content = textwrap.dedent(test.group(1))
+          content = content.replace(
+              '          Row(\n            mainAxisSize: MainAxisSize.min,',
+              '          const Row(\n            mainAxisSize: MainAxisSize.min,',
+          )
+          content = content.replace('            children: const [', '            children: [')
+          content = content.replace(
+              'await tester.pumpAndSettle();',
+              'await tester.pump(const Duration(milliseconds: 50));',
+          )
+          Path('app/test/browser_system_text_web_layout_test.dart').write_text(content)
+          PY
+
+          dart format \
+            app/lib/core/typography/browser_system_text_web.dart \
+            app/test/browser_system_text_web_layout_test.dart
+          git add -A
+
+      - name: Analyze
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze
+
+      - name: Browser DOM layout regression tests
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter test --platform chrome test/browser_system_text_web_layout_test.dart
+
+      - name: Full regression tests
+        working-directory: app
+        run: flutter test
+
+      - name: Release Web build
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter build web --release
+          test -f build/web/main.dart.js
+          grep -q 'Apple Color Emoji' build/web/main.dart.js
+          grep -q 'getBoundingClientRect' build/web/main.dart.js
+          ! grep -q 'WYNWebNotoThai' build/web/main.dart.js
+
+      - name: Commit verified layout fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git status --short
+          git commit -m 'fix(web): align DOM text baselines with browser metrics'
+          git push origin HEAD:fix/web-dom-text-layout-metrics
