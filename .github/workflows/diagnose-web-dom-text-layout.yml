@@ -1,0 +1,78 @@
+name: Diagnose browser system text layout
+
+on:
+  push:
+    branches: [ops/fix-web-dom-text-layout-20260913]
+    paths: [.github/workflows/diagnose-web-dom-text-layout.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-dom-text-layout-metrics
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply current browser-exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin ops/fix-web-dom-text-layout-20260913
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-once.yml > /tmp/source-workflow.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, textwrap
+          workflow = Path('/tmp/source-workflow.yml').read_text()
+          patch = re.search(r"python3 - <<'PY'\n(.*?)\n          PY\n\n          cat > app/test/browser_system_text_web_layout_test.dart <<'DART'", workflow, re.S)
+          if not patch: raise SystemExit('patch extract failed')
+          exec(textwrap.dedent(patch.group(1)), {'__builtins__': __builtins__})
+          test = re.search(r"cat > app/test/browser_system_text_web_layout_test.dart <<'DART'\n(.*?)\n          DART", workflow, re.S)
+          if not test: raise SystemExit('test extract failed')
+          content = textwrap.dedent(test.group(1))
+          content = content.replace('          Row(\n            mainAxisSize: MainAxisSize.min,', '          const Row(\n            mainAxisSize: MainAxisSize.min,')
+          content = content.replace('            children: const [', '            children: [')
+          Path('app/test/browser_system_text_web_layout_test.dart').write_text(content)
+          PY
+          dart format app/lib/core/typography/browser_system_text_web.dart app/test/browser_system_text_web_layout_test.dart
+
+      - name: Pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Chrome test - loose bounded WYNOS shrink-wrap
+        id: shrink
+        continue-on-error: true
+        working-directory: app
+        run: flutter test --platform chrome test/browser_system_text_web_layout_test.dart --plain-name 'browser system text shrink-wraps loose bounded labels'
+
+      - name: Chrome test - intrinsic WYNOS single line
+        id: intrinsic
+        continue-on-error: true
+        working-directory: app
+        run: flutter test --platform chrome test/browser_system_text_web_layout_test.dart --plain-name 'intrinsic brand label stays on one browser line'
+
+      - name: Chrome test - alphabetic baseline
+        id: baseline
+        continue-on-error: true
+        working-directory: app
+        run: flutter test --platform chrome test/browser_system_text_web_layout_test.dart --plain-name 'browser text exposes an alphabetic baseline to Flutter rows'
+
+      - name: Diagnostic outcome
+        env:
+          SHRINK: ${{ steps.shrink.outcome }}
+          INTRINSIC: ${{ steps.intrinsic.outcome }}
+          BASELINE: ${{ steps.baseline.outcome }}
+        run: |
+          echo "shrink=$SHRINK intrinsic=$INTRINSIC baseline=$BASELINE"
+          if [ "$SHRINK" != success ] || [ "$INTRINSIC" != success ] || [ "$BASELINE" != success ]; then
+            exit 1
+          fi
