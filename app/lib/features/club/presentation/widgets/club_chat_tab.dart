@@ -443,12 +443,13 @@ class _ClubChatTabState extends State<ClubChatTab> {
               if (_canManageChannels)
                 BrowserSystemTooltip(
                     message: 'เพิ่ม',
-                    child: IconButton(
-                      key: const Key('club_chat_add_button'),
-                      icon: const Icon(Icons.add),
-                      tooltip: null,
-                      onPressed: _openAddMenu,
-                    )),
+                    child: BrowserSystemTooltip(
+                        message: null,
+                        child: IconButton(
+                          key: const Key('club_chat_add_button'),
+                          icon: const Icon(Icons.add),
+                          onPressed: _openAddMenu,
+                        ))),
             ],
           ),
         ),

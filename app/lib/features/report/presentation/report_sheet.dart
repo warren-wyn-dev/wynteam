@@ -261,12 +261,13 @@ class _ReportSheetState extends State<ReportSheet> {
                   height: WynSpacing.touchTargetMin,
                   child: BrowserSystemTooltip(
                       message: 'ปิด',
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.close),
-                        tooltip: null,
-                        onPressed: () => Navigator.of(context).pop(),
-                      )),
+                      child: BrowserSystemTooltip(
+                          message: null,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ))),
                 ),
               ],
             ),

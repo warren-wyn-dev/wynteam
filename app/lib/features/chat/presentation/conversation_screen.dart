@@ -1831,11 +1831,12 @@ class _ConversationScreenState extends State<ConversationScreen>
         actions: [
           BrowserSystemTooltip(
               message: 'ตัวเลือกเพิ่มเติม',
-              child: IconButton(
-                icon: const Icon(Icons.more_horiz, color: WynColors.ink),
-                tooltip: null,
-                onPressed: _showConversationMenu,
-              )),
+              child: BrowserSystemTooltip(
+                  message: null,
+                  child: IconButton(
+                    icon: const Icon(Icons.more_horiz, color: WynColors.ink),
+                    onPressed: _showConversationMenu,
+                  ))),
         ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -2255,33 +2256,37 @@ class _ConversationScreenState extends State<ConversationScreen>
                   child: BrowserSystemTooltip(
                       message:
                           _isEditingMessage ? 'บันทึกการแก้ไข' : 'ส่งข้อความ',
-                      child: IconButton(
-                        // WYN-138: edit mode's own "บันทึก" (confirm edit)
-                        // affordance -- a checkmark instead of the paper
-                        // plane, per the design doc's own wording.
-                        icon: (_isEditingMessage ? _isSavingEdit : _isSending)
-                            ? SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: _canSend
-                                      ? WynColors.paper
-                                      : WynColors.mutedNeutral,
-                                ),
-                              )
-                            : Icon(
-                                _isEditingMessage ? Icons.check : Icons.send,
-                                size: 15,
-                                color: _canSend
-                                    ? WynColors.paper
-                                    : WynColors.mutedNeutral,
-                              ),
-                        tooltip: null,
-                        onPressed: _canSend
-                            ? (_isEditingMessage ? _confirmEdit : _send)
-                            : null,
-                      )),
+                      child: BrowserSystemTooltip(
+                          message: null,
+                          child: IconButton(
+                            // WYN-138: edit mode's own "บันทึก" (confirm edit)
+                            // affordance -- a checkmark instead of the paper
+                            // plane, per the design doc's own wording.
+                            icon:
+                                (_isEditingMessage ? _isSavingEdit : _isSending)
+                                    ? SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: _canSend
+                                              ? WynColors.paper
+                                              : WynColors.mutedNeutral,
+                                        ),
+                                      )
+                                    : Icon(
+                                        _isEditingMessage
+                                            ? Icons.check
+                                            : Icons.send,
+                                        size: 15,
+                                        color: _canSend
+                                            ? WynColors.paper
+                                            : WynColors.mutedNeutral,
+                                      ),
+                            onPressed: _canSend
+                                ? (_isEditingMessage ? _confirmEdit : _send)
+                                : null,
+                          ))),
                 ),
               ),
             ],
@@ -2528,16 +2533,18 @@ class _ConversationScreenState extends State<ConversationScreen>
             excludeSemantics: true,
             child: BrowserSystemTooltip(
                 message: 'ส่งแบบดูครั้งเดียว',
-                child: IconButton(
-                  key: const Key('view_once_toggle_button'),
-                  icon: Icon(
-                    _isViewOnce ? Icons.filter_1 : Icons.filter_1_outlined,
-                    size: 20,
-                    color: _isViewOnce ? WynColors.ink : WynColors.graphite,
-                  ),
-                  tooltip: null,
-                  onPressed: () => setState(() => _isViewOnce = !_isViewOnce),
-                )),
+                child: BrowserSystemTooltip(
+                    message: null,
+                    child: IconButton(
+                      key: const Key('view_once_toggle_button'),
+                      icon: Icon(
+                        _isViewOnce ? Icons.filter_1 : Icons.filter_1_outlined,
+                        size: 20,
+                        color: _isViewOnce ? WynColors.ink : WynColors.graphite,
+                      ),
+                      onPressed: () =>
+                          setState(() => _isViewOnce = !_isViewOnce),
+                    ))),
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),

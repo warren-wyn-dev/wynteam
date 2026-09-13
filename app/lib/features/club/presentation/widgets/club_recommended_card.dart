@@ -184,16 +184,18 @@ class _MoreMenuButton extends StatelessWidget {
       ),
       child: BrowserSystemTooltip(
           message: 'เพิ่มเติม',
-          child: PopupMenuButton<String>(
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.more_vert, size: 16, color: Colors.white),
-            tooltip: null,
-            onSelected: (_) => onReport(),
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                  value: 'report', child: BrowserSystemText('รายงาน Club')),
-            ],
-          )),
+          child: BrowserSystemTooltip(
+              message: null,
+              child: PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                icon:
+                    const Icon(Icons.more_vert, size: 16, color: Colors.white),
+                onSelected: (_) => onReport(),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                      value: 'report', child: BrowserSystemText('รายงาน Club')),
+                ],
+              ))),
     );
   }
 }

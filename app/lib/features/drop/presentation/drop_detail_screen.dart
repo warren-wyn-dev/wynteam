@@ -891,21 +891,23 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   if (isOwnDrop)
                     BrowserSystemTooltip(
                         message: 'เพิ่มเติม',
-                        child: IconButton(
-                          icon: const Icon(Icons.more_vert,
-                              size: 18, color: WynColors.faint),
-                          tooltip: null,
-                          onPressed: _openOwnDropMoreMenu,
-                        ))
+                        child: BrowserSystemTooltip(
+                            message: null,
+                            child: IconButton(
+                              icon: const Icon(Icons.more_vert,
+                                  size: 18, color: WynColors.faint),
+                              onPressed: _openOwnDropMoreMenu,
+                            )))
                   else
                     BrowserSystemTooltip(
                         message: 'เพิ่มเติม',
-                        child: IconButton(
-                          icon: const Icon(Icons.more_vert,
-                              size: 18, color: WynColors.faint),
-                          tooltip: null,
-                          onPressed: _openDropMoreMenu,
-                        )),
+                        child: BrowserSystemTooltip(
+                            message: null,
+                            child: IconButton(
+                              icon: const Icon(Icons.more_vert,
+                                  size: 18, color: WynColors.faint),
+                              onPressed: _openDropMoreMenu,
+                            ))),
                 ],
               ),
               if (_drop.caption != null && _drop.caption!.isNotEmpty) ...[
@@ -1340,14 +1342,15 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                   height: WynSpacing.touchTargetMin,
                   child: BrowserSystemTooltip(
                       message: 'ลบคอมเมนต์',
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        iconSize: 16,
-                        icon: const Icon(Icons.delete_outline,
-                            color: WynColors.graphite),
-                        tooltip: null,
-                        onPressed: () => _deleteComment(comment.id),
-                      )),
+                      child: BrowserSystemTooltip(
+                          message: null,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            iconSize: 16,
+                            icon: const Icon(Icons.delete_outline,
+                                color: WynColors.graphite),
+                            onPressed: () => _deleteComment(comment.id),
+                          ))),
                 ),
               Column(
                 children: [

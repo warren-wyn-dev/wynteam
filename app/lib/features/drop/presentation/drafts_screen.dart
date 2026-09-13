@@ -46,12 +46,13 @@ class DraftsScreen extends StatelessWidget {
         centerTitle: true,
         leading: BrowserSystemTooltip(
             message: 'ย้อนกลับ',
-            child: IconButton(
-              icon: const Icon(Icons.chevron_left,
-                  size: 22, color: WynColors.ink),
-              tooltip: null,
-              onPressed: () => Navigator.of(context).pop(),
-            )),
+            child: BrowserSystemTooltip(
+                message: null,
+                child: IconButton(
+                  icon: const Icon(Icons.chevron_left,
+                      size: 22, color: WynColors.ink),
+                  onPressed: () => Navigator.of(context).pop(),
+                ))),
         title: BrowserSystemText(
           'ร่าง',
           style: WynTypography.screenTitle(fontSize: 16, color: WynColors.ink),

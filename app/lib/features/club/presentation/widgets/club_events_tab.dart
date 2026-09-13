@@ -178,13 +178,14 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
       floatingActionButton: widget.canManage
           ? BrowserSystemTooltip(
               message: 'สร้างกิจกรรม',
-              child: FloatingActionButton(
-                backgroundColor: WynColors.sapphire,
-                foregroundColor: WynColors.paper,
-                onPressed: _openCreate,
-                tooltip: null,
-                child: const Icon(Icons.add),
-              ))
+              child: BrowserSystemTooltip(
+                  message: null,
+                  child: FloatingActionButton(
+                    backgroundColor: WynColors.sapphire,
+                    foregroundColor: WynColors.paper,
+                    onPressed: _openCreate,
+                    child: const Icon(Icons.add),
+                  )))
           : null,
     );
   }

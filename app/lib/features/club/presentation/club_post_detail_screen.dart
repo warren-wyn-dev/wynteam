@@ -439,11 +439,12 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
           if (_isOwnPost || _canModerate)
             BrowserSystemTooltip(
                 message: 'ลบโพสต์',
-                child: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: null,
-                  onPressed: _deletePost,
-                )),
+                child: BrowserSystemTooltip(
+                    message: null,
+                    child: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: _deletePost,
+                    ))),
         ],
       ),
       body: Column(
@@ -508,13 +509,14 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                   if (!_isOwnPost && _canModerate)
                     BrowserSystemTooltip(
                         message: _post.pinned ? 'เลิกปักหมุด' : 'ปักหมุด',
-                        child: IconButton(
-                          icon: Icon(_post.pinned
-                              ? Icons.push_pin
-                              : Icons.push_pin_outlined),
-                          tooltip: null,
-                          onPressed: _togglePin,
-                        )),
+                        child: BrowserSystemTooltip(
+                            message: null,
+                            child: IconButton(
+                              icon: Icon(_post.pinned
+                                  ? Icons.push_pin
+                                  : Icons.push_pin_outlined),
+                              onPressed: _togglePin,
+                            ))),
                 ],
               ),
               if (_post.content != null && _post.content!.isNotEmpty) ...[
@@ -580,18 +582,20 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
               const SizedBox(width: WynSpacing.space3),
               BrowserSystemTooltip(
                   message: 'แชร์',
-                  child: IconButton(
-                    icon: const Icon(Icons.share_outlined),
-                    tooltip: null,
-                    onPressed: _share,
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: null,
+                      child: IconButton(
+                        icon: const Icon(Icons.share_outlined),
+                        onPressed: _share,
+                      ))),
               BrowserSystemTooltip(
                   message: 'คัดลอกลิงก์',
-                  child: IconButton(
-                    icon: const Icon(Icons.link),
-                    tooltip: null,
-                    onPressed: _copyLink,
-                  )),
+                  child: BrowserSystemTooltip(
+                      message: null,
+                      child: IconButton(
+                        icon: const Icon(Icons.link),
+                        onPressed: _copyLink,
+                      ))),
               const Spacer(),
               Semantics(
                 label: _post.savedByMe
@@ -764,13 +768,14 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                   height: WynSpacing.touchTargetMin,
                   child: BrowserSystemTooltip(
                       message: 'ลบคอมเมนต์',
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        iconSize: 16,
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: null,
-                        onPressed: () => _deleteComment(comment.id),
-                      )),
+                      child: BrowserSystemTooltip(
+                          message: null,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            iconSize: 16,
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _deleteComment(comment.id),
+                          ))),
                 ),
             ],
           ),
@@ -837,11 +842,12 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                   excludeSemantics: _isRestricted,
                   child: BrowserSystemTooltip(
                       message: 'ส่งคอมเมนต์',
-                      child: IconButton(
-                        icon: const Icon(Icons.send),
-                        tooltip: null,
-                        onPressed: canSend ? _sendComment : null,
-                      )),
+                      child: BrowserSystemTooltip(
+                          message: null,
+                          child: IconButton(
+                            icon: const Icon(Icons.send),
+                            onPressed: canSend ? _sendComment : null,
+                          ))),
                 ),
               ],
             ),

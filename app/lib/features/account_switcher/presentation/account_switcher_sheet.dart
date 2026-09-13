@@ -283,12 +283,13 @@ class _AccountRow extends StatelessWidget {
                   ? null
                   : BrowserSystemTooltip(
                       message: 'ลบบัญชีนี้ออกจากเครื่อง',
-                      child: IconButton(
-                        icon: const Icon(Icons.close,
-                            size: 18, color: WynColors.faint),
-                        tooltip: null,
-                        onPressed: onRemove,
-                      )),
+                      child: BrowserSystemTooltip(
+                          message: null,
+                          child: IconButton(
+                            icon: const Icon(Icons.close,
+                                size: 18, color: WynColors.faint),
+                            onPressed: onRemove,
+                          ))),
       onTap: isActive ? null : onTap,
     );
   }

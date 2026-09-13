@@ -139,14 +139,15 @@ class _AppealDecisionSheetState extends State<AppealDecisionSheet> {
                   height: WynSpacing.touchTargetMin,
                   child: BrowserSystemTooltip(
                       message: 'ปิด',
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.close),
-                        tooltip: null,
-                        onPressed: _isSubmitting
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                      )),
+                      child: BrowserSystemTooltip(
+                          message: null,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.close),
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                          ))),
                 ),
               ],
             ),

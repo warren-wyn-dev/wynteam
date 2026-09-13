@@ -82,13 +82,14 @@ class _ViewOnceImageViewerState extends State<ViewOnceImageViewer> {
                     shape: const CircleBorder(),
                     child: BrowserSystemTooltip(
                         message: 'ปิด',
-                        child: IconButton(
-                          key: const Key('view_once_close_button'),
-                          icon: const Icon(Icons.close,
-                              color: WynColors.paper, size: 21),
-                          tooltip: null,
-                          onPressed: () => Navigator.of(context).pop(),
-                        )),
+                        child: BrowserSystemTooltip(
+                            message: null,
+                            child: IconButton(
+                              key: const Key('view_once_close_button'),
+                              icon: const Icon(Icons.close,
+                                  color: WynColors.paper, size: 21),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ))),
                   ),
                   const Spacer(),
                   Semantics(

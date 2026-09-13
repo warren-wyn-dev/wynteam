@@ -665,11 +665,12 @@ class _ClubPageState extends State<ClubPage>
         shape: const CircleBorder(),
         child: BrowserSystemTooltip(
             message: 'ย้อนกลับ',
-            child: IconButton(
-              icon: const Icon(Icons.chevron_left, color: WynColors.ink),
-              tooltip: null,
-              onPressed: () => Navigator.of(context).pop(),
-            )),
+            child: BrowserSystemTooltip(
+                message: null,
+                child: IconButton(
+                  icon: const Icon(Icons.chevron_left, color: WynColors.ink),
+                  onPressed: () => Navigator.of(context).pop(),
+                ))),
       ),
     );
   }
@@ -809,16 +810,17 @@ class _ClubPageState extends State<ClubPage>
       height: 36,
       child: BrowserSystemTooltip(
           message: tooltip,
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            icon: Icon(icon, size: 14, color: WynColors.ink),
-            tooltip: null,
-            onPressed: onPressed,
-            style: IconButton.styleFrom(
-              side: const BorderSide(color: WynColors.hairline),
-              shape: const CircleBorder(),
-            ),
-          )),
+          child: BrowserSystemTooltip(
+              message: null,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: Icon(icon, size: 14, color: WynColors.ink),
+                onPressed: onPressed,
+                style: IconButton.styleFrom(
+                  side: const BorderSide(color: WynColors.hairline),
+                  shape: const CircleBorder(),
+                ),
+              ))),
     );
   }
 

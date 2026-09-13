@@ -620,11 +620,13 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         children: [
           BrowserSystemTooltip(
               message: 'เมนู',
-              child: IconButton(
-                icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
-                tooltip: null,
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              )),
+              child: BrowserSystemTooltip(
+                  message: null,
+                  child: IconButton(
+                    icon:
+                        const Icon(Icons.menu, size: 22, color: WynColors.ink),
+                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                  ))),
           Expanded(
             child: Center(
               child: BrowserSystemText(
@@ -639,11 +641,13 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           ),
           BrowserSystemTooltip(
               message: 'ค้นหา',
-              child: IconButton(
-                icon: const Icon(Icons.search, size: 21, color: WynColors.ink),
-                tooltip: null,
-                onPressed: _openSearch,
-              )),
+              child: BrowserSystemTooltip(
+                  message: null,
+                  child: IconButton(
+                    icon: const Icon(Icons.search,
+                        size: 21, color: WynColors.ink),
+                    onPressed: _openSearch,
+                  ))),
         ],
       ),
     );

@@ -95,11 +95,13 @@ class _PopSingleClipScreenState extends State<PopSingleClipScreen> {
                   },
                   topLeading: BrowserSystemTooltip(
                       message: 'ย้อนกลับ',
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        tooltip: null,
-                        onPressed: () => Navigator.of(context).pop(),
-                      )),
+                      child: BrowserSystemTooltip(
+                          message: null,
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back,
+                                color: Colors.white),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ))),
                 ),
     );
   }

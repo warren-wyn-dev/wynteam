@@ -320,13 +320,14 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
       body: _buildBody(),
       floatingActionButton: BrowserSystemTooltip(
           message: 'สร้างโพสต์',
-          child: FloatingActionButton(
-            backgroundColor: WynColors.sapphire,
-            foregroundColor: WynColors.paper,
-            onPressed: _defaultChannelId == null ? null : _openCreatePost,
-            tooltip: null,
-            child: const Icon(Icons.add),
-          )),
+          child: BrowserSystemTooltip(
+              message: null,
+              child: FloatingActionButton(
+                backgroundColor: WynColors.sapphire,
+                foregroundColor: WynColors.paper,
+                onPressed: _defaultChannelId == null ? null : _openCreatePost,
+                child: const Icon(Icons.add),
+              ))),
     );
   }
 
