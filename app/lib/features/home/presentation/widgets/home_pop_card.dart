@@ -146,9 +146,9 @@ class HomePopCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             0,
-            WynSpacing.space2,
+            homePostVerticalRhythm,
             0,
-            WynSpacing.space2,
+            homePostVerticalRhythm,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,10 +275,10 @@ class HomePopCard extends StatelessWidget {
                               0,
                               0,
                               homeCardEdgeInset,
-                              WynSpacing.space2,
+                              homePostCaptionTrailingLayoutGap,
                             ),
                             child: Transform.translate(
-                              offset: const Offset(0, -3),
+                              offset: const Offset(0, -homePostCaptionLift),
                               child: HashtagText(
                                 item.caption!,
                                 style: captionStyle,
@@ -352,7 +352,7 @@ class HomePopCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: WynSpacing.space2),
+                        const SizedBox(height: homePostVerticalRhythm),
                         if (showLikedBy && item.likedBy.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
