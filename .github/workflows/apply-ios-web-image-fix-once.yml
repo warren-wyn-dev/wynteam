@@ -19,6 +19,12 @@ jobs:
           ref: fix/ios-web-image-process-crash-20260913
           fetch-depth: 0
 
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+
       - name: Patch image rendering on iOS Web
         shell: bash
         run: |
