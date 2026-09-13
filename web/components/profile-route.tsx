@@ -1,7 +1,6 @@
 "use client";
 
-import { Camera, MessageCircle, MoreHorizontal, Settings as SettingsIcon } from "lucide-react";
-import Link from "next/link";
+import { Camera, MessageCircle, MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";

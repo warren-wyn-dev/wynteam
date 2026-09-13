@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronRight, Download, LogOut, ShieldCheck, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -73,6 +74,7 @@ function PermissionSelect({ value, onChange, kind = "interaction" }: { value: st
 }
 
 function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; userId: string; signOut: () => Promise<void> }) {
+  const router = useRouter();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [online, setOnline] = useState(true);
   const [notifications, setNotifications] = useState<NotificationSettings | null>(null);
@@ -143,7 +145,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
     if (!window.confirm("ลบบัญชี WYNOS แบบถาวร? การดำเนินการนี้ย้อนกลับไม่ได้")) return;
     if (!window.confirm("ยืนยันอีกครั้งว่าต้องการลบบัญชีและข้อมูลทั้งหมด")) return;
     setBusy(true); setError("");
-    try { await deleteMyAccount(client); await client.auth.signOut(); window.location.href = "/"; }
+    try { await deleteMyAccount(client); await client.auth.signOut(); router.replace("/"); }
     catch (e) { setError(e instanceof Error ? e.message : "ลบบัญชีไม่สำเร็จ"); setBusy(false); }
   };
 

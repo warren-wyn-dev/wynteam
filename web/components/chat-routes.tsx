@@ -2,7 +2,7 @@
 
 import { ImagePlus, MessageSquarePlus, Send, Trash2, X } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
@@ -39,6 +39,7 @@ function conversationPreview(row: ConversationRow): string {
 }
 
 function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: string }) {
+  const router = useRouter();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [rows, setRows] = useState<ConversationRow[]>([]);
   const [requests, setRequests] = useState<ConversationRow[]>([]);
@@ -77,7 +78,7 @@ function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: st
     try {
       if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้");
       const id = await getOrCreateConversation(client, profile.id);
-      window.location.href = `/chat/${id}?user=${encodeURIComponent(profile.id)}`;
+      router.push(`/chat/${id}?user=${encodeURIComponent(profile.id)}`);
     } catch (e) { setError(e instanceof Error ? e.message : "เริ่มแชทไม่สำเร็จ"); }
     finally { setFinding(false); }
   };
@@ -129,6 +130,7 @@ function ConversationInner({
   userId: string;
   conversationId: string;
 }) {
+  const router = useRouter();
   const params = useSearchParams();
   const userFromUrl = params.get("user") || "";
   const [otherId, setOtherId] = useState(userFromUrl);
@@ -223,7 +225,7 @@ function ConversationInner({
   };
   const decline = async () => {
     if (!window.confirm("ลบคำขอข้อความนี้?")) return;
-    try { await deleteMessageRequest(client, conversationId); window.location.href = "/chat"; }
+    try { await deleteMessageRequest(client, conversationId); router.replace("/chat"); }
     catch { setError("ลบคำขอไม่สำเร็จ"); }
   };
 
