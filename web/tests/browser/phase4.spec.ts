@@ -15,71 +15,30 @@ const routes = [
   `/club-post/${id}`,
   "/club-invite/phase4-test",
   "/@wynos",
+  "/bookmarks",
+  "/clubs",
+  "/clubs?mine=1",
+  "/clubs/new",
 ];
 
 test("consumer routes render without fatal errors or horizontal overflow", async ({ page }, testInfo) => {
   let currentRoute = "<before-first-navigation>";
   const pageErrors: Array<{ route: string; pageUrl: string; message: string }> = [];
-  const requestFailures: Array<{
-    route: string;
-    pageUrl: string;
-    resourceType: string;
-    requestUrl: string;
-    errorText: string;
-  }> = [];
-  const badResponses: Array<{
-    route: string;
-    pageUrl: string;
-    resourceType: string;
-    responseUrl: string;
-    status: number;
-  }> = [];
+  const requestFailures: Array<{ route: string; pageUrl: string; resourceType: string; requestUrl: string; errorText: string }> = [];
+  const badResponses: Array<{ route: string; pageUrl: string; resourceType: string; responseUrl: string; status: number }> = [];
 
-  page.on("pageerror", (error) => {
-    pageErrors.push({
-      route: currentRoute,
-      pageUrl: page.url(),
-      message: error.message,
-    });
-  });
-
-  page.on("requestfailed", (request) => {
-    requestFailures.push({
-      route: currentRoute,
-      pageUrl: page.url(),
-      resourceType: request.resourceType(),
-      requestUrl: request.url(),
-      errorText: request.failure()?.errorText ?? "unknown request failure",
-    });
-  });
-
-  page.on("response", (response) => {
-    if (response.status() < 400) return;
-    badResponses.push({
-      route: currentRoute,
-      pageUrl: page.url(),
-      resourceType: response.request().resourceType(),
-      responseUrl: response.url(),
-      status: response.status(),
-    });
-  });
+  page.on("pageerror", (error) => { pageErrors.push({ route: currentRoute, pageUrl: page.url(), message: error.message }); });
+  page.on("requestfailed", (request) => { requestFailures.push({ route: currentRoute, pageUrl: page.url(), resourceType: request.resourceType(), requestUrl: request.url(), errorText: request.failure()?.errorText ?? "unknown request failure" }); });
+  page.on("response", (response) => { if (response.status() >= 400) badResponses.push({ route: currentRoute, pageUrl: page.url(), resourceType: response.request().resourceType(), responseUrl: response.url(), status: response.status() }); });
 
   for (const route of routes) {
     currentRoute = route;
-    // Hosted previews can still be hydrating and fetching immutable chunks after
-    // DOMContentLoaded. Waiting for network idle prevents the next deliberate
-    // navigation from cancelling the previous route's own Next.js resources and
-    // turning that cancellation into a misleading WebKit pageerror.
     const response = await page.goto(route, { waitUntil: "networkidle" });
     expect(response, `${route} should return a document response`).not.toBeNull();
     expect(response!.status(), `${route} should not return a server error`).toBeLessThan(500);
     await expect(page.locator("body")).toBeVisible();
 
-    const layout = await page.evaluate(() => ({
-      viewport: window.innerWidth,
-      documentWidth: document.documentElement.scrollWidth,
-      platformViews: document.querySelectorAll("flt-platform-view").length,
-    }));
+    const layout = await page.evaluate(() => ({ viewport: window.innerWidth, documentWidth: document.documentElement.scrollWidth, platformViews: document.querySelectorAll("flt-platform-view").length }));
     expect(layout.documentWidth, `${route} should not overflow horizontally`).toBeLessThanOrEqual(layout.viewport + 1);
     expect(layout.platformViews, `${route} should remain DOM-native`).toBe(0);
   }
@@ -88,10 +47,7 @@ test("consumer routes render without fatal errors or horizontal overflow", async
     const diagnostics = { pageErrors, requestFailures, badResponses };
     const body = JSON.stringify(diagnostics, null, 2);
     console.error(`Hosted browser diagnostics:\n${body}`);
-    await testInfo.attach("hosted-browser-diagnostics", {
-      body,
-      contentType: "application/json",
-    });
+    await testInfo.attach("hosted-browser-diagnostics", { body, contentType: "application/json" });
   }
 
   expect(pageErrors, "browser page errors with route/network diagnostics above").toEqual([]);
@@ -108,7 +64,6 @@ test("system-font stack remains browser/OS native", async ({ page }) => {
 test("repeated route churn keeps the page process alive", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.evaluate(() => sessionStorage.setItem("wyn-phase4-marker", "alive"));
-
   const churnRoutes = ["/search", "/notifications", "/chat", "/settings", "/profile/me", "/"];
   for (let cycle = 0; cycle < 3; cycle += 1) {
     for (const route of churnRoutes) {
@@ -117,6 +72,5 @@ test("repeated route churn keeps the page process alive", async ({ page }) => {
       await expect(page.locator("body")).toBeVisible();
     }
   }
-
   expect(await page.evaluate(() => sessionStorage.getItem("wyn-phase4-marker"))).toBe("alive");
 });

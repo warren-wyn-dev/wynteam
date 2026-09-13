@@ -1,13 +1,15 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { ChevronRight, MoreHorizontal, Search, X } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, DropPreviewCard, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
+import type { HomeFeedRow } from "@/lib/feed";
 import {
-  fetchRisingProfiles,
   fetchSuggestedProfiles,
   fetchTrendingHashtags,
   searchClubs,
@@ -17,9 +19,6 @@ import {
   type ProfileRow,
   type RankedHashtag,
 } from "@/lib/phase3-data";
-import type { HomeFeedRow } from "@/lib/feed";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import Link from "next/link";
 
 function fakeRows(profiles: ProfileRow[]): HomeFeedRow[] {
   return profiles.map((profile) => ({
@@ -149,27 +148,41 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
 
 function Discovery({ client }: { client: SupabaseClient }) {
   const [hashtags, setHashtags] = useState<RankedHashtag[]>([]);
-  const [rising, setRising] = useState<ProfileRow[]>([]);
   const [suggested, setSuggested] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let live = true;
     void Promise.all([
-      fetchTrendingHashtags(client, 10),
-      fetchRisingProfiles(client, 6),
-      fetchSuggestedProfiles(client, 6),
-    ]).then(([tags, rise, suggest]) => {
+      fetchTrendingHashtags(client, 6),
+      fetchSuggestedProfiles(client, 10),
+    ]).then(([tags, suggest]) => {
       if (!live) return;
-      setHashtags(tags); setRising(rise); setSuggested(suggest); setLoading(false);
+      setHashtags(tags);
+      setSuggested(suggest);
+      setLoading(false);
     }).catch(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [client]);
   if (loading) return <LoadingState />;
   return (
-    <div className="discovery-page">
-      <section className="route-section"><div className="route-section-title"><h2>Top 100</h2></div><div className="hashtag-list">{hashtags.map((item, index) => <div className="hashtag-row" key={item.tag}><b>{index + 1}</b><span>#{item.tag}</span></div>)}</div></section>
-      {rising.length ? <section className="route-section"><h2>กำลังเติบโต</h2><div className="route-list">{rising.map((profile) => <ProfileRowView profile={profile} key={profile.id} />)}</div></section> : null}
-      {suggested.length ? <section className="route-section"><h2>แนะนำให้ติดตาม</h2><div className="route-list">{suggested.map((profile) => <ProfileRowView profile={profile} key={profile.id} />)}</div></section> : null}
+    <div className="discovery-page flutter-search-discovery">
+      <section className="route-section">
+        <div className="route-section-title"><h2>แฮชแท็กกำลังนิยม</h2></div>
+        <div className="hashtag-list">
+          {hashtags.length ? hashtags.map((item, index) => (
+            <div className="hashtag-row flutter-rank-row" key={item.tag}>
+              <b>{index + 1}</b>
+              <span className="flutter-rank-copy"><strong>#{item.tag}</strong><small>{item.postCount.toLocaleString("th-TH")} โพสต์ · กำลังนิยมใน ไทย</small></span>
+              <MoreHorizontal size={16} aria-hidden="true" />
+            </div>
+          )) : <EmptyState>ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้</EmptyState>}
+        </div>
+        <button className="top100-link" type="button">ดูอันดับทั้งหมด (Top 100) <ChevronRight size={14} /></button>
+      </section>
+      <section className="route-section flutter-suggested-section">
+        <div className="route-section-title"><h2>แนะนำให้ติดตาม</h2></div>
+        {suggested.length ? <div className="route-list">{suggested.map((profile) => <ProfileRowView profile={profile} key={profile.id} />)}</div> : <EmptyState>ยังไม่มีบัญชีแนะนำให้ติดตามตอนนี้</EmptyState>}
+      </section>
     </div>
   );
 }
@@ -182,15 +195,17 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const submit = () => setQuery(draft.trim());
   const tabs = useMemo(() => [{ id: "user" as const, label: "User" }, { id: "drop" as const, label: "โพสต์" }, { id: "club" as const, label: "Club" }], []);
   return (
-    <AppChrome title="ค้นหา" userId={userId}>
-      <form className="search-route-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-        <button type="submit" aria-label="ค้นหา"><Search size={20} /></button>
-        <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="ค้นหา username, โพสต์, Club" inputMode="search" />
-        {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={() => { setDraft(""); setQuery(""); }}><X size={18} /></button> : null}
-      </form>
+    <AppChrome title="" userId={userId} headerMode="hidden">
+      <div className="flutter-search-header">
+        <form className="search-route-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+          <button type="submit" aria-label="ค้นหา"><Search size={20} /></button>
+          <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="ค้นหา username, โพสต์, Club" inputMode="search" />
+          {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={() => { setDraft(""); setQuery(""); }}><X size={18} /></button> : null}
+        </form>
+      </div>
       {!submitted ? <Discovery client={client} /> : (
         <>
-          <div className="route-tabs">{tabs.map((item) => <button type="button" className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}>{item.label}</button>)}</div>
+          <div className="route-tabs flutter-search-tabs">{tabs.map((item) => <button type="button" className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}>{item.label}</button>)}</div>
           {tab === "user" ? <UserResults client={client} userId={userId} query={query} /> : null}
           {tab === "drop" ? <DropResults client={client} query={query} /> : null}
           {tab === "club" ? <ClubResults client={client} query={query} /> : null}

@@ -4,8 +4,8 @@ import type { Session } from "@supabase/supabase-js";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { HomeMigrationPreview } from "@/components/home-migration-preview";
 import { ParityEmailAuth } from "@/components/parity-email-auth";
+import { ParityHome } from "@/components/parity-home";
 import { ParityInviteCode } from "@/components/parity-invite-code";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -90,7 +90,7 @@ export function ParityAuthEntry() {
   if (booting) {
     return <main className="parity-auth parity-auth-loading"><LoaderCircle className="parity-spinner" /></main>;
   }
-  if (session) return <HomeMigrationPreview />;
+  if (session) return <ParityHome session={session} />;
   if (view === "email") return <ParityEmailAuth onBack={() => setView("methods")} />;
   if (view === "invite") {
     return (

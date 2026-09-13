@@ -1,0 +1,569 @@
+/* Final WYN-158 parity layer. Imported last so Flutter's current metrics win
+   over the earlier migration-preview styling without rewriting route logic. */
+
+:root {
+  --wyn-social-header: 60px;
+  --wyn-social-tab: 52px;
+  --wyn-social-search: 44px;
+  --wyn-content-rail: 680px;
+  --wyn-profile-cover: 170px;
+  --wyn-profile-avatar: 84px;
+  --wyn-profile-avatar-outer: 92px;
+  --wyn-profile-action: 44px;
+  --wyn-detail-media-radius: 18px;
+  --wyn-detail-activity: 54px;
+  --wyn-comment-composer: 46px;
+}
+
+.route-system-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--hairline);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: parity-spin .8s linear infinite;
+}
+
+/* Shared top-level social chrome. */
+.route-app {
+  padding-bottom: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+}
+
+.route-main {
+  width: min(100%, var(--wyn-content-rail));
+}
+
+.route-header {
+  background: var(--paper);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.route-title-row {
+  min-height: var(--wyn-social-header);
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  padding: 0 8px;
+}
+
+.route-title-row h1 {
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.route-header-slot,
+.route-icon-link,
+.route-icon-button {
+  width: 48px;
+  height: 48px;
+}
+
+.route-bottom-nav {
+  height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+  min-height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--paper);
+  border-top: 1px solid var(--hairline);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.route-nav-link {
+  min-width: 0;
+  min-height: var(--wyn-bottom-nav-height);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--graphite);
+  font-size: 11.5px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.route-nav-link > svg {
+  width: 28px;
+  height: 28px;
+}
+
+.route-nav-link > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: fade;
+  white-space: nowrap;
+}
+
+.route-nav-link.active {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.route-create-destination {
+  color: var(--graphite);
+}
+
+.route-create-button {
+  width: var(--wyn-create-action);
+  height: var(--wyn-create-action);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 3px 10px rgb(18 18 15 / 18%);
+}
+
+.route-create-button svg {
+  width: 33px;
+  height: 33px;
+}
+
+.route-tabs,
+.chat-tabs {
+  min-height: var(--wyn-social-tab);
+  height: var(--wyn-social-tab);
+  background: var(--paper);
+}
+
+.route-tabs button,
+.chat-tabs button {
+  min-width: 48px;
+  color: var(--graphite);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.route-tabs button.active,
+.chat-tabs button.active {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.route-tabs button.active::after,
+.chat-tabs button.active::after {
+  left: 50%;
+  right: auto;
+  width: 36px;
+  height: 2px;
+  transform: translateX(-50%);
+}
+
+.search-route-form {
+  height: var(--wyn-social-search);
+  margin: 10px 16px;
+  border-radius: 12px;
+}
+
+/* Founder-approved profile metrics. */
+.profile-cover {
+  height: var(--wyn-profile-cover);
+}
+
+.profile-header-row {
+  min-height: 64px;
+  padding: 0 16px;
+}
+
+.profile-header-row > .route-avatar {
+  width: var(--wyn-profile-avatar) !important;
+  height: var(--wyn-profile-avatar) !important;
+  margin-top: -46px;
+  border: 4px solid var(--paper);
+}
+
+.profile-actions .route-primary,
+.profile-actions .route-secondary {
+  min-height: var(--wyn-profile-action);
+  height: var(--wyn-profile-action);
+}
+
+.route-square-button {
+  width: var(--wyn-profile-action);
+  height: var(--wyn-profile-action);
+}
+
+.profile-route .route-tabs {
+  height: 52px;
+}
+
+/* Post detail metrics from WynosFounderMetrics. */
+.detail-post {
+  padding: 16px;
+}
+
+.detail-caption {
+  margin-top: 7px;
+  margin-bottom: 8px;
+}
+
+.detail-image {
+  width: 100%;
+  max-height: 680px;
+  object-fit: cover;
+  border-radius: var(--wyn-detail-media-radius);
+  background: var(--surface);
+}
+
+.detail-actions {
+  min-height: var(--wyn-detail-activity);
+  height: var(--wyn-detail-activity);
+}
+
+.detail-comment-form {
+  min-height: calc(var(--wyn-comment-composer) + env(safe-area-inset-bottom));
+}
+
+/* Flutter Home chrome: 52px header + 52px scrollable tabs. */
+.parity-home-app {
+  padding-bottom: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+}
+
+.parity-home-main {
+  width: min(100%, var(--wyn-content-rail));
+}
+
+.parity-home-shell {
+  position: sticky;
+  top: 0;
+  z-index: 32;
+  padding-top: env(safe-area-inset-top);
+  background: var(--paper);
+}
+
+.parity-home-header {
+  height: 52px;
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+}
+
+.home-header-action {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  padding: 0;
+}
+
+.home-wordmark {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.home-wordmark strong {
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+
+.home-logo-mark {
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.home-chat-action {
+  position: relative;
+}
+
+.home-chat-badge {
+  position: absolute;
+  top: 3px;
+  right: 1px;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 2px 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #d32f2f;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.parity-home-tabs {
+  height: var(--wyn-social-tab);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-evenly;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+  scrollbar-width: none;
+}
+
+.parity-home-tabs::-webkit-scrollbar { display: none; }
+
+.parity-home-tabs button {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 86px;
+  min-height: 52px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--graphite);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.parity-home-tabs button.active {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.parity-home-tabs button.active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 36px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--ink);
+}
+
+.home-feed-surface {
+  min-height: calc(100dvh - 184px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+.home-loading,
+.home-empty {
+  min-height: 260px;
+  padding: 32px 24px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  color: var(--graphite);
+  text-align: center;
+}
+
+.parity-feed-post {
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  padding: 9px 16px 7px;
+}
+
+.avatar-button,
+.author-link,
+.post-open-button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.avatar-button {
+  width: 42px;
+  height: 42px;
+}
+
+.post-open-button {
+  display: block;
+  width: 100%;
+}
+
+.parity-feed-post .post-header {
+  min-height: 22px;
+}
+
+.parity-feed-post .caption {
+  margin-top: 1px;
+  margin-bottom: 0;
+}
+
+.parity-feed-post .post-media {
+  margin-top: 7px;
+  border-radius: 16px;
+}
+
+.parity-feed-post .action-row {
+  min-height: 40px;
+  margin-top: 2px;
+  gap: 22px;
+}
+
+.metric-button {
+  min-width: 32px;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.metric-button.liked { color: var(--like); }
+.metric-button.active { color: var(--ink); }
+.metric-save { margin-left: auto; }
+
+.follow-pill {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.follow-pill.requested { border-color: var(--hairline); color: var(--graphite); }
+
+.club-link-preview {
+  display: block;
+  margin-top: 6px;
+  color: #1688ff;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Drawer mirrors Flutter Drawer / SideMenu. */
+.home-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgb(18 18 15 / 36%);
+}
+
+.home-drawer {
+  width: min(88vw, 360px);
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  background: var(--paper);
+  box-shadow: 12px 0 30px rgb(18 18 15 / 14%);
+}
+
+.home-drawer-close {
+  height: 52px;
+  padding-right: 4px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.drawer-identity {
+  width: calc(100% - 24px);
+  min-height: 90px;
+  margin: 0 12px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 20px;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+
+.drawer-identity-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.drawer-identity-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.drawer-identity-copy small { color: var(--graphite); font-size: 13px; }
+.drawer-identity-copy > span { margin-top: 5px; color: var(--graphite); font-size: 13px; line-height: 1.35; }
+.drawer-identity-copy b { color: var(--ink); }
+.drawer-divider { height: 1px; margin-top: 16px; background: var(--hairline); }
+.drawer-menu-list { padding: 8px; }
+
+.drawer-menu-row {
+  width: 100%;
+  height: 54px;
+  padding: 0 12px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 19px;
+  gap: 12px;
+  align-items: center;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.drawer-menu-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.parity-composer {
+  background: var(--paper);
+}
+
+/* Notifications, chat and settings: remove preview-card visual language and
+   use the same paper/hairline social hierarchy as Flutter. */
+.notification-row,
+.chat-row,
+.settings-row,
+.route-person-row,
+.route-drop-card {
+  background: var(--paper);
+}
+
+.notification-row.unread,
+.chat-row.unread {
+  background: var(--paper);
+}
+
+.notification-row.unread .notification-copy strong,
+.chat-row.unread strong {
+  font-weight: 700;
+}
+
+.notification-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--sapphire);
+}
+
+.settings-section {
+  border-bottom-color: var(--surface);
+}
+
+@media (min-width: 681px) {
+  .parity-home-main,
+  .route-main {
+    border-left: 1px solid var(--hairline);
+    border-right: 1px solid var(--hairline);
+  }
+}

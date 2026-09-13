@@ -1,0 +1,157 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export type HomeIdentity = {
+  id: string;
+  username: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  follower_count: number;
+  following_count: number;
+};
+
+export type ClubHomePost = {
+  id: string;
+  club_id: string;
+  author_id: string;
+  author_username: string;
+  author_display_name?: string | null;
+  author_avatar_url?: string | null;
+  content?: string | null;
+  image_urls: string[];
+  link_url?: string | null;
+  created_at: string;
+  like_count: number;
+  comment_count: number;
+  liked_by_me: boolean;
+  saved_by_me: boolean;
+};
+
+function throwIfError(error: { message?: string } | null | undefined): void {
+  if (error) throw new Error(error.message || "WYNOS request failed");
+}
+
+function firstCount(value: unknown): number {
+  if (!Array.isArray(value) || value.length === 0) return 0;
+  const first = value[0];
+  if (!first || typeof first !== "object") return 0;
+  return Number((first as { count?: unknown }).count ?? 0) || 0;
+}
+
+function relation(value: unknown): Record<string, unknown> {
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first && typeof first === "object" ? first as Record<string, unknown> : {};
+  }
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+export async function fetchHomeIdentity(
+  client: SupabaseClient,
+  userId: string,
+): Promise<HomeIdentity | null> {
+  const [profile, followers, following] = await Promise.all([
+    client.from("profiles").select("id,username,display_name,avatar_url").eq("id", userId).maybeSingle(),
+    client.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", userId),
+    client.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", userId),
+  ]);
+  throwIfError(profile.error);
+  throwIfError(followers.error);
+  throwIfError(following.error);
+  if (!profile.data) return null;
+  return {
+    id: String(profile.data.id),
+    username: String(profile.data.username ?? ""),
+    display_name: profile.data.display_name ? String(profile.data.display_name) : null,
+    avatar_url: profile.data.avatar_url ? String(profile.data.avatar_url) : null,
+    follower_count: followers.count ?? 0,
+    following_count: following.count ?? 0,
+  };
+}
+
+export async function fetchHomeChatBadge(client: SupabaseClient): Promise<number> {
+  const [unread, requests] = await Promise.all([
+    client.rpc("count_unread_conversations"),
+    client.from("message_requests").select("conversation_id", { count: "exact", head: true }),
+  ]);
+  throwIfError(unread.error);
+  throwIfError(requests.error);
+  return Math.max(0, Number(unread.data ?? 0) || 0) + Math.max(0, requests.count ?? 0);
+}
+
+export async function fetchClubHomePosts(
+  client: SupabaseClient,
+  userId: string,
+  limit = 100,
+): Promise<ClubHomePost[]> {
+  const result = await client
+    .from("club_posts")
+    .select(
+      "id,club_id,author_id,content,image_urls,link_url,created_at," +
+      "author:profiles!club_posts_author_id_fkey(username,display_name,avatar_url)," +
+      "club_post_likes(count),club_post_comments(count)",
+    )
+    .order("created_at", { ascending: false })
+    .range(0, limit - 1);
+  throwIfError(result.error);
+
+  const raw = (result.data ?? []) as unknown as Record<string, unknown>[];
+  const ids = raw.map((row) => String(row.id));
+  const [likes, saves] = ids.length ? await Promise.all([
+    client.from("club_post_likes").select("club_post_id").eq("user_id", userId).in("club_post_id", ids),
+    client.from("saves").select("content_id").eq("user_id", userId).eq("content_type", "club_post").in("content_id", ids),
+  ]) : [{ data: [], error: null }, { data: [], error: null }];
+  throwIfError(likes.error);
+  throwIfError(saves.error);
+  const likedIds = new Set((likes.data ?? []).map((row) => String(row.club_post_id)));
+  const savedIds = new Set((saves.data ?? []).map((row) => String(row.content_id)));
+
+  return Promise.all(raw.map(async (row) => {
+    const author = relation(row.author);
+    const paths = Array.isArray(row.image_urls) ? row.image_urls.map(String) : [];
+    const signed = await Promise.all(paths.map(async (path) => {
+      const value = await client.storage.from("club-media").createSignedUrl(path, 3600);
+      return value.error ? null : value.data.signedUrl;
+    }));
+    const id = String(row.id);
+    return {
+      id,
+      club_id: String(row.club_id),
+      author_id: String(row.author_id),
+      author_username: String(author.username ?? ""),
+      author_display_name: author.display_name ? String(author.display_name) : null,
+      author_avatar_url: author.avatar_url ? String(author.avatar_url) : null,
+      content: row.content ? String(row.content) : null,
+      image_urls: signed.filter((value): value is string => Boolean(value)),
+      link_url: row.link_url ? String(row.link_url) : null,
+      created_at: String(row.created_at ?? ""),
+      like_count: firstCount(row.club_post_likes),
+      comment_count: firstCount(row.club_post_comments),
+      liked_by_me: likedIds.has(id),
+      saved_by_me: savedIds.has(id),
+    } satisfies ClubHomePost;
+  }));
+}
+
+export async function toggleClubPostLike(
+  client: SupabaseClient,
+  userId: string,
+  postId: string,
+  currentlyLiked: boolean,
+): Promise<void> {
+  const result = currentlyLiked
+    ? await client.from("club_post_likes").delete().eq("club_post_id", postId).eq("user_id", userId)
+    : await client.from("club_post_likes").insert({ club_post_id: postId, user_id: userId });
+  throwIfError(result.error);
+}
+
+export async function toggleClubPostSave(
+  client: SupabaseClient,
+  userId: string,
+  postId: string,
+  currentlySaved: boolean,
+): Promise<void> {
+  const result = currentlySaved
+    ? await client.from("saves").delete().eq("user_id", userId).eq("content_type", "club_post").eq("content_id", postId)
+    : await client.from("saves").insert({ user_id: userId, content_type: "club_post", content_id: postId });
+  throwIfError(result.error);
+}

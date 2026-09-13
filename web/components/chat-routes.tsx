@@ -38,13 +38,18 @@ function conversationPreview(row: ConversationRow): string {
   return row.status === "pending" ? "รอการตอบรับ" : "เริ่มบทสนทนา";
 }
 
+function isUnread(row: ConversationRow, userId: string): boolean {
+  return Boolean(row.last_message_sender_id !== userId && row.last_message_at && (!row.my_last_read_at || new Date(row.last_message_at) > new Date(row.my_last_read_at)));
+}
+
 function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: string }) {
   const router = useRouter();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [rows, setRows] = useState<ConversationRow[]>([]);
   const [requests, setRequests] = useState<ConversationRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [requestMode, setRequestMode] = useState(false);
+  const [tab, setTab] = useState<"all" | "unread">("all");
+  const [requestsOpen, setRequestsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<ProfileRow[]>([]);
@@ -89,27 +94,32 @@ function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: st
       else if (window.confirm("ลบคำขอข้อความนี้?")) await deleteMessageRequest(client, row.conversation_id);
       else return;
       await load();
+      if (requests.length <= 1) setRequestsOpen(false);
     } catch (e) { setError(e instanceof Error ? e.message : "อัปเดตคำขอไม่สำเร็จ"); }
   };
+
+  const visibleRows = tab === "unread" ? rows.filter((row) => isUnread(row, userId)) : rows;
 
   return (
     <AppChrome
       title="Chat"
       userId={userId}
+      backHref="/"
+      showBottomNav={false}
       actions={<button className="route-icon-button" type="button" aria-label="ข้อความใหม่" onClick={() => setNewOpen(true)}><MessageSquarePlus size={22} /></button>}
     >
       {loading ? <LoadingState /> : allowed === false ? <EmptyState>Chat ยังไม่เปิดใช้งานสำหรับบัญชีนี้</EmptyState> : (
         <>
-          <div className="chat-tabs"><button className={!requestMode ? "active" : ""} type="button" onClick={() => setRequestMode(false)}>ข้อความ</button><button className={requestMode ? "active" : ""} type="button" onClick={() => setRequestMode(true)}>คำขอ{requests.length ? ` (${requests.length})` : ""}</button></div>
+          <div className="chat-tabs flutter-chat-tabs"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>ทั้งหมด</button><button className={tab === "unread" ? "active" : ""} type="button" onClick={() => setTab("unread")}>ยังไม่อ่าน</button></div>
+          {requests.length ? <button className="message-requests-banner" type="button" onClick={() => setRequestsOpen(true)}><span><strong>คำขอข้อความ</strong><small>ข้อความจากคนที่ยังไม่ได้เชื่อมต่อกับคุณ</small></span><b>{requests.length}</b></button> : null}
           {error ? <p className="route-error route-pad">{error}</p> : null}
-          {!requestMode ? (
-            rows.length ? <div className="chat-list">{rows.map((row) => <Link className={`chat-row ${row.last_message_sender_id !== userId && row.last_message_at && (!row.my_last_read_at || new Date(row.last_message_at) > new Date(row.my_last_read_at)) ? "unread" : ""}`} href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`} key={row.conversation_id}><Avatar src={row.other_avatar_url} label={row.other_username} size={48} /><span className="chat-row-copy"><strong>{row.other_display_name?.trim() || row.other_username}</strong><small>{conversationPreview(row)}</small></span><time>{row.last_message_at ? relativeTimeTh(row.last_message_at) : ""}</time></Link>)}</div> : <EmptyState>ยังไม่มีบทสนทนา</EmptyState>
-          ) : (
-            requests.length ? <div className="chat-list">{requests.map((row) => <div className="request-row" key={row.conversation_id}><Link className="chat-row request-main" href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}><Avatar src={row.other_avatar_url} label={row.other_username} size={48} /><span className="chat-row-copy"><strong>{row.other_display_name?.trim() || row.other_username}</strong><small>{conversationPreview(row)}</small></span></Link><div className="request-actions"><button className="route-primary small" type="button" onClick={() => void decide(row, true)}>ยอมรับ</button><button className="route-secondary small" type="button" onClick={() => void decide(row, false)}>ลบ</button></div></div>)}</div> : <EmptyState>ไม่มีคำขอข้อความ</EmptyState>
-          )}
+          {visibleRows.length ? <div className="chat-list">{visibleRows.map((row) => <Link className={`chat-row ${isUnread(row, userId) ? "unread" : ""}`} href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`} key={row.conversation_id}><Avatar src={row.other_avatar_url} label={row.other_username} size={48} /><span className="chat-row-copy"><strong>{row.other_display_name?.trim() || row.other_username}</strong><small>{conversationPreview(row)}{isUnread(row, userId) ? <i className="chat-inline-unread" /> : null}</small></span><time>{row.last_message_at ? relativeTimeTh(row.last_message_at) : ""}</time></Link>)}</div> : <EmptyState>{tab === "unread" ? "ไม่มีข้อความที่ยังไม่อ่าน" : "ยังไม่มีบทสนทนา"}</EmptyState>}
         </>
       )}
-      {newOpen ? <div className="route-modal-backdrop" onClick={() => setNewOpen(false)} role="presentation"><section className="route-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ข้อความใหม่</strong><button className="route-icon-button" type="button" onClick={() => setNewOpen(false)}><X /></button></header><form className="search-route-form compact" onSubmit={(e) => { e.preventDefault(); void findPeople(); }}><input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหา username" /><button className="route-pill" type="submit">ค้นหา</button></form>{finding && !people.length ? <LoadingState /> : <div className="route-list">{people.map((profile) => <ProfileRowView profile={profile} key={profile.id} trailing={<button className="route-pill" type="button" disabled={finding} onClick={() => void start(profile)}>ส่งข้อความ</button>} />)}</div>}</section></div> : null}
+
+      {requestsOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setRequestsOpen(false)}><section className="route-modal requests-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>คำขอข้อความ</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setRequestsOpen(false)}><X size={20} /></button></header>{requests.length ? <div className="chat-list">{requests.map((row) => <div className="request-row" key={row.conversation_id}><Link className="chat-row request-main" href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}><Avatar src={row.other_avatar_url} label={row.other_username} size={48} /><span className="chat-row-copy"><strong>{row.other_display_name?.trim() || row.other_username}</strong><small>{conversationPreview(row)}</small></span></Link><div className="request-actions"><button className="route-primary small" type="button" onClick={() => void decide(row, true)}>ยอมรับ</button><button className="route-secondary small" type="button" onClick={() => void decide(row, false)}>ลบ</button></div></div>)}</div> : <EmptyState>ไม่มีคำขอข้อความ</EmptyState>}</section></div> : null}
+
+      {newOpen ? <div className="route-modal-backdrop" onClick={() => setNewOpen(false)} role="presentation"><section className="route-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ข้อความใหม่</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setNewOpen(false)}><X /></button></header><form className="search-route-form compact" onSubmit={(e) => { e.preventDefault(); void findPeople(); }}><input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหา username" /><button className="route-pill" type="submit">ค้นหา</button></form>{finding && !people.length ? <LoadingState /> : <div className="route-list">{people.map((profile) => <ProfileRowView profile={profile} key={profile.id} trailing={<button className="route-pill" type="button" disabled={finding} onClick={() => void start(profile)}>ส่งข้อความ</button>} />)}</div>}</section></div> : null}
     </AppChrome>
   );
 }
@@ -121,15 +131,7 @@ function MessageImage({ client, path }: { client: SupabaseClient; path: string }
   return <img className="message-image" src={url} alt="" />;
 }
 
-function ConversationInner({
-  client,
-  userId,
-  conversationId,
-}: {
-  client: SupabaseClient;
-  userId: string;
-  conversationId: string;
-}) {
+function ConversationInner({ client, userId, conversationId }: { client: SupabaseClient; userId: string; conversationId: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const userFromUrl = params.get("user") || "";
@@ -230,7 +232,7 @@ function ConversationInner({
   };
 
   return (
-    <AppChrome title={other?.display_name?.trim() || other?.username || "ข้อความ"} userId={userId} backHref="/chat">
+    <AppChrome title={other?.display_name?.trim() || other?.username || "ข้อความ"} userId={userId} backHref="/chat" showBottomNav={false}>
       {loading ? <LoadingState /> : (
         <div className="conversation-page">
           {other ? <Link className="conversation-person" href={`/profile/${other.id}`}><Avatar src={other.avatar_url} label={other.username} /><span><strong>{other.display_name?.trim() || other.username}</strong><small>@{other.username}</small></span></Link> : null}

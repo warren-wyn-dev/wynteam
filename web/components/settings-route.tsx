@@ -45,19 +45,7 @@ const legalTypes: Array<[string, string]> = [
   ["appeal_policy", "นโยบายการอุทธรณ์"],
 ];
 
-function SettingRow({
-  title,
-  description,
-  trailing,
-  onClick,
-  danger,
-}: {
-  title: string;
-  description?: string;
-  trailing?: React.ReactNode;
-  onClick?: () => void;
-  danger?: boolean;
-}) {
+function SettingRow({ title, description, trailing, onClick, danger }: { title: string; description?: string; trailing?: React.ReactNode; onClick?: () => void; danger?: boolean }) {
   const Tag = onClick ? "button" : "div";
   return <Tag className={`settings-row ${danger ? "danger" : ""}`} {...(onClick ? { type: "button" as const, onClick } : {})}><span><strong>{title}</strong>{description ? <small>{description}</small> : null}</span>{trailing ?? (onClick ? <ChevronRight size={18} /> : null)}</Tag>;
 }
@@ -71,6 +59,18 @@ function PermissionSelect({ value, onChange, kind = "interaction" }: { value: st
     ? [["everyone", "ทุกคน"], ["friends", "เพื่อน"], ["only_me", "เฉพาะฉัน"]]
     : [["everyone", "ทุกคน"], ["people_i_follow", "คนที่ฉันติดตาม"], ["no_one", "ไม่มีใคร"]];
   return <select className="settings-select" value={value} onChange={(e) => onChange(e.target.value)}>{options.map(([wire, label]) => <option value={wire} key={wire}>{label}</option>)}</select>;
+}
+
+function VersionFooter({ client }: { client: SupabaseClient }) {
+  const [label, setLabel] = useState("V1.0.0 Beta4");
+  useEffect(() => {
+    let live = true;
+    void client.rpc("is_developer_account").then(({ data, error }) => {
+      if (live && !error && data === true) setLabel("V1.0.0 Beta5 [พัฒนาอยู่]");
+    });
+    return () => { live = false; };
+  }, [client]);
+  return <p className="settings-version-footer">{label}</p>;
 }
 
 function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; userId: string; signOut: () => Promise<void> }) {
@@ -90,11 +90,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
     setLoading(true); setError("");
     try {
       const [nextProfile, nextNotifications, showOnline, blockRows, muteRows] = await Promise.all([
-        fetchProfile(client, userId),
-        fetchNotificationSettings(client),
-        fetchShowOnlineStatus(client, userId),
-        fetchBlockedUsers(client, 0),
-        fetchMutedUsers(client, 0),
+        fetchProfile(client, userId), fetchNotificationSettings(client), fetchShowOnlineStatus(client, userId), fetchBlockedUsers(client, 0), fetchMutedUsers(client, 0),
       ]);
       setProfile(nextProfile); setNotifications(nextNotifications); setOnline(showOnline); setBlocked(blockRows); setMuted(muteRows);
     } catch (e) { setError(e instanceof Error ? e.message : "โหลดการตั้งค่าไม่สำเร็จ"); }
@@ -104,9 +100,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
 
   const privacy = async (field: "is_private" | "dm_permission" | "mention_permission" | "comment_permission" | "likes_visibility", value: boolean | string) => {
     if (!profile || busy) return;
-    const previous = profile;
-    setProfile({ ...profile, [field]: value } as ProfileRow);
-    setBusy(true); setError("");
+    const previous = profile; setProfile({ ...profile, [field]: value } as ProfileRow); setBusy(true); setError("");
     try { await updateProfilePrivacySetting(client, userId, field, value); }
     catch (e) { setProfile(previous); setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
     finally { setBusy(false); }
@@ -114,9 +108,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
 
   const notification = async (key: keyof NotificationSettings, value: boolean) => {
     if (!notifications || busy) return;
-    const previous = notifications;
-    setNotifications({ ...notifications, [key]: value });
-    setBusy(true);
+    const previous = notifications; setNotifications({ ...notifications, [key]: value }); setBusy(true);
     try { await updateNotificationSetting(client, userId, key, value); }
     catch { setNotifications(previous); setError("บันทึกการแจ้งเตือนไม่สำเร็จ"); }
     finally { setBusy(false); }
@@ -134,9 +126,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
     try {
       const json = await exportMyData(client);
       const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-      const anchor = window.document.createElement("a");
-      anchor.href = url; anchor.download = `wynos-data-${new Date().toISOString().slice(0, 10)}.json`; anchor.click();
-      URL.revokeObjectURL(url);
+      const anchor = window.document.createElement("a"); anchor.href = url; anchor.download = `wynos-data-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); URL.revokeObjectURL(url);
     } catch (e) { setError(e instanceof Error ? e.message : "ส่งออกข้อมูลไม่สำเร็จ"); }
     finally { setBusy(false); }
   };
@@ -156,16 +146,16 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
     finally { setBusy(false); }
   };
 
-  if (loading) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`}><LoadingState /></AppChrome>;
-  if (!profile || !notifications) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`}><EmptyState>{error || "ไม่พบการตั้งค่า"}</EmptyState></AppChrome>;
+  if (loading) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><LoadingState /></AppChrome>;
+  if (!profile || !notifications) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EmptyState>{error || "ไม่พบการตั้งค่า"}</EmptyState></AppChrome>;
 
   const title = section === "root" ? "ตั้งค่า" : section === "privacy" ? "ความเป็นส่วนตัว" : section === "notifications" ? "การแจ้งเตือน" : section === "account" ? "บัญชี" : "ข้อกำหนดและความเป็นส่วนตัว";
   const back = section === "root" ? `/profile/${userId}` : undefined;
 
   return (
-    <AppChrome title={title} userId={userId} backHref={back} actions={section !== "root" ? <button className="route-icon-button" type="button" aria-label="กลับ" onClick={() => setSection("root")}><X size={20} /></button> : null}>
+    <AppChrome title={title} userId={userId} backHref={back} showBottomNav={false} actions={section !== "root" ? <button className="route-icon-button" type="button" aria-label="กลับ" onClick={() => setSection("root")}><X size={20} /></button> : null}>
       {error ? <p className="route-error route-pad">{error}</p> : null}
-      {section === "root" ? <div className="settings-page"><h2>บัญชี</h2><div className="settings-group"><SettingRow title="บัญชี" onClick={() => setSection("account")} /><SettingRow title="ความเป็นส่วนตัว" onClick={() => setSection("privacy")} /></div><h2>การตั้งค่าแอป</h2><div className="settings-group"><SettingRow title="การแจ้งเตือน" onClick={() => setSection("notifications")} /><SettingRow title="ธีมเข้ม" description="ยังไม่เปิดใช้งาน" /></div><h2>ข้อมูลและกฎหมาย</h2><div className="settings-group"><SettingRow title="ช่วยเหลือ" description="ยังไม่เปิดใช้งาน" /><SettingRow title="ข้อกำหนดและความเป็นส่วนตัว" onClick={() => setSection("legal")} /></div><div className="settings-group separated"><SettingRow title="ออกจากระบบ" danger onClick={() => { if (window.confirm("ออกจากระบบบัญชีของคุณใช่ไหม")) void signOut(); }} trailing={<LogOut size={19} />} /></div></div> : null}
+      {section === "root" ? <div className="settings-page"><h2>บัญชี</h2><div className="settings-group"><SettingRow title="บัญชี" onClick={() => setSection("account")} /><SettingRow title="ความเป็นส่วนตัว" onClick={() => setSection("privacy")} /></div><h2>การตั้งค่าแอป</h2><div className="settings-group"><SettingRow title="การแจ้งเตือน" onClick={() => setSection("notifications")} /><SettingRow title="ธีมเข้ม" description="ยังไม่เปิดใช้งาน" /></div><h2>ช่วยเหลือ</h2><div className="settings-group"><SettingRow title="ช่วยเหลือ" description="ยังไม่เปิดใช้งาน" /><SettingRow title="ข้อกำหนดและความเป็นส่วนตัว" onClick={() => setSection("legal")} /></div><div className="settings-group separated"><SettingRow title="ออกจากระบบ" danger onClick={() => { if (window.confirm("ออกจากระบบบัญชีของคุณใช่ไหม")) void signOut(); }} trailing={<LogOut size={19} />} /></div><VersionFooter client={client} /></div> : null}
       {section === "privacy" ? <div className="settings-page"><h2>บัญชี</h2><div className="settings-group"><SettingRow title="บัญชีส่วนตัว" description="อนุมัติผู้ติดตามก่อนเห็นโพสต์" trailing={<Toggle checked={profile.is_private} disabled={busy} onChange={(value) => void privacy("is_private", value)} />} /></div><h2>การโต้ตอบ</h2><div className="settings-group"><SettingRow title="ใครส่งข้อความได้" trailing={<PermissionSelect value={profile.dm_permission} onChange={(value) => void privacy("dm_permission", value)} />} /><SettingRow title="ใครกล่าวถึงคุณได้" trailing={<PermissionSelect value={profile.mention_permission} onChange={(value) => void privacy("mention_permission", value)} />} /><SettingRow title="ใครแสดงความคิดเห็นได้" trailing={<PermissionSelect value={profile.comment_permission} onChange={(value) => void privacy("comment_permission", value)} />} /><SettingRow title="ใครเห็นสิ่งที่คุณถูกใจ" trailing={<PermissionSelect kind="likes" value={profile.likes_visibility} onChange={(value) => void privacy("likes_visibility", value)} />} /></div><h2>สถานะ</h2><div className="settings-group"><SettingRow title="แสดงสถานะออนไลน์" trailing={<Toggle checked={online} disabled={busy} onChange={(value) => void onlineToggle(value)} />} /></div></div> : null}
       {section === "notifications" ? <div className="settings-page"><h2>แจ้งเตือนเมื่อ</h2><div className="settings-group">{notificationLabels.map(([key, label]) => <SettingRow title={label} key={key} trailing={<Toggle checked={notifications[key]} disabled={busy} onChange={(value) => void notification(key, value)} />} />)}</div></div> : null}
       {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<Download size={19} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<Trash2 size={19} />} /></div><p className="settings-safety"><ShieldCheck size={16} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
