@@ -24,7 +24,7 @@ void main() {
     expect(find.text('?'), findsOneWidget);
   });
 
-  testWidgets('uses a NetworkImage instead of the letter when imageUrl is set',
+  testWidgets('uses Image.network instead of the letter when imageUrl is set',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
       home: Scaffold(
@@ -34,18 +34,14 @@ void main() {
         ),
       ),
     ));
-    // The test environment has no real network access, so resolving the
-    // NetworkImage throws -- expected, and irrelevant to what this test
-    // checks (that the widget is wired up to load from a NetworkImage).
     tester.takeException();
 
-    final avatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar));
-    // Wrapped in a ResizeImage so the full-size upload behind an avatar
-    // is downsampled at decode time rather than held in memory at
-    // source resolution -- the NetworkImage is still what fetches it.
-    final image = avatar.backgroundImage;
+    expect(find.byType(Image), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image)).image;
+    // Image.network still applies cacheWidth as a ResizeImage on the normal
+    // engine-backed path; iOS Web uses the HTML strategy instead.
     expect(image, isA<ResizeImage>());
-    expect((image! as ResizeImage).imageProvider, isA<NetworkImage>());
+    expect((image as ResizeImage).imageProvider, isA<NetworkImage>());
     expect(find.text('N'), findsNothing);
   });
 
@@ -66,9 +62,9 @@ void main() {
     ));
     tester.takeException();
 
-    final avatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar));
+    final image = tester.widget<Image>(find.byType(Image)).image;
     // 20 radius -> 40 logical px across, x3 device pixel ratio.
-    expect((avatar.backgroundImage! as ResizeImage).width, 120);
+    expect((image as ResizeImage).width, 120);
   });
 
   testWidgets(
@@ -91,9 +87,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('N'), findsOneWidget);
-    expect(
-      tester.widget<CircleAvatar>(find.byType(CircleAvatar)).backgroundImage,
-      isNull,
-    );
+    expect(find.byType(Image), findsNothing);
   });
 }
