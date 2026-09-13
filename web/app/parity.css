@@ -132,6 +132,12 @@
   font-weight: 600;
 }
 
+/* Flutter Welcome's FilledButton uses 16px vertical content padding;
+   keep its 56px measured tap target even though generic auth actions are 48px. */
+.parity-primary.parity-welcome-cta {
+  min-height: 56px;
+}
+
 .parity-primary:disabled,
 .parity-outline:disabled {
   opacity: 0.5;
