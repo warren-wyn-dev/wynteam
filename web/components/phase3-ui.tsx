@@ -33,6 +33,7 @@ export function AppChrome({
   backHref,
   actions,
   headerMode = "standard",
+  showBottomNav = true,
   children,
 }: {
   title: string;
@@ -40,6 +41,7 @@ export function AppChrome({
   backHref?: string;
   actions?: React.ReactNode;
   headerMode?: "standard" | "hidden" | "overlay";
+  showBottomNav?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -54,7 +56,7 @@ export function AppChrome({
     : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <div className={`route-app route-app-header-${headerMode}`}>
+    <div className={`route-app route-app-header-${headerMode} ${showBottomNav ? "route-with-bottom-nav" : "route-without-bottom-nav"}`}>
       <main className="route-main">
         {headerMode !== "hidden" ? (
           <header className={`route-header route-header-${headerMode}`}>
@@ -69,7 +71,7 @@ export function AppChrome({
         ) : null}
         {children}
       </main>
-      <nav className="route-bottom-nav" aria-label="เมนูหลัก">
+      {showBottomNav ? <nav className="route-bottom-nav" aria-label="เมนูหลัก">
         <Link className={`route-nav-link ${activeFor(destinations[0].href) ? "active" : ""}`} href="/" aria-label="หน้าหลัก">
           <Home strokeWidth={activeFor("/") ? 2.2 : 1.8} />
           <span>หน้าหลัก</span>
@@ -90,18 +92,12 @@ export function AppChrome({
           <UserRound strokeWidth={activeFor(`/profile/${userId}`) ? 2.2 : 1.8} />
           <span>โปรไฟล์</span>
         </Link>
-      </nav>
+      </nav> : null}
     </div>
   );
 }
 
-export function ProfileRowView({
-  profile,
-  trailing,
-}: {
-  profile: ProfileRow;
-  trailing?: React.ReactNode;
-}) {
+export function ProfileRowView({ profile, trailing }: { profile: ProfileRow; trailing?: React.ReactNode }) {
   const name = profile.display_name?.trim() || profile.username;
   return (
     <div className="route-person-row">
