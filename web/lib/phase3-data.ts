@@ -133,15 +133,9 @@ export type LegalDocument = {
   effective_at: string;
 };
 
-const dropCardSelect =
-  "id,author_id,caption,image_url,image_width,image_height,created_at," +
-  "author:profiles!drops_author_id_fkey(username,display_name,avatar_url,is_verified)," +
-  "drop_likes(count),drop_comments(count),redrops(count),drop_images(count)";
+const dropCardSelect = "id,author_id,caption,image_url,image_width,image_height,created_at,author:profiles!drops_author_id_fkey(username,display_name,avatar_url,is_verified),drop_likes(count),drop_comments(count),redrops(count),drop_images(count)";
 
-const messageColumns =
-  "id,conversation_id,sender_id,text,image_url,reply_to_message_id," +
-  "shared_content_type,shared_content_id,deleted_at,created_at,view_once,viewed_at,edited_at," +
-  "reply_to:messages!reply_to_message_id(text,image_url,deleted_at)";
+const messageColumns = "id,conversation_id,sender_id,text,image_url,reply_to_message_id,shared_content_type,shared_content_id,deleted_at,created_at,view_once,viewed_at,edited_at,reply_to:messages!reply_to_message_id(text,image_url,deleted_at)";
 
 const defaultNotificationSettings: NotificationSettings = {
   likes: true,
@@ -549,11 +543,7 @@ export async function fetchNotifications(client: SupabaseClient, page = 0): Prom
   const from = page * 30;
   const result = await client
     .from("notifications")
-    .select(
-      "id,type,drop_id,pop_id,club_id,club_post_id,reason,moderation_action_id,moderation_action_type,conversation_id,is_read,created_at," +
-        "actor:profiles!notifications_actor_id_fkey(id,username,display_name,avatar_url)," +
-        "club:clubs(name),drop:drops(caption),pop:pops(caption)",
-    )
+    .select("id,type,drop_id,pop_id,club_id,club_post_id,reason,moderation_action_id,moderation_action_type,conversation_id,is_read,created_at,actor:profiles!notifications_actor_id_fkey(id,username,display_name,avatar_url),club:clubs(name),drop:drops(caption),pop:pops(caption)")
     .neq("type", "new_message")
     .order("created_at", { ascending: false })
     .range(from, from + 29);
