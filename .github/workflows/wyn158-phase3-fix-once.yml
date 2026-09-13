@@ -1,0 +1,59 @@
+name: WYN-158 Phase 3 type fix (one-shot)
+
+on:
+  push:
+    branches:
+      - feat/wyn-158-phase3-routes
+    paths:
+      - '.github/workflows/wyn158-phase3-fix-once.yml'
+      - 'web/lib/phase3-data.ts'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/wyn-158-phase3-routes
+      - name: Keep Supabase select strings literal-typed
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('web/lib/phase3-data.ts')
+          text = path.read_text(encoding='utf-8')
+
+          old_drop = '''const dropCardSelect =\n  "id,author_id,caption,image_url,image_width,image_height,created_at," +\n  "author:profiles!drops_author_id_fkey(username,display_name,avatar_url,is_verified)," +\n  "drop_likes(count),drop_comments(count),redrops(count),drop_images(count)";'''
+          new_drop = '''const dropCardSelect = "id,author_id,caption,image_url,image_width,image_height,created_at,author:profiles!drops_author_id_fkey(username,display_name,avatar_url,is_verified),drop_likes(count),drop_comments(count),redrops(count),drop_images(count)";'''
+
+          old_message = '''const messageColumns =\n  "id,conversation_id,sender_id,text,image_url,reply_to_message_id," +\n  "shared_content_type,shared_content_id,deleted_at,created_at,view_once,viewed_at,edited_at," +\n  "reply_to:messages!reply_to_message_id(text,image_url,deleted_at)";'''
+          new_message = '''const messageColumns = "id,conversation_id,sender_id,text,image_url,reply_to_message_id,shared_content_type,shared_content_id,deleted_at,created_at,view_once,viewed_at,edited_at,reply_to:messages!reply_to_message_id(text,image_url,deleted_at)";'''
+
+          old_notification = '''    .select(\n      "id,type,drop_id,pop_id,club_id,club_post_id,reason,moderation_action_id,moderation_action_type,conversation_id,is_read,created_at," +\n        "actor:profiles!notifications_actor_id_fkey(id,username,display_name,avatar_url)," +\n        "club:clubs(name),drop:drops(caption),pop:pops(caption)",\n    )'''
+          new_notification = '''    .select("id,type,drop_id,pop_id,club_id,club_post_id,reason,moderation_action_id,moderation_action_type,conversation_id,is_read,created_at,actor:profiles!notifications_actor_id_fkey(id,username,display_name,avatar_url),club:clubs(name),drop:drops(caption),pop:pops(caption)")'''
+
+          for old, new, label in [
+              (old_drop, new_drop, 'dropCardSelect'),
+              (old_message, new_message, 'messageColumns'),
+              (old_notification, new_notification, 'notification select'),
+          ]:
+              if old not in text:
+                  raise SystemExit(f'expected {label} source not found')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit fix
+        run: |
+          if git diff --quiet -- web/lib/phase3-data.ts; then
+            echo 'No change required.'
+            exit 0
+          fi
+          git config user.name 'warren-wyn-dev'
+          git config user.email 'warren.wyn.dev@gmail.com'
+          git add web/lib/phase3-data.ts
+          git commit -m 'fix(web): preserve literal Supabase select types'
+          git push origin HEAD:feat/wyn-158-phase3-routes
