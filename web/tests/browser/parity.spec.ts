@@ -83,7 +83,7 @@ test("source contracts cannot regress to the staged migration UI", async () => {
   expect(chat).toContain("ทั้งหมด");
   expect(chat).toContain("ยังไม่อ่าน");
   expect(chat).toContain("คำขอข้อความ");
-  expect(chat).not.toContain('setRequestMode');
+  expect(chat).not.toContain("setRequestMode");
 
   expect(notifications).toContain("ทั้งหมด");
   expect(notifications).toContain("การกล่าวถึง");
@@ -93,7 +93,7 @@ test("source contracts cannot regress to the staged migration UI", async () => {
   expect(settings).toContain("V1.0.0 Beta4");
 
   for (const [label, href] of [["สำรวจ Club", "/clubs"], ["สร้าง Club", "/clubs/new"], ["Club ของฉัน", "/clubs?mine=1"], ["บันทึกไว้", "/bookmarks"]]) {
-    expect(drawerRoutes).toContain(`\"${label}\": \"${href}\"`);
+    expect(drawerRoutes).toContain(`"${label}": "${href}"`);
   }
 
   for (const metric of [
