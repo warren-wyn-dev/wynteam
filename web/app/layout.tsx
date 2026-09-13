@@ -17,6 +17,7 @@ import "./club-audit.css";
 import "./club-detail-audit.css";
 import "./home-golden-final.css";
 import "./profile-golden-final.css";
+import "./club-detail-golden.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
