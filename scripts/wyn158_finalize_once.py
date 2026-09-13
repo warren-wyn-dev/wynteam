@@ -40,10 +40,15 @@ approvals = approval_path.read_text(encoding='utf-8')
 if approval_marker not in approvals:
     approval_path.write_text(approvals.rstrip() + approval_entry + '\n', encoding='utf-8')
 
+# This legacy file contains pre-existing invalid UTF-8 bytes. surrogateescape
+# gives us a byte-for-byte round trip so recording this decision cannot rewrite
+# or normalize any historical content.
 decision_path = Path('.wyn/company/DECISIONS.md')
-decisions = decision_path.read_text(encoding='utf-8')
+decision_raw = decision_path.read_bytes()
+decisions = decision_raw.decode('utf-8', errors='surrogateescape')
 if decision_marker not in decisions:
-    decision_path.write_text(decisions.rstrip() + decision_entry + '\n', encoding='utf-8')
+    updated = decisions.rstrip() + decision_entry + '\n'
+    decision_path.write_bytes(updated.encode('utf-8', errors='surrogateescape'))
 
 ci_path = Path('.github/workflows/web-next-ci.yml')
 ci = ci_path.read_text(encoding='utf-8')
