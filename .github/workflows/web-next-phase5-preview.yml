@@ -1,8 +1,16 @@
 name: Consumer Web Phase 5 Vercel Preview
 
-# Manual-only. Deploy the Next.js consumer web to the existing Vercel project
-# as a preview deployment. This must never move the production alias.
+# Deploy the Next.js consumer web to the existing Vercel project as a preview
+# deployment. PR execution is deliberately limited to the WYN-158 Phase 5
+# readiness branch; manual dispatch remains available after merge. This workflow
+# must never move the production alias.
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/web-next-phase5-preview.yml'
+      - 'web/**'
   workflow_dispatch: {}
 
 permissions:
@@ -10,6 +18,9 @@ permissions:
 
 jobs:
   preview:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.head_ref == 'feat/wyn-158-phase5-cutover-readiness'
     runs-on: ubuntu-latest
     defaults:
       run:
