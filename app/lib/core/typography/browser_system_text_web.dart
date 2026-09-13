@@ -7,11 +7,25 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:web/web.dart' as web;
 
-/// Flutter Web's canvas renderer cannot use the visitor's installed text fonts.
-/// WYNOS therefore renders user-visible text through browser DOM surfaces.
-/// Safari resolves this stack to Apple's installed system text and Apple Color
-/// Emoji; Android browsers resolve to their own installed system stack.
-const bool usesBrowserSystemTextDom = true;
+/// Flutter Web normally renders WYNOS text through browser DOM surfaces so the
+/// visitor's installed system fonts are available. iOS/iPadOS WebKit is the
+/// exception: a scrolling feed can accumulate hundreds of platform views, and
+/// WebKit may evict/crash the page process under that pressure. On Apple mobile
+/// browsers we therefore keep text inside Flutter's renderer and reserve DOM
+/// platform views for surfaces that truly require native HTML controls.
+final RegExp _iosWebBrowserPattern = RegExp(
+  r'iPhone|iPad|iPod',
+  caseSensitive: false,
+);
+
+bool get _isIosWeb {
+  final navigator = web.window.navigator;
+  final userAgent = navigator.userAgent;
+  return _iosWebBrowserPattern.hasMatch(userAgent) ||
+      (userAgent.contains('Macintosh') && navigator.maxTouchPoints > 1);
+}
+
+bool get usesBrowserSystemTextDom => !_isIosWeb;
 
 const String _systemFontStack =
     '-apple-system, BlinkMacSystemFont, "Thonburi", "SF Pro Text", '
@@ -66,6 +80,33 @@ class BrowserSystemText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!usesBrowserSystemTextDom) {
+      if (textSpan != null) {
+        return Text.rich(
+          textSpan!,
+          style: style,
+          maxLines: maxLines,
+          softWrap: softWrap,
+          overflow: overflow ?? TextOverflow.clip,
+          textAlign: textAlign,
+          semanticsLabel: semanticsLabel,
+          textDirection: textDirection,
+          textHeightBehavior: textHeightBehavior,
+        );
+      }
+      return Text(
+        text ?? '',
+        style: style,
+        maxLines: maxLines,
+        softWrap: softWrap,
+        overflow: overflow,
+        textAlign: textAlign,
+        semanticsLabel: semanticsLabel,
+        textDirection: textDirection,
+        textHeightBehavior: textHeightBehavior,
+      );
+    }
+
     final spans = <BrowserSystemSpan>[];
     if (textSpan != null) {
       _flattenInlineSpan(textSpan!, null, spans);
@@ -214,8 +255,58 @@ class _RenderBrowserTextBaselineBox extends RenderProxyBox {
 }
 
 class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
+  final List<TapGestureRecognizer> _flutterRecognizers = [];
+
+  @override
+  void dispose() {
+    _disposeFlutterRecognizers();
+    super.dispose();
+  }
+
+  void _disposeFlutterRecognizers() {
+    for (final recognizer in _flutterRecognizers) {
+      recognizer.dispose();
+    }
+    _flutterRecognizers.clear();
+  }
+
+  TapGestureRecognizer _flutterRecognizerFor(VoidCallback onTap) {
+    final recognizer = TapGestureRecognizer()..onTap = onTap;
+    _flutterRecognizers.add(recognizer);
+    return recognizer;
+  }
+
+  Widget _buildFlutterText() {
+    _disposeFlutterRecognizers();
+    return Text.rich(
+      TextSpan(
+        style: widget.style,
+        children: [
+          for (final span in widget.spans)
+            TextSpan(
+              text: span.text,
+              style: span.style,
+              recognizer: span.onTap == null
+                  ? null
+                  : _flutterRecognizerFor(span.onTap!),
+            ),
+        ],
+      ),
+      maxLines: widget.maxLines,
+      softWrap: widget.softWrap,
+      overflow: widget.overflow ?? TextOverflow.clip,
+      textAlign: widget.textAlign,
+      semanticsLabel: widget.semanticsLabel,
+      textDirection: widget.textDirection,
+      textHeightBehavior: widget.textHeightBehavior,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!usesBrowserSystemTextDom) return _buildFlutterText();
+    _disposeFlutterRecognizers();
+
     final defaultStyle = DefaultTextStyle.of(context).style;
     final effectiveStyle = defaultStyle.merge(widget.style);
     final textScaler = MediaQuery.textScalerOf(context);
