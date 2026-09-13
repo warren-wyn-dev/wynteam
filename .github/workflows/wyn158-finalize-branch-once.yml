@@ -1,3 +1,4 @@
+# One-shot WYN-158 branch finalizer. Removed by its own successful run.
 name: Finalize WYN-158 branch once
 
 'on':
