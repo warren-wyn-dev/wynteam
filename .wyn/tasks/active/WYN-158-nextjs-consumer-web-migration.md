@@ -39,37 +39,44 @@ Phase 1 merged through PR #411 at `741fad1a93a97464b2e6020088324306dabccd36`. It
 
 ## Phase 2 — Home interactions (complete)
 
-Founder explicitly asked to start Phase 2 after Phase 1 merged. Phase 2 remains developer-gated and does not authorize public rollout.
+Completed through PR #412 and squash-merged to `main` at `41ac064cc3e69cc75a2ea69c6f598f9a5540a373`.
 
-Completed through PR #412 and squash-merged to `main` at `41ac064cc3e69cc75a2ea69c6f598f9a5540a373`:
+- Ranked/Following/Trending Home surfaces.
+- Like, Save, Standard Repost, Follow/Follow Request.
+- Post detail, comments and comment likes.
+- Create Drop for text + up to nine images.
+- Retry-safe atomic publication through the existing Supabase RPC/storage contracts.
+- Browser-native text/images with no Apple/SF Pro font redistribution.
 
-- Existing ranked For You feed plus migrated Following and Trending sources.
-- Bounded infinite feed reveal with stale-request protection when switching surfaces quickly.
-- Like, Save and Standard Repost through the existing RLS-protected tables.
-- Public Follow and Private-account Follow Request states through the existing `follows` / `follow_requests` contracts.
-- Optimistic interaction UI with per-action in-flight serialization and rollback on write failure.
-- Post detail sheet with paginated comments, comment creation and comment likes.
-- Create Drop composer for text and up to nine images, using the existing `drop-images` storage bucket and atomic `publish_drop` RPC.
-- Publication operation IDs and deterministic object paths are retained for ambiguous network outcomes; both thrown transport failures and PostgREST-returned network failures are reconciled through `drop_id_for_publication()` before cleanup/retry, so the browser does not knowingly create a duplicate Drop or delete committed publication assets.
-- Home Trending keeps Flutter Home's 10-result contract while preserving the backend's authoritative ordering.
-- Browser-native text and image rendering stays in place; no Apple/SF Pro font files are bundled.
+Phase 2 acceptance passed Consumer Web CI and full repository CI; `wynos.online` remained Flutter Production.
 
-### Phase 2 acceptance criteria — passed
+## Phase 3 — Main routes (active)
 
-- Consumer Web run `34759152044`: ESLint, TypeScript, Next.js production build and font-license guard all passed.
-- Full repository CI run `34759152039`: Flutter analyze/tests, maintained PostgreSQL/RLS tests, Edge Functions, schema ordering and Admin checks all passed.
-- Existing Supabase schema/RLS contracts are reused without weakening authorization.
-- No service-role/management secret is introduced into browser code.
-- For You, Following and Trending Drop surfaces load from the same backend contracts as Flutter.
-- Like, Save, Standard Repost, Follow/Follow Request, Comment, Comment Like and Create Drop have explicit error handling and duplicate-write protection.
-- Lost/ambiguous publication responses reuse the same operation id on retry.
-- New Home behavior remains developer-only; `wynos.online` Flutter Production is unchanged.
+Founder explicitly requested Phase 3 to be carried through to completion. This phase migrates the remaining primary consumer-web routes while preserving the same developer-only rollout gate and existing backend authorization contracts.
 
-## Still outside Phase 2
+Implemented on `feat/wyn-158-phase3-routes`:
 
-- Public production cutover.
-- Replacing or deleting the Flutter app.
-- Full route migration: Search, Profile, Notifications, Chat, Settings and deep-link routing follow in Phase 3.
-- Pixel/interaction parity across every platform and physical-device stress QA follow in Phase 4.
-- Staging-to-production domain cutover follows in Phase 5 and requires separate Founder approval.
+- Shared fail-closed developer/session gate for migrated routes.
+- Search + Discovery: explicit-submit User/Post/Club search, trending hashtags, rising profiles and suggested profiles.
+- Profile: own/other profile, follow/follow-request, message entry, block/mute, Posts/Reposts/Likes, edit display name/bio/username/avatar/cover.
+- Notifications: paginated list, mark-all-read and content/profile/chat navigation.
+- Chat: inbox, message requests, user search/new conversation, request accept/delete, conversation history pagination, realtime updates, text/image sending, read markers and message delete.
+- Settings: account privacy, interaction permissions, Likes visibility, online-status privacy, notification categories, blocked/muted management, data export/account deletion, legal document viewer and sign-out.
+- Deep links: `/@username`, `/drop/:id`, `/pop/:id`, `/club/:id`, `/club-post/:id`, `/club-invite/:code`, plus migrated internal routes.
+- Home navigation bridge exposes the migrated Search/Notifications/Profile/Settings routes without rewriting the Phase 2 Home component.
+- All browser UI continues to use native DOM/system fonts; no font files or `@font-face` are added.
+
+### Phase 3 acceptance criteria
+
+- Consumer Web ESLint, TypeScript, production build and font-license guard all pass.
+- Full repository CI remains green.
+- Search/Profile/Notifications/Chat/Settings and supported deep links are reachable and use existing Supabase Auth/RLS/RPC/storage contracts.
+- No service-role/management secret or authorization bypass is introduced.
+- Public Production cutover is still excluded; `wynos.online` remains Flutter until Phase 5 approval.
+
+## Still outside Phase 3
+
+- Pixel-perfect/interaction parity and physical-device stress QA across iPhone/Android/Desktop (Phase 4).
+- Public staging-to-production domain cutover (Phase 5; separate Founder approval).
+- Replacing/deleting the Flutter app.
 - Any new WYNOS version number.
