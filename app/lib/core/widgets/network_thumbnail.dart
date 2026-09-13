@@ -1,6 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+/// Test-only compile-time escape hatch used by the iOS-Web stress harness.
+/// Production builds never pass this dart-define, so real platform detection
+/// remains authoritative there.
+const bool _forceIosWebImageStrategyForQa =
+    bool.fromEnvironment('WYN_QA_FORCE_IOS_WEB_IMAGE_STRATEGY');
+
 /// Flutter Web ignores cacheWidth/cacheHeight, and CanvasKit network-image
 /// textures can exhaust WebKit's page process on image-heavy iPhone feeds.
 /// Keep the normal engine image path everywhere except iOS Web, where Flutter
@@ -15,7 +21,12 @@ WebHtmlElementStrategy networkImageStrategyFor({
 }
 
 WebHtmlElementStrategy get wynNetworkImageStrategy =>
-    networkImageStrategyFor(isWeb: kIsWeb, platform: defaultTargetPlatform);
+    _forceIosWebImageStrategyForQa
+        ? WebHtmlElementStrategy.prefer
+        : networkImageStrategyFor(
+            isWeb: kIsWeb,
+            platform: defaultTargetPlatform,
+          );
 
 /// Decodes [imageUrl] at the size it is actually painted at, instead of
 /// at the size it was uploaded at.
@@ -26,8 +37,10 @@ WebHtmlElementStrategy get wynNetworkImageStrategy =>
 /// decodes the full 1600x1600 into memory there: 1600 * 1600 * 4 bytes
 /// is ~10MB of bitmap per tile to paint ~0.07MB worth of pixels, so one
 /// page of a profile grid could hold hundreds of megabytes of decoded
-/// image it never shows. `cacheWidth` makes the decoder downsample
-/// instead, which cuts both the memory and the decode time.
+/// image it never shows. `cacheWidth` makes the decoder downsample on
+/// native/engine-backed image paths. On iOS Web, WYNOS deliberately uses
+/// browser HTML images instead so those network images never become
+/// CanvasKit textures in the first place.
 ///
 /// The size comes from a [LayoutBuilder] rather than a caller-supplied
 /// number so it cannot drift out of step with the layout, and is scaled
