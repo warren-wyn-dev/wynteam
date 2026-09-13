@@ -179,6 +179,26 @@ class AccountSwitcherRepository {
   /// thing quick-switching relies on. The account switched away from
   /// simply stops being the client's current session; its own session
   /// stays valid on the server until it's actually switched back to.
+  ///
+  /// Bug fix (2026-09-13, Founder report: "ระบบมันชอบเด้งออก" -- the app
+  /// keeps kicking people back to Welcome): [account]'s stored refresh
+  /// token can be stale (rotated/revoked elsewhere -- another device
+  /// signed into the same account, an admin action, ...). `setSession`
+  /// operates on `client.auth`'s *single, process-wide* session, not one
+  /// scoped to [account]; when the server rejects a stale token with
+  /// anything other than gotrue's own narrow `refresh_token_already_used`
+  /// recovery case, `GoTrueClient._doRefresh` (see the `gotrue` package,
+  /// pinned via `supabase_flutter` in pubspec.lock) wipes whatever
+  /// session was active *before* this call -- the account the user was
+  /// actually using, not [account] -- and broadcasts
+  /// `AuthChangeEvent.signedOut` on the shared `onAuthStateChange`
+  /// stream. `AuthGate`'s listener treats every `signedOut` event as
+  /// relevant and pops straight to `WelcomeScreen`, so a failed switch
+  /// attempt used to cost the user their still-valid session, not just
+  /// the switch. The catch below restores the pre-switch session (using
+  /// the refresh token just persisted above, which is still fresh) so a
+  /// stale target-account token only fails the switch, exactly like any
+  /// other `_switchTo` failure in `AccountSwitcherSheet` already handles.
   Future<void> switchTo(StoredAccount account, SupabaseClient client) async {
     final current = client.auth.currentSession;
     final currentRefreshToken = current?.refreshToken;
@@ -188,7 +208,24 @@ class AccountSwitcherRepository {
       await updateRefreshToken(current.user.id, currentRefreshToken);
     }
 
-    final response = await client.auth.setSession(account.refreshToken);
+    final AuthResponse response;
+    try {
+      response = await client.auth.setSession(account.refreshToken);
+    } catch (_) {
+      // See doc comment above: restore whichever account was active
+      // before this attempt, best-effort. If this also fails, the user
+      // is genuinely signed out and AuthGate's WelcomeScreen is correct.
+      if (current != null &&
+          !current.user.isAnonymous &&
+          currentRefreshToken != null) {
+        try {
+          await client.auth.setSession(currentRefreshToken);
+        } catch (_) {
+          // Intentionally silent -- see above.
+        }
+      }
+      rethrow;
+    }
     final newRefreshToken = response.session?.refreshToken;
     if (newRefreshToken != null) {
       await updateRefreshToken(account.userId, newRefreshToken);

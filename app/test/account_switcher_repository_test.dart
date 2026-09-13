@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wyn/features/account_switcher/data/account_switcher_repository.dart';
 import 'package:wyn/features/account_switcher/data/stored_account.dart';
@@ -38,6 +40,58 @@ User _fakeUser(String id, {bool isAnonymous = false}) => User(
       createdAt: DateTime.now().toIso8601String(),
       isAnonymous: isAnonymous,
     );
+
+/// A minimal `POST .../auth/v1/token?grant_type=refresh_token` response body
+/// gotrue's `Session.fromJson`/`User.fromJson` can parse, keyed by the
+/// refresh token the mock server should treat as valid for [userId].
+Map<String, dynamic> _refreshSuccessJson({
+  required String userId,
+  required String refreshToken,
+}) => {
+      'access_token': 'at-$refreshToken',
+      'token_type': 'bearer',
+      'refresh_token': refreshToken,
+      'expires_in': 3600,
+      'user': {'id': userId, 'aud': 'authenticated'},
+    };
+
+/// A real gotrue "refresh token rejected" error shape (a stale/rotated/
+/// revoked token -- not the narrow `refresh_token_already_used` case
+/// gotrue itself recovers from). `error_code` (not `code`) is what
+/// gotrue's error parser reads when the response carries no API-version
+/// header, which this fake server deliberately never sets.
+final Map<String, dynamic> _refreshTokenNotFoundJson = {
+  'error_code': 'refresh_token_not_found',
+  'msg': 'Invalid Refresh Token: Refresh Token Not Found',
+};
+
+/// Builds a [SupabaseClient] whose GoTrue HTTP calls are served by [handler]
+/// instead of live network -- same "inject the real thing's own extension
+/// point" shape as every other fake in this app, just via `http`'s own
+/// `MockClient` (supabase_flutter's `SupabaseClient`/`GoTrueClient` both
+/// accept a `httpClient` for exactly this purpose). `autoRefreshToken:
+/// false` keeps gotrue's background refresh timer from firing mid-test,
+/// same as this file's existing `forgetAndSwitchToNextIfAny` test.
+SupabaseClient _fakeAuthClient(
+  Map<String, dynamic> Function(String refreshToken) handler,
+) {
+  return SupabaseClient(
+    'https://example.supabase.co',
+    'test-key',
+    authOptions: const AuthClientOptions(autoRefreshToken: false),
+    httpClient: MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final refreshToken = body['refresh_token'] as String;
+      final result = handler(refreshToken);
+      final isError = result.containsKey('error_code');
+      return http.Response(
+        jsonEncode(result),
+        isError ? 400 : 200,
+        headers: const {'content-type': 'application/json'},
+      );
+    }),
+  );
+}
 
 void main() {
   late _FakeSecureStore store;
@@ -246,6 +300,138 @@ void main() {
 
     expect(switched, isFalse);
     expect(await repository.loadAccounts(), isEmpty);
+  });
+
+  group('switchTo', () {
+    // Bug fix (2026-09-13, Founder report: "ระบบมันชอบเด้งออก"). Before
+    // this fix, a stale target-account refresh token didn't just fail the
+    // switch -- gotrue's own `_doRefresh` wipes whatever session was
+    // active *before* the failed `setSession` call and broadcasts
+    // `AuthChangeEvent.signedOut`, which `AuthGate`'s listener treats as
+    // relevant and pops straight to WelcomeScreen. See this method's own
+    // doc comment and `.wyn/tasks/bugs/` for the fix.
+    test(
+        'restores the previously active session instead of leaving the '
+        'user signed out when the target account\'s stored token is stale',
+        () async {
+      const currentUserId = 'current-user';
+      const currentInitialToken = 'rt-current-initial';
+      const currentFreshToken = 'rt-current-fresh';
+      const staleTargetToken = 'rt-target-stale';
+
+      final client = _fakeAuthClient((refreshToken) {
+        switch (refreshToken) {
+          case currentInitialToken:
+            // Establishes the "already signed in" session below.
+            return _refreshSuccessJson(
+              userId: currentUserId,
+              refreshToken: currentFreshToken,
+            );
+          case currentFreshToken:
+            // The restore attempt this fix makes, using the token
+            // `switchTo` itself just persisted moments earlier.
+            return _refreshSuccessJson(
+              userId: currentUserId,
+              refreshToken: currentFreshToken,
+            );
+          case staleTargetToken:
+            return _refreshTokenNotFoundJson;
+          default:
+            fail('Unexpected refresh_token in request: $refreshToken');
+        }
+      });
+      addTearDown(client.dispose);
+
+      // Sign in as the account already active on this device.
+      await client.auth.setSession(currentInitialToken);
+      expect(client.auth.currentSession?.user.id, currentUserId);
+
+      final signedOutEvents = <AuthChangeEvent>[];
+      final sub = client.auth.onAuthStateChange.listen((state) {
+        signedOutEvents.add(state.event);
+      });
+      addTearDown(sub.cancel);
+
+      final target = _account('target-user', refreshToken: staleTargetToken);
+
+      await expectLater(
+        repository.switchTo(target, client),
+        throwsA(anything),
+      );
+
+      // Let the signedOut/signedIn events (and this repository's own
+      // restore call) finish propagating through the stream.
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      // The core assertion: the account that was active before the
+      // failed switch is still the active session afterward -- the user
+      // was never actually signed out, only the switch attempt failed.
+      expect(client.auth.currentSession, isNotNull);
+      expect(client.auth.currentSession?.user.id, currentUserId);
+
+      // gotrue still broadcasts its own signedOut for the rejected
+      // refresh internally; this fix's restore call (setSession with only
+      // a refresh token) always routes through gotrue's own
+      // tokenRefreshed path (see AccountSwitcherRepository's class-level
+      // doc comment), never signedOut again -- documenting that the
+      // *net* state a listener like AuthGate ends up on is still
+      // signed-in, not the permanent flash-to-Welcome the original bug
+      // caused.
+      expect(signedOutEvents, contains(AuthChangeEvent.signedOut));
+      expect(signedOutEvents.last, isNot(AuthChangeEvent.signedOut));
+    });
+
+    test('persists the new refresh token on a successful switch', () async {
+      const currentUserId = 'current-user';
+      const currentInitialToken = 'rt-current-initial';
+      const targetUserId = 'target-user';
+      const targetStoredToken = 'rt-target-stored';
+      const targetRotatedToken = 'rt-target-rotated';
+
+      final client = _fakeAuthClient((refreshToken) {
+        switch (refreshToken) {
+          case currentInitialToken:
+            return _refreshSuccessJson(
+              userId: currentUserId,
+              refreshToken: currentInitialToken,
+            );
+          case targetStoredToken:
+            return _refreshSuccessJson(
+              userId: targetUserId,
+              refreshToken: targetRotatedToken,
+            );
+          default:
+            fail('Unexpected refresh_token in request: $refreshToken');
+        }
+      });
+      addTearDown(client.dispose);
+
+      await client.auth.setSession(currentInitialToken);
+      await repository.upsertAccount(
+        _account(currentUserId, refreshToken: currentInitialToken),
+      );
+
+      final target =
+          _account(targetUserId, refreshToken: targetStoredToken);
+      await repository.upsertAccount(target);
+
+      await repository.switchTo(target, client);
+
+      expect(client.auth.currentSession?.user.id, targetUserId);
+      final stored = await repository.loadAccounts();
+      expect(
+        stored.firstWhere((a) => a.userId == targetUserId).refreshToken,
+        targetRotatedToken,
+      );
+      // The account switched away from keeps its own (now-rotated by
+      // gotrue) refresh token persisted too, not left pointing at the
+      // single-use initial one.
+      expect(
+        stored.firstWhere((a) => a.userId == currentUserId).refreshToken,
+        currentInitialToken,
+      );
+    });
   });
 
   test('persisted JSON round-trips every field of StoredAccount', () async {

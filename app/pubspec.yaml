@@ -57,6 +57,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  # Used directly by test/account_switcher_repository_test.dart
+  # (package:http/testing.dart's MockClient) to exercise
+  # AccountSwitcherRepository.switchTo against a real SupabaseClient/
+  # GoTrueClient without live network -- already present transitively
+  # (supabase_flutter depends on it); declared directly here for the
+  # same reason as `web` above.
+  http: ^1.6.0
   # Used directly by test/support/fake_video_player_platform.dart to fake
   # VideoPlayerController's platform implementation (real platform channel
   # has no handler in the test env) -- was only a transitive dependency of
