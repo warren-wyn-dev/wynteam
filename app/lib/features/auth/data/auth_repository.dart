@@ -129,6 +129,22 @@ class AuthRepository {
     return _client.auth.signOut();
   }
 
+  /// Attempts to restore a session an involuntary `signedOut` event just
+  /// tore down, using [refreshToken] -- see AuthGate's
+  /// `_lastKnownRefreshToken`/`_attemptSessionRecovery` doc comments for
+  /// why this exists. Returns the recovered [Session] on success, `null`
+  /// on any failure (network error, or the token genuinely is no longer
+  /// valid) -- callers treat `null` exactly like today's unrecovered
+  /// involuntary sign-out, so this never throws past itself.
+  Future<Session?> recoverSession(String refreshToken) async {
+    try {
+      final response = await _client.auth.setSession(refreshToken);
+      return response.session;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// WYN-113 (Invite-Only Access Gate): true once the Founder has
   /// turned the gate on. Called from WelcomeScreen/AuthMethodScreen
   /// *before* any sign-in happens, so this must work with no session at

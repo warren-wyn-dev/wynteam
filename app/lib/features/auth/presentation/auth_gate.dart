@@ -185,6 +185,33 @@ class _AuthGateState extends State<AuthGate> {
   /// comment on why `tokenRefreshed` needs this at all).
   String? _currentUserId;
 
+  /// The most recent refresh token known to have been valid -- kept in
+  /// sync on every `signedIn`/`tokenRefreshed` event (see the listener
+  /// below), read by [_attemptSessionRecovery] when an involuntary
+  /// `signedOut` arrives. Bug fix (2026-09-13, Founder report: "ระบบมันชอบ
+  /// เด้งออก" during ordinary use -- scrolling/liking/commenting, and
+  /// after a slow Drop/Pop upload, never while switching accounts): real
+  /// `gotrue`'s own background auto-refresh (fires roughly every ~55
+  /// minutes, and again once any in-flight request's access token has
+  /// gone stale) hard-fails the *entire* session -- not just that one
+  /// refresh -- on any rejection other than its own narrow
+  /// `refresh_token_already_used` recovery case (see
+  /// `AccountSwitcherRepository.switchTo`'s doc comment for the same
+  /// underlying `_doRefresh` behavior, confirmed against the pinned
+  /// `gotrue` source in `pubspec.lock`), which is exactly what a slow
+  /// upload over a flaky mobile connection can trigger: a transient
+  /// refresh-endpoint error lands in that same non-retryable branch and
+  /// the whole session is torn down mid-session, with no distinction
+  /// from a real, intentional sign-out.
+  String? _lastKnownRefreshToken;
+
+  /// True for the duration of one [_attemptSessionRecovery] call --
+  /// prevents a second, redundant recovery attempt from a duplicate/
+  /// cascading `signedOut` event arriving on the stream while the first
+  /// attempt is still in flight (see the listener's own comment on this
+  /// guard for why that can happen).
+  bool _recoveringSession = false;
+
   /// Founder feedback, 2026-09-05: landing on Home right after switching
   /// accounts read as if the switch had silently failed -- the feed
   /// looks the same as a moment ago, nothing on screen confirms which
@@ -215,6 +242,7 @@ class _AuthGateState extends State<AuthGate> {
   void initState() {
     super.initState();
     _currentUserId = _authRepository.currentSession?.user.id;
+    _lastKnownRefreshToken = _authRepository.currentSession?.refreshToken;
     // Every other screen in the app (auth flow screens, ViewProfileScreen,
     // CreateDropScreen, DropDetailScreen, ...) is pushed with
     // Navigator.push on top of this route. Whenever the session actually
@@ -247,25 +275,83 @@ class _AuthGateState extends State<AuthGate> {
     // token quietly renews mid-scroll would be a new, worse bug. The
     // distinguishing signal is whether the user id actually changed.
     _authSubscription = _authRepository.authStateChanges.listen((state) {
-      final newUserId = state.session?.user.id;
-      final isAccountSwitch = state.event == AuthChangeEvent.tokenRefreshed &&
-          newUserId != null &&
-          newUserId != _currentUserId;
-      _startOnProfileTab = isAccountSwitch;
-      if (state.event == AuthChangeEvent.signedIn || isAccountSwitch) {
-        _moderationStatusFuture = _moderationRepository.fetchMyStatus();
+      final refreshToken = state.session?.refreshToken;
+      if (refreshToken != null) _lastKnownRefreshToken = refreshToken;
+
+      // Bug fix, 2026-09-13 (see _lastKnownRefreshToken's own doc
+      // comment): an involuntary signedOut -- anything other than this
+      // widget's own explicit signOut() calls, which always pass
+      // SignOutReason.userInitiated -- gets one recovery attempt before
+      // being treated as a real sign-out. `state.signOutReason` is
+      // gotrue's own documented mechanism for telling the two apart
+      // (see the `gotrue` package's `AuthState`/`SignOutReason` doc
+      // comments) -- deliberately not "treat every signedOut as
+      // recoverable", since a real signOut() call also emits this same
+      // event and must still land on WelcomeScreen.
+      if (state.event == AuthChangeEvent.signedOut &&
+          state.signOutReason != SignOutReason.userInitiated) {
+        // Guards against a cascade: if this recovery attempt's own
+        // setSession call also fails, real gotrue's _doRefresh fires a
+        // *second* signedOut on this exact stream (same non-retryable
+        // path, now racing the still-in-flight recoverSession() Future
+        // below) before that Future even resolves -- without this
+        // guard, that second event would start a second, redundant
+        // recovery attempt using the same already-known-bad token.
+        if (_recoveringSession) return;
+        final token = _lastKnownRefreshToken;
+        if (token != null) {
+          _recoveringSession = true;
+          unawaited(_attemptSessionRecovery(token));
+          return;
+        }
       }
-      final isRelevant = state.event == AuthChangeEvent.signedIn ||
-          state.event == AuthChangeEvent.signedOut ||
-          isAccountSwitch;
-      _currentUserId = newUserId;
-      if (isRelevant && mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
+
+      _handleAuthEvent(state);
     });
     if (_authRepository.currentSession != null) {
       _moderationStatusFuture = _moderationRepository.fetchMyStatus();
     }
+  }
+
+  /// The original listener body, factored out so [_attemptSessionRecovery]
+  /// can replay a still-failed involuntary signedOut through the exact
+  /// same logic once the one recovery attempt is exhausted.
+  void _handleAuthEvent(AuthState state) {
+    final newUserId = state.session?.user.id;
+    final isAccountSwitch = state.event == AuthChangeEvent.tokenRefreshed &&
+        newUserId != null &&
+        newUserId != _currentUserId;
+    _startOnProfileTab = isAccountSwitch;
+    if (state.event == AuthChangeEvent.signedIn || isAccountSwitch) {
+      _moderationStatusFuture = _moderationRepository.fetchMyStatus();
+    }
+    final isRelevant = state.event == AuthChangeEvent.signedIn ||
+        state.event == AuthChangeEvent.signedOut ||
+        isAccountSwitch;
+    _currentUserId = newUserId;
+    if (isRelevant && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
+  /// One best-effort attempt to re-establish the session an involuntary
+  /// `signedOut` just tore down, using [refreshToken] -- the last token
+  /// known to have been valid, captured a moment before the failure (see
+  /// [_lastKnownRefreshToken]'s doc comment). On success, `setSession`'s
+  /// own `tokenRefreshed` event flows back through the same
+  /// `_authSubscription` listener above and [_handleAuthEvent] treats it
+  /// as an ordinary background refresh (same user id, not "relevant") --
+  /// nothing visible happens, exactly as if the original refresh had
+  /// simply succeeded. On failure, this really is a sign-out: replay it
+  /// as a proper signedOut state through [_handleAuthEvent] so the
+  /// normal pop-to-Welcome behavior still runs, now that the one safe
+  /// recovery attempt is exhausted.
+  Future<void> _attemptSessionRecovery(String refreshToken) async {
+    final recovered = await _authRepository.recoverSession(refreshToken);
+    _recoveringSession = false;
+    if (recovered != null) return;
+    if (!mounted) return;
+    _handleAuthEvent(const AuthState(AuthChangeEvent.signedOut, null));
   }
 
   @override

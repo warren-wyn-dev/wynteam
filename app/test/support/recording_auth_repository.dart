@@ -127,12 +127,57 @@ class RecordingAuthRepository extends AuthRepository {
   /// this is what makes the sign-out race in AuthGate's own comments
   /// reproducible in a widget test: after this resolves, a naive
   /// `build()` that reads `currentSession` fresh from the stream would
-  /// see `null` and render WelcomeScreen.
+  /// see `null` and render WelcomeScreen. `signOutReason:
+  /// SignOutReason.userInitiated` matches real gotrue's own `_signOut`
+  /// (see `AuthGate`'s `_attemptSessionRecovery` doc comment) -- without
+  /// it, AuthGate would try to recover this deliberate sign-out too.
   @override
   Future<void> signOut() async {
     signOutCalls++;
     _session = null;
-    _controller.add(const AuthState(AuthChangeEvent.signedOut, null));
+    _controller.add(const AuthState(
+      AuthChangeEvent.signedOut,
+      null,
+      signOutReason: SignOutReason.userInitiated,
+    ));
+  }
+
+  /// Simulates GoTrue's own involuntary `signedOut` -- a background
+  /// token refresh (or an AccountSwitcher `setSession` call) that got
+  /// rejected outright, per `_doRefresh`'s real failure path (see
+  /// `AccountSwitcherRepository.switchTo`'s and `AuthGate`'s doc
+  /// comments). Unlike [signOut], carries [reason] (defaulting to the
+  /// most common real case) rather than `userInitiated`, so this is what
+  /// exercises `AuthGate`'s recovery-attempt path in a test.
+  void emitInvoluntarySignedOut({
+    SignOutReason reason = SignOutReason.sessionExpired,
+  }) {
+    _session = null;
+    _controller
+        .add(AuthState(AuthChangeEvent.signedOut, null, signOutReason: reason));
+  }
+
+  /// Controls every [recoverSession] call's outcome: return a [Session]
+  /// (recovery "succeeds", also updating [currentSession] and emitting
+  /// `tokenRefreshed` on [authStateChanges], mirroring what real
+  /// `client.auth.setSession` does as a side effect) or `null` (recovery
+  /// "fails", same as a real rejected refresh token). Unset (`null`) by
+  /// default -- every call fails -- so existing tests that never touch
+  /// this feature at all see no behavior change; set this to exercise
+  /// either path.
+  Session? Function(String refreshToken)? recoverSessionHandler;
+  final List<String> recoverSessionCalls = [];
+
+  @override
+  Future<Session?> recoverSession(String refreshToken) async {
+    recoverSessionCalls.add(refreshToken);
+    final handler = recoverSessionHandler;
+    final result = handler == null ? null : handler(refreshToken);
+    if (result != null) {
+      _session = result;
+      _controller.add(AuthState(AuthChangeEvent.tokenRefreshed, result));
+    }
+    return result;
   }
 
   @override

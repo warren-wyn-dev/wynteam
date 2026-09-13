@@ -28,6 +28,11 @@ User _fakeUser(String id, {bool isAnonymous = false}) => User(
 
 Session _fakeSession(String userId) => Session(
       accessToken: 'fake-access-token',
+      // Involuntary sign-out recovery (see AuthGate._lastKnownRefreshToken)
+      // needs every session to carry a refresh token, same as a real one
+      // always does -- deterministic per user id so a test can assert
+      // which account's token a recovery attempt used, if it ever needs to.
+      refreshToken: 'fake-refresh-token-$userId',
       tokenType: 'bearer',
       user: _fakeUser(userId),
     );
@@ -585,6 +590,107 @@ void main() {
           reason: 'nothing about this account changed -- re-checking '
               'moderation status on every silent token renewal would be '
               'pure waste');
+    });
+  });
+
+  // Bug fix (2026-09-13, Founder report: "ระบบมันชอบเด้งออก" during
+  // ordinary use, never while switching accounts) -- see
+  // AuthGate._lastKnownRefreshToken/_attemptSessionRecovery's own doc
+  // comments for the full root-cause trace against real gotrue's pinned
+  // source. An involuntary signedOut (GoTrue's own background
+  // auto-refresh hard-failing, not a real sign-out) now gets one
+  // recovery attempt before the user is bounced to WelcomeScreen.
+  group('Involuntary sign-out recovery', () {
+    Future<(RecordingAuthRepository, RecordingModerationRepository)>
+        pumpSignedInGate(WidgetTester tester) async {
+      final authRepository = RecordingAuthRepository(
+        initialSession: _fakeSession('account-a'),
+      );
+      final moderationRepository = RecordingModerationRepository(
+        myStatus: const ModerationStatus(
+          isRestricted: false,
+          isSuspended: false,
+          isBanned: false,
+        ),
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: AuthGate(
+          authRepository: authRepository,
+          moderationRepository: moderationRepository,
+          platformDocumentRepository: platformDocumentRepository,
+          rootShellBuilder: (session) =>
+              SizedBox(key: ValueKey('root_shell_${session.user.id}')),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Simulates whatever screen the user was actually on when the
+      // background refresh silently failed -- must stay put if recovery
+      // succeeds, and only be popped away if it genuinely doesn't.
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(MaterialPageRoute<void>(
+            builder: (_) => const SizedBox(key: Key('pushed_on_top')),
+          ));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pushed_on_top')), findsOneWidget);
+
+      return (authRepository, moderationRepository);
+    }
+
+    testWidgets(
+        'a recoverable involuntary signedOut (sessionExpired) never pops '
+        'navigation or shows WelcomeScreen -- the user sees nothing',
+        (tester) async {
+      final (authRepository, _) = await pumpSignedInGate(tester);
+      authRepository.recoverSessionHandler = (_) => _fakeSession('account-a');
+
+      authRepository.emitInvoluntarySignedOut();
+      await tester.pumpAndSettle();
+
+      expect(authRepository.recoverSessionCalls, hasLength(1));
+      expect(find.byKey(const Key('pushed_on_top')), findsOneWidget,
+          reason: 'a background refresh that failed once but recovered must '
+              'never be visible to the user -- popping to WelcomeScreen '
+              'here would be the original bug (WYN-142 follow-up)');
+      expect(find.byType(WelcomeScreen), findsNothing);
+    });
+
+    testWidgets(
+        'an involuntary signedOut that also fails to recover falls through '
+        'to WelcomeScreen, same as an unrecoverable sign-out always has',
+        (tester) async {
+      final (authRepository, _) = await pumpSignedInGate(tester);
+      // recoverSessionHandler left unset -- every recovery attempt fails.
+
+      authRepository.emitInvoluntarySignedOut();
+      await tester.pumpAndSettle();
+
+      expect(authRepository.recoverSessionCalls, hasLength(1));
+      expect(find.byType(WelcomeScreen), findsOneWidget,
+          reason: 'recovery was attempted and failed -- this really is a '
+              'sign-out, so the existing behavior must still apply');
+      expect(find.byKey(const Key('pushed_on_top')), findsNothing);
+    });
+
+    testWidgets(
+        'an explicit signOut() (userInitiated) is never treated as '
+        'recoverable -- a real logout must always reach WelcomeScreen',
+        (tester) async {
+      final (authRepository, _) = await pumpSignedInGate(tester);
+      // If this were (wrongly) treated as recoverable, recovering with the
+      // same account's own last-known token would silently undo the sign
+      // -out the user asked for.
+      authRepository.recoverSessionHandler = (_) => _fakeSession('account-a');
+
+      await authRepository.signOut();
+      await tester.pumpAndSettle();
+
+      expect(authRepository.recoverSessionCalls, isEmpty,
+          reason: 'signOutReason.userInitiated must skip the recovery path '
+              'entirely, not just fail to recover');
+      expect(find.byType(WelcomeScreen), findsOneWidget);
     });
   });
 
