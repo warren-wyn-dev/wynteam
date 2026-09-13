@@ -1,0 +1,252 @@
+name: QA iOS Web DOM text stress once
+
+'on':
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-ios-dom-text-stress-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  webkit-dom-text-stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+
+      - name: Build WYNOS text stress harness
+        working-directory: app
+        shell: bash
+        run: |
+          flutter pub get
+          cat > lib/qa_ios_dom_text_stress.dart <<'DART'
+          import 'package:flutter/material.dart';
+          import 'package:web/web.dart' as web;
+
+          import 'core/typography/browser_system_text.dart';
+          import 'core/typography/native_emoji.dart';
+
+          void main() {
+            web.document.documentElement?.setAttribute(
+              'data-wyn-dom-text',
+              usesBrowserSystemTextDom.toString(),
+            );
+            web.document.documentElement?.setAttribute(
+              'data-wyn-dom-emoji',
+              shouldUseBrowserNativeEmoji.toString(),
+            );
+            runApp(const _StressApp());
+          }
+
+          class _StressApp extends StatefulWidget {
+            const _StressApp();
+
+            @override
+            State<_StressApp> createState() => _StressAppState();
+          }
+
+          class _StressAppState extends State<_StressApp> {
+            final ScrollController _controller = ScrollController();
+
+            @override
+            void initState() {
+              super.initState();
+              WidgetsBinding.instance.addPostFrameCallback((_) => _runStress());
+            }
+
+            Future<void> _runStress() async {
+              await Future<void>.delayed(const Duration(seconds: 2));
+              try {
+                for (var cycle = 0; cycle < 5; cycle++) {
+                  if (!mounted || !_controller.hasClients) return;
+                  await _controller.animateTo(
+                    _controller.position.maxScrollExtent,
+                    duration: const Duration(seconds: 2),
+                    curve: Curves.linear,
+                  );
+                  await _controller.animateTo(
+                    0,
+                    duration: const Duration(seconds: 2),
+                    curve: Curves.linear,
+                  );
+                }
+                web.document.documentElement?.setAttribute(
+                  'data-wyn-stress-complete',
+                  'true',
+                );
+              } catch (error) {
+                web.document.documentElement?.setAttribute(
+                  'data-wyn-stress-error',
+                  error.toString(),
+                );
+              }
+            }
+
+            @override
+            void dispose() {
+              _controller.dispose();
+              super.dispose();
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                home: Scaffold(
+                  body: ListView.builder(
+                    controller: _controller,
+                    itemCount: 600,
+                    itemExtent: 92,
+                    itemBuilder: (context, index) => Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          BrowserSystemText(
+                            'ผู้ใช้ $index · 1 นาที',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          BrowserSystemRichText(
+                            style: const TextStyle(fontSize: 15),
+                            spans: [
+                              const BrowserSystemSpan(text: 'ข้อความในฟีด '),
+                              BrowserSystemSpan(
+                                text: '#WYNOS$index',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                onTap: () {},
+                              ),
+                              const BrowserSystemSpan(text: ' ❤️ 12 · 💬 3'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+          DART
+          flutter build web --release --no-wasm-dry-run \
+            -t lib/qa_ios_dom_text_stress.dart
+
+      - name: Install WebKit
+        shell: bash
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps webkit
+
+      - name: Stress iPhone Safari and Chrome WebKit
+        working-directory: app
+        shell: bash
+        run: |
+          python3 -m http.server 8788 --directory build/web >/tmp/wynos-dom-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+
+          cat > /tmp/wynos-ios-dom-stress.js <<'NODE'
+          const { webkit } = require(process.env.GITHUB_WORKSPACE + '/node_modules/playwright');
+
+          const cases = [
+            ['safari-ios', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'],
+            ['chrome-ios', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.7339.101 Mobile/15E148 Safari/604.1'],
+          ];
+
+          (async () => {
+            const browser = await webkit.launch({ headless: true });
+            for (const [name, userAgent] of cases) {
+              const context = await browser.newContext({
+                viewport: { width: 390, height: 844 },
+                screen: { width: 390, height: 844 },
+                deviceScaleFactor: 3,
+                isMobile: true,
+                hasTouch: true,
+                locale: 'th-TH',
+                timezoneId: 'Asia/Bangkok',
+                userAgent,
+                serviceWorkers: 'block',
+              });
+              const page = await context.newPage();
+              let crashed = false;
+              let navigations = 0;
+              const errors = [];
+              page.on('crash', () => { crashed = true; errors.push('page-crash'); });
+              page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
+              page.on('framenavigated', frame => {
+                if (frame === page.mainFrame()) navigations++;
+              });
+
+              await page.goto('http://127.0.0.1:8788/', {
+                waitUntil: 'domcontentloaded',
+                timeout: 60000,
+              });
+              await page.waitForFunction(
+                () => document.documentElement.getAttribute('data-wyn-dom-text') === 'false',
+                null,
+                { timeout: 30000 },
+              );
+
+              const domEmoji = await page.getAttribute('html', 'data-wyn-dom-emoji');
+              if (domEmoji !== 'false') {
+                throw new Error(`${name}: DOM emoji path still enabled (${domEmoji})`);
+              }
+
+              const initialNavigations = navigations;
+              await page.evaluate(() => { window.__wynDomStressMarker = 'alive'; });
+              await page.waitForFunction(() => {
+                const root = document.documentElement;
+                const error = root.getAttribute('data-wyn-stress-error');
+                if (error) throw new Error(error);
+                return root.getAttribute('data-wyn-stress-complete') === 'true';
+              }, null, { timeout: 90000 });
+              await page.waitForTimeout(5000);
+
+              const marker = await page.evaluate(() => window.__wynDomStressMarker || null);
+              const platformViews = await page.locator('flt-platform-view').count();
+              const unexpectedNavigations = navigations - initialNavigations;
+              const result = {
+                name,
+                crashed,
+                unexpectedNavigations,
+                marker,
+                platformViews,
+                errors,
+              };
+              console.log(JSON.stringify(result, null, 2));
+
+              if (crashed) throw new Error(`${name}: WebKit page crashed`);
+              if (unexpectedNavigations !== 0) {
+                throw new Error(`${name}: unexpected navigations ${unexpectedNavigations}`);
+              }
+              if (marker !== 'alive') throw new Error(`${name}: document replaced`);
+              if (platformViews !== 0) {
+                throw new Error(`${name}: expected 0 platform views, got ${platformViews}`);
+              }
+              if (errors.length) throw new Error(`${name}: ${errors.join(' | ')}`);
+              await context.close();
+            }
+            await browser.close();
+          })().catch(error => {
+            console.error(error.stack || error);
+            process.exit(1);
+          });
+          NODE
+
+          node /tmp/wynos-ios-dom-stress.js
