@@ -1,0 +1,113 @@
+name: Verify browser system text dry baseline
+
+on:
+  push:
+    branches: [ops/fix-web-dom-text-layout-20260913]
+    paths: [.github/workflows/fix-web-dom-text-layout-retry6.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-dom-text-layout-metrics
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply browser metrics patch plus Flutter dry-baseline contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin ops/fix-web-dom-text-layout-20260913
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-retry5.yml > /tmp/retry5.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, textwrap
+
+          workflow = Path('/tmp/retry5.yml').read_text()
+          block = re.search(
+              r"          python3 - <<'PY'\n(.*?)\n          PY\n\n          dart format",
+              workflow,
+              re.S,
+          )
+          if not block:
+              raise SystemExit('could not extract retry5 patch')
+          exec(textwrap.dedent(block.group(1)), {'__builtins__': __builtins__})
+
+          path = Path('app/lib/core/typography/browser_system_text_web.dart')
+          source = path.read_text()
+          rx = re.compile(
+              r'(?P<i>[ \t]*)@override\n'
+              r'(?P=i)double\? computeDistanceToActualBaseline\(TextBaseline baseline\) \{\n'
+              r'(?P=i)  return _alphabeticBaseline;\n'
+              r'(?P=i)\}'
+          )
+          match = rx.search(source)
+          if not match:
+              raise SystemExit('baseline render-box override not found')
+          indent = match.group('i')
+          dry = (
+              match.group(0)
+              + '\n\n'
+              + f'{indent}@override\n'
+              + f'{indent}double? computeDryBaseline(\n'
+              + f'{indent}  covariant BoxConstraints constraints,\n'
+              + f'{indent}  TextBaseline baseline,\n'
+              + f'{indent}) {{\n'
+              + f'{indent}  return _alphabeticBaseline;\n'
+              + f'{indent}}}'
+          )
+          source = source[:match.start()] + dry + source[match.end():]
+          path.write_text(source)
+          PY
+
+          dart format \
+            app/lib/core/typography/browser_system_text_web.dart \
+            app/test/browser_system_text_web_layout_test.dart
+          git add -A
+
+      - name: Analyze
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze
+
+      - name: Browser DOM layout regression tests
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter test --platform chrome test/browser_system_text_web_layout_test.dart
+
+      - name: Full regression tests
+        working-directory: app
+        run: flutter test
+
+      - name: Release Web build
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter build web --release
+          test -f build/web/main.dart.js
+          grep -q 'Apple Color Emoji' build/web/main.dart.js
+          grep -q 'getBoundingClientRect' build/web/main.dart.js
+          ! grep -q 'WYNWebNotoThai' build/web/main.dart.js
+
+      - name: Commit verified layout fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git status --short
+          git commit -m 'fix(web): align DOM text with browser metrics'
+          git push origin HEAD:fix/web-dom-text-layout-metrics
