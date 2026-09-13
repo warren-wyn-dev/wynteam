@@ -1,10 +1,9 @@
 # Bug Report — WYN-106
 
-Status: fixed, pending QA re-verification
-Owner: AI QA & Security found it; fixed directly in the same session (2026-09-04)
+Status: closed (แก้แล้ว ผ่าน QA re-verification จริงด้วย Playwright + `prefers-color-scheme: dark` emulation — ดูหัวข้อ "QA Re-verification" ท้ายไฟล์)
+Owner: AI QA & Security found it; fixed directly in the same session (2026-09-04); re-verified 2026-09-13
 
 Fix applied: Option 1 from this report's own suggestion. `admin/app/globals.css` line 3 changed from `@custom-variant dark (&:is(.dark *));` to `@custom-variant dark (@media (prefers-color-scheme: dark));` -- no `.dark` class mechanism existed anywhere to react to, so switching the variant's activation strategy to match the token layer's own OS-preference mechanism fixes every `dark:`-prefixed class at once (today, still just the one call site this report identified). Verified via the same reproduction method this report used: rebuilt (`cd admin && npm run build`) and re-grepped the compiled CSS -- the rule now reads `@media (prefers-color-scheme:dark){.dark\:bg-white\/10{background-color:#ffffff1a}...}`, gated on the media query instead of the dead `:is(.dark *)` selector. Re-grepped the whole `admin/` tree for other `dark:`-prefixed classes per this report's own handoff note -- still only the one site, now fixed by the same change.
-Not yet done: an actual browser/Playwright check with `prefers-color-scheme: dark` emulation (this report's own "do not re-approve on code-reading alone" note) -- deployed to production, but needs QA's own re-verification pass to close.
 
 Bug: `Badge`'s `gray-tonal` variant (used for the "moderator" role pill on both `/users` search results and `/users/[id]`) uses `dark:bg-white/10` (added in commit `30b0a42`, "make Badge's gray-tonal variant dark-mode-safe") to avoid low-contrast text in dark mode. That `dark:` utility is **dead code in production** — it can never activate, so the exact contrast bug the commit claims to have fixed is still live.
 
@@ -39,3 +38,17 @@ Tests: none automated for this yet (no visual regression / axe-core tooling wire
 Regression Risk: low if Option 1 is chosen — currently exactly one class in the whole `admin/` tree uses the `dark:` variant (`gray-tonal`'s `dark:bg-white/10`), so switching the variant's activation strategy has a single, already-identified call site to re-verify; if Option 2, risk is contained to `Badge`/`globals.css` only.
 
 Handoff to QA: re-verify contrast of `gray-tonal` Badge (moderator role pill, `/users` and `/users/[id]`) in actual OS/browser dark mode after the fix, and re-grep the whole `admin/` tree for any other `dark:`-prefixed class that might exist by then, to confirm the same class of bug wasn't reintroduced elsewhere.
+
+## QA Re-verification (2026-09-13)
+
+Closed the one gap this report's own handoff note left open ("do not re-approve on code-reading alone") -- an actual rendered-browser check, not just a re-grep of compiled CSS.
+
+Method: `npm run build` (Turbopack, clean, 0 errors) against current `main`, confirmed the compiled CSS still gates `dark:bg-white/10` under `@media (prefers-color-scheme:dark)` (not `:is(.dark *)`). Then rendered the exact `Badge` markup (`badgeVariants({variant: "gray-tonal"})`'s real class list, from `admin/components/ui/badge.tsx`) in a real Chromium instance (Playwright, `/opt/pw-browsers`) with `colorScheme: 'dark'` and `colorScheme: 'light'` emulation -- the same technique this report's own suggested fix called for. Read back the actual computed background/text colors via `getComputedStyle`, composited them (page background → badge's own translucent background → text) on a canvas to get real on-screen sRGB (necessary since `dark:bg-white/10` is a 10%-opacity overlay, not a solid color, and `getComputedStyle` returns `oklab()`/`lab()` strings that need actual color-space conversion, not string parsing), and computed the WCAG relative-luminance contrast ratio from the composited pixels.
+
+Results:
+- **Light mode**: background rgb(228,228,231) (zinc-200) vs text rgb(10,10,10) -- contrast **15.60:1** (WCAG AA needs 4.5:1)
+- **Dark mode**: effective background rgb(34,34,34) (page's near-black `--background` composited with the 10%-white overlay) vs text rgb(250,250,250) (near-white `--foreground`) -- contrast **15.24:1**
+
+Both comfortably pass WCAG AA (and AAA's 7:1). Screenshots confirm visually: the badge renders as a subtle light-gray pill with light text on the dark page in dark mode (matches the CSS variable mechanism's intent), not the original bug's near-white-on-light-gray failure. The `dark:` variant is confirmed firing in a real browser under OS dark-mode preference, not just in compiled-CSS source.
+
+No other `dark:`-prefixed class exists anywhere in `admin/` as of this re-verification (re-grepped the whole tree). Closing.
