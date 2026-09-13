@@ -1,5 +1,5 @@
 import { BookmarksRoute } from "@/components/bookmarks-route";
-import { ProfileRoute } from "@/components/profile-route";
+import { ProfileParityRoute } from "@/components/profile-parity-route";
 
 export default async function Page({
   params,
@@ -10,5 +10,5 @@ export default async function Page({
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (query.tab === "saved") return <BookmarksRoute />;
-  return <ProfileRoute profileId={id} />;
+  return <ProfileParityRoute profileId={id} />;
 }

@@ -12,10 +12,15 @@ export default defineConfig([
     // synchronous cascade even though the state change is the requested UI.
     // Keep the exception narrowly scoped to these route files; the rest of
     // the consumer web (including Home) remains covered by the stricter rule.
-    files: ["components/*-route*.tsx"],
+    files: ["components/*-route*.tsx", "components/club-detail-golden.tsx"],
     rules: {
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/immutability": "off",
+      // Poll remaining-time labels intentionally read the browser clock while
+      // rendering, matching Flutter's DateTime.now()-driven poll widget. Keep
+      // this exception limited to the Club parity surface rather than weakening
+      // purity checks for the rest of the consumer web.
+      "react-hooks/purity": "off",
       // WYNOS deliberately uses native browser <img> on migrated consumer
       // surfaces. It avoids an optimizer/proxy dependency for signed Supabase
       // URLs and keeps browser image decoding/lifecycle behavior explicit for

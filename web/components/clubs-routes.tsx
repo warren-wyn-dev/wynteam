@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Lock, Plus, UsersRound } from "lucide-react";
+import { Camera, ChevronRight, Lock, Plus, Search, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -10,38 +10,80 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { fetchClub, searchClubs, type ClubRow } from "@/lib/phase3-data";
 
-function ClubList({ rows }: { rows: ClubRow[] }) {
-  return <div className="clubs-list">{rows.map((club) => <Link className="club-list-row" href={`/club/${club.id}`} key={club.id}><span className="club-list-avatar">{club.icon_url ? <img src={club.icon_url} alt="" /> : club.name.slice(0, 1)}</span><span className="club-list-copy"><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small>{club.description ? <p>{club.description}</p> : null}</span>{club.privacy === "private" ? <Lock size={16} /> : <UsersRound size={16} />}</Link>)}</div>;
+type Sections = { popular: ClubRow[]; newest: ClubRow[]; pending: Set<string> };
+
+function ClubAvatar({ club, size = 44 }: { club: ClubRow; size?: number }) {
+  return <span className="audit-club-avatar" style={{ width: size, height: size }}>{club.icon_url ? <img src={club.icon_url} alt="" /> : <b>{club.name.trim().slice(0, 1).toUpperCase() || "C"}</b>}</span>;
 }
 
-function ClubsInner({ client, userId, mine }: { client: SupabaseClient; userId: string; mine: boolean }) {
+async function fetchExplore(client: SupabaseClient, userId: string): Promise<Sections> {
+  const pages = await Promise.all([0, 1, 2].map((page) => searchClubs(client, "", page)));
+  const all = pages.flat();
+  const membership = await client.from("club_members").select("club_id,status").eq("user_id", userId);
+  if (membership.error) throw membership.error;
+  const approved = new Set((membership.data ?? []).filter((row) => row.status === "approved").map((row) => String(row.club_id)));
+  const pending = new Set((membership.data ?? []).filter((row) => row.status === "pending").map((row) => String(row.club_id)));
+  const discoverable = all.filter((club) => !approved.has(club.id));
+  const popular = [...discoverable].sort((a, b) => b.member_count - a.member_count || b.created_at.localeCompare(a.created_at)).slice(0, 10);
+  const newest = [...discoverable].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 10);
+  return { popular, newest, pending };
+}
+
+function ExploreClubRow({ club, pending, joining, onJoin }: { club: ClubRow; pending: boolean; joining: boolean; onJoin: () => void }) {
+  return <div className="audit-club-row"><Link className="audit-club-main" href={`/club/${club.id}`}><ClubAvatar club={club} /><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก</small></span></Link>{pending ? <span className="audit-club-pending">รออนุมัติ</span> : <button className="audit-club-join" type="button" disabled={joining} onClick={onJoin}>{joining ? <span className="route-system-spinner tiny" /> : "เข้าร่วม"}</button>}</div>;
+}
+
+function ExploreClubs({ client, userId }: { client: SupabaseClient; userId: string }) {
   const router = useRouter();
+  const [sections, setSections] = useState<Sections>({ popular: [], newest: [], pending: new Set() });
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => { setLoading(true); setError(""); try { setSections(await fetchExplore(client, userId)); } catch { setError("โหลด Club ไม่สำเร็จ"); } finally { setLoading(false); } }, [client, userId]);
+  useEffect(() => { void load(); }, [load]);
+  const join = async (club: ClubRow) => {
+    if (joining) return;
+    setJoining(club.id); setError("");
+    const result = await client.from("club_members").insert({ club_id: club.id, user_id: userId, role: "member", status: club.privacy === "private" ? "pending" : "approved" });
+    if (result.error) setError("เข้าร่วม Club ไม่สำเร็จ ลองใหม่อีกครั้ง"); else await load();
+    setJoining(null);
+  };
+  const match = (club: ClubRow) => !query.trim() || club.name.toLocaleLowerCase("th").includes(query.trim().toLocaleLowerCase("th"));
+  const popular = sections.popular.filter(match);
+  const newest = sections.newest.filter(match);
+  return <AppChrome title="สำรวจ Club" userId={userId} backHref="/" showBottomNav={false}>
+    {loading ? <LoadingState /> : <div className="audit-club-explore">
+      <section className="audit-club-hero"><h2>เจอคอมมูนิตี้ที่ใช่<span>สำหรับคุณ</span></h2><p>ร่วมคอมมูนิตี้ที่คุณสนใจ เชื่อมต่อกับคนที่คิดเหมือนกัน</p><button type="button" onClick={() => router.push("/clubs/new")}><Plus size={17} />สร้าง Club</button></section>
+      <label className="audit-club-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหา Club" /></label>
+      {error ? <p className="route-error audit-club-error">{error}</p> : null}
+      <section className="audit-club-section"><h3>กำลังนิยม</h3>{popular.length ? popular.map((club) => <ExploreClubRow club={club} pending={sections.pending.has(club.id)} joining={joining === club.id} onJoin={() => void join(club)} key={`popular:${club.id}`} />) : <p className="audit-club-empty">{query ? `ไม่พบ Club ที่ตรงกับ “${query}”` : "ยังไม่มี Club กำลังนิยมตอนนี้"}</p>}</section>
+      <section className="audit-club-section"><h3>ใหม่ล่าสุด</h3>{newest.length ? newest.map((club) => <ExploreClubRow club={club} pending={sections.pending.has(club.id)} joining={joining === club.id} onJoin={() => void join(club)} key={`new:${club.id}`} />) : <p className="audit-club-empty">{query ? `ไม่พบ Club ที่ตรงกับ “${query}”` : "ยังไม่มี Club ใหม่ตอนนี้"}</p>}</section>
+    </div>}
+  </AppChrome>;
+}
+
+function MyClubs({ client, userId }: { client: SupabaseClient; userId: string }) {
   const [rows, setRows] = useState<ClubRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      if (!mine) {
-        setRows(await searchClubs(client, "", 0));
-      } else {
-        const membership = await client.from("club_members").select("club_id").eq("user_id", userId).eq("status", "approved");
-        if (membership.error) throw membership.error;
-        const ids = (membership.data ?? []).map((row) => String(row.club_id));
-        const clubs = await Promise.all(ids.map((id) => fetchClub(client, id)));
-        setRows(clubs.filter((club): club is ClubRow => Boolean(club)));
-      }
-    } catch (e) { setError(e instanceof Error ? e.message : "โหลด Club ไม่สำเร็จ"); }
+      const membership = await client.from("club_members").select("club_id").eq("user_id", userId).eq("status", "approved");
+      if (membership.error) throw membership.error;
+      const ids = (membership.data ?? []).map((row) => String(row.club_id));
+      const clubs = await Promise.all(ids.map((id) => fetchClub(client, id)));
+      setRows(clubs.filter((club): club is ClubRow => Boolean(club)));
+    } catch { setError("โหลดรายชื่อ Club ไม่สำเร็จ"); }
     finally { setLoading(false); }
-  }, [client, mine, userId]);
+  }, [client, userId]);
   useEffect(() => { void load(); }, [load]);
-
-  return <AppChrome title={mine ? "Club ของฉัน" : "สำรวจ Club"} userId={userId} backHref="/" showBottomNav={false} actions={<button className="route-icon-button" type="button" aria-label="สร้าง Club" onClick={() => router.push("/clubs/new")}><Plus size={22} /></button>}>{loading ? <LoadingState /> : error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div> : rows.length ? <ClubList rows={rows} /> : <EmptyState>{mine ? "คุณยังไม่ได้เข้าร่วม Club" : "ยังไม่มี Club ให้สำรวจ"}</EmptyState>}</AppChrome>;
+  return <AppChrome title="Club ของฉัน" userId={userId} backHref="/" showBottomNav={false}>{loading ? <LoadingState /> : error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div> : rows.length ? <div className="audit-my-clubs">{rows.map((club) => <Link className="audit-my-club-row" href={`/club/${club.id}`} key={club.id}><ClubAvatar club={club} /><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก</small></span><ChevronRight size={18} /></Link>)}</div> : <EmptyState>ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ</EmptyState>}</AppChrome>;
 }
 
 export function ClubsRoute({ mine = false }: { mine?: boolean }) {
-  return <DeveloperRouteGate>{({ client, userId }) => <ClubsInner client={client} userId={userId} mine={mine} />}</DeveloperRouteGate>;
+  return <DeveloperRouteGate>{({ client, userId }) => mine ? <MyClubs client={client} userId={userId} /> : <ExploreClubs client={client} userId={userId} />}</DeveloperRouteGate>;
 }
 
 function CreateClubInner({ client, userId }: { client: SupabaseClient; userId: string }) {
@@ -51,9 +93,10 @@ function CreateClubInner({ client, userId }: { client: SupabaseClient; userId: s
   const [category, setCategory] = useState("");
   const [privacy, setPrivacy] = useState<"public" | "private">("public");
   const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
+  useEffect(() => { if (!file) { setPreview(null); return; } const url = URL.createObjectURL(file); setPreview(url); return () => URL.revokeObjectURL(url); }, [file]);
   const submit = async () => {
     if (!name.trim() || saving) return;
     setSaving(true); setError("");
@@ -66,14 +109,14 @@ function CreateClubInner({ client, userId }: { client: SupabaseClient; userId: s
         const path = `${clubId}/icon.${extension}`;
         const upload = await client.storage.from("club-media").upload(path, file, { upsert: true });
         if (upload.error) throw upload.error;
-        const update = await client.from("clubs").update({ icon_url: path, cover_url: null }).eq("id", clubId);
+        const update = await client.from("clubs").update({ icon_url: path }).eq("id", clubId);
         if (update.error) throw update.error;
       }
       router.replace(`/club/${clubId}`);
     } catch (e) { setError(e instanceof Error ? e.message : "สร้าง Club ไม่สำเร็จ"); setSaving(false); }
   };
-
-  return <AppChrome title="สร้าง Club" userId={userId} backHref="/" showBottomNav={false}><div className="create-club-page"><label className="club-image-picker"><Camera size={22} /><span>{file ? file.name : "เลือกรูป Club"}</span><input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><label className="route-field"><span>ชื่อ Club</span><input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} /></label><label className="route-field"><span>คำอธิบาย</span><textarea value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} /></label><label className="route-field"><span>หมวดหมู่</span><input value={category} maxLength={50} onChange={(e) => setCategory(e.target.value)} /></label><div className="club-privacy-choice"><button className={privacy === "public" ? "active" : ""} type="button" onClick={() => setPrivacy("public")}>สาธารณะ</button><button className={privacy === "private" ? "active" : ""} type="button" onClick={() => setPrivacy("private")}>ส่วนตัว</button></div>{error ? <p className="route-error">{error}</p> : null}<button className="route-primary create-club-submit" type="button" disabled={saving || !name.trim()} onClick={() => void submit()}>{saving ? "กำลังสร้าง…" : "สร้าง Club"}</button></div></AppChrome>;
+  const count = name.trim().length;
+  return <AppChrome title="สร้าง Club" userId={userId} backHref="/clubs" showBottomNav={false}><div className="audit-create-club"><section className="audit-create-club-intro"><h2>สร้างพื้นที่ของคุณ</h2><p>ตั้งชื่อ เล่าให้คนอื่นรู้ว่า Club นี้เกี่ยวกับอะไร แล้วเลือกว่าจะเปิดสาธารณะหรือส่วนตัว</p></section><label className="audit-club-image-picker">{preview ? <img src={preview} alt="" /> : <Camera size={26} />}<span>{file ? "เปลี่ยนรูป Club" : "เลือกรูป Club"}</span><input type="file" accept="image/*" hidden disabled={saving} onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><label className="route-field"><span>ชื่อ Club <small>{count}/50</small></span><input value={name} maxLength={50} onChange={(event) => setName(event.target.value)} placeholder="ชื่อ Club" /></label><label className="route-field"><span>คำอธิบาย</span><textarea value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} placeholder="Club นี้เกี่ยวกับอะไร?" /></label><label className="route-field"><span>หมวดหมู่</span><input value={category} maxLength={50} onChange={(event) => setCategory(event.target.value)} placeholder="เช่น เทคโนโลยี, กีฬา" /></label><div className="audit-club-privacy"><button className={privacy === "public" ? "active" : ""} type="button" onClick={() => setPrivacy("public")}><UsersRound size={19} /><span><strong>สาธารณะ</strong><small>ทุกคนค้นหาและเข้าร่วมได้</small></span></button><button className={privacy === "private" ? "active" : ""} type="button" onClick={() => setPrivacy("private")}><Lock size={19} /><span><strong>ส่วนตัว</strong><small>ต้องได้รับอนุมัติก่อนเข้าร่วม</small></span></button></div>{error ? <p className="route-error">{error}</p> : null}<button className="route-primary audit-create-club-submit" type="button" disabled={saving || !name.trim()} onClick={() => void submit()}>{saving ? "กำลังสร้าง…" : "สร้าง Club"}</button></div></AppChrome>;
 }
 
 export function CreateClubRoute() {
