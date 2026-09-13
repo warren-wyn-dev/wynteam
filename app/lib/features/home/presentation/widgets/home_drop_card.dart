@@ -268,13 +268,13 @@ class HomeDropCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          // Approved final mockup: each post gets breathing room above
-          // the avatar/name, while the content inside the post stays compact.
+          // Founder-approved 6px rhythm: divider -> header and action row ->
+          // divider use the same exact spacing.
           padding: const EdgeInsets.fromLTRB(
             0,
-            WynSpacing.space2,
+            homePostVerticalRhythm,
             0,
-            WynSpacing.space2,
+            homePostVerticalRhythm,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,10 +515,10 @@ class HomeDropCard extends StatelessWidget {
                               0,
                               0,
                               homeCardEdgeInset,
-                              WynSpacing.space2,
+                              homePostCaptionTrailingLayoutGap,
                             ),
                             child: Transform.translate(
-                              offset: const Offset(0, -3),
+                              offset: const Offset(0, -homePostCaptionLift),
                               child: !item.isPoll && item.imageUrl == null
                                   ? DoubleTapLike(
                                       onLike: onToggleLike,
@@ -596,11 +596,10 @@ class HomeDropCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                        // Compact feed polish: one fixed 8px gap after media
-                        // before liked-by/actions. Caption-only Drops already get
-                        // the same 8px from the caption's own bottom padding.
+                        // Keep media -> actions on the same Founder-approved
+                        // 6px vertical rhythm used by text-only posts.
                         if (item.isPoll || item.imageUrl != null)
-                          const SizedBox(height: WynSpacing.space2),
+                          const SizedBox(height: homePostVerticalRhythm),
                         if (showLikedBy && item.likedBy.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
