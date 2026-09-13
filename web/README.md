@@ -34,6 +34,10 @@ npm run dev
 npm run check
 ```
 
-## Phase 1
+## Migration status
 
-The first slice is a read-only developer-gated Home feed using the existing `is_developer_account()` and `get_wynos_ranked_feed()` RPCs. Write interactions and additional routes are migrated in later slices after parity tests.
+- Phase 1: Next.js/React foundation, developer gate, system-font DOM rendering.
+- Phase 2: interactive Home feed, comments, follows, repost/save/like and Create Drop.
+- Phase 3: Search/Discovery, Profile, Notifications, Chat, Settings and supported deep-link routes.
+
+The new consumer web remains developer-gated. Pixel/interaction parity and browser/device QA are handled in Phase 4; public production cutover remains a separate Phase 5 approval.
