@@ -1,0 +1,340 @@
+name: Patch iOS Web DOM text stability once
+
+on:
+  push:
+    branches:
+      - fix/ios-web-dom-text-stability-20260913
+    paths:
+      - '.github/workflows/patch-ios-dom-text-stability-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ios-web-dom-text-stability-20260913
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+
+      - name: Patch iOS Web text rendering path
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          web_path = Path('app/lib/core/typography/browser_system_text_web.dart')
+          text = web_path.read_text()
+
+          old = '''/// Flutter Web's canvas renderer cannot use the visitor's installed text fonts.\n/// WYNOS therefore renders user-visible text through browser DOM surfaces.\n/// Safari resolves this stack to Apple's installed system text and Apple Color\n/// Emoji; Android browsers resolve to their own installed system stack.\nconst bool usesBrowserSystemTextDom = true;\n'''
+          new = '''/// Flutter Web normally renders WYNOS text through browser DOM surfaces so the\n/// visitor's installed system fonts are available. iOS/iPadOS WebKit is the\n/// exception: a scrolling feed can accumulate hundreds of platform views, and\n/// WebKit may evict/crash the page process under that pressure. On Apple mobile\n/// browsers we therefore keep text inside Flutter's renderer and reserve DOM\n/// platform views for surfaces that truly require native HTML controls.\nfinal RegExp _iosWebBrowserPattern = RegExp(\n  r'iPhone|iPad|iPod',\n  caseSensitive: false,\n);\n\nbool get _isIosWeb {\n  final navigator = web.window.navigator;\n  final userAgent = navigator.userAgent;\n  return _iosWebBrowserPattern.hasMatch(userAgent) ||\n      (userAgent.contains('Macintosh') && navigator.maxTouchPoints > 1);\n}\n\nbool get usesBrowserSystemTextDom => !_isIosWeb;\n'''
+          if old not in text:
+              raise SystemExit('browser_system_text_web.dart header anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''  @override\n  Widget build(BuildContext context) {\n    final spans = <BrowserSystemSpan>[];\n'''
+          new = '''  @override\n  Widget build(BuildContext context) {\n    if (!usesBrowserSystemTextDom) {\n      if (textSpan != null) {\n        return Text.rich(\n          textSpan!,\n          style: style,\n          maxLines: maxLines,\n          softWrap: softWrap,\n          overflow: overflow ?? TextOverflow.clip,\n          textAlign: textAlign,\n          semanticsLabel: semanticsLabel,\n          textDirection: textDirection,\n          textHeightBehavior: textHeightBehavior,\n        );\n      }\n      return Text(\n        text ?? '',\n        style: style,\n        maxLines: maxLines,\n        softWrap: softWrap,\n        overflow: overflow,\n        textAlign: textAlign,\n        semanticsLabel: semanticsLabel,\n        textDirection: textDirection,\n        textHeightBehavior: textHeightBehavior,\n      );\n    }\n\n    final spans = <BrowserSystemSpan>[];\n'''
+          if old not in text:
+              raise SystemExit('BrowserSystemText build anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {\n  @override\n  Widget build(BuildContext context) {\n    final defaultStyle = DefaultTextStyle.of(context).style;\n'''
+          new = '''class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {\n  final List<TapGestureRecognizer> _flutterRecognizers = [];\n\n  @override\n  void dispose() {\n    _disposeFlutterRecognizers();\n    super.dispose();\n  }\n\n  void _disposeFlutterRecognizers() {\n    for (final recognizer in _flutterRecognizers) {\n      recognizer.dispose();\n    }\n    _flutterRecognizers.clear();\n  }\n\n  TapGestureRecognizer _flutterRecognizerFor(VoidCallback onTap) {\n    final recognizer = TapGestureRecognizer()..onTap = onTap;\n    _flutterRecognizers.add(recognizer);\n    return recognizer;\n  }\n\n  Widget _buildFlutterText() {\n    _disposeFlutterRecognizers();\n    return Text.rich(\n      TextSpan(\n        style: widget.style,\n        children: [\n          for (final span in widget.spans)\n            TextSpan(\n              text: span.text,\n              style: span.style,\n              recognizer: span.onTap == null\n                  ? null\n                  : _flutterRecognizerFor(span.onTap!),\n            ),\n        ],\n      ),\n      maxLines: widget.maxLines,\n      softWrap: widget.softWrap,\n      overflow: widget.overflow ?? TextOverflow.clip,\n      textAlign: widget.textAlign,\n      semanticsLabel: widget.semanticsLabel,\n      textDirection: widget.textDirection,\n      textHeightBehavior: widget.textHeightBehavior,\n    );\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    if (!usesBrowserSystemTextDom) return _buildFlutterText();\n    _disposeFlutterRecognizers();\n\n    final defaultStyle = DefaultTextStyle.of(context).style;\n'''
+          if old not in text:
+              raise SystemExit('BrowserSystemRichText state anchor not found')
+          text = text.replace(old, new, 1)
+          web_path.write_text(text)
+
+          emoji_path = Path('app/lib/core/typography/native_emoji_web.dart')
+          emoji = emoji_path.read_text()
+          old = '''final RegExp _appleBrowserPattern =\n    RegExp(r'iPhone|iPad|iPod|Macintosh', caseSensitive: false);\n\nbool get shouldUseBrowserNativeEmoji =>\n    _appleBrowserPattern.hasMatch(web.window.navigator.userAgent);\n'''
+          new = '''final RegExp _appleBrowserPattern =\n    RegExp(r'iPhone|iPad|iPod|Macintosh', caseSensitive: false);\nfinal RegExp _iosWebBrowserPattern =\n    RegExp(r'iPhone|iPad|iPod', caseSensitive: false);\n\nbool get _isIosWeb {\n  final navigator = web.window.navigator;\n  final userAgent = navigator.userAgent;\n  return _iosWebBrowserPattern.hasMatch(userAgent) ||\n      (userAgent.contains('Macintosh') && navigator.maxTouchPoints > 1);\n}\n\nbool get shouldUseBrowserNativeEmoji =>\n    !_isIosWeb && _appleBrowserPattern.hasMatch(web.window.navigator.userAgent);\n'''
+          if old not in emoji:
+              raise SystemExit('native_emoji_web.dart anchor not found')
+          emoji_path.write_text(emoji.replace(old, new, 1))
+
+          test_path = Path('app/test/ios_web_dom_stability_source_test.dart')
+          test_path.write_text(r'''import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('iOS Web falls back to Flutter text instead of DOM platform views', () {
+    final source = File(
+      'lib/core/typography/browser_system_text_web.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("RegExp(r'iPhone|iPad|iPod'"));
+    expect(source, contains('bool get usesBrowserSystemTextDom => !_isIosWeb;'));
+    expect(source, contains('if (!usesBrowserSystemTextDom)'));
+    expect(source, isNot(contains('const bool usesBrowserSystemTextDom = true;')));
+  });
+
+  test('iOS Web does not create DOM platform views for emoji', () {
+    final source = File(
+      'lib/core/typography/native_emoji_web.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('bool get _isIosWeb'));
+    expect(source, contains('!_isIosWeb && _appleBrowserPattern.hasMatch'));
+  });
+}
+''')
+          PY
+
+          dart format \
+            app/lib/core/typography/browser_system_text_web.dart \
+            app/lib/core/typography/native_emoji_web.dart \
+            app/test/ios_web_dom_stability_source_test.dart
+
+      - name: Analyze and run regression test
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test test/ios_web_dom_stability_source_test.dart
+
+      - name: Build iOS Web DOM stress harness
+        shell: bash
+        working-directory: app
+        run: |
+          cat > lib/qa_ios_dom_text_stress.dart <<'DART'
+          import 'package:flutter/material.dart';
+          import 'package:web/web.dart' as web;
+
+          import 'core/typography/browser_system_text.dart';
+          import 'core/typography/native_emoji.dart';
+
+          void main() {
+            web.document.documentElement?.setAttribute(
+              'data-wyn-dom-text',
+              usesBrowserSystemTextDom.toString(),
+            );
+            web.document.documentElement?.setAttribute(
+              'data-wyn-dom-emoji',
+              shouldUseBrowserNativeEmoji.toString(),
+            );
+            runApp(const _StressApp());
+          }
+
+          class _StressApp extends StatefulWidget {
+            const _StressApp();
+
+            @override
+            State<_StressApp> createState() => _StressAppState();
+          }
+
+          class _StressAppState extends State<_StressApp> {
+            final ScrollController _controller = ScrollController();
+
+            @override
+            void initState() {
+              super.initState();
+              WidgetsBinding.instance.addPostFrameCallback((_) => _stress());
+            }
+
+            Future<void> _stress() async {
+              await Future<void>.delayed(const Duration(seconds: 2));
+              try {
+                for (var cycle = 0; cycle < 4; cycle++) {
+                  if (!mounted || !_controller.hasClients) return;
+                  await _controller.animateTo(
+                    _controller.position.maxScrollExtent,
+                    duration: const Duration(seconds: 2),
+                    curve: Curves.linear,
+                  );
+                  await _controller.animateTo(
+                    0,
+                    duration: const Duration(seconds: 2),
+                    curve: Curves.linear,
+                  );
+                }
+                web.document.documentElement?.setAttribute(
+                  'data-wyn-stress-complete',
+                  'true',
+                );
+              } catch (error) {
+                web.document.documentElement?.setAttribute(
+                  'data-wyn-stress-error',
+                  error.toString(),
+                );
+              }
+            }
+
+            @override
+            void dispose() {
+              _controller.dispose();
+              super.dispose();
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                home: Scaffold(
+                  body: ListView.builder(
+                    controller: _controller,
+                    itemCount: 420,
+                    itemExtent: 86,
+                    itemBuilder: (context, index) => Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          BrowserSystemText(
+                            'ผู้ใช้ $index · 1 นาที',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          BrowserSystemRichText(
+                            style: const TextStyle(fontSize: 15),
+                            spans: [
+                              const BrowserSystemSpan(text: 'ข้อความในฟีด '),
+                              BrowserSystemSpan(
+                                text: '#WYNOS$index',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const BrowserSystemSpan(text: '  ❤️  12'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+          DART
+          flutter build web --release --no-wasm-dry-run \
+            -t lib/qa_ios_dom_text_stress.dart
+          rm lib/qa_ios_dom_text_stress.dart
+
+      - name: Install WebKit
+        shell: bash
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps webkit
+
+      - name: Stress iPhone Safari and Chrome WebKit without DOM text views
+        shell: bash
+        working-directory: app
+        run: |
+          python3 -m http.server 8788 --directory build/web >/tmp/wynos-dom-stress-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+
+          cat > /tmp/wynos-ios-dom-stress.js <<'NODE'
+          const { webkit } = require(process.env.GITHUB_WORKSPACE + '/node_modules/playwright');
+
+          const cases = [
+            ['safari-ios', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'],
+            ['chrome-ios', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.7339.101 Mobile/15E148 Safari/604.1'],
+          ];
+
+          (async () => {
+            const browser = await webkit.launch({ headless: true });
+            for (const [name, userAgent] of cases) {
+              const context = await browser.newContext({
+                viewport: { width: 390, height: 844 },
+                screen: { width: 390, height: 844 },
+                deviceScaleFactor: 3,
+                isMobile: true,
+                hasTouch: true,
+                locale: 'th-TH',
+                timezoneId: 'Asia/Bangkok',
+                userAgent,
+                serviceWorkers: 'block',
+              });
+              const page = await context.newPage();
+              let crashed = false;
+              let navigations = 0;
+              const errors = [];
+              page.on('crash', () => { crashed = true; errors.push('page-crash'); });
+              page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
+              page.on('framenavigated', frame => {
+                if (frame === page.mainFrame()) navigations++;
+              });
+
+              await page.goto('http://127.0.0.1:8788/', {
+                waitUntil: 'domcontentloaded',
+                timeout: 60000,
+              });
+              await page.waitForFunction(
+                () => document.documentElement.getAttribute('data-wyn-dom-text') === 'false',
+                null,
+                { timeout: 30000 },
+              );
+              const domEmoji = await page.getAttribute('html', 'data-wyn-dom-emoji');
+              if (domEmoji !== 'false') throw new Error(`${name}: DOM emoji path still enabled`);
+
+              const initialNavigations = navigations;
+              await page.evaluate(() => { window.__wynDomStressMarker = 'alive'; });
+              await page.waitForFunction(() => {
+                const root = document.documentElement;
+                const error = root.getAttribute('data-wyn-stress-error');
+                if (error) throw new Error(error);
+                return root.getAttribute('data-wyn-stress-complete') === 'true';
+              }, null, { timeout: 90000 });
+              await page.waitForTimeout(5000);
+
+              const marker = await page.evaluate(() => window.__wynDomStressMarker || null);
+              const platformViews = await page.locator('flt-platform-view').count();
+              const unexpectedNavigations = navigations - initialNavigations;
+              console.log(JSON.stringify({
+                name,
+                crashed,
+                unexpectedNavigations,
+                marker,
+                platformViews,
+                errors,
+              }, null, 2));
+
+              if (crashed) throw new Error(`${name}: WebKit page crashed`);
+              if (unexpectedNavigations !== 0) {
+                throw new Error(`${name}: unexpected reload/navigation count ${unexpectedNavigations}`);
+              }
+              if (marker !== 'alive') throw new Error(`${name}: document was replaced`);
+              if (platformViews !== 0) {
+                throw new Error(`${name}: expected 0 text platform views, got ${platformViews}`);
+              }
+              if (errors.length) throw new Error(`${name}: ${errors.join(' | ')}`);
+              await context.close();
+            }
+            await browser.close();
+          })().catch(err => {
+            console.error(err.stack || err);
+            process.exit(1);
+          });
+          NODE
+
+          node /tmp/wynos-ios-dom-stress.js
+
+      - name: Commit verified fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            app/lib/core/typography/browser_system_text_web.dart \
+            app/lib/core/typography/native_emoji_web.dart \
+            app/test/ios_web_dom_stability_source_test.dart
+          git diff --cached --check
+          git commit -m 'fix(web): avoid DOM text platform views on iOS'
+          git push origin HEAD:fix/ios-web-dom-text-stability-20260913
