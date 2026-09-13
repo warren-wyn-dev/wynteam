@@ -19,6 +19,7 @@ export type HomeFeedRow = {
   redropper_username?: string | null;
   quote_text?: string | null;
   location?: string | null;
+  audience?: string | null;
 };
 
 type RankedCandidate = {
