@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { HomeMigrationPreview } from "@/components/home-migration-preview";
 import { ParityEmailAuth } from "@/components/parity-email-auth";
-import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type View = "welcome" | "methods" | "email";
 
@@ -38,7 +38,11 @@ export function ParityAuthEntry() {
   }, [supabase]);
 
   async function google() {
-    if (!supabase || loading) return;
+    if (loading) return;
+    if (!supabase) {
+      setError("ยังไม่ได้ตั้งค่าการเข้าสู่ระบบสำหรับเว็บ");
+      return;
+    }
     setLoading(true);
     setError("");
     const result = await supabase.auth.signInWithOAuth({
@@ -51,9 +55,6 @@ export function ParityAuthEntry() {
     }
   }
 
-  if (!hasSupabaseBrowserConfig() || !supabase) {
-    return <main className="parity-auth parity-auth-loading">ยังไม่ได้ตั้งค่า Supabase สำหรับเว็บ</main>;
-  }
   if (booting) {
     return <main className="parity-auth parity-auth-loading"><LoaderCircle className="parity-spinner" /></main>;
   }
