@@ -50,12 +50,12 @@ const double homeCardContentInset =
 
 /// Founder-approved vertical rhythm around Home feed post boundaries.
 /// Divider -> post header, content/media -> action row, and action row ->
-/// divider all use this same 6px target.
-const double homePostVerticalRhythm = 6;
+/// divider all use this same 3px target.
+const double homePostVerticalRhythm = 3;
 
 /// Caption text is intentionally lifted 3px toward the author row. Transform
 /// does not affect layout, so the trailing layout gap is reduced by the same
-/// amount to keep the visible caption/hashtag -> action/media gap at 6px.
+/// amount to keep the visible caption/hashtag -> action/media gap at 3px.
 const double homePostCaptionLift = 3;
 const double homePostCaptionTrailingLayoutGap =
     homePostVerticalRhythm - homePostCaptionLift;
