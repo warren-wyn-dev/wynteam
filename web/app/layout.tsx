@@ -11,6 +11,7 @@ import "./parity-final.css";
 import "./parity-fixes.css";
 import "./parity-completion.css";
 import "./parity-closure.css";
+import "./post-detail-parity.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
