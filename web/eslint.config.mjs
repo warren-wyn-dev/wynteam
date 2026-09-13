@@ -6,7 +6,7 @@ export default defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    // Phase 3 route components intentionally load RLS-scoped external data on
+    // Migrated route components intentionally load RLS-scoped external data on
     // mount/route change and immediately expose a loading state. React 19's
     // generic rule treats that established client-data-loader pattern as a
     // synchronous cascade even though the state change is the requested UI.
@@ -15,10 +15,13 @@ export default defineConfig([
     files: ["components/*-route*.tsx"],
     rules: {
       "react-hooks/set-state-in-effect": "off",
-      // Internal Next navigation is preferred, but two destructive/terminal
-      // flows intentionally assign location so auth/deleted-session state is
-      // discarded by a full document navigation.
       "react-hooks/immutability": "off",
+      // WYNOS deliberately uses native browser <img> on migrated consumer
+      // surfaces. It avoids an optimizer/proxy dependency for signed Supabase
+      // URLs and keeps browser image decoding/lifecycle behavior explicit for
+      // the iOS WebKit stability work. This is an intentional architecture
+      // choice, not an accidental missed next/image migration.
+      "@next/next/no-img-element": "off",
     },
   },
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
