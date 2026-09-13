@@ -6,15 +6,19 @@ import { useEffect, useMemo, useState } from "react";
 
 import { HomeMigrationPreview } from "@/components/home-migration-preview";
 import { ParityEmailAuth } from "@/components/parity-email-auth";
+import { ParityInviteCode } from "@/components/parity-invite-code";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type View = "welcome" | "methods" | "email";
+type View = "welcome" | "methods" | "email" | "invite";
+type InviteStatus = "idle" | "checking" | "blocked" | "open";
 
 export function ParityAuthEntry() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [session, setSession] = useState<Session | null>(null);
   const [booting, setBooting] = useState(() => Boolean(supabase));
   const [view, setView] = useState<View>("welcome");
+  const [inviteStatus, setInviteStatus] = useState<InviteStatus>("idle");
+  const [inviteValidated, setInviteValidated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,6 +41,31 @@ export function ParityAuthEntry() {
     };
   }, [supabase]);
 
+  async function openMethods() {
+    setView("methods");
+    setError("");
+    if (inviteValidated) {
+      setInviteStatus("open");
+      return;
+    }
+    if (!supabase) {
+      // Browser QA intentionally runs without production credentials.
+      setInviteStatus("open");
+      return;
+    }
+
+    setInviteStatus("checking");
+    try {
+      const result = await supabase.rpc("is_invite_gate_enabled");
+      if (result.error) throw result.error;
+      setInviteStatus(result.data === true ? "blocked" : "open");
+    } catch {
+      // Match Flutter: a gate-status network error must never become a
+      // global authentication outage.
+      setInviteStatus("open");
+    }
+  }
+
   async function google() {
     if (loading) return;
     if (!supabase) {
@@ -47,7 +76,10 @@ export function ParityAuthEntry() {
     setError("");
     const result = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/` },
+      options: {
+        redirectTo: `${window.location.origin}/`,
+        queryParams: { prompt: "select_account" },
+      },
     });
     if (result.error) {
       setError("เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง");
@@ -60,6 +92,18 @@ export function ParityAuthEntry() {
   }
   if (session) return <HomeMigrationPreview />;
   if (view === "email") return <ParityEmailAuth onBack={() => setView("methods")} />;
+  if (view === "invite") {
+    return (
+      <ParityInviteCode
+        onBack={() => setView("methods")}
+        onValidated={() => {
+          setInviteValidated(true);
+          setInviteStatus("open");
+          setView("methods");
+        }}
+      />
+    );
+  }
 
   if (view === "welcome") {
     return (
@@ -68,7 +112,7 @@ export function ParityAuthEntry() {
           <div className="parity-wordmark-line"><h1>WYNOS</h1><span className="parity-beta">BETA</span></div>
           <p>เชื่อมต่อ แสดงตัวตน และสร้างชุมชนของคุณเอง</p>
         </div>
-        <button className="parity-primary parity-welcome-cta" type="button" onClick={() => setView("methods")}>เริ่มต้นใช้งาน</button>
+        <button className="parity-primary parity-welcome-cta" type="button" onClick={() => void openMethods()}>เริ่มต้นใช้งาน</button>
       </main>
     );
   }
@@ -81,8 +125,19 @@ export function ParityAuthEntry() {
       <section className="parity-auth-content parity-method-content">
         <h1>เข้าสู่ระบบ WYNOS</h1>
         <div className="parity-method-actions">
-          <button className="parity-primary parity-google" type="button" disabled={loading} onClick={() => void google()}><span className="parity-google-mark" aria-hidden="true">G</span>เข้าสู่ระบบด้วย Google</button>
-          <button className="parity-outline" type="button" disabled={loading} onClick={() => setView("email")}>เข้าสู่ระบบด้วยอีเมล</button>
+          {inviteStatus === "checking" || inviteStatus === "idle" ? (
+            <LoaderCircle className="parity-spinner parity-method-spinner" aria-label="กำลังตรวจสอบสิทธิ์เข้าใช้งาน" />
+          ) : inviteStatus === "blocked" ? (
+            <>
+              <p className="parity-invite-message">ตอนนี้ WYNOS เปิดให้เข้าใช้งานเฉพาะผู้ที่มีโค้ดเชิญจากเพื่อนเท่านั้น</p>
+              <button className="parity-primary" type="button" onClick={() => setView("invite")}>กรอกโค้ดเชิญ</button>
+            </>
+          ) : (
+            <>
+              <button className="parity-primary parity-google" type="button" disabled={loading} onClick={() => void google()}><span className="parity-google-mark" aria-hidden="true">G</span>เข้าสู่ระบบด้วย Google</button>
+              <button className="parity-outline" type="button" disabled={loading} onClick={() => setView("email")}>เข้าสู่ระบบด้วยอีเมล</button>
+            </>
+          )}
         </div>
         {loading ? <LoaderCircle className="parity-spinner parity-inline-spinner" /> : null}
         {error ? <p className="parity-auth-error" role="alert">{error}</p> : null}
