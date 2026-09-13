@@ -21,12 +21,10 @@ jobs:
           from pathlib import Path
           p = Path('app/test/home_feed_screen_test.dart')
           s = p.read_text()
-          old = """        final undoAction = find.widgetWithText(SnackBarAction, 'เลิกทำ');
-        tester.widget<SnackBarAction>(undoAction).onPressed();
-"""
-          new = """        final undoButton = find.widgetWithText(TextButton, 'เลิกทำ');
-        tester.widget<TextButton>(undoButton).onPressed!();
-"""
+          old = ("        final undoAction = find.widgetWithText(SnackBarAction, 'เลิกทำ');\n"
+                 "        tester.widget<SnackBarAction>(undoAction).onPressed();\n")
+          new = ("        final undoButton = find.widgetWithText(TextButton, 'เลิกทำ');\n"
+                 "        tester.widget<TextButton>(undoButton).onPressed!();\n")
           if old not in s:
               raise SystemExit('Expected WYN-079 SnackBarAction test snippet not found')
           p.write_text(s.replace(old, new, 1))
