@@ -59,7 +59,7 @@ Future<void> main() async {
     // stronger default. This is deliberately configured in one place so web
     // can move back to PKCE once the SDK's multi-flow verifier support is
     // proven in production.
-    authOptions: FlutterAuthClientOptions(
+    authOptions: const FlutterAuthClientOptions(
       authFlowType: kIsWeb ? AuthFlowType.implicit : AuthFlowType.pkce,
     ),
   );
