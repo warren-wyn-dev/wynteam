@@ -1,0 +1,154 @@
+name: QA WYNOS production full-system once
+
+on:
+  push:
+    branches:
+      - qa/full-system-20260913
+    paths:
+      - '.github/workflows/qa-full-system-once.yml'
+
+jobs:
+  production-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: HTTP production checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qa-artifacts
+          urls=(
+            'https://wynos.online/'
+            'https://wynos.online/flutter_bootstrap.js'
+            'https://wynos.online/main.dart.js'
+            'https://wynos.online/manifest.json'
+            'https://wynos.online/firebase-messaging-sw.js'
+            'https://wynos.online/__qa_deep_link_probe__'
+            'https://wynos.online/?code=WYNOS_QA_INVALID_AUTH_CODE'
+          )
+          for url in "${urls[@]}"; do
+            echo "===== $url =====" | tee -a qa-artifacts/http.txt
+            curl -sS -L --max-redirs 10 --connect-timeout 10 --max-time 30 \
+              -o /tmp/body -D /tmp/headers \
+              -w 'final_url=%{url_effective}\nstatus=%{http_code}\nredirects=%{num_redirects}\ncontent_type=%{content_type}\nsize=%{size_download}\n' \
+              "$url" | tee -a qa-artifacts/http.txt
+            sed -n '1,20p' /tmp/headers >> qa-artifacts/http.txt
+            echo >> qa-artifacts/http.txt
+          done
+
+      - name: Install Playwright browsers
+        shell: bash
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium webkit
+
+      - name: Browser QA in Chromium and WebKit
+        shell: bash
+        run: |
+          cat > /tmp/wynos-qa.js <<'NODE'
+          const { chromium, webkit } = require('playwright');
+          const fs = require('fs');
+          const path = require('path');
+          const OUT = path.resolve('qa-artifacts');
+          fs.mkdirSync(OUT, { recursive: true });
+
+          async function probe(browserType, name) {
+            const browser = await browserType.launch({ headless: true });
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              locale: 'th-TH',
+              timezoneId: 'Asia/Bangkok',
+              serviceWorkers: 'allow',
+            });
+            const page = await context.newPage();
+            const events = [];
+            let mainFrameNavigations = 0;
+            let loadEvents = 0;
+
+            const push = (type, value) => events.push({ t: Date.now(), type, value: String(value).slice(0, 1200) });
+            page.on('console', msg => push('console:' + msg.type(), msg.text()));
+            page.on('pageerror', err => push('pageerror', err.stack || err.message || err));
+            page.on('requestfailed', req => push('requestfailed', `${req.method()} ${req.url()} :: ${req.failure()?.errorText}`));
+            page.on('response', res => { if (res.status() >= 400) push('http' + res.status(), res.url()); });
+            page.on('framenavigated', frame => { if (frame === page.mainFrame()) { mainFrameNavigations++; push('navigation', frame.url()); } });
+            page.on('load', () => { loadEvents++; push('load', page.url()); });
+            page.on('crash', () => push('crash', page.url()));
+
+            async function snapshot(label) {
+              const data = await page.evaluate(() => ({
+                href: location.href,
+                title: document.title,
+                readyState: document.readyState,
+                bodyText: (document.body?.innerText || '').slice(0, 4000),
+                bodyHTML: (document.body?.innerHTML || '').slice(0, 4000),
+                localStorageKeys: Object.keys(localStorage),
+                sessionStorageKeys: Object.keys(sessionStorage),
+                swController: !!navigator.serviceWorker?.controller,
+              })).catch(e => ({ evalError: String(e), href: page.url() }));
+              fs.writeFileSync(path.join(OUT, `${name}-${label}.json`), JSON.stringify({ data, mainFrameNavigations, loadEvents, events }, null, 2));
+              await page.screenshot({ path: path.join(OUT, `${name}-${label}.png`), fullPage: true }).catch(() => {});
+              console.log(`[${name}] ${label}: url=${data.href || page.url()} nav=${mainFrameNavigations} loads=${loadEvents} pageErrors=${events.filter(e => e.type==='pageerror').length} requestFailed=${events.filter(e => e.type==='requestfailed').length}`);
+              return data;
+            }
+
+            // Fresh production boot.
+            let start = Date.now();
+            await page.goto('https://wynos.online/', { waitUntil: 'domcontentloaded', timeout: 45000 });
+            await page.waitForTimeout(12000);
+            await snapshot('root');
+            if (Date.now() - start > 40000) push('warning', 'root boot exceeded 40s');
+
+            // Direct deep-link probe: path strategy requires SPA fallback.
+            await page.goto('https://wynos.online/__qa_deep_link_probe__', { waitUntil: 'domcontentloaded', timeout: 45000 });
+            await page.waitForTimeout(6000);
+            await snapshot('deep-link');
+
+            // Invalid PKCE callback must fail once, never reload/loop/crash indefinitely.
+            mainFrameNavigations = 0; loadEvents = 0; events.length = 0;
+            await page.goto('https://wynos.online/?code=WYNOS_QA_INVALID_AUTH_CODE', { waitUntil: 'domcontentloaded', timeout: 45000 });
+            await page.waitForTimeout(15000);
+            const callback = await snapshot('invalid-callback');
+            if (mainFrameNavigations > 4 || loadEvents > 4) {
+              throw new Error(`${name}: callback navigation loop suspected: nav=${mainFrameNavigations}, loads=${loadEvents}, url=${callback.href}`);
+            }
+            if (events.some(e => e.type === 'crash')) {
+              throw new Error(`${name}: page crashed during callback handling`);
+            }
+
+            // Reload the same stale callback once to mimic Safari reopening/restoring the tab.
+            mainFrameNavigations = 0; loadEvents = 0; events.length = 0;
+            await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
+            await page.waitForTimeout(10000);
+            await snapshot('invalid-callback-reload');
+            if (mainFrameNavigations > 4 || loadEvents > 4) {
+              throw new Error(`${name}: stale callback reload loop suspected: nav=${mainFrameNavigations}, loads=${loadEvents}`);
+            }
+
+            await context.close();
+            await browser.close();
+          }
+
+          (async () => {
+            let failures = [];
+            for (const [type, name] of [[chromium, 'chromium'], [webkit, 'webkit']]) {
+              try { await probe(type, name); }
+              catch (e) { failures.push(`${name}: ${e.stack || e}`); console.error(e); }
+            }
+            if (failures.length) {
+              fs.writeFileSync(path.join(OUT, 'failures.txt'), failures.join('\n\n'));
+              process.exitCode = 1;
+            }
+          })();
+          NODE
+          node /tmp/wynos-qa.js
+
+      - name: Upload QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-production-qa
+          path: qa-artifacts/
+          if-no-files-found: warn
