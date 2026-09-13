@@ -44,15 +44,12 @@ void main() {
     text: 'ชอบโพสต์นี้มาก 👨‍👩‍👧‍👦 🇹🇭',
   );
 
-  test('theme keeps Thai fallback for ordinary Flutter text', () {
-    expect(
-      WynTheme.light.textTheme.bodyLarge?.fontFamilyFallback,
-      contains('WYNThaiLooped'),
-    );
-    expect(
-      WynTheme.dark.textTheme.labelSmall?.fontFamilyFallback,
-      contains('WYNThaiLooped'),
-    );
+  test('native test target keeps the platform system font', () {
+    // flutter test is a non-Web target, so WYNOS must not force the bundled
+    // Web family onto native iOS/Android typography.
+    expect(WynTheme.light.textTheme.bodyLarge?.fontFamily, isNull);
+    expect(WynTheme.dark.textTheme.labelSmall?.fontFamily, isNull);
+    expect(WynTheme.webFontFamily, 'WYNWebNotoThai');
   });
 
   testWidgets('liked-by metadata uses the shared labelSmall token',
