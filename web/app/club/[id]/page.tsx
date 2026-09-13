@@ -1,6 +1,6 @@
-import { ClubRoute } from "@/components/deep-link-routes";
+import { ClubDetailRoute } from "@/components/club-detail-route";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <ClubRoute clubId={id} />;
+  return <ClubDetailRoute clubId={id} />;
 }

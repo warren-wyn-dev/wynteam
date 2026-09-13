@@ -1,0 +1,70 @@
+.club-detail-header { position: relative; padding-bottom: 14px; background: var(--paper); }
+.club-detail-cover { height: 140px; margin: 12px 16px 0; overflow: hidden; border-radius: 18px; background: linear-gradient(135deg,#ebe8e0,#d7d3c9); }
+.club-detail-cover img { width: 100%; height: 100%; object-fit: cover; }
+.club-detail-avatar { position: absolute; top: 104px; left: 30px; width: 76px; height: 76px; display: grid; place-items: center; overflow: hidden; border: 4px solid var(--paper); border-radius: 50%; background: var(--surface-tint,#f1efe9); font-size: 25px; }
+.club-detail-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.club-detail-copy { padding: 48px 18px 0; }
+.club-detail-copy h1 { margin: 0; font-size: 21px; line-height: 1.25; }
+.club-detail-copy > p:not(.route-error) { margin: 5px 0 12px; display: flex; align-items: center; gap: 4px; color: var(--graphite); font-size: 13px; }
+.club-detail-join { min-height: 38px; padding: 0 18px; border: 1px solid var(--sapphire); border-radius: 999px; background: var(--sapphire); color: #fff; font: inherit; font-size: 14px; font-weight: 700; }
+.club-detail-join.soft { background: var(--paper); color: var(--sapphire); }
+.club-detail-join:disabled { opacity: .62; }
+.club-detail-tabs { position: sticky; top: 0; z-index: 38; height: 48px; display: grid; grid-template-columns: repeat(3,1fr); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); background: var(--paper); }
+.club-detail-tabs button { position: relative; border: 0; background: transparent; color: var(--graphite); font: inherit; font-size: 13.5px; font-weight: 600; }
+.club-detail-tabs button.active { color: var(--ink); }
+.club-detail-tabs button.active::after { content:""; position:absolute; left:50%; bottom:0; width:36px; height:2px; transform:translateX(-50%); border-radius:999px; background:var(--ink); }
+.club-detail-channels { display: flex; gap: 8px; overflow-x: auto; padding: 10px 14px; scrollbar-width: none; border-bottom: 1px solid var(--hairline); background: var(--paper); }
+.club-detail-channels::-webkit-scrollbar { display:none; }
+.club-detail-channels button { flex:0 0 auto; min-height:34px; padding:0 13px; border:1px solid var(--hairline); border-radius:999px; background:var(--paper); color:var(--graphite); font:inherit; font-size:13px; }
+.club-detail-channels button.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+.club-detail-post { display:block; padding:14px 16px; color:var(--ink); text-decoration:none; border-bottom:1px solid var(--hairline); }
+.club-pin { display:inline-flex; margin-bottom:8px; padding:3px 8px; border-radius:999px; background:var(--surface-tint,#f1efe9); color:var(--sapphire); font-size:11px; font-weight:700; }
+.club-detail-author { display:flex; align-items:center; gap:10px; }
+.club-detail-author > span { min-width:0; display:flex; flex-direction:column; }
+.club-detail-author strong { font-size:14px; }
+.club-detail-author small { color:var(--graphite); font-size:11.5px; }
+.club-detail-post > p { margin:9px 0 0; white-space:pre-wrap; font-size:15px; line-height:1.45; }
+.club-detail-media { margin-top:10px; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; }
+.club-detail-media::-webkit-scrollbar { display:none; }
+.club-detail-media img { width:100%; max-height:480px; object-fit:cover; border-radius:14px; }
+.club-detail-media.multi img { flex:0 0 82%; width:82%; }
+.club-detail-post footer { margin-top:10px; display:flex; gap:22px; color:var(--graphite); font-size:12px; }
+.club-detail-post footer span { display:flex; align-items:center; gap:4px; }
+.club-chat-tab { min-height: 50dvh; display:flex; flex-direction:column; background:var(--paper); }
+.club-chat-messages { min-height:300px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+.club-chat-message { display:flex; align-items:flex-end; gap:8px; }
+.club-chat-message > div { max-width:78%; padding:8px 11px; border-radius:15px 15px 15px 4px; background:var(--surface-tint,#f1efe9); }
+.club-chat-message.mine { justify-content:flex-end; }
+.club-chat-message.mine > div { border-radius:15px 15px 4px 15px; background:var(--ink); color:var(--paper); }
+.club-chat-message strong { display:block; margin-bottom:2px; font-size:11px; }
+.club-chat-message p { margin:0; white-space:pre-wrap; font-size:14px; line-height:1.35; }
+.club-chat-message img { width:min(240px,100%); margin-top:6px; border-radius:10px; }
+.club-chat-message small { display:block; margin-top:4px; opacity:.65; font-size:9.5px; text-align:right; }
+.club-chat-composer { position:sticky; bottom:0; display:grid; grid-template-columns:minmax(0,1fr) 42px; gap:8px; padding:8px 12px calc(8px + env(safe-area-inset-bottom)); border-top:1px solid var(--hairline); background:var(--paper); }
+.club-chat-composer input { height:42px; padding:0 14px; border:1px solid var(--hairline); border-radius:999px; background:var(--surface-tint,#f1efe9); color:var(--ink); font:inherit; outline:0; }
+.club-chat-composer button { width:42px; height:42px; display:grid; place-items:center; border:0; border-radius:50%; background:var(--ink); color:var(--paper); }
+.club-chat-error { margin:8px 14px; }
+.club-about-segments { display:flex; gap:7px; overflow-x:auto; padding:10px 14px; scrollbar-width:none; }
+.club-about-segments button { flex:0 0 auto; min-height:34px; padding:0 12px; border:1px solid var(--hairline); border-radius:10px; background:var(--paper); color:var(--graphite); font:inherit; font-size:12.5px; }
+.club-about-segments button.active { background:var(--ink); color:var(--paper); border-color:var(--ink); }
+.club-about-details { padding:10px 18px 28px; }
+.club-about-details h3 { margin:12px 0 7px; font-size:15px; }
+.club-about-details p { margin:0; white-space:pre-wrap; color:var(--graphite); font-size:13.5px; line-height:1.5; }
+.club-about-details dl { margin:16px 0; border:1px solid var(--hairline); border-radius:14px; overflow:hidden; }
+.club-about-details dl > div { min-height:44px; padding:0 12px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--hairline); }
+.club-about-details dl > div:last-child { border-bottom:0; }
+.club-about-details dt { color:var(--graphite); font-size:12px; }
+.club-about-details dd { margin:0; font-size:13px; font-weight:600; }
+.club-member-list > a { min-height:64px; padding:9px 16px; display:grid; grid-template-columns:42px minmax(0,1fr) 18px; align-items:center; gap:10px; color:var(--ink); text-decoration:none; border-bottom:1px solid var(--hairline); }
+.club-member-list > a > span { min-width:0; display:flex; flex-direction:column; }
+.club-member-list strong { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:14px; }
+.club-member-list small { color:var(--graphite); font-size:11.5px; }
+.club-event-list { padding:0 14px 24px; }
+.club-event-list article { display:grid; grid-template-columns:28px minmax(0,1fr); gap:8px; padding:12px 4px; border-bottom:1px solid var(--hairline); }
+.club-event-list strong { font-size:14px; }
+.club-event-list small { display:block; margin-top:2px; color:var(--graphite); font-size:11px; }
+.club-event-list p { margin:4px 0 0; color:var(--graphite); font-size:12.5px; }
+.club-insights-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px 16px 28px; }
+.club-insights-grid > div { min-height:82px; padding:12px; display:flex; flex-direction:column; justify-content:space-between; border:1px solid var(--hairline); border-radius:14px; }
+.club-insights-grid span { color:var(--graphite); font-size:11px; text-transform:capitalize; }
+.club-insights-grid strong { font-size:22px; }
