@@ -1,0 +1,106 @@
+name: Consumer Web Phase 5 Production Cutover
+
+# Manual-only production switch from Flutter Web to the Next.js consumer web.
+# The workflow is intentionally double-confirmed. Real iPhone Safari QA must
+# be completed before the production alias at wynos.online is changed.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CUTOVER-WYNOS-ONLINE to confirm the production switch'
+        required: true
+        type: string
+      iphone_qa:
+        description: 'After real-device Safari QA passes, type IPHONE-PASS'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  cutover:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event.inputs.confirm == 'CUTOVER-WYNOS-ONLINE' &&
+      github.event.inputs.iphone_qa == 'IPHONE-PASS'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Production preflight
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run check
+
+      - name: Deploy Next.js consumer web to Vercel production
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          VERCEL_ORG_ID=$(clean "$VERCEL_ORG_ID")
+          VERCEL_PROJECT_ID=$(clean "$VERCEL_PROJECT_ID")
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+
+          for value in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            test -n "$(eval echo \"\$$value\")" || { echo "::error::$value is empty"; exit 1; }
+          done
+
+          export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          url=$(npx --yes vercel@latest deploy --prod --yes \
+            --token="$VERCEL_TOKEN" \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            | tail -n 1)
+
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Production deployment: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify wynos.online is serving Next.js
+        run: |
+          for route in / /search /notifications /chat /settings /profile/me; do
+            echo "Checking https://wynos.online$route"
+            curl --fail --location --retry 10 --retry-delay 3 --max-time 30 \
+              --output /dev/null "https://wynos.online$route"
+          done
+
+          html=$(curl --fail --location --retry 10 --retry-delay 3 --max-time 30 https://wynos.online/)
+          printf '%s' "$html" | grep -q '/_next/' || {
+            echo '::error::wynos.online does not look like the Next.js consumer web after cutover'
+            exit 1
+          }
+          if printf '%s' "$html" | grep -q 'flutter_bootstrap.js'; then
+            echo '::error::wynos.online still exposes the legacy Flutter bootstrap after cutover'
+            exit 1
+          fi
+
+          {
+            echo
+            echo '## Production verification'
+            echo '- wynos.online returned successful responses on core routes.'
+            echo '- Homepage contains Next.js assets.'
+            echo '- Legacy Flutter bootstrap is absent.'
+            echo
+            echo 'No automatic rollback is performed by this workflow. If a regression is found, preserve evidence and follow Founder-directed recovery.'
+          } >> "$GITHUB_STEP_SUMMARY"
