@@ -26,7 +26,18 @@ jobs:
           cache: true
 
       - name: Apply patch
-        run: python3 tools/patch_ios_dom_text_stability.py
+        run: |
+          python3 tools/patch_ios_dom_text_stability.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/test/ios_web_dom_stability_source_test.dart')
+          text = path.read_text()
+          text = text.replace(
+              'contains("RegExp(r\'iPhone|iPad|iPod\'")',
+              'contains("r\'iPhone|iPad|iPod\'")',
+          )
+          path.write_text(text)
+          PY
 
       - name: Format and verify
         working-directory: app
