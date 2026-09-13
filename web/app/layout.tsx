@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { DrawerRouteAdapter } from "@/components/drawer-route-adapter";
 import "./globals.css";
 import "./phase2.css";
 import "./phase2-polish.css";
@@ -12,6 +11,7 @@ import "./parity-fixes.css";
 import "./parity-completion.css";
 import "./parity-closure.css";
 import "./post-detail-parity.css";
+import "./parity-audit.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="th">
-      <body><DrawerRouteAdapter />{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
