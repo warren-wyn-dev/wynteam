@@ -1,7 +1,7 @@
 "use client";
 
 import { Bookmark, Compass, Heart, Menu, MessageCircle, Plus, Repeat2, Search, UserPlus, UsersRound, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -53,19 +53,19 @@ function isMention(row: NotificationRow) {
 function NotificationsInner({ client, userId }: { client: SupabaseClient; userId: string }) {
   const router = useRouter();
   const [rows, setRows] = useState<NotificationRow[]>([]);
+  const [unreadSnapshot, setUnreadSnapshot] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | "mentions">("all");
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const unreadSnapshot = useRef<Set<string>>(new Set());
 
   const load = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true);
     try {
       const next = await fetchNotifications(client, nextPage);
-      if (!append) unreadSnapshot.current = new Set(next.filter((row) => !row.is_read).map((row) => row.id));
-      else for (const row of next) if (!row.is_read) unreadSnapshot.current.add(row.id);
+      const nextUnread = next.filter((row) => !row.is_read).map((row) => row.id);
+      setUnreadSnapshot((current) => append ? new Set([...current, ...nextUnread]) : new Set(nextUnread));
       setRows((current) => append ? [...current, ...next] : next);
       setPage(nextPage);
       setHasMore(next.length === 30);
@@ -100,13 +100,14 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
       <div className="flutter-notification-tabs"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>ทั้งหมด</button><button className={tab === "mentions" ? "active" : ""} type="button" onClick={() => setTab("mentions")}>การกล่าวถึง</button></div>
       {loading && !rows.length ? <LoadingState /> : !visible.length ? <EmptyState>{tab === "mentions" ? "ยังไม่มีใครกล่าวถึงคุณ" : "ยังไม่มีการแจ้งเตือน"}</EmptyState> : (
         <div className="notification-list">
-          {visible.map((row) => (
-            <button className={`notification-row ${unreadSnapshot.current.has(row.id) ? "unread" : ""}`} type="button" onClick={() => open(row)} key={row.id}>
+          {visible.map((row) => {
+            const wasUnread = unreadSnapshot.has(row.id);
+            return <button className={`notification-row ${wasUnread ? "unread" : ""}`} type="button" onClick={() => open(row)} key={row.id}>
               <span className="notification-avatar-wrap"><Avatar src={row.actor_avatar_url} label={row.actor_username || "WYNOS"} /><span className="notification-type-icon"><TypeIcon type={row.type} /></span></span>
               <span className="notification-copy"><strong>{messageFor(row)}</strong>{row.content_preview ? <small className="notification-preview">{row.content_preview}</small> : null}<small>{relativeTimeTh(row.created_at)}</small></span>
-              {unreadSnapshot.current.has(row.id) ? <i className="notification-dot" /> : null}
-            </button>
-          ))}
+              {wasUnread ? <i className="notification-dot" /> : null}
+            </button>;
+          })}
           {tab === "all" && hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}
         </div>
       )}
