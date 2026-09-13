@@ -1,11 +1,7 @@
 name: Deploy Flutter web to Vercel (production)
 
-# Manual-only on purpose: the connected Vercel account is on the free
-# Hobby plan (100 deployments/day, shared across every project in the
-# account, including the "wynteam" project's auto-preview-per-branch
-# deploys). Auto-running this on every push to main would compete with
-# those for the same daily quota. Run it by hand from the Actions tab
-# ("Run workflow") whenever main is ready to ship.
+# Manual-only on purpose. Build the Flutter bundle in Actions, then deploy the
+# already-built static output to the existing Vercel production project.
 on:
   workflow_dispatch: {}
 
@@ -15,6 +11,7 @@ jobs:
     defaults:
       run:
         working-directory: app
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,44 +22,10 @@ jobs:
 
       - run: flutter pub get
 
-      # Regenerates the gitignored web/ scaffold. flutter_bootstrap.js is
-      # excluded from the gitignore's /web/* wipe (see app/.gitignore) so
-      # it survives this regeneration -- it disables the default
-      # service-worker registration; without it, redeploys can appear to
-      # still serve a stale cached build.
+      # Recreate the generated web scaffold while preserving WYNOS' tracked
+      # web overrides (including flutter_bootstrap.js and vercel.json).
       - run: flutter create . --platforms web
 
-      # SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are meant to be public/
-      # client-embedded (they end up in the built JS bundle either way),
-      # but are still kept out of the repo via GitHub Secrets rather than
-      # hardcoded here, matching dart_define.json's existing
-      # never-commit convention (see app/.gitignore).
-      #
-      # Secret values are stripped of stray whitespace/newlines before
-      # being embedded in JSON -- pasting a secret's value into GitHub's
-      # web UI (especially on mobile) can silently carry a trailing
-      # newline from the clipboard, which produces a control character
-      # inside the JSON string and fails `flutter build` with a
-      # FormatException. Trimming here means a slightly-sloppy paste
-      # into the Secrets UI doesn't need to be perfectly exact.
-      # Beta4 adds the 7 FIREBASE_* values, for Web Push. A Flutter Web
-      # build has no native google-services file to read, so without
-      # these `Firebase.initializeApp()` cannot start on web at all and
-      # every push path no-ops -- see `app/lib/core/push_env.dart`.
-      #
-      # A Firebase Web config is public by design (it ships inside every
-      # web bundle that uses it, and Google documents it as such), so
-      # these are secrets only in the same sense SUPABASE_URL is: kept
-      # out of the repo, not kept from the browser. The VAPID key is the
-      # *public* half of the Web Push key pair; its private half never
-      # leaves the Firebase Console.
-      #
-      # Every one is optional. A build with none of them set produces
-      # empty strings, `PushEnv.isConfigured` returns false, and the app
-      # behaves exactly as it did before Beta4 -- so this step is safe to
-      # merge before the secrets exist, which is the point: the secrets
-      # can be added later and the next deploy picks them up with no
-      # further code change.
       - name: Write dart_define.json
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -76,83 +39,29 @@ jobs:
           FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
         run: |
           clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
-
-          # Built with jq rather than a heredoc. The heredoc was fine for
-          # two values, but nine interpolations into hand-written JSON is
-          # one stray quote away from a FormatException at build time,
-          # and jq escapes each value correctly by construction.
           jq -n \
-            --arg supabase_url            "$(clean "$SUPABASE_URL")" \
-            --arg supabase_key            "$(clean "$SUPABASE_PUBLISHABLE_KEY")" \
-            --arg fb_api_key              "$(clean "$FIREBASE_WEB_API_KEY")" \
-            --arg fb_app_id               "$(clean "$FIREBASE_WEB_APP_ID")" \
-            --arg fb_sender_id            "$(clean "$FIREBASE_MESSAGING_SENDER_ID")" \
-            --arg fb_project_id           "$(clean "$FIREBASE_PROJECT_ID")" \
-            --arg fb_auth_domain          "$(clean "$FIREBASE_AUTH_DOMAIN")" \
-            --arg fb_storage_bucket       "$(clean "$FIREBASE_STORAGE_BUCKET")" \
-            --arg fb_vapid_key            "$(clean "$FIREBASE_VAPID_KEY")" \
+            --arg supabase_url "$(clean "$SUPABASE_URL")" \
+            --arg supabase_key "$(clean "$SUPABASE_PUBLISHABLE_KEY")" \
+            --arg fb_api_key "$(clean "$FIREBASE_WEB_API_KEY")" \
+            --arg fb_app_id "$(clean "$FIREBASE_WEB_APP_ID")" \
+            --arg fb_sender_id "$(clean "$FIREBASE_MESSAGING_SENDER_ID")" \
+            --arg fb_project_id "$(clean "$FIREBASE_PROJECT_ID")" \
+            --arg fb_auth_domain "$(clean "$FIREBASE_AUTH_DOMAIN")" \
+            --arg fb_storage_bucket "$(clean "$FIREBASE_STORAGE_BUCKET")" \
+            --arg fb_vapid_key "$(clean "$FIREBASE_VAPID_KEY")" \
             '{
-              SUPABASE_URL:                 $supabase_url,
-              SUPABASE_PUBLISHABLE_KEY:     $supabase_key,
-              FIREBASE_WEB_API_KEY:         $fb_api_key,
-              FIREBASE_WEB_APP_ID:          $fb_app_id,
-              FIREBASE_MESSAGING_SENDER_ID: $fb_sender_id,
-              FIREBASE_PROJECT_ID:          $fb_project_id,
-              FIREBASE_AUTH_DOMAIN:         $fb_auth_domain,
-              FIREBASE_STORAGE_BUCKET:      $fb_storage_bucket,
-              FIREBASE_VAPID_KEY:           $fb_vapid_key
+              SUPABASE_URL:$supabase_url,
+              SUPABASE_PUBLISHABLE_KEY:$supabase_key,
+              FIREBASE_WEB_API_KEY:$fb_api_key,
+              FIREBASE_WEB_APP_ID:$fb_app_id,
+              FIREBASE_MESSAGING_SENDER_ID:$fb_sender_id,
+              FIREBASE_PROJECT_ID:$fb_project_id,
+              FIREBASE_AUTH_DOMAIN:$fb_auth_domain,
+              FIREBASE_STORAGE_BUCKET:$fb_storage_bucket,
+              FIREBASE_VAPID_KEY:$fb_vapid_key
             }' > dart_define.json
 
-          # Reports each Firebase secret individually, present/missing,
-          # never its value. A single pass/fail line only says "something
-          # is missing"; with seven long names typed by hand, which one
-          # is the entire question -- and every wrong answer costs a
-          # five-minute build to discover.
-          #
-          # Deliberately never fails the build: a missing Firebase secret
-          # only means push stays off, and the app is perfectly
-          # deployable that way (it is how production ran before Beta4).
-          # Blocking a web deploy over it would be the wrong trade.
-          report() {
-            if [ -n "$(clean "$2")" ]; then
-              printf '  %-30s present\n' "$1"
-            else
-              printf '  %-30s MISSING\n' "$1"
-            fi
-          }
-          echo "Firebase secrets seen by this build:"
-          report FIREBASE_WEB_API_KEY         "$FIREBASE_WEB_API_KEY"
-          report FIREBASE_WEB_APP_ID          "$FIREBASE_WEB_APP_ID"
-          report FIREBASE_MESSAGING_SENDER_ID "$FIREBASE_MESSAGING_SENDER_ID"
-          report FIREBASE_PROJECT_ID          "$FIREBASE_PROJECT_ID"
-          report FIREBASE_AUTH_DOMAIN         "$FIREBASE_AUTH_DOMAIN"
-          report FIREBASE_STORAGE_BUCKET      "$FIREBASE_STORAGE_BUCKET"
-          report FIREBASE_VAPID_KEY           "$FIREBASE_VAPID_KEY"
-          echo ""
-
-          # The two that actually gate Web Push. The other five are
-          # required by Firebase's own config shape but are not what
-          # decides whether a token can be obtained -- see PushEnv.
-          if [ -n "$(clean "$FIREBASE_WEB_API_KEY")" ] && [ -n "$(clean "$FIREBASE_VAPID_KEY")" ]; then
-            echo "Web Push: configured -- this build can request a push token."
-          else
-            echo "Web Push: NOT configured -- this build behaves as before Beta4 (every push path no-ops)."
-            echo "Any name marked MISSING above is either absent, misspelled, or saved with an empty value."
-          fi
-
-      # The service worker is a static file, not part of the bundle, so
-      # it cannot read a --dart-define. It used to try to read the
-      # config from a query string on the belief that Firebase appends
-      # one when registering the worker; it does not, so the worker's
-      # init guard never passed and every background push was delivered
-      # to a worker with no handler and silently shown to nobody.
-      #
-      # Substituted before the build so `flutter build web` copies the
-      # filled-in file. The values are the same ones going into
-      # --dart-define and are public by design (they ship in every web
-      # bundle that uses them), so this writes nothing here that the
-      # bundle does not already carry.
-      - name: Bake the Firebase config into the service worker
+      - name: Bake Firebase config into messaging service worker
         env:
           FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
           FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
@@ -161,27 +70,13 @@ jobs:
           FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
           FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
         run: |
-          # Relative to the job's `working-directory: app`, not the
-          # workspace root -- the Vercel step below spells its own path
-          # from the root because it overrides that default.
           SW=web/firebase-messaging-sw.js
-          if [ ! -f "$SW" ]; then
-            echo "::error::$SW is missing. It is allowlisted in app/.gitignore"
-            echo "::error::(which ignores /web/* and re-adds files one by one);"
-            echo "::error::a new file there is untracked until that list names it."
-            exit 1
-          fi
+          test -f "$SW"
           for name in FIREBASE_WEB_API_KEY FIREBASE_WEB_APP_ID \
                       FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID \
                       FIREBASE_AUTH_DOMAIN FIREBASE_STORAGE_BUCKET; do
-            # Same trailing-whitespace guard the other secret-reading
-            # steps use: a newline pasted into the Secrets UI would
-            # otherwise end up inside a JavaScript string literal.
             value=$(printf '%s' "$(eval echo \"\$$name\")" | tr -d '[:space:]')
-            if [ -z "$value" ]; then
-              echo "  $name  MISSING -- the service worker will stay inert"
-              continue
-            fi
+            [ -n "$value" ] || continue
             python3 - "$SW" "__${name}__" "$value" <<'PY'
           import sys
           path, placeholder, value = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -190,30 +85,16 @@ jobs:
           with open(path, 'w', encoding='utf-8') as handle:
               handle.write(text.replace(placeholder, value))
           PY
-            echo "  $name  baked in"
           done
-          # Prove it, rather than trusting the loop: a placeholder left
-          # behind is exactly the silent failure this replaces.
-          # Anchored on the closing __ so the worker's own
-          # startsWith('__FIREBASE_') guard is not mistaken for one.
-          if grep -qE "__FIREBASE_[A-Z_]+__" "$SW"; then
-            echo "::warning::Some placeholders are still present -- background push stays off:"
-            grep -oE "__FIREBASE_[A-Z_]+__" "$SW" | sort -u | sed 's/^/    /'
-          else
-            echo "Service worker: every placeholder replaced."
-          fi
 
       - run: flutter build web --release --dart-define-from-file=dart_define.json
 
-      # Older WYNOS web builds registered Flutter's root app-shell service
-      # worker. Removing registration from flutter_bootstrap.js stops new
-      # installs, but an already-installed PWA can keep the old worker and
-      # continue serving an old index/main.dart.js. Keep this tiny script at
-      # the same URL for one-way migration: the browser's normal worker update
-      # check replaces the legacy worker, clears only Flutter's app-shell
-      # caches, unregisters itself, and reloads controlled windows. Firebase
-      # Messaging uses firebase-messaging-sw.js and is intentionally untouched.
-      - name: Retire legacy Flutter app service worker
+      # A legacy Flutter app-shell worker may still be installed in browsers
+      # that visited older WYNOS builds. Keep a replacement at the historical
+      # script URL so the browser update check can retire it. Crucially, this
+      # worker never takes control of unrelated clients and never forces an
+      # open tab to navigate. That avoids the WebKit/iOS reload/error loop.
+      - name: Retire legacy Flutter app service worker safely
         run: |
           cat > build/web/flutter_service_worker.js <<'JS'
           const LEGACY_FLUTTER_CACHES = [
@@ -231,24 +112,18 @@ jobs:
               await Promise.all(
                 LEGACY_FLUTTER_CACHES.map((name) => caches.delete(name)),
               );
-              await self.clients.claim();
-              const windows = await self.clients.matchAll({
-                type: 'window',
-                includeUncontrolled: true,
-              });
               await self.registration.unregister();
-              await Promise.all(
-                windows.map((client) => client.navigate(client.url)),
-              );
             })());
           });
           JS
 
-      # Deploys straight to the existing "web" Vercel project (set as
-      # VERCEL_PROJECT_ID/VERCEL_ORG_ID secrets -- find both under that
-      # project's Settings -> General on vercel.com) rather than creating
-      # a new project or relying on Vercel's GitHub-integration preview
-      # deploys (that's a separate, already-connected "wynteam" project).
+          # Regression guard: the retirement worker must stay passive. An open
+          # WYNOS tab must never be claimed or navigated by this worker.
+          if grep -Eq 'self[.]clients[.]claim|client[.]navigate' build/web/flutter_service_worker.js; then
+            echo '::error::legacy worker retirement must not control or navigate open tabs'
+            exit 1
+          fi
+
       - name: Deploy to Vercel production
         working-directory: app/build/web
         env:
@@ -256,9 +131,6 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          # Same trailing-newline/whitespace guard as the dart_define.json
-          # step above -- a sloppy paste into the Secrets UI shouldn't
-          # break the CLI invocation either.
           VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           VERCEL_ORG_ID=$(printf '%s' "$VERCEL_ORG_ID" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           VERCEL_PROJECT_ID=$(printf '%s' "$VERCEL_PROJECT_ID" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
