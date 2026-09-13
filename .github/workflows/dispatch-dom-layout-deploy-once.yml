@@ -1,0 +1,21 @@
+name: Dispatch DOM layout production deploy once
+
+on:
+  push:
+    branches:
+      - ops/dispatch-dom-layout-deploy-20260913
+    paths:
+      - .github/workflows/dispatch-dom-layout-deploy-once.yml
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch reviewed main to production
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-web.yml --repo warren-wyn-dev/wynteam --ref main
