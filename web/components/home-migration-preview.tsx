@@ -60,6 +60,12 @@ const emptyViewerState = (): HomeViewerState => ({
   privateAuthorIds: new Set(),
 });
 
+function surfaceFor(tab: string, mode: string): HomeSurface {
+  if (tab === "กำลังติดตาม") return { kind: "following" };
+  if (mode === "กำลังนิยม") return { kind: "trending" };
+  return { kind: "ranked" };
+}
+
 function withViewerSet(
   state: HomeViewerState,
   key: ViewerSetKey,
@@ -276,15 +282,11 @@ export function HomeMigrationPreview() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const pendingRef = useRef<Set<string>>(new Set());
   const surfaceRequestRef = useRef(0);
+  const surfaceRef = useRef<HomeSurface>({ kind: "ranked" });
   const toastTimerRef = useRef<number | null>(null);
 
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const userId = session?.user.id ?? "";
-  const currentSurface = useMemo<HomeSurface>(() => {
-    if (activeTab === "กำลังติดตาม") return { kind: "following" };
-    if (activeMode === "กำลังนิยม") return { kind: "trending" };
-    return { kind: "ranked" };
-  }, [activeMode, activeTab]);
 
   const showToast = useCallback((value: string) => {
     setToast(value);
@@ -341,7 +343,8 @@ export function HomeMigrationPreview() {
       return;
     }
     setGate("developer");
-  }, [supabase]);
+    void loadSurface(nextSession.user.id, surfaceRef.current);
+  }, [loadSurface, supabase]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -359,11 +362,6 @@ export function HomeMigrationPreview() {
   }, [loadDeveloperPreview, supabase]);
 
   useEffect(() => {
-    if (gate !== "developer" || !userId) return;
-    void loadSurface(userId, currentSurface);
-  }, [currentSurface, gate, loadSurface, userId]);
-
-  useEffect(() => {
     const node = loadMoreRef.current;
     if (!node || visibleCount >= rows.length) return;
     const observer = new IntersectionObserver((entries) => {
@@ -374,6 +372,20 @@ export function HomeMigrationPreview() {
     observer.observe(node);
     return () => observer.disconnect();
   }, [rows.length, visibleCount]);
+
+  const selectTab = useCallback((tab: string) => {
+    setActiveTab(tab);
+    const surface = surfaceFor(tab, activeMode);
+    surfaceRef.current = surface;
+    if (gate === "developer" && userId) void loadSurface(userId, surface);
+  }, [activeMode, gate, loadSurface, userId]);
+
+  const selectMode = useCallback((mode: string) => {
+    setActiveMode(mode);
+    const surface = surfaceFor(activeTab, mode);
+    surfaceRef.current = surface;
+    if (gate === "developer" && userId) void loadSurface(userId, surface);
+  }, [activeTab, gate, loadSurface, userId]);
 
   const signInWithGoogle = useCallback(async () => {
     if (!supabase) return;
@@ -586,7 +598,7 @@ export function HomeMigrationPreview() {
     if (!supabase || !userId || publishing) return;
     setPublishing(true);
     try {
-      const result = await publishDropSafely(supabase, userId, {
+      await publishDropSafely(supabase, userId, {
         caption: composerCaption,
         files: composerFiles,
         operationId: publicationOperationId,
@@ -596,8 +608,7 @@ export function HomeMigrationPreview() {
       setComposerFiles([]);
       setComposerOpen(false);
       showToast("เผยแพร่ Drop แล้ว");
-      await loadSurface(userId, currentSurface);
-      void result.dropId;
+      await loadSurface(userId, surfaceRef.current);
     } catch (error) {
       if (error instanceof DropPublicationStateUnknownError) {
         setPublicationOperationId(error.operationId);
@@ -606,7 +617,7 @@ export function HomeMigrationPreview() {
     } finally {
       setPublishing(false);
     }
-  }, [composerCaption, composerFiles, currentSurface, loadSurface, publicationOperationId, publishing, showToast, supabase, userId]);
+  }, [composerCaption, composerFiles, loadSurface, publicationOperationId, publishing, showToast, supabase, userId]);
 
   if (gate === "loading") {
     return <main className="center-state"><h1>WYNOS</h1><p>กำลังเปิด Web รุ่นใหม่…</p></main>;
@@ -654,7 +665,7 @@ export function HomeMigrationPreview() {
                 type="button"
                 role="tab"
                 aria-selected={activeTab === tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => selectTab(tab)}
                 key={tab}
               >{tab}</button>
             ))}
@@ -665,7 +676,7 @@ export function HomeMigrationPreview() {
                 className={`mode-pill ${activeMode === mode ? "active" : ""}`}
                 type="button"
                 aria-pressed={activeMode === mode}
-                onClick={() => setActiveMode(mode)}
+                onClick={() => selectMode(mode)}
                 key={mode}
               >{mode}</button>
             ))}
