@@ -168,19 +168,22 @@ void main() {
       await _pump(tester, card(_item()), width: 390);
       await tester.pump();
 
-      final avatar = find.descendant(
-        of: find.byType(AvatarCircle),
-        matching: find.byType(CircleAvatar),
+      final avatarWidgetFinder = find.byType(AvatarCircle);
+      final paintedAvatar = find.descendant(
+        of: avatarWidgetFinder,
+        matching: find.byType(ClipOval),
       );
       final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
-      expect(avatar, findsOneWidget);
+      expect(avatarWidgetFinder, findsOneWidget);
+      expect(paintedAvatar, findsOneWidget);
       expect(moreButton, findsOneWidget);
 
-      final avatarTop = tester.getTopLeft(avatar).dy;
+      final avatarTop = tester.getTopLeft(paintedAvatar).dy;
       final headerTop = tester.getTopLeft(moreButton).dy;
       expect(avatarTop - headerTop, closeTo(homeCardAvatarTopInset, 0.5));
-      final circle = tester.widget<CircleAvatar>(avatar);
-      expect(circle.radius, homeCardAvatarDiameter / 2);
+      final avatarWidget = tester.widget<AvatarCircle>(avatarWidgetFinder);
+      expect(avatarWidget.radius, homeCardAvatarDiameter / 2);
+      expect(tester.getSize(paintedAvatar), const Size(44, 44));
       expect(homeCardAvatarDiameter, 44);
       expect(tester.takeException(), isNull);
     },
@@ -192,19 +195,22 @@ void main() {
       await _pump(tester, popCard(_popItem()), width: 390);
       await tester.pump();
 
-      final avatar = find.descendant(
-        of: find.byType(AvatarCircle),
-        matching: find.byType(CircleAvatar),
+      final avatarWidgetFinder = find.byType(AvatarCircle);
+      final paintedAvatar = find.descendant(
+        of: avatarWidgetFinder,
+        matching: find.byType(ClipOval),
       );
       final moreButton = find.widgetWithIcon(IconButton, Icons.more_horiz);
-      expect(avatar, findsOneWidget);
+      expect(avatarWidgetFinder, findsOneWidget);
+      expect(paintedAvatar, findsOneWidget);
       expect(moreButton, findsOneWidget);
 
-      final avatarTop = tester.getTopLeft(avatar).dy;
+      final avatarTop = tester.getTopLeft(paintedAvatar).dy;
       final headerTop = tester.getTopLeft(moreButton).dy;
       expect(avatarTop - headerTop, closeTo(homeCardAvatarTopInset, 0.5));
-      final circle = tester.widget<CircleAvatar>(avatar);
-      expect(circle.radius, homeCardAvatarDiameter / 2);
+      final avatarWidget = tester.widget<AvatarCircle>(avatarWidgetFinder);
+      expect(avatarWidget.radius, homeCardAvatarDiameter / 2);
+      expect(tester.getSize(paintedAvatar), const Size(44, 44));
       expect(tester.takeException(), isNull);
     },
   );
