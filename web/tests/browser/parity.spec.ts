@@ -15,7 +15,11 @@ test("signed-out Welcome mirrors the Flutter golden master", async ({ page }) =>
     const title = document.querySelector<HTMLElement>(".parity-wordmark-line h1");
     const cta = document.querySelector<HTMLElement>(".parity-welcome-cta");
     if (!title || !cta) return null;
-    return { titleSize: getComputedStyle(title).fontSize, titleWeight: getComputedStyle(title).fontWeight, ctaHeight: cta.getBoundingClientRect().height };
+    return {
+      titleSize: getComputedStyle(title).fontSize,
+      titleWeight: getComputedStyle(title).fontWeight,
+      ctaHeight: cta.getBoundingClientRect().height,
+    };
   });
   expect(metrics).not.toBeNull();
   expect(metrics!.titleSize).toBe("34px");
@@ -39,9 +43,28 @@ test("Welcome continues to the original auth-method and email flows", async ({ p
 test("source contracts cannot regress to staged migration UI", async () => {
   const root = process.cwd();
   const [
-    gate, auth, home, pageSource, routeUi, finalCss, completionCss, closureCss,
-    postDetailCss, search, profile, profileParity, followList, chat, notifications,
-    settings, clubs, clubDetail, layout, postDetail, dropPage,
+    gate,
+    auth,
+    home,
+    pageSource,
+    routeUi,
+    finalCss,
+    completionCss,
+    closureCss,
+    postDetailCss,
+    homeGoldenCss,
+    search,
+    profile,
+    profileParity,
+    followList,
+    chat,
+    notifications,
+    settings,
+    clubs,
+    clubDetail,
+    layout,
+    postDetail,
+    dropPage,
   ] = await Promise.all([
     readFile(path.join(root, "components/developer-route-gate.tsx"), "utf8"),
     readFile(path.join(root, "components/parity-auth-entry.tsx"), "utf8"),
@@ -52,6 +75,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
     readFile(path.join(root, "app/parity-completion.css"), "utf8"),
     readFile(path.join(root, "app/parity-closure.css"), "utf8"),
     readFile(path.join(root, "app/post-detail-parity.css"), "utf8"),
+    readFile(path.join(root, "app/home-golden-final.css"), "utf8"),
     readFile(path.join(root, "components/search-route.tsx"), "utf8"),
     readFile(path.join(root, "components/profile-route.tsx"), "utf8"),
     readFile(path.join(root, "components/profile-parity-route.tsx"), "utf8"),
@@ -72,13 +96,35 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(auth).not.toContain("HomeMigrationPreview");
   expect(pageSource).not.toContain("HomeNavigationBridge");
   expect(layout).not.toContain("DrawerRouteAdapter");
+  expect(layout).toContain('import "./home-golden-final.css"');
 
   for (const label of ["สำหรับคุณ", "กำลังติดตาม", "คลับของฉัน"]) expect(home).toContain(label);
   expect(home).not.toContain("กำลังนิยม");
   expect(home).toContain('/wynos_logo_mark.png');
   for (const label of ["สำรวจ Club", "สร้าง Club", "Club ของฉัน", "บันทึกไว้", "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก"]) expect(home).toContain(label);
-  for (const contract of ["Quote ReDrop", "ไม่สนใจโพสต์นี้", "เลิกทำ", "submit_report", 'from("feed_signals")', "navigator.share", "toggleClubPostLike"]) expect(home).toContain(contract);
+  for (const contract of [
+    "Quote ReDrop",
+    "ไม่สนใจโพสต์นี้",
+    "เลิกทำ",
+    "submit_report",
+    'from("feed_signals")',
+    "navigator.share",
+    "toggleClubPostLike",
+    "toggleAuthorFollow",
+    "audit-follow-pill",
+    "onShare",
+    "row.audience",
+    "ขอติดตามแล้ว",
+    "รีโพสต์โดย @",
+  ]) expect(home).toContain(contract);
+  expect(home).toContain('<Send size={24} />');
+  expect(home).toContain('row.audience == null || row.audience === "everyone"');
   expect(home).not.toContain('location.assign');
+  expect(homeGoldenCss).toContain(".audit-follow-pill");
+  expect(homeGoldenCss).toContain("background: var(--ink)");
+  expect(homeGoldenCss).toContain("font-size: 17px");
+  expect(homeGoldenCss).toContain("max-width: 112px");
+  expect(homeGoldenCss).toContain("gap: 16px");
 
   for (const label of ["หน้าหลัก", "ค้นหา", "การแจ้งเตือน", "โปรไฟล์"]) expect(routeUi).toContain(label);
   expect(routeUi).toContain("โพสต์");
@@ -124,7 +170,16 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(postDetailCss).toContain("border-radius: 18px");
   expect(postDetailCss).toContain("grid-template-columns: repeat(5, 1fr)");
 
-  for (const metric of ["--wyn-social-header: 60px", "--wyn-social-tab: 52px", "--wyn-social-search: 44px", "--wyn-profile-cover: 170px", "--wyn-profile-action: 44px", "--wyn-detail-media-radius: 18px", "--wyn-detail-activity: 54px", "--wyn-comment-composer: 46px"]) expect(finalCss).toContain(metric);
+  for (const metric of [
+    "--wyn-social-header: 60px",
+    "--wyn-social-tab: 52px",
+    "--wyn-social-search: 44px",
+    "--wyn-profile-cover: 170px",
+    "--wyn-profile-action: 44px",
+    "--wyn-detail-media-radius: 18px",
+    "--wyn-detail-activity: 54px",
+    "--wyn-comment-composer: 46px",
+  ]) expect(finalCss).toContain(metric);
   for (const contract of ["height: calc(170px", "width: 92px", "height: 44px", "height: 52px", "min-height: 54px", "min-height: 46px"]) expect(completionCss).toContain(contract);
   expect(closureCss).toContain("profile-recommendation-card");
   expect(closureCss).toContain("settings-version-footer");
