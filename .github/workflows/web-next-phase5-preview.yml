@@ -1,9 +1,9 @@
 name: Consumer Web Phase 5 Vercel Preview
 
 # Deploy the Next.js consumer web to the existing Vercel project as a preview
-# deployment. PR execution is deliberately limited to the WYN-158 Phase 5
-# readiness branch; manual dispatch remains available after merge. This workflow
-# must never move the production alias.
+# deployment. PR execution is deliberately limited to WYN-158 Phase 5 branches;
+# manual dispatch remains available after merge. This workflow must never move
+# the production alias.
 on:
   pull_request:
     branches:
@@ -20,7 +20,7 @@ jobs:
   preview:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.head_ref == 'feat/wyn-158-phase5-cutover-readiness'
+      startsWith(github.head_ref, 'feat/wyn-158-phase5-')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -81,18 +81,52 @@ jobs:
             echo "This is a preview deployment only. The production alias was not changed."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Create temporary Vercel automation bypass
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          VERCEL_ORG_ID=$(clean "$VERCEL_ORG_ID")
+          VERCEL_PROJECT_ID=$(clean "$VERCEL_PROJECT_ID")
+          for value in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            test -n "$(eval echo \"\$$value\")" || { echo "::error::$value is empty"; exit 1; }
+          done
+
+          bypass=$(openssl rand -hex 16)
+          echo "::add-mask::$bypass"
+
+          curl --fail --silent --show-error \
+            --request PATCH \
+            --url "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/protection-bypass?teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "{\"generate\":{\"secret\":\"$bypass\",\"note\":\"WYN-158 Phase 5 CI $GITHUB_RUN_ID\"}}" \
+            > /dev/null
+
+          echo "VERCEL_AUTOMATION_BYPASS_SECRET=$bypass" >> "$GITHUB_ENV"
+
       - name: Smoke preview deployment
         env:
           PREVIEW_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
+          # curl does not keep cookies unless a cookie jar is enabled. The bypass
+          # header is sufficient for smoke checks; requesting a bypass cookie here
+          # would cause Vercel's cookie-setting redirect to repeat on some routes.
           for route in / /search /notifications /chat /settings /profile/me; do
             echo "Checking $PREVIEW_URL$route"
             curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
+              --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
               --output /dev/null "$PREVIEW_URL$route"
           done
 
-          html=$(curl --fail --location --retry 8 --retry-delay 3 --max-time 30 "$PREVIEW_URL/")
+          html=$(curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
+            --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            "$PREVIEW_URL/")
           grep -q '/_next/' <<< "$html" || {
             echo '::error::preview homepage does not look like a Next.js deployment'
             exit 1
@@ -101,3 +135,40 @@ jobs:
             echo '::error::preview unexpectedly contains the legacy Flutter bootstrap'
             exit 1
           fi
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Browser QA against deployed Vercel preview
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ steps.deploy.outputs.url }}
+        run: npm run qa:browser
+
+      - name: Revoke temporary Vercel automation bypass
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            echo 'No temporary bypass was created; nothing to revoke.'
+            exit 0
+          fi
+
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          VERCEL_ORG_ID=$(clean "$VERCEL_ORG_ID")
+          VERCEL_PROJECT_ID=$(clean "$VERCEL_PROJECT_ID")
+          for value in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            test -n "$(eval echo \"\$$value\")" || { echo "::error::$value is empty"; exit 1; }
+          done
+
+          curl --fail --silent --show-error \
+            --request PATCH \
+            --url "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/protection-bypass?teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "{\"revoke\":{\"secret\":\"$VERCEL_AUTOMATION_BYPASS_SECRET\",\"regenerate\":false}}" \
+            > /dev/null
