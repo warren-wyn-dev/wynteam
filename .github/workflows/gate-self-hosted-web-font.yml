@@ -1,0 +1,84 @@
+name: Gate self-hosted WYNOS web typography
+
+on:
+  push:
+    branches: [fix/web-self-hosted-noto-typography]
+    paths: [.github/workflows/gate-self-hosted-web-font.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-self-hosted-noto-typography
+          fetch-depth: 0
+
+      - name: Fetch official Noto Sans Thai + OFL
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir=app/assets/fonts/NotoSansThai
+          mkdir -p "$dir"
+
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://raw.githubusercontent.com/google/fonts/main/ofl/notosansthai/NotoSansThai%5Bwdth%2Cwght%5D.ttf' \
+            -o "$dir/NotoSansThai[wdth,wght].ttf"
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://raw.githubusercontent.com/google/fonts/main/ofl/notosansthai/OFL.txt' \
+            -o "$dir/OFL.txt"
+
+          test "$(git hash-object "$dir/NotoSansThai[wdth,wght].ttf")" = \
+            '34b48ab6f74867dbfce19410a2f452abef34e3ff'
+          test "$(git hash-object "$dir/OFL.txt")" = \
+            '7fa8dcb08ce4d2667b683ac4a8e79166e44e5277'
+          grep -q 'SIL OPEN FONT LICENSE Version 1.1' "$dir/OFL.txt"
+
+      - name: Commit verified font assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/assets/fonts/NotoSansThai
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(web): bundle OFL Noto Sans Thai'
+            git push origin HEAD:fix/web-self-hosted-noto-typography
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Full Flutter QA
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format --output=none --set-exit-if-changed \
+            lib/core/design/wyn_theme.dart \
+            lib/core/design/wyn_typography.dart \
+            lib/core/typography/browser_system_text.dart \
+            lib/main.dart \
+            test/system_typography_ios_accessibility_test.dart \
+            test/web_typography_assets_test.dart
+          flutter analyze
+          flutter test
+          flutter build web --release
+
+      - name: Verify release bundle contains the local font
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          find build/web/assets -type f -name 'NotoSansThai*' -print | tee /tmp/noto-assets.txt
+          test -s /tmp/noto-assets.txt
+          ! grep -R -n -E 'fonts\.googleapis\.com|fonts\.gstatic\.com|raw\.githubusercontent\.com/google/fonts' \
+            lib web build/web --exclude-dir=.dart_tool
+          echo 'Self-hosted web typography gate passed.'
