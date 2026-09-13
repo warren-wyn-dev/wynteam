@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { Bell, ChevronLeft, Home, Plus, Search, Settings, UserRound } from "lucide-react";
 import { useState } from "react";
 
-import { relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { GoldenDropCard } from "@/components/golden-drop-card";
+import type { HomeFeedRow } from "@/lib/feed";
 import type { ProfileRow } from "@/lib/phase3-data";
 
 export function Avatar({ src, label, size = 42 }: { src?: string | null; label: string; size?: number }) {
@@ -67,8 +68,7 @@ export function ProfileRowView({ profile, trailing }: { profile: ProfileRow; tra
 }
 
 export function DropPreviewCard({ row }: { row: HomeFeedRow }) {
-  const name = row.author_display_name?.trim() || row.author_username || "WYNOS";
-  return <article className="route-drop-card"><Link href={`/profile/${row.author_id}`} className="route-drop-author"><Avatar src={row.author_avatar_url} label={row.author_username || name} size={36} /><span><strong>{name}{row.author_is_verified ? <span className="route-verified">✓</span> : null}</strong><small>@{row.author_username || "wynos"} · {relativeTimeTh(row.created_at)}</small></span></Link><Link href={`/drop/${row.id}`} className="route-drop-content">{row.caption ? <p>{row.caption}</p> : null}{row.image_url ? <img src={row.image_url} alt="" loading="lazy" decoding="async" /> : null}</Link><div className="route-drop-metrics" aria-label="กิจกรรมโพสต์"><span>♡ {row.like_count ?? 0}</span><span>◯ {row.comment_count ?? 0}</span><span>↻ {row.redrop_count ?? 0}</span></div></article>;
+  return <GoldenDropCard row={row} />;
 }
 
 export function SettingsLink() {
