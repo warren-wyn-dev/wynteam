@@ -9,7 +9,10 @@ export type HomeSurface =
 
 const rankedLimit = 200;
 const followingLimit = 200;
-const trendingLimit = 100;
+// Flutter HomeRepository.fetchTrending() returns 10 items by default for the
+// Home surface. Keep that UX contract here; Discovery is the surface that may
+// deliberately request a larger trend window later.
+const trendingLimit = 10;
 
 function throwIfError(error: { message?: string } | null | undefined): void {
   if (error) throw new Error(error.message || "โหลดฟีดไม่สำเร็จ");
