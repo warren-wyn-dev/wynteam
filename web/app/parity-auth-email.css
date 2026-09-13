@@ -61,3 +61,43 @@
 .parity-text-button:disabled {
   opacity: 0.5;
 }
+
+.parity-method-spinner {
+  justify-self: center;
+}
+
+.parity-invite-message {
+  margin: 0;
+  color: var(--graphite);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.parity-invite-content {
+  display: grid;
+  padding: var(--wyn-space-6);
+}
+
+.parity-invite-content h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.28;
+  font-weight: 400;
+}
+
+.parity-invite-content > p:not(.parity-auth-error) {
+  margin: var(--wyn-space-3) 0 0;
+  color: var(--graphite);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.parity-invite-content .parity-field {
+  margin-top: var(--wyn-space-8);
+}
+
+.parity-invite-content > .parity-primary {
+  margin-top: var(--wyn-space-6);
+}
