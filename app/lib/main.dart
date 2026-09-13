@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/design/wyn_colors.dart';
@@ -16,6 +17,16 @@ import 'features/auth/presentation/auth_gate.dart';
 import 'features/push/presentation/push_reliability_controller.dart';
 
 Future<void> main() async {
+  // Supabase Flutter's web PKCE/OAuth callback handler depends on Flutter's
+  // path URL strategy. With the default hash strategy, Google successfully
+  // redirects back to `/?code=...`, but the SDK cannot consume that callback
+  // reliably; the one-time auth code then stays in Safari's address bar and
+  // is replayed on later reloads. Configure the web strategy *before*
+  // Supabase.initialize() starts its built-in deep-link/session detector.
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
 
   // WYN-078 (Wynos V1.0.0 Beta2, item 5): without this, the OS draws its
