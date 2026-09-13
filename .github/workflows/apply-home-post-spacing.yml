@@ -1,46 +1,11 @@
 name: Apply Home post spacing patch
 
 on:
-  push:
-    branches:
-      - fix/home-post-symmetric-spacing
-    paths:
-      - .github/workflows/apply-home-post-spacing.yml
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
-  patch:
+  disabled:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: fix/home-post-symmetric-spacing
-
-      - name: Make post top and bottom spacing symmetrical
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          files = [
-              Path('app/lib/features/home/presentation/widgets/home_drop_card.dart'),
-              Path('app/lib/features/home/presentation/widgets/home_pop_card.dart'),
-          ]
-          old = "WynSpacing.space3,\n            0,\n            item.topReply == null ? 0 : WynSpacing.space2,"
-          new = "WynSpacing.space2,\n            0,\n            WynSpacing.space2,"
-
-          for path in files:
-              text = path.read_text()
-              if old not in text:
-                  raise SystemExit(f'Spacing block not found in {path}')
-              path.write_text(text.replace(old, new, 1))
-          PY
-
-      - name: Commit patch
-        run: |
-          git config user.name "warren-wyn-dev"
-          git config user.email "warren.wyn.dev@gmail.com"
-          git add app/lib/features/home/presentation/widgets/home_drop_card.dart app/lib/features/home/presentation/widgets/home_pop_card.dart
-          git commit -m "fix(feed): balance post vertical spacing"
-          git push origin HEAD:fix/home-post-symmetric-spacing
+      - run: echo disabled
