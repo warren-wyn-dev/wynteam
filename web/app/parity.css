@@ -1,0 +1,312 @@
+/* WYN-158 UI parity recovery.
+   Flutter production remains the visual golden master; these values mirror
+   WynSpacing, WynColors and WynosFounderMetrics rather than inventing a new UI. */
+
+:root {
+  --wyn-space-1: 4px;
+  --wyn-space-2: 8px;
+  --wyn-space-3: 12px;
+  --wyn-space-4: 16px;
+  --wyn-space-5: 20px;
+  --wyn-space-6: 24px;
+  --wyn-space-8: 32px;
+  --wyn-space-10: 40px;
+  --wyn-space-12: 48px;
+  --wyn-radius-sm: 8px;
+  --wyn-radius-md: 12px;
+  --wyn-radius-lg: 16px;
+  --wyn-radius-full: 999px;
+  --wyn-bottom-nav-height: 80px;
+  --wyn-create-action: 56px;
+}
+
+.parity-auth {
+  min-height: 100dvh;
+  width: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-system);
+}
+
+.parity-auth-loading {
+  display: grid;
+  place-items: center;
+  padding: max(var(--wyn-space-6), env(safe-area-inset-top)) var(--wyn-space-6)
+    max(var(--wyn-space-6), env(safe-area-inset-bottom));
+  color: var(--graphite);
+  text-align: center;
+}
+
+.parity-spinner {
+  width: 24px;
+  height: 24px;
+  animation: parity-spin 0.9s linear infinite;
+}
+
+@keyframes parity-spin {
+  to { transform: rotate(360deg); }
+}
+
+.parity-welcome {
+  display: flex;
+  flex-direction: column;
+  padding:
+    max(env(safe-area-inset-top), var(--wyn-space-4))
+    var(--wyn-space-6)
+    max(calc(env(safe-area-inset-bottom) + var(--wyn-space-8)), var(--wyn-space-8));
+}
+
+.parity-welcome-brand {
+  flex: 3 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: center;
+}
+
+.parity-wordmark-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wyn-space-2);
+}
+
+.parity-wordmark-line h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 34px;
+  line-height: 1.18;
+  font-weight: 500;
+  letter-spacing: 1.02px;
+}
+
+.parity-beta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: var(--wyn-space-1) var(--wyn-space-2);
+  border-radius: var(--wyn-radius-full);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.parity-welcome-brand p {
+  margin: var(--wyn-space-3) 0 0;
+  color: var(--graphite);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.parity-welcome::after {
+  content: "";
+  flex: 4 1 0;
+  order: 2;
+}
+
+.parity-welcome-cta {
+  order: 3;
+  width: 100%;
+  min-height: 56px;
+}
+
+.parity-primary,
+.parity-outline,
+.parity-back {
+  appearance: none;
+  font-family: var(--font-system);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.parity-primary {
+  border: 0;
+  border-radius: var(--wyn-radius-md);
+  background: var(--sapphire);
+  color: var(--paper);
+  min-height: 48px;
+  padding: 0 var(--wyn-space-4);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Flutter Welcome's FilledButton uses 16px vertical content padding;
+   keep its 56px measured tap target even though generic auth actions are 48px. */
+.parity-primary.parity-welcome-cta {
+  min-height: 56px;
+}
+
+.parity-primary:disabled,
+.parity-outline:disabled {
+  opacity: 0.5;
+}
+
+.parity-form-screen {
+  padding-top: env(safe-area-inset-top);
+}
+
+.parity-auth-appbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--wyn-space-2);
+}
+
+.parity-back {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+}
+
+.parity-back svg {
+  width: 24px;
+  height: 24px;
+}
+
+.parity-auth-content {
+  padding: var(--wyn-space-6);
+}
+
+.parity-method-content {
+  padding-top: var(--wyn-space-6);
+}
+
+.parity-method-content h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.28;
+  font-weight: 400;
+}
+
+.parity-method-actions {
+  display: grid;
+  gap: var(--wyn-space-3);
+  margin-top: var(--wyn-space-8);
+}
+
+.parity-google {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wyn-space-2);
+}
+
+.parity-google-mark {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--paper);
+  color: #4285f4;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.parity-outline {
+  min-height: 48px;
+  padding: 0 var(--wyn-space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--wyn-radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.parity-inline-spinner {
+  display: block;
+  margin: var(--wyn-space-6) auto 0;
+}
+
+.parity-auth-error {
+  margin: var(--wyn-space-4) 0 0;
+  color: #dc2626;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Root navigation parity with WynosFounderBottomNavigation. */
+.wynos-app {
+  padding-bottom: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+}
+
+.bottom-nav {
+  min-height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+  height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+  padding: 0 max(0px, env(safe-area-inset-left)) env(safe-area-inset-bottom)
+    max(0px, env(safe-area-inset-right));
+  background: var(--paper);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.nav-button {
+  min-height: var(--wyn-bottom-nav-height);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--graphite);
+  font-size: 0;
+  line-height: 1;
+}
+
+.nav-button svg {
+  width: 28px;
+  height: 28px;
+}
+
+.nav-button::after {
+  content: attr(aria-label);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: fade;
+  white-space: nowrap;
+  color: currentColor;
+  font-size: 11.5px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.nav-button.active {
+  color: var(--ink);
+}
+
+.nav-button.active::after {
+  font-weight: 600;
+}
+
+.nav-button[aria-label="สร้างโพสต์"]::after {
+  content: "โพสต์";
+  color: var(--graphite);
+  font-weight: 400;
+}
+
+.create-button {
+  width: var(--wyn-create-action);
+  height: var(--wyn-create-action);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 3px 10px rgb(18 18 15 / 18%);
+}
+
+.create-button svg {
+  width: 33px;
+  height: 33px;
+}

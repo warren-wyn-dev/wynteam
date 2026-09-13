@@ -1,10 +1,10 @@
-import { HomeMigrationPreview } from "@/components/home-migration-preview";
 import { HomeNavigationBridge } from "@/components/home-navigation-bridge";
+import { ParityAuthEntry } from "@/components/parity-auth-entry";
 
 export default function HomePage() {
   return (
     <>
-      <HomeMigrationPreview />
+      <ParityAuthEntry />
       <HomeNavigationBridge />
     </>
   );

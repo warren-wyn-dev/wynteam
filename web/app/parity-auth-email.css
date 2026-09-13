@@ -1,0 +1,103 @@
+.parity-auth-appbar-titled {
+  position: relative;
+  justify-content: flex-start;
+}
+
+.parity-auth-appbar-titled > span {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.parity-email-content {
+  display: grid;
+  gap: var(--wyn-space-4);
+  padding: var(--wyn-space-6);
+}
+
+.parity-field {
+  display: grid;
+  gap: 7px;
+  color: var(--graphite);
+  font-size: 13px;
+}
+
+.parity-field input {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--wyn-radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 0 var(--wyn-space-4);
+  outline: none;
+  font-size: 16px;
+}
+
+.parity-field input:focus {
+  border-color: var(--sapphire);
+  box-shadow: 0 0 0 1px var(--sapphire);
+}
+
+.parity-field small {
+  color: var(--graphite);
+  font-size: 12px;
+}
+
+.parity-text-button {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--sapphire);
+  font-family: var(--font-system);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.parity-text-button:disabled {
+  opacity: 0.5;
+}
+
+.parity-method-spinner {
+  justify-self: center;
+}
+
+.parity-invite-message {
+  margin: 0;
+  color: var(--graphite);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.parity-invite-content {
+  display: grid;
+  padding: var(--wyn-space-6);
+}
+
+.parity-invite-content h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.28;
+  font-weight: 400;
+}
+
+.parity-invite-content > p:not(.parity-auth-error) {
+  margin: var(--wyn-space-3) 0 0;
+  color: var(--graphite);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.parity-invite-content .parity-field {
+  margin-top: var(--wyn-space-8);
+}
+
+.parity-invite-content > .parity-primary {
+  margin-top: var(--wyn-space-6);
+}
