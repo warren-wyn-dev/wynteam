@@ -486,7 +486,6 @@ class HomeDropCard extends StatelessWidget {
                                   child: IconButton(
                                     icon:
                                         const Icon(Icons.more_horiz, size: 22),
-                                    tooltip: null,
                                     padding: EdgeInsets.zero,
                                     alignment: Alignment.center,
                                     constraints: const BoxConstraints.tightFor(
@@ -723,7 +722,6 @@ class HomeDropCard extends StatelessWidget {
                                         Icons.send_outlined,
                                         size: 24,
                                       ),
-                                      tooltip: null,
                                       padding: EdgeInsets.zero,
                                       constraints:
                                           const BoxConstraints.tightFor(

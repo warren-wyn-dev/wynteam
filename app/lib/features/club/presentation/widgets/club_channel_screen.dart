@@ -65,7 +65,6 @@ class ClubChannelScreen extends StatelessWidget {
                 message: 'จัดการห้อง',
                 child: IconButton(
                   icon: const Icon(Icons.more_vert),
-                  tooltip: null,
                   onPressed: () => manage(context),
                 )),
         ],

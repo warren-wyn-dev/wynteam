@@ -622,7 +622,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               message: 'เมนู',
               child: IconButton(
                 icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
-                tooltip: null,
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               )),
           Expanded(
@@ -641,7 +640,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               message: 'ค้นหา',
               child: IconButton(
                 icon: const Icon(Icons.search, size: 21, color: WynColors.ink),
-                tooltip: null,
                 onPressed: _openSearch,
               )),
         ],

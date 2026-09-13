@@ -548,7 +548,6 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                                 color: _canSend
                                     ? WynColors.paper
                                     : WynColors.mutedNeutral),
-                        tooltip: null,
                         onPressed: _canSend ? _send : null,
                       )),
                 ),

@@ -467,7 +467,6 @@ class _PopClipViewState extends State<PopClipView> {
                         child: IconButton(
                           icon: const Icon(Icons.delete_outline,
                               color: Colors.white),
-                          tooltip: null,
                           onPressed: _deletePop,
                         )),
                 ],
@@ -523,7 +522,6 @@ class _PopClipViewState extends State<PopClipView> {
                   child: IconButton(
                     icon: const Icon(Icons.mode_comment_outlined,
                         color: Colors.white),
-                    tooltip: null,
                     onPressed: _openComments,
                   )),
               BrowserSystemText('${_pop.commentCount}',
@@ -533,14 +531,12 @@ class _PopClipViewState extends State<PopClipView> {
                   message: 'แชร์',
                   child: IconButton(
                     icon: const Icon(Icons.share_outlined, color: Colors.white),
-                    tooltip: null,
                     onPressed: _share,
                   )),
               BrowserSystemTooltip(
                   message: 'คัดลอกลิงก์',
                   child: IconButton(
                     icon: const Icon(Icons.link, color: Colors.white),
-                    tooltip: null,
                     onPressed: _copyLink,
                   )),
               const Spacer(),

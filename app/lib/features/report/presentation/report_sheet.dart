@@ -264,7 +264,6 @@ class _ReportSheetState extends State<ReportSheet> {
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         icon: const Icon(Icons.close),
-                        tooltip: null,
                         onPressed: () => Navigator.of(context).pop(),
                       )),
                 ),

@@ -142,7 +142,6 @@ class _AppealDecisionSheetState extends State<AppealDecisionSheet> {
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         icon: const Icon(Icons.close),
-                        tooltip: null,
                         onPressed: _isSubmitting
                             ? null
                             : () => Navigator.of(context).pop(),

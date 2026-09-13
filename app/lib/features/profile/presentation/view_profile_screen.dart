@@ -687,7 +687,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 BrowserSystemTooltip(
                     message: 'ย้อนกลับ',
                     child: IconButton(
-                      tooltip: null,
                       icon: const Icon(
                         Icons.chevron_left_rounded,
                         size: 32,
@@ -708,7 +707,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   BrowserSystemTooltip(
                       message: 'แชร์โปรไฟล์',
                       child: IconButton(
-                        tooltip: null,
                         icon: const Icon(
                           Icons.ios_share_outlined,
                           size: 24,
@@ -719,7 +717,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   BrowserSystemTooltip(
                       message: 'ตั้งค่า',
                       child: IconButton(
-                        tooltip: null,
                         icon: const Icon(
                           Icons.settings_outlined,
                           size: 27,
@@ -731,7 +728,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   BrowserSystemTooltip(
                       message: 'ค้นหา',
                       child: IconButton(
-                        tooltip: null,
                         icon: const Icon(
                           Icons.search_rounded,
                           size: 25,
@@ -742,7 +738,6 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                   BrowserSystemTooltip(
                       message: 'เพิ่มเติม',
                       child: IconButton(
-                        tooltip: null,
                         icon: const Icon(
                           Icons.more_vert_rounded,
                           size: 24,

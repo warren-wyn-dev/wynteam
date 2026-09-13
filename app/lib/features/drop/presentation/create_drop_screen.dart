@@ -1495,7 +1495,6 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                           key: ValueKey('remove_poll_option_$i'),
                           icon: const Icon(Icons.close,
                               color: WynColors.graphite),
-                          tooltip: null,
                           onPressed:
                               _isSharing ? null : () => _removePollOption(i),
                         )),
@@ -1797,7 +1796,6 @@ class _AudiencePickerSheet extends StatelessWidget {
                         child: IconButton(
                           padding: EdgeInsets.zero,
                           icon: const Icon(Icons.close),
-                          tooltip: null,
                           onPressed: () => Navigator.of(context).pop(),
                         )),
                   ),

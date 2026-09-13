@@ -543,7 +543,6 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                         key: ValueKey('remove_club_poll_option_$i'),
                         icon:
                             const Icon(Icons.close, color: WynColors.graphite),
-                        tooltip: null,
                         onPressed:
                             _isPosting ? null : () => _removePollOption(i),
                       )),

@@ -220,7 +220,6 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
               message: 'สร้าง Pop ใหม่',
               child: IconButton(
                 icon: const Icon(Icons.add_box_outlined, color: Colors.white),
-                tooltip: null,
                 onPressed: _openCreatePop,
               )),
         );

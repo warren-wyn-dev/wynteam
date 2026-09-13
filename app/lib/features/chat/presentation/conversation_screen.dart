@@ -1833,7 +1833,6 @@ class _ConversationScreenState extends State<ConversationScreen>
               message: 'ตัวเลือกเพิ่มเติม',
               child: IconButton(
                 icon: const Icon(Icons.more_horiz, color: WynColors.ink),
-                tooltip: null,
                 onPressed: _showConversationMenu,
               )),
         ],
@@ -2277,7 +2276,6 @@ class _ConversationScreenState extends State<ConversationScreen>
                                     ? WynColors.paper
                                     : WynColors.mutedNeutral,
                               ),
-                        tooltip: null,
                         onPressed: _canSend
                             ? (_isEditingMessage ? _confirmEdit : _send)
                             : null,
@@ -2535,7 +2533,6 @@ class _ConversationScreenState extends State<ConversationScreen>
                     size: 20,
                     color: _isViewOnce ? WynColors.ink : WynColors.graphite,
                   ),
-                  tooltip: null,
                   onPressed: () => setState(() => _isViewOnce = !_isViewOnce),
                 )),
           ),

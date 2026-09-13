@@ -446,7 +446,6 @@ class _ClubChatTabState extends State<ClubChatTab> {
                     child: IconButton(
                       key: const Key('club_chat_add_button'),
                       icon: const Icon(Icons.add),
-                      tooltip: null,
                       onPressed: _openAddMenu,
                     )),
             ],

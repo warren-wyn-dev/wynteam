@@ -1185,7 +1185,6 @@ Future<InteractionPermission?> _showPermissionPicker(
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         icon: const Icon(Icons.close),
-                        tooltip: null,
                         onPressed: () => Navigator.of(sheetContext).pop(),
                       )),
                 ),
@@ -1319,7 +1318,6 @@ Future<LikesVisibility?> _showLikesVisibilityPicker(
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         icon: const Icon(Icons.close),
-                        tooltip: null,
                         onPressed: () => Navigator.of(sheetContext).pop(),
                       )),
                 ),

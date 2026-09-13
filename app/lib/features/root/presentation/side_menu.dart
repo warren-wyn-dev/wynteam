@@ -202,7 +202,6 @@ class _SideMenuState extends State<SideMenu> {
                       icon: const Icon(Icons.close,
                           size: 22, color: WynColors.ink),
                       onPressed: () => Navigator.of(context).pop(),
-                      tooltip: null,
                     )),
               ),
             ),

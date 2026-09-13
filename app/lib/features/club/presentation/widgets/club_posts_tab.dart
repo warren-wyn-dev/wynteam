@@ -324,7 +324,6 @@ class _ClubPostsTabState extends State<ClubPostsTab> {
             backgroundColor: WynColors.sapphire,
             foregroundColor: WynColors.paper,
             onPressed: _defaultChannelId == null ? null : _openCreatePost,
-            tooltip: null,
             child: const Icon(Icons.add),
           )),
     );

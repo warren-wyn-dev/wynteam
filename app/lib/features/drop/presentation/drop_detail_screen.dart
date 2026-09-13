@@ -894,7 +894,6 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         child: IconButton(
                           icon: const Icon(Icons.more_vert,
                               size: 18, color: WynColors.faint),
-                          tooltip: null,
                           onPressed: _openOwnDropMoreMenu,
                         ))
                   else
@@ -903,7 +902,6 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         child: IconButton(
                           icon: const Icon(Icons.more_vert,
                               size: 18, color: WynColors.faint),
-                          tooltip: null,
                           onPressed: _openDropMoreMenu,
                         )),
                 ],
@@ -1345,7 +1343,6 @@ class _DropDetailScreenState extends State<DropDetailScreen> {
                         iconSize: 16,
                         icon: const Icon(Icons.delete_outline,
                             color: WynColors.graphite),
-                        tooltip: null,
                         onPressed: () => _deleteComment(comment.id),
                       )),
                 ),

@@ -219,7 +219,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 message: 'ค้นหา',
                 child: IconButton(
                   onPressed: _submit,
-                  tooltip: null,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: WynSpacing.touchTargetMin,
@@ -262,7 +261,6 @@ class _SearchScreenState extends State<SearchScreen> {
                   message: 'ล้างคำค้นหา',
                   child: IconButton(
                     onPressed: _clear,
-                    tooltip: null,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
                       minWidth: WynSpacing.touchTargetMin,

@@ -286,7 +286,6 @@ class _AccountRow extends StatelessWidget {
                       child: IconButton(
                         icon: const Icon(Icons.close,
                             size: 18, color: WynColors.faint),
-                        tooltip: null,
                         onPressed: onRemove,
                       )),
       onTap: isActive ? null : onTap,

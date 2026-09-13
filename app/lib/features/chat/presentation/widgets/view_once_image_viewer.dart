@@ -86,7 +86,6 @@ class _ViewOnceImageViewerState extends State<ViewOnceImageViewer> {
                           key: const Key('view_once_close_button'),
                           icon: const Icon(Icons.close,
                               color: WynColors.paper, size: 21),
-                          tooltip: null,
                           onPressed: () => Navigator.of(context).pop(),
                         )),
                   ),

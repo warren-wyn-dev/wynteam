@@ -49,7 +49,6 @@ class DraftsScreen extends StatelessWidget {
             child: IconButton(
               icon: const Icon(Icons.chevron_left,
                   size: 22, color: WynColors.ink),
-              tooltip: null,
               onPressed: () => Navigator.of(context).pop(),
             )),
         title: BrowserSystemText(

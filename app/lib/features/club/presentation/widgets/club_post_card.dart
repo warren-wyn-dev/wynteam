@@ -263,7 +263,6 @@ class ClubPostCard extends StatelessWidget {
                               message: 'เพิ่มเติม',
                               child: IconButton(
                                 icon: const Icon(Icons.more_vert),
-                                tooltip: null,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints.tightFor(
                                   width: WynSpacing.touchTargetMin,

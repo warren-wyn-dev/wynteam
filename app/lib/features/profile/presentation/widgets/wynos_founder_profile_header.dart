@@ -406,7 +406,6 @@ class WynosProfileIconAction extends StatelessWidget {
       child: BrowserSystemTooltip(
           message: tooltip,
           child: IconButton(
-            tooltip: null,
             onPressed: onPressed,
             icon: Icon(icon, size: 21, color: WynColors.ink),
             style: IconButton.styleFrom(

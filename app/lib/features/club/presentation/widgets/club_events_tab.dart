@@ -182,7 +182,6 @@ class _ClubEventsTabState extends State<ClubEventsTab> {
                 backgroundColor: WynColors.sapphire,
                 foregroundColor: WynColors.paper,
                 onPressed: _openCreate,
-                tooltip: null,
                 child: const Icon(Icons.add),
               ))
           : null,

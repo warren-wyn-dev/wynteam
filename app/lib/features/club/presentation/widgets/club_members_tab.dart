@@ -595,7 +595,6 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
                 child: IconButton(
                   key: ValueKey('member-badge-menu-${member.userId}'),
                   icon: const Icon(Icons.local_offer_outlined, size: 18),
-                  tooltip: null,
                   onPressed: () => _openBadgeMenu(member),
                 )),
           if (actions.isNotEmpty)

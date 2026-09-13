@@ -398,7 +398,6 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
           BrowserSystemTooltip(
               message: 'ลดการซูม',
               child: IconButton(
-                tooltip: null,
                 icon: const Icon(Icons.remove, color: Colors.white),
                 onPressed:
                     ready ? () => _setScale(_scale - _zoomButtonStep) : null,
@@ -421,7 +420,6 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
           BrowserSystemTooltip(
               message: 'เพิ่มการซูม',
               child: IconButton(
-                tooltip: null,
                 icon: const Icon(Icons.add, color: Colors.white),
                 onPressed:
                     ready ? () => _setScale(_scale + _zoomButtonStep) : null,

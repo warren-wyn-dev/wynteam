@@ -289,7 +289,6 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
                     padding: EdgeInsets.zero,
                     iconSize: 16,
                     icon: const Icon(Icons.delete_outline),
-                    tooltip: null,
                     onPressed: () => _deleteComment(comment.id),
                   )),
             ),
@@ -373,7 +372,6 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
                   message: 'ส่งคอมเมนต์',
                   child: IconButton(
                     icon: const Icon(Icons.send),
-                    tooltip: null,
                     onPressed: canSend ? _sendComment : null,
                   )),
             ],

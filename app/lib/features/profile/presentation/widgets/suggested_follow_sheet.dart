@@ -147,7 +147,6 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
                     BrowserSystemTooltip(
                         message: 'ปิด',
                         child: IconButton(
-                          tooltip: null,
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(
                             Icons.close_rounded,

@@ -91,7 +91,6 @@ class ClubEventCard extends StatelessWidget {
                     message: 'เพิ่มเติม',
                     child: IconButton(
                       icon: const Icon(Icons.more_vert),
-                      tooltip: null,
                       onPressed: () => _openMoreMenu(context),
                     )),
             ],

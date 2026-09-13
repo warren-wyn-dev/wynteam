@@ -229,7 +229,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
           message: 'เมนู',
           child: IconButton(
             icon: const Icon(Icons.menu, size: 22, color: WynColors.ink),
-            tooltip: null,
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           )),
       titleWidget: Row(
@@ -295,7 +294,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen>
         message: count > 0 ? 'ข้อความ, $count บทสนทนายังไม่อ่าน' : 'ข้อความ',
         child: IconButton(
           icon: badge,
-          tooltip: null,
           onPressed: _openChatInbox,
         ));
   }

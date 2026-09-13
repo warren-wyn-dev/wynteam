@@ -441,7 +441,6 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                 message: 'ลบโพสต์',
                 child: IconButton(
                   icon: const Icon(Icons.delete_outline),
-                  tooltip: null,
                   onPressed: _deletePost,
                 )),
         ],
@@ -512,7 +511,6 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                           icon: Icon(_post.pinned
                               ? Icons.push_pin
                               : Icons.push_pin_outlined),
-                          tooltip: null,
                           onPressed: _togglePin,
                         )),
                 ],
@@ -582,14 +580,12 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                   message: 'แชร์',
                   child: IconButton(
                     icon: const Icon(Icons.share_outlined),
-                    tooltip: null,
                     onPressed: _share,
                   )),
               BrowserSystemTooltip(
                   message: 'คัดลอกลิงก์',
                   child: IconButton(
                     icon: const Icon(Icons.link),
-                    tooltip: null,
                     onPressed: _copyLink,
                   )),
               const Spacer(),
@@ -768,7 +764,6 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                         padding: EdgeInsets.zero,
                         iconSize: 16,
                         icon: const Icon(Icons.delete_outline),
-                        tooltip: null,
                         onPressed: () => _deleteComment(comment.id),
                       )),
                 ),
@@ -839,7 +834,6 @@ class _ClubPostDetailScreenState extends State<ClubPostDetailScreen> {
                       message: 'ส่งคอมเมนต์',
                       child: IconButton(
                         icon: const Icon(Icons.send),
-                        tooltip: null,
                         onPressed: canSend ? _sendComment : null,
                       )),
                 ),

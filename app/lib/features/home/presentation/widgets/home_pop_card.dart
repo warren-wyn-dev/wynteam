@@ -260,7 +260,6 @@ class HomePopCard extends StatelessWidget {
                                   child: IconButton(
                                     icon:
                                         const Icon(Icons.more_horiz, size: 22),
-                                    tooltip: null,
                                     padding: const EdgeInsets.only(top: 2),
                                     alignment: Alignment.topCenter,
                                     constraints: const BoxConstraints.tightFor(
@@ -426,7 +425,6 @@ class HomePopCard extends StatelessWidget {
                                   child: IconButton(
                                     icon: const Icon(Icons.send_outlined,
                                         size: 24),
-                                    tooltip: null,
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints.tightFor(
                                       width: WynSpacing.touchTargetMin,

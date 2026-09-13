@@ -667,7 +667,6 @@ class _ClubPageState extends State<ClubPage>
             message: 'ย้อนกลับ',
             child: IconButton(
               icon: const Icon(Icons.chevron_left, color: WynColors.ink),
-              tooltip: null,
               onPressed: () => Navigator.of(context).pop(),
             )),
       ),
@@ -812,7 +811,6 @@ class _ClubPageState extends State<ClubPage>
           child: IconButton(
             padding: EdgeInsets.zero,
             icon: Icon(icon, size: 14, color: WynColors.ink),
-            tooltip: null,
             onPressed: onPressed,
             style: IconButton.styleFrom(
               side: const BorderSide(color: WynColors.hairline),

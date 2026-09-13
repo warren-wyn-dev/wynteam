@@ -97,7 +97,6 @@ class _PopSingleClipScreenState extends State<PopSingleClipScreen> {
                       message: 'ย้อนกลับ',
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        tooltip: null,
                         onPressed: () => Navigator.of(context).pop(),
                       )),
                 ),
