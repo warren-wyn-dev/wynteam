@@ -15,7 +15,9 @@ async function fetchPeople(client: SupabaseClient, viewerId: string, profileId: 
     ? await client.from("follows").select("follower_id").eq("following_id", profileId).order("created_at", { ascending: false }).limit(200)
     : await client.from("follows").select("following_id").eq("follower_id", profileId).order("created_at", { ascending: false }).limit(200);
   if (relation.error) throw relation.error;
-  const ids = (relation.data ?? []).map((row) => String(kind === "followers" ? row.follower_id : row.following_id));
+  const ids = kind === "followers"
+    ? ((relation.data ?? []) as { follower_id: string }[]).map((row) => String(row.follower_id))
+    : ((relation.data ?? []) as { following_id: string }[]).map((row) => String(row.following_id));
   if (!ids.length) return [];
   const [profiles, follows, requests] = await Promise.all([
     client.from("profiles").select("id,username,display_name,avatar_url,is_verified,is_private").in("id", ids),
@@ -23,6 +25,8 @@ async function fetchPeople(client: SupabaseClient, viewerId: string, profileId: 
     client.from("follow_requests").select("target_id").eq("requester_id", viewerId).in("target_id", ids),
   ]);
   if (profiles.error) throw profiles.error;
+  if (follows.error) throw follows.error;
+  if (requests.error) throw requests.error;
   const followed = new Set((follows.data ?? []).map((row) => String(row.following_id)));
   const pending = new Set((requests.data ?? []).map((row) => String(row.target_id)));
   const byId = new Map((profiles.data ?? []).map((profile) => [String(profile.id), profile]));
