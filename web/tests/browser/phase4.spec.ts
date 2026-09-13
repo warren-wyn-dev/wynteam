@@ -17,11 +17,55 @@ const routes = [
   "/@wynos",
 ];
 
-test("consumer routes render without fatal errors or horizontal overflow", async ({ page }) => {
-  const pageErrors: string[] = [];
-  page.on("pageerror", (error) => pageErrors.push(error.message));
+test("consumer routes render without fatal errors or horizontal overflow", async ({ page }, testInfo) => {
+  let currentRoute = "<before-first-navigation>";
+  const pageErrors: Array<{ route: string; pageUrl: string; message: string }> = [];
+  const requestFailures: Array<{
+    route: string;
+    pageUrl: string;
+    resourceType: string;
+    requestUrl: string;
+    errorText: string;
+  }> = [];
+  const badResponses: Array<{
+    route: string;
+    pageUrl: string;
+    resourceType: string;
+    responseUrl: string;
+    status: number;
+  }> = [];
+
+  page.on("pageerror", (error) => {
+    pageErrors.push({
+      route: currentRoute,
+      pageUrl: page.url(),
+      message: error.message,
+    });
+  });
+
+  page.on("requestfailed", (request) => {
+    requestFailures.push({
+      route: currentRoute,
+      pageUrl: page.url(),
+      resourceType: request.resourceType(),
+      requestUrl: request.url(),
+      errorText: request.failure()?.errorText ?? "unknown request failure",
+    });
+  });
+
+  page.on("response", (response) => {
+    if (response.status() < 400) return;
+    badResponses.push({
+      route: currentRoute,
+      pageUrl: page.url(),
+      resourceType: response.request().resourceType(),
+      responseUrl: response.url(),
+      status: response.status(),
+    });
+  });
 
   for (const route of routes) {
+    currentRoute = route;
     const response = await page.goto(route, { waitUntil: "domcontentloaded" });
     expect(response, `${route} should return a document response`).not.toBeNull();
     expect(response!.status(), `${route} should not return a server error`).toBeLessThan(500);
@@ -36,7 +80,17 @@ test("consumer routes render without fatal errors or horizontal overflow", async
     expect(layout.platformViews, `${route} should remain DOM-native`).toBe(0);
   }
 
-  expect(pageErrors).toEqual([]);
+  if (pageErrors.length > 0) {
+    const diagnostics = { pageErrors, requestFailures, badResponses };
+    const body = JSON.stringify(diagnostics, null, 2);
+    console.error(`Hosted browser diagnostics:\n${body}`);
+    await testInfo.attach("hosted-browser-diagnostics", {
+      body,
+      contentType: "application/json",
+    });
+  }
+
+  expect(pageErrors, "browser page errors with route/network diagnostics above").toEqual([]);
 });
 
 test("system-font stack remains browser/OS native", async ({ page }) => {
