@@ -53,6 +53,9 @@ test("source contracts cannot regress to staged migration UI", async () => {
     closureCss,
     postDetailCss,
     homeGoldenCss,
+    profileGoldenCss,
+    goldenDrop,
+    goldenDropCss,
     search,
     profile,
     profileParity,
@@ -62,6 +65,9 @@ test("source contracts cannot regress to staged migration UI", async () => {
     settings,
     clubs,
     clubDetail,
+    clubGolden,
+    clubGoldenCss,
+    clubPage,
     layout,
     postDetail,
     dropPage,
@@ -76,6 +82,9 @@ test("source contracts cannot regress to staged migration UI", async () => {
     readFile(path.join(root, "app/parity-closure.css"), "utf8"),
     readFile(path.join(root, "app/post-detail-parity.css"), "utf8"),
     readFile(path.join(root, "app/home-golden-final.css"), "utf8"),
+    readFile(path.join(root, "app/profile-golden-final.css"), "utf8"),
+    readFile(path.join(root, "components/golden-drop-card.tsx"), "utf8"),
+    readFile(path.join(root, "app/golden-drop-card.css"), "utf8"),
     readFile(path.join(root, "components/search-route.tsx"), "utf8"),
     readFile(path.join(root, "components/profile-route.tsx"), "utf8"),
     readFile(path.join(root, "components/profile-parity-route.tsx"), "utf8"),
@@ -85,6 +94,9 @@ test("source contracts cannot regress to staged migration UI", async () => {
     readFile(path.join(root, "components/settings-route.tsx"), "utf8"),
     readFile(path.join(root, "components/clubs-routes.tsx"), "utf8"),
     readFile(path.join(root, "components/club-detail-route.tsx"), "utf8"),
+    readFile(path.join(root, "components/club-detail-golden.tsx"), "utf8"),
+    readFile(path.join(root, "app/club-detail-golden.css"), "utf8"),
+    readFile(path.join(root, "app/club/[id]/page.tsx"), "utf8"),
     readFile(path.join(root, "app/layout.tsx"), "utf8"),
     readFile(path.join(root, "components/post-detail-route.tsx"), "utf8"),
     readFile(path.join(root, "app/drop/[id]/page.tsx"), "utf8"),
@@ -96,38 +108,25 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(auth).not.toContain("HomeMigrationPreview");
   expect(pageSource).not.toContain("HomeNavigationBridge");
   expect(layout).not.toContain("DrawerRouteAdapter");
-  expect(layout).toContain('import "./home-golden-final.css"');
+  for (const sheet of ["home-golden-final.css", "profile-golden-final.css", "club-detail-golden.css", "golden-drop-card.css"]) expect(layout).toContain(sheet);
 
   for (const label of ["สำหรับคุณ", "กำลังติดตาม", "คลับของฉัน"]) expect(home).toContain(label);
   expect(home).not.toContain("กำลังนิยม");
   expect(home).toContain('/wynos_logo_mark.png');
   for (const label of ["สำรวจ Club", "สร้าง Club", "Club ของฉัน", "บันทึกไว้", "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก"]) expect(home).toContain(label);
   for (const contract of [
-    "Quote ReDrop",
-    "ไม่สนใจโพสต์นี้",
-    "เลิกทำ",
-    "submit_report",
-    'from("feed_signals")',
-    "navigator.share",
-    "toggleClubPostLike",
-    "toggleAuthorFollow",
-    "audit-follow-pill",
-    "onShare",
-    "row.audience",
-    "ขอติดตามแล้ว",
-    "รีโพสต์โดย @",
+    "Quote ReDrop", "ไม่สนใจโพสต์นี้", "เลิกทำ", "submit_report", 'from("feed_signals")',
+    "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "audit-follow-pill", "onShare",
+    "row.audience", "ขอติดตามแล้ว", "รีโพสต์โดย @",
   ]) expect(home).toContain(contract);
   expect(home).toContain('<Send size={24} />');
   expect(home).toContain('row.audience == null || row.audience === "everyone"');
   expect(home).not.toContain('location.assign');
-  expect(homeGoldenCss).toContain(".audit-follow-pill");
-  expect(homeGoldenCss).toContain("background: var(--ink)");
-  expect(homeGoldenCss).toContain("font-size: 17px");
-  expect(homeGoldenCss).toContain("max-width: 112px");
-  expect(homeGoldenCss).toContain("gap: 16px");
+  for (const contract of [".audit-follow-pill", "background: var(--ink)", "font-size: 17px", "max-width: 112px", "gap: 16px"]) expect(homeGoldenCss).toContain(contract);
 
   for (const label of ["หน้าหลัก", "ค้นหา", "การแจ้งเตือน", "โปรไฟล์"]) expect(routeUi).toContain(label);
   expect(routeUi).toContain("โพสต์");
+  expect(routeUi).toContain("GoldenDropCard");
 
   expect(search).toContain('headerMode="hidden"');
   expect(search).toContain("แฮชแท็กกำลังนิยม");
@@ -143,6 +142,10 @@ test("source contracts cannot regress to staged migration UI", async () => {
   for (const label of ["ผู้ติดตาม", "กำลังติดตาม"]) expect(followList).toContain(label);
   expect(followList).toContain('toggleAuthorFollow');
   expect(followList).toContain('kind === "followers"');
+  for (const metric of ["height: calc(170px", "width: 92px", "font-size: 21px", "font-size: 20px", "height: 44px", "height: 52px"]) expect(profileGoldenCss).toContain(metric);
+  for (const contract of ["toggleDropLike", "toggleDropSave", "toggleDropRedrop", "drop_view_count", "Quote ReDrop", "submit_report", 'from("drop_images")']) expect(goldenDrop).toContain(contract);
+  expect(goldenDropCss).toContain("font-size: 17.5px");
+  expect(goldenDropCss).toContain("min-height: 48px");
 
   expect(chat).toContain("ทั้งหมด");
   expect(chat).toContain("ยังไม่อ่าน");
@@ -159,6 +162,13 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(clubs).not.toContain("Club แนะนำสำหรับคุณ");
   for (const label of ["โพสต์", "แชท", "เกี่ยวกับ", "รายละเอียด", "สมาชิก", "กิจกรรม", "Insights", "รออนุมัติ", "เข้าร่วม"]) expect(clubDetail).toContain(label);
   for (const contract of ['from("club_channels")', 'from("club_channel_messages")', 'from("club_events")', 'rpc("club_insights"']) expect(clubDetail).toContain(contract);
+  expect(clubPage).toContain("ClubDetailGoldenRoute");
+  for (const label of ["โพสต์", "แชท", "เกี่ยวกับ", "รายละเอียด", "สมาชิก", "กิจกรรม", "Insights", "เข้าร่วม", "รออนุมัติ", "รายงาน Club", "ปิดการแจ้งเตือน Club นี้", "บันทึก", "ปักหมุด"]) expect(clubGolden).toContain(label);
+  for (const contract of ["fetchClubPostsForClub", "toggleClubPostSave", "toggleClubPostPin", "voteClubPostPoll", 'from("club_channel_messages")', "mark_club_channel_read", "club_notification_mutes", 'rpc("club_insights"', "submit_report"]) expect(clubGolden).toContain(contract);
+  expect(clubGolden).toContain(`${"${clubId}"}/chat/${"${channelId}"}/${"${userId}"}-${"${Date.now()}"}`);
+  expect(clubGoldenCss).toContain("height: 140px");
+  expect(clubGoldenCss).toContain("grid-template-columns: repeat(3, 1fr)");
+  expect(clubGoldenCss).toContain("font-size: 17px");
 
   expect(dropPage).toContain("PostDetailRoute");
   for (const label of ["ความคิดเห็น", "แชร์โพสต์", "ดูกิจกรรม", "กิจกรรมโพสต์", "ถูกใจ", "รีโพสต์", "ตอบกลับ", "ดูคอมเมนต์เพิ่มเติม"]) expect(postDetail).toContain(label);
@@ -171,14 +181,9 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(postDetailCss).toContain("grid-template-columns: repeat(5, 1fr)");
 
   for (const metric of [
-    "--wyn-social-header: 60px",
-    "--wyn-social-tab: 52px",
-    "--wyn-social-search: 44px",
-    "--wyn-profile-cover: 170px",
-    "--wyn-profile-action: 44px",
-    "--wyn-detail-media-radius: 18px",
-    "--wyn-detail-activity: 54px",
-    "--wyn-comment-composer: 46px",
+    "--wyn-social-header: 60px", "--wyn-social-tab: 52px", "--wyn-social-search: 44px",
+    "--wyn-profile-cover: 170px", "--wyn-profile-action: 44px", "--wyn-detail-media-radius: 18px",
+    "--wyn-detail-activity: 54px", "--wyn-comment-composer: 46px",
   ]) expect(finalCss).toContain(metric);
   for (const contract of ["height: calc(170px", "width: 92px", "height: 44px", "height: 52px", "min-height: 54px", "min-height: 46px"]) expect(completionCss).toContain(contract);
   expect(closureCss).toContain("profile-recommendation-card");
