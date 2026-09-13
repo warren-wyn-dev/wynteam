@@ -1,0 +1,36 @@
+name: Consumer Web Phase 4 Browser QA
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-phase4-browser-qa.yml'
+  push:
+    branches:
+      - feat/wyn-158-phase4-parity-qa
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-phase4-browser-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Phase 4 browser QA
+        run: npm run qa:browser
