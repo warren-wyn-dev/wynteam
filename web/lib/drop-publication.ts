@@ -25,20 +25,84 @@ export type PublishDropResult = {
   operationId: string;
 };
 
+const supportedImageExtensions = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+  "heif",
+  "gif",
+  "avif",
+]);
+
 function extensionFor(file: File): string {
   const fromName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
   if (fromName) return fromName;
   if (file.type === "image/png") return "png";
   if (file.type === "image/webp") return "webp";
   if (file.type === "image/heic" || file.type === "image/heif") return "heic";
+  if (file.type === "image/avif") return "avif";
+  if (file.type === "image/gif") return "gif";
   return "jpg";
 }
 
+function validateImageFile(file: File): void {
+  const extension = extensionFor(file);
+  if (!supportedImageExtensions.has(extension)) {
+    throw new Error(`ไม่รองรับไฟล์รูป .${extension || "unknown"}`);
+  }
+  if (file.type && !file.type.startsWith("image/")) {
+    throw new Error("ไฟล์ที่เลือกไม่ใช่รูปภาพ");
+  }
+  if (file.type === "image/svg+xml") {
+    throw new Error("ยังไม่รองรับไฟล์ SVG");
+  }
+}
+
+function errorFields(error: unknown): {
+  code: string;
+  status: string;
+  message: string;
+} {
+  if (!error || typeof error !== "object") {
+    return {
+      code: "",
+      status: "",
+      message: error instanceof Error ? error.message : String(error ?? ""),
+    };
+  }
+  const candidate = error as {
+    code?: string | number;
+    statusCode?: string | number;
+    status?: string | number;
+    message?: string;
+  };
+  return {
+    code: String(candidate.code ?? ""),
+    status: String(candidate.statusCode ?? candidate.status ?? ""),
+    message: candidate.message ?? "",
+  };
+}
+
 function isConflict(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const candidate = error as { statusCode?: string | number; status?: string | number; message?: string };
-  return String(candidate.statusCode ?? candidate.status ?? "") === "409" ||
-    (candidate.message ?? "").toLowerCase().includes("already exists");
+  const fields = errorFields(error);
+  return fields.status === "409" || fields.message.toLowerCase().includes("already exists");
+}
+
+function isTransportLikeError(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  const fields = errorFields(error);
+  const message = fields.message.toLowerCase();
+  const looksLikeNetwork =
+    message.includes("failed to fetch") ||
+    message.includes("fetcherror") ||
+    message.includes("networkerror") ||
+    message.includes("network error") ||
+    message.includes("load failed") ||
+    message.includes("connection reset") ||
+    message.includes("connection closed");
+  return looksLikeNetwork && !fields.code && !fields.status;
 }
 
 async function imageDimensions(file: File): Promise<{ width: number; height: number }> {
@@ -84,15 +148,36 @@ async function reconcilePublication(
   }
 }
 
+async function resolveAmbiguousPublication(
+  client: SupabaseClient,
+  operationId: string,
+  newlyUploadedPaths: string[],
+  originalError: unknown,
+): Promise<PublishDropResult> {
+  const reconciled = await reconcilePublication(client, operationId);
+  if (reconciled.resolved && reconciled.dropId) {
+    return { dropId: reconciled.dropId, operationId };
+  }
+  if (reconciled.resolved && !reconciled.dropId) {
+    await removeBestEffort(client, newlyUploadedPaths);
+    throw originalError instanceof Error
+      ? originalError
+      : new Error("เผยแพร่ Drop ไม่สำเร็จ");
+  }
+
+  // Reconciliation itself could not establish the state. Preserve all
+  // deterministic uploads so a retry with this operation id can recover.
+  throw new DropPublicationStateUnknownError(operationId);
+}
+
 /**
  * Browser counterpart of Flutter DropRepository.createDrop/_publishDrop.
  *
- * The operation id and storage paths are deterministic. If a transport
- * response is lost after the database committed, retrying with the same
- * operation id returns the existing Drop instead of publishing a duplicate.
- * Existing 409 objects from an earlier ambiguous attempt are retained and
- * reused; only files uploaded by the current, definitely-failed attempt are
- * eligible for cleanup.
+ * The operation id and storage paths are deterministic. If a storage/RPC
+ * response disappears, retrying with the same operation id reuses uploaded
+ * objects and returns the existing Drop instead of knowingly publishing a
+ * duplicate. Definite backend errors may clean up only files uploaded by the
+ * current attempt; ambiguous transport failures retain assets for recovery.
  */
 export async function publishDropSafely(
   client: SupabaseClient,
@@ -103,41 +188,60 @@ export async function publishDropSafely(
   const files = input.files.slice(0, 9);
   if (!caption && !files.length) throw new Error("Drop ต้องมีข้อความหรือรูปภาพ");
   if (caption.length > 500) throw new Error("ข้อความยาวเกิน 500 ตัวอักษร");
+  files.forEach(validateImageFile);
 
   const operationId = input.operationId || crypto.randomUUID();
   const newlyUploadedPaths: string[] = [];
   const metadata: ImageMetadata[] = [];
 
-  try {
-    for (let index = 0; index < files.length; index += 1) {
-      const file = files[index];
-      const path = `${userId}/publications/${operationId}/${index}.${extensionFor(file)}`;
-      const dimensions = await imageDimensions(file);
-      const uploaded = await client.storage.from("drop-images").upload(path, file, {
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    const path = `${userId}/publications/${operationId}/${index}.${extensionFor(file)}`;
+    let dimensions: { width: number; height: number };
+    try {
+      dimensions = await imageDimensions(file);
+    } catch (error) {
+      await removeBestEffort(client, newlyUploadedPaths);
+      throw error;
+    }
+
+    let uploaded: Awaited<ReturnType<ReturnType<typeof client.storage.from>["upload"]>>;
+    try {
+      uploaded = await client.storage.from("drop-images").upload(path, file, {
         cacheControl: "31536000",
         contentType: file.type || undefined,
         upsert: false,
       });
-
-      if (uploaded.error && !isConflict(uploaded.error)) throw uploaded.error;
-      if (!uploaded.error) newlyUploadedPaths.push(path);
-
-      const { data } = client.storage.from("drop-images").getPublicUrl(path);
-      metadata.push({
-        image_url: data.publicUrl,
-        position: index,
-        image_width: dimensions.width,
-        image_height: dimensions.height,
-      });
+    } catch (error) {
+      if (isTransportLikeError(error)) {
+        throw new DropPublicationStateUnknownError(operationId);
+      }
+      await removeBestEffort(client, newlyUploadedPaths);
+      throw error instanceof Error ? error : new Error("อัปโหลดรูปไม่สำเร็จ");
     }
-  } catch (error) {
-    await removeBestEffort(client, newlyUploadedPaths);
-    throw error instanceof Error ? error : new Error("อัปโหลดรูปไม่สำเร็จ");
+
+    if (uploaded.error && !isConflict(uploaded.error)) {
+      if (isTransportLikeError(uploaded.error)) {
+        throw new DropPublicationStateUnknownError(operationId);
+      }
+      await removeBestEffort(client, newlyUploadedPaths);
+      throw new Error(uploaded.error.message || "อัปโหลดรูปไม่สำเร็จ");
+    }
+    if (!uploaded.error) newlyUploadedPaths.push(path);
+
+    const { data } = client.storage.from("drop-images").getPublicUrl(path);
+    metadata.push({
+      image_url: data.publicUrl,
+      position: index,
+      image_width: dimensions.width,
+      image_height: dimensions.height,
+    });
   }
 
   const primary = metadata[0];
+  let result: Awaited<ReturnType<typeof client.rpc>>;
   try {
-    const result = await client.rpc("publish_drop", {
+    result = await client.rpc("publish_drop", {
       p_operation_id: operationId,
       p_image_url: primary?.image_url ?? null,
       p_caption: caption || null,
@@ -153,33 +257,18 @@ export async function publishDropSafely(
       p_image_height: primary?.image_height ?? null,
       p_image_aspect_ratio: null,
     });
-
-    // A concrete PostgREST error means the transaction rejected the write.
-    if (result.error) {
-      await removeBestEffort(client, newlyUploadedPaths);
-      throw new Error(result.error.message || "เผยแพร่ Drop ไม่สำเร็จ");
-    }
-
-    return { dropId: String(result.data), operationId };
   } catch (error) {
-    // Do not assume a thrown transport error means the RPC failed: the server
-    // may have committed before the response disappeared. Reconcile by the
-    // same operation id before deciding whether current uploads can be removed.
-    if (error instanceof Error && !error.message.includes("Failed to fetch") && !(error instanceof TypeError)) {
-      throw error;
-    }
-
-    const reconciled = await reconcilePublication(client, operationId);
-    if (reconciled.resolved && reconciled.dropId) {
-      return { dropId: reconciled.dropId, operationId };
-    }
-    if (reconciled.resolved && !reconciled.dropId) {
-      await removeBestEffort(client, newlyUploadedPaths);
-      throw error instanceof Error ? error : new Error("เผยแพร่ Drop ไม่สำเร็จ");
-    }
-
-    // Reconciliation itself could not establish the state. Preserve all
-    // deterministic uploads so a retry with this operation id can recover.
-    throw new DropPublicationStateUnknownError(operationId);
+    if (!isTransportLikeError(error)) throw error;
+    return resolveAmbiguousPublication(client, operationId, newlyUploadedPaths, error);
   }
+
+  if (result.error) {
+    if (isTransportLikeError(result.error)) {
+      return resolveAmbiguousPublication(client, operationId, newlyUploadedPaths, result.error);
+    }
+    await removeBestEffort(client, newlyUploadedPaths);
+    throw new Error(result.error.message || "เผยแพร่ Drop ไม่สำเร็จ");
+  }
+
+  return { dropId: String(result.data), operationId };
 }
