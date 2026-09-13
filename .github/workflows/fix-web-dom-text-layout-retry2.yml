@@ -1,0 +1,100 @@
+name: Verify browser system text layout metrics
+
+on:
+  push:
+    branches: [ops/fix-web-dom-text-layout-20260913]
+    paths: [.github/workflows/fix-web-dom-text-layout-retry2.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-dom-text-layout-metrics
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+
+      - name: Apply reviewed browser-exact layout patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin ops/fix-web-dom-text-layout-20260913
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-once.yml > /tmp/source-workflow.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import textwrap
+
+          workflow = Path('/tmp/source-workflow.yml').read_text()
+          patch = re.search(
+              r"python3 - <<'PY'\n(.*?)\n          PY\n\n          cat > app/test/browser_system_text_web_layout_test.dart <<'DART'",
+              workflow,
+              re.S,
+          )
+          if not patch:
+              raise SystemExit('could not extract typography patch')
+          exec(textwrap.dedent(patch.group(1)), {'__builtins__': __builtins__})
+
+          test = re.search(
+              r"cat > app/test/browser_system_text_web_layout_test.dart <<'DART'\n(.*?)\n          DART",
+              workflow,
+              re.S,
+          )
+          if not test:
+              raise SystemExit('could not extract browser test')
+          content = textwrap.dedent(test.group(1))
+          content = content.replace(
+              '          Row(\n            mainAxisSize: MainAxisSize.min,',
+              '          const Row(\n            mainAxisSize: MainAxisSize.min,',
+          )
+          content = content.replace('            children: const [', '            children: [')
+          Path('app/test/browser_system_text_web_layout_test.dart').write_text(content)
+          PY
+
+          dart format \
+            app/lib/core/typography/browser_system_text_web.dart \
+            app/test/browser_system_text_web_layout_test.dart
+          git add -A
+
+      - name: Analyze and full regression tests
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Browser DOM layout regression tests
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter test --platform chrome test/browser_system_text_web_layout_test.dart
+
+      - name: Release Web build
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter build web --release
+          test -f build/web/main.dart.js
+          grep -q 'Apple Color Emoji' build/web/main.dart.js
+          grep -q 'getBoundingClientRect' build/web/main.dart.js
+          ! grep -q 'WYNWebNotoThai' build/web/main.dart.js
+
+      - name: Commit verified layout fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git status --short
+          git commit -m 'fix(web): align DOM system text with browser metrics'
+          git push origin HEAD:fix/web-dom-text-layout-metrics
