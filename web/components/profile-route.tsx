@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, Camera, ChevronLeft, Heart, Image as ImageIcon, MessageCircle, MoreVertical, Repeat2, Search, Send, Settings, Share2, UserPlus, X } from "lucide-react";
+import { Bookmark, Camera, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Repeat2, Search, Send, Settings, Share2, UserPlus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -188,7 +188,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   };
 
   if (editing && own) {
-    return <AppChrome title="แก้ไขโปรไฟล์" userId={userId} backHref={`/profile/${userId}`}><EditProfile client={client} userId={userId} summary={summary} onDone={() => { setEditing(false); void load(); }} /></AppChrome>;
+    return <AppChrome title="แก้ไขโปรไฟล์" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EditProfile client={client} userId={userId} summary={summary} onDone={() => { setEditing(false); void load(); }} /></AppChrome>;
   }
 
   return (
