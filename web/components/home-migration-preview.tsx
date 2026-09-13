@@ -112,7 +112,9 @@ function SignedOut({ onGoogle }: { onGoogle: () => Promise<void> }) {
 }
 
 export function HomeMigrationPreview() {
-  const [gate, setGate] = useState<GateState>("loading");
+  const [gate, setGate] = useState<GateState>(() =>
+    hasSupabaseBrowserConfig() ? "loading" : "missing-config",
+  );
   const [session, setSession] = useState<Session | null>(null);
   const [rows, setRows] = useState<HomeFeedRow[]>([]);
   const [message, setMessage] = useState<string>("");
@@ -154,10 +156,7 @@ export function HomeMigrationPreview() {
   }, [supabase]);
 
   useEffect(() => {
-    if (!supabase) {
-      setGate("missing-config");
-      return;
-    }
+    if (!supabase) return;
 
     let mounted = true;
     void supabase.auth.getSession().then(({ data }) => {
