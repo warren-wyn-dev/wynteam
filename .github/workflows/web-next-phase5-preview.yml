@@ -1,0 +1,103 @@
+name: Consumer Web Phase 5 Vercel Preview
+
+# Deploy the Next.js consumer web to the existing Vercel project as a preview
+# deployment. PR execution is deliberately limited to the WYN-158 Phase 5
+# readiness branch; manual dispatch remains available after merge. This workflow
+# must never move the production alias.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/web-next-phase5-preview.yml'
+      - 'web/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.head_ref == 'feat/wyn-158-phase5-cutover-readiness'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Preflight consumer web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run check
+
+      - name: Deploy Next.js preview to existing Vercel project
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          VERCEL_ORG_ID=$(clean "$VERCEL_ORG_ID")
+          VERCEL_PROJECT_ID=$(clean "$VERCEL_PROJECT_ID")
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+
+          for value in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            test -n "$(eval echo \"\$$value\")" || { echo "::error::$value is empty"; exit 1; }
+          done
+
+          export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          url=$(npx --yes vercel@latest deploy --yes \
+            --token="$VERCEL_TOKEN" \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            | tail -n 1)
+
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Phase 5 Next.js preview"
+            echo
+            echo "Preview URL: $url"
+            echo
+            echo "This is a preview deployment only. The production alias was not changed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke preview deployment
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          for route in / /search /notifications /chat /settings /profile/me; do
+            echo "Checking $PREVIEW_URL$route"
+            curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
+              --output /dev/null "$PREVIEW_URL$route"
+          done
+
+          html=$(curl --fail --location --retry 8 --retry-delay 3 --max-time 30 "$PREVIEW_URL/")
+          grep -q '/_next/' <<< "$html" || {
+            echo '::error::preview homepage does not look like a Next.js deployment'
+            exit 1
+          }
+          if grep -q 'flutter_bootstrap.js' <<< "$html"; then
+            echo '::error::preview unexpectedly contains the legacy Flutter bootstrap'
+            exit 1
+          fi

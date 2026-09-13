@@ -6,7 +6,7 @@ Owner: Founder
 
 ## Founder approval
 
-Founder approved moving the consumer web frontend toward **Next.js/React + browser/OS system fonts + the existing Supabase backend**, while preserving the current WYNOS UX/UI. Production cutover remains a separate release gate.
+Founder approved moving the consumer web frontend toward **Next.js/React + browser/OS system fonts + the existing Supabase backend**, while preserving the current WYNOS UX/UI. Founder explicitly approved **starting Phase 5** on 2026-09-13. The actual `wynos.online` production alias switch remains protected by the Phase 5 real-device gate and the dedicated double-confirmed cutover workflow.
 
 ## Approved direction
 
@@ -14,10 +14,10 @@ Build the consumer web in `web/` with Next.js + React. Keep Supabase Auth/RLS/RP
 
 ## Rollout boundary
 
-1. Flutter `app/` and current Production remain unchanged during migration.
-2. New consumer web stays developer-only until explicit Founder approval for public rollout.
-3. Production domain cutover is Phase 5 and requires separate Founder approval.
-4. No automatic rollback of WYNOS versions.
+1. Flutter `app/` and current Production remain unchanged until the Phase 5 cutover gate is satisfied.
+2. New consumer web stays developer/staging-only until the production switch is explicitly executed.
+3. Production domain cutover is Phase 5 and uses a separate manual workflow with explicit confirmation.
+4. No automatic rollback of WYNOS versions or production deployments.
 
 ## Phase 1 — Foundation (complete)
 
@@ -63,10 +63,27 @@ Delivered:
 - Consumer Web lint, TypeScript, production build, font/license guard, Phase 4 browser QA and full repository CI all passed before completion.
 - Existing Supabase Auth/RLS/RPC/storage/realtime contracts remain unchanged; no authorization weakening or browser secret was introduced.
 
-Automated WebKit emulation is not physical-device confirmation. Real iPhone Safari confirmation remains a required **Phase 5/public-cutover gate**, not a claim made by Phase 4 automation.
+Automated WebKit emulation is not physical-device confirmation.
 
-## Phase 5 — Production cutover (not started)
+## Phase 5 — Production cutover (active)
 
-Requires separate explicit Founder approval before changing `wynos.online` or replacing the current Flutter production deployment.
+Founder explicitly approved starting Phase 5 on 2026-09-13.
 
-Pre-cutover gate includes real iPhone Safari verification of layout, safe areas, scrolling, media behavior, typography and reload/crash stability. Any public-domain switch, production deployment or retirement of Flutter production remains outside the completed Phase 4 scope.
+### Cutover architecture
+
+- `.github/workflows/web-next-phase5-preview.yml` deploys the Next.js consumer web to the **existing Vercel production project as a preview deployment only**. It reuses the existing Vercel project/org/token secrets and Supabase public configuration, and does not move the `wynos.online` production alias.
+- `.github/workflows/web-next-phase5-production.yml` performs the actual production switch from Flutter Web to Next.js. It is manual-only, must run from `main`, and requires both `CUTOVER-WYNOS-ONLINE` and `IPHONE-PASS` confirmations.
+- The production workflow runs lint/type/build preflight before deployment and verifies after deployment that core `wynos.online` routes respond, Next.js assets are present, and the legacy Flutter bootstrap is absent.
+- Neither workflow performs an automatic rollback. If a production regression is found, preserve evidence and wait for Founder-directed recovery.
+
+### Required gate before production switch
+
+1. Phase 5 preview workflow succeeds against the existing Vercel project.
+2. Preview is tested on a **real iPhone in Safari** for layout, safe areas, scrolling, media behavior, typography, authentication and reload/crash stability.
+3. Any preview blocker is fixed and the preview/CI gates are green again.
+4. Only after real-device QA passes may the production workflow be run with both confirmations.
+5. After cutover, verify `wynos.online` core routes and normal signed-in flows before Phase 5 is marked complete.
+
+### Current production state
+
+Until the production workflow is deliberately executed, `wynos.online` remains on the current Flutter Web deployment. The Flutter source is not deleted or reverted as part of Phase 5 readiness work.
