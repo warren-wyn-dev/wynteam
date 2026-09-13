@@ -1,0 +1,81 @@
+name: Apply Home post spacing patch
+
+on:
+  push:
+    branches:
+      - fix/home-post-symmetric-spacing
+    paths:
+      - .github/workflows/apply-home-post-spacing.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/home-post-symmetric-spacing
+
+      - name: Make post top and bottom spacing symmetrical
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          files = [
+              Path('app/lib/features/home/presentation/widgets/home_drop_card.dart'),
+              Path('app/lib/features/home/presentation/widgets/home_pop_card.dart'),
+          ]
+          old = """        child: Padding(
+          // Approved final mockup: each post gets breathing room above
+          // the avatar/name, while the content inside the post stays compact.
+          padding: EdgeInsets.fromLTRB(
+            0,
+            WynSpacing.space3,
+            0,
+            item.topReply == null ? 0 : WynSpacing.space2,
+          ),
+"""
+          new = """        child: Padding(
+          // Keep the divider-to-content rhythm visually balanced: the base
+          // breathing room above the post matches the space below its action
+          // row before the next divider.
+          padding: const EdgeInsets.symmetric(
+            vertical: WynSpacing.space2,
+          ),
+"""
+          old_pop = """        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            0,
+            WynSpacing.space3,
+            0,
+            item.topReply == null ? 0 : WynSpacing.space2,
+          ),
+"""
+          new_pop = """        child: Padding(
+          // Match HomeDropCard: equal breathing room above and below each
+          // post keeps the divider centered between neighboring cards.
+          padding: const EdgeInsets.symmetric(
+            vertical: WynSpacing.space2,
+          ),
+"""
+
+          text = files[0].read_text()
+          if old not in text:
+              raise SystemExit('HomeDropCard spacing block not found')
+          files[0].write_text(text.replace(old, new, 1))
+
+          text = files[1].read_text()
+          if old_pop not in text:
+              raise SystemExit('HomePopCard spacing block not found')
+          files[1].write_text(text.replace(old_pop, new_pop, 1))
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "warren-wyn-dev"
+          git config user.email "warren.wyn.dev@gmail.com"
+          git add app/lib/features/home/presentation/widgets/home_drop_card.dart app/lib/features/home/presentation/widgets/home_pop_card.dart
+          git commit -m "fix(feed): balance post vertical spacing"
+          git push origin HEAD:fix/home-post-symmetric-spacing
