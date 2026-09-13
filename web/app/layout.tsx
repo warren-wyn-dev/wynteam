@@ -13,6 +13,7 @@ import "./parity-closure.css";
 import "./post-detail-parity.css";
 import "./parity-audit.css";
 import "./profile-follow-audit.css";
+import "./club-audit.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
