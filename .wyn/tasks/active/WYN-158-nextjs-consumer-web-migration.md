@@ -48,24 +48,25 @@ Merged through PR #413 at `1ae2757917cb937e716eab20b8aafd85ddcf6019` after Consu
 - Settings: privacy/interaction/Likes visibility, online status, notifications, blocked/muted lists, export/delete account, legal docs and sign-out.
 - Deep links: `/@username`, `/drop/:id`, `/pop/:id`, `/club/:id`, `/club-post/:id`, `/club-invite/:code`.
 
-## Phase 4 — UX/UI Parity + QA (active)
+## Phase 4 — UX/UI Parity + QA (complete)
 
-Founder explicitly requested Phase 4.
+Completed through PR #414 after the automated Phase 4 gate passed on the reviewed branch.
 
-Acceptance target:
+Delivered:
 
-- Mobile/desktop responsive parity, safe-area and overflow checks.
-- App-local navigation uses Next.js routing without unnecessary full-page reloads.
-- Browser-native DOM/system fonts remain intact; no Apple/SF Pro assets.
-- Automated browser smoke/stress coverage across Home, Search, Profile, Notifications, Chat, Settings and deep-link route shells.
-- Lint, TypeScript, production build, font/license guard and full repository CI remain green.
-- Auth/RLS/storage/realtime contracts are regression-checked without weakening authorization.
+- Migrated app-local navigation uses Next.js routing rather than avoidable full-document reloads.
+- Browser-native DOM and OS/system-font architecture remains intact with no Apple/SF Pro assets or `@font-face`.
+- Native browser `<img>` remains the deliberate consumer-web image architecture for signed Supabase media and WebKit lifecycle behavior.
+- Playwright browser QA covers Home, Search, Profile, Notifications, Chat, Settings and supported deep-link shells.
+- QA runs across iPhone-like WebKit, Android-like Chromium and desktop Chromium.
+- Browser checks guard fatal page errors, horizontal overflow, Flutter platform-view elements, system-font regressions and repeated route churn/session survival.
+- Consumer Web lint, TypeScript, production build, font/license guard, Phase 4 browser QA and full repository CI all passed before completion.
+- Existing Supabase Auth/RLS/RPC/storage/realtime contracts remain unchanged; no authorization weakening or browser secret was introduced.
 
-Automated browser emulation is not physical-device confirmation. Real iPhone confirmation remains a distinct QA gate before public cutover.
+Automated WebKit emulation is not physical-device confirmation. Real iPhone Safari confirmation remains a required **Phase 5/public-cutover gate**, not a claim made by Phase 4 automation.
 
-## Still outside Phase 4
+## Phase 5 — Production cutover (not started)
 
-- Public production cutover.
-- Replacing/deleting the Flutter app.
-- Any new WYNOS version number.
-- Switching `wynos.online` to Next.js; that remains Phase 5 and requires explicit Founder approval.
+Requires separate explicit Founder approval before changing `wynos.online` or replacing the current Flutter production deployment.
+
+Pre-cutover gate includes real iPhone Safari verification of layout, safe areas, scrolling, media behavior, typography and reload/crash stability. Any public-domain switch, production deployment or retirement of Flutter production remains outside the completed Phase 4 scope.
