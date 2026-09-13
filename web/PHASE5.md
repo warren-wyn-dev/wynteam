@@ -1,21 +1,20 @@
 # WYNOS Consumer Web — Phase 5 iPhone Safari Gate
 
-Status: RELEASE CANDIDATE QA
+Status: PHYSICAL IPHONE PASS — PRODUCTION CUTOVER PENDING
 Date: 2026-09-13
 
-This checklist is the final real-device gate before the manual `wynos.online` production cutover. Automated WebKit emulation does not replace this check.
+The Founder confirmed on 2026-09-13 that the final physical-iPhone Safari release-candidate check passed. Automated WebKit emulation remains supplemental evidence and did not replace the real-device check.
 
 ## Safety boundary
 
-- Test only the Vercel Preview deployment produced by the Phase 5 preview workflow.
-- Do not run the production cutover workflow until every required item below passes on a physical iPhone in Safari.
-- Keep Vercel Preview Deployment Protection enabled; authenticate through Vercel normally when opening the protected preview.
+- The real-device gate was performed against the Vercel Preview deployment produced by the Phase 5 preview workflow.
+- Keep Vercel Preview Deployment Protection enabled outside automation-only bypass windows.
 - Do not weaken Supabase Auth/RLS or expose management/service-role credentials for testing.
 - Do not perform an automatic rollback. Preserve evidence and wait for Founder-directed recovery if a blocker appears.
 
 ## Required device check
 
-Use a physical iPhone with current Safari. Test in normal portrait orientation first, then rotate to landscape where noted.
+A physical iPhone with current Safari was used for the final Founder-reported release-candidate check.
 
 ### 1. Launch, viewport and safe areas
 
@@ -71,17 +70,11 @@ Using the developer account, verify representative signed-in flows that are safe
 
 Avoid destructive account actions during release-candidate QA unless they are being tested intentionally with disposable data.
 
-## Pass criteria
+## Gate result
 
-The physical-iPhone gate is **PASS** only when:
+Physical-iPhone Safari gate: **PASS** — Founder confirmed on 2026-09-13.
 
-1. No reproducible Safari crash, reload loop, blank screen or fatal runtime error occurs.
-2. Safe areas, scrolling, typography and media rendering are acceptable on the physical device.
-3. Auth/session behavior is stable through reload/background/return.
-4. Core routes and representative signed-in navigation work normally.
-5. Any blocker found has been fixed and the Phase 5 hosted preview + repository CI have returned to green afterward.
-
-After PASS, the production workflow may be run from `main` only with both exact confirmations:
+The production workflow is now eligible to be run from `main` only with both exact confirmations:
 
 - `CUTOVER-WYNOS-ONLINE`
 - `IPHONE-PASS`
