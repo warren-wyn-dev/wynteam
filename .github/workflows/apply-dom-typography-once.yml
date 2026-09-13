@@ -38,7 +38,6 @@ jobs:
             exit 20
           fi
 
-          # Force the reviewed DOM bridge/theme versions from the all-page migration.
           git checkout origin/feat/web-system-text-all -- \
             app/lib/core/design/wyn_theme.dart \
             app/lib/core/design/wyn_typography.dart \
@@ -51,12 +50,10 @@ jobs:
             app/lib/core/typography/native_emoji_stub.dart \
             app/test/system_typography_ios_accessibility_test.dart
 
-          # Preserve the Founder's latest 3px Home rhythm from current main.
           git checkout origin/main -- app/lib/features/home/presentation/widgets/home_card_metrics.dart
 
-          # Remove the forced bundled Noto workaround that caused the iPhone mismatch.
-          git rm -r --ignore-unmatch app/assets/fonts/NotoSansThai
-          git rm --ignore-unmatch app/test/web_typography_assets_test.dart
+          git rm -r -f --ignore-unmatch app/assets/fonts/NotoSansThai
+          git rm -f --ignore-unmatch app/test/web_typography_assets_test.dart
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -71,8 +68,7 @@ jobs:
           p.write_text(s)
           PY
 
-          # Migration-only CI helpers must not ship in the product branch.
-          git rm --ignore-unmatch \
+          git rm -f --ignore-unmatch \
             .github/workflows/apply-web-system-text-all-retry.yml \
             .github/workflows/apply-web-system-text-all.yml \
             .github/workflows/audit-web-system-text-all.yml \
@@ -81,7 +77,6 @@ jobs:
             .github/workflows/format-verify-system-text-layer.yml \
             .github/workflows/verify-system-text-layer.yml
 
-          # Only format Dart files changed by this task.
           mapfile -t files < <(git diff --name-only -- '*.dart' | grep '^app/' || true)
           if [ ${#files[@]} -gt 0 ]; then dart format "${files[@]}"; fi
           git add -A
@@ -124,8 +119,7 @@ jobs:
             for label,rx in compiled.items():
               if rx.search(s): failures.append(f'{p}: {label}')
             for m in re.finditer(r'\btooltip\s*:\s*([^,\n\)]+)', s):
-              if m.group(1).strip() != 'null':
-                failures.append(f'{p}: tooltip parameter')
+              if m.group(1).strip() != 'null': failures.append(f'{p}: tooltip parameter')
           if failures:
             print('Legacy text surfaces remain:')
             print('\n'.join(failures[:250]))
