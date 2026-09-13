@@ -44,11 +44,19 @@ void main() {
     text: 'ชอบโพสต์นี้มาก 👨‍👩‍👧‍👦 🇹🇭',
   );
 
-  test('native test target keeps the platform system font', () {
-    // flutter test is a non-Web target, so WYNOS must not force the bundled
-    // Web family onto native iOS/Android typography.
-    expect(WynTheme.light.textTheme.bodyLarge?.fontFamily, isNull);
-    expect(WynTheme.dark.textTheme.labelSmall?.fontFamily, isNull);
+  test('native test target keeps platform typography', () {
+    // `flutter test` runs as a non-Web Material target and ThemeData may
+    // materialize that target's system family (for example Roboto) instead of
+    // leaving fontFamily null. The invariant we actually need is that native
+    // builds never select the bundled Web-only family.
+    expect(
+      WynTheme.light.textTheme.bodyLarge?.fontFamily,
+      isNot(WynTheme.webFontFamily),
+    );
+    expect(
+      WynTheme.dark.textTheme.labelSmall?.fontFamily,
+      isNot(WynTheme.webFontFamily),
+    );
     expect(WynTheme.webFontFamily, 'WYNWebNotoThai');
   });
 
