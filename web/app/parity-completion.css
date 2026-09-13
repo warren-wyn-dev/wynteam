@@ -12,14 +12,7 @@
   background: var(--paper);
   border-bottom: 1px solid var(--hairline);
 }
-.flutter-search-header .search-route-form {
-  height: 44px;
-  margin: 0;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: var(--surface-tint, #f1efe9);
-  border: 1px solid var(--hairline);
-}
+.flutter-search-header .search-route-form { height: 44px; margin: 0; padding: 0 10px; border-radius: 999px; background: var(--surface-tint, #f1efe9); border: 1px solid var(--hairline); }
 .flutter-search-header .search-route-form input { font-size: 15.5px; font-weight: 500; }
 .flutter-search-tabs { position: sticky; top: calc(64px + env(safe-area-inset-top)); z-index: 34; background: var(--paper); }
 .flutter-search-discovery { padding-top: 4px; }
@@ -78,12 +71,39 @@
 .chat-inline-unread { width: 6px; height: 6px; border-radius: 50%; background: var(--sapphire); display: inline-block; flex: 0 0 6px; }
 .requests-modal { max-height: min(72dvh, 620px); overflow-y: auto; }
 
-/* Notification tabs and root header. */
-.flutter-notification-tabs { display: grid; grid-template-columns: 1fr 1fr; height: 46px; border-bottom: 1px solid var(--hairline); background: var(--paper); }
+/* Notifications: 60px root header + all/mentions tabs, matching Flutter. */
+.notification-root-header { position: sticky; top: 0; z-index: 45; height: calc(60px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 8px 0; display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; align-items: center; background: var(--paper); border-bottom: 1px solid var(--hairline); }
+.notification-root-header > button { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border: 0; background: transparent; color: var(--ink); }
+.notification-root-header > strong { text-align: center; font-size: 17px; font-weight: 700; }
+.flutter-notification-tabs { position: sticky; top: calc(60px + env(safe-area-inset-top)); z-index: 40; display: grid; grid-template-columns: 1fr 1fr; height: 46px; border-bottom: 1px solid var(--hairline); background: var(--paper); }
 .flutter-notification-tabs button { position: relative; border: 0; background: transparent; color: var(--graphite); font-size: 13.5px; font-weight: 500; }
 .flutter-notification-tabs button.active { color: var(--ink); font-weight: 700; }
 .flutter-notification-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 34px; height: 2px; transform: translateX(-50%); background: var(--ink); border-radius: 999px; }
+.notification-drawer-identity { margin: 0 12px; }
+
+/* Real drawer destinations: Bookmarks / Explore Clubs / My Clubs / Create Club. */
+.bookmarks-list { background: var(--paper); }
+.clubs-list { padding: 8px 0 28px; }
+.club-list-row { min-height: 78px; padding: 12px 16px; display: grid; grid-template-columns: 52px minmax(0,1fr) 24px; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); border-bottom: 1px solid var(--hairline); }
+.club-list-avatar { width: 52px; height: 52px; border-radius: 14px; overflow: hidden; display: grid; place-items: center; background: var(--surface-tint, #f1efe9); font-weight: 700; }
+.club-list-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.club-list-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.club-list-copy strong { font-size: 15px; }
+.club-list-copy small { color: var(--graphite); font-size: 12px; }
+.club-list-copy p { margin: 3px 0 0; color: var(--graphite); font-size: 13px; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.create-club-page { padding: 20px 16px 32px; display: flex; flex-direction: column; gap: 16px; }
+.club-image-picker { min-height: 104px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--faint); border-radius: 18px; color: var(--graphite); background: var(--surface-tint, #f1efe9); }
+.club-privacy-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.club-privacy-choice button { min-height: 44px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--paper); color: var(--graphite); font-weight: 600; }
+.club-privacy-choice button.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.create-club-submit { min-height: 48px; }
+
+/* Post detail founder metrics: edge=16, media radius=18, activity=54, composer=46. */
+.detail-post { padding-left: 16px; padding-right: 16px; }
+.detail-image { border-radius: 18px; }
+.detail-actions { min-height: 54px; display: flex; align-items: center; }
+.detail-comment-form { min-height: 46px; }
 
 @media (min-width: 681px) {
-  .flutter-profile-cover, .flutter-search-header { border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
+  .flutter-profile-cover, .flutter-search-header, .notification-root-header { border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
 }
