@@ -9,6 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Supabase Flutter's web OAuth/deep-link integration requires Flutter's
+  # path URL strategy (configured in main.dart). Declared directly because
+  # main.dart imports flutter_web_plugins/url_strategy.dart.
+  flutter_web_plugins:
+    sdk: flutter
   supabase_flutter: ^2.5.0
   cupertino_icons: ^1.0.6
   image_picker: ^1.1.2
