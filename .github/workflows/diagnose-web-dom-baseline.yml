@@ -1,0 +1,96 @@
+name: Diagnose browser system text baseline render object
+
+on:
+  push:
+    branches: [ops/fix-web-dom-text-layout-20260913]
+    paths: [.github/workflows/diagnose-web-dom-baseline.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/web-dom-text-layout-metrics
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - name: Generate current patch with dry baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin ops/fix-web-dom-text-layout-20260913
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-once.yml > /tmp/source-workflow.yml
+          git show origin/ops/fix-web-dom-text-layout-20260913:.github/workflows/fix-web-dom-text-layout-retry5.yml > /tmp/retry5.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, textwrap
+          workflow = Path('/tmp/retry5.yml').read_text()
+          block = re.search(r"          python3 - <<'PY'\n(.*?)\n          PY\n\n          dart format", workflow, re.S)
+          if not block: raise SystemExit('retry5 patch not found')
+          exec(textwrap.dedent(block.group(1)), {'__builtins__': __builtins__})
+          p=Path('app/lib/core/typography/browser_system_text_web.dart')
+          s=p.read_text()
+          needle='''  @override\n  double? computeDistanceToActualBaseline(TextBaseline baseline) {\n    return _alphabeticBaseline;\n  }'''
+          if needle not in s: raise SystemExit('actual baseline override not found')
+          s=s.replace(needle, needle+'''\n\n  @override\n  double? computeDryBaseline(\n    covariant BoxConstraints constraints,\n    TextBaseline baseline,\n  ) {\n    return _alphabeticBaseline;\n  }''',1)
+          p.write_text(s)
+          PY
+          cat > app/test/browser_system_text_baseline_diag_test.dart <<'DART'
+          import 'package:flutter/material.dart';
+          import 'package:flutter_test/flutter_test.dart';
+          import 'package:wyn/core/typography/browser_system_text.dart';
+
+          Widget app(Widget child) => MaterialApp(home: Scaffold(body: child));
+
+          void main() {
+            testWidgets('diagnose standalone browser text render baseline', (tester) async {
+              await tester.pumpWidget(app(const BrowserSystemText(
+                'หาเพื่อนคุย',
+                key: Key('author'),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              )));
+              await tester.pump(const Duration(milliseconds: 50));
+              final box = tester.renderObject<RenderBox>(find.byKey(const Key('author')));
+              // ignore: avoid_print
+              print('DIAG runtime=${box.runtimeType} size=${box.size} constraints=${box.constraints}');
+              // ignore: avoid_print
+              print('DIAG actual=${box.getDistanceToBaseline(TextBaseline.alphabetic)} dry=${box.getDryBaseline(box.constraints, TextBaseline.alphabetic)} exception=${tester.takeException()}');
+            });
+
+            testWidgets('diagnose baseline row', (tester) async {
+              await tester.pumpWidget(app(Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: const [
+                  BrowserSystemText('หาเพื่อนคุย', key: Key('author'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  SizedBox(width: 8),
+                  BrowserSystemText('4 วันที่แล้ว', key: Key('time'), style: TextStyle(fontSize: 14)),
+                ],
+              )));
+              await tester.pump(const Duration(milliseconds: 50));
+              final ex = tester.takeException();
+              // ignore: avoid_print
+              print('DIAG row-exception=$ex');
+              final author = tester.renderObject<RenderBox>(find.byKey(const Key('author')));
+              final time = tester.renderObject<RenderBox>(find.byKey(const Key('time')));
+              // ignore: avoid_print
+              print('DIAG row authorType=${author.runtimeType} actual=${author.getDistanceToBaseline(TextBaseline.alphabetic)} dry=${author.getDryBaseline(author.constraints, TextBaseline.alphabetic)}');
+              // ignore: avoid_print
+              print('DIAG row timeType=${time.runtimeType} actual=${time.getDistanceToBaseline(TextBaseline.alphabetic)} dry=${time.getDryBaseline(time.constraints, TextBaseline.alphabetic)}');
+            });
+          }
+          DART
+          dart format app/lib/core/typography/browser_system_text_web.dart app/test/browser_system_text_baseline_diag_test.dart
+      - name: Run diagnostic in Chrome
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter test --platform chrome --reporter expanded test/browser_system_text_baseline_diag_test.dart
