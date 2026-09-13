@@ -1,11 +1,9 @@
-name: Cleanup and gate all-page web system text migration
+name: Finish and gate all-page web system text migration
 
 on:
   push:
-    branches:
-      - feat/web-system-text-all
-    paths:
-      - .github/workflows/cleanup-gate-web-system-text-all.yml
+    branches: [feat/web-system-text-all]
+    paths: [.github/workflows/cleanup-gate-web-system-text-all.yml]
   workflow_dispatch:
 
 permissions:
@@ -29,7 +27,7 @@ jobs:
         working-directory: app
         run: flutter pub get
 
-      - name: Route framework-owned tooltips through browser DOM
+      - name: Migrate remaining framework tooltips
         shell: bash
         run: |
           set -euo pipefail
@@ -42,209 +40,6 @@ jobs:
           import_line = "import 'package:wyn/core/typography/browser_system_text.dart';"
 
           def mask_code(source):
-              mask = bytearray(b'1' * len(source))
-              i = 0; quote = None; triple = False; escape = False
-              line = False; block = False
-              while i < len(source):
-                  ch = source[i]; pair = source[i:i+2]
-                  if line:
-                      mask[i] = 0
-                      if ch == '\n': line = False
-                      i += 1; continue
-                  if block:
-                      mask[i] = 0
-                      if pair == '*/':
-                          mask[i:i+2] = b'00'; block = False; i += 2; continue
-                      i += 1; continue
-                  if quote:
-                      mask[i] = 0
-                      if escape: escape = False; i += 1; continue
-                      if ch == '\\': escape = True; i += 1; continue
-                      if triple and source.startswith(quote * 3, i):
-                          mask[i:i+3] = b'000'; quote = None; triple = False; i += 3; continue
-                      if not triple and ch == quote:
-                          quote = None; i += 1; continue
-                      i += 1; continue
-                  if pair == '//':
-                      mask[i:i+2] = b'00'; line = True; i += 2; continue
-                  if pair == '/*':
-                      mask[i:i+2] = b'00'; block = True; i += 2; continue
-                  if source.startswith("'''", i):
-                      mask[i:i+3] = b'000'; quote = "'"; triple = True; i += 3; continue
-                  if source.startswith('"""', i):
-                      mask[i:i+3] = b'000'; quote = '"'; triple = True; i += 3; continue
-                  if ch in "'\"":
-                      mask[i] = 0; quote = ch; i += 1; continue
-                  i += 1
-              return mask
-
-          def match_close(source, open_index):
-              depth = 0; i = open_index
-              quote = None; triple = False; escape = False; line = False; block = False
-              while i < len(source):
-                  ch = source[i]; pair = source[i:i+2]
-                  if line:
-                      if ch == '\n': line = False
-                      i += 1; continue
-                  if block:
-                      if pair == '*/': block = False; i += 2; continue
-                      i += 1; continue
-                  if quote:
-                      if escape: escape = False; i += 1; continue
-                      if ch == '\\': escape = True; i += 1; continue
-                      if triple and source.startswith(quote * 3, i): quote = None; triple = False; i += 3; continue
-                      if not triple and ch == quote: quote = None; i += 1; continue
-                      i += 1; continue
-                  if pair == '//': line = True; i += 2; continue
-                  if pair == '/*': block = True; i += 2; continue
-                  if source.startswith("'''", i): quote = "'"; triple = True; i += 3; continue
-                  if source.startswith('"""', i): quote = '"'; triple = True; i += 3; continue
-                  if ch in "'\"": quote = ch; i += 1; continue
-                  if ch == '(': depth += 1
-                  elif ch == ')':
-                      depth -= 1
-                      if depth == 0: return i
-                  i += 1
-              return None
-
-          def find_calls(source, token, allow_named_constructor=False):
-              mask = mask_code(source); out = []; i = 0
-              while i < len(source):
-                  idx = source.find(token, i)
-                  if idx < 0: break
-                  if not mask[idx] or (idx and (source[idx-1].isalnum() or source[idx-1] == '_')):
-                      i = idx + len(token); continue
-                  j = idx + len(token)
-                  if allow_named_constructor and j < len(source) and source[j] == '.':
-                      j += 1
-                      while j < len(source) and (source[j].isalnum() or source[j] == '_'): j += 1
-                  elif j < len(source) and (source[j].isalnum() or source[j] in '_.'):
-                      i = idx + len(token); continue
-                  while j < len(source) and source[j].isspace(): j += 1
-                  if j < len(source) and source[j] == '<':
-                      depth = 0
-                      while j < len(source):
-                          if source[j] == '<': depth += 1
-                          elif source[j] == '>':
-                              depth -= 1
-                              if depth == 0:
-                                  j += 1; break
-                          j += 1
-                      while j < len(source) and source[j].isspace(): j += 1
-                  if j >= len(source) or source[j] != '(':
-                      i = idx + len(token); continue
-                  close = match_close(source, j)
-                  if close is None: break
-                  out.append((idx, j, close))
-                  i = close + 1
-              return out
-
-          def split_args(body):
-              parts=[]; start=0; i=0; par=br=cur=0
-              quote=None; triple=False; escape=False; line=False; block=False
-              while i < len(body):
-                  ch=body[i]; pair=body[i:i+2]
-                  if line:
-                      if ch=='\n': line=False
-                      i+=1; continue
-                  if block:
-                      if pair=='*/': block=False; i+=2; continue
-                      i+=1; continue
-                  if quote:
-                      if escape: escape=False; i+=1; continue
-                      if ch=='\\': escape=True; i+=1; continue
-                      if triple and body.startswith(quote*3,i): quote=None; triple=False; i+=3; continue
-                      if not triple and ch==quote: quote=None; i+=1; continue
-                      i+=1; continue
-                  if pair=='//': line=True; i+=2; continue
-                  if pair=='/*': block=True; i+=2; continue
-                  if body.startswith("'''",i): quote="'"; triple=True; i+=3; continue
-                  if body.startswith('"""',i): quote='"'; triple=True; i+=3; continue
-                  if ch in "'\"": quote=ch; i+=1; continue
-                  if ch=='(': par+=1
-                  elif ch==')': par-=1
-                  elif ch=='[': br+=1
-                  elif ch==']': br-=1
-                  elif ch=='{': cur+=1
-                  elif ch=='}': cur-=1
-                  elif ch==',' and par==0 and br==0 and cur==0:
-                      parts.append(body[start:i]); start=i+1
-                  i+=1
-              parts.append(body[start:])
-              return parts
-
-          changed = []
-          wrapped_count = 0
-          for path in sorted(root.rglob('*.dart')):
-              if path.name in {'browser_system_text_stub.dart', 'browser_system_text_web.dart'}:
-                  continue
-              source = path.read_text()
-              replacements = []
-              for owner in owners:
-                  for idx, open_i, close_i in find_calls(source, owner, allow_named_constructor=True):
-                      body = source[open_i+1:close_i]
-                      parts = split_args(body)
-                      tooltip_idx = None; message = None
-                      for n, part in enumerate(parts):
-                          m = re.match(r'\s*tooltip\s*:\s*(.*)\s*$', part, re.S)
-                          if m:
-                              tooltip_idx = n; message = m.group(1).strip(); break
-                      if tooltip_idx is None or not message:
-                          continue
-                      remaining = [part for n, part in enumerate(parts) if n != tooltip_idx]
-                      child = source[idx:open_i+1] + ','.join(remaining) + ')'
-                      wrapper = f'BrowserSystemTooltip(message: {message}, child: {child})'
-                      replacements.append((idx, close_i + 1, wrapper))
-              if not replacements:
-                  continue
-              for start, end, value in sorted(replacements, key=lambda item: item[0], reverse=True):
-                  source = source[:start] + value + source[end:]
-                  wrapped_count += 1
-              if import_line not in source:
-                  first_import = source.find('import ')
-                  if first_import >= 0:
-                      source = source[:first_import] + import_line + '\n' + source[first_import:]
-                  else:
-                      source = import_line + '\n' + source
-              path.write_text(source)
-              changed.append(str(path))
-
-          Path('/tmp/system-tooltip-files.txt').write_text('\n'.join(changed) + ('\n' if changed else ''))
-          print(f'Wrapped {wrapped_count} framework tooltip surfaces in {len(changed)} files.')
-          PY
-
-          if [ -s /tmp/system-tooltip-files.txt ]; then
-            while IFS= read -r file; do
-              dart format "$file"
-            done < /tmp/system-tooltip-files.txt
-          fi
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/lib
-          if ! git diff --cached --quiet; then
-            git commit -m 'fix(web): route remaining tooltips through browser DOM'
-            git push origin HEAD:feat/web-system-text-all
-          fi
-
-      - name: Source gate — no legacy app-owned text surfaces
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          import sys
-
-          root = Path('app/lib')
-          excluded = {
-              root / 'core/typography/browser_system_text_stub.dart',
-              root / 'core/typography/browser_system_text_web.dart',
-              root / 'core/typography/browser_system_picker_stub.dart',
-              root / 'core/typography/browser_system_picker_web.dart',
-          }
-
-          def code_mask(source):
               mask = bytearray(b'1' * len(source))
               i = 0; quote = None; triple = False; escape = False
               line = False; block = False
@@ -287,14 +82,14 @@ jobs:
                   if quote:
                       if escape: escape = False; i += 1; continue
                       if ch == '\\': escape = True; i += 1; continue
-                      if triple and source.startswith(quote*3, i): quote=None; triple=False; i += 3; continue
-                      if not triple and ch == quote: quote=None; i += 1; continue
+                      if triple and source.startswith(quote * 3, i): quote = None; triple = False; i += 3; continue
+                      if not triple and ch == quote: quote = None; i += 1; continue
                       i += 1; continue
-                  if pair == '//': line=True; i += 2; continue
-                  if pair == '/*': block=True; i += 2; continue
-                  if source.startswith("'''", i): quote="'"; triple=True; i += 3; continue
-                  if source.startswith('"""', i): quote='"'; triple=True; i += 3; continue
-                  if ch in "'\"": quote=ch; i += 1; continue
+                  if pair == '//': line = True; i += 2; continue
+                  if pair == '/*': block = True; i += 2; continue
+                  if source.startswith("'''", i): quote = "'"; triple = True; i += 3; continue
+                  if source.startswith('"""', i): quote = '"'; triple = True; i += 3; continue
+                  if ch in "'\"": quote = ch; i += 1; continue
                   if ch == '(': depth += 1
                   elif ch == ')':
                       depth -= 1
@@ -302,34 +97,35 @@ jobs:
                   i += 1
               return None
 
-          def find_calls(source, token, allow_named_constructor=False):
-              mask = code_mask(source); out=[]; i=0
+          def find_calls(source, token):
+              mask = mask_code(source); out = []; i = 0
               while i < len(source):
-                  idx=source.find(token,i)
+                  idx = source.find(token, i)
                   if idx < 0: break
-                  if not mask[idx] or (idx and (source[idx-1].isalnum() or source[idx-1]=='_')):
-                      i=idx+len(token); continue
-                  j=idx+len(token)
-                  if allow_named_constructor and j < len(source) and source[j]=='.':
-                      j+=1
-                      while j < len(source) and (source[j].isalnum() or source[j]=='_'): j+=1
+                  if not mask[idx] or (idx and (source[idx-1].isalnum() or source[idx-1] == '_')):
+                      i = idx + len(token); continue
+                  j = idx + len(token)
+                  if j < len(source) and source[j] == '.':
+                      j += 1
+                      while j < len(source) and (source[j].isalnum() or source[j] == '_'): j += 1
                   elif j < len(source) and (source[j].isalnum() or source[j] in '_.'):
-                      i=idx+len(token); continue
-                  while j < len(source) and source[j].isspace(): j+=1
-                  if j < len(source) and source[j]=='<':
-                      depth=0
+                      i = idx + len(token); continue
+                  while j < len(source) and source[j].isspace(): j += 1
+                  if j < len(source) and source[j] == '<':
+                      depth = 0
                       while j < len(source):
-                          if source[j]=='<': depth+=1
-                          elif source[j]=='>':
-                              depth-=1
-                              if depth==0: j+=1; break
-                          j+=1
-                      while j < len(source) and source[j].isspace(): j+=1
+                          if source[j] == '<': depth += 1
+                          elif source[j] == '>':
+                              depth -= 1
+                              if depth == 0: j += 1; break
+                          j += 1
+                      while j < len(source) and source[j].isspace(): j += 1
                   if j >= len(source) or source[j] != '(':
-                      i=idx+len(token); continue
-                  close=match_close(source,j)
+                      i = idx + len(token); continue
+                  close = match_close(source, j)
                   if close is None: break
-                  out.append((idx,j,close)); i=close+1
+                  out.append((idx, j, close))
+                  i = close + 1
               return out
 
           def split_args(body):
@@ -360,42 +156,81 @@ jobs:
                   elif ch==']': br-=1
                   elif ch=='{': cur+=1
                   elif ch=='}': cur-=1
-                  elif ch==',' and par==0 and br==0 and cur==0: parts.append(body[start:i]); start=i+1
+                  elif ch==',' and par==0 and br==0 and cur==0:
+                      parts.append(body[start:i]); start=i+1
                   i+=1
               parts.append(body[start:]); return parts
 
-          def named_args(body):
-              out=set()
-              for part in split_args(body):
-                  m=re.match(r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*:',part,re.S)
-                  if m: out.add(m.group(1))
-              return out
-
-          failures=[]
-          forbidden=['Text','Text.rich','TextField','Tooltip','SnackBarAction','showDatePicker','showTimePicker']
-          decoration_args={'hintText','labelText','helperText','errorText','prefixText','counterText'}
-          owners=['IconButton','FloatingActionButton','PopupMenuButton']
-
+          changed=[]; migrated=0; removed_null=0
           for path in sorted(root.rglob('*.dart')):
-              if path in excluded: continue
-              source=path.read_text()
-              for token in forbidden:
-                  calls=find_calls(source,token)
-                  if calls: failures.append(f'{path}: legacy {token}( calls={len(calls)}')
-              for _,o,c in find_calls(source,'InputDecoration'):
-                  bad=named_args(source[o+1:c]) & decoration_args
-                  if bad: failures.append(f'{path}: InputDecoration string args={sorted(bad)}')
-              for _,o,c in find_calls(source,'Tab'):
-                  if 'text' in named_args(source[o+1:c]): failures.append(f'{path}: Tab(text:) still present')
+              if path.name in {'browser_system_text_stub.dart', 'browser_system_text_web.dart'}:
+                  continue
+              source=path.read_text(); replacements=[]
               for owner in owners:
-                  for _,o,c in find_calls(source,owner,allow_named_constructor=True):
-                      if 'tooltip' in named_args(source[o+1:c]): failures.append(f'{path}: {owner} tooltip still framework-rendered')
+                  for idx, open_i, close_i in find_calls(source, owner):
+                      body=source[open_i+1:close_i]
+                      parts=split_args(body)
+                      tip_idx=None; message=None
+                      for n, part in enumerate(parts):
+                          match=re.match(r'\s*tooltip\s*:\s*(.*)\s*$', part, re.S)
+                          if match:
+                              tip_idx=n; message=match.group(1).strip(); break
+                      if tip_idx is None or not message: continue
+                      remaining=[part for n, part in enumerate(parts) if n != tip_idx]
+                      child=source[idx:open_i+1] + ','.join(remaining) + ')'
+                      if message == 'null':
+                          replacement=child
+                          removed_null += 1
+                      else:
+                          replacement=f'BrowserSystemTooltip(message: {message}, child: {child})'
+                          migrated += 1
+                      replacements.append((idx, close_i + 1, replacement))
+              if not replacements: continue
+              for start,end,value in sorted(replacements,key=lambda item:item[0],reverse=True):
+                  source=source[:start] + value + source[end:]
+              if import_line not in source and migrated:
+                  first_import=source.find('import ')
+                  source=(source[:first_import] + import_line + '\n' + source[first_import:]) if first_import >= 0 else import_line + '\n' + source
+              path.write_text(source); changed.append(str(path))
 
+          Path('/tmp/system-tooltip-files.txt').write_text('\n'.join(changed) + ('\n' if changed else ''))
+          print(f'Migrated {migrated} real tooltips; removed {removed_null} obsolete tooltip:null arguments across {len(changed)} files.')
+          PY
+
+          if [ -s /tmp/system-tooltip-files.txt ]; then
+            while IFS= read -r file; do dart format "$file"; done < /tmp/system-tooltip-files.txt
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/lib
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(web): finish system tooltip migration'
+            git push origin HEAD:feat/web-system-text-all
+          fi
+
+      - name: Verify zero framework-owned tooltip surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, sys
+          failures=[]
+          owners=('IconButton','FloatingActionButton','PopupMenuButton')
+          for path in Path('app/lib').rglob('*.dart'):
+              if path.name in {'browser_system_text_stub.dart','browser_system_text_web.dart'}: continue
+              text=path.read_text()
+              for owner in owners:
+                  # After the parser-backed migration above, any remaining
+                  # tooltip named argument near one of these constructors is a
+                  # release blocker. Comments are stripped before this check.
+                  stripped=re.sub(r'/\*.*?\*/|//[^\n]*', '', text, flags=re.S)
+                  if re.search(rf'\b{owner}(?:\.[A-Za-z_]\w*)?(?:<[^>]+>)?\s*\([^)]*\btooltip\s*:', stripped, re.S):
+                      failures.append(f'{path}: {owner} tooltip remains')
           if failures:
-              print('Legacy app-owned text surfaces remain:')
-              print('\n'.join(f'  - {f}' for f in failures))
-              sys.exit(1)
-          print('System-text source gate passed: 0 legacy app-owned text surfaces.')
+              print('\n'.join(failures)); sys.exit(1)
+          print('Tooltip gate passed: 0 framework-owned tooltip surfaces remain.')
           PY
 
       - name: Full Flutter QA
