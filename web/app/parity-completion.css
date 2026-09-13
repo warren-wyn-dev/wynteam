@@ -1,0 +1,89 @@
+/* WYN-158 final parity pass: values mirror the Flutter golden-master metrics. */
+.route-without-bottom-nav { padding-bottom: 0; }
+.route-without-bottom-nav .route-main { min-height: 100dvh; }
+
+/* Search: Flutter SearchScreen has no separate title bar; the 64px search header is the top chrome. */
+.flutter-search-header {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  min-height: calc(64px + env(safe-area-inset-top));
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--hairline);
+}
+.flutter-search-header .search-route-form {
+  height: 44px;
+  margin: 0;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-tint, #f1efe9);
+  border: 1px solid var(--hairline);
+}
+.flutter-search-header .search-route-form input { font-size: 15.5px; font-weight: 500; }
+.flutter-search-tabs { position: sticky; top: calc(64px + env(safe-area-inset-top)); z-index: 34; background: var(--paper); }
+.flutter-search-discovery { padding-top: 4px; }
+.flutter-search-discovery .route-section { margin: 0; border: 0; border-radius: 0; background: transparent; }
+.flutter-search-discovery .route-section-title { padding: 8px 16px 12px; }
+.flutter-search-discovery .route-section-title h2 { margin: 0; font-size: 13px; line-height: 1.2; font-weight: 600; color: var(--graphite); letter-spacing: .14em; }
+.flutter-rank-row { min-height: 62px; padding: 12px 16px; display: grid; grid-template-columns: 28px minmax(0,1fr) 28px; align-items: center; gap: 10px; border-bottom: 1px solid var(--hairline); }
+.flutter-rank-row > b { text-align: right; font-size: 17px; font-weight: 500; color: var(--faint); }
+.flutter-rank-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.flutter-rank-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; color: var(--ink); }
+.flutter-rank-copy small { font-size: 12px; color: var(--graphite); }
+.top100-link { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 2px; border: 0; background: transparent; color: var(--sapphire); font-size: 13px; font-weight: 600; }
+.flutter-suggested-section { padding-bottom: 28px; }
+
+/* Profile: WynosFounderMetrics profileCover=170, avatar outer=92, action=44, tab=52. */
+.flutter-profile-route { padding: 0; }
+.flutter-profile-cover { position: relative; height: calc(170px + env(safe-area-inset-top)); overflow: visible; background: #343434; }
+.flutter-profile-cover > img, .profile-cover-fallback { width: 100%; height: 100%; display: block; object-fit: cover; background: linear-gradient(135deg,#494949,#151515); }
+.flutter-profile-cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.28), rgba(0,0,0,.05) 55%, rgba(0,0,0,.18)); pointer-events: none; }
+.flutter-profile-cover-toolbar { position: absolute; z-index: 3; left: 4px; right: 4px; top: env(safe-area-inset-top); height: 56px; display: flex; align-items: center; color: #fff; }
+.flutter-profile-cover-toolbar > strong { font-size: 18px; font-weight: 500; }
+.profile-cover-toolbar-spacer { flex: 1; }
+.profile-cover-icon { width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: #fff; padding: 0; }
+.flutter-profile-identity { position: relative; padding: 54px 16px 16px; background: var(--paper); }
+.flutter-profile-avatar { position: absolute; left: 16px; top: -46px; width: 92px; height: 92px; border-radius: 50%; padding: 4px; background: var(--paper); box-sizing: border-box; }
+.flutter-profile-avatar .route-avatar { width: 84px !important; height: 84px !important; border: 1px solid color-mix(in srgb,var(--sapphire) 20%, transparent); }
+.flutter-profile-copy { padding: 0; }
+.flutter-profile-copy h2 { margin: 0 0 2px; font-size: 20px; line-height: 1.2; }
+.flutter-profile-copy .profile-username { margin: 0 0 8px; color: var(--graphite); font-size: 13px; }
+.flutter-profile-copy > p:not(.profile-username) { margin: 6px 0 0; font-size: 14px; line-height: 1.45; }
+.flutter-profile-stats { display: flex; gap: 18px; margin-top: 12px; }
+.flutter-profile-stats button { border: 0; padding: 0; background: transparent; color: var(--graphite); font-size: 13px; }
+.flutter-profile-stats b { color: var(--ink); }
+.flutter-profile-actions { margin-top: 14px; display: flex; align-items: center; gap: 10px; }
+.profile-action-primary, .profile-action-secondary, .profile-action-icon { height: 44px; border-radius: 999px; font-size: 15px; font-weight: 600; }
+.profile-action-primary { flex: 1; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); }
+.profile-action-primary.soft { background: var(--surface-tint, #f1efe9); color: var(--ink); border-color: var(--hairline); }
+.profile-action-secondary { flex: 1; border: 1px solid var(--hairline); background: var(--paper); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.profile-action-icon { width: 44px; flex: 0 0 44px; border: 1px solid var(--hairline); background: var(--paper); color: var(--ink); display: grid; place-items: center; }
+.flutter-profile-tabs { position: sticky; top: 0; z-index: 35; height: 52px; background: var(--paper); }
+.flutter-profile-tabs button { height: 52px; display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 13px; }
+.profile-feed-list { background: var(--paper); }
+.profile-more-sheet > button { width: 100%; min-height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border: 0; border-top: 1px solid var(--hairline); background: var(--paper); text-align: left; font: inherit; }
+.profile-more-sheet > button.danger { color: #b42318; }
+
+/* Chat: Flutter inbox uses all/unread tabs; message requests are a separate destination/banner. */
+.flutter-chat-tabs { display: grid; grid-template-columns: 1fr 1fr; height: 46px; border-bottom: 1px solid var(--hairline); background: var(--paper); }
+.flutter-chat-tabs button { position: relative; border: 0; background: transparent; color: var(--graphite); font-size: 13.5px; font-weight: 500; }
+.flutter-chat-tabs button.active { color: var(--ink); font-weight: 700; }
+.flutter-chat-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 34px; height: 2px; transform: translateX(-50%); border-radius: 999px; background: var(--ink); }
+.message-requests-banner { width: calc(100% - 32px); min-height: 62px; margin: 12px 16px 4px; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 14px; background: var(--paper); display: flex; align-items: center; justify-content: space-between; text-align: left; color: var(--ink); }
+.message-requests-banner span { display: flex; flex-direction: column; gap: 2px; }
+.message-requests-banner small { color: var(--graphite); font-size: 12px; font-weight: 400; }
+.message-requests-banner > b { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; display: grid; place-items: center; background: var(--ink); color: var(--paper); font-size: 12px; }
+.chat-row-copy small { display: flex; align-items: center; gap: 6px; }
+.chat-inline-unread { width: 6px; height: 6px; border-radius: 50%; background: var(--sapphire); display: inline-block; flex: 0 0 6px; }
+.requests-modal { max-height: min(72dvh, 620px); overflow-y: auto; }
+
+/* Notification tabs and root header. */
+.flutter-notification-tabs { display: grid; grid-template-columns: 1fr 1fr; height: 46px; border-bottom: 1px solid var(--hairline); background: var(--paper); }
+.flutter-notification-tabs button { position: relative; border: 0; background: transparent; color: var(--graphite); font-size: 13.5px; font-weight: 500; }
+.flutter-notification-tabs button.active { color: var(--ink); font-weight: 700; }
+.flutter-notification-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 34px; height: 2px; transform: translateX(-50%); background: var(--ink); border-radius: 999px; }
+
+@media (min-width: 681px) {
+  .flutter-profile-cover, .flutter-search-header { border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
+}
