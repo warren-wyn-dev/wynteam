@@ -114,17 +114,18 @@ jobs:
           PREVIEW_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
+          # curl does not keep cookies unless a cookie jar is enabled. The bypass
+          # header is sufficient for smoke checks; requesting a bypass cookie here
+          # would cause Vercel's cookie-setting redirect to repeat on some routes.
           for route in / /search /notifications /chat /settings /profile/me; do
             echo "Checking $PREVIEW_URL$route"
             curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
               --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-              --header 'x-vercel-set-bypass-cookie: true' \
               --output /dev/null "$PREVIEW_URL$route"
           done
 
           html=$(curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
             --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            --header 'x-vercel-set-bypass-cookie: true' \
             "$PREVIEW_URL/")
           grep -q '/_next/' <<< "$html" || {
             echo '::error::preview homepage does not look like a Next.js deployment'
