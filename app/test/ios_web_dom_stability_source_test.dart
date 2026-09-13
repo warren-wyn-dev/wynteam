@@ -13,6 +13,9 @@ void main() {
       contains('bool get usesBrowserSystemTextDom => !_isIosWeb;'),
     );
     expect(source, contains('if (!usesBrowserSystemTextDom)'));
+    expect(source, contains("'CupertinoSystemText'"));
+    expect(source, contains("'CupertinoSystemDisplay'"));
+    expect(source, contains('_iosSystemFontStyle(context, style)'));
     expect(
       source,
       isNot(contains('const bool usesBrowserSystemTextDom = true;')),

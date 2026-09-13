@@ -27,6 +27,19 @@ bool get _isIosWeb {
 
 bool get usesBrowserSystemTextDom => !_isIosWeb;
 
+const String _cupertinoSystemTextFontFamily = 'CupertinoSystemText';
+const String _cupertinoSystemDisplayFontFamily = 'CupertinoSystemDisplay';
+
+TextStyle _iosSystemFontStyle(BuildContext context, TextStyle? style) {
+  final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
+  final fontSize = effectiveStyle.fontSize ?? 14;
+  return (style ?? const TextStyle()).copyWith(
+    fontFamily: fontSize >= 20
+        ? _cupertinoSystemDisplayFontFamily
+        : _cupertinoSystemTextFontFamily,
+  );
+}
+
 const String _systemFontStack =
     '-apple-system, BlinkMacSystemFont, "Thonburi", "SF Pro Text", '
     '"Segoe UI", Roboto, "Noto Sans Thai", "Helvetica Neue", Arial, '
@@ -81,10 +94,11 @@ class BrowserSystemText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!usesBrowserSystemTextDom) {
+      final iosStyle = _iosSystemFontStyle(context, style);
       if (textSpan != null) {
         return Text.rich(
           textSpan!,
-          style: style,
+          style: iosStyle,
           maxLines: maxLines,
           softWrap: softWrap,
           overflow: overflow ?? TextOverflow.clip,
@@ -96,7 +110,7 @@ class BrowserSystemText extends StatelessWidget {
       }
       return Text(
         text ?? '',
-        style: style,
+        style: iosStyle,
         maxLines: maxLines,
         softWrap: softWrap,
         overflow: overflow,
@@ -278,9 +292,10 @@ class _BrowserSystemRichTextState extends State<BrowserSystemRichText> {
 
   Widget _buildFlutterText() {
     _disposeFlutterRecognizers();
+    final iosStyle = _iosSystemFontStyle(context, widget.style);
     return Text.rich(
       TextSpan(
-        style: widget.style,
+        style: iosStyle,
         children: [
           for (final span in widget.spans)
             TextSpan(
