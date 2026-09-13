@@ -17,12 +17,9 @@ import 'features/auth/presentation/auth_gate.dart';
 import 'features/push/presentation/push_reliability_controller.dart';
 
 Future<void> main() async {
-  // Supabase Flutter's web PKCE/OAuth callback handler depends on Flutter's
-  // path URL strategy. With the default hash strategy, Google successfully
-  // redirects back to `/?code=...`, but the SDK cannot consume that callback
-  // reliably; the one-time auth code then stays in Safari's address bar and
-  // is replayed on later reloads. Configure the web strategy *before*
-  // Supabase.initialize() starts its built-in deep-link/session detector.
+  // Flutter Web still needs path URL strategy for Supabase auth/deep links.
+  // Keep this before Supabase.initialize() so the SDK sees the browser URL in
+  // the same form WYNOS' own deep-link router uses.
   if (kIsWeb) {
     usePathUrlStrategy();
   }
@@ -49,6 +46,22 @@ Future<void> main() async {
   await Supabase.initialize(
     url: Env.supabaseUrl,
     publishableKey: Env.supabasePublishableKey,
+    // Production QA 2026-09-13 found Google returning a valid `?code=` on
+    // web while most callbacks never became sessions. PKCE needs the exact
+    // locally-stored code verifier created at flow start; supabase_flutter's
+    // current PKCE storage can be overwritten by another OAuth attempt (the
+    // account-switcher "add account" path makes this especially easy to hit).
+    //
+    // WYNOS Web is a client-only SPA, so use Supabase's supported implicit
+    // browser flow there: tokens return in the URL fragment (not sent to the
+    // hosting server) and no verifier exchange exists to lose. Native keeps
+    // PKCE, where the custom app callback is single-flow and PKCE remains the
+    // stronger default. This is deliberately configured in one place so web
+    // can move back to PKCE once the SDK's multi-flow verifier support is
+    // proven in production.
+    authOptions: FlutterAuthClientOptions(
+      authFlowType: kIsWeb ? AuthFlowType.implicit : AuthFlowType.pkce,
+    ),
   );
 
   // Multi-account switching: keeps whichever account is currently active
