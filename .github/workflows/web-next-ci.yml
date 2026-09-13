@@ -38,11 +38,14 @@ jobs:
         run: npm run build
       - name: License/font guard
         run: |
-          if find . -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.woff' -o -iname '*.woff2' \) -print -quit | grep -q .; then
-            echo '::error::Consumer web must not bundle font files; use the OS/browser system font stack.'
-            exit 1
-          fi
-          if grep -R --include='*.css' -n '@font-face' app; then
+          for dir in app components lib public; do
+            [ -d "$dir" ] || continue
+            if find "$dir" -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.woff' -o -iname '*.woff2' \) -print -quit | grep -q .; then
+              echo '::error::Consumer web source must not bundle font files; use the OS/browser system font stack.'
+              exit 1
+            fi
+          done
+          if grep -R --include='*.css' -n '@font-face' app components public 2>/dev/null; then
             echo '::error::Consumer web must not self-host fonts.'
             exit 1
           fi
