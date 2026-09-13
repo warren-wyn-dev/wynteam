@@ -81,6 +81,25 @@ jobs:
             echo "This is a preview deployment only. The production alias was not changed."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Create temporary Vercel automation bypass
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          bypass=$(openssl rand -hex 16)
+          echo "::add-mask::$bypass"
+
+          curl --fail --silent --show-error \
+            --request PATCH \
+            --url "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/protection-bypass" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "{\"generate\":{\"secret\":\"$bypass\",\"note\":\"WYN-158 Phase 5 CI $GITHUB_RUN_ID\"}}" \
+            > /dev/null
+
+          echo "VERCEL_AUTOMATION_BYPASS_SECRET=$bypass" >> "$GITHUB_ENV"
+
       - name: Smoke preview deployment
         env:
           PREVIEW_URL: ${{ steps.deploy.outputs.url }}
@@ -89,10 +108,15 @@ jobs:
           for route in / /search /notifications /chat /settings /profile/me; do
             echo "Checking $PREVIEW_URL$route"
             curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
+              --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+              --header 'x-vercel-set-bypass-cookie: true' \
               --output /dev/null "$PREVIEW_URL$route"
           done
 
-          html=$(curl --fail --location --retry 8 --retry-delay 3 --max-time 30 "$PREVIEW_URL/")
+          html=$(curl --fail --location --retry 8 --retry-delay 3 --max-time 30 \
+            --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            --header 'x-vercel-set-bypass-cookie: true' \
+            "$PREVIEW_URL/")
           grep -q '/_next/' <<< "$html" || {
             echo '::error::preview homepage does not look like a Next.js deployment'
             exit 1
@@ -109,3 +133,23 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: ${{ steps.deploy.outputs.url }}
         run: npm run qa:browser
+
+      - name: Revoke temporary Vercel automation bypass
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            echo 'No temporary bypass was created; nothing to revoke.'
+            exit 0
+          fi
+
+          curl --fail --silent --show-error \
+            --request PATCH \
+            --url "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/protection-bypass" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "{\"revoke\":{\"secret\":\"$VERCEL_AUTOMATION_BYPASS_SECRET\",\"regenerate\":false}}" \
+            > /dev/null
