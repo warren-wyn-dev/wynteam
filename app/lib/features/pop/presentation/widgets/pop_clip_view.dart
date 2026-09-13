@@ -464,13 +464,12 @@ class _PopClipViewState extends State<PopClipView> {
                   if (isOwnPop)
                     BrowserSystemTooltip(
                         message: 'ลบ Pop',
-                        child: BrowserSystemTooltip(
-                            message: null,
-                            child: IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: Colors.white),
-                              onPressed: _deletePop,
-                            ))),
+                        child: IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.white),
+                          tooltip: null,
+                          onPressed: _deletePop,
+                        )),
                 ],
               ),
               if (_pop.caption != null && _pop.caption!.isNotEmpty) ...[
@@ -521,33 +520,29 @@ class _PopClipViewState extends State<PopClipView> {
               const SizedBox(width: WynSpacing.space2),
               BrowserSystemTooltip(
                   message: 'ความคิดเห็น',
-                  child: BrowserSystemTooltip(
-                      message: null,
-                      child: IconButton(
-                        icon: const Icon(Icons.mode_comment_outlined,
-                            color: Colors.white),
-                        onPressed: _openComments,
-                      ))),
+                  child: IconButton(
+                    icon: const Icon(Icons.mode_comment_outlined,
+                        color: Colors.white),
+                    tooltip: null,
+                    onPressed: _openComments,
+                  )),
               BrowserSystemText('${_pop.commentCount}',
                   style: const TextStyle(color: Colors.white)),
               const SizedBox(width: WynSpacing.space2),
               BrowserSystemTooltip(
                   message: 'แชร์',
-                  child: BrowserSystemTooltip(
-                      message: null,
-                      child: IconButton(
-                        icon: const Icon(Icons.share_outlined,
-                            color: Colors.white),
-                        onPressed: _share,
-                      ))),
+                  child: IconButton(
+                    icon: const Icon(Icons.share_outlined, color: Colors.white),
+                    tooltip: null,
+                    onPressed: _share,
+                  )),
               BrowserSystemTooltip(
                   message: 'คัดลอกลิงก์',
-                  child: BrowserSystemTooltip(
-                      message: null,
-                      child: IconButton(
-                        icon: const Icon(Icons.link, color: Colors.white),
-                        onPressed: _copyLink,
-                      ))),
+                  child: IconButton(
+                    icon: const Icon(Icons.link, color: Colors.white),
+                    tooltip: null,
+                    onPressed: _copyLink,
+                  )),
               const Spacer(),
               const Icon(Icons.visibility_outlined,
                   color: Colors.white, size: 18),

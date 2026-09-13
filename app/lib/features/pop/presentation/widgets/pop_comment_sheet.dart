@@ -285,14 +285,13 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
               height: 32,
               child: BrowserSystemTooltip(
                   message: 'ลบคอมเมนต์',
-                  child: BrowserSystemTooltip(
-                      message: null,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        iconSize: 16,
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _deleteComment(comment.id),
-                      ))),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 16,
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: null,
+                    onPressed: () => _deleteComment(comment.id),
+                  )),
             ),
           Column(
             children: [
@@ -372,12 +371,11 @@ class _PopCommentSheetState extends State<PopCommentSheet> {
               ),
               BrowserSystemTooltip(
                   message: 'ส่งคอมเมนต์',
-                  child: BrowserSystemTooltip(
-                      message: null,
-                      child: IconButton(
-                        icon: const Icon(Icons.send),
-                        onPressed: canSend ? _sendComment : null,
-                      ))),
+                  child: IconButton(
+                    icon: const Icon(Icons.send),
+                    tooltip: null,
+                    onPressed: canSend ? _sendComment : null,
+                  )),
             ],
           ),
         ],

@@ -218,13 +218,11 @@ class _PopFeedScreenState extends State<PopFeedScreen> {
           onDeleted: () => _removePop(pop.id),
           topLeading: BrowserSystemTooltip(
               message: 'สร้าง Pop ใหม่',
-              child: BrowserSystemTooltip(
-                  message: null,
-                  child: IconButton(
-                    icon:
-                        const Icon(Icons.add_box_outlined, color: Colors.white),
-                    onPressed: _openCreatePop,
-                  ))),
+              child: IconButton(
+                icon: const Icon(Icons.add_box_outlined, color: Colors.white),
+                tooltip: null,
+                onPressed: _openCreatePop,
+              )),
         );
       },
     );

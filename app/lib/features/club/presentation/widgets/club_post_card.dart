@@ -261,17 +261,16 @@ class ClubPostCard extends StatelessWidget {
                           // than IconButton's default 48.
                           BrowserSystemTooltip(
                               message: 'เพิ่มเติม',
-                              child: BrowserSystemTooltip(
-                                  message: null,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.more_vert),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: WynSpacing.touchTargetMin,
-                                      height: WynSpacing.touchTargetMin,
-                                    ),
-                                    onPressed: () => _openMoreMenu(context),
-                                  ))),
+                              child: IconButton(
+                                icon: const Icon(Icons.more_vert),
+                                tooltip: null,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: WynSpacing.touchTargetMin,
+                                  height: WynSpacing.touchTargetMin,
+                                ),
+                                onPressed: () => _openMoreMenu(context),
+                              )),
                         ],
                       ),
                     ),

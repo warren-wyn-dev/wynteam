@@ -539,15 +539,14 @@ class _CreateClubPostScreenState extends State<CreateClubPostScreen> {
                 if (i >= _minPollOptions)
                   BrowserSystemTooltip(
                       message: 'ลบตัวเลือกนี้',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            key: ValueKey('remove_club_poll_option_$i'),
-                            icon: const Icon(Icons.close,
-                                color: WynColors.graphite),
-                            onPressed:
-                                _isPosting ? null : () => _removePollOption(i),
-                          ))),
+                      child: IconButton(
+                        key: ValueKey('remove_club_poll_option_$i'),
+                        icon:
+                            const Icon(Icons.close, color: WynColors.graphite),
+                        tooltip: null,
+                        onPressed:
+                            _isPosting ? null : () => _removePollOption(i),
+                      )),
               ],
             ),
           ),

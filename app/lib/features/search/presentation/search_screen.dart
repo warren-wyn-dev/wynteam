@@ -217,21 +217,20 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             BrowserSystemTooltip(
                 message: 'ค้นหา',
-                child: BrowserSystemTooltip(
-                    message: null,
-                    child: IconButton(
-                      onPressed: _submit,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: WynSpacing.touchTargetMin,
-                        minHeight: WynSpacing.touchTargetMin,
-                      ),
-                      icon: const Icon(
-                        Icons.search,
-                        size: 20,
-                        color: WynColors.graphite,
-                      ),
-                    ))),
+                child: IconButton(
+                  onPressed: _submit,
+                  tooltip: null,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: WynSpacing.touchTargetMin,
+                    minHeight: WynSpacing.touchTargetMin,
+                  ),
+                  icon: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: WynColors.graphite,
+                  ),
+                )),
             const SizedBox(width: WynSpacing.space1),
             Expanded(
               child: BrowserSystemTextField(
@@ -261,21 +260,20 @@ class _SearchScreenState extends State<SearchScreen> {
             if (_controller.text.isNotEmpty)
               BrowserSystemTooltip(
                   message: 'ล้างคำค้นหา',
-                  child: BrowserSystemTooltip(
-                      message: null,
-                      child: IconButton(
-                        onPressed: _clear,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: WynSpacing.touchTargetMin,
-                          minHeight: WynSpacing.touchTargetMin,
-                        ),
-                        icon: const Icon(
-                          Icons.close,
-                          size: 18,
-                          color: WynColors.graphite,
-                        ),
-                      ))),
+                  child: IconButton(
+                    onPressed: _clear,
+                    tooltip: null,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: WynSpacing.touchTargetMin,
+                      minHeight: WynSpacing.touchTargetMin,
+                    ),
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: WynColors.graphite,
+                    ),
+                  )),
           ],
         ),
       ),

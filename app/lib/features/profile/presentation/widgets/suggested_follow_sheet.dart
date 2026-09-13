@@ -146,16 +146,15 @@ class _SuggestedFollowSheetState extends State<_SuggestedFollowSheet> {
                     ),
                     BrowserSystemTooltip(
                         message: 'ปิด',
-                        child: BrowserSystemTooltip(
-                            message: null,
-                            child: IconButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                size: 28,
-                                color: WynColors.ink,
-                              ),
-                            ))),
+                        child: IconButton(
+                          tooltip: null,
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            size: 28,
+                            color: WynColors.ink,
+                          ),
+                        )),
                   ],
                 ),
               ),

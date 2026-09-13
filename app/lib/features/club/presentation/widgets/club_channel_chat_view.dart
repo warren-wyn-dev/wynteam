@@ -531,27 +531,26 @@ class _ClubChannelChatViewState extends State<ClubChannelChatView> {
                   shape: const CircleBorder(),
                   child: BrowserSystemTooltip(
                       message: 'ส่งข้อความ',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            icon: _isSending
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: _canSend
-                                          ? WynColors.paper
-                                          : WynColors.mutedNeutral,
-                                    ),
-                                  )
-                                : Icon(Icons.send,
-                                    size: 15,
-                                    color: _canSend
-                                        ? WynColors.paper
-                                        : WynColors.mutedNeutral),
-                            onPressed: _canSend ? _send : null,
-                          ))),
+                      child: IconButton(
+                        icon: _isSending
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: _canSend
+                                      ? WynColors.paper
+                                      : WynColors.mutedNeutral,
+                                ),
+                              )
+                            : Icon(Icons.send,
+                                size: 15,
+                                color: _canSend
+                                    ? WynColors.paper
+                                    : WynColors.mutedNeutral),
+                        tooltip: null,
+                        onPressed: _canSend ? _send : null,
+                      )),
                 ),
               ),
             ],

@@ -405,19 +405,18 @@ class WynosProfileIconAction extends StatelessWidget {
       height: WynosFounderMetrics.profileSecondaryActionSize,
       child: BrowserSystemTooltip(
           message: tooltip,
-          child: BrowserSystemTooltip(
-              message: null,
-              child: IconButton(
-                onPressed: onPressed,
-                icon: Icon(icon, size: 21, color: WynColors.ink),
-                style: IconButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: WynColors.hairline),
-                  ),
-                  backgroundColor: WynColors.paper,
-                ),
-              ))),
+          child: IconButton(
+            tooltip: null,
+            onPressed: onPressed,
+            icon: Icon(icon, size: 21, color: WynColors.ink),
+            style: IconButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: WynColors.hairline),
+              ),
+              backgroundColor: WynColors.paper,
+            ),
+          )),
     );
   }
 }

@@ -148,15 +148,14 @@ class _ModerationActionSheetState extends State<ModerationActionSheet> {
                   height: WynSpacing.touchTargetMin,
                   child: BrowserSystemTooltip(
                       message: 'ปิด',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.close),
-                            onPressed: _isSubmitting
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                          ))),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        tooltip: null,
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                      )),
                 ),
               ],
             ),

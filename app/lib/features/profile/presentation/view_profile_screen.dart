@@ -686,16 +686,15 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
               children: [
                 BrowserSystemTooltip(
                     message: 'ย้อนกลับ',
-                    child: BrowserSystemTooltip(
-                        message: null,
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.chevron_left_rounded,
-                            size: 32,
-                            color: WynColors.paper,
-                          ),
-                          onPressed: _goBack,
-                        ))),
+                    child: IconButton(
+                      tooltip: null,
+                      icon: const Icon(
+                        Icons.chevron_left_rounded,
+                        size: 32,
+                        color: WynColors.paper,
+                      ),
+                      onPressed: _goBack,
+                    )),
                 const BrowserSystemText(
                   'โปรไฟล์',
                   style: TextStyle(
@@ -708,53 +707,49 @@ class _ViewProfileScreenState extends State<ViewProfileScreen> {
                 if (isOwnProfile) ...[
                   BrowserSystemTooltip(
                       message: 'แชร์โปรไฟล์',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.ios_share_outlined,
-                              size: 24,
-                              color: WynColors.paper,
-                            ),
-                            onPressed: () => _shareProfile(profile),
-                          ))),
+                      child: IconButton(
+                        tooltip: null,
+                        icon: const Icon(
+                          Icons.ios_share_outlined,
+                          size: 24,
+                          color: WynColors.paper,
+                        ),
+                        onPressed: () => _shareProfile(profile),
+                      )),
                   BrowserSystemTooltip(
                       message: 'ตั้งค่า',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.settings_outlined,
-                              size: 27,
-                              color: WynColors.paper,
-                            ),
-                            onPressed: () => _openSettings(profile),
-                          ))),
+                      child: IconButton(
+                        tooltip: null,
+                        icon: const Icon(
+                          Icons.settings_outlined,
+                          size: 27,
+                          color: WynColors.paper,
+                        ),
+                        onPressed: () => _openSettings(profile),
+                      )),
                 ] else ...[
                   BrowserSystemTooltip(
                       message: 'ค้นหา',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.search_rounded,
-                              size: 25,
-                              color: WynColors.paper,
-                            ),
-                            onPressed: _openSearch,
-                          ))),
+                      child: IconButton(
+                        tooltip: null,
+                        icon: const Icon(
+                          Icons.search_rounded,
+                          size: 25,
+                          color: WynColors.paper,
+                        ),
+                        onPressed: _openSearch,
+                      )),
                   BrowserSystemTooltip(
                       message: 'เพิ่มเติม',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.more_vert_rounded,
-                              size: 24,
-                              color: WynColors.paper,
-                            ),
-                            onPressed: _openMoreMenu,
-                          ))),
+                      child: IconButton(
+                        tooltip: null,
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          size: 24,
+                          color: WynColors.paper,
+                        ),
+                        onPressed: _openMoreMenu,
+                      )),
                 ],
                 const SizedBox(width: 4),
               ],

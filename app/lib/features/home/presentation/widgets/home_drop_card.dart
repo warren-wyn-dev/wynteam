@@ -483,20 +483,18 @@ class HomeDropCard extends StatelessWidget {
                               // close underneath.
                               BrowserSystemTooltip(
                                   message: 'เพิ่มเติม',
-                                  child: BrowserSystemTooltip(
-                                      message: null,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.more_horiz,
-                                            size: 22),
-                                        padding: EdgeInsets.zero,
-                                        alignment: Alignment.center,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                          width: WynSpacing.touchTargetMin,
-                                          height: 24,
-                                        ),
-                                        onPressed: () => _openMoreMenu(context),
-                                      ))),
+                                  child: IconButton(
+                                    icon:
+                                        const Icon(Icons.more_horiz, size: 22),
+                                    tooltip: null,
+                                    padding: EdgeInsets.zero,
+                                    alignment: Alignment.center,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: WynSpacing.touchTargetMin,
+                                      height: 24,
+                                    ),
+                                    onPressed: () => _openMoreMenu(context),
+                                  )),
                             ],
                           ),
                         ),
@@ -720,22 +718,21 @@ class HomeDropCard extends StatelessWidget {
                                 const SizedBox(width: WynSpacing.space4),
                                 BrowserSystemTooltip(
                                     message: 'แชร์',
-                                    child: BrowserSystemTooltip(
-                                        message: null,
-                                        child: IconButton(
-                                          icon: const Icon(
-                                            Icons.send_outlined,
-                                            size: 24,
-                                          ),
-                                          padding: EdgeInsets.zero,
-                                          constraints:
-                                              const BoxConstraints.tightFor(
-                                            width: WynSpacing.touchTargetMin,
-                                            height: WynSpacing.touchTargetMin,
-                                          ),
-                                          color: WynColors.graphite,
-                                          onPressed: _share,
-                                        ))),
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.send_outlined,
+                                        size: 24,
+                                      ),
+                                      tooltip: null,
+                                      padding: EdgeInsets.zero,
+                                      constraints:
+                                          const BoxConstraints.tightFor(
+                                        width: WynSpacing.touchTargetMin,
+                                        height: WynSpacing.touchTargetMin,
+                                      ),
+                                      color: WynColors.graphite,
+                                      onPressed: _share,
+                                    )),
                                 // WYN-088: hidden on the Home feed (showViewCount:
                                 // false there) -- still shown everywhere else this
                                 // card is reused (Profile's 3 tabs, hashtag feed).

@@ -257,20 +257,18 @@ class HomePopCard extends StatelessWidget {
                               // appears underneath those two.
                               BrowserSystemTooltip(
                                   message: 'เพิ่มเติม',
-                                  child: BrowserSystemTooltip(
-                                      message: null,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.more_horiz,
-                                            size: 22),
-                                        padding: const EdgeInsets.only(top: 2),
-                                        alignment: Alignment.topCenter,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                          width: WynSpacing.touchTargetMin,
-                                          height: 32,
-                                        ),
-                                        onPressed: () => _openMoreMenu(context),
-                                      ))),
+                                  child: IconButton(
+                                    icon:
+                                        const Icon(Icons.more_horiz, size: 22),
+                                    tooltip: null,
+                                    padding: const EdgeInsets.only(top: 2),
+                                    alignment: Alignment.topCenter,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: WynSpacing.touchTargetMin,
+                                      height: 32,
+                                    ),
+                                    onPressed: () => _openMoreMenu(context),
+                                  )),
                             ],
                           ),
                         ),
@@ -425,20 +423,18 @@ class HomePopCard extends StatelessWidget {
                               const SizedBox(width: WynSpacing.space4),
                               BrowserSystemTooltip(
                                   message: 'แชร์',
-                                  child: BrowserSystemTooltip(
-                                      message: null,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.send_outlined,
-                                            size: 24),
-                                        padding: EdgeInsets.zero,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                          width: WynSpacing.touchTargetMin,
-                                          height: WynSpacing.touchTargetMin,
-                                        ),
-                                        color: WynColors.graphite,
-                                        onPressed: _share,
-                                      ))),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.send_outlined,
+                                        size: 24),
+                                    tooltip: null,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: WynSpacing.touchTargetMin,
+                                      height: WynSpacing.touchTargetMin,
+                                    ),
+                                    color: WynColors.graphite,
+                                    onPressed: _share,
+                                  )),
                               // WYN-088: hidden on the Home feed (showViewCount:
                               // false there) -- HomePopCard has no other call
                               // site today, but this stays symmetric with

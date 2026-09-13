@@ -1182,13 +1182,12 @@ Future<InteractionPermission?> _showPermissionPicker(
                   height: WynSpacing.touchTargetMin,
                   child: BrowserSystemTooltip(
                       message: 'ปิด',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.of(sheetContext).pop(),
-                          ))),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        tooltip: null,
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                      )),
                 ),
               ],
             ),
@@ -1317,13 +1316,12 @@ Future<LikesVisibility?> _showLikesVisibilityPicker(
                   height: WynSpacing.touchTargetMin,
                   child: BrowserSystemTooltip(
                       message: 'ปิด',
-                      child: BrowserSystemTooltip(
-                          message: null,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.of(sheetContext).pop(),
-                          ))),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.close),
+                        tooltip: null,
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                      )),
                 ),
               ],
             ),

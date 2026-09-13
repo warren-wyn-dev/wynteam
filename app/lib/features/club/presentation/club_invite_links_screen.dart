@@ -313,12 +313,11 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
             ),
             BrowserSystemTooltip(
                 message: 'คัดลอกลิงก์',
-                child: BrowserSystemTooltip(
-                    message: null,
-                    child: IconButton(
-                      icon: const Icon(Icons.copy_outlined, size: 20),
-                      onPressed: () => _copyLink(link.code),
-                    ))),
+                child: IconButton(
+                  icon: const Icon(Icons.copy_outlined, size: 20),
+                  tooltip: null,
+                  onPressed: () => _copyLink(link.code),
+                )),
             isRevoking
                 ? const SizedBox(
                     width: 40,
@@ -330,12 +329,11 @@ class _ClubInviteLinksScreenState extends State<ClubInviteLinksScreen> {
                   )
                 : BrowserSystemTooltip(
                     message: 'ตัวเลือกเพิ่มเติม',
-                    child: BrowserSystemTooltip(
-                        message: null,
-                        child: IconButton(
-                          icon: const Icon(Icons.more_vert, size: 20),
-                          onPressed: () => _showLinkMenu(link),
-                        ))),
+                    child: IconButton(
+                      icon: const Icon(Icons.more_vert, size: 20),
+                      tooltip: null,
+                      onPressed: () => _showLinkMenu(link),
+                    )),
           ],
         ),
       ),

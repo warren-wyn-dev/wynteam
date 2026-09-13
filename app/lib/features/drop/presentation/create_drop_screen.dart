@@ -1491,16 +1491,14 @@ class _CreateDropScreenState extends State<CreateDropScreen> {
                   if (i >= _minPollOptions)
                     BrowserSystemTooltip(
                         message: 'ลบตัวเลือกนี้',
-                        child: BrowserSystemTooltip(
-                            message: null,
-                            child: IconButton(
-                              key: ValueKey('remove_poll_option_$i'),
-                              icon: const Icon(Icons.close,
-                                  color: WynColors.graphite),
-                              onPressed: _isSharing
-                                  ? null
-                                  : () => _removePollOption(i),
-                            ))),
+                        child: IconButton(
+                          key: ValueKey('remove_poll_option_$i'),
+                          icon: const Icon(Icons.close,
+                              color: WynColors.graphite),
+                          tooltip: null,
+                          onPressed:
+                              _isSharing ? null : () => _removePollOption(i),
+                        )),
                 ],
               ),
             ),
@@ -1796,13 +1794,12 @@ class _AudiencePickerSheet extends StatelessWidget {
                     height: WynSpacing.touchTargetMin,
                     child: BrowserSystemTooltip(
                         message: 'ปิด',
-                        child: BrowserSystemTooltip(
-                            message: null,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ))),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.close),
+                          tooltip: null,
+                          onPressed: () => Navigator.of(context).pop(),
+                        )),
                   ),
                 ],
               ),

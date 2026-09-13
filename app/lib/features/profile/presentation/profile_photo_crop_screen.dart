@@ -397,14 +397,12 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
         children: [
           BrowserSystemTooltip(
               message: 'ลดการซูม',
-              child: BrowserSystemTooltip(
-                  message: null,
-                  child: IconButton(
-                    icon: const Icon(Icons.remove, color: Colors.white),
-                    onPressed: ready
-                        ? () => _setScale(_scale - _zoomButtonStep)
-                        : null,
-                  ))),
+              child: IconButton(
+                tooltip: null,
+                icon: const Icon(Icons.remove, color: Colors.white),
+                onPressed:
+                    ready ? () => _setScale(_scale - _zoomButtonStep) : null,
+              )),
           Expanded(
             child: Semantics(
               label: 'ระดับการซูม',
@@ -422,14 +420,12 @@ class _ProfilePhotoCropScreenState extends State<ProfilePhotoCropScreen> {
           ),
           BrowserSystemTooltip(
               message: 'เพิ่มการซูม',
-              child: BrowserSystemTooltip(
-                  message: null,
-                  child: IconButton(
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    onPressed: ready
-                        ? () => _setScale(_scale + _zoomButtonStep)
-                        : null,
-                  ))),
+              child: IconButton(
+                tooltip: null,
+                icon: const Icon(Icons.add, color: Colors.white),
+                onPressed:
+                    ready ? () => _setScale(_scale + _zoomButtonStep) : null,
+              )),
         ],
       ),
     );

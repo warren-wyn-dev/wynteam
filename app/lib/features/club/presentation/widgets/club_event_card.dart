@@ -89,12 +89,11 @@ class ClubEventCard extends StatelessWidget {
               if (canManage)
                 BrowserSystemTooltip(
                     message: 'เพิ่มเติม',
-                    child: BrowserSystemTooltip(
-                        message: null,
-                        child: IconButton(
-                          icon: const Icon(Icons.more_vert),
-                          onPressed: () => _openMoreMenu(context),
-                        ))),
+                    child: IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: null,
+                      onPressed: () => _openMoreMenu(context),
+                    )),
             ],
           ),
           if (event.description != null && event.description!.isNotEmpty) ...[

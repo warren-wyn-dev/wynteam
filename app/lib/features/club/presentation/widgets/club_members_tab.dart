@@ -592,13 +592,12 @@ class _ClubMembersTabState extends State<ClubMembersTab> {
           if (_canManage)
             BrowserSystemTooltip(
                 message: memberBadge != null ? 'จัดการป้าย' : 'ตั้งป้าย',
-                child: BrowserSystemTooltip(
-                    message: null,
-                    child: IconButton(
-                      key: ValueKey('member-badge-menu-${member.userId}'),
-                      icon: const Icon(Icons.local_offer_outlined, size: 18),
-                      onPressed: () => _openBadgeMenu(member),
-                    ))),
+                child: IconButton(
+                  key: ValueKey('member-badge-menu-${member.userId}'),
+                  icon: const Icon(Icons.local_offer_outlined, size: 18),
+                  tooltip: null,
+                  onPressed: () => _openBadgeMenu(member),
+                )),
           if (actions.isNotEmpty)
             PopupMenuButton<_MemberAction>(
               key: ValueKey('member-menu-${member.userId}'),
