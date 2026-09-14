@@ -1,0 +1,493 @@
+/*
+ * WYN-158 pixel parity pass 2.
+ * This file is intentionally the LAST visual stylesheet imported by layout.tsx.
+ * Values below are mirrored from the current Flutter Beta4 source, not from
+ * migration-era web approximations. Keep behavioral/data rules in components.
+ */
+
+/* ---------- Home chrome: HomeFeedScreen + WynosSocialHeader/Tabs ---------- */
+.parity-home-header {
+  height: 52px;
+  padding: 0 8px;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+}
+
+.home-header-action {
+  width: 48px;
+  height: 48px;
+}
+
+.home-header-action[aria-label="เมนู"] > svg {
+  width: 22px;
+  height: 22px;
+}
+
+.home-wordmark {
+  gap: 8px;
+}
+
+.audit-home-logo {
+  width: 19px;
+  height: 19px;
+}
+
+.home-wordmark strong {
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+
+/* Flutter uses Icons.chat_bubble_outline. Hide the migration-era double-bubble
+   Lucide glyph and paint the same single outlined bubble silhouette. */
+.home-chat-action > svg {
+  display: none;
+}
+
+.home-chat-action::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  display: block;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Zm0 14H5.17L4 17.17V4h16v12Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Zm0 14H5.17L4 17.17V4h16v12Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.home-chat-badge {
+  top: -4px;
+  right: -6px;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 1px 4px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.parity-home-tabs {
+  height: 52px;
+}
+
+.parity-home-tabs button {
+  min-width: 48px;
+  min-height: 52px;
+  margin-inline: 8px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.parity-home-tabs button.active {
+  font-weight: 700;
+}
+
+.parity-home-tabs button.active::after {
+  width: 36px;
+  height: 2px;
+}
+
+/* ---------- Home card: HomeDropCard / ActionMetric ---------- */
+.audit-feed-post {
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  padding: 3px 0 3px 16px;
+}
+
+.audit-feed-post .avatar-button {
+  width: 44px;
+  height: 44px;
+  margin-top: 16px;
+}
+
+.audit-feed-post .avatar-button .avatar,
+.audit-feed-post .avatar-button .route-avatar {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.audit-feed-post .post-content > .post-header,
+.audit-feed-post .caption,
+.audit-feed-post .audit-action-row,
+.audit-feed-post .top-reply-preview {
+  margin-right: 16px;
+}
+
+.audit-feed-post .post-header {
+  min-height: 24px;
+}
+
+.audit-feed-post .author-link,
+.audit-feed-post .author {
+  font-size: 17px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.audit-feed-post .post-time {
+  max-width: 112px;
+  font-size: 15px;
+  line-height: 1.15;
+  font-weight: 400;
+}
+
+.audit-feed-post .caption {
+  margin-top: 0;
+  margin-bottom: 0;
+  transform: translateY(-3px);
+  font-size: 17.5px;
+  line-height: 1.32;
+  font-weight: 400;
+}
+
+/* FollowActionButton(headerCompact:true): minHeight 28, horizontal 12,
+   labelSmall 13/1.3 + weight 700. */
+.audit-follow-pill {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: .1px;
+}
+
+/* Flutter More owns a 44x24 tight box. */
+.audit-more {
+  width: 44px;
+  min-width: 44px;
+  flex: 0 0 44px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+
+.audit-more > svg {
+  width: 22px;
+  height: 22px;
+}
+
+.audit-feed-post .audit-action-row {
+  min-height: 44px;
+  margin-top: 0;
+  gap: 16px;
+}
+
+.audit-feed-post .audit-action-row .metric-button {
+  min-width: 32px;
+  min-height: 44px;
+  padding: 4px;
+  gap: 6px;
+}
+
+.audit-feed-post .audit-action-row .metric-button > span,
+.audit-feed-post .audit-action-row .metric-button::after {
+  font-size: 15px;
+  line-height: 1.1;
+  font-weight: 400;
+}
+
+/* Share is a Flutter IconButton, not ActionMetric: exact 44x44. */
+.audit-feed-post .audit-action-row .audit-share-action {
+  width: 44px;
+  min-width: 44px;
+  flex: 0 0 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+}
+
+/* ---------- Founder Profile: WynosFounderProfileHeader ---------- */
+.flutter-profile-cover {
+  height: calc(170px + env(safe-area-inset-top));
+}
+
+.flutter-profile-cover > img {
+  /* Flutter Alignment(0,-0.10) maps to a 45% vertical focal point. */
+  object-position: 50% 45%;
+}
+
+.flutter-profile-identity {
+  padding: 8px 16px 0;
+}
+
+.flutter-profile-avatar {
+  left: 16px;
+  top: -23px;
+  width: 92px;
+  height: 92px;
+  padding: 4px;
+}
+
+.flutter-profile-avatar .route-avatar {
+  width: 84px !important;
+  height: 84px !important;
+}
+
+.flutter-profile-identity:has(.flutter-profile-actions.own) .flutter-profile-avatar::after {
+  right: 1px;
+  bottom: 8px;
+  width: 19px;
+  height: 19px;
+  border-width: 3px;
+  background: #57d65b;
+}
+
+.flutter-profile-copy {
+  min-height: 67px;
+  padding-left: 104px;
+}
+
+.flutter-profile-copy h2 {
+  min-height: 0;
+  font-size: 21px;
+  line-height: 1.08;
+  font-weight: 700;
+}
+
+/* Flutter's own-profile name row has keyboard_arrow_down size 22. */
+.flutter-profile-identity:has(.flutter-profile-actions.own) .flutter-profile-copy h2::after {
+  content: "";
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  margin-left: 1px;
+  transform: none;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.flutter-profile-copy .profile-username {
+  margin-top: 1px;
+  font-size: 13.5px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.flutter-profile-copy > p:not(.profile-username) {
+  margin-top: 4px;
+  font-size: 14.5px;
+  line-height: 1.34;
+}
+
+/* Flutter has horizontal 72px padding around the stats row. */
+.flutter-profile-stats {
+  width: auto;
+  max-width: none;
+  margin: 7px 72px 0;
+}
+
+.flutter-profile-stats button {
+  min-height: 0;
+  padding: 2px 8px;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1.1;
+}
+
+.flutter-profile-stats button + button {
+  border-left: 1px solid var(--hairline);
+}
+
+.flutter-profile-stats b {
+  font-size: 20px;
+  line-height: 1.05;
+  font-weight: 700;
+}
+
+.flutter-profile-actions {
+  margin-top: 10px;
+  margin-bottom: 9px;
+  gap: 10px;
+}
+
+.flutter-profile-actions .profile-action-primary,
+.flutter-profile-actions .profile-action-secondary,
+.flutter-profile-actions .profile-action-icon {
+  height: 44px;
+  min-height: 44px;
+}
+
+.flutter-profile-actions .profile-action-icon {
+  width: 44px;
+  flex-basis: 44px;
+  border-radius: 14px;
+}
+
+.flutter-profile-tabs,
+.flutter-profile-tabs button {
+  height: 52px;
+}
+
+.flutter-profile-tabs button {
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.flutter-profile-tabs button.active {
+  font-weight: 600;
+}
+
+/* ---------- Root founder bottom navigation ---------- */
+.route-bottom-nav {
+  height: calc(80px + env(safe-area-inset-bottom));
+  min-height: calc(80px + env(safe-area-inset-bottom));
+}
+
+.route-nav-link {
+  min-height: 80px;
+  gap: 4px;
+  font-size: 11.5px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.route-nav-link.active {
+  font-weight: 600;
+}
+
+.route-nav-glyph {
+  width: 28px;
+  height: 28px;
+  display: block;
+  color: currentColor;
+}
+
+.route-create-destination {
+  gap: 6px;
+}
+
+.route-create-button {
+  width: 56px;
+  height: 56px;
+}
+
+.route-create-button .route-nav-glyph {
+  width: 33px;
+  height: 33px;
+}
+
+.route-nav-icon-wrap {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.route-nav-icon-wrap > .route-nav-glyph {
+  position: absolute;
+  inset: 0;
+}
+
+.route-nav-badge {
+  position: absolute;
+  right: -6px;
+  top: -4px;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 1px 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+/* ---------- Post Detail: exact Flutter icon family + dimensions ---------- */
+.detail-floating-header > button > svg {
+  width: 22px;
+  height: 22px;
+}
+
+.flutter-detail-actions button {
+  gap: 7px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.flutter-detail-actions button > span {
+  color: var(--graphite);
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+/* Flutter mode_comment_outlined. */
+.flutter-detail-actions button[aria-label="ความคิดเห็น"] > svg {
+  display: none;
+}
+
+.flutter-detail-actions button[aria-label="ความคิดเห็น"]::before {
+  content: "";
+  width: 25px;
+  height: 25px;
+  display: block;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14l4 4V4a2 2 0 0 0-2-2Zm0 15.17L18.83 16H4V4h16v13.17Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14l4 4V4a2 2 0 0 0-2-2Zm0 15.17L18.83 16H4V4h16v13.17Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Flutter repeat_rounded. */
+.flutter-detail-actions button[aria-label="รีโพสต์"] > svg,
+.flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] > svg {
+  display: none;
+}
+
+.flutter-detail-actions button[aria-label="รีโพสต์"]::before,
+.flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"]::before {
+  content: "";
+  width: 27px;
+  height: 27px;
+  display: block;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 7h11v3l4-4-4-4v3H7a4 4 0 0 0-4 4v3h2V9a2 2 0 0 1 2-2Zm10 10H6v-3l-4 4 4 4v-3h11a4 4 0 0 0 4-4v-3h-2v3a2 2 0 0 1-2 2Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 7h11v3l4-4-4-4v3H7a4 4 0 0 0-4 4v3h2V9a2 2 0 0 1 2-2Zm10 10H6v-3l-4 4 4 4v-3h11a4 4 0 0 0 4-4v-3h-2v3a2 2 0 0 1-2 2Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Flutter ios_share_outlined: box + upward arrow, not Lucide's node-share. */
+.flutter-detail-actions button[aria-label="แชร์โพสต์"] > svg {
+  display: none;
+}
+
+.flutter-detail-actions button[aria-label="แชร์โพสต์"]::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  display: block;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M8 7H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3M12 3v12M8 7l4-4 4 4'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M8 7H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3M12 3v12M8 7l4-4 4 4'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.detail-activity-row {
+  width: calc(100% - 32px);
+  height: 54px;
+  margin: 2px 16px 10px;
+  padding: 0 12px 0 14px;
+  border-radius: 18px;
+  grid-template-columns: 49px minmax(0, 1fr) 27px;
+}
+
+.detail-activity-icon {
+  width: 42px;
+  height: 54px;
+}
+
+.detail-activity-row strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Narrow phones: Flutter still keeps 72px stats inset; only allow the exact
+   content to shrink if the viewport cannot physically fit it. */
+@media (max-width: 320px) {
+  .flutter-profile-stats {
+    margin-inline: 56px;
+  }
+}
