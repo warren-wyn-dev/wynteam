@@ -131,6 +131,13 @@
 .audit-media-carousel:not(.single) img {
   flex: 0 0 calc((100% - 16px) * 0.82);
   width: calc((100% - 16px) * 0.82);
+  transition: transform 180ms ease-out;
+}
+
+/* WYN-111: the front card is full-size; the next peek recedes to 86%. */
+.audit-media-carousel:not(.single) img:not(:first-child) {
+  transform: scale(0.86);
+  transform-origin: left center;
 }
 
 .audit-feed-post .audit-action-row {
@@ -223,6 +230,12 @@
 .golden-drop-media.multi img {
   flex: 0 0 calc((100% - 16px) * 0.82);
   width: calc((100% - 16px) * 0.82);
+  transition: transform 180ms ease-out;
+}
+
+.golden-drop-media.multi img:not(:first-child) {
+  transform: scale(0.86);
+  transform-origin: left center;
 }
 
 .golden-drop-actions {
