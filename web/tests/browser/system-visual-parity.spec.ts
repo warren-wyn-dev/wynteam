@@ -81,30 +81,47 @@ test("Settings root preserves exact current seven-row Beta4 structure", () => {
 });
 
 test("root navigation matches Founder metrics", () => {
-  const finalLock = read("app/system-parity-final.css");
+  const navCss = read("app/bottom-nav.css");
   const metrics = read("../app/lib/core/design/wynos_founder_metrics.dart");
   const nav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
   expect(metrics).toContain("bottomNavContentHeight = 80");
   expect(metrics).toContain("createActionDiameter = 56");
   expect(nav).toContain("Icon(icon, size: 28)");
   expect(nav).toContain("fontSize: 11.5");
-  expect(finalLock).toContain("height: calc(80px + env(safe-area-inset-bottom))");
-  expect(finalLock).toContain("width: 56px");
-  expect(finalLock).toContain("width: 28px");
+  expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom))");
+  expect(navCss).toContain("width: var(--wyn-create-action)");
+  expect(navCss).toContain("width: 28px");
+});
+
+test("bottom navigation has exactly one canonical stylesheet (no competing override layer)", () => {
+  // WYN-158: .route-bottom-nav/.route-nav-link used to be redefined across
+  // parity-final/phase3/pixel-parity-final/system-parity-final (4 files)
+  // with slightly different heights/paddings each time. app/bottom-nav.css
+  // is now the only file allowed to define them.
+  const otherCssFiles = ["parity-final.css", "phase3.css", "pixel-parity-final.css", "system-parity-final.css"];
+  for (const file of otherCssFiles) {
+    const content = read(`app/${file}`);
+    expect(content, `${file} must not redefine .route-bottom-nav`).not.toContain(".route-bottom-nav {");
+    expect(content, `${file} must not redefine .route-nav-link`).not.toContain(".route-nav-link {");
+  }
+  const layout = read("app/layout.tsx");
+  expect(layout).toContain('import "./bottom-nav.css";');
 });
 
 test("Home actions mirror current Flutter: Like Comment Repost Share, no View", () => {
-  const lock = read("app/system-parity-lock.css");
-  const home = read("components/parity-home-final.tsx");
+  const postActions = read("components/home/post-actions.tsx");
   const flutterPage = read("../app/lib/features/home/presentation/widgets/mode_feed_page.dart");
   const flutterCard = read("../app/lib/features/home/presentation/widgets/home_drop_card.dart");
   expect(flutterPage).toContain("showViewCount: false");
   expect(flutterPage).toContain("hideZeroActionCounts: false");
   expect(flutterCard).toContain("Icons.send_outlined");
-  expect(home).toContain("audit-share-action");
-  expect(lock).not.toMatch(/\.audit-share-action\s*\{[\s\S]*?display:\s*none/);
-  expect(lock).not.toMatch(/button\[aria-label="แชร์"\]\s*\{[\s\S]*?display:\s*none/);
-  expect(lock).toContain('content: "0"');
+  // Home renders every count (including zero) directly in React — no
+  // hideZeroActionCounts prop, no CSS `content: "0"` fallback needed.
+  expect(postActions).toContain("wyn-action-share");
+  expect(postActions).not.toContain("hideZeroCount");
+  expect(postActions).toContain("<span className=\"wyn-action-button-count\">{likeCount}</span>");
+  expect(postActions).not.toContain("Eye");
+  expect(postActions).not.toContain("visibility");
 });
 
 test("Creation surface matches Beta4 composer metrics while keeping the no Check-in product rule", () => {

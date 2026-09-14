@@ -64,31 +64,6 @@
 
 .route-icon-button:disabled { opacity: .4; cursor: default; }
 
-.route-bottom-nav {
-  position: fixed;
-  z-index: 70;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: min(100%, 680px);
-  height: calc(62px + env(safe-area-inset-bottom));
-  padding: 6px 12px env(safe-area-inset-bottom);
-  background: color-mix(in srgb, var(--paper) 96%, transparent);
-  border-top: 1px solid var(--hairline);
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-.route-nav-link {
-  display: grid;
-  place-items: center;
-  color: var(--graphite);
-  text-decoration: none;
-}
-.route-nav-link.active { color: var(--ink); }
-
 .route-state,
 .route-empty {
   min-height: 220px;

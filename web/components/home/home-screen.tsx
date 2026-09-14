@@ -1,44 +1,19 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import {
-  Bookmark,
-  ChevronRight,
-  Compass,
-  Flag,
-  Heart,
-  ImagePlus,
-  Menu,
-  MessageCircle,
-  MessagesSquare,
-  MoreHorizontal,
-  Quote,
-  Repeat2,
-  Send,
-  Share2,
-  Smartphone,
-  UsersRound,
-  X,
-} from "lucide-react";
+import { Bookmark, Flag, Quote, Repeat2, Share2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type PointerEvent,
-  type TouchEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 
-import { AppChrome, Avatar } from "@/components/phase3-ui";
 import { Beta4Composer } from "@/components/beta4-composer";
-import { RichPostText } from "@/components/rich-post-text";
-import { publishDropSafely } from "@/lib/drop-publication";
-import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { ClubFeedPost } from "@/components/home/club-feed-post";
+import { HomeDrawer } from "@/components/home/home-drawer";
+import { HomeHeader } from "@/components/home/home-header";
+import { HomePostCard } from "@/components/home/home-post-card";
+import { HOME_FEED_MODES, HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
+import { AppChrome } from "@/components/phase3-ui";
+import { authorLabel, type HomeFeedRow } from "@/lib/feed";
 import {
   loadHomeViewerState,
   toggleAuthorFollow,
@@ -58,7 +33,6 @@ import {
 } from "@/lib/home-parity-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type FeedMode = "for-you" | "following" | "clubs";
 type ReportCategory =
   | "spam"
   | "scam"
@@ -71,12 +45,6 @@ type ReportCategory =
   | "copyright"
   | "other";
 type HiddenDrop = { row: HomeFeedRow; index: number };
-
-const modes: { key: FeedMode; label: string }[] = [
-  { key: "for-you", label: "สำหรับคุณ" },
-  { key: "following", label: "กำลังติดตาม" },
-  { key: "clubs", label: "คลับของฉัน" },
-];
 
 const reportCategories: { value: ReportCategory; label: string }[] = [
   { value: "spam", label: "สแปม (Spam)" },
@@ -91,8 +59,8 @@ const reportCategories: { value: ReportCategory; label: string }[] = [
   { value: "other", label: "อื่น ๆ (Other)" },
 ];
 
-function modeIndex(mode: FeedMode) {
-  return modes.findIndex((item) => item.key === mode);
+function modeIndex(mode: HomeFeedMode) {
+  return HOME_FEED_MODES.findIndex((item) => item.key === mode);
 }
 
 async function fetchDropImages(
@@ -124,307 +92,6 @@ async function fetchDropImages(
   return map;
 }
 
-function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | null; onClose: () => void }) {
-  const router = useRouter();
-  const go = (href: string) => {
-    onClose();
-    router.push(href);
-  };
-  const displayName = identity?.display_name?.trim() || identity?.username || "WYNOS";
-  const standalone =
-    typeof window !== "undefined" &&
-    (window.matchMedia("(display-mode: standalone)").matches ||
-      Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone));
-
-  return (
-    <div className="home-drawer-backdrop" role="presentation" onClick={onClose}>
-      <aside
-        className="home-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label="เมนู WYNOS"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="home-drawer-close">
-          <button className="icon-button" type="button" aria-label="ปิด" onClick={onClose}>
-            <X size={22} />
-          </button>
-        </div>
-        <button
-          className="drawer-identity"
-          type="button"
-          disabled={!identity}
-          onClick={() => identity && go(`/profile/${identity.id}`)}
-        >
-          <Avatar src={identity?.avatar_url} label={identity?.username || "W"} size={56} />
-          <span className="drawer-identity-copy">
-            <strong>{displayName}</strong>
-            {identity ? <small>@{identity.username}</small> : null}
-            <span>
-              <b>{identity?.follower_count ?? 0}</b> ผู้ติดตาม · <b>{identity?.following_count ?? 0}</b>{" "}
-              กำลังติดตาม
-            </span>
-          </span>
-          <ChevronRight size={20} />
-        </button>
-        <div className="drawer-divider" />
-        <div className="drawer-menu-list">
-          <button className="drawer-menu-row" type="button" onClick={() => go("/clubs")}>
-            <span className="drawer-menu-icon"><Compass size={19} /></span>
-            <span>สำรวจ Club</span>
-            <ChevronRight size={19} />
-          </button>
-          <button className="drawer-menu-row" type="button" onClick={() => go("/clubs/new")}>
-            <span className="drawer-menu-icon"><span className="drawer-plus">＋</span></span>
-            <span>สร้าง Club</span>
-            <ChevronRight size={19} />
-          </button>
-          <button className="drawer-menu-row" type="button" onClick={() => go("/clubs?mine=1")}>
-            <span className="drawer-menu-icon"><UsersRound size={19} /></span>
-            <span>Club ของฉัน</span>
-            <ChevronRight size={19} />
-          </button>
-          <button className="drawer-menu-row" type="button" onClick={() => go("/bookmarks")}>
-            <span className="drawer-menu-icon"><Bookmark size={19} /></span>
-            <span>บันทึกไว้</span>
-            <ChevronRight size={19} />
-          </button>
-          {!standalone ? (
-            <button
-              className="drawer-menu-row"
-              type="button"
-              onClick={() => window.open("/add-to-home.html", "_blank", "noopener,noreferrer")}
-            >
-              <span className="drawer-menu-icon"><Smartphone size={19} /></span>
-              <span>เพิ่ม WYNOS ไว้ที่หน้าจอหลัก</span>
-              <ChevronRight size={19} />
-            </button>
-          ) : null}
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-function ImageCarousel({
-  row,
-  urls,
-  liked,
-  onDoubleLike,
-}: {
-  row: HomeFeedRow;
-  urls: string[];
-  liked: boolean;
-  onDoubleLike: () => void;
-}) {
-  const lastTap = useRef(0);
-  const [burst, setBurst] = useState(false);
-  const mediaRatio = postMediaAspectRatio(row, urls.length > 1);
-  const [mediaIndex, setMediaIndex] = useState(0);
-  const mediaTrack = useRef<HTMLDivElement>(null);
-  const updateMediaIndex = () => {
-    const track = mediaTrack.current;
-    const first = track?.querySelector<HTMLImageElement>("img");
-    if (!track || !first || urls.length <= 1) return;
-    const stride = first.getBoundingClientRect().width + 8;
-    if (stride <= 0) return;
-    const next = Math.max(0, Math.min(urls.length - 1, Math.round(track.scrollLeft / stride)));
-    setMediaIndex((current) => current === next ? current : next);
-  };
-  const doubleLike = () => {
-    if (!liked) onDoubleLike();
-    setBurst(false);
-    requestAnimationFrame(() => setBurst(true));
-    window.setTimeout(() => setBurst(false), 700);
-  };
-  const pointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse") return;
-    const now = Date.now();
-    if (now - lastTap.current <= 300) {
-      lastTap.current = 0;
-      doubleLike();
-    } else {
-      lastTap.current = now;
-    }
-  };
-  if (!urls.length) return null;
-
-  return (
-    <div className="audit-media-wrap" onDoubleClick={doubleLike} onPointerUp={pointerUp}>
-      <div ref={mediaTrack} onScroll={updateMediaIndex} className={`audit-media-carousel ${urls.length === 1 ? "single" : ""}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties}>
-        {urls.map((url, index) => (
-          <img
-            className={urls.length > 1 ? `audit-media-card ${index === mediaIndex ? "front" : index < mediaIndex ? "before" : "after"}` : "audit-media-card"}
-            src={url}
-            alt=""
-            loading={index === 0 ? "eager" : "lazy"}
-            decoding="async"
-            key={`${row.id}:${index}`}
-          />
-        ))}
-      </div>
-      {burst ? <Heart className="audit-heart-burst" size={72} fill="currentColor" strokeWidth={0} /> : null}
-    </div>
-  );
-}
-
-function FeedPost({
-  row,
-  viewer,
-  images,
-  userId,
-  onLike,
-  onMore,
-  onRedrop,
-  onFollow,
-  onShare,
-}: {
-  row: HomeFeedRow;
-  viewer: HomeViewerState;
-  images: string[];
-  userId: string;
-  onLike: () => void;
-  onMore: () => void;
-  onRedrop: () => void;
-  onFollow: () => void;
-  onShare: () => void;
-}) {
-  const liked = viewer.likedDropIds.has(row.id);
-  const redropped = viewer.redroppedDropIds.has(row.id);
-  const following = viewer.followedAuthorIds.has(row.author_id);
-  const requested = viewer.pendingFollowAuthorIds.has(row.author_id);
-  const canRedrop = row.audience == null || row.audience === "everyone";
-  const time = relativeTimeTh(row.created_at);
-  const timeAndLocation = row.location ? `${time} · 📍 ${row.location}` : time;
-
-  return (
-    <article className="parity-feed-post audit-feed-post">
-      {row.redrop_id ? (
-        <div className="audit-redrop-line">
-          <Repeat2 size={13} />รีโพสต์โดย @{row.redropper_username || "wynos"} · {time}
-        </div>
-      ) : null}
-      {row.quote_text ? <RichPostText className="audit-quote-text" value={row.quote_text} /> : null}
-      <Link className="avatar-button" href={`/profile/${row.author_id}`}>
-        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} />
-      </Link>
-      <div className="post-content">
-        <header className="post-header audit-author-row">
-          <Link className="author-link audit-author-link" href={`/profile/${row.author_id}`}>
-            <strong>
-              {authorLabel(row)}
-              {row.author_is_verified ? <span className="route-verified">✓</span> : null}
-            </strong>
-            <small>{timeAndLocation}</small>
-          </Link>
-          {row.author_id !== userId && !following ? (
-            <button
-              className={`audit-follow-pill ${requested ? "requested" : ""}`}
-              type="button"
-              onClick={onFollow}
-            >
-              {requested ? "ขอติดตามแล้ว" : "ติดตาม"}
-            </button>
-          ) : null}
-          <button
-            className="metric-button audit-more"
-            type="button"
-            aria-label="เพิ่มเติม"
-            onClick={onMore}
-          >
-            <MoreHorizontal size={22} />
-          </button>
-        </header>
-        {row.caption ? (
-          <RichPostText className="caption audit-caption" value={row.caption} postHref={`/drop/${row.id}`} />
-        ) : null}
-        <ImageCarousel row={row} urls={images} liked={liked} onDoubleLike={onLike} />
-        <div className="action-row audit-action-row">
-          <button
-            className={`metric-button ${liked ? "liked" : ""}`}
-            type="button"
-            aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"}
-            onClick={onLike}
-          >
-            <Heart size={24} fill={liked ? "currentColor" : "none"} />
-            {(row.like_count ?? 0) > 0 ? <span>{row.like_count}</span> : null}
-          </button>
-          <Link
-            className="metric-button audit-comment-action"
-            href={`/drop/${row.id}#comments`}
-            aria-label="ความคิดเห็น"
-          >
-            <MessageCircle size={24} />
-            {(row.comment_count ?? 0) > 0 ? <span>{row.comment_count}</span> : null}
-          </Link>
-          {canRedrop ? (
-            <button
-              className={`metric-button ${redropped ? "active" : ""}`}
-              type="button"
-              aria-label="รีโพสต์"
-              onClick={onRedrop}
-            >
-              <Repeat2 size={24} />
-              {(row.redrop_count ?? 0) > 0 ? <span>{row.redrop_count}</span> : null}
-            </button>
-          ) : null}
-          <button
-            className="metric-button audit-share-action"
-            type="button"
-            aria-label="แชร์"
-            onClick={onShare}
-          >
-            <Send size={24} />
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () => void }) {
-  return (
-    <article className="parity-feed-post audit-feed-post club-home-card">
-      <Link className="avatar-button" href={`/profile/${post.author_id}`}>
-        <Avatar src={post.author_avatar_url} label={post.author_username || "WYNOS"} size={44} />
-      </Link>
-      <div className="post-content">
-        <header className="post-header">
-          <Link className="author-link" href={`/profile/${post.author_id}`}>
-            <strong>{post.author_display_name?.trim() || post.author_username || "WYNOS"}</strong>
-            <small>@{post.author_username || "wynos"} · {relativeTimeTh(post.created_at)}</small>
-          </Link>
-        </header>
-        {post.content ? (
-          <RichPostText className="caption audit-caption" value={post.content} postHref={`/club-post/${post.id}`} />
-        ) : null}
-        {post.image_urls.length ? (
-          <div className={`audit-media-carousel ${post.image_urls.length === 1 ? "single" : ""}`}>
-            {post.image_urls.map((url, index) => (
-              <img src={url} alt="" loading="lazy" decoding="async" key={`${post.id}:${index}`} />
-            ))}
-          </div>
-        ) : null}
-        <div className="action-row audit-action-row">
-          <button
-            className={`metric-button ${post.liked_by_me ? "liked" : ""}`}
-            type="button"
-            aria-label={post.liked_by_me ? "เลิกถูกใจ" : "ถูกใจ"}
-            onClick={onLike}
-          >
-            <Heart size={24} fill={post.liked_by_me ? "currentColor" : "none"} />
-            {post.like_count > 0 ? <span>{post.like_count}</span> : null}
-          </button>
-          <Link className="metric-button audit-comment-action" href={`/club-post/${post.id}`}>
-            <MessageCircle size={24} />
-            {post.comment_count > 0 ? <span>{post.comment_count}</span> : null}
-          </Link>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function ActionSheet({
   children,
   onClose,
@@ -450,13 +117,13 @@ function ActionSheet({
   );
 }
 
-export function ParityHomeFinal({ session }: { session: Session }) {
+export function HomeScreen({ session }: { session: Session }) {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = session.user.id;
 
-  const [mode, setMode] = useState<FeedMode>("for-you");
+  const [mode, setMode] = useState<HomeFeedMode>("for-you");
   const [rows, setRows] = useState<HomeFeedRow[]>([]);
   const [clubRows, setClubRows] = useState<ClubHomePost[]>([]);
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
@@ -719,7 +386,7 @@ export function ParityHomeFinal({ session }: { session: Session }) {
     setBusy(false);
   };
 
-  const switchMode = (next: FeedMode) => {
+  const switchMode = (next: HomeFeedMode) => {
     if (next !== mode) setMode(next);
   };
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
@@ -734,50 +401,31 @@ export function ParityHomeFinal({ session }: { session: Session }) {
     if (Math.abs(delta) < 55) return;
     const index = modeIndex(mode);
     const next = delta < 0
-      ? Math.min(modes.length - 1, index + 1)
+      ? Math.min(HOME_FEED_MODES.length - 1, index + 1)
       : Math.max(0, index - 1);
-    switchMode(modes[next].key);
+    switchMode(HOME_FEED_MODES[next].key);
   };
 
   if (!client) {
-    return <main className="home-empty"><p>ยังไม่ได้ตั้งค่า Supabase สำหรับเว็บ</p></main>;
+    return <main className="wyn-home-state"><p>ยังไม่ได้ตั้งค่า Supabase สำหรับเว็บ</p></main>;
   }
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav>
-      <div className="parity-home-shell audit-home-shell">
-        <header className="parity-home-header">
-          <button className="home-header-action" type="button" aria-label="เมนู" onClick={() => setDrawerOpen(true)}>
-            <Menu size={23} />
-          </button>
-          <div className="home-wordmark">
-            <img className="audit-home-logo" src="/wynos_logo_mark.png" alt="" />
-            <strong>WYNOS</strong>
-          </div>
-          <button className="home-header-action home-chat-action" type="button" aria-label="แชท" onClick={() => router.push("/chat")}>
-            <MessagesSquare size={23} />
-            {chatBadge > 0 ? <span className="home-chat-badge">{chatBadge > 99 ? "99+" : chatBadge}</span> : null}
-          </button>
-        </header>
-        <div className="parity-home-tabs" role="tablist" aria-label="ฟีด">
-          {modes.map((item) => (
-            <button
-              type="button"
-              className={mode === item.key ? "active" : ""}
-              onClick={() => switchMode(item.key)}
-              key={item.key}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+      <div className="wyn-home">
+        <HomeHeader
+          chatBadgeCount={chatBadge}
+          onOpenMenu={() => setDrawerOpen(true)}
+          onOpenChat={() => router.push("/chat")}
+        />
+        <HomeTabs mode={mode} onSelect={switchMode} />
       </div>
 
-      <div className="home-feed-surface" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div className="wyn-home-feed" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {loading ? (
-          <div className="home-loading"><div className="route-system-spinner" /></div>
+          <div className="wyn-home-state"><div className="route-system-spinner" /></div>
         ) : error && !rows.length && !clubRows.length ? (
-          <div className="home-empty">
+          <div className="wyn-home-state">
             <p>{error}</p>
             <button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button>
           </div>
@@ -787,14 +435,14 @@ export function ParityHomeFinal({ session }: { session: Session }) {
               <ClubFeedPost post={post} onLike={() => void likeClub(post)} key={post.id} />
             ))
           ) : (
-            <div className="home-empty">
+            <div className="wyn-home-state">
               <p>ยังไม่มีโพสต์จาก Club ของคุณ</p>
               <Link className="route-primary" href="/clubs">สำรวจ Club</Link>
             </div>
           )
         ) : rows.length && viewer ? (
           rows.map((row) => (
-            <FeedPost
+            <HomePostCard
               row={row}
               viewer={viewer}
               images={images.get(row.id) ?? (row.image_url ? [row.image_url] : [])}
@@ -814,7 +462,7 @@ export function ParityHomeFinal({ session }: { session: Session }) {
             />
           ))
         ) : (
-          <div className="home-empty">
+          <div className="wyn-home-state">
             <p>{mode === "following" ? "ยังไม่มีโพสต์จากคนที่คุณกำลังติดตาม" : "ยังไม่มีอะไรให้ดูตรงนี้"}</p>
             <Link className="route-primary" href="/search">ค้นหาคนและเนื้อหา</Link>
           </div>

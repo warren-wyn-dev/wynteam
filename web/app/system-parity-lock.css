@@ -7,7 +7,6 @@
 /* Shared surface: Flutter social screens are paper, never gray canvas. */
 .route-app,
 .route-main,
-.home-feed-surface,
 .settings-page,
 .flutter-chat-inbox,
 .notification-list {
@@ -455,8 +454,10 @@
 /* Current Flutter Home action row is Like / Comment / Repost / Share.
    Home alone hides the View metric; Share remains visible and Save stays in More. */
 
-/* Source sets hideZeroActionCounts=false: render a zero when React omitted it. */
-.audit-feed-post .audit-action-row .metric-button:not(.audit-share-action):not(:has(> span))::after,
+/* Source sets hideZeroActionCounts=false: render a zero when React omitted it.
+   Home's own PostActions always renders the count (including 0) directly in
+   React, so it needs no CSS fallback — this remains for GoldenDropCard
+   (Profile/Search/Bookmarks), which still renders a bare icon at zero. */
 .golden-drop-actions > button:not([aria-label="แชร์"]):not(:has(> span))::after,
 .golden-drop-actions > a:not(:has(> span))::after,
 .golden-drop-view:not(:has(> span))::after {
@@ -517,8 +518,7 @@
 
 /* Wide-screen Flutter/DOM parity: centered readable social rail. */
 @media (min-width: 681px) {
-  .route-main,
-  .parity-home-main {
+  .route-main {
     width: min(100%, 680px);
     margin-inline: auto;
   }

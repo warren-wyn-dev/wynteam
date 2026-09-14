@@ -59,67 +59,6 @@
   height: 48px;
 }
 
-.route-bottom-nav {
-  height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
-  min-height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
-  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  background: var(--paper);
-  border-top: 1px solid var(--hairline);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.route-nav-link {
-  min-width: 0;
-  min-height: var(--wyn-bottom-nav-height);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  color: var(--graphite);
-  font-size: 11.5px;
-  line-height: 1;
-  font-weight: 400;
-}
-
-.route-nav-link > svg {
-  width: 28px;
-  height: 28px;
-}
-
-.route-nav-link > span:last-child {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: fade;
-  white-space: nowrap;
-}
-
-.route-nav-link.active {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.route-create-destination {
-  color: var(--graphite);
-}
-
-.route-create-button {
-  width: var(--wyn-create-action);
-  height: var(--wyn-create-action);
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--paper);
-  box-shadow: 0 3px 10px rgb(18 18 15 / 18%);
-}
-
-.route-create-button svg {
-  width: 33px;
-  height: 33px;
-}
-
 .route-tabs,
 .chat-tabs {
   min-height: var(--wyn-social-tab);
@@ -215,160 +154,7 @@
   min-height: calc(var(--wyn-comment-composer) + env(safe-area-inset-bottom));
 }
 
-/* Flutter Home chrome: 52px header + 52px scrollable tabs. */
-.parity-home-app {
-  padding-bottom: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
-}
-
-.parity-home-main {
-  width: min(100%, var(--wyn-content-rail));
-}
-
-.parity-home-shell {
-  position: sticky;
-  top: 0;
-  z-index: 32;
-  padding-top: env(safe-area-inset-top);
-  background: var(--paper);
-}
-
-.parity-home-header {
-  height: 52px;
-  padding: 0 8px;
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 48px;
-  align-items: center;
-}
-
-.home-header-action {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--ink);
-  padding: 0;
-}
-
-.home-wordmark {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.home-wordmark strong {
-  font-size: 17px;
-  line-height: 1;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-}
-
-.home-logo-mark {
-  width: 19px;
-  height: 19px;
-  display: grid;
-  place-items: center;
-  border-radius: 6px;
-  background: var(--ink);
-  color: var(--paper);
-  font-size: 10px;
-  line-height: 1;
-  font-weight: 800;
-}
-
-.home-chat-action {
-  position: relative;
-}
-
-.home-chat-badge {
-  position: absolute;
-  top: 3px;
-  right: 1px;
-  min-width: 16px;
-  min-height: 16px;
-  padding: 2px 4px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: #d32f2f;
-  color: #fff;
-  font-size: 10px;
-  line-height: 1;
-  font-weight: 700;
-}
-
-.parity-home-tabs {
-  height: var(--wyn-social-tab);
-  display: flex;
-  align-items: stretch;
-  justify-content: space-evenly;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--paper);
-  scrollbar-width: none;
-}
-
-.parity-home-tabs::-webkit-scrollbar { display: none; }
-
-.parity-home-tabs button {
-  position: relative;
-  flex: 0 0 auto;
-  min-width: 86px;
-  min-height: 52px;
-  padding: 0 8px;
-  border: 0;
-  background: transparent;
-  color: var(--graphite);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.parity-home-tabs button.active {
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.parity-home-tabs button.active::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 36px;
-  height: 2px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: var(--ink);
-}
-
-.home-feed-surface {
-  min-height: calc(100dvh - 184px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-}
-
-.home-loading,
-.home-empty {
-  min-height: 260px;
-  padding: 32px 24px;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 12px;
-  color: var(--graphite);
-  text-align: center;
-}
-
-.parity-feed-post {
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 10px;
-  padding: 9px 16px 7px;
-}
-
-.avatar-button,
-.author-link,
-.post-open-button {
+.author-link {
   border: 0;
   background: transparent;
   color: inherit;
@@ -376,71 +162,9 @@
   text-align: left;
 }
 
-.avatar-button {
-  width: 42px;
-  height: 42px;
-}
-
-.post-open-button {
-  display: block;
-  width: 100%;
-}
-
-.parity-feed-post .post-header {
-  min-height: 22px;
-}
-
-.parity-feed-post .caption {
-  margin-top: 1px;
-  margin-bottom: 0;
-}
-
-.parity-feed-post .post-media {
-  margin-top: 7px;
-  border-radius: 16px;
-}
-
-.parity-feed-post .action-row {
-  min-height: 40px;
-  margin-top: 2px;
-  gap: 22px;
-}
-
-.metric-button {
-  min-width: 32px;
-  min-height: 40px;
-  border: 0;
-  background: transparent;
-  padding: 0;
-}
-
-.metric-button.liked { color: var(--like); }
-.metric-button.active { color: var(--ink); }
-.metric-save { margin-left: auto; }
-
-.follow-pill {
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--ink);
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 11.5px;
-  font-weight: 700;
-}
-.follow-pill.requested { border-color: var(--hairline); color: var(--graphite); }
-
-.club-link-preview {
-  display: block;
-  margin-top: 6px;
-  color: #1688ff;
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Drawer mirrors Flutter Drawer / SideMenu. */
+/* Drawer mirrors Flutter Drawer / SideMenu. Shared by Home and
+   Notifications — Home's own header/tabs/card contract lives in
+   app/home.css. */
 .home-drawer-backdrop {
   position: fixed;
   inset: 0;
@@ -526,17 +250,12 @@
   background: var(--surface);
 }
 
-.parity-composer {
-  background: var(--paper);
-}
-
 /* Notifications, chat and settings: remove preview-card visual language and
    use the same paper/hairline social hierarchy as Flutter. */
 .notification-row,
 .chat-row,
 .settings-row,
-.route-person-row,
-.route-drop-card {
+.route-person-row {
   background: var(--paper);
 }
 
@@ -561,7 +280,6 @@
 }
 
 @media (min-width: 681px) {
-  .parity-home-main,
   .route-main {
     border-left: 1px solid var(--hairline);
     border-right: 1px solid var(--hairline);

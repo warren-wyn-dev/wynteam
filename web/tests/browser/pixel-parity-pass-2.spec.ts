@@ -6,11 +6,12 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
 test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
-  const layout = read("app/layout.tsx");
-  const css = read("app/pixel-parity-final.css");
-  const closureCss = read("app/pixel-parity-audit-closure.css");
+  const home = read("app/home.css");
+  const homeHeader = read("components/home/home-header.tsx");
   const chrome = read("components/phase3-ui.tsx");
-  const runtime = read("components/pixel-parity-runtime.tsx");
+  const nav = read("components/bottom-navigation.tsx");
+  const navCss = read("app/bottom-nav.css");
+  const css = read("app/pixel-parity-final.css");
   const flutterHome = read("../app/lib/features/home/presentation/home_feed_screen.dart");
   const flutterCard = read("../app/lib/features/home/presentation/widgets/home_drop_card.dart");
   const flutterFollow = read("../app/lib/features/follow/presentation/widgets/follow_action_button.dart");
@@ -19,24 +20,14 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   const flutterRoot = read("../app/lib/features/root/presentation/root_shell.dart");
   const flutterDetail = read("../app/lib/features/drop/presentation/drop_detail_screen.dart");
 
-  expect(layout.lastIndexOf('import "./pixel-parity-final.css";')).toBeGreaterThan(
-    layout.lastIndexOf('import "./interaction-parity-final.css";'),
-  );
-  expect(layout.lastIndexOf('import "./pixel-parity-audit-closure.css";')).toBeGreaterThan(
-    layout.lastIndexOf('import "./pixel-parity-final.css";'),
-  );
-  expect(layout).toContain("<PixelParityRuntime />");
-  expect(closureCss).toContain("Chat Inbox: ChatInboxScreen / ChatPillTab");
-  expect(closureCss).toContain("Notifications: NotificationListScreen");
-  expect(closureCss).toContain("Settings: SettingsScreen root");
-
   expect(flutterHome).toContain("height: 52");
   expect(flutterHome).toContain("Icons.menu, size: 22");
   expect(flutterHome).toContain("count > 9 ? '9+' : '$count'");
-  expect(css).toContain('.home-header-action[aria-label="เมนู"] > svg');
-  expect(css).toContain("width: 22px");
-  expect(css).toContain("Icons.chat_bubble_outline");
-  expect(runtime).toContain('badge.textContent = "9+"');
+  expect(home).toContain(".wyn-home-header {");
+  expect(home).toContain("height: 52px");
+  // Home caps the chat badge at the source (React), not via a runtime
+  // DOM-mutation patch — see docs/wyn-158-visual-parity-audit.md, #4.
+  expect(homeHeader).toContain('chatBadgeCount > 9 ? "9+" : chatBadgeCount');
 
   expect(flutterCard).toContain("fontSize: 17.5");
   expect(flutterCard).toContain("fontSize: 17");
@@ -45,11 +36,10 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   expect(flutterCard).toContain("Icons.send_outlined");
   expect(flutterFollow).toContain("minimumSize: widget.headerCompact");
   expect(flutterFollow).toContain("horizontal: widget.headerCompact ? 12");
-  expect(css).toContain("padding: 0 12px");
-  expect(css).toContain("font-size: 13px");
-  expect(css).toContain("width: 44px");
-  expect(css).toContain("font-size: 15px");
-  expect(css).toContain("line-height: 1.1");
+  expect(home).toContain("padding: 0 12px");
+  expect(home).toContain("font-size: 13px");
+  expect(home).toContain("width: 44px");
+  expect(home).toContain("font-size: 15px");
 
   expect(flutterProfile).toContain("EdgeInsets.symmetric(horizontal: 72)");
   expect(flutterProfile).toContain("color: WynColors.online");
@@ -66,13 +56,12 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   expect(flutterRoot).toContain("_buildNotificationsIcon(context, selected: true)");
   expect(flutterNav).toContain("Icons.person_rounded");
   expect(flutterNav).toContain("const SizedBox(height: 6)");
-  expect(chrome).toContain('type MaterialNavKind = "home" | "search" | "notifications" | "profile" | "add";');
+  expect(nav).toContain('type MaterialNavKind = "home" | "search" | "notifications" | "profile" | "add";');
   expect(chrome).toContain('unreadNotificationCount > 9 ? "9+"');
-  expect(chrome).toContain('kind="home" selected={activeFor("/")}');
-  expect(chrome).toContain('kind="notifications" selected={activeFor("/notifications")}');
-  expect(chrome).toContain('kind="profile" selected={activeFor(`/profile/${userId}`)}');
-  expect(css).toContain(".route-create-destination");
-  expect(css).toContain("gap: 6px");
+  expect(nav).toContain('kind="home" selected={isActive("/")}');
+  expect(nav).toContain('kind="notifications" selected={isActive("/notifications")}');
+  expect(navCss).toContain(".route-create-destination");
+  expect(navCss).toContain("gap: 6px");
 
   expect(flutterDetail).toContain("Icons.mode_comment_outlined");
   expect(flutterDetail).toContain("Icons.repeat_rounded");

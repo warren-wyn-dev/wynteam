@@ -1,33 +1,5 @@
 /* WYN-158 final source-audit layer. Current Flutter source is the golden master. */
-.audit-home-shell { background: var(--paper); }
-.audit-home-logo { width: 19px; height: 19px; object-fit: contain; border-radius: 0; }
 .drawer-plus { font-size: 22px; line-height: 1; font-weight: 400; }
-
-.audit-feed-post { position: relative; }
-.audit-feed-post .post-content { min-width: 0; }
-.audit-feed-post .post-header { display: flex; align-items: flex-start; gap: 8px; }
-.audit-feed-post .author-link { min-width: 0; flex: 1; display: flex; flex-direction: column; }
-.audit-feed-post .author-link strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.audit-feed-post .author-link small { color: var(--graphite); font-size: 12px; }
-.audit-more { flex: 0 0 36px; width: 36px; margin: -8px -8px 0 0; color: var(--graphite); }
-.audit-caption { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 17.5px; line-height: 1.32; color: var(--ink); }
-.audit-redrop-line { grid-column: 1 / -1; margin: 0 16px 2px; display: flex; align-items: center; gap: 5px; color: var(--graphite); font-size: 12px; }
-.audit-quote-text { grid-column: 1 / -1; margin: 0 16px 6px; font-size: 15px; line-height: 1.4; }
-
-.audit-media-wrap { position: relative; margin-top: 7px; }
-.audit-media-carousel { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-inline: contain; padding-right: 18%; }
-.audit-media-carousel::-webkit-scrollbar { display: none; }
-.audit-media-carousel img { flex: 0 0 82%; width: 82%; max-height: 560px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 16px; scroll-snap-align: start; background: var(--surface); }
-.audit-media-carousel.single { padding-right: 0; }
-.audit-media-carousel.single img { flex-basis: 100%; width: 100%; }
-.audit-heart-burst { position: absolute; inset: 50% auto auto 50%; z-index: 4; color: #fff; pointer-events: none; filter: drop-shadow(0 4px 16px rgb(0 0 0 / 30%)); animation: audit-heart-burst 700ms ease-out forwards; }
-@keyframes audit-heart-burst { 0% { transform: translate(-50%,-50%) scale(.4); opacity: 0; } 25% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } 40% { transform: translate(-50%,-50%) scale(1); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(1); opacity: 0; } }
-
-.audit-action-row { justify-content: flex-start; }
-.audit-action-row .metric-button { display: inline-flex; align-items: center; gap: 6px; color: var(--graphite); text-decoration: none; font-size: 15px; }
-.audit-action-row .metric-button.liked { color: var(--like); }
-.audit-action-row .metric-button.active { color: var(--ink); }
-.audit-comment-action { border: 0; background: transparent; padding: 0; }
 
 .audit-sheet-backdrop { align-items: flex-end; }
 .audit-action-sheet { width: min(100%, 680px); margin: 0 auto; padding: 8px 0 calc(10px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: var(--paper); box-shadow: 0 -12px 40px rgb(18 18 15 / 16%); max-height: 84dvh; overflow-y: auto; }
@@ -53,8 +25,6 @@
 .audit-composer > textarea { width: 100%; min-height: 180px; padding: 18px; border: 0; resize: vertical; background: var(--paper); color: var(--ink); font: inherit; font-size: 17px; line-height: 1.45; outline: none; }
 .audit-image-picker { margin: 0 18px 10px; min-height: 44px; display: inline-flex; align-items: center; gap: 8px; color: var(--sapphire); font-weight: 600; cursor: pointer; }
 .audit-file-count { padding: 0 18px 14px; color: var(--graphite); font-size: 12px; }
-
-.club-home-card .audit-media-carousel { margin-top: 7px; }
 
 @media (min-width: 681px) {
   .audit-action-sheet { border: 1px solid var(--hairline); border-bottom: 0; }

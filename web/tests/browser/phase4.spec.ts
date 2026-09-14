@@ -58,7 +58,13 @@ test("system-font stack remains browser/OS native", async ({ page }) => {
   const fontFamily = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
   expect(fontFamily).toContain("-apple-system");
   expect(fontFamily).toContain("BlinkMacSystemFont");
-  expect(fontFamily).not.toMatch(/SF Pro|CupertinoSystemText|CupertinoSystemDisplay/i);
+  // "SF Pro Text" is a real, named system font (not a Flutter-internal
+  // alias) and is part of the Flutter app's own iOS Safari font stack —
+  // see app/lib/core/typography/browser_system_text_web.dart's
+  // `_systemFontStack`, which this CSS now matches verbatim. Only
+  // CupertinoSystemText/CupertinoSystemDisplay (Flutter's internal
+  // registered-font names, meaningless in a browser) stay banned.
+  expect(fontFamily).not.toMatch(/CupertinoSystemText|CupertinoSystemDisplay/i);
 });
 
 test("repeated route churn keeps the page process alive", async ({ page }) => {

@@ -56,12 +56,17 @@ export function RichPostText({
   value,
   className = "",
   postHref,
+  compact: compactProp,
 }: {
   value: string;
   className?: string;
   postHref?: string;
+  /** Threads-like dense caption rhythm: collapse a blank line before a
+   * trailing hashtag block instead of leaving a gap. Defaults to
+   * sniffing legacy class names so existing callers keep working. */
+  compact?: boolean;
 }) {
-  const compact = className.includes("audit-caption") || className.includes("golden-drop");
+  const compact = compactProp ?? (className.includes("audit-caption") || className.includes("golden-drop") || className.includes("wyn-post-caption"));
   const displayValue = compact
     ? value.trimEnd().replace(compactHashtagBlankLinePattern, "\n")
     : value;

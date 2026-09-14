@@ -46,13 +46,16 @@ test("source contracts cannot regress to staged migration UI", async () => {
     gate,
     auth,
     home,
+    homeCss,
+    postAuthorRow,
+    postActions,
+    homeTabs,
     pageSource,
     routeUi,
     finalCss,
     completionCss,
     closureCss,
     postDetailCss,
-    homeGoldenCss,
     profileGoldenCss,
     goldenDrop,
     goldenDropCss,
@@ -74,14 +77,17 @@ test("source contracts cannot regress to staged migration UI", async () => {
   ] = await Promise.all([
     readFile(path.join(root, "components/developer-route-gate.tsx"), "utf8"),
     readFile(path.join(root, "components/parity-auth-entry.tsx"), "utf8"),
-    readFile(path.join(root, "components/parity-home-final.tsx"), "utf8"),
+    readFile(path.join(root, "components/home/home-screen.tsx"), "utf8"),
+    readFile(path.join(root, "app/home.css"), "utf8"),
+    readFile(path.join(root, "components/home/post-author-row.tsx"), "utf8"),
+    readFile(path.join(root, "components/home/post-actions.tsx"), "utf8"),
+    readFile(path.join(root, "components/home/home-tabs.tsx"), "utf8"),
     readFile(path.join(root, "app/page.tsx"), "utf8"),
     readFile(path.join(root, "components/phase3-ui.tsx"), "utf8"),
     readFile(path.join(root, "app/parity-final.css"), "utf8"),
     readFile(path.join(root, "app/parity-completion.css"), "utf8"),
     readFile(path.join(root, "app/parity-closure.css"), "utf8"),
     readFile(path.join(root, "app/post-detail-parity.css"), "utf8"),
-    readFile(path.join(root, "app/home-golden-final.css"), "utf8"),
     readFile(path.join(root, "app/profile-golden-final.css"), "utf8"),
     readFile(path.join(root, "components/golden-drop-card.tsx"), "utf8"),
     readFile(path.join(root, "app/golden-drop-card.css"), "utf8"),
@@ -104,28 +110,33 @@ test("source contracts cannot regress to staged migration UI", async () => {
 
   expect(gate).not.toContain("is_developer_account");
   expect(gate).not.toContain("บัญชีนักพัฒนา");
-  expect(auth).toContain("<ParityHomeFinal session={session} />");
+  expect(auth).toContain("<HomeScreen session={session} />");
   expect(auth).not.toContain("HomeMigrationPreview");
   expect(pageSource).not.toContain("HomeNavigationBridge");
   expect(layout).not.toContain("DrawerRouteAdapter");
-  for (const sheet of ["home-golden-final.css", "profile-golden-final.css", "club-detail-golden.css", "golden-drop-card.css"]) expect(layout).toContain(sheet);
+  for (const sheet of ["profile-golden-final.css", "club-detail-golden.css", "golden-drop-card.css", "home.css"]) expect(layout).toContain(sheet);
 
-  for (const label of ["สำหรับคุณ", "กำลังติดตาม", "คลับของฉัน"]) expect(home).toContain(label);
-  expect(home).not.toContain("กำลังนิยม");
-  expect(home).toContain('/wynos_logo_mark.png');
-  for (const label of ["สำรวจ Club", "สร้าง Club", "Club ของฉัน", "บันทึกไว้", "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก"]) expect(home).toContain(label);
+  for (const label of ["สำหรับคุณ", "กำลังติดตาม", "คลับของฉัน"]) expect(homeTabs).toContain(label);
+  expect(homeTabs).not.toContain("กำลังนิยม");
+  const homeHeader = await readFile(path.join(root, "components/home/home-header.tsx"), "utf8");
+  expect(homeHeader).toContain('/wynos_logo_mark.png');
+  const homeDrawer = await readFile(path.join(root, "components/home/home-drawer.tsx"), "utf8");
+  for (const label of ["สำรวจ Club", "สร้าง Club", "Club ของฉัน", "บันทึกไว้", "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก"]) expect(homeDrawer).toContain(label);
   for (const contract of [
     "Quote ReDrop", "ไม่สนใจโพสต์นี้", "เลิกทำ", "submit_report", 'from("feed_signals")',
-    "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "audit-follow-pill", "onShare",
-    "row.audience", "ขอติดตามแล้ว", "รีโพสต์โดย @",
+    "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
   ]) expect(home).toContain(contract);
-  expect(home).toContain('<Send size={24} />');
-  expect(home).toContain('row.audience == null || row.audience === "everyone"');
+  expect(postActions).toContain('<Send size={24} />');
+  expect(postAuthorRow).toContain("ขอติดตามแล้ว");
+  const homePostCard = await readFile(path.join(root, "components/home/home-post-card.tsx"), "utf8");
+  expect(homePostCard).toContain("รีโพสต์โดย @");
+  expect(homePostCard).toContain('row.audience == null || row.audience === "everyone"');
   expect(home).not.toContain('location.assign');
-  for (const contract of [".audit-follow-pill", "background: var(--ink)", "font-size: 17px", "max-width: 112px", "gap: 16px"]) expect(homeGoldenCss).toContain(contract);
+  for (const contract of ["wyn-post-follow-pill", "background: var(--ink)", "font-size: 17px", "max-width: 112px", "gap: 16px"]) expect(homeCss).toContain(contract);
 
-  for (const label of ["หน้าหลัก", "ค้นหา", "การแจ้งเตือน", "โปรไฟล์"]) expect(routeUi).toContain(label);
-  expect(routeUi).toContain("โพสต์");
+  const bottomNav = await readFile(path.join(root, "components/bottom-navigation.tsx"), "utf8");
+  for (const label of ["หน้าหลัก", "ค้นหา", "การแจ้งเตือน", "โปรไฟล์"]) expect(bottomNav).toContain(label);
+  expect(bottomNav).toContain("โพสต์");
   expect(routeUi).toContain("GoldenDropCard");
 
   expect(search).toContain('headerMode="hidden"');

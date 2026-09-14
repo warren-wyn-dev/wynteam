@@ -1,0 +1,476 @@
+/*
+ * Canonical Home stylesheet (WYN-158).
+ *
+ * Single source of truth for Home's header, tabs, feed cards, media and
+ * action row. Values are copied verbatim from the current Flutter Beta4
+ * source (see docs/wyn-158-visual-parity-audit.md, section 7) — do not
+ * add another Home override file on top of this one; edit here instead.
+ */
+
+/* ---------- Shell: sticky header + tabs ---------- */
+
+.wyn-home {
+  position: sticky;
+  top: 0;
+  z-index: 32;
+  padding-top: env(safe-area-inset-top);
+  background: var(--paper);
+}
+
+/* ---------- Header: WynosSocialHeader override, height 52, no divider ---------- */
+
+.wyn-home-header {
+  height: 52px;
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+}
+
+.wyn-home-header-action {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  padding: 0;
+}
+
+.wyn-home-header-action svg {
+  width: 22px;
+  height: 22px;
+}
+
+.wyn-home-wordmark {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wyn-home-logo {
+  width: 19px;
+  height: 19px;
+  object-fit: contain;
+}
+
+.wyn-home-title {
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--ink);
+}
+
+.wyn-home-chat-action {
+  position: relative;
+}
+
+.wyn-home-chat-action svg {
+  width: 24px;
+  height: 24px;
+}
+
+.wyn-home-chat-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 1px 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--like);
+  color: var(--paper);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+/* ---------- Tabs: WynosSocialTabs, height 52 ---------- */
+
+.wyn-home-tabs {
+  height: 52px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.wyn-home-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  color: var(--graphite);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.wyn-home-tab-label {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wyn-home-tab.is-active {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.wyn-home-tab-indicator {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 2px;
+  margin-bottom: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.wyn-home-tab.is-active .wyn-home-tab-indicator {
+  background: var(--ink);
+}
+
+/* ---------- Feed surface / empty-loading states ---------- */
+
+.wyn-home-feed {
+  background: var(--paper);
+}
+
+.wyn-home-state {
+  min-height: 260px;
+  padding: 32px 24px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  color: var(--graphite);
+  text-align: center;
+}
+
+/* ---------- Post card: home_drop_card.dart + home_card_metrics.dart ---------- */
+/* edge=16 avatar=44 avatarTop=16 avatar/content-gap=8 content-x=68
+   outer vertical rhythm=3 caption lift=3 (net trailing gap 0). */
+
+/* One hairline divider between posts (Flutter's `Divider(height: 1)`
+   between SliverList items) — never before the first post. */
+.wyn-post + .wyn-post {
+  border-top: 1px solid var(--hairline);
+}
+
+.wyn-post {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 0;
+  width: 100%;
+  padding: 3px 0 3px 16px;
+  box-sizing: border-box;
+}
+
+.wyn-post-avatar {
+  grid-column: 1;
+  width: 44px;
+  height: 44px;
+  margin-top: 16px;
+  align-self: start;
+}
+
+.wyn-post-avatar .route-avatar {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.wyn-post-body {
+  grid-column: 2;
+  min-width: 0;
+}
+
+/* ReDrop attribution / quote text are pre-column rows spanning the card. */
+.wyn-post-redrop-line,
+.wyn-post-quote {
+  grid-column: 1 / -1;
+}
+
+.wyn-post-redrop-line {
+  min-height: 18px;
+  margin: 0 16px 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--graphite);
+  font-size: 12px;
+}
+
+.wyn-post-quote {
+  margin: 0 16px 8px;
+}
+
+.wyn-post-author-row {
+  min-width: 0;
+  min-height: 24px;
+  margin-right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wyn-post-author-link {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  text-decoration: none !important;
+  color: inherit;
+}
+
+.wyn-post-author-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+/* Sibling of the name, not nested inside it, so a long name's ellipsis
+   never clips the badge away — matches Flutter's Row(Flexible(name),
+   if(verified) VerifiedBadge, ...) exactly. */
+.wyn-post-verified {
+  flex: 0 0 auto;
+}
+
+.wyn-post-timestamp {
+  flex: 0 0 auto;
+  max-width: 112px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* Flutter colorScheme.outline (WynColors.borderStrongLight), not graphite. */
+  color: #8b929c;
+  font-size: 15px;
+  line-height: 1.15;
+  font-weight: 400;
+}
+
+/* FollowActionButton(filled, headerCompact): minHeight 28, horizontal 12,
+   labelSmall 13/700. */
+.wyn-post-follow-pill {
+  flex: 0 0 auto;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+}
+
+.wyn-post-follow-pill.is-requested {
+  background: var(--surface);
+  color: var(--graphite);
+}
+
+/* Flutter More owns a 44x24 tight box (touchTargetMin width, 24 height). */
+.wyn-post-more {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 24px;
+  min-height: 24px;
+  margin: 0 -8px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  color: var(--graphite);
+}
+
+.wyn-post-more svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Caption: bodyLarge overridden 17.5/400/1.32, lifted 3px so the visible
+   gap to media/actions below is 0 (see home_card_metrics.dart). */
+.wyn-post-caption {
+  margin: 0 16px 0 0;
+  transform: translateY(-3px);
+  font-size: 17.5px;
+  line-height: 1.32;
+  font-weight: 400;
+}
+
+/* ---------- Media: PostImageFrame / PostImageCarousel ---------- */
+
+.wyn-post-media {
+  position: relative;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.wyn-post-media-track {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+
+.wyn-post-media-track::-webkit-scrollbar {
+  display: none;
+}
+
+.wyn-post-media-item {
+  border-radius: 16px;
+  object-fit: cover;
+  aspect-ratio: var(--post-media-ratio, 4 / 5);
+  max-height: 75dvh;
+  scroll-snap-align: start;
+  background: var(--surface);
+}
+
+.wyn-post-media-track.is-single {
+  padding-right: 16px;
+}
+
+.wyn-post-media-track.is-single .wyn-post-media-item {
+  flex: 0 0 100%;
+  width: 100%;
+}
+
+.wyn-post-media-track:not(.is-single) .wyn-post-media-item {
+  flex: 0 0 calc((100% - 16px) * 0.82);
+  width: calc((100% - 16px) * 0.82);
+  transition: transform 180ms ease-out;
+}
+
+.wyn-post-media-track:not(.is-single) .wyn-post-media-item.is-after {
+  transform: scale(0.86);
+  transform-origin: left center;
+}
+
+.wyn-post-media-track:not(.is-single) .wyn-post-media-item.is-before {
+  transform: scale(0.86);
+  transform-origin: right center;
+}
+
+.wyn-post-heart-burst {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 4;
+  color: #fff;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 16px rgb(0 0 0 / 30%));
+  animation: wyn-heart-burst 700ms ease-out forwards;
+}
+
+@keyframes wyn-heart-burst {
+  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  35% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* Media -> actions keeps the same 3px vertical rhythm as everything else. */
+.wyn-post-media + .wyn-post-actions {
+  margin-top: 3px;
+}
+
+/* ---------- Action row: ActionMetric contract ---------- */
+
+.wyn-post-actions {
+  min-height: 48px;
+  margin: 0 16px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+}
+
+.wyn-action-button {
+  min-width: 32px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  color: var(--graphite);
+  text-decoration: none;
+}
+
+.wyn-action-button svg {
+  display: block;
+}
+
+.wyn-action-button-count {
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: inherit;
+}
+
+.wyn-action-button.is-liked {
+  color: var(--like);
+}
+
+.wyn-action-button.is-active {
+  color: var(--sapphire);
+}
+
+/* Share is a plain IconButton, not an ActionMetric: exact 44x44 box. */
+.wyn-action-share {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+@media (max-width: 359px) {
+  .wyn-post-author-link {
+    gap: 5px;
+  }
+
+  .wyn-post-timestamp {
+    max-width: 88px;
+  }
+
+  .wyn-post-actions {
+    gap: 12px;
+  }
+}

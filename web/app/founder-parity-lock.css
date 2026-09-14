@@ -43,87 +43,19 @@
   font-weight: 600;
 }
 
-.avatar-button,
 .author-link,
-.audit-author-link,
-.post-open-button,
 .golden-drop-open,
 .golden-drop-head a,
-.avatar-button:visited,
 .author-link:visited,
-.audit-author-link:visited,
-.post-open-button:visited,
 .golden-drop-open:visited,
 .golden-drop-head a:visited {
   color: inherit;
   text-decoration: none !important;
 }
 
-/*
- * Current Flutter HomeDropCard contract (home_card_metrics.dart):
- * edge=16, avatar=44, avatarTop=16, avatar/content gap=8, content x=68,
- * outer vertical rhythm=3, caption paint lift=3.
- *
- * The avatar is the left column. Author, caption, media and action bar all
- * remain in the RIGHT content column. Do not make media/actions span back
- * underneath the avatar: Flutter regression tests explicitly lock them to
- * homeCardContentInset.
- */
-.parity-feed-post.audit-feed-post {
-  display: grid !important;
-  grid-template-columns: 44px minmax(0, 1fr);
-  column-gap: 8px;
-  row-gap: 0;
-  width: 100%;
-  padding: 3px 0 3px 16px;
-  box-sizing: border-box;
-}
-
-.audit-feed-post > .post-content {
-  grid-column: 2;
-  min-width: 0;
-  display: block;
-}
-
-.parity-feed-post.audit-feed-post > .avatar-button {
-  grid-column: 1;
-  grid-row: auto;
-  width: 44px;
-  height: 44px;
-  margin-top: 16px;
-  align-self: start;
-  justify-self: start;
-}
-
-.parity-feed-post.audit-feed-post > .avatar-button .route-avatar {
-  width: 44px !important;
-  height: 44px !important;
-}
-
-.audit-feed-post .post-header.audit-author-row,
-.club-home-card .post-header {
-  min-width: 0;
-  min-height: 24px;
-  margin-right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.audit-feed-post .audit-author-link,
-.club-home-card .author-link {
-  min-width: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  overflow: hidden;
-  text-decoration: none !important;
-}
-
-.audit-feed-post .audit-author-link strong,
-.club-home-card .author-link strong,
+/* Profile/Search/Bookmarks reuse the same Flutter HomeDropCard geometry
+   through GoldenDropCard. Home's own equivalent card lives in
+   app/home.css (see docs/wyn-158-visual-parity-audit.md). */
 .golden-drop-head strong {
   min-width: 0;
   overflow: hidden;
@@ -136,8 +68,6 @@
   text-decoration: none;
 }
 
-.audit-feed-post .audit-author-link small,
-.club-home-card .author-link small,
 .golden-drop-head small {
   flex: 0 1 auto;
   max-width: 112px;
@@ -150,142 +80,6 @@
   font-weight: 400;
   text-decoration: none;
 }
-
-.audit-follow-pill {
-  flex: 0 0 auto;
-  min-height: 28px;
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--ink);
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--paper);
-  font: inherit;
-  font-size: 11.5px;
-  line-height: 1;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.audit-follow-pill.requested {
-  border-color: var(--hairline);
-  background: var(--paper);
-  color: var(--graphite);
-}
-
-.audit-feed-post .audit-more {
-  flex: 0 0 40px;
-  width: 40px;
-  min-width: 40px;
-  min-height: 24px;
-  height: 24px;
-  margin: 0 -8px 0 0;
-  display: grid;
-  place-items: center;
-  color: var(--graphite);
-}
-
-.audit-feed-post .audit-caption {
-  margin: 0 16px 0 0;
-  transform: translateY(-3px);
-  color: var(--ink);
-  font-size: 17.5px;
-  line-height: 1.32;
-  font-weight: 400;
-}
-
-/* ReDrop attribution/quote are pre-column rows and span the card. */
-.audit-redrop-line,
-.audit-quote-text {
-  grid-column: 1 / -1;
-}
-
-.audit-redrop-line {
-  min-height: 18px;
-  margin: 0 16px 4px 0;
-}
-
-.audit-quote-text {
-  margin: 0 16px 8px 0;
-}
-
-/* Media remains in .post-content, therefore starts at content x=68. */
-.audit-feed-post .audit-media-wrap,
-.club-home-card .audit-media-carousel {
-  min-width: 0;
-  margin-top: 0;
-}
-
-.audit-media-carousel {
-  gap: 8px;
-}
-
-.audit-media-carousel img {
-  border-radius: 16px;
-  object-fit: cover;
-  aspect-ratio: var(--post-media-ratio, 4 / 5);
-  max-height: 75dvh;
-}
-
-.audit-media-carousel.single {
-  margin-right: 16px;
-  padding-right: 0;
-}
-
-.audit-media-carousel.single img {
-  flex-basis: 100%;
-  width: 100%;
-}
-
-.audit-media-carousel:not(.single) {
-  padding-right: 0;
-}
-
-.audit-media-carousel:not(.single) img {
-  flex: 0 0 calc((100% - 16px) * 0.82);
-  width: calc((100% - 16px) * 0.82);
-  transition: transform 180ms ease-out;
-}
-
-.audit-media-carousel:not(.single) img.front {
-  transform: scale(1);
-}
-
-.audit-media-carousel:not(.single) img.after {
-  transform: scale(0.86);
-  transform-origin: left center;
-}
-
-.audit-media-carousel:not(.single) img.before {
-  transform: scale(0.86);
-  transform-origin: right center;
-}
-
-.audit-feed-post .audit-action-row {
-  min-height: 48px;
-  margin: 0 16px 0 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 16px;
-}
-
-.audit-feed-post .audit-media-wrap + .audit-action-row,
-.club-home-card .audit-media-carousel + .audit-action-row {
-  margin-top: 3px;
-}
-
-.audit-feed-post .audit-action-row .metric-button {
-  min-width: 32px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  padding: 0 4px;
-}
-
-/* Profile/Search/Bookmarks reuse the same Flutter HomeDropCard geometry. */
 .golden-drop-card {
   display: grid !important;
   grid-template-columns: 44px minmax(0, 1fr);
@@ -436,19 +230,14 @@
 }
 
 @media (max-width: 359px) {
-  .audit-feed-post .audit-author-link,
-  .club-home-card .author-link,
   .golden-drop-head > a {
     gap: 5px;
   }
 
-  .audit-feed-post .audit-author-link small,
-  .club-home-card .author-link small,
   .golden-drop-head small {
     max-width: 88px;
   }
 
-  .audit-feed-post .audit-action-row,
   .golden-drop-actions {
     gap: 12px;
   }

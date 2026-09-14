@@ -6,7 +6,7 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
 test("final WYNOS Beta4 source parity contract remains locked", () => {
-  const home = read("components/parity-home-final.tsx");
+  const postActions = read("components/home/post-actions.tsx");
   const detail = read("components/post-detail-route.tsx");
   const composer = read("components/beta4-composer.tsx");
   const profile = read("components/profile-route.tsx");
@@ -15,7 +15,7 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   const interactionCss = read("app/interaction-parity-final.css");
   const layout = read("app/layout.tsx");
 
-  expect(home).toContain("audit-share-action");
+  expect(postActions).toContain("wyn-action-share");
   expect(detail).toContain('type ActivityTab = "likes" | "redrops";');
   expect(detail).toContain("กิจกรรมโพสต์");
   expect(detail).toContain('size={isReply ? 32 : 36}');

@@ -1,14 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { PixelParityRuntime } from "@/components/pixel-parity-runtime";
 import "./globals.css";
 import "./phase2.css";
 import "./phase2-polish.css";
 import "./phase3.css";
-import "./phase3-bridge.css";
 import "./parity.css";
 import "./parity-auth-email.css";
 import "./parity-final.css";
-import "./parity-fixes.css";
 import "./parity-completion.css";
 import "./parity-closure.css";
 import "./post-detail-parity.css";
@@ -16,7 +13,6 @@ import "./parity-audit.css";
 import "./profile-follow-audit.css";
 import "./club-audit.css";
 import "./club-detail-audit.css";
-import "./home-golden-final.css";
 import "./profile-golden-final.css";
 import "./club-detail-golden.css";
 import "./golden-drop-card.css";
@@ -27,6 +23,8 @@ import "./system-parity-final.css";
 import "./interaction-parity-final.css";
 import "./pixel-parity-final.css";
 import "./pixel-parity-audit-closure.css";
+import "./bottom-nav.css";
+import "./home.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
@@ -43,7 +41,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="th">
-      <body><PixelParityRuntime />{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
