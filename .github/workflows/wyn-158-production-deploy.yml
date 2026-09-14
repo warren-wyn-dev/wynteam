@@ -1,6 +1,7 @@
 name: WYN-158 Production Deploy
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
