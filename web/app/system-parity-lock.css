@@ -88,6 +88,7 @@
 }
 
 .notification-group-label {
+  margin: 0;
   padding: 20px 16px 4px;
   color: var(--muted-neutral, #b7b4ac);
   font-size: 13px;
@@ -96,7 +97,8 @@
   letter-spacing: .12em;
 }
 
-.notification-row {
+.notification-row,
+.notification-row.unread {
   width: 100%;
   min-height: 64px;
   padding: 8px 16px;
@@ -139,6 +141,11 @@
   color: var(--paper);
 }
 
+.notification-type-icon.like { background: #f44336; }
+.notification-type-icon.comment { background: #3a5a40; }
+.notification-type-icon.repost { background: #8a6d3a; }
+.notification-type-icon.follow { background: var(--sapphire); }
+
 .notification-copy {
   min-width: 0;
   display: flex;
@@ -147,11 +154,22 @@
   padding-top: 1px;
 }
 
-.notification-copy > strong {
-  color: var(--ink);
+.notification-message {
+  color: #2b2a26;
   font-size: 15px;
   line-height: 1.35;
   font-weight: 400;
+  font-style: normal;
+}
+
+.notification-message b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.notification-message em {
+  color: var(--graphite);
+  font-style: normal;
 }
 
 .notification-copy > small {
@@ -173,6 +191,14 @@
   margin-top: 6px;
   border-radius: 50%;
   background: var(--sapphire);
+}
+
+.notification-end {
+  margin: 0;
+  padding: 32px 16px;
+  color: var(--faint);
+  font-size: 13px;
+  text-align: center;
 }
 
 /* ---------- Chat Inbox: current Flutter chat_inbox_screen.dart ---------- */
@@ -311,6 +337,39 @@
 .route-main:has(.settings-page) > .route-header h1 {
   font-size: 17px;
   font-weight: 700;
+}
+
+/* Nested settings currently re-use AppChrome's right action. Paint it as the
+   Flutter-style left back action without touching its existing setSection logic. */
+.route-main:has(.settings-page) > .route-header .route-title-row {
+  position: relative;
+}
+
+.route-main:has(.settings-page) > .route-header .route-header-actions:has(button[aria-label="กลับ"]) {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  font-size: 0;
+}
+
+.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] svg {
+  display: none;
+}
+
+.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"]::before {
+  content: "‹";
+  color: var(--ink);
+  font-size: 36px;
+  line-height: 1;
+  font-weight: 300;
 }
 
 .settings-page {
