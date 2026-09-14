@@ -1,0 +1,197 @@
+/*
+ * Founder visual parity lock.
+ *
+ * This is intentionally imported after every migration/parity stylesheet.
+ * It contains only the final, founder-approved presentation metrics that must
+ * not drift when older migration CSS remains in the bundle.
+ */
+
+.rich-post-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+}
+
+.rich-post-body,
+.rich-post-hashtag-block {
+  font: inherit;
+  color: inherit;
+}
+
+.rich-post-hashtag-block {
+  display: block;
+  margin-top: 4px;
+}
+
+.rich-post-link,
+.rich-post-body-link {
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.rich-post-body-link {
+  color: inherit;
+}
+
+.rich-post-link,
+.rich-post-link:visited {
+  color: #1688ff;
+}
+
+/* Home feed: exact Flutter Beta4 two-column geometry and compact rhythm. */
+.parity-feed-post.audit-feed-post {
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 0;
+  padding: 3px 16px 8px;
+}
+
+.parity-feed-post.audit-feed-post > .avatar-button {
+  width: 44px;
+  height: 44px;
+}
+
+.parity-feed-post.audit-feed-post > .avatar-button .route-avatar {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.audit-feed-post .post-header.audit-author-row {
+  min-height: 24px;
+  align-items: center;
+  gap: 4px;
+}
+
+.audit-feed-post .audit-author-link {
+  gap: 8px;
+}
+
+.audit-feed-post .audit-caption {
+  margin: 0;
+  transform: translateY(-3px);
+  font-size: 17.5px;
+  line-height: 1.32;
+  font-weight: 400;
+}
+
+.audit-feed-post .audit-caption .rich-post-hashtag-block {
+  margin-top: 4px;
+}
+
+.audit-feed-post .audit-media-wrap,
+.club-home-card .audit-media-carousel {
+  margin-top: 4px;
+}
+
+.audit-media-carousel img {
+  border-radius: 16px;
+}
+
+.audit-media-carousel.single img {
+  aspect-ratio: auto;
+  max-height: min(75dvh, 620px);
+}
+
+.audit-feed-post .audit-action-row {
+  min-height: 48px;
+  margin-top: 0;
+  margin-bottom: 0;
+  gap: 16px;
+}
+
+.audit-feed-post .audit-action-row .metric-button {
+  min-height: 48px;
+}
+
+/* The profile/search post renderer must be the same post, not a second style. */
+.golden-drop-card {
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  padding: 3px 16px 8px;
+}
+
+.golden-drop-author-avatar,
+.golden-drop-avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.golden-drop-redrop {
+  padding-left: 52px;
+}
+
+.golden-drop-quote {
+  padding-left: 52px;
+}
+
+.golden-drop-open,
+.golden-drop-open:visited {
+  color: var(--ink);
+}
+
+.golden-drop-open .rich-post-text,
+.golden-drop-body > .rich-post-text {
+  margin: 0;
+  transform: translateY(-3px);
+  font-size: 17.5px;
+  line-height: 1.32;
+  font-weight: 400;
+}
+
+.golden-drop-media-wrap {
+  margin-top: 4px;
+}
+
+.golden-drop-media img {
+  border-radius: 16px;
+}
+
+.golden-drop-media.multi img {
+  aspect-ratio: 4 / 5;
+}
+
+.golden-drop-media.single img {
+  aspect-ratio: auto;
+  max-height: min(75dvh, 620px);
+}
+
+.golden-drop-actions {
+  min-height: 48px;
+  margin-top: 0;
+  gap: 16px;
+}
+
+/* Post detail uses the same copy typography and bright-blue interactive text. */
+.detail-caption.rich-post-text {
+  margin-top: 7px;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+
+.detail-caption.rich-post-text .rich-post-hashtag-block {
+  margin-top: 4px;
+}
+
+/* Keep the compact phone geometry intact at 320px without changing 360px+. */
+@media (max-width: 359px) {
+  .parity-feed-post.audit-feed-post,
+  .golden-drop-card {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .audit-feed-post .audit-action-row,
+  .golden-drop-actions {
+    gap: 12px;
+  }
+}
