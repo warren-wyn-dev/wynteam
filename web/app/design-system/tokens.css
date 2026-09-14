@@ -1,0 +1,39 @@
+/*
+ * WYNOS Consumer Web v2 — canonical design tokens (WYN-159).
+ *
+ * Source of truth: `.wyn/docs/design/wyn-159-web-v2-design-system.md`,
+ * extracted from the Founder-attached reference `wynos-feed.html`.
+ * Every WYN-159 screen/component must consume these custom properties
+ * instead of hardcoding hex values or magic pixel numbers. Imported once
+ * (see app/layout.tsx) — do not re-import per component.
+ *
+ * IMPORTANT — legacy coexistence: `app/globals.css` already defines a
+ * pre-existing token set (`--ink`, `--paper`, `--graphite`, `--hairline`,
+ * `--surface`, `--like`, `--sapphire`, ...) that ~20 not-yet-migrated
+ * screens (Profile, Search, Settings, Chat, Clubs, etc.) still depend on.
+ * All names below are new and were verified (via repo-wide grep) not to
+ * collide with any existing `:root` definition, with ONE exception:
+ * `--surface` already exists globally with a different value (#F1EFE9,
+ * used by phase2/phase3/parity CSS for unmigrated screens). Redefining
+ * `--surface` here would silently reskin every screen that has not
+ * migrated yet, which is out of scope for this batch. The v2 "surface"
+ * token is therefore named `--surface-subtle` instead of the literal
+ * `--surface` used in the design-system doc's table — this is a
+ * deliberate, documented deviation, not an oversight.
+ */
+
+:root {
+  /* Color */
+  --bg: #ffffff;
+  --surface-subtle: #fafafa; /* design-doc token name: --surface (renamed to avoid legacy collision, see above) */
+  --text-primary: #0a0a0a;
+  --text-secondary: #6b6b6b;
+  --text-muted: #9a9a9a;
+  --border: #e7e7e7;
+  --border-strong: #d0d0d0;
+  --accent-red: #e0203d;
+
+  /* Radius */
+  --radius-card: 16px;
+  --radius-pill: 999px;
+}
