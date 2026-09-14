@@ -7,13 +7,20 @@ import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import pc from "@/components/design-system/post-card.module.css";
 
 /**
- * Home's post media (WYN-159 design system, Media/Image Posts — extends
- * `WynosPostCard`'s body): single-image frame / multi-image peek carousel,
- * both using the same clamped aspect ratio (lib/feed.ts's
- * postMediaAspectRatio), `--radius-card` (16px) corners and 75dvh height
- * cap. A double-tap (or double-click) likes the post. Media math/behavior
- * is unchanged from before this redesign — only the chrome (colors, radius
- * token) is restyled.
+ * Home's post media (WYN-159 design system, Media/Image Posts — renders
+ * inside `WynosPostCard`'s `media` slot, i.e. `.post-media-wrap`, a sibling
+ * of `.post-head-row` rather than nested in `.post-body` — see the
+ * 2026-09-14 correction to `wynos-home.html`): single-image frame /
+ * multi-image peek carousel, both using the same clamped aspect ratio
+ * (lib/feed.ts's postMediaAspectRatio), `--radius-card` (16px) corners and
+ * 75dvh height cap. A double-tap (or double-click) likes the post. Media
+ * math/behavior is unchanged from before this redesign — only the chrome
+ * (colors, radius token) is restyled. `mediaTrackFeed` applies the
+ * reference's `padding: 0 16px 10px 62px` so the first image's left edge
+ * lines up with the post text above it (see post-card.module.css).
+ * `onIndexChange` reports the active slide up to `WynosPostCard` so it can
+ * render the `.dots` indicator, which is a sibling of this carousel, not
+ * nested inside it.
  */
 export function PostMediaCarousel({
   urls,
@@ -21,12 +28,14 @@ export function PostMediaCarousel({
   liked,
   onDoubleLike,
   postKey,
+  onIndexChange,
 }: {
   urls: string[];
   aspectRatio: number;
   liked: boolean;
   onDoubleLike: () => void;
   postKey: string;
+  onIndexChange?: (index: number) => void;
 }) {
   const lastTap = useRef(0);
   const [burst, setBurst] = useState(false);
@@ -40,7 +49,11 @@ export function PostMediaCarousel({
     const stride = first.getBoundingClientRect().width + 8;
     if (stride <= 0) return;
     const next = Math.max(0, Math.min(urls.length - 1, Math.round(node.scrollLeft / stride)));
-    setIndex((current) => (current === next ? current : next));
+    setIndex((current) => {
+      if (current === next) return current;
+      onIndexChange?.(next);
+      return next;
+    });
   };
 
   const doubleLike = () => {
@@ -68,7 +81,7 @@ export function PostMediaCarousel({
       <div
         ref={track}
         onScroll={updateIndex}
-        className={`${pc.mediaTrack} ${urls.length === 1 ? pc.mediaTrackSingle : ""}`}
+        className={`${pc.mediaTrack} ${pc.mediaTrackFeed} ${urls.length === 1 ? pc.mediaTrackSingle : ""}`}
         style={{ "--post-media-ratio": String(aspectRatio) } as CSSProperties}
       >
         {urls.map((url, i) => (

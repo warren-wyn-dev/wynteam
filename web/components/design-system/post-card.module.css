@@ -1,20 +1,41 @@
 /*
  * WynosPostCard / WynosPostHeader / WynosPostActions — shared feed post
- * styling (WYN-159 design system, `.post`/`.post-head`/`.post-actions` in
- * the reference).
+ * styling (WYN-159 design system, `.post-block`/`.post-head-row`/`.post`/
+ * `.post-head`/`.post-actions` in the reference, corrected 2026-09-14
+ * against the literal `wynos-home.html` source of truth — see
+ * `WynosPostCard.tsx` for the DOM structure this maps onto).
  *
- * Shared as ONE CSS Module across `home-post-card.tsx`, `club-feed-post.tsx`
- * (Home's "คลับของฉัน" tab — same card geometry per its own existing
- * comment), `post-actions.tsx`, `post-author-row.tsx` and
+ * Shared as ONE CSS Module across `WynosPostCard.tsx`, `home-post-card.tsx`,
+ * `club-feed-post.tsx` (Home's "คลับของฉัน" tab — same card geometry per its
+ * own existing comment), `post-actions.tsx`, `post-author-row.tsx` and
  * `post-media-carousel.tsx`, so all of Home's post surfaces share exactly
  * the same generated class names (Next.js gives identical hashed names to
  * every importer of the same module file) instead of duplicating rules.
  */
 
-.post {
+/* article.post-block — the whole card; no padding of its own (padding
+   lives in .postHeadRow/.postFooter per variant, matching the reference
+   exactly), single hairline divider between posts, none after the last. */
+.postBlock {
   position: relative;
-  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
+}
+
+.postBlock:last-child {
+  border-bottom: none;
+}
+
+/* div.post-head-row — padding: 14px 16px 0 (top-only; bottom spacing comes
+   from the variant-specific spacer/footer below, per the reference). */
+.postHeadRow {
+  padding: 14px 16px 0;
+}
+
+/* Failed-to-send variant has no footer/spacer after it, so post-head-row
+   itself carries the bottom padding (reference: inline
+   `style="padding-bottom: 14px"` on that one post-block). */
+.postHeadRowFailed {
+  padding-bottom: 14px;
 }
 
 .postRedropLine {
@@ -40,9 +61,24 @@
   align-self: flex-start;
 }
 
+/* Failed-to-send variant: avatar at 50% opacity (literal value from the
+   reference, not a token — a one-off transient state, not reusable). */
+.postAvatarMuted {
+  opacity: 0.5;
+}
+
 .postBody {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Failed-to-send variant's bare post-meta (just the "คุณ" name, no
+   timestamp/Follow/More — .post-head is not rendered at all for this
+   variant per the reference). */
+.postMetaFailed {
+  min-height: 20px;
+  display: flex;
+  align-items: center;
 }
 
 .postAuthorRow {
@@ -125,7 +161,21 @@
   color: var(--text-primary);
 }
 
+/* Failed-to-send variant: caption at 60% opacity (literal value from the
+   reference, see .postAvatarMuted above). */
+.postCaptionMuted {
+  opacity: 0.6;
+}
+
 /* ---------- Media ---------- */
+
+/* div.post-media-wrap — sibling of .postHeadRow (NOT nested inside
+   .postBody), so the carousel can bleed to the card's full width. Only
+   `overflow: hidden` of its own; the carousel's own padding (below) does
+   the actual left/right inset. */
+.postMediaWrap {
+  overflow: hidden;
+}
 
 .media {
   position: relative;
@@ -139,6 +189,14 @@
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   overscroll-behavior-inline: contain;
+}
+
+/* Feed placement of the carousel (sibling of .postHeadRow): left edge lines
+   up with the post text above it, not the card edge. 62px = 16px card
+   padding + 36px avatar + 10px gap (verified against .postHeadRow/.postRow/
+   .postAvatar above — do not change one without checking the others). */
+.mediaTrackFeed {
+  padding: 0 16px 10px 62px;
 }
 
 .mediaTrack::-webkit-scrollbar {
@@ -200,8 +258,30 @@
   }
 }
 
-.media + .postActions {
-  margin-top: 3px;
+/* div.dots — carousel variant only, sibling after .postMediaWrap. */
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.dotActive {
+  background: var(--text-primary);
+}
+
+/* div.post-footer — carousel variant only, sibling after .dots; holds the
+   same .postActions row as the text-only variant, just relocated below the
+   media instead of inside .postBody. */
+.postFooter {
+  padding: 0 16px 14px;
 }
 
 /* ---------- Actions (WynosPostActions) ---------- */
@@ -258,4 +338,37 @@
   .postActions {
     gap: 16px;
   }
+}
+
+/* ---------- Failed-to-send error box ---------- */
+
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--danger-bg);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.errorBoxIcon {
+  flex-shrink: 0;
+  color: var(--accent-red);
+}
+
+.errorBoxMessage {
+  flex: 1;
+  color: var(--accent-red);
+  font-size: 13px;
+}
+
+.errorBoxRetry {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-red);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
 }
