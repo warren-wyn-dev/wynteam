@@ -107,13 +107,36 @@ Reference-specific usages to preserve exactly:
 
 ## Icon Set
 
-Reference uses **Tabler Icons** (`ti ti-*`, via `tabler-icons` webfont/CDN class names: `ti-menu-2`,
-`ti-search`, `ti-bell`, `ti-heart`, `ti-message-circle`, `ti-repeat`, `ti-dots`, `ti-home`,
-`ti-users-group`, `ti-plus`, `ti-message-2`, `ti-user`). AI Coding: do not pull the CDN webfont into
-production (external font-icon CDN is not appropriate for a production bundle); use the already-installed
-`lucide-react` (present in `web/package.json`) and map each Tabler name to its closest Lucide equivalent,
-keeping the same visual weight (outline style, ~1.5–1.75 stroke) and the sizes in the table above. Record
-the mapping table in the app-shell spec doc so it is not re-derived per screen.
+**Superseded 2026-09-14** by `.wyn/docs/design/reference/wynos-home-v2.html`: the Home reference no longer
+uses a CDN icon font at all — every icon is inline SVG (`svg.icon`, `viewBox="0 0 24 24"`, `stroke-width:
+1.8`, round caps/joins, `1em` sizing so font-size on the parent controls icon size). Founder supplied an
+explicit **semantic** mapping to `lucide-react` (present in `web/package.json`) — map by meaning, not by
+copying the inline SVG path data literally:
+
+| Icon (Thai meaning) | Reference inline SVG | Lucide component |
+|---|---|---|
+| เมนู (menu) | 3 horizontal lines | `Menu` |
+| ค้นหา (search) | circle + handle | `Search` |
+| การแจ้งเตือน (notifications bell) | bell shape | `Bell` |
+| กดใจ (like) | heart | `Heart` |
+| คอมเมนต์ (comment) | speech bubble | `MessageCircle` |
+| รีโพสต์ (repost) | two arrows loop | `Repeat` |
+| จุดสามจุด (more menu) | 3 dots | `MoreHorizontal` |
+| แจ้งเตือน error (error) | circle with `!` | `AlertCircle` |
+| หน้าหลัก (home, nav) | house | `Home` |
+| คลับ (clubs, nav) | two people | `Users` |
+| โพสต์ใหม่ (create, nav CTA) | plus | `Plus` |
+| แชท (chat, nav) | speech bubble (chat variant) | `MessageCircle` (same component as comment; the
+  reference reuses the identical glyph for both — do not invent a second chat-specific icon) |
+  |
+| โปรไฟล์ (profile, nav) | person | `User` |
+
+If the project ever lacks an icon library, the Founder's fallback instruction is to keep the original inline
+SVG as-is rather than force a mismatched library icon — not applicable here since `lucide-react` is already
+installed, but recorded for completeness. Sizing/weight stays as specified in the sizing table above (24px
+action icons per existing shipped convention, 16px inside the error-box, `stroke-width` ~1.8–2 to match the
+reference's line weight — Lucide's default `strokeWidth={2}` is close enough without forcing a non-default
+prop everywhere; use 1.8 only where the visual diff against the reference clearly calls for it).
 
 ## Canonical Component Primitives
 

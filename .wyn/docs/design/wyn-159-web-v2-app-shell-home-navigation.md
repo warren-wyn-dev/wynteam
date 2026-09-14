@@ -167,11 +167,13 @@ different markup per case:
 `gap: 20px`). Use the centered version — it is the more recent, more precise file and this doc's fidelity
 mandate makes it authoritative over the earlier mockup for anything the two disagree on.
 
-### Icon mapping addition
+### Icon mapping — superseded 2026-09-14
 
-| Reference (Tabler) | Lucide equivalent | Usage |
-|---|---|---|
-| `ti-alert-circle` | `AlertCircle` | Failed-post error box |
+The icon-font-based mapping originally sketched here is superseded by the full semantic mapping table in
+`wyn-159-web-v2-design-system.md` (Icon Set section), derived from the newer `wynos-home-v2.html` reference
+which uses inline SVG rather than a CDN icon font. Use that table as the single source of truth for every
+icon on this screen, including `AlertCircle` for the failed-post error box and `MoreHorizontal` for the
+post/header "more" menus (not a literal 3-dot custom SVG).
 
 ---
 
