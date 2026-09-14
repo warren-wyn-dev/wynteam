@@ -452,10 +452,8 @@
 }
 
 /* ---------- Home/Post action contract ---------- */
-/* Flutter Home hides view count and keeps Share/Save inside More. */
-.audit-feed-post .audit-share-action {
-  display: none !important;
-}
+/* Current Flutter Home action row is Like / Comment / Repost / Share.
+   Home alone hides the View metric; Share remains visible and Save stays in More. */
 
 /* Source sets hideZeroActionCounts=false: render a zero when React omitted it. */
 .audit-feed-post .audit-action-row .metric-button:not(.audit-share-action):not(:has(> span))::after,
@@ -466,11 +464,6 @@
   font-size: 15px;
   line-height: 1;
   color: currentColor;
-}
-
-/* Profile/Search/Bookmarks keep view metrics but Share remains in More. */
-.golden-drop-actions > button[aria-label="แชร์"] {
-  display: none !important;
 }
 
 /* ---------- Composer: Flutter uses a full-screen creation surface ---------- */
