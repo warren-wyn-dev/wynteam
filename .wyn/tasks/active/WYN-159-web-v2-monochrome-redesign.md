@@ -110,3 +110,7 @@ automated tests alone.
   was investigated and confirmed to be genuine, harmless Next.js 16.3.2 tooling output (verified
   `node_modules/next/dist/server/lib/generate-agent-files.js` exists and matches verbatim) — no
   action needed. Still awaiting Founder sign-off before Batch 3+.
+- 2026-09-14: Founder approved Home (keep existing full-width carousel behavior rather than the
+  reference's fixed 220x270px thumbnails — real photos need to support real aspect ratios) and
+  gave go-ahead for Batch 3+. Home/Nav/Post Card batch is now DONE (~30% of overall WYN-159
+  scope). Starting Batch 3 (Profile, Post Detail) per the binding migration order.
