@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wynos — หน้าหลัก</title>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --surface: #FAFAFA;
+    --text-primary: #0A0A0A;
+    --text-secondary: #6B6B6B;
+    --text-muted: #9A9A9A;
+    --border: #E7E7E7;
+    --border-strong: #D0D0D0;
+    --accent-red: #E0203D;
+    --danger-bg: #FCEBEB;
+    --radius-card: 16px;
+    --radius-pill: 999px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #EDEDED;
+    font-family: -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 12px;
+  }
+
+  svg.icon {
+    width: 1em;
+    height: 1em;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: block;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 400px;
+    background: var(--bg);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    padding: 14px 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 22px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .brand-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header-actions .icon-btn { font-size: 20px; }
+
+  /* Tabs — centered */
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 14px;
+    overflow-x: auto;
+  }
+
+  .tab {
+    color: var(--text-secondary);
+    padding-bottom: 10px;
+    white-space: nowrap;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font: inherit;
+  }
+
+  .tab.active {
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--text-primary);
+  }
+
+  /* ---- Post ---- */
+  .post-head-row {
+    padding: 14px 16px 0;
+  }
+
+  .post-media-wrap {
+    overflow: hidden;
+  }
+
+  .post {
+    display: flex;
+    gap: 10px;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .post-body { flex: 1; min-width: 0; }
+
+  .post-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .post-meta {
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .post-meta .name { font-weight: 600; }
+  .post-meta .time { color: var(--text-muted); }
+
+  .post-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .follow-btn {
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-primary);
+    border-radius: var(--radius-pill);
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .follow-btn:hover { background: var(--surface); }
+
+  .more-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+  }
+
+  .post-text {
+    font-size: 15px;
+    color: var(--text-primary);
+    margin: 6px 0 10px;
+    line-height: 1.5;
+  }
+
+  .post-footer {
+    padding: 0 16px 14px;
+  }
+
+  .post-block {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .post-actions {
+    display: flex;
+    gap: 28px;
+  }
+
+  .action {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .action svg.icon { width: 18px; height: 18px; }
+
+  .action.liked,
+  .action.liked svg.icon {
+    color: var(--accent-red);
+    stroke: var(--accent-red);
+  }
+
+  .action.liked svg.icon { fill: var(--accent-red); }
+
+  /* Image carousel — left edge aligned with post text (62px = 16 card pad + 36 avatar + 10 gap) */
+  .carousel {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 0 16px 10px 62px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .carousel-item {
+    flex: 0 0 auto;
+    width: 220px;
+    height: 270px;
+    background: var(--surface);
+    border-radius: 12px;
+    scroll-snap-align: start;
+  }
+
+  .dots {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+
+  .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--border-strong);
+  }
+
+  .dot.active { background: var(--text-primary); }
+
+  /* Failed post state */
+  .error-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--danger-bg);
+    border-radius: 10px;
+    padding: 8px 12px;
+  }
+
+  .error-box svg.icon,
+  .error-box span,
+  .error-box button {
+    color: var(--accent-red);
+    stroke: var(--accent-red);
+    font-size: 13px;
+  }
+
+  .error-box svg.icon { width: 16px; height: 16px; flex-shrink: 0; }
+  .error-box span { flex: 1; }
+  .error-box button {
+    background: none;
+    border: none;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  /* ---- Bottom nav ---- */
+  .bottom-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 21px;
+    cursor: pointer;
+    display: flex;
+  }
+
+  .nav-btn.active { color: var(--text-primary); }
+
+  .nav-btn.post-cta {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    color: #fff;
+    stroke: #fff;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ---- Header ---- -->
+  <div class="header">
+    <div class="header-row">
+      <button class="icon-btn" aria-label="เมนู">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+
+      <div class="brand">
+        <!-- โลโก้แบบย่อ สลับกับไฟล์โลโก้จริง (woven-W) ของแบรนด์ได้ที่นี่ -->
+        <svg width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
+          <path d="M2 4 L8 22 L13 9 L18 22 L24 4" fill="none" stroke="#0A0A0A" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+        <span class="brand-name">Wynos</span>
+      </div>
+
+      <div class="header-actions">
+        <button class="icon-btn" aria-label="ค้นหา">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        <button class="icon-btn" aria-label="การแจ้งเตือน">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs — centered -->
+    <div class="tabs">
+      <button class="tab active">สำหรับคุณ</button>
+      <button class="tab">กำลังติดตาม</button>
+      <button class="tab">คลับของฉัน</button>
+    </div>
+  </div>
+
+  <!-- ---- Post 1: text only ---- -->
+  <article class="post-block">
+    <div class="post-head-row">
+      <div class="post">
+        <div class="avatar"></div>
+        <div class="post-body">
+          <div class="post-head">
+            <div class="post-meta">
+              <span class="name">พลอย เดินทาง</span>
+              <span class="time"> · 2 ชม.</span>
+            </div>
+            <div class="post-head-actions">
+              <button class="follow-btn">ติดตาม</button>
+              <button class="more-btn" aria-label="เมนูเพิ่มเติม">
+                <svg class="icon" viewBox="0 0 24 24" width="18" height="18"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>
+              </button>
+            </div>
+          </div>
+          <p class="post-text">เพิ่งลองร้านกาแฟใหม่แถวบ้าน รสชาติดีเกินคาด แนะนำเลยถ้าใครผ่านแถวนี้</p>
+          <div class="post-actions">
+            <button class="action liked">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+              48
+            </button>
+            <button class="action">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.3 0-2.5-.3-3.6-.8L3 21l1.8-5.4A8.5 8.5 0 1 1 21 11.5z"/></svg>
+              12
+            </button>
+            <button class="action">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              3
+            </button>
+          </div>
+          <div style="height:14px;"></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---- Post 2: image carousel ---- -->
+  <article class="post-block">
+    <div class="post-head-row">
+      <div class="post">
+        <div class="avatar"></div>
+        <div class="post-body">
+          <div class="post-head">
+            <div class="post-meta">
+              <span class="name">ต้น สายเทค</span>
+              <span class="time"> · 5 ชม.</span>
+            </div>
+            <div class="post-head-actions">
+              <button class="follow-btn">ติดตาม</button>
+              <button class="more-btn" aria-label="เมนูเพิ่มเติม">
+                <svg class="icon" viewBox="0 0 24 24" width="18" height="18"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>
+              </button>
+            </div>
+          </div>
+          <p class="post-text">ทริปทะเลเมื่อสุดสัปดาห์ ฟินมาก</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="post-media-wrap">
+      <div class="carousel">
+        <div class="carousel-item"></div>
+        <div class="carousel-item"></div>
+        <div class="carousel-item"></div>
+      </div>
+    </div>
+    <div class="dots">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+
+    <div class="post-footer">
+      <div class="post-actions">
+        <button class="action">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          21
+        </button>
+        <button class="action">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.3 0-2.5-.3-3.6-.8L3 21l1.8-5.4A8.5 8.5 0 1 1 21 11.5z"/></svg>
+          5
+        </button>
+        <button class="action">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          1
+        </button>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---- Post 3: failed to send state ---- -->
+  <article class="post-block" style="border-bottom: none;">
+    <div class="post-head-row" style="padding-bottom: 14px;">
+      <div class="post">
+        <div class="avatar" style="opacity:.5;"></div>
+        <div class="post-body">
+          <div class="post-meta"><span class="name">คุณ</span></div>
+          <p class="post-text" style="opacity:.6;">อยากกินอะไรมื้อเย็นดี</p>
+          <div class="error-box">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>โพสต์ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต</span>
+            <button>ลองอีกครั้ง</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---- Bottom nav ---- -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" aria-label="หน้าหลัก">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>
+    </button>
+    <button class="nav-btn" aria-label="คลับ">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14c2.8.3 5 2.5 5 6"/></svg>
+    </button>
+    <button class="nav-btn post-cta" aria-label="โพสต์ใหม่">
+      <svg class="icon" viewBox="0 0 24 24" style="stroke:#fff;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <button class="nav-btn" aria-label="แชท">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.3 0-2.5-.3-3.6-.8L3 21l1.8-5.4A8.5 8.5 0 1 1 21 11.5z"/></svg>
+    </button>
+    <button class="nav-btn" aria-label="โปรไฟล์">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+    </button>
+  </nav>
+
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelector('.tab.active').classList.remove('active');
+      tab.classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.action').forEach(btn => {
+    const svg = btn.querySelector('svg');
+    const hasHeart = svg && svg.innerHTML.includes('20.8 4.6');
+    if (!hasHeart) return;
+    btn.addEventListener('click', () => btn.classList.toggle('liked'));
+  });
+
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    if (btn.classList.contains('post-cta')) return;
+    btn.addEventListener('click', () => {
+      const current = document.querySelector('.nav-btn.active');
+      if (current && !current.classList.contains('post-cta')) current.classList.remove('active');
+      btn.classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
