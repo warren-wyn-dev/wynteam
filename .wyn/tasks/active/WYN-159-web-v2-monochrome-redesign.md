@@ -114,3 +114,25 @@ automated tests alone.
   reference's fixed 220x270px thumbnails — real photos need to support real aspect ratios) and
   gave go-ahead for Batch 3+. Home/Nav/Post Card batch is now DONE (~30% of overall WYN-159
   scope). Starting Batch 3 (Profile, Post Detail) per the binding migration order.
+- 2026-09-14: Batch 3 (Profile, Post Detail) implementation complete (~40% of overall WYN-159
+  scope). Branch `feat/wyn-ux-ui-redesign` pushed (commits `fe80aad6`, `22c79759`, `de443591`).
+  Profile header/cover/stats/tabs restyled onto v2 tokens (`components/profile/profile.module.css`)
+  while keeping the exact WYN-141-approved layout metrics (170px cover, 92px avatar overlap,
+  44px action row); tabs swapped to literal `WynosTabs`. Post Detail restyled onto v2 tokens
+  (`app/post-detail-v2.css`), five-action row rebuilt on the shared `post-card.module.css`
+  action classes (dropping the old CSS-mask icon-replacement hack), Activity sheet/composer/
+  comment metrics preserved exactly (46px composer, 54px activity row, two tabs only).
+  `profile-parity-route.tsx`'s click-capture coupling (`.flutter-profile-stats button`,
+  `button[aria-label="เพิ่มเติม"]`) left untouched and verified still matches. Legacy
+  `profile-golden-final.css`, `post-detail-parity.css`, `pixel-parity-final.css` deleted;
+  Profile/Post-Detail-specific rules trimmed out of `parity-completion.css`/
+  `system-parity-final.css` (both still used by unmigrated screens, left otherwise intact).
+  `golden-drop-card.css` deliberately kept — Profile's own post-feed tabs, Search and Bookmarks
+  all still depend on it; not retired this batch. `npm run check` passes (lint/typecheck/build).
+  Added `/dev/profile-fixture?variant=own|other` and `/dev/post-detail-fixture` dev routes;
+  Chromium screenshots (mobile 390x844 + desktop 1280x900) captured for all three states and
+  reviewed — matches the v2 monochrome system. Caught and fixed one real bug during review (a
+  DOM-nesting mistake that put `.flutter-profile-identity` inside `.flutter-profile-cover`,
+  breaking layout) and one hydration-mismatch fixture bug (minute-granularity fake
+  timestamps — fixed to hour-granularity per the existing `home-fixture.tsx` precedent).
+  Awaiting Founder review before Batch 4 (Search, Notifications, Chat).
