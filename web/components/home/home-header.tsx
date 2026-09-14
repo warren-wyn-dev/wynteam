@@ -1,33 +1,38 @@
 /* eslint-disable @next/next/no-img-element */
-import { Menu, MessageCircle } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 
 import { WynosHeader } from "@/components/design-system/WynosHeader";
 import { WynosIconButton } from "@/components/design-system/WynosIconButton";
 
 /**
  * Home's header (WYN-159 design system, `WynosHeader` — `.header-row` in the
- * reference: leading icon button, centered brand, trailing action).
+ * reference: leading icon button, centered brand, trailing actions).
  *
- * Deviation from the reference/app-shell doc's default assumption: the
- * reference (and the generic app-shell/home design doc) show Search + Bell
- * as the trailing actions. WYNOS's actual shipped product instead already
- * has Search and Notifications as their own bottom-nav destinations, and
- * Home's header trailing action is a single Chat icon with an unread badge
- * (opens `/chat`) — an existing, real, frequently-used behavior. Per
- * "preserve existing behavior exactly, this is a visual migration only",
- * that existing leading-menu + brand + chat-with-badge structure is kept;
- * only the visual language (icon color, sizing, hit area) is restyled to
- * the v2 monochrome tokens. Flagged in the WYN-159 report for Founder
- * awareness since it differs from the design doc's literal assumption.
+ * CORRECTED 2026-09-14: Founder reviewed a direct side-by-side screenshot
+ * comparison against `wynos-home-v2.html` and confirmed matching it 100%
+ * exactly (see `.wyn/company/DECISIONS.md`). This supersedes the earlier
+ * decision recorded here to keep a single Chat-icon-with-badge trailing
+ * action — the trailing actions are now Search + Bell/Notifications
+ * (carrying the unread-notification badge that used to live on the bottom
+ * nav's now-removed Notifications slot), matching the reference exactly.
+ * Chat is no longer surfaced in the header — it is now a global bottom-nav
+ * destination (see `components/bottom-navigation.tsx`). The brand wordmark
+ * reads "Wynos" (capital W only), matching the reference literally — this
+ * correction is scoped to this one Home-header element, not a global
+ * "WYNOS" rebrand.
  */
 export function HomeHeader({
-  chatBadgeCount,
+  notificationBadge,
+  notificationLabel,
   onOpenMenu,
-  onOpenChat,
+  onOpenSearch,
+  onOpenNotifications,
 }: {
-  chatBadgeCount: number;
+  notificationBadge: string | null;
+  notificationLabel: string;
   onOpenMenu: () => void;
-  onOpenChat: () => void;
+  onOpenSearch: () => void;
+  onOpenNotifications: () => void;
 }) {
   return (
     <WynosHeader
@@ -35,16 +40,19 @@ export function HomeHeader({
       center={
         <>
           <img src="/wynos_logo_mark.png" alt="" width={22} height={22} />
-          <strong>WYNOS</strong>
+          <strong>Wynos</strong>
         </>
       }
       trailing={
-        <WynosIconButton
-          icon={<MessageCircle />}
-          aria-label="แชท"
-          onClick={onOpenChat}
-          badge={chatBadgeCount > 0 ? (chatBadgeCount > 9 ? "9+" : String(chatBadgeCount)) : null}
-        />
+        <>
+          <WynosIconButton icon={<Search />} aria-label="ค้นหา" onClick={onOpenSearch} />
+          <WynosIconButton
+            icon={<Bell />}
+            aria-label={notificationLabel}
+            onClick={onOpenNotifications}
+            badge={notificationBadge}
+          />
+        </>
       }
     />
   );

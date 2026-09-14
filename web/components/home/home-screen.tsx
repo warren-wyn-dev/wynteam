@@ -14,7 +14,7 @@ import { HomeDrawer } from "@/components/home/home-drawer";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HOME_FEED_MODES, HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
-import { AppChrome } from "@/components/phase3-ui";
+import { AppChrome, useUnreadNotificationBadge } from "@/components/phase3-ui";
 import { authorLabel, type HomeFeedRow } from "@/lib/feed";
 import {
   loadHomeViewerState,
@@ -27,7 +27,6 @@ import {
 import { fetchHomeSurfaceRows } from "@/lib/home-feed-sources";
 import {
   fetchClubHomePosts,
-  fetchHomeChatBadge,
   fetchHomeIdentity,
   toggleClubPostLike,
   type ClubHomePost,
@@ -131,7 +130,6 @@ export function HomeScreen({ session }: { session: Session }) {
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
   const [images, setImages] = useState<Map<string, string[]>>(new Map());
   const [identity, setIdentity] = useState<HomeIdentity | null>(null);
-  const [chatBadge, setChatBadge] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -147,13 +145,12 @@ export function HomeScreen({ session }: { session: Session }) {
 
   useEffect(() => {
     if (!client) return;
-    void Promise.all([fetchHomeIdentity(client, userId), fetchHomeChatBadge(client)])
-      .then(([nextIdentity, badge]) => {
-        setIdentity(nextIdentity);
-        setChatBadge(badge);
-      })
+    void fetchHomeIdentity(client, userId)
+      .then((nextIdentity) => setIdentity(nextIdentity))
       .catch(() => undefined);
   }, [client, userId]);
+
+  const { notificationBadge, notificationLabel } = useUnreadNotificationBadge(userId, true);
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -418,9 +415,11 @@ export function HomeScreen({ session }: { session: Session }) {
         <div className={homeShell.stickyWrap}>
           <div className={homeShell.headerGroup}>
             <HomeHeader
-              chatBadgeCount={chatBadge}
+              notificationBadge={notificationBadge}
+              notificationLabel={notificationLabel}
               onOpenMenu={() => setDrawerOpen(true)}
-              onOpenChat={() => router.push("/chat")}
+              onOpenSearch={() => router.push("/search")}
+              onOpenNotifications={() => router.push("/notifications")}
             />
             <HomeTabs mode={mode} onSelect={switchMode} />
           </div>
