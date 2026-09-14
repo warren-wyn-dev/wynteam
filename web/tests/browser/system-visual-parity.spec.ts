@@ -63,12 +63,24 @@ test("Settings root preserves the current seven-row Beta4 contract", () => {
   expect(lock).toContain("min-height: 64px");
 });
 
-test("Home actions and creation surface keep current product decisions", () => {
+test("Home actions mirror current Flutter: Like Comment Repost Share, no View", () => {
   const lock = read("app/system-parity-lock.css");
   const home = read("components/parity-home-final.tsx");
-  expect(lock).toContain(".audit-feed-post .audit-share-action");
-  expect(lock).toContain('button[aria-label="แชร์"]');
+  const flutterPage = read("../app/lib/features/home/presentation/widgets/mode_feed_page.dart");
+  const flutterCard = read("../app/lib/features/home/presentation/widgets/home_drop_card.dart");
+
+  expect(flutterPage).toContain("showViewCount: false");
+  expect(flutterPage).toContain("hideZeroActionCounts: false");
+  expect(flutterCard).toContain("Icons.send_outlined");
+  expect(home).toContain("audit-share-action");
+  expect(lock).not.toMatch(/\.audit-share-action\s*\{[\s\S]*?display:\s*none/);
+  expect(lock).not.toMatch(/button\[aria-label="แชร์"\]\s*\{[\s\S]*?display:\s*none/);
   expect(lock).toContain('content: "0"');
+});
+
+test("Creation surface keeps latest product constraints", () => {
+  const lock = read("app/system-parity-lock.css");
+  const home = read("components/parity-home-final.tsx");
   expect(lock).toContain('content: "ยกเลิก"');
   expect(home).not.toContain("เช็คอิน");
   expect(home).not.toContain("Check-in");
