@@ -23,6 +23,7 @@ import "./club-post-card-web.css";
 import "./founder-parity-lock.css";
 import "./system-parity-lock.css";
 import "./system-parity-final.css";
+import "./interaction-parity-final.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
