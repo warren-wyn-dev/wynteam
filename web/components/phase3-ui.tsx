@@ -69,6 +69,7 @@ export function AppChrome({
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const inferredRootNav = pathname === "/" || pathname === "/search" || pathname === "/notifications" || pathname.startsWith("/profile/");
   const bottomNavVisible = showBottomNav ?? inferredRootNav;
+  const notificationRouteActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
   const destinations = [
     { href: "/", label: "หน้าหลัก" },
     { href: "/search", label: "ค้นหา" },
@@ -79,11 +80,7 @@ export function AppChrome({
 
   useEffect(() => {
     let live = true;
-    if (!bottomNavVisible) return () => { live = false; };
-    if (pathname === "/notifications" || pathname.startsWith("/notifications/")) {
-      setUnreadNotificationCount(0);
-      return () => { live = false; };
-    }
+    if (!bottomNavVisible || notificationRouteActive) return () => { live = false; };
     const client = getSupabaseBrowserClient();
     if (!client || !userId) return () => { live = false; };
     const load = async () => {
@@ -101,10 +98,11 @@ export function AppChrome({
       live = false;
       window.removeEventListener("focus", onFocus);
     };
-  }, [bottomNavVisible, pathname, userId]);
+  }, [bottomNavVisible, notificationRouteActive, userId]);
 
-  const notificationLabel = unreadNotificationCount > 0
-    ? `การแจ้งเตือน มี ${unreadNotificationCount} รายการที่ยังไม่อ่าน`
+  const visibleUnreadNotificationCount = notificationRouteActive ? 0 : unreadNotificationCount;
+  const notificationLabel = visibleUnreadNotificationCount > 0
+    ? `การแจ้งเตือน มี ${visibleUnreadNotificationCount} รายการที่ยังไม่อ่าน`
     : "การแจ้งเตือน";
   const notificationBadge = unreadNotificationCount > 9 ? "9+" : String(unreadNotificationCount);
 
@@ -118,7 +116,7 @@ export function AppChrome({
         <Link className={`route-nav-link ${activeFor(destinations[0].href) ? "active" : ""}`} href="/" aria-label="หน้าหลัก"><MaterialNavGlyph kind="home" selected={activeFor("/")} /><span>หน้าหลัก</span></Link>
         <Link className={`route-nav-link ${activeFor(destinations[1].href) ? "active" : ""}`} href="/search" aria-label="ค้นหา"><MaterialNavGlyph kind="search" /><span>ค้นหา</span></Link>
         <Link className="route-nav-link route-create-destination" href="/?compose=1" aria-label="สร้างโพสต์ใหม่"><span className="route-create-button"><MaterialNavGlyph kind="add" /></span><span>โพสต์</span></Link>
-        <Link className={`route-nav-link ${activeFor(destinations[2].href) ? "active" : ""}`} href="/notifications" aria-label={notificationLabel}><span className="route-nav-icon-wrap"><MaterialNavGlyph kind="notifications" selected={activeFor("/notifications")} />{unreadNotificationCount > 0 ? <span className="route-nav-badge" aria-hidden="true">{notificationBadge}</span> : null}</span><span>การแจ้งเตือน</span></Link>
+        <Link className={`route-nav-link ${activeFor(destinations[2].href) ? "active" : ""}`} href="/notifications" aria-label={notificationLabel}><span className="route-nav-icon-wrap"><MaterialNavGlyph kind="notifications" selected={activeFor("/notifications")} />{visibleUnreadNotificationCount > 0 ? <span className="route-nav-badge" aria-hidden="true">{notificationBadge}</span> : null}</span><span>การแจ้งเตือน</span></Link>
         <Link className={`route-nav-link ${activeFor(destinations[3].href) ? "active" : ""}`} href={`/profile/${userId}`} aria-label="โปรไฟล์"><MaterialNavGlyph kind="profile" selected={activeFor(`/profile/${userId}`)} /><span>โปรไฟล์</span></Link>
       </nav> : null}
     </div>
