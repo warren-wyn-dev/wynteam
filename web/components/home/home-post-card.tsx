@@ -1,6 +1,6 @@
 "use client";
 
-import { Repeat2 } from "lucide-react";
+import { Repeat } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -69,7 +69,7 @@ export function HomePostCard({
     <>
       {row.redrop_id ? (
         <div className={pc.postRedropLine}>
-          <Repeat2 size={14} />
+          <Repeat size={14} />
           รีโพสต์โดย @{row.redropper_username || "wynos"} · {time}
         </div>
       ) : null}

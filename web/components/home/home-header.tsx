@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import { Menu, MessageSquare } from "lucide-react";
+import { Menu, MessageCircle } from "lucide-react";
 
 import { WynosHeader } from "@/components/design-system/WynosHeader";
 import { WynosIconButton } from "@/components/design-system/WynosIconButton";
@@ -40,7 +40,7 @@ export function HomeHeader({
       }
       trailing={
         <WynosIconButton
-          icon={<MessageSquare />}
+          icon={<MessageCircle />}
           aria-label="แชท"
           onClick={onOpenChat}
           badge={chatBadgeCount > 0 ? (chatBadgeCount > 9 ? "9+" : String(chatBadgeCount)) : null}

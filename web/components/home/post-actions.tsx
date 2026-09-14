@@ -1,4 +1,4 @@
-import { Heart, MessageSquare, Repeat2, Send } from "lucide-react";
+import { Heart, MessageCircle, Repeat, Send } from "lucide-react";
 import Link from "next/link";
 
 import pc from "@/components/design-system/post-card.module.css";
@@ -47,7 +47,7 @@ export function PostActions({
         <span className={pc.actionButtonCount}>{likeCount}</span>
       </button>
       <Link className={pc.actionButton} href={commentHref} aria-label="ความคิดเห็น">
-        <MessageSquare size={24} />
+        <MessageCircle size={24} />
         <span className={pc.actionButtonCount}>{commentCount}</span>
       </Link>
       {canRedrop ? (
@@ -57,7 +57,7 @@ export function PostActions({
           aria-label="รีโพสต์"
           onClick={onRedrop}
         >
-          <Repeat2 size={24} />
+          <Repeat size={24} />
           <span className={pc.actionButtonCount}>{redropCount}</span>
         </button>
       ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { Bookmark, Flag, Quote, Repeat2, Share2, X } from "lucide-react";
+import { Bookmark, Flag, Quote, Repeat, Share2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
@@ -513,7 +513,7 @@ export function HomeScreen({ session }: { session: Session }) {
                 }
               }}
             >
-              <Repeat2 size={20} />ลบรีโพสต์
+              <Repeat size={20} />ลบรีโพสต์
             </button>
           ) : null}
         </ActionSheet>
@@ -522,7 +522,7 @@ export function HomeScreen({ session }: { session: Session }) {
       {selected && sheet === "redrop" ? (
         <ActionSheet label="รีโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
           <button className="audit-sheet-row" type="button" onClick={() => void redrop(selected)}>
-            <Repeat2 size={20} />{viewer?.redroppedDropIds.has(selected.id) ? "ยกเลิก ReDrop" : "ReDrop"}
+            <Repeat size={20} />{viewer?.redroppedDropIds.has(selected.id) ? "ยกเลิก ReDrop" : "ReDrop"}
           </button>
           <button className="audit-sheet-row" type="button" onClick={() => setSheet("quote")}>
             <Quote size={20} />Quote ReDrop

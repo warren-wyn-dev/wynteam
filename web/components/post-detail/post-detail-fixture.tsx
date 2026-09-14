@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Bookmark, ChevronLeft, ChevronRight, Heart, MessageSquare, MoreHorizontal, Repeat2, Send } from "lucide-react";
+import { BarChart3, Bookmark, ChevronLeft, ChevronRight, Heart, MessageCircle, MoreHorizontal, Repeat, Send } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -126,11 +126,11 @@ export function PostDetailFixture() {
               <span className={pc.actionButtonCount}>342</span>
             </button>
             <button className={pc.actionButton} type="button" aria-label="ความคิดเห็น">
-              <MessageSquare size={24} />
+              <MessageCircle size={24} />
               <span className={pc.actionButtonCount}>3</span>
             </button>
             <button className={`${pc.actionButton} ${redropped ? pc.actionButtonActive : ""}`} type="button" aria-label={redropped ? "ยกเลิกรีโพสต์" : "รีโพสต์"} onClick={() => setRedropped((value) => !value)}>
-              <Repeat2 size={24} />
+              <Repeat size={24} />
               <span className={pc.actionButtonCount}>6</span>
             </button>
             <button className={`${pc.actionButton} ${pc.actionShare}`} type="button" aria-label="แชร์โพสต์">

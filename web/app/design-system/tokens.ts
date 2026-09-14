@@ -52,27 +52,22 @@ export const WYNOS_SIZES = {
  * Tabler Icons (reference `wynos-feed.html`) -> lucide-react mapping.
  * The reference uses `ti ti-*` webfont classes; production must not pull an
  * icon-font CDN, so every Tabler glyph maps to its closest already-installed
- * lucide-react equivalent (outline style, ~1.5-1.75 stroke, same sizes as
- * `WYNOS_SIZES` above). Where an existing WYNOS component already ships a
- * deliberately-chosen Lucide icon for the same concept (e.g. the comment
- * icon), that existing choice is preserved instead of swapping to the
- * "closest to Tabler" glyph, per the "preserve existing behavior" rule —
- * the deviation is noted per row.
+ * lucide-react equivalent, following the Founder's explicit **semantic**
+ * mapping table from `wynos-home-v2.html` (2026-09-14) — matched by meaning,
+ * not by copying inline SVG path data or guessing "closest to Tabler" shape.
+ * That table is binding: an earlier revision of this file kept `MessageSquare`
+ * for comment/chat to match the mobile Flutter app's icon shape, but the
+ * Founder's explicit table calls for `MessageCircle` and `Repeat` (not
+ * `Repeat2`) — corrected here per that table taking precedence over any
+ * mobile-shape-consistency judgment call.
  */
 export const TABLER_TO_LUCIDE_ICON_MAP = {
   "ti-menu-2": { lucide: "Menu", usage: "Header leading icon (opens drawer)" },
   "ti-search": { lucide: "Search", usage: "Header/bottom-nav search" },
   "ti-bell": { lucide: "Bell", usage: "Notifications" },
   "ti-heart": { lucide: "Heart", usage: "Like action" },
-  "ti-message-circle": {
-    lucide: "MessageSquare",
-    usage: "Comment action",
-    note:
-      "Existing post-actions.tsx already uses lucide's MessageSquare (single rounded-rect bubble) " +
-      "to match the mobile app's chat_bubble_outline glyph — kept instead of MessageCircle to avoid " +
-      "an icon-shape regression against the shipped mobile app.",
-  },
-  "ti-repeat": { lucide: "Repeat2", usage: "Repost/ReDrop action" },
+  "ti-message-circle": { lucide: "MessageCircle", usage: "Comment action" },
+  "ti-repeat": { lucide: "Repeat", usage: "Repost/ReDrop action" },
   "ti-dots": { lucide: "MoreHorizontal", usage: "Post more-menu" },
   "ti-home": { lucide: "Home", usage: "Bottom nav: Home" },
   "ti-users-group": {
@@ -85,7 +80,7 @@ export const TABLER_TO_LUCIDE_ICON_MAP = {
   },
   "ti-plus": { lucide: "Plus", usage: "Bottom nav: create-post CTA" },
   "ti-message-2": {
-    lucide: "MessageSquare",
+    lucide: "MessageCircle",
     usage: "Chat (existing WYNOS home header action, not a bottom-nav slot)",
   },
   "ti-user": { lucide: "User", usage: "Bottom nav: profile" },

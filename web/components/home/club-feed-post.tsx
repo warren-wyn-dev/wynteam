@@ -1,4 +1,4 @@
-import { Heart, MessageSquare } from "lucide-react";
+import { Heart, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
 import pc from "@/components/design-system/post-card.module.css";
@@ -51,7 +51,7 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
         <span className={pc.actionButtonCount}>{post.like_count}</span>
       </button>
       <Link className={pc.actionButton} href={`/club-post/${post.id}`} aria-label="ความคิดเห็น">
-        <MessageSquare size={24} />
+        <MessageCircle size={24} />
         <span className={pc.actionButtonCount}>{post.comment_count}</span>
       </Link>
     </div>

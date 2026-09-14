@@ -7,10 +7,10 @@ import {
   ChevronRight,
   Flag,
   Heart,
-  MessageSquare,
+  MessageCircle,
   MoreHorizontal,
   Pencil,
-  Repeat2,
+  Repeat,
   Send,
   Trash2,
   X,
@@ -376,12 +376,12 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
             <span className={pc.actionButtonCount}>{row.like_count ?? 0}</span>
           </button>
           <button className={pc.actionButton} type="button" aria-label="ความคิดเห็น" onClick={() => composerRef.current?.focus()}>
-            <MessageSquare size={24} />
+            <MessageCircle size={24} />
             <span className={pc.actionButtonCount}>{row.comment_count ?? 0}</span>
           </button>
           {publicAudience ? (
             <button className={`${pc.actionButton} ${redropped ? pc.actionButtonActive : ""}`} type="button" aria-label={redropped ? "ยกเลิกรีโพสต์" : "รีโพสต์"} onClick={() => void interact("redrop")}>
-              <Repeat2 size={24} />
+              <Repeat size={24} />
               <span className={pc.actionButtonCount}>{row.redrop_count ?? 0}</span>
             </button>
           ) : null}
