@@ -1,0 +1,24 @@
+/*
+ * Post Detail — small component-scoped overrides layered on top of the
+ * shared WYNOS v2 primitives (WynosHeader/WynosIconButton/WynosPillButton)
+ * and `app/post-detail-v2.css` (the bulk of the screen's geometry/tokens).
+ */
+
+/* Balances WynosHeader's centered title against the 44px leading icon
+   button so "โพสต์" stays visually centered (mirrors the reference's empty
+   trailing <span/> placeholder). */
+.headerTrailingSpacer {
+  display: inline-block;
+  width: 44px;
+  height: 1px;
+}
+
+/* Post Detail's Follow pill keeps its own larger, WYN-141-approved 44px tap
+   target (author row sits inline with a 44px avatar) instead of
+   WynosPillButton's compact 4px/14px feed-card sizing. */
+.followButton {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+}

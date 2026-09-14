@@ -9,12 +9,10 @@ import "./parity-auth-email.css";
 import "./parity-final.css";
 import "./parity-completion.css";
 import "./parity-closure.css";
-import "./post-detail-parity.css";
 import "./parity-audit.css";
 import "./profile-follow-audit.css";
 import "./club-audit.css";
 import "./club-detail-audit.css";
-import "./profile-golden-final.css";
 import "./club-detail-golden.css";
 import "./golden-drop-card.css";
 import "./club-post-card-web.css";
@@ -22,8 +20,12 @@ import "./founder-parity-lock.css";
 import "./system-parity-lock.css";
 import "./system-parity-final.css";
 import "./interaction-parity-final.css";
-import "./pixel-parity-final.css";
 import "./pixel-parity-audit-closure.css";
+// WYN-159 v2 restyle (Post Detail). Imported last so it wins the cascade
+// over any remaining legacy declaration for the same selectors. Profile's
+// v2 restyle lives in components/profile/profile.module.css (a CSS Module,
+// scoped by build tooling rather than import order).
+import "./post-detail-v2.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",

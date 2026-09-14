@@ -1,0 +1,564 @@
+/*
+ * Post Detail (`/drop/[id]`) — WYN-159 v2 restyle.
+ *
+ * Supersedes `post-detail-parity.css` and the Post-Detail-specific rules
+ * previously spread across `parity-completion.css`, `system-parity-final.css`
+ * and `pixel-parity-final.css` (now removed from those files). Layout
+ * metrics (16px edges, 18px→16px media radius, 54px activity row, 46px
+ * composer) are the Founder-approved WYN-141 final reference (2026-09-10)
+ * and stay exact; only color/typography/border language changes to the
+ * WYN-159 monochrome token set (see
+ * `.wyn/docs/design/wyn-159-web-v2-profile-post-detail.md`).
+ *
+ * The five-action row (Like/Comment/Repost/Share/Save) and the two-tab
+ * (ถูกใจ/รีโพสต์ — no ทั้งหมด) Activity sheet are pre-existing, explicitly
+ * Founder-approved requirements and are unchanged by this pass; the action
+ * row now renders via the shared `post-card.module.css` classes (see
+ * `post-detail-route.tsx`) instead of the old CSS-mask icon-replacement
+ * hack, so it reads as the same system as the feed's Post Card.
+ */
+
+/* ---------- Floating/sticky header ---------- */
+.detail-floating-header {
+  position: sticky;
+  z-index: 58;
+  top: 0;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 98%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: transform 150ms ease-out;
+}
+
+.detail-floating-header.hidden {
+  transform: translateY(calc(-100% - 1px));
+}
+
+/* ---------- Author row + caption ---------- */
+.flutter-detail-post {
+  padding: 0 0 8px;
+  background: var(--bg);
+}
+
+.detail-post-copy {
+  padding: 16px 16px 8px;
+}
+
+.detail-author-row {
+  min-height: 44px;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.flutter-detail-post .detail-author-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.detail-author-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  padding-top: 1px;
+}
+
+.detail-author-primary {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.detail-author-primary strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detail-author-primary small,
+.detail-author-username {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 400;
+}
+
+.detail-author-primary small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-author-username {
+  margin-top: 1px;
+}
+
+.flutter-detail-post .detail-caption {
+  margin: 12px 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Media gallery ---------- */
+.detail-gallery {
+  margin: 0 16px;
+}
+
+.detail-gallery-track {
+  display: flex;
+  width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  border-radius: var(--radius-card);
+}
+
+.detail-gallery-track::-webkit-scrollbar {
+  display: none;
+}
+
+.detail-gallery-track .detail-image {
+  flex: 0 0 100%;
+  width: 100%;
+  max-height: min(72dvh, 720px);
+  object-fit: contain;
+  scroll-snap-align: start;
+  border-radius: var(--radius-card);
+  background: var(--surface-subtle);
+}
+
+.detail-gallery-dots {
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.detail-gallery-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.detail-gallery-dots i.active {
+  width: 7px;
+  height: 7px;
+  background: var(--text-primary);
+}
+
+/* ---------- Action row spacing (icons/colors come from post-card.module.css's
+   shared WynosPostActions classes — see post-detail-route.tsx) ---------- */
+.detail-post-actions {
+  padding: 7px 16px 0;
+}
+
+/* ---------- "ดูกิจกรรม" activity row (54px, Founder-approved metric) ---------- */
+.detail-activity-row {
+  width: calc(100% - 32px);
+  height: 54px;
+  margin: 10px 16px 10px;
+  padding: 0 12px 0 14px;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  display: grid;
+  grid-template-columns: 49px minmax(0, 1fr) 27px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-activity-icon {
+  width: 42px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  justify-content: start;
+  color: var(--text-secondary);
+}
+
+.detail-activity-row strong {
+  margin-left: 7px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.detail-activity-row > svg {
+  color: var(--text-secondary);
+}
+
+/* ---------- Comments ---------- */
+.flutter-detail-comments {
+  padding: 0 0 96px;
+  background: var(--bg);
+}
+
+.detail-thread + .detail-thread {
+  border-top: 1px solid var(--border);
+}
+
+.detail-comment {
+  min-height: 60px;
+  padding: 12px 16px 0;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.detail-comment-reply {
+  position: relative;
+  padding-left: 61px;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+}
+
+.detail-comment-reply::before {
+  content: "";
+  position: absolute;
+  left: 52px;
+  top: 12px;
+  width: 1px;
+  height: 44px;
+  background: var(--border);
+}
+
+.detail-comment-avatar {
+  display: block;
+  width: max-content;
+}
+
+.detail-comment-copy {
+  min-width: 0;
+}
+
+.detail-comment-author-line {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.detail-comment-author-line strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.detail-comment-author-line small {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.detail-comment-copy p {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.detail-comment-reply-action {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.detail-comment-actions {
+  min-height: 60px;
+  display: flex;
+  align-items: flex-start;
+  overflow: visible;
+}
+
+.detail-comment-delete,
+.detail-comment-like {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  cursor: pointer;
+}
+
+.detail-comment-like {
+  position: relative;
+  overflow: visible;
+  font-size: 13px;
+}
+
+.detail-comment-like svg {
+  width: 16px;
+  height: 16px;
+}
+
+.detail-comment-like > span {
+  position: absolute;
+  top: 43px;
+  left: 0;
+  width: 44px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.detail-comment-like.active.like {
+  color: var(--accent-red);
+}
+
+.detail-comments-end {
+  margin: 0;
+  padding: 24px 16px 28px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---------- Composer (46px field, Founder-approved metric) ---------- */
+.detail-composer-shell {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: 0;
+  width: min(100%, 680px);
+  transform: translateX(-50%);
+  padding: 9px 9px max(9px, env(safe-area-inset-bottom)) 14px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.detail-reply-banner {
+  min-height: 30px;
+  padding: 0 0 6px 45px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.detail-reply-banner button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.flutter-detail-composer {
+  min-height: 46px;
+  height: 46px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 36px 10px minmax(0, 1fr);
+  align-items: center;
+  border: 0;
+  background: var(--bg);
+}
+
+.flutter-detail-composer > .route-avatar {
+  grid-column: 1;
+}
+
+.flutter-detail-composer-field {
+  grid-column: 3;
+  height: 48px;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 2px;
+}
+
+.flutter-detail-composer-field input {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  padding: 0 16px;
+  border: 0;
+  outline: 0;
+  border-radius: 24px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 15px;
+}
+
+.flutter-detail-composer-field input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.flutter-detail-composer-field button {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.flutter-detail-composer-field button:disabled {
+  color: var(--text-muted);
+}
+
+/* ---------- Activity sheet (2 tabs — ถูกใจ/รีโพสต์, no ทั้งหมด) ---------- */
+.detail-activity-backdrop {
+  align-items: flex-end;
+}
+
+.detail-activity-sheet {
+  width: min(100%, 680px);
+  max-height: min(76dvh, 700px);
+  padding: 0;
+  overflow: hidden;
+  border-radius: 22px 22px 0 0;
+  background: var(--bg);
+}
+
+.detail-activity-header {
+  height: 54px;
+  padding: 0 8px 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-activity-header strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.detail-activity-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 48px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-activity-tabs button {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.detail-activity-tabs button.active {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.detail-activity-tabs button.active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 34px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--text-primary);
+}
+
+.detail-activity-content {
+  min-height: 180px;
+  max-height: calc(min(76dvh, 700px) - 102px);
+  overflow-y: auto;
+}
+
+.detail-activity-person {
+  min-height: 64px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.detail-activity-person > span:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-activity-person strong {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.detail-activity-person small {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+@media (min-width: 681px) {
+  .detail-composer-shell {
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+}

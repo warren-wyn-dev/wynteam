@@ -7,12 +7,11 @@ import {
   ChevronRight,
   Flag,
   Heart,
-  MessageCircle,
-  MoreVertical,
+  MessageSquare,
+  MoreHorizontal,
   Pencil,
   Repeat2,
   Send,
-  Share2,
   Trash2,
   X,
 } from "lucide-react";
@@ -21,8 +20,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import pc from "@/components/design-system/post-card.module.css";
+import { WynosAvatar } from "@/components/design-system/WynosAvatar";
+import { WynosHeader } from "@/components/design-system/WynosHeader";
+import { WynosIconButton } from "@/components/design-system/WynosIconButton";
+import { WynosPillButton } from "@/components/design-system/WynosPillButton";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { AppChrome, EmptyState, LoadingState } from "@/components/phase3-ui";
+import pdStyles from "@/components/post-detail/post-detail.module.css";
 import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import {
@@ -44,7 +49,7 @@ type ActivityProfile = { id: string; username: string; display_name?: string | n
 type ActivityState = { likes: ActivityProfile[]; redrops: ActivityProfile[] };
 const emptyActivity: ActivityState = { likes: [], redrops: [] };
 
-function Caption({ value }: { value: string }) {
+export function Caption({ value }: { value: string }) {
   return <RichPostText className="detail-caption" value={value} />;
 }
 
@@ -83,7 +88,7 @@ async function fetchActivity(client: SupabaseClient, dropId: string): Promise<Ac
   return { likes: ordered(likeIds), redrops: ordered(redropIds) };
 }
 
-function MediaGallery({ urls }: { urls: string[] }) {
+export function MediaGallery({ urls }: { urls: string[] }) {
   const [index, setIndex] = useState(0);
   if (!urls.length) return null;
   return (
@@ -128,7 +133,7 @@ function ActivitySheet({ client, dropId, onClose }: { client: SupabaseClient; dr
         <div className="detail-activity-content">
           {loading ? <LoadingState /> : error ? <EmptyState>{error}</EmptyState> : !rows.length ? <EmptyState>{tab === "likes" ? "ยังไม่มีคนถูกใจโพสต์นี้" : "ยังไม่มีคนรีโพสต์โพสต์นี้"}</EmptyState> : rows.map((profile) => (
             <Link className="detail-activity-person" href={`/profile/${profile.id}`} onClick={onClose} key={`${tab}:${profile.id}`}>
-              <Avatar src={profile.avatar_url} label={profile.username} />
+              <WynosAvatar src={profile.avatar_url} label={profile.username} />
               <span><strong>{profile.display_name?.trim() || profile.username}{profile.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{profile.username}</small></span>
             </Link>
           ))}
@@ -146,10 +151,10 @@ function TextDialog({ title, value, placeholder, confirmLabel, onChange, onCance
   return <div className="route-modal-backdrop detail-dialog-backdrop" role="presentation" onClick={onCancel}><section className="route-modal detail-dialog" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}><header><strong>{title}</strong><button type="button" aria-label="ปิด" onClick={onCancel}><X size={20} /></button></header><textarea autoFocus maxLength={500} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /><footer><button type="button" onClick={onCancel}>ยกเลิก</button><button className="primary" type="button" disabled={confirmLabel === "ส่งรายงาน" && !value.trim()} onClick={onConfirm}>{confirmLabel}</button></footer></section></div>;
 }
 
-function CommentRow({ comment, isReply, currentUserId, onLike, onReply, onDelete }: { comment: DropCommentRow; isReply: boolean; currentUserId: string; onLike: (comment: DropCommentRow) => void; onReply: (comment: DropCommentRow) => void; onDelete: (comment: DropCommentRow) => void }) {
+export function CommentRow({ comment, isReply, currentUserId, onLike, onReply, onDelete }: { comment: DropCommentRow; isReply: boolean; currentUserId: string; onLike: (comment: DropCommentRow) => void; onReply: (comment: DropCommentRow) => void; onDelete: (comment: DropCommentRow) => void }) {
   return (
     <div className={`detail-comment ${isReply ? "detail-comment-reply" : ""}`}>
-      <Link className="detail-comment-avatar" href={`/profile/${comment.author_id}`}><Avatar src={comment.author_avatar_url} label={comment.author_username} size={isReply ? 32 : 36} /></Link>
+      <Link className="detail-comment-avatar" href={`/profile/${comment.author_id}`}><WynosAvatar src={comment.author_avatar_url} label={comment.author_username} size={isReply ? 32 : 36} /></Link>
       <div className="detail-comment-copy">
         <div className="detail-comment-author-line"><strong>{comment.author_display_name?.trim() || comment.author_username}</strong><small>{relativeTimeTh(comment.created_at)}</small></div>
         <p>{comment.text_content}</p>
@@ -355,11 +360,38 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}>
-      <header className={`detail-floating-header ${headerHidden ? "hidden" : ""}`}><button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={22} /></button><strong>โพสต์</strong><span /></header>
+      <div className={`detail-floating-header ${headerHidden ? "hidden" : ""}`}>
+        <WynosHeader
+          leading={<WynosIconButton icon={<ChevronLeft size={24} />} aria-label="ย้อนกลับ" onClick={() => router.back()} />}
+          center={<strong>โพสต์</strong>}
+          trailing={<span className={pdStyles.headerTrailingSpacer} />}
+        />
+      </div>
       <article className="detail-post flutter-detail-post">
-        <div className="detail-post-copy"><div className="detail-author-row"><Link className="route-drop-author detail-author-link" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} /><span className="detail-author-copy"><span className="detail-author-primary"><strong>{authorLabel(row)}{row.author_is_verified ? <b className="route-verified">✓</b> : null}</strong><small>{relativeTimeTh(row.created_at)}</small></span><small className="detail-author-username">@{row.author_username || "wynos"}</small></span></Link>{!ownDrop ? <button className="detail-follow-button" type="button" onClick={() => void followAuthor()}>{followingAuthor ? "กำลังติดตาม" : pendingAuthor ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}<button className="detail-more-button" type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><MoreVertical size={18} /></button></div>{row.caption ? <Caption value={row.caption} /> : null}</div>
+        <div className="detail-post-copy"><div className="detail-author-row"><Link className="route-drop-author detail-author-link" href={`/profile/${row.author_id}`}><WynosAvatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} /><span className="detail-author-copy"><span className="detail-author-primary"><strong>{authorLabel(row)}{row.author_is_verified ? <b className="route-verified">✓</b> : null}</strong><small>{relativeTimeTh(row.created_at)}</small></span><small className="detail-author-username">@{row.author_username || "wynos"}</small></span></Link>{!ownDrop ? <WynosPillButton className={pdStyles.followButton} onClick={() => void followAuthor()}>{followingAuthor ? "กำลังติดตาม" : pendingAuthor ? "ขอติดตามแล้ว" : "ติดตาม"}</WynosPillButton> : null}<WynosIconButton tone="secondary" icon={<MoreHorizontal size={20} />} aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)} /></div>{row.caption ? <Caption value={row.caption} /> : null}</div>
         <MediaGallery urls={images} />
-        <div className={`detail-actions flutter-detail-actions ${publicAudience ? "public" : "private"}`}><button className={liked ? "active like" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} onClick={() => void interact("like")}><Heart fill={liked ? "currentColor" : "none"} />{row.like_count ?? 0}</button><button type="button" aria-label="ความคิดเห็น" onClick={() => composerRef.current?.focus()}><MessageCircle />{row.comment_count ?? 0}</button>{publicAudience ? <button className={redropped ? "active" : ""} type="button" aria-label={redropped ? "ยกเลิกรีโพสต์" : "รีโพสต์"} onClick={() => void interact("redrop")}><Repeat2 />{row.redrop_count ?? 0}</button> : null}<button type="button" aria-label="แชร์โพสต์" onClick={() => void share()}><Share2 /></button><button className={saved ? "active" : ""} type="button" aria-label={saved ? "นำออกจากที่บันทึก" : "บันทึกโพสต์"} onClick={() => void interact("save")}><Bookmark fill={saved ? "currentColor" : "none"} /></button></div>
+        <div className={`detail-post-actions ${pc.postActions}`}>
+          <button className={`${pc.actionButton} ${liked ? pc.actionButtonLiked : ""}`} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} onClick={() => void interact("like")}>
+            <Heart size={24} fill={liked ? "currentColor" : "none"} />
+            <span className={pc.actionButtonCount}>{row.like_count ?? 0}</span>
+          </button>
+          <button className={pc.actionButton} type="button" aria-label="ความคิดเห็น" onClick={() => composerRef.current?.focus()}>
+            <MessageSquare size={24} />
+            <span className={pc.actionButtonCount}>{row.comment_count ?? 0}</span>
+          </button>
+          {publicAudience ? (
+            <button className={`${pc.actionButton} ${redropped ? pc.actionButtonActive : ""}`} type="button" aria-label={redropped ? "ยกเลิกรีโพสต์" : "รีโพสต์"} onClick={() => void interact("redrop")}>
+              <Repeat2 size={24} />
+              <span className={pc.actionButtonCount}>{row.redrop_count ?? 0}</span>
+            </button>
+          ) : null}
+          <button className={`${pc.actionButton} ${pc.actionShare}`} type="button" aria-label="แชร์โพสต์" onClick={() => void share()}>
+            <Send size={24} />
+          </button>
+          <button className={`${pc.actionButton} ${pc.actionShare} ${saved ? pc.actionButtonActive : ""}`} type="button" aria-label={saved ? "นำออกจากที่บันทึก" : "บันทึกโพสต์"} onClick={() => void interact("save")}>
+            <Bookmark size={24} fill={saved ? "currentColor" : "none"} />
+          </button>
+        </div>
         <button className="detail-activity-row" type="button" onClick={() => setActivityOpen(true)}><span className="detail-activity-icon"><BarChart3 size={22} /></span><strong>ดูกิจกรรม</strong><ChevronRight size={27} /></button>
       </article>
 
@@ -369,7 +401,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
         {hasMoreComments ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? "กำลังโหลด…" : "ดูคอมเมนต์เพิ่มเติม"}</button> : comments.length ? <p className="detail-comments-end">ไม่มีความคิดเห็นเพิ่มเติมแล้ว</p> : null}
       </section>
 
-      <div className="detail-composer-shell">{replyTo ? <div className="detail-reply-banner"><span>ตอบกลับ {replyTo.author_display_name?.trim() || replyTo.author_username}</span><button type="button" aria-label="ยกเลิกการตอบกลับ" onClick={() => setReplyTo(null)}><X size={16} /></button></div> : null}<form className="detail-comment-form flutter-detail-composer" onSubmit={(event) => { event.preventDefault(); void submit(); }}><Avatar src={viewerProfile?.avatar_url} label={viewerProfile?.username || userId} size={36} /><div className="flutter-detail-composer-field"><input ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={500} placeholder="แสดงความคิดเห็น..." /><button type="submit" aria-label="ส่งความคิดเห็น" disabled={sending || !draft.trim()}><Send size={25} /></button></div></form></div>
+      <div className="detail-composer-shell">{replyTo ? <div className="detail-reply-banner"><span>ตอบกลับ {replyTo.author_display_name?.trim() || replyTo.author_username}</span><button type="button" aria-label="ยกเลิกการตอบกลับ" onClick={() => setReplyTo(null)}><X size={16} /></button></div> : null}<form className="detail-comment-form flutter-detail-composer" onSubmit={(event) => { event.preventDefault(); void submit(); }}><WynosAvatar src={viewerProfile?.avatar_url} label={viewerProfile?.username || userId} size={36} /><div className="flutter-detail-composer-field"><input ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={500} placeholder="แสดงความคิดเห็น..." /><button type="submit" aria-label="ส่งความคิดเห็น" disabled={sending || !draft.trim()}><Send size={25} /></button></div></form></div>
 
       {activityOpen ? <ActivitySheet client={client} dropId={row.id} onClose={() => setActivityOpen(false)} /> : null}
       {editOpen ? <TextDialog title="แก้ไขโพสต์" value={editCaption} confirmLabel="บันทึก" onChange={setEditCaption} onCancel={() => setEditOpen(false)} onConfirm={() => void editDrop()} /> : null}
