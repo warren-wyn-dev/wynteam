@@ -49,7 +49,8 @@ test("Chat inbox matches Flutter title and three pill destinations", () => {
   expect(lock).toContain(".flutter-chat-pill-tabs");
   expect(lock).toContain("height: 36px");
   expect(flutter).toContain("toolbarHeight: 62");
-  expect(flutter).toContain("label: 'คำขอ'");
+  expect(flutter).toContain("label: requestLabel");
+  expect(flutter).toContain(": 'คำขอ';");
 });
 
 test("Settings root preserves exact current seven-row Beta4 structure", () => {
