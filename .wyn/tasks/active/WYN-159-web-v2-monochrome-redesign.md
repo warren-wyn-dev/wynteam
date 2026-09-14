@@ -114,3 +114,22 @@ automated tests alone.
   reference's fixed 220x270px thumbnails — real photos need to support real aspect ratios) and
   gave go-ahead for Batch 3+. Home/Nav/Post Card batch is now DONE (~30% of overall WYN-159
   scope). Starting Batch 3 (Profile, Post Detail) per the binding migration order.
+- 2026-09-14: Batch 3 (Profile + Post Detail) complete (~40% of overall WYN-159 scope), after
+  one resume following a session rate-limit interruption mid-batch (not a code issue — resumed
+  cleanly, no rework needed). Branch `feat/wyn-ux-ui-redesign` commits `fe80aad6` (Profile),
+  `22c79759` (Post Detail), `de443591` (legacy CSS retirement), `77596dd6` (docs). Reused
+  Home-batch primitives (`WynosAvatar/IconButton/PillButton/Tabs/Header`); preserved WYN-141
+  Founder-approved Profile layout metrics (170px cover, 92px avatar, -23px overlap) and all five
+  required Post Detail behaviors (5-action row, 2-tab activity sheet, 46px/54px metrics,
+  bright-blue caption links). `golden-drop-card.css` still required (Search/Bookmarks/Profile
+  feed tabs still consume it) — deliberately not retired this batch. `npm run check` passes (22
+  routes). Two self-caught bugs fixed before commit (DOM-nesting mistake in profile header;
+  hydration-mismatch from minute-granularity fixture timestamps). Screenshots captured (own
+  profile, other-user profile, post detail — mobile+desktop) but show a stray Next.js dev-mode
+  indicator badge (bottom-left "N" circle) because this batch screenshotted against `next dev`
+  rather than `next start` like the Home batch did — cosmetic screenshot-process issue only, not
+  a production artifact, to fix before the next round of screenshots. Two open questions flagged:
+  (1) Profile's larger 44px action-pill sizing intentionally differs from Home's compact Follow
+  chip — keep or unify later? (2) Header icon sizing was simplified from old WYN-158 per-icon
+  pixel values to the standard 22px/44px-box convention — keep simplified or restore exact old
+  sizes? Awaiting Founder review before Batch 4 (Search, Notifications, Chat).
