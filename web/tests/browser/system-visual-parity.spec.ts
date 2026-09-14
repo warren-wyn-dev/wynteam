@@ -5,21 +5,24 @@ import { join } from "node:path";
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
-test("system parity lock is the final stylesheet", () => {
+test("source-derived system parity stylesheet is imported last", () => {
   const layout = read("app/layout.tsx");
-  const finalImport = 'import "./system-parity-lock.css";';
+  const finalImport = 'import "./system-parity-final.css";';
   expect(layout).toContain(finalImport);
-  expect(layout.lastIndexOf(finalImport)).toBeGreaterThan(layout.lastIndexOf('import "./founder-parity-lock.css";'));
+  expect(layout.lastIndexOf(finalImport)).toBeGreaterThan(layout.lastIndexOf('import "./system-parity-lock.css";'));
   expect(layout.indexOf(finalImport)).toBe(layout.lastIndexOf(finalImport));
 });
 
 test("Search keeps the current Flutter Discovery then three-tab contract", () => {
   const search = read("components/search-route.tsx");
+  const flutter = read("../app/lib/features/search/presentation/search_screen.dart");
   expect(search).toContain('useState<"user" | "drop" | "club">');
   expect(search).toContain("User");
   expect(search).toContain("โพสต์");
   expect(search).toContain("Club");
   expect(search).not.toContain('setTab("all")');
+  expect(flutter).toContain("const WynosSocialTabBar(labels: ['User', 'โพสต์', 'Club'])");
+  expect(flutter).toContain("height: 64");
 });
 
 test("Notifications keep All/Mentions plus Flutter day grouping", () => {
@@ -36,6 +39,7 @@ test("Chat inbox matches Flutter title and three pill destinations", () => {
   const page = read("app/chat/page.tsx");
   const chat = read("components/chat-inbox-parity.tsx");
   const lock = read("app/system-parity-lock.css");
+  const flutter = read("../app/lib/features/chat/presentation/chat_inbox_screen.dart");
   expect(page).toContain("ChatInboxParityRoute");
   expect(chat).toContain("<h1>ข้อความ</h1>");
   expect(chat).toContain("ทั้งหมด");
@@ -44,10 +48,14 @@ test("Chat inbox matches Flutter title and three pill destinations", () => {
   expect(lock).toContain("height: 62px");
   expect(lock).toContain(".flutter-chat-pill-tabs");
   expect(lock).toContain("height: 36px");
+  expect(flutter).toContain("toolbarHeight: 62");
+  expect(flutter).toContain("label: 'คำขอ'");
 });
 
-test("Settings root preserves the current seven-row Beta4 contract", () => {
+test("Settings root preserves exact current seven-row Beta4 structure", () => {
   const settings = read("components/settings-route.tsx");
+  const finalLock = read("app/system-parity-final.css");
+  const flutter = read("../app/lib/features/settings/presentation/settings_screen.dart");
   for (const label of [
     'title="บัญชี"',
     'title="ความเป็นส่วนตัว"',
@@ -58,9 +66,28 @@ test("Settings root preserves the current seven-row Beta4 contract", () => {
     'title="ออกจากระบบ"',
   ]) expect(settings).toContain(label);
   expect(settings).toContain('useState("V1.0.0 Beta4")');
-  const lock = read("app/system-parity-lock.css");
-  expect(lock).toContain("border-radius: 18px");
-  expect(lock).toContain("min-height: 64px");
+  expect(settings).toContain("settings-leading-icon");
+  expect(settings).not.toContain('title="ธีมเข้ม" description=');
+  expect(settings).not.toContain('title="ช่วยเหลือ" description=');
+  expect(finalLock).toContain("min-height: 52px");
+  expect(finalLock).toContain("width: 34px");
+  expect(finalLock).toContain("font-size: 13px");
+  expect(flutter).toContain("BoxConstraints(minHeight: 52)");
+  expect(flutter).toContain("width: 34");
+  expect(flutter).toContain("height: 34");
+});
+
+test("root navigation matches Founder metrics", () => {
+  const finalLock = read("app/system-parity-final.css");
+  const metrics = read("../app/lib/core/design/wynos_founder_metrics.dart");
+  const nav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
+  expect(metrics).toContain("bottomNavContentHeight = 80");
+  expect(metrics).toContain("createActionDiameter = 56");
+  expect(nav).toContain("Icon(icon, size: 28)");
+  expect(nav).toContain("fontSize: 11.5");
+  expect(finalLock).toContain("height: calc(80px + env(safe-area-inset-bottom))");
+  expect(finalLock).toContain("width: 56px");
+  expect(finalLock).toContain("width: 28px");
 });
 
 test("Home actions mirror current Flutter: Like Comment Repost Share, no View", () => {
