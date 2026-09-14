@@ -134,10 +134,19 @@
   transition: transform 180ms ease-out;
 }
 
-/* WYN-111: the front card is full-size; the next peek recedes to 86%. */
-.audit-media-carousel:not(.single) img:not(:first-child) {
+/* WYN-111 paint-only scaling follows whichever card is currently in front. */
+.audit-media-carousel:not(.single) img.front {
+  transform: scale(1);
+}
+
+.audit-media-carousel:not(.single) img.after {
   transform: scale(0.86);
   transform-origin: left center;
+}
+
+.audit-media-carousel:not(.single) img.before {
+  transform: scale(0.86);
+  transform-origin: right center;
 }
 
 .audit-feed-post .audit-action-row {
@@ -233,9 +242,18 @@
   transition: transform 180ms ease-out;
 }
 
-.golden-drop-media.multi img:not(:first-child) {
+.golden-drop-media.multi img.front {
+  transform: scale(1);
+}
+
+.golden-drop-media.multi img.after {
   transform: scale(0.86);
   transform-origin: left center;
+}
+
+.golden-drop-media.multi img.before {
+  transform: scale(0.86);
+  transform-origin: right center;
 }
 
 .golden-drop-actions {
