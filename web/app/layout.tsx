@@ -20,6 +20,7 @@ import "./profile-golden-final.css";
 import "./club-detail-golden.css";
 import "./golden-drop-card.css";
 import "./club-post-card-web.css";
+import "./founder-parity-lock.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",

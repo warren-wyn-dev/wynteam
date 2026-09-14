@@ -2,6 +2,7 @@
 
 import { ChevronRight, MoreHorizontal, Search, X } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -188,9 +189,17 @@ function Discovery({ client }: { client: SupabaseClient }) {
 }
 
 function SearchInner({ client, userId }: { client: SupabaseClient; userId: string }) {
-  const [draft, setDraft] = useState("");
-  const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"user" | "drop" | "club">("user");
+  const params = useSearchParams();
+  const urlQuery = params.get("q")?.trim() ?? "";
+  const [draft, setDraft] = useState(urlQuery);
+  const [query, setQuery] = useState(urlQuery.length >= 2 ? urlQuery : "");
+  const [tab, setTab] = useState<"user" | "drop" | "club">(urlQuery.startsWith("#") ? "drop" : "user");
+  useEffect(() => {
+    if (urlQuery.length < 2) return;
+    setDraft(urlQuery);
+    setQuery(urlQuery);
+    if (urlQuery.startsWith("#")) setTab("drop");
+  }, [urlQuery]);
   const submitted = query.trim().length >= 2 && draft.trim() === query;
   const submit = () => setQuery(draft.trim());
   const tabs = useMemo(() => [{ id: "user" as const, label: "User" }, { id: "drop" as const, label: "โพสต์" }, { id: "club" as const, label: "Club" }], []);

@@ -34,6 +34,7 @@ import {
 } from "react";
 
 import { AppChrome, Avatar } from "@/components/phase3-ui";
+import { RichPostText } from "@/components/rich-post-text";
 import { publishDropSafely } from "@/lib/drop-publication";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import {
@@ -290,7 +291,7 @@ function FeedPost({
       ) : null}
       {row.quote_text ? <p className="audit-quote-text">{row.quote_text}</p> : null}
       <Link className="avatar-button" href={`/profile/${row.author_id}`}>
-        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={42} />
+        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} />
       </Link>
       <div className="post-content">
         <header className="post-header audit-author-row">
@@ -320,9 +321,7 @@ function FeedPost({
           </button>
         </header>
         {row.caption ? (
-          <Link className="post-open-button" href={`/drop/${row.id}`}>
-            <p className="caption audit-caption">{row.caption}</p>
-          </Link>
+          <RichPostText className="caption audit-caption" value={row.caption} postHref={`/drop/${row.id}`} />
         ) : null}
         <ImageCarousel row={row} urls={images} liked={liked} onDoubleLike={onLike} />
         <div className="action-row audit-action-row">
@@ -382,9 +381,7 @@ function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () => void
           </Link>
         </header>
         {post.content ? (
-          <Link className="post-open-button" href={`/club-post/${post.id}`}>
-            <p className="caption audit-caption">{post.content}</p>
-          </Link>
+          <RichPostText className="caption audit-caption" value={post.content} postHref={`/club-post/${post.id}`} />
         ) : null}
         {post.image_urls.length ? (
           <div className={`audit-media-carousel ${post.image_urls.length === 1 ? "single" : ""}`}>
