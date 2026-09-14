@@ -93,3 +93,20 @@ automated tests alone.
   Clubs, Settings, Auth) per the standing "visual check before continued rollout" rule. Known
   follow-up: several pre-existing Playwright visual-regression specs assert old WYN-158 parity
   class names/pixel values and now fail — expected fallout, needs a later batch to retire/rewrite.
+- 2026-09-14: Founder supplied two more precise Home references (`wynos-home.html`, then
+  `wynos-home-v2.html` with inline SVG + explicit semantic icon mapping) with a strict
+  no-approximation mandate. Design docs corrected (centered tabs, `--danger-bg` token, exact
+  post-block/post-head-row/post-media-wrap/post-footer DOM structure, failed-to-send state,
+  definitive Lucide icon mapping table). Implementation correction pass complete on
+  `feat/wyn-ux-ui-redesign` (commits `80c975bb`..`ff91291c`): single prop-driven `WynosPostCard`
+  (variants: text-only/carousel/failed, via `media`/`sendStatus` props, not 3 hardcoded blocks),
+  carousel+dots+footer now render as DOM siblings of the head row (matches reference structure),
+  tabs centered, failed-state error box implemented. `npm run check` passes. Screenshots
+  (including reference-file side-by-side and carousel/failed close-ups) captured and reviewed —
+  structure and interaction states match; one open discrepancy found and not yet resolved:
+  carousel images render large/full-bleed (existing WYN aspect-ratio product behavior) rather
+  than the reference's fixed 220x270px thumbnails — flagged to Founder rather than silently
+  picked. A coding-agent false-positive "prompt injection" flag on `web/AGENTS.md`/`web/CLAUDE.md`
+  was investigated and confirmed to be genuine, harmless Next.js 16.3.2 tooling output (verified
+  `node_modules/next/dist/server/lib/generate-agent-files.js` exists and matches verbatim) — no
+  action needed. Still awaiting Founder sign-off before Batch 3+.
