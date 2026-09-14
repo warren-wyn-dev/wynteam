@@ -5,12 +5,14 @@ import { join } from "node:path";
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
-test("source-derived system parity stylesheet is imported last", () => {
+test("source-derived system parity stylesheet is imported before interaction closure", () => {
   const layout = read("app/layout.tsx");
-  const finalImport = 'import "./system-parity-final.css";';
-  expect(layout).toContain(finalImport);
-  expect(layout.lastIndexOf(finalImport)).toBeGreaterThan(layout.lastIndexOf('import "./system-parity-lock.css";'));
-  expect(layout.indexOf(finalImport)).toBe(layout.lastIndexOf(finalImport));
+  const sourceLayer = 'import "./system-parity-final.css";';
+  const interactionLayer = 'import "./interaction-parity-final.css";';
+  expect(layout).toContain(sourceLayer);
+  expect(layout).toContain(interactionLayer);
+  expect(layout.lastIndexOf(sourceLayer)).toBeGreaterThan(layout.lastIndexOf('import "./system-parity-lock.css";'));
+  expect(layout.lastIndexOf(interactionLayer)).toBeGreaterThan(layout.lastIndexOf(sourceLayer));
 });
 
 test("Search keeps the current Flutter Discovery then three-tab contract", () => {
@@ -96,7 +98,6 @@ test("Home actions mirror current Flutter: Like Comment Repost Share, no View", 
   const home = read("components/parity-home-final.tsx");
   const flutterPage = read("../app/lib/features/home/presentation/widgets/mode_feed_page.dart");
   const flutterCard = read("../app/lib/features/home/presentation/widgets/home_drop_card.dart");
-
   expect(flutterPage).toContain("showViewCount: false");
   expect(flutterPage).toContain("hideZeroActionCounts: false");
   expect(flutterCard).toContain("Icons.send_outlined");
@@ -109,6 +110,7 @@ test("Home actions mirror current Flutter: Like Comment Repost Share, no View", 
 test("Creation surface matches Beta4 composer metrics while keeping the no Check-in product rule", () => {
   const composer = read("components/beta4-composer.tsx");
   const finalLock = read("app/system-parity-final.css");
+  const interaction = read("app/interaction-parity-final.css");
   const flutter = read("../app/lib/features/drop/presentation/create_drop_screen.dart");
   expect(composer).toContain('className="beta4-composer-header"');
   expect(composer).toContain('className="beta4-drafts"');
@@ -121,6 +123,8 @@ test("Creation surface matches Beta4 composer metrics while keeping the no Check
   expect(finalLock).toContain("font-size: 22px");
   expect(finalLock).toContain("min-width: 72px");
   expect(finalLock).toContain("height: 42px");
+  expect(interaction).toContain(".beta4-friend-picker");
+  expect(interaction).toContain(".beta4-mention-suggestions");
   expect(flutter).toContain("height: 70");
   expect(flutter).toContain("fontSize: 22");
 });
@@ -134,17 +138,19 @@ test("Post activity remains exactly Likes and Reposts", () => {
   expect(detail).not.toContain('setActivityTab("all")');
 });
 
-
-test("Post Detail closes the exact current Flutter geometry gaps", () => {
+test("Post Detail closes the exact current Flutter geometry and interaction gaps", () => {
   const detail = read("components/post-detail-route.tsx");
   const finalLock = read("app/system-parity-final.css");
+  const interaction = read("app/interaction-parity-final.css");
   const flutter = read("../app/lib/features/drop/presentation/drop_detail_screen.dart");
   expect(detail).toContain('className={`detail-floating-header');
   expect(detail).toContain('size={44}');
-  expect(detail).toContain('className="detail-author-primary"');
   expect(detail).toContain('size={isReply ? 32 : 36}');
   expect(detail).toContain('placeholder="แสดงความคิดเห็น..."');
   expect(detail).toContain('<BarChart3 size={22} />');
+  expect(detail).not.toContain("window.prompt");
+  expect(detail).not.toContain("window.confirm");
+  expect(interaction).toContain(".detail-dialog-backdrop");
   expect(finalLock).toContain("margin: 7px 10px 0");
   expect(finalLock).toContain("color: #f44336");
   expect(finalLock).toContain("height: 46px");
