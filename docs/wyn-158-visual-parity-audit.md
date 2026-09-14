@@ -208,3 +208,46 @@ token — the Home/root bottom nav overrides it explicitly.
    since `AppChrome` is shared by every route.
 4. Business logic in `parity-home-final.tsx` moves, largely unchanged,
    into the new `HomeScreen` component; data hooks/libs are untouched.
+
+## 10. Addendum: intentional web-only deviation — action row density
+
+Everything above treats Flutter Beta4 as the source of truth. This
+addendum records one deliberate, approved exception.
+
+**What Flutter does.** `ActionMetric` (the like/comment/redrop
+buttons) and the share `IconButton` each sit inside a hard
+`ConstrainedBox` of `WynSpacing.touchTargetMin` (44px), per Material
+touch-target guidance. That 44px box is centered on a ~24px glyph, so
+each button carries roughly 10px of invisible padding above and below
+its icon. Combined with the card's own vertical rhythm, the visible
+gap between the action row's icons and the next post's divider is
+**~23px** on Flutter (measured directly from a reference screenshot).
+
+**What was requested.** The Founder asked the web to match the denser
+rhythm of Meta's Threads app instead (reference screenshot supplied),
+where the same icon-to-divider gap measures **~15px**. This was
+flagged as a conflict with the "Flutter wins" rule from §0, and
+confirmed explicitly as an intentional, web-only design decision —
+not a Flutter change request (out of this task's reach in any case).
+
+**What changed.** `web/app/home.css`, `.wyn-post-actions` /
+`.wyn-action-button` / `.wyn-action-share`:
+
+- Each button keeps a real ≥32px tap target (above the WCAG 2.2 24px
+  minimum) via `padding`, but a matching negative `margin` cancels
+  that padding out of the row's layout footprint — the row itself is
+  now only as tall as the visible icon, not the touch target.
+- `.wyn-post-actions` carries an explicit `12px` bottom margin (on
+  top of the card's existing 3px trailing rhythm) so the resulting
+  gap lands at the ~15px Threads target rather than collapsing to 3px.
+
+Measured result on `/dev/home-fixture` (iPhone 13 viewport, Playwright
+`getBoundingClientRect()` on the action icons vs. the next post's top
+border): **15px**, matching the Threads reference exactly, down from
+~17px previously on web and Flutter's ~23px. Tap-target sizing is
+unaffected — buttons remain ≥32px clickable, comfortably above the
+24px WCAG minimum.
+
+This is the only known intentional deviation from Flutter in the
+Home screen. Any future Home CSS change should still treat Flutter as
+source of truth unless similarly called out here.
