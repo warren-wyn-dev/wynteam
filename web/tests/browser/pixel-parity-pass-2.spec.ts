@@ -15,6 +15,7 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   const flutterFollow = read("../app/lib/features/follow/presentation/widgets/follow_action_button.dart");
   const flutterProfile = read("../app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart");
   const flutterNav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
+  const flutterDetail = read("../app/lib/features/drop/presentation/drop_detail_screen.dart");
 
   expect(layout.lastIndexOf('import "./pixel-parity-final.css";')).toBeGreaterThan(
     layout.lastIndexOf('import "./interaction-parity-final.css";'),
@@ -34,8 +35,8 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   expect(flutterCard).toContain("fontSize: 15");
   expect(flutterCard).toContain("width: WynSpacing.touchTargetMin");
   expect(flutterCard).toContain("Icons.send_outlined");
-  expect(flutterFollow).toContain("minHeight: headerCompact");
-  expect(flutterFollow).toContain("horizontal: headerCompact ? 12");
+  expect(flutterFollow).toContain("minimumSize: widget.headerCompact");
+  expect(flutterFollow).toContain("horizontal: widget.headerCompact ? 12");
   expect(css).toContain("padding: 0 12px");
   expect(css).toContain("font-size: 13px");
   expect(css).toContain("width: 44px");
@@ -59,4 +60,14 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   expect(chrome).toContain('kind="profile" selected={activeFor(`/profile/${userId}`)}');
   expect(css).toContain(".route-create-destination");
   expect(css).toContain("gap: 6px");
+
+  expect(flutterDetail).toContain("Icons.mode_comment_outlined");
+  expect(flutterDetail).toContain("Icons.repeat_rounded");
+  expect(flutterDetail).toContain("Icons.ios_share_outlined");
+  expect(flutterDetail).toContain("Icons.bookmark_border_rounded");
+  expect(css).toContain('button[aria-label="ความคิดเห็น"]::before');
+  expect(css).toContain('button[aria-label="แชร์โพสต์"]::before');
+  expect(css).toContain('button[aria-label="บันทึกโพสต์"]::before');
+  expect(css).toContain("color: #f44336");
+  expect(css).toContain("color: var(--graphite)");
 });
