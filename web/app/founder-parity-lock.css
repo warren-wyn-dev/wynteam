@@ -1,8 +1,8 @@
 /*
  * Founder visual parity lock.
  *
- * Imported last. This layer must describe the approved WYNOS visual contract
- * and neutralize legacy migration CSS without changing product behaviour.
+ * Imported after the migration layers. Values here mirror the current Flutter
+ * Beta4 HomeDropCard geometry and intentionally win over legacy web CSS.
  */
 
 .rich-post-text {
@@ -43,52 +43,54 @@
   font-weight: 600;
 }
 
-/* Never allow browser-default underlines on post/profile navigation. */
 .avatar-button,
 .author-link,
 .audit-author-link,
 .post-open-button,
 .golden-drop-open,
+.golden-drop-head a,
 .avatar-button:visited,
 .author-link:visited,
 .audit-author-link:visited,
 .post-open-button:visited,
-.golden-drop-open:visited {
+.golden-drop-open:visited,
+.golden-drop-head a:visited {
   color: inherit;
   text-decoration: none !important;
 }
 
 /*
- * Approved Home card anatomy:
- *   row 1: avatar | author/time + actions
- *   row 2:          caption / hashtags
- *   row 3: media spans the full post width
- *   row 4: actions span the full post width
+ * Current Flutter HomeDropCard contract (home_card_metrics.dart):
+ * edge=16, avatar=44, avatarTop=16, avatar/content gap=8, content x=68,
+ * outer vertical rhythm=3, caption paint lift=3.
  *
- * .post-content used to be a block wrapper. display:contents is intentional:
- * it lets the children participate in this single grid so avatar/author can
- * share a row while media/actions still align to the post's left edge.
+ * The avatar is the left column. Author, caption, media and action bar all
+ * remain in the RIGHT content column. Do not make media/actions span back
+ * underneath the avatar: Flutter regression tests explicitly lock them to
+ * homeCardContentInset.
  */
 .parity-feed-post.audit-feed-post {
   display: grid !important;
   grid-template-columns: 44px minmax(0, 1fr);
-  grid-auto-flow: row;
   column-gap: 8px;
   row-gap: 0;
   width: 100%;
-  padding: 8px 16px 8px;
+  padding: 3px 0 3px 16px;
   box-sizing: border-box;
 }
 
 .audit-feed-post > .post-content {
-  display: contents;
+  grid-column: 2;
+  min-width: 0;
+  display: block;
 }
 
 .parity-feed-post.audit-feed-post > .avatar-button {
   grid-column: 1;
+  grid-row: auto;
   width: 44px;
   height: 44px;
-  margin: 0;
+  margin-top: 16px;
   align-self: start;
   justify-self: start;
 }
@@ -100,11 +102,9 @@
 
 .audit-feed-post .post-header.audit-author-row,
 .club-home-card .post-header {
-  grid-column: 2;
   min-width: 0;
-  min-height: 44px;
-  margin: 0;
-  align-self: start;
+  min-height: 24px;
+  margin-right: 16px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -123,9 +123,9 @@
 }
 
 .audit-feed-post .audit-author-link strong,
-.club-home-card .author-link strong {
+.club-home-card .author-link strong,
+.golden-drop-head strong {
   min-width: 0;
-  display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -137,7 +137,8 @@
 }
 
 .audit-feed-post .audit-author-link small,
-.club-home-card .author-link small {
+.club-home-card .author-link small,
+.golden-drop-head small {
   flex: 0 1 auto;
   max-width: 112px;
   overflow: hidden;
@@ -176,27 +177,24 @@
   flex: 0 0 40px;
   width: 40px;
   min-width: 40px;
-  min-height: 40px;
-  height: 40px;
+  min-height: 24px;
+  height: 24px;
   margin: 0 -8px 0 0;
   display: grid;
   place-items: center;
   color: var(--graphite);
 }
 
-/* Caption begins directly below the author name, not below the avatar. */
 .audit-feed-post .audit-caption {
-  grid-column: 2;
-  min-width: 0;
-  margin: -3px 0 0;
-  transform: none;
+  margin: 0 16px 0 0;
+  transform: translateY(-3px);
   color: var(--ink);
   font-size: 17.5px;
   line-height: 1.32;
   font-weight: 400;
 }
 
-/* ReDrop preface and quote are full-width pre-header rows. */
+/* ReDrop attribution/quote are pre-column rows and span the card. */
 .audit-redrop-line,
 .audit-quote-text {
   grid-column: 1 / -1;
@@ -204,19 +202,18 @@
 
 .audit-redrop-line {
   min-height: 18px;
-  margin: 0 0 4px;
+  margin: 0 16px 4px 0;
 }
 
 .audit-quote-text {
-  margin: 0 0 8px;
+  margin: 0 16px 8px 0;
 }
 
-/* Media returns to the post edge, matching the approved mockup. */
+/* Media remains in .post-content, therefore starts at content x=68. */
 .audit-feed-post .audit-media-wrap,
 .club-home-card .audit-media-carousel {
-  grid-column: 1 / -1;
   min-width: 0;
-  margin: 7px 0 0;
+  margin-top: 0;
 }
 
 .audit-media-carousel {
@@ -231,7 +228,7 @@
 }
 
 .audit-media-carousel.single {
-  margin-right: 0;
+  margin-right: 16px;
   padding-right: 0;
 }
 
@@ -245,8 +242,8 @@
 }
 
 .audit-media-carousel:not(.single) img {
-  flex: 0 0 82%;
-  width: 82%;
+  flex: 0 0 calc((100% - 16px) * 0.82);
+  width: calc((100% - 16px) * 0.82);
   transition: transform 180ms ease-out;
 }
 
@@ -264,61 +261,86 @@
   transform-origin: right center;
 }
 
-/* Interaction row is full-width and leaves only the approved compact gap. */
 .audit-feed-post .audit-action-row {
-  grid-column: 1 / -1;
   min-height: 48px;
-  margin: 3px 0 0;
+  margin: 0 16px 0 0;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 16px;
 }
 
+.audit-feed-post .audit-media-wrap + .audit-action-row,
+.club-home-card .audit-media-carousel + .audit-action-row {
+  margin-top: 3px;
+}
+
 .audit-feed-post .audit-action-row .metric-button {
   min-width: 32px;
-  min-height: 48px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  padding: 0;
+  padding: 0 4px;
 }
 
-/* Profile/Search post renderer keeps the same approved visual language. */
+/* Profile/Search/Bookmarks reuse the same Flutter HomeDropCard geometry. */
 .golden-drop-card {
+  display: grid !important;
   grid-template-columns: 44px minmax(0, 1fr);
   column-gap: 8px;
   row-gap: 0;
-  padding: 8px 16px;
+  width: 100%;
+  padding: 3px 0 3px 16px;
+  box-sizing: border-box;
 }
 
-.golden-drop-author-avatar,
+.golden-drop-redrop,
+.golden-drop-quote {
+  grid-column: 1 / -1;
+}
+
+.golden-drop-redrop {
+  min-height: 18px;
+  margin: 0 16px 4px 0;
+  padding: 0;
+}
+
+.golden-drop-quote {
+  margin: 0 16px 8px 0;
+  padding: 0;
+}
+
+.golden-drop-author-avatar {
+  grid-column: 1;
+  width: 44px;
+  height: 44px;
+  margin-top: 16px;
+}
+
 .golden-drop-avatar {
   width: 44px;
   height: 44px;
 }
 
-.golden-drop-author-avatar {
-  margin-top: 0;
-}
-
-.golden-drop-redrop {
-  min-height: 18px;
-  padding: 0 0 4px;
-}
-
-.golden-drop-quote {
-  padding: 0 0 8px;
+.golden-drop-body {
+  grid-column: 2;
+  min-width: 0;
 }
 
 .golden-drop-head {
-  margin-right: 0;
+  min-height: 24px;
+  margin-right: 16px;
 }
 
-.golden-drop-open,
-.golden-drop-open:visited {
-  color: var(--ink);
+.golden-drop-head > a {
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
 }
 
 .golden-drop-body > .rich-post-text,
@@ -329,12 +351,12 @@
 }
 
 .golden-drop-body > .rich-post-text {
-  margin: -3px 0 0;
-  transform: none;
+  margin: 0 16px 0 0;
+  transform: translateY(-3px);
 }
 
 .golden-drop-media-wrap {
-  margin-top: 7px;
+  margin-top: 0;
 }
 
 .golden-drop-media {
@@ -349,7 +371,7 @@
 }
 
 .golden-drop-media.single {
-  margin-right: 0;
+  margin-right: 16px;
 }
 
 .golden-drop-media.single img {
@@ -358,8 +380,8 @@
 }
 
 .golden-drop-media.multi img {
-  flex: 0 0 82%;
-  width: 82%;
+  flex: 0 0 calc((100% - 16px) * 0.82);
+  width: calc((100% - 16px) * 0.82);
   transition: transform 180ms ease-out;
 }
 
@@ -379,11 +401,24 @@
 
 .golden-drop-actions {
   min-height: 48px;
-  margin: 3px 0 0;
+  margin: 0 16px 0 0;
   gap: 16px;
 }
 
-/* Post detail shares the same approved interactive-text colors. */
+.golden-drop-media-wrap + .golden-drop-actions {
+  margin-top: 3px;
+}
+
+.golden-drop-actions > button,
+.golden-drop-actions > a,
+.golden-drop-actions > span {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Post detail keeps the approved bright-blue interactive link treatment. */
 .detail-caption.rich-post-text {
   margin-top: 7px;
   margin-bottom: 8px;
@@ -401,19 +436,15 @@
 }
 
 @media (max-width: 359px) {
-  .parity-feed-post.audit-feed-post,
-  .golden-drop-card {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-
   .audit-feed-post .audit-author-link,
-  .club-home-card .author-link {
+  .club-home-card .author-link,
+  .golden-drop-head > a {
     gap: 5px;
   }
 
   .audit-feed-post .audit-author-link small,
-  .club-home-card .author-link small {
+  .club-home-card .author-link small,
+  .golden-drop-head small {
     max-width: 88px;
   }
 
