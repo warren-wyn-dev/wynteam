@@ -12,6 +12,8 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   const profile = read("components/profile-route.tsx");
   const publication = read("lib/drop-publication.ts");
   const css = read("app/system-parity-final.css");
+  const interactionCss = read("app/interaction-parity-final.css");
+  const layout = read("app/layout.tsx");
 
   expect(home).toContain("audit-share-action");
   expect(detail).toContain('type ActivityTab = "likes" | "redrops";');
@@ -40,4 +42,25 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(composer).toContain("ตัวเลือกที่");
   expect(composer).toContain("SelectedAudienceIcon");
   expect(detail).not.toContain("📍");
+
+  expect(composer).toContain('client.rpc("fetch_mutual_follows"');
+  expect(composer).toContain('client.from("close_friends")');
+  expect(composer).toContain("excludedFriendIds");
+  expect(composer).toContain("mentionedUserIds");
+  expect(composer).toContain("searchProfiles(client, query, 0)");
+  expect(composer).toContain("new File([blob]");
+  expect(composer).toContain("beta4-upload-progress");
+  expect(publication).toContain("p_mentioned_user_ids: input.mentionedUserIds ?? []");
+  expect(publication).toContain('input.audience === "friends_except"');
+  expect(publication).toContain("input.onImageUploaded?.(index + 1, files.length)");
+
+  expect(detail).not.toContain("window.prompt");
+  expect(detail).not.toContain("window.confirm");
+  expect(detail).toContain("detail-confirm-dialog");
+  expect(detail).toContain("detail-dialog");
+  expect(interactionCss).toContain(".detail-dialog-backdrop");
+  expect(interactionCss).toContain("safe-area-inset-bottom");
+  expect(layout.lastIndexOf('import "./interaction-parity-final.css";')).toBeGreaterThan(
+    layout.lastIndexOf('import "./system-parity-final.css";'),
+  );
 });
