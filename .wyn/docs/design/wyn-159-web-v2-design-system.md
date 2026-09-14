@@ -5,6 +5,17 @@ Source of truth: `.wyn/docs/design/reference/wynos-feed.html` (Founder-attached 
 Supersedes for Consumer Web only: `.wyn/docs/design/design-principles.md` (Blue+White+Soft Gray direction
 stays in force for Mobile Flutter app and Admin/Seller dashboards; it does not apply to `web/` anymore)
 
+## Fidelity mandate for Home (added 2026-09-14, supersedes looser guidance below for this screen)
+
+Founder supplied a second, more precise reference — `.wyn/docs/design/reference/wynos-home.html` — as
+**100% source of truth** for the Home screen, with an explicit instruction: DOM structure, class ordering,
+and every CSS value (color, radius, spacing, font-size) must match **exactly**, no rounding, no designer
+judgment calls. Where this document's earlier "derived"/"extended" language (sizing table, icon sizing
+deviation, etc.) conflicts with `wynos-home.html` for something the file actually specifies, the file wins
+and the earlier guidance is void for that property. Earlier guidance still applies only where the file is
+silent (e.g. avatar sizes elsewhere in the app the file doesn't show). See the Post Card section of
+`wyn-159-web-v2-app-shell-home-navigation.md` for the corrected, literal spec derived from this file.
+
 ## Why this document exists
 
 Founder's brief said "extract the design system directly from wynos-feed.html" and "create a real
@@ -33,6 +44,7 @@ here as actual code (CSS custom properties / TS constants) in one place, not cop
 | `--border` | `#E7E7E7` | Default hairline dividers |
 | `--border-strong` | `#D0D0D0` | Outlined buttons (Follow), stronger separators |
 | `--accent-red` | `#E0203D` | **Only** for the liked/active Like state. Never used decoratively. |
+| `--danger-bg` | `#FCEBEB` | Background of inline error/failed states (e.g. failed-to-send post). Added 2026-09-14 per Founder's `wynos-home.html` reference — pairs with `--accent-red` text/icon on top of it. |
 
 Dark mode: not in the Founder-attached reference (light-only mockup). Do not invent a dark palette
 speculatively — flag to Founder as an open question before Coding builds one. Until answered, ship

@@ -81,6 +81,100 @@ no shadow.
 
 ---
 
+## CORRECTION (2026-09-14): exact source of truth for Home and Post Card
+
+Founder supplied `.wyn/docs/design/reference/wynos-home.html` as **100% literal source of truth** for
+this screen, correcting/superseding the "Home Feed" and "Post Card" sections below wherever they conflict.
+Binding rules from the Founder's brief, restated so Coding does not have to re-derive them:
+
+- DOM structure, element order, and class names must match the reference **exactly** — map each reference
+  class to a component/CSS-module class 1:1 rather than inventing a different structure that looks the same.
+- Every CSS value (color, radius, spacing, font-size) must match **exactly**. No rounding, no approximation,
+  no substituting a "close enough" token.
+- Keep the reference's CSS variable names (`--text-primary`, `--accent-red`, `--border`, `--danger-bg`,
+  etc.) or map them 1:1 to this project's `tokens.css` — same names where possible, so anyone diffing the
+  two files can trace every value.
+- Icons: Tabler Icons (`ti ti-*`) or the closest equivalent already available in the project's icon library
+  (`lucide-react`) — see the icon-mapping table in `wyn-159-web-v2-design-system.md`, extended below for
+  the two icons this file adds (`ti-alert-circle`).
+- The `.brand` SVG is a **temporary placeholder** — wire it to swap for the real brand logo file (woven-W)
+  when that asset exists; don't treat the inline path as final brand art.
+- **The three post variants in the file (text-only / image-carousel / failed-to-send) are one component
+  with props, not three hardcoded blocks.** Build a single Post component whose variant is driven by data
+  (e.g. `media: [] | MediaItem[]`, `sendStatus: "sent" | "failed"`), matching the reference's shared
+  `.post-block` skeleton.
+- After implementation, open the rendered app next to `wynos-home.html` and diff visually — anywhere they
+  differ, fix the implementation to match the file, not the other way around.
+
+### Corrected structure (literal, replaces the looser description under "Post Card" further down)
+
+```
+article.post-block                         (border-bottom: 1px solid var(--border); last post: none)
+  div.post-head-row                        (padding: 14px 16px 0)
+    div.post                               (display:flex; gap:10px)
+      div.avatar                           (36x36, round, var(--border) fill; opacity:.5 on failed variant)
+      div.post-body                        (flex:1, min-width:0)
+        div.post-head                      (flex, space-between)      -- omitted entirely on failed variant,
+                                                                          which renders only post-meta's name
+          div.post-meta                    (14px, name 600 weight, " · " + time in var(--text-muted))
+          div.post-head-actions            (flex, gap:8px)            -- omitted on failed variant
+            button.follow-btn               (pill, see design-system tokens)
+            button.more-btn                 (ti-dots)
+        p.post-text                        (15px/1.5, margin:6px 0 10px; opacity:.6 on failed variant)
+        div.post-actions                   (flex, gap:28px)           -- present on text-only variant only
+                                                                          (rendered here, inside post-body,
+                                                                          for the no-media case)
+        div[style="height:14px"]           -- text-only variant's bottom spacer inside post-body
+        div.error-box                      -- failed variant only, see below
+  div.post-media-wrap                      -- carousel variant only, sibling of post-head-row (NOT nested
+                                               inside post-body) so the carousel can bleed to full card width
+    div.carousel                           (flex, gap:6px, overflow-x:auto, scroll-snap-type:x mandatory,
+                                             padding: 0 16px 10px 62px — 62px = 16 card pad + 36 avatar +
+                                             10 gap, so the first image's left edge lines up with the text
+                                             above it, not with the card edge)
+      div.carousel-item × N                (220x270, var(--surface) fill, 12px radius, scroll-snap-align:start)
+  div.dots                                 -- carousel variant only, sibling after post-media-wrap
+                                             (flex, centered, gap:4px, margin-bottom:10px; each dot 5x5 round,
+                                             var(--border-strong), active dot var(--text-primary))
+  div.post-footer                          -- carousel variant only, sibling after dots (padding: 0 16px 14px)
+    div.post-actions                       (flex, gap:28px — same action row as text-only, just relocated
+                                             below the media instead of inside post-body)
+```
+
+Three variants, one component, distinguished by **where the action row and closing spacer land**, not by
+different markup per case:
+
+1. **Text-only** (no media, `sendStatus: "sent"`): `post-actions` + the 14px spacer render directly inside
+   `post-body`, after `post-text`. No `post-media-wrap`/`dots`/`post-footer` render at all.
+2. **Image carousel** (`media.length > 0`): `post-body` stops after `post-text` (no actions, no spacer
+   inside it). `post-media-wrap` (carousel) and `dots` render as siblings of `post-head-row` inside the
+   `post-block`, then `post-footer` (containing the same `post-actions`) closes the card below the media.
+3. **Failed to send** (`sendStatus: "failed"`): `post-head` (name+time+follow+more) is **not rendered** —
+   only a bare name (`คุณ`, i.e. "you", since this is always the current user's own unsent post) inside
+   `post-meta`. Avatar and post-text both render at reduced opacity (`.5` / `.6` respectively — literal
+   values from the file, not a token, since this is a one-off transient state). `post-actions` is replaced
+   entirely by an `error-box`: `ti-alert-circle` icon + message text ("โพสต์ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต")
+   + a "ลองอีกครั้ง" (retry) button, all in `--accent-red` on a `--danger-bg` pill (`border-radius: 10px`,
+   `padding: 8px 12px`, `gap: 8px`). No `post-media-wrap`/`dots`/`post-footer` for this variant either
+   (the reference shows it text-only, but the component should still accept `media` on a failed post if the
+   product needs that combination later — just don't invent carousel-on-failed styling now, nothing in the
+   reference specifies it).
+
+### Tabs — corrected
+
+`wynos-feed.html` (the first reference) had left-aligned tabs (`gap:18px`, no `justify-content`).
+`wynos-home.html` (this newer, authoritative reference) **centers** the tabs (`justify-content: center`,
+`gap: 20px`). Use the centered version — it is the more recent, more precise file and this doc's fidelity
+mandate makes it authoritative over the earlier mockup for anything the two disagree on.
+
+### Icon mapping addition
+
+| Reference (Tabler) | Lucide equivalent | Usage |
+|---|---|---|
+| `ti-alert-circle` | `AlertCircle` | Failed-post error box |
+
+---
+
 ## Screen: Home Feed (route `/`)
 
 **Purpose:** Primary content surface — three feed modes, scrollable post list.
