@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { PixelParityRuntime } from "@/components/pixel-parity-runtime";
 import "./globals.css";
 import "./phase2.css";
 import "./phase2-polish.css";
@@ -24,6 +25,8 @@ import "./founder-parity-lock.css";
 import "./system-parity-lock.css";
 import "./system-parity-final.css";
 import "./interaction-parity-final.css";
+import "./pixel-parity-final.css";
+import "./pixel-parity-audit-closure.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",
@@ -40,7 +43,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="th">
-      <body>{children}</body>
+      <body><PixelParityRuntime />{children}</body>
     </html>
   );
 }
