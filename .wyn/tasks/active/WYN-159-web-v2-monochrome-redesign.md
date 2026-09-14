@@ -145,3 +145,29 @@ automated tests alone.
   typecheck/build) reverified clean after the fix. Deliberately left unmigrated screens (Chat,
   Search/Bookmarks/Profile-feed via `golden-drop-card.tsx`, Notifications, deep-link routes)
   untouched — they'll get correct icons when their own batches land, not before.
+- 2026-09-14: Nav/header exact-fidelity fix per Founder's confirmed override
+  (`.wyn/company/DECISIONS.md`, "WYN-159 — Founder ยืนยันให้ Bottom Nav/Header ตาม
+  wynos-home-v2.html 100%"). Bottom nav (`bottom-navigation.tsx`, `WynosBottomNav.tsx`) is now
+  icon-only (no visible text labels) with 5 slots Home/Clubs(`/clubs`, `Users`)/Post-CTA/
+  Chat(`/chat`, `MessageCircle`)/Profile — global change via `AppChrome`, affects every route
+  using the shared chrome, not just Home. Search and Notifications remain real, reachable
+  routes (linked from `notifications-route.tsx`, `profile-route.tsx`, Home's empty state,
+  `deep-link-routes.tsx`, and now Home's header) — relocated, not deleted. Chat's unread badge
+  lifted from Home-only (`fetchHomeChatBadge` in `home-screen.tsx`) to global chrome
+  (`AppChrome` in `phase3-ui.tsx`), analogous to the existing notification-badge pattern.
+  Home header (`home-header.tsx`) trailing action changed from a single Chat icon to Search +
+  Bell (carrying the unread-notification badge, now via an extracted `useUnreadNotificationBadge`
+  hook in `phase3-ui.tsx`); brand wordmark corrected from "WYNOS" to "Wynos" (Home header only,
+  not a global rebrand). Commits `307fbbc3`, `2ae1403e`, `093d778b` on `feat/wyn-ux-ui-redesign`.
+  `npm run check` passes (lint/typecheck/build, all 22 routes compile). Playwright screenshots
+  (Chromium, production `next start` build) captured for `/dev/home-fixture` (mobile+desktop) and
+  `/dev/profile-fixture` (to show the nav is global, not Home-only) and reviewed — matches the
+  reference. Flagged, not fixed in this batch (out of explicit scope): navigating to the new
+  Clubs/Chat bottom-nav slots currently lands on `/clubs` and `/chat` screens that themselves set
+  `showBottomNav={false}` (existing back-button sub-screen chrome from before they were primary
+  nav destinations) — worth a follow-up Design/Product decision on whether those screens should
+  now keep the bottom nav visible like other top-level destinations. Also flagged: two pre-existing,
+  already-stale test files unrelated to this fix — `tests/browser/pixel-parity-pass-2.spec.ts`
+  (legacy Flutter-parity string assertions already broken by earlier WYN-159 batches, not part of
+  `npm run check`) and `tests/browser/home-visual-parity.spec.ts` snapshots (will need
+  re-baselining after this nav/header change, also not part of `npm run check`).
