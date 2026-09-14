@@ -185,8 +185,8 @@ export function ProfileFixture({ variant }: { variant: "own" | "other" }) {
       <BottomNavigation
         profileHref={`/profile/${VIEWER_ID}`}
         isActive={(href) => href === `/profile/${VIEWER_ID}`}
-        notificationLabel="การแจ้งเตือน"
-        notificationBadge={null}
+        chatLabel="แชท"
+        chatBadge={null}
       />
     </div>
   );

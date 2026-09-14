@@ -133,7 +133,13 @@ export function HomeFixture() {
         <WynosAppShell>
           <div className={homeShell.stickyWrap}>
             <div className={homeShell.headerGroup}>
-              <HomeHeader chatBadgeCount={3} onOpenMenu={() => {}} onOpenChat={() => {}} />
+              <HomeHeader
+                notificationBadge="3"
+                notificationLabel="การแจ้งเตือน มี 3 รายการที่ยังไม่อ่าน"
+                onOpenMenu={() => {}}
+                onOpenSearch={() => {}}
+                onOpenNotifications={() => {}}
+              />
               <HomeTabs mode={mode} onSelect={setMode} />
             </div>
           </div>
@@ -160,8 +166,8 @@ export function HomeFixture() {
       <BottomNavigation
         profileHref={`/profile/${VIEWER_ID}`}
         isActive={(href) => href === "/"}
-        notificationLabel="การแจ้งเตือน มี 2 รายการที่ยังไม่อ่าน"
-        notificationBadge="2"
+        chatLabel="แชท มี 2 ข้อความที่ยังไม่อ่าน"
+        chatBadge="2"
       />
     </div>
   );

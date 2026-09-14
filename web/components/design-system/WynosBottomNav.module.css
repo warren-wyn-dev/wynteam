@@ -1,9 +1,10 @@
 /* WynosBottomNav — 5-slot bottom navigation with circular center CTA
    (WYN-159 design system, `.bottom-nav`/`.nav-btn`/`.post-cta` in the
    reference). Positioning (fixed, centered, safe-area, shared content
-   rail width) is preserved verbatim from the previous `bottom-nav.css` —
-   only the visual language (color, borders) changes per the redesign;
-   the 5 destinations/labels are unchanged (see `bottom-navigation.tsx`). */
+   rail width) is preserved verbatim from the previous `bottom-nav.css`.
+   Icon-only, no visible text labels (Founder-confirmed 2026-09-14 —
+   see `.wyn/company/DECISIONS.md`); destinations owned by
+   `bottom-navigation.tsx`. */
 
 .nav {
   position: fixed;
@@ -25,27 +26,14 @@
   min-width: 0;
   min-height: var(--wyn-bottom-nav-height);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: 11.5px;
-  line-height: 1;
-  font-weight: 400;
 }
 
 .item.active {
   color: var(--text-primary);
-  font-weight: 600;
-}
-
-.item > span:last-child {
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .glyph {
@@ -80,7 +68,6 @@
 }
 
 .ctaItem {
-  gap: 6px;
   color: var(--text-secondary);
 }
 

@@ -7,7 +7,6 @@ export type WynosBottomNavItem = {
   key: string;
   href: string;
   ariaLabel: string;
-  label: string;
   icon: ReactNode;
   active?: boolean;
   badge?: string | null;
@@ -17,7 +16,10 @@ export type WynosBottomNavItem = {
 /**
  * WynosBottomNav — canonical 5-slot bottom navigation with a circular center
  * CTA (WYN-159 design system, `.bottom-nav`/`.nav-btn`/`.post-cta` in the
- * reference). Presentation only: destinations, hrefs, active-state and
+ * reference). Icon-only, no visible text labels — matches
+ * `wynos-home-v2.html` exactly (Founder-confirmed 2026-09-14, see
+ * `.wyn/company/DECISIONS.md`). `aria-label` still carries the accessible
+ * name per slot. Presentation only: destinations, hrefs, active-state and
  * badge logic all stay owned by `components/bottom-navigation.tsx`.
  */
 export function WynosBottomNav({ items }: { items: WynosBottomNavItem[] }) {
@@ -27,7 +29,6 @@ export function WynosBottomNav({ items }: { items: WynosBottomNavItem[] }) {
         item.variant === "cta" ? (
           <Link key={item.key} className={`${styles.item} ${styles.ctaItem}`} href={item.href} aria-label={item.ariaLabel}>
             <span className={styles.ctaCircle}>{item.icon}</span>
-            <span>{item.label}</span>
           </Link>
         ) : (
           <Link
@@ -44,7 +45,6 @@ export function WynosBottomNav({ items }: { items: WynosBottomNavItem[] }) {
                 </span>
               ) : null}
             </span>
-            <span>{item.label}</span>
           </Link>
         ),
       )}
