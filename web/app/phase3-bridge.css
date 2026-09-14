@@ -1,8 +1,0 @@
-.home-nav-bridge { pointer-events: none; }
-.home-nav-bridge a { position: fixed; z-index: 210; pointer-events: auto; background: transparent; }
-.bridge-top-search { top: max(8px, env(safe-area-inset-top)); right: calc(50% - min(50vw, 340px) + 48px); width: 46px; height: 46px; }
-.bridge-top-menu { top: max(8px, env(safe-area-inset-top)); right: calc(50% - min(50vw, 340px) + 2px); width: 46px; height: 46px; }
-.bridge-bottom-search, .bridge-bottom-notifications, .bridge-bottom-profile { bottom: 0; height: calc(62px + env(safe-area-inset-bottom)); width: min(20vw, 136px); }
-.bridge-bottom-search { left: calc(50% - min(50vw, 340px) + min(20vw, 136px)); }
-.bridge-bottom-notifications { right: calc(50% - min(50vw, 340px) + min(20vw, 136px)); }
-.bridge-bottom-profile { right: calc(50% - min(50vw, 340px)); }
