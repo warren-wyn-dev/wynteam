@@ -940,3 +940,31 @@ toolchain จริงใน environment ให้ตรวจ lint/type/build �
 Flutter SDK; ต้องมี test runner ที่ตรงกับ CI ก่อนจึงจะเปลี่ยน broad shared widgets ได้อย่างปลอดภัย
 
 อ้างอิง: `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`, commit ก่อนหน้า `455f303`
+
+## [2026-09-14] Founder สั่งออกแบบ UX/UI ใหม่ทั้งระบบสำหรับ Consumer Web (wynos.online) แยกจาก Mobile Pixel-Parity และเปิดทบทวน Visual Direction ใหม่
+
+Founder สั่งให้ AI Design ออกแบบ UX/UI ใหม่ทั้งระบบของ **Consumer Web (wynos.online)** โดยเฉพาะ (ไม่รวม
+Admin dashboard และ Seller dashboard ในคำสั่งนี้ — ยืนยันแยกจาก popup คำถามที่ถามก่อนเริ่มงาน) คำสั่งนี้ออกมา
+ในวันเดียวกับที่ WYN-158 (Next.js Consumer Web Migration) เพิ่งอนุมัติและ deploy ขึ้น production จริง โดย
+สถาปัตยกรรมเดิมของ WYN-158 กำหนดให้ web ต้องเป็น **pixel-parity กับ mobile Flutter** (ใช้ Flutter เป็น
+golden master แทนการ redesign) Founder ยืนยันชัดเจนว่าต้องการ **"ออกแบบใหม่ทั้งระบบ"** ให้ Consumer Web —
+ไม่ใช่แค่ปรับปรุงคุณภาพ/ความสม่ำเสมอโดยคง parity เดิมตามแนวทาง WYN-141
+
+Founder ยังยืนยันเพิ่มเติมว่าต้องการ **"ทบทวน/เปลี่ยน visual direction ใหม่ทั้งหมด"** สำหรับงานนี้ —
+ไม่ผูกกับ WYN Design Principles เดิม (Blue + White + Soft Gray, ห้าม Liquid Glass, ห้ามลอก Layout
+IG/TikTok) อย่างตายตัวอีกต่อไปสำหรับ Consumer Web โดยเฉพาะ ถือเป็นการอนุมัติให้ AI Design เสนอทิศทาง
+visual ใหม่ (สี/personality/typography) ให้ Founder พิจารณาอนุมัติ แทนที่จะใช้ของเดิมตรง ๆ ตามกติกาปกติ
+ของ `.wyn/agents/design.md` ที่ห้ามคิดทิศทาง visual ใหม่หากมี design system อนุมัติแล้ว — ข้อยกเว้นนี้ใช้
+เฉพาะกับ Consumer Web scope นี้เท่านั้น
+
+ทิศทางสีที่ Founder ระบุเบื้องต้น (2026-09-14): **Black + White เป็นสีหลัก, ธีมสว่าง (light theme)**
+มีจุดเน้น (accent) ด้วยสีอื่น ๆ เฉพาะจุดสำคัญ พร้อม reference ที่ชอบคือสไตล์ **X (Twitter) และ Threads**
+Founder แจ้งว่าจะส่ง prompt/brief เพิ่มเติมตามมาภายหลัง — AI Design รอ brief นี้ก่อนเริ่มผลิต spec เต็มรูป
+แบบ และ Founder ยืนยันให้ส่งมอบเป็น **full spec ครบทุกหน้าของ Consumer Web ในรอบเดียว** ไม่ใช่แบบ staged
+
+ขอบเขตที่ยังไม่เปลี่ยน (จนกว่าจะมีคำสั่งเพิ่มเติม): สถาปัตยกรรมทางเทคนิคของ WYN-158 (Next.js 16 + React 19,
+Supabase เป็น backend authority, ห้าม credential ฝั่ง browser) ยังคงเดิม, Mobile Flutter app ไม่ถูกแตะต้อง
+จากคำสั่งนี้, Admin/Seller dashboard ไม่อยู่ในขอบเขตงานนี้
+
+อ้างอิง: `.wyn/tasks/active/WYN-158-nextjs-consumer-web-migration.md`,
+`.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`, `.wyn/docs/design/design-principles.md`
