@@ -30,7 +30,6 @@
 .beta4-friend-row small { color: var(--graphite); font-size: 13px; }
 .beta4-friend-row > i { width: 22px; height: 22px; border: 1.5px solid var(--graphite); border-radius: 50%; box-sizing: border-box; }
 .beta4-friend-row > i.selected { border: 6px solid var(--sapphire); }
-
 .detail-dialog-backdrop,
 .wynos-confirm-backdrop { align-items: center; padding: 16px; }
 .detail-dialog,
@@ -56,7 +55,6 @@
 .detail-dialog footer button.primary:disabled { border-color: var(--hairline); background: var(--hairline); color: var(--muted-neutral); }
 .detail-confirm-dialog footer button.danger,
 .wynos-confirm-dialog footer button.danger { border-color: #dc2626; background: #dc2626; color: white; }
-
 @supports (height: 100dvh) { .beta4-composer { height: 100dvh; max-height: 100dvh; } }
 @media (max-width: 680px) {
   .beta4-composer-scroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
