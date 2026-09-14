@@ -315,20 +315,38 @@ sidebar — same component, same position, just sitting under the wider centered
 **Accessibility:** `aria-label` per slot preserved from existing implementation (already present: "หน้าหลัก",
 "ค้นหา", "สร้างโพสต์ใหม่", "การแจ้งเตือน" + label, "โปรไฟล์"). Keep 44×44px+ tap targets.
 
-**Design Rules — reconciling reference vs. existing product requirements:**
-The reference nav is icon-only (no text labels) with a 5th slot layout of Home / Clubs / Post-CTA / Chat /
-Profile. The current shipped nav is icon **+ label** with Home / Search / Post-CTA / Notifications /
-Profile, and Search and Notifications are real, frequently-used top-level destinations in WYNOS today.
-Per the Founder brief's own instruction — "if existing WYNOS destinations differ from the reference HTML,
-preserve required product destinations while keeping the SAME visual language... do not silently delete
-product routes" — **the destinations do not change**: keep Home / Search / Post-CTA / Notifications /
-Profile. What changes is the **visual language**: monochrome icon coloring (active = `--text-primary`,
-inactive = `--text-secondary`), the circular black center CTA exactly as the reference shows it, `21px`
-icon sizing at rest (24px for the CTA glyph per existing Lucide sizing convention), and the same hairline
-top border instead of any heavier chrome. Labels stay (dropping an existing, working affordance is a
-product/IA change outside this redesign's scope, not a visual one) but are restyled to the type scale in
-the design-system doc (11.5px existing size is fine to keep — it's already close to reference proportions;
-only recolor/reweight, don't resize).
+**Design Rules — CORRECTED 2026-09-14, supersedes the paragraph below:**
+Founder reviewed a direct side-by-side screenshot comparison (implementation vs.
+`wynos-home-v2.html`) and explicitly confirmed: match the reference **100% exactly**, including
+navigation structure, not just visual language. This is a deliberate, informed override of the
+"preserve existing destinations" reasoning below — Founder was told plainly that this relocates
+Search and Notifications out of the bottom nav, and confirmed anyway. Binding spec now:
 
-**Handoff:** Depends on Icon Button + tokens. Build immediately after Home so the flagship screenshot
-includes real navigation.
+- **Bottom nav** (global — this component is shared chrome across essentially every top-level
+  route via `AppChrome`, not just Home; this change affects site-wide navigation, not only the
+  Home screen): icon-only, **no text labels**, exactly 5 slots in this order: Home / Clubs /
+  Post-CTA / Chat / Profile. Clubs → `/clubs`, Chat → `/chat` (both existing real routes already
+  in the product, simply promoted from secondary to primary nav). Active state
+  `--text-primary`, inactive `--text-secondary`, circular black center CTA exactly as the
+  reference, `21px` icon sizing at rest per the reference (24px CTA glyph, existing convention).
+- **Header trailing actions** (Home only — other routes keep their own existing headers,
+  unaffected): replace the single Chat-icon-with-badge action with **two** icons matching the
+  reference exactly — Search (`/search`) and Bell/Notifications (`/notifications`, carrying the
+  unread-badge logic that used to live on the bottom nav's notification slot).
+- **Brand wordmark text**: reference literally spells it `Wynos` (capital W only), not `WYNOS`
+  (all-caps). Match this exactly **on the Home header specifically** — this correction is scoped
+  to this one reference file's wordmark element, not a global rebrand; every other `WYNOS`
+  mention elsewhere in the product (Welcome screen, Settings version footer, etc.) is out of
+  scope for this file and stays as-is unless a separate reference/instruction says otherwise.
+
+Superseded reasoning (kept for audit trail, no longer binding): the original assumption was that
+"preserve existing destinations, don't silently delete routes" meant the nav's destination *set*
+must stay fixed and only its *paint* could change. Founder's explicit, informed confirmation after
+seeing the concrete tradeoff (Search/Notifications leaving the bottom bar) replaces that
+assumption — nothing is actually deleted (both routes remain reachable, just relocated to the
+header to match the reference precisely), so this is compatible with "do not silently delete
+product routes" once Search/Notifications have a real, equally-reachable new home.
+
+**Handoff:** Depends on Icon Button + tokens. This is a global chrome change (bottom nav affects
+every route using `AppChrome`) — build and verify across multiple routes, not just Home, before
+considering this done.

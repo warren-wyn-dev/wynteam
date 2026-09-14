@@ -968,3 +968,26 @@ Supabase เป็น backend authority, ห้าม credential ฝั่ง br
 
 อ้างอิง: `.wyn/tasks/active/WYN-158-nextjs-consumer-web-migration.md`,
 `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`, `.wyn/docs/design/design-principles.md`
+
+## [2026-09-14] WYN-159 — Founder ยืนยันให้ Bottom Nav/Header ตาม wynos-home-v2.html 100% (ย้าย Search/Notifications ออกจาก Bottom Nav)
+
+หลัง AI Design เทียบ screenshot การ implement จริงกับไฟล์ต้นฉบับ `wynos-home-v2.html` แบบตรงๆ ให้ Founder ดู
+พบ 3 จุดที่ยังไม่ตรง: (1) Bottom Nav ของจริงมีตัวหนังสือใต้ไอคอนและใช้ปลายทาง Home/ค้นหา/โพสต์/แจ้งเตือน/
+โปรไฟล์ ขณะที่ไฟล์ต้นฉบับเป็นไอคอนล้วนไม่มีตัวหนังสือและใช้ปลายทาง Home/คลับ/โพสต์/แชท/โปรไฟล์ (2) Header
+มุมขวาบนของจริงมีไอคอนแชทอันเดียว ขณะที่ไฟล์ต้นฉบับมีไอคอนค้นหา+กระดิ่งแจ้งเตือน (3) โลโก้ตัวหนังสือของจริง
+เขียน "WYNOS" ขณะที่ไฟล์ต้นฉบับเขียน "Wynos"
+
+AI Design แจ้ง Founder ชัดเจนว่าการทำตามไฟล์ 100% หมายถึง **ค้นหาและการแจ้งเตือนจะย้ายออกจาก Bottom Nav
+ไปอยู่ที่ Header แทน** (ไม่ได้ตัดฟีเจอร์ทิ้ง แค่ย้ายตำแหน่ง) Founder ยืนยันเลือก **"ทำตามไฟล์ 100% เป๊ะๆ"**
+อย่างมีข้อมูลครบถ้วนก่อนตัดสินใจ
+
+คำสั่งนี้ทับ (supersede) การตัดสินใจเดิมของ AI Design ใน `wyn-159-web-v2-app-shell-home-navigation.md` ที่เคย
+เลือกคง Bottom Nav เดิมไว้ตามหลัก "ห้ามตัด product destination ทิ้งเงียบๆ" — เหตุผลเดิมยังถูกต้องในหลักการ
+(ไม่ตัดปลายทางทิ้งจริง) แต่ Founder เลือกให้ย้ายตำแหน่งแทนคงที่เดิมไว้ หลังรับทราบผลกระทบเต็มที่แล้ว
+
+ขอบเขตผลกระทบ: Bottom Nav เป็น shared chrome ที่ใช้ทั้งเว็บ (เกือบทุก route ผ่าน `AppChrome`) ไม่ใช่แค่หน้า
+Home — คำสั่งนี้จึงเปลี่ยน navigation structure ของทั้งเว็บ ไม่ใช่แค่ Home เพียงหน้าเดียว ส่วนโลโก้ "Wynos"
+(ตัวเล็ก) จำกัดเฉพาะ wordmark บน Home header เท่านั้น ไม่ใช่การเปลี่ยนตัวสะกดแบรนด์ "WYNOS" ทั่วทั้งระบบ
+
+อ้างอิง: `.wyn/docs/design/wyn-159-web-v2-app-shell-home-navigation.md`,
+`.wyn/docs/design/reference/wynos-home-v2.html`, `.wyn/tasks/active/WYN-159-web-v2-monochrome-redesign.md`

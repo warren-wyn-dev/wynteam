@@ -114,25 +114,34 @@ automated tests alone.
   reference's fixed 220x270px thumbnails — real photos need to support real aspect ratios) and
   gave go-ahead for Batch 3+. Home/Nav/Post Card batch is now DONE (~30% of overall WYN-159
   scope). Starting Batch 3 (Profile, Post Detail) per the binding migration order.
-- 2026-09-14: Batch 3 (Profile, Post Detail) implementation complete (~40% of overall WYN-159
-  scope). Branch `feat/wyn-ux-ui-redesign` pushed (commits `fe80aad6`, `22c79759`, `de443591`).
-  Profile header/cover/stats/tabs restyled onto v2 tokens (`components/profile/profile.module.css`)
-  while keeping the exact WYN-141-approved layout metrics (170px cover, 92px avatar overlap,
-  44px action row); tabs swapped to literal `WynosTabs`. Post Detail restyled onto v2 tokens
-  (`app/post-detail-v2.css`), five-action row rebuilt on the shared `post-card.module.css`
-  action classes (dropping the old CSS-mask icon-replacement hack), Activity sheet/composer/
-  comment metrics preserved exactly (46px composer, 54px activity row, two tabs only).
-  `profile-parity-route.tsx`'s click-capture coupling (`.flutter-profile-stats button`,
-  `button[aria-label="เพิ่มเติม"]`) left untouched and verified still matches. Legacy
-  `profile-golden-final.css`, `post-detail-parity.css`, `pixel-parity-final.css` deleted;
-  Profile/Post-Detail-specific rules trimmed out of `parity-completion.css`/
-  `system-parity-final.css` (both still used by unmigrated screens, left otherwise intact).
-  `golden-drop-card.css` deliberately kept — Profile's own post-feed tabs, Search and Bookmarks
-  all still depend on it; not retired this batch. `npm run check` passes (lint/typecheck/build).
-  Added `/dev/profile-fixture?variant=own|other` and `/dev/post-detail-fixture` dev routes;
-  Chromium screenshots (mobile 390x844 + desktop 1280x900) captured for all three states and
-  reviewed — matches the v2 monochrome system. Caught and fixed one real bug during review (a
-  DOM-nesting mistake that put `.flutter-profile-identity` inside `.flutter-profile-cover`,
-  breaking layout) and one hydration-mismatch fixture bug (minute-granularity fake
-  timestamps — fixed to hour-granularity per the existing `home-fixture.tsx` precedent).
-  Awaiting Founder review before Batch 4 (Search, Notifications, Chat).
+- 2026-09-14: Batch 3 (Profile + Post Detail) complete (~40% of overall WYN-159 scope), after
+  one resume following a session rate-limit interruption mid-batch (not a code issue — resumed
+  cleanly, no rework needed). Branch `feat/wyn-ux-ui-redesign` commits `fe80aad6` (Profile),
+  `22c79759` (Post Detail), `de443591` (legacy CSS retirement), `77596dd6` (docs). Reused
+  Home-batch primitives (`WynosAvatar/IconButton/PillButton/Tabs/Header`); preserved WYN-141
+  Founder-approved Profile layout metrics (170px cover, 92px avatar, -23px overlap) and all five
+  required Post Detail behaviors (5-action row, 2-tab activity sheet, 46px/54px metrics,
+  bright-blue caption links). `golden-drop-card.css` still required (Search/Bookmarks/Profile
+  feed tabs still consume it) — deliberately not retired this batch. `npm run check` passes (22
+  routes). Two self-caught bugs fixed before commit (DOM-nesting mistake in profile header;
+  hydration-mismatch from minute-granularity fixture timestamps). Screenshots captured (own
+  profile, other-user profile, post detail — mobile+desktop) but show a stray Next.js dev-mode
+  indicator badge (bottom-left "N" circle) because this batch screenshotted against `next dev`
+  rather than `next start` like the Home batch did — cosmetic screenshot-process issue only, not
+  a production artifact, to fix before the next round of screenshots. Two open questions flagged:
+  (1) Profile's larger 44px action-pill sizing intentionally differs from Home's compact Follow
+  chip — keep or unify later? (2) Header icon sizing was simplified from old WYN-158 per-icon
+  pixel values to the standard 22px/44px-box convention — keep simplified or restore exact old
+  sizes? Awaiting Founder review before Batch 4 (Search, Notifications, Chat).
+- 2026-09-14: Follow-up fix — the earlier Home correction agent (wynos-home.html round) guessed
+  Lucide icon equivalents before the Founder's definitive semantic mapping table arrived
+  (wynos-home-v2.html). Verified the gap directly against the pushed branch and found 3 real
+  mismatches: Comment action used `MessageSquare` (table says `MessageCircle`), Repost/ReDrop
+  used `Repeat2` (table says `Repeat`), Home header chat icon used `MessageSquare`. Fixed
+  directly (small, low-risk change) across `post-actions.tsx`, `club-feed-post.tsx`,
+  `home-header.tsx`, `home-post-card.tsx`, `home-screen.tsx` (ReDrop/Quote sheet rows),
+  `post-detail-route.tsx`, `post-detail-fixture.tsx`, and updated the `tokens.ts` mapping
+  table/docs to match — commit `3eed2552` on `feat/wyn-ux-ui-redesign`. `npm run check` (lint/
+  typecheck/build) reverified clean after the fix. Deliberately left unmigrated screens (Chat,
+  Search/Bookmarks/Profile-feed via `golden-drop-card.tsx`, Notifications, deep-link routes)
+  untouched — they'll get correct icons when their own batches land, not before.
