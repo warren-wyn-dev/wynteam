@@ -18,12 +18,33 @@ function throwIfError(error: { message?: string } | null | undefined): void {
   if (error) throw new Error(error.message || "โหลดฟีดไม่สำเร็จ");
 }
 
+/**
+ * Flutter cannot read image_aspect_ratio from home_feed either; it batch-reads
+ * drops in parallel and falls back to 4:5. Mirror that production-safe rule.
+ */
+async function hydrateImageAspectRatios(
+  client: SupabaseClient,
+  rows: HomeFeedRow[],
+): Promise<HomeFeedRow[]> {
+  const ids = [...new Set(rows.filter((row) => row.image_url).map((row) => row.id))];
+  if (!ids.length) return rows;
+  const result = await client
+    .from("drops")
+    .select("id,image_aspect_ratio")
+    .in("id", ids);
+  if (result.error) return rows;
+  const ratios = new Map(
+    (result.data ?? []).map((row) => [String(row.id), row.image_aspect_ratio == null ? null : String(row.image_aspect_ratio)]),
+  );
+  return rows.map((row) => ratios.has(row.id) ? { ...row, image_aspect_ratio: ratios.get(row.id) } : row);
+}
+
 export async function fetchRankedDropRows(
   client: SupabaseClient,
 ): Promise<HomeFeedRow[]> {
   const result = await client.rpc("get_wynos_ranked_feed");
   throwIfError(result.error);
-  return rankedDropRows(result.data, rankedLimit);
+  return hydrateImageAspectRatios(client, rankedDropRows(result.data, rankedLimit));
 }
 
 export async function fetchFollowingDropRows(
@@ -51,7 +72,7 @@ export async function fetchFollowingDropRows(
     .order("created_at", { ascending: false })
     .range(0, followingLimit - 1);
   throwIfError(result.error);
-  return rankedDropRows(result.data, followingLimit);
+  return hydrateImageAspectRatios(client, rankedDropRows(result.data, followingLimit));
 }
 
 export async function fetchTrendingDropRows(
@@ -63,7 +84,7 @@ export async function fetchTrendingDropRows(
     p_limit: trendingLimit,
   });
   throwIfError(result.error);
-  return rankedDropRows(result.data, trendingLimit);
+  return hydrateImageAspectRatios(client, rankedDropRows(result.data, trendingLimit));
 }
 
 export async function fetchHomeSurfaceRows(

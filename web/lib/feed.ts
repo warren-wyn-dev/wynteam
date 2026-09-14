@@ -12,6 +12,7 @@ export type HomeFeedRow = {
   image_width?: number | null;
   image_height?: number | null;
   image_count?: number | null;
+  image_aspect_ratio?: string | null;
   like_count?: number | null;
   comment_count?: number | null;
   redrop_count?: number | null;
@@ -46,6 +47,27 @@ export function rankedDropRows(value: unknown, limit = 20): HomeFeedRow[] {
 export function authorLabel(row: HomeFeedRow): string {
   const displayName = row.author_display_name?.trim();
   return displayName || row.author_username?.trim() || "WYNOS";
+}
+
+export function clampedPostImageRatio(width?: number | null, height?: number | null): number {
+  if (!width || !height || width <= 0 || height <= 0) return 1;
+  return Math.min(1.91, Math.max(0.8, width / height));
+}
+
+/** Mirrors Flutter DropAspectRatio + PostImageFrame/PostImageCarousel. */
+export function postMediaAspectRatio(row: HomeFeedRow, multiple: boolean): number {
+  if (!multiple) return clampedPostImageRatio(row.image_width, row.image_height);
+  switch (row.image_aspect_ratio) {
+    case "original":
+      return clampedPostImageRatio(row.image_width, row.image_height);
+    case "1:1":
+      return 1;
+    case "16:9":
+      return 16 / 9;
+    case "4:5":
+    default:
+      return 4 / 5;
+  }
 }
 
 export function relativeTimeTh(iso: string): string {

@@ -16,6 +16,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import {
   addDropComment,
@@ -48,18 +49,7 @@ type ActivityState = {
 const emptyActivity: ActivityState = { likes: [], redrops: [] };
 
 function Caption({ value }: { value: string }) {
-  const parts = value.split(/((?:https?:\/\/[^\s]+)|(?:#[\p{L}\p{N}_]+))/gu);
-  return (
-    <p className="detail-caption">
-      {parts.map((part, index) => {
-        if (/^https?:\/\//i.test(part)) {
-          return <a className="linkish" href={part} target="_blank" rel="noreferrer" key={`${part}-${index}`}>{part}</a>;
-        }
-        if (part.startsWith("#")) return <span className="hashtag" key={`${part}-${index}`}>{part}</span>;
-        return part;
-      })}
-    </p>
-  );
+  return <RichPostText className="detail-caption" value={value} />;
 }
 
 async function fetchDropImages(client: SupabaseClient, dropId: string, fallback?: string | null): Promise<string[]> {

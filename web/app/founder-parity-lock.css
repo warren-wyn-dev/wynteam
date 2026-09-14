@@ -1,0 +1,284 @@
+/*
+ * Founder visual parity lock.
+ *
+ * Imported after every migration/parity stylesheet. Values below are copied
+ * from the current Flutter golden master, not estimated from the web build.
+ */
+
+.rich-post-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+}
+
+.rich-post-link,
+.rich-post-body-link {
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  text-decoration: none;
+}
+
+.rich-post-body-link,
+.rich-post-body-link:visited {
+  color: inherit;
+}
+
+.rich-post-link.linkish,
+.rich-post-link.hashtag,
+.rich-post-link.linkish:visited,
+.rich-post-link.hashtag:visited {
+  color: #1d9bf0;
+  font-weight: inherit;
+}
+
+.rich-post-link.mention,
+.rich-post-link.mention:visited {
+  color: var(--sapphire);
+  font-weight: 600;
+}
+
+/*
+ * HomeDropCard golden metrics:
+ * edge=16, avatar=44, avatar top offset=16, avatar/content gap=8,
+ * outer vertical rhythm=3, caption lift=3, per-section right inset=16.
+ */
+.parity-feed-post.audit-feed-post {
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 0;
+  padding: 3px 0 3px 16px;
+}
+
+.parity-feed-post.audit-feed-post > .avatar-button {
+  width: 44px;
+  height: 44px;
+  margin-top: 16px;
+}
+
+.parity-feed-post.audit-feed-post > .avatar-button .route-avatar {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.audit-feed-post .post-header.audit-author-row,
+.club-home-card .post-header {
+  min-height: 24px;
+  margin-right: 16px;
+  align-items: center;
+  gap: 4px;
+}
+
+.audit-feed-post .audit-author-link {
+  gap: 8px;
+}
+
+.audit-feed-post .audit-caption {
+  margin: 0 16px 0 0;
+  transform: translateY(-3px);
+  font-size: 17.5px;
+  line-height: 1.32;
+  font-weight: 400;
+}
+
+/* ReDrop attribution/quote span the card, like Flutter's pre-column rows. */
+.audit-redrop-line {
+  margin: 0 16px 4px 0;
+}
+
+.audit-quote-text {
+  margin: 0 16px 8px 0;
+}
+
+/* Media starts immediately after the caption's layout box. */
+.audit-feed-post .audit-media-wrap,
+.club-home-card .audit-media-carousel {
+  margin-top: 0;
+}
+
+.audit-media-carousel {
+  gap: 8px;
+}
+
+.audit-media-carousel img {
+  border-radius: 16px;
+  object-fit: cover;
+  aspect-ratio: var(--post-media-ratio, 4 / 5);
+  max-height: 75dvh;
+}
+
+/* Single image respects the 16px trailing card inset. */
+.audit-media-carousel.single {
+  margin-right: 16px;
+  padding-right: 0;
+}
+
+.audit-media-carousel.single img {
+  flex-basis: 100%;
+  width: 100%;
+}
+
+/* Multi-image cards are 82% of the column after its 16px trailing inset. */
+.audit-media-carousel:not(.single) {
+  padding-right: 0;
+}
+
+.audit-media-carousel:not(.single) img {
+  flex: 0 0 calc((100% - 16px) * 0.82);
+  width: calc((100% - 16px) * 0.82);
+  transition: transform 180ms ease-out;
+}
+
+/* WYN-111 paint-only scaling follows whichever card is currently in front. */
+.audit-media-carousel:not(.single) img.front {
+  transform: scale(1);
+}
+
+.audit-media-carousel:not(.single) img.after {
+  transform: scale(0.86);
+  transform-origin: left center;
+}
+
+.audit-media-carousel:not(.single) img.before {
+  transform: scale(0.86);
+  transform-origin: right center;
+}
+
+.audit-feed-post .audit-action-row {
+  min-height: 48px;
+  margin: 0 16px 0 0;
+  gap: 16px;
+}
+
+.audit-feed-post .audit-media-wrap + .audit-action-row,
+.club-home-card .audit-media-carousel + .audit-action-row {
+  margin-top: 3px;
+}
+
+.audit-feed-post .audit-action-row .metric-button {
+  min-height: 48px;
+}
+
+/* Profile/Search use the same Flutter HomeDropCard visual contract. */
+.golden-drop-card {
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 0;
+  padding: 3px 0 3px 16px;
+}
+
+.golden-drop-author-avatar,
+.golden-drop-avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.golden-drop-author-avatar {
+  margin-top: 16px;
+}
+
+.golden-drop-redrop {
+  min-height: 18px;
+  padding: 0 16px 4px 0;
+}
+
+.golden-drop-quote {
+  padding: 0 16px 8px 0;
+}
+
+.golden-drop-head {
+  margin-right: 16px;
+}
+
+.golden-drop-open,
+.golden-drop-open:visited {
+  color: var(--ink);
+}
+
+.golden-drop-body > .rich-post-text,
+.golden-drop-quote.rich-post-text {
+  font-size: 17.5px;
+  line-height: 1.32;
+  font-weight: 400;
+}
+
+.golden-drop-body > .rich-post-text {
+  margin: 0 16px 0 0;
+  transform: translateY(-3px);
+}
+
+.golden-drop-media-wrap {
+  margin-top: 0;
+}
+
+.golden-drop-media {
+  gap: 8px;
+}
+
+.golden-drop-media img {
+  border-radius: 16px;
+  object-fit: cover;
+  aspect-ratio: var(--post-media-ratio, 4 / 5);
+  max-height: 75dvh;
+}
+
+.golden-drop-media.single {
+  margin-right: 16px;
+}
+
+.golden-drop-media.single img {
+  flex-basis: 100%;
+  width: 100%;
+}
+
+.golden-drop-media.multi img {
+  flex: 0 0 calc((100% - 16px) * 0.82);
+  width: calc((100% - 16px) * 0.82);
+  transition: transform 180ms ease-out;
+}
+
+.golden-drop-media.multi img.front {
+  transform: scale(1);
+}
+
+.golden-drop-media.multi img.after {
+  transform: scale(0.86);
+  transform-origin: left center;
+}
+
+.golden-drop-media.multi img.before {
+  transform: scale(0.86);
+  transform-origin: right center;
+}
+
+.golden-drop-actions {
+  min-height: 48px;
+  margin: 0 16px 0 0;
+  gap: 16px;
+}
+
+.golden-drop-media-wrap + .golden-drop-actions {
+  margin-top: 3px;
+}
+
+/* Post detail shares Flutter's hashtag/mention text colors. */
+.detail-caption.rich-post-text {
+  margin-top: 7px;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+
+.flutter-detail-post .detail-caption .rich-post-link.linkish,
+.flutter-detail-post .detail-caption .rich-post-link.hashtag {
+  color: #1d9bf0;
+}
+
+.flutter-detail-post .detail-caption .rich-post-link.mention {
+  color: var(--sapphire);
+  font-weight: 600;
+}
