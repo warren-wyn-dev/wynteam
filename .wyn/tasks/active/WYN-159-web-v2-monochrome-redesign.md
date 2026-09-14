@@ -82,3 +82,14 @@ automated tests alone.
   documented with a stated default so Coding is not blocked while awaiting an answer. Next:
   hand off to AI Coding for Batch 1 (tokens/primitives) + Batch 2 (App Shell/Home/Nav/Post Card,
   the flagship screen) on branch `feat/wyn-ux-ui-redesign`.
+- 2026-09-14: Batch 1+2 implementation complete (~25% of overall WYN-159 scope). Branch
+  `feat/wyn-ux-ui-redesign` pushed with tokens, `WynosAppShell/Header/IconButton/Tabs/Avatar/
+  PillButton/BottomNav` primitives, and Home/BottomNav/PostCard migrated to the v2 monochrome
+  design. `npm run check` passes (lint/typecheck/build). Legacy `home.css`/`bottom-nav.css`
+  deleted; `golden-drop-card.css` deliberately kept (still used by unmigrated Profile/Search/
+  Bookmarks). Screenshots captured (Chromium mobile-emulation + desktop; WebKit unavailable in
+  the build environment) and reviewed — visually matches the reference direction. Awaiting
+  Founder go/no-go before Batch 3+ (Profile, Post Detail, Search, Notifications, Chat, Composer,
+  Clubs, Settings, Auth) per the standing "visual check before continued rollout" rule. Known
+  follow-up: several pre-existing Playwright visual-regression specs assert old WYN-158 parity
+  class names/pixel values and now fail — expected fallout, needs a later batch to retire/rewrite.
