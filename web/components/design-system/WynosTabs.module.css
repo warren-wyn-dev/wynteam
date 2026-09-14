@@ -1,10 +1,14 @@
 /* WynosTabs — horizontal scrollable text tabs with active underline
-   (WYN-159 design system, `.tabs`/`.tab` in the reference). */
+   (WYN-159 design system, `.tabs`/`.tab` in the reference). Centered per
+   the 2026-09-14 correction to `wynos-home.html` (the earlier
+   `wynos-feed.html` reference had them left-aligned with an 18px gap —
+   superseded). */
 
 .tabs {
   display: flex;
   align-items: stretch;
-  gap: 18px;
+  justify-content: center;
+  gap: 20px;
   overflow-x: auto;
   scrollbar-width: none;
 }

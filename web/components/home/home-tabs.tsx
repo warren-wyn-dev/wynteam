@@ -9,7 +9,8 @@ export const HOME_FEED_MODES: { key: HomeFeedMode; label: string }[] = [
 ];
 
 /** Home's feed-mode toggle (WYN-159 design system, `WynosTabs` — `.tabs`/
- * `.tab` in the reference: 14px labels, 18px gap, active tab underlined). */
+ * `.tab` in the reference: 14px labels, centered with 20px gap, active tab
+ * underlined — see 2026-09-14 correction to `wynos-home.html`). */
 export function HomeTabs({
   mode,
   onSelect,
