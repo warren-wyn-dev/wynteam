@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - 'web/**'
       - '.github/workflows/wyn-158-production-deploy.yml'
 
 permissions:
