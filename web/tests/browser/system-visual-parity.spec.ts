@@ -106,12 +106,23 @@ test("Home actions mirror current Flutter: Like Comment Repost Share, no View", 
   expect(lock).toContain('content: "0"');
 });
 
-test("Creation surface keeps latest product constraints", () => {
-  const lock = read("app/system-parity-lock.css");
-  const home = read("components/parity-home-final.tsx");
-  expect(lock).toContain('content: "ยกเลิก"');
-  expect(home).not.toContain("เช็คอิน");
-  expect(home).not.toContain("Check-in");
+test("Creation surface matches Beta4 composer metrics while keeping the no Check-in product rule", () => {
+  const composer = read("components/beta4-composer.tsx");
+  const finalLock = read("app/system-parity-final.css");
+  const flutter = read("../app/lib/features/drop/presentation/create_drop_screen.dart");
+  expect(composer).toContain('className="beta4-composer-header"');
+  expect(composer).toContain('className="beta4-drafts"');
+  expect(composer).toContain('className="beta4-toolbar"');
+  expect(composer).toContain('className="beta4-ratio-chips"');
+  expect(composer).not.toContain("เช็คอิน");
+  expect(composer).not.toContain("Check-in");
+  expect(composer).not.toContain("สถานที่");
+  expect(finalLock).toContain("height: calc(70px + env(safe-area-inset-top))");
+  expect(finalLock).toContain("font-size: 22px");
+  expect(finalLock).toContain("min-width: 72px");
+  expect(finalLock).toContain("height: 42px");
+  expect(flutter).toContain("height: 70");
+  expect(flutter).toContain("fontSize: 22");
 });
 
 test("Post activity remains exactly Likes and Reposts", () => {
@@ -121,4 +132,34 @@ test("Post activity remains exactly Likes and Reposts", () => {
   expect(detail).toContain("ถูกใจ");
   expect(detail).toContain("รีโพสต์");
   expect(detail).not.toContain('setActivityTab("all")');
+});
+
+
+test("Post Detail closes the exact current Flutter geometry gaps", () => {
+  const detail = read("components/post-detail-route.tsx");
+  const finalLock = read("app/system-parity-final.css");
+  const flutter = read("../app/lib/features/drop/presentation/drop_detail_screen.dart");
+  expect(detail).toContain('className={`detail-floating-header');
+  expect(detail).toContain('size={44}');
+  expect(detail).toContain('className="detail-author-primary"');
+  expect(detail).toContain('size={isReply ? 32 : 36}');
+  expect(detail).toContain('placeholder="แสดงความคิดเห็น..."');
+  expect(detail).toContain('<BarChart3 size={22} />');
+  expect(finalLock).toContain("margin: 7px 10px 0");
+  expect(finalLock).toContain("color: #f44336");
+  expect(finalLock).toContain("height: 46px");
+  expect(flutter).toContain("floating: true");
+  expect(flutter).toContain("snap: true");
+  expect(flutter).toContain("radius: 22");
+  expect(flutter).toContain("radius: isReply ? 16 : 18");
+});
+
+test("Profile own action keeps the Founder edit icon and exact dimensions", () => {
+  const profile = read("components/profile-route.tsx");
+  const finalLock = read("app/system-parity-final.css");
+  const flutter = read("../app/lib/features/profile/presentation/view_profile_screen.dart");
+  expect(profile).toContain('<Pencil size={20} />แก้ไขโปรไฟล์');
+  expect(finalLock).toContain("font-size: 15.5px");
+  expect(finalLock).toContain("width: 20px");
+  expect(flutter).toContain("Icons.edit_outlined, size: 20");
 });

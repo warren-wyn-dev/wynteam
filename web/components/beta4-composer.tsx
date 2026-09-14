@@ -23,6 +23,7 @@ import { publishDropSafely } from "@/lib/drop-publication";
 import { fetchHomeIdentity, type HomeIdentity } from "@/lib/home-parity-data";
 
 type ComposeMode = "image" | "poll";
+type AspectRatioChoice = "original" | "1:1" | "4:5" | "16:9";
 type Audience = "everyone" | "friends" | "friends_except" | "close_friends" | "only_me";
 
 type DraftRow = {
@@ -71,6 +72,7 @@ export function Beta4Composer({
   const [caption, setCaption] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<ComposeMode>("image");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioChoice>("4:5");
   const [audience, setAudience] = useState<Audience>("everyone");
   const [audienceOpen, setAudienceOpen] = useState(false);
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -198,7 +200,7 @@ export function Beta4Composer({
     setError("");
     try {
       if (mode === "poll") await publishPoll();
-      else await publishDropSafely(client, userId, { caption, files, audience });
+      else await publishDropSafely(client, userId, { caption, files, audience, imageAspectRatio: aspectRatio });
       if (draftId) void client.from("drop_drafts").delete().eq("id", draftId).eq("author_id", userId);
       onPublished();
       onClose();
@@ -239,7 +241,7 @@ export function Beta4Composer({
           />
 
           {mode === "image" ? (
-            previews.length ? <div className="beta4-image-strip">{previews.map((url, index) => <div className="beta4-image-preview" key={url}><img src={url} alt="" /><button type="button" aria-label={`ลบรูปที่ ${index + 1}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={16} /></button></div>)}</div> : null
+            previews.length ? <><div className="beta4-image-strip">{previews.map((url, index) => <div className={`beta4-image-preview ratio-${aspectRatio.replace(":", "-")}`} key={url}><img src={url} alt="" /><button type="button" aria-label={`ลบรูปที่ ${index + 1}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={16} /></button></div>)}</div><div className="beta4-ratio-chips" role="group" aria-label="อัตราส่วนรูป">{(["original", "1:1", "4:5", "16:9"] as AspectRatioChoice[]).map((ratio) => <button className={aspectRatio === ratio ? "active" : ""} type="button" onClick={() => setAspectRatio(ratio)} key={ratio}>{ratio === "original" ? "ต้นฉบับ" : ratio}</button>)}</div></> : null
           ) : (
             <div className="beta4-poll-composer">
               <div className="beta4-poll-options">

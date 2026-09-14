@@ -20,6 +20,7 @@ type PublishInput = {
   operationId?: string | null;
   audience?: "everyone" | "friends" | "friends_except" | "close_friends" | "only_me";
   excludedFriendIds?: string[];
+  imageAspectRatio?: "original" | "1:1" | "4:5" | "16:9";
 };
 
 export type PublishDropResult = {
@@ -130,6 +131,7 @@ async function handleAmbiguousPublication(
 }
 
 /**
+ * WYN-158 parity closure: audience and image-aspect metadata mirror the current Beta4 composer.
  * Browser counterpart of Flutter DropRepository.createDrop/_publishDrop.
  *
  * The operation id and storage paths are deterministic. If a transport
@@ -196,7 +198,7 @@ export async function publishDropSafely(
       p_location_place_id: null,
       p_image_width: primary?.image_width ?? null,
       p_image_height: primary?.image_height ?? null,
-      p_image_aspect_ratio: null,
+      p_image_aspect_ratio: input.imageAspectRatio ?? null,
     });
 
     // PostgREST normally returns fetch/network failures through `result.error`
