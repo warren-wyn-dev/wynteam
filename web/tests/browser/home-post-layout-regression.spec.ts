@@ -18,7 +18,7 @@ test("caption media and actions remain in the right content column", () => {
   const home = css();
   expect(home).toMatch(/\.wyn-post-caption \{[\s\S]*?margin: 0 16px 0 0;[\s\S]*?translateY\(-3px\)/);
   expect(home).toMatch(/\.wyn-post-media \{[\s\S]*?margin-top: 0;/);
-  expect(home).toMatch(/\.wyn-post-actions \{[\s\S]*?margin: 0 16px 0 0;/);
+  expect(home).toMatch(/\.wyn-post-actions \{[\s\S]*?margin: 0 16px 12px 0;/);
   expect(home).not.toMatch(/\.wyn-post-media \{[\s\S]{0,160}?grid-column: 1 \/ -1;/);
   expect(home).not.toMatch(/\.wyn-post-actions \{[\s\S]{0,160}?grid-column: 1 \/ -1;/);
 });
