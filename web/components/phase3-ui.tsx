@@ -9,8 +9,54 @@ import { useEffect, useState } from "react";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { GoldenDropCard } from "@/components/golden-drop-card";
 import type { HomeFeedRow } from "@/lib/feed";
+import { fetchHomeChatBadge } from "@/lib/home-parity-data";
 import type { ProfileRow } from "@/lib/phase3-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+/**
+ * Unread-notification badge, extracted so `HomeHeader`'s Bell action (which
+ * moved here from the bottom nav's now-removed Notifications slot, per the
+ * 2026-09-14 Founder-confirmed nav/header correction, see
+ * `.wyn/company/DECISIONS.md`) can reuse the exact same fetch + formatting
+ * logic `AppChrome` used to run for the bottom nav.
+ */
+export function useUnreadNotificationBadge(userId: string, active: boolean) {
+  const pathname = usePathname();
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const notificationRouteActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
+
+  useEffect(() => {
+    let live = true;
+    if (!active || notificationRouteActive) return () => { live = false; };
+    const client = getSupabaseBrowserClient();
+    if (!client || !userId) return () => { live = false; };
+    const load = async () => {
+      const result = await client
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("recipient_id", userId)
+        .eq("is_read", false);
+      if (live && !result.error) setUnreadNotificationCount(result.count ?? 0);
+    };
+    void load();
+    const onFocus = () => void load();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      live = false;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [active, notificationRouteActive, userId]);
+
+  const visibleUnreadNotificationCount = notificationRouteActive ? 0 : unreadNotificationCount;
+  const notificationLabel = visibleUnreadNotificationCount > 0
+    ? `การแจ้งเตือน มี ${visibleUnreadNotificationCount} รายการที่ยังไม่อ่าน`
+    : "การแจ้งเตือน";
+  const notificationBadge = visibleUnreadNotificationCount > 0
+    ? (unreadNotificationCount > 9 ? "9+" : String(unreadNotificationCount))
+    : null;
+
+  return { notificationBadge, notificationLabel };
+}
 
 export function Avatar({ src, label, size = 42 }: { src?: string | null; label: string; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -37,24 +83,24 @@ export function AppChrome({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const inferredRootNav = pathname === "/" || pathname === "/search" || pathname === "/notifications" || pathname.startsWith("/profile/");
   const bottomNavVisible = showBottomNav ?? inferredRootNav;
-  const notificationRouteActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
+  const chatRouteActive = pathname === "/chat" || pathname.startsWith("/chat/");
   const activeFor = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
   useEffect(() => {
     let live = true;
-    if (!bottomNavVisible || notificationRouteActive) return () => { live = false; };
+    if (!bottomNavVisible || chatRouteActive) return () => { live = false; };
     const client = getSupabaseBrowserClient();
     if (!client || !userId) return () => { live = false; };
     const load = async () => {
-      const result = await client
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("recipient_id", userId)
-        .eq("is_read", false);
-      if (live && !result.error) setUnreadNotificationCount(result.count ?? 0);
+      try {
+        const count = await fetchHomeChatBadge(client);
+        if (live) setUnreadChatCount(count);
+      } catch {
+        // ignore — badge is non-critical, leave at previous/default value
+      }
     };
     void load();
     const onFocus = () => void load();
@@ -63,13 +109,13 @@ export function AppChrome({
       live = false;
       window.removeEventListener("focus", onFocus);
     };
-  }, [bottomNavVisible, notificationRouteActive, userId]);
+  }, [bottomNavVisible, chatRouteActive, userId]);
 
-  const visibleUnreadNotificationCount = notificationRouteActive ? 0 : unreadNotificationCount;
-  const notificationLabel = visibleUnreadNotificationCount > 0
-    ? `การแจ้งเตือน มี ${visibleUnreadNotificationCount} รายการที่ยังไม่อ่าน`
-    : "การแจ้งเตือน";
-  const notificationBadge = unreadNotificationCount > 9 ? "9+" : String(unreadNotificationCount);
+  const visibleUnreadChatCount = chatRouteActive ? 0 : unreadChatCount;
+  const chatLabel = visibleUnreadChatCount > 0
+    ? `แชท มี ${visibleUnreadChatCount > 9 ? "9+" : visibleUnreadChatCount} ข้อความที่ยังไม่อ่าน`
+    : "แชท";
+  const chatBadge = visibleUnreadChatCount > 0 ? (visibleUnreadChatCount > 9 ? "9+" : String(visibleUnreadChatCount)) : null;
 
   return (
     <div className={`route-app route-app-header-${headerMode} ${bottomNavVisible ? "route-with-bottom-nav" : "route-without-bottom-nav"}`}>
@@ -81,8 +127,8 @@ export function AppChrome({
         <BottomNavigation
           profileHref={`/profile/${userId}`}
           isActive={activeFor}
-          notificationLabel={notificationLabel}
-          notificationBadge={visibleUnreadNotificationCount > 0 ? notificationBadge : null}
+          chatLabel={chatLabel}
+          chatBadge={chatBadge}
         />
       ) : null}
     </div>
