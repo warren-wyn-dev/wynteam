@@ -32,5 +32,20 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
+      - name: Bootstrap Home visual-regression baselines (WYN-158, one-time)
+        run: npx playwright test home-visual-parity --update-snapshots
       - name: Phase 4 browser QA
         run: npm run qa:browser
+      - name: Upload updated Home visual snapshots (WYN-158, one-time)
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-visual-snapshots
+          path: web/tests/browser/home-visual-parity.spec.ts-snapshots/
+          retention-days: 3
+      - name: Upload Playwright results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: web/test-results/
+          retention-days: 7
