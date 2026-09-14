@@ -219,6 +219,17 @@ function ImageCarousel({
   const lastTap = useRef(0);
   const [burst, setBurst] = useState(false);
   const mediaRatio = postMediaAspectRatio(row, urls.length > 1);
+  const [mediaIndex, setMediaIndex] = useState(0);
+  const mediaTrack = useRef<HTMLDivElement>(null);
+  const updateMediaIndex = () => {
+    const track = mediaTrack.current;
+    const first = track?.querySelector<HTMLImageElement>("img");
+    if (!track || !first || urls.length <= 1) return;
+    const stride = first.getBoundingClientRect().width + 8;
+    if (stride <= 0) return;
+    const next = Math.max(0, Math.min(urls.length - 1, Math.round(track.scrollLeft / stride)));
+    setMediaIndex((current) => current === next ? current : next);
+  };
   const doubleLike = () => {
     if (!liked) onDoubleLike();
     setBurst(false);
@@ -239,9 +250,10 @@ function ImageCarousel({
 
   return (
     <div className="audit-media-wrap" onDoubleClick={doubleLike} onPointerUp={pointerUp}>
-      <div className={`audit-media-carousel ${urls.length === 1 ? "single" : ""}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties}>
+      <div ref={mediaTrack} onScroll={updateMediaIndex} className={`audit-media-carousel ${urls.length === 1 ? "single" : ""}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties}>
         {urls.map((url, index) => (
           <img
+            className={urls.length > 1 ? `audit-media-card ${index === mediaIndex ? "front" : index < mediaIndex ? "before" : "after"}` : "audit-media-card"}
             src={url}
             alt=""
             loading={index === 0 ? "eager" : "lazy"}
