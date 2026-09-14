@@ -416,7 +416,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
             <Link className="route-drop-author detail-author-link" href={`/profile/${row.author_id}`}>
               <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} />
               <span className="detail-author-copy">
-                <span className="detail-author-primary"><strong>{authorLabel(row)}{row.author_is_verified ? <b className="route-verified">✓</b> : null}</strong><small>{relativeTimeTh(row.created_at)}{row.location ? ` · 📍 ${row.location}` : ""}</small></span>
+                <span className="detail-author-primary"><strong>{authorLabel(row)}{row.author_is_verified ? <b className="route-verified">✓</b> : null}</strong><small>{relativeTimeTh(row.created_at)}</small></span>
                 <small className="detail-author-username">@{row.author_username || "wynos"}</small>
               </span>
             </Link>

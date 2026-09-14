@@ -10,6 +10,7 @@ import {
   Globe2,
   ImagePlus,
   Lock,
+  Plus,
   Star,
   UserRoundX,
   UsersRound,
@@ -99,6 +100,7 @@ export function Beta4Composer({
   const pollValid = caption.trim().length > 0 && pollOptions.length >= 2 && pollOptions.every((value) => value.trim().length > 0 && value.trim().length <= 80) && new Set(pollOptions.map((value) => value.trim().toLowerCase())).size === pollOptions.length;
   const canPublish = !busy && (mode === "poll" ? pollValid : caption.trim().length > 0 || files.length > 0);
   const hasContent = caption.trim().length > 0 || files.length > 0 || pollOptions.some((value) => value.trim().length > 0);
+  const SelectedAudienceIcon = audienceOptions.find((item) => item.value === audience)?.icon ?? Globe2;
 
   const requestClose = () => {
     if (busy) return;
@@ -227,7 +229,7 @@ export function Beta4Composer({
         <div className="beta4-composer-scroll">
           <div className="beta4-composer-identity">
             <Avatar src={identity?.avatar_url} label={identity?.username || "WYNOS"} size={44} />
-            <button className="beta4-audience-chip" type="button" disabled={busy} onClick={() => setAudienceOpen(true)}><Globe2 size={14} /><span>{audienceLabel(audience)}</span><ChevronDown size={13} /></button>
+            <button className="beta4-audience-chip" type="button" disabled={busy} onClick={() => setAudienceOpen(true)}><SelectedAudienceIcon size={14} /><span>{audienceLabel(audience)}</span><ChevronDown size={13} /></button>
           </div>
 
           <textarea
@@ -241,13 +243,13 @@ export function Beta4Composer({
           />
 
           {mode === "image" ? (
-            previews.length ? <><div className="beta4-image-strip">{previews.map((url, index) => <div className={`beta4-image-preview ratio-${aspectRatio.replace(":", "-")}`} key={url}><img src={url} alt="" /><button type="button" aria-label={`ลบรูปที่ ${index + 1}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={16} /></button></div>)}</div><div className="beta4-ratio-chips" role="group" aria-label="อัตราส่วนรูป">{(["original", "1:1", "4:5", "16:9"] as AspectRatioChoice[]).map((ratio) => <button className={aspectRatio === ratio ? "active" : ""} type="button" onClick={() => setAspectRatio(ratio)} key={ratio}>{ratio === "original" ? "ต้นฉบับ" : ratio}</button>)}</div></> : null
+            previews.length ? <><div className="beta4-image-strip">{previews.map((url, index) => <div className={`beta4-image-preview ratio-${aspectRatio.replace(":", "-")}`} key={url}><img src={url} alt="" /><button type="button" aria-label={`ลบรูปที่ ${index + 1}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={13} /></button></div>)}</div><div className="beta4-ratio-chips" role="group" aria-label="อัตราส่วนรูป">{(["original", "1:1", "4:5", "16:9"] as AspectRatioChoice[]).map((ratio) => <button className={`ratio-chip ratio-${ratio.replace(":", "-")} ${aspectRatio === ratio ? "active" : ""}`} aria-pressed={aspectRatio === ratio} type="button" onClick={() => setAspectRatio(ratio)} key={ratio}>{ratio === "original" ? "ต้นฉบับ" : ratio}</button>)}</div><div className="beta4-image-count">{files.length}/9</div></> : null
           ) : (
             <div className="beta4-poll-composer">
               <div className="beta4-poll-options">
-                {pollOptions.map((value, index) => <label key={index}><span>{index + 1}</span><input maxLength={80} value={value} disabled={busy} onChange={(event) => updatePollOption(index, event.target.value)} placeholder={`ตัวเลือก ${index + 1}`} />{pollOptions.length > 2 ? <button type="button" aria-label={`ลบตัวเลือก ${index + 1}`} onClick={() => removePollOption(index)}><X size={15} /></button> : null}</label>)}
+                {pollOptions.map((value, index) => <label key={index}><input maxLength={80} value={value} disabled={busy} onChange={(event) => updatePollOption(index, event.target.value)} placeholder={`ตัวเลือกที่ ${index + 1}`} />{index >= 2 ? <button type="button" aria-label={`ลบตัวเลือก ${index + 1}`} onClick={() => removePollOption(index)}><X size={18} /></button> : null}</label>)}
               </div>
-              {pollOptions.length < 4 ? <button className="beta4-add-option" type="button" disabled={busy} onClick={addPollOption}>+ เพิ่มตัวเลือก</button> : null}
+              {pollOptions.length < 4 ? <button className="beta4-add-option" type="button" disabled={busy} onClick={addPollOption}><Plus size={18} />เพิ่มตัวเลือก</button> : null}
               <strong className="beta4-duration-title">ระยะเวลาโหวต</strong>
               <div className="beta4-duration" role="group" aria-label="ระยะเวลาโหวต">{[1, 3, 7].map((days) => <button className={pollDuration === days ? "active" : ""} type="button" onClick={() => setPollDuration(days)} key={days}>{days} วัน</button>)}</div>
             </div>
@@ -260,15 +262,15 @@ export function Beta4Composer({
         <div className="beta4-toolbar">
           <strong>เพิ่มไปยังโพสต์ของคุณ</strong>
           <div className="beta4-toolbar-actions">
-            <button type="button" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => galleryRef.current?.click()}><ImagePlus size={22} /><span>รูปภาพ</span></button>
-            <button type="button" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => cameraRef.current?.click()}><Camera size={22} /><span>กล้อง</span></button>
-            <button className={mode === "poll" ? "active" : ""} type="button" disabled={busy} onClick={() => setMode((current) => current === "poll" ? "image" : "poll")}><BarChart3 size={22} /><span>โพล</span></button>
+            <button type="button" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => galleryRef.current?.click()}><ImagePlus size={24} /><span>รูปภาพ</span></button>
+            <button type="button" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => cameraRef.current?.click()}><Camera size={24} /><span>กล้อง</span></button>
+            <button className={mode === "poll" ? "active" : ""} type="button" disabled={busy} onClick={() => setMode((current) => current === "poll" ? "image" : "poll")}><BarChart3 size={24} /><span>โพล</span></button>
           </div>
           <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => { setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9)); event.currentTarget.value = ""; }} />
           <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) setFiles((current) => [...current, picked].slice(0, 9)); event.currentTarget.value = ""; }} />
         </div>
 
-        {audienceOpen ? <div className="beta4-sheet-backdrop" role="presentation" onClick={() => setAudienceOpen(false)}><section className="beta4-sheet" role="dialog" aria-modal="true" aria-label="เลือกกลุ่มผู้ชม" onClick={(event) => event.stopPropagation()}><div className="beta4-sheet-grip" /><header><strong>ใครเห็นโพสต์นี้ได้</strong><button type="button" aria-label="ปิด" onClick={() => setAudienceOpen(false)}><X size={20} /></button></header>{audienceOptions.map((item) => { const Icon = item.icon; return <button className="beta4-audience-row" type="button" onClick={() => { setAudience(item.value); setAudienceOpen(false); }} key={item.value}><span className="beta4-audience-icon"><Icon size={18} /></span><span><strong>{item.label}</strong><small>{item.description}</small></span>{item.nested ? <ChevronRight size={18} /> : <i className={audience === item.value ? "selected" : ""} />}</button>; })}</section></div> : null}
+        {audienceOpen ? <div className="beta4-sheet-backdrop" role="presentation" onClick={() => setAudienceOpen(false)}><section className="beta4-sheet" role="dialog" aria-modal="true" aria-label="เลือกกลุ่มผู้ชม" onClick={(event) => event.stopPropagation()}><div className="beta4-sheet-grip" /><header><strong>ใครเห็นโพสต์นี้ได้</strong><button type="button" aria-label="ปิด" onClick={() => setAudienceOpen(false)}><X size={20} /></button></header>{audienceOptions.map((item) => { const Icon = item.icon; return <button className="beta4-audience-row" type="button" onClick={() => { setAudience(item.value); setAudienceOpen(false); }} key={item.value}><span className="beta4-audience-icon"><Icon size={24} /></span><span><strong>{item.label}</strong><small>{item.description}</small></span>{item.nested ? <span className="beta4-audience-nested">{audience === item.value ? <i className="selected" /> : null}<ChevronRight size={22} /></span> : <i className={audience === item.value ? "selected" : ""} />}</button>; })}</section></div> : null}
 
         {draftsOpen ? <div className="beta4-sheet-backdrop" role="presentation" onClick={() => setDraftsOpen(false)}><section className="beta4-sheet beta4-drafts-sheet" role="dialog" aria-modal="true" aria-label="ร่าง" onClick={(event) => event.stopPropagation()}><div className="beta4-sheet-grip" /><header><strong>ร่าง</strong><button type="button" aria-label="ปิด" onClick={() => setDraftsOpen(false)}><X size={20} /></button></header>{draftsLoading ? <div className="route-empty"><span className="route-system-spinner" /></div> : drafts.length ? drafts.map((draft) => <button className="beta4-draft-row" type="button" onClick={() => openDraft(draft)} key={draft.id}><span><strong>{draft.caption?.trim() || (draft.poll_options?.length ? "โพลที่ยังไม่ได้เผยแพร่" : "ร่างที่ยังไม่ได้เผยแพร่")}</strong><small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(draft.updated_at))}</small></span><ChevronRight size={18} /></button>) : <div className="route-empty">ยังไม่มีร่าง</div>}</section></div> : null}
 
