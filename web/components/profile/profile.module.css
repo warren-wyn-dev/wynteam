@@ -1,0 +1,275 @@
+/*
+ * ProfileHeader — WYN-159 v2 restyle. Layout metrics (170px cover, 92px
+ * avatar overlap at -23px, 44px action row, stats grid, 84px inner avatar)
+ * are the Founder-approved WYN-141 final reference (2026-09-10) and are
+ * preserved exactly; only color/typography/border language changes to the
+ * WYN-159 monochrome token set. See `.wyn/docs/design/wyn-159-web-v2-profile-post-detail.md`.
+ *
+ * Class names below are scoped (CSS Module), but the DOM also carries the
+ * legacy global class names (`flutter-profile-cover`, `flutter-profile-stats`,
+ * ...) unchanged — `profile-parity-route.tsx` intercepts clicks via
+ * `.flutter-profile-stats button` / `button[aria-label="เพิ่มเติม"]`
+ * selectors, so those hooks must not be renamed here.
+ */
+
+.cover {
+  position: relative;
+  height: calc(170px + env(safe-area-inset-top));
+  overflow: visible;
+  background: #242424;
+}
+
+.cover > img,
+.cover :global(.profile-cover-fallback) {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: 50% 45%;
+  background: linear-gradient(135deg, #3a3a3a, #141414);
+}
+
+.cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 32%), transparent 50%);
+  pointer-events: none;
+}
+
+.coverToolbar {
+  position: absolute;
+  z-index: 3;
+  left: 4px;
+  right: 0;
+  top: env(safe-area-inset-top);
+  height: 56px;
+  display: flex;
+  align-items: center;
+  color: #fff;
+}
+
+.coverToolbar > strong {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.coverIcon {
+  color: #fff;
+}
+
+.coverIcon:hover {
+  background: rgb(255 255 255 / 14%);
+}
+
+.identity {
+  position: relative;
+  padding: 8px 16px 9px;
+  background: var(--bg);
+}
+
+.identity :global(.flutter-profile-avatar) {
+  position: absolute;
+  z-index: 2;
+  left: 16px;
+  top: -23px;
+  width: 92px;
+  height: 92px;
+  padding: 4px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+}
+
+.identity :global(.flutter-profile-avatar) :global(.route-avatar) {
+  width: 84px !important;
+  height: 84px !important;
+  border: 0;
+}
+
+.identity:has(:global(.flutter-profile-actions.own)) :global(.flutter-profile-avatar)::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  bottom: 8px;
+  width: 19px;
+  height: 19px;
+  box-sizing: border-box;
+  border: 3px solid var(--bg);
+  border-radius: 50%;
+  background: #57d65b;
+}
+
+.copy {
+  min-height: 67px;
+  padding: 0 0 0 104px;
+}
+
+.copy h2 {
+  margin: 0;
+  min-height: 23px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 21px;
+  line-height: 1.08;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.copy :global(.profile-username) {
+  margin: 1px 0 0;
+  font-size: 13.5px;
+  line-height: 1;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.copy > p:not(:global(.profile-username)) {
+  margin: 4px 0 0;
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 14.5px;
+  line-height: 1.34;
+  color: var(--text-primary);
+}
+
+.identity :global(.flutter-profile-stats) {
+  width: calc(100% - 112px);
+  max-width: 280px;
+  margin: 7px auto 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.identity :global(.flutter-profile-stats) button {
+  min-height: 0;
+  padding: 2px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.1;
+  cursor: pointer;
+}
+
+.identity :global(.flutter-profile-stats) button + button {
+  border-left: 1px solid var(--border);
+}
+
+.identity :global(.flutter-profile-stats) b {
+  display: block;
+  font-size: 20px;
+  line-height: 1.05;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.identity :global(.flutter-profile-actions) {
+  margin: 10px 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.identity :global(.profile-action-primary),
+.identity :global(.profile-action-secondary),
+.identity :global(.profile-action-icon) {
+  height: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.identity :global(.profile-action-primary) {
+  flex: 1;
+  border: 1px solid var(--text-primary);
+  background: var(--text-primary);
+  color: var(--bg);
+}
+
+.identity :global(.profile-action-primary.soft) {
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.identity :global(.profile-action-secondary) {
+  flex: 1;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.identity :global(.profile-action-icon) {
+  width: 44px;
+  flex: 0 0 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text-primary);
+  display: grid;
+  place-items: center;
+}
+
+.identity :global(.flutter-profile-actions.own) :global(.profile-action-primary) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15.5px;
+}
+
+.identity :global(.route-notice),
+.identity :global(.route-error) {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.identity :global(.route-error) {
+  color: var(--accent-red);
+}
+
+@media (max-width: 359px) {
+  .copy {
+    padding-left: 98px;
+  }
+
+  .identity :global(.flutter-profile-stats) {
+    width: calc(100% - 80px);
+  }
+
+  .identity :global(.flutter-profile-actions) {
+    gap: 7px;
+  }
+}
+
+/* Narrowest phones: keep the 72px stats inset from shrinking further than
+   necessary (WYN-158 precedent), only allow it to compress once 359px's
+   80px inset can no longer fit. */
+@media (max-width: 320px) {
+  .identity :global(.flutter-profile-stats) {
+    margin-inline: 56px;
+  }
+}

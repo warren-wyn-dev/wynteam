@@ -1,12 +1,14 @@
 "use client";
 
-import { Bookmark, Camera, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Pencil, Repeat2, Search, Send, Settings, Share2, UserPlus, X } from "lucide-react";
+import { Camera, Share2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { WynosTabs } from "@/components/design-system/WynosTabs";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, DropPreviewCard, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { ProfileHeader } from "@/components/profile/profile-header";
 import { ProfileRecommendations } from "@/components/profile-recommendations";
 import { toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
@@ -23,6 +25,13 @@ import {
   uploadProfileImage,
   type ProfileSummary,
 } from "@/lib/phase3-data";
+
+type ProfileTabKey = "posts" | "redrops" | "likes";
+const PROFILE_TABS: { key: ProfileTabKey; label: string }[] = [
+  { key: "posts", label: "สื่อ" },
+  { key: "redrops", label: "รีโพสต์" },
+  { key: "likes", label: "ถูกใจ" },
+];
 
 async function fetchRedrops(client: SupabaseClient, userId: string, page: number): Promise<HomeFeedRow[]> {
   const from = page * 10;
@@ -140,11 +149,28 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
     <section className="profile-route flutter-profile-route">
-      <div className="flutter-profile-cover">{profile.cover_url ? <img src={profile.cover_url} alt="" /> : <span className="profile-cover-fallback" />}<div className="flutter-profile-cover-toolbar"><button className="profile-cover-icon" type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={32} /></button><strong>โปรไฟล์</strong><span className="profile-cover-toolbar-spacer" />{own ? <><button className="profile-cover-icon" type="button" aria-label="แชร์โปรไฟล์" onClick={() => void share()}><Share2 size={23} /></button><button className="profile-cover-icon" type="button" aria-label="ตั้งค่า" onClick={() => router.push("/settings")}><Settings size={26} /></button></> : <><button className="profile-cover-icon" type="button" aria-label="ค้นหา" onClick={() => router.push("/search")}><Search size={24} /></button><button className="profile-cover-icon" type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><MoreVertical size={24} /></button></>}</div></div>
-      <div className="flutter-profile-identity"><div className="flutter-profile-avatar"><Avatar src={profile.avatar_url} label={profile.username} size={92} /></div><div className="profile-copy flutter-profile-copy"><h2>{name}{profile.is_verified ? <span className="route-verified">✓</span> : null}</h2><p className="profile-username">@{profile.username}</p>{profile.bio ? <p>{profile.bio}</p> : null}</div>{!summary.blockedBy ? <div className="profile-stats flutter-profile-stats"><button type="button"><b>{summary.followingCount.toLocaleString("th-TH")}</b> กำลังติดตาม</button><button type="button"><b>{summary.followerCount.toLocaleString("th-TH")}</b> ผู้ติดตาม</button></div> : null}{own ? <div className="flutter-profile-actions own"><button className="profile-action-primary" type="button" onClick={() => setEditing(true)}><Pencil size={20} />แก้ไขโปรไฟล์</button><button className="profile-action-icon" type="button" aria-label="แนะนำสำหรับคุณ" onClick={() => router.push("/search")}><UserPlus size={20} /></button><button className="profile-action-icon" type="button" aria-label="บันทึกไว้" onClick={() => router.push("/bookmarks")}><Bookmark size={20} /></button></div> : summary.blocked ? <div className="flutter-profile-actions"><button className="profile-action-primary soft" disabled={action} type="button" onClick={() => void unblock()}>ปลดบล็อก</button></div> : <div className="flutter-profile-actions"><button className={`profile-action-primary ${summary.following || summary.requested ? "soft" : ""}`} disabled={action || summary.blockedBy} type="button" onClick={() => void follow()}>{summary.following ? "กำลังติดตาม" : summary.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button><button className="profile-action-secondary" disabled={action || summary.blockedBy} type="button" onClick={() => void startChat()}><Send size={18} /> ส่งข้อความ</button></div>}{summary.blockedBy ? <p className="route-notice">ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้</p> : null}{!summary.blockedBy && profile.is_private && !own && !summary.following ? <p className="route-notice">บัญชีนี้เป็นส่วนตัว — ติดตามเพื่อดู {name}</p> : null}{error ? <p className="route-error">{error}</p> : null}</div>
+      <ProfileHeader
+        profile={profile}
+        summary={summary}
+        own={own}
+        name={name}
+        action={action}
+        error={error}
+        onBack={() => router.back()}
+        onShare={() => void share()}
+        onSettings={() => router.push("/settings")}
+        onSearch={() => router.push("/search")}
+        onMore={() => setMoreOpen(true)}
+        onEdit={() => setEditing(true)}
+        onSuggested={() => router.push("/search")}
+        onBookmarks={() => router.push("/bookmarks")}
+        onFollow={() => void follow()}
+        onUnblock={() => void unblock()}
+        onStartChat={() => void startChat()}
+      />
     </section>
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
-    {!summary.blockedBy ? <><div className="route-tabs profile-tabs flutter-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><ImageIcon size={20} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><Repeat2 size={20} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><Heart size={20} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
+    {!summary.blockedBy ? <><WynosTabs items={PROFILE_TABS} activeKey={tab} onSelect={setTab} ariaLabel="แท็บโปรไฟล์" /><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
     {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><X size={20} /></button></header><button type="button" onClick={() => void share()}><Share2 size={18} /> แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
   </AppChrome>;
 }

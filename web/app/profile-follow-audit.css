@@ -1,10 +1,13 @@
-.follow-list-route { background: var(--paper); }
-.follow-list-row { min-height: 68px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--hairline); }
-.follow-list-person { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+/* Follow/Following list rows — WYN-159 v2 restyle (rows only, no behavior
+   change; row markup/route stays exactly as before, see
+   components/profile-follow-list-route.tsx). */
+.follow-list-route { background: var(--bg); }
+.follow-list-row { min-height: 68px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+.follow-list-person { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; color: var(--text-primary); text-decoration: none; }
 .follow-list-person > span { min-width: 0; display: flex; flex-direction: column; }
 .follow-list-person strong { font-size: 14.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.follow-list-person small { margin-top: 2px; color: var(--graphite); font-size: 12px; }
-.follow-list-error { margin: 12px 16px; }
+.follow-list-person small { margin-top: 2px; color: var(--text-secondary); font-size: 12px; }
+.follow-list-error { margin: 12px 16px; color: var(--accent-red); }
 .profile-audit-sheet-header { min-height: 48px; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; padding: 0 8px; border-bottom: 1px solid var(--hairline); }
 .profile-audit-sheet-header strong { grid-column: 2; text-align: center; font-size: 16px; }
 .profile-audit-sheet-header button { grid-column: 3; width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: var(--ink); }

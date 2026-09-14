@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { WynosAvatar } from "@/components/design-system/WynosAvatar";
+import { WynosPillButton } from "@/components/design-system/WynosPillButton";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { AppChrome, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { toggleAuthorFollow } from "@/lib/home-actions";
 
 type Kind = "followers" | "following";
@@ -53,7 +55,7 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
     } catch { setError("อัปเดตการติดตามไม่สำเร็จ"); }
     finally { setBusy(null); }
   };
-  return <AppChrome title={kind === "followers" ? "ผู้ติดตาม" : "กำลังติดตาม"} userId={viewerId} backHref={`/profile/${profileId}`} showBottomNav={false}>{loading ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : <div className="follow-list-route">{people.map((person) => <div className="follow-list-row" key={person.id}><a className="follow-list-person" href={`/profile/${person.id}`}><Avatar src={person.avatar_url} label={person.username} size={44} /><span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span></a>{person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}</div>)}{error ? <p className="route-error follow-list-error">{error}</p> : null}</div>}</AppChrome>;
+  return <AppChrome title={kind === "followers" ? "ผู้ติดตาม" : "กำลังติดตาม"} userId={viewerId} backHref={`/profile/${profileId}`} showBottomNav={false}>{loading ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : <div className="follow-list-route">{people.map((person) => <div className="follow-list-row" key={person.id}><a className="follow-list-person" href={`/profile/${person.id}`}><WynosAvatar src={person.avatar_url} label={person.username} size={44} /><span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span></a>{person.id !== viewerId ? <WynosPillButton muted={person.following || person.requested} disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</WynosPillButton> : null}</div>)}{error ? <p className="route-error follow-list-error">{error}</p> : null}</div>}</AppChrome>;
 }
 
 export function ProfileFollowListRoute({ profileId, kind }: { profileId: string; kind: Kind }) {
