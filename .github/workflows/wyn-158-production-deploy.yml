@@ -1,0 +1,104 @@
+name: WYN-158 Production Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wyn-158-production-deploy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Production preflight
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run check
+
+      - name: Deploy to Vercel production
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
+          VERCEL_ORG_ID=$(clean "$VERCEL_ORG_ID")
+          VERCEL_PROJECT_ID=$(clean "$VERCEL_PROJECT_ID")
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+
+          for value in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            test -n "$(eval echo \"\$$value\")" || { echo "::error::$value is empty"; exit 1; }
+          done
+
+          export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          url=$(npx --yes vercel@latest deploy --prod --yes \
+            --token="$VERCEL_TOKEN" \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            | tail -n 1)
+
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Production deployment: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify production routes
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          verify_next() {
+            local url="$1"
+            local html
+            html=$(curl --silent --show-error --fail --location --retry 6 --retry-delay 5 --max-time 30 \
+              --header 'Cache-Control: no-cache' "$url")
+            grep -q '/_next/' <<< "$html"
+            ! grep -q 'flutter_bootstrap.js' <<< "$html"
+          }
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            echo "Waiting for production alias (attempt $attempt/30)"
+            if verify_next "https://wynos.online/?_wyn_verify=${GITHUB_RUN_ID}-${attempt}"; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          test "$ready" -eq 1 || { echo '::error::wynos.online did not serve the deployed Next.js build'; exit 1; }
+
+          for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks; do
+            echo "Checking https://wynos.online$route"
+            curl --fail --location --retry 5 --retry-delay 2 --max-time 30 \
+              --header 'Cache-Control: no-cache' \
+              --output /dev/null "https://wynos.online$route"
+          done
+
+          echo 'WYN-158 production deployment verified on wynos.online.' >> "$GITHUB_STEP_SUMMARY"
