@@ -1,0 +1,473 @@
+/*
+ * WYN-158 system-wide parity lock.
+ * Imported LAST. This file only neutralizes migration-era presentation drift;
+ * route/data behavior stays owned by the React components and Supabase.
+ */
+
+/* Shared surface: Flutter social screens are paper, never gray canvas. */
+.route-app,
+.route-main,
+.home-feed-surface,
+.settings-page,
+.flutter-chat-inbox,
+.notification-list {
+  background: var(--paper);
+}
+
+/* ---------- Notifications: current Flutter notification_list_screen.dart ---------- */
+.notification-root-header {
+  height: 60px;
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.notification-root-header > button {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.notification-root-header > strong {
+  min-width: 0;
+  text-align: center;
+  font-size: 17px;
+  line-height: 1.15;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.flutter-notification-tabs {
+  height: 46px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.flutter-notification-tabs button {
+  position: relative;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--graphite);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.flutter-notification-tabs button.active {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.flutter-notification-tabs button::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 34px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.flutter-notification-tabs button.active::after {
+  background: var(--ink);
+}
+
+.notification-group-label {
+  padding: 20px 16px 4px;
+  color: var(--muted-neutral, #b7b4ac);
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: .12em;
+}
+
+.notification-row {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 16px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  border: 0;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+
+.notification-avatar-wrap {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(27 58 107 / 20%);
+  border-radius: 50%;
+}
+
+.notification-avatar-wrap > .route-avatar {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.notification-type-icon {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--paper);
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.notification-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 1px;
+}
+
+.notification-copy > strong {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+.notification-copy > small {
+  color: var(--faint);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.notification-copy > .notification-preview {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--graphite);
+}
+
+.notification-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--sapphire);
+}
+
+/* ---------- Chat Inbox: current Flutter chat_inbox_screen.dart ---------- */
+.flutter-chat-inbox {
+  min-height: 100%;
+  background: var(--paper);
+}
+
+.flutter-chat-header {
+  height: 62px;
+  padding: 0 12px 0 4px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 38px;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.flutter-chat-header-action {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.flutter-chat-header h1 {
+  margin: 0;
+  justify-self: start;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.flutter-chat-compose-action {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.flutter-chat-pill-tabs {
+  padding: 12px 16px 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  background: var(--paper);
+}
+
+.flutter-chat-pill-tabs button {
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.flutter-chat-pill-tabs button.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 600;
+}
+
+.flutter-chat-list {
+  background: var(--paper);
+}
+
+.flutter-chat-list .chat-row {
+  min-height: 72px;
+  padding: 10px 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.flutter-chat-list .chat-row-copy strong {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.flutter-chat-list .chat-row-copy small,
+.flutter-chat-list .chat-row time {
+  color: var(--graphite);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.chat-locked-state {
+  min-height: 280px;
+  padding: 48px 24px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.chat-locked-state strong {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.chat-locked-state small {
+  color: var(--graphite);
+  font-size: 13px;
+}
+
+/* ---------- Settings: current Flutter settings_screen.dart ---------- */
+.route-main:has(.settings-page) > .route-header {
+  min-height: 64px;
+  height: 64px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.route-main:has(.settings-page) > .route-header h1 {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.settings-page {
+  min-height: calc(100dvh - 64px);
+  padding: 0 0 24px;
+  background: var(--paper) !important;
+}
+
+.settings-page > h2 {
+  margin: 0;
+  padding: 12px 16px 4px;
+  color: var(--graphite);
+  font-size: 12.5px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.settings-group {
+  margin: 0 16px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: none;
+}
+
+.settings-group.separated {
+  margin-top: 12px;
+}
+
+.settings-row {
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+
+.settings-row:last-child {
+  border-bottom: 0;
+}
+
+.settings-row > span:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-row strong {
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 500;
+}
+
+.settings-row small {
+  color: var(--graphite);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.settings-row.danger {
+  color: var(--graphite);
+}
+
+.settings-version-footer {
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--faint);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ---------- Home/Post action contract ---------- */
+/* Flutter Home hides view count and keeps Share/Save inside More. */
+.audit-feed-post .audit-share-action {
+  display: none !important;
+}
+
+/* Source sets hideZeroActionCounts=false: render a zero when React omitted it. */
+.audit-feed-post .audit-action-row .metric-button:not(.audit-share-action):not(:has(> span))::after,
+.golden-drop-actions > button:not([aria-label="แชร์"]):not(:has(> span))::after,
+.golden-drop-actions > a:not(:has(> span))::after,
+.golden-drop-view:not(:has(> span))::after {
+  content: "0";
+  font-size: 15px;
+  line-height: 1;
+  color: currentColor;
+}
+
+/* Profile/Search/Bookmarks keep view metrics but Share remains in More. */
+.golden-drop-actions > button[aria-label="แชร์"] {
+  display: none !important;
+}
+
+/* ---------- Composer: Flutter uses a full-screen creation surface ---------- */
+@media (max-width: 680px) {
+  .route-modal-backdrop:has(.audit-composer),
+  .route-modal-backdrop:has(.chat-new-message-modal) {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .audit-composer,
+  .chat-new-message-modal {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--paper);
+  }
+
+  .audit-composer header {
+    min-height: calc(56px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 12px 0;
+    grid-template-columns: 84px minmax(0, 1fr) 84px;
+  }
+
+  .audit-composer header > button:first-child {
+    width: 84px;
+    justify-content: flex-start;
+    color: var(--ink);
+    font-size: 0;
+  }
+
+  .audit-composer header > button:first-child svg {
+    display: none;
+  }
+
+  .audit-composer header > button:first-child::after {
+    content: "ยกเลิก";
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .audit-composer > textarea {
+    min-height: 220px;
+    padding: 18px 16px;
+  }
+}
+
+/* Wide-screen Flutter/DOM parity: centered readable social rail. */
+@media (min-width: 681px) {
+  .route-main,
+  .parity-home-main {
+    width: min(100%, 680px);
+    margin-inline: auto;
+  }
+}
