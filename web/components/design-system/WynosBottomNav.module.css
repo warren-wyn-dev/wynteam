@@ -1,0 +1,100 @@
+/* WynosBottomNav — 5-slot bottom navigation with circular center CTA
+   (WYN-159 design system, `.bottom-nav`/`.nav-btn`/`.post-cta` in the
+   reference). Positioning (fixed, centered, safe-area, shared content
+   rail width) is preserved verbatim from the previous `bottom-nav.css` —
+   only the visual language (color, borders) changes per the redesign;
+   the 5 destinations/labels are unchanged (see `bottom-navigation.tsx`). */
+
+.nav {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(100%, var(--wyn-content-rail, 680px));
+  height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+  min-height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.item {
+  min-width: 0;
+  min-height: var(--wyn-bottom-nav-height);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 11.5px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.item.active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.item > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.glyph {
+  position: relative;
+  width: 21px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+}
+
+.glyph :global(svg) {
+  width: 21px;
+  height: 21px;
+  color: currentColor;
+}
+
+.badge {
+  position: absolute;
+  right: -6px;
+  top: -4px;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 1px 4px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--accent-red);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.ctaItem {
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.ctaCircle {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--text-primary);
+  color: var(--bg);
+}
+
+.ctaCircle :global(svg) {
+  width: 24px;
+  height: 24px;
+}

@@ -1,0 +1,18 @@
+/* WynosAppShell — page frame (WYN-159 design system, `.app` in the
+   reference): background + centered max-width column. The reference's own
+   `.app` also drew a 16px-radius border around the whole frame, but per the
+   app-shell/home doc that border was the mockup's own "phone card" demo
+   staging frame, not a chrome element to reproduce at real viewport widths
+   — real routes get no outer border/radius here. */
+
+.shell {
+  width: 100%;
+  /* Matches the existing shared content rail (`--wyn-content-rail`, defined
+     in app/parity-final.css and consumed by every route today via
+     `.route-main`) so Home does not introduce a visual width seam against
+     still-unmigrated routes mid-migration. Falls back to the design doc's
+     recommended 600px if that legacy variable is ever removed. */
+  max-width: var(--wyn-content-rail, 600px);
+  margin: 0 auto;
+  background: var(--bg);
+}

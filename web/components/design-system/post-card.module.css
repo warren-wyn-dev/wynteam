@@ -1,0 +1,261 @@
+/*
+ * WynosPostCard / WynosPostHeader / WynosPostActions — shared feed post
+ * styling (WYN-159 design system, `.post`/`.post-head`/`.post-actions` in
+ * the reference).
+ *
+ * Shared as ONE CSS Module across `home-post-card.tsx`, `club-feed-post.tsx`
+ * (Home's "คลับของฉัน" tab — same card geometry per its own existing
+ * comment), `post-actions.tsx`, `post-author-row.tsx` and
+ * `post-media-carousel.tsx`, so all of Home's post surfaces share exactly
+ * the same generated class names (Next.js gives identical hashed names to
+ * every importer of the same module file) instead of duplicating rules.
+ */
+
+.post {
+  position: relative;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.postRedropLine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.postQuote {
+  margin: 0 0 8px;
+}
+
+.postRow {
+  display: flex;
+  gap: 10px;
+}
+
+.postAvatar {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.postBody {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.postAuthorRow {
+  min-width: 0;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.postAuthorLink {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-decoration: none !important;
+  color: inherit;
+}
+
+.postAuthorName {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.postVerified {
+  flex: 0 0 auto;
+}
+
+.postTimestamp {
+  flex: 0 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.postHeadActions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* More-menu button keeps its own tight 44x24 hit box (existing pattern:
+   a real >=44px-wide tap target via a negative right margin that cancels
+   the box's footprint, so the visible dots icon still sits flush at the
+   post's right edge, matching the reference) rather than WynosIconButton's
+   uniform 44x44 box, which would visibly push the icon away from the edge. */
+.postMore {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 24px;
+  min-height: 24px;
+  margin: 0 -8px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.postCaption {
+  margin: 6px 0 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+/* ---------- Media ---------- */
+
+.media {
+  position: relative;
+  min-width: 0;
+}
+
+.mediaTrack {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+
+.mediaTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.mediaItem {
+  border-radius: var(--radius-card);
+  object-fit: cover;
+  aspect-ratio: var(--post-media-ratio, 4 / 5);
+  max-height: 75dvh;
+  scroll-snap-align: start;
+  background: var(--surface-subtle);
+}
+
+.mediaTrackSingle .mediaItem {
+  flex: 0 0 100%;
+  width: 100%;
+}
+
+.mediaTrack:not(.mediaTrackSingle) .mediaItem {
+  flex: 0 0 calc((100% - 16px) * 0.82);
+  width: calc((100% - 16px) * 0.82);
+  transition: transform 180ms ease-out;
+}
+
+.mediaItemAfter {
+  transform: scale(0.86);
+  transform-origin: left center;
+}
+
+.mediaItemBefore {
+  transform: scale(0.86);
+  transform-origin: right center;
+}
+
+.heartBurst {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 4;
+  color: #fff;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 16px rgb(0 0 0 / 30%));
+  animation: postHeartBurst 700ms ease-out forwards;
+}
+
+@keyframes postHeartBurst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0;
+  }
+  35% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+.media + .postActions {
+  margin-top: 3px;
+}
+
+/* ---------- Actions (WynosPostActions) ---------- */
+
+.postActions {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.actionButton {
+  min-width: 32px;
+  padding: 4px 0;
+  margin: -4px 0;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionButtonCount {
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 400;
+  color: inherit;
+}
+
+.actionButtonLiked {
+  color: var(--accent-red);
+}
+
+/* Redrop/repost active state stays monochrome (text-primary) — color is
+   reserved for Like only, per the design system doc. */
+.actionButtonActive {
+  color: var(--text-primary);
+}
+
+.actionShare {
+  min-width: 24px;
+  padding: 4px;
+  margin: -4px;
+  justify-content: center;
+}
+
+@media (max-width: 359px) {
+  .postAuthorLink {
+    gap: 3px;
+  }
+
+  .postActions {
+    gap: 16px;
+  }
+}
