@@ -18,6 +18,8 @@ type PublishInput = {
   caption: string;
   files: File[];
   operationId?: string | null;
+  audience?: "everyone" | "friends" | "friends_except" | "close_friends" | "only_me";
+  excludedFriendIds?: string[];
 };
 
 export type PublishDropResult = {
@@ -184,8 +186,8 @@ export async function publishDropSafely(
       p_operation_id: operationId,
       p_image_url: primary?.image_url ?? null,
       p_caption: caption || null,
-      p_audience: "everyone",
-      p_excluded_friend_ids: [],
+      p_audience: input.audience ?? "everyone",
+      p_excluded_friend_ids: input.excludedFriendIds ?? [],
       p_images: metadata,
       p_mentioned_user_ids: [],
       p_location: null,
