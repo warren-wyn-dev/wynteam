@@ -3,7 +3,7 @@ import Link from "next/link";
 const tokenPattern = /((?:https?:\/\/[^\s]+)|(?:#[\p{L}\p{N}_]+))/gu;
 const hashtagOnlyLine = /^\s*(?:#[\p{L}\p{N}_]+(?:\s+|$))+\s*$/u;
 
-function renderTokens(value: string, keyPrefix: string) {
+function renderTokens(value: string, keyPrefix: string, postHref?: string) {
   return value.split(tokenPattern).map((part, index) => {
     if (!part) return null;
     if (/^https?:\/\//i.test(part)) {
@@ -30,6 +30,13 @@ function renderTokens(value: string, keyPrefix: string) {
         </Link>
       );
     }
+    if (postHref) {
+      return (
+        <Link className="rich-post-body-link" href={postHref} key={`${keyPrefix}:body:${index}`}>
+          {part}
+        </Link>
+      );
+    }
     return part;
   });
 }
@@ -49,11 +56,19 @@ function splitTrailingHashtags(value: string) {
   };
 }
 
-export function RichPostText({ value, className = "" }: { value: string; className?: string }) {
+export function RichPostText({
+  value,
+  className = "",
+  postHref,
+}: {
+  value: string;
+  className?: string;
+  postHref?: string;
+}) {
   const { body, hashtags } = splitTrailingHashtags(value);
   return (
     <p className={`rich-post-text ${className}`.trim()}>
-      {body ? <span className="rich-post-body">{renderTokens(body, "body")}</span> : null}
+      {body ? <span className="rich-post-body">{renderTokens(body, "body", postHref)}</span> : null}
       {hashtags ? (
         <span className="rich-post-hashtag-block">
           {renderTokens(hashtags, "hashtags")}
