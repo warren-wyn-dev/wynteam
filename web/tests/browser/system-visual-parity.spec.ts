@@ -15,7 +15,7 @@ test("system parity lock is the final stylesheet", () => {
 
 test("Search keeps the current Flutter Discovery then three-tab contract", () => {
   const search = read("components/search-route.tsx");
-  expect(search).toContain('type Tab = "user" | "drop" | "club";');
+  expect(search).toContain('useState<"user" | "drop" | "club">');
   expect(search).toContain("User");
   expect(search).toContain("โพสต์");
   expect(search).toContain("Club");
