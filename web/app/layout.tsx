@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./design-system/tokens.css";
 import "./phase2.css";
 import "./phase2-polish.css";
 import "./phase3.css";
@@ -23,8 +24,6 @@ import "./system-parity-final.css";
 import "./interaction-parity-final.css";
 import "./pixel-parity-final.css";
 import "./pixel-parity-audit-closure.css";
-import "./bottom-nav.css";
-import "./home.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",

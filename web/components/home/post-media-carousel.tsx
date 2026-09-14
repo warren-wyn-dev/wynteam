@@ -4,13 +4,16 @@
 import { Heart } from "lucide-react";
 import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 
+import pc from "@/components/design-system/post-card.module.css";
+
 /**
- * Home's post media: PostImageFrame (single image) / PostImageCarousel
- * (multi-image peek row) from post_media.dart, both using the same
- * clamped aspect ratio (lib/feed.ts's postMediaAspectRatio already
- * mirrors postImageAspectRatio/DropAspectRatio), 16px border radius and
- * 75dvh height cap. A double-tap (or double-click) likes the post, same
- * as Flutter's DoubleTapLike.
+ * Home's post media (WYN-159 design system, Media/Image Posts — extends
+ * `WynosPostCard`'s body): single-image frame / multi-image peek carousel,
+ * both using the same clamped aspect ratio (lib/feed.ts's
+ * postMediaAspectRatio), `--radius-card` (16px) corners and 75dvh height
+ * cap. A double-tap (or double-click) likes the post. Media math/behavior
+ * is unchanged from before this redesign — only the chrome (colors, radius
+ * token) is restyled.
  */
 export function PostMediaCarousel({
   urls,
@@ -61,16 +64,16 @@ export function PostMediaCarousel({
   if (!urls.length) return null;
 
   return (
-    <div className="wyn-post-media" onDoubleClick={doubleLike} onPointerUp={onPointerUp}>
+    <div className={pc.media} onDoubleClick={doubleLike} onPointerUp={onPointerUp}>
       <div
         ref={track}
         onScroll={updateIndex}
-        className={`wyn-post-media-track ${urls.length === 1 ? "is-single" : ""}`}
+        className={`${pc.mediaTrack} ${urls.length === 1 ? pc.mediaTrackSingle : ""}`}
         style={{ "--post-media-ratio": String(aspectRatio) } as CSSProperties}
       >
         {urls.map((url, i) => (
           <img
-            className={`wyn-post-media-item ${urls.length > 1 ? (i === index ? "is-front" : i < index ? "is-before" : "is-after") : ""}`}
+            className={`${pc.mediaItem} ${urls.length > 1 ? (i === index ? "" : i < index ? pc.mediaItemBefore : pc.mediaItemAfter) : ""}`}
             src={url}
             alt=""
             loading={i === 0 ? "eager" : "lazy"}
@@ -79,7 +82,7 @@ export function PostMediaCarousel({
           />
         ))}
       </div>
-      {burst ? <Heart className="wyn-post-heart-burst" size={72} fill="currentColor" strokeWidth={0} /> : null}
+      {burst ? <Heart className={pc.heartBurst} size={72} fill="currentColor" strokeWidth={0} /> : null}
     </div>
   );
 }

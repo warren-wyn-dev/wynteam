@@ -1,0 +1,42 @@
+/*
+ * Home-only layout glue (WYN-159 design system: "at most one small
+ * screen-specific stylesheet for true one-off layout, not color/type/
+ * spacing values already tokenized" — everything here is layout/position
+ * only; colors and spacing values come from `tokens.css` / the shared
+ * design-system primitives).
+ */
+
+.stickyWrap {
+  position: sticky;
+  top: 0;
+  z-index: 32;
+  padding-top: env(safe-area-inset-top);
+  background: var(--bg);
+}
+
+/* Groups WynosHeader + WynosTabs inside one bordered block, matching the
+   reference's `.header` (padding 14px 16px 0, one border-bottom for both
+   the header row and the tabs beneath it). */
+.headerGroup {
+  padding: 14px 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.headerGroup > * + * {
+  margin-top: 12px;
+}
+
+.feed {
+  background: var(--bg);
+}
+
+.state {
+  min-height: 260px;
+  padding: 32px 24px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+}

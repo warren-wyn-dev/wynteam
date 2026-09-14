@@ -1,13 +1,16 @@
 import { Heart, MessageSquare, Repeat2, Send } from "lucide-react";
 import Link from "next/link";
 
+import pc from "@/components/design-system/post-card.module.css";
+
 /**
- * Home's action row: Like / Comment / ReDrop / Share, matching
- * ActionMetric's contract in home_drop_card.dart exactly (icon 24px,
- * 6px icon-count gap, 16px between metrics, zero counts always shown
- * here since Home passes hideZeroActionCounts: false). ReDrop is
- * omitted entirely (not disabled) when the post's audience isn't
- * "everyone", and the view-count metric is never rendered on Home.
+ * Home's action row: Like / Comment / ReDrop / Share (WYN-159 design system,
+ * `WynosPostActions` — `.post-actions`/`.action` in the reference, extended
+ * with the existing WYN Share action per the app-shell/home doc). 24px
+ * lucide icons (kept from the already-shipped sizing, see `tokens.ts`),
+ * 28px gap between actions, 5px icon-to-count gap. ReDrop is omitted
+ * entirely (not disabled) when the post's audience isn't "everyone", and
+ * the view-count metric is never rendered on Home.
  */
 export function PostActions({
   liked,
@@ -33,33 +36,33 @@ export function PostActions({
   onShare: () => void;
 }) {
   return (
-    <div className="wyn-post-actions">
+    <div className={pc.postActions}>
       <button
-        className={`wyn-action-button ${liked ? "is-liked" : ""}`}
+        className={`${pc.actionButton} ${liked ? pc.actionButtonLiked : ""}`}
         type="button"
         aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"}
         onClick={onLike}
       >
         <Heart size={24} fill={liked ? "currentColor" : "none"} />
-        <span className="wyn-action-button-count">{likeCount}</span>
+        <span className={pc.actionButtonCount}>{likeCount}</span>
       </button>
-      <Link className="wyn-action-button" href={commentHref} aria-label="ความคิดเห็น">
+      <Link className={pc.actionButton} href={commentHref} aria-label="ความคิดเห็น">
         <MessageSquare size={24} />
-        <span className="wyn-action-button-count">{commentCount}</span>
+        <span className={pc.actionButtonCount}>{commentCount}</span>
       </Link>
       {canRedrop ? (
         <button
-          className={`wyn-action-button ${redropped ? "is-active" : ""}`}
+          className={`${pc.actionButton} ${redropped ? pc.actionButtonActive : ""}`}
           type="button"
           aria-label="รีโพสต์"
           onClick={onRedrop}
         >
           <Repeat2 size={24} />
-          <span className="wyn-action-button-count">{redropCount}</span>
+          <span className={pc.actionButtonCount}>{redropCount}</span>
         </button>
       ) : null}
       <button
-        className="wyn-action-button wyn-action-share"
+        className={`${pc.actionButton} ${pc.actionShare}`}
         type="button"
         aria-label="แชร์"
         onClick={onShare}

@@ -1,3 +1,5 @@
+import { WynosTabs } from "@/components/design-system/WynosTabs";
+
 export type HomeFeedMode = "for-you" | "following" | "clubs";
 
 export const HOME_FEED_MODES: { key: HomeFeedMode; label: string }[] = [
@@ -6,8 +8,8 @@ export const HOME_FEED_MODES: { key: HomeFeedMode; label: string }[] = [
   { key: "clubs", label: "คลับของฉัน" },
 ];
 
-/** Home's feed-mode toggle — WynosSocialTabs (height 52, 14px labels,
- * 700/500 weight, 36x2 ink indicator under the active label). */
+/** Home's feed-mode toggle (WYN-159 design system, `WynosTabs` — `.tabs`/
+ * `.tab` in the reference: 14px labels, 18px gap, active tab underlined). */
 export function HomeTabs({
   mode,
   onSelect,
@@ -15,21 +17,5 @@ export function HomeTabs({
   mode: HomeFeedMode;
   onSelect: (mode: HomeFeedMode) => void;
 }) {
-  return (
-    <div className="wyn-home-tabs" role="tablist" aria-label="ฟีด">
-      {HOME_FEED_MODES.map((item) => (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === item.key}
-          className={`wyn-home-tab ${mode === item.key ? "is-active" : ""}`}
-          onClick={() => onSelect(item.key)}
-          key={item.key}
-        >
-          <span className="wyn-home-tab-label">{item.label}</span>
-          <span className="wyn-home-tab-indicator" />
-        </button>
-      ))}
-    </div>
-  );
+  return <WynosTabs items={HOME_FEED_MODES} activeKey={mode} onSelect={onSelect} ariaLabel="ฟีด" />;
 }

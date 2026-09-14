@@ -1,14 +1,24 @@
 /* eslint-disable @next/next/no-img-element */
 import { Menu, MessageSquare } from "lucide-react";
 
+import { WynosHeader } from "@/components/design-system/WynosHeader";
+import { WynosIconButton } from "@/components/design-system/WynosIconButton";
+
 /**
- * Home's header — WynosSocialHeader overridden to height 52 with no
- * bottom divider (home_feed_screen.dart's `_buildHeader`). The chat
- * icon is Lucide's MessageSquare (a single rounded-rect bubble with a
- * tail), matching Flutter's Icons.chat_bubble_outline shape — the
- * previous implementation used Lucide's MessagesSquare (two overlapping
- * bubbles), a visibly different glyph that needed a CSS mask patch to
- * paint over; fixed at the source instead.
+ * Home's header (WYN-159 design system, `WynosHeader` — `.header-row` in the
+ * reference: leading icon button, centered brand, trailing action).
+ *
+ * Deviation from the reference/app-shell doc's default assumption: the
+ * reference (and the generic app-shell/home design doc) show Search + Bell
+ * as the trailing actions. WYNOS's actual shipped product instead already
+ * has Search and Notifications as their own bottom-nav destinations, and
+ * Home's header trailing action is a single Chat icon with an unread badge
+ * (opens `/chat`) — an existing, real, frequently-used behavior. Per
+ * "preserve existing behavior exactly, this is a visual migration only",
+ * that existing leading-menu + brand + chat-with-badge structure is kept;
+ * only the visual language (icon color, sizing, hit area) is restyled to
+ * the v2 monochrome tokens. Flagged in the WYN-159 report for Founder
+ * awareness since it differs from the design doc's literal assumption.
  */
 export function HomeHeader({
   chatBadgeCount,
@@ -20,25 +30,22 @@ export function HomeHeader({
   onOpenChat: () => void;
 }) {
   return (
-    <header className="wyn-home-header">
-      <button className="wyn-home-header-action" type="button" aria-label="เมนู" onClick={onOpenMenu}>
-        <Menu />
-      </button>
-      <div className="wyn-home-wordmark">
-        <img className="wyn-home-logo" src="/wynos_logo_mark.png" alt="" />
-        <strong className="wyn-home-title">WYNOS</strong>
-      </div>
-      <button
-        className="wyn-home-header-action wyn-home-chat-action"
-        type="button"
-        aria-label="แชท"
-        onClick={onOpenChat}
-      >
-        <MessageSquare />
-        {chatBadgeCount > 0 ? (
-          <span className="wyn-home-chat-badge">{chatBadgeCount > 9 ? "9+" : chatBadgeCount}</span>
-        ) : null}
-      </button>
-    </header>
+    <WynosHeader
+      leading={<WynosIconButton icon={<Menu />} aria-label="เมนู" onClick={onOpenMenu} />}
+      center={
+        <>
+          <img src="/wynos_logo_mark.png" alt="" width={22} height={22} />
+          <strong>WYNOS</strong>
+        </>
+      }
+      trailing={
+        <WynosIconButton
+          icon={<MessageSquare />}
+          aria-label="แชท"
+          onClick={onOpenChat}
+          badge={chatBadgeCount > 0 ? (chatBadgeCount > 9 ? "9+" : String(chatBadgeCount)) : null}
+        />
+      }
+    />
   );
 }

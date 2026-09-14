@@ -7,7 +7,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 
 import { Beta4Composer } from "@/components/beta4-composer";
+import { WynosAppShell } from "@/components/design-system/WynosAppShell";
 import { ClubFeedPost } from "@/components/home/club-feed-post";
+import homeShell from "@/components/home/home-shell.module.css";
 import { HomeDrawer } from "@/components/home/home-drawer";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomePostCard } from "@/components/home/home-post-card";
@@ -407,67 +409,71 @@ export function HomeScreen({ session }: { session: Session }) {
   };
 
   if (!client) {
-    return <main className="wyn-home-state"><p>ยังไม่ได้ตั้งค่า Supabase สำหรับเว็บ</p></main>;
+    return <main className={homeShell.state}><p>ยังไม่ได้ตั้งค่า Supabase สำหรับเว็บ</p></main>;
   }
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav>
-      <div className="wyn-home">
-        <HomeHeader
-          chatBadgeCount={chatBadge}
-          onOpenMenu={() => setDrawerOpen(true)}
-          onOpenChat={() => router.push("/chat")}
-        />
-        <HomeTabs mode={mode} onSelect={switchMode} />
-      </div>
-
-      <div className="wyn-home-feed" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        {loading ? (
-          <div className="wyn-home-state"><div className="route-system-spinner" /></div>
-        ) : error && !rows.length && !clubRows.length ? (
-          <div className="wyn-home-state">
-            <p>{error}</p>
-            <button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button>
+      <WynosAppShell>
+        <div className={homeShell.stickyWrap}>
+          <div className={homeShell.headerGroup}>
+            <HomeHeader
+              chatBadgeCount={chatBadge}
+              onOpenMenu={() => setDrawerOpen(true)}
+              onOpenChat={() => router.push("/chat")}
+            />
+            <HomeTabs mode={mode} onSelect={switchMode} />
           </div>
-        ) : mode === "clubs" ? (
-          clubRows.length ? (
-            clubRows.map((post) => (
-              <ClubFeedPost post={post} onLike={() => void likeClub(post)} key={post.id} />
+        </div>
+
+        <div className={homeShell.feed} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+          {loading ? (
+            <div className={homeShell.state}><div className="route-system-spinner" /></div>
+          ) : error && !rows.length && !clubRows.length ? (
+            <div className={homeShell.state}>
+              <p>{error}</p>
+              <button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button>
+            </div>
+          ) : mode === "clubs" ? (
+            clubRows.length ? (
+              clubRows.map((post) => (
+                <ClubFeedPost post={post} onLike={() => void likeClub(post)} key={post.id} />
+              ))
+            ) : (
+              <div className={homeShell.state}>
+                <p>ยังไม่มีโพสต์จาก Club ของคุณ</p>
+                <Link className="route-primary" href="/clubs">สำรวจ Club</Link>
+              </div>
+            )
+          ) : rows.length && viewer ? (
+            rows.map((row) => (
+              <HomePostCard
+                row={row}
+                viewer={viewer}
+                images={images.get(row.id) ?? (row.image_url ? [row.image_url] : [])}
+                userId={userId}
+                onLike={() => void like(row)}
+                onMore={() => {
+                  setSelected(row);
+                  setSheet("more");
+                }}
+                onRedrop={() => {
+                  setSelected(row);
+                  setSheet("redrop");
+                }}
+                onFollow={() => void followAuthor(row)}
+                onShare={() => void share(row)}
+                key={`${row.id}:${row.redrop_id ?? "plain"}`}
+              />
             ))
           ) : (
-            <div className="wyn-home-state">
-              <p>ยังไม่มีโพสต์จาก Club ของคุณ</p>
-              <Link className="route-primary" href="/clubs">สำรวจ Club</Link>
+            <div className={homeShell.state}>
+              <p>{mode === "following" ? "ยังไม่มีโพสต์จากคนที่คุณกำลังติดตาม" : "ยังไม่มีอะไรให้ดูตรงนี้"}</p>
+              <Link className="route-primary" href="/search">ค้นหาคนและเนื้อหา</Link>
             </div>
-          )
-        ) : rows.length && viewer ? (
-          rows.map((row) => (
-            <HomePostCard
-              row={row}
-              viewer={viewer}
-              images={images.get(row.id) ?? (row.image_url ? [row.image_url] : [])}
-              userId={userId}
-              onLike={() => void like(row)}
-              onMore={() => {
-                setSelected(row);
-                setSheet("more");
-              }}
-              onRedrop={() => {
-                setSelected(row);
-                setSheet("redrop");
-              }}
-              onFollow={() => void followAuthor(row)}
-              onShare={() => void share(row)}
-              key={`${row.id}:${row.redrop_id ?? "plain"}`}
-            />
-          ))
-        ) : (
-          <div className="wyn-home-state">
-            <p>{mode === "following" ? "ยังไม่มีโพสต์จากคนที่คุณกำลังติดตาม" : "ยังไม่มีอะไรให้ดูตรงนี้"}</p>
-            <Link className="route-primary" href="/search">ค้นหาคนและเนื้อหา</Link>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </WynosAppShell>
 
       {drawerOpen ? <HomeDrawer identity={identity} onClose={() => setDrawerOpen(false)} /> : null}
 

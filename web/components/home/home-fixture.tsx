@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { WynosAppShell } from "@/components/design-system/WynosAppShell";
+import homeShell from "@/components/home/home-shell.module.css";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
@@ -84,26 +86,30 @@ export function HomeFixture() {
   return (
     <div className="route-app route-with-bottom-nav">
       <main className="route-main">
-        <div className="wyn-home">
-          <HomeHeader chatBadgeCount={3} onOpenMenu={() => {}} onOpenChat={() => {}} />
-          <HomeTabs mode={mode} onSelect={setMode} />
-        </div>
-        <div className="wyn-home-feed">
-          {rows.map((row) => (
-            <HomePostCard
-              row={row}
-              viewer={viewer}
-              images={images.get(row.id) ?? []}
-              userId={VIEWER_ID}
-              onLike={() => {}}
-              onMore={() => {}}
-              onRedrop={() => {}}
-              onFollow={() => {}}
-              onShare={() => {}}
-              key={row.id}
-            />
-          ))}
-        </div>
+        <WynosAppShell>
+          <div className={homeShell.stickyWrap}>
+            <div className={homeShell.headerGroup}>
+              <HomeHeader chatBadgeCount={3} onOpenMenu={() => {}} onOpenChat={() => {}} />
+              <HomeTabs mode={mode} onSelect={setMode} />
+            </div>
+          </div>
+          <div className={homeShell.feed}>
+            {rows.map((row) => (
+              <HomePostCard
+                row={row}
+                viewer={viewer}
+                images={images.get(row.id) ?? []}
+                userId={VIEWER_ID}
+                onLike={() => {}}
+                onMore={() => {}}
+                onRedrop={() => {}}
+                onFollow={() => {}}
+                onShare={() => {}}
+                key={row.id}
+              />
+            ))}
+          </div>
+        </WynosAppShell>
       </main>
       <BottomNavigation
         profileHref={`/profile/${VIEWER_ID}`}
