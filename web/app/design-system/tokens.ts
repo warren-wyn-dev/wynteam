@@ -89,4 +89,8 @@ export const TABLER_TO_LUCIDE_ICON_MAP = {
     usage: "Chat (existing WYNOS home header action, not a bottom-nav slot)",
   },
   "ti-user": { lucide: "User", usage: "Bottom nav: profile" },
+  "ti-alert-circle": {
+    lucide: "AlertCircle",
+    usage: "Failed-to-send post error-box icon (wynos-home.html correction, 2026-09-14)",
+  },
 } as const;

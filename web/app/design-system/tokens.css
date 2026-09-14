@@ -32,6 +32,7 @@
   --border: #e7e7e7;
   --border-strong: #d0d0d0;
   --accent-red: #e0203d;
+  --danger-bg: #fcebeb; /* Failed-to-send post error-box background (wynos-home.html correction) */
 
   /* Radius */
   --radius-card: 16px;
