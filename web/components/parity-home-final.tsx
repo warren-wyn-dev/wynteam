@@ -35,6 +35,7 @@ import {
 } from "react";
 
 import { AppChrome, Avatar } from "@/components/phase3-ui";
+import { Beta4Composer } from "@/components/beta4-composer";
 import { RichPostText } from "@/components/rich-post-text";
 import { publishDropSafely } from "@/lib/drop-publication";
 import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
@@ -444,85 +445,6 @@ function ActionSheet({
       >
         <div className="audit-sheet-grip" />
         {children}
-      </section>
-    </div>
-  );
-}
-
-function Composer({
-  client,
-  userId,
-  onClose,
-  onPublished,
-}: {
-  client: SupabaseClient;
-  userId: string;
-  onClose: () => void;
-  onPublished: () => void;
-}) {
-  const [caption, setCaption] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const submit = async () => {
-    if (busy || (!caption.trim() && !files.length)) return;
-    setBusy(true);
-    setError("");
-    try {
-      await publishDropSafely(client, userId, { caption, files });
-      onPublished();
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "เผยแพร่โพสต์ไม่สำเร็จ");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="route-modal-backdrop" role="presentation" onClick={onClose}>
-      <section
-        className="route-modal audit-composer"
-        role="dialog"
-        aria-modal="true"
-        aria-label="สร้างโพสต์"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header>
-          <button type="button" onClick={onClose} aria-label="ปิด"><X size={22} /></button>
-          <strong>สร้างโพสต์</strong>
-          <button
-            className="route-primary compact"
-            type="button"
-            disabled={busy || (!caption.trim() && !files.length)}
-            onClick={() => void submit()}
-          >
-            {busy ? "กำลังโพสต์…" : "โพสต์"}
-          </button>
-        </header>
-        <textarea
-          autoFocus
-          maxLength={500}
-          value={caption}
-          onChange={(event) => setCaption(event.target.value)}
-          placeholder="มีอะไรอยากเล่าไหม?"
-        />
-        <label className="audit-image-picker">
-          <ImagePlus size={21} /> เพิ่มรูป
-          <input
-            hidden
-            type="file"
-            accept="image/*"
-            multiple
-            disabled={busy || files.length >= 9}
-            onChange={(event) =>
-              setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9))
-            }
-          />
-        </label>
-        {files.length ? <div className="audit-file-count">{files.length}/9 รูป</div> : null}
-        {error ? <p className="route-error">{error}</p> : null}
       </section>
     </div>
   );
@@ -1014,7 +936,7 @@ export function ParityHomeFinal({ session }: { session: Session }) {
       ) : null}
 
       {composerOpen ? (
-        <Composer
+        <Beta4Composer
           client={client}
           userId={userId}
           onClose={() => {

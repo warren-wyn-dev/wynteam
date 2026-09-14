@@ -1,16 +1,23 @@
 "use client";
 
 import {
+  BarChart3,
   Bookmark,
+  ChevronLeft,
   ChevronRight,
+  Flag,
   Heart,
   MessageCircle,
+  MoreVertical,
+  Pencil,
   Repeat2,
   Send,
   Share2,
+  Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -22,6 +29,7 @@ import {
   addDropComment,
   fetchDropComments,
   loadHomeViewerState,
+  toggleAuthorFollow,
   toggleDropCommentLike,
   toggleDropLike,
   toggleDropRedrop,
@@ -32,20 +40,8 @@ import {
 import { fetchDropById } from "@/lib/phase3-data";
 
 type ActivityTab = "likes" | "redrops";
-
-type ActivityProfile = {
-  id: string;
-  username: string;
-  display_name?: string | null;
-  avatar_url?: string | null;
-  is_verified?: boolean;
-};
-
-type ActivityState = {
-  likes: ActivityProfile[];
-  redrops: ActivityProfile[];
-};
-
+type ActivityProfile = { id: string; username: string; display_name?: string | null; avatar_url?: string | null; is_verified?: boolean };
+type ActivityState = { likes: ActivityProfile[]; redrops: ActivityProfile[] };
 const emptyActivity: ActivityState = { likes: [], redrops: [] };
 
 function Caption({ value }: { value: string }) {
@@ -53,11 +49,7 @@ function Caption({ value }: { value: string }) {
 }
 
 async function fetchDropImages(client: SupabaseClient, dropId: string, fallback?: string | null): Promise<string[]> {
-  const result = await client
-    .from("drop_images")
-    .select("image_url,position")
-    .eq("drop_id", dropId)
-    .order("position", { ascending: true });
+  const result = await client.from("drop_images").select("image_url,position").eq("drop_id", dropId).order("position", { ascending: true });
   if (result.error) return fallback ? [fallback] : [];
   const urls = (result.data ?? []).map((row) => String(row.image_url ?? "")).filter(Boolean);
   if (fallback && !urls.includes(fallback)) urls.unshift(fallback);
@@ -71,18 +63,12 @@ async function fetchActivity(client: SupabaseClient, dropId: string): Promise<Ac
   ]);
   if (likesResult.error) throw new Error(likesResult.error.message);
   if (redropsResult.error) throw new Error(redropsResult.error.message);
-
   const likeIds = (likesResult.data ?? []).map((row) => String(row.user_id));
   const redropIds = (redropsResult.data ?? []).map((row) => String(row.redropper_id));
   const ids = [...new Set([...likeIds, ...redropIds])];
   if (!ids.length) return emptyActivity;
-
-  const profilesResult = await client
-    .from("profiles")
-    .select("id,username,display_name,avatar_url,is_verified")
-    .in("id", ids);
+  const profilesResult = await client.from("profiles").select("id,username,display_name,avatar_url,is_verified").in("id", ids);
   if (profilesResult.error) throw new Error(profilesResult.error.message);
-
   const profiles = new Map<string, ActivityProfile>();
   for (const raw of profilesResult.data ?? []) {
     profiles.set(String(raw.id), {
@@ -93,8 +79,8 @@ async function fetchActivity(client: SupabaseClient, dropId: string): Promise<Ac
       is_verified: raw.is_verified === true,
     });
   }
-  const mapOrdered = (ordered: string[]) => ordered.map((id) => profiles.get(id)).filter((value): value is ActivityProfile => Boolean(value));
-  return { likes: mapOrdered(likeIds), redrops: mapOrdered(redropIds) };
+  const ordered = (idsToMap: string[]) => idsToMap.map((id) => profiles.get(id)).filter((value): value is ActivityProfile => Boolean(value));
+  return { likes: ordered(likeIds), redrops: ordered(redropIds) };
 }
 
 function MediaGallery({ urls }: { urls: string[] }) {
@@ -108,7 +94,6 @@ function MediaGallery({ urls }: { urls: string[] }) {
         setIndex(Math.max(0, Math.min(urls.length - 1, Math.round(element.scrollLeft / width))));
       }}>
         {urls.map((url, imageIndex) => (
-          // Browser-native <img> is intentional for signed Supabase media and WebKit stability.
           // eslint-disable-next-line @next/next/no-img-element
           <img className="detail-image" src={url} alt="" loading={imageIndex === 0 ? "eager" : "lazy"} decoding="async" key={`${url}:${imageIndex}`} />
         ))}
@@ -123,7 +108,6 @@ function ActivitySheet({ client, dropId, onClose }: { client: SupabaseClient; dr
   const [state, setState] = useState<ActivityState>(emptyActivity);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   useEffect(() => {
     let live = true;
     void fetchActivity(client, dropId)
@@ -132,7 +116,6 @@ function ActivitySheet({ client, dropId, onClose }: { client: SupabaseClient; dr
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [client, dropId]);
-
   const rows = tab === "likes" ? state.likes : state.redrops;
   return (
     <div className="route-modal-backdrop detail-activity-backdrop" role="presentation" onClick={onClose}>
@@ -155,31 +138,33 @@ function ActivitySheet({ client, dropId, onClose }: { client: SupabaseClient; dr
   );
 }
 
-function CommentRow({
-  comment,
-  isReply,
-  onLike,
-  onReply,
-}: {
-  comment: DropCommentRow;
-  isReply: boolean;
-  onLike: (comment: DropCommentRow) => void;
-  onReply: (comment: DropCommentRow) => void;
-}) {
+function ConfirmDialog({ title, body, dangerLabel, onCancel, onConfirm }: { title: string; body?: string; dangerLabel: string; onCancel: () => void; onConfirm: () => void }) {
+  return <div className="route-modal-backdrop detail-dialog-backdrop" role="presentation" onClick={onCancel}><section className="route-modal detail-confirm-dialog" role="alertdialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}><strong>{title}</strong>{body ? <p>{body}</p> : null}<footer><button type="button" onClick={onCancel}>ยกเลิก</button><button className="danger" type="button" onClick={onConfirm}>{dangerLabel}</button></footer></section></div>;
+}
+
+function TextDialog({ title, value, placeholder, confirmLabel, onChange, onCancel, onConfirm }: { title: string; value: string; placeholder?: string; confirmLabel: string; onChange: (value: string) => void; onCancel: () => void; onConfirm: () => void }) {
+  return <div className="route-modal-backdrop detail-dialog-backdrop" role="presentation" onClick={onCancel}><section className="route-modal detail-dialog" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}><header><strong>{title}</strong><button type="button" aria-label="ปิด" onClick={onCancel}><X size={20} /></button></header><textarea autoFocus maxLength={500} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /><footer><button type="button" onClick={onCancel}>ยกเลิก</button><button className="primary" type="button" disabled={confirmLabel === "ส่งรายงาน" && !value.trim()} onClick={onConfirm}>{confirmLabel}</button></footer></section></div>;
+}
+
+function CommentRow({ comment, isReply, currentUserId, onLike, onReply, onDelete }: { comment: DropCommentRow; isReply: boolean; currentUserId: string; onLike: (comment: DropCommentRow) => void; onReply: (comment: DropCommentRow) => void; onDelete: (comment: DropCommentRow) => void }) {
   return (
     <div className={`detail-comment ${isReply ? "detail-comment-reply" : ""}`}>
-      <Link href={`/profile/${comment.author_id}`}><Avatar src={comment.author_avatar_url} label={comment.author_username} size={34} /></Link>
+      <Link className="detail-comment-avatar" href={`/profile/${comment.author_id}`}><Avatar src={comment.author_avatar_url} label={comment.author_username} size={isReply ? 32 : 36} /></Link>
       <div className="detail-comment-copy">
-        <div><strong>{comment.author_display_name?.trim() || comment.author_username}</strong><small> @{comment.author_username}</small></div>
+        <div className="detail-comment-author-line"><strong>{comment.author_display_name?.trim() || comment.author_username}</strong><small>{relativeTimeTh(comment.created_at)}</small></div>
         <p>{comment.text_content}</p>
-        <div className="detail-comment-meta"><small>{relativeTimeTh(comment.created_at)}</small><button type="button" onClick={() => onReply(comment)}>ตอบกลับ</button></div>
+        {!isReply ? <button className="detail-comment-reply-action" type="button" onClick={() => onReply(comment)}>ตอบกลับ</button> : null}
       </div>
-      <button className={`detail-comment-like ${comment.liked_by_me ? "active like" : ""}`} type="button" aria-label={comment.liked_by_me ? "เลิกถูกใจความคิดเห็น" : "ถูกใจความคิดเห็น"} onClick={() => onLike(comment)}><Heart size={15} fill={comment.liked_by_me ? "currentColor" : "none"} />{comment.like_count > 0 ? <span>{comment.like_count}</span> : null}</button>
+      <div className="detail-comment-actions">
+        {comment.author_id === currentUserId ? <button className="detail-comment-delete" type="button" aria-label="ลบคอมเมนต์" onClick={() => onDelete(comment)}><Trash2 size={16} /></button> : null}
+        <button className={`detail-comment-like ${comment.liked_by_me ? "active like" : ""}`} type="button" aria-label={comment.liked_by_me ? "เลิกถูกใจความคิดเห็น" : "ถูกใจความคิดเห็น"} onClick={() => onLike(comment)}><Heart size={16} fill={comment.liked_by_me ? "currentColor" : "none"} />{comment.like_count > 0 ? <span>{comment.like_count}</span> : null}</button>
+      </div>
     </div>
   );
 }
 
 function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; userId: string; dropId: string }) {
+  const router = useRouter();
   const [row, setRow] = useState<HomeFeedRow | null>(null);
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
   const [comments, setComments] = useState<DropCommentRow[]>([]);
@@ -193,28 +178,49 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [activityOpen, setActivityOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editCaption, setEditCaption] = useState("");
+  const [deleteDropOpen, setDeleteDropOpen] = useState(false);
+  const [deleteCommentTarget, setDeleteCommentTarget] = useState<DropCommentRow | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportText, setReportText] = useState("");
+  const [viewerProfile, setViewerProfile] = useState<{ username: string; avatar_url?: string | null } | null>(null);
   const composerRef = useRef<HTMLInputElement | null>(null);
+  const scrollYRef = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
       const drop = await fetchDropById(client, dropId);
       if (!drop) { setRow(null); return; }
-      const [state, firstComments, media] = await Promise.all([
+      const [state, firstComments, media, profileResult] = await Promise.all([
         loadHomeViewerState(client, userId, [drop]),
         fetchDropComments(client, userId, dropId, 0),
         fetchDropImages(client, dropId, drop.image_url),
+        client.from("profiles").select("username,avatar_url").eq("id", userId).maybeSingle(),
       ]);
-      setRow(drop);
-      setViewer(state);
-      setComments(firstComments);
-      setImages(media);
-      setCommentPage(0);
-      setHasMoreComments(firstComments.length === 50);
-    } catch (e) { setError(e instanceof Error ? e.message : "โหลดโพสต์ไม่สำเร็จ"); }
+      setRow(drop); setViewer(state); setComments(firstComments); setImages(media);
+      if (!profileResult.error && profileResult.data) setViewerProfile({ username: String(profileResult.data.username ?? "WYNOS"), avatar_url: profileResult.data.avatar_url ? String(profileResult.data.avatar_url) : null });
+      void client.rpc("record_drop_view", { p_drop_id: dropId }).then(() => undefined, () => undefined);
+      setCommentPage(0); setHasMoreComments(firstComments.length === 50);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "โหลดโพสต์ไม่สำเร็จ"); }
     finally { setLoading(false); }
   }, [client, dropId, userId]);
+
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      const previous = scrollYRef.current;
+      if (y <= 8 || y < previous - 2) setHeaderHidden(false);
+      else if (y > 80 && y > previous + 2) setHeaderHidden(true);
+      scrollYRef.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const threaded = useMemo(() => {
     const top = comments.filter((comment) => !comment.parent_comment_id);
@@ -222,8 +228,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     for (const comment of comments) {
       if (!comment.parent_comment_id) continue;
       const list = replies.get(comment.parent_comment_id) ?? [];
-      list.push(comment);
-      replies.set(comment.parent_comment_id, list);
+      list.push(comment); replies.set(comment.parent_comment_id, list);
     }
     return { top, replies };
   }, [comments]);
@@ -234,6 +239,12 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const liked = viewer.likedDropIds.has(row.id);
   const saved = viewer.savedDropIds.has(row.id);
   const redropped = viewer.redroppedDropIds.has(row.id);
+  const ownDrop = row.author_id === userId;
+  const publicAudience = (row.audience ?? "everyone") === "everyone";
+  const followingAuthor = viewer.followedAuthorIds.has(row.author_id);
+  const pendingAuthor = viewer.pendingFollowAuthorIds.has(row.author_id);
+  const privateAuthor = viewer.privateAuthorIds.has(row.author_id);
+
   const patchSet = (key: "likedDropIds" | "savedDropIds" | "redroppedDropIds", enabled: boolean) => setViewer((current) => {
     if (!current) return current;
     const next = new Set(current[key]);
@@ -243,26 +254,15 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
 
   const interact = async (kind: "like" | "save" | "redrop") => {
     try {
-      if (kind === "like") {
-        patchSet("likedDropIds", !liked);
-        setRow((current) => current ? { ...current, like_count: Math.max(0, (current.like_count ?? 0) + (liked ? -1 : 1)) } : current);
-        await toggleDropLike(client, userId, row.id, liked);
-      }
+      if (kind === "like") { patchSet("likedDropIds", !liked); setRow((current) => current ? { ...current, like_count: Math.max(0, (current.like_count ?? 0) + (liked ? -1 : 1)) } : current); await toggleDropLike(client, userId, row.id, liked); }
       if (kind === "save") { patchSet("savedDropIds", !saved); await toggleDropSave(client, userId, row.id, saved); }
-      if (kind === "redrop") {
-        patchSet("redroppedDropIds", !redropped);
-        setRow((current) => current ? { ...current, redrop_count: Math.max(0, (current.redrop_count ?? 0) + (redropped ? -1 : 1)) } : current);
-        await toggleDropRedrop(client, userId, row.id, redropped);
-      }
+      if (kind === "redrop") { patchSet("redroppedDropIds", !redropped); setRow((current) => current ? { ...current, redrop_count: Math.max(0, (current.redrop_count ?? 0) + (redropped ? -1 : 1)) } : current); await toggleDropRedrop(client, userId, row.id, redropped); }
     } catch { setError("อัปเดตกิจกรรมไม่สำเร็จ"); void load(); }
   };
 
   const share = async () => {
     const url = `${window.location.origin}/drop/${row.id}`;
-    try {
-      if (navigator.share) await navigator.share({ title: `โพสต์โดย ${authorLabel(row)}`, text: row.caption ?? "WYNOS", url });
-      else await navigator.clipboard.writeText(url);
-    } catch { /* user cancelled */ }
+    try { if (navigator.share) await navigator.share({ title: `โพสต์โดย ${authorLabel(row)}`, text: row.caption ?? "WYNOS", url }); else await navigator.clipboard.writeText(url); } catch { /* cancelled */ }
   };
 
   const submit = async () => {
@@ -284,9 +284,17 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     } catch { setError("ถูกใจความคิดเห็นไม่สำเร็จ"); }
   };
 
-  const startReply = (comment: DropCommentRow) => {
-    setReplyTo(comment);
-    composerRef.current?.focus();
+  const deleteComment = async (comment: DropCommentRow) => {
+    if (comment.author_id !== userId) return;
+    setError("");
+    try {
+      const result = await client.from("drop_comments").delete().eq("id", comment.id).eq("author_id", userId);
+      if (result.error) throw result.error;
+      const removed = new Set([comment.id, ...comments.filter((item) => item.parent_comment_id === comment.id).map((item) => item.id)]);
+      setComments((current) => current.filter((item) => !removed.has(item.id)));
+      setRow((current) => current ? { ...current, comment_count: Math.max(0, (current.comment_count ?? 0) - removed.size) } : current);
+      setDeleteCommentTarget(null);
+    } catch { setError("ลบคอมเมนต์ไม่สำเร็จ"); }
   };
 
   const loadMore = async () => {
@@ -295,47 +303,80 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     try {
       const nextPage = commentPage + 1;
       const next = await fetchDropComments(client, userId, row.id, nextPage);
-      setComments((current) => [...current, ...next]);
-      setCommentPage(nextPage);
-      setHasMoreComments(next.length === 50);
+      setComments((current) => [...current, ...next]); setCommentPage(nextPage); setHasMoreComments(next.length === 50);
     } catch { setError("โหลดคอมเมนต์เพิ่มไม่สำเร็จ"); }
     finally { setLoadingMore(false); }
   };
 
+  const followAuthor = async () => {
+    if (ownDrop) return;
+    setError("");
+    try {
+      const state = await toggleAuthorFollow(client, userId, row.author_id, { currentlyFollowing: followingAuthor, pendingRequest: pendingAuthor, isPrivate: privateAuthor });
+      setViewer((current) => {
+        if (!current) return current;
+        const followedAuthorIds = new Set(current.followedAuthorIds);
+        const pendingFollowAuthorIds = new Set(current.pendingFollowAuthorIds);
+        if (state === "following") followedAuthorIds.add(row.author_id); else followedAuthorIds.delete(row.author_id);
+        if (state === "requested") pendingFollowAuthorIds.add(row.author_id); else pendingFollowAuthorIds.delete(row.author_id);
+        return { ...current, followedAuthorIds, pendingFollowAuthorIds };
+      });
+    } catch { setError("ติดตามไม่สำเร็จ"); }
+  };
+
+  const editDrop = async () => {
+    setError("");
+    try {
+      const result = await client.rpc("edit_drop", { p_drop_id: row.id, p_caption: editCaption.trim() || null });
+      if (result.error) throw result.error;
+      setRow((current) => current ? { ...current, caption: editCaption.trim() || null } : current);
+      setEditOpen(false);
+    } catch { setError("แก้ไขโพสต์ไม่สำเร็จ"); }
+  };
+
+  const deleteDrop = async () => {
+    setError("");
+    try {
+      const result = await client.rpc("soft_delete_drop", { p_drop_id: row.id });
+      if (result.error) throw result.error;
+      setDeleteDropOpen(false); router.replace("/");
+    } catch { setError("ลบโพสต์ไม่สำเร็จ"); }
+  };
+
+  const reportDrop = async () => {
+    if (!reportText.trim()) return;
+    setError("");
+    try {
+      const result = await client.rpc("submit_report", { p_target_type: "drop", p_target_id: row.id, p_category: "other", p_detail: reportText.trim() });
+      if (result.error) throw result.error;
+      setReportOpen(false); setReportText("");
+    } catch { setError("ส่งรายงานไม่สำเร็จ"); }
+  };
+
   return (
-    <AppChrome title="โพสต์" userId={userId} backHref="/" showBottomNav={false}>
+    <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}>
+      <header className={`detail-floating-header ${headerHidden ? "hidden" : ""}`}><button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={22} /></button><strong>โพสต์</strong><span /></header>
       <article className="detail-post flutter-detail-post">
-        <div className="detail-author-row">
-          <Link className="route-drop-author" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} /><span><strong>{authorLabel(row)}{row.author_is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{row.author_username || "wynos"} · {relativeTimeTh(row.created_at)}</small></span></Link>
-        </div>
-        {row.caption ? <Caption value={row.caption} /> : null}
+        <div className="detail-post-copy"><div className="detail-author-row"><Link className="route-drop-author detail-author-link" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} /><span className="detail-author-copy"><span className="detail-author-primary"><strong>{authorLabel(row)}{row.author_is_verified ? <b className="route-verified">✓</b> : null}</strong><small>{relativeTimeTh(row.created_at)}</small></span><small className="detail-author-username">@{row.author_username || "wynos"}</small></span></Link>{!ownDrop ? <button className="detail-follow-button" type="button" onClick={() => void followAuthor()}>{followingAuthor ? "กำลังติดตาม" : pendingAuthor ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}<button className="detail-more-button" type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><MoreVertical size={18} /></button></div>{row.caption ? <Caption value={row.caption} /> : null}</div>
         <MediaGallery urls={images} />
-        <div className="detail-actions flutter-detail-actions">
-          <button className={liked ? "active like" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} onClick={() => void interact("like")}><Heart fill={liked ? "currentColor" : "none"} />{row.like_count ?? 0}</button>
-          <button type="button" aria-label="ความคิดเห็น" onClick={() => composerRef.current?.focus()}><MessageCircle />{row.comment_count ?? 0}</button>
-          <button className={redropped ? "active" : ""} type="button" aria-label={redropped ? "ยกเลิกรีโพสต์" : "รีโพสต์"} onClick={() => void interact("redrop")}><Repeat2 />{row.redrop_count ?? 0}</button>
-          <button type="button" aria-label="แชร์โพสต์" onClick={() => void share()}><Share2 /></button>
-          <button className={saved ? "active" : ""} type="button" aria-label={saved ? "นำออกจากที่บันทึก" : "บันทึกโพสต์"} onClick={() => void interact("save")}><Bookmark fill={saved ? "currentColor" : "none"} /></button>
-        </div>
-        <button className="detail-activity-row" type="button" onClick={() => setActivityOpen(true)}><span className="detail-activity-icon">⌁</span><strong>ดูกิจกรรม</strong><ChevronRight size={27} /></button>
+        <div className={`detail-actions flutter-detail-actions ${publicAudience ? "public" : "private"}`}><button className={liked ? "active like" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} onClick={() => void interact("like")}><Heart fill={liked ? "currentColor" : "none"} />{row.like_count ?? 0}</button><button type="button" aria-label="ความคิดเห็น" onClick={() => composerRef.current?.focus()}><MessageCircle />{row.comment_count ?? 0}</button>{publicAudience ? <button className={redropped ? "active" : ""} type="button" aria-label={redropped ? "ยกเลิกรีโพสต์" : "รีโพสต์"} onClick={() => void interact("redrop")}><Repeat2 />{row.redrop_count ?? 0}</button> : null}<button type="button" aria-label="แชร์โพสต์" onClick={() => void share()}><Share2 /></button><button className={saved ? "active" : ""} type="button" aria-label={saved ? "นำออกจากที่บันทึก" : "บันทึกโพสต์"} onClick={() => void interact("save")}><Bookmark fill={saved ? "currentColor" : "none"} /></button></div>
+        <button className="detail-activity-row" type="button" onClick={() => setActivityOpen(true)}><span className="detail-activity-icon"><BarChart3 size={22} /></span><strong>ดูกิจกรรม</strong><ChevronRight size={27} /></button>
       </article>
 
       {error ? <p className="route-error route-pad">{error}</p> : null}
       <section className="detail-comments flutter-detail-comments" aria-label="ความคิดเห็น">
-        {!comments.length ? <EmptyState>ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!</EmptyState> : threaded.top.map((comment) => (
-          <div className="detail-thread" key={comment.id}>
-            <CommentRow comment={comment} isReply={false} onLike={(value) => void likeComment(value)} onReply={startReply} />
-            {(threaded.replies.get(comment.id) ?? []).map((reply) => <CommentRow comment={reply} isReply onLike={(value) => void likeComment(value)} onReply={startReply} key={reply.id} />)}
-          </div>
-        ))}
+        {!comments.length ? <EmptyState>ยังไม่มีคอมเมนต์ เป็นคนแรกสิ!</EmptyState> : threaded.top.map((comment) => <div className="detail-thread" key={comment.id}><CommentRow comment={comment} isReply={false} currentUserId={userId} onLike={(value) => void likeComment(value)} onReply={(value) => { setReplyTo(value); composerRef.current?.focus(); }} onDelete={setDeleteCommentTarget} />{(threaded.replies.get(comment.id) ?? []).map((reply) => <CommentRow comment={reply} isReply currentUserId={userId} onLike={(value) => void likeComment(value)} onReply={() => undefined} onDelete={setDeleteCommentTarget} key={reply.id} />)}</div>)}
         {hasMoreComments ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? "กำลังโหลด…" : "ดูคอมเมนต์เพิ่มเติม"}</button> : comments.length ? <p className="detail-comments-end">ไม่มีความคิดเห็นเพิ่มเติมแล้ว</p> : null}
       </section>
 
-      <div className="detail-composer-shell">
-        {replyTo ? <div className="detail-reply-banner"><span>ตอบกลับ @{replyTo.author_username}</span><button type="button" aria-label="ยกเลิกการตอบกลับ" onClick={() => setReplyTo(null)}><X size={16} /></button></div> : null}
-        <form className="detail-comment-form flutter-detail-composer" onSubmit={(event) => { event.preventDefault(); void submit(); }}><input ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={500} placeholder={replyTo ? `ตอบกลับ @${replyTo.author_username}…` : "เพิ่มความคิดเห็น…"} /><button type="submit" aria-label="ส่งความคิดเห็น" disabled={sending || !draft.trim()}><Send size={19} /></button></form>
-      </div>
+      <div className="detail-composer-shell">{replyTo ? <div className="detail-reply-banner"><span>ตอบกลับ {replyTo.author_display_name?.trim() || replyTo.author_username}</span><button type="button" aria-label="ยกเลิกการตอบกลับ" onClick={() => setReplyTo(null)}><X size={16} /></button></div> : null}<form className="detail-comment-form flutter-detail-composer" onSubmit={(event) => { event.preventDefault(); void submit(); }}><Avatar src={viewerProfile?.avatar_url} label={viewerProfile?.username || userId} size={36} /><div className="flutter-detail-composer-field"><input ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={500} placeholder="แสดงความคิดเห็น..." /><button type="submit" aria-label="ส่งความคิดเห็น" disabled={sending || !draft.trim()}><Send size={25} /></button></div></form></div>
+
       {activityOpen ? <ActivitySheet client={client} dropId={row.id} onClose={() => setActivityOpen(false)} /> : null}
+      {editOpen ? <TextDialog title="แก้ไขโพสต์" value={editCaption} confirmLabel="บันทึก" onChange={setEditCaption} onCancel={() => setEditOpen(false)} onConfirm={() => void editDrop()} /> : null}
+      {deleteDropOpen ? <ConfirmDialog title="ลบโพสต์นี้หรือไม่?" body="โพสต์จะถูกนำออกจาก WYNOS และยังคงใช้ระบบกู้คืนเดิม" dangerLabel="ลบ" onCancel={() => setDeleteDropOpen(false)} onConfirm={() => void deleteDrop()} /> : null}
+      {deleteCommentTarget ? <ConfirmDialog title="ลบคอมเมนต์นี้หรือไม่?" dangerLabel="ลบ" onCancel={() => setDeleteCommentTarget(null)} onConfirm={() => void deleteComment(deleteCommentTarget)} /> : null}
+      {reportOpen ? <TextDialog title="รายงานโพสต์" value={reportText} placeholder="รายละเอียดที่ต้องการรายงาน" confirmLabel="ส่งรายงาน" onChange={setReportText} onCancel={() => { setReportOpen(false); setReportText(""); }} onConfirm={() => void reportDrop()} /> : null}
+      {moreOpen ? <div className="route-modal-backdrop detail-more-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal detail-more-sheet" role="dialog" aria-modal="true" aria-label="ตัวเลือกโพสต์" onClick={(event) => event.stopPropagation()}>{ownDrop ? <>{Date.now() - new Date(row.created_at).getTime() < 30 * 60 * 1000 ? <button type="button" onClick={() => { setEditCaption(row.caption ?? ""); setMoreOpen(false); setEditOpen(true); }}><Pencil size={19} />แก้ไข</button> : null}<button className="danger" type="button" onClick={() => { setMoreOpen(false); setDeleteDropOpen(true); }}><Trash2 size={19} />ลบ</button></> : <button type="button" onClick={() => { setMoreOpen(false); setReportOpen(true); }}><Flag size={19} />รายงานโพสต์</button>}</section></div> : null}
     </AppChrome>
   );
 }

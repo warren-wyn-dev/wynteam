@@ -12,7 +12,11 @@ export default defineConfig([
     // synchronous cascade even though the state change is the requested UI.
     // Keep the exception narrowly scoped to these route files; the rest of
     // the consumer web (including Home) remains covered by the stricter rule.
-    files: ["components/*-route*.tsx", "components/club-detail-golden.tsx"],
+    files: [
+      "components/*-route*.tsx",
+      "components/chat-inbox-parity.tsx",
+      "components/club-detail-golden.tsx",
+    ],
     rules: {
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/immutability": "off",

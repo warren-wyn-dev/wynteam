@@ -18,6 +18,11 @@ type PublishInput = {
   caption: string;
   files: File[];
   operationId?: string | null;
+  audience?: "everyone" | "friends" | "friends_except" | "close_friends" | "only_me";
+  excludedFriendIds?: string[];
+  mentionedUserIds?: string[];
+  imageAspectRatio?: "original" | "1:1" | "4:5" | "16:9";
+  onImageUploaded?: (uploaded: number, total: number) => void;
 };
 
 export type PublishDropResult = {
@@ -46,8 +51,7 @@ function errorMessage(error: unknown): string {
 function isConflict(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const candidate = error as { statusCode?: string | number; status?: string | number };
-  return String(candidate.statusCode ?? candidate.status ?? "") === "409" ||
-    errorMessage(error).toLowerCase().includes("already exists");
+  return String(candidate.statusCode ?? candidate.status ?? "") === "409" || errorMessage(error).toLowerCase().includes("already exists");
 }
 
 function isAmbiguousTransportError(error: unknown): boolean {
@@ -80,11 +84,7 @@ async function imageDimensions(file: File): Promise<{ width: number; height: num
 
 async function removeBestEffort(client: SupabaseClient, paths: string[]): Promise<void> {
   if (!paths.length) return;
-  try {
-    await client.storage.from("drop-images").remove(paths);
-  } catch {
-    // Cleanup must never hide the original publication failure.
-  }
+  try { await client.storage.from("drop-images").remove(paths); } catch { /* preserve original error */ }
 }
 
 async function reconcilePublication(
@@ -92,17 +92,10 @@ async function reconcilePublication(
   operationId: string,
 ): Promise<{ resolved: boolean; dropId: string | null }> {
   try {
-    const result = await client.rpc("drop_id_for_publication", {
-      p_operation_id: operationId,
-    });
+    const result = await client.rpc("drop_id_for_publication", { p_operation_id: operationId });
     if (result.error) return { resolved: false, dropId: null };
-    return {
-      resolved: true,
-      dropId: result.data == null ? null : String(result.data),
-    };
-  } catch {
-    return { resolved: false, dropId: null };
-  }
+    return { resolved: true, dropId: result.data == null ? null : String(result.data) };
+  } catch { return { resolved: false, dropId: null }; }
 }
 
 async function handleAmbiguousPublication(
@@ -112,31 +105,14 @@ async function handleAmbiguousPublication(
   originalError: unknown,
 ): Promise<PublishDropResult> {
   const reconciled = await reconcilePublication(client, operationId);
-  if (reconciled.resolved && reconciled.dropId) {
-    return { dropId: reconciled.dropId, operationId };
-  }
+  if (reconciled.resolved && reconciled.dropId) return { dropId: reconciled.dropId, operationId };
   if (reconciled.resolved && !reconciled.dropId) {
     await removeBestEffort(client, newlyUploadedPaths);
-    throw originalError instanceof Error
-      ? originalError
-      : new Error(errorMessage(originalError) || "เผยแพร่ Drop ไม่สำเร็จ");
+    throw originalError instanceof Error ? originalError : new Error(errorMessage(originalError) || "เผยแพร่ Drop ไม่สำเร็จ");
   }
-
-  // Reconciliation itself could not establish the state. Preserve all
-  // deterministic uploads so a retry with this operation id can recover.
   throw new DropPublicationStateUnknownError(operationId);
 }
 
-/**
- * Browser counterpart of Flutter DropRepository.createDrop/_publishDrop.
- *
- * The operation id and storage paths are deterministic. If a transport
- * response is lost after the database committed, retrying with the same
- * operation id returns the existing Drop instead of publishing a duplicate.
- * Existing 409 objects from an earlier ambiguous attempt are retained and
- * reused; only files uploaded by the current, definitely-failed attempt are
- * eligible for cleanup.
- */
 export async function publishDropSafely(
   client: SupabaseClient,
   userId: string,
@@ -150,6 +126,7 @@ export async function publishDropSafely(
   const operationId = input.operationId || crypto.randomUUID();
   const newlyUploadedPaths: string[] = [];
   const metadata: ImageMetadata[] = [];
+  input.onImageUploaded?.(0, files.length);
 
   try {
     for (let index = 0; index < files.length; index += 1) {
@@ -161,10 +138,8 @@ export async function publishDropSafely(
         contentType: file.type || undefined,
         upsert: false,
       });
-
       if (uploaded.error && !isConflict(uploaded.error)) throw uploaded.error;
       if (!uploaded.error) newlyUploadedPaths.push(path);
-
       const { data } = client.storage.from("drop-images").getPublicUrl(path);
       metadata.push({
         image_url: data.publicUrl,
@@ -172,6 +147,7 @@ export async function publishDropSafely(
         image_width: dimensions.width,
         image_height: dimensions.height,
       });
+      input.onImageUploaded?.(index + 1, files.length);
     }
   } catch (error) {
     await removeBestEffort(client, newlyUploadedPaths);
@@ -184,44 +160,30 @@ export async function publishDropSafely(
       p_operation_id: operationId,
       p_image_url: primary?.image_url ?? null,
       p_caption: caption || null,
-      p_audience: "everyone",
-      p_excluded_friend_ids: [],
+      p_audience: input.audience ?? "everyone",
+      p_excluded_friend_ids: input.audience === "friends_except" ? (input.excludedFriendIds ?? []) : [],
       p_images: metadata,
-      p_mentioned_user_ids: [],
+      p_mentioned_user_ids: input.mentionedUserIds ?? [],
       p_location: null,
       p_location_lat: null,
       p_location_lon: null,
       p_location_place_id: null,
       p_image_width: primary?.image_width ?? null,
       p_image_height: primary?.image_height ?? null,
-      p_image_aspect_ratio: null,
+      p_image_aspect_ratio: input.imageAspectRatio ?? null,
     });
 
-    // PostgREST normally returns fetch/network failures through `result.error`
-    // rather than throwing them. Treat those as ambiguous too: the server may
-    // have committed before the browser lost the response.
     if (result.error) {
       if (isAmbiguousTransportError(result.error)) {
-        return await handleAmbiguousPublication(
-          client,
-          operationId,
-          newlyUploadedPaths,
-          result.error,
-        );
+        return await handleAmbiguousPublication(client, operationId, newlyUploadedPaths, result.error);
       }
       await removeBestEffort(client, newlyUploadedPaths);
       throw new Error(result.error.message || "เผยแพร่ Drop ไม่สำเร็จ");
     }
-
     return { dropId: String(result.data), operationId };
   } catch (error) {
     if (error instanceof DropPublicationStateUnknownError) throw error;
     if (!isAmbiguousTransportError(error)) throw error;
-    return handleAmbiguousPublication(
-      client,
-      operationId,
-      newlyUploadedPaths,
-      error,
-    );
+    return handleAmbiguousPublication(client, operationId, newlyUploadedPaths, error);
   }
 }

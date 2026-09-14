@@ -1,5 +1,5 @@
-import { ChatRoute } from "@/components/chat-routes";
+import { ChatInboxParityRoute } from "@/components/chat-inbox-parity";
 
 export default function Page() {
-  return <ChatRoute />;
+  return <ChatInboxParityRoute />;
 }

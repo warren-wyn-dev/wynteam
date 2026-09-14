@@ -1,7 +1,7 @@
 "use client";
 
 import { Bookmark, Compass, Heart, Menu, MessageCircle, Plus, Repeat2, Search, UserPlus, UsersRound, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -10,8 +10,12 @@ import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3
 import { relativeTimeTh } from "@/lib/feed";
 import { fetchNotifications, markAllNotificationsRead, type NotificationRow } from "@/lib/phase3-data";
 
+function actorLabel(row: NotificationRow): string {
+  return row.actor_display_name?.trim() || (row.actor_username ? `@${row.actor_username}` : "WYNOS");
+}
+
 function messageFor(row: NotificationRow): string {
-  const actor = row.actor_display_name?.trim() || (row.actor_username ? `@${row.actor_username}` : "WYNOS");
+  const actor = actorLabel(row);
   switch (row.type) {
     case "like_drop": return `${actor} ถูกใจโพสต์ของคุณ`;
     case "comment_drop": return `${actor} แสดงความคิดเห็นในโพสต์ของคุณ`;
@@ -39,15 +43,81 @@ function messageFor(row: NotificationRow): string {
   }
 }
 
-function TypeIcon({ type }: { type: string }) {
-  if (type.includes("like")) return <Heart size={13} />;
-  if (type === "redrop") return <Repeat2 size={13} />;
-  if (type.includes("follow")) return <UserPlus size={13} />;
-  return <MessageCircle size={13} />;
+function TypeBadge({ type }: { type: string }) {
+  if (type.includes("like")) return <span className="notification-type-icon like"><Heart size={10} fill="currentColor" strokeWidth={0} /></span>;
+  if (type === "redrop") return <span className="notification-type-icon repost"><Repeat2 size={10} /></span>;
+  if (type === "follow" || type === "follow_request_accepted") return <span className="notification-type-icon follow"><UserPlus size={10} /></span>;
+  if (type.includes("comment")) return <span className="notification-type-icon comment"><MessageCircle size={10} fill="currentColor" /></span>;
+  return null;
 }
 
 function isMention(row: NotificationRow) {
   return row.type === "mention_drop" || row.type === "mention_club_post";
+}
+
+type DayBucket = "today" | "yesterday" | "older";
+type NotificationGroup = { head: NotificationRow; items: NotificationRow[]; extraActorCount: number };
+
+const groupableTypes = new Set(["like_drop", "like_pop", "comment_drop", "comment_pop", "redrop", "follow"]);
+
+function bucketFor(iso: string, now: Date): DayBucket {
+  const created = new Date(iso);
+  const day = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.floor((today.getTime() - day.getTime()) / 86_400_000);
+  if (diff <= 0) return "today";
+  if (diff === 1) return "yesterday";
+  return "older";
+}
+
+function groupKey(row: NotificationRow): string | null {
+  if (!groupableTypes.has(row.type)) return null;
+  return `${row.type}:${row.drop_id ?? row.pop_id ?? ""}`;
+}
+
+function groupWithinDay(items: NotificationRow[]): NotificationGroup[] {
+  const groups: Array<{ head: NotificationRow; items: NotificationRow[] }> = [];
+  const indexByKey = new Map<string, number>();
+  for (const row of items) {
+    const key = groupKey(row);
+    if (!key) {
+      groups.push({ head: row, items: [row] });
+      continue;
+    }
+    const existing = indexByKey.get(key);
+    if (existing == null) {
+      indexByKey.set(key, groups.length);
+      groups.push({ head: row, items: [row] });
+    } else {
+      groups[existing].items.push(row);
+    }
+  }
+  return groups.map((group) => ({
+    ...group,
+    extraActorCount: new Set(group.items.slice(1).map((row) => row.actor_id).filter(Boolean)).size,
+  }));
+}
+
+function buildSections(items: NotificationRow[]) {
+  const now = new Date();
+  const order: DayBucket[] = ["today", "yesterday", "older"];
+  const labels: Record<DayBucket, string> = { today: "วันนี้", yesterday: "เมื่อวานนี้", older: "เก่ากว่านี้" };
+  return order.flatMap((bucket) => {
+    const bucketRows = items.filter((row) => bucketFor(row.created_at, now) === bucket);
+    return bucketRows.length ? [{ label: labels[bucket], groups: groupWithinDay(bucketRows) }] : [];
+  });
+}
+
+function NotificationMessage({ row, extraActorCount }: { row: NotificationRow; extraActorCount: number }) {
+  const message = messageFor(row);
+  const actor = actorLabel(row);
+  const actorVisible = Boolean(row.actor_id) && message.startsWith(actor);
+  return (
+    <span className="notification-message">
+      {actorVisible ? <><b>{actor}</b>{message.slice(actor.length)}</> : message}
+      {extraActorCount > 0 ? <em> และอีก {extraActorCount} คน</em> : null}
+    </span>
+  );
 }
 
 function NotificationsInner({ client, userId }: { client: SupabaseClient; userId: string }) {
@@ -70,9 +140,14 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
       setPage(nextPage);
       setHasMore(next.length === 30);
       if (!append) void markAllNotificationsRead(client, userId).catch(() => undefined);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }, [client, userId]);
-  useEffect(() => { void load(0, false); }, [load]);
+
+  useEffect(() => {
+    void load(0, false);
+  }, [load]);
 
   const open = (row: NotificationRow) => {
     if (row.conversation_id) { router.push(`/chat/${row.conversation_id}${row.actor_id ? `?user=${encodeURIComponent(row.actor_id)}` : ""}`); return; }
@@ -83,6 +158,7 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   };
 
   const visible = tab === "mentions" ? rows.filter(isMention) : rows;
+  const sections = useMemo(() => buildSections(visible), [visible]);
   const menuRows = [
     ["สำรวจ Club", Compass, "/clubs"],
     ["สร้าง Club", Plus, "/clubs/new"],
@@ -97,21 +173,65 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
         <strong>การแจ้งเตือน</strong>
         <button type="button" aria-label="ค้นหา" onClick={() => router.push("/search")}><Search size={21} /></button>
       </header>
-      <div className="flutter-notification-tabs"><button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>ทั้งหมด</button><button className={tab === "mentions" ? "active" : ""} type="button" onClick={() => setTab("mentions")}>การกล่าวถึง</button></div>
-      {loading && !rows.length ? <LoadingState /> : !visible.length ? <EmptyState>{tab === "mentions" ? "ยังไม่มีใครกล่าวถึงคุณ" : "ยังไม่มีการแจ้งเตือน"}</EmptyState> : (
+      <div className="flutter-notification-tabs">
+        <button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>ทั้งหมด</button>
+        <button className={tab === "mentions" ? "active" : ""} type="button" onClick={() => setTab("mentions")}>การกล่าวถึง</button>
+      </div>
+
+      {loading && !rows.length ? <LoadingState /> : !visible.length ? (
+        <EmptyState>{tab === "mentions" ? "ยังไม่มีใครกล่าวถึงคุณ" : "ยังไม่มีการแจ้งเตือน"}</EmptyState>
+      ) : (
         <div className="notification-list">
-          {visible.map((row) => {
-            const wasUnread = unreadSnapshot.has(row.id);
-            return <button className={`notification-row ${wasUnread ? "unread" : ""}`} type="button" onClick={() => open(row)} key={row.id}>
-              <span className="notification-avatar-wrap"><Avatar src={row.actor_avatar_url} label={row.actor_username || "WYNOS"} /><span className="notification-type-icon"><TypeIcon type={row.type} /></span></span>
-              <span className="notification-copy"><strong>{messageFor(row)}</strong>{row.content_preview ? <small className="notification-preview">{row.content_preview}</small> : null}<small>{relativeTimeTh(row.created_at)}</small></span>
-              {wasUnread ? <i className="notification-dot" /> : null}
-            </button>;
-          })}
-          {tab === "all" && hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}
+          {sections.map((section) => (
+            <section className="notification-day-section" key={section.label}>
+              <h2 className="notification-group-label">{section.label}</h2>
+              {section.groups.map((group) => {
+                const row = group.head;
+                const wasUnread = group.items.some((item) => unreadSnapshot.has(item.id));
+                return (
+                  <button className={`notification-row ${wasUnread ? "unread" : ""}`} type="button" onClick={() => open(row)} key={row.id}>
+                    <span className="notification-avatar-wrap">
+                      <Avatar src={row.actor_avatar_url} label={row.actor_username || "WYNOS"} size={40} />
+                      <TypeBadge type={row.type} />
+                    </span>
+                    <span className="notification-copy">
+                      <NotificationMessage row={row} extraActorCount={group.extraActorCount} />
+                      {row.content_preview ? <small className="notification-preview">“{row.content_preview}”</small> : null}
+                      <small>{relativeTimeTh(row.created_at)}</small>
+                    </span>
+                    {wasUnread ? <i className="notification-dot" /> : null}
+                  </button>
+                );
+              })}
+            </section>
+          ))}
+          {tab === "all" && hasMore ? (
+            <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button>
+          ) : tab === "all" ? (
+            <p className="notification-end">ไม่มีการแจ้งเตือนเพิ่มเติมแล้ว</p>
+          ) : null}
         </div>
       )}
-      {drawerOpen ? <div className="home-drawer-backdrop" role="presentation" onClick={() => setDrawerOpen(false)}><aside className="home-drawer" role="dialog" aria-modal="true" aria-label="เมนู" onClick={(e) => e.stopPropagation()}><div className="home-drawer-close"><button className="icon-button" type="button" aria-label="ปิด" onClick={() => setDrawerOpen(false)}><X size={22} /></button></div><button className="drawer-identity notification-drawer-identity" type="button" onClick={() => router.push(`/profile/${userId}`)}><Avatar label="WYNOS" size={56} /><span className="drawer-identity-copy"><strong>โปรไฟล์ของฉัน</strong><small>เปิดโปรไฟล์</small></span></button><div className="drawer-divider" /><div className="drawer-menu-list">{menuRows.map(([label, Icon, href]) => <button className="drawer-menu-row" type="button" onClick={() => { setDrawerOpen(false); router.push(href); }} key={label}><span className="drawer-menu-icon"><Icon size={19} /></span><span>{label}</span></button>)}</div></aside></div> : null}
+
+      {drawerOpen ? (
+        <div className="home-drawer-backdrop" role="presentation" onClick={() => setDrawerOpen(false)}>
+          <aside className="home-drawer" role="dialog" aria-modal="true" aria-label="เมนู" onClick={(event) => event.stopPropagation()}>
+            <div className="home-drawer-close"><button className="icon-button" type="button" aria-label="ปิด" onClick={() => setDrawerOpen(false)}><X size={22} /></button></div>
+            <button className="drawer-identity notification-drawer-identity" type="button" onClick={() => router.push(`/profile/${userId}`)}>
+              <Avatar label="WYNOS" size={56} />
+              <span className="drawer-identity-copy"><strong>โปรไฟล์ของฉัน</strong><small>เปิดโปรไฟล์</small></span>
+            </button>
+            <div className="drawer-divider" />
+            <div className="drawer-menu-list">
+              {menuRows.map(([label, Icon, href]) => (
+                <button className="drawer-menu-row" type="button" onClick={() => { setDrawerOpen(false); router.push(href); }} key={label}>
+                  <span className="drawer-menu-icon"><Icon size={19} /></span><span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
+        </div>
+      ) : null}
     </AppChrome>
   );
 }
