@@ -4,10 +4,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Bookmark, Eye, Flag, Heart, MessageCircle, MoreHorizontal, Quote, Repeat2, Send, Share2 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 
 import { RichPostText } from "@/components/rich-post-text";
-import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import { loadHomeViewerState, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -63,6 +63,7 @@ export function GoldenDropCard({ row }: { row: HomeFeedRow }) {
   const [error, setError] = useState("");
   const [burst, setBurst] = useState(false);
   const lastTap = useRef(0);
+  const mediaRatio = postMediaAspectRatio(row, images.length > 1);
 
   const reloadViewer = useCallback(async (uid: string) => {
     if (!client) return;
@@ -173,7 +174,7 @@ export function GoldenDropCard({ row }: { row: HomeFeedRow }) {
     <div className="golden-drop-body">
       <header className="golden-drop-head"><Link href={`/profile/${row.author_id}`}><strong>{authorLabel(row)}{row.author_is_verified ? <span className="route-verified">✓</span> : null}</strong><small>{relativeTimeTh(row.created_at)}{row.location ? ` · 📍 ${row.location}` : ""}</small></Link><button type="button" aria-label="เพิ่มเติม" onClick={() => setSheet("more")}><MoreHorizontal size={22} /></button></header>
       {row.caption ? <RichPostText className="golden-drop-open" value={row.caption} postHref={`/drop/${row.id}`} /> : null}
-      {images.length ? <div className="golden-drop-media-wrap" onDoubleClick={doubleLike} onPointerUp={pointerUp}><Link className={`golden-drop-media ${images.length > 1 ? "multi" : "single"}`} href={`/drop/${row.id}`}>{images.map((url, index) => <img src={url} alt="" loading="lazy" decoding="async" key={`${row.id}:${index}`} />)}</Link>{burst ? <Heart className="golden-drop-burst" size={72} fill="currentColor" strokeWidth={0} /> : null}</div> : null}
+      {images.length ? <div className="golden-drop-media-wrap" onDoubleClick={doubleLike} onPointerUp={pointerUp}><Link className={`golden-drop-media ${images.length > 1 ? "multi" : "single"}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties} href={`/drop/${row.id}`}>{images.map((url, index) => <img src={url} alt="" loading="lazy" decoding="async" key={`${row.id}:${index}`} />)}</Link>{burst ? <Heart className="golden-drop-burst" size={72} fill="currentColor" strokeWidth={0} /> : null}</div> : null}
       <div className="golden-drop-actions"><button className={liked ? "liked" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} onClick={() => void like()}><Heart size={24} fill={liked ? "currentColor" : "none"} />{likeCount > 0 ? <span>{likeCount}</span> : null}</button><Link href={`/drop/${row.id}#comments`} aria-label="ความคิดเห็น"><MessageCircle size={24} />{(row.comment_count ?? 0) > 0 ? <span>{row.comment_count}</span> : null}</Link>{canRedrop ? <button className={redropped ? "active" : ""} type="button" aria-label="รีโพสต์" onClick={() => setSheet("redrop")}><Repeat2 size={24} />{redropCount > 0 ? <span>{redropCount}</span> : null}</button> : null}<button type="button" aria-label="แชร์" onClick={() => void share()}><Send size={24} /></button>{viewCount != null ? <span className="golden-drop-view"><Eye size={22} />{viewCount > 0 ? <span>{viewCount}</span> : null}</span> : null}</div>
     </div>
 

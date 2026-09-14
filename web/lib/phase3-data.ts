@@ -133,7 +133,7 @@ export type LegalDocument = {
   effective_at: string;
 };
 
-const dropCardSelect = "id,author_id,caption,image_url,image_width,image_height,created_at,author:profiles!drops_author_id_fkey(username,display_name,avatar_url,is_verified),drop_likes(count),drop_comments(count),redrops(count),drop_images(count)";
+const dropCardSelect = "id,author_id,caption,image_url,image_width,image_height,image_aspect_ratio,created_at,author:profiles!drops_author_id_fkey(username,display_name,avatar_url,is_verified),drop_likes(count),drop_comments(count),redrops(count),drop_images(count)";
 
 const messageColumns = "id,conversation_id,sender_id,text,image_url,reply_to_message_id,shared_content_type,shared_content_id,deleted_at,created_at,view_once,viewed_at,edited_at,reply_to:messages!reply_to_message_id(text,image_url,deleted_at)";
 
@@ -203,6 +203,7 @@ function asDrop(row: Record<string, unknown>): HomeFeedRow {
     image_url: row.image_url == null ? null : String(row.image_url),
     image_width: row.image_width == null ? null : Number(row.image_width),
     image_height: row.image_height == null ? null : Number(row.image_height),
+    image_aspect_ratio: row.image_aspect_ratio == null ? null : String(row.image_aspect_ratio),
     image_count: firstCount(row.drop_images),
     like_count: firstCount(row.drop_likes),
     comment_count: firstCount(row.drop_comments),

@@ -29,6 +29,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent,
   type TouchEvent,
 } from "react";
@@ -36,7 +37,7 @@ import {
 import { AppChrome, Avatar } from "@/components/phase3-ui";
 import { RichPostText } from "@/components/rich-post-text";
 import { publishDropSafely } from "@/lib/drop-publication";
-import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import {
   loadHomeViewerState,
   toggleAuthorFollow,
@@ -217,6 +218,7 @@ function ImageCarousel({
 }) {
   const lastTap = useRef(0);
   const [burst, setBurst] = useState(false);
+  const mediaRatio = postMediaAspectRatio(row, urls.length > 1);
   const doubleLike = () => {
     if (!liked) onDoubleLike();
     setBurst(false);
@@ -237,7 +239,7 @@ function ImageCarousel({
 
   return (
     <div className="audit-media-wrap" onDoubleClick={doubleLike} onPointerUp={pointerUp}>
-      <div className={`audit-media-carousel ${urls.length === 1 ? "single" : ""}`}>
+      <div className={`audit-media-carousel ${urls.length === 1 ? "single" : ""}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties}>
         {urls.map((url, index) => (
           <img
             src={url}
@@ -289,7 +291,7 @@ function FeedPost({
           <Repeat2 size={13} />รีโพสต์โดย @{row.redropper_username || "wynos"} · {time}
         </div>
       ) : null}
-      {row.quote_text ? <p className="audit-quote-text">{row.quote_text}</p> : null}
+      {row.quote_text ? <RichPostText className="audit-quote-text" value={row.quote_text} /> : null}
       <Link className="avatar-button" href={`/profile/${row.author_id}`}>
         <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} />
       </Link>
@@ -371,7 +373,7 @@ function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () => void
   return (
     <article className="parity-feed-post audit-feed-post club-home-card">
       <Link className="avatar-button" href={`/profile/${post.author_id}`}>
-        <Avatar src={post.author_avatar_url} label={post.author_username || "WYNOS"} size={42} />
+        <Avatar src={post.author_avatar_url} label={post.author_username || "WYNOS"} size={44} />
       </Link>
       <div className="post-content">
         <header className="post-header">
