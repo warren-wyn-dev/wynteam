@@ -59,6 +59,7 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(detail).toContain("detail-confirm-dialog");
   expect(detail).toContain("detail-dialog");
   expect(interactionCss).toContain(".detail-dialog-backdrop");
+  expect(interactionCss).toContain(".wynos-confirm-dialog");
   expect(interactionCss).toContain("safe-area-inset-bottom");
   expect(layout.lastIndexOf('import "./interaction-parity-final.css";')).toBeGreaterThan(
     layout.lastIndexOf('import "./system-parity-final.css";'),
