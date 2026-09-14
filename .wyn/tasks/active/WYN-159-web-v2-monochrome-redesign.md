@@ -133,3 +133,15 @@ automated tests alone.
   chip — keep or unify later? (2) Header icon sizing was simplified from old WYN-158 per-icon
   pixel values to the standard 22px/44px-box convention — keep simplified or restore exact old
   sizes? Awaiting Founder review before Batch 4 (Search, Notifications, Chat).
+- 2026-09-14: Follow-up fix — the earlier Home correction agent (wynos-home.html round) guessed
+  Lucide icon equivalents before the Founder's definitive semantic mapping table arrived
+  (wynos-home-v2.html). Verified the gap directly against the pushed branch and found 3 real
+  mismatches: Comment action used `MessageSquare` (table says `MessageCircle`), Repost/ReDrop
+  used `Repeat2` (table says `Repeat`), Home header chat icon used `MessageSquare`. Fixed
+  directly (small, low-risk change) across `post-actions.tsx`, `club-feed-post.tsx`,
+  `home-header.tsx`, `home-post-card.tsx`, `home-screen.tsx` (ReDrop/Quote sheet rows),
+  `post-detail-route.tsx`, `post-detail-fixture.tsx`, and updated the `tokens.ts` mapping
+  table/docs to match — commit `3eed2552` on `feat/wyn-ux-ui-redesign`. `npm run check` (lint/
+  typecheck/build) reverified clean after the fix. Deliberately left unmigrated screens (Chat,
+  Search/Bookmarks/Profile-feed via `golden-drop-card.tsx`, Notifications, deep-link routes)
+  untouched — they'll get correct icons when their own batches land, not before.
