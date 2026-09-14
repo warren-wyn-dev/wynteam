@@ -1,0 +1,174 @@
+/* Final source-derived overrides for the WYN-158 system parity audit.
+   Keep this import last. Values below come from current Flutter Beta4 source. */
+
+/* SettingsScreen: toolbar 64, group label 13/700, section radius 18,
+   row min-height 52, 34x34 leading icon, 19px glyph, 12px icon/text gap. */
+.route-main:has(.settings-page) > .route-header,
+.route-main:has(.settings-page) > .route-header .route-title-row {
+  min-height: 64px;
+  height: 64px;
+}
+
+.route-main:has(.settings-page) > .route-header h1 {
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.route-main:has(.settings-page) > .route-header .route-header-actions:has(button[aria-label="กลับ"]) {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--ink);
+}
+
+.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] svg {
+  display: block;
+  width: 26px;
+  height: 26px;
+}
+
+.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"]::before {
+  content: none;
+}
+
+.settings-page > h2 {
+  margin: 0;
+  padding: 12px 16px 4px;
+  color: var(--graphite);
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.settings-group {
+  margin-inline: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.settings-group.separated {
+  margin-top: 12px;
+}
+
+.settings-row {
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.settings-row:last-child {
+  border-bottom: 0;
+}
+
+.settings-leading-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--surface-tint, #f1efe9);
+  color: currentColor;
+}
+
+.settings-leading-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.settings-row.disabled {
+  color: var(--faint);
+}
+
+.settings-row.disabled .settings-leading-icon {
+  background: var(--paper);
+}
+
+.settings-row.danger.enabled {
+  color: var(--graphite);
+}
+
+.settings-row-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-row-copy strong {
+  color: currentColor;
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.settings-row-copy small {
+  color: var(--graphite);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.settings-chevron {
+  flex: 0 0 auto;
+  color: var(--faint);
+}
+
+.settings-version-footer {
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--faint);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Root navigation source contract: 80px content, 56px create action,
+   28px destination icons, 11.5px labels, 4px icon/label gap. */
+.route-bottom-nav {
+  height: calc(80px + env(safe-area-inset-bottom));
+  min-height: calc(80px + env(safe-area-inset-bottom));
+}
+
+.route-nav-link {
+  min-height: 80px;
+  gap: 4px;
+  font-size: 11.5px;
+  line-height: 1;
+}
+
+.route-nav-link > svg {
+  width: 28px;
+  height: 28px;
+}
+
+.route-create-button {
+  width: 56px;
+  height: 56px;
+}
+
+.route-create-button svg {
+  width: 33px;
+  height: 33px;
+}
