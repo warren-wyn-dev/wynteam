@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wynos — Feed</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --surface: #FAFAFA;
+    --text-primary: #0A0A0A;
+    --text-secondary: #6B6B6B;
+    --text-muted: #9A9A9A;
+    --border: #E7E7E7;
+    --border-strong: #D0D0D0;
+    --accent-red: #E0203D;
+    --radius-card: 16px;
+    --radius-pill: 999px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #EDEDED;
+    font-family: -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 12px;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 400px;
+    background: var(--bg);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    padding: 14px 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 22px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .brand-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header-actions .icon-btn { font-size: 20px; }
+
+  .tabs {
+    display: flex;
+    gap: 18px;
+    font-size: 14px;
+    overflow-x: auto;
+  }
+
+  .tab {
+    color: var(--text-secondary);
+    padding-bottom: 10px;
+    white-space: nowrap;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font: inherit;
+  }
+
+  .tab.active {
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--text-primary);
+  }
+
+  /* ---- Post ---- */
+  .post {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .post-body { flex: 1; min-width: 0; }
+
+  .post-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .post-meta {
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .post-meta .name { font-weight: 600; }
+  .post-meta .time { color: var(--text-muted); }
+
+  .post-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .follow-btn {
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-primary);
+    border-radius: var(--radius-pill);
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .follow-btn:hover { background: var(--surface); }
+
+  .more-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+  }
+
+  .post-text {
+    font-size: 15px;
+    color: var(--text-primary);
+    margin: 6px 0 10px;
+    line-height: 1.5;
+  }
+
+  .post-actions {
+    display: flex;
+    gap: 28px;
+  }
+
+  .action {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .action i { font-size: 18px; }
+
+  .action.liked,
+  .action.liked i {
+    color: var(--accent-red);
+  }
+
+  /* ---- Bottom nav ---- */
+  .bottom-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 21px;
+    cursor: pointer;
+    display: flex;
+  }
+
+  .nav-btn.active { color: var(--text-primary); }
+
+  .nav-btn.post-cta {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <div class="header-row">
+      <button class="icon-btn" aria-label="เมนู"><i class="ti ti-menu-2"></i></button>
+
+      <div class="brand">
+        <!-- โลโก้แบบย่อ สลับกับไฟล์โลโก้จริง (woven-W) ของแบรนด์ได้ที่นี่ -->
+        <svg width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
+          <path d="M2 4 L8 22 L13 9 L18 22 L24 4" fill="none" stroke="#0A0A0A" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+        <span class="brand-name">Wynos</span>
+      </div>
+
+      <div class="header-actions">
+        <button class="icon-btn" aria-label="ค้นหา"><i class="ti ti-search"></i></button>
+        <button class="icon-btn" aria-label="การแจ้งเตือน"><i class="ti ti-bell"></i></button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active">สำหรับคุณ</button>
+      <button class="tab">กำลังติดตาม</button>
+      <button class="tab">คลับของฉัน</button>
+    </div>
+  </div>
+
+  <!-- ---- Feed ---- -->
+  <article class="post">
+    <div class="avatar"></div>
+    <div class="post-body">
+      <div class="post-head">
+        <div class="post-meta">
+          <span class="name">พลอย เดินทาง</span>
+          <span class="time"> · 2 ชม.</span>
+        </div>
+        <div class="post-head-actions">
+          <button class="follow-btn">ติดตาม</button>
+          <button class="more-btn" aria-label="เมนูเพิ่มเติม"><i class="ti ti-dots"></i></button>
+        </div>
+      </div>
+      <p class="post-text">เพิ่งลองร้านกาแฟใหม่แถวบ้าน รสชาติดีเกินคาด แนะนำเลยถ้าใครผ่านแถวนี้</p>
+      <div class="post-actions">
+        <button class="action liked"><i class="ti ti-heart"></i>48</button>
+        <button class="action"><i class="ti ti-message-circle"></i>12</button>
+        <button class="action"><i class="ti ti-repeat"></i>3</button>
+      </div>
+    </div>
+  </article>
+
+  <article class="post">
+    <div class="avatar"></div>
+    <div class="post-body">
+      <div class="post-head">
+        <div class="post-meta">
+          <span class="name">ต้น สายเทค</span>
+          <span class="time"> · 5 ชม.</span>
+        </div>
+        <div class="post-head-actions">
+          <button class="follow-btn">ติดตาม</button>
+          <button class="more-btn" aria-label="เมนูเพิ่มเติม"><i class="ti ti-dots"></i></button>
+        </div>
+      </div>
+      <p class="post-text">ทำไมทุกคนตื่นเต้นกับฟีเจอร์ใหม่นี้กันจัง ลองแล้วเวิร์กมากจริง</p>
+      <div class="post-actions">
+        <button class="action"><i class="ti ti-heart"></i>21</button>
+        <button class="action"><i class="ti ti-message-circle"></i>5</button>
+        <button class="action"><i class="ti ti-repeat"></i>1</button>
+      </div>
+    </div>
+  </article>
+
+  <!-- ---- Bottom nav ---- -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" aria-label="หน้าหลัก"><i class="ti ti-home"></i></button>
+    <button class="nav-btn" aria-label="คลับ"><i class="ti ti-users-group"></i></button>
+    <button class="nav-btn post-cta" aria-label="โพสต์ใหม่"><i class="ti ti-plus"></i></button>
+    <button class="nav-btn" aria-label="แชท"><i class="ti ti-message-2"></i></button>
+    <button class="nav-btn" aria-label="โปรไฟล์"><i class="ti ti-user"></i></button>
+  </nav>
+
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelector('.tab.active').classList.remove('active');
+      tab.classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.action').forEach(btn => {
+    const icon = btn.querySelector('.ti-heart');
+    if (!icon) return;
+    btn.addEventListener('click', () => btn.classList.toggle('liked'));
+  });
+
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    if (btn.classList.contains('post-cta')) return;
+    btn.addEventListener('click', () => {
+      const current = document.querySelector('.nav-btn.active');
+      if (current && !current.classList.contains('post-cta')) current.classList.remove('active');
+      btn.classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
