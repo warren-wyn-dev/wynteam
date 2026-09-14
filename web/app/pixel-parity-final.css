@@ -405,17 +405,28 @@
   height: 22px;
 }
 
-.flutter-detail-actions button {
+/* Flutter keeps the metric number graphite regardless of icon state. */
+.flutter-detail-actions button,
+.flutter-detail-actions button.active,
+.flutter-detail-actions button.like.active {
   gap: 7px;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.flutter-detail-actions button > span {
   color: var(--graphite);
   font-size: 14px;
   line-height: 1;
   font-weight: 400;
+}
+
+/* WYNHeartIcon is intentionally the Lucide reference heart, 1.5 stroke. */
+.flutter-detail-actions button[aria-label="ถูกใจ"] > svg,
+.flutter-detail-actions button[aria-label="เลิกถูกใจ"] > svg {
+  width: 26px;
+  height: 26px;
+  color: var(--ink);
+  stroke-width: 1.5;
+}
+
+.flutter-detail-actions button.like.active > svg {
+  color: #f44336;
 }
 
 /* Flutter mode_comment_outlined. */
@@ -428,7 +439,7 @@
   width: 25px;
   height: 25px;
   display: block;
-  background: currentColor;
+  background: var(--ink);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14l4 4V4a2 2 0 0 0-2-2Zm0 15.17L18.83 16H4V4h16v13.17Z'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14l4 4V4a2 2 0 0 0-2-2Zm0 15.17L18.83 16H4V4h16v13.17Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
@@ -445,9 +456,13 @@
   width: 27px;
   height: 27px;
   display: block;
-  background: currentColor;
+  background: var(--ink);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 7h11v3l4-4-4-4v3H7a4 4 0 0 0-4 4v3h2V9a2 2 0 0 1 2-2Zm10 10H6v-3l-4 4 4 4v-3h11a4 4 0 0 0 4-4v-3h-2v3a2 2 0 0 1-2 2Z'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 7h11v3l4-4-4-4v3H7a4 4 0 0 0-4 4v3h2V9a2 2 0 0 1 2-2Zm10 10H6v-3l-4 4 4 4v-3h11a4 4 0 0 0 4-4v-3h-2v3a2 2 0 0 1-2 2Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.flutter-detail-actions button.active[aria-label="ยกเลิกรีโพสต์"]::before {
+  background: var(--sapphire);
 }
 
 /* Flutter ios_share_outlined: box + upward arrow, not Lucide's node-share. */
@@ -460,9 +475,34 @@
   width: 24px;
   height: 24px;
   display: block;
-  background: currentColor;
+  background: var(--ink);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M8 7H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3M12 3v12M8 7l4-4 4 4'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M8 7H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3M12 3v12M8 7l4-4 4 4'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Flutter bookmark_border_rounded / bookmark_rounded, always ink. */
+.flutter-detail-actions button[aria-label="บันทึกโพสต์"] > svg,
+.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] > svg {
+  display: none;
+}
+
+.flutter-detail-actions button[aria-label="บันทึกโพสต์"]::before,
+.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"]::before {
+  content: "";
+  width: 26px;
+  height: 26px;
+  display: block;
+  background: var(--ink);
+}
+
+.flutter-detail-actions button[aria-label="บันทึกโพสต์"]::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2Zm0 15-5-2.18L7 18V5h10v13Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2Zm0 15-5-2.18L7 18V5h10v13Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"]::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .detail-activity-row {
