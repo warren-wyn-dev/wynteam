@@ -104,9 +104,80 @@
 .beta4-friend-row small { color: var(--graphite); font-size: 13px; }
 .beta4-friend-row > i { width: 22px; height: 22px; border: 1.5px solid var(--graphite); border-radius: 50%; box-sizing: border-box; }
 .beta4-friend-row > i.selected { border: 6px solid var(--sapphire); }
+
+.detail-dialog-backdrop { align-items: center; padding: 16px; }
+.detail-dialog,
+.detail-confirm-dialog {
+  width: min(100%, 520px);
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.detail-dialog > header {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.detail-dialog > header strong,
+.detail-confirm-dialog > strong { font-size: 17px; line-height: 1.25; font-weight: 700; }
+.detail-dialog > header button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+.detail-dialog textarea {
+  width: 100%;
+  min-height: 140px;
+  margin-top: 8px;
+  padding: 12px;
+  resize: vertical;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  outline: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.45;
+  box-sizing: border-box;
+}
+.detail-dialog textarea:focus { border-color: var(--sapphire); }
+.detail-dialog textarea::placeholder { color: var(--faint); }
+.detail-confirm-dialog p { margin: 8px 0 0; color: var(--graphite); font-size: 14px; line-height: 1.45; }
+.detail-dialog footer,
+.detail-confirm-dialog footer { margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px; }
+.detail-dialog footer button,
+.detail-confirm-dialog footer button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+}
+.detail-dialog footer button.primary { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.detail-dialog footer button.primary:disabled { border-color: var(--hairline); background: var(--hairline); color: var(--muted-neutral); }
+.detail-confirm-dialog footer button.danger { border-color: #dc2626; background: #dc2626; color: white; }
+
 @supports (height: 100dvh) {
   .beta4-composer { height: 100dvh; max-height: 100dvh; }
 }
 @media (max-width: 680px) {
   .beta4-composer-scroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .detail-dialog-backdrop { align-items: flex-end; padding: 0; }
+  .detail-dialog,
+  .detail-confirm-dialog {
+    width: 100%;
+    border-radius: 22px 22px 0 0;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
 }
