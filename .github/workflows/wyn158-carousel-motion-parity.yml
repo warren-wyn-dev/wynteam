@@ -1,0 +1,67 @@
+name: WYN-158 Carousel motion parity
+
+on:
+  push:
+    branches:
+      - fix/wyn-158-founder-visual-parity
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/wyn-158-founder-visual-parity
+          fetch-depth: 0
+      - name: Apply carousel state patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"expected source block missing in {path}: {old[:160]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace(
+              "web/components/parity-home-final.tsx",
+              '''  const mediaRatio = postMediaAspectRatio(row, urls.length > 1);\n  const doubleLike = () => {''',
+              '''  const mediaRatio = postMediaAspectRatio(row, urls.length > 1);\n  const [mediaIndex, setMediaIndex] = useState(0);\n  const mediaTrack = useRef<HTMLDivElement>(null);\n  const updateMediaIndex = () => {\n    const track = mediaTrack.current;\n    const first = track?.querySelector<HTMLImageElement>("img");\n    if (!track || !first || urls.length <= 1) return;\n    const stride = first.getBoundingClientRect().width + 8;\n    if (stride <= 0) return;\n    const next = Math.max(0, Math.min(urls.length - 1, Math.round(track.scrollLeft / stride)));\n    setMediaIndex((current) => current === next ? current : next);\n  };\n  const doubleLike = () => {''',
+          )
+          replace(
+              "web/components/parity-home-final.tsx",
+              '''      <div className={`audit-media-carousel ${urls.length === 1 ? "single" : ""}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties}>''',
+              '''      <div ref={mediaTrack} onScroll={updateMediaIndex} className={`audit-media-carousel ${urls.length === 1 ? "single" : ""}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties}>''',
+          )
+          replace(
+              "web/components/parity-home-final.tsx",
+              '''          <img\n            src={url}\n            alt=""''',
+              '''          <img\n            className={urls.length > 1 ? `audit-media-card ${index === mediaIndex ? "front" : index < mediaIndex ? "before" : "after"}` : "audit-media-card"}\n            src={url}\n            alt=""''',
+          )
+
+          replace(
+              "web/components/golden-drop-card.tsx",
+              '''  const mediaRatio = postMediaAspectRatio(row, images.length > 1);\n\n  const reloadViewer''',
+              '''  const mediaRatio = postMediaAspectRatio(row, images.length > 1);\n  const [mediaIndex, setMediaIndex] = useState(0);\n  const mediaTrack = useRef<HTMLAnchorElement>(null);\n  const updateMediaIndex = () => {\n    const track = mediaTrack.current;\n    const first = track?.querySelector<HTMLImageElement>("img");\n    if (!track || !first || images.length <= 1) return;\n    const stride = first.getBoundingClientRect().width + 8;\n    if (stride <= 0) return;\n    const next = Math.max(0, Math.min(images.length - 1, Math.round(track.scrollLeft / stride)));\n    setMediaIndex((current) => current === next ? current : next);\n  };\n\n  const reloadViewer''',
+          )
+          replace(
+              "web/components/golden-drop-card.tsx",
+              '''<Link className={`golden-drop-media ${images.length > 1 ? "multi" : "single"}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties} href={`/drop/${row.id}`}>{images.map((url, index) => <img src={url} alt="" loading="lazy" decoding="async" key={`${row.id}:${index}`} />)}</Link>''',
+              '''<Link ref={mediaTrack} onScroll={updateMediaIndex} className={`golden-drop-media ${images.length > 1 ? "multi" : "single"}`} style={{ "--post-media-ratio": String(mediaRatio) } as CSSProperties} href={`/drop/${row.id}`}>{images.map((url, index) => <img className={images.length > 1 ? `golden-media-card ${index === mediaIndex ? "front" : index < mediaIndex ? "before" : "after"}` : "golden-media-card"} src={url} alt="" loading="lazy" decoding="async" key={`${row.id}:${index}`} />)}</Link>''',
+          )
+
+          Path(".github/workflows/wyn158-carousel-motion-parity.yml").unlink()
+          PY
+      - name: Commit carousel motion parity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web .github/workflows/wyn158-carousel-motion-parity.yml
+          git commit -m "WYN-158: match Flutter carousel active-card motion"
+          git push origin HEAD:fix/wyn-158-founder-visual-parity
