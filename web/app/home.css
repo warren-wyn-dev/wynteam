@@ -408,11 +408,20 @@
   margin-top: 3px;
 }
 
-/* ---------- Action row: ActionMetric contract ---------- */
+/* ---------- Action row: compact web-only density (deliberate deviation
+   from Flutter, per Founder direction — see docs/wyn-158-visual-parity-
+   audit.md addendum). Flutter's own ActionMetric reserves a full 44px
+   layout box per icon (WynSpacing.touchTargetMin as a hard
+   ConstrainedBox), which is why the action row sits ~23px above the next
+   post's divider there. Requested here: match Threads' denser rhythm
+   instead. Each button keeps a >=32px tap target (comfortably above the
+   WCAG 2.2 24px minimum) via padding, but a negative margin of the same
+   size cancels that padding's footprint in the row's layout, so the row
+   itself is only as tall as the visible icon. */
 
 .wyn-post-actions {
-  min-height: 48px;
-  margin: 0 16px 0 0;
+  min-height: 24px;
+  margin: 0 16px 12px 0;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -421,8 +430,8 @@
 
 .wyn-action-button {
   min-width: 32px;
-  min-height: 44px;
-  padding: 0;
+  padding: 4px 0;
+  margin: -4px 0;
   border: 0;
   background: transparent;
   display: inline-flex;
@@ -452,12 +461,13 @@
   color: var(--sapphire);
 }
 
-/* Share is a plain IconButton, not an ActionMetric: exact 44x44 box. */
+/* Share is a plain IconButton, not an ActionMetric — same compact
+   treatment: a real 32px tap target via padding, cancelled out of the
+   row's layout via a matching negative margin. */
 .wyn-action-share {
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
+  min-width: 24px;
+  padding: 4px;
+  margin: -4px;
   justify-content: center;
 }
 
