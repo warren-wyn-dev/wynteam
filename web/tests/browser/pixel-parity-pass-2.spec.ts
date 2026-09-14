@@ -8,6 +8,7 @@ const read = (path: string) => readFileSync(join(root, path), "utf8");
 test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   const layout = read("app/layout.tsx");
   const css = read("app/pixel-parity-final.css");
+  const closureCss = read("app/pixel-parity-audit-closure.css");
   const chrome = read("components/phase3-ui.tsx");
   const runtime = read("components/pixel-parity-runtime.tsx");
   const flutterHome = read("../app/lib/features/home/presentation/home_feed_screen.dart");
@@ -15,12 +16,19 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   const flutterFollow = read("../app/lib/features/follow/presentation/widgets/follow_action_button.dart");
   const flutterProfile = read("../app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart");
   const flutterNav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
+  const flutterRoot = read("../app/lib/features/root/presentation/root_shell.dart");
   const flutterDetail = read("../app/lib/features/drop/presentation/drop_detail_screen.dart");
 
   expect(layout.lastIndexOf('import "./pixel-parity-final.css";')).toBeGreaterThan(
     layout.lastIndexOf('import "./interaction-parity-final.css";'),
   );
+  expect(layout.lastIndexOf('import "./pixel-parity-audit-closure.css";')).toBeGreaterThan(
+    layout.lastIndexOf('import "./pixel-parity-final.css";'),
+  );
   expect(layout).toContain("<PixelParityRuntime />");
+  expect(closureCss).toContain("Chat Inbox: ChatInboxScreen / ChatPillTab");
+  expect(closureCss).toContain("Notifications: NotificationListScreen");
+  expect(closureCss).toContain("Settings: SettingsScreen root");
 
   expect(flutterHome).toContain("height: 52");
   expect(flutterHome).toContain("Icons.menu, size: 22");
@@ -50,7 +58,12 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
 
   expect(flutterNav).toContain("Icons.home_rounded");
   expect(flutterNav).toContain("Icons.home_outlined");
-  expect(flutterNav).toContain("Icons.notifications_outlined");
+  expect(flutterNav).toContain("required this.notificationIcon");
+  expect(flutterNav).toContain("required this.selectedNotificationIcon");
+  expect(flutterRoot).toContain("Icon(selected ? Icons.notifications : Icons.notifications_outlined)");
+  expect(flutterRoot).toContain("notificationIcon: _buildNotificationsIcon(context, selected: false)");
+  expect(flutterRoot).toContain("selectedNotificationIcon:");
+  expect(flutterRoot).toContain("_buildNotificationsIcon(context, selected: true)");
   expect(flutterNav).toContain("Icons.person_rounded");
   expect(flutterNav).toContain("const SizedBox(height: 6)");
   expect(chrome).toContain('type MaterialNavKind = "home" | "search" | "notifications" | "profile" | "add";');
