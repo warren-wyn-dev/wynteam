@@ -1,8 +1,8 @@
 /*
  * Founder visual parity lock.
  *
- * Imported after every migration/parity stylesheet. Values below are copied
- * from the current Flutter golden master, not estimated from the web build.
+ * Imported last. This layer must describe the approved WYNOS visual contract
+ * and neutralize legacy migration CSS without changing product behaviour.
  */
 
 .rich-post-text {
@@ -43,22 +43,54 @@
   font-weight: 600;
 }
 
+/* Never allow browser-default underlines on post/profile navigation. */
+.avatar-button,
+.author-link,
+.audit-author-link,
+.post-open-button,
+.golden-drop-open,
+.avatar-button:visited,
+.author-link:visited,
+.audit-author-link:visited,
+.post-open-button:visited,
+.golden-drop-open:visited {
+  color: inherit;
+  text-decoration: none !important;
+}
+
 /*
- * HomeDropCard golden metrics:
- * edge=16, avatar=44, avatar top offset=16, avatar/content gap=8,
- * outer vertical rhythm=3, caption lift=3, per-section right inset=16.
+ * Approved Home card anatomy:
+ *   row 1: avatar | author/time + actions
+ *   row 2:          caption / hashtags
+ *   row 3: media spans the full post width
+ *   row 4: actions span the full post width
+ *
+ * .post-content used to be a block wrapper. display:contents is intentional:
+ * it lets the children participate in this single grid so avatar/author can
+ * share a row while media/actions still align to the post's left edge.
  */
 .parity-feed-post.audit-feed-post {
+  display: grid !important;
   grid-template-columns: 44px minmax(0, 1fr);
+  grid-auto-flow: row;
   column-gap: 8px;
   row-gap: 0;
-  padding: 3px 0 3px 16px;
+  width: 100%;
+  padding: 8px 16px 8px;
+  box-sizing: border-box;
+}
+
+.audit-feed-post > .post-content {
+  display: contents;
 }
 
 .parity-feed-post.audit-feed-post > .avatar-button {
+  grid-column: 1;
   width: 44px;
   height: 44px;
-  margin-top: 16px;
+  margin: 0;
+  align-self: start;
+  justify-self: start;
 }
 
 .parity-feed-post.audit-feed-post > .avatar-button .route-avatar {
@@ -68,37 +100,123 @@
 
 .audit-feed-post .post-header.audit-author-row,
 .club-home-card .post-header {
-  min-height: 24px;
-  margin-right: 16px;
+  grid-column: 2;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  align-self: start;
+  display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.audit-feed-post .audit-author-link {
+.audit-feed-post .audit-author-link,
+.club-home-card .author-link {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 8px;
+  overflow: hidden;
+  text-decoration: none !important;
 }
 
+.audit-feed-post .audit-author-link strong,
+.club-home-card .author-link strong {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.15;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.audit-feed-post .audit-author-link small,
+.club-home-card .author-link small {
+  flex: 0 1 auto;
+  max-width: 112px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--graphite);
+  font-size: 15px;
+  line-height: 1.15;
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.audit-follow-pill {
+  flex: 0 0 auto;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.audit-follow-pill.requested {
+  border-color: var(--hairline);
+  background: var(--paper);
+  color: var(--graphite);
+}
+
+.audit-feed-post .audit-more {
+  flex: 0 0 40px;
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  height: 40px;
+  margin: 0 -8px 0 0;
+  display: grid;
+  place-items: center;
+  color: var(--graphite);
+}
+
+/* Caption begins directly below the author name, not below the avatar. */
 .audit-feed-post .audit-caption {
-  margin: 0 16px 0 0;
-  transform: translateY(-3px);
+  grid-column: 2;
+  min-width: 0;
+  margin: -3px 0 0;
+  transform: none;
+  color: var(--ink);
   font-size: 17.5px;
   line-height: 1.32;
   font-weight: 400;
 }
 
-/* ReDrop attribution/quote span the card, like Flutter's pre-column rows. */
+/* ReDrop preface and quote are full-width pre-header rows. */
+.audit-redrop-line,
+.audit-quote-text {
+  grid-column: 1 / -1;
+}
+
 .audit-redrop-line {
-  margin: 0 16px 4px 0;
+  min-height: 18px;
+  margin: 0 0 4px;
 }
 
 .audit-quote-text {
-  margin: 0 16px 8px 0;
+  margin: 0 0 8px;
 }
 
-/* Media starts immediately after the caption's layout box. */
+/* Media returns to the post edge, matching the approved mockup. */
 .audit-feed-post .audit-media-wrap,
 .club-home-card .audit-media-carousel {
-  margin-top: 0;
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 7px 0 0;
 }
 
 .audit-media-carousel {
@@ -112,9 +230,8 @@
   max-height: 75dvh;
 }
 
-/* Single image respects the 16px trailing card inset. */
 .audit-media-carousel.single {
-  margin-right: 16px;
+  margin-right: 0;
   padding-right: 0;
 }
 
@@ -123,18 +240,16 @@
   width: 100%;
 }
 
-/* Multi-image cards are 82% of the column after its 16px trailing inset. */
 .audit-media-carousel:not(.single) {
   padding-right: 0;
 }
 
 .audit-media-carousel:not(.single) img {
-  flex: 0 0 calc((100% - 16px) * 0.82);
-  width: calc((100% - 16px) * 0.82);
+  flex: 0 0 82%;
+  width: 82%;
   transition: transform 180ms ease-out;
 }
 
-/* WYN-111 paint-only scaling follows whichever card is currently in front. */
 .audit-media-carousel:not(.single) img.front {
   transform: scale(1);
 }
@@ -149,27 +264,33 @@
   transform-origin: right center;
 }
 
+/* Interaction row is full-width and leaves only the approved compact gap. */
 .audit-feed-post .audit-action-row {
+  grid-column: 1 / -1;
   min-height: 48px;
-  margin: 0 16px 0 0;
+  margin: 3px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   gap: 16px;
 }
 
-.audit-feed-post .audit-media-wrap + .audit-action-row,
-.club-home-card .audit-media-carousel + .audit-action-row {
-  margin-top: 3px;
-}
-
 .audit-feed-post .audit-action-row .metric-button {
+  min-width: 32px;
   min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 0;
 }
 
-/* Profile/Search use the same Flutter HomeDropCard visual contract. */
+/* Profile/Search post renderer keeps the same approved visual language. */
 .golden-drop-card {
   grid-template-columns: 44px minmax(0, 1fr);
   column-gap: 8px;
   row-gap: 0;
-  padding: 3px 0 3px 16px;
+  padding: 8px 16px;
 }
 
 .golden-drop-author-avatar,
@@ -179,20 +300,20 @@
 }
 
 .golden-drop-author-avatar {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .golden-drop-redrop {
   min-height: 18px;
-  padding: 0 16px 4px 0;
+  padding: 0 0 4px;
 }
 
 .golden-drop-quote {
-  padding: 0 16px 8px 0;
+  padding: 0 0 8px;
 }
 
 .golden-drop-head {
-  margin-right: 16px;
+  margin-right: 0;
 }
 
 .golden-drop-open,
@@ -208,12 +329,12 @@
 }
 
 .golden-drop-body > .rich-post-text {
-  margin: 0 16px 0 0;
-  transform: translateY(-3px);
+  margin: -3px 0 0;
+  transform: none;
 }
 
 .golden-drop-media-wrap {
-  margin-top: 0;
+  margin-top: 7px;
 }
 
 .golden-drop-media {
@@ -228,7 +349,7 @@
 }
 
 .golden-drop-media.single {
-  margin-right: 16px;
+  margin-right: 0;
 }
 
 .golden-drop-media.single img {
@@ -237,8 +358,8 @@
 }
 
 .golden-drop-media.multi img {
-  flex: 0 0 calc((100% - 16px) * 0.82);
-  width: calc((100% - 16px) * 0.82);
+  flex: 0 0 82%;
+  width: 82%;
   transition: transform 180ms ease-out;
 }
 
@@ -258,15 +379,11 @@
 
 .golden-drop-actions {
   min-height: 48px;
-  margin: 0 16px 0 0;
+  margin: 3px 0 0;
   gap: 16px;
 }
 
-.golden-drop-media-wrap + .golden-drop-actions {
-  margin-top: 3px;
-}
-
-/* Post detail shares Flutter's hashtag/mention text colors. */
+/* Post detail shares the same approved interactive-text colors. */
 .detail-caption.rich-post-text {
   margin-top: 7px;
   margin-bottom: 8px;
@@ -281,4 +398,27 @@
 .flutter-detail-post .detail-caption .rich-post-link.mention {
   color: var(--sapphire);
   font-weight: 600;
+}
+
+@media (max-width: 359px) {
+  .parity-feed-post.audit-feed-post,
+  .golden-drop-card {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .audit-feed-post .audit-author-link,
+  .club-home-card .author-link {
+    gap: 5px;
+  }
+
+  .audit-feed-post .audit-author-link small,
+  .club-home-card .author-link small {
+    max-width: 88px;
+  }
+
+  .audit-feed-post .audit-action-row,
+  .golden-drop-actions {
+    gap: 12px;
+  }
 }
