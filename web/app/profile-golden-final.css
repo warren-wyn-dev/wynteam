@@ -242,6 +242,18 @@
   justify-content: space-between;
 }
 
+.profile-account-switcher-sheet > header > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.profile-account-switcher-sheet > header small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--wyn-text-secondary);
+}
+
 .profile-account-current {
   margin: 6px 12px 12px;
   min-height: 60px;
@@ -278,6 +290,89 @@
   color: var(--wyn-text);
 }
 
+.profile-account-list {
+  max-height: min(48vh, 390px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 4px 0 10px;
+}
+
+.profile-account-row {
+  min-height: 64px;
+  margin: 0 8px;
+  padding: 0 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+}
+
+.profile-account-row.is-current {
+  background: var(--wyn-surface);
+}
+
+.profile-account-select {
+  min-width: 0;
+  min-height: 60px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  color: var(--wyn-text);
+  font: inherit;
+}
+
+.profile-account-select > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.profile-account-select strong,
+.profile-account-select small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.profile-account-select strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.profile-account-select small {
+  font-size: 13px;
+  color: var(--wyn-text-secondary);
+}
+
+.profile-account-row > svg {
+  margin-right: 6px;
+  color: var(--wyn-text);
+}
+
+.profile-account-remove {
+  min-width: 62px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #ef4444;
+  border-radius: 9px;
+  background: transparent;
+  color: #dc2626;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.profile-account-switcher-actions {
+  display: grid;
+  gap: 6px;
+}
+
 .profile-account-use-other {
   width: calc(100% - 24px);
   min-height: 42px;
@@ -289,6 +384,30 @@
   font: inherit;
   font-size: 15px;
   font-weight: 600;
+}
+
+.profile-account-manage {
+  width: calc(100% - 24px);
+  min-height: 36px;
+  margin: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--wyn-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.profile-account-manage:disabled {
+  opacity: 0.45;
+}
+
+.profile-account-error {
+  margin: 0 16px 10px;
+  color: #dc2626;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
 }
 
 /* Edit Profile: no cover-photo upload — nothing to display it on anymore. */
