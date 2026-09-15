@@ -46,6 +46,17 @@ type ReportCategory =
   | "copyright"
   | "other";
 type HiddenDrop = { row: HomeFeedRow; index: number };
+type HomeDropFeedSnapshot = {
+  kind: "drops";
+  rows: HomeFeedRow[];
+  viewer: HomeViewerState;
+  images: Map<string, string[]>;
+};
+type HomeClubFeedSnapshot = {
+  kind: "clubs";
+  clubRows: ClubHomePost[];
+};
+type HomeFeedSnapshot = HomeDropFeedSnapshot | HomeClubFeedSnapshot;
 
 const reportCategories: { value: ReportCategory; label: string }[] = [
   { value: "spam", label: "สแปม (Spam)" },
@@ -125,6 +136,7 @@ export function HomeScreen({ session }: { session: Session }) {
   const userId = session.user.id;
 
   const [mode, setMode] = useState<HomeFeedMode>("for-you");
+  const [visibleMode, setVisibleMode] = useState<HomeFeedMode>("for-you");
   const [rows, setRows] = useState<HomeFeedRow[]>([]);
   const [clubRows, setClubRows] = useState<ClubHomePost[]>([]);
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
@@ -143,6 +155,21 @@ export function HomeScreen({ session }: { session: Session }) {
   const [hidden, setHidden] = useState<HiddenDrop | null>(null);
   const [composerOpen, setComposerOpen] = useState(() => searchParams.get("compose") === "1");
   const touchStart = useRef<number | null>(null);
+  const activeModeRef = useRef<HomeFeedMode>("for-you");
+  const visibleModeRef = useRef<HomeFeedMode>("for-you");
+  const feedCache = useRef<Partial<Record<HomeFeedMode, HomeFeedSnapshot>>>({});
+  const inFlightLoads = useRef<Partial<Record<HomeFeedMode, Promise<HomeFeedSnapshot>>>>({});
+  const scrollPositions = useRef<Record<HomeFeedMode, number>>({
+    "for-you": 0,
+    following: 0,
+    clubs: 0,
+  });
+
+  useEffect(() => {
+    return () => {
+      scrollPositions.current[visibleModeRef.current] = window.scrollY;
+    };
+  }, []);
 
   useEffect(() => {
     if (!client) return;
@@ -154,40 +181,136 @@ export function HomeScreen({ session }: { session: Session }) {
       .catch(() => undefined);
   }, [client, userId]);
 
-  const load = useCallback(async () => {
-    if (!client) return;
-    setLoading(true);
-    setError("");
+  const restoreScroll = useCallback((targetMode: HomeFeedMode) => {
+    const top = scrollPositions.current[targetMode] ?? 0;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        window.scrollTo({ top: Math.min(top, maxTop), behavior: "auto" });
+      });
+    });
+  }, []);
+
+  const applySnapshot = useCallback((snapshot: HomeFeedSnapshot, targetMode: HomeFeedMode, restore = false) => {
+    visibleModeRef.current = targetMode;
+    setVisibleMode(targetMode);
+    if (snapshot.kind === "clubs") {
+      setClubRows(snapshot.clubRows);
+      setRows([]);
+      setViewer(null);
+      setImages(new Map());
+    } else {
+      setRows(snapshot.rows);
+      setViewer(snapshot.viewer);
+      setImages(snapshot.images);
+      setClubRows([]);
+    }
+    if (restore) restoreScroll(targetMode);
+  }, [restoreScroll]);
+
+  const fetchModeSnapshot = useCallback(async (targetMode: HomeFeedMode): Promise<HomeFeedSnapshot> => {
+    if (!client) throw new Error("Supabase client unavailable");
+    const running = inFlightLoads.current[targetMode];
+    if (running) return running;
+
+    const promise = (async () => {
+      if (targetMode === "clubs") {
+        return {
+          kind: "clubs" as const,
+          clubRows: await fetchClubHomePosts(client, userId),
+        };
+      }
+
+      const nextRows = await fetchHomeSurfaceRows(client, userId, {
+        kind: targetMode === "following" ? "following" : "ranked",
+      });
+      const [state, media] = await Promise.all([
+        loadHomeViewerState(client, userId, nextRows),
+        fetchDropImages(client, nextRows),
+      ]);
+      return {
+        kind: "drops" as const,
+        rows: nextRows,
+        viewer: state,
+        images: media,
+      };
+    })();
+
+    inFlightLoads.current[targetMode] = promise;
     try {
-      if (mode === "clubs") {
-        setClubRows(await fetchClubHomePosts(client, userId));
-        setRows([]);
-        setViewer(null);
-        setImages(new Map());
-      } else {
-        const nextRows = await fetchHomeSurfaceRows(client, userId, {
-          kind: mode === "following" ? "following" : "ranked",
-        });
-        const [state, media] = await Promise.all([
-          loadHomeViewerState(client, userId, nextRows),
-          fetchDropImages(client, nextRows),
-        ]);
-        setRows(nextRows);
-        setViewer(state);
-        setImages(media);
-        setClubRows([]);
+      return await promise;
+    } finally {
+      if (inFlightLoads.current[targetMode] === promise) delete inFlightLoads.current[targetMode];
+    }
+  }, [client, userId]);
+
+  const loadMode = useCallback(async (
+    targetMode: HomeFeedMode,
+    options: { showLoading?: boolean; apply?: boolean } = {},
+  ) => {
+    const cached = feedCache.current[targetMode];
+    const shouldApply = options.apply !== false;
+    if (shouldApply && activeModeRef.current === targetMode && options.showLoading && !cached) {
+      setLoading(true);
+    }
+    if (shouldApply && activeModeRef.current === targetMode) setError("");
+
+    try {
+      const snapshot = await fetchModeSnapshot(targetMode);
+      feedCache.current[targetMode] = snapshot;
+      if (shouldApply && activeModeRef.current === targetMode) {
+        const shouldRestore = visibleModeRef.current !== targetMode;
+        applySnapshot(snapshot, targetMode, shouldRestore);
+        setLoading(false);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "โหลดฟีดไม่สำเร็จ");
-    } finally {
-      setLoading(false);
+      if (shouldApply && activeModeRef.current === targetMode) {
+        if (!cached && visibleModeRef.current !== targetMode) {
+          activeModeRef.current = visibleModeRef.current;
+          setMode(visibleModeRef.current);
+          restoreScroll(visibleModeRef.current);
+        }
+        setError(e instanceof Error ? e.message : "โหลดฟีดไม่สำเร็จ");
+        setLoading(false);
+      }
     }
-  }, [client, mode, userId]);
+  }, [applySnapshot, fetchModeSnapshot, restoreScroll]);
+
+  const load = useCallback(async () => {
+    await loadMode(visibleModeRef.current, { showLoading: false });
+  }, [loadMode]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); }, 0);
+    const cached = feedCache.current[mode];
+    if (cached && visibleModeRef.current !== mode) {
+      applySnapshot(cached, mode, true);
+      setLoading(false);
+    }
+    const timer = window.setTimeout(() => {
+      void loadMode(mode, { showLoading: !cached });
+    }, 0);
     return () => window.clearTimeout(timer);
-  }, [load]);
+  }, [applySnapshot, loadMode, mode]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      for (const item of HOME_FEED_MODES) {
+        if (item.key === "for-you" || feedCache.current[item.key]) continue;
+        void loadMode(item.key, { showLoading: false, apply: false });
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [loadMode]);
+
+  useEffect(() => {
+    if (visibleMode === "clubs") {
+      feedCache.current.clubs = { kind: "clubs", clubRows };
+      return;
+    }
+    if (viewer) {
+      feedCache.current[visibleMode] = { kind: "drops", rows, viewer, images };
+    }
+  }, [clubRows, images, rows, viewer, visibleMode]);
 
   const patchSet = (
     key: "likedDropIds" | "savedDropIds" | "redroppedDropIds",
@@ -389,7 +512,20 @@ export function HomeScreen({ session }: { session: Session }) {
   };
 
   const switchMode = (next: HomeFeedMode) => {
-    if (next !== mode) setMode(next);
+    if (next === mode) return;
+    scrollPositions.current[visibleModeRef.current] = window.scrollY;
+    activeModeRef.current = next;
+    setMode(next);
+
+    const cached = feedCache.current[next];
+    if (cached) {
+      applySnapshot(cached, next, true);
+      setLoading(false);
+    } else {
+      // Keep the previous feed painted while the new tab is fetched. This avoids
+      // the full white loading flash seen on mobile when switching tabs.
+      setLoading(true);
+    }
   };
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     touchStart.current = event.changedTouches[0]?.clientX ?? null;
@@ -424,15 +560,28 @@ export function HomeScreen({ session }: { session: Session }) {
         <HomeTabs mode={mode} onSelect={switchMode} />
       </div>
 
+      {loading && mode !== visibleMode ? (
+        <div
+          aria-label="กำลังโหลดฟีด"
+          aria-live="polite"
+          style={{ height: 0, position: "relative", zIndex: 5 }}
+        >
+          <div
+            className="route-system-spinner tiny"
+            style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)" }}
+          />
+        </div>
+      ) : null}
+
       <div className="wyn-home-feed" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        {loading ? (
+        {loading && !rows.length && !clubRows.length ? (
           <div className="wyn-home-state"><div className="route-system-spinner" /></div>
         ) : error && !rows.length && !clubRows.length ? (
           <div className="wyn-home-state">
             <p>{error}</p>
             <button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button>
           </div>
-        ) : mode === "clubs" ? (
+        ) : visibleMode === "clubs" ? (
           clubRows.length ? (
             clubRows.map((post) => (
               <ClubFeedPost post={post} onLike={() => void likeClub(post)} key={post.id} />
@@ -466,7 +615,7 @@ export function HomeScreen({ session }: { session: Session }) {
           ))
         ) : (
           <div className="wyn-home-state">
-            <p>{mode === "following" ? "ยังไม่มีโพสต์จากคนที่คุณกำลังติดตาม" : "ยังไม่มีอะไรให้ดูตรงนี้"}</p>
+            <p>{visibleMode === "following" ? "ยังไม่มีโพสต์จากคนที่คุณกำลังติดตาม" : "ยังไม่มีอะไรให้ดูตรงนี้"}</p>
             <Link className="route-primary" href="/search">ค้นหาคนและเนื้อหา</Link>
           </div>
         )}
