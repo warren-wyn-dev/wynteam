@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { HomeScreen } from "@/components/home/home-screen";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { cacheBrowserSession, getCachedBrowserSession } from "@/lib/supabase/session-cache";
 
 /// Root ("/") auth gate: shows Home for any signed-in user, otherwise
 /// sends the browser to the new pixel-matched auth flow at /welcome
@@ -24,8 +25,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 export function ParityAuthEntry() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
-  const [booting, setBooting] = useState(() => Boolean(supabase));
+  const knownSession = getCachedBrowserSession();
+  const [session, setSession] = useState<Session | null>(() => knownSession ?? null);
+  const [booting, setBooting] = useState(() => Boolean(supabase && knownSession === undefined));
 
   useEffect(() => {
     if (!supabase) {
@@ -35,12 +37,15 @@ export function ParityAuthEntry() {
     let mounted = true;
 
     function route(nextSession: Session | null) {
+      cacheBrowserSession(nextSession);
       if (!mounted) return;
       setSession(nextSession);
       setBooting(false);
       if (!nextSession) router.replace("/welcome");
     }
 
+    // If another consumer route already resolved Auth, keep Home painted and
+    // verify the session in the background rather than showing a fresh loader.
     void supabase.auth.getSession().then(({ data }) => route(data.session));
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => route(nextSession));
     return () => {

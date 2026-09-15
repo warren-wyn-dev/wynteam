@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -71,10 +72,10 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
         <div className="follow-list-route">
           {people.map((person) => (
             <div className="follow-list-row" key={person.id}>
-              <a className="follow-list-person" href={`/profile/${person.id}`}>
+              <Link className="follow-list-person" href={`/profile/${person.id}`}>
                 <Avatar src={person.avatar_url} label={person.username} size={44} />
                 <span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span>
-              </a>
+              </Link>
               {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}
             </div>
           ))}
