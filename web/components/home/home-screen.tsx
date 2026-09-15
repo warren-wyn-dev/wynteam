@@ -13,6 +13,7 @@ import { HomeHeader } from "@/components/home/home-header";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HOME_FEED_MODES, HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
 import { AppChrome } from "@/components/phase3-ui";
+import { QuoteRedropComposer } from "@/components/quote-redrop-composer";
 import { authorLabel, type HomeFeedRow } from "@/lib/feed";
 import {
   loadHomeViewerState,
@@ -550,22 +551,15 @@ export function HomeScreen({ session }: { session: Session }) {
       ) : null}
 
       {selected && sheet === "quote" ? (
-        <ActionSheet label="รีโพสต์พร้อมความคิดเห็น" onClose={() => { setSheet(null); setSelected(null); setQuote(""); }}>
-          <div className="audit-sheet-form">
-            <strong>รีโพสต์พร้อมความคิดเห็น</strong>
-            <textarea
-              maxLength={500}
-              autoFocus
-              value={quote}
-              onChange={(event) => setQuote(event.target.value)}
-              placeholder="เขียนความคิดเห็นของคุณ…"
-            />
-            {error ? <p className="route-error">{error}</p> : null}
-            <button className="route-primary" type="button" disabled={busy || !quote.trim()} onClick={() => void quoteRedrop()}>
-              รีโพสต์พร้อมความคิดเห็น
-            </button>
-          </div>
-        </ActionSheet>
+        <QuoteRedropComposer
+          row={selected}
+          value={quote}
+          busy={busy}
+          error={error}
+          onChange={setQuote}
+          onClose={() => { setSheet(null); setSelected(null); setQuote(""); setError(""); }}
+          onSubmit={() => void quoteRedrop()}
+        />
       ) : null}
 
       {selected && sheet === "report" ? (
