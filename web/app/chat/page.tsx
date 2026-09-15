@@ -1,5 +1,5 @@
-import { ChatInboxParityRoute } from "@/components/chat-inbox-parity";
+import { ChatListReferenceScreen } from "@/components/chat-reference/screens";
 
 export default function Page() {
-  return <ChatInboxParityRoute />;
+  return <ChatListReferenceScreen />;
 }
