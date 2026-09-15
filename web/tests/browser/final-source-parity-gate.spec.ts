@@ -40,16 +40,23 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(css).toContain("min-height: 44px");
   expect(css).toContain("grid-template-columns: minmax(0,1fr) 48px");
   expect(composer).toContain("ตัวเลือกที่");
-  expect(composer).toContain("SelectedAudienceIcon");
   expect(detail).not.toContain("📍");
 
-  expect(composer).toContain('client.rpc("fetch_mutual_follows"');
-  expect(composer).toContain('client.from("close_friends")');
-  expect(composer).toContain("excludedFriendIds");
-  expect(composer).toContain("mentionedUserIds");
-  expect(composer).toContain("searchProfiles(client, query, 0)");
-  expect(composer).toContain("new File([blob]");
+  // Cut to match the Founder-supplied reference exactly: no audience/privacy
+  // selector, no drafts, no mention autocomplete, no poll-duration picker.
+  expect(composer).not.toContain("SelectedAudienceIcon");
+  expect(composer).not.toContain("audienceOptions");
+  expect(composer).not.toContain('client.rpc("fetch_mutual_follows"');
+  expect(composer).not.toContain('client.from("close_friends")');
+  expect(composer).not.toContain("excludedFriendIds: [...excludedFriendIds]");
+  expect(composer).not.toContain("mentionedUserIds: new Set");
+  expect(composer).not.toContain("searchProfiles");
+  expect(composer).not.toContain('client.from("drop_drafts")');
+  expect(composer).not.toContain("beta4-drafts");
+  expect(composer).not.toContain("beta4-duration");
   expect(composer).toContain("beta4-upload-progress");
+  expect(composer).toContain("POLL_DURATION_DAYS = 1");
+  expect(composer).toContain('audience: "everyone"');
   expect(publication).toContain("p_mentioned_user_ids: input.mentionedUserIds ?? []");
   expect(publication).toContain('input.audience === "friends_except"');
   expect(publication).toContain("input.onImageUploaded?.(index + 1, files.length)");

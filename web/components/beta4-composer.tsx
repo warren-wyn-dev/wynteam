@@ -1,85 +1,20 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import {
-  BarChart3,
-  Camera,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  FilePenLine,
-  Globe2,
-  ImagePlus,
-  Lock,
-  Plus,
-  Search,
-  Star,
-  UserRoundX,
-  UsersRound,
-  X,
-} from "lucide-react";
+import { BarChart3, Camera, ImagePlus, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Avatar } from "@/components/phase3-ui";
 import { publishDropSafely } from "@/lib/drop-publication";
 import { fetchHomeIdentity, type HomeIdentity } from "@/lib/home-parity-data";
-import { searchProfiles, type ProfileRow } from "@/lib/phase3-data";
 
 type ComposeMode = "image" | "poll";
 type AspectRatioChoice = "original" | "1:1" | "4:5" | "16:9";
-type Audience = "everyone" | "friends" | "friends_except" | "close_friends" | "only_me";
-type FriendPickerMode = "exclude" | "close";
 
-type DraftRow = {
-  id: string;
-  caption?: string | null;
-  image_url?: string | null;
-  poll_options?: string[] | null;
-  poll_duration_days?: number | null;
-  updated_at: string;
-};
-
-const audienceOptions: Array<{
-  value: Audience;
-  label: string;
-  description: string;
-  icon: typeof Globe2;
-  nested?: boolean;
-}> = [
-  { value: "everyone", label: "ทุกคน", description: "ทุกคนเห็นโพสต์นี้ได้", icon: Globe2 },
-  { value: "friends", label: "เพื่อน", description: "เฉพาะเพื่อนของคุณเท่านั้นที่เห็นได้", icon: UsersRound },
-  { value: "friends_except", label: "ซ่อนเพื่อนบางคน", description: "เพื่อนทุกคนเห็นได้ ยกเว้นคนที่คุณเลือกซ่อน", icon: UserRoundX, nested: true },
-  { value: "close_friends", label: "เพื่อนที่สนิท", description: "เฉพาะเพื่อนที่สนิทที่คุณเลือกไว้เท่านั้น", icon: Star, nested: true },
-  { value: "only_me", label: "เฉพาะฉัน", description: "เห็นเฉพาะคุณคนเดียว", icon: Lock },
-];
-
-function audienceLabel(value: Audience) {
-  return audienceOptions.find((item) => item.value === value)?.label ?? "ทุกคน";
-}
-
-function extensionFor(file: File): string {
-  return file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-}
-
-function mapProfile(row: Record<string, unknown>): ProfileRow {
-  return {
-    id: String(row.id ?? ""),
-    username: String(row.username ?? ""),
-    display_name: row.display_name == null ? null : String(row.display_name),
-    bio: row.bio == null ? null : String(row.bio),
-    avatar_url: row.avatar_url == null ? null : String(row.avatar_url),
-    cover_url: row.cover_url == null ? null : String(row.cover_url),
-    social_links: null,
-    platform_role: row.platform_role == null ? null : String(row.platform_role),
-    is_private: row.is_private === true,
-    is_verified: row.is_verified === true,
-    dm_permission: String(row.dm_permission ?? "everyone"),
-    mention_permission: String(row.mention_permission ?? "everyone"),
-    comment_permission: String(row.comment_permission ?? "everyone"),
-    likes_visibility: String(row.likes_visibility ?? "everyone"),
-  };
-}
+/** Poll duration is fixed at Flutter's own default (create_drop_screen.dart's
+ * `_pollDurationDays = 1`) — the reference design has no duration picker. */
+const POLL_DURATION_DAYS = 1;
 
 export function Beta4Composer({
   client,
@@ -97,32 +32,14 @@ export function Beta4Composer({
   const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<ComposeMode>("image");
   const [aspectRatio, setAspectRatio] = useState<AspectRatioChoice>("4:5");
-  const [audience, setAudience] = useState<Audience>("everyone");
-  const [audienceOpen, setAudienceOpen] = useState(false);
   const [pollOptions, setPollOptions] = useState(["", ""]);
-  const [pollDuration, setPollDuration] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [closePrompt, setClosePrompt] = useState(false);
-  const [draftsOpen, setDraftsOpen] = useState(false);
-  const [drafts, setDrafts] = useState<DraftRow[]>([]);
-  const [draftsLoading, setDraftsLoading] = useState(false);
-  const [draftId, setDraftId] = useState<string | null>(null);
-  const [friendPicker, setFriendPicker] = useState<FriendPickerMode | null>(null);
-  const [mutualFriends, setMutualFriends] = useState<ProfileRow[]>([]);
-  const [excludedFriendIds, setExcludedFriendIds] = useState<Set<string>>(new Set());
-  const [closeFriendIds, setCloseFriendIds] = useState<Set<string>>(new Set());
-  const [friendSearch, setFriendSearch] = useState("");
-  const [friendsLoading, setFriendsLoading] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState("");
-  const [mentionStart, setMentionStart] = useState<number | null>(null);
-  const [mentionSuggestions, setMentionSuggestions] = useState<ProfileRow[]>([]);
-  const [mentionedUserIds, setMentionedUserIds] = useState<Set<string>>(new Set());
   const [uploadProgress, setUploadProgress] = useState<{ uploaded: number; total: number } | null>(null);
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const captionRef = useRef<HTMLTextAreaElement | null>(null);
-  const mentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -132,20 +49,10 @@ export function Beta4Composer({
 
   const previews = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
   useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
-  useEffect(() => () => { if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current); }, []);
-
-  const visibleFriends = useMemo(() => {
-    const q = friendSearch.trim().toLowerCase();
-    if (!q) return mutualFriends;
-    return mutualFriends.filter((profile) =>
-      profile.username.toLowerCase().includes(q) || (profile.display_name ?? "").toLowerCase().includes(q),
-    );
-  }, [friendSearch, mutualFriends]);
 
   const pollValid = caption.trim().length > 0 && pollOptions.length >= 2 && pollOptions.every((value) => value.trim().length > 0 && value.trim().length <= 80) && new Set(pollOptions.map((value) => value.trim().toLowerCase())).size === pollOptions.length;
   const canPublish = !busy && (mode === "poll" ? pollValid : caption.trim().length > 0 || files.length > 0);
   const hasContent = caption.trim().length > 0 || files.length > 0 || pollOptions.some((value) => value.trim().length > 0);
-  const SelectedAudienceIcon = audienceOptions.find((item) => item.value === audience)?.icon ?? Globe2;
 
   const requestClose = () => {
     if (busy) return;
@@ -153,155 +60,14 @@ export function Beta4Composer({
     setClosePrompt(true);
   };
 
-  const loadDrafts = async () => {
-    setDraftsOpen(true);
-    setDraftsLoading(true);
-    setError("");
-    try {
-      const result = await client
-        .from("drop_drafts")
-        .select("id,caption,image_url,poll_options,poll_duration_days,updated_at")
-        .eq("author_id", userId)
-        .order("updated_at", { ascending: false });
-      if (result.error) throw result.error;
-      setDrafts((result.data ?? []) as DraftRow[]);
-    } catch { setError("โหลดร่างไม่สำเร็จ"); }
-    finally { setDraftsLoading(false); }
-  };
-
-  const openDraft = async (draft: DraftRow) => {
-    setDraftId(draft.id);
-    setCaption(draft.caption ?? "");
-    setMentionSuggestions([]);
-    if (Array.isArray(draft.poll_options) && draft.poll_options.length >= 2) {
-      setMode("poll");
-      setFiles([]);
-      setPollOptions(draft.poll_options.slice(0, 4));
-      setPollDuration(draft.poll_duration_days === 3 || draft.poll_duration_days === 7 ? draft.poll_duration_days : 1);
-    } else {
-      setMode("image");
-      setPollOptions(["", ""]);
-      if (draft.image_url) {
-        try {
-          const response = await fetch(draft.image_url);
-          if (!response.ok) throw new Error("draft image");
-          const blob = await response.blob();
-          setFiles([new File([blob], `draft-${draft.id}.${blob.type.includes("png") ? "png" : "jpg"}`, { type: blob.type || "image/jpeg" })]);
-        } catch { setFiles([]); setError("โหลดรูปในร่างไม่สำเร็จ"); }
-      } else setFiles([]);
-    }
-    setDraftsOpen(false);
-  };
-
-  const saveDraft = async () => {
-    if (busy) return;
-    setBusy(true); setError("");
-    try {
-      let imageUrl: string | null = null;
-      if (mode === "image" && files[0]) {
-        const file = files[0];
-        const path = `${userId}/drafts/${draftId ?? crypto.randomUUID()}.${extensionFor(file)}`;
-        const uploaded = await client.storage.from("drop-images").upload(path, file, { upsert: true, contentType: file.type || undefined });
-        if (uploaded.error) throw uploaded.error;
-        imageUrl = client.storage.from("drop-images").getPublicUrl(path).data.publicUrl;
-      }
-      const payload = {
-        author_id: userId,
-        image_url: mode === "image" ? imageUrl : null,
-        caption: caption.trim() || null,
-        poll_options: mode === "poll" ? pollOptions.map((value) => value.trim()) : null,
-        poll_duration_days: mode === "poll" ? pollDuration : null,
-        updated_at: new Date().toISOString(),
-      };
-      if (draftId) {
-        const result = await client.from("drop_drafts").update(payload).eq("id", draftId).eq("author_id", userId);
-        if (result.error) throw result.error;
-      } else {
-        const result = await client.from("drop_drafts").insert(payload).select("id").single();
-        if (result.error) throw result.error;
-        setDraftId(String(result.data.id));
-      }
-      setClosePrompt(false);
-      onClose();
-    } catch { setError("บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง"); setClosePrompt(false); }
-    finally { setBusy(false); }
-  };
-
-  const loadFriendPicker = async (picker: FriendPickerMode) => {
-    setAudienceOpen(false);
-    setFriendPicker(picker);
-    setFriendSearch("");
-    setFriendsLoading(true);
-    setError("");
-    try {
-      const [friendsResult, closeResult] = await Promise.all([
-        client.rpc("fetch_mutual_follows", { p_page: 0 }),
-        client.from("close_friends").select("friend_id").eq("owner_id", userId),
-      ]);
-      if (friendsResult.error) throw friendsResult.error;
-      if (closeResult.error) throw closeResult.error;
-      setMutualFriends(((friendsResult.data ?? []) as Record<string, unknown>[]).map(mapProfile));
-      setCloseFriendIds(new Set((closeResult.data ?? []).map((row) => String(row.friend_id))));
-    } catch { setError("โหลดรายชื่อเพื่อนไม่สำเร็จ"); }
-    finally { setFriendsLoading(false); }
-  };
-
-  const chooseAudience = (value: Audience) => {
-    setAudience(value);
-    if (value === "friends_except") { void loadFriendPicker("exclude"); return; }
-    if (value === "close_friends") { void loadFriendPicker("close"); return; }
-    setAudienceOpen(false);
-  };
-
-  const toggleCloseFriend = async (profileId: string) => {
-    const wasSelected = closeFriendIds.has(profileId);
-    setCloseFriendIds((current) => { const next = new Set(current); wasSelected ? next.delete(profileId) : next.add(profileId); return next; });
-    const result = wasSelected
-      ? await client.from("close_friends").delete().eq("owner_id", userId).eq("friend_id", profileId)
-      : await client.from("close_friends").insert({ owner_id: userId, friend_id: profileId });
-    if (result.error) {
-      setCloseFriendIds((current) => { const next = new Set(current); wasSelected ? next.add(profileId) : next.delete(profileId); return next; });
-      setError("อัปเดตเพื่อนที่สนิทไม่สำเร็จ");
-    }
-  };
-
-  const onCaptionChange = (value: string, caret: number) => {
-    setCaption(value);
-    const before = value.slice(0, caret);
-    const match = before.match(/(?:^|\s)@([\p{L}\p{N}_.]{0,30})$/u);
-    if (!match) { setMentionQuery(""); setMentionStart(null); setMentionSuggestions([]); return; }
-    const query = match[1];
-    setMentionQuery(query);
-    setMentionStart(caret - query.length - 1);
-    if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current);
-    mentionTimerRef.current = setTimeout(() => {
-      if (!query) { setMentionSuggestions([]); return; }
-      void searchProfiles(client, query, 0).then((rows) => setMentionSuggestions(rows.filter((profile) => profile.id !== userId).slice(0, 6))).catch(() => setMentionSuggestions([]));
-    }, 400);
-  };
-
-  const selectMention = (profile: ProfileRow) => {
-    if (mentionStart == null) return;
-    const end = mentionStart + mentionQuery.length + 1;
-    const next = `${caption.slice(0, mentionStart)}@${profile.username} ${caption.slice(end)}`;
-    setCaption(next);
-    setMentionedUserIds((current) => new Set(current).add(profile.id));
-    setMentionQuery(""); setMentionStart(null); setMentionSuggestions([]);
-    requestAnimationFrame(() => {
-      const caret = mentionStart + profile.username.length + 2;
-      captionRef.current?.focus();
-      captionRef.current?.setSelectionRange(caret, caret);
-    });
-  };
-
   const publishPoll = async () => {
     const result = await client.rpc("create_poll_drop", {
       p_caption: caption.trim(),
       p_options: pollOptions.map((value) => value.trim()),
-      p_duration_days: pollDuration,
-      p_mentioned_user_ids: [...mentionedUserIds],
-      p_audience: audience,
-      p_excluded_friend_ids: audience === "friends_except" ? [...excludedFriendIds] : [],
+      p_duration_days: POLL_DURATION_DAYS,
+      p_mentioned_user_ids: [],
+      p_audience: "everyone",
+      p_excluded_friend_ids: [],
       p_location: null,
       p_location_lat: null,
       p_location_lon: null,
@@ -318,13 +84,12 @@ export function Beta4Composer({
       else await publishDropSafely(client, userId, {
         caption,
         files,
-        audience,
-        excludedFriendIds: [...excludedFriendIds],
-        mentionedUserIds: [...mentionedUserIds],
+        audience: "everyone",
+        excludedFriendIds: [],
+        mentionedUserIds: [],
         imageAspectRatio: aspectRatio,
         onImageUploaded: (uploaded, total) => setUploadProgress(total > 0 ? { uploaded, total } : null),
       });
-      if (draftId) void client.from("drop_drafts").delete().eq("id", draftId).eq("author_id", userId);
       onPublished();
       onClose();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง"); }
@@ -340,18 +105,15 @@ export function Beta4Composer({
       <section className="beta4-composer" role="dialog" aria-modal="true" aria-label="สร้างโพสต์" onClick={(event) => event.stopPropagation()}>
         <header className="beta4-composer-header">
           <button className="beta4-cancel" type="button" onClick={requestClose}>ยกเลิก</button>
-          <button className="beta4-drafts" type="button" disabled={busy} onClick={() => void loadDrafts()}><FilePenLine size={19} />ร่าง</button>
           <button className="beta4-post" type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
         </header>
 
         <div className="beta4-composer-scroll">
           <div className="beta4-composer-identity">
             <Avatar src={identity?.avatar_url} label={identity?.username || "WYNOS"} size={44} />
-            <button className="beta4-audience-chip" type="button" disabled={busy} onClick={() => setAudienceOpen(true)}><SelectedAudienceIcon size={14} /><span>{audienceLabel(audience)}</span><ChevronDown size={13} /></button>
           </div>
 
-          <textarea ref={captionRef} autoFocus className="beta4-compose-text" maxLength={500} value={caption} disabled={busy} onChange={(event) => onCaptionChange(event.target.value, event.target.selectionStart ?? event.target.value.length)} placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"} />
-          {mentionSuggestions.length ? <div className="beta4-mention-suggestions" role="listbox" aria-label="แนะนำผู้ใช้">{mentionSuggestions.map((profile) => <button type="button" onClick={() => selectMention(profile)} key={profile.id}><Avatar src={profile.avatar_url} label={profile.username} size={36} /><span><strong>{profile.display_name?.trim() || profile.username}</strong><small>@{profile.username}</small></span></button>)}</div> : null}
+          <textarea ref={captionRef} autoFocus className="beta4-compose-text" maxLength={500} value={caption} disabled={busy} onChange={(event) => setCaption(event.target.value)} placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"} />
           {uploadProgress && uploadProgress.total > 0 ? <div className="beta4-upload-progress"><span>กำลังอัปโหลด {uploadProgress.uploaded}/{uploadProgress.total} รูป... {Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%</span><progress max={uploadProgress.total} value={uploadProgress.uploaded} /></div> : null}
 
           {mode === "image" ? (
@@ -360,8 +122,6 @@ export function Beta4Composer({
             <div className="beta4-poll-composer">
               <div className="beta4-poll-options">{pollOptions.map((value, index) => <label key={index}><input maxLength={80} value={value} disabled={busy} onChange={(event) => updatePollOption(index, event.target.value)} placeholder={`ตัวเลือกที่ ${index + 1}`} />{index >= 2 ? <button type="button" aria-label={`ลบตัวเลือก ${index + 1}`} onClick={() => removePollOption(index)}><X size={18} /></button> : null}</label>)}</div>
               {pollOptions.length < 4 ? <button className="beta4-add-option" type="button" disabled={busy} onClick={addPollOption}><Plus size={18} />เพิ่มตัวเลือก</button> : null}
-              <strong className="beta4-duration-title">ระยะเวลาโหวต</strong>
-              <div className="beta4-duration" role="group" aria-label="ระยะเวลาโหวต">{[1, 3, 7].map((days) => <button className={pollDuration === days ? "active" : ""} type="button" onClick={() => setPollDuration(days)} key={days}>{days} วัน</button>)}</div>
             </div>
           )}
 
@@ -380,13 +140,17 @@ export function Beta4Composer({
           <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) setFiles((current) => [...current, picked].slice(0, 9)); event.currentTarget.value = ""; }} />
         </div>
 
-        {audienceOpen ? <div className="beta4-sheet-backdrop" role="presentation" onClick={() => setAudienceOpen(false)}><section className="beta4-sheet" role="dialog" aria-modal="true" aria-label="เลือกกลุ่มผู้ชม" onClick={(event) => event.stopPropagation()}><div className="beta4-sheet-grip" /><header><strong>ใครเห็นโพสต์นี้ได้</strong><button type="button" aria-label="ปิด" onClick={() => setAudienceOpen(false)}><X size={20} /></button></header>{audienceOptions.map((item) => { const Icon = item.icon; return <button className="beta4-audience-row" type="button" onClick={() => chooseAudience(item.value)} key={item.value}><span className="beta4-audience-icon"><Icon size={24} /></span><span><strong>{item.label}</strong><small>{item.description}</small></span>{item.nested ? <span className="beta4-audience-nested">{audience === item.value ? <i className="selected" /> : null}<ChevronRight size={22} /></span> : <i className={audience === item.value ? "selected" : ""} />}</button>; })}</section></div> : null}
-
-        {friendPicker ? <div className="beta4-friend-picker" role="dialog" aria-modal="true" aria-label={friendPicker === "exclude" ? "เลือกเพื่อนที่จะซ่อนโพสต์นี้" : "เพื่อนที่สนิท"}><header><button type="button" aria-label="ย้อนกลับ" onClick={() => setFriendPicker(null)}><ChevronLeft size={22} /></button><strong>{friendPicker === "exclude" ? "เลือกเพื่อนที่จะซ่อนโพสต์นี้" : "เพื่อนที่สนิท"}</strong><button type="button" onClick={() => setFriendPicker(null)}>{friendPicker === "exclude" && excludedFriendIds.size ? `เสร็จสิ้น (${excludedFriendIds.size})` : "เสร็จสิ้น"}</button></header><div className="beta4-friend-search"><Search size={14} /><input value={friendSearch} onChange={(event) => setFriendSearch(event.target.value)} placeholder="ค้นหา" /></div><div className="beta4-friend-list">{friendsLoading ? <div className="route-empty"><span className="route-system-spinner" /></div> : visibleFriends.length ? visibleFriends.map((profile) => { const selected = friendPicker === "exclude" ? excludedFriendIds.has(profile.id) : closeFriendIds.has(profile.id); return <button type="button" className="beta4-friend-row" onClick={() => friendPicker === "exclude" ? setExcludedFriendIds((current) => { const next = new Set(current); selected ? next.delete(profile.id) : next.add(profile.id); return next; }) : void toggleCloseFriend(profile.id)} key={profile.id}><Avatar src={profile.avatar_url} label={profile.username} size={42} /><span><strong>{profile.display_name?.trim() || profile.username}</strong><small>@{profile.username}</small></span><i className={selected ? "selected" : ""} /></button>; }) : <div className="route-empty">คุณยังไม่มีเพื่อน (ติดตามกันทั้งสองทาง) ให้เลือก</div>}</div></div> : null}
-
-        {draftsOpen ? <div className="beta4-sheet-backdrop" role="presentation" onClick={() => setDraftsOpen(false)}><section className="beta4-sheet beta4-drafts-sheet" role="dialog" aria-modal="true" aria-label="ร่าง" onClick={(event) => event.stopPropagation()}><div className="beta4-sheet-grip" /><header><strong>ร่าง</strong><button type="button" aria-label="ปิด" onClick={() => setDraftsOpen(false)}><X size={20} /></button></header>{draftsLoading ? <div className="route-empty"><span className="route-system-spinner" /></div> : drafts.length ? drafts.map((draft) => <button className="beta4-draft-row" type="button" onClick={() => void openDraft(draft)} key={draft.id}><span><strong>{draft.caption?.trim() || (draft.poll_options?.length ? "โพลที่ยังไม่ได้เผยแพร่" : "ร่างที่ยังไม่ได้เผยแพร่")}</strong><small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(draft.updated_at))}</small></span><ChevronRight size={18} /></button>) : <div className="route-empty">ยังไม่มีร่าง</div>}</section></div> : null}
-
-        {closePrompt ? <div className="beta4-close-dialog-backdrop" role="presentation" onClick={() => setClosePrompt(false)}><section className="beta4-close-dialog" role="alertdialog" aria-modal="true" aria-label="บันทึกเป็นร่างก่อนออกไหม" onClick={(event) => event.stopPropagation()}><strong>บันทึกเป็นร่างก่อนออกไหม?</strong><div><button type="button" onClick={onClose}>ทิ้ง</button><button type="button" onClick={() => setClosePrompt(false)}>ยกเลิก</button><button className="primary" type="button" onClick={() => void saveDraft()}>บันทึกร่าง</button></div></section></div> : null}
+        {closePrompt ? (
+          <div className="route-modal-backdrop detail-dialog-backdrop" role="presentation" onClick={() => setClosePrompt(false)}>
+            <section className="route-modal detail-confirm-dialog" role="alertdialog" aria-modal="true" aria-label="ทิ้งโพสต์นี้หรือไม่?" onClick={(event) => event.stopPropagation()}>
+              <strong>ทิ้งโพสต์นี้หรือไม่?</strong>
+              <footer>
+                <button type="button" onClick={() => setClosePrompt(false)}>ยกเลิก</button>
+                <button className="danger" type="button" onClick={onClose}>ทิ้ง</button>
+              </footer>
+            </section>
+          </div>
+        ) : null}
       </section>
     </div>
   );

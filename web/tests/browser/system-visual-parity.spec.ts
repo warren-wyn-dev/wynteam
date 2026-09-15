@@ -130,7 +130,7 @@ test("Creation surface matches Beta4 composer metrics while keeping the no Check
   const interaction = read("app/interaction-parity-final.css");
   const flutter = read("../app/lib/features/drop/presentation/create_drop_screen.dart");
   expect(composer).toContain('className="beta4-composer-header"');
-  expect(composer).toContain('className="beta4-drafts"');
+  expect(composer).not.toContain('className="beta4-drafts"');
   expect(composer).toContain('className="beta4-toolbar"');
   expect(composer).toContain('className="beta4-ratio-chips"');
   expect(composer).not.toContain("เช็คอิน");
@@ -140,8 +140,8 @@ test("Creation surface matches Beta4 composer metrics while keeping the no Check
   expect(finalLock).toContain("font-size: 22px");
   expect(finalLock).toContain("min-width: 72px");
   expect(finalLock).toContain("height: 42px");
-  expect(interaction).toContain(".beta4-friend-picker");
-  expect(interaction).toContain(".beta4-mention-suggestions");
+  expect(interaction).not.toContain(".beta4-friend-picker");
+  expect(interaction).not.toContain(".beta4-mention-suggestions");
   expect(flutter).toContain("height: 70");
   expect(flutter).toContain("fontSize: 22");
 });
