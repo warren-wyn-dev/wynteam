@@ -84,8 +84,6 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
             className={`wyn-post-media-track ${post.image_urls.length === 1 ? "is-single" : ""}`}
             style={{
               marginTop: 8,
-              marginLeft: -54,
-              width: "calc(100% + 54px)",
               ...(post.image_urls.length === 1 ? { paddingRight: 0 } : {}),
             }}
           >
@@ -98,8 +96,8 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
         <div
           className="wyn-post-actions"
           style={{
-            margin: "8px 0 12px -54px",
-            width: "calc(100% + 54px)",
+            margin: "8px 0 12px",
+            width: "100%",
             gap: 22,
           }}
         >
