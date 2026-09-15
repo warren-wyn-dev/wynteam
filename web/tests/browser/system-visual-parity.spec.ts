@@ -37,17 +37,22 @@ test("Notifications keep All/Mentions plus Flutter day grouping", () => {
   expect(notifications).toContain("groupWithinDay");
 });
 
-test("Chat root is locked to the Founder-supplied reference list and route-param conversations", () => {
+test("Chat inbox matches Flutter title and three pill destinations", () => {
   const page = read("app/chat/page.tsx");
-  const detail = read("app/chat/[id]/page.tsx");
-  const screen = read("components/chat-reference/screens.tsx");
-  const data = read("lib/reference-chat.ts");
-  expect(page).toContain("ChatListReferenceScreen");
-  expect(detail).toContain("getReferenceConversation(id)");
-  expect(detail).toContain("ConversationRoute conversationId={id}");
-  expect(screen).toContain("data-conversation-id");
-  expect(data).toContain('id: "ton-tech"');
-  expect(data).toContain('id: "mind-coffee"');
+  const chat = read("components/chat-inbox-parity.tsx");
+  const lock = read("app/system-parity-lock.css");
+  const flutter = read("../app/lib/features/chat/presentation/chat_inbox_screen.dart");
+  expect(page).toContain("ChatInboxParityRoute");
+  expect(chat).toContain("<h1>ข้อความ</h1>");
+  expect(chat).toContain("ทั้งหมด");
+  expect(chat).toContain("ยังไม่อ่าน");
+  expect(chat).toContain('const requestLabel = requests.length > 0 ? `คำขอ (${requests.length})` : "คำขอ";');
+  expect(lock).toContain("height: 62px");
+  expect(lock).toContain(".flutter-chat-pill-tabs");
+  expect(lock).toContain("height: 36px");
+  expect(flutter).toContain("toolbarHeight: 62");
+  expect(flutter).toContain("label: requestLabel");
+  expect(flutter).toContain(": 'คำขอ';");
 });
 
 test("Settings root preserves exact current seven-row Beta4 structure", () => {

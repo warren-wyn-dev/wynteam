@@ -75,7 +75,7 @@ test.describe("HTML-reference auth flow", () => {
 
   test("reference buttons connect the auth routes", async ({ page }) => {
     await page.goto("/welcome");
-    await page.getByRole("button", { name: "เข้าสู่ระบบ" }).click();
+    await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
     await expect(page).toHaveURL(/\/login$/);
 
     await page.getByText("ลืมรหัสผ่าน?", { exact: true }).click();
