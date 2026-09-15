@@ -2,8 +2,8 @@ import { Heart, MessageSquare, Repeat2, Send } from "lucide-react";
 import Link from "next/link";
 
 /**
- * Home action row. modernFeed expands the row beneath the avatar column so
- * interaction icons read as one clean strip under the media, like X/Threads.
+ * Home action row. modernFeed keeps the interaction strip compact while
+ * aligning it with the post content column beside the avatar.
  */
 export function PostActions({
   liked,
@@ -34,8 +34,8 @@ export function PostActions({
     <div
       className="wyn-post-actions"
       style={modernFeed ? {
-        margin: "8px 0 12px -54px",
-        width: "calc(100% + 54px)",
+        margin: "8px 0 12px",
+        width: "100%",
         gap: 22,
       } : undefined}
     >
