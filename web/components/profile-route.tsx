@@ -8,6 +8,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, DropPreviewCard, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { ProfileRecommendations } from "@/components/profile-recommendations";
+import {
+  MAX_SAVED_ACCOUNTS,
+  activateSavedAccount,
+  listSavedAccounts,
+  registerCurrentAccount,
+  removeSavedAccount,
+  type SavedAccount,
+} from "@/lib/account-registry";
 import { toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import {
@@ -105,6 +113,9 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   const [error, setError] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
+  const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
+  const [managingAccounts, setManagingAccounts] = useState(false);
+  const [accountSwitcherError, setAccountSwitcherError] = useState("");
   const own = profileId === userId;
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -148,19 +159,41 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     const url = `${window.location.origin}/@${profile.username}`;
     try { if (navigator.share) await navigator.share({ title: name, text: `@${profile.username}`, url }); else await navigator.clipboard.writeText(url); } catch { /* user cancelled */ }
   };
-  const switchToAnotherAccount = async () => {
-    if (action) return;
-    if (!window.confirm(`ออกจาก @${profile.username} เพื่อเข้าสู่ระบบบัญชีอื่น?`)) return;
-    setAction(true); setError("");
-    try {
-      const { error: signOutError } = await client.auth.signOut();
-      if (signOutError) throw signOutError;
-      setAccountSwitcherOpen(false);
-      router.replace("/");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "สลับบัญชีไม่สำเร็จ");
+  const openAccountSwitcher = () => {
+    setManagingAccounts(false);
+    setAccountSwitcherError("");
+    setSavedAccounts(listSavedAccounts());
+    setAccountSwitcherOpen(true);
+    void registerCurrentAccount(client).then(() => setSavedAccounts(listSavedAccounts()));
+  };
+  const switchToAccount = (account: SavedAccount) => {
+    if (action || account.userId === userId) { setAccountSwitcherOpen(false); return; }
+    setAction(true);
+    setAccountSwitcherError("");
+    if (!activateSavedAccount(account.userId)) {
       setAction(false);
+      setAccountSwitcherError("สลับบัญชีไม่สำเร็จ");
+      return;
     }
+    window.location.assign("/");
+  };
+  const addAnotherAccount = async () => {
+    if (action) return;
+    setAccountSwitcherError("");
+    await registerCurrentAccount(client);
+    const accounts = listSavedAccounts();
+    setSavedAccounts(accounts);
+    if (accounts.length >= MAX_SAVED_ACCOUNTS) {
+      setAccountSwitcherError(`บันทึกได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชีบนอุปกรณ์นี้`);
+      return;
+    }
+    setAccountSwitcherOpen(false);
+    router.push("/account/add");
+  };
+  const removeAccountFromSwitcher = (account: SavedAccount) => {
+    if (account.userId === userId) return;
+    removeSavedAccount(account.userId);
+    setSavedAccounts(listSavedAccounts());
   };
   if (editing && own) return <AppChrome title="แก้ไขโปรไฟล์" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EditProfile client={client} userId={userId} summary={summary} onDone={() => { setEditing(false); void load(); }} /></AppChrome>;
 
@@ -168,7 +201,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     <header className="wyn-profile-topbar">
       <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={24} /></button>
       {own ? (
-        <button className="wyn-profile-account-switcher" type="button" aria-label="สลับบัญชี" onClick={() => setAccountSwitcherOpen(true)}>
+        <button className="wyn-profile-account-switcher" type="button" aria-label="สลับบัญชี" onClick={openAccountSwitcher}>
           <span>@{profile.username}</span><ChevronDown size={18} />
         </button>
       ) : <strong>@{profile.username}</strong>}
@@ -209,7 +242,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     </section>
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
     {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><ImageIcon size={20} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><Repeat2 size={20} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><Heart size={20} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
-    {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><strong>สลับบัญชี</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><X size={20} /></button></header><div className="profile-account-current"><Avatar src={profile.avatar_url} label={profile.username} size={44} /><span><strong>{name}</strong><small>@{profile.username}</small></span><CheckCircle2 size={21} /></div><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void switchToAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button></section></div> : null}
+    {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><X size={20} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <CheckCircle2 size={21} /> : managingAccounts ? <button className="profile-account-remove" type="button" onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
     {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><X size={20} /></button></header><button type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
   </AppChrome>;
 }
