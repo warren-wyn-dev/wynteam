@@ -38,8 +38,12 @@ export function AppChrome({
 }) {
   const pathname = usePathname();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const inferredRootNav = pathname === "/" || pathname === "/search" || pathname === "/notifications" || pathname.startsWith("/profile/");
-  const bottomNavVisible = showBottomNav ?? inferredRootNav;
+  const primaryClubOrChatRoute = pathname === "/clubs" || pathname === "/chat";
+  const inferredRootNav = pathname === "/" || primaryClubOrChatRoute || pathname === "/search" || pathname === "/notifications" || pathname.startsWith("/profile/");
+  // Club and Chat are canonical root destinations in the latest navigation.
+  // Keep their root pages anchored to the nav even if older route wrappers
+  // explicitly opted out before those destinations existed in the bar.
+  const bottomNavVisible = primaryClubOrChatRoute ? true : showBottomNav ?? inferredRootNav;
   const notificationRouteActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
   const activeFor = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
