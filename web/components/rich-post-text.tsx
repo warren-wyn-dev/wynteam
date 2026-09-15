@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 
 const tokenPattern = /((?:https?:\/\/[^\s]+)|(?:#[\p{L}\p{N}_]+)|(?:@[\p{L}\p{N}_.]+))/gu;
 const compactHashtagBlankLinePattern = /\r?\n(?:[ \t]*\r?\n)+(?=[ \t]*#)/g;
@@ -57,6 +58,7 @@ export function RichPostText({
   className = "",
   postHref,
   compact: compactProp,
+  style,
 }: {
   value: string;
   className?: string;
@@ -65,6 +67,7 @@ export function RichPostText({
    * trailing hashtag block instead of leaving a gap. Defaults to
    * sniffing legacy class names so existing callers keep working. */
   compact?: boolean;
+  style?: CSSProperties;
 }) {
   const compact = compactProp ?? (className.includes("audit-caption") || className.includes("golden-drop") || className.includes("wyn-post-caption"));
   const displayValue = compact
@@ -72,7 +75,7 @@ export function RichPostText({
     : value;
 
   return (
-    <p className={`rich-post-text ${className}`.trim()}>
+    <p className={`rich-post-text ${className}`.trim()} style={style}>
       {renderTokens(displayValue, postHref)}
     </p>
   );
