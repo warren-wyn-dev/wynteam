@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, Camera, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Pencil, Repeat2, Search, Send, Settings, Share2, UserPlus, X } from "lucide-react";
+import { Camera, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Repeat2, Send, Settings, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -66,11 +66,10 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [avatar, setAvatar] = useState(profile.avatar_url);
-  const [cover, setCover] = useState(profile.cover_url);
-  const image = async (kind: "avatar" | "cover", file?: File) => {
+  const image = async (file?: File) => {
     if (!file) return;
     setSaving(true); setError("");
-    try { const url = await uploadProfileImage(client, userId, kind, file); if (kind === "avatar") setAvatar(url); else setCover(url); }
+    try { setAvatar(await uploadProfileImage(client, userId, "avatar", file)); }
     catch (e) { setError(e instanceof Error ? e.message : "อัปโหลดรูปไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
@@ -81,7 +80,19 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
     catch (e) { setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
-  return <div className="profile-edit"><div className="profile-cover edit-cover">{cover ? <img src={cover} alt="" /> : null}<label><Camera size={18} /> เปลี่ยนรูปหน้าปก<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image("cover", e.target.files?.[0])} /></label></div><div className="profile-edit-avatar"><Avatar src={avatar} label={username} size={84} /><label><Camera size={16} /> รูปโปรไฟล์<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image("avatar", e.target.files?.[0])} /></label></div><label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label><label className="route-field"><span>Username</span><input value={username} autoCapitalize="none" maxLength={30} onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, ""))} /></label><label className="route-field"><span>Bio</span><textarea value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} /></label>{error ? <p className="route-error">{error}</p> : null}<div className="route-action-row"><button className="route-secondary" type="button" disabled={saving} onClick={onDone}>ยกเลิก</button><button className="route-primary" type="button" disabled={saving} onClick={() => void save()}>{saving ? "กำลังบันทึก…" : "บันทึก"}</button></div></div>;
+  return (
+    <div className="wyn-profile-edit">
+      <div className="wyn-profile-edit-avatar">
+        <Avatar src={avatar} label={username} size={84} />
+        <label><Camera size={16} /> รูปโปรไฟล์<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image(e.target.files?.[0])} /></label>
+      </div>
+      <label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label>
+      <label className="route-field"><span>Username</span><input value={username} autoCapitalize="none" maxLength={30} onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
+      <label className="route-field"><span>Bio</span><textarea value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} /></label>
+      {error ? <p className="route-error">{error}</p> : null}
+      <div className="route-action-row"><button className="route-secondary" type="button" disabled={saving} onClick={onDone}>ยกเลิก</button><button className="route-primary" type="button" disabled={saving} onClick={() => void save()}>{saving ? "กำลังบันทึก…" : "บันทึก"}</button></div>
+    </div>
+  );
 }
 
 function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; userId: string; profileId: string }) {
@@ -139,13 +150,47 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   if (editing && own) return <AppChrome title="แก้ไขโปรไฟล์" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EditProfile client={client} userId={userId} summary={summary} onDone={() => { setEditing(false); void load(); }} /></AppChrome>;
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
-    <section className="profile-route flutter-profile-route">
-      <div className="flutter-profile-cover">{profile.cover_url ? <img src={profile.cover_url} alt="" /> : <span className="profile-cover-fallback" />}<div className="flutter-profile-cover-toolbar"><button className="profile-cover-icon" type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={32} /></button><strong>โปรไฟล์</strong><span className="profile-cover-toolbar-spacer" />{own ? <><button className="profile-cover-icon" type="button" aria-label="แชร์โปรไฟล์" onClick={() => void share()}><Share2 size={23} /></button><button className="profile-cover-icon" type="button" aria-label="ตั้งค่า" onClick={() => router.push("/settings")}><Settings size={26} /></button></> : <><button className="profile-cover-icon" type="button" aria-label="ค้นหา" onClick={() => router.push("/search")}><Search size={24} /></button><button className="profile-cover-icon" type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><MoreVertical size={24} /></button></>}</div></div>
-      <div className="flutter-profile-identity"><div className="flutter-profile-avatar"><Avatar src={profile.avatar_url} label={profile.username} size={92} /></div><div className="profile-copy flutter-profile-copy"><h2>{name}{profile.is_verified ? <span className="route-verified">✓</span> : null}</h2><p className="profile-username">@{profile.username}</p>{profile.bio ? <p>{profile.bio}</p> : null}</div>{!summary.blockedBy ? <div className="profile-stats flutter-profile-stats"><button type="button"><b>{summary.followingCount.toLocaleString("th-TH")}</b> กำลังติดตาม</button><button type="button"><b>{summary.followerCount.toLocaleString("th-TH")}</b> ผู้ติดตาม</button></div> : null}{own ? <div className="flutter-profile-actions own"><button className="profile-action-primary" type="button" onClick={() => setEditing(true)}><Pencil size={20} />แก้ไขโปรไฟล์</button><button className="profile-action-icon" type="button" aria-label="แนะนำสำหรับคุณ" onClick={() => router.push("/search")}><UserPlus size={20} /></button><button className="profile-action-icon" type="button" aria-label="บันทึกไว้" onClick={() => router.push("/bookmarks")}><Bookmark size={20} /></button></div> : summary.blocked ? <div className="flutter-profile-actions"><button className="profile-action-primary soft" disabled={action} type="button" onClick={() => void unblock()}>ปลดบล็อก</button></div> : <div className="flutter-profile-actions"><button className={`profile-action-primary ${summary.following || summary.requested ? "soft" : ""}`} disabled={action || summary.blockedBy} type="button" onClick={() => void follow()}>{summary.following ? "กำลังติดตาม" : summary.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button><button className="profile-action-secondary" disabled={action || summary.blockedBy} type="button" onClick={() => void startChat()}><Send size={18} /> ส่งข้อความ</button></div>}{summary.blockedBy ? <p className="route-notice">ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้</p> : null}{!summary.blockedBy && profile.is_private && !own && !summary.following ? <p className="route-notice">บัญชีนี้เป็นส่วนตัว — ติดตามเพื่อดู {name}</p> : null}{error ? <p className="route-error">{error}</p> : null}</div>
+    <header className="wyn-profile-topbar">
+      <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={24} /></button>
+      <strong>@{profile.username}</strong>
+      {own
+        ? <button type="button" aria-label="ตั้งค่า" onClick={() => router.push("/settings")}><Settings size={22} /></button>
+        : <button type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><MoreVertical size={22} /></button>}
+    </header>
+    <section className="wyn-profile-header">
+      <div className="wyn-profile-intro">
+        <Avatar src={profile.avatar_url} label={profile.username} size={64} />
+        <div className="wyn-profile-copy">
+          <div className="wyn-profile-name">{name}{profile.is_verified ? <span className="route-verified">✓</span> : null}</div>
+          {profile.bio ? <p className="wyn-profile-bio">{profile.bio}</p> : null}
+        </div>
+      </div>
+      {!summary.blockedBy ? (
+        <div className="wyn-profile-stats">
+          <button type="button"><b>{summary.followingCount.toLocaleString("th-TH")}</b> กำลังติดตาม</button>
+          <button type="button"><b>{summary.followerCount.toLocaleString("th-TH")}</b> ผู้ติดตาม</button>
+        </div>
+      ) : null}
+      {own ? (
+        <div className="wyn-profile-actions">
+          <button className="wyn-profile-action-primary" type="button" onClick={() => setEditing(true)}>แก้ไขโปรไฟล์</button>
+          <button className="wyn-profile-action-secondary" type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>
+        </div>
+      ) : summary.blocked ? (
+        <div className="wyn-profile-actions"><button className="wyn-profile-action-primary soft" disabled={action} type="button" onClick={() => void unblock()}>ปลดบล็อก</button></div>
+      ) : (
+        <div className="wyn-profile-actions">
+          <button className={`wyn-profile-action-primary ${summary.following || summary.requested ? "soft" : ""}`} disabled={action || summary.blockedBy} type="button" onClick={() => void follow()}>{summary.following ? "กำลังติดตาม" : summary.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button>
+          <button className="wyn-profile-action-secondary" disabled={action || summary.blockedBy} type="button" onClick={() => void startChat()}><Send size={18} /> ส่งข้อความ</button>
+        </div>
+      )}
+      {summary.blockedBy ? <p className="route-notice">ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้</p> : null}
+      {!summary.blockedBy && profile.is_private && !own && !summary.following ? <p className="route-notice">บัญชีนี้เป็นส่วนตัว — ติดตามเพื่อดู {name}</p> : null}
+      {error ? <p className="route-error">{error}</p> : null}
     </section>
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
-    {!summary.blockedBy ? <><div className="route-tabs profile-tabs flutter-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><ImageIcon size={20} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><Repeat2 size={20} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><Heart size={20} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
-    {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><X size={20} /></button></header><button type="button" onClick={() => void share()}><Share2 size={18} /> แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
+    {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><ImageIcon size={20} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><Repeat2 size={20} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><Heart size={20} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
+    {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><X size={20} /></button></header><button type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
   </AppChrome>;
 }
 

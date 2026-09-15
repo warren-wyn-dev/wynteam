@@ -177,12 +177,15 @@ test("Post Detail closes the exact current Flutter geometry and interaction gaps
   expect(flutter).toContain("radius: isReply ? 16 : 18");
 });
 
-test("Profile own action keeps the Founder edit icon and exact dimensions", () => {
+test("Profile own action matches the Founder-supplied reference: plain text, no cover photo", () => {
   const profile = read("components/profile-route.tsx");
-  const finalLock = read("app/system-parity-final.css");
-  const flutter = read("../app/lib/features/profile/presentation/view_profile_screen.dart");
-  expect(profile).toContain('<Pencil size={20} />แก้ไขโปรไฟล์');
-  expect(finalLock).toContain("font-size: 15.5px");
-  expect(finalLock).toContain("width: 20px");
-  expect(flutter).toContain("Icons.edit_outlined, size: 20");
+  const profileGoldenCss = read("app/profile-golden-final.css");
+  // Cut to match the reference exactly: no cover photo, no icon inside the
+  // edit/share buttons, no separate recommendations/bookmarks icon buttons.
+  expect(profile).not.toContain("<Pencil");
+  expect(profile).not.toContain("flutter-profile-cover");
+  expect(profile).toContain('onClick={() => setEditing(true)}>แก้ไขโปรไฟล์');
+  expect(profile).toContain('onClick={() => void share()}>แชร์โปรไฟล์');
+  expect(profileGoldenCss).toContain(".wyn-profile-action-primary");
+  expect(profileGoldenCss).not.toContain("flutter-profile-cover");
 });

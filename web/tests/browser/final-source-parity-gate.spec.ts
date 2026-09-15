@@ -20,7 +20,14 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(detail).toContain("กิจกรรมโพสต์");
   expect(detail).toContain('size={isReply ? 32 : 36}');
   expect(detail).toContain('placeholder="แสดงความคิดเห็น..."');
-  expect(profile).toContain('<Pencil size={20} />แก้ไขโปรไฟล์');
+  // Own-profile actions are cut down to match the Founder-supplied reference
+  // exactly: plain "แก้ไขโปรไฟล์" / "แชร์โปรไฟล์" buttons, no cover photo,
+  // no separate recommendations/bookmarks icon buttons.
+  expect(profile).toContain('onClick={() => setEditing(true)}>แก้ไขโปรไฟล์');
+  expect(profile).toContain('onClick={() => void share()}>แชร์โปรไฟล์');
+  expect(profile).not.toContain("flutter-profile-cover");
+  expect(profile).not.toContain("UserPlus");
+  expect(profile).not.toContain("Bookmark");
 
   expect(composer).toContain('type AspectRatioChoice = "original" | "1:1" | "4:5" | "16:9";');
   expect(composer).toContain('className="beta4-composer-header"');

@@ -140,7 +140,8 @@ test("source contracts cannot regress to staged migration UI", async () => {
   for (const label of ["ผู้ติดตาม", "กำลังติดตาม"]) expect(followList).toContain(label);
   expect(followList).toContain('toggleAuthorFollow');
   expect(followList).toContain('kind === "followers"');
-  for (const metric of ["height: calc(170px", "width: 92px", "font-size: 21px", "font-size: 20px", "height: 44px", "height: 52px"]) expect(profileGoldenCss).toContain(metric);
+  expect(profileGoldenCss).not.toContain("height: calc(170px");
+  for (const metric of ["font-size: 17px", "min-height: 44px", "height: 52px"]) expect(profileGoldenCss).toContain(metric);
   for (const contract of ["toggleDropLike", "toggleDropSave", "toggleDropRedrop", "drop_view_count", "Quote ReDrop", "submit_report", 'from("drop_images")']) expect(goldenDrop).toContain(contract);
   expect(goldenDropCss).toContain("font-size: 17.5px");
   expect(goldenDropCss).toContain("min-height: 48px");
@@ -183,7 +184,8 @@ test("source contracts cannot regress to staged migration UI", async () => {
     "--wyn-profile-cover: 170px", "--wyn-profile-action: 44px", "--wyn-detail-media-radius: 18px",
     "--wyn-detail-activity: 54px", "--wyn-comment-composer: 46px",
   ]) expect(finalCss).toContain(metric);
-  for (const contract of ["height: calc(170px", "width: 92px", "height: 44px", "height: 52px", "min-height: 54px", "min-height: 46px"]) expect(completionCss).toContain(contract);
+  expect(completionCss).not.toContain("height: calc(170px");
+  for (const contract of ["height: 44px", "height: 52px", "min-height: 54px", "min-height: 46px"]) expect(completionCss).toContain(contract);
   expect(closureCss).toContain("profile-recommendation-card");
   expect(closureCss).toContain("settings-version-footer");
 });

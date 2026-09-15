@@ -50,7 +50,7 @@ export function ProfileParityRoute({ profileId }: { profileId: string }) {
   const capture = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    const stat = target.closest<HTMLButtonElement>(".flutter-profile-stats button");
+    const stat = target.closest<HTMLButtonElement>(".wyn-profile-stats button");
     if (stat) {
       event.preventDefault();
       event.stopPropagation();

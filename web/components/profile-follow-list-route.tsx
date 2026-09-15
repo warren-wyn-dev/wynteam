@@ -1,6 +1,8 @@
 "use client";
 
+import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -38,6 +40,7 @@ async function fetchPeople(client: SupabaseClient, viewerId: string, profileId: 
 }
 
 function FollowListInner({ client, viewerId, profileId, kind }: { client: SupabaseClient; viewerId: string; profileId: string; kind: Kind }) {
+  const router = useRouter();
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -53,7 +56,33 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
     } catch { setError("อัปเดตการติดตามไม่สำเร็จ"); }
     finally { setBusy(null); }
   };
-  return <AppChrome title={kind === "followers" ? "ผู้ติดตาม" : "กำลังติดตาม"} userId={viewerId} backHref={`/profile/${profileId}`} showBottomNav={false}>{loading ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : <div className="follow-list-route">{people.map((person) => <div className="follow-list-row" key={person.id}><a className="follow-list-person" href={`/profile/${person.id}`}><Avatar src={person.avatar_url} label={person.username} size={44} /><span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span></a>{person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}</div>)}{error ? <p className="route-error follow-list-error">{error}</p> : null}</div>}</AppChrome>;
+  return (
+    <AppChrome title="" userId={viewerId} backHref={`/profile/${profileId}`} headerMode="hidden" showBottomNav={false}>
+      <header className="wyn-profile-topbar">
+        <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={24} /></button>
+        <strong>{kind === "followers" ? "ผู้ติดตาม" : "กำลังติดตาม"}</strong>
+        <span />
+      </header>
+      <div className="follow-tabs" role="tablist" aria-label="ความสัมพันธ์">
+        <button type="button" role="tab" aria-selected={kind === "following"} className={kind === "following" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/following`)}>กำลังติดตาม</button>
+        <button type="button" role="tab" aria-selected={kind === "followers"} className={kind === "followers" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/followers`)}>ผู้ติดตาม</button>
+      </div>
+      {loading ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : (
+        <div className="follow-list-route">
+          {people.map((person) => (
+            <div className="follow-list-row" key={person.id}>
+              <a className="follow-list-person" href={`/profile/${person.id}`}>
+                <Avatar src={person.avatar_url} label={person.username} size={44} />
+                <span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span>
+              </a>
+              {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}
+            </div>
+          ))}
+          {error ? <p className="route-error follow-list-error">{error}</p> : null}
+        </div>
+      )}
+    </AppChrome>
+  );
 }
 
 export function ProfileFollowListRoute({ profileId, kind }: { profileId: string; kind: Kind }) {

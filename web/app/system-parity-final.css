@@ -28,7 +28,7 @@
   display: grid;
   place-items: center;
   padding: 0;
-  color: var(--ink);
+  color: var(--wyn-text);
 }
 
 .route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] svg {
@@ -44,7 +44,7 @@
 .settings-page > h2 {
   margin: 0;
   padding: 12px 16px 4px;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   font-size: 13px;
   line-height: 1.25;
   font-weight: 700;
@@ -52,9 +52,9 @@
 
 .settings-group {
   margin-inline: 16px;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--wyn-border);
   border-radius: 18px;
-  background: var(--paper);
+  background: var(--wyn-bg);
   overflow: hidden;
 }
 
@@ -71,10 +71,10 @@
   justify-content: flex-start;
   gap: 12px;
   border: 0;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--wyn-border);
   border-radius: 0;
   background: transparent;
-  color: var(--ink);
+  color: var(--wyn-text);
   text-align: left;
 }
 
@@ -89,7 +89,7 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: var(--surface-tint, #f1efe9);
+  background: var(--wyn-surface);
   color: currentColor;
 }
 
@@ -99,15 +99,15 @@
 }
 
 .settings-row.disabled {
-  color: var(--faint);
+  color: var(--wyn-text-muted);
 }
 
 .settings-row.disabled .settings-leading-icon {
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 .settings-row.danger.enabled {
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
 }
 
 .settings-row-copy {
@@ -126,20 +126,20 @@
 }
 
 .settings-row-copy small {
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   font-size: 12px;
   line-height: 1.3;
 }
 
 .settings-chevron {
   flex: 0 0 auto;
-  color: var(--faint);
+  color: var(--wyn-text-muted);
 }
 
 .settings-version-footer {
   margin: 0;
   padding: 24px 16px;
-  color: var(--faint);
+  color: var(--wyn-text-muted);
   font-size: 12px;
   text-align: center;
 }
@@ -149,175 +149,6 @@
    canonical stylesheet for <BottomNavigation> — see
    docs/wyn-158-visual-parity-audit.md. */
 
-/* Profile: current WynosFounderProfileHeader + _buildProfileCoverBar.
-   Cover = safe area + 170; identity starts 8px below the boundary; avatar is
-   92 outer / 84 inner and paints 23px upward from the white identity body. */
-.flutter-profile-cover {
-  height: calc(170px + env(safe-area-inset-top));
-}
-
-.flutter-profile-cover > img {
-  object-position: 50% 45%;
-}
-
-.profile-cover-fallback {
-  background: linear-gradient(135deg, #8a8880, #2b2a26);
-}
-
-.flutter-profile-cover::after {
-  background: linear-gradient(to bottom, rgb(0 0 0 / 32%), transparent 50%);
-}
-
-.flutter-profile-cover-toolbar {
-  top: env(safe-area-inset-top);
-  left: 4px;
-  right: 0;
-  height: 56px;
-}
-
-.flutter-profile-cover-toolbar > strong {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.flutter-profile-cover-toolbar button[aria-label="ย้อนกลับ"] svg {
-  width: 32px;
-  height: 32px;
-}
-
-.flutter-profile-cover-toolbar button[aria-label="แชร์โปรไฟล์"] svg {
-  width: 24px;
-  height: 24px;
-}
-
-.flutter-profile-cover-toolbar button[aria-label="ตั้งค่า"] svg {
-  width: 27px;
-  height: 27px;
-}
-
-.flutter-profile-cover-toolbar button[aria-label="ค้นหา"] svg {
-  width: 25px;
-  height: 25px;
-}
-
-.flutter-profile-cover-toolbar button[aria-label="เพิ่มเติม"] svg {
-  width: 24px;
-  height: 24px;
-}
-
-.flutter-profile-identity {
-  position: relative;
-  padding: 8px 16px 9px;
-}
-
-.flutter-profile-avatar {
-  left: 16px;
-  top: -23px;
-  width: 92px;
-  height: 92px;
-  padding: 4px;
-}
-
-.flutter-profile-avatar .route-avatar {
-  width: 84px !important;
-  height: 84px !important;
-}
-
-.flutter-profile-identity:has(.flutter-profile-actions.own) .flutter-profile-avatar::after {
-  right: 1px;
-  bottom: 8px;
-  width: 19px;
-  height: 19px;
-  border: 3px solid var(--paper);
-  background: #57d65b;
-}
-
-.flutter-profile-copy {
-  min-height: 67px;
-  padding-left: 104px;
-}
-
-.flutter-profile-copy h2 {
-  font-size: 21px;
-  line-height: 1.08;
-  font-weight: 700;
-}
-
-.flutter-profile-copy .profile-username {
-  margin-top: 1px;
-  font-size: 13.5px;
-  line-height: 1;
-  font-weight: 400;
-}
-
-.flutter-profile-copy > p:not(.profile-username) {
-  margin-top: 4px;
-  font-size: 14.5px;
-  line-height: 1.34;
-}
-
-.flutter-profile-stats {
-  width: calc(100% - 112px);
-  margin: 7px auto 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-}
-
-.flutter-profile-stats button {
-  min-height: 35px;
-  padding: 2px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 12.5px;
-  line-height: 1.1;
-}
-
-.flutter-profile-stats button + button {
-  border-left: 1px solid var(--hairline);
-}
-
-.flutter-profile-stats b {
-  font-size: 20px;
-  line-height: 1.05;
-  font-weight: 700;
-}
-
-.flutter-profile-actions {
-  margin-top: 10px;
-  gap: 10px;
-}
-
-.flutter-profile-actions .profile-action-primary,
-.flutter-profile-actions .profile-action-secondary,
-.flutter-profile-actions .profile-action-icon {
-  min-height: 44px;
-  height: 44px;
-}
-
-.flutter-profile-actions .profile-action-icon {
-  width: 44px;
-  flex-basis: 44px;
-  border-radius: 14px;
-}
-
-.flutter-profile-tabs,
-.flutter-profile-tabs button {
-  height: 52px;
-}
-
-.flutter-profile-tabs button {
-  gap: 7px;
-  font-size: 13px;
-  font-weight: 400;
-}
-
-.flutter-profile-tabs button.active {
-  font-weight: 600;
-}
 
 
 /* WYN-158 exact Post Detail + Composer closure. Source: Flutter Beta4. */
@@ -411,10 +242,6 @@
 .detail-more-sheet > button { width: 100%; min-height: 52px; padding: 0 8px; display: flex; align-items: center; gap: 12px; border: 0; border-bottom: 1px solid var(--wyn-border); background: transparent; color: var(--wyn-text); font: inherit; font-size: 15px; text-align: left; }
 .detail-more-sheet > button:last-child { border-bottom: 0; }
 .detail-more-sheet > button.danger { color: #dc2626; }
-
-/* Profile exact own-action icon contract. */
-.flutter-profile-actions.own .profile-action-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 15.5px; line-height: 1; font-weight: 600; }
-.flutter-profile-actions.own .profile-action-primary svg { width: 20px; height: 20px; }
 
 /* Beta4 Composer: full social rail, 70px header, 22px body copy, 24px toolbar shell.
    Cut to match the Founder-supplied reference exactly: no audience/privacy

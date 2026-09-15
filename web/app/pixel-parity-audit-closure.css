@@ -285,7 +285,7 @@
 .settings-page > h2 {
   margin: 0;
   padding: 12px 16px 4px;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   font-size: 13px;
   line-height: 1.2;
   font-weight: 700;
@@ -312,11 +312,11 @@
   height: 34px;
   flex: 0 0 34px;
   border-radius: 10px;
-  background: var(--surface-tint);
+  background: var(--wyn-surface);
 }
 
 .settings-row.disabled .settings-leading-icon {
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 .settings-leading-icon > svg {
@@ -332,11 +332,11 @@
 
 .settings-row.disabled,
 .settings-row.disabled .settings-row-copy strong {
-  color: var(--faint);
+  color: var(--wyn-text-muted);
 }
 
 .settings-chevron {
   width: 20px;
   height: 20px;
-  color: var(--faint);
+  color: var(--wyn-text-muted);
 }
