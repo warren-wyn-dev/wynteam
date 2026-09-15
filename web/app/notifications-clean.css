@@ -1,0 +1,16 @@
+/* WYNOS notifications: simplified app-like header. */
+.notification-root-header {
+  border-bottom: 0 !important;
+}
+
+.notification-root-header > strong {
+  font-size: 22px !important;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+/* The notifications screen now shows the full activity stream directly. */
+.flutter-notification-tabs {
+  display: none !important;
+  border-bottom: 0 !important;
+}
