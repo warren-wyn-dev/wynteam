@@ -8,6 +8,7 @@
  */
 
 .route-bottom-nav {
+  --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 16px);
   position: fixed;
   z-index: 70;
   left: 50%;
@@ -15,9 +16,9 @@
   transform: translateX(-50%);
   box-sizing: border-box;
   width: min(100%, 680px);
-  height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
-  min-height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
-  padding: 6px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
+  min-height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
+  padding: 6px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
   background: var(--wyn-bg, var(--paper));
   border: 1px solid var(--wyn-border, var(--hairline));
   border-bottom: 0;
@@ -134,6 +135,7 @@
 
 @media (min-width: 681px) {
   .route-bottom-nav {
+    --wyn-nav-safe-bottom: 0px;
     width: min(calc(100% - 24px), 656px);
     border-bottom: 1px solid var(--wyn-border, var(--hairline));
     border-radius: 30px;
