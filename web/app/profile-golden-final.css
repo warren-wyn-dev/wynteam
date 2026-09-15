@@ -13,7 +13,7 @@
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
-  border-bottom: 1px solid var(--wyn-border);
+  border-bottom: 0;
   background: var(--wyn-bg);
 }
 
@@ -131,28 +131,55 @@
 }
 
 .wyn-profile-tabs {
-  height: 52px;
-  border-top: 1px solid var(--wyn-border);
+  min-height: 56px;
+  height: 56px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  border-top: 0;
   border-bottom: 1px solid var(--wyn-border);
+  background: var(--wyn-bg);
 }
 
 .wyn-profile-tabs button {
-  height: 52px;
-  gap: 7px;
-  font-size: 13px;
-  font-weight: 400;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 500;
   color: var(--wyn-text-secondary);
+  white-space: nowrap;
+}
+
+.wyn-profile-tabs button svg {
+  flex: 0 0 auto;
+  width: 21px;
+  height: 21px;
 }
 
 .wyn-profile-tabs button.active {
   color: var(--wyn-text);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .wyn-profile-tabs button.active::after {
-  width: 34px;
+  left: 50%;
+  right: auto;
+  bottom: 0;
+  width: 36px;
   height: 2px;
+  border-radius: 999px;
   background: var(--wyn-text);
+  transform: translateX(-50%);
 }
 
 .profile-feed-list {
@@ -207,5 +234,11 @@
 @media (max-width: 359px) {
   .wyn-profile-actions {
     gap: 6px;
+  }
+
+  .wyn-profile-tabs button {
+    gap: 4px;
+    padding: 0 4px;
+    font-size: 13px;
   }
 }
