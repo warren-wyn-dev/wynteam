@@ -1,0 +1,22 @@
+.content-ref-viewport .chat-list-scroll{flex:1;overflow-y:auto}
+.content-ref-viewport .chat-list-row{width:100%;display:flex;align-items:center;gap:12px;padding:10px 16px;border:0;background:var(--bg);color:var(--text-primary);text-align:left;font:inherit;cursor:pointer}
+.content-ref-viewport .chat-list-row.unread{background:var(--surface)}
+.content-ref-viewport .chat-list-copy{flex:1;min-width:0}
+.content-ref-viewport .chat-list-meta{display:flex;justify-content:space-between;align-items:center}
+.content-ref-viewport .chat-list-meta span{font-weight:600}
+.content-ref-viewport .chat-list-meta time{font-size:11px;color:var(--text-muted)}
+.content-ref-viewport .chat-list-copy p{font-size:13px;color:var(--text-secondary);margin:2px 0 0}
+.content-ref-viewport .chat-list-row.unread .chat-list-copy p{font-weight:600;color:var(--text-primary)}
+.content-ref-viewport .chat-conversation-topbar{justify-content:flex-start}
+.content-ref-viewport .chat-conversation-topbar .t{flex:1;margin-left:8px}
+.content-ref-viewport .chat-conversation-scroll{flex:1;padding:16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.content-ref-viewport .chat-bubble-wrap{max-width:75%}
+.content-ref-viewport .chat-bubble-wrap.incoming{align-self:flex-start}
+.content-ref-viewport .chat-bubble-wrap.outgoing{align-self:flex-end}
+.content-ref-viewport .chat-bubble{padding:9px 13px;font-size:14px}
+.content-ref-viewport .chat-bubble.incoming{background:var(--surface);border-radius:16px 16px 16px 4px}
+.content-ref-viewport .chat-bubble.outgoing{background:var(--text-primary);color:#fff;border-radius:16px 16px 4px 16px}
+.content-ref-viewport .chat-message-status{text-align:right;font-size:10px;color:var(--text-muted);margin-top:2px}
+.content-ref-viewport .chat-message-status.read{color:var(--red)}
+.content-ref-viewport .chat-composer{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--border)}
+.content-ref-viewport .chat-composer>div{flex:1;border:1px solid var(--border-strong);border-radius:999px;padding:8px 14px;font-size:13px;color:var(--text-muted)}
