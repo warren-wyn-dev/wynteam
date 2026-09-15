@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/phase3-ui";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 
+const QUOTE_REDROP_FORM_ID = "wyn-quote-redrop-submit";
+
 export function QuoteRedropComposer({
   row,
   value,
@@ -41,6 +43,11 @@ export function QuoteRedropComposer({
     setClosePrompt(true);
   };
 
+  const submit = () => {
+    if (busy || !value.trim()) return;
+    onSubmit();
+  };
+
   return (
     <div className="route-modal-backdrop beta4-composer-backdrop" role="presentation">
       <section
@@ -50,18 +57,39 @@ export function QuoteRedropComposer({
         aria-label="รีโพสต์พร้อมความคิดเห็น"
         style={{ maxWidth: 680 }}
       >
-        <header className="beta4-composer-header">
+        <form
+          id={QUOTE_REDROP_FORM_ID}
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit();
+          }}
+        />
+
+        <header className="beta4-composer-header" style={{ position: "relative", zIndex: 20 }}>
           <button className="beta4-cancel" type="button" onClick={requestClose}>ยกเลิก</button>
           <strong style={{ fontSize: 17, fontWeight: 750 }}>สร้างโพสต์</strong>
           <button
             className="beta4-post"
-            type="button"
+            type="submit"
+            form={QUOTE_REDROP_FORM_ID}
             disabled={busy || !value.trim()}
-            onClick={onSubmit}
+            aria-disabled={busy || !value.trim()}
+            style={{ position: "relative", zIndex: 21, pointerEvents: "auto", touchAction: "manipulation" }}
           >
             {busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}
           </button>
         </header>
+
+        {error ? (
+          <p
+            className="route-error beta4-composer-error"
+            role="alert"
+            aria-live="polite"
+            style={{ margin: "10px 16px 0", position: "relative", zIndex: 19 }}
+          >
+            {error}
+          </p>
+        ) : null}
 
         <div className="beta4-composer-scroll" style={{ paddingBottom: 32 }}>
           <div className="beta4-composer-identity">
@@ -119,7 +147,6 @@ export function QuoteRedropComposer({
           {value.length > 400 ? (
             <div className="beta4-character-count">{500 - value.length}</div>
           ) : null}
-          {error ? <p className="route-error beta4-composer-error">{error}</p> : null}
         </div>
 
         {closePrompt ? (
