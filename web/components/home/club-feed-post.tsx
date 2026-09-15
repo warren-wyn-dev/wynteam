@@ -21,7 +21,7 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
         columnGap: 10,
       }}
     >
-      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 0 }}>
+      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 6 }}>
         <Avatar src={post.author_avatar_url} label={post.author_username || "WYNOS"} size={44} />
       </Link>
       <div className="wyn-post-body">

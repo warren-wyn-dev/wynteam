@@ -60,7 +60,7 @@ export function HomePostCard({
         </div>
       ) : null}
       {row.quote_text ? <RichPostText className="wyn-post-quote" value={row.quote_text} /> : null}
-      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 0 }}>
+      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 6 }}>
         <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} />
       </Link>
       <div className="wyn-post-body">
