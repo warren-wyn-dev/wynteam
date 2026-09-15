@@ -35,12 +35,12 @@ test("search renders four ranked Thailand trends", async ({ page }) => {
 
 test("own and other profiles share header structure with different actions", async ({ page }) => {
   await page.goto("/profile/me");
-  await expect(page.locator('[data-profile-header=""][data-own-profile="true"]')).toBeVisible();
+  await expect(page.locator('[data-profile-header][data-own-profile="true"]')).toBeVisible();
   await expect(page.getByRole("button", { name: "แก้ไขโปรไฟล์" })).toBeVisible();
   await expect(page.getByRole("button", { name: "แชร์โปรไฟล์" })).toBeVisible();
 
   await page.goto("/profile/mind-coffee");
-  await expect(page.locator('[data-profile-header=""][data-own-profile="false"]')).toBeVisible();
+  await expect(page.locator('[data-profile-header][data-own-profile="false"]')).toBeVisible();
   await expect(page.getByRole("button", { name: "ติดตาม", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "ส่งข้อความ" })).toBeVisible();
 });
