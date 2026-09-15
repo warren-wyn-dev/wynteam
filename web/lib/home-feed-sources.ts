@@ -13,9 +13,81 @@ const followingLimit = 200;
 // Home surface. Keep that UX contract here; Discovery is the surface that may
 // deliberately request a larger trend window later.
 const trendingLimit = 10;
+const impressionLimit = 10;
+const feedSources = [
+  "following",
+  "recommended",
+  "trending",
+  "latest",
+  "club",
+  "new_creator",
+  "exploration",
+] as const;
 
 function throwIfError(error: { message?: string } | null | undefined): void {
   if (error) throw new Error(error.message || "โหลดฟีดไม่สำเร็จ");
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function impressionSource(row: Record<string, unknown>): typeof feedSources[number] {
+  const scores = recordValue(row.feed_source_scores);
+  let selected: typeof feedSources[number] = "recommended";
+  let selectedScore = Number.NEGATIVE_INFINITY;
+  for (const source of feedSources) {
+    const score = Number(scores[source]);
+    if (Number.isFinite(score) && score > selectedScore) {
+      selected = source;
+      selectedScore = score;
+    }
+  }
+  return selected;
+}
+
+/**
+ * The ranked backend deliberately down-ranks content delivered recently, but
+ * that only works after the client records the first visible ranked window.
+ * Flutter already calls record_feed_impressions; web must do the same or a
+ * pull-to-refresh will legitimately receive the same deterministic ranking.
+ */
+async function recordRankedImpressions(
+  client: SupabaseClient,
+  raw: unknown,
+  latencyMs: number,
+): Promise<void> {
+  if (!Array.isArray(raw)) return;
+
+  const items: Record<string, unknown>[] = [];
+  for (const candidateValue of raw) {
+    const candidate = recordValue(candidateValue);
+    const row = recordValue(candidate.row_data ?? candidateValue);
+    if (row.content_type !== "drop" || typeof row.id !== "string") continue;
+
+    items.push({
+      contentId: row.id,
+      renderKey: `${row.id}:${typeof row.redrop_id === "string" ? row.redrop_id : ""}`,
+      feedSource: impressionSource(row),
+      rankPosition: items.length + 1,
+      contentType: "drop",
+      topic: typeof row.feed_topic === "string" ? row.feed_topic : null,
+      candidateOrigin: typeof row.feed_candidate_origin === "string" ? row.feed_candidate_origin : "direct",
+      experiments: [],
+    });
+    if (items.length >= impressionLimit) break;
+  }
+
+  if (!items.length) return;
+  try {
+    await client.rpc("record_feed_impressions", {
+      p_session_key: `web-home-v1-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      p_latency_ms: Math.max(0, Math.round(latencyMs)),
+      p_items: items,
+    });
+  } catch {
+    // Repetition telemetry is best-effort and must never block a valid feed.
+  }
 }
 
 /**
@@ -42,9 +114,12 @@ async function hydrateImageAspectRatios(
 export async function fetchRankedDropRows(
   client: SupabaseClient,
 ): Promise<HomeFeedRow[]> {
+  const startedAt = Date.now();
   const result = await client.rpc("get_wynos_ranked_feed");
   throwIfError(result.error);
-  return hydrateImageAspectRatios(client, rankedDropRows(result.data, rankedLimit));
+  const rows = rankedDropRows(result.data, rankedLimit);
+  await recordRankedImpressions(client, result.data, Date.now() - startedAt);
+  return hydrateImageAspectRatios(client, rows);
 }
 
 export async function fetchFollowingDropRows(
