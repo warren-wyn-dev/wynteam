@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
@@ -26,10 +27,21 @@ export function useToast(durationMs = 3200) {
 }
 
 export function Toast({ message }: { message: string | null }) {
-  if (!message) return null;
   return (
-    <div className="wyn-toast" role="status" aria-live="polite">
-      <span>{message}</span>
-    </div>
+    <AnimatePresence>
+      {message ? (
+        <motion.div
+          className="wyn-toast"
+          role="status"
+          aria-live="polite"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 16 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+        >
+          <span>{message}</span>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }

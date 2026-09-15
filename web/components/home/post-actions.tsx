@@ -1,5 +1,7 @@
-import { Heart, MessageCircle, Repeat2, Send } from "lucide-react";
+import { MessageCircle, Repeat2, Send } from "lucide-react";
 import Link from "next/link";
+
+import { AnimatedHeart } from "@/components/ui/animated-heart";
 
 /**
  * Home action row. modernFeed uses the compact Threads-style interaction strip:
@@ -43,7 +45,7 @@ export function PostActions({
         aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"}
         onClick={onLike}
       >
-        <Heart size={24} strokeWidth={2} fill={liked ? "currentColor" : "none"} />
+        <AnimatedHeart size={24} strokeWidth={2} liked={liked} />
         {count(likeCount)}
       </button>
       <Link

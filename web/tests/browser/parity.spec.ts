@@ -121,10 +121,13 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(home).not.toContain('location.assign');
   for (const contract of ["wyn-post-follow-pill", "background: var(--wyn-text)", "font-size: 17px", "max-width: 112px", "gap: 16px"]) expect(homeCss).toContain(contract);
 
+  // Bottom tab bar dropped Club/Chat for Search/Notification (Chat moved into
+  // the Home header instead, Club stays reachable from the side drawer) —
+  // see components/home/home-header.tsx and components/home/home-drawer.tsx.
   const bottomNav = await readFile(path.join(root, "components/bottom-navigation.tsx"), "utf8");
-  for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(bottomNav).toContain(label);
-  expect(bottomNav).toContain('href="/clubs"');
-  expect(bottomNav).toContain('href="/chat"');
+  for (const label of ["หน้าหลัก", "ค้นหา", "โพสต์", "แจ้งเตือน", "โปรไฟล์"]) expect(bottomNav).toContain(label);
+  expect(bottomNav).toContain('href="/search"');
+  expect(bottomNav).toContain('href="/notifications"');
   expect(bottomNav).toContain('href="/?compose=1"');
   expect(bottomNav).not.toContain('className="route-create-button"');
   expect(routeUi).toContain("GoldenDropCard");
