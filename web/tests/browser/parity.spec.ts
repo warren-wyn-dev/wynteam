@@ -122,8 +122,11 @@ test("source contracts cannot regress to staged migration UI", async () => {
   for (const contract of ["wyn-post-follow-pill", "background: var(--wyn-text)", "font-size: 17px", "max-width: 112px", "gap: 16px"]) expect(homeCss).toContain(contract);
 
   const bottomNav = await readFile(path.join(root, "components/bottom-navigation.tsx"), "utf8");
-  for (const label of ["หน้าหลัก", "ค้นหา", "การแจ้งเตือน", "โปรไฟล์"]) expect(bottomNav).toContain(label);
-  expect(bottomNav).toContain("โพสต์");
+  for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(bottomNav).toContain(label);
+  expect(bottomNav).toContain('href="/clubs"');
+  expect(bottomNav).toContain('href="/chat"');
+  expect(bottomNav).toContain('href="/?compose=1"');
+  expect(bottomNav).not.toContain('className="route-create-button"');
   expect(routeUi).toContain("GoldenDropCard");
 
   expect(search).toContain('headerMode="hidden"');
