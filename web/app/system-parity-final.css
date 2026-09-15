@@ -339,76 +339,76 @@
   -webkit-backdrop-filter: blur(14px);
 }
 .detail-floating-header.hidden { transform: translateY(calc(-100% - 1px)); }
-.detail-floating-header > button { width: 48px; height: 56px; padding: 0; border: 0; background: transparent; color: var(--ink); display: grid; place-items: center; }
+.detail-floating-header > button { width: 48px; height: 56px; padding: 0; border: 0; background: transparent; color: var(--wyn-text); display: grid; place-items: center; }
 .detail-floating-header > strong { font-size: 16px; line-height: 1.2; font-weight: 700; }
 
-.flutter-detail-post { padding: 0 0 8px; background: var(--paper); }
+.flutter-detail-post { padding: 0 0 8px; background: var(--wyn-bg); }
 .detail-post-copy { padding: 16px 16px 8px; }
 .detail-author-row { min-height: 44px; display: flex; align-items: flex-start; gap: 4px; }
-.flutter-detail-post .detail-author-link { flex: 1 1 auto; min-width: 0; padding: 0; display: flex; align-items: flex-start; gap: 12px; color: var(--ink); text-decoration: none; }
+.flutter-detail-post .detail-author-link { flex: 1 1 auto; min-width: 0; padding: 0; display: flex; align-items: flex-start; gap: 12px; color: var(--wyn-text); text-decoration: none; }
 .detail-author-copy { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; padding-top: 1px; }
 .detail-author-primary { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
 .detail-author-primary strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-size: 15px; line-height: 1.25; font-weight: 600; }
-.detail-author-primary small, .detail-author-username { color: var(--muted-neutral, #b7b4ac); font-size: 13px; line-height: 1.25; font-weight: 400; }
+.detail-author-primary small, .detail-author-username { color: var(--wyn-text-muted); font-size: 13px; line-height: 1.25; font-weight: 400; }
 .detail-author-primary small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-author-username { margin-top: 1px; }
-.detail-follow-button { min-height: 44px; padding: 0 10px; border: 1px solid var(--sapphire); border-radius: 999px; background: var(--paper); color: var(--sapphire); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; }
-.detail-more-button { width: 44px; height: 44px; flex: 0 0 44px; padding: 0; border: 0; background: transparent; color: var(--faint); display: grid; place-items: center; }
-.flutter-detail-post .detail-caption { margin: 12px 0 0; font-size: 16px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.detail-follow-button { min-height: 44px; padding: 0 10px; border: 1px solid var(--wyn-text); border-radius: 999px; background: var(--wyn-bg); color: var(--wyn-text); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.detail-more-button { width: 44px; height: 44px; flex: 0 0 44px; padding: 0; border: 0; background: transparent; color: var(--wyn-text-muted); display: grid; place-items: center; }
+.flutter-detail-post .detail-caption { margin: 12px 0 0; font-size: 16px; line-height: 1.5; color: var(--wyn-text); white-space: pre-wrap; overflow-wrap: anywhere; }
 .flutter-detail-post .detail-caption a, .flutter-detail-post .detail-caption .hashtag { color: #1d9bf0; }
 .detail-gallery { margin: 0 16px; }
 .detail-gallery-track { border-radius: 18px; }
 .detail-gallery-track .detail-image { border-radius: 18px; }
 .flutter-detail-actions { min-height: 48px; margin: 7px 10px 0; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); align-items: stretch; }
 .flutter-detail-actions.public { grid-template-columns: repeat(5,minmax(0,1fr)); }
-.flutter-detail-actions button { min-width: 0; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; gap: 7px; font: inherit; font-size: 14px; line-height: 1; }
+.flutter-detail-actions button { min-width: 0; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--wyn-text); display: inline-flex; align-items: center; justify-content: center; gap: 7px; font: inherit; font-size: 14px; line-height: 1; }
 .flutter-detail-actions button[aria-label="ถูกใจ"] svg, .flutter-detail-actions button[aria-label="เลิกถูกใจ"] svg { width: 26px; height: 26px; }
 .flutter-detail-actions button[aria-label="ความคิดเห็น"] svg { width: 25px; height: 25px; }
 .flutter-detail-actions button[aria-label="รีโพสต์"] svg, .flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] svg { width: 27px; height: 27px; }
 .flutter-detail-actions button[aria-label="แชร์โพสต์"] svg { width: 24px; height: 24px; }
 .flutter-detail-actions button[aria-label="บันทึกโพสต์"] svg, .flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] svg { width: 26px; height: 26px; }
-.flutter-detail-actions button.like.active { color: #f44336; }
-.flutter-detail-actions button.active:not(.like) { color: var(--sapphire); }
-.detail-activity-row { width: calc(100% - 32px); height: 54px; margin: 2px 16px 10px; padding: 0 12px 0 14px; border: 0; border-radius: 18px; background: var(--surface-tint, #f1efe9); color: var(--ink); display: grid; grid-template-columns: 42px minmax(0,1fr) 27px; align-items: center; text-align: left; }
-.detail-activity-icon { width: 42px; height: 54px; display: grid; place-items: center; justify-content: start; color: var(--graphite); }
+.flutter-detail-actions button.like.active { color: var(--wyn-accent); }
+.flutter-detail-actions button.active:not(.like) { color: var(--wyn-text); }
+.detail-activity-row { width: calc(100% - 32px); height: 54px; margin: 2px 16px 10px; padding: 0 12px 0 14px; border: 0; border-radius: 18px; background: var(--wyn-surface); color: var(--wyn-text); display: grid; grid-template-columns: 42px minmax(0,1fr) 27px; align-items: center; text-align: left; }
+.detail-activity-icon { width: 42px; height: 54px; display: grid; place-items: center; justify-content: start; color: var(--wyn-text-secondary); }
 .detail-activity-row strong { font-size: 15px; font-weight: 600; }
-.detail-activity-row > svg { color: var(--graphite); }
+.detail-activity-row > svg { color: var(--wyn-text-secondary); }
 
 /* Comment geometry mirrors radius 18/16, 15px copy, 48px action targets. */
-.flutter-detail-comments { padding: 0 0 96px; background: var(--paper); }
-.detail-thread + .detail-thread { border-top: 1px solid var(--hairline); }
+.flutter-detail-comments { padding: 0 0 96px; background: var(--wyn-bg); }
+.detail-thread + .detail-thread { border-top: 1px solid var(--wyn-border); }
 .detail-comment { min-height: 60px; padding: 12px 16px 0; display: grid; grid-template-columns: 36px minmax(0,1fr) auto; gap: 8px; align-items: start; }
 .detail-comment-reply { position: relative; padding-left: 52px; grid-template-columns: 32px minmax(0,1fr) auto; }
-.detail-comment-reply::before { content: ""; position: absolute; left: 40px; top: 12px; width: 1px; height: 44px; background: var(--hairline); border: 0; border-radius: 0; }
+.detail-comment-reply::before { content: ""; position: absolute; left: 40px; top: 12px; width: 1px; height: 44px; background: var(--wyn-border); border: 0; border-radius: 0; }
 .detail-comment-avatar { display: block; width: max-content; }
 .detail-comment-copy { min-width: 0; }
 .detail-comment-author-line { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
-.detail-comment-author-line strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 15px; line-height: 1.25; font-weight: 600; }
-.detail-comment-author-line small { flex: 0 0 auto; color: var(--muted-neutral, #b7b4ac); font-size: 13px; line-height: 1.25; }
-.detail-comment-copy p { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
-.detail-comment-reply-action { margin-top: 8px; padding: 0; border: 0; background: transparent; color: var(--graphite); font: inherit; font-size: 13px; line-height: 1.2; font-weight: 600; }
+.detail-comment-author-line strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--wyn-text); font-size: 15px; line-height: 1.25; font-weight: 600; }
+.detail-comment-author-line small { flex: 0 0 auto; color: var(--wyn-text-muted); font-size: 13px; line-height: 1.25; }
+.detail-comment-copy p { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--wyn-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.detail-comment-reply-action { margin-top: 8px; padding: 0; border: 0; background: transparent; color: var(--wyn-text-secondary); font: inherit; font-size: 13px; line-height: 1.2; font-weight: 600; }
 .detail-comment-actions { display: flex; align-items: flex-start; }
-.detail-comment-delete, .detail-comment-like { width: 48px; min-width: 48px; height: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--graphite); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
-.detail-comment-delete { color: var(--graphite); }
+.detail-comment-delete, .detail-comment-like { width: 48px; min-width: 48px; height: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--wyn-text-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.detail-comment-delete { color: var(--wyn-text-secondary); }
 .detail-comment-like { font-size: 13px; }
 .detail-comment-like svg { width: 16px; height: 16px; }
-.detail-comment-like.active.like { color: #f44336; }
-.detail-comments-end { margin: 0; padding: 24px 16px 28px; color: var(--faint); font-size: 13px; text-align: center; }
+.detail-comment-like.active.like { color: var(--wyn-accent); }
+.detail-comments-end { margin: 0; padding: 24px 16px 28px; color: var(--wyn-text-muted); font-size: 13px; text-align: center; }
 
 /* Fixed composer: 14/9/9/9 shell, 36px viewer avatar, 46px tinted field. */
-.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%,680px); transform: translateX(-50%); padding: 9px 9px max(9px, env(safe-area-inset-bottom)) 14px; background: var(--paper); border-top: 1px solid var(--hairline); backdrop-filter: none; }
-.detail-reply-banner { min-height: 30px; padding: 0 0 6px 45px; display: flex; align-items: center; justify-content: space-between; color: var(--graphite); font-size: 12.5px; }
-.flutter-detail-composer { min-height: 46px; height: 46px; margin: 0; padding: 0; display: grid; grid-template-columns: 36px 10px minmax(0,1fr); align-items: center; border: 0; border-radius: 0; background: var(--paper); }
+.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%,680px); transform: translateX(-50%); padding: 9px 9px max(9px, env(safe-area-inset-bottom)) 14px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); backdrop-filter: none; }
+.detail-reply-banner { min-height: 30px; padding: 0 0 6px 45px; display: flex; align-items: center; justify-content: space-between; color: var(--wyn-text-secondary); font-size: 12.5px; }
+.flutter-detail-composer { min-height: 46px; height: 46px; margin: 0; padding: 0; display: grid; grid-template-columns: 36px 10px minmax(0,1fr); align-items: center; border: 0; border-radius: 0; background: var(--wyn-bg); }
 .flutter-detail-composer > .route-avatar { grid-column: 1; }
-.flutter-detail-composer-field { grid-column: 3; height: 46px; min-width: 0; padding: 0 3px 0 16px; display: grid; grid-template-columns: minmax(0,1fr) 42px; align-items: center; border-radius: 24px; background: var(--surface-tint, #f1efe9); }
-.flutter-detail-composer-field input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 15px; }
-.flutter-detail-composer-field input::placeholder { color: var(--faint); opacity: 1; }
-.flutter-detail-composer-field button { width: 42px; height: 42px; padding: 0; border: 0; background: transparent; color: var(--ink); display: grid; place-items: center; }
-.flutter-detail-composer-field button:disabled { color: var(--faint); }
+.flutter-detail-composer-field { grid-column: 3; height: 46px; min-width: 0; padding: 0 3px 0 16px; display: grid; grid-template-columns: minmax(0,1fr) 42px; align-items: center; border-radius: 24px; background: var(--wyn-surface); }
+.flutter-detail-composer-field input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--wyn-text); font: inherit; font-size: 15px; }
+.flutter-detail-composer-field input::placeholder { color: var(--wyn-text-muted); opacity: 1; }
+.flutter-detail-composer-field button { width: 42px; height: 42px; padding: 0; border: 0; background: transparent; color: var(--wyn-text); display: grid; place-items: center; }
+.flutter-detail-composer-field button:disabled { color: var(--wyn-text-muted); }
 .detail-activity-header strong { font-size: 18px; font-weight: 700; }
 .detail-more-backdrop { align-items: flex-end; }
-.detail-more-sheet { width: min(100%,680px); padding: 8px 16px max(12px, env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: var(--paper); }
-.detail-more-sheet > button { width: 100%; min-height: 52px; padding: 0 8px; display: flex; align-items: center; gap: 12px; border: 0; border-bottom: 1px solid var(--hairline); background: transparent; color: var(--ink); font: inherit; font-size: 15px; text-align: left; }
+.detail-more-sheet { width: min(100%,680px); padding: 8px 16px max(12px, env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: var(--wyn-bg); }
+.detail-more-sheet > button { width: 100%; min-height: 52px; padding: 0 8px; display: flex; align-items: center; gap: 12px; border: 0; border-bottom: 1px solid var(--wyn-border); background: transparent; color: var(--wyn-text); font: inherit; font-size: 15px; text-align: left; }
 .detail-more-sheet > button:last-child { border-bottom: 0; }
 .detail-more-sheet > button.danger { color: #dc2626; }
 
@@ -488,15 +488,15 @@
 
 
 /* WYN-158 pixel closure from direct Flutter source audit. */
-/* Detail action counts stay graphite; only stateful icons change colour. */
-.flutter-detail-actions button { color: var(--graphite); }
-.flutter-detail-actions button svg { color: var(--ink); }
-.flutter-detail-actions button.like.active { color: var(--graphite); }
-.flutter-detail-actions button.like.active svg { color: #f44336; }
-.flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] { color: var(--graphite); }
-.flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] svg { color: var(--sapphire); }
-.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] { color: var(--graphite); }
-.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] svg { color: var(--ink); }
+/* Detail action counts stay secondary text; only stateful icons change colour. */
+.flutter-detail-actions button { color: var(--wyn-text-secondary); }
+.flutter-detail-actions button svg { color: var(--wyn-text); }
+.flutter-detail-actions button.like.active { color: var(--wyn-text-secondary); }
+.flutter-detail-actions button.like.active svg { color: var(--wyn-accent); }
+.flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] { color: var(--wyn-text-secondary); }
+.flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] svg { color: var(--wyn-text); }
+.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] { color: var(--wyn-text-secondary); }
+.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] svg { color: var(--wyn-text); }
 .detail-activity-row strong { margin-left: 7px; }
 
 /* Flutter comment row: 44px tap targets and reply guide before the 32px avatar. */
@@ -505,12 +505,12 @@
 .detail-comment-actions { min-height: 60px; overflow: visible; }
 .detail-comment-delete, .detail-comment-like { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
 .detail-comment-like { position: relative; overflow: visible; }
-.detail-comment-like > span { position: absolute; top: 43px; left: 0; width: 44px; color: var(--graphite); font-size: 13px; line-height: 1.2; text-align: center; }
+.detail-comment-like > span { position: absolute; top: 43px; left: 0; width: 44px; color: var(--wyn-text-secondary); font-size: 13px; line-height: 1.2; text-align: center; }
 .detail-reply-banner { justify-content: flex-start; gap: 5px; }
 
 /* Flutter composer field: the 46px tint belongs to the text field only; Send is outside after a 2px gap. */
 .flutter-detail-composer-field { height: 48px; padding: 0; grid-template-columns: minmax(0,1fr) 48px; gap: 2px; border-radius: 0; background: transparent; }
-.flutter-detail-composer-field input { height: 46px; padding: 0 16px; border-radius: 24px; background: var(--surface-tint, #f1efe9); }
+.flutter-detail-composer-field input { height: 46px; padding: 0 16px; border-radius: 24px; background: var(--wyn-surface); }
 .flutter-detail-composer-field button { width: 48px; height: 48px; }
 
 /* Create Drop image controls follow WYN-109 exact touch/shape metrics. */

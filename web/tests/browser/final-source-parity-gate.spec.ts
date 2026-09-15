@@ -33,7 +33,7 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(css).toContain("WYN-158 exact Post Detail + Composer closure");
   expect(css).toContain("height: calc(70px + env(safe-area-inset-top))");
   expect(css).toContain("font-size: 22px");
-  expect(css).toContain("color: #f44336");
+  expect(css).toContain("color: var(--wyn-accent)");
   expect(css).toContain("height: 46px");
   expect(css).toContain("WYN-158 pixel closure from direct Flutter source audit");
   expect(css).toContain("min-height: 72px");

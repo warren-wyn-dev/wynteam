@@ -169,7 +169,7 @@ test("Post Detail closes the exact current Flutter geometry and interaction gaps
   expect(detail).not.toContain("window.confirm");
   expect(interaction).toContain(".detail-dialog-backdrop");
   expect(finalLock).toContain("margin: 7px 10px 0");
-  expect(finalLock).toContain("color: #f44336");
+  expect(finalLock).toContain("color: var(--wyn-accent)");
   expect(finalLock).toContain("height: 46px");
   expect(flutter).toContain("floating: true");
   expect(flutter).toContain("snap: true");

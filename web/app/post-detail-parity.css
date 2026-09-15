@@ -1,70 +1,73 @@
-/* WYN-158 Post Detail parity — mirrors Flutter Founder metrics and interaction layout. */
-.flutter-detail-post { padding: 12px 16px 8px; background: var(--paper); }
+/* WYN-158 Post Detail parity — mirrors Flutter Founder metrics and interaction layout.
+ * Colors follow the WYNOS base design system tokens (app/design-system.css's
+ * --wyn-* custom properties) instead of the older warm Beta4 palette, per the
+ * Founder-supplied 24-screen reference. */
+.flutter-detail-post { padding: 12px 16px 8px; background: var(--wyn-bg); }
 .detail-author-row { min-height: 46px; display: flex; align-items: center; }
 .flutter-detail-post .route-drop-author { padding: 0; min-width: 0; }
 .flutter-detail-post .route-drop-author > span { min-width: 0; }
 .flutter-detail-post .route-drop-author strong { display: inline-flex; align-items: center; gap: 4px; }
-.flutter-detail-post .detail-caption { margin: 10px 0 12px; font-size: 16px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.flutter-detail-post .detail-caption { margin: 10px 0 12px; font-size: 16px; line-height: 1.5; color: var(--wyn-text); white-space: pre-wrap; overflow-wrap: anywhere; }
 .flutter-detail-post .detail-caption a, .flutter-detail-post .detail-caption .hashtag { color: #1689ff; text-decoration: none; }
 
 .detail-gallery { margin: 0; }
 .detail-gallery-track { display: flex; width: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: 18px; }
 .detail-gallery-track::-webkit-scrollbar { display: none; }
-.detail-gallery-track .detail-image { flex: 0 0 100%; width: 100%; max-height: min(72dvh, 720px); object-fit: contain; scroll-snap-align: start; border-radius: 18px; background: #eceae4; }
+.detail-gallery-track .detail-image { flex: 0 0 100%; width: 100%; max-height: min(72dvh, 720px); object-fit: contain; scroll-snap-align: start; border-radius: 18px; background: var(--wyn-surface); }
 .detail-gallery-dots { min-height: 20px; display: flex; align-items: center; justify-content: center; gap: 5px; }
-.detail-gallery-dots i { width: 5px; height: 5px; border-radius: 999px; background: var(--faint); }
-.detail-gallery-dots i.active { width: 7px; height: 7px; background: var(--sapphire); }
+.detail-gallery-dots i { width: 5px; height: 5px; border-radius: 999px; background: var(--wyn-border-strong); }
+.detail-gallery-dots i.active { width: 7px; height: 7px; background: var(--wyn-text); }
 
 .flutter-detail-actions { min-height: 48px; margin: 6px -6px 0; display: grid; grid-template-columns: repeat(5, 1fr); align-items: stretch; }
-.flutter-detail-actions button { min-width: 0; min-height: 48px; padding: 0 2px; border: 0; background: transparent; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 13px; }
+.flutter-detail-actions button { min-width: 0; min-height: 48px; padding: 0 2px; border: 0; background: transparent; color: var(--wyn-text); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 13px; }
 .flutter-detail-actions button svg { width: 24px; height: 24px; stroke-width: 1.75; }
-.flutter-detail-actions button.like.active { color: #e53d5d; }
-.flutter-detail-actions button.active:not(.like) { color: var(--sapphire); }
+.flutter-detail-actions button.like.active { color: var(--wyn-accent); }
+.flutter-detail-actions button.active:not(.like) { color: var(--wyn-text); }
 
-.detail-activity-row { width: 100%; height: 54px; margin: 2px 0 10px; padding: 0 12px 0 14px; border: 0; border-radius: 18px; background: var(--surface-tint, #f1efe9); color: var(--ink); display: grid; grid-template-columns: 42px minmax(0,1fr) 28px; align-items: center; text-align: left; }
+.detail-activity-row { width: 100%; height: 54px; margin: 2px 0 10px; padding: 0 12px 0 14px; border: 0; border-radius: 18px; background: var(--wyn-surface); color: var(--wyn-text); display: grid; grid-template-columns: 42px minmax(0,1fr) 28px; align-items: center; text-align: left; }
 .detail-activity-row strong { font-size: 15px; font-weight: 600; }
-.detail-activity-icon { width: 42px; color: var(--graphite); font-size: 24px; line-height: 1; }
-.detail-activity-row svg { color: var(--graphite); }
+.detail-activity-icon { width: 42px; color: var(--wyn-text-secondary); font-size: 24px; line-height: 1; }
+.detail-activity-row svg { color: var(--wyn-text-secondary); }
 
-.flutter-detail-comments { padding: 0 0 120px; background: var(--paper); }
-.detail-thread + .detail-thread { border-top: 1px solid var(--hairline); }
+.flutter-detail-comments { padding: 0 0 120px; background: var(--wyn-bg); }
+.detail-thread + .detail-thread { border-top: 1px solid var(--wyn-border); }
 .detail-comment { min-height: 64px; padding: 12px 16px; display: grid; grid-template-columns: 34px minmax(0,1fr) 38px; gap: 10px; align-items: start; }
 .detail-comment-reply { padding-left: 52px; position: relative; }
-.detail-comment-reply::before { content: ""; position: absolute; left: 34px; top: 0; width: 14px; height: 20px; border-left: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); border-bottom-left-radius: 10px; }
+.detail-comment-reply::before { content: ""; position: absolute; left: 34px; top: 0; width: 14px; height: 20px; border-left: 1px solid var(--wyn-border); border-bottom: 1px solid var(--wyn-border); border-bottom-left-radius: 10px; }
 .detail-comment-copy { min-width: 0; }
 .detail-comment-copy > div:first-child { display: flex; min-width: 0; align-items: baseline; gap: 3px; }
-.detail-comment-copy strong { font-size: 13.5px; color: var(--ink); }
-.detail-comment-copy > div:first-child small { color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-comment-copy strong { font-size: 13.5px; color: var(--wyn-text); }
+.detail-comment-copy > div:first-child small { color: var(--wyn-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-comment-copy p { margin: 3px 0 5px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .detail-comment-meta { display: flex; align-items: center; gap: 14px; }
-.detail-comment-meta small { color: var(--faint); font-size: 11.5px; }
-.detail-comment-meta button { border: 0; padding: 0; background: transparent; color: var(--graphite); font-size: 11.5px; font-weight: 600; }
-.detail-comment-like { width: 38px; min-height: 38px; border: 0; padding: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--graphite); font-size: 10px; }
-.detail-comment-like.active.like { color: #e53d5d; }
-.detail-comments-end { margin: 0; padding: 24px 16px 28px; text-align: center; color: var(--faint); font-size: 13px; }
+.detail-comment-meta small { color: var(--wyn-text-muted); font-size: 11.5px; }
+.detail-comment-meta button { border: 0; padding: 0; background: transparent; color: var(--wyn-text-secondary); font-size: 11.5px; font-weight: 600; }
+.detail-comment-like { width: 38px; min-height: 38px; border: 0; padding: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--wyn-text-secondary); font-size: 10px; }
+.detail-comment-like.active.like { color: var(--wyn-accent); }
+.detail-comments-end { margin: 0; padding: 24px 16px 28px; text-align: center; color: var(--wyn-text-muted); font-size: 13px; }
 
-.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%, 680px); transform: translateX(-50%); padding: 0 12px max(8px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--paper) 96%, transparent); border-top: 1px solid var(--hairline); backdrop-filter: blur(18px); }
-.detail-reply-banner { min-height: 30px; padding: 5px 8px 0; display: flex; align-items: center; justify-content: space-between; color: var(--graphite); font-size: 12px; }
-.detail-reply-banner button { width: 28px; height: 28px; border: 0; background: transparent; color: var(--graphite); display: grid; place-items: center; }
-.flutter-detail-composer { min-height: 46px; height: 46px; margin: 7px 0 0; padding: 0 5px 0 14px; display: grid; grid-template-columns: minmax(0,1fr) 38px; align-items: center; border: 1px solid var(--hairline); border-radius: 999px; background: var(--paper); }
-.flutter-detail-composer input { width: 100%; min-width: 0; height: 42px; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
-.flutter-detail-composer button { width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--sapphire); display: grid; place-items: center; }
-.flutter-detail-composer button:disabled { color: var(--faint); }
+.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%, 680px); transform: translateX(-50%); padding: 0 12px max(8px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--wyn-bg) 96%, transparent); border-top: 1px solid var(--wyn-border); backdrop-filter: blur(18px); }
+.detail-reply-banner { min-height: 30px; padding: 5px 8px 0; display: flex; align-items: center; justify-content: space-between; color: var(--wyn-text-secondary); font-size: 12px; }
+.detail-reply-banner button { width: 28px; height: 28px; border: 0; background: transparent; color: var(--wyn-text-secondary); display: grid; place-items: center; }
+.flutter-detail-composer { min-height: 46px; height: 46px; margin: 7px 0 0; padding: 0 5px 0 14px; display: grid; grid-template-columns: minmax(0,1fr) 38px; align-items: center; border: 1px solid var(--wyn-border); border-radius: 999px; background: var(--wyn-bg); }
+.flutter-detail-composer input { width: 100%; min-width: 0; height: 42px; border: 0; outline: 0; background: transparent; color: var(--wyn-text); font: inherit; font-size: 14px; }
+.flutter-detail-composer button { width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--wyn-text); display: grid; place-items: center; }
+.flutter-detail-composer button:disabled { color: var(--wyn-text-muted); }
 
 .detail-activity-backdrop { align-items: flex-end; }
-.detail-activity-sheet { width: min(100%, 680px); max-height: min(76dvh, 700px); padding: 0; overflow: hidden; border-radius: 22px 22px 0 0; background: var(--paper); }
-.detail-activity-header { height: 54px; padding: 0 8px 0 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--hairline); }
+.detail-activity-sheet { width: min(100%, 680px); max-height: min(76dvh, 700px); padding: 0; overflow: hidden; border-radius: 22px 22px 0 0; background: var(--wyn-bg); }
+.detail-activity-header { height: 54px; padding: 0 8px 0 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--wyn-border); }
 .detail-activity-header strong { font-size: 17px; }
-.detail-activity-tabs { display: grid; grid-template-columns: 1fr 1fr; height: 48px; border-bottom: 1px solid var(--hairline); }
-.detail-activity-tabs button { position: relative; border: 0; background: transparent; color: var(--graphite); font-size: 13.5px; font-weight: 500; }
-.detail-activity-tabs button.active { color: var(--ink); font-weight: 700; }
-.detail-activity-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 34px; height: 2px; transform: translateX(-50%); border-radius: 999px; background: var(--ink); }
+.detail-activity-tabs { display: grid; grid-template-columns: 1fr 1fr; height: 48px; border-bottom: 1px solid var(--wyn-border); }
+.detail-activity-tabs button { position: relative; border: 0; background: transparent; color: var(--wyn-text-secondary); font-size: 13.5px; font-weight: 500; }
+.detail-activity-tabs button.active { color: var(--wyn-text); font-weight: 700; }
+.detail-activity-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 34px; height: 2px; transform: translateX(-50%); border-radius: 999px; background: var(--wyn-text); }
 .detail-activity-content { min-height: 180px; max-height: calc(min(76dvh, 700px) - 102px); overflow-y: auto; }
-.detail-activity-person { min-height: 64px; padding: 10px 16px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--hairline); color: var(--ink); text-decoration: none; }
+.detail-activity-person { min-height: 64px; padding: 10px 16px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--wyn-border); color: var(--wyn-text); text-decoration: none; }
 .detail-activity-person > span:last-child { min-width: 0; display: flex; flex-direction: column; }
 .detail-activity-person strong { display: flex; align-items: center; gap: 4px; font-size: 14px; }
-.detail-activity-person small { color: var(--graphite); font-size: 12px; }
+.detail-activity-person small { color: var(--wyn-text-secondary); font-size: 12px; }
 
 @media (min-width: 681px) {
-  .detail-composer-shell { border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
+  .detail-composer-shell { border-left: 1px solid var(--wyn-border); border-right: 1px solid var(--wyn-border); }
 }

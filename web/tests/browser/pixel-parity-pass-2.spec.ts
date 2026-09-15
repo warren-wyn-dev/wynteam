@@ -70,6 +70,6 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   expect(css).toContain('button[aria-label="ความคิดเห็น"]::before');
   expect(css).toContain('button[aria-label="แชร์โพสต์"]::before');
   expect(css).toContain('button[aria-label="บันทึกโพสต์"]::before');
-  expect(css).toContain("color: #f44336");
-  expect(css).toContain("color: var(--graphite)");
+  expect(css).toContain("color: var(--wyn-accent)");
+  expect(css).toContain("color: var(--wyn-text-secondary)");
 });
