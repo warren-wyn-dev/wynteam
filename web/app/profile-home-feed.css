@@ -1,0 +1,112 @@
+/* Profile media feed should use the same current visual composition as Home.
+   GoldenDropCard keeps its existing behavior; these scoped rules only align
+   the Profile feed geometry/typography/media rhythm with HomePostCard. */
+
+.profile-feed-list .golden-drop-card {
+  display: grid !important;
+  grid-template-columns: 44px minmax(0, 1fr) !important;
+  column-gap: 10px !important;
+  row-gap: 0;
+  width: 100%;
+  padding: 12px 16px 0 !important;
+  border-bottom: 0 !important;
+  background: var(--wyn-bg);
+  box-sizing: border-box;
+}
+
+.profile-feed-list .golden-drop-card + .golden-drop-card {
+  border-top: 1px solid var(--wyn-border);
+}
+
+.profile-feed-list .golden-drop-author-avatar {
+  width: 44px;
+  height: 44px;
+  margin-top: 6px !important;
+}
+
+.profile-feed-list .golden-drop-avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.profile-feed-list .golden-drop-head {
+  min-height: 24px;
+  margin-right: 0 !important;
+  gap: 4px;
+  align-items: center;
+}
+
+.profile-feed-list .golden-drop-head > a {
+  gap: 4px !important;
+  align-items: center;
+}
+
+.profile-feed-list .golden-drop-head strong {
+  flex: 0 1 auto;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  font-weight: 700;
+}
+
+.profile-feed-list .golden-drop-head small {
+  flex: 0 0 auto;
+  max-width: 104px !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+}
+
+.profile-feed-list .golden-drop-head > button {
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 24px;
+  margin: 0 -4px 0 0;
+}
+
+.profile-feed-list .golden-drop-body > .rich-post-text {
+  margin: 3px 0 0 !important;
+  transform: none !important;
+  font-size: 16px !important;
+  line-height: 1.4 !important;
+  font-weight: 400;
+}
+
+.profile-feed-list .golden-drop-media-wrap {
+  margin-top: 8px !important;
+}
+
+.profile-feed-list .golden-drop-media.single {
+  margin-right: 0 !important;
+}
+
+.profile-feed-list .golden-drop-media img {
+  border-radius: 16px;
+  max-height: 75dvh;
+}
+
+.profile-feed-list .golden-drop-actions {
+  min-height: 36px !important;
+  margin: 8px 0 12px !important;
+  gap: 18px !important;
+}
+
+.profile-feed-list .golden-drop-actions > button,
+.profile-feed-list .golden-drop-actions > a {
+  min-width: 28px;
+  min-height: 36px !important;
+  height: 36px;
+  padding: 4px 0;
+  gap: 4px;
+}
+
+@media (max-width: 359px) {
+  .profile-feed-list .golden-drop-card {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    column-gap: 8px !important;
+  }
+
+  .profile-feed-list .golden-drop-actions {
+    gap: 15px !important;
+  }
+}
