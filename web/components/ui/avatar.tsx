@@ -21,7 +21,7 @@ export function Avatar({
 }: AvatarProps) {
   const style = {
     "--wyn-avatar-size": `${size}px`,
-    ...(src ? { backgroundImage: `url(${JSON.stringify(src).slice(1, -1)})` } : {}),
+    ...(src ? { backgroundImage: `url(${JSON.stringify(src)})` } : {}),
   } as CSSProperties;
 
   const classes = [
