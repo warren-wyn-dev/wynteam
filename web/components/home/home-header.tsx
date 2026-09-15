@@ -1,23 +1,22 @@
 /* eslint-disable @next/next/no-img-element */
-import { Menu, MessageSquare } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 
 /**
- * Home's header — WynosSocialHeader overridden to height 52 with no
- * bottom divider (home_feed_screen.dart's `_buildHeader`). The chat
- * icon is Lucide's MessageSquare (a single rounded-rect bubble with a
- * tail), matching Flutter's Icons.chat_bubble_outline shape — the
- * previous implementation used Lucide's MessagesSquare (two overlapping
- * bubbles), a visibly different glyph that needed a CSS mask patch to
- * paint over; fixed at the source instead.
+ * Home's header. Matches the supplied 07-home.html reference exactly:
+ * menu on the left, wordmark centered, Search + Notifications on the
+ * right — chat is reachable from the bottom nav, so it's not duplicated
+ * here (Founder direction).
  */
 export function HomeHeader({
-  chatBadgeCount,
+  notificationBadgeCount,
   onOpenMenu,
-  onOpenChat,
+  onOpenSearch,
+  onOpenNotifications,
 }: {
-  chatBadgeCount: number;
+  notificationBadgeCount: number;
   onOpenMenu: () => void;
-  onOpenChat: () => void;
+  onOpenSearch: () => void;
+  onOpenNotifications: () => void;
 }) {
   return (
     <header className="wyn-home-header">
@@ -28,17 +27,22 @@ export function HomeHeader({
         <img className="wyn-home-logo" src="/wynos_logo_mark.png" alt="" />
         <strong className="wyn-home-title">WYNOS</strong>
       </div>
-      <button
-        className="wyn-home-header-action wyn-home-chat-action"
-        type="button"
-        aria-label="แชท"
-        onClick={onOpenChat}
-      >
-        <MessageSquare />
-        {chatBadgeCount > 0 ? (
-          <span className="wyn-home-chat-badge">{chatBadgeCount > 9 ? "9+" : chatBadgeCount}</span>
-        ) : null}
-      </button>
+      <div className="wyn-home-header-actions">
+        <button className="wyn-home-header-action" type="button" aria-label="ค้นหา" onClick={onOpenSearch}>
+          <Search />
+        </button>
+        <button
+          className="wyn-home-header-action wyn-home-chat-action"
+          type="button"
+          aria-label="การแจ้งเตือน"
+          onClick={onOpenNotifications}
+        >
+          <Bell />
+          {notificationBadgeCount > 0 ? (
+            <span className="wyn-home-chat-badge">{notificationBadgeCount > 9 ? "9+" : notificationBadgeCount}</span>
+          ) : null}
+        </button>
+      </div>
     </header>
   );
 }

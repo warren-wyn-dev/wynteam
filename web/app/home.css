@@ -2,9 +2,12 @@
  * Canonical Home stylesheet (WYN-158).
  *
  * Single source of truth for Home's header, tabs, feed cards, media and
- * action row. Values are copied verbatim from the current Flutter Beta4
- * source (see docs/wyn-158-visual-parity-audit.md, section 7) — do not
- * add another Home override file on top of this one; edit here instead.
+ * action row. Layout/spacing metrics are copied verbatim from the current
+ * Flutter Beta4 source (see docs/wyn-158-visual-parity-audit.md, section
+ * 7) — do not add another Home override file on top of this one; edit
+ * here instead. Colors follow the WYNOS base design system tokens
+ * (app/design-system.css's --wyn-* custom properties) instead of the
+ * older warm Beta4 palette, per the Founder-supplied 24-screen reference.
  */
 
 /* ---------- Shell: sticky header + tabs ---------- */
@@ -14,7 +17,7 @@
   top: 0;
   z-index: 32;
   padding-top: env(safe-area-inset-top);
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 /* ---------- Header: WynosSocialHeader override, height 52, no divider ---------- */
@@ -23,7 +26,12 @@
   height: 52px;
   padding: 0 8px;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.wyn-home-header-actions {
+  display: flex;
   align-items: center;
 }
 
@@ -35,7 +43,7 @@
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--ink);
+  color: var(--wyn-text);
   padding: 0;
 }
 
@@ -63,7 +71,7 @@
   line-height: 1;
   font-weight: 700;
   letter-spacing: 1.2px;
-  color: var(--ink);
+  color: var(--wyn-text);
 }
 
 .wyn-home-chat-action {
@@ -85,8 +93,8 @@
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: var(--like);
-  color: var(--paper);
+  background: var(--wyn-accent);
+  color: var(--wyn-bg);
   font-size: 10px;
   line-height: 1;
   font-weight: 700;
@@ -98,8 +106,8 @@
   height: 52px;
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--paper);
+  border-bottom: 1px solid var(--wyn-border);
+  background: var(--wyn-bg);
 }
 
 .wyn-home-tab {
@@ -114,7 +122,7 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   font: inherit;
   font-size: 14px;
   font-weight: 500;
@@ -131,7 +139,7 @@
 }
 
 .wyn-home-tab.is-active {
-  color: var(--ink);
+  color: var(--wyn-text);
   font-weight: 700;
 }
 
@@ -145,13 +153,13 @@
 }
 
 .wyn-home-tab.is-active .wyn-home-tab-indicator {
-  background: var(--ink);
+  background: var(--wyn-text);
 }
 
 /* ---------- Feed surface / empty-loading states ---------- */
 
 .wyn-home-feed {
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 .wyn-home-state {
@@ -161,7 +169,7 @@
   place-items: center;
   align-content: center;
   gap: 12px;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   text-align: center;
 }
 
@@ -172,7 +180,7 @@
 /* One hairline divider between posts (Flutter's `Divider(height: 1)`
    between SliverList items) — never before the first post. */
 .wyn-post + .wyn-post {
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--wyn-border);
 }
 
 .wyn-post {
@@ -216,7 +224,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   font-size: 12px;
 }
 
@@ -251,7 +259,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: var(--ink);
+  color: var(--wyn-text);
   font-size: 17px;
   line-height: 1.15;
   font-weight: 700;
@@ -270,8 +278,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  /* Flutter colorScheme.outline (WynColors.borderStrongLight), not graphite. */
-  color: #8b929c;
+  color: var(--wyn-text-muted);
   font-size: 15px;
   line-height: 1.15;
   font-weight: 400;
@@ -286,8 +293,8 @@
   padding: 0 12px;
   border: 0;
   border-radius: 999px;
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
   font: inherit;
   font-size: 13px;
   line-height: 1.3;
@@ -297,8 +304,8 @@
 }
 
 .wyn-post-follow-pill.is-requested {
-  background: var(--surface);
-  color: var(--graphite);
+  background: var(--wyn-surface);
+  color: var(--wyn-text-secondary);
 }
 
 /* Flutter More owns a 44x24 tight box (touchTargetMin width, 24 height). */
@@ -314,7 +321,7 @@
   background: transparent;
   display: grid;
   place-items: center;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
 }
 
 .wyn-post-more svg {
@@ -359,7 +366,7 @@
   aspect-ratio: var(--post-media-ratio, 4 / 5);
   max-height: 75dvh;
   scroll-snap-align: start;
-  background: var(--surface);
+  background: var(--wyn-surface);
 }
 
 .wyn-post-media-track.is-single {
@@ -438,7 +445,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   text-decoration: none;
 }
 
@@ -454,11 +461,11 @@
 }
 
 .wyn-action-button.is-liked {
-  color: var(--like);
+  color: var(--wyn-accent);
 }
 
 .wyn-action-button.is-active {
-  color: var(--sapphire);
+  color: var(--wyn-text);
 }
 
 /* Share is a plain IconButton, not an ActionMetric — same compact

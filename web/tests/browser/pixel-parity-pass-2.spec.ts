@@ -25,9 +25,9 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   expect(flutterHome).toContain("count > 9 ? '9+' : '$count'");
   expect(home).toContain(".wyn-home-header {");
   expect(home).toContain("height: 52px");
-  // Home caps the chat badge at the source (React), not via a runtime
-  // DOM-mutation patch — see docs/wyn-158-visual-parity-audit.md, #4.
-  expect(homeHeader).toContain('chatBadgeCount > 9 ? "9+" : chatBadgeCount');
+  // Home caps the notification badge at the source (React), not via a
+  // runtime DOM-mutation patch — see docs/wyn-158-visual-parity-audit.md, #4.
+  expect(homeHeader).toContain('notificationBadgeCount > 9 ? "9+" : notificationBadgeCount');
 
   expect(flutterCard).toContain("fontSize: 17.5");
   expect(flutterCard).toContain("fontSize: 17");

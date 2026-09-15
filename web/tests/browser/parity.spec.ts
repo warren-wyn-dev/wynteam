@@ -119,7 +119,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(homePostCard).toContain("รีโพสต์โดย @");
   expect(homePostCard).toContain('row.audience == null || row.audience === "everyone"');
   expect(home).not.toContain('location.assign');
-  for (const contract of ["wyn-post-follow-pill", "background: var(--ink)", "font-size: 17px", "max-width: 112px", "gap: 16px"]) expect(homeCss).toContain(contract);
+  for (const contract of ["wyn-post-follow-pill", "background: var(--wyn-text)", "font-size: 17px", "max-width: 112px", "gap: 16px"]) expect(homeCss).toContain(contract);
 
   const bottomNav = await readFile(path.join(root, "components/bottom-navigation.tsx"), "utf8");
   for (const label of ["หน้าหลัก", "ค้นหา", "การแจ้งเตือน", "โปรไฟล์"]) expect(bottomNav).toContain(label);

@@ -25,8 +25,8 @@ import {
 import { fetchHomeSurfaceRows } from "@/lib/home-feed-sources";
 import {
   fetchClubHomePosts,
-  fetchHomeChatBadge,
   fetchHomeIdentity,
+  fetchHomeNotificationBadge,
   toggleClubPostLike,
   type ClubHomePost,
   type HomeIdentity,
@@ -129,7 +129,7 @@ export function HomeScreen({ session }: { session: Session }) {
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
   const [images, setImages] = useState<Map<string, string[]>>(new Map());
   const [identity, setIdentity] = useState<HomeIdentity | null>(null);
-  const [chatBadge, setChatBadge] = useState(0);
+  const [notificationBadge, setNotificationBadge] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -145,10 +145,10 @@ export function HomeScreen({ session }: { session: Session }) {
 
   useEffect(() => {
     if (!client) return;
-    void Promise.all([fetchHomeIdentity(client, userId), fetchHomeChatBadge(client)])
+    void Promise.all([fetchHomeIdentity(client, userId), fetchHomeNotificationBadge(client, userId)])
       .then(([nextIdentity, badge]) => {
         setIdentity(nextIdentity);
-        setChatBadge(badge);
+        setNotificationBadge(badge);
       })
       .catch(() => undefined);
   }, [client, userId]);
@@ -414,9 +414,10 @@ export function HomeScreen({ session }: { session: Session }) {
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav>
       <div className="wyn-home">
         <HomeHeader
-          chatBadgeCount={chatBadge}
+          notificationBadgeCount={notificationBadge}
           onOpenMenu={() => setDrawerOpen(true)}
-          onOpenChat={() => router.push("/chat")}
+          onOpenSearch={() => router.push("/search")}
+          onOpenNotifications={() => router.push("/notifications")}
         />
         <HomeTabs mode={mode} onSelect={switchMode} />
       </div>

@@ -85,7 +85,12 @@ export function HomeFixture() {
     <div className="route-app route-with-bottom-nav">
       <main className="route-main">
         <div className="wyn-home">
-          <HomeHeader chatBadgeCount={3} onOpenMenu={() => {}} onOpenChat={() => {}} />
+          <HomeHeader
+            notificationBadgeCount={3}
+            onOpenMenu={() => {}}
+            onOpenSearch={() => {}}
+            onOpenNotifications={() => {}}
+          />
           <HomeTabs mode={mode} onSelect={setMode} />
         </div>
         <div className="wyn-home-feed">
