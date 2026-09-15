@@ -13,11 +13,8 @@
   width: 100%;
   min-height: 100dvh;
   margin: 0;
-  background: #ededed;
+  background: var(--bg);
   font-family: -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
-  display: flex;
-  justify-content: center;
-  padding: 20px 10px;
 }
 
 .auth-ref-viewport * {
@@ -26,14 +23,13 @@
 
 .auth-ref-viewport .phone {
   width: 100%;
-  max-width: 400px;
-  height: 760px;
+  min-height: 100dvh;
   background: var(--bg);
-  border-radius: 28px;
-  border: 1px solid var(--border);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   position: relative;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .auth-ref-viewport button {

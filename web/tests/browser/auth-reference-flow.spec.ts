@@ -18,21 +18,27 @@ test.describe("HTML-reference auth flow", () => {
     }
 
     await page.goto("/welcome");
+    // Real production page, not a desktop-preview phone mockup: #phone must
+    // fill the actual device viewport (no fixed 400x760 frame, no rounded
+    // corners, no surrounding backdrop) — see the Founder's screenshot of
+    // the old fake-frame rendering on a real iPhone.
+    const viewport = page.viewportSize();
     const phoneStyles = await page.locator("#phone").evaluate((element) => {
       const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
       return {
+        width: rect.width,
         maxWidth: style.maxWidth,
-        height: style.height,
         borderRadius: style.borderRadius,
+        boxShadow: style.boxShadow,
         backgroundColor: style.backgroundColor,
       };
     });
-    expect(phoneStyles).toEqual({
-      maxWidth: "400px",
-      height: "760px",
-      borderRadius: "28px",
-      backgroundColor: "rgb(255, 255, 255)",
-    });
+    expect(phoneStyles.maxWidth).toBe("none");
+    expect(phoneStyles.borderRadius).toBe("0px");
+    expect(phoneStyles.boxShadow).toBe("none");
+    expect(phoneStyles.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(phoneStyles.width).toBe(viewport?.width);
 
     const primaryButtonStyles = await page.getByRole("button", { name: "สร้างบัญชีใหม่" }).evaluate((element) => {
       const style = getComputedStyle(element);
