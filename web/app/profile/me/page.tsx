@@ -1,7 +1,5 @@
-import { OwnProfileReferenceScreen } from "@/components/content-reference/profile-screens";
-
-export const metadata = { title: "Wynos — โปรไฟล์ตัวเอง" };
+import { MeProfileRedirect } from "@/components/me-profile-redirect";
 
 export default function Page() {
-  return <OwnProfileReferenceScreen />;
+  return <MeProfileRedirect />;
 }

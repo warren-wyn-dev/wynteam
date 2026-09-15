@@ -1,5 +1,5 @@
-import { NotificationsReferenceScreen } from "@/components/content-reference/screens";
+import { NotificationsRoute } from "@/components/notifications-route";
 
 export default function Page() {
-  return <NotificationsReferenceScreen />;
+  return <NotificationsRoute />;
 }

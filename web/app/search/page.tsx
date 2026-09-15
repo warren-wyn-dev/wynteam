@@ -1,5 +1,5 @@
 import { ClubsRoute, CreateClubRoute } from "@/components/clubs-routes";
-import { SearchReferenceScreen } from "@/components/content-reference/screens";
+import { SearchRoute } from "@/components/search-route";
 
 export default async function Page({
   searchParams,
@@ -9,5 +9,5 @@ export default async function Page({
   const params = await searchParams;
   if (params.club === "create") return <CreateClubRoute />;
   if (params.club === "mine") return <ClubsRoute mine />;
-  return <SearchReferenceScreen />;
+  return <SearchRoute />;
 }

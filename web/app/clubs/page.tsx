@@ -1,5 +1,10 @@
-import { ClubsListReferenceScreen } from "@/components/content-reference/club-screens";
+import { ClubsRoute } from "@/components/clubs-routes";
 
-export default function Page() {
-  return <ClubsListReferenceScreen />;
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ mine?: string }>;
+}) {
+  const params = await searchParams;
+  return <ClubsRoute mine={params.mine === "1"} />;
 }

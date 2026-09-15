@@ -1,5 +1,5 @@
-import { CreateClubReferenceScreen } from "@/components/content-reference/club-screens";
+import { CreateClubRoute } from "@/components/clubs-routes";
 
 export default function Page() {
-  return <CreateClubReferenceScreen />;
+  return <CreateClubRoute />;
 }
