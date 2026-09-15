@@ -2,12 +2,8 @@ import { Heart, MessageSquare, Repeat2, Send } from "lucide-react";
 import Link from "next/link";
 
 /**
- * Home's action row: Like / Comment / ReDrop / Share, matching
- * ActionMetric's contract in home_drop_card.dart exactly (icon 24px,
- * 6px icon-count gap, 16px between metrics, zero counts always shown
- * here since Home passes hideZeroActionCounts: false). ReDrop is
- * omitted entirely (not disabled) when the post's audience isn't
- * "everyone", and the view-count metric is never rendered on Home.
+ * Home action row. modernFeed expands the row beneath the avatar column so
+ * interaction icons read as one clean strip under the media, like X/Threads.
  */
 export function PostActions({
   liked,
@@ -20,6 +16,7 @@ export function PostActions({
   commentHref,
   onRedrop,
   onShare,
+  modernFeed = false,
 }: {
   liked: boolean;
   likeCount: number;
@@ -31,9 +28,17 @@ export function PostActions({
   commentHref: string;
   onRedrop: () => void;
   onShare: () => void;
+  modernFeed?: boolean;
 }) {
   return (
-    <div className="wyn-post-actions">
+    <div
+      className="wyn-post-actions"
+      style={modernFeed ? {
+        margin: "8px 0 12px -54px",
+        width: "calc(100% + 54px)",
+        gap: 22,
+      } : undefined}
+    >
       <button
         className={`wyn-action-button ${liked ? "is-liked" : ""}`}
         type="button"
