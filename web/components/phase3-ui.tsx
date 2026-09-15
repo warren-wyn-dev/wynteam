@@ -74,11 +74,17 @@ export function AppChrome({
     ? `การแจ้งเตือน มี ${visibleUnreadNotificationCount} รายการที่ยังไม่อ่าน`
     : "การแจ้งเตือน";
   const notificationBadge = unreadNotificationCount > 9 ? "9+" : String(unreadNotificationCount);
+  const backIcon = <ChevronLeft size={headerMode === "overlay" ? 32 : 24} strokeWidth={1.8} />;
+  const backControl = backHref
+    ? backHref === pathname
+      ? <button className="route-icon-link" type="button" aria-label="ย้อนกลับ" onClick={() => window.location.assign(backHref)}>{backIcon}</button>
+      : <Link className="route-icon-link" href={backHref} aria-label="ย้อนกลับ">{backIcon}</Link>
+    : <span className="route-header-slot" />;
 
   return (
     <div className={`route-app route-app-header-${headerMode} ${bottomNavVisible ? "route-with-bottom-nav" : "route-without-bottom-nav"}`}>
       <main className="route-main">
-        {headerMode !== "hidden" ? <header className={`route-header route-header-${headerMode}`}><div className="route-title-row">{backHref ? <Link className="route-icon-link" href={backHref} aria-label="ย้อนกลับ"><ChevronLeft size={headerMode === "overlay" ? 32 : 24} strokeWidth={1.8} /></Link> : <span className="route-header-slot" />}<h1>{title}</h1><div className="route-header-actions">{actions}</div></div></header> : null}
+        {headerMode !== "hidden" ? <header className={`route-header route-header-${headerMode}`}><div className="route-title-row">{backControl}<h1>{title}</h1><div className="route-header-actions">{actions}</div></div></header> : null}
         {children}
       </main>
       {bottomNavVisible ? (
