@@ -67,7 +67,6 @@ export function HomePostCard({
         <PostAuthorRow
           profileHref={profileHref}
           name={authorLabel(row)}
-          username={row.author_username}
           verified={Boolean(row.author_is_verified)}
           timeLabel={timeAndLocation}
           showFollow={row.author_id !== userId && !following}
