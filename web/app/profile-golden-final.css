@@ -33,9 +33,37 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   text-align: center;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--wyn-text);
+}
+
+.wyn-profile-topbar .wyn-profile-account-switcher {
+  width: auto;
+  max-width: 100%;
+  height: 48px;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  color: var(--wyn-text);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wyn-profile-account-switcher span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wyn-profile-account-switcher svg {
+  flex: 0 0 auto;
 }
 
 .wyn-profile-header {
@@ -130,6 +158,23 @@
   color: var(--wyn-text);
 }
 
+/* Own-profile actions: lower, slimmer, equal-width gray controls with black labels. */
+.wyn-profile-actions.is-own {
+  margin-top: 20px;
+}
+
+.wyn-profile-actions.is-own .wyn-profile-action-primary,
+.wyn-profile-actions.is-own .wyn-profile-action-secondary {
+  min-height: 38px;
+  height: 38px;
+  border: 1px solid #e2e2e2;
+  border-radius: 10px;
+  background: #f2f2f2;
+  color: #111;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
 .wyn-profile-tabs {
   min-height: 56px;
   height: 56px;
@@ -186,6 +231,66 @@
   background: var(--wyn-bg);
 }
 
+.profile-account-switcher-sheet {
+  width: min(calc(100% - 24px), 520px);
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+}
+
+.profile-account-switcher-sheet > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.profile-account-current {
+  margin: 6px 12px 12px;
+  min-height: 60px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-account-current > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.profile-account-current > span strong,
+.profile-account-current > span small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.profile-account-current > span strong {
+  font-size: 15px;
+  color: var(--wyn-text);
+}
+
+.profile-account-current > span small {
+  font-size: 13px;
+  color: var(--wyn-text-secondary);
+}
+
+.profile-account-current > svg {
+  color: var(--wyn-text);
+}
+
+.profile-account-use-other {
+  width: calc(100% - 24px);
+  min-height: 42px;
+  margin: 0 12px;
+  border: 1px solid var(--wyn-border);
+  border-radius: 12px;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 /* Edit Profile: no cover-photo upload — nothing to display it on anymore. */
 .wyn-profile-edit {
   padding-bottom: 30px;
@@ -234,6 +339,11 @@
 @media (max-width: 359px) {
   .wyn-profile-actions {
     gap: 6px;
+  }
+
+  .wyn-profile-actions.is-own .wyn-profile-action-primary,
+  .wyn-profile-actions.is-own .wyn-profile-action-secondary {
+    font-size: 15px;
   }
 
   .wyn-profile-tabs button {

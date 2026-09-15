@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Repeat2, Send, Settings, X } from "lucide-react";
+import { Camera, CheckCircle2, ChevronDown, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Repeat2, Send, Settings, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -104,6 +104,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   const [tab, setTab] = useState<"posts" | "redrops" | "likes">("posts");
   const [error, setError] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
+  const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
   const own = profileId === userId;
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -147,12 +148,30 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     const url = `${window.location.origin}/@${profile.username}`;
     try { if (navigator.share) await navigator.share({ title: name, text: `@${profile.username}`, url }); else await navigator.clipboard.writeText(url); } catch { /* user cancelled */ }
   };
+  const switchToAnotherAccount = async () => {
+    if (action) return;
+    if (!window.confirm(`ออกจาก @${profile.username} เพื่อเข้าสู่ระบบบัญชีอื่น?`)) return;
+    setAction(true); setError("");
+    try {
+      const { error: signOutError } = await client.auth.signOut();
+      if (signOutError) throw signOutError;
+      setAccountSwitcherOpen(false);
+      router.replace("/");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "สลับบัญชีไม่สำเร็จ");
+      setAction(false);
+    }
+  };
   if (editing && own) return <AppChrome title="แก้ไขโปรไฟล์" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EditProfile client={client} userId={userId} summary={summary} onDone={() => { setEditing(false); void load(); }} /></AppChrome>;
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
     <header className="wyn-profile-topbar">
       <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={24} /></button>
-      <strong>@{profile.username}</strong>
+      {own ? (
+        <button className="wyn-profile-account-switcher" type="button" aria-label="สลับบัญชี" onClick={() => setAccountSwitcherOpen(true)}>
+          <span>@{profile.username}</span><ChevronDown size={18} />
+        </button>
+      ) : <strong>@{profile.username}</strong>}
       {own
         ? <button type="button" aria-label="ตั้งค่า" onClick={() => router.push("/settings")}><Settings size={22} /></button>
         : <button type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><MoreVertical size={22} /></button>}
@@ -172,7 +191,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
         </div>
       ) : null}
       {own ? (
-        <div className="wyn-profile-actions">
+        <div className="wyn-profile-actions is-own">
           <button className="wyn-profile-action-primary" type="button" onClick={() => setEditing(true)}>แก้ไขโปรไฟล์</button>
           <button className="wyn-profile-action-secondary" type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>
         </div>
@@ -190,6 +209,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     </section>
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
     {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><ImageIcon size={20} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><Repeat2 size={20} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><Heart size={20} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
+    {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><strong>สลับบัญชี</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><X size={20} /></button></header><div className="profile-account-current"><Avatar src={profile.avatar_url} label={profile.username} size={44} /><span><strong>{name}</strong><small>@{profile.username}</small></span><CheckCircle2 size={21} /></div><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void switchToAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button></section></div> : null}
     {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><X size={20} /></button></header><button type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
   </AppChrome>;
 }
