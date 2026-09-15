@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { ChangeEvent, ReactNode } from "react";
+import { useRef, type ChangeEvent, type ReactNode } from "react";
 
 import { Avatar, Button, Input, WynosIcon } from "@/components/ui";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
@@ -80,15 +80,26 @@ export function WelcomeScreen() {
 export function SignupStep1Screen() {
   const router = useRouter();
   const { draft, setDraft } = useSignupDraft();
+  const fieldsRef = useRef<HTMLDivElement>(null);
   const update = (key: keyof SignupDraft) => (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setDraft((current) => ({ ...current, [key]: value }));
+  };
+  const goToStep2 = () => {
+    const read = (name: string) => fieldsRef.current?.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.value;
+    setDraft((current) => ({
+      ...current,
+      username: read("username") ?? current.username,
+      displayName: read("displayName") ?? current.displayName,
+      birthDate: read("birthDate") ?? current.birthDate,
+    }));
+    router.push("/signup/step-2");
   };
 
   return (
     <AuthPhone>
       <BackTopbar href="/welcome" step="1/2" />
-      <div style={{ padding: "16px 20px", flex: 1 }}>
+      <div ref={fieldsRef} style={{ padding: "16px 20px", flex: 1 }}>
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>สร้างบัญชี</div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>มาทำความรู้จักคุณกันก่อน</p>
         <div className="field">
@@ -100,7 +111,7 @@ export function SignupStep1Screen() {
         </div>
         <Field label="ชื่อที่แสดง" name="displayName" placeholder="เช่น พลอย เดินทาง" value={draft.displayName} onChange={update("displayName")} />
         <Field label="วันเกิด" name="birthDate" placeholder="วว / ดด / ปปปป" value={draft.birthDate} onChange={update("birthDate")} />
-        <Button className="btn-primary" onClick={() => router.push("/signup/step-2")} style={{ marginTop: 10 }}>หน้าถัดไป</Button>
+        <Button className="btn-primary" onClick={goToStep2} style={{ marginTop: 10 }}>หน้าถัดไป</Button>
       </div>
     </AuthPhone>
   );
