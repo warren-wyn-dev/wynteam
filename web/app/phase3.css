@@ -325,12 +325,20 @@
 .message-image { max-width: 280px; max-height: 330px; border-radius: 12px; object-fit: cover; }
 .message-image-placeholder { display: block; min-width: 130px; padding: 20px 8px; text-align: center; font-size: 11px; }
 .reply-preview { margin: 0 0 6px; padding: 6px 8px; border-left: 2px solid currentColor; opacity: .7; font-size: 11px; }
-.message-delete { border: 0; background: transparent; color: var(--wyn-text-secondary); padding: 4px; cursor: pointer; }
-.message-composer { position: fixed; z-index: 65; bottom: calc(62px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(100%, 680px); min-height: 58px; display: grid; grid-template-columns: 38px minmax(0, 1fr) 40px; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--wyn-border); background: var(--wyn-bg); }
+/* min-width/min-height (not the visual box-shadow) carry the mobile 44x44
+   touch-target minimum here — the icon/background stays visually compact so
+   the delete affordance doesn't dominate a chat bubble. */
+.message-delete { border: 0; background: transparent; color: var(--wyn-text-secondary); min-width: 44px; min-height: 44px; display: grid; place-items: center; cursor: pointer; }
+.message-composer { position: fixed; z-index: 65; bottom: calc(62px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(100%, 680px); min-height: 58px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--wyn-border); background: var(--wyn-bg); }
 .message-composer input[type="text"], .message-composer > input { min-height: 40px; border: 1px solid var(--wyn-border); border-radius: 999px; padding: 0 14px; outline: 0; background: var(--wyn-surface); }
-.message-image-picker, .message-composer > button { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.message-image-picker, .message-composer > button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
 .message-composer > button[type="submit"] { background: var(--wyn-text); color: var(--wyn-bg); }
+/* Visual badge stays exactly its original small size (a compact "remove
+   attachment" chip, matching how iOS Messages/WhatsApp show attachment
+   previews); an invisible ::before extends the actual tap target to 44x44
+   without changing the badge's layout or appearance. */
 .message-clear-file { position: absolute; right: 52px; top: -26px; background: var(--wyn-text) !important; color: var(--wyn-bg); width: 25px !important; height: 25px !important; }
+.message-clear-file::before { content: ""; position: absolute; inset: -9.5px; }
 .conversation-request-bar { position: sticky; bottom: calc(62px + env(safe-area-inset-bottom)); padding: 12px 16px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); text-align: center; }
 .conversation-request-bar p { margin: 0 0 8px; color: var(--wyn-text-secondary); font-size: 13px; }
 .conversation-request-bar div { display: flex; justify-content: center; gap: 8px; }

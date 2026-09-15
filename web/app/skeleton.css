@@ -100,11 +100,15 @@
 .wyn-toast {
   position: fixed;
   z-index: 150;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: calc(var(--wyn-bottom-nav-height, 62px) + env(safe-area-inset-bottom) + 14px);
   width: min(calc(100% - 28px), 620px);
+  margin: 0 auto;
   min-height: 44px;
-  transform: translateX(-50%);
+  /* Horizontal centering uses left/right + margin auto (not transform) so
+     the Toast component's Framer Motion entrance/exit animation can own
+     `transform` (translateY) without the two fighting over it. */
   display: flex;
   align-items: center;
   padding: 10px 16px;

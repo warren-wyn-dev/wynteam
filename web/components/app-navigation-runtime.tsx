@@ -33,6 +33,14 @@ export function AppNavigationRuntime() {
   }, [router]);
 
   useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    // Registered once for the whole session; the worker itself only caches
+    // immutable static assets (see public/sw.js), so a stale registration
+    // never hides new app code or data.
+    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (!shouldRememberScroll(pathname)) return;
 
     let cancelled = false;

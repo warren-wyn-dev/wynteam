@@ -1,19 +1,24 @@
-import { Bell, Menu, Search } from "lucide-react";
+import { Bell, MessageCircle, Menu } from "lucide-react";
 import Image from "next/image";
 
 /**
  * Home's header. Keeps the same functions and tap targets while refreshing the
  * visual treatment to a tighter, quieter premium layout.
+ *
+ * Search moved into the bottom tab bar (reachable from every screen, not just
+ * Home), so this slot now opens Chat instead — the bottom tab bar dropped
+ * Chat in favour of Search/Notification, so it needs a home somewhere that's
+ * always one tap away, and Home is the screen everyone opens the app on.
  */
 export function HomeHeader({
   notificationBadgeCount,
   onOpenMenu,
-  onOpenSearch,
+  onOpenChat,
   onOpenNotifications,
 }: {
   notificationBadgeCount: number;
   onOpenMenu: () => void;
-  onOpenSearch: () => void;
+  onOpenChat: () => void;
   onOpenNotifications: () => void;
 }) {
   const actionStyle = {
@@ -57,10 +62,10 @@ export function HomeHeader({
           className="wyn-home-header-action"
           style={actionStyle}
           type="button"
-          aria-label="ค้นหา"
-          onClick={onOpenSearch}
+          aria-label="แชท"
+          onClick={onOpenChat}
         >
-          <Search size={23} strokeWidth={2.05} />
+          <MessageCircle size={23} strokeWidth={2.05} />
         </button>
         <button
           className="wyn-home-header-action wyn-home-chat-action"

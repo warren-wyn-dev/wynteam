@@ -1,6 +1,7 @@
 "use client";
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { AnimatePresence, motion } from "framer-motion";
 import { Bookmark, ChevronRight, Flag, Quote, Repeat2, Share2, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -130,18 +131,30 @@ function ActionSheet({
   label: string;
 }) {
   return (
-    <div className="route-modal-backdrop audit-sheet-backdrop" role="presentation" onClick={onClose}>
-      <section
+    <motion.div
+      className="route-modal-backdrop audit-sheet-backdrop"
+      role="presentation"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.section
         className="audit-action-sheet"
         role="dialog"
         aria-modal="true"
         aria-label={label}
         onClick={(event) => event.stopPropagation()}
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
       >
         <div className="audit-sheet-grip" />
         {children}
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
 
@@ -665,7 +678,7 @@ export function HomeScreen({ session }: { session: Session }) {
         <HomeHeader
           notificationBadgeCount={notificationBadge}
           onOpenMenu={() => setDrawerOpen(true)}
-          onOpenSearch={() => router.push("/search")}
+          onOpenChat={() => router.push("/chat")}
           onOpenNotifications={() => router.push("/notifications")}
         />
         <HomeTabs mode={mode} onSelect={switchMode} />
@@ -760,10 +773,13 @@ export function HomeScreen({ session }: { session: Session }) {
         )}
       </div>
 
-      {drawerOpen ? <HomeDrawer identity={identity} onClose={() => setDrawerOpen(false)} /> : null}
+      <AnimatePresence>
+        {drawerOpen ? <HomeDrawer identity={identity} onClose={() => setDrawerOpen(false)} /> : null}
+      </AnimatePresence>
 
+      <AnimatePresence>
       {selected && sheet === "more" ? (
-        <ActionSheet label="ตัวเลือกโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
+        <ActionSheet key="more" label="ตัวเลือกโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
           <button className="audit-sheet-row" type="button" onClick={() => { void share(selected); setSheet(null); }}>
             <Share2 size={20} />แชร์
           </button>
@@ -805,7 +821,7 @@ export function HomeScreen({ session }: { session: Session }) {
       ) : null}
 
       {selected && sheet === "redrop" ? (
-        <ActionSheet label="รีโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
+        <ActionSheet key="redrop" label="รีโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
           <div className="wyn-redrop-sheet-options">
             <button className="wyn-redrop-sheet-option is-primary" type="button" onClick={() => void redrop(selected)}>
               <span className="wyn-redrop-sheet-icon" aria-hidden="true"><Repeat2 size={28} /></span>
@@ -851,7 +867,7 @@ export function HomeScreen({ session }: { session: Session }) {
       ) : null}
 
       {selected && sheet === "report" ? (
-        <ActionSheet label="รายงานโพสต์" onClose={() => { setSheet(null); setSelected(null); setReportDetail(""); }}>
+        <ActionSheet key="report" label="รายงานโพสต์" onClose={() => { setSheet(null); setSelected(null); setReportDetail(""); }}>
           <div className="audit-sheet-form">
             <strong>รายงานโพสต์</strong>
             <div className="audit-report-list">
@@ -882,6 +898,7 @@ export function HomeScreen({ session }: { session: Session }) {
           </div>
         </ActionSheet>
       ) : null}
+      </AnimatePresence>
 
       {hidden ? (
         <div className="audit-undo-toast">
