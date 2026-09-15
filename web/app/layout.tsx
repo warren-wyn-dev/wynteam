@@ -25,23 +25,12 @@ import "./pixel-parity-final.css";
 import "./pixel-parity-audit-closure.css";
 import "./bottom-nav.css";
 import "./home.css";
-
-export const metadata: Metadata = {
-  title: "WYNOS",
-  description: "WYNOS social web",
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: "#ffffff",
-};
-
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <html lang="th">
-      <body>{children}</body>
-    </html>
-  );
-}
+import "./design-system.css";
+import "./auth-reference.css";
+import "./content-reference.css";
+import "./profile-reference.css";
+import "./club-reference.css";
+import "./chat-reference.css";
+export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web"};
+export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#ffffff"};
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body>{children}</body></html>}
