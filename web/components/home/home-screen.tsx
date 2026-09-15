@@ -154,7 +154,9 @@ export function HomeScreen({ session }: { session: Session }) {
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState<HiddenDrop | null>(null);
   const [composerOpen, setComposerOpen] = useState(() => searchParams.get("compose") === "1");
-  const touchStart = useRef<number | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const touchGesture = useRef<{ x: number; y: number; canPull: boolean } | null>(null);
   const activeModeRef = useRef<HomeFeedMode>("for-you");
   const visibleModeRef = useRef<HomeFeedMode>("for-you");
   const feedCache = useRef<Partial<Record<HomeFeedMode, HomeFeedSnapshot>>>({});
@@ -279,6 +281,28 @@ export function HomeScreen({ session }: { session: Session }) {
   const load = useCallback(async () => {
     await loadMode(visibleModeRef.current, { showLoading: false });
   }, [loadMode]);
+
+  const refreshVisibleMode = useCallback(async () => {
+    if (refreshing) return;
+    const targetMode = visibleModeRef.current;
+    setRefreshing(true);
+    setPullDistance(0);
+    setError("");
+    try {
+      const snapshot = await fetchModeSnapshot(targetMode);
+      feedCache.current[targetMode] = snapshot;
+      if (visibleModeRef.current === targetMode && activeModeRef.current === targetMode) {
+        applySnapshot(snapshot, targetMode, false);
+        scrollPositions.current[targetMode] = 0;
+      }
+    } catch (e) {
+      if (visibleModeRef.current === targetMode) {
+        setError(e instanceof Error ? e.message : "รีเฟรชฟีดไม่สำเร็จ");
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [applySnapshot, fetchModeSnapshot, refreshing]);
 
   useEffect(() => {
     const cached = feedCache.current[mode];
@@ -528,20 +552,57 @@ export function HomeScreen({ session }: { session: Session }) {
     }
   };
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    touchStart.current = event.changedTouches[0]?.clientX ?? null;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    touchGesture.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      canPull: window.scrollY <= 2 && !refreshing && mode === visibleModeRef.current,
+    };
+  };
+  const onTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    const start = touchGesture.current;
+    const touch = event.changedTouches[0];
+    if (!start || !touch || !start.canPull || refreshing) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (deltaY <= 0 || Math.abs(deltaY) <= Math.abs(deltaX) * 1.1) {
+      if (pullDistance) setPullDistance(0);
+      return;
+    }
+    // Dampen the gesture so the refresh affordance feels native rather than
+    // moving one-for-one with the finger. The feed itself stays stable.
+    setPullDistance(Math.min(88, deltaY * 0.48));
   };
   const onTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    const start = touchStart.current;
-    touchStart.current = null;
-    if (start == null) return;
-    const end = event.changedTouches[0]?.clientX ?? start;
-    const delta = end - start;
-    if (Math.abs(delta) < 55) return;
+    const start = touchGesture.current;
+    const touch = event.changedTouches[0];
+    touchGesture.current = null;
+    if (!start || !touch) {
+      setPullDistance(0);
+      return;
+    }
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const releasedPullDistance = Math.min(88, Math.max(0, deltaY) * 0.48);
+    const shouldRefresh = start.canPull && releasedPullDistance >= 54 && deltaY > Math.abs(deltaX);
+    if (shouldRefresh) {
+      void refreshVisibleMode();
+      return;
+    }
+    setPullDistance(0);
+
+    if (Math.abs(deltaY) >= Math.abs(deltaX) || Math.abs(deltaX) < 55) return;
     const index = modeIndex(mode);
-    const next = delta < 0
+    const next = deltaX < 0
       ? Math.min(HOME_FEED_MODES.length - 1, index + 1)
       : Math.max(0, index - 1);
     switchMode(HOME_FEED_MODES[next].key);
+  };
+  const onTouchCancel = () => {
+    touchGesture.current = null;
+    setPullDistance(0);
   };
 
   if (!client) {
@@ -560,7 +621,25 @@ export function HomeScreen({ session }: { session: Session }) {
         <HomeTabs mode={mode} onSelect={switchMode} />
       </div>
 
-      {loading && mode !== visibleMode ? (
+      {pullDistance > 0 || refreshing ? (
+        <div
+          aria-label={refreshing ? "กำลังรีเฟรชฟีด" : "ลากลงเพื่อรีเฟรช"}
+          aria-live="polite"
+          style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
+        >
+          <div
+            className="route-system-spinner tiny"
+            style={{
+              position: "absolute",
+              top: refreshing ? 10 : Math.max(4, Math.min(18, pullDistance * 0.2)),
+              left: "50%",
+              opacity: refreshing ? 1 : Math.max(0.22, Math.min(1, pullDistance / 54)),
+              transform: `translateX(-50%) scale(${refreshing ? 1 : Math.max(0.78, Math.min(1, pullDistance / 54))})`,
+              transition: refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
+            }}
+          />
+        </div>
+      ) : loading && mode !== visibleMode ? (
         <div
           aria-label="กำลังโหลดฟีด"
           aria-live="polite"
@@ -573,7 +652,13 @@ export function HomeScreen({ session }: { session: Session }) {
         </div>
       ) : null}
 
-      <div className="wyn-home-feed" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div
+        className="wyn-home-feed"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
+      >
         {loading && !rows.length && !clubRows.length ? (
           <div className="wyn-home-state"><div className="route-system-spinner" /></div>
         ) : error && !rows.length && !clubRows.length ? (
