@@ -35,12 +35,12 @@
 .flutter-chat-tabs button { position: relative; border: 0; background: transparent; color: var(--graphite); font-size: 13.5px; font-weight: 500; }
 .flutter-chat-tabs button.active { color: var(--ink); font-weight: 700; }
 .flutter-chat-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 34px; height: 2px; transform: translateX(-50%); border-radius: 999px; background: var(--ink); }
-.message-requests-banner { width: calc(100% - 32px); min-height: 62px; margin: 12px 16px 4px; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 14px; background: var(--paper); display: flex; align-items: center; justify-content: space-between; text-align: left; color: var(--ink); }
+.message-requests-banner { width: calc(100% - 32px); min-height: 62px; margin: 12px 16px 4px; padding: 10px 14px; border: 1px solid var(--wyn-border); border-radius: 14px; background: var(--wyn-bg); display: flex; align-items: center; justify-content: space-between; text-align: left; color: var(--wyn-text); }
 .message-requests-banner span { display: flex; flex-direction: column; gap: 2px; }
-.message-requests-banner small { color: var(--graphite); font-size: 12px; font-weight: 400; }
-.message-requests-banner > b { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; display: grid; place-items: center; background: var(--ink); color: var(--paper); font-size: 12px; }
+.message-requests-banner small { color: var(--wyn-text-secondary); font-size: 12px; font-weight: 400; }
+.message-requests-banner > b { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; display: grid; place-items: center; background: var(--wyn-text); color: var(--wyn-bg); font-size: 12px; }
 .chat-row-copy small { display: flex; align-items: center; gap: 6px; }
-.chat-inline-unread { width: 6px; height: 6px; border-radius: 50%; background: var(--sapphire); display: inline-block; flex: 0 0 6px; }
+.chat-inline-unread { width: 6px; height: 6px; border-radius: 50%; background: var(--wyn-text); display: inline-block; flex: 0 0 6px; }
 .requests-modal { max-height: min(72dvh, 620px); overflow-y: auto; }
 
 /* Notifications: 60px root header + all/mentions tabs, matching Flutter. */

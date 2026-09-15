@@ -63,20 +63,20 @@
 .chat-tabs {
   min-height: var(--wyn-social-tab);
   height: var(--wyn-social-tab);
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 .route-tabs button,
 .chat-tabs button {
   min-width: 48px;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   font-size: 14px;
   font-weight: 500;
 }
 
 .route-tabs button.active,
 .chat-tabs button.active {
-  color: var(--ink);
+  color: var(--wyn-text);
   font-weight: 700;
 }
 
@@ -224,12 +224,12 @@
 .chat-row,
 .settings-row,
 .route-person-row {
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 .notification-row.unread,
 .chat-row.unread {
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 .notification-row.unread .notification-copy strong,

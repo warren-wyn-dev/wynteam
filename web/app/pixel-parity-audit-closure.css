@@ -44,7 +44,7 @@
   width: 38px;
   height: 38px;
   border: 0;
-  background: var(--surface-tint);
+  background: var(--wyn-surface);
 }
 
 .flutter-chat-compose-action > svg {
@@ -102,19 +102,19 @@
   display: flex;
   align-items: center;
   gap: 0;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   font-size: 14px;
   line-height: 1.3;
   font-weight: 400;
 }
 
 .flutter-chat-list .chat-row.unread .chat-row-copy small {
-  color: var(--ink);
+  color: var(--wyn-text);
   font-weight: 500;
 }
 
 .flutter-chat-list .chat-row time {
-  color: var(--graphite);
+  color: var(--wyn-text-secondary);
   font-size: 12.5px;
   line-height: 1.3;
   font-weight: 400;
@@ -129,7 +129,7 @@
   margin-right: 4px;
   flex: 0 0 7px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--wyn-text);
 }
 
 /* ---------- Notifications: NotificationListScreen ---------- */
