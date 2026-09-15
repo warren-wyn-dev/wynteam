@@ -474,30 +474,6 @@ export function HomeScreen({ session }: { session: Session }) {
 
       {selected && sheet === "more" ? (
         <ActionSheet label="ตัวเลือกโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
-          {selected.author_id !== userId && viewer && !viewer.followedAuthorIds.has(selected.author_id) && !viewer.pendingFollowAuthorIds.has(selected.author_id) ? (
-            <button
-              type="button"
-              onClick={() => {
-                void followAuthor(selected);
-                setSheet(null);
-                setSelected(null);
-              }}
-              style={{
-                width: "calc(100% - 28px)",
-                minHeight: 46,
-                margin: "8px 14px 10px",
-                border: 0,
-                borderRadius: 14,
-                background: "#111",
-                color: "#fff",
-                fontSize: 16,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              ติดตาม
-            </button>
-          ) : null}
           <button className="audit-sheet-row" type="button" onClick={() => { void share(selected); setSheet(null); }}>
             <Share2 size={20} />แชร์
           </button>
