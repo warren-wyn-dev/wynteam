@@ -1,5 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+import { getActiveAccountStorageKey } from "@/lib/account-registry";
 
 let client: SupabaseClient | null | undefined;
 
@@ -20,6 +22,16 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
     return client;
   }
 
-  client = createBrowserClient(url, publishableKey);
+  const accountStorageKey = getActiveAccountStorageKey();
+  client = accountStorageKey
+    ? createClient(url, publishableKey, {
+        auth: {
+          storageKey: accountStorageKey,
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
+    : createBrowserClient(url, publishableKey);
   return client;
 }
