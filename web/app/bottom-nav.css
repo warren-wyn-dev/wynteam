@@ -1,10 +1,9 @@
 /*
- * Canonical bottom navigation stylesheet (WYN-158).
+ * Canonical bottom navigation stylesheet.
  *
- * Single source of truth for the root bottom navigation, shared by every
- * route through <AppChrome>/<BottomNavigation>. Values copied verbatim
- * from wynos_founder_bottom_navigation.dart + wynos_founder_metrics.dart:
- * content height 80, icons 28, create action 56, labels 11.5/1/600-400.
+ * Latest WYNOS direction: five equal destinations (Home / Club / Post /
+ * Chat / Profile), a quiet rounded white surface, 28px glyphs, and no
+ * oversized or high-contrast centre action.
  */
 
 .route-bottom-nav {
@@ -13,14 +12,18 @@
   left: 50%;
   bottom: 0;
   transform: translateX(-50%);
-  width: min(100%, 680px);
+  width: min(calc(100% - 24px), 656px);
   height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
   min-height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom));
   padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  background: var(--paper);
-  border-top: 1px solid var(--hairline);
+  background: var(--wyn-bg, var(--paper));
+  border: 1px solid var(--wyn-border, var(--hairline));
+  border-bottom: 0;
+  border-radius: 26px 26px 0 0;
+  box-shadow: 0 -8px 28px rgba(10, 10, 10, 0.06);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
 }
 
 .route-nav-link {
@@ -31,15 +34,16 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: var(--graphite);
+  color: var(--wyn-text-secondary, var(--graphite));
   text-decoration: none;
   font-size: 11.5px;
   line-height: 1;
   font-weight: 400;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .route-nav-link.active {
-  color: var(--ink);
+  color: var(--wyn-text, var(--ink));
   font-weight: 600;
 }
 
@@ -54,12 +58,18 @@
   width: 28px;
   height: 28px;
   display: block;
+  flex: 0 0 28px;
   color: currentColor;
 }
 
+/*
+ * Legacy class names are retained as inert compatibility hooks for older
+ * fixtures. The production BottomNavigation no longer renders them, so the
+ * Post destination cannot become larger than its siblings.
+ */
 .route-create-destination {
-  gap: 6px;
-  color: var(--graphite);
+  gap: 4px;
+  color: var(--wyn-text-secondary, var(--graphite));
 }
 
 .route-create-button {
@@ -67,14 +77,13 @@
   height: var(--wyn-create-action);
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--paper);
+  background: transparent;
+  color: currentColor;
 }
 
 .route-create-button .route-nav-glyph {
-  width: 33px;
-  height: 33px;
+  width: 28px;
+  height: 28px;
 }
 
 .route-nav-icon-wrap {
@@ -104,4 +113,15 @@
   font-size: 10px;
   line-height: 1;
   font-weight: 700;
+}
+
+@media (min-width: 681px) {
+  .route-bottom-nav {
+    border-bottom: 1px solid var(--wyn-border, var(--hairline));
+    border-radius: 26px;
+    bottom: 10px;
+    padding-bottom: 0;
+    height: var(--wyn-bottom-nav-height);
+    min-height: var(--wyn-bottom-nav-height);
+  }
 }
