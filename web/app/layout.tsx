@@ -28,6 +28,7 @@ import "./home.css";
 import "./design-system.css";
 import "./auth-reference.css";
 import "./content-reference.css";
+import "./profile-reference.css";
 export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web"};
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#ffffff"};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body>{children}</body></html>}
