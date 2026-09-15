@@ -87,8 +87,8 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
         <label><Camera size={16} /> รูปโปรไฟล์<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image(e.target.files?.[0])} /></label>
       </div>
       <label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label>
-      <label className="route-field"><span>Username</span><input value={username} autoCapitalize="none" maxLength={30} onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
-      <label className="route-field"><span>Bio</span><textarea value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} /></label>
+      <label className="route-field"><span>ชื่อผู้ใช้</span><input value={`@${username}`} autoCapitalize="none" maxLength={31} onChange={(e) => setUsername(e.target.value.replace(/^@+/, "").replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
+      <label className="route-field"><span>คำอธิบายตัวเอง</span><textarea value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} /></label>
       {error ? <p className="route-error">{error}</p> : null}
       <div className="route-action-row"><button className="route-secondary" type="button" disabled={saving} onClick={onDone}>ยกเลิก</button><button className="route-primary" type="button" disabled={saving} onClick={() => void save()}>{saving ? "กำลังบันทึก…" : "บันทึก"}</button></div>
     </div>
