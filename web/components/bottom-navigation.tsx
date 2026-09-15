@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import type { MouseEvent } from "react";
 
 /**
  * Root bottom navigation shared by the top-level social routes.
@@ -65,10 +68,21 @@ export function BottomNavigation({
   notificationLabel: string;
   notificationBadge: string | null;
 }) {
+  const homeActive = isActive("/");
+  const handleHomeClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!homeActive) return;
+    // When Home is already selected, tapping its tab again acts like X/Instagram:
+    // return to the top instead of navigating to the same route. Query/hash state
+    // is allowed to navigate normally so e.g. an open composer still closes.
+    if (window.location.pathname !== "/" || window.location.search || window.location.hash) return;
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <nav className="route-bottom-nav" aria-label="เมนูหลัก">
-      <Link className={`route-nav-link ${isActive("/") ? "active" : ""}`} href="/" aria-label="หน้าหลัก">
-        <MaterialNavGlyph kind="home" selected={isActive("/")} />
+      <Link className={`route-nav-link ${homeActive ? "active" : ""}`} href="/" aria-label="หน้าหลัก" onClick={handleHomeClick}>
+        <MaterialNavGlyph kind="home" selected={homeActive} />
         <span>หน้าหลัก</span>
       </Link>
       <Link className={`route-nav-link ${isActive("/clubs") ? "active" : ""}`} href="/clubs" aria-label="คลับ">
