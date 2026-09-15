@@ -6,8 +6,8 @@ import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 
 /**
  * Home's post media: PostImageFrame (single image) / PostImageCarousel
- * (multi-image peek row). modernFeed expands the media beneath the avatar
- * column, matching the cleaner X + Threads-inspired composition.
+ * (multi-image peek row). modernFeed keeps the compact X + Threads spacing
+ * while aligning media with the post content column beside the avatar.
  */
 export function PostMediaCarousel({
   urls,
@@ -60,7 +60,7 @@ export function PostMediaCarousel({
   if (!urls.length) return null;
 
   const mediaStyle: CSSProperties | undefined = modernFeed
-    ? { marginTop: 8, marginLeft: -54, width: "calc(100% + 54px)" }
+    ? { marginTop: 8 }
     : undefined;
 
   const trackStyle = {
