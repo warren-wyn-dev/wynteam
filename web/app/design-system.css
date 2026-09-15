@@ -111,10 +111,13 @@
   border: 1px solid var(--wyn-border-strong);
   border-radius: var(--wyn-radius-input);
   background: var(--wyn-bg);
+  background-clip: padding-box;
   color: var(--wyn-text);
   font: inherit;
   font-size: 15px;
   outline: none;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .wyn-input::placeholder {
