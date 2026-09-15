@@ -10,9 +10,9 @@ import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } f
 import type { HomeViewerState } from "@/lib/home-actions";
 
 /**
- * One Home feed card — the React equivalent of Flutter's HomeDropCard.
- * Business logic (data, optimistic like/redrop/follow state) is owned by
- * HomeScreen; this component is presentation only.
+ * One Home feed card. Business logic stays in HomeScreen while the visual
+ * composition follows the cleaner X + Threads rhythm: compact author meta,
+ * readable body copy, wide media and a single interaction strip below it.
  */
 export function HomePostCard({
   row,
@@ -45,7 +45,14 @@ export function HomePostCard({
   const profileHref = `/profile/${row.author_id}`;
 
   return (
-    <article className="wyn-post">
+    <article
+      className="wyn-post"
+      style={{
+        padding: "12px 16px 0",
+        gridTemplateColumns: "44px minmax(0, 1fr)",
+        columnGap: 10,
+      }}
+    >
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
           <Repeat2 size={14} />
@@ -53,13 +60,14 @@ export function HomePostCard({
         </div>
       ) : null}
       {row.quote_text ? <RichPostText className="wyn-post-quote" value={row.quote_text} /> : null}
-      <Link className="wyn-post-avatar" href={profileHref}>
+      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 0 }}>
         <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} />
       </Link>
       <div className="wyn-post-body">
         <PostAuthorRow
           profileHref={profileHref}
           name={authorLabel(row)}
+          username={row.author_username}
           verified={Boolean(row.author_is_verified)}
           timeLabel={timeAndLocation}
           showFollow={row.author_id !== userId && !following}
@@ -73,6 +81,13 @@ export function HomePostCard({
             value={row.caption}
             postHref={`/drop/${row.id}`}
             compact
+            style={{
+              margin: "3px 0 0",
+              transform: "none",
+              fontSize: 16,
+              lineHeight: 1.4,
+              fontWeight: 400,
+            }}
           />
         ) : null}
         <PostMediaCarousel
@@ -81,6 +96,7 @@ export function HomePostCard({
           liked={liked}
           onDoubleLike={onLike}
           postKey={row.id}
+          modernFeed
         />
         <PostActions
           liked={liked}
@@ -93,6 +109,7 @@ export function HomePostCard({
           commentHref={`/drop/${row.id}#comments`}
           onRedrop={onRedrop}
           onShare={onShare}
+          modernFeed
         />
       </div>
     </article>
