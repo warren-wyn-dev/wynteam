@@ -53,6 +53,35 @@ export const referencePosts: ReferencePost[] = [
   },
 ];
 
+const referenceProfilePosts: ReferencePost[] = [
+  {
+    id: "ploy-profile-001",
+    authorName: "พลอย เดินทาง",
+    username: "@ploy_journey",
+    timeLabel: "2 ชม.",
+    text: "เพิ่งลองร้านกาแฟใหม่แถวบ้าน รสชาติดีเกินคาด",
+    detailText: "เพิ่งลองร้านกาแฟใหม่แถวบ้าน รสชาติดีเกินคาด",
+    liked: false,
+    likeCount: 48,
+    commentCount: 0,
+    repostCount: 0,
+    comments: [],
+  },
+  {
+    id: "mind-profile-001",
+    authorName: "มายด์ กาแฟรัก",
+    username: "@mind_coffee",
+    timeLabel: "1 วัน",
+    text: "ร้านนี้บรรยากาศดีมาก เหมาะนั่งทำงาน",
+    detailText: "ร้านนี้บรรยากาศดีมาก เหมาะนั่งทำงาน",
+    liked: false,
+    likeCount: 0,
+    commentCount: 0,
+    repostCount: 0,
+    comments: [],
+  },
+];
+
 export const trendingThailand = [
   "#ฝนตกกรุงเทพ",
   "ทีมชาติไทย",
@@ -61,5 +90,5 @@ export const trendingThailand = [
 ] as const;
 
 export function getReferencePost(postId: string) {
-  return referencePosts.find((post) => post.id === postId) ?? null;
+  return [...referencePosts, ...referenceProfilePosts].find((post) => post.id === postId) ?? null;
 }
