@@ -1,0 +1,127 @@
+/* Threads-style post actions requested for Home, Club feed and Profile.
+   Keep zero engagement invisible. Each action owns only the width it needs,
+   so later actions shift naturally when a count appears. */
+
+.wyn-post-actions.wyn-threads-actions {
+  min-height: 36px;
+  margin: 8px 0 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-button {
+  flex: 0 0 auto;
+  min-width: 28px;
+  min-height: 36px;
+  height: 36px;
+  padding: 4px 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  color: #8e8e93;
+  text-decoration: none;
+  transition: color 160ms ease, transform 120ms ease;
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-button-count {
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 500;
+  color: inherit;
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-button.is-liked {
+  color: #ff3b30;
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-button.is-active {
+  color: #0a84ff;
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-share {
+  min-width: 28px;
+  padding: 4px 0;
+  margin: 0;
+  justify-content: flex-start;
+}
+
+/* Profile uses GoldenDropCard. Override its older parity rules only inside
+   the profile feed so Search/Saved remain untouched. */
+.profile-feed-list .golden-drop-actions {
+  min-height: 40px;
+  margin: 4px 16px 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+}
+
+.profile-feed-list .golden-drop-actions > button,
+.profile-feed-list .golden-drop-actions > a {
+  flex: 0 0 auto;
+  min-width: 28px;
+  min-height: 40px;
+  padding: 4px 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: #8e8e93;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.profile-feed-list .golden-drop-actions > button.liked {
+  color: #ff3b30;
+}
+
+.profile-feed-list .golden-drop-actions > button.active {
+  color: #0a84ff;
+}
+
+/* system-parity-lock previously synthesized a visible 0 for GoldenDropCard.
+   Profile now follows the requested Threads behavior: no number until > 0. */
+.profile-feed-list .golden-drop-actions > button:not([aria-label="แชร์"]):not(:has(> span))::after,
+.profile-feed-list .golden-drop-actions > a:not(:has(> span))::after {
+  content: none !important;
+}
+
+/* Keep the profile action strip identical to the requested four-action row. */
+.profile-feed-list .golden-drop-view {
+  display: none !important;
+}
+
+/* The full Club page keeps its existing navigation behavior but uses the
+   same muted, compact visual rhythm for its post metrics. */
+.club-detail-post footer {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: #8e8e93;
+  font-size: 13px;
+}
+
+.club-detail-post footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 359px) {
+  .wyn-post-actions.wyn-threads-actions,
+  .profile-feed-list .golden-drop-actions,
+  .club-detail-post footer {
+    gap: 15px;
+  }
+}
