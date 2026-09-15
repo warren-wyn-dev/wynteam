@@ -11,7 +11,6 @@ import type { ClubHomePost } from "@/lib/home-parity-data";
 export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () => void }) {
   const profileHref = `/profile/${post.author_id}`;
   const name = post.author_display_name?.trim() || post.author_username || "WYNOS";
-  const handle = post.author_username?.trim().replace(/^@/, "");
 
   return (
     <article
@@ -41,21 +40,6 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
             >
               {name}
             </strong>
-            {handle ? (
-              <span
-                style={{
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  color: "var(--wyn-text-muted)",
-                  fontSize: 14,
-                  lineHeight: 1.2,
-                }}
-              >
-                @{handle}
-              </span>
-            ) : null}
             <small
               className="wyn-post-timestamp"
               style={{ maxWidth: 104, fontSize: 14, lineHeight: 1.2, flex: "0 0 auto" }}

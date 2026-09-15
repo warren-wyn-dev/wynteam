@@ -3,12 +3,11 @@ import Link from "next/link";
 
 /**
  * Compact X/Threads-inspired author row for Home posts.
- * The avatar stays in HomePostCard's left column; metadata sits on one line.
+ * The avatar stays in HomePostCard's left column; display name and time sit on one line.
  */
 export function PostAuthorRow({
   profileHref,
   name,
-  username,
   verified,
   timeLabel,
   showFollow,
@@ -18,7 +17,6 @@ export function PostAuthorRow({
 }: {
   profileHref: string;
   name: string;
-  username?: string | null;
   verified: boolean;
   timeLabel: string;
   showFollow: boolean;
@@ -26,8 +24,6 @@ export function PostAuthorRow({
   onFollow: () => void;
   onMore: () => void;
 }) {
-  const handle = username?.trim().replace(/^@/, "");
-
   return (
     <header
       className="wyn-post-author-row"
@@ -45,23 +41,6 @@ export function PostAuthorRow({
           {name}
         </strong>
         {verified ? <span className="route-verified wyn-post-verified">✓</span> : null}
-        {handle ? (
-          <span
-            className="wyn-post-handle"
-            style={{
-              minWidth: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              color: "var(--wyn-text-muted)",
-              fontSize: 14,
-              lineHeight: 1.2,
-              fontWeight: 400,
-            }}
-          >
-            @{handle}
-          </span>
-        ) : null}
         <small
           className="wyn-post-timestamp"
           style={{ maxWidth: 104, fontSize: 14, lineHeight: 1.2, flex: "0 0 auto" }}
