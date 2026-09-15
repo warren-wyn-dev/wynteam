@@ -60,6 +60,18 @@ function parseBirthDate(raw: string): string | null {
   return date.toISOString().split("T")[0];
 }
 
+/// Auto-inserts the "วว / ดด / ปปปป" separators as the user types digits,
+/// so a birth date can be filled with just the numeric keypad instead of
+/// typing slashes/spaces by hand. Deleting characters still works normally
+/// since this only ever re-derives the display string from the digits
+/// already present.
+function formatBirthDateInput(raw: string): string {
+  const digits = raw.replace(/[^0-9]/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)} / ${digits.slice(2)}`;
+  return `${digits.slice(0, 2)} / ${digits.slice(2, 4)} / ${digits.slice(4)}`;
+}
+
 function AuthPhone({ children }: { children: ReactNode }) {
   return (
     <main className="auth-ref-viewport">
@@ -262,6 +274,9 @@ export function SignupStep1Screen() {
     const value = event.target.value;
     setDraft((current) => ({ ...current, [key]: value }));
   };
+  const updateBirthDate = (event: ChangeEvent<HTMLInputElement>) => {
+    setDraft((current) => ({ ...current, birthDate: formatBirthDateInput(event.target.value) }));
+  };
 
   async function goNext() {
     if (loading) return;
@@ -336,11 +351,14 @@ export function SignupStep1Screen() {
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 44, border: "1px solid var(--border-strong)", borderRadius: 10, padding: "0 14px" }}>
             <span style={{ color: "var(--text-muted)" }}>@</span>
-            <Input bare name="username" placeholder="ploy_journey" value={draft.username} onChange={update("username")} style={{ border: "none", outline: "none", flex: 1, fontSize: 14 }} />
+            <Input bare name="username" placeholder="username" value={draft.username} onChange={update("username")} style={{ border: "none", outline: "none", flex: 1, fontSize: 14 }} />
           </div>
         </div>
-        <Field label="ชื่อที่แสดง" name="displayName" placeholder="เช่น พลอย เดินทาง" value={draft.displayName} onChange={update("displayName")} />
-        <Field label="วันเกิด" name="birthDate" placeholder="วว / ดด / ปปปป" value={draft.birthDate} onChange={update("birthDate")} />
+        <Field label="ชื่อที่แสดง" name="displayName" placeholder="ชื่อของคุณ" value={draft.displayName} onChange={update("displayName")} />
+        <div className="field">
+          <label>วันเกิด</label>
+          <Input bare inputMode="numeric" name="birthDate" placeholder="วว / ดด / ปปปป" value={draft.birthDate} onChange={updateBirthDate} />
+        </div>
         <Button className="btn-primary" disabled={loading} onClick={() => void goNext()} style={{ marginTop: 10 }}>{loading ? "กำลังดำเนินการ…" : "หน้าถัดไป"}</Button>
         <ErrorText>{error}</ErrorText>
       </div>
