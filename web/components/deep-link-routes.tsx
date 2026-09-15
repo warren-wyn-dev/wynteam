@@ -1,6 +1,7 @@
 "use client";
 
 import { Bookmark, Heart, Repeat2, Send } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -162,7 +163,7 @@ function ClubPostInner({ client, userId, postId }: { client: SupabaseClient; use
   if (loading) return <AppChrome title="โพสต์ Club" userId={userId} backHref="/"><LoadingState /></AppChrome>;
   if (!post) return <AppChrome title="โพสต์ Club" userId={userId} backHref="/"><EmptyState>ไม่พบโพสต์นี้หรือคุณไม่มีสิทธิ์ดู</EmptyState></AppChrome>;
   const authorRaw = post.author; const author = Array.isArray(authorRaw) ? authorRaw[0] as Record<string, unknown> | undefined : authorRaw as Record<string, unknown> | undefined; const clubRaw = post.club; const club = Array.isArray(clubRaw) ? clubRaw[0] as Record<string, unknown> | undefined : clubRaw as Record<string, unknown> | undefined;
-  return <AppChrome title={String(club?.name || "โพสต์ Club")} userId={userId} backHref={post.club_id ? `/club/${String(post.club_id)}` : "/"}><article className="club-post-detail"><div className="club-post-author"><Avatar src={author?.avatar_url ? String(author.avatar_url) : null} label={String(author?.username ?? "WYNOS")} /><span><strong>{String(author?.display_name || author?.username || "WYNOS")}</strong><small>{relativeTimeTh(String(post.created_at ?? ""))}</small></span></div>{post.content ? <p>{String(post.content)}</p> : null}{imageUrls.map((url) => <img src={url} alt="" key={url} />)}</article></AppChrome>;
+  return <AppChrome title={String(club?.name || "โพสต์ Club")} userId={userId} backHref={post.club_id ? `/club/${String(post.club_id)}` : "/"}><article className="club-post-detail"><div className="club-post-author"><Avatar src={author?.avatar_url ? String(author.avatar_url) : null} label={String(author?.username ?? "WYNOS")} /><span><strong>{String(author?.display_name || author?.username || "WYNOS")}</strong><small>{relativeTimeTh(String(post.created_at ?? ""))}</small></span></div>{post.content ? <p>{String(post.content)}</p> : null}{imageUrls.map((url) => <Image src={url} alt="" width={1200} height={1500} style={{ width: "100%", height: "auto" }} sizes="(max-width: 640px) 100vw, 640px" key={url} />)}</article></AppChrome>;
 }
 
 export function ClubPostRoute({ postId }: { postId: string }) {

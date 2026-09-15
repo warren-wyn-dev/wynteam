@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -61,7 +62,7 @@ function InviteInner({ client, userId, code }: { client: SupabaseClient; userId:
   return (
     <AppChrome title="คำเชิญ Club" userId={userId} backHref="/">
       <section className="invite-card">
-        {iconUrl ? <img className="club-cover" src={iconUrl} alt="" /> : null}
+        {iconUrl ? <Image className="club-cover" src={iconUrl} alt="" width={76} height={76} sizes="76px" /> : null}
         <h2>{preview.club_name || "Club"}</h2>
         <small>{preview.club_privacy === "private" ? "Club ส่วนตัว" : "Club สาธารณะ"}</small>
         {valid && !joinedId ? <button className="route-primary" type="button" disabled={busy} onClick={() => void redeem()}>{busy ? "กำลังเข้าร่วม…" : "เข้าร่วม Club"}</button> : null}

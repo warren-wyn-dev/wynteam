@@ -196,6 +196,18 @@ export async function toggleDropRedrop(
   throwIfError(error);
 }
 
+/** Mirrors toggleAuthorFollow's own branching so callers can apply the
+ * resulting state optimistically before the request resolves. */
+export function predictFollowState(options: {
+  currentlyFollowing: boolean;
+  pendingRequest: boolean;
+  isPrivate: boolean;
+}): "following" | "requested" | "none" {
+  if (options.currentlyFollowing) return "none";
+  if (options.isPrivate) return options.pendingRequest ? "none" : "requested";
+  return "following";
+}
+
 export async function toggleAuthorFollow(
   client: SupabaseClient,
   userId: string,

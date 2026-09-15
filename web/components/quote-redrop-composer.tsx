@@ -1,6 +1,6 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 import { Avatar } from "@/components/phase3-ui";
@@ -136,10 +136,13 @@ export function QuoteRedropComposer({
             ) : null}
 
             {row.image_url ? (
-              <img
+              <Image
                 src={row.image_url}
                 alt=""
-                style={{ width: "100%", maxHeight: 360, display: "block", objectFit: "cover", borderTop: "1px solid var(--hairline)" }}
+                width={1200}
+                height={800}
+                sizes="(max-width: 640px) 100vw, 640px"
+                style={{ width: "100%", height: "auto", maxHeight: 360, display: "block", objectFit: "cover", borderTop: "1px solid var(--hairline)" }}
               />
             ) : null}
           </article>

@@ -1,13 +1,15 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Pencil, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { ChatListSkeleton } from "@/components/ui/skeleton";
 import { relativeTimeTh } from "@/lib/feed";
 import {
   acceptMessageRequest,
@@ -36,47 +38,38 @@ function isUnread(row: ConversationRow, userId: string): boolean {
   );
 }
 
+type ChatInboxData = { allowed: boolean; rows: ConversationRow[]; requests: ConversationRow[] };
+
+async function fetchChatInboxData(client: SupabaseClient): Promise<ChatInboxData> {
+  const canChat = await chatAllowed(client);
+  if (!canChat) return { allowed: false, rows: [], requests: [] };
+  const [inbox, pending] = await Promise.all([
+    fetchInbox(client, 0),
+    fetchMessageRequests(client, 0),
+  ]);
+  return { allowed: true, rows: inbox, requests: pending as ConversationRow[] };
+}
+
 function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; userId: string }) {
   const router = useRouter();
-  const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [rows, setRows] = useState<ConversationRow[]>([]);
-  const [requests, setRequests] = useState<ConversationRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, error: loadError, refetch } = useQuery({
+    queryKey: ["chat-inbox", userId] as const,
+    queryFn: () => fetchChatInboxData(client),
+  });
+  const allowed = data?.allowed ?? null;
+  const rows = data?.rows ?? [];
+  const requests = data?.requests ?? [];
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<ProfileRow[]>([]);
   const [finding, setFinding] = useState(false);
-  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const error = actionError || (loadError instanceof Error ? loadError.message : "");
+  const setError = setActionError;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const canChat = await chatAllowed(client);
-      setAllowed(canChat);
-      if (!canChat) {
-        setRows([]);
-        setRequests([]);
-        return;
-      }
-      const [inbox, pending] = await Promise.all([
-        fetchInbox(client, 0),
-        fetchMessageRequests(client, 0),
-      ]);
-      setRows(inbox);
-      setRequests(pending as ConversationRow[]);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "โหลดรายการไม่สำเร็จ");
-    } finally {
-      setLoading(false);
-    }
-  }, [client]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const load = async () => { await refetch(); };
 
   const findPeople = async () => {
     const value = query.trim();
@@ -146,7 +139,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
         </header>
 
         {loading ? (
-          <LoadingState />
+          <ChatListSkeleton />
         ) : allowed === false ? (
           <div className="chat-locked-state">
             <strong>ระบบแชทปิดปรับปรุงชั่วคราว</strong>

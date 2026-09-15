@@ -1,6 +1,7 @@
 "use client";
 
 import { Camera, ChevronRight, Lock, Plus, Search, UsersRound } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -13,7 +14,7 @@ import { fetchClub, searchClubs, type ClubRow } from "@/lib/phase3-data";
 type Sections = { popular: ClubRow[]; newest: ClubRow[]; pending: Set<string> };
 
 function ClubAvatar({ club, size = 44 }: { club: ClubRow; size?: number }) {
-  return <span className="audit-club-avatar" style={{ width: size, height: size }}>{club.icon_url ? <img src={club.icon_url} alt="" /> : <b>{club.name.trim().slice(0, 1).toUpperCase() || "C"}</b>}</span>;
+  return <span className="audit-club-avatar" style={{ width: size, height: size }}>{club.icon_url ? <Image src={club.icon_url} alt="" width={size} height={size} sizes={`${size}px`} /> : <b>{club.name.trim().slice(0, 1).toUpperCase() || "C"}</b>}</span>;
 }
 
 async function fetchExplore(client: SupabaseClient, userId: string): Promise<Sections> {
@@ -116,7 +117,10 @@ function CreateClubInner({ client, userId }: { client: SupabaseClient; userId: s
     } catch (e) { setError(e instanceof Error ? e.message : "สร้าง Club ไม่สำเร็จ"); setSaving(false); }
   };
   const count = name.trim().length;
-  return <AppChrome title="สร้าง Club" userId={userId} backHref="/clubs" showBottomNav={false}><div className="audit-create-club"><section className="audit-create-club-intro"><h2>สร้างพื้นที่ของคุณ</h2><p>ตั้งชื่อ เล่าให้คนอื่นรู้ว่า Club นี้เกี่ยวกับอะไร แล้วเลือกว่าจะเปิดสาธารณะหรือส่วนตัว</p></section><label className="audit-club-image-picker">{preview ? <img src={preview} alt="" /> : <Camera size={26} />}<span>{file ? "เปลี่ยนรูป Club" : "เลือกรูป Club"}</span><input type="file" accept="image/*" hidden disabled={saving} onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><label className="route-field"><span>ชื่อ Club <small>{count}/50</small></span><input value={name} maxLength={50} onChange={(event) => setName(event.target.value)} placeholder="ชื่อ Club" /></label><label className="route-field"><span>คำอธิบาย</span><textarea value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} placeholder="Club นี้เกี่ยวกับอะไร?" /></label><label className="route-field"><span>หมวดหมู่</span><input value={category} maxLength={50} onChange={(event) => setCategory(event.target.value)} placeholder="เช่น เทคโนโลยี, กีฬา" /></label><div className="audit-club-privacy"><button className={privacy === "public" ? "active" : ""} type="button" onClick={() => setPrivacy("public")}><UsersRound size={19} /><span><strong>สาธารณะ</strong><small>ทุกคนค้นหาและเข้าร่วมได้</small></span></button><button className={privacy === "private" ? "active" : ""} type="button" onClick={() => setPrivacy("private")}><Lock size={19} /><span><strong>ส่วนตัว</strong><small>ต้องได้รับอนุมัติก่อนเข้าร่วม</small></span></button></div>{error ? <p className="route-error">{error}</p> : null}<button className="route-primary audit-create-club-submit" type="button" disabled={saving || !name.trim()} onClick={() => void submit()}>{saving ? "กำลังสร้าง…" : "สร้าง Club"}</button></div></AppChrome>;
+  return <AppChrome title="สร้าง Club" userId={userId} backHref="/clubs" showBottomNav={false}><div className="audit-create-club"><section className="audit-create-club-intro"><h2>สร้างพื้นที่ของคุณ</h2><p>ตั้งชื่อ เล่าให้คนอื่นรู้ว่า Club นี้เกี่ยวกับอะไร แล้วเลือกว่าจะเปิดสาธารณะหรือส่วนตัว</p></section><label className="audit-club-image-picker">{preview ? (
+        // Local blob preview of an unsaved file — not eligible for the remote image optimizer.
+        <img src={preview} alt="" />
+      ) : <Camera size={26} />}<span>{file ? "เปลี่ยนรูป Club" : "เลือกรูป Club"}</span><input type="file" accept="image/*" hidden disabled={saving} onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><label className="route-field"><span>ชื่อ Club <small>{count}/50</small></span><input value={name} maxLength={50} onChange={(event) => setName(event.target.value)} placeholder="ชื่อ Club" /></label><label className="route-field"><span>คำอธิบาย</span><textarea value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} placeholder="Club นี้เกี่ยวกับอะไร?" /></label><label className="route-field"><span>หมวดหมู่</span><input value={category} maxLength={50} onChange={(event) => setCategory(event.target.value)} placeholder="เช่น เทคโนโลยี, กีฬา" /></label><div className="audit-club-privacy"><button className={privacy === "public" ? "active" : ""} type="button" onClick={() => setPrivacy("public")}><UsersRound size={19} /><span><strong>สาธารณะ</strong><small>ทุกคนค้นหาและเข้าร่วมได้</small></span></button><button className={privacy === "private" ? "active" : ""} type="button" onClick={() => setPrivacy("private")}><Lock size={19} /><span><strong>ส่วนตัว</strong><small>ต้องได้รับอนุมัติก่อนเข้าร่วม</small></span></button></div>{error ? <p className="route-error">{error}</p> : null}<button className="route-primary audit-create-club-submit" type="button" disabled={saving || !name.trim()} onClick={() => void submit()}>{saving ? "กำลังสร้าง…" : "สร้าง Club"}</button></div></AppChrome>;
 }
 
 export function CreateClubRoute() {

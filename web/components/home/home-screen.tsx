@@ -2,21 +2,23 @@
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { Bookmark, ChevronRight, Flag, Quote, Repeat2, Share2, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
+import { useInView } from "react-intersection-observer";
 
-import { Beta4Composer } from "@/components/beta4-composer";
 import { ClubFeedPost } from "@/components/home/club-feed-post";
-import { HomeDrawer } from "@/components/home/home-drawer";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HOME_FEED_MODES, HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
 import { AppChrome } from "@/components/phase3-ui";
-import { QuoteRedropComposer } from "@/components/quote-redrop-composer";
+import { FeedSkeleton } from "@/components/ui/skeleton";
+import { Toast, useToast } from "@/components/ui/toast";
 import { authorLabel, type HomeFeedRow } from "@/lib/feed";
 import {
   loadHomeViewerState,
+  predictFollowState,
   toggleAuthorFollow,
   toggleDropLike,
   toggleDropRedrop,
@@ -33,6 +35,14 @@ import {
   type HomeIdentity,
 } from "@/lib/home-parity-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+// These are heavy, interaction-only overlays (composer with image/poll
+// upload, quote-redrop composer, side drawer) — none of them are needed for
+// the first paint of the feed, so they're split out of the initial bundle
+// and only fetched once the user actually opens one.
+const Beta4Composer = dynamic(() => import("@/components/beta4-composer").then((mod) => mod.Beta4Composer));
+const QuoteRedropComposer = dynamic(() => import("@/components/quote-redrop-composer").then((mod) => mod.QuoteRedropComposer));
+const HomeDrawer = dynamic(() => import("@/components/home/home-drawer").then((mod) => mod.HomeDrawer));
 
 type ReportCategory =
   | "spam"
@@ -74,6 +84,12 @@ const reportCategories: { value: ReportCategory; label: string }[] = [
 function modeIndex(mode: HomeFeedMode) {
   return HOME_FEED_MODES.findIndex((item) => item.key === mode);
 }
+
+// Infinite scroll renders the feed in windows of this size instead of
+// mounting every fetched row at once, so an initial paint only pays for the
+// posts actually on screen; the sentinel below grows the window as the user
+// scrolls near the bottom.
+const FEED_PAGE_SIZE = 15;
 
 async function fetchDropImages(
   client: SupabaseClient,
@@ -134,10 +150,12 @@ export function HomeScreen({ session }: { session: Session }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = session.user.id;
+  const { toastMessage, showToast } = useToast();
 
   const [mode, setMode] = useState<HomeFeedMode>("for-you");
   const [visibleMode, setVisibleMode] = useState<HomeFeedMode>("for-you");
   const [rows, setRows] = useState<HomeFeedRow[]>([]);
+  const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
   const [clubRows, setClubRows] = useState<ClubHomePost[]>([]);
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
   const [images, setImages] = useState<Map<string, string[]>>(new Map());
@@ -165,6 +183,11 @@ export function HomeScreen({ session }: { session: Session }) {
     "for-you": 0,
     following: 0,
     clubs: 0,
+  });
+  const visibleCounts = useRef<Record<HomeFeedMode, number>>({
+    "for-you": FEED_PAGE_SIZE,
+    following: FEED_PAGE_SIZE,
+    clubs: FEED_PAGE_SIZE,
   });
 
   useEffect(() => {
@@ -207,6 +230,10 @@ export function HomeScreen({ session }: { session: Session }) {
       setImages(snapshot.images);
       setClubRows([]);
     }
+    // Restoring a cached tab keeps whatever window the user had already
+    // scrolled to open; a fresh load or pull-to-refresh starts over at one page.
+    if (!restore) visibleCounts.current[targetMode] = FEED_PAGE_SIZE;
+    setVisibleCount(visibleCounts.current[targetMode]);
     if (restore) restoreScroll(targetMode);
   }, [restoreScroll]);
 
@@ -361,6 +388,7 @@ export function HomeScreen({ session }: { session: Session }) {
       await toggleDropLike(client, userId, row.id, liked);
     } catch {
       void load();
+      showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
   };
 
@@ -379,6 +407,7 @@ export function HomeScreen({ session }: { session: Session }) {
       await toggleClubPostLike(client, userId, post.id, post.liked_by_me);
     } catch {
       void load();
+      showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
   };
 
@@ -390,32 +419,37 @@ export function HomeScreen({ session }: { session: Session }) {
       await toggleDropSave(client, userId, row.id, saved);
     } catch {
       void load();
+      showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
   };
+
+  const applyFollowState = (authorId: string, state: "following" | "requested" | "none") => setViewer((current) => {
+    if (!current) return current;
+    const followedAuthorIds = new Set(current.followedAuthorIds);
+    const pendingFollowAuthorIds = new Set(current.pendingFollowAuthorIds);
+    followedAuthorIds.delete(authorId);
+    pendingFollowAuthorIds.delete(authorId);
+    if (state === "following") followedAuthorIds.add(authorId);
+    if (state === "requested") pendingFollowAuthorIds.add(authorId);
+    return { ...current, followedAuthorIds, pendingFollowAuthorIds };
+  });
 
   const followAuthor = async (row: HomeFeedRow) => {
     if (!client || !viewer || row.author_id === userId) return;
     const currentlyFollowing = viewer.followedAuthorIds.has(row.author_id);
     const pendingRequest = viewer.pendingFollowAuthorIds.has(row.author_id);
     const isPrivate = viewer.privateAuthorIds.has(row.author_id);
+    const optimisticNext = predictFollowState({ currentlyFollowing, pendingRequest, isPrivate });
+    applyFollowState(row.author_id, optimisticNext);
     try {
-      const next = await toggleAuthorFollow(client, userId, row.author_id, {
+      await toggleAuthorFollow(client, userId, row.author_id, {
         currentlyFollowing,
         pendingRequest,
         isPrivate,
       });
-      setViewer((current) => {
-        if (!current) return current;
-        const followedAuthorIds = new Set(current.followedAuthorIds);
-        const pendingFollowAuthorIds = new Set(current.pendingFollowAuthorIds);
-        followedAuthorIds.delete(row.author_id);
-        pendingFollowAuthorIds.delete(row.author_id);
-        if (next === "following") followedAuthorIds.add(row.author_id);
-        if (next === "requested") pendingFollowAuthorIds.add(row.author_id);
-        return { ...current, followedAuthorIds, pendingFollowAuthorIds };
-      });
     } catch {
-      void load();
+      applyFollowState(row.author_id, currentlyFollowing ? "following" : pendingRequest ? "requested" : "none");
+      showToast("ติดตามไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
   };
 
@@ -434,6 +468,7 @@ export function HomeScreen({ session }: { session: Session }) {
       setSelected(null);
     } catch {
       void load();
+      showToast("รีโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
   };
 
@@ -605,6 +640,21 @@ export function HomeScreen({ session }: { session: Session }) {
     setPullDistance(0);
   };
 
+  const visibleRows = rows.slice(0, visibleCount);
+  const hasMoreRows = visibleCount < rows.length;
+  const { ref: loadMoreRef } = useInView({
+    skip: !hasMoreRows,
+    rootMargin: "600px 0px",
+    onChange: (inView) => {
+      if (!inView) return;
+      setVisibleCount((current) => {
+        const next = Math.min(rows.length, current + FEED_PAGE_SIZE);
+        visibleCounts.current[visibleModeRef.current] = next;
+        return next;
+      });
+    },
+  });
+
   if (!client) {
     return <main className="wyn-home-state"><p>ยังไม่ได้ตั้งค่า Supabase สำหรับเว็บ</p></main>;
   }
@@ -660,7 +710,7 @@ export function HomeScreen({ session }: { session: Session }) {
         onTouchCancel={onTouchCancel}
       >
         {loading && !rows.length && !clubRows.length ? (
-          <div className="wyn-home-state"><div className="route-system-spinner" /></div>
+          <FeedSkeleton />
         ) : error && !rows.length && !clubRows.length ? (
           <div className="wyn-home-state">
             <p>{error}</p>
@@ -678,26 +728,30 @@ export function HomeScreen({ session }: { session: Session }) {
             </div>
           )
         ) : rows.length && viewer ? (
-          rows.map((row) => (
-            <HomePostCard
-              row={row}
-              viewer={viewer}
-              images={images.get(row.id) ?? (row.image_url ? [row.image_url] : [])}
-              userId={userId}
-              onLike={() => void like(row)}
-              onMore={() => {
-                setSelected(row);
-                setSheet("more");
-              }}
-              onRedrop={() => {
-                setSelected(row);
-                setSheet("redrop");
-              }}
-              onFollow={() => void followAuthor(row)}
-              onShare={() => void share(row)}
-              key={`${row.id}:${row.redrop_id ?? "plain"}`}
-            />
-          ))
+          <>
+            {visibleRows.map((row, index) => (
+              <HomePostCard
+                row={row}
+                viewer={viewer}
+                images={images.get(row.id) ?? (row.image_url ? [row.image_url] : [])}
+                userId={userId}
+                onLike={() => void like(row)}
+                onMore={() => {
+                  setSelected(row);
+                  setSheet("more");
+                }}
+                onRedrop={() => {
+                  setSelected(row);
+                  setSheet("redrop");
+                }}
+                onFollow={() => void followAuthor(row)}
+                onShare={() => void share(row)}
+                priority={index < 2}
+                key={`${row.id}:${row.redrop_id ?? "plain"}`}
+              />
+            ))}
+            {hasMoreRows ? <div ref={loadMoreRef} style={{ height: 1 }} aria-hidden="true" /> : null}
+          </>
         ) : (
           <div className="wyn-home-state">
             <p>{visibleMode === "following" ? "ยังไม่มีโพสต์จากคนที่คุณกำลังติดตาม" : "ยังไม่มีอะไรให้ดูตรงนี้"}</p>
@@ -835,6 +889,7 @@ export function HomeScreen({ session }: { session: Session }) {
           <button type="button" onClick={() => void undoHide()}>เลิกทำ</button>
         </div>
       ) : null}
+      <Toast message={toastMessage} />
 
       {composerOpen ? (
         <Beta4Composer

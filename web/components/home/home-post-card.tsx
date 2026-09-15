@@ -24,6 +24,7 @@ export function HomePostCard({
   onRedrop,
   onFollow,
   onShare,
+  priority = false,
 }: {
   row: HomeFeedRow;
   viewer: HomeViewerState;
@@ -34,6 +35,7 @@ export function HomePostCard({
   onRedrop: () => void;
   onFollow: () => void;
   onShare: () => void;
+  priority?: boolean;
 }) {
   const liked = viewer.likedDropIds.has(row.id);
   const redropped = viewer.redroppedDropIds.has(row.id);
@@ -96,6 +98,7 @@ export function HomePostCard({
           onDoubleLike={onLike}
           postKey={row.id}
           modernFeed
+          priority={priority}
         />
         <PostActions
           liked={liked}

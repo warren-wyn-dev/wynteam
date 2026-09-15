@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AppNavigationRuntime } from "@/components/app-navigation-runtime";
+import { QueryProvider } from "@/components/query-provider";
 import "./globals.css";
 import "./phase2.css";
 import "./phase2-polish.css";
@@ -35,6 +36,7 @@ import "./chat-reference.css";
 import "./threads-action-row.css";
 import "./profile-home-feed.css";
 import "./notifications-clean.css";
+import "./skeleton.css";
 export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web"};
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#ffffff"};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><AppNavigationRuntime />{children}</body></html>}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime />{children}</QueryProvider></body></html>}
