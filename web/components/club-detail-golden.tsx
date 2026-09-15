@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -28,6 +27,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -358,7 +358,7 @@ function ClubPostCard({
         {post.content ? <Link className="golden-club-post-open" href={`/club-post/${post.id}`}><p>{post.content}</p></Link> : null}
         {post.image_urls.length ? (
           <Link className={`golden-club-media ${post.image_urls.length > 1 ? "multi" : "single"}`} href={`/club-post/${post.id}`}>
-            {post.image_urls.map((url, index) => <img src={url} alt="" loading="lazy" decoding="async" key={`${post.id}:image:${index}`} />)}
+            {post.image_urls.map((url, index) => <Image src={url} alt="" width={1200} height={1500} style={{ width: "100%", height: "auto" }} sizes="(max-width: 640px) 100vw, 640px" loading="lazy" key={`${post.id}:image:${index}`} />)}
           </Link>
         ) : null}
         {post.poll_id ? <ClubPoll post={post} onVote={vote} /> : null}
@@ -452,7 +452,7 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
               <div className="golden-club-bubble">
                 <div className="golden-club-message-head"><strong>{message.author_id === userId ? "คุณ" : message.author_display_name?.trim() || message.author_username}</strong><button type="button" aria-label="ตัวเลือกข้อความ" onClick={() => message.author_id === userId || canModerate ? void remove(message.id) : setReport({ type: "club_channel_message", id: message.id, label: "รายงานข้อความ" })}><MoreHorizontal size={16} /></button></div>
                 {message.content ? <p>{message.content}</p> : null}
-                {message.image_url ? <img src={message.image_url} alt="" /> : null}
+                {message.image_url ? <Image src={message.image_url} alt="" width={280} height={330} sizes="280px" /> : null}
                 <small>{relativeTimeTh(message.created_at)}</small>
               </div>
             </div>
@@ -602,14 +602,14 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
       <main className="golden-club-page">
         <section className="golden-club-header">
           <div className="golden-club-banner">
-            {club.cover_url ? <img src={club.cover_url} alt="" /> : null}
+            {club.cover_url ? <Image src={club.cover_url} alt="" fill sizes="(max-width: 640px) 100vw, 640px" /> : null}
             <div className="golden-club-banner-scrim" />
             <button className="golden-club-back" type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={28} /></button>
             <div className="golden-club-banner-title"><small>CLUB</small><h1>{club.name}</h1></div>
           </div>
           <div className="golden-club-meta">
             <div className="golden-club-meta-main">
-              <span className="golden-club-avatar">{club.icon_url ? <img src={club.icon_url} alt="" /> : <strong>{club.name.slice(0, 1)}</strong>}</span>
+              <span className="golden-club-avatar">{club.icon_url ? <Image src={club.icon_url} alt="" width={36} height={36} sizes="36px" /> : <strong>{club.name.slice(0, 1)}</strong>}</span>
               <strong>{club.name}</strong>
               <button type="button" aria-label="แชร์" onClick={() => void share()}><Share2 size={15} /></button>
               <button type="button" aria-label="เพิ่มเติม" onClick={() => setMenu(true)}><MoreVertical size={15} /></button>

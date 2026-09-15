@@ -1,4 +1,5 @@
 import { Heart, MessageCircle } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 import { Avatar } from "@/components/phase3-ui";
@@ -72,8 +73,17 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
             }}
           >
             {post.image_urls.map((url, index) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="wyn-post-media-item" src={url} alt="" loading="lazy" decoding="async" key={`${post.id}:${index}`} />
+              <Image
+                className="wyn-post-media-item"
+                src={url}
+                alt=""
+                width={1200}
+                height={1500}
+                style={{ width: "100%", height: "auto" }}
+                sizes="(max-width: 640px) 100vw, 640px"
+                loading="lazy"
+                key={`${post.id}:${index}`}
+              />
             ))}
           </div>
         ) : null}

@@ -16,6 +16,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -94,8 +95,18 @@ function MediaGallery({ urls }: { urls: string[] }) {
         setIndex(Math.max(0, Math.min(urls.length - 1, Math.round(element.scrollLeft / width))));
       }}>
         {urls.map((url, imageIndex) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img className="detail-image" src={url} alt="" loading={imageIndex === 0 ? "eager" : "lazy"} decoding="async" key={`${url}:${imageIndex}`} />
+          <Image
+            className="detail-image"
+            src={url}
+            alt=""
+            width={1200}
+            height={1500}
+            style={{ width: "100%", height: "auto" }}
+            sizes="(max-width: 720px) 100vw, 720px"
+            priority={imageIndex === 0}
+            loading={imageIndex === 0 ? undefined : "lazy"}
+            key={`${url}:${imageIndex}`}
+          />
         ))}
       </div>
       {urls.length > 1 ? <div className="detail-gallery-dots" aria-label={`รูป ${index + 1} จาก ${urls.length}`}>{urls.map((_, dot) => <i className={dot === index ? "active" : ""} key={dot} />)}</div> : null}

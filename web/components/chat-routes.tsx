@@ -1,6 +1,7 @@
 "use client";
 
 import { ImagePlus, MessageSquarePlus, Send, Trash2, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,6 +9,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { Toast, useToast } from "@/components/ui/toast";
 import { relativeTimeTh } from "@/lib/feed";
 import {
   acceptMessageRequest,
@@ -128,7 +130,7 @@ function MessageImage({ client, path }: { client: SupabaseClient; path: string }
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => { let live = true; void signedChatImage(client, path).then((value) => { if (live) setUrl(value); }); return () => { live = false; }; }, [client, path]);
   if (!url) return <span className="message-image-placeholder">กำลังโหลดรูป…</span>;
-  return <img className="message-image" src={url} alt="" />;
+  return <Image className="message-image" src={url} alt="" width={280} height={330} sizes="280px" />;
 }
 
 function ConversationInner({ client, userId, conversationId }: { client: SupabaseClient; userId: string; conversationId: string }) {
@@ -147,6 +149,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const { toastMessage, showToast } = useToast();
 
   const resolveOther = useCallback(async (): Promise<string> => {
     if (otherId) return otherId;
@@ -201,14 +204,41 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
 
   const submit = async () => {
     if (sending || (!draft.trim() && !file)) return;
-    setSending(true); setError("");
+    const text = draft.trim();
+    const attachedFile = file;
+    const localPreviewUrl = attachedFile ? URL.createObjectURL(attachedFile) : null;
+    const tempId = `pending-${Date.now()}`;
+    const optimisticMessage: MessageRow = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: userId,
+      text: text || null,
+      image_url: null,
+      created_at: new Date().toISOString(),
+      pending: true,
+      localPreviewUrl,
+    };
+    // Optimistic send: the bubble and a cleared composer appear immediately;
+    // a failed request rolls the bubble back and restores the draft so
+    // nothing typed is lost.
+    setMessages((current) => [optimisticMessage, ...current]);
+    setDraft(""); setFile(null); setSending(true); setError("");
     try {
-      const created = await sendMessage(client, userId, conversationId, { text: draft, file });
-      setMessages((current) => current.some((item) => item.id === created.id) ? current : [created, ...current]);
-      setDraft(""); setFile(null);
+      const created = await sendMessage(client, userId, conversationId, { text, file: attachedFile });
+      setMessages((current) => {
+        const withoutTemp = current.filter((item) => item.id !== tempId);
+        return withoutTemp.some((item) => item.id === created.id) ? withoutTemp : [created, ...withoutTemp];
+      });
       await markConversationRead(client, conversationId);
-    } catch (e) { setError(e instanceof Error ? e.message : "ส่งข้อความไม่สำเร็จ"); }
-    finally { setSending(false); }
+    } catch (e) {
+      setMessages((current) => current.filter((item) => item.id !== tempId));
+      setDraft(text); setFile(attachedFile);
+      setError(e instanceof Error ? e.message : "ส่งข้อความไม่สำเร็จ");
+      showToast("ส่งข้อความไม่สำเร็จ กู้คืนข้อความในกล่องข้อความแล้ว");
+    } finally {
+      setSending(false);
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    }
   };
 
   const remove = async (message: MessageRow) => {
@@ -240,7 +270,10 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           <div className="message-list">
             {ordered.map((message) => {
               const mine = message.sender_id === userId;
-              return <div className={`message-row ${mine ? "mine" : "theirs"}`} key={message.id}><div className="message-bubble">{message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>{message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}{message.text ? <p>{message.text}</p> : null}{message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}</>}<time>{relativeTimeTh(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time></div>{mine && !message.deleted_at ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><Trash2 size={13} /></button> : null}</div>;
+              return <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}`} key={message.id}><div className="message-bubble">{message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>{message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}{message.text ? <p>{message.text}</p> : null}{message.localPreviewUrl ? (
+                // Local blob preview of an in-flight upload — not yet a storage path.
+                <img className="message-image" src={message.localPreviewUrl} alt="" />
+              ) : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}</>}<time>{message.pending ? "กำลังส่ง…" : relativeTimeTh(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time></div>{mine && !message.deleted_at && !message.pending ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><Trash2 size={13} /></button> : null}</div>;
             })}
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
@@ -249,6 +282,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           )}
         </div>
       )}
+      <Toast message={toastMessage} />
     </AppChrome>
   );
 }

@@ -1,6 +1,6 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Settings } from "lucide-react";
@@ -20,7 +20,17 @@ export function Avatar({ src, label, size = 42 }: { src?: string | null; label: 
   const [failed, setFailed] = useState(false);
   const text = label.trim().replace(/^@/, "").slice(0, 1).toUpperCase() || "W";
   if (!src || failed) return <span className="route-avatar fallback" style={{ width: size, height: size }}>{text}</span>;
-  return <img className="route-avatar" src={src} alt="" width={size} height={size} onError={() => setFailed(true)} />;
+  return (
+    <Image
+      className="route-avatar"
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      sizes={`${size}px`}
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 export function AppChrome({

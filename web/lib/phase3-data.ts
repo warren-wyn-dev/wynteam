@@ -107,6 +107,10 @@ export type MessageRow = {
     image_url?: string | null;
     deleted_at?: string | null;
   } | null;
+  /** Client-only: set while an optimistically-rendered message is still in flight. */
+  pending?: boolean;
+  /** Client-only: local object URL for a pending message's attached image, before it has a storage path. */
+  localPreviewUrl?: string | null;
 };
 
 export type ConversationMeta = {

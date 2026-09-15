@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { Heart } from "lucide-react";
+import Image from "next/image";
 import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 
 /**
@@ -16,6 +16,7 @@ export function PostMediaCarousel({
   onDoubleLike,
   postKey,
   modernFeed = false,
+  priority = false,
 }: {
   urls: string[];
   aspectRatio: number;
@@ -23,6 +24,7 @@ export function PostMediaCarousel({
   onDoubleLike: () => void;
   postKey: string;
   modernFeed?: boolean;
+  priority?: boolean;
 }) {
   const lastTap = useRef(0);
   const [burst, setBurst] = useState(false);
@@ -59,6 +61,9 @@ export function PostMediaCarousel({
 
   if (!urls.length) return null;
 
+  const intrinsicWidth = 1200;
+  const intrinsicHeight = Math.round(intrinsicWidth / (aspectRatio || 1));
+
   const mediaStyle: CSSProperties | undefined = modernFeed
     ? { marginTop: 8 }
     : undefined;
@@ -82,12 +87,16 @@ export function PostMediaCarousel({
         style={trackStyle}
       >
         {urls.map((url, i) => (
-          <img
+          <Image
             className={`wyn-post-media-item ${urls.length > 1 ? (i === index ? "is-front" : i < index ? "is-before" : "is-after") : ""}`}
             src={url}
             alt=""
-            loading={i === 0 ? "eager" : "lazy"}
-            decoding="async"
+            width={intrinsicWidth}
+            height={intrinsicHeight}
+            style={{ width: "100%", height: "auto" }}
+            sizes="(max-width: 640px) 100vw, 640px"
+            priority={priority && i === 0}
+            loading={priority && i === 0 ? undefined : "lazy"}
             key={`${postKey}:${i}`}
           />
         ))}

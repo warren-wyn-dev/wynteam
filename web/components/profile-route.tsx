@@ -1,13 +1,16 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, CheckCircle2, ChevronDown, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Repeat2, Send, Settings, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, Avatar, DropPreviewCard, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { AppChrome, Avatar, DropPreviewCard, EmptyState } from "@/components/phase3-ui";
 import { ProfileRecommendations } from "@/components/profile-recommendations";
+import { FeedSkeleton, ProfileSkeleton } from "@/components/ui/skeleton";
+import { Toast, useToast } from "@/components/ui/toast";
 import {
   MAX_SAVED_ACCOUNTS,
   activateSavedAccount,
@@ -16,7 +19,7 @@ import {
   removeSavedAccount,
   type SavedAccount,
 } from "@/lib/account-registry";
-import { toggleAuthorFollow } from "@/lib/home-actions";
+import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import {
   canViewProfileLikes,
@@ -60,7 +63,7 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
     finally { setLoading(false); }
   }, [client, kind, profileId]);
   useEffect(() => { setAllowed(true); void load(0, false); }, [load]);
-  if (loading && !rows.length) return <LoadingState />;
+  if (loading && !rows.length) return <FeedSkeleton items={2} />;
   if (!allowed) return <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>;
   if (!rows.length) return <EmptyState>{kind === "posts" ? "ยังไม่มี Post เลย" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>;
   return <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
@@ -105,8 +108,12 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
 
 function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; userId: string; profileId: string }) {
   const router = useRouter();
-  const [summary, setSummary] = useState<ProfileSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const profileQueryKey = ["profile-summary", profileId, userId] as const;
+  const { data: summary, isLoading: loading, error: loadError, refetch } = useQuery({
+    queryKey: profileQueryKey,
+    queryFn: () => fetchProfileSummary(client, userId, profileId),
+  });
   const [action, setAction] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<"posts" | "redrops" | "likes">("posts");
@@ -117,23 +124,35 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   const [managingAccounts, setManagingAccounts] = useState(false);
   const [accountSwitcherError, setAccountSwitcherError] = useState("");
   const own = profileId === userId;
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try { setSummary(await fetchProfileSummary(client, userId, profileId)); }
-    catch (e) { setError(e instanceof Error ? e.message : "โหลดโปรไฟล์ไม่สำเร็จ"); }
-    finally { setLoading(false); }
-  }, [client, profileId, userId]);
-  useEffect(() => { void load(); }, [load]);
-  if (loading) return <AppChrome title="โปรไฟล์" userId={userId} backHref="/"><LoadingState /></AppChrome>;
-  if (!summary) return <AppChrome title="โปรไฟล์" userId={userId} backHref="/"><EmptyState>{error || "ไม่พบโปรไฟล์"}</EmptyState></AppChrome>;
+  const { toastMessage, showToast } = useToast();
+  const load = useCallback(async () => { await refetch(); }, [refetch]);
+  if (loading) return <AppChrome title="โปรไฟล์" userId={userId} backHref="/"><ProfileSkeleton /></AppChrome>;
+  if (!summary) return <AppChrome title="โปรไฟล์" userId={userId} backHref="/"><EmptyState>{loadError instanceof Error ? loadError.message : "ไม่พบโปรไฟล์"}</EmptyState></AppChrome>;
   const profile = summary.profile;
   const name = profileLabel(profile);
+  const patchSummary = (updater: (current: ProfileSummary) => ProfileSummary) => queryClient.setQueryData<ProfileSummary | null>(
+    profileQueryKey,
+    (current) => current ? updater(current) : current,
+  );
   const follow = async () => {
     if (own || action) return;
     if (summary.requested && profile.is_private && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
+    const wasFollowing = summary.following;
+    const wasRequested = summary.requested;
+    const optimisticNext = predictFollowState({ currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private });
     setAction(true); setError("");
-    try { await toggleAuthorFollow(client, userId, profile.id, { currentlyFollowing: summary.following, pendingRequest: summary.requested, isPrivate: profile.is_private }); await load(); }
-    catch (e) { setError(e instanceof Error ? e.message : "ติดตามไม่สำเร็จ"); }
+    patchSummary((current) => ({
+      ...current,
+      following: optimisticNext === "following",
+      requested: optimisticNext === "requested",
+      followerCount: Math.max(0, current.followerCount + (optimisticNext === "following" ? 1 : 0) - (wasFollowing ? 1 : 0)),
+    }));
+    try { await toggleAuthorFollow(client, userId, profile.id, { currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private }); }
+    catch (e) {
+      patchSummary((current) => ({ ...current, following: wasFollowing, requested: wasRequested }));
+      setError(e instanceof Error ? e.message : "ติดตามไม่สำเร็จ");
+      showToast("ติดตามไม่สำเร็จ ลองใหม่อีกครั้ง");
+    }
     finally { setAction(false); }
   };
   const startChat = async () => {
@@ -244,6 +263,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><ImageIcon size={20} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><Repeat2 size={20} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><Heart size={20} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
     {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><X size={20} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <CheckCircle2 size={21} /> : managingAccounts ? <button className="profile-account-remove" type="button" onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
     {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><X size={20} /></button></header><button type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
+    <Toast message={toastMessage} />
   </AppChrome>;
 }
 

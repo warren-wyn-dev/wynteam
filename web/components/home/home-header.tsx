@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import { Bell, Menu, Search } from "lucide-react";
+import Image from "next/image";
 
 /**
  * Home's header. Keeps the same functions and tap targets while refreshing the
@@ -43,7 +43,7 @@ export function HomeHeader({
       </button>
 
       <div className="wyn-home-wordmark" style={{ gap: 7 }}>
-        <img className="wyn-home-logo" style={{ width: 18, height: 18 }} src="/wynos_logo_mark.png" alt="" />
+        <Image className="wyn-home-logo" style={{ width: 18, height: 18 }} src="/wynos_logo_mark.png" alt="" width={18} height={18} priority />
         <strong
           className="wyn-home-title"
           style={{ fontSize: 18, fontWeight: 700, letterSpacing: "1.6px" }}
