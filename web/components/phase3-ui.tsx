@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -11,6 +11,10 @@ import { GoldenDropCard } from "@/components/golden-drop-card";
 import type { HomeFeedRow } from "@/lib/feed";
 import type { ProfileRow } from "@/lib/phase3-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+type NotificationCountCacheEntry = { count: number; updatedAt: number };
+const notificationCountCache = new Map<string, NotificationCountCacheEntry>();
+const NOTIFICATION_CACHE_MS = 15_000;
 
 export function Avatar({ src, label, size = 42 }: { src?: string | null; label: string; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -37,7 +41,9 @@ export function AppChrome({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const router = useRouter();
+  const cachedNotifications = notificationCountCache.get(userId);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(() => cachedNotifications?.count ?? 0);
   const primaryClubOrChatRoute = pathname === "/clubs" || pathname === "/chat";
   const inferredRootNav = pathname === "/" || primaryClubOrChatRoute || pathname === "/search" || pathname === "/notifications" || pathname.startsWith("/profile/");
   // Club and Chat are canonical root destinations in the latest navigation.
@@ -46,6 +52,12 @@ export function AppChrome({
   const bottomNavVisible = primaryClubOrChatRoute ? true : showBottomNav ?? inferredRootNav;
   const notificationRouteActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
   const activeFor = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+
+  useEffect(() => {
+    // The static root destinations are prefetched by AppNavigationRuntime.
+    // Profile is user-specific, so warm it as soon as AppChrome knows the id.
+    if (userId) router.prefetch(`/profile/${userId}`);
+  }, [router, userId]);
 
   useEffect(() => {
     let live = true;
@@ -58,9 +70,16 @@ export function AppChrome({
         .select("id", { count: "exact", head: true })
         .eq("recipient_id", userId)
         .eq("is_read", false);
-      if (live && !result.error) setUnreadNotificationCount(result.count ?? 0);
+      if (live && !result.error) {
+        const count = result.count ?? 0;
+        notificationCountCache.set(userId, { count, updatedAt: Date.now() });
+        setUnreadNotificationCount(count);
+      }
     };
-    void load();
+
+    const cached = notificationCountCache.get(userId);
+    if (!cached || Date.now() - cached.updatedAt >= NOTIFICATION_CACHE_MS) void load();
+
     const onFocus = () => void load();
     window.addEventListener("focus", onFocus);
     return () => {
