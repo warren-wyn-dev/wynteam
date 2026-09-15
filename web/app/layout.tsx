@@ -26,6 +26,7 @@ import "./pixel-parity-audit-closure.css";
 import "./bottom-nav.css";
 import "./home.css";
 import "./design-system.css";
+import "./auth-reference.css";
 
 export const metadata: Metadata = {
   title: "WYNOS",

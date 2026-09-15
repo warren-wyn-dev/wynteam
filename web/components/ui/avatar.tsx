@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 export type AvatarVariant = "person" | "club" | "clubBanner";
+export type AvatarElement = "span" | "div";
 
 export type AvatarProps = {
   src?: string | null;
@@ -9,6 +10,7 @@ export type AvatarProps = {
   size?: number;
   variant?: AvatarVariant;
   className?: string;
+  as?: AvatarElement;
 };
 
 export function Avatar({
@@ -18,10 +20,11 @@ export function Avatar({
   size = 44,
   variant = "person",
   className,
+  as = "span",
 }: AvatarProps) {
   const style = {
     "--wyn-avatar-size": `${size}px`,
-    ...(src ? { backgroundImage: `url(${JSON.stringify(src)})` } : {}),
+    ...(src ? { backgroundImage: `url(${src})` } : {}),
   } as CSSProperties;
 
   const classes = [
@@ -34,9 +37,11 @@ export function Avatar({
     .filter(Boolean)
     .join(" ");
 
+  const Element = as;
+
   return (
-    <span aria-label={alt} className={classes} role="img" style={style}>
+    <Element aria-label={alt} className={classes} role="img" style={style}>
       {src ? null : fallback?.slice(0, 2).toUpperCase()}
-    </span>
+    </Element>
   );
 }

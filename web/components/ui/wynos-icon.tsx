@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import {
-  ArrowLeft,
+  Camera,
+  ChevronLeft,
   Heart,
   House,
   MessageCircle,
@@ -11,7 +12,8 @@ import {
 } from "lucide-react";
 
 const iconMap = {
-  back: ArrowLeft,
+  back: ChevronLeft,
+  camera: Camera,
   chat: MessageCircle,
   club: UsersRound,
   comment: MessageCircle,
@@ -34,5 +36,5 @@ type WynosIconProps = Omit<ComponentProps<typeof House>, "name"> & {
  */
 export function WynosIcon({ name, size = 20, strokeWidth = 1.8, ...props }: WynosIconProps) {
   const Icon = iconMap[name];
-  return <Icon {...props} aria-hidden="true" fill="none" size={size} strokeWidth={strokeWidth} />;
+  return <Icon aria-hidden="true" fill="none" size={size} strokeWidth={strokeWidth} {...props} />;
 }
