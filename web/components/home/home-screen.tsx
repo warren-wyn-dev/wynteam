@@ -1,7 +1,7 @@
 "use client";
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { Bookmark, Flag, Quote, Repeat2, Share2, X } from "lucide-react";
+import { Bookmark, ChevronRight, Flag, Quote, Repeat2, Share2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
@@ -289,6 +289,7 @@ export function HomeScreen({ session }: { session: Session }) {
     }
   };
 
+  // Legacy product contract name: Quote ReDrop.
   const quoteRedrop = async () => {
     if (!client || !selected || !quote.trim() || busy) return;
     setBusy(true);
@@ -305,7 +306,7 @@ export function HomeScreen({ session }: { session: Session }) {
       setSelected(null);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Quote ReDrop ไม่สำเร็จ");
+      setError(e instanceof Error ? e.message : "รีโพสต์พร้อมความคิดเห็นไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -516,19 +517,42 @@ export function HomeScreen({ session }: { session: Session }) {
 
       {selected && sheet === "redrop" ? (
         <ActionSheet label="รีโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
-          <button className="audit-sheet-row" type="button" onClick={() => void redrop(selected)}>
-            <Repeat2 size={20} />{viewer?.redroppedDropIds.has(selected.id) ? "ยกเลิก ReDrop" : "ReDrop"}
-          </button>
-          <button className="audit-sheet-row" type="button" onClick={() => setSheet("quote")}>
-            <Quote size={20} />Quote ReDrop
-          </button>
+          <div className="wyn-redrop-sheet-options">
+            <button className="wyn-redrop-sheet-option is-primary" type="button" onClick={() => void redrop(selected)}>
+              <span className="wyn-redrop-sheet-icon" aria-hidden="true"><Repeat2 size={28} /></span>
+              <span className="wyn-redrop-sheet-copy">
+                <strong>{viewer?.redroppedDropIds.has(selected.id) ? "ยกเลิกรีโพสต์" : "รีโพสต์"}</strong>
+                <small>
+                  {viewer?.redroppedDropIds.has(selected.id)
+                    ? "นำโพสต์นี้ออกจากโปรไฟล์ของคุณ"
+                    : "แชร์โพสต์นี้ไปยังโปรไฟล์ของคุณ"}
+                </small>
+              </span>
+              <ChevronRight className="wyn-redrop-sheet-chevron" size={22} aria-hidden="true" />
+            </button>
+            <button className="wyn-redrop-sheet-option is-quote" type="button" onClick={() => setSheet("quote")}>
+              <span className="wyn-redrop-sheet-icon" aria-hidden="true"><Quote size={28} /></span>
+              <span className="wyn-redrop-sheet-copy">
+                <strong>รีโพสต์พร้อมความคิดเห็น</strong>
+                <small>แชร์โพสต์นี้พร้อมเพิ่มความคิดเห็นของคุณ</small>
+              </span>
+              <ChevronRight className="wyn-redrop-sheet-chevron" size={22} aria-hidden="true" />
+            </button>
+            <button
+              className="wyn-redrop-sheet-cancel"
+              type="button"
+              onClick={() => { setSheet(null); setSelected(null); }}
+            >
+              ยกเลิก
+            </button>
+          </div>
         </ActionSheet>
       ) : null}
 
       {selected && sheet === "quote" ? (
-        <ActionSheet label="Quote ReDrop" onClose={() => { setSheet(null); setSelected(null); setQuote(""); }}>
+        <ActionSheet label="รีโพสต์พร้อมความคิดเห็น" onClose={() => { setSheet(null); setSelected(null); setQuote(""); }}>
           <div className="audit-sheet-form">
-            <strong>Quote ReDrop</strong>
+            <strong>รีโพสต์พร้อมความคิดเห็น</strong>
             <textarea
               maxLength={500}
               autoFocus
