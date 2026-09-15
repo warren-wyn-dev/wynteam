@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, Compass, Heart, Menu, MessageCircle, Plus, Repeat2, Search, UserPlus, UsersRound, X } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, UserPlus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -128,7 +128,6 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | "mentions">("all");
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const load = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true);
@@ -149,6 +148,14 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
     void load(0, false);
   }, [load]);
 
+  const closeNotifications = () => {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/");
+  };
+
   const open = (row: NotificationRow) => {
     if (row.conversation_id) { router.push(`/chat/${row.conversation_id}${row.actor_id ? `?user=${encodeURIComponent(row.actor_id)}` : ""}`); return; }
     if (row.drop_id) { router.push(`/drop/${row.drop_id}`); return; }
@@ -159,19 +166,13 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
 
   const visible = tab === "mentions" ? rows.filter(isMention) : rows;
   const sections = useMemo(() => buildSections(visible), [visible]);
-  const menuRows = [
-    ["สำรวจ Club", Compass, "/clubs"],
-    ["สร้าง Club", Plus, "/clubs/new"],
-    ["Club ของฉัน", UsersRound, "/clubs?mine=1"],
-    ["บันทึกไว้", Bookmark, "/bookmarks"],
-  ] as const;
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
       <header className="notification-root-header">
-        <button type="button" aria-label="เมนู" onClick={() => setDrawerOpen(true)}><Menu size={22} /></button>
+        <button type="button" aria-label="ออกจากการแจ้งเตือน" onClick={closeNotifications}><X size={22} strokeWidth={2} /></button>
         <strong>การแจ้งเตือน</strong>
-        <button type="button" aria-label="ค้นหา" onClick={() => router.push("/search")}><Search size={21} /></button>
+        <span aria-hidden="true" />
       </header>
       <div className="flutter-notification-tabs">
         <button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>ทั้งหมด</button>
@@ -212,26 +213,6 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
           ) : null}
         </div>
       )}
-
-      {drawerOpen ? (
-        <div className="home-drawer-backdrop" role="presentation" onClick={() => setDrawerOpen(false)}>
-          <aside className="home-drawer" role="dialog" aria-modal="true" aria-label="เมนู" onClick={(event) => event.stopPropagation()}>
-            <div className="home-drawer-close"><button className="icon-button" type="button" aria-label="ปิด" onClick={() => setDrawerOpen(false)}><X size={22} /></button></div>
-            <button className="drawer-identity notification-drawer-identity" type="button" onClick={() => router.push(`/profile/${userId}`)}>
-              <Avatar label="WYNOS" size={56} />
-              <span className="drawer-identity-copy"><strong>โปรไฟล์ของฉัน</strong><small>เปิดโปรไฟล์</small></span>
-            </button>
-            <div className="drawer-divider" />
-            <div className="drawer-menu-list">
-              {menuRows.map(([label, Icon, href]) => (
-                <button className="drawer-menu-row" type="button" onClick={() => { setDrawerOpen(false); router.push(href); }} key={label}>
-                  <span className="drawer-menu-icon"><Icon size={19} /></span><span>{label}</span>
-                </button>
-              ))}
-            </div>
-          </aside>
-        </div>
-      ) : null}
     </AppChrome>
   );
 }
