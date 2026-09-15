@@ -24,8 +24,8 @@ export function HomeTabs({
       role="tablist"
       aria-label="ฟีด"
       style={{
-        height: 52,
-        padding: "5px 10px 7px",
+        height: 44,
+        padding: "3px 10px 5px",
         gap: 4,
         boxSizing: "border-box",
       }}
@@ -42,11 +42,11 @@ export function HomeTabs({
             key={item.key}
             style={{
               height: "100%",
-              borderRadius: 14,
+              borderRadius: 12,
               background: active ? "var(--wyn-surface)" : "transparent",
               color: active ? "var(--wyn-text)" : "var(--wyn-text-secondary)",
-              fontSize: 14,
-              fontWeight: active ? 700 : 500,
+              fontSize: 16,
+              fontWeight: active ? 700 : 600,
               transition: "background-color 140ms ease, color 140ms ease",
             }}
           >
