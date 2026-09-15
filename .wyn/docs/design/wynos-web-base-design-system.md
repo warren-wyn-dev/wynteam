@@ -1,7 +1,7 @@
 # WYNOS Web Base Design System
 
 Status: implementation prepared on a non-production branch
-Scope: reusable web primitives only; no existing screen has been migrated to these primitives yet
+Scope: reusable web primitives plus the Founder-supplied six-screen auth reference flow
 Target: `web/` (Next.js 16 + React 19 + TypeScript + existing CSS architecture)
 
 ## Founder direction — 2026-09-15
@@ -22,19 +22,35 @@ Accent red is reserved for like state, attached-media/status emphasis, and warni
 ## Base primitives
 
 - `Button`: primary black and outline variants; pill (`999px`) or rounded (`12px`) geometry; 50px default and 44px compact heights.
-- `Input`: 44px height, `1px #D0D0D0` border, 10px radius, optional label/hint/error affordances.
-- `Avatar`: circular person avatar; rounded square club avatar; optional 16:9 club banner variant.
+- `Input`: 44px height, `1px #D0D0D0` border, 10px radius, optional label/hint/error affordances. A bare-control mode supports source-parity DOM composition.
+- `Avatar`: circular person avatar; rounded square club avatar; optional 16:9 club banner variant. Root may render as `span` or `div` for source-parity composition.
 - `PostCard`: avatar + author/time + text/media slot + Like/Comment/Repost actions.
 - `BottomNav`: Home, Clubs, central black circular Post action, Chat, Profile.
 - `TopBar`: back action, centered title, right-side action slot.
-- `WynosIcon`: semantic mapping to `lucide-react`; stroke icons only, no filled icon treatment.
+- `WynosIcon`: semantic mapping to `lucide-react`; stroke icons only, no filled icon treatment. Back uses a chevron matching the supplied HTML references and Camera is available for onboarding.
+
+## Six-screen auth reference flow
+
+The supplied HTML screens are converted to React components in `web/components/auth-flow/screens.tsx`. Source geometry, spacing, colors and element hierarchy are preserved through the scoped `web/app/auth-reference.css` layer while shared controls come from the base design system.
+
+Routes:
+
+- `/welcome`
+- `/signup/step-1`
+- `/signup/step-2`
+- `/onboarding/profile`
+- `/login`
+- `/forgot-password`
+
+The hidden App Router group `(auth-flow)` owns a shared `SignupDraftProvider`. Signup step 1 and step 2 therefore share one in-memory draft while the user moves forward/back within the flow. Password values are not written to `localStorage` or `sessionStorage`.
+
+`web/tests/browser/auth-reference-flow.spec.ts` covers all six routes, source geometry for the phone/topbar/button/input, route wiring, and signup state retention after using the in-flow back button.
 
 ## Implementation notes
 
 - Existing consumer web does not use Tailwind, so this layer uses the project's current CSS approach instead of adding a new styling dependency.
-- New semantic variables are prefixed `--wyn-*` and component classes are prefixed `wyn-` to avoid collisions with existing Beta4/parity CSS.
-- `web/app/design-system.css` is loaded globally so primitives are ready for adoption without per-page CSS imports.
-- No production deployment, route behavior, data flow, Supabase schema, authentication, or existing page composition is changed by this base-component batch.
+- New semantic variables remain prefixed `--wyn-*`; the auth-reference CSS is scoped under `.auth-ref-viewport` to avoid collisions with Beta4/parity surfaces.
+- No production deployment, Supabase schema, authentication backend, or existing home/feed/profile behavior is changed by this batch.
 
 ## Adoption rule
 
