@@ -1,4 +1,4 @@
-import { Heart, MessageSquare } from "lucide-react";
+import { Heart, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
 import { Avatar } from "@/components/phase3-ui";
@@ -77,26 +77,19 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
             ))}
           </div>
         ) : null}
-        <div
-          className="wyn-post-actions"
-          style={{
-            margin: "8px 0 12px",
-            width: "100%",
-            gap: 22,
-          }}
-        >
+        <div className="wyn-post-actions wyn-threads-actions">
           <button
             className={`wyn-action-button ${post.liked_by_me ? "is-liked" : ""}`}
             type="button"
             aria-label={post.liked_by_me ? "เลิกถูกใจ" : "ถูกใจ"}
             onClick={onLike}
           >
-            <Heart size={24} fill={post.liked_by_me ? "currentColor" : "none"} />
-            <span className="wyn-action-button-count">{post.like_count}</span>
+            <Heart size={24} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} />
+            {post.like_count > 0 ? <span className="wyn-action-button-count">{post.like_count}</span> : null}
           </button>
           <Link className="wyn-action-button" href={`/club-post/${post.id}`} aria-label="ความคิดเห็น">
-            <MessageSquare size={24} />
-            <span className="wyn-action-button-count">{post.comment_count}</span>
+            <MessageCircle size={24} strokeWidth={2} />
+            {post.comment_count > 0 ? <span className="wyn-action-button-count">{post.comment_count}</span> : null}
           </Link>
         </div>
       </div>
