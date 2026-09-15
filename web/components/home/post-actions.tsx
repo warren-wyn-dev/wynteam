@@ -1,4 +1,4 @@
-import { Heart, MessageSquare, Repeat2, Send } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Send } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -30,21 +30,25 @@ export function PostActions({
   onShare: () => void;
   modernFeed?: boolean;
 }) {
-  const pillBase = modernFeed
+  const modernActionBase = modernFeed
     ? {
-        flex: "1 1 0",
-        minWidth: 0,
-        height: 40,
-        padding: "0 10px",
+        minWidth: 38,
+        height: 38,
+        padding: 0,
         margin: 0,
-        border: "1px solid var(--wyn-border)",
+        border: 0,
         borderRadius: 999,
-        background: "var(--wyn-bg)",
+        background: "transparent",
         justifyContent: "center",
-        gap: 7,
-        transition: "background 160ms ease, color 160ms ease, border-color 160ms ease",
+        gap: 4,
+        color: "var(--wyn-text)",
+        transition: "color 160ms ease, transform 120ms ease",
       }
     : undefined;
+
+  const count = (value: number) => (
+    value > 0 ? <span className="wyn-action-button-count">{value}</span> : null
+  );
 
   return (
     <div
@@ -52,53 +56,54 @@ export function PostActions({
       style={modernFeed ? {
         margin: "8px 0 12px",
         width: "100%",
-        gap: 10,
+        paddingRight: 4,
+        gap: 0,
+        justifyContent: "space-between",
       } : undefined}
     >
       <button
         className={`wyn-action-button ${liked ? "is-liked" : ""}`}
         style={modernFeed ? {
-          ...pillBase,
-          color: liked ? "#ff2d55" : "var(--wyn-text-secondary)",
-          background: liked ? "rgb(255 45 85 / 6%)" : "var(--wyn-bg)",
-          borderColor: liked ? "rgb(255 45 85 / 18%)" : "var(--wyn-border)",
+          ...modernActionBase,
+          color: liked ? "#ff2d55" : "var(--wyn-text)",
         } : undefined}
         type="button"
         aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"}
         onClick={onLike}
       >
-        <Heart size={24} fill={liked ? "currentColor" : "none"} />
-        <span className="wyn-action-button-count">{likeCount}</span>
+        <Heart size={28} strokeWidth={2.05} fill={liked ? "currentColor" : "none"} />
+        {count(likeCount)}
       </button>
       <Link
         className="wyn-action-button"
-        style={pillBase}
+        style={modernActionBase}
         href={commentHref}
         aria-label="ความคิดเห็น"
       >
-        <MessageSquare size={24} />
-        <span className="wyn-action-button-count">{commentCount}</span>
+        <MessageCircle size={28} strokeWidth={2.05} />
+        {count(commentCount)}
       </Link>
       {canRedrop ? (
         <button
           className={`wyn-action-button ${redropped ? "is-active" : ""}`}
           style={modernFeed ? {
-            ...pillBase,
-            color: redropped ? "#0a84ff" : "var(--wyn-text-secondary)",
-            background: redropped ? "rgb(10 132 255 / 6%)" : "var(--wyn-bg)",
-            borderColor: redropped ? "rgb(10 132 255 / 18%)" : "var(--wyn-border)",
+            ...modernActionBase,
+            color: redropped ? "#0a84ff" : "var(--wyn-text)",
           } : undefined}
           type="button"
           aria-label="รีโพสต์"
           onClick={onRedrop}
         >
-          <Repeat2 size={24} />
-          <span className="wyn-action-button-count">{redropCount}</span>
+          <Repeat2 size={28} strokeWidth={2.05} />
+          {count(redropCount)}
         </button>
       ) : null}
       <button
         className="wyn-action-button wyn-action-share"
-        style={pillBase}
+        style={modernFeed ? {
+          ...modernActionBase,
+          minWidth: 38,
+        } : undefined}
         type="button"
         aria-label="แชร์"
         onClick={onShare}
