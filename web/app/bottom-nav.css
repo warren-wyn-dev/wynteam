@@ -8,7 +8,7 @@
  */
 
 .route-bottom-nav {
-  --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 16px);
+  --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 8px);
   position: fixed;
   z-index: 70;
   left: 50%;
