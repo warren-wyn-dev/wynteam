@@ -14,6 +14,113 @@
 .audit-report-list label:last-child { border-bottom: 0; }
 .audit-report-list input { accent-color: var(--sapphire); }
 
+/* Founder-approved ReDrop sheet: premium, Thai-first, large friendly targets. */
+.audit-action-sheet[aria-label="รีโพสต์"] {
+  padding: 8px 0 calc(14px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+}
+
+.audit-action-sheet[aria-label="รีโพสต์"] .audit-sheet-grip {
+  width: 42px;
+  height: 5px;
+  margin: 3px auto 12px;
+  background: #d9dce2;
+}
+
+.wyn-redrop-sheet-options {
+  display: grid;
+  gap: 10px;
+  padding: 0 16px;
+}
+
+.wyn-redrop-sheet-option {
+  width: 100%;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 18px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wyn-redrop-sheet-option.is-primary {
+  background: linear-gradient(135deg, #f4f8ff 0%, #edf5ff 100%);
+}
+
+.wyn-redrop-sheet-option.is-quote {
+  background: linear-gradient(135deg, #f8f5ff 0%, #f1edff 100%);
+}
+
+.wyn-redrop-sheet-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+}
+
+.wyn-redrop-sheet-option.is-primary .wyn-redrop-sheet-icon {
+  color: #0a84ff;
+  background: rgb(10 132 255 / 9%);
+}
+
+.wyn-redrop-sheet-option.is-quote .wyn-redrop-sheet-icon {
+  color: #6f2cff;
+  background: rgb(111 44 255 / 9%);
+}
+
+.wyn-redrop-sheet-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wyn-redrop-sheet-copy strong {
+  font-size: 17px;
+  line-height: 1.25;
+  font-weight: 750;
+  letter-spacing: -0.1px;
+}
+
+.wyn-redrop-sheet-copy small {
+  color: var(--graphite);
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+.wyn-redrop-sheet-chevron {
+  color: #7b8088;
+}
+
+.wyn-redrop-sheet-cancel {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 18px;
+  background: #f3f3f4;
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 700;
+  text-align: center;
+}
+
+.wyn-redrop-sheet-option:active,
+.wyn-redrop-sheet-cancel:active {
+  transform: scale(0.992);
+  filter: brightness(0.985);
+}
+
 .audit-undo-toast { position: fixed; z-index: 150; left: 50%; bottom: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom) + 14px); width: min(calc(100% - 28px), 620px); min-height: 48px; transform: translateX(-50%); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 10px 8px 16px; border-radius: 14px; background: var(--ink); color: var(--paper); box-shadow: 0 10px 28px rgb(18 18 15 / 22%); font-size: 13px; }
 .audit-undo-toast button { min-height: 34px; padding: 0 10px; border: 0; background: transparent; color: var(--paper); font-weight: 700; }
 
