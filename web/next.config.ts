@@ -14,6 +14,13 @@ const supabaseHostname = (() => {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The dev-mode indicator badge is fixed-positioned and, in the narrow
+  // mobile reference-phone viewport used by tests/browser/content-reference-flow.spec.ts,
+  // sits directly over the compose toolbar and intercepts every click there
+  // (see the "compose supports text, poll and image conditional modes" test).
+  // Dev-only UI — never rendered in a production build — so this has no
+  // effect on wynos.online.
+  devIndicators: false,
   images: {
     remotePatterns: [
       ...(supabaseHostname ? [{ protocol: "https" as const, hostname: supabaseHostname }] : []),
