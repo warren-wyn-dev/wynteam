@@ -100,7 +100,12 @@ export function DeveloperRouteGate({
   }, [acceptSession, client]);
 
   useEffect(() => {
-    if (gate === "signed-out") router.replace("/");
+    // Straight to /welcome, not "/": routing through Home first just means
+    // ParityAuthEntry immediately replaces *again* to /welcome once its own
+    // session check lands — a wasted extra hop, and one more chance for that
+    // second replace to race a navigation the user already started in the
+    // meantime.
+    if (gate === "signed-out") router.replace("/welcome");
   }, [gate, router]);
 
   const signOut = useCallback(async () => {
@@ -111,7 +116,7 @@ export function DeveloperRouteGate({
     // (see QueryProvider) so a shared device never shows the previous
     // account's feed/profile/chat data to the next person who signs in.
     queryClient.clear();
-    router.replace("/");
+    router.replace("/welcome");
   }, [client, queryClient, router]);
 
   if (gate === "loading" || gate === "signed-out") {

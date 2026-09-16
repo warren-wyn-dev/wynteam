@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent, type ReactNode } from "react";
 
 import { Avatar, Button, Input, WynosIcon } from "@/components/ui";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
@@ -72,6 +72,14 @@ function formatBirthDateInput(raw: string): string {
   return `${digits.slice(0, 2)} / ${digits.slice(2, 4)} / ${digits.slice(4)}`;
 }
 
+/// A `useSyncExternalStore` snapshot never changes on its own (there is
+/// nothing to subscribe to), so this reads false during SSR/hydration and
+/// true on every client render after — the React-sanctioned way to detect
+/// "hydration finished" without calling setState from inside an effect.
+function subscribeNever() {
+  return () => {};
+}
+
 function AuthPhone({ children }: { children: ReactNode }) {
   return (
     <main className="auth-ref-viewport">
@@ -106,6 +114,7 @@ function Field({
   type,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   name: string;
@@ -113,11 +122,12 @@ function Field({
   type?: string;
   value?: string;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="field">
       <label>{label}</label>
-      <Input bare name={name} placeholder={placeholder} type={type} value={value} onChange={onChange} />
+      <Input bare name={name} placeholder={placeholder} type={type} value={value} onChange={onChange} disabled={disabled} />
     </div>
   );
 }
@@ -270,6 +280,16 @@ export function SignupStep1Screen() {
   const supabase = getSupabaseBrowserClient();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // These fields are SSR'd with an empty controlled value (the signup draft
+  // is client-only state). If a keystroke lands in the gap between the
+  // static HTML becoming interactive and React finishing hydration, React
+  // has no record of it and silently resets the field back to that empty
+  // value once hydration catches up — losing whatever was typed with no
+  // visible error. Keeping the fields disabled until mount closes that gap:
+  // disabled inputs don't accept keystrokes at all, and Playwright's own
+  // actionability check already waits for a field to become enabled before
+  // it will interact with it, so this needs no test-side change either.
+  const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
   const update = (key: keyof SignupDraft) => (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setDraft((current) => ({ ...current, [key]: value }));
@@ -351,13 +371,13 @@ export function SignupStep1Screen() {
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 44, border: "1px solid var(--border-strong)", borderRadius: 10, padding: "0 14px" }}>
             <span style={{ color: "var(--text-muted)" }}>@</span>
-            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} style={{ border: "none", outline: "none", flex: 1, fontSize: 14 }} />
+            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", flex: 1, fontSize: 14 }} />
           </div>
         </div>
-        <Field label="ชื่อที่แสดง" name="displayName" placeholder="ชื่อของคุณ" value={draft.displayName} onChange={update("displayName")} />
+        <Field label="ชื่อที่แสดง" name="displayName" placeholder="ชื่อของคุณ" value={draft.displayName} onChange={update("displayName")} disabled={!mounted} />
         <div className="field">
           <label>วันเกิด</label>
-          <Input bare inputMode="numeric" name="birthDate" placeholder="วว / ดด / ปปปป" value={draft.birthDate} onChange={updateBirthDate} />
+          <Input bare inputMode="numeric" name="birthDate" placeholder="วว / ดด / ปปปป" value={draft.birthDate} onChange={updateBirthDate} disabled={!mounted} />
         </div>
         <Button className="btn-primary" disabled={loading} onClick={() => void goNext()} style={{ marginTop: 10 }}>{loading ? "กำลังดำเนินการ…" : "หน้าถัดไป"}</Button>
         <ErrorText>{error}</ErrorText>
