@@ -940,3 +940,18 @@ toolchain จริงใน environment ให้ตรวจ lint/type/build �
 Flutter SDK; ต้องมี test runner ที่ตรงกับ CI ก่อนจึงจะเปลี่ยน broad shared widgets ได้อย่างปลอดภัย
 
 อ้างอิง: `.wyn/tasks/active/WYN-141-frontend-ux-ui-system.md`, commit ก่อนหน้า `455f303`
+
+## [2026-09-16] WYN Web Beta1 — Founder กลับคำสั่งการจัดวาง bottom navigation หลังดูของจริงบนมือถือ
+
+หลังจาก PR #468 (mobile app feel) deploy ขึ้น production แล้ว Founder เปิดดูของจริงบนมือถือและสั่งกลับ
+bottom navigation จาก Home/Search/Post/Notification/Profile (ที่ #468 เปลี่ยนไป โดยย้าย Chat ไปไว้ที่
+header แทน) กลับเป็นชุดเดิมก่อน #468: **หน้าหลัก/คลับ/โพสต์/แชท/โปรไฟล์** ที่แถบล่าง และ **ค้นหา/การแจ้งเตือน**
+ที่มุมขวาบนของ header
+
+ถือเป็นการยืนยันแบบถาวรว่า Chat ต้องอยู่ในแถบ bottom nav หลัก ไม่ใช่ header — การตีความ "Notification"
+ในคำสั่งเดิมของ WYN-158 (mobile app feel) ว่าต้องแทนที่ Chat ในแถบล่างนั้นผิด แก้โดย revert
+`components/bottom-navigation.tsx` และ `components/home/home-header.tsx` กลับไปเป็น state ของ PR #467
+(ก่อน #468 แตะต้อง) ทั้งหมด ไม่มีการเปลี่ยน PWA/animation/touch-target อื่นที่ #468 ทำไว้
+
+อ้างอิง: PR #469, commit `73babdb`, `.wyn/logs/deployments/2026-09-16-web-mobile-app-feel-deploy.md`,
+`.wyn/logs/deployments/2026-09-16-web-bottom-nav-revert-deploy.md`
