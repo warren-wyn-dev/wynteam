@@ -46,5 +46,10 @@ import "./skeleton.css";
 // launch a home-screen icon in standalone mode instead of inside Safari's
 // own browser chrome. Added back explicitly via `other`.
 export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS"},other:{"apple-mobile-web-app-capable":"yes"}};
-export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
+// maximumScale/userScalable: 1 disables pinch-zoom. Native apps (and the
+// Flutter build this web app mirrors) never let a user pinch-zoom the UI —
+// only a standalone-launched web app, still carrying a plain browser
+// viewport, does. Without this it's the one thing that gives away "this is
+// a website" even from the home-screen icon.
+export const viewport:Viewport={width:"device-width",initialScale:1,maximumScale:1,userScalable:false,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition></QueryProvider></body></html>}
