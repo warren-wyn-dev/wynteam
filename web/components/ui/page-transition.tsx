@@ -16,9 +16,14 @@ import { usePathname } from "next/navigation";
  * offset) on an ancestor would create a new containing block for those
  * fixed-position descendants and make the nav jump during the transition —
  * opacity doesn't have that side effect, so it's the only property animated
- * here. `mode="wait"` keeps exactly one page's DOM mounted at a time (the
- * short duration below keeps the resulting gap imperceptible) instead of
- * letting the outgoing and incoming full-page trees overlap in normal flow.
+ * here. `mode="wait"` keeps exactly one page's DOM mounted at a time instead
+ * of letting the outgoing and incoming full-page trees overlap in normal
+ * flow — but it runs the exit and enter fades sequentially, not together, so
+ * the total dip-to-transparent-and-back is 2x the duration below. Now that
+ * navigation itself is usually instant (see lib/mount-cache.ts), that
+ * became the only thing still reading as a "flicker" on every page change,
+ * so the duration is kept just long enough to avoid an instant jarring cut,
+ * not to be a visible animation.
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -29,7 +34,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.16, ease: "easeOut" }}
+        transition={{ duration: 0.07, ease: "easeOut" }}
       >
         {children}
       </motion.div>
