@@ -955,3 +955,33 @@ header แทน) กลับเป็นชุดเดิมก่อน #468
 
 อ้างอิง: PR #469, commit `73babdb`, `.wyn/logs/deployments/2026-09-16-web-mobile-app-feel-deploy.md`,
 `.wyn/logs/deployments/2026-09-16-web-bottom-nav-revert-deploy.md`
+
+## [2026-09-16] WYNOS Web Beta1 — เปิด Dark Mode เฉพาะฝั่งเว็บ (ยกเว้นจาก WYN-071 light-only)
+
+Founder ขอปรับ design ของเว็บให้พรีเมียมและสม่ำเสมอ (font/spacing/radius/dark mode) ตรวจสอบโค้ดเดิมก่อน
+พบว่า 2 ใน 4 ข้อขัดกับมติถาวรที่ยืนยันซ้ำแล้ว: (1) ฟอนต์ระบบ ไม่ใช่ Fraunces/Inter — Founder กลับมติเอง
+2026-08-30 หลังลองแล้ว, ย้ำอีกครั้ง 2026-09-03/WYN-107, WYN-113; (2) WYNOS ships light-only, ไม่มี dark
+mode — WYN-071, 2026-08-24 (`WynApp` forces `ThemeMode.light` ใน Flutter)
+
+ถามกลับ Founder ก่อนแก้: เลือก "ทำเฉพาะ dark mode ก่อน คงฟอนต์เดิม" — คือ **ยกเว้น WYN-071 เฉพาะฝั่ง WYNOS
+Web Beta1** เปิด dark mode ผ่าน CSS variable + `prefers-color-scheme` โดยคงฟอนต์ระบบเดิมตามมติเดิมทุก
+ประการ (ไม่แตะ Fraunces/Inter อีก) การยกเว้นนี้ **ไม่ครอบคลุม Flutter app** — `WynApp` ยังคง forces
+`ThemeMode.light` เหมือนเดิม, WYN-071 ยังมีผลกับ Flutter เต็มรูปแบบ
+
+Dark palette ของเว็บใช้ค่าสีเดิมที่ `app/lib/core/design/wyn_colors.dart` เตรียมไว้แล้ว (WynColors.white/
+bgDark/surfaceDark/surfaceMutedDark/borderSubtleDark/borderStrongDark — คอมเมนต์ในไฟล์เดิมระบุว่า "kept
+for a future dark-mode decision to revisit") ไม่ได้คิดสีใหม่ sapphire/like-red คงค่าเดิมไม่เปลี่ยนตามธีม
+เหมือนที่ Flutter's dark ColorScheme ทำอยู่แล้ว
+
+ระหว่างตรวจโค้ดพบบั๊กแฝง 8 จุดที่ hardcode สีขาวคู่กับพื้นหลังที่จะเปลี่ยนเป็นขาวเองใน dark mode (ปุ่ม
+FAB/compose-submit/chat bubble ขาออก/notification badge ฯลฯ) — แก้ให้ใช้ CSS variable ที่กลับสีถูกต้องแทน
+ไม่ใช่ dark-mode regression แต่เป็น latent bug ที่เพิ่งมองเห็นตอนเปิด dark mode จริง
+
+ส่วน spacing/radius: พบว่า Flutter มี canonical scale อยู่แล้ว (`app/lib/core/design/wyn_spacing.dart`:
+4/8/12/16/20/24/32/40/48px, radius 0/8/12/16/999) — ประกาศเป็น CSS variable ใน `globals.css` และ apply
+กับจุดที่ค่าตรงกับ canon อยู่แล้ว (ไม่เปลี่ยนภาพที่แสดงผล) ส่วนไฟล์ parity/audit/golden/lock (~25 ไฟล์) ที่
+ค่า pixel ถูกจับคู่กับ Flutter อย่างจงใจ **ไม่แตะ** เพื่อไม่ให้กระทบ visual-regression test ที่มีอยู่
+
+อ้างอิง: PR #471 (ตามหลัง #470), `.wyn/logs/deployments/2026-09-16-web-dark-mode-design-pass-deploy.md`,
+`app/lib/core/design/wyn_colors.dart`, `app/lib/core/design/wyn_spacing.dart`, `.wyn/company/DECISIONS.md`
+(2026-08-24 WYN-071, 2026-08-30, 2026-09-03 WYN-107)

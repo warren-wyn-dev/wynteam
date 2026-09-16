@@ -125,7 +125,7 @@
   padding: 1px 4px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: var(--wyn-radius-sm);
   background: #dc2626;
   color: #fff;
   font-size: 10px;
