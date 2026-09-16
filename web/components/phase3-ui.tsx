@@ -9,12 +9,9 @@ import { useEffect, useState } from "react";
 import { usePublishBottomNav } from "@/components/app-bottom-nav-runtime";
 import { GoldenDropCard } from "@/components/golden-drop-card";
 import type { HomeFeedRow } from "@/lib/feed";
+import { useUnreadNotificationCount } from "@/lib/notification-count";
 import type { ProfileRow } from "@/lib/phase3-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-type NotificationCountCacheEntry = { count: number; updatedAt: number };
-const notificationCountCache = new Map<string, NotificationCountCacheEntry>();
-const NOTIFICATION_CACHE_MS = 15_000;
 
 export function Avatar({ src, label, size = 42 }: { src?: string | null; label: string; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -54,8 +51,6 @@ export function AppChrome({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const cachedNotifications = notificationCountCache.get(userId);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(() => cachedNotifications?.count ?? 0);
   const primaryClubOrChatRoute = pathname === "/clubs" || pathname === "/chat";
   const inferredRootNav = pathname === "/" || primaryClubOrChatRoute || pathname === "/search" || pathname === "/notifications" || pathname.startsWith("/profile/");
   // Club and Chat are canonical root destinations in the latest navigation.
@@ -70,35 +65,7 @@ export function AppChrome({
     if (userId) router.prefetch(`/profile/${userId}`);
   }, [router, userId]);
 
-  useEffect(() => {
-    let live = true;
-    if (!bottomNavVisible || notificationRouteActive) return () => { live = false; };
-    const client = getSupabaseBrowserClient();
-    if (!client || !userId) return () => { live = false; };
-    const load = async () => {
-      const result = await client
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("recipient_id", userId)
-        .eq("is_read", false);
-      if (live && !result.error) {
-        const count = result.count ?? 0;
-        notificationCountCache.set(userId, { count, updatedAt: Date.now() });
-        setUnreadNotificationCount(count);
-      }
-    };
-
-    const cached = notificationCountCache.get(userId);
-    if (!cached || Date.now() - cached.updatedAt >= NOTIFICATION_CACHE_MS) void load();
-
-    const onFocus = () => void load();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      live = false;
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [bottomNavVisible, notificationRouteActive, userId]);
-
+  const unreadNotificationCount = useUnreadNotificationCount(getSupabaseBrowserClient(), userId, bottomNavVisible && !notificationRouteActive);
   const visibleUnreadNotificationCount = notificationRouteActive ? 0 : unreadNotificationCount;
   const notificationLabel = visibleUnreadNotificationCount > 0
     ? `การแจ้งเตือน มี ${visibleUnreadNotificationCount} รายการที่ยังไม่อ่าน`

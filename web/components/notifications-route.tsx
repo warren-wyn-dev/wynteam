@@ -9,6 +9,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { relativeTimeTh } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { markNotificationsRead } from "@/lib/notification-count";
 import { fetchNotifications, markAllNotificationsRead, type NotificationRow } from "@/lib/phase3-data";
 
 type NotificationsSnapshot = { rows: NotificationRow[]; unreadSnapshot: Set<string>; page: number; hasMore: boolean };
@@ -147,7 +148,10 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
       setRows((current) => append ? [...current, ...next] : next);
       setPage(nextPage);
       setHasMore(next.length === 30);
-      if (!append) void markAllNotificationsRead(client, userId).catch(() => undefined);
+      if (!append) {
+        markNotificationsRead(userId);
+        void markAllNotificationsRead(client, userId).catch(() => undefined);
+      }
     } finally {
       setLoading(false);
     }

@@ -32,11 +32,11 @@ import { fetchHomeSurfaceRows } from "@/lib/home-feed-sources";
 import {
   fetchClubHomePosts,
   fetchHomeIdentity,
-  fetchHomeNotificationBadge,
   toggleClubPostLike,
   type ClubHomePost,
   type HomeIdentity,
 } from "@/lib/home-parity-data";
+import { useUnreadNotificationCount } from "@/lib/notification-count";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 // These are heavy, interaction-only overlays (composer with image/poll
@@ -101,7 +101,6 @@ type HomeScreenStore = {
   mode: HomeFeedMode;
   visibleMode: HomeFeedMode;
   identity: HomeIdentity | null;
-  notificationBadge: number;
 };
 
 // Kept at module scope (outside the component) so it survives HomeScreen
@@ -122,7 +121,6 @@ function getHomeScreenStore(userId: string): HomeScreenStore {
       mode: "for-you",
       visibleMode: "for-you",
       identity: null,
-      notificationBadge: 0,
     };
     homeScreenStores.set(userId, store);
   }
@@ -220,7 +218,6 @@ export function HomeScreen({ session }: { session: Session }) {
   const [viewer, setViewer] = useState<HomeViewerState | null>(() => (initialSnapshot?.kind === "drops" ? initialSnapshot.viewer : null));
   const [images, setImages] = useState<Map<string, string[]>>(() => (initialSnapshot?.kind === "drops" ? initialSnapshot.images : new Map()));
   const [identity, setIdentity] = useState<HomeIdentity | null>(store.identity);
-  const [notificationBadge, setNotificationBadge] = useState(store.notificationBadge);
   const [loading, setLoading] = useState(!initialSnapshot);
   const [error, setError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -258,16 +255,17 @@ export function HomeScreen({ session }: { session: Session }) {
 
   useEffect(() => {
     if (!client) return;
-    void Promise.all([fetchHomeIdentity(client, userId), fetchHomeNotificationBadge(client, userId)])
-      .then(([nextIdentity, badge]) => {
+    void fetchHomeIdentity(client, userId)
+      .then((nextIdentity) => {
         setIdentity(nextIdentity);
-        setNotificationBadge(badge);
-        const persisted = getHomeScreenStore(userId);
-        persisted.identity = nextIdentity;
-        persisted.notificationBadge = badge;
+        getHomeScreenStore(userId).identity = nextIdentity;
       })
       .catch(() => undefined);
   }, [client, userId]);
+
+  // Shares its cache with AppChrome's own root-nav badge (lib/notification-count.ts)
+  // so opening /notifications clears both instantly instead of each polling separately.
+  const notificationBadge = useUnreadNotificationCount(client, userId, true);
 
   const restoreScroll = useCallback((targetMode: HomeFeedMode) => {
     const top = scrollPositions.current[targetMode] ?? 0;

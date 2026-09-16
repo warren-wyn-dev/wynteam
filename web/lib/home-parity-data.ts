@@ -77,20 +77,6 @@ export async function fetchHomeIdentity(
   };
 }
 
-// Same query AppChrome's own bottom-nav badge uses (components/phase3-ui.tsx) —
-// kept as a small, separate helper here since Home's header badge and the
-// root nav's badge are independent UI surfaces that happen to count the
-// same thing.
-export async function fetchHomeNotificationBadge(client: SupabaseClient, userId: string): Promise<number> {
-  const result = await client
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("recipient_id", userId)
-    .eq("is_read", false);
-  throwIfError(result.error);
-  return Math.max(0, result.count ?? 0);
-}
-
 async function fetchClubPostRows(
   client: SupabaseClient,
   userId: string,
