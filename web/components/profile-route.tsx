@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, CheckCircle2, ChevronDown, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Repeat2, Send, Settings, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/account-registry";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
   canViewProfileLikes,
   chatAllowed,
@@ -42,12 +43,18 @@ async function fetchRedrops(client: SupabaseClient, userId: string, page: number
   return (result.data ?? []) as HomeFeedRow[];
 }
 
+type ProfileFeedSnapshot = { rows: HomeFeedRow[]; page: number; hasMore: boolean; allowed: boolean };
+
 function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; profileId: string; kind: "posts" | "redrops" | "likes" }) {
-  const [rows, setRows] = useState<HomeFeedRow[]>([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [allowed, setAllowed] = useState(true);
+  const cacheKey = `profile-feed:${profileId}:${kind}`;
+  const cached = getMountCache<ProfileFeedSnapshot>(cacheKey);
+  const [rows, setRows] = useState<HomeFeedRow[]>(cached?.rows ?? []);
+  const [page, setPage] = useState(cached?.page ?? 0);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
+  const [loading, setLoading] = useState(!cached);
+  const [allowed, setAllowed] = useState(cached?.allowed ?? true);
+  const allowedRef = useRef(allowed);
+  useEffect(() => { allowedRef.current = allowed; }, [allowed]);
   const load = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true);
     try {
@@ -55,13 +62,18 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
       if (kind === "posts") next = await fetchProfileDrops(client, profileId, nextPage);
       else if (kind === "redrops") next = await fetchRedrops(client, profileId, nextPage);
       else next = await fetchProfileLikedDrops(client, profileId, nextPage);
-      if (kind === "likes" && nextPage === 0 && !next.length) setAllowed(await canViewProfileLikes(client, profileId));
-      setRows((current) => append ? [...current, ...next] : next);
+      if (kind === "likes" && nextPage === 0 && !next.length) { allowedRef.current = await canViewProfileLikes(client, profileId); setAllowed(allowedRef.current); }
+      const nextHasMore = next.length === (kind === "redrops" ? 10 : 21);
+      setRows((current) => {
+        const combined = append ? [...current, ...next] : next;
+        setMountCache(cacheKey, { rows: combined, page: nextPage, hasMore: nextHasMore, allowed: allowedRef.current });
+        return combined;
+      });
       setPage(nextPage);
-      setHasMore(next.length === (kind === "redrops" ? 10 : 21));
+      setHasMore(nextHasMore);
     } catch { setRows([]); }
     finally { setLoading(false); }
-  }, [client, kind, profileId]);
+  }, [client, kind, profileId, cacheKey]);
   useEffect(() => { setAllowed(true); void load(0, false); }, [load]);
   if (loading && !rows.length) return <FeedSkeleton items={2} />;
   if (!allowed) return <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>;

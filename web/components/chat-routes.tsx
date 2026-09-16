@@ -12,6 +12,7 @@ import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/c
 import { Toast, useToast } from "@/components/ui/toast";
 import { relativeTimeTh } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
   acceptMessageRequest,
   chatAllowed,
@@ -134,23 +135,31 @@ function MessageImage({ client, path }: { client: SupabaseClient; path: string }
   return <Image className="message-image" src={url} alt="" width={280} height={330} sizes="280px" />;
 }
 
+type ConversationSnapshot = { other: ProfileRow | null; messages: MessageRow[]; meta: ConversationMeta | null; hasMore: boolean };
+
 function ConversationInner({ client, userId, conversationId }: { client: SupabaseClient; userId: string; conversationId: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const userFromUrl = params.get("user") || "";
+  const cacheKey = `conversation:${userId}:${conversationId}`;
+  const cached = getMountCache<ConversationSnapshot>(cacheKey);
   const [otherId, setOtherId] = useState(userFromUrl);
-  const [other, setOther] = useState<ProfileRow | null>(null);
-  const [messages, setMessages] = useState<MessageRow[]>([]);
-  const [meta, setMeta] = useState<ConversationMeta | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [other, setOther] = useState<ProfileRow | null>(cached?.other ?? null);
+  const [messages, setMessages] = useState<MessageRow[]>(cached?.messages ?? []);
+  const [meta, setMeta] = useState<ConversationMeta | null>(cached?.meta ?? null);
+  const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [draft, setDraft] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const channelRef = useRef<RealtimeChannel | null>(null);
   const { toastMessage, showToast } = useToast();
+
+  useEffect(() => {
+    setMountCache(cacheKey, { other, messages, meta, hasMore });
+  }, [cacheKey, other, messages, meta, hasMore]);
 
   const resolveOther = useCallback(async (): Promise<string> => {
     if (otherId) return otherId;
@@ -265,7 +274,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
 
   return (
     <AppChrome title={other?.display_name?.trim() || other?.username || "ข้อความ"} userId={userId} backHref="/chat" showBottomNav={false}>
-      {loading ? <LoadingState /> : (
+      {loading && !messages.length && !other ? <LoadingState /> : (
         <div className="conversation-page">
           {other ? <Link className="conversation-person" href={`/profile/${other.id}`}><Avatar src={other.avatar_url} label={other.username} /><span><strong>{other.display_name?.trim() || other.username}</strong><small>@{other.username}</small></span></Link> : null}
           {hasMore ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadOlder()}>{loadingMore ? "กำลังโหลด…" : "ดูข้อความก่อนหน้า"}</button> : null}

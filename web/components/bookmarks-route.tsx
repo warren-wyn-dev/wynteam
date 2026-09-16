@@ -6,13 +6,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, DropPreviewCard, EmptyState, LoadingState } from "@/components/phase3-ui";
 import type { HomeFeedRow } from "@/lib/feed";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
+
+type BookmarksSnapshot = { rows: HomeFeedRow[]; page: number; hasMore: boolean };
 
 function BookmarksInner({ client, userId }: { client: SupabaseClient; userId: string }) {
-  const [rows, setRows] = useState<HomeFeedRow[]>([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const cacheKey = `bookmarks:${userId}`;
+  const cached = getMountCache<BookmarksSnapshot>(cacheKey);
+  const [rows, setRows] = useState<HomeFeedRow[]>(cached?.rows ?? []);
+  const [page, setPage] = useState(cached?.page ?? 0);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setMountCache(cacheKey, { rows, page, hasMore });
+  }, [cacheKey, rows, page, hasMore]);
 
   const load = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true); setError("");

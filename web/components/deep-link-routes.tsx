@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
   addDropComment,
   fetchDropComments,
@@ -155,12 +156,31 @@ export function ClubRoute({ clubId }: { clubId: string }) {
   return <DeveloperRouteGate>{({ client, userId }) => <ClubInner client={client} userId={userId} clubId={clubId} />}</DeveloperRouteGate>;
 }
 
+type ClubPostSnapshot = { post: ClubPost; imageUrls: string[] };
+
 function ClubPostInner({ client, userId, postId }: { client: SupabaseClient; userId: string; postId: string }) {
-  const [post, setPost] = useState<ClubPost | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  useEffect(() => { let live = true; void fetchClubPostById(client, postId).then(async (value) => { if (!live) return; setPost(value); if (value && Array.isArray(value.image_urls)) { const urls = await Promise.all(value.image_urls.map(async (path) => (await client.storage.from("club-media").createSignedUrl(String(path), 3600)).data?.signedUrl ?? null)); if (live) setImageUrls(urls.filter((url): url is string => Boolean(url))); } setLoading(false); }).catch(() => { if (live) setLoading(false); }); return () => { live = false; }; }, [client, postId]);
-  if (loading) return <AppChrome title="โพสต์ Club" userId={userId} backHref="/"><LoadingState /></AppChrome>;
+  const cacheKey = `club-post:${userId}:${postId}`;
+  const cached = getMountCache<ClubPostSnapshot>(cacheKey);
+  const [post, setPost] = useState<ClubPost | null>(cached?.post ?? null);
+  const [loading, setLoading] = useState(!cached);
+  const [imageUrls, setImageUrls] = useState<string[]>(cached?.imageUrls ?? []);
+  useEffect(() => {
+    let live = true;
+    void fetchClubPostById(client, postId).then(async (value) => {
+      if (!live) return;
+      setPost(value);
+      let urls: string[] = [];
+      if (value && Array.isArray(value.image_urls)) {
+        const signed = await Promise.all(value.image_urls.map(async (path) => (await client.storage.from("club-media").createSignedUrl(String(path), 3600)).data?.signedUrl ?? null));
+        urls = signed.filter((url): url is string => Boolean(url));
+        if (live) setImageUrls(urls);
+      }
+      if (live && value) setMountCache(cacheKey, { post: value, imageUrls: urls });
+      setLoading(false);
+    }).catch(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [client, postId, cacheKey]);
+  if (loading && !post) return <AppChrome title="โพสต์ Club" userId={userId} backHref="/"><LoadingState /></AppChrome>;
   if (!post) return <AppChrome title="โพสต์ Club" userId={userId} backHref="/"><EmptyState>ไม่พบโพสต์นี้หรือคุณไม่มีสิทธิ์ดู</EmptyState></AppChrome>;
   const authorRaw = post.author; const author = Array.isArray(authorRaw) ? authorRaw[0] as Record<string, unknown> | undefined : authorRaw as Record<string, unknown> | undefined; const clubRaw = post.club; const club = Array.isArray(clubRaw) ? clubRaw[0] as Record<string, unknown> | undefined : clubRaw as Record<string, unknown> | undefined;
   return <AppChrome title={String(club?.name || "โพสต์ Club")} userId={userId} backHref={post.club_id ? `/club/${String(post.club_id)}` : "/"}><article className="club-post-detail"><div className="club-post-author"><Avatar src={author?.avatar_url ? String(author.avatar_url) : null} label={String(author?.username ?? "WYNOS")} /><span><strong>{String(author?.display_name || author?.username || "WYNOS")}</strong><small>{relativeTimeTh(String(post.created_at ?? ""))}</small></span></div>{post.content ? <p>{String(post.content)}</p> : null}{imageUrls.map((url) => <Image src={url} alt="" width={1200} height={1500} style={{ width: "100%", height: "auto" }} sizes="(max-width: 640px) 100vw, 640px" key={url} />)}</article></AppChrome>;
