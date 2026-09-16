@@ -678,7 +678,7 @@ export function HomeScreen({ session }: { session: Session }) {
         <HomeHeader
           notificationBadgeCount={notificationBadge}
           onOpenMenu={() => setDrawerOpen(true)}
-          onOpenChat={() => router.push("/chat")}
+          onOpenSearch={() => router.push("/search")}
           onOpenNotifications={() => router.push("/notifications")}
         />
         <HomeTabs mode={mode} onSelect={switchMode} />

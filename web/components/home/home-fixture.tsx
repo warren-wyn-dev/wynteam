@@ -88,7 +88,7 @@ export function HomeFixture() {
           <HomeHeader
             notificationBadgeCount={3}
             onOpenMenu={() => {}}
-            onOpenChat={() => {}}
+            onOpenSearch={() => {}}
             onOpenNotifications={() => {}}
           />
           <HomeTabs mode={mode} onSelect={setMode} />
