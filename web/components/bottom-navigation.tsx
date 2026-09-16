@@ -3,6 +3,8 @@
 import Link from "next/link";
 import type { MouseEvent } from "react";
 
+import { triggerRouteRefresh } from "@/components/route-refresh-runtime";
+
 /**
  * Root bottom navigation shared by the top-level social routes.
  *
@@ -69,15 +71,22 @@ export function BottomNavigation({
   notificationBadge: string | null;
 }) {
   const homeActive = isActive("/");
-  const handleHomeClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!homeActive) return;
-    // When Home is already selected, tapping its tab again acts like X/Instagram:
-    // return to the top instead of navigating to the same route. Query/hash state
-    // is allowed to navigate normally so e.g. an open composer still closes.
-    if (window.location.pathname !== "/" || window.location.search || window.location.hash) return;
+  const profileActive = isActive(profileHref);
+
+  // When a tab is already selected, tapping it again acts like X/Instagram:
+  // first tap returns to the top instead of navigating to the same route,
+  // and a second tap once already at the top refreshes that page's data.
+  // Query/hash state is allowed to navigate normally so e.g. an open
+  // composer still closes.
+  const handleActiveTabTap = (active: boolean, path: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!active) return;
+    if (window.location.pathname !== path || window.location.search || window.location.hash) return;
     event.preventDefault();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (window.scrollY <= 2) triggerRouteRefresh();
+    else window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  const handleHomeClick = handleActiveTabTap(homeActive, "/");
+  const handleProfileClick = handleActiveTabTap(profileActive, profileHref);
 
   return (
     <nav className="route-bottom-nav" aria-label="เมนูหลัก">
@@ -97,8 +106,8 @@ export function BottomNavigation({
         <MaterialNavGlyph kind="chat" selected={isActive("/chat")} />
         <span>แชท</span>
       </Link>
-      <Link className={`route-nav-link ${isActive(profileHref) ? "active" : ""}`} href={profileHref} aria-label="โปรไฟล์">
-        <MaterialNavGlyph kind="profile" selected={isActive(profileHref)} />
+      <Link className={`route-nav-link ${profileActive ? "active" : ""}`} href={profileHref} aria-label="โปรไฟล์" onClick={handleProfileClick}>
+        <MaterialNavGlyph kind="profile" selected={profileActive} />
         <span>โปรไฟล์</span>
       </Link>
     </nav>

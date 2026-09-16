@@ -22,6 +22,7 @@ import {
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import {
   canViewProfileLikes,
   chatAllowed,
@@ -75,6 +76,7 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
     finally { setLoading(false); }
   }, [client, kind, profileId, cacheKey]);
   useEffect(() => { setAllowed(true); void load(0, false); }, [load]);
+  useRouteRefreshListener(useCallback(() => { void load(0, false); }, [load]));
   if (loading && !rows.length) return <FeedSkeleton items={2} />;
   if (!allowed) return <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>;
   if (!rows.length) return <EmptyState>{kind === "posts" ? "ยังไม่มี Post เลย" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>;
