@@ -228,7 +228,14 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     removeSavedAccount(account.userId);
     setSavedAccounts(listSavedAccounts());
   };
-  if (editing && own) return <AppChrome title="แก้ไขโปรไฟล์" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EditProfile client={client} userId={userId} summary={summary} onDone={() => { setEditing(false); void load(); }} /></AppChrome>;
+  if (editing && own) {
+    const closeEditing = () => { setEditing(false); void load(); };
+    // onBack, not backHref: editing is a local view toggle, not a route
+    // change — the URL never leaves /profile/{userId}, so a backHref equal
+    // to the current pathname would hit AppChrome's same-URL fallback and
+    // hard-reload the page instead of just closing the form.
+    return <AppChrome title="แก้ไขโปรไฟล์" userId={userId} onBack={closeEditing} showBottomNav={false}><EditProfile client={client} userId={userId} summary={summary} onDone={closeEditing} /></AppChrome>;
+  }
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
     <header className="wyn-profile-topbar">
