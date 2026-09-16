@@ -38,6 +38,12 @@ import "./threads-action-row.css";
 import "./profile-home-feed.css";
 import "./notifications-clean.css";
 import "./skeleton.css";
-export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS"}};
+// This Next.js version's `appleWebApp` metadata only emits the generic
+// `mobile-web-app-capable` tag (see node_modules/next/dist/docs/01-app/
+// 03-api-reference/04-functions/generate-metadata.md, "appleWebApp") and
+// drops `apple-mobile-web-app-capable`, which iOS Safari actually needs to
+// launch a home-screen icon in standalone mode instead of inside Safari's
+// own browser chrome. Added back explicitly via `other`.
+export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS"},other:{"apple-mobile-web-app-capable":"yes"}};
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><PageTransition>{children}</PageTransition></QueryProvider></body></html>}
