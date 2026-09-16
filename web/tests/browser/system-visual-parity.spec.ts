@@ -88,8 +88,8 @@ test("root navigation matches Founder metrics", () => {
   expect(metrics).toContain("createActionDiameter = 56");
   expect(nav).toContain("Icon(icon, size: 28)");
   expect(nav).toContain("fontSize: 11.5");
-  expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom))");
-  expect(navCss).toContain("width: var(--wyn-create-action)");
+  expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 8px);");
+  expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom))");
   expect(navCss).toContain("width: 28px");
 });
 
@@ -119,7 +119,8 @@ test("Home actions mirror current Flutter: Like Comment Repost Share, no View", 
   // hideZeroActionCounts prop, no CSS `content: "0"` fallback needed.
   expect(postActions).toContain("wyn-action-share");
   expect(postActions).not.toContain("hideZeroCount");
-  expect(postActions).toContain("<span className=\"wyn-action-button-count\">{likeCount}</span>");
+  expect(postActions).toContain('<span className="wyn-action-button-count">{value}</span>');
+  expect(postActions).toContain("{count(likeCount)}");
   expect(postActions).not.toContain("Eye");
   expect(postActions).not.toContain("visibility");
 });
