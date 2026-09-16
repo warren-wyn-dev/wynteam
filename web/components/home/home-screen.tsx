@@ -17,6 +17,7 @@ import { AppChrome } from "@/components/phase3-ui";
 import { FeedSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
 import { authorLabel, type HomeFeedRow } from "@/lib/feed";
+import { haptic } from "@/lib/haptics";
 import {
   loadHomeViewerState,
   predictFollowState,
@@ -391,6 +392,7 @@ export function HomeScreen({ session }: { session: Session }) {
   const like = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
     const liked = viewer.likedDropIds.has(row.id);
+    if (!liked) haptic();
     patchSet("likedDropIds", row.id, !liked);
     setRows((current) => current.map((item) =>
       item.id === row.id
@@ -407,6 +409,7 @@ export function HomeScreen({ session }: { session: Session }) {
 
   const likeClub = async (post: ClubHomePost) => {
     if (!client) return;
+    if (!post.liked_by_me) haptic();
     setClubRows((current) => current.map((item) =>
       item.id === post.id
         ? {
@@ -453,6 +456,7 @@ export function HomeScreen({ session }: { session: Session }) {
     const pendingRequest = viewer.pendingFollowAuthorIds.has(row.author_id);
     const isPrivate = viewer.privateAuthorIds.has(row.author_id);
     const optimisticNext = predictFollowState({ currentlyFollowing, pendingRequest, isPrivate });
+    if (!currentlyFollowing) haptic();
     applyFollowState(row.author_id, optimisticNext);
     try {
       await toggleAuthorFollow(client, userId, row.author_id, {
@@ -469,6 +473,7 @@ export function HomeScreen({ session }: { session: Session }) {
   const redrop = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
     const active = viewer.redroppedDropIds.has(row.id);
+    if (!active) haptic();
     patchSet("redroppedDropIds", row.id, !active);
     setRows((current) => current.map((item) =>
       item.id === row.id
@@ -636,6 +641,7 @@ export function HomeScreen({ session }: { session: Session }) {
     const releasedPullDistance = Math.min(88, Math.max(0, deltaY) * 0.48);
     const shouldRefresh = start.canPull && releasedPullDistance >= 54 && deltaY > Math.abs(deltaX);
     if (shouldRefresh) {
+      haptic();
       void refreshVisibleMode();
       return;
     }

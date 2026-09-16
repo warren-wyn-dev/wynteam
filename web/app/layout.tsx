@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { AppNavigationRuntime } from "@/components/app-navigation-runtime";
 import { QueryProvider } from "@/components/query-provider";
+import { SwipeBackGesture } from "@/components/swipe-back-gesture";
 import { PageTransition } from "@/components/ui/page-transition";
 import "./globals.css";
 import "./phase2.css";
@@ -46,4 +47,4 @@ import "./skeleton.css";
 // own browser chrome. Added back explicitly via `other`.
 export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS"},other:{"apple-mobile-web-app-capable":"yes"}};
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><PageTransition>{children}</PageTransition></QueryProvider></body></html>}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition></QueryProvider></body></html>}

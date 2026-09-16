@@ -3,6 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import { listenForForegroundPush } from "@/lib/push-notifications";
+
 const scrollMemory = new Map<string, number>();
 const PREFETCH_ROUTES = ["/", "/clubs", "/chat", "/search", "/notifications"] as const;
 
@@ -31,6 +33,13 @@ export function AppNavigationRuntime() {
   useEffect(() => {
     for (const href of PREFETCH_ROUTES) router.prefetch(href);
   }, [router]);
+
+  useEffect(() => {
+    // Never prompts — only starts listening if a previous session already
+    // has notification permission granted, so a returning user keeps
+    // getting foreground pushes without this component ever requesting it.
+    void listenForForegroundPush();
+  }, []);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;

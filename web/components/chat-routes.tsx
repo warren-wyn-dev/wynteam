@@ -11,6 +11,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
 import { relativeTimeTh } from "@/lib/feed";
+import { haptic } from "@/lib/haptics";
 import {
   acceptMessageRequest,
   chatAllowed,
@@ -223,6 +224,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     // nothing typed is lost.
     setMessages((current) => [optimisticMessage, ...current]);
     setDraft(""); setFile(null); setSending(true); setError("");
+    haptic();
     try {
       const created = await sendMessage(client, userId, conversationId, { text, file: attachedFile });
       setMessages((current) => {
