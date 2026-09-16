@@ -35,12 +35,16 @@ function fakeRows(profiles: ProfileRow[]): HomeFeedRow[] {
   }));
 }
 
+type UserResultsSnapshot = { rows: ProfileRow[]; viewer: HomeViewerState | null; page: number; hasMore: boolean };
+
 function UserResults({ client, userId, query }: { client: SupabaseClient; userId: string; query: string }) {
-  const [rows, setRows] = useState<ProfileRow[]>([]);
-  const [viewer, setViewer] = useState<HomeViewerState | null>(null);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `search-users:${userId}:${query}`;
+  const cached = getMountCache<UserResultsSnapshot>(cacheKey);
+  const [rows, setRows] = useState<ProfileRow[]>(cached?.rows ?? []);
+  const [viewer, setViewer] = useState<HomeViewerState | null>(cached?.viewer ?? null);
+  const [page, setPage] = useState(cached?.page ?? 0);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
+  const [loading, setLoading] = useState(!cached);
   const [pending, setPending] = useState<Set<string>>(new Set());
 
   const load = useCallback(async (nextPage: number, append: boolean) => {
@@ -48,14 +52,17 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
     try {
       const next = await searchProfiles(client, query, nextPage);
       const combined = append ? [...rows, ...next] : next;
+      const nextViewer = await loadHomeViewerState(client, userId, fakeRows(combined));
+      const nextHasMore = next.length === 30;
       setRows(combined);
       setPage(nextPage);
-      setHasMore(next.length === 30);
-      setViewer(await loadHomeViewerState(client, userId, fakeRows(combined)));
+      setHasMore(nextHasMore);
+      setViewer(nextViewer);
+      setMountCache(cacheKey, { rows: combined, viewer: nextViewer, page: nextPage, hasMore: nextHasMore });
     } finally {
       setLoading(false);
     }
-  }, [client, query, rows, userId]);
+  }, [client, query, rows, userId, cacheKey]);
 
   useEffect(() => { void load(0, false); }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -109,20 +116,29 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
   );
 }
 
+type PagedRowsSnapshot<T> = { rows: T[]; page: number; hasMore: boolean };
+
 function DropResults({ client, query }: { client: SupabaseClient; query: string }) {
-  const [rows, setRows] = useState<HomeFeedRow[]>([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `search-drops:${query}`;
+  const cached = getMountCache<PagedRowsSnapshot<HomeFeedRow>>(cacheKey);
+  const [rows, setRows] = useState<HomeFeedRow[]>(cached?.rows ?? []);
+  const [page, setPage] = useState(cached?.page ?? 0);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
+  const [loading, setLoading] = useState(!cached);
   const load = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true);
     try {
       const next = await searchDrops(client, query, nextPage);
-      setRows((current) => append ? [...current, ...next] : next);
+      const nextHasMore = next.length === 21;
+      setRows((current) => {
+        const combined = append ? [...current, ...next] : next;
+        setMountCache(cacheKey, { rows: combined, page: nextPage, hasMore: nextHasMore });
+        return combined;
+      });
       setPage(nextPage);
-      setHasMore(next.length === 21);
+      setHasMore(nextHasMore);
     } finally { setLoading(false); }
-  }, [client, query]);
+  }, [client, query, cacheKey]);
   useEffect(() => { void load(0, false); }, [load]);
   if (loading && !rows.length) return <LoadingState />;
   if (!rows.length) return <EmptyState>ไม่พบโพสต์สำหรับ “{query}”</EmptyState>;
@@ -130,19 +146,26 @@ function DropResults({ client, query }: { client: SupabaseClient; query: string 
 }
 
 function ClubResults({ client, query }: { client: SupabaseClient; query: string }) {
-  const [rows, setRows] = useState<ClubRow[]>([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `search-clubs:${query}`;
+  const cached = getMountCache<PagedRowsSnapshot<ClubRow>>(cacheKey);
+  const [rows, setRows] = useState<ClubRow[]>(cached?.rows ?? []);
+  const [page, setPage] = useState(cached?.page ?? 0);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
+  const [loading, setLoading] = useState(!cached);
   const load = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true);
     try {
       const next = await searchClubs(client, query, nextPage);
-      setRows((current) => append ? [...current, ...next] : next);
+      const nextHasMore = next.length === 20;
+      setRows((current) => {
+        const combined = append ? [...current, ...next] : next;
+        setMountCache(cacheKey, { rows: combined, page: nextPage, hasMore: nextHasMore });
+        return combined;
+      });
       setPage(nextPage);
-      setHasMore(next.length === 20);
+      setHasMore(nextHasMore);
     } finally { setLoading(false); }
-  }, [client, query]);
+  }, [client, query, cacheKey]);
   useEffect(() => { void load(0, false); }, [load]);
   if (loading && !rows.length) return <LoadingState />;
   if (!rows.length) return <EmptyState>ไม่พบ Club สำหรับ “{query}”</EmptyState>;

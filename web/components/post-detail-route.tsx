@@ -39,10 +39,20 @@ import {
   type DropCommentRow,
   type HomeViewerState,
 } from "@/lib/home-actions";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchDropById } from "@/lib/phase3-data";
 
 type ActivityTab = "likes" | "redrops";
 type ActivityProfile = { id: string; username: string; display_name?: string | null; avatar_url?: string | null; is_verified?: boolean };
+type PostDetailSnapshot = {
+  row: HomeFeedRow;
+  viewer: HomeViewerState;
+  comments: DropCommentRow[];
+  images: string[];
+  commentPage: number;
+  hasMoreComments: boolean;
+  viewerProfile: { username: string; avatar_url?: string | null } | null;
+};
 type ActivityState = { likes: ActivityProfile[]; redrops: ActivityProfile[] };
 const emptyActivity: ActivityState = { likes: [], redrops: [] };
 
@@ -177,13 +187,16 @@ function CommentRow({ comment, isReply, currentUserId, onLike, onReply, onDelete
 
 function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; userId: string; dropId: string }) {
   const router = useRouter();
-  const [row, setRow] = useState<HomeFeedRow | null>(null);
-  const [viewer, setViewer] = useState<HomeViewerState | null>(null);
-  const [comments, setComments] = useState<DropCommentRow[]>([]);
-  const [images, setImages] = useState<string[]>([]);
-  const [commentPage, setCommentPage] = useState(0);
-  const [hasMoreComments, setHasMoreComments] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `post-detail:${userId}:${dropId}`;
+  const cached = getMountCache<PostDetailSnapshot>(cacheKey);
+  const hadCache = useRef(cached !== undefined);
+  const [row, setRow] = useState<HomeFeedRow | null>(cached?.row ?? null);
+  const [viewer, setViewer] = useState<HomeViewerState | null>(cached?.viewer ?? null);
+  const [comments, setComments] = useState<DropCommentRow[]>(cached?.comments ?? []);
+  const [images, setImages] = useState<string[]>(cached?.images ?? []);
+  const [commentPage, setCommentPage] = useState(cached?.commentPage ?? 0);
+  const [hasMoreComments, setHasMoreComments] = useState(cached?.hasMoreComments ?? false);
+  const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<DropCommentRow | null>(null);
@@ -198,12 +211,13 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const [deleteCommentTarget, setDeleteCommentTarget] = useState<DropCommentRow | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportText, setReportText] = useState("");
-  const [viewerProfile, setViewerProfile] = useState<{ username: string; avatar_url?: string | null } | null>(null);
+  const [viewerProfile, setViewerProfile] = useState<{ username: string; avatar_url?: string | null } | null>(cached?.viewerProfile ?? null);
   const composerRef = useRef<HTMLInputElement | null>(null);
   const scrollYRef = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setError("");
     try {
       const drop = await fetchDropById(client, dropId);
       if (!drop) { setRow(null); return; }
@@ -213,15 +227,19 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
         fetchDropImages(client, dropId, drop.image_url),
         client.from("profiles").select("username,avatar_url").eq("id", userId).maybeSingle(),
       ]);
+      const nextViewerProfile = !profileResult.error && profileResult.data
+        ? { username: String(profileResult.data.username ?? "WYNOS"), avatar_url: profileResult.data.avatar_url ? String(profileResult.data.avatar_url) : null }
+        : null;
       setRow(drop); setViewer(state); setComments(firstComments); setImages(media);
-      if (!profileResult.error && profileResult.data) setViewerProfile({ username: String(profileResult.data.username ?? "WYNOS"), avatar_url: profileResult.data.avatar_url ? String(profileResult.data.avatar_url) : null });
+      if (nextViewerProfile) setViewerProfile(nextViewerProfile);
       void client.rpc("record_drop_view", { p_drop_id: dropId }).then(() => undefined, () => undefined);
       setCommentPage(0); setHasMoreComments(firstComments.length === 50);
+      setMountCache(cacheKey, { row: drop, viewer: state, comments: firstComments, images: media, commentPage: 0, hasMoreComments: firstComments.length === 50, viewerProfile: nextViewerProfile });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "โหลดโพสต์ไม่สำเร็จ"); }
     finally { setLoading(false); }
-  }, [client, dropId, userId]);
+  }, [client, dropId, userId, cacheKey]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(!hadCache.current); }, [load]);
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
@@ -245,7 +263,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     return { top, replies };
   }, [comments]);
 
-  if (loading) return <AppChrome title="โพสต์" userId={userId} backHref="/" showBottomNav={false}><LoadingState /></AppChrome>;
+  if (loading && !row) return <AppChrome title="โพสต์" userId={userId} backHref="/" showBottomNav={false}><LoadingState /></AppChrome>;
   if (!row || !viewer) return <AppChrome title="โพสต์" userId={userId} backHref="/" showBottomNav={false}><EmptyState>{error || "ไม่พบโพสต์นี้"}</EmptyState></AppChrome>;
 
   const liked = viewer.likedDropIds.has(row.id);

@@ -44,6 +44,7 @@ import {
   voteClubPostPoll,
   type ClubHomePost,
 } from "@/lib/home-parity-data";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
 
 type ClubTab = "posts" | "chat" | "about";
@@ -528,12 +529,16 @@ function AboutTabView({ client, clubId, club, membership }: { client: SupabaseCl
   );
 }
 
+type ClubDetailSnapshot = { data: ClubData; posts: ClubHomePost[] };
+
 function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseClient; userId: string; clubId: string }) {
   const router = useRouter();
-  const [data, setData] = useState<ClubData | null>(null);
-  const [posts, setPosts] = useState<ClubHomePost[]>([]);
+  const cacheKey = `club-detail:${userId}:${clubId}`;
+  const cached = getMountCache<ClubDetailSnapshot>(cacheKey);
+  const [data, setData] = useState<ClubData | null>(cached?.data ?? null);
+  const [posts, setPosts] = useState<ClubHomePost[]>(cached?.posts ?? []);
   const [tab, setTab] = useState<ClubTab>("posts");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [menu, setMenu] = useState(false);
@@ -549,19 +554,27 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
 
   const refresh = useCallback(async () => {
     const result = await load();
-    if (result) { setData(result.next); setPosts(result.nextPosts); }
-  }, [load]);
+    if (result) {
+      setData(result.next);
+      setPosts(result.nextPosts);
+      setMountCache(cacheKey, { data: result.next, posts: result.nextPosts });
+    }
+  }, [load, cacheKey]);
 
   useEffect(() => {
     let live = true;
     void load().then((result) => {
       if (!live) return;
-      if (result) { setData(result.next); setPosts(result.nextPosts); }
+      if (result) {
+        setData(result.next);
+        setPosts(result.nextPosts);
+        setMountCache(cacheKey, { data: result.next, posts: result.nextPosts });
+      }
     }).catch(() => { if (live) setError("โหลด Club ไม่สำเร็จ"); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [load]);
+  }, [load, cacheKey]);
 
-  if (loading) return <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}><LoadingState /></AppChrome>;
+  if (loading && !data) return <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}><LoadingState /></AppChrome>;
   if (!data) return <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}><EmptyState>{error || "ไม่พบ Club"}</EmptyState></AppChrome>;
 
   const { club, membership, channels, muted } = data;

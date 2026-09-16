@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { toggleAuthorFollow } from "@/lib/home-actions";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 
 type Kind = "followers" | "following";
 type Person = { id: string; username: string; display_name?: string | null; avatar_url?: string | null; is_verified: boolean; is_private: boolean; following: boolean; requested: boolean };
@@ -42,11 +43,20 @@ async function fetchPeople(client: SupabaseClient, viewerId: string, profileId: 
 
 function FollowListInner({ client, viewerId, profileId, kind }: { client: SupabaseClient; viewerId: string; profileId: string; kind: Kind }) {
   const router = useRouter();
-  const [people, setPeople] = useState<Person[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `follow-list:${viewerId}:${profileId}:${kind}`;
+  const cached = getMountCache<Person[]>(cacheKey);
+  const [people, setPeople] = useState<Person[]>(cached ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const load = useCallback(async () => { setLoading(true); setError(""); try { setPeople(await fetchPeople(client, viewerId, profileId, kind)); } catch { setError("โหลดรายชื่อไม่สำเร็จ"); } finally { setLoading(false); } }, [client, kind, profileId, viewerId]);
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const next = await fetchPeople(client, viewerId, profileId, kind);
+      setPeople(next);
+      setMountCache(cacheKey, next);
+    } catch { setError("โหลดรายชื่อไม่สำเร็จ"); } finally { setLoading(false); }
+  }, [client, kind, profileId, viewerId, cacheKey]);
   useEffect(() => { void load(); }, [load]);
   const follow = async (person: Person) => {
     if (person.id === viewerId || busy) return;
@@ -68,7 +78,7 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
         <button type="button" role="tab" aria-selected={kind === "following"} className={kind === "following" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/following`)}>กำลังติดตาม</button>
         <button type="button" role="tab" aria-selected={kind === "followers"} className={kind === "followers" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/followers`)}>ผู้ติดตาม</button>
       </div>
-      {loading ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : (
+      {loading && !people.length ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : (
         <div className="follow-list-route">
           {people.map((person) => (
             <div className="follow-list-row" key={person.id}>

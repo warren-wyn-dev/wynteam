@@ -21,6 +21,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { pushSupported, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
@@ -114,14 +115,18 @@ function VersionFooter({ client }: { client: SupabaseClient }) {
   return <p className="settings-version-footer">{label}</p>;
 }
 
+type SettingsSnapshot = { profile: ProfileRow; notifications: NotificationSettings; online: boolean; blocked: ProfileRow[]; muted: ProfileRow[] };
+
 function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; userId: string; signOut: () => Promise<void> }) {
   const router = useRouter();
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [online, setOnline] = useState(true);
-  const [notifications, setNotifications] = useState<NotificationSettings | null>(null);
-  const [blocked, setBlocked] = useState<ProfileRow[]>([]);
-  const [muted, setMuted] = useState<ProfileRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `settings:${userId}`;
+  const cached = getMountCache<SettingsSnapshot>(cacheKey);
+  const [profile, setProfile] = useState<ProfileRow | null>(cached?.profile ?? null);
+  const [online, setOnline] = useState(cached?.online ?? true);
+  const [notifications, setNotifications] = useState<NotificationSettings | null>(cached?.notifications ?? null);
+  const [blocked, setBlocked] = useState<ProfileRow[]>(cached?.blocked ?? []);
+  const [muted, setMuted] = useState<ProfileRow[]>(cached?.muted ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [section, setSection] = useState<"root" | "privacy" | "notifications" | "account" | "legal">("root");
@@ -144,9 +149,10 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
         fetchProfile(client, userId), fetchNotificationSettings(client), fetchShowOnlineStatus(client, userId), fetchBlockedUsers(client, 0), fetchMutedUsers(client, 0),
       ]);
       setProfile(nextProfile); setNotifications(nextNotifications); setOnline(showOnline); setBlocked(blockRows); setMuted(muteRows);
+      if (nextProfile && nextNotifications) setMountCache(cacheKey, { profile: nextProfile, notifications: nextNotifications, online: showOnline, blocked: blockRows, muted: muteRows });
     } catch (e) { setError(e instanceof Error ? e.message : "โหลดการตั้งค่าไม่สำเร็จ"); }
     finally { setLoading(false); }
-  }, [client, userId]);
+  }, [client, userId, cacheKey]);
   useEffect(() => { void load(); }, [load]);
 
   const privacy = async (field: "is_private" | "dm_permission" | "mention_permission" | "comment_permission" | "likes_visibility", value: boolean | string) => {
@@ -222,7 +228,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
     finally { setBusy(false); }
   };
 
-  if (loading) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><LoadingState /></AppChrome>;
+  if (loading && !profile) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><LoadingState /></AppChrome>;
   if (!profile || !notifications) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EmptyState>{error || "ไม่พบการตั้งค่า"}</EmptyState></AppChrome>;
 
   const title = section === "root" ? "ตั้งค่า" : section === "privacy" ? "ความเป็นส่วนตัว" : section === "notifications" ? "การแจ้งเตือน" : section === "account" ? "บัญชี" : "ข้อกำหนดและความเป็นส่วนตัว";
