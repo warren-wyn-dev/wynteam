@@ -14,6 +14,7 @@ import { HomeHeader } from "@/components/home/home-header";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HOME_FEED_MODES, HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
 import { AppChrome } from "@/components/phase3-ui";
+import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { FeedSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
 import { authorLabel, type HomeFeedRow } from "@/lib/feed";
@@ -394,6 +395,8 @@ export function HomeScreen({ session }: { session: Session }) {
       setRefreshing(false);
     }
   }, [applySnapshot, fetchModeSnapshot, refreshing]);
+
+  useRouteRefreshListener(refreshVisibleMode);
 
   useEffect(() => {
     const cached = feedCache.current[mode];
