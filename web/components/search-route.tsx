@@ -11,6 +11,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, DropPreviewCard, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
   fetchSuggestedProfiles,
   fetchTrendingHashtags,
@@ -148,10 +149,14 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
   return <div className="route-list">{rows.map((club) => <Link href={`/club/${club.id}`} className="route-club-row" key={club.id}><span className="route-club-image">{club.icon_url ? <Image src={club.icon_url} alt="" width={46} height={46} sizes="46px" /> : club.name.slice(0, 1)}</span><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small></span></Link>)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
-function Discovery({ client }: { client: SupabaseClient }) {
-  const [hashtags, setHashtags] = useState<RankedHashtag[]>([]);
-  const [suggested, setSuggested] = useState<ProfileRow[]>([]);
-  const [loading, setLoading] = useState(true);
+type DiscoverySnapshot = { hashtags: RankedHashtag[]; suggested: ProfileRow[] };
+
+function Discovery({ client, userId }: { client: SupabaseClient; userId: string }) {
+  const cacheKey = `search-discovery:${userId}`;
+  const cached = getMountCache<DiscoverySnapshot>(cacheKey);
+  const [hashtags, setHashtags] = useState<RankedHashtag[]>(cached?.hashtags ?? []);
+  const [suggested, setSuggested] = useState<ProfileRow[]>(cached?.suggested ?? []);
+  const [loading, setLoading] = useState(!cached);
   useEffect(() => {
     let live = true;
     void Promise.all([
@@ -162,10 +167,11 @@ function Discovery({ client }: { client: SupabaseClient }) {
       setHashtags(tags);
       setSuggested(suggest);
       setLoading(false);
+      setMountCache(cacheKey, { hashtags: tags, suggested: suggest });
     }).catch(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [client]);
-  if (loading) return <LoadingState />;
+  }, [client, cacheKey]);
+  if (loading && !hashtags.length && !suggested.length) return <LoadingState />;
   return (
     <div className="discovery-page flutter-search-discovery">
       <section className="route-section">
@@ -213,7 +219,7 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
           {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={() => { setDraft(""); setQuery(""); }}><X size={18} /></button> : null}
         </form>
       </div>
-      {!submitted ? <Discovery client={client} /> : (
+      {!submitted ? <Discovery client={client} userId={userId} /> : (
         <>
           <div className="route-tabs flutter-search-tabs">{tabs.map((item) => <button type="button" className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}>{item.label}</button>)}</div>
           {tab === "user" ? <UserResults client={client} userId={userId} query={query} /> : null}
