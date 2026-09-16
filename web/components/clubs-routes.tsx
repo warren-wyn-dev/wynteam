@@ -4,11 +4,12 @@ import { Camera, ChevronRight, Lock, Plus, Search, UsersRound } from "lucide-rea
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, searchClubs, type ClubRow } from "@/lib/phase3-data";
 
 type Sections = { popular: ClubRow[]; newest: ClubRow[]; pending: Set<string> };
@@ -36,13 +37,24 @@ function ExploreClubRow({ club, pending, joining, onJoin }: { club: ClubRow; pen
 
 function ExploreClubs({ client, userId }: { client: SupabaseClient; userId: string }) {
   const router = useRouter();
-  const [sections, setSections] = useState<Sections>({ popular: [], newest: [], pending: new Set() });
+  const cacheKey = `clubs-explore:${userId}`;
+  const cached = getMountCache<Sections>(cacheKey);
+  const hadCache = useRef(cached !== undefined);
+  const [sections, setSections] = useState<Sections>(cached ?? { popular: [], newest: [], pending: new Set() });
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
   const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const load = useCallback(async () => { setLoading(true); setError(""); try { setSections(await fetchExplore(client, userId)); } catch { setError("โหลด Club ไม่สำเร็จ"); } finally { setLoading(false); } }, [client, userId]);
-  useEffect(() => { void load(); }, [load]);
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setError("");
+    try {
+      const next = await fetchExplore(client, userId);
+      setSections(next);
+      setMountCache(cacheKey, next);
+    } catch { setError("โหลด Club ไม่สำเร็จ"); } finally { setLoading(false); }
+  }, [client, userId, cacheKey]);
+  useEffect(() => { void load(!hadCache.current); }, [load]);
   const join = async (club: ClubRow) => {
     if (joining) return;
     setJoining(club.id); setError("");
@@ -65,21 +77,27 @@ function ExploreClubs({ client, userId }: { client: SupabaseClient; userId: stri
 }
 
 function MyClubs({ client, userId }: { client: SupabaseClient; userId: string }) {
-  const [rows, setRows] = useState<ClubRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `clubs-mine:${userId}`;
+  const cached = getMountCache<ClubRow[]>(cacheKey);
+  const hadCache = useRef(cached !== undefined);
+  const [rows, setRows] = useState<ClubRow[]>(cached ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState("");
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setError("");
     try {
       const membership = await client.from("club_members").select("club_id").eq("user_id", userId).eq("status", "approved");
       if (membership.error) throw membership.error;
       const ids = (membership.data ?? []).map((row) => String(row.club_id));
       const clubs = await Promise.all(ids.map((id) => fetchClub(client, id)));
-      setRows(clubs.filter((club): club is ClubRow => Boolean(club)));
+      const next = clubs.filter((club): club is ClubRow => Boolean(club));
+      setRows(next);
+      setMountCache(cacheKey, next);
     } catch { setError("โหลดรายชื่อ Club ไม่สำเร็จ"); }
     finally { setLoading(false); }
-  }, [client, userId]);
-  useEffect(() => { void load(); }, [load]);
+  }, [client, userId, cacheKey]);
+  useEffect(() => { void load(!hadCache.current); }, [load]);
   return <AppChrome title="Club ของฉัน" userId={userId} backHref="/" showBottomNav={false}>{loading ? <LoadingState /> : error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div> : rows.length ? <div className="audit-my-clubs">{rows.map((club) => <Link className="audit-my-club-row" href={`/club/${club.id}`} key={club.id}><ClubAvatar club={club} /><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก</small></span><ChevronRight size={18} /></Link>)}</div> : <EmptyState>ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ</EmptyState>}</AppChrome>;
 }
 

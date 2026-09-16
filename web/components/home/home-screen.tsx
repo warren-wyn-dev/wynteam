@@ -93,6 +93,41 @@ function modeIndex(mode: HomeFeedMode) {
 // scrolls near the bottom.
 const FEED_PAGE_SIZE = 15;
 
+type HomeScreenStore = {
+  feedCache: Partial<Record<HomeFeedMode, HomeFeedSnapshot>>;
+  scrollPositions: Record<HomeFeedMode, number>;
+  visibleCounts: Record<HomeFeedMode, number>;
+  mode: HomeFeedMode;
+  visibleMode: HomeFeedMode;
+  identity: HomeIdentity | null;
+  notificationBadge: number;
+};
+
+// Kept at module scope (outside the component) so it survives HomeScreen
+// unmounting — the root PageTransition fully unmounts/remounts every page on
+// route change, so a plain useRef would lose the feed the instant the user
+// tapped away to another tab. Without this, navigating Home -> anything ->
+// back to Home re-showed FeedSkeleton and refetched from scratch every time,
+// which read as the whole app "reloading" on every navigation.
+const homeScreenStores = new Map<string, HomeScreenStore>();
+
+function getHomeScreenStore(userId: string): HomeScreenStore {
+  let store = homeScreenStores.get(userId);
+  if (!store) {
+    store = {
+      feedCache: {},
+      scrollPositions: { "for-you": 0, following: 0, clubs: 0 },
+      visibleCounts: { "for-you": FEED_PAGE_SIZE, following: FEED_PAGE_SIZE, clubs: FEED_PAGE_SIZE },
+      mode: "for-you",
+      visibleMode: "for-you",
+      identity: null,
+      notificationBadge: 0,
+    };
+    homeScreenStores.set(userId, store);
+  }
+  return store;
+}
+
 async function fetchDropImages(
   client: SupabaseClient,
   rows: HomeFeedRow[],
@@ -166,16 +201,26 @@ export function HomeScreen({ session }: { session: Session }) {
   const userId = session.user.id;
   const { toastMessage, showToast } = useToast();
 
-  const [mode, setMode] = useState<HomeFeedMode>("for-you");
-  const [visibleMode, setVisibleMode] = useState<HomeFeedMode>("for-you");
-  const [rows, setRows] = useState<HomeFeedRow[]>([]);
-  const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
-  const [clubRows, setClubRows] = useState<ClubHomePost[]>([]);
-  const [viewer, setViewer] = useState<HomeViewerState | null>(null);
-  const [images, setImages] = useState<Map<string, string[]>>(new Map());
-  const [identity, setIdentity] = useState<HomeIdentity | null>(null);
-  const [notificationBadge, setNotificationBadge] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // Deliberately not wrapped in useMemo/useRef: `store`'s fields (mode,
+  // visibleMode) are mutated directly outside of render, which the stricter
+  // React Compiler lint forbids for a useMemo result, and reading a ref's
+  // `.current` during render (needed below, for the useState initializers)
+  // is equally forbidden. A plain module-level lookup keyed by userId sits
+  // outside both rules while still returning the same object reference on
+  // every render.
+  const store = getHomeScreenStore(userId);
+  const initialSnapshot = store.feedCache[store.visibleMode];
+
+  const [mode, setMode] = useState<HomeFeedMode>(store.mode);
+  const [visibleMode, setVisibleMode] = useState<HomeFeedMode>(store.visibleMode);
+  const [rows, setRows] = useState<HomeFeedRow[]>(() => (initialSnapshot?.kind === "drops" ? initialSnapshot.rows : []));
+  const [visibleCount, setVisibleCount] = useState(store.visibleCounts[store.visibleMode]);
+  const [clubRows, setClubRows] = useState<ClubHomePost[]>(() => (initialSnapshot?.kind === "clubs" ? initialSnapshot.clubRows : []));
+  const [viewer, setViewer] = useState<HomeViewerState | null>(() => (initialSnapshot?.kind === "drops" ? initialSnapshot.viewer : null));
+  const [images, setImages] = useState<Map<string, string[]>>(() => (initialSnapshot?.kind === "drops" ? initialSnapshot.images : new Map()));
+  const [identity, setIdentity] = useState<HomeIdentity | null>(store.identity);
+  const [notificationBadge, setNotificationBadge] = useState(store.notificationBadge);
+  const [loading, setLoading] = useState(!initialSnapshot);
   const [error, setError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selected, setSelected] = useState<HomeFeedRow | null>(null);
@@ -197,20 +242,12 @@ export function HomeScreen({ session }: { session: Session }) {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const touchGesture = useRef<{ x: number; y: number; canPull: boolean } | null>(null);
-  const activeModeRef = useRef<HomeFeedMode>("for-you");
-  const visibleModeRef = useRef<HomeFeedMode>("for-you");
-  const feedCache = useRef<Partial<Record<HomeFeedMode, HomeFeedSnapshot>>>({});
+  const activeModeRef = useRef<HomeFeedMode>(store.mode);
+  const visibleModeRef = useRef<HomeFeedMode>(store.visibleMode);
+  const feedCache = useRef(store.feedCache);
   const inFlightLoads = useRef<Partial<Record<HomeFeedMode, Promise<HomeFeedSnapshot>>>>({});
-  const scrollPositions = useRef<Record<HomeFeedMode, number>>({
-    "for-you": 0,
-    following: 0,
-    clubs: 0,
-  });
-  const visibleCounts = useRef<Record<HomeFeedMode, number>>({
-    "for-you": FEED_PAGE_SIZE,
-    following: FEED_PAGE_SIZE,
-    clubs: FEED_PAGE_SIZE,
-  });
+  const scrollPositions = useRef(store.scrollPositions);
+  const visibleCounts = useRef(store.visibleCounts);
 
   useEffect(() => {
     return () => {
@@ -224,6 +261,9 @@ export function HomeScreen({ session }: { session: Session }) {
       .then(([nextIdentity, badge]) => {
         setIdentity(nextIdentity);
         setNotificationBadge(badge);
+        const persisted = getHomeScreenStore(userId);
+        persisted.identity = nextIdentity;
+        persisted.notificationBadge = badge;
       })
       .catch(() => undefined);
   }, [client, userId]);
@@ -240,6 +280,7 @@ export function HomeScreen({ session }: { session: Session }) {
 
   const applySnapshot = useCallback((snapshot: HomeFeedSnapshot, targetMode: HomeFeedMode, restore = false) => {
     visibleModeRef.current = targetMode;
+    getHomeScreenStore(userId).visibleMode = targetMode;
     setVisibleMode(targetMode);
     if (snapshot.kind === "clubs") {
       setClubRows(snapshot.clubRows);
@@ -257,7 +298,7 @@ export function HomeScreen({ session }: { session: Session }) {
     if (!restore) visibleCounts.current[targetMode] = FEED_PAGE_SIZE;
     setVisibleCount(visibleCounts.current[targetMode]);
     if (restore) restoreScroll(targetMode);
-  }, [restoreScroll]);
+  }, [restoreScroll, userId]);
 
   const fetchModeSnapshot = useCallback(async (targetMode: HomeFeedMode): Promise<HomeFeedSnapshot> => {
     if (!client) throw new Error("Supabase client unavailable");
@@ -318,6 +359,7 @@ export function HomeScreen({ session }: { session: Session }) {
       if (shouldApply && activeModeRef.current === targetMode) {
         if (!cached && visibleModeRef.current !== targetMode) {
           activeModeRef.current = visibleModeRef.current;
+          getHomeScreenStore(userId).mode = visibleModeRef.current;
           setMode(visibleModeRef.current);
           restoreScroll(visibleModeRef.current);
         }
@@ -325,7 +367,7 @@ export function HomeScreen({ session }: { session: Session }) {
         setLoading(false);
       }
     }
-  }, [applySnapshot, fetchModeSnapshot, restoreScroll]);
+  }, [applySnapshot, fetchModeSnapshot, restoreScroll, userId]);
 
   const load = useCallback(async () => {
     await loadMode(visibleModeRef.current, { showLoading: false });
@@ -600,6 +642,7 @@ export function HomeScreen({ session }: { session: Session }) {
     if (next === mode) return;
     scrollPositions.current[visibleModeRef.current] = window.scrollY;
     activeModeRef.current = next;
+    getHomeScreenStore(userId).mode = next;
     setMode(next);
 
     const cached = feedCache.current[next];

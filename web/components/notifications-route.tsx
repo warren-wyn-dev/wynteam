@@ -8,7 +8,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { relativeTimeTh } from "@/lib/feed";
+import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchNotifications, markAllNotificationsRead, type NotificationRow } from "@/lib/phase3-data";
+
+type NotificationsSnapshot = { rows: NotificationRow[]; unreadSnapshot: Set<string>; page: number; hasMore: boolean };
 
 function actorLabel(row: NotificationRow): string {
   return row.actor_display_name?.trim() || (row.actor_username ? `@${row.actor_username}` : "WYNOS");
@@ -122,12 +125,18 @@ function NotificationMessage({ row, extraActorCount }: { row: NotificationRow; e
 
 function NotificationsInner({ client, userId }: { client: SupabaseClient; userId: string }) {
   const router = useRouter();
-  const [rows, setRows] = useState<NotificationRow[]>([]);
-  const [unreadSnapshot, setUnreadSnapshot] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const cacheKey = `notifications:${userId}`;
+  const cached = getMountCache<NotificationsSnapshot>(cacheKey);
+  const [rows, setRows] = useState<NotificationRow[]>(cached?.rows ?? []);
+  const [unreadSnapshot, setUnreadSnapshot] = useState<Set<string>>(cached?.unreadSnapshot ?? new Set());
+  const [page, setPage] = useState(cached?.page ?? 0);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | "mentions">("all");
+
+  useEffect(() => {
+    setMountCache(cacheKey, { rows, unreadSnapshot, page, hasMore });
+  }, [cacheKey, rows, unreadSnapshot, page, hasMore]);
 
   const load = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true);
