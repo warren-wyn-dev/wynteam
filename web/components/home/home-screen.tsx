@@ -185,7 +185,15 @@ export function HomeScreen({ session }: { session: Session }) {
   const [reportDetail, setReportDetail] = useState("");
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState<HiddenDrop | null>(null);
-  const [composerOpen, setComposerOpen] = useState(() => searchParams.get("compose") === "1");
+  // Derived directly from the URL rather than mirrored into its own
+  // useState: tapping the bottom nav's "โพสต์" button while already on "/"
+  // is a same-route navigation (only the ?compose=1 param changes), so this
+  // component stays mounted rather than remounting. A useState initializer
+  // only runs once at the original mount, so it silently never opened on
+  // that path — only mattered from a live account already on Home, so it
+  // went unreported until now. Navigating here fresh from another route
+  // happened to work, since that mount read the param directly.
+  const composerOpen = searchParams.get("compose") === "1";
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const touchGesture = useRef<{ x: number; y: number; canPull: boolean } | null>(null);
@@ -918,10 +926,7 @@ export function HomeScreen({ session }: { session: Session }) {
         <Beta4Composer
           client={client}
           userId={userId}
-          onClose={() => {
-            setComposerOpen(false);
-            if (searchParams.get("compose") === "1") router.replace("/");
-          }}
+          onClose={() => router.replace("/")}
           onPublished={() => void load()}
         />
       ) : null}
