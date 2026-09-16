@@ -21,6 +21,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { pushSupported, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
   exportMyData,
@@ -125,6 +126,16 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [error, setError] = useState("");
   const [section, setSection] = useState<"root" | "privacy" | "notifications" | "account" | "legal">("root");
   const [document, setDocument] = useState<LegalDocument | null>(null);
+  const [pushAvailable, setPushAvailable] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    void pushSupported().then((supported) => {
+      setPushAvailable(supported);
+      if (supported) setPushEnabled(typeof Notification !== "undefined" && Notification.permission === "granted");
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -152,6 +163,31 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
     try { await updateNotificationSetting(client, userId, key, value); }
     catch { setNotifications(previous); setError("บันทึกการแจ้งเตือนไม่สำเร็จ"); }
     finally { setBusy(false); }
+  };
+
+  const pushToggle = async (value: boolean) => {
+    if (pushBusy) return;
+    setPushBusy(true); setError("");
+    try {
+      if (value) {
+        const result = await subscribeToPushNotifications(client, userId);
+        if (!result.ok) {
+          setError(
+            result.reason === "denied"
+              ? "ต้องอนุญาตการแจ้งเตือนในเบราว์เซอร์ก่อน"
+              : "เปิดการแจ้งเตือนไม่สำเร็จ ลองใหม่อีกครั้ง",
+          );
+          setPushEnabled(false);
+          return;
+        }
+        setPushEnabled(true);
+      } else {
+        await unsubscribeFromPushNotifications(client);
+        setPushEnabled(false);
+      }
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   const onlineToggle = async (value: boolean) => {
@@ -225,7 +261,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
         </div>
       ) : null}
       {section === "privacy" ? <div className="settings-page"><h2>บัญชี</h2><div className="settings-group"><SettingRow title="บัญชีส่วนตัว" description="อนุมัติผู้ติดตามก่อนเห็นโพสต์" trailing={<Toggle checked={profile.is_private} disabled={busy} onChange={(value) => void privacy("is_private", value)} />} /></div><h2>การโต้ตอบ</h2><div className="settings-group"><SettingRow title="ใครส่งข้อความได้" trailing={<PermissionSelect value={profile.dm_permission} onChange={(value) => void privacy("dm_permission", value)} />} /><SettingRow title="ใครกล่าวถึงคุณได้" trailing={<PermissionSelect value={profile.mention_permission} onChange={(value) => void privacy("mention_permission", value)} />} /><SettingRow title="ใครแสดงความคิดเห็นได้" trailing={<PermissionSelect value={profile.comment_permission} onChange={(value) => void privacy("comment_permission", value)} />} /><SettingRow title="ใครเห็นสิ่งที่คุณถูกใจ" trailing={<PermissionSelect kind="likes" value={profile.likes_visibility} onChange={(value) => void privacy("likes_visibility", value)} />} /></div><h2>สถานะ</h2><div className="settings-group"><SettingRow title="แสดงสถานะออนไลน์" trailing={<Toggle checked={online} disabled={busy} onChange={(value) => void onlineToggle(value)} />} /></div></div> : null}
-      {section === "notifications" ? <div className="settings-page"><h2>แจ้งเตือนเมื่อ</h2><div className="settings-group">{notificationLabels.map(([key, label]) => <SettingRow title={label} key={key} trailing={<Toggle checked={notifications[key]} disabled={busy} onChange={(value) => void notification(key, value)} />} />)}</div></div> : null}
+      {section === "notifications" ? <div className="settings-page">{pushAvailable ? <><h2>อุปกรณ์นี้</h2><div className="settings-group"><SettingRow title="การแจ้งเตือนแบบพุช" description="รับการแจ้งเตือนแม้ปิดแท็บนี้อยู่" trailing={<Toggle checked={pushEnabled} disabled={pushBusy} onChange={(value) => void pushToggle(value)} />} /></div></> : null}<h2>แจ้งเตือนเมื่อ</h2><div className="settings-group">{notificationLabels.map(([key, label]) => <SettingRow title={label} key={key} trailing={<Toggle checked={notifications[key]} disabled={busy} onChange={(value) => void notification(key, value)} />} />)}</div></div> : null}
       {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<Download size={19} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<Trash2 size={19} />} /></div><p className="settings-safety"><ShieldCheck size={16} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
       {section === "legal" ? <div className="settings-page"><div className="settings-group">{legalTypes.map(([type, label]) => <SettingRow title={label} key={type} onClick={() => void openDoc(type)} />)}</div></div> : null}
       {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><X /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small><p>{document.content}</p></div></section></div> : null}

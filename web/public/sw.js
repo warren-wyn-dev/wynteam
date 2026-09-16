@@ -44,3 +44,62 @@ self.addEventListener("fetch", (event) => {
     })(),
   );
 });
+
+// ---------------------------------------------------------------------
+// Web Push (Firebase Cloud Messaging)
+// ---------------------------------------------------------------------
+// This worker doubles as WYNOS Web's push receiver instead of registering a
+// second service worker at /firebase-messaging-sw.js: two workers both
+// claiming scope "/" would fight over which one actually controls the page.
+// A plain static file can't read `process.env`, so the Firebase Web config
+// (public-by-design values, same as the ones already shipped in the Flutter
+// web build — see app/web/firebase-messaging-sw.js) is fetched once here at
+// activate time from /api/push-config instead of being baked in.
+importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
+
+async function initFirebaseMessaging() {
+  try {
+    const response = await fetch("/api/push-config");
+    const config = await response.json();
+    if (!config.configured) return;
+    firebase.initializeApp(config);
+    const messaging = firebase.messaging();
+
+    // Background delivery only (tab closed, or another tab focused): a
+    // "notification" payload is already rendered automatically by the SDK,
+    // so re-showing it here for a data-only payload avoids a duplicate banner.
+    messaging.onBackgroundMessage((payload) => {
+      if (payload.notification) return;
+      const data = payload.data || {};
+      self.registration.showNotification(data.push_title || "WYNOS", {
+        body: data.push_body || "",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        tag: data.notification_id || undefined,
+        data,
+      });
+    });
+  } catch {
+    // No config, offline, or the fetch failed — push simply stays unavailable
+    // for this session rather than breaking the worker's caching duties above.
+  }
+}
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(initFirebaseMessaging());
+});
+
+// Tapping a background push focuses an already-open WYNOS tab where
+// possible, same behavior as the Flutter web build's own handler.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if ("focus" in client) return client.focus();
+      }
+      return clients.openWindow ? clients.openWindow("/") : undefined;
+    }),
+  );
+});

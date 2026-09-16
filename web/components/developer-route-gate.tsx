@@ -1,6 +1,7 @@
 "use client";
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -35,6 +36,7 @@ export function DeveloperRouteGate({
   children: (context: DeveloperRouteContext) => React.ReactNode;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const client = useMemo(() => getSupabaseBrowserClient(), []);
   const knownSession = getCachedBrowserSession();
   const [gate, setGate] = useState<GateState>(() => {
@@ -105,8 +107,12 @@ export function DeveloperRouteGate({
     if (!client) return;
     await client.auth.signOut();
     cacheBrowserSession(null);
+    // Clears both the in-memory cache and the persisted localStorage copy
+    // (see QueryProvider) so a shared device never shows the previous
+    // account's feed/profile/chat data to the next person who signs in.
+    queryClient.clear();
     router.replace("/");
-  }, [client, router]);
+  }, [client, queryClient, router]);
 
   if (gate === "loading" || gate === "signed-out") {
     return <main className="route-state"><div className="route-system-spinner" aria-label="กำลังโหลด" /></main>;
