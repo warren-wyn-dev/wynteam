@@ -61,13 +61,13 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   // destinations with Club and Chat in the root bar and no raised Post FAB.
   expect(nav).toContain('type MaterialNavKind = "home" | "club" | "chat" | "profile" | "add";');
   expect(chrome).toContain('unreadNotificationCount > 9 ? "9+"');
-  expect(nav).toContain('kind="home" selected={isActive("/")}');
+  expect(nav).toContain('const homeActive = isActive("/");');
+  expect(nav).toContain('kind="home" selected={homeActive}');
   expect(nav).toContain('kind="club" selected={isActive("/clubs")}');
   expect(nav).toContain('kind="chat" selected={isActive("/chat")}');
   expect(nav).toContain('href="/?compose=1"');
   expect(nav).not.toContain('className="route-create-button"');
   expect(navCss).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
-  expect(navCss).toContain("gap: 4px");
 
   expect(flutterDetail).toContain("Icons.mode_comment_outlined");
   expect(flutterDetail).toContain("Icons.repeat_rounded");

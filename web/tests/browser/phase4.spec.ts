@@ -68,12 +68,19 @@ test("system-font stack remains browser/OS native", async ({ page }) => {
 });
 
 test("repeated route churn keeps the page process alive", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  // "/" (and, once signed in, any gated route with no session) auto-redirects
+  // to /welcome from a background auth check — waitUntil: "networkidle" lets
+  // that redirect fully land before the next churn iteration fires its own
+  // goto, instead of racing it (an actual "Navigation interrupted by another
+  // navigation" failure, not flakiness: two independent navigations really
+  // were landing back-to-back with `domcontentloaded`, which resolves before
+  // the redirect even starts).
+  await page.goto("/", { waitUntil: "networkidle" });
   await page.evaluate(() => sessionStorage.setItem("wyn-phase4-marker", "alive"));
   const churnRoutes = ["/search", "/notifications", "/chat", "/settings", "/profile/me", "/"];
   for (let cycle = 0; cycle < 3; cycle += 1) {
     for (const route of churnRoutes) {
-      const response = await page.goto(route, { waitUntil: "domcontentloaded" });
+      const response = await page.goto(route, { waitUntil: "networkidle" });
       expect(response?.status() ?? 500).toBeLessThan(500);
       await expect(page.locator("body")).toBeVisible();
     }
