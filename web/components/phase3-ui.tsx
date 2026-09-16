@@ -37,6 +37,7 @@ export function AppChrome({
   title,
   userId,
   backHref,
+  onBack,
   actions,
   headerMode = "standard",
   showBottomNav,
@@ -45,6 +46,7 @@ export function AppChrome({
   title: string;
   userId: string;
   backHref?: string;
+  onBack?: () => void;
   actions?: React.ReactNode;
   headerMode?: "standard" | "hidden" | "overlay";
   showBottomNav?: boolean;
@@ -104,8 +106,16 @@ export function AppChrome({
   const notificationBadge = unreadNotificationCount > 9 ? "9+" : String(unreadNotificationCount);
   usePublishBottomNav(bottomNavVisible, userId, notificationLabel, visibleUnreadNotificationCount > 0 ? notificationBadge : null);
   const backIcon = <ChevronLeft size={headerMode === "overlay" ? 32 : 24} strokeWidth={1.8} />;
-  const backControl = backHref
+  const backControl = onBack
+    ? <button className="route-icon-link" type="button" aria-label="ย้อนกลับ" onClick={onBack}>{backIcon}</button>
+    : backHref
     ? backHref === pathname
+      // backHref matching the current pathname means this "back" isn't a
+      // real route change (e.g. a caller toggling a local view without
+      // navigating) — a same-URL <Link> click is a no-op in Next.js, so
+      // this falls back to a hard reload rather than doing nothing.
+      // Callers that can name the local state to undo should pass onBack
+      // instead, which avoids the reload entirely.
       ? <button className="route-icon-link" type="button" aria-label="ย้อนกลับ" onClick={() => window.location.assign(backHref)}>{backIcon}</button>
       : <Link className="route-icon-link" href={backHref} aria-label="ย้อนกลับ">{backIcon}</Link>
     : <span className="route-header-slot" />;
