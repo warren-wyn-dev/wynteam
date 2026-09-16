@@ -15,7 +15,7 @@
 .content-ref-viewport .chat-bubble-wrap.outgoing{align-self:flex-end}
 .content-ref-viewport .chat-bubble{padding:9px 13px;font-size:14px}
 .content-ref-viewport .chat-bubble.incoming{background:var(--surface);border-radius:16px 16px 16px 4px}
-.content-ref-viewport .chat-bubble.outgoing{background:var(--text-primary);color:#fff;border-radius:16px 16px 4px 16px}
+.content-ref-viewport .chat-bubble.outgoing{background:var(--text-primary);color:var(--bg);border-radius:16px 16px 4px 16px}
 .content-ref-viewport .chat-message-status{text-align:right;font-size:10px;color:var(--text-muted);margin-top:2px}
 .content-ref-viewport .chat-message-status.read{color:var(--red)}
 .content-ref-viewport .chat-composer{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--border)}

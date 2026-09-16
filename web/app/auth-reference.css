@@ -77,7 +77,7 @@
 
 .auth-ref-viewport .btn-primary {
   background: var(--text-primary);
-  color: #fff;
+  color: var(--bg);
   border: none;
 }
 
@@ -118,7 +118,7 @@
 }
 
 .auth-ref-viewport .field .wyn-input {
-  background: #fff;
+  background: var(--bg);
 }
 
 .auth-ref-viewport .field textarea {

@@ -39,5 +39,5 @@ import "./profile-home-feed.css";
 import "./notifications-clean.css";
 import "./skeleton.css";
 export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS"}};
-export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#ffffff"};
+export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><PageTransition>{children}</PageTransition></QueryProvider></body></html>}

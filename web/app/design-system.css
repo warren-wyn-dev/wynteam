@@ -15,6 +15,27 @@
   --wyn-focus-ring: rgba(10, 10, 10, 0.18);
 }
 
+/* Dark palette for this file's own token chain (consumed by
+   auth-reference.css/content-reference.css/club-reference.css/
+   chat-reference.css's local --bg/--text-primary/... aliases). Reuses the
+   same neutral dark-mode scaffolding as globals.css's :root block for one
+   consistent dark palette across both of the app's color-token chains,
+   even though their light values come from two historically separate
+   systems. --wyn-accent stays fixed across themes, same treatment as
+   sapphire/like elsewhere. See DECISIONS.md, 2026-09-16. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --wyn-bg: #000000;
+    --wyn-surface: #111111;
+    --wyn-text: #ffffff;
+    --wyn-text-secondary: #8a8880;
+    --wyn-text-muted: #666666;
+    --wyn-border: #222222;
+    --wyn-border-strong: #666666;
+    --wyn-focus-ring: rgba(255, 255, 255, 0.22);
+  }
+}
+
 .wyn-button {
   min-width: 0;
   height: var(--wyn-control-height);

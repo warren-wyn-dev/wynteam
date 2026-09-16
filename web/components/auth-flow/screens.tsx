@@ -497,8 +497,8 @@ export function OnboardingProfileScreen() {
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
           <div style={{ position: "relative" }}>
             <Avatar as="div" alt="รูปโปรไฟล์" className="avatar" size={96} />
-            <div style={{ position: "absolute", bottom: -4, right: -4, width: 32, height: 32, borderRadius: "50%", background: "var(--text-primary)", border: "3px solid #fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <WynosIcon name="camera" size={15} color="#fff" />
+            <div style={{ position: "absolute", bottom: -4, right: -4, width: 32, height: 32, borderRadius: "50%", background: "var(--text-primary)", border: "3px solid var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <WynosIcon name="camera" size={15} color="var(--bg)" />
             </div>
           </div>
         </div>
