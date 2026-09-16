@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { Bookmark, ChevronRight, Compass, Smartphone, UsersRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -20,13 +21,25 @@ export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | nul
       Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone));
 
   return (
-    <div className="home-drawer-backdrop" role="presentation" onClick={onClose}>
-      <aside
+    <motion.div
+      className="home-drawer-backdrop"
+      role="presentation"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.aside
         className="home-drawer"
         role="dialog"
         aria-modal="true"
         aria-label="เมนู WYNOS"
         onClick={(event) => event.stopPropagation()}
+        initial={{ x: "-100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "-100%" }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
       >
         <div className="home-drawer-close">
           <button className="icon-button" type="button" aria-label="ปิด" onClick={onClose}>
@@ -84,7 +97,7 @@ export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | nul
             </button>
           ) : null}
         </div>
-      </aside>
-    </div>
+      </motion.aside>
+    </motion.div>
   );
 }

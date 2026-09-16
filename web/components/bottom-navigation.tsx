@@ -10,7 +10,7 @@ import type { MouseEvent } from "react";
  * sizing. Selection is communicated by the soft background tile and darker
  * label/icon rather than by enlarging or filling a destination.
  */
-type MaterialNavKind = "home" | "club" | "chat" | "profile" | "add";
+type MaterialNavKind = "home" | "search" | "notification" | "profile" | "add";
 
 export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNavKind; selected?: boolean }) {
   const strokeWidth = selected ? 2.05 : 1.9;
@@ -23,21 +23,20 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
     );
   }
 
-  if (kind === "club") {
+  if (kind === "search") {
     return (
       <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="9" cy="8" r="3" />
-        <circle cx="17" cy="7" r="2.25" />
-        <path d="M3.5 19c.35-3.4 2.45-5.2 5.5-5.2s5.15 1.8 5.5 5.2H3.5Z" />
-        <path d="M15 12.5c.6-.3 1.3-.45 2.05-.45 2.25 0 3.9 1.25 4.25 3.55h-4.1" />
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <path d="M20 20l-4.6-4.6" />
       </svg>
     );
   }
 
-  if (kind === "chat") {
+  if (kind === "notification") {
     return (
       <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5.5 4.5h13A1.5 1.5 0 0 1 20 6v9a1.5 1.5 0 0 1-1.5 1.5H9L4 20v-4.5A1.5 1.5 0 0 1 4 15V6a1.5 1.5 0 0 1 1.5-1.5Z" />
+        <path d="M6 9.5a6 6 0 1 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z" />
+        <path d="M10 19.5a2 2 0 0 0 4 0" />
       </svg>
     );
   }
@@ -62,6 +61,8 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
 export function BottomNavigation({
   profileHref,
   isActive,
+  notificationLabel,
+  notificationBadge,
 }: {
   profileHref: string;
   isActive: (href: string) => boolean;
@@ -69,6 +70,7 @@ export function BottomNavigation({
   notificationBadge: string | null;
 }) {
   const homeActive = isActive("/");
+  const notificationsActive = isActive("/notifications");
   const handleHomeClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!homeActive) return;
     // When Home is already selected, tapping its tab again acts like X/Instagram:
@@ -85,17 +87,20 @@ export function BottomNavigation({
         <MaterialNavGlyph kind="home" selected={homeActive} />
         <span>หน้าหลัก</span>
       </Link>
-      <Link className={`route-nav-link ${isActive("/clubs") ? "active" : ""}`} href="/clubs" aria-label="คลับ">
-        <MaterialNavGlyph kind="club" selected={isActive("/clubs")} />
-        <span>คลับ</span>
+      <Link className={`route-nav-link ${isActive("/search") ? "active" : ""}`} href="/search" aria-label="ค้นหา">
+        <MaterialNavGlyph kind="search" selected={isActive("/search")} />
+        <span>ค้นหา</span>
       </Link>
       <Link className="route-nav-link" href="/?compose=1" aria-label="สร้างโพสต์ใหม่">
         <MaterialNavGlyph kind="add" />
         <span>โพสต์</span>
       </Link>
-      <Link className={`route-nav-link ${isActive("/chat") ? "active" : ""}`} href="/chat" aria-label="แชท">
-        <MaterialNavGlyph kind="chat" selected={isActive("/chat")} />
-        <span>แชท</span>
+      <Link className={`route-nav-link ${notificationsActive ? "active" : ""}`} href="/notifications" aria-label={notificationLabel}>
+        <span className="route-nav-icon-wrap">
+          <MaterialNavGlyph kind="notification" selected={notificationsActive} />
+          {notificationBadge ? <span className="route-nav-badge">{notificationBadge}</span> : null}
+        </span>
+        <span>แจ้งเตือน</span>
       </Link>
       <Link className={`route-nav-link ${isActive(profileHref) ? "active" : ""}`} href={profileHref} aria-label="โปรไฟล์">
         <MaterialNavGlyph kind="profile" selected={isActive(profileHref)} />

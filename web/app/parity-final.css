@@ -156,6 +156,20 @@
   align-items: center;
 }
 
+/* Previously unstyled: fell back to the browser's default button box, well
+   under the 44x44 mobile touch-target minimum. */
+.home-drawer-close .icon-button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
 .drawer-identity {
   width: calc(100% - 24px);
   min-height: 90px;

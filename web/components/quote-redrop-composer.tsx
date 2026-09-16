@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
@@ -49,13 +50,24 @@ export function QuoteRedropComposer({
   };
 
   return (
-    <div className="route-modal-backdrop beta4-composer-backdrop" role="presentation">
-      <section
+    <motion.div
+      className="route-modal-backdrop beta4-composer-backdrop"
+      role="presentation"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.section
         className="beta4-composer"
         role="dialog"
         aria-modal="true"
         aria-label="รีโพสต์พร้อมความคิดเห็น"
         style={{ maxWidth: 680 }}
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
       >
         <form
           id={QUOTE_REDROP_FORM_ID}
@@ -169,7 +181,7 @@ export function QuoteRedropComposer({
             </section>
           </div>
         ) : null}
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
