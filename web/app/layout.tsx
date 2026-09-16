@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { AppBottomNavHost } from "@/components/app-bottom-nav-runtime";
 import { AppNavigationRuntime } from "@/components/app-navigation-runtime";
 import { QueryProvider } from "@/components/query-provider";
 import { SwipeBackGesture } from "@/components/swipe-back-gesture";
@@ -52,4 +53,4 @@ export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",app
 // viewport, does. Without this it's the one thing that gives away "this is
 // a website" even from the home-screen icon.
 export const viewport:Viewport={width:"device-width",initialScale:1,maximumScale:1,userScalable:false,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition></QueryProvider></body></html>}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition><AppBottomNavHost /></QueryProvider></body></html>}

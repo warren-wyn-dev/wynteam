@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { BottomNavigation } from "@/components/bottom-navigation";
+import { usePublishBottomNav } from "@/components/app-bottom-nav-runtime";
 import { GoldenDropCard } from "@/components/golden-drop-card";
 import type { HomeFeedRow } from "@/lib/feed";
 import type { ProfileRow } from "@/lib/phase3-data";
@@ -61,7 +61,6 @@ export function AppChrome({
   // explicitly opted out before those destinations existed in the bar.
   const bottomNavVisible = primaryClubOrChatRoute ? true : showBottomNav ?? inferredRootNav;
   const notificationRouteActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
-  const activeFor = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
   useEffect(() => {
     // The static root destinations are prefetched by AppNavigationRuntime.
@@ -103,6 +102,7 @@ export function AppChrome({
     ? `การแจ้งเตือน มี ${visibleUnreadNotificationCount} รายการที่ยังไม่อ่าน`
     : "การแจ้งเตือน";
   const notificationBadge = unreadNotificationCount > 9 ? "9+" : String(unreadNotificationCount);
+  usePublishBottomNav(bottomNavVisible, userId, notificationLabel, visibleUnreadNotificationCount > 0 ? notificationBadge : null);
   const backIcon = <ChevronLeft size={headerMode === "overlay" ? 32 : 24} strokeWidth={1.8} />;
   const backControl = backHref
     ? backHref === pathname
@@ -116,14 +116,6 @@ export function AppChrome({
         {headerMode !== "hidden" ? <header className={`route-header route-header-${headerMode}`}><div className="route-title-row">{backControl}<h1>{title}</h1><div className="route-header-actions">{actions}</div></div></header> : null}
         {children}
       </main>
-      {bottomNavVisible ? (
-        <BottomNavigation
-          profileHref={`/profile/${userId}`}
-          isActive={activeFor}
-          notificationLabel={notificationLabel}
-          notificationBadge={visibleUnreadNotificationCount > 0 ? notificationBadge : null}
-        />
-      ) : null}
     </div>
   );
 }
