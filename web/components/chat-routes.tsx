@@ -154,6 +154,11 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  // Showing a permanent delete button beside every own bubble crowded the
+  // whole thread with icons nobody was about to tap on most of them —
+  // WhatsApp/Telegram/Messenger all keep it hidden until you actually pick
+  // the message. Tapping a bubble reveals its own delete action instead.
+  const [revealedMessageId, setRevealedMessageId] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const { toastMessage, showToast } = useToast();
 
@@ -281,15 +286,22 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           <div className="message-list">
             {ordered.map((message) => {
               const mine = message.sender_id === userId;
-              return <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}`} key={message.id}><div className="message-bubble">{message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>{message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}{message.text ? <p>{message.text}</p> : null}{message.localPreviewUrl ? (
+              const canDelete = mine && !message.deleted_at && !message.pending;
+              const revealed = canDelete && revealedMessageId === message.id;
+              return <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}`} key={message.id}><div
+                className="message-bubble"
+                role={canDelete ? "button" : undefined}
+                tabIndex={canDelete ? 0 : undefined}
+                onClick={canDelete ? () => setRevealedMessageId((current) => current === message.id ? null : message.id) : undefined}
+              >{message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>{message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}{message.text ? <p>{message.text}</p> : null}{message.localPreviewUrl ? (
                 // Local blob preview of an in-flight upload — not yet a storage path.
                 <img className="message-image" src={message.localPreviewUrl} alt="" />
-              ) : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}</>}<time>{message.pending ? "กำลังส่ง…" : relativeTimeTh(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time></div>{mine && !message.deleted_at && !message.pending ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><Trash2 size={13} /></button> : null}</div>;
+              ) : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}</>}<time>{message.pending ? "กำลังส่ง…" : relativeTimeTh(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time></div>{revealed ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><Trash2 size={13} /></button> : null}</div>;
             })}
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
-            <form className="message-composer" onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><ImagePlus size={21} /><input type="file" accept="image/*" hidden disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "ข้อความ…"} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><Send size={20} /></button>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><X size={15} /></button> : null}</form>
+            <form className="message-composer" onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><ImagePlus size={21} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "ข้อความ…"} enterKeyHint="send" /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><Send size={20} /></button>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><X size={15} /></button> : null}</form>
           )}
         </div>
       )}
