@@ -14,7 +14,7 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
   const name = post.author_display_name?.trim() || post.author_username || "WYNOS";
 
   return (
-    <article className="wyn-post">
+    <article className="wyn-post" style={{ paddingTop: 9 }}>
       <Link className="wyn-post-avatar" href={profileHref}>
         <Avatar src={post.author_avatar_url} label={post.author_username || "WYNOS"} size={40} />
       </Link>
