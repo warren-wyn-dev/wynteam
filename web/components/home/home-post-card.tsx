@@ -37,6 +37,7 @@ export function HomePostCard({
   priority?: boolean;
 }) {
   const liked = viewer.likedDropIds.has(row.id);
+  const saved = viewer.savedDropIds.has(row.id);
   const redropped = viewer.redroppedDropIds.has(row.id);
   const following = viewer.followedAuthorIds.has(row.author_id);
   const requested = viewer.pendingFollowAuthorIds.has(row.author_id);
@@ -50,8 +51,8 @@ export function HomePostCard({
       className="wyn-post"
       style={{
         padding: "14px 16px 0",
-        gridTemplateColumns: "36px minmax(0, 1fr)",
-        columnGap: 10,
+        gridTemplateColumns: "40px minmax(0, 1fr)",
+        columnGap: 14,
       }}
     >
       {row.redrop_id ? (
@@ -61,8 +62,8 @@ export function HomePostCard({
         </div>
       ) : null}
       {row.quote_text ? <RichPostText className="wyn-post-quote" value={row.quote_text} /> : null}
-      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 4 }}>
-        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={36} />
+      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 2 }}>
+        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={40} />
       </Link>
       <div className="wyn-post-body">
         <PostAuthorRow
@@ -107,10 +108,12 @@ export function HomePostCard({
           canRedrop={canRedrop}
           redropped={redropped}
           redropCount={row.redrop_count ?? 0}
+          saved={saved}
           onLike={onLike}
           commentHref={`/drop/${row.id}#comments`}
           onRedrop={onRedrop}
           onShare={onShare}
+          onSave={onMore}
           modernFeed
         />
       </div>
