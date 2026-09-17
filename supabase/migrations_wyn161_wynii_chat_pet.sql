@@ -35,8 +35,8 @@ on public.conversation_wynii
 for select
 to authenticated
 using (
-  coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is false
-  and (auth.uid() = user_a_id or auth.uid() = user_b_id)
+  coalesce((((select auth.jwt())) ->> 'is_anonymous')::boolean, false) is false
+  and ((select auth.uid()) = user_a_id or (select auth.uid()) = user_b_id)
   and internal.chat_pair_allowed(user_a_id, user_b_id)
 );
 
@@ -178,3 +178,5 @@ execute function public.advance_conversation_wynii();
 
 create index if not exists conversation_wynii_participants_idx
   on public.conversation_wynii (user_a_id, user_b_id);
+create index if not exists conversation_wynii_user_b_idx
+  on public.conversation_wynii (user_b_id);
