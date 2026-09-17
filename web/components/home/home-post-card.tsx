@@ -47,7 +47,7 @@ export function HomePostCard({
   const profileHref = `/profile/${row.author_id}`;
 
   return (
-    <article className="wyn-post">
+    <article className={`wyn-post ${row.redrop_id ? "has-redrop" : ""}`}>
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
           <Repeat2 size={14} />
