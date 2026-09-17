@@ -35,7 +35,8 @@ class _WyniiConversationMenuRowState extends State<WyniiConversationMenuRow> {
 
   Future<void> _load() async {
     try {
-      final state = await _repository.fetchConversationState(widget.conversationId);
+      final state =
+          await _repository.fetchConversationState(widget.conversationId);
       if (mounted) setState(() => _state = state);
     } catch (_) {
       // Keep the chat menu usable even if Wynii is temporarily unavailable.
@@ -73,7 +74,8 @@ class _WyniiConversationMenuRowState extends State<WyniiConversationMenuRow> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: BrowserSystemText('เริ่มเลี้ยง Wynii ไม่สำเร็จ ลองใหม่อีกครั้ง'),
+              content: BrowserSystemText(
+                  'เริ่มเลี้ยง Wynii ไม่สำเร็จ ลองใหม่อีกครั้ง'),
             ),
           );
         }
@@ -113,7 +115,9 @@ class _WyniiConversationMenuRowState extends State<WyniiConversationMenuRow> {
     final subtitle = _loading
         ? 'กำลังโหลด…'
         : pet == null
-            ? (_state?.isActive == false ? 'รอให้บทสนทนาเปิดใช้งานก่อน' : 'เริ่มจากไข่ของคุณสองคน')
+            ? (_state?.isActive == false
+                ? 'รอให้บทสนทนาเปิดใช้งานก่อน'
+                : 'เริ่มจากไข่ของคุณสองคน')
             : status!.shortLabel;
 
     return InkWell(
@@ -143,7 +147,8 @@ class _WyniiConversationMenuRowState extends State<WyniiConversationMenuRow> {
                       width: 23,
                       height: 23,
                       child: CustomPaint(
-                        painter: WyniiPainter(stage: pet?.stage ?? WyniiStage.egg),
+                        painter:
+                            WyniiPainter(stage: pet?.stage ?? WyniiStage.egg),
                       ),
                     ),
             ),
@@ -208,7 +213,8 @@ class _WyniiDetailSheetState extends State<WyniiDetailSheet> {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      final state = await _repository.fetchConversationState(widget.conversationId);
+      final state =
+          await _repository.fetchConversationState(widget.conversationId);
       if (mounted && state.pet != null) setState(() => _pet = state.pet!);
     } finally {
       if (mounted) setState(() => _refreshing = false);
@@ -220,7 +226,8 @@ class _WyniiDetailSheetState extends State<WyniiDetailSheet> {
     final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
     final status = _pet.statusFor(userId);
     final next = wyniiNextMilestone(_pet.ageDays);
-    final remaining = next == null ? null : (next - _pet.ageDays).clamp(0, next);
+    final remaining =
+        next == null ? null : (next - _pet.ageDays).clamp(0, next);
 
     return SafeArea(
       top: false,
@@ -299,7 +306,8 @@ class _WyniiDetailSheetState extends State<WyniiDetailSheet> {
               const SizedBox(height: 3),
               BrowserSystemText(
                 wyniiStageLabel(_pet.stage),
-                style: const TextStyle(fontSize: 13.5, color: WynColors.graphite),
+                style:
+                    const TextStyle(fontSize: 13.5, color: WynColors.graphite),
               ),
               const SizedBox(height: WynSpacing.space4),
               Container(
@@ -324,14 +332,19 @@ class _WyniiDetailSheetState extends State<WyniiDetailSheet> {
                     const SizedBox(height: 3),
                     BrowserSystemText(
                       status.detail,
-                      style: const TextStyle(fontSize: 12.5, color: WynColors.graphite),
+                      style: const TextStyle(
+                          fontSize: 12.5, color: WynColors.graphite),
                     ),
                     const SizedBox(height: WynSpacing.space3),
                     Row(
                       children: [
-                        Expanded(child: _CareStatus(label: 'คุณ', done: status.mineDone)),
+                        Expanded(
+                            child: _CareStatus(
+                                label: 'คุณ', done: status.mineDone)),
                         const SizedBox(width: WynSpacing.space2),
-                        Expanded(child: _CareStatus(label: 'อีกฝ่าย', done: status.otherDone)),
+                        Expanded(
+                            child: _CareStatus(
+                                label: 'อีกฝ่าย', done: status.otherDone)),
                       ],
                     ),
                     const SizedBox(height: WynSpacing.space4),
@@ -339,12 +352,14 @@ class _WyniiDetailSheetState extends State<WyniiDetailSheet> {
                       children: [
                         BrowserSystemText(
                           wyniiStageLabel(_pet.stage),
-                          style: const TextStyle(fontSize: 12, color: WynColors.graphite),
+                          style: const TextStyle(
+                              fontSize: 12, color: WynColors.graphite),
                         ),
                         const Spacer(),
                         BrowserSystemText(
                           remaining == null ? 'MAX' : 'อีก $remaining วัน',
-                          style: const TextStyle(fontSize: 12, color: WynColors.graphite),
+                          style: const TextStyle(
+                              fontSize: 12, color: WynColors.graphite),
                         ),
                       ],
                     ),
@@ -355,7 +370,8 @@ class _WyniiDetailSheetState extends State<WyniiDetailSheet> {
                         value: wyniiMilestoneProgress(_pet.ageDays),
                         minHeight: 7,
                         backgroundColor: WynColors.hairline,
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFFA9A2E8)),
+                        valueColor:
+                            const AlwaysStoppedAnimation(Color(0xFFA9A2E8)),
                       ),
                     ),
                   ],
@@ -441,10 +457,14 @@ class WyniiPainter extends CustomPainter {
     if (stage == WyniiStage.egg || stage == WyniiStage.hatching) {
       final eggPath = Path()
         ..moveTo(center.dx, 12 * unit)
-        ..cubicTo(45 * unit, 13 * unit, 22 * unit, 68 * unit, 22 * unit, 108 * unit)
-        ..cubicTo(22 * unit, 148 * unit, 51 * unit, 169 * unit, center.dx, 169 * unit)
-        ..cubicTo(129 * unit, 169 * unit, 158 * unit, 148 * unit, 158 * unit, 108 * unit)
-        ..cubicTo(158 * unit, 68 * unit, 135 * unit, 13 * unit, center.dx, 12 * unit)
+        ..cubicTo(
+            45 * unit, 13 * unit, 22 * unit, 68 * unit, 22 * unit, 108 * unit)
+        ..cubicTo(
+            22 * unit, 148 * unit, 51 * unit, 169 * unit, center.dx, 169 * unit)
+        ..cubicTo(129 * unit, 169 * unit, 158 * unit, 148 * unit, 158 * unit,
+            108 * unit)
+        ..cubicTo(
+            158 * unit, 68 * unit, 135 * unit, 13 * unit, center.dx, 12 * unit)
         ..close();
       final eggPaint = Paint()
         ..shader = const RadialGradient(
@@ -484,10 +504,14 @@ class WyniiPainter extends CustomPainter {
     if (grown) {
       final tail = Path()
         ..moveTo(133 * unit, 119 * unit)
-        ..cubicTo(170 * unit, 112 * unit, 178 * unit, 146 * unit, 153 * unit, 158 * unit)
-        ..cubicTo(137 * unit, 165 * unit, 124 * unit, 150 * unit, 126 * unit, 136 * unit)
-        ..cubicTo(140 * unit, 144 * unit, 151 * unit, 138 * unit, 148 * unit, 129 * unit)
-        ..cubicTo(145 * unit, 121 * unit, 138 * unit, 119 * unit, 133 * unit, 119 * unit)
+        ..cubicTo(170 * unit, 112 * unit, 178 * unit, 146 * unit, 153 * unit,
+            158 * unit)
+        ..cubicTo(137 * unit, 165 * unit, 124 * unit, 150 * unit, 126 * unit,
+            136 * unit)
+        ..cubicTo(140 * unit, 144 * unit, 151 * unit, 138 * unit, 148 * unit,
+            129 * unit)
+        ..cubicTo(145 * unit, 121 * unit, 138 * unit, 119 * unit, 133 * unit,
+            119 * unit)
         ..close();
       canvas.drawPath(tail, glow);
     }
@@ -554,15 +578,23 @@ class WyniiPainter extends CustomPainter {
 
     final eyePaint = Paint()..color = const Color(0xFF4A4D89);
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(68 * unit, 90 * unit), width: 23 * unit, height: 29 * unit),
+      Rect.fromCenter(
+          center: Offset(68 * unit, 90 * unit),
+          width: 23 * unit,
+          height: 29 * unit),
       eyePaint,
     );
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(112 * unit, 90 * unit), width: 23 * unit, height: 29 * unit),
+      Rect.fromCenter(
+          center: Offset(112 * unit, 90 * unit),
+          width: 23 * unit,
+          height: 29 * unit),
       eyePaint,
     );
-    canvas.drawCircle(Offset(64 * unit, 84 * unit), 4 * unit, Paint()..color = Colors.white);
-    canvas.drawCircle(Offset(108 * unit, 84 * unit), 4 * unit, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        Offset(64 * unit, 84 * unit), 4 * unit, Paint()..color = Colors.white);
+    canvas.drawCircle(
+        Offset(108 * unit, 84 * unit), 4 * unit, Paint()..color = Colors.white);
 
     final mouth = Paint()
       ..color = const Color(0xFF77718B)
@@ -570,7 +602,10 @@ class WyniiPainter extends CustomPainter {
       ..strokeWidth = 2 * unit
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(center.dx, 108 * unit), width: 20 * unit, height: 12 * unit),
+      Rect.fromCenter(
+          center: Offset(center.dx, 108 * unit),
+          width: 20 * unit,
+          height: 12 * unit),
       .15,
       2.85,
       false,

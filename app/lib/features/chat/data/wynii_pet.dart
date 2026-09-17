@@ -90,7 +90,8 @@ class WyniiPet {
     final mine = mineDone(userId);
     final other = otherDone(userId);
 
-    if (started != null && current.isAfter(started.add(const Duration(hours: 24)))) {
+    if (started != null &&
+        current.isAfter(started.add(const Duration(hours: 24)))) {
       return const WyniiStatus(
         shortLabel: 'พักอยู่',
         detail: 'รอบก่อนหน้าไม่ครบภายใน 24 ชั่วโมง ข้อความใหม่จะเริ่มรอบถัดไป',
