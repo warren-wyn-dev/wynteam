@@ -144,6 +144,8 @@ export function Beta4Composer({
       <section className="beta4-composer" role="dialog" aria-modal="true" aria-label="สร้างโพสต์" onClick={(event) => event.stopPropagation()}>
         <header className="beta4-composer-header">
           <button className="beta4-cancel" type="button" onClick={requestClose}>ยกเลิก</button>
+          <span className="beta4-composer-header-title">ฉบับร่าง</span>
+          <button className="beta4-post" type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
         </header>
 
         <div className="beta4-composer-scroll">
@@ -178,11 +180,8 @@ export function Beta4Composer({
             <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => { setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9)); event.currentTarget.value = ""; }} />
             <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) setFiles((current) => [...current, picked].slice(0, 9)); event.currentTarget.value = ""; }} />
           </div>
-        </div>
 
-        <div className="beta4-bottom-bar">
-          <span className="beta4-character-count">{mode === "poll" ? "โพลจะปิดใน 1 วัน" : caption.length > 400 ? 500 - caption.length : ""}</span>
-          <button className="beta4-post" type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
+          {mode === "poll" ? <div className="beta4-character-count">โพลจะปิดใน 1 วัน</div> : caption.length > 400 ? <div className="beta4-character-count">{500 - caption.length}</div> : null}
         </div>
 
         {closePrompt ? (
