@@ -1,0 +1,377 @@
+/* WYNOS conversation: approved profile-first chat layout. */
+.conversation-modern {
+  min-height: 100dvh;
+  padding-bottom: calc(82px + env(safe-area-inset-bottom));
+  background: var(--paper);
+}
+
+.conversation-modern-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  min-height: calc(72px + env(safe-area-inset-top));
+  padding: calc(env(safe-area-inset-top) + 8px) 20px 8px 12px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--paper) 96%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.conversation-modern-back,
+.conversation-modern-more {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.conversation-modern-header-person {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.conversation-modern-header-person > span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.conversation-modern-header-person strong,
+.conversation-modern-header-person small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.conversation-modern-header-person strong {
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.conversation-modern-header-person small {
+  color: #8d8d8d;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.conversation-modern-more {
+  justify-self: end;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+}
+
+.conversation-profile-hero {
+  padding: 38px 24px 28px;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.conversation-profile-identity {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.conversation-profile-identity .route-avatar {
+  width: 112px !important;
+  height: 112px !important;
+  border-color: #e4e4e4;
+}
+
+.conversation-profile-identity strong {
+  margin-top: 8px;
+  color: #000;
+  font-size: 28px;
+  line-height: 1.05;
+  font-weight: 800;
+}
+
+.conversation-profile-identity small {
+  color: #8c8c8c;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.conversation-profile-actions {
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.conversation-profile-button {
+  min-width: 150px;
+  height: 50px;
+  padding: 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.conversation-profile-button.profile {
+  background: #f5f5f5;
+  color: #111;
+}
+
+.conversation-profile-button.follow {
+  background: #000;
+  color: #fff;
+}
+
+.conversation-profile-button.follow.soft {
+  background: #f1f1f1;
+  color: #111;
+}
+
+.conversation-profile-button:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+.conversation-modern .route-more {
+  margin-top: 0;
+  margin-bottom: 6px;
+}
+
+.conversation-modern .conversation-thread {
+  min-height: 44dvh;
+  padding: 0 32px 118px;
+  gap: 0;
+}
+
+.conversation-modern .message-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.conversation-date-separator {
+  margin: 8px 0 22px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  color: #929292;
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+}
+
+.conversation-date-separator::before,
+.conversation-date-separator::after {
+  content: "";
+  height: 1px;
+  background: #ececec;
+}
+
+.conversation-modern .message-row {
+  width: 100%;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.conversation-modern .message-row.mine {
+  justify-content: flex-end;
+}
+
+.conversation-modern .message-row.theirs {
+  justify-content: flex-start;
+}
+
+.conversation-modern .message-row.theirs > .route-avatar {
+  width: 34px !important;
+  height: 34px !important;
+  margin-top: 1px;
+}
+
+.conversation-modern .message-stack {
+  max-width: min(76%, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.conversation-modern .message-row.mine .message-stack {
+  align-items: flex-end;
+}
+
+.conversation-modern .message-bubble {
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 20px;
+  background: #f4f4f4;
+  color: #111;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.conversation-modern .message-row.theirs .message-bubble {
+  border-bottom-left-radius: 20px;
+}
+
+.conversation-modern .message-row.mine .message-bubble {
+  border-bottom-right-radius: 20px;
+  background: #000;
+  color: #fff;
+}
+
+.conversation-modern .message-bubble time {
+  display: none !important;
+}
+
+.conversation-modern .message-meta {
+  min-height: 20px;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #949494;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.conversation-modern .message-meta span {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.conversation-modern .message-delete {
+  align-self: center;
+}
+
+.conversation-modern .reply-preview {
+  margin-bottom: 8px;
+  border-left-width: 2px;
+}
+
+.conversation-modern .message-image {
+  max-width: min(280px, 68vw);
+  border-radius: 14px;
+}
+
+.conversation-modern .conversation-request-bar {
+  position: fixed;
+  z-index: 66;
+  left: 50%;
+  bottom: calc(70px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(100%, 680px);
+  background: var(--paper);
+}
+
+.conversation-modern .message-composer {
+  min-height: 72px;
+  grid-template-columns: 48px minmax(0, 1fr) 52px;
+  gap: 8px;
+  padding: 9px 18px 9px 20px;
+  border-top: 1px solid #ececec;
+  background: var(--paper);
+}
+
+.conversation-modern .message-composer > input,
+.conversation-modern .message-composer input[type="text"],
+.conversation-modern .message-composer textarea {
+  min-height: 48px;
+  padding: 13px 18px;
+  border: 1px solid #e4e4e4;
+  border-radius: 22px;
+  background: #fafafa;
+  color: #111;
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.conversation-modern .message-composer > input::placeholder,
+.conversation-modern .message-composer textarea::placeholder {
+  color: #aaa;
+  opacity: 1;
+}
+
+.conversation-modern .message-image-picker {
+  width: 48px;
+  height: 48px;
+  color: #111;
+}
+
+.conversation-modern .message-composer > button[type="submit"] {
+  width: 48px;
+  height: 48px;
+  background: #000;
+  color: #fff;
+}
+
+.conversation-modern .message-composer > button[type="submit"]:disabled {
+  opacity: .45;
+}
+
+@media (max-width: 430px) {
+  .conversation-modern-header {
+    padding-left: 6px;
+    padding-right: 14px;
+    grid-template-columns: 44px minmax(0, 1fr) 42px;
+  }
+
+  .conversation-modern-header-person {
+    gap: 8px;
+  }
+
+  .conversation-modern-header-person strong {
+    font-size: 17px;
+  }
+
+  .conversation-profile-hero {
+    padding-top: 28px;
+  }
+
+  .conversation-profile-actions {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .conversation-profile-button {
+    min-width: 0;
+    flex: 1 1 0;
+    max-width: 190px;
+    padding: 0 15px;
+  }
+
+  .conversation-modern .conversation-thread {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .conversation-modern .message-composer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}

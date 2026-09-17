@@ -1,9 +1,9 @@
 "use client";
 
-import { ChevronRight, MoreHorizontal, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreHorizontal, Search, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -179,21 +179,56 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   const cached = getMountCache<DiscoverySnapshot>(cacheKey);
   const [hashtags, setHashtags] = useState<RankedHashtag[]>(cached?.hashtags ?? []);
   const [suggested, setSuggested] = useState<ProfileRow[]>(cached?.suggested ?? []);
+  const [viewer, setViewer] = useState<HomeViewerState | null>(null);
   const [loading, setLoading] = useState(!cached);
+  const [pending, setPending] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     let live = true;
     void Promise.all([
       fetchTrendingHashtags(client, 6),
       fetchSuggestedProfiles(client, 10),
-    ]).then(([tags, suggest]) => {
+    ]).then(async ([tags, suggest]) => {
       if (!live) return;
       setHashtags(tags);
       setSuggested(suggest);
-      setLoading(false);
       setMountCache(cacheKey, { hashtags: tags, suggested: suggest });
+      try {
+        const nextViewer = await loadHomeViewerState(client, userId, fakeRows(suggest));
+        if (live) setViewer(nextViewer);
+      } finally {
+        if (live) setLoading(false);
+      }
     }).catch(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [client, cacheKey]);
+  }, [client, userId, cacheKey]);
+
+  const follow = useCallback(async (profile: ProfileRow) => {
+    if (!viewer || profile.id === userId || pending.has(profile.id)) return;
+    const wasFollowing = viewer.followedAuthorIds.has(profile.id);
+    const wasRequested = viewer.pendingFollowAuthorIds.has(profile.id);
+    const isPrivate = viewer.privateAuthorIds.has(profile.id) || profile.is_private;
+    if (wasRequested && isPrivate && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
+    setPending((current) => new Set(current).add(profile.id));
+    try {
+      const state = await toggleAuthorFollow(client, userId, profile.id, {
+        currentlyFollowing: wasFollowing,
+        pendingRequest: wasRequested,
+        isPrivate,
+      });
+      setViewer((current) => {
+        if (!current) return current;
+        const followed = new Set(current.followedAuthorIds);
+        const requested = new Set(current.pendingFollowAuthorIds);
+        if (state === "following") followed.add(profile.id); else followed.delete(profile.id);
+        if (state === "requested") requested.add(profile.id); else requested.delete(profile.id);
+        return { ...current, followedAuthorIds: followed, pendingFollowAuthorIds: requested };
+      });
+    } finally {
+      setPending((current) => { const next = new Set(current); next.delete(profile.id); return next; });
+    }
+  }, [client, pending, userId, viewer]);
+
   if (loading && !hashtags.length && !suggested.length) return <LoadingState />;
   return (
     <div className="discovery-page flutter-search-discovery">
@@ -212,13 +247,37 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
       </section>
       <section className="route-section flutter-suggested-section">
         <div className="route-section-title"><h2>แนะนำให้ติดตาม</h2></div>
-        {suggested.length ? <div className="route-list">{suggested.map((profile) => <ProfileRowView profile={profile} key={profile.id} />)}</div> : <EmptyState>ยังไม่มีบัญชีแนะนำให้ติดตามตอนนี้</EmptyState>}
+        {suggested.length ? (
+          <div className="route-list">
+            {suggested.map((profile) => {
+              const followed = viewer?.followedAuthorIds.has(profile.id) ?? false;
+              const requested = viewer?.pendingFollowAuthorIds.has(profile.id) ?? false;
+              return (
+                <ProfileRowView
+                  profile={profile}
+                  key={profile.id}
+                  trailing={profile.id === userId ? null : (
+                    <button
+                      className={`route-pill search-follow-button ${followed || requested ? "soft" : ""}`}
+                      disabled={!viewer || pending.has(profile.id)}
+                      type="button"
+                      onClick={() => void follow(profile)}
+                    >
+                      {followed ? "กำลังติดตาม" : requested ? "ขอติดตามแล้ว" : "ติดตาม"}
+                    </button>
+                  )}
+                />
+              );
+            })}
+          </div>
+        ) : <EmptyState>ยังไม่มีบัญชีแนะนำให้ติดตามตอนนี้</EmptyState>}
       </section>
     </div>
   );
 }
 
 function SearchInner({ client, userId }: { client: SupabaseClient; userId: string }) {
+  const router = useRouter();
   const params = useSearchParams();
   const urlQuery = params.get("q")?.trim() ?? "";
   const [draft, setDraft] = useState(urlQuery);
@@ -232,10 +291,18 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   }, [urlQuery]);
   const submitted = query.trim().length >= 2 && draft.trim() === query;
   const submit = () => setQuery(draft.trim());
+  const closeSearch = () => {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/");
+  };
   const tabs = useMemo(() => [{ id: "user" as const, label: "User" }, { id: "drop" as const, label: "โพสต์" }, { id: "club" as const, label: "Club" }], []);
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
       <div className="flutter-search-header">
+        <button className="search-back-button" type="button" aria-label="ออกจากหน้าค้นหา" onClick={closeSearch}><ChevronLeft size={28} strokeWidth={2} /></button>
         <form className="search-route-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
           <button type="submit" aria-label="ค้นหา"><Search size={20} /></button>
           <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="ค้นหา username, โพสต์, Club" inputMode="search" />

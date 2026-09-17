@@ -1,16 +1,325 @@
 /* WYNOS notifications: simplified app-like header. */
 .notification-root-header {
   border-bottom: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px;
+  height: calc(68px + env(safe-area-inset-top)) !important;
+  padding: calc(env(safe-area-inset-top) + 5px) 14px 0 !important;
+}
+
+.notification-root-header > button {
+  width: 36px !important;
+  height: 44px !important;
+  flex: 0 0 36px;
+  transform: translateY(2px);
+}
+
+.notification-root-header > button svg {
+  display: none;
+}
+
+.notification-root-header > button::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-left: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  transform: rotate(45deg);
 }
 
 .notification-root-header > strong {
-  font-size: 22px !important;
-  line-height: 1.2;
+  font-size: 24px !important;
+  line-height: 1.15;
   font-weight: 700;
+  text-align: left !important;
+  transform: translateY(2px);
+}
+
+.notification-root-header > span {
+  display: none;
+}
+
+.notification-list {
+  margin-top: -2px;
+}
+
+.notification-group-label {
+  margin: 0 !important;
+  padding: 2px 34px 8px !important;
+  color: #aaa7a0 !important;
+  font-size: 14px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
 }
 
 /* The notifications screen now shows the full activity stream directly. */
 .flutter-notification-tabs {
   display: none !important;
   border-bottom: 0 !important;
+}
+
+/* WYNOS search: approved mobile discovery layout. */
+.flutter-search-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding-left: 8px !important;
+  padding-right: 16px !important;
+  border-bottom: 0 !important;
+}
+
+.search-back-button {
+  width: 40px;
+  height: 44px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.flutter-search-header .search-route-form {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.flutter-search-discovery {
+  padding-top: 0 !important;
+}
+
+.flutter-search-discovery > .route-section:first-child {
+  border-top: 0 !important;
+  box-shadow: none !important;
+}
+
+.flutter-search-discovery > .route-section:first-child .route-section-title {
+  padding: 18px 40px 6px !important;
+}
+
+.flutter-search-discovery .route-section-title h2 {
+  color: #111 !important;
+  font-size: 18px !important;
+  line-height: 1.25 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Empty trending state mirrors the approved visual: large centered hash icon. */
+.flutter-search-discovery .hashtag-list > .route-empty {
+  min-height: 350px;
+  padding-top: 22px;
+  padding-bottom: 18px;
+  gap: 24px;
+  color: #92908a;
+  font-size: 15px;
+}
+
+.flutter-search-discovery .hashtag-list > .route-empty::before {
+  content: "#";
+  width: 86px;
+  height: 86px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f3f3f3;
+  color: #8f8f8f;
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.flutter-search-discovery .top100-link {
+  min-height: 42px !important;
+  margin: -2px 0 10px !important;
+}
+
+/* One divider separates trending from suggested follows. */
+.flutter-suggested-section {
+  margin-top: 0 !important;
+  padding-top: 14px !important;
+  padding-bottom: 28px !important;
+  border-top: 1px solid #eceae5 !important;
+}
+
+.flutter-suggested-section .route-section-title {
+  padding: 0 40px 10px !important;
+}
+
+/* Suggested accounts are clean rows with no per-account separators. */
+.flutter-suggested-section .route-person-row {
+  min-height: 68px;
+  padding: 9px 32px;
+  border-bottom: 0 !important;
+}
+
+.flutter-suggested-section .route-person-copy strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.flutter-suggested-section .route-person-copy small {
+  font-size: 14px;
+  color: #999;
+}
+
+.search-follow-button {
+  min-width: 88px;
+  height: 36px;
+  padding: 0 18px !important;
+  border-color: #000 !important;
+  border-radius: 999px !important;
+  background: #000 !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.search-follow-button.soft {
+  border-color: var(--hairline) !important;
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+}
+
+/* WYNOS chat inbox: founder-approved simplified layout. */
+.flutter-chat-inbox {
+  min-height: 100%;
+  background: var(--paper) !important;
+}
+
+.flutter-chat-header {
+  height: 76px !important;
+  padding: 8px 32px 0 24px !important;
+  display: grid !important;
+  grid-template-columns: 48px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  border-bottom: 0 !important;
+  background: var(--paper) !important;
+}
+
+.flutter-chat-header-action {
+  width: 48px !important;
+  height: 48px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: #111 !important;
+  text-decoration: none !important;
+}
+
+.flutter-chat-header h1 {
+  margin: 0 !important;
+  justify-self: start !important;
+  color: #111 !important;
+  font-size: 25px !important;
+  line-height: 1.1 !important;
+  font-weight: 700 !important;
+}
+
+.flutter-chat-request-action {
+  min-width: 58px;
+  height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: #111;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.flutter-chat-search {
+  height: 52px;
+  margin: 4px 36px 24px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #f6f6f6;
+  color: #666;
+}
+
+.flutter-chat-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #111;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.flutter-chat-search input::placeholder {
+  color: #7d7d7d;
+  opacity: 1;
+}
+
+.flutter-chat-pill-tabs {
+  display: none !important;
+}
+
+.flutter-chat-list {
+  background: var(--paper) !important;
+}
+
+.flutter-chat-list .chat-row {
+  min-height: 86px !important;
+  padding: 12px 36px !important;
+  gap: 14px !important;
+  border-bottom: 1px solid #ececec !important;
+  background: var(--paper) !important;
+}
+
+.flutter-chat-list .chat-row:last-child {
+  border-bottom: 0 !important;
+}
+
+.flutter-chat-list .chat-row-copy {
+  min-width: 0;
+  gap: 3px;
+}
+
+.flutter-chat-list .chat-row-copy strong {
+  color: #111 !important;
+  font-size: 17px !important;
+  line-height: 1.2 !important;
+  font-weight: 700 !important;
+}
+
+.flutter-chat-list .chat-row-copy small {
+  overflow: hidden;
+  color: #777 !important;
+  font-size: 14px !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.flutter-chat-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #777;
+}
+
+.flutter-chat-row-meta time {
+  color: #777 !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+}
+
+.flutter-chat-row-meta svg {
+  color: #777;
+  flex: 0 0 auto;
 }

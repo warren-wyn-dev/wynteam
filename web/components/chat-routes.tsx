@@ -1,6 +1,6 @@
 "use client";
 
-import { ImagePlus, MessageSquarePlus, Send, Trash2, X } from "lucide-react";
+import { ChevronLeft, CirclePlus, ImagePlus, MessageSquarePlus, MoreHorizontal, Send, Trash2, UserRound, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,6 +11,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
 import { relativeTimeTh } from "@/lib/feed";
+import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
@@ -22,7 +23,7 @@ import {
   fetchInbox,
   fetchMessageRequests,
   fetchMessages,
-  fetchProfile,
+  fetchProfileSummary,
   getOrCreateConversation,
   markConversationRead,
   searchProfiles,
@@ -33,6 +34,7 @@ import {
   type ConversationRow,
   type MessageRow,
   type ProfileRow,
+  type ProfileSummary,
 } from "@/lib/phase3-data";
 
 function conversationPreview(row: ConversationRow): string {
@@ -44,6 +46,19 @@ function conversationPreview(row: ConversationRow): string {
 
 function isUnread(row: ConversationRow, userId: string): boolean {
   return Boolean(row.last_message_sender_id !== userId && row.last_message_at && (!row.my_last_read_at || new Date(row.last_message_at) > new Date(row.my_last_read_at)));
+}
+
+function chatDayKey(value: string): string {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function chatDateLabel(value: string): string {
+  return new Intl.DateTimeFormat("th-TH-u-ca-gregory", { day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
+}
+
+function chatTimeLabel(value: string): string {
+  return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
 }
 
 function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: string }) {
@@ -145,6 +160,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const cached = getMountCache<ConversationSnapshot>(cacheKey);
   const [otherId, setOtherId] = useState(userFromUrl);
   const [other, setOther] = useState<ProfileRow | null>(cached?.other ?? null);
+  const [otherSummary, setOtherSummary] = useState<ProfileSummary | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>(cached?.messages ?? []);
   const [meta, setMeta] = useState<ConversationMeta | null>(cached?.meta ?? null);
   const [loading, setLoading] = useState(!cached);
@@ -153,11 +169,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [draft, setDraft] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
   const [error, setError] = useState("");
-  // Showing a permanent delete button beside every own bubble crowded the
-  // whole thread with icons nobody was about to tap on most of them —
-  // WhatsApp/Telegram/Messenger all keep it hidden until you actually pick
-  // the message. Tapping a bubble reveals its own delete action instead.
   const [revealedMessageId, setRevealedMessageId] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -211,8 +224,11 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
         const id = await resolveOther();
         if (id) {
           if (!(await chatAllowed(client, id))) throw new Error("ไม่สามารถเปิดบทสนทนานี้ได้");
-          const profile = await fetchProfile(client, id);
-          if (live) setOther(profile);
+          const summary = await fetchProfileSummary(client, userId, id);
+          if (live) {
+            setOtherSummary(summary);
+            setOther(summary?.profile ?? null);
+          }
         }
         await refresh();
       } catch (e) { if (live) setError(e instanceof Error ? e.message : "โหลดบทสนทนาไม่สำเร็จ"); }
@@ -221,7 +237,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     const channel = subscribeConversationMessages(client, conversationId, () => { void refresh(); });
     channelRef.current = channel;
     return () => { live = false; if (channelRef.current) void client.removeChannel(channelRef.current); };
-  }, [client, conversationId, refresh, resolveOther]);
+  }, [client, conversationId, refresh, resolveOther, userId]);
 
   const loadOlder = async () => {
     const oldest = messages[messages.length - 1];
@@ -250,9 +266,6 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       pending: true,
       localPreviewUrl,
     };
-    // Optimistic send: the bubble and a cleared composer appear immediately;
-    // a failed request rolls the bubble back and restores the draft so
-    // nothing typed is lost.
     setMessages((current) => [optimisticMessage, ...current]);
     setDraft(""); setFile(null); setSending(true); setError("");
     haptic();
@@ -280,6 +293,24 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     catch { setError("ลบข้อความไม่สำเร็จ"); }
   };
 
+  const toggleFollow = async () => {
+    if (!other || !otherSummary || followBusy) return;
+    const wasFollowing = otherSummary.following;
+    const wasRequested = otherSummary.requested;
+    if (wasRequested && other.is_private && !window.confirm(`ยกเลิกคำขอติดตาม @${other.username}?`)) return;
+    const next = predictFollowState({ currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: other.is_private });
+    setFollowBusy(true);
+    setOtherSummary((current) => current ? { ...current, following: next === "following", requested: next === "requested" } : current);
+    try {
+      await toggleAuthorFollow(client, userId, other.id, { currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: other.is_private });
+    } catch (e) {
+      setOtherSummary((current) => current ? { ...current, following: wasFollowing, requested: wasRequested } : current);
+      showToast(e instanceof Error ? e.message : "ติดตามไม่สำเร็จ");
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
   const recipientPending = meta?.status === "pending" && meta.requested_by !== userId;
   const requesterPending = meta?.status === "pending" && meta.requested_by === userId;
   const ordered = useMemo(() => [...messages].reverse(), [messages]);
@@ -294,31 +325,67 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     catch { setError("ลบคำขอไม่สำเร็จ"); }
   };
 
+  const displayName = other?.display_name?.trim() || other?.username || "ข้อความ";
+  const followLabel = otherSummary?.following ? "กำลังติดตาม" : otherSummary?.requested ? "ขอติดตามแล้ว" : "ติดตาม";
+
   return (
-    <AppChrome title={other?.display_name?.trim() || other?.username || "ข้อความ"} userId={userId} backHref="/chat" showBottomNav={false}>
+    <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}>
       {loading && !messages.length && !other ? <LoadingState /> : (
-        <div className="conversation-page">
-          {other ? <Link className="conversation-person" href={`/profile/${other.id}`}><Avatar src={other.avatar_url} label={other.username} /><span><strong>{other.display_name?.trim() || other.username}</strong><small>@{other.username}</small></span></Link> : null}
+        <div className="conversation-page conversation-modern">
+          <header className="conversation-modern-header">
+            <Link className="conversation-modern-back" href="/chat" aria-label="ย้อนกลับ"><ChevronLeft size={30} strokeWidth={1.8} /></Link>
+            {other ? <Link className="conversation-modern-header-person" href={`/profile/${other.id}`}><Avatar src={other.avatar_url} label={other.username} size={44} /><span><strong>{displayName}</strong><small>@{other.username}</small></span></Link> : <span />}
+            <button className="conversation-modern-more" type="button" aria-label="เพิ่มเติม" onClick={() => other && router.push(`/profile/${other.id}`)}><MoreHorizontal size={26} strokeWidth={1.8} /></button>
+          </header>
+
+          {other ? <section className="conversation-profile-hero">
+            <Link className="conversation-profile-identity" href={`/profile/${other.id}`}>
+              <Avatar src={other.avatar_url} label={other.username} size={112} />
+              <strong>{displayName}</strong>
+              <small>@{other.username}</small>
+            </Link>
+            <div className="conversation-profile-actions">
+              <Link className="conversation-profile-button profile" href={`/profile/${other.id}`}><UserRound size={24} strokeWidth={1.8} /><span>ดูโปรไฟล์</span></Link>
+              <button className={`conversation-profile-button follow ${otherSummary?.following || otherSummary?.requested ? "soft" : ""}`} type="button" disabled={followBusy || !otherSummary} onClick={() => void toggleFollow()}><CirclePlus size={24} strokeWidth={1.8} /><span>{followLabel}</span></button>
+            </div>
+          </section> : null}
+
           {hasMore ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadOlder()}>{loadingMore ? "กำลังโหลด…" : "ดูข้อความก่อนหน้า"}</button> : null}
-          <div className="message-list" style={{ paddingBottom: composerHeight + 30 }}>
-            {ordered.map((message) => {
+          <div className="message-list conversation-thread" style={{ paddingBottom: composerHeight + 30 }}>
+            {ordered.map((message, index) => {
               const mine = message.sender_id === userId;
               const canDelete = mine && !message.deleted_at && !message.pending;
               const revealed = canDelete && revealedMessageId === message.id;
-              return <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}`} key={message.id}><div
-                className="message-bubble"
-                role={canDelete ? "button" : undefined}
-                tabIndex={canDelete ? 0 : undefined}
-                onClick={canDelete ? () => setRevealedMessageId((current) => current === message.id ? null : message.id) : undefined}
-              >{message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>{message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}{message.text ? <p>{message.text}</p> : null}{message.localPreviewUrl ? (
-                // Local blob preview of an in-flight upload — not yet a storage path.
-                <img className="message-image" src={message.localPreviewUrl} alt="" />
-              ) : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}</>}<time>{message.pending ? "กำลังส่ง…" : relativeTimeTh(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time></div>{revealed ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><Trash2 size={13} /></button> : null}</div>;
+              const previous = index > 0 ? ordered[index - 1] : null;
+              const showDate = !previous || chatDayKey(previous.created_at) !== chatDayKey(message.created_at);
+              const read = mine && Boolean(meta?.other_user_last_read_at && new Date(message.created_at) <= new Date(meta.other_user_last_read_at));
+              return <div className="message-entry" key={message.id}>
+                {showDate ? <div className="conversation-date-separator"><span>{chatDateLabel(message.created_at)}</span></div> : null}
+                <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}`}>
+                  {!mine && other ? <Avatar src={other.avatar_url} label={other.username} size={34} /> : null}
+                  <div className="message-stack">
+                    <div
+                      className="message-bubble"
+                      role={canDelete ? "button" : undefined}
+                      tabIndex={canDelete ? 0 : undefined}
+                      onClick={canDelete ? () => setRevealedMessageId((current) => current === message.id ? null : message.id) : undefined}
+                    >
+                      {message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>
+                        {message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}
+                        {message.text ? <p>{message.text}</p> : null}
+                        {message.localPreviewUrl ? <img className="message-image" src={message.localPreviewUrl} alt="" /> : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}
+                      </>}
+                    </div>
+                    <div className="message-meta"><time>{message.pending ? "กำลังส่ง…" : chatTimeLabel(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time>{mine && !message.pending ? <span aria-label={read ? "อ่านแล้ว" : "ส่งแล้ว"}>{read ? "✓" : "✓"}</span> : null}</div>
+                  </div>
+                  {revealed ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><Trash2 size={13} /></button> : null}
+                </div>
+              </div>;
             })}
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
-            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><ImagePlus size={21} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "ข้อความ…"} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><Send size={20} /></button>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><X size={15} /></button> : null}</form>
+            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><ImagePlus size={23} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><Send size={22} /></button>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><X size={15} /></button> : null}</form>
           )}
         </div>
       )}
