@@ -19,24 +19,24 @@ test("approved Founder Home mockup geometry cannot drift", () => {
     layout.lastIndexOf('import "./founder-parity-lock.css";'),
   );
 
-  expect(home).toContain("grid-template-columns: 44px minmax(0, 1fr)");
+  expect(home).toContain("grid-template-columns: 36px minmax(0, 1fr)");
   expect(home).toContain("column-gap: 10px");
-  expect(home).toContain("padding: 12px 16px 0");
-  expect(home).toContain("margin-top: 6px");
+  expect(home).toContain("padding: 14px 16px 0");
+  expect(home).toContain("margin-top: 4px");
   expect(home).toContain("grid-column: 2");
   expect(home).toContain("transform: none");
-  expect(home).toContain("margin: 3px 0 0");
+  expect(home).toContain("margin: 6px 0 0");
   expect(home).toContain("calc((100% - 16px) * 0.82)");
   expect(home).toContain("text-decoration: none !important");
-  expect(home).toContain("background: var(--wyn-surface)");
+  expect(home).toContain("background: #efeff1");
   expect(home).toContain(".wyn-post-follow-pill.is-following");
-  expect(home).toContain("width: calc(100% - 20px)");
+  expect(home).toContain("width: calc(100% - 16px)");
   expect(tabs).toContain("wyn-home-tab-indicator");
   expect(tabs).not.toContain('background: active ? "var(--wyn-surface)"');
   expect(author).toContain('"กำลังติดตาม"');
   expect(lock).toContain("color: #1d9bf0");
 
-  expect(card).toContain('size={44}');
+  expect(card).toContain('size={36}');
   expect(card).toContain("<RichPostText");
   expect(card).toContain("รีโพสต์โดย {row.redropper_username");
 });
