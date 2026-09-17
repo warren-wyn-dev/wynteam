@@ -11,8 +11,8 @@ import type { HomeViewerState } from "@/lib/home-actions";
 
 /**
  * One Home feed card. Business logic stays in HomeScreen while the visual
- * composition follows the cleaner X + Threads rhythm: compact author meta,
- * readable body copy, wide media and a single interaction strip below it.
+ * composition follows the approved WYNOS Threads-like rhythm: compact author
+ * meta, readable body copy, wide media and one interaction strip below it.
  */
 export function HomePostCard({
   row,
@@ -58,7 +58,7 @@ export function HomePostCard({
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
           <Repeat2 size={14} />
-          รีโพสต์โดย @{row.redropper_username || "wynos"} · {time}
+          รีโพสต์โดย {row.redropper_username || "WYNOS"} · {time}
         </div>
       ) : null}
       {row.quote_text ? <RichPostText className="wyn-post-quote" value={row.quote_text} /> : null}
@@ -71,7 +71,8 @@ export function HomePostCard({
           name={authorLabel(row)}
           verified={Boolean(row.author_is_verified)}
           timeLabel={timeAndLocation}
-          showFollow={row.author_id !== userId && !following}
+          showFollow={row.author_id !== userId}
+          following={following}
           followRequested={requested}
           onFollow={onFollow}
           onMore={onMore}

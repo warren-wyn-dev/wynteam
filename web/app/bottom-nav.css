@@ -1,10 +1,9 @@
 /*
  * Canonical bottom navigation stylesheet.
  *
- * Founder-approved mobile direction: a full-width rounded white dock with
- * five equal destinations. The selected destination uses a very soft rounded
- * tile; all icons stay the same size and the Post action is visually equal to
- * the other destinations.
+ * WYN-162 keeps the five existing WYNOS destinations exactly as-is while
+ * simplifying the presentation to the approved app-like bar: no selected
+ * tile, no oversized create action, and no decorative floating dock.
  */
 
 .route-bottom-nav {
@@ -20,10 +19,10 @@
   min-height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
   padding: 6px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
   background: var(--wyn-bg, var(--paper));
-  border: 1px solid var(--wyn-border, var(--hairline));
-  border-bottom: 0;
-  border-radius: 30px 30px 0 0;
-  box-shadow: 0 -5px 20px rgba(10, 10, 10, 0.045);
+  border: 0;
+  border-top: 1px solid var(--wyn-border, var(--hairline));
+  border-radius: 0;
+  box-shadow: none;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   overflow: hidden;
@@ -31,7 +30,6 @@
 
 .route-nav-link {
   position: relative;
-  isolation: isolate;
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -44,29 +42,19 @@
   gap: 5px;
   color: var(--wyn-text-secondary, #747474);
   text-decoration: none;
-  font-size: 11.5px;
+  font-size: var(--wyn-font-caption, 12px);
   line-height: 1;
   font-weight: 400;
   -webkit-tap-highlight-color: transparent;
 }
 
 .route-nav-link::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0 7px;
-  border-radius: 20px;
-  background: transparent;
-  transition: background-color 140ms ease;
+  content: none;
 }
 
 .route-nav-link.active {
   color: var(--wyn-text, #111111);
-  font-weight: 600;
-}
-
-.route-nav-link.active::before {
-  background: rgba(17, 17, 17, 0.035);
+  font-weight: 700;
 }
 
 .route-nav-link > span:last-child {
@@ -87,7 +75,7 @@
 /* Compatibility hooks kept for older fixtures. */
 .route-create-destination {
   gap: 5px;
-  color: #747474;
+  color: var(--wyn-text-secondary, #747474);
 }
 
 .route-create-button {
@@ -125,21 +113,24 @@
   padding: 1px 4px;
   display: grid;
   place-items: center;
-  border-radius: var(--wyn-radius-sm);
-  background: #dc2626;
-  color: #fff;
+  border-radius: var(--wyn-radius-tail, 4px);
+  background: var(--wyn-accent, #e0203d);
+  color: var(--wyn-bg, #fff);
   font-size: 10px;
   line-height: 1;
   font-weight: 700;
 }
 
+.route-nav-link:focus-visible {
+  outline: 2px solid var(--wyn-text, #111111);
+  outline-offset: -4px;
+}
+
 @media (min-width: 681px) {
   .route-bottom-nav {
     --wyn-nav-safe-bottom: 0px;
-    width: min(calc(100% - 24px), 656px);
-    border-bottom: 1px solid var(--wyn-border, var(--hairline));
-    border-radius: 30px;
-    bottom: 10px;
+    width: min(100%, 680px);
+    bottom: 0;
     padding-bottom: 6px;
     height: var(--wyn-bottom-nav-height);
     min-height: var(--wyn-bottom-nav-height);
