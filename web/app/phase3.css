@@ -318,7 +318,7 @@
 .message-row { display: flex; gap: 5px; align-items: end; }
 .message-row.mine { justify-content: flex-end; }
 .message-bubble { max-width: 78%; border-radius: 18px; padding: 8px 11px; background: var(--wyn-surface); line-height: 1.4; font-size: 14px; overflow: hidden; }
-.message-row.mine .message-bubble { background: var(--wyn-text); color: var(--wyn-bg); border-bottom-right-radius: 5px; }
+.message-row.mine .message-bubble { background: var(--wyn-text); color: var(--wyn-bg); border-bottom-right-radius: 5px; cursor: pointer; }
 .message-row.theirs .message-bubble { border-bottom-left-radius: 5px; }
 .message-bubble p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .message-bubble time { display: block; margin-top: 4px; font-size: 9.5px; opacity: .65; }
@@ -329,7 +329,12 @@
    touch-target minimum here — the icon/background stays visually compact so
    the delete affordance doesn't dominate a chat bubble. */
 .message-delete { border: 0; background: transparent; color: var(--wyn-text-secondary); min-width: 44px; min-height: 44px; display: grid; place-items: center; cursor: pointer; }
-.message-composer { position: fixed; z-index: 65; bottom: calc(62px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(100%, 680px); min-height: 58px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--wyn-border); background: var(--wyn-bg); }
+/* bottom: env(safe-area-inset-bottom) only, not the 62px a bottom-nav bar
+   would need — the conversation page renders AppChrome with
+   showBottomNav={false}, so there is no nav bar here to clear. The old
+   62px offset left a dead gap of blank background between the composer
+   and the actual bottom edge (and the on-screen keyboard once focused). */
+.message-composer { position: fixed; z-index: 65; bottom: env(safe-area-inset-bottom); left: 50%; transform: translateX(-50%); width: min(100%, 680px); min-height: 58px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--wyn-border); background: var(--wyn-bg); }
 .message-composer input[type="text"], .message-composer > input { min-height: 40px; border: 1px solid var(--wyn-border); border-radius: 999px; padding: 0 14px; outline: 0; background: var(--wyn-surface); }
 .message-image-picker, .message-composer > button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
 .message-composer > button[type="submit"] { background: var(--wyn-text); color: var(--wyn-bg); }
@@ -339,7 +344,7 @@
    without changing the badge's layout or appearance. */
 .message-clear-file { position: absolute; right: 52px; top: -26px; background: var(--wyn-text) !important; color: var(--wyn-bg); width: 25px !important; height: 25px !important; }
 .message-clear-file::before { content: ""; position: absolute; inset: -9.5px; }
-.conversation-request-bar { position: sticky; bottom: calc(62px + env(safe-area-inset-bottom)); padding: 12px 16px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); text-align: center; }
+.conversation-request-bar { position: sticky; bottom: env(safe-area-inset-bottom); padding: 12px 16px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); text-align: center; }
 .conversation-request-bar p { margin: 0 0 8px; color: var(--wyn-text-secondary); font-size: 13px; }
 .conversation-request-bar div { display: flex; justify-content: center; gap: 8px; }
 
