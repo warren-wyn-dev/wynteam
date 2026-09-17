@@ -1,14 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, Pencil, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
 import { ChatListSkeleton } from "@/components/ui/skeleton";
 import { relativeTimeTh } from "@/lib/feed";
 import {
@@ -17,10 +16,7 @@ import {
   deleteMessageRequest,
   fetchInbox,
   fetchMessageRequests,
-  getOrCreateConversation,
-  searchProfiles,
   type ConversationRow,
-  type ProfileRow,
 } from "@/lib/phase3-data";
 
 function conversationPreview(row: ConversationRow): string {
@@ -51,7 +47,6 @@ async function fetchChatInboxData(client: SupabaseClient): Promise<ChatInboxData
 }
 
 function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; userId: string }) {
-  const router = useRouter();
   const { data, isLoading: loading, error: loadError, refetch } = useQuery({
     queryKey: ["chat-inbox", userId] as const,
     queryFn: () => fetchChatInboxData(client),
@@ -59,47 +54,12 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   const allowed = data?.allowed ?? null;
   const rows = data?.rows ?? [];
   const requests = data?.requests ?? [];
-  const [tab, setTab] = useState<"all" | "unread">("all");
   const [requestsOpen, setRequestsOpen] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [people, setPeople] = useState<ProfileRow[]>([]);
-  const [finding, setFinding] = useState(false);
   const [actionError, setActionError] = useState("");
   const error = actionError || (loadError instanceof Error ? loadError.message : "");
-  const setError = setActionError;
 
   const load = async () => { await refetch(); };
-
-  const findPeople = async () => {
-    const value = query.trim();
-    if (value.length < 2) {
-      setPeople([]);
-      return;
-    }
-    setFinding(true);
-    try {
-      setPeople((await searchProfiles(client, value, 0)).filter((profile) => profile.id !== userId));
-    } finally {
-      setFinding(false);
-    }
-  };
-
-  const start = async (profile: ProfileRow) => {
-    setFinding(true);
-    setError("");
-    try {
-      if (!(await chatAllowed(client, profile.id))) {
-        throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้");
-      }
-      const id = await getOrCreateConversation(client, profile.id);
-      router.push(`/chat/${id}?user=${encodeURIComponent(profile.id)}`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "เริ่มแชทไม่สำเร็จ");
-    } finally {
-      setFinding(false);
-    }
-  };
 
   const decide = async (row: ConversationRow, accept: boolean) => {
     try {
@@ -113,30 +73,48 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
       await load();
       if (requests.length <= 1) setRequestsOpen(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "อัปเดตคำขอไม่สำเร็จ");
+      setActionError(cause instanceof Error ? cause.message : "อัปเดตคำขอไม่สำเร็จ");
     }
   };
 
-  const visibleRows = tab === "unread" ? rows.filter((row) => isUnread(row, userId)) : rows;
-  const requestLabel = requests.length > 0 ? `คำขอ (${requests.length})` : "คำขอ";
+  const normalizedQuery = query.trim().toLocaleLowerCase("th-TH");
+  const visibleRows = normalizedQuery
+    ? rows.filter((row) => {
+        const name = (row.other_display_name?.trim() || row.other_username).toLocaleLowerCase("th-TH");
+        const username = row.other_username.toLocaleLowerCase("th-TH");
+        const preview = conversationPreview(row).toLocaleLowerCase("th-TH");
+        return name.includes(normalizedQuery) || username.includes(normalizedQuery) || preview.includes(normalizedQuery);
+      })
+    : rows;
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}>
       <section className="flutter-chat-inbox" aria-label="ข้อความ">
         <header className="flutter-chat-header">
           <Link className="flutter-chat-header-action" href="/" aria-label="ย้อนกลับ">
-            <ChevronLeft size={26} strokeWidth={1.8} />
+            <ChevronLeft size={28} strokeWidth={1.8} />
           </Link>
           <h1>ข้อความ</h1>
           <button
-            className="flutter-chat-compose-action"
+            className="flutter-chat-request-action"
             type="button"
-            aria-label="เขียนข้อความใหม่"
-            onClick={() => setNewOpen(true)}
+            aria-label={requests.length ? `คำขอข้อความ ${requests.length} รายการ` : "คำขอข้อความ"}
+            onClick={() => setRequestsOpen(true)}
           >
-            <Pencil size={18} strokeWidth={1.8} />
+            คำขอ
           </button>
         </header>
+
+        <label className="flutter-chat-search">
+          <Search size={23} strokeWidth={1.8} aria-hidden="true" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="ค้นหาข้อความ"
+            inputMode="search"
+            aria-label="ค้นหาข้อความ"
+          />
+        </label>
 
         {loading ? (
           <ChatListSkeleton />
@@ -147,35 +125,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           </div>
         ) : (
           <>
-            <div className="flutter-chat-pill-tabs" role="tablist" aria-label="ตัวกรองข้อความ">
-              <button
-                className={tab === "all" ? "active" : ""}
-                type="button"
-                role="tab"
-                aria-selected={tab === "all"}
-                onClick={() => setTab("all")}
-              >
-                ทั้งหมด
-              </button>
-              <button
-                className={tab === "unread" ? "active" : ""}
-                type="button"
-                role="tab"
-                aria-selected={tab === "unread"}
-                onClick={() => setTab("unread")}
-              >
-                ยังไม่อ่าน
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected="false"
-                onClick={() => setRequestsOpen(true)}
-              >
-                {requestLabel}
-              </button>
-            </div>
-
             {error ? <p className="route-error route-pad">{error}</p> : null}
             {visibleRows.length ? (
               <div className="chat-list flutter-chat-list">
@@ -193,12 +142,15 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                         {isUnread(row, userId) ? <i className="chat-inline-unread" /> : null}
                       </small>
                     </span>
-                    <time>{row.last_message_at ? relativeTimeTh(row.last_message_at) : ""}</time>
+                    <span className="flutter-chat-row-meta">
+                      <time>{row.last_message_at ? relativeTimeTh(row.last_message_at) : ""}</time>
+                      <ChevronRight size={20} strokeWidth={1.7} aria-hidden="true" />
+                    </span>
                   </Link>
                 ))}
               </div>
             ) : (
-              <EmptyState>{tab === "unread" ? "ไม่มีบทสนทนาที่ยังไม่อ่าน" : "ยังไม่มีข้อความ"}</EmptyState>
+              <EmptyState>{normalizedQuery ? "ไม่พบข้อความ" : "ยังไม่มีข้อความ"}</EmptyState>
             )}
           </>
         )}
@@ -231,32 +183,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
               </div>
             ) : (
               <EmptyState>ไม่มีคำขอข้อความ</EmptyState>
-            )}
-          </section>
-        </div>
-      ) : null}
-
-      {newOpen ? (
-        <div className="route-modal-backdrop" onClick={() => setNewOpen(false)} role="presentation">
-          <section className="route-modal chat-new-message-modal" role="dialog" aria-modal="true" aria-label="ข้อความใหม่" onClick={(event) => event.stopPropagation()}>
-            <header>
-              <strong>ข้อความใหม่</strong>
-              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setNewOpen(false)}><X size={20} /></button>
-            </header>
-            <form className="search-route-form compact" onSubmit={(event) => { event.preventDefault(); void findPeople(); }}>
-              <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหา username" />
-              <button className="route-pill" type="submit">ค้นหา</button>
-            </form>
-            {finding && !people.length ? <LoadingState /> : (
-              <div className="route-list">
-                {people.map((profile) => (
-                  <ProfileRowView
-                    profile={profile}
-                    key={profile.id}
-                    trailing={<button className="route-pill" type="button" disabled={finding} onClick={() => void start(profile)}>ส่งข้อความ</button>}
-                  />
-                ))}
-              </div>
             )}
           </section>
         </div>
