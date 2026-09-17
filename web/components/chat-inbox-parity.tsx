@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Pencil, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
@@ -19,6 +19,7 @@ import {
   fetchMessageRequests,
   getOrCreateConversation,
   searchProfiles,
+  subscribeMyMessages,
   type ConversationRow,
   type ProfileRow,
 } from "@/lib/phase3-data";
@@ -59,6 +60,17 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   const allowed = data?.allowed ?? null;
   const rows = data?.rows ?? [];
   const requests = data?.requests ?? [];
+
+  // Mirrors Flutter's ChatInboxScreen: any new message across any of this
+  // user's conversations should update the list/preview/unread badge right
+  // away, not just on next mount/refocus. Gated on `allowed` the same way
+  // Flutter's _init() never subscribes for a locked-out account.
+  useEffect(() => {
+    if (allowed !== true) return;
+    const channel: RealtimeChannel = subscribeMyMessages(client, userId, () => void refetch());
+    return () => { void client.removeChannel(channel); };
+  }, [client, userId, allowed, refetch]);
+
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);

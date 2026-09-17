@@ -742,6 +742,18 @@ export function subscribeConversationMessages(
     .subscribe();
 }
 
+/** Mirrors Flutter's `ChatRepository.subscribeToMyMessages()`: no
+ * `conversation_id` filter (Realtime can't filter by "any conversation
+ * this user is in" — RLS on `messages` already scopes which INSERTs this
+ * client actually receives), used to refresh the inbox list/unread badge
+ * on any new message across every conversation, not just one open thread. */
+export function subscribeMyMessages(client: SupabaseClient, userId: string, onChange: () => void): RealtimeChannel {
+  return client
+    .channel(`web-chat-inbox-${userId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, onChange)
+    .subscribe();
+}
+
 export async function fetchNotificationSettings(client: SupabaseClient): Promise<NotificationSettings> {
   const result = await client.from("notification_settings").select("*").maybeSingle();
   fail(result.error, "โหลดการตั้งค่าการแจ้งเตือนไม่สำเร็จ");

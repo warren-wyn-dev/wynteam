@@ -1108,4 +1108,34 @@ bar เปล่าๆอีกต่อไป) — ส่วน toolbar ไอ�
 
 Regression suite เดิมผ่านครบ 87 เทสเหมือนทุกรอบ — merge เข้า main ทันทีตาม pipeline เดิม รอ deploy ยืนยัน
 
+## [2026-09-17] หน้าแชท (เว็บ) — audit เจอ 6 จุด, แก้ก่อน 2 จุดที่กระทบการใช้งานจริงที่สุด
+
+Founder ขอให้เช็ค UX/UI ระบบแชททั้งหมด สงสัยว่ามีบั๊กแอบซ่อนอยู่เยอะ — ไล่เทียบโค้ดเว็บกับ Flutter ต้นแบบ
+(ไม่ใช่แค่ความเห็น) เจอ 6 จุด: (1) หน้ารายการแชทไม่มี realtime เลย ต่างจาก Flutter ที่ subscribe ทุกข้อความ
+ใหม่แล้วรีเฟรชอัตโนมัติ (2) ช่องพิมพ์ข้อความเป็น `<input>` บรรทัดเดียว ขึ้นบรรทัดใหม่ไม่ได้ ต่างจาก spec เดิม
+(WYN-031: TextField minLines 1 maxLines 6) (3) ตอบกลับ (reply) ข้อความทำไม่ได้เลยจาก UI ทั้งที่ฐานข้อมูล/
+`sendMessage()` รองรับเต็มที่ (4) เปิดลิงก์แชทตรงๆแบบไม่มี `?user=` โหลดข้อมูล+subscribe ซ้ำ 2 รอบ (5) ไม่มี
+เมนู mute/block/report ในหน้าแชทเว็บเลย (6) มีคอมโพเนนต์แชทซ้อนกัน 2 ชุดในไฟล์เดียว (`ChatInboxInner`/
+`ChatRoute` ใน `chat-routes.tsx` ไม่ถูกใช้จริง เพราะ `/chat` ใช้ `chat-inbox-parity.tsx`)
+
+Founder ให้แก้ #1 กับ #2 ก่อน (กระทบการใช้งานจริงมากที่สุด) ส่วน #3-6 พักไว้รอบหน้า
+
+**สิ่งที่ทำ**:
+1. `lib/phase3-data.ts` — เพิ่ม `subscribeMyMessages()` มิเรอร์ Flutter's `subscribeToMyMessages()` (subscribe
+   INSERT บน `messages` ทั้งตารางไม่มี filter — Realtime พึ่ง RLS ของ `messages` กรองให้เองว่าใครเห็นแถวไหน,
+   ตรงตาม comment ในโค้ด Flutter เอง) — `chat-inbox-parity.tsx` เรียกใช้ผ่าน `useEffect` ที่ trigger
+   `refetch()` ของ react-query ทุกครั้งที่มีข้อความใหม่ (gate ด้วย `allowed === true` มิเรอร์ Flutter's
+   `_init()` ที่ไม่ subscribe เลยถ้า locked-out)
+2. `chat-routes.tsx` — เปลี่ยนช่องพิมพ์จาก `<input>` เป็น `<textarea>` ที่ auto-grow ตาม `scrollHeight`
+   ทุกครั้งที่ `draft` เปลี่ยน (จำกัดสูงสุด ~6 บรรทัดด้วย CSS `max-height` แล้ว scroll ต่อ) พร้อมวัดความสูง
+   composer จริงแล้วปรับ padding-bottom ของ `.message-list` ให้ไม่บังข้อความล่างสุดเมื่อช่องพิมพ์ขยายตัว —
+   `.message-composer`'s `align-items` เปลี่ยนจาก `center` เป็น `end` ให้ปุ่มแนบรูป/ส่งเกาะอยู่ล่างเสมอเหมือน
+   แชทแอปทั่วไป, border-radius จาก 999px (pill) เป็น 20px ให้ดูดีตอนขยายเป็นหลายบรรทัด
+
+Regression suite เดิมผ่านครบ 87 เทสเหมือนทุกรอบ
+
+อ้างอิง: `web/lib/phase3-data.ts`, `web/components/chat-inbox-parity.tsx`, `web/components/chat-routes.tsx`,
+`web/app/phase3.css`, `app/lib/features/chat/data/chat_repository.dart` (`subscribeToMyMessages`),
+`app/lib/features/chat/presentation/chat_inbox_screen.dart`
+
 อ้างอิง: `web/components/beta4-composer.tsx`, `web/app/system-parity-final.css`

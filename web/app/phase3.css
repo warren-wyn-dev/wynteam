@@ -343,8 +343,13 @@
    showBottomNav={false}, so there is no nav bar here to clear. The old
    62px offset left a dead gap of blank background between the composer
    and the actual bottom edge (and the on-screen keyboard once focused). */
-.message-composer { position: fixed; z-index: 65; bottom: env(safe-area-inset-bottom); left: 50%; transform: translateX(-50%); width: min(100%, 680px); min-height: 58px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--wyn-border); background: var(--wyn-bg); }
-.message-composer input[type="text"], .message-composer > input { min-height: 40px; border: 1px solid var(--wyn-border); border-radius: 999px; padding: 0 14px; outline: 0; background: var(--wyn-surface); }
+.message-composer { position: fixed; z-index: 65; bottom: env(safe-area-inset-bottom); left: 50%; transform: translateX(-50%); width: min(100%, 680px); min-height: 58px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: end; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--wyn-border); background: var(--wyn-bg); }
+/* WYN-031's spec (minLines 1, maxLines ~6): grows with the draft
+   (chat-routes.tsx measures scrollHeight on every keystroke) up to this
+   max-height, then becomes its own scroll region rather than growing
+   the composer indefinitely. 20px is a whole line at this font-size, so
+   6 lines + the 10px vertical padding lands just under 130px. */
+.message-composer textarea { min-height: 40px; max-height: 130px; margin-bottom: 3px; border: 1px solid var(--wyn-border); border-radius: 20px; padding: 9px 14px; outline: 0; background: var(--wyn-surface); resize: none; overflow-y: auto; font: inherit; font-size: 14px; line-height: 20px; }
 .message-image-picker, .message-composer > button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
 .message-composer > button[type="submit"] { background: var(--wyn-text); color: var(--wyn-bg); }
 /* Visual badge stays exactly its original small size (a compact "remove

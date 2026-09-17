@@ -4,7 +4,7 @@ import { ImagePlus, MessageSquarePlus, Send, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -160,11 +160,28 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   // the message. Tapping a bubble reveals its own delete action instead.
   const [revealedMessageId, setRevealedMessageId] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const composerRef = useRef<HTMLFormElement | null>(null);
+  const [composerHeight, setComposerHeight] = useState(58);
   const { toastMessage, showToast } = useToast();
 
   useEffect(() => {
     setMountCache(cacheKey, { other, messages, meta, hasMore });
   }, [cacheKey, other, messages, meta, hasMore]);
+
+  // The composer is a multi-line textarea (WYN-031's spec: minLines 1,
+  // maxLines ~6, capped by CSS max-height + overflow-y after that) instead
+  // of a single-line input, so it grows with the draft's content — this
+  // keeps the message list's bottom padding in sync so a tall composer
+  // never covers the last bubble.
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+    if (composerRef.current) setComposerHeight(composerRef.current.offsetHeight);
+  }, [draft]);
 
   const resolveOther = useCallback(async (): Promise<string> => {
     if (otherId) return otherId;
@@ -283,7 +300,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
         <div className="conversation-page">
           {other ? <Link className="conversation-person" href={`/profile/${other.id}`}><Avatar src={other.avatar_url} label={other.username} /><span><strong>{other.display_name?.trim() || other.username}</strong><small>@{other.username}</small></span></Link> : null}
           {hasMore ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadOlder()}>{loadingMore ? "กำลังโหลด…" : "ดูข้อความก่อนหน้า"}</button> : null}
-          <div className="message-list">
+          <div className="message-list" style={{ paddingBottom: composerHeight + 30 }}>
             {ordered.map((message) => {
               const mine = message.sender_id === userId;
               const canDelete = mine && !message.deleted_at && !message.pending;
@@ -301,7 +318,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
-            <form className="message-composer" onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><ImagePlus size={21} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "ข้อความ…"} enterKeyHint="send" /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><Send size={20} /></button>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><X size={15} /></button> : null}</form>
+            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><ImagePlus size={21} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "ข้อความ…"} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><Send size={20} /></button>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><X size={15} /></button> : null}</form>
           )}
         </div>
       )}
