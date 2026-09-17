@@ -2,7 +2,7 @@ import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 
 /**
- * Compact X/Threads-inspired author row for Home posts.
+ * Compact Threads-inspired author row for Home posts.
  * The avatar stays in HomePostCard's left column; display name and time sit on one line.
  */
 export function PostAuthorRow({
@@ -11,6 +11,7 @@ export function PostAuthorRow({
   verified,
   timeLabel,
   showFollow,
+  following,
   followRequested,
   onFollow,
   onMore,
@@ -20,10 +21,17 @@ export function PostAuthorRow({
   verified: boolean;
   timeLabel: string;
   showFollow: boolean;
+  following: boolean;
   followRequested: boolean;
   onFollow: () => void;
   onMore: () => void;
 }) {
+  const followLabel = following
+    ? "กำลังติดตาม"
+    : followRequested
+      ? "ขอติดตามแล้ว"
+      : "ติดตาม";
+
   return (
     <header
       className="wyn-post-author-row"
@@ -50,12 +58,13 @@ export function PostAuthorRow({
       </Link>
       {showFollow ? (
         <button
-          className={`wyn-post-follow-pill ${followRequested ? "is-requested" : ""}`}
-          style={{ minHeight: 26, height: 26, padding: "0 10px", fontSize: 12.5 }}
+          className={`wyn-post-follow-pill ${following ? "is-following" : ""} ${followRequested ? "is-requested" : ""}`}
+          style={{ minHeight: 28, height: 28, padding: "0 12px", fontSize: 12.5 }}
           type="button"
+          aria-pressed={following || followRequested}
           onClick={onFollow}
         >
-          {followRequested ? "ขอติดตามแล้ว" : "ติดตาม"}
+          {followLabel}
         </button>
       ) : null}
       <button
