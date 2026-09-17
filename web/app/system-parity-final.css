@@ -232,7 +232,7 @@
 .flutter-detail-composer { min-height: 46px; height: 46px; margin: 0; padding: 0; display: grid; grid-template-columns: 36px 10px minmax(0,1fr); align-items: center; border: 0; border-radius: 0; background: var(--wyn-bg); }
 .flutter-detail-composer > .route-avatar { grid-column: 1; }
 .flutter-detail-composer-field { grid-column: 3; height: 46px; min-width: 0; padding: 0 3px 0 16px; display: grid; grid-template-columns: minmax(0,1fr) 42px; align-items: center; border-radius: 24px; background: var(--wyn-surface); }
-.flutter-detail-composer-field input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--wyn-text); font: inherit; font-size: 15px; }
+.flutter-detail-composer-field input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--wyn-text); font: inherit; font-size: 16px; }
 .flutter-detail-composer-field input::placeholder { color: var(--wyn-text-muted); opacity: 1; }
 .flutter-detail-composer-field button { width: 42px; height: 42px; padding: 0; border: 0; background: transparent; color: var(--wyn-text); display: grid; place-items: center; }
 .flutter-detail-composer-field button:disabled { color: var(--wyn-text-muted); }
@@ -241,7 +241,7 @@
 .detail-more-sheet { width: min(100%,680px); padding: 8px 16px max(12px, env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: var(--wyn-bg); }
 .detail-more-sheet > button { width: 100%; min-height: 52px; padding: 0 8px; display: flex; align-items: center; gap: 12px; border: 0; border-bottom: 1px solid var(--wyn-border); background: transparent; color: var(--wyn-text); font: inherit; font-size: 15px; text-align: left; }
 .detail-more-sheet > button:last-child { border-bottom: 0; }
-.detail-more-sheet > button.danger { color: #dc2626; }
+.detail-more-sheet > button.danger { color: var(--wyn-accent); }
 
 /* Beta4 Composer: full social rail, 70px header, 22px body copy, 24px toolbar shell.
    Cut to match the Founder-supplied reference exactly: no audience/privacy
