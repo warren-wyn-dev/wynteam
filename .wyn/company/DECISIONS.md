@@ -1224,9 +1224,19 @@ Supabase env จริง — ยืนยันว่า handler เดิม�
 
 **ต่อไป** (ตามลำดับ rollout ใน WYN-160): Home/Bottom Nav → Composer → Chat (`conversation-modern.css`
 ก่อนสุดในกลุ่มนี้) → Profile/Settings → Search/Notifications/Club → ไล่ลบ CSS dead code — ทำทีละหน้า ต้องมี
-ภาพอนุมัติก่อนโค้ดจริงทุกรอบตามกติกา WYN-141 เดิม ยังไม่ได้ commit/push รอ Founder confirm ก่อน merge
+ภาพอนุมัติก่อนโค้ดจริงทุกรอบตามกติกา WYN-141 เดิม
+
+**Push/PR/Merge/Deploy**: push เข้า branch แล้วพบว่า branch ยังพก commit เก่าที่เนื้อหาถูก squash-merge เข้า
+`main` ไปแล้วตอน PR #500 (แต่ hash ไม่ตรงกันเพราะ squash) ทำให้ PR #501 ที่เปิดครั้งแรกมี `mergeable_state:
+"dirty"` — แก้ด้วยวิธีเดิมที่เคยใช้กับ PR #500: `git checkout -B ... origin/main` แล้ว cherry-pick เฉพาะ 3
+commit ที่เนื้อหายังไม่อยู่บน `main` จริง (`923bc06` token declarations, `ddddb49` doc เดิมที่ยังไม่ merge,
+`84422c9` โค้ด auth) ยืนยัน `git merge-base origin/main HEAD` ตรงกับ `origin/main` พอดี, diff เหลือแค่ 6 ไฟล์/
+197 บรรทัดตามจริง แล้ว force-with-lease push — PR #501 กลับมา `mergeable_state: "clean"` — Founder merge เอง
+บน GitHub ตรง (`merged_by: warren-wyn-dev`) ที่ 11:11:45 UTC → `wyn-158-production-deploy.yml` auto-trigger
+run #93 ([35214409445](https://github.com/warren-wyn-dev/wynteam/actions/runs/35214409445)) — **SUCCESS**
+(11:11:47–11:13:31 UTC) → `curl https://wynos.online/`, `/welcome`, `/login` → **HTTP 200** ทั้งหมด
 
 อ้างอิง: `.wyn/docs/design/wyn-160-web-design-system-consolidation.md`,
 `.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`,
 https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz, `web/components/auth-flow/screens.tsx`,
-`web/app/auth-reference.css`, `web/app/design-system.css`
+`web/app/auth-reference.css`, `web/app/design-system.css`, PR #501, deploy run `35214409445` (SUCCESS)
