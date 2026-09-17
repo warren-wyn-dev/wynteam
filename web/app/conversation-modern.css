@@ -299,17 +299,20 @@
 }
 
 .conversation-modern .message-composer > input,
-.conversation-modern .message-composer input[type="text"] {
+.conversation-modern .message-composer input[type="text"],
+.conversation-modern .message-composer textarea {
   min-height: 48px;
-  padding: 0 18px;
+  padding: 13px 18px;
   border: 1px solid #e4e4e4;
-  border-radius: 999px;
+  border-radius: 22px;
   background: #fafafa;
   color: #111;
   font-size: 16px;
+  line-height: 22px;
 }
 
-.conversation-modern .message-composer > input::placeholder {
+.conversation-modern .message-composer > input::placeholder,
+.conversation-modern .message-composer textarea::placeholder {
   color: #aaa;
   opacity: 1;
 }

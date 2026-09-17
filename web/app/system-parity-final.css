@@ -250,7 +250,8 @@
    the WYNOS base design system tokens instead of the older warm palette. */
 .beta4-composer-backdrop { align-items: stretch !important; justify-content: center; padding: 0 !important; background: rgb(10 10 10 / 36%); }
 .beta4-composer { position: relative; width: min(100%,680px); height: 100dvh; max-width: 680px; max-height: 100dvh; margin: 0 auto; display: flex; flex-direction: column; overflow: hidden; border: 0; border-radius: 0; background: var(--wyn-bg); color: var(--wyn-text); }
-.beta4-composer-header { flex: 0 0 auto; height: calc(70px + env(safe-area-inset-top)); min-height: calc(70px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 16px 0; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--wyn-border); background: var(--wyn-bg); }
+.beta4-composer-header { position: relative; flex: 0 0 auto; height: calc(70px + env(safe-area-inset-top)); min-height: calc(70px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 16px 0; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--wyn-border); background: var(--wyn-bg); }
+.beta4-composer-header-title { position: absolute; left: 50%; top: calc(50% + env(safe-area-inset-top) / 2); transform: translate(-50%, -50%); color: var(--wyn-text); font-size: 16px; font-weight: 700; pointer-events: none; }
 .beta4-cancel, .beta4-post { border: 0; font: inherit; }
 .beta4-cancel { min-width: 54px; min-height: 48px; padding: 0; background: transparent; color: var(--wyn-text); text-align: left; font-size: 15.5px; line-height: 1; font-weight: 600; }
 .beta4-post { min-width: 72px; height: 42px; padding: 0 18px; border-radius: 999px; background: var(--wyn-text); color: var(--wyn-bg); font-size: 15px; line-height: 1; font-weight: 700; }
@@ -272,7 +273,7 @@
 .beta4-ratio-chips { margin-top: 8px; display: flex; gap: 8px; overflow-x: auto; }
 .beta4-ratio-chips button { min-height: 34px; padding: 0 12px; border: 1px solid var(--wyn-border); border-radius: 999px; background: var(--wyn-bg); color: var(--wyn-text-secondary); font: inherit; font-size: 13px; }
 .beta4-ratio-chips button.active { border-color: var(--wyn-text); color: var(--wyn-text); font-weight: 600; }
-.beta4-character-count { color: var(--wyn-text-secondary); font-size: 13px; }
+.beta4-character-count { margin-top: 10px; color: var(--wyn-text-secondary); font-size: 13px; }
 .beta4-composer-error { margin: 8px 0 0; }
 /* Inline icon row right after the compose content — Threads' compact
    toolbar (icons only, no labelled cards), scrolling with the content
@@ -282,9 +283,6 @@
 .beta4-toolbar-actions button { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--wyn-text); }
 .beta4-toolbar-actions button.active { color: var(--wyn-text); background: var(--wyn-surface); }
 .beta4-toolbar-actions button:disabled { color: var(--wyn-text-muted); }
-/* Bottom action bar — replaces the header's old "โพสต์" button position,
-   matching Threads' bottom-anchored post action next to the keyboard. */
-.beta4-bottom-bar { flex: 0 0 auto; padding: 10px 16px max(10px, env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--wyn-border); background: var(--wyn-bg); }
 .beta4-poll-composer { margin-top: 12px; }
 .beta4-poll-options { display: grid; gap: 8px; }
 .beta4-poll-options label { min-height: 48px; display: grid; grid-template-columns: 28px minmax(0,1fr) 40px; align-items: center; border: 1px solid var(--wyn-border); border-radius: 12px; overflow: hidden; }

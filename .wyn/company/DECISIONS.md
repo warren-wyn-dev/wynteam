@@ -1075,3 +1075,100 @@ Founder ส่งภาพหน้าสร้างเธรดของแอ
 สองยังอยู่ครบ แค่ย้ายตำแหน่ง/เปลี่ยนสไตล์ภายใน ยืนยัน regression suite เดิมผ่านครบ 87 เทสเหมือนทุกรอบก่อนหน้า
 
 อ้างอิง: `web/components/beta4-composer.tsx`, `web/app/system-parity-final.css`
+
+## [2026-09-17] PR #499 (คีย์บอร์ด autofocus + ปุ่มโพสต์/ชื่อ + ระบบร่าง + toolbar แบบเธรด) — merge + deploy สำเร็จ
+
+Founder สั่ง "ทำให้เสร็จทุกอย่างเลย" หลัง CI เขียวครบ — ทำตาม pipeline เดียวกับงานอื่นในโปรเจกต์นี้:
+1. Squash-merge PR #499 เข้า `main` — commit `ec86072`
+2. `wyn-158-production-deploy.yml` auto-trigger จาก push (`web/**` เปลี่ยน) — run #76
+   ([35188286280](https://github.com/warren-wyn-dev/wynteam/actions/runs/35188286280)) — **SUCCESS**
+3. `curl https://wynos.online/` → **HTTP 200**
+
+**ยืนยันได้แค่ว่าเว็บขึ้นจริงไม่พัง** — ตาม Production Verification เดิมของโปรเจกต์
+(`.wyn/company/WORKFLOW.md`) ยังต้องให้ Founder เปิดของจริงยืนยันเองอีกขั้น โดยเฉพาะจุดที่ยืนยันบน sandbox
+นี้ไม่ได้เลย (คีย์บอร์ดเด้งอัตโนมัติจริงบน iOS, บันทึก/เปิดร่างต่อ/โพสต์จริงกับ Supabase จริง) ก่อนถือว่างานนี้
+เสร็จสมบูรณ์
+
+อ้างอิง: PR #499, commit `ec86072`, CI run `35187778599` (PASS), deploy run `35188286280` (SUCCESS)
+
+## [2026-09-17] Beta4Composer (เว็บ) — header กลับมามีปุ่ม "โพสต์" มุมขวาบนสุด + หัวข้อ "ฉบับร่าง" ตรงกลาง
+
+หลัง deploy PR #499 Founder ดูแล้วสั่งต่อทันที: "ฉบับร่าง จะอยู่บนสุด ตรงกลาง" + "ปุ่มโพสต์จะต้อง มุมขวาบนสุด"
+— ถามชัดก่อนทำเพราะตีความได้หลายแบบ (คำว่า "ฉบับร่าง" หมายถึงหัวข้อ header หรือไอคอนดูร่างที่ย้ายมาจาก side
+drawer) Founder เลือก **"เพิ่มหัวข้อ header ตรงกลาง เขียนว่า 'ฉบับร่าง'"**
+
+**สิ่งที่ทำ**: `beta4-composer-header` กลับมามี 3 ส่วนแบบเดิมก่อน PR #499's toolbar restyle (ยกเลิก/หัวข้อ/
+โพสต์) แต่ต่างจากของเดิมตรงที่ตัวหัวข้อ "ฉบับร่าง" ใช้ `position: absolute; left: 50%` แทน grid 3 คอลัมน์ —
+เพราะ "ยกเลิก" กับ "โพสต์" กว้างไม่เท่ากัน grid/flex ธรรมดาจะทำให้หัวข้อเยื้องไม่ตรงกลางจริงเหมือนที่เจอปัญหา
+ปุ่มโพสต์ลอยกลางจอมาก่อนใน PR #499 (บทเรียนเดิม: อย่าพึ่ง flex space-between/grid equal-column กับเนื้อหา
+ที่ความกว้างไม่เท่ากันเมื่อต้องการ true-center) — bottom bar ที่เพิ่งเพิ่มใน PR #499 (มีแค่ hint ตัวนับ
+อักษร/โพลปิดกี่วัน) ถูกลบทิ้ง ย้าย hint กลับไปแสดงในเนื้อหาแทนเหมือนก่อนหน้า PR #499 (ไม่มีอะไรอยู่ใน bottom
+bar เปล่าๆอีกต่อไป) — ส่วน toolbar ไอคอนเล็ก (รูปภาพ/กล้อง/โพล) ที่ปรับใน PR #499 ยังคงไว้เหมือนเดิม
+ไม่เกี่ยวกับคำสั่งรอบนี้
+
+Regression suite เดิมผ่านครบ 87 เทสเหมือนทุกรอบ — merge เข้า main ทันทีตาม pipeline เดิม รอ deploy ยืนยัน
+
+## [2026-09-17] หน้าแชท (เว็บ) — audit เจอ 6 จุด, แก้ก่อน 2 จุดที่กระทบการใช้งานจริงที่สุด
+
+Founder ขอให้เช็ค UX/UI ระบบแชททั้งหมด สงสัยว่ามีบั๊กแอบซ่อนอยู่เยอะ — ไล่เทียบโค้ดเว็บกับ Flutter ต้นแบบ
+(ไม่ใช่แค่ความเห็น) เจอ 6 จุด: (1) หน้ารายการแชทไม่มี realtime เลย ต่างจาก Flutter ที่ subscribe ทุกข้อความ
+ใหม่แล้วรีเฟรชอัตโนมัติ (2) ช่องพิมพ์ข้อความเป็น `<input>` บรรทัดเดียว ขึ้นบรรทัดใหม่ไม่ได้ ต่างจาก spec เดิม
+(WYN-031: TextField minLines 1 maxLines 6) (3) ตอบกลับ (reply) ข้อความทำไม่ได้เลยจาก UI ทั้งที่ฐานข้อมูล/
+`sendMessage()` รองรับเต็มที่ (4) เปิดลิงก์แชทตรงๆแบบไม่มี `?user=` โหลดข้อมูล+subscribe ซ้ำ 2 รอบ (5) ไม่มี
+เมนู mute/block/report ในหน้าแชทเว็บเลย (6) มีคอมโพเนนต์แชทซ้อนกัน 2 ชุดในไฟล์เดียว (`ChatInboxInner`/
+`ChatRoute` ใน `chat-routes.tsx` ไม่ถูกใช้จริง เพราะ `/chat` ใช้ `chat-inbox-parity.tsx`)
+
+Founder ให้แก้ #1 กับ #2 ก่อน (กระทบการใช้งานจริงมากที่สุด) ส่วน #3-6 พักไว้รอบหน้า
+
+**สิ่งที่ทำ**:
+1. `lib/phase3-data.ts` — เพิ่ม `subscribeMyMessages()` มิเรอร์ Flutter's `subscribeToMyMessages()` (subscribe
+   INSERT บน `messages` ทั้งตารางไม่มี filter — Realtime พึ่ง RLS ของ `messages` กรองให้เองว่าใครเห็นแถวไหน,
+   ตรงตาม comment ในโค้ด Flutter เอง) — `chat-inbox-parity.tsx` เรียกใช้ผ่าน `useEffect` ที่ trigger
+   `refetch()` ของ react-query ทุกครั้งที่มีข้อความใหม่ (gate ด้วย `allowed === true` มิเรอร์ Flutter's
+   `_init()` ที่ไม่ subscribe เลยถ้า locked-out)
+2. `chat-routes.tsx` — เปลี่ยนช่องพิมพ์จาก `<input>` เป็น `<textarea>` ที่ auto-grow ตาม `scrollHeight`
+   ทุกครั้งที่ `draft` เปลี่ยน (จำกัดสูงสุด ~6 บรรทัดด้วย CSS `max-height` แล้ว scroll ต่อ) พร้อมวัดความสูง
+   composer จริงแล้วปรับ padding-bottom ของ `.message-list` ให้ไม่บังข้อความล่างสุดเมื่อช่องพิมพ์ขยายตัว —
+   `.message-composer`'s `align-items` เปลี่ยนจาก `center` เป็น `end` ให้ปุ่มแนบรูป/ส่งเกาะอยู่ล่างเสมอเหมือน
+   แชทแอปทั่วไป, border-radius จาก 999px (pill) เป็น 20px ให้ดูดีตอนขยายเป็นหลายบรรทัด
+
+Regression suite เดิมผ่านครบ 87 เทสเหมือนทุกรอบ
+
+อ้างอิง: `web/lib/phase3-data.ts`, `web/components/chat-inbox-parity.tsx`, `web/components/chat-routes.tsx`,
+`web/app/phase3.css`, `app/lib/features/chat/data/chat_repository.dart` (`subscribeToMyMessages`),
+`app/lib/features/chat/presentation/chat_inbox_screen.dart`
+
+## [2026-09-17] พบ session คู่ขนานอีกอันบน `main` — reconcile งานทั้งสองฝั่งเข้าด้วยกัน
+
+ระหว่างเตรียม push งานแก้ #1/#2 พบว่า `main` เดินหน้าไปอีก ~15 commit โดยไม่ผ่าน PR เลย (push ตรงเข้า `main`)
+แก้ไฟล์ชุดเดียวกัน (`beta4-composer.tsx`, `chat-inbox-parity.tsx`, `chat-routes.tsx`) — ถาม Founder แล้วยืนยัน
+ว่าเป็น**อีกเซสชันหนึ่งที่ Founder เปิดคู่กันเอง** ตอนนี้เซสชันนั้นหยุดแล้ว ให้เซสชันนี้ทำต่อ
+
+**สิ่งที่อีกเซสชันทำ** (สรุปจาก commit message เพื่อบันทึกไว้): เพิ่มตัวเลือกผู้ชมโพสต์ (audience picker:
+สาธารณะ/เพื่อน/เฉพาะฉัน) ในหน้าสร้างโพสต์, ย้าย styling ของ composer ไปใช้ CSS module
+(`beta4-composer-refresh.module.css`), redesign หน้ารายการแชทให้มีช่องค้นหาแทน tab ทั้งหมด/ยังไม่อ่าน (ปุ่ม
+"คำขอ" แยกออกมาที่ header แทน), redesign หน้าสนทนาเป็น "conversation-modern" (มี profile hero, จัดกลุ่ม
+ข้อความตามวัน, read receipt แบบ ✓)
+
+**Merge**: `git merge origin/main` เข้า branch นี้ ชนกัน 3 ไฟล์ (`beta4-composer.tsx`,
+`chat-inbox-parity.tsx`, `chat-routes.tsx`) แก้ทีละจุดเก็บเจตนาทั้งสองฝั่งไว้ครบ — ของอีกเซสชัน (audience
+picker, CSS module, search-based inbox, conversation-modern) ใช้ของเขาเป็นหลัก ของฝั่งนี้ (realtime
+subscription บน inbox, textarea auto-grow บน composer) เอากลับไปแปะบนโครงใหม่ของเขา (ปรับขนาดไอคอน/
+placeholder/border-radius ให้ตรงสเกลใหม่ ไม่ทิ้งค่าเก่าไว้ให้ไม่เข้ากัน) ระหว่างแก้เจอบั๊ก JSX ที่ตัวเองทำพลาด
+(ลบ `</div>` ปิด `beta4-composer-scroll` หายไปตอน resolve conflict) แก้แล้วตรวจ `tsc --noEmit` ผ่าน
+
+**เจอ regression ที่ push ตรงไม่ผ่าน PR ทำไว้โดยไม่รู้ตัว**: lock test 2 ไฟล์
+(`system-visual-parity.spec.ts`, `final-source-parity-gate.spec.ts`) ยังเช็คของเก่าอยู่ (ห้ามมี audience
+selector, ต้องมี tab ทั้งหมด/ยังไม่อ่าน) ทั้งที่ของจริงเปลี่ยนไปแล้ว — ไม่มีใครจับได้เพราะ push ตรงเข้า main
+ข้าม PR/`browser-qa` (Playwright suite เต็มรูปแบบรันเฉพาะตอนมี PR) ไปเลย แก้ assertion ให้ตรงกับของจริงปัจจุบัน
+(อนุญาต audience picker, เปลี่ยนจาก tab-check เป็น search+คำขอ-check) — รัน regression suite เต็มทุกไฟล์ (117
+เทส ไม่ใช่แค่ 87 เทสที่ใช้ประจำ) ผ่านครบทั้ง 3 อุปกรณ์
+
+**ข้อสังเกตเพิ่ม (ยังไม่แก้)**: เจอบั๊กเล็กในโค้ดที่อีกเซสชันเขียน — read receipt ใน `chat-routes.tsx` เขียน
+`read ? "✓" : "✓"` (ทั้ง 2 ฝั่งเป็นเครื่องหมายเดียวกัน ไม่มีทางแยกสถานะอ่านแล้ว/ส่งแล้วจากภาพเลย ต่างกันแค่
+`aria-label`) — ไม่ได้แก้ตอนนี้เพราะไม่ได้อยู่ใน scope ที่ขอ รอ Founder สั่งแยก
+
+อ้างอิง: `web/components/beta4-composer.tsx`, `web/components/chat-inbox-parity.tsx`,
+`web/components/chat-routes.tsx`, `web/app/conversation-modern.css`,
+`web/tests/browser/system-visual-parity.spec.ts`, `web/tests/browser/final-source-parity-gate.spec.ts`,
+commit `57be9fd` (merge)

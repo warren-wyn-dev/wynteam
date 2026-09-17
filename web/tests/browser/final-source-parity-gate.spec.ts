@@ -30,8 +30,8 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(profile).not.toContain("Bookmark");
 
   expect(composer).toContain('type AspectRatioChoice = "original" | "1:1" | "4:5" | "16:9";');
-  expect(composer).toContain('className="beta4-composer-header"');
-  expect(composer).toContain('className="beta4-toolbar"');
+  expect(composer).toContain("beta4-composer-header");
+  expect(composer).toContain("beta4-bottom-bar");
   expect(composer).not.toContain("เช็คอิน");
   expect(composer).not.toContain("Check-in");
   expect(composer).not.toContain("สถานที่");
@@ -49,10 +49,11 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(composer).toContain("ตัวเลือกที่");
   expect(detail).not.toContain("📍");
 
-  // Cut to match the Founder-supplied reference exactly: no audience/privacy
-  // selector, no drafts, no mention autocomplete, no poll-duration picker.
-  expect(composer).not.toContain("SelectedAudienceIcon");
-  expect(composer).not.toContain("audienceOptions");
+  // Founder later approved a real audience picker (feat: "make post audience
+  // selectable") — the earlier "no audience/privacy selector" cut is no
+  // longer the rule; drafts (WYN-036 parity), mention autocomplete, and a
+  // poll-duration picker are still out of scope.
+  expect(composer).toContain("SelectedAudienceIcon");
   expect(composer).not.toContain('client.rpc("fetch_mutual_follows"');
   expect(composer).not.toContain('client.from("close_friends")');
   expect(composer).not.toContain("excludedFriendIds: [...excludedFriendIds]");
@@ -63,7 +64,7 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(composer).not.toContain("beta4-duration");
   expect(composer).toContain("beta4-upload-progress");
   expect(composer).toContain("POLL_DURATION_DAYS = 1");
-  expect(composer).toContain('audience: "everyone"');
+  expect(composer).toContain('useState<AudienceChoice>("everyone")');
   expect(publication).toContain("p_mentioned_user_ids: input.mentionedUserIds ?? []");
   expect(publication).toContain('input.audience === "friends_except"');
   expect(publication).toContain("input.onImageUploaded?.(index + 1, files.length)");

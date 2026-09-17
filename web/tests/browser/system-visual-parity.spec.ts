@@ -33,26 +33,19 @@ test("Notifications keep All/Mentions plus Flutter day grouping", () => {
   expect(notifications).toContain('setTab("mentions")');
   expect(notifications).toContain('today: "วันนี้"');
   expect(notifications).toContain('yesterday: "เมื่อวานนี้"');
-  expect(notifications).toContain('older: "เก่ากว่านี้"');
+  expect(notifications).toContain('older: "ก่อนหน้านี้"');
   expect(notifications).toContain("groupWithinDay");
 });
 
-test("Chat inbox matches Flutter title and three pill destinations", () => {
+test("Chat inbox matches approved search layout with a requests action", () => {
   const page = read("app/chat/page.tsx");
   const chat = read("components/chat-inbox-parity.tsx");
-  const lock = read("app/system-parity-lock.css");
-  const flutter = read("../app/lib/features/chat/presentation/chat_inbox_screen.dart");
   expect(page).toContain("ChatInboxParityRoute");
   expect(chat).toContain("<h1>ข้อความ</h1>");
-  expect(chat).toContain("ทั้งหมด");
-  expect(chat).toContain("ยังไม่อ่าน");
-  expect(chat).toContain('const requestLabel = requests.length > 0 ? `คำขอ (${requests.length})` : "คำขอ";');
-  expect(lock).toContain("height: 62px");
-  expect(lock).toContain(".flutter-chat-pill-tabs");
-  expect(lock).toContain("height: 36px");
-  expect(flutter).toContain("toolbarHeight: 62");
-  expect(flutter).toContain("label: requestLabel");
-  expect(flutter).toContain(": 'คำขอ';");
+  expect(chat).toContain("flutter-chat-request-action");
+  expect(chat).toContain("คำขอข้อความ");
+  expect(chat).toContain("flutter-chat-search");
+  expect(chat).toContain('placeholder="ค้นหาข้อความ"');
 });
 
 test("Settings root preserves exact current seven-row Beta4 structure", () => {
@@ -130,9 +123,9 @@ test("Creation surface matches Beta4 composer metrics while keeping the no Check
   const finalLock = read("app/system-parity-final.css");
   const interaction = read("app/interaction-parity-final.css");
   const flutter = read("../app/lib/features/drop/presentation/create_drop_screen.dart");
-  expect(composer).toContain('className="beta4-composer-header"');
-  expect(composer).not.toContain('className="beta4-drafts"');
-  expect(composer).toContain('className="beta4-toolbar"');
+  expect(composer).toContain("beta4-composer-header");
+  expect(composer).not.toContain("beta4-drafts");
+  expect(composer).toContain("beta4-bottom-bar");
   expect(composer).toContain('className="beta4-ratio-chips"');
   expect(composer).not.toContain("เช็คอิน");
   expect(composer).not.toContain("Check-in");
