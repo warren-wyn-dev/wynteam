@@ -96,7 +96,7 @@ class _WyniiConversationMenuRowState extends State<WyniiConversationMenuRow> {
         isScrollControlled: true,
         builder: (_) => WyniiDetailSheet(
           conversationId: widget.conversationId,
-          initialPet: pet,
+          initialPet: pet!,
         ),
       );
     });
