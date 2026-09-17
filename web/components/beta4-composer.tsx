@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { BarChart3, Camera, ImagePlus, Plus, X } from "lucide-react";
+import { BarChart3, Camera, Globe2, ImagePlus, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -9,6 +9,7 @@ import { Avatar } from "@/components/phase3-ui";
 import { deleteDraft, fetchDraft, saveDraft } from "@/lib/drafts";
 import { publishDropSafely } from "@/lib/drop-publication";
 import { fetchHomeIdentity, type HomeIdentity } from "@/lib/home-parity-data";
+import styles from "./beta4-composer-refresh.module.css";
 
 type ComposeMode = "image" | "poll";
 type AspectRatioChoice = "original" | "1:1" | "4:5" | "16:9";
@@ -142,17 +143,19 @@ export function Beta4Composer({
   return (
     <div className="route-modal-backdrop beta4-composer-backdrop" role="presentation" onClick={requestClose}>
       <section className="beta4-composer" role="dialog" aria-modal="true" aria-label="สร้างโพสต์" onClick={(event) => event.stopPropagation()}>
-        <header className="beta4-composer-header">
+        <header className={`beta4-composer-header ${styles.header}`}>
           <button className="beta4-cancel" type="button" onClick={requestClose}>ยกเลิก</button>
+          <strong className={styles.draftTitle}>ฉบับร่าง</strong>
+          <button className={`beta4-post ${styles.headerPost}`} type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
         </header>
 
-        <div className="beta4-composer-scroll">
-          <div className="beta4-composer-identity">
+        <div className={`beta4-composer-scroll ${styles.scroll}`}>
+          <div className={`beta4-composer-identity ${styles.identity}`}>
             <Avatar src={identity?.avatar_url} label={identity?.username || "WYNOS"} size={44} />
             <strong>{identity?.display_name?.trim() || identity?.username || "WYNOS"}</strong>
           </div>
 
-          <textarea ref={captionRef} autoFocus className="beta4-compose-text" maxLength={500} value={caption} disabled={busy} onChange={(event) => setCaption(event.target.value)} placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"} />
+          <textarea ref={captionRef} autoFocus className={`beta4-compose-text ${styles.composeText}`} maxLength={500} value={caption} disabled={busy} onChange={(event) => setCaption(event.target.value)} placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"} />
           {uploadProgress && uploadProgress.total > 0 ? <div className="beta4-upload-progress"><span>กำลังอัปโหลด {uploadProgress.uploaded}/{uploadProgress.total} รูป... {Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%</span><progress max={uploadProgress.total} value={uploadProgress.uploaded} /></div> : null}
 
           {mode === "image" ? (
@@ -168,21 +171,29 @@ export function Beta4Composer({
           )}
 
           {error ? <p className="route-error beta4-composer-error">{error}</p> : null}
-
-          <div className="beta4-toolbar">
-            <div className="beta4-toolbar-actions">
-              <button type="button" aria-label="แนบรูปภาพ" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => galleryRef.current?.click()}><ImagePlus size={22} /></button>
-              <button type="button" aria-label="เปิดกล้อง" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => cameraRef.current?.click()}><Camera size={22} /></button>
-              <button className={mode === "poll" ? "active" : ""} type="button" aria-label="สร้างโพล" aria-pressed={mode === "poll"} disabled={busy} onClick={() => setMode((current) => current === "poll" ? "image" : "poll")}><BarChart3 size={22} /></button>
-            </div>
-            <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => { setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9)); event.currentTarget.value = ""; }} />
-            <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) setFiles((current) => [...current, picked].slice(0, 9)); event.currentTarget.value = ""; }} />
-          </div>
         </div>
 
-        <div className="beta4-bottom-bar">
-          <span className="beta4-character-count">{mode === "poll" ? "โพลจะปิดใน 1 วัน" : caption.length > 400 ? 500 - caption.length : ""}</span>
-          <button className="beta4-post" type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
+        <div className={`beta4-bottom-bar ${styles.bottomBar}`}>
+          <div className={styles.quickActions}>
+            <button className={`${styles.quickAction} ${styles.audienceAction}`} type="button" aria-label="ผู้ชม: สาธารณะ" aria-pressed="true">
+              <Globe2 aria-hidden="true" />
+              <span>สาธารณะ</span>
+            </button>
+            <button className={styles.quickAction} type="button" aria-label="เพิ่มรูปภาพ" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => galleryRef.current?.click()}>
+              <ImagePlus aria-hidden="true" />
+              <span>เพิ่มรูปภาพ</span>
+            </button>
+            <button className={styles.quickAction} type="button" aria-label="ถ่ายภาพ" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => cameraRef.current?.click()}>
+              <Camera aria-hidden="true" />
+              <span>ถ่ายภาพ</span>
+            </button>
+            <button className={`${styles.quickAction} ${mode === "poll" ? styles.active : ""}`} type="button" aria-label="เพิ่มโพล" aria-pressed={mode === "poll"} disabled={busy} onClick={() => setMode((current) => current === "poll" ? "image" : "poll")}>
+              <BarChart3 aria-hidden="true" />
+              <span>เพิ่มโพล</span>
+            </button>
+          </div>
+          <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => { setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9)); event.currentTarget.value = ""; }} />
+          <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) setFiles((current) => [...current, picked].slice(0, 9)); event.currentTarget.value = ""; }} />
         </div>
 
         {closePrompt ? (
