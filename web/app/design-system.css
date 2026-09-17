@@ -13,6 +13,24 @@
   --wyn-radius-control: 12px;
   --wyn-radius-input: 10px;
   --wyn-focus-ring: rgba(10, 10, 10, 0.18);
+
+  /* WYN-160: consolidated type/radius scale — declared here so every
+     surface can adopt it as it's rolled out; existing rules keep their
+     literal values until each page's own turn in the rollout.
+     --wyn-radius-pill (999px) above already matches the "pill" role;
+     --wyn-radius-control (12px) above still needs to converge on 10px
+     once Composer/Home take their turn — not changed yet here. */
+  --wyn-font-caption: 12px;
+  --wyn-font-secondary: 13px;
+  --wyn-font-body: 14px;
+  --wyn-font-input: 16px;
+  --wyn-font-subhead: 17px;
+  --wyn-font-title: 20px;
+  --wyn-font-display: 22px;
+
+  --wyn-radius-sheet: 20px;
+  --wyn-radius-tile: 14px;
+  --wyn-radius-tail: 4px;
 }
 
 /* Dark palette for this file's own token chain (consumed by

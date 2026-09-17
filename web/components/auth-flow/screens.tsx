@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent, type ReactNode } from "react";
 
@@ -226,9 +227,7 @@ export function WelcomeScreen() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "40px 24px 32px" }}>
         <div />
         <div style={{ textAlign: "center" }}>
-          <svg height="48" style={{ margin: "0 auto 18px" }} viewBox="0 0 26 26" width="48" aria-label="Wynos">
-            <path d="M2 4 L8 22 L13 9 L18 22 L24 4" fill="none" stroke="#0A0A0A" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-          </svg>
+          <Image src="/wynos_logo_mark.png" alt="Wynos" width={96} height={62} style={{ height: 62, width: "auto", margin: "0 auto 18px", display: "block" }} priority />
           <p style={{ fontSize: 17, fontWeight: 600, margin: "0 0 6px" }}>ทุกเรื่องราว มีจุดเริ่มต้น</p>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>Welcome to WYNOS.</p>
         </div>
@@ -261,7 +260,7 @@ export function WelcomeScreen() {
               </Button>
               <Button className="btn-outline" variant="outline" onClick={() => router.push("/login")} style={{ marginBottom: 16 }}>เข้าสู่ระบบ</Button>
               <ErrorText>{error}</ErrorText>
-              <p style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.5, margin: 0 }}>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.5, margin: 0 }}>
                 การสร้างบัญชีถือว่ายอมรับ<br />
                 <b style={{ color: "var(--text-primary)" }}>ข้อกำหนดการใช้งาน</b> และ <b style={{ color: "var(--text-primary)" }}>นโยบายความเป็นส่วนตัว</b>
               </p>
@@ -573,9 +572,7 @@ export function LoginScreen() {
       <BackTopbar href="/welcome" />
       <div style={{ padding: "16px 20px", flex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <svg height="36" style={{ margin: "0 auto 14px" }} viewBox="0 0 26 26" width="36" aria-label="Wynos">
-            <path d="M2 4 L8 22 L13 9 L18 22 L24 4" fill="none" stroke="#0A0A0A" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-          </svg>
+          <Image src="/wynos_logo_mark.png" alt="Wynos" width={71} height={46} style={{ height: 46, width: "auto", margin: "0 auto 14px", display: "block" }} priority />
           <div style={{ fontSize: 20, fontWeight: 700 }}>เข้าสู่ระบบ</div>
         </div>
         <Field label="อีเมล" name="loginIdentifier" placeholder="you@example.com" value={identifier} onChange={(event) => setIdentifier(event.target.value)} />
