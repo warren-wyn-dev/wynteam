@@ -370,7 +370,7 @@ export function SignupStep1Screen() {
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 44, border: "1px solid var(--border-strong)", borderRadius: 10, padding: "0 14px" }}>
             <span style={{ color: "var(--text-muted)" }}>@</span>
-            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", flex: 1, fontSize: 14 }} />
+            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", flex: 1, fontSize: 16 }} />
           </div>
         </div>
         <Field label="ชื่อที่แสดง" name="displayName" placeholder="ชื่อของคุณ" value={draft.displayName} onChange={update("displayName")} disabled={!mounted} />
@@ -468,7 +468,7 @@ export function SignupStep2Screen() {
         <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} />
         <Button className="btn-primary" disabled={loading} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
         <ErrorText>{error}</ErrorText>
-        <p style={{ fontSize: 12, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
           มีบัญชีอยู่แล้ว? <b onClick={() => router.push("/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>
         </p>
       </div>
