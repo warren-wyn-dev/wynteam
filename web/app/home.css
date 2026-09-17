@@ -160,6 +160,15 @@
 
 .wyn-home-feed {
   background: var(--wyn-bg);
+  /* Tap/swipe touch handlers live on this element (home-screen.tsx). With
+     only a couple of short rows -- e.g. คลับของฉัน with just one or two
+     posts -- its natural height stopped well short of the viewport, so
+     the blank space below the last post belonged to a parent element with
+     no touch handlers at all: swiping there did nothing, reading as the
+     gesture being broken rather than just aimed outside the swipeable
+     area. min-height keeps it covering the full screen regardless of how
+     little content a tab has. */
+  min-height: 100dvh;
   /* Tab switches (tap or swipe) animate this container with a small
      translateX (see home-screen.tsx) — clip it so that never shows a
      horizontal scrollbar mid-transition. */
