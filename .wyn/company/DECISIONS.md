@@ -1302,3 +1302,11 @@ token ที่ตั้งใจ, regression suite เดิม 13 เทสผ
 เช็ค 11.5px กับ Flutter อยู่ — ยืนยันว่าไม่ได้ไปแก้ font-size โดยไม่ตั้งใจ)
 
 อ้างอิง: `web/app/bottom-nav.css`, `web/app/home.css` (ตรวจแล้วไม่แก้), https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
+
+**Merge + Deploy**: เปิด PR #503, CI เขียวครบทุกตัว (browser-qa, web, Flutter, Supabase checks, schema
+ordering) mergeable_state clean Founder สั่ง "merge PR ให้เลย" — squash-merge เข้า `main` commit `5c17819`
+→ `wyn-158-production-deploy.yml` auto-trigger run #95
+([35217536553](https://github.com/warren-wyn-dev/wynteam/actions/runs/35217536553)) — **SUCCESS** →
+`curl https://wynos.online/` → **HTTP 200**
+
+อ้างอิง: PR #503, commit `5c17819`, deploy run `35217536553` (SUCCESS)
