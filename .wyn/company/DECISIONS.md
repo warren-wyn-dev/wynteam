@@ -1436,3 +1436,10 @@ base design system tokens... instead of the older warm Beta4 palette" ยืน�
 
 อ้างอิง: `web/app/profile-golden-final.css`, `web/app/phase3.css`,
 https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
+
+**Merge + Deploy**: เปิด PR #508, CI เขียวครบ Founder merge เอง — `wyn-158-production-deploy.yml`
+auto-trigger run #101
+([35241386333](https://github.com/warren-wyn-dev/wynteam/actions/runs/35241386333)) — **SUCCESS** →
+`curl https://wynos.online/` → **HTTP 200**
+
+อ้างอิง: PR #508, commit `2aaaf84`, deploy run `35241386333` (SUCCESS)
