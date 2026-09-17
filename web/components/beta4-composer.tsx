@@ -111,6 +111,7 @@ export function Beta4Composer({
         <div className="beta4-composer-scroll">
           <div className="beta4-composer-identity">
             <Avatar src={identity?.avatar_url} label={identity?.username || "WYNOS"} size={44} />
+            <strong>{identity?.display_name?.trim() || identity?.username || "WYNOS"}</strong>
           </div>
 
           <textarea ref={captionRef} autoFocus className="beta4-compose-text" maxLength={500} value={caption} disabled={busy} onChange={(event) => setCaption(event.target.value)} placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"} />
