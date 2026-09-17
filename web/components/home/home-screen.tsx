@@ -434,12 +434,21 @@ export function HomeScreen({ session }: { session: Session }) {
 
   useEffect(() => {
     const cached = feedCache.current[mode];
-    if (cached && visibleModeRef.current !== mode) {
-      applySnapshot(cached, mode, true);
-      setLoading(false);
+    if (cached) {
+      // Already have this tab's data (a prior visit this session) — show it
+      // as-is. Fetching again here would still land, but applySnapshot's
+      // non-restore path replaces rows wholesale and resets the windowed
+      // visibleCount back to one page, which reads as the feed refreshing
+      // itself on every tab switch instead of the instant, no-refetch swap
+      // switching back to an already-visited tab should feel like.
+      if (visibleModeRef.current !== mode) {
+        applySnapshot(cached, mode, true);
+        setLoading(false);
+      }
+      return;
     }
     const timer = window.setTimeout(() => {
-      void loadMode(mode, { showLoading: !cached });
+      void loadMode(mode, { showLoading: true });
     }, 0);
     return () => window.clearTimeout(timer);
   }, [applySnapshot, loadMode, mode]);
