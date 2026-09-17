@@ -57,7 +57,6 @@ export function HomePostCard({
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
           <Repeat2 size={14} />
-          {/* Legacy parity contract used the text "รีโพสต์โดย @"; the approved mockup removes the @ prefix. */}
           รีโพสต์โดย {row.redropper_username || "WYNOS"} · {time}
         </div>
       ) : null}
