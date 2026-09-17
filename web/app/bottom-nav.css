@@ -7,11 +7,11 @@
  */
 
 .route-with-bottom-nav {
-  --wyn-bottom-nav-height: 64px;
+  --wyn-bottom-nav-height: 48px;
 }
 
 .route-bottom-nav {
-  --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 8px);
+  --wyn-nav-safe-bottom: env(safe-area-inset-bottom);
   position: fixed;
   z-index: 70;
   left: 50%;
@@ -127,7 +127,7 @@
 
 @media (max-width: 359px) {
   .route-with-bottom-nav {
-    --wyn-bottom-nav-height: 60px;
+    --wyn-bottom-nav-height: 46px;
   }
 
   .route-nav-link {
