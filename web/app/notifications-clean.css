@@ -1,12 +1,44 @@
 /* WYNOS notifications: simplified app-like header. */
 .notification-root-header {
   border-bottom: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px;
+  height: calc(68px + env(safe-area-inset-top)) !important;
+  padding: calc(env(safe-area-inset-top) + 5px) 14px 0 !important;
+}
+
+.notification-root-header > button {
+  width: 36px !important;
+  height: 44px !important;
+  flex: 0 0 36px;
+  transform: translateY(2px);
+}
+
+.notification-root-header > button svg {
+  display: none;
+}
+
+.notification-root-header > button::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-left: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  transform: rotate(45deg);
 }
 
 .notification-root-header > strong {
-  font-size: 22px !important;
-  line-height: 1.2;
+  font-size: 24px !important;
+  line-height: 1.15;
   font-weight: 700;
+  text-align: left !important;
+  transform: translateY(2px);
+}
+
+.notification-root-header > span {
+  display: none;
 }
 
 /* The notifications screen now shows the full activity stream directly. */
