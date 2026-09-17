@@ -17,18 +17,18 @@ export function HomeHeader({
   onOpenNotifications: () => void;
 }) {
   const actionStyle = {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
   } as const;
 
   return (
     <header
       className="wyn-home-header"
       style={{
-        height: 56,
-        padding: "0 12px",
-        gridTemplateColumns: "44px minmax(0, 1fr) 88px",
+        height: 36,
+        padding: "0 8px",
+        gridTemplateColumns: "40px minmax(0, 1fr) 80px",
         columnGap: 4,
       }}
     >
@@ -39,22 +39,22 @@ export function HomeHeader({
         aria-label="เมนู"
         onClick={onOpenMenu}
       >
-        <Menu size={25} strokeWidth={2.05} />
+        <Menu size={22} strokeWidth={2.05} />
       </button>
 
-      <div className="wyn-home-wordmark" style={{ gap: 8 }}>
+      <div className="wyn-home-wordmark" style={{ gap: 7 }}>
         <Image
           className="wyn-home-logo"
-          style={{ width: 19, height: 19 }}
+          style={{ width: 18, height: 18 }}
           src="/wynos_logo_mark.png"
           alt=""
-          width={19}
-          height={19}
+          width={18}
+          height={18}
           priority
         />
         <strong
           className="wyn-home-title"
-          style={{ fontSize: 19, fontWeight: 700, letterSpacing: "1.7px" }}
+          style={{ fontSize: 16, fontWeight: 700, letterSpacing: "1.4px" }}
         >
           WYNOS
         </strong>
@@ -68,7 +68,7 @@ export function HomeHeader({
           aria-label="ค้นหา"
           onClick={onOpenSearch}
         >
-          <Search size={24} strokeWidth={2.05} />
+          <Search size={22} strokeWidth={2.05} />
         </button>
         <button
           className="wyn-home-header-action wyn-home-chat-action"
@@ -77,7 +77,7 @@ export function HomeHeader({
           aria-label={notificationBadgeCount > 0 ? `การแจ้งเตือน ${notificationBadgeCount} รายการที่ยังไม่ได้อ่าน` : "การแจ้งเตือน"}
           onClick={onOpenNotifications}
         >
-          <Bell size={24} strokeWidth={2.05} />
+          <Bell size={22} strokeWidth={2.05} />
           {notificationBadgeCount > 0 ? <span className="wyn-home-chat-badge" aria-hidden="true" /> : null}
         </button>
       </div>
