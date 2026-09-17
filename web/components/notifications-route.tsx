@@ -105,7 +105,7 @@ function groupWithinDay(items: NotificationRow[]): NotificationGroup[] {
 function buildSections(items: NotificationRow[]) {
   const now = new Date();
   const order: DayBucket[] = ["today", "yesterday", "older"];
-  const labels: Record<DayBucket, string> = { today: "วันนี้", yesterday: "เมื่อวานนี้", older: "เก่ากว่านี้" };
+  const labels: Record<DayBucket, string> = { today: "วันนี้", yesterday: "เมื่อวานนี้", older: "ก่อนหน้านี้" };
   return order.flatMap((bucket) => {
     const bucketRows = items.filter((row) => bucketFor(row.created_at, now) === bucket);
     return bucketRows.length ? [{ label: labels[bucket], groups: groupWithinDay(bucketRows) }] : [];
