@@ -1240,3 +1240,28 @@ run #93 ([35214409445](https://github.com/warren-wyn-dev/wynteam/actions/runs/35
 `.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`,
 https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz, `web/components/auth-flow/screens.tsx`,
 `web/app/auth-reference.css`, `web/app/design-system.css`, PR #501, deploy run `35214409445` (SUCCESS)
+
+## [2026-09-17] WYN-160 batch 2 (Auth: signup step 1-2) — Founder สั่ง "ไล่ไปทีละหน้า" ตรวจต่อจนครบ Auth flow
+
+หลัง batch 1 (welcome/login) merge+deploy แล้ว ผมข้ามไปเริ่ม Home/Bottom Nav — Founder เบรก "หน้าสร้างบัญชีใหม่
+ออกแบบยัง ไล่ไปที่ละหน้า" ถูกต้องตามลำดับ rollout เดิมของ WYN-160 ที่เขียนไว้เองว่า Auth ทั้งชุด (login/signup/
+onboarding) เป็น step เดียวกัน ยังไม่ใช่ Home — กลับไปตรวจ signup step 1-2, ลืมรหัสผ่าน, onboarding โปรไฟล์
+ให้ครบ
+
+**ตรวจแล้วพบ**: ลืมรหัสผ่าน + onboarding โปรไฟล์ **ตรงสเปกอยู่แล้ว** (ได้อานิสงค์จาก fix กลางของ batch 1 —
+`.field .wyn-input`/`textarea` เป็น 16px, `.topbar` ไม่มีเส้นคั่นแล้ว — ทั้งสองหน้าใช้ shared component เดิม
+ไม่ต้องแก้อะไรเพิ่ม) เจอจริง 2 จุดใน signup:
+1. **step 1** — ช่องกรอก "ชื่อผู้ใช้" เขียนเป็น `<div><span>@</span><Input style={{fontSize:14}}/></div>` มือ
+   เอง ไม่ได้ใช้ `<Field>` แบบอีก 2 ช่องในหน้าเดียวกัน เลยไม่ได้อานิสงค์จาก fix กลาง ยัง hardcode 14px ค้าง —
+   เห็นชัดในภาพก่อน-หลัง: placeholder "username" เล็กกว่า "ชื่อของคุณ" ทั้งที่อยู่หน้าเดียวกัน
+2. **step 2** — ข้อความท้ายหน้า "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" เป็น 12px (caption) แต่ login มีข้อความบทบาท
+   เดียวกัน ("ยังไม่มีบัญชี? สร้างบัญชีใหม่") เป็น 13px (secondary) — บทบาทเดียวกันขนาดไม่ตรงกัน
+
+ทำภาพก่อน-หลังเพิ่มในแคนวาสเดิม (https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz) Founder ดูแล้วตอบ "โอเคครับ"
+
+**โค้ดจริงที่แก้** (`web/components/auth-flow/screens.tsx`): username field font-size 14→16,
+signup step 2 footer text 12→13 — 2 จุดเท่านั้น ไม่แตะอย่างอื่น
+
+**ตรวจสอบ**: `tsc --noEmit` ผ่าน, regression suite เดิม 13 เทสผ่านหมด, screenshot ยืนยันตรงกับภาพที่อนุมัติ
+
+อ้างอิง: `web/components/auth-flow/screens.tsx`, https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
