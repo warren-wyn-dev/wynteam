@@ -65,13 +65,30 @@ const rows: HomeFeedRow[] = [
     redrop_count: 0,
     audience: "everyone",
   },
+  {
+    id: "drop-3",
+    content_type: "drop",
+    author_id: "author-followed",
+    author_username: "namtan",
+    author_display_name: "Namtan",
+    author_avatar_url: null,
+    author_is_verified: false,
+    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    caption: "กำลังติดตามแล้ว ปุ่มยังอยู่ให้เห็นสถานะชัดเจน",
+    image_url: null,
+    image_count: 0,
+    like_count: 8,
+    comment_count: 1,
+    redrop_count: 0,
+    audience: "everyone",
+  },
 ];
 
 const viewer: HomeViewerState = {
   likedDropIds: new Set(["drop-1"]),
   savedDropIds: new Set(),
   redroppedDropIds: new Set(),
-  followedAuthorIds: new Set(),
+  followedAuthorIds: new Set(["author-followed"]),
   pendingFollowAuthorIds: new Set(["author-long-caption"]),
   privateAuthorIds: new Set(),
 };
