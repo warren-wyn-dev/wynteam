@@ -1264,4 +1264,10 @@ signup step 2 footer text 12→13 — 2 จุดเท่านั้น ไม
 
 **ตรวจสอบ**: `tsc --noEmit` ผ่าน, regression suite เดิม 13 เทสผ่านหมด, screenshot ยืนยันตรงกับภาพที่อนุมัติ
 
-อ้างอิง: `web/components/auth-flow/screens.tsx`, https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
+**Merge + Deploy**: เปิด PR #502, base ตรงกับ `main` ล่าสุดพอดี (ไม่เจอปัญหา dirty ซ้ำแบบ PR #501 เพราะ
+rebase ตั้งฐานใหม่ก่อน push ทุกรอบ) Founder merge เอง — `wyn-158-production-deploy.yml` auto-trigger run #94
+([35215643137](https://github.com/warren-wyn-dev/wynteam/actions/runs/35215643137)) — **SUCCESS** →
+`curl https://wynos.online/`, `/signup/step-1`, `/signup/step-2` → **HTTP 200** ทั้งหมด
+
+อ้างอิง: `web/components/auth-flow/screens.tsx`, https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz,
+PR #502, deploy run `35215643137` (SUCCESS)
