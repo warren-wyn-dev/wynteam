@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Bookmark, ChevronRight, Compass, Smartphone, UsersRound, X } from "lucide-react";
+import { Bookmark, ChevronRight, Compass, FileText, Smartphone, UsersRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Avatar } from "@/components/phase3-ui";
@@ -83,6 +83,11 @@ export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | nul
           <button className="drawer-menu-row" type="button" onClick={() => go("/bookmarks")}>
             <span className="drawer-menu-icon"><Bookmark size={19} /></span>
             <span>บันทึกไว้</span>
+            <ChevronRight size={19} />
+          </button>
+          <button className="drawer-menu-row" type="button" onClick={() => go("/drafts")}>
+            <span className="drawer-menu-icon"><FileText size={19} /></span>
+            <span>ร่าง</span>
             <ChevronRight size={19} />
           </button>
           {!standalone ? (

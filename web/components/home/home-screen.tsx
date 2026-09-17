@@ -1055,6 +1055,7 @@ export function HomeScreen({ session }: { session: Session }) {
         <Beta4Composer
           client={client}
           userId={userId}
+          draftId={searchParams.get("draft")}
           onClose={() => router.replace("/")}
           onPublished={() => void load()}
         />

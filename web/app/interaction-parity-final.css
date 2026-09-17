@@ -26,6 +26,8 @@
 .detail-dialog footer button.primary:disabled { border-color: var(--wyn-border); background: var(--wyn-border); color: var(--wyn-text-muted); }
 .detail-confirm-dialog footer button.danger,
 .wynos-confirm-dialog footer button.danger { border-color: #dc2626; background: #dc2626; color: white; }
+.detail-confirm-dialog footer button.primary { border-color: var(--wyn-text); background: var(--wyn-text); color: var(--wyn-bg); }
+.detail-confirm-dialog footer button.primary:disabled { border-color: var(--wyn-border); background: var(--wyn-border); color: var(--wyn-text-muted); }
 @supports (height: 100dvh) { .beta4-composer { height: 100dvh; max-height: 100dvh; } }
 @media (max-width: 680px) {
   .beta4-composer-scroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }

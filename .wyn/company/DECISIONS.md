@@ -1017,3 +1017,39 @@ textarea จริงถูก mount มีช่วง async (route transition 
 
 อ้างอิง: `web/components/beta4-composer.tsx`, `web/components/bottom-navigation.tsx`,
 `web/app/system-parity-final.css`, `web/components/home/home-screen.tsx`, `design-reference/04-drop.tsx`
+
+## [2026-09-17] Beta4Composer (เว็บ) — เพิ่ม "บันทึกร่าง" ครบชุด (บันทึก + ดู/เปิดต่อ) ตาม WYN-036 ที่มีอยู่แล้ว
+
+Founder สั่งเพิ่ม "ฉบับร่าง" ในหน้าสร้างโพสต์ของเว็บ ระหว่างคุยเรื่องแก้บั๊กคีย์บอร์ด — ตรวจก่อนแล้วพบว่า
+**Draft system (WYN-036) มีอยู่แล้วเต็มรูปแบบฝั่ง Flutter** (approved, deploy แล้ว 2026-08-23) ทั้ง schema
+(`drop_drafts`), RLS, และ UI (close-intercept dialog + Profile tab "ร่าง") — แต่ฝั่งเว็บไม่มีเลยตั้งแต่ต้น
+(`system-visual-parity.spec.ts`/`final-source-parity-gate.spec.ts` มี lock assertion ห้าม `beta4-drafts`/
+`client.from("drop_drafts")` โผล่ใน `beta4-composer.tsx` มาตั้งแต่ตอนตัด scope initial web port — เป็นการ
+ตัด scope ตอนนั้น ไม่ใช่กติกาถาวรที่ห้ามเพิ่มทีหลัง)
+
+ถามกลับ Founder ว่าจะทำแค่ "บันทึกตอนกด ยกเลิก" หรือทำเต็มรูปแบบมีที่ดู/เปิดร่างต่อด้วย — **เลือกทำเต็ม
+รูปแบบ**
+
+**สิ่งที่ทำ**:
+1. `lib/drafts.ts` ใหม่ — `fetchDrafts`/`fetchDraft`/`saveDraft`/`deleteDraft` มิเรอร์ Flutter's
+   `DropRepository.saveDraft()`/`fetchDrafts()`/`deleteDraft()` ตรงๆ (upsert pattern เดียวกัน, จำกัด
+   1 รูปต่อร่างเหมือนกันเพราะ schema `image_url` เป็น column เดียวไม่ใช่ array — ข้อจำกัดเดิมของ Flutter
+   ไม่ใช่ของใหม่)
+2. `beta4-composer.tsx` — dialog ปิดหน้า (`closePrompt`) เดิมมีแค่ "ยกเลิก"/"ทิ้ง" เพิ่มปุ่มที่ 3
+   "บันทึกร่าง" (ปุ่มเด่นสุด/primary ตรงตาม Flutter's Screen 1 spec) — รองรับ prop `draftId` ใหม่ให้เปิด
+   composer พร้อม prefill จากร่างเดิม (caption/รูป/โพล) ผ่าน query param `?compose=1&draft=<id>`
+3. `components/drafts-route.tsx` + `app/drafts/page.tsx` ใหม่ — หน้ารายการร่าง มิเรอร์ pattern เดียวกับ
+   `bookmarks-route.tsx` เป๊ะ (list ธรรมดา ไม่ใช่ grid 3 คอลัมน์แบบ Flutter เพราะเว็บไม่มี pattern grid สำหรับ
+   โพสต์อยู่แล้วตั้งแต่ต้น — ตัดสินใจใช้ list ให้ตรงกับ idiom ของเว็บเองมากกว่าลอก Flutter ตรงๆ) แตะแถว →
+   เปิดร่างต่อ, ปุ่ม "ลบ" มี confirm dialog ก่อนลบจริง
+4. Entry point: เพิ่มแถว "ร่าง" ใน side drawer (`home-drawer.tsx`) ต่อจาก "บันทึกไว้" — จุดเดียวกับที่
+   Saved posts ใช้อยู่แล้ว (เว็บไม่มี Profile tab bar สำหรับ content แบบ Flutter)
+
+**Lock test ที่มีอยู่ก่อนไม่ต้องแก้**: assertion ห้าม `beta4-drafts`/`client.from("drop_drafts")` ใน
+`beta4-composer.tsx` ยังผ่านอยู่ เพราะแยก DB call ไปไว้ที่ `lib/drafts.ts` และตั้งชื่อ class คนละชุด
+(`drafts-row`/`drafts-list`) — ไม่ได้ตั้งใจเลี่ยง lock แค่บังเอิญแยกไฟล์แล้วไม่ชนกัน ยืนยันด้วย regression
+suite เดิมผ่านครบ 87 เทสทั้ง 3 อุปกรณ์เหมือนเดิม
+
+อ้างอิง: `web/lib/drafts.ts`, `web/components/beta4-composer.tsx`, `web/components/drafts-route.tsx`,
+`web/app/drafts/page.tsx`, `web/components/home/home-drawer.tsx`, `.wyn/tasks/approved/WYN-036-draft-system.md`,
+`.wyn/docs/design/wyn-036-draft-system.md`, `.wyn/logs/deployments/2026-08-23-wyn-036-merge-to-main.md`

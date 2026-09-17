@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Avatar } from "@/components/phase3-ui";
+import { deleteDraft, fetchDraft, saveDraft } from "@/lib/drafts";
 import { publishDropSafely } from "@/lib/drop-publication";
 import { fetchHomeIdentity, type HomeIdentity } from "@/lib/home-parity-data";
 
@@ -19,11 +20,13 @@ const POLL_DURATION_DAYS = 1;
 export function Beta4Composer({
   client,
   userId,
+  draftId,
   onClose,
   onPublished,
 }: {
   client: SupabaseClient;
   userId: string;
+  draftId?: string | null;
   onClose: () => void;
   onPublished: () => void;
 }) {
@@ -37,6 +40,10 @@ export function Beta4Composer({
   const [error, setError] = useState("");
   const [closePrompt, setClosePrompt] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ uploaded: number; total: number } | null>(null);
+  const [draftRecordId, setDraftRecordId] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftError, setDraftError] = useState("");
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const captionRef = useRef<HTMLTextAreaElement | null>(null);
@@ -47,17 +54,48 @@ export function Beta4Composer({
     return () => { live = false; };
   }, [client, userId]);
 
+  useEffect(() => {
+    if (!draftId) return;
+    let live = true;
+    void fetchDraft(client, draftId).then((row) => {
+      if (!live || !row) return;
+      setDraftRecordId(row.id);
+      setCaption(row.caption ?? "");
+      setExistingImageUrl(row.image_url ?? null);
+      if (row.poll_options && row.poll_options.length) { setMode("poll"); setPollOptions(row.poll_options); }
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [client, draftId]);
+
   const previews = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
   useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
 
   const pollValid = caption.trim().length > 0 && pollOptions.length >= 2 && pollOptions.every((value) => value.trim().length > 0 && value.trim().length <= 80) && new Set(pollOptions.map((value) => value.trim().toLowerCase())).size === pollOptions.length;
-  const canPublish = !busy && (mode === "poll" ? pollValid : caption.trim().length > 0 || files.length > 0);
-  const hasContent = caption.trim().length > 0 || files.length > 0 || pollOptions.some((value) => value.trim().length > 0);
+  const canPublish = !busy && (mode === "poll" ? pollValid : caption.trim().length > 0 || files.length > 0 || Boolean(existingImageUrl));
+  const hasContent = caption.trim().length > 0 || files.length > 0 || Boolean(existingImageUrl) || pollOptions.some((value) => value.trim().length > 0);
 
   const requestClose = () => {
     if (busy) return;
     if (!hasContent) { onClose(); return; }
+    setDraftError("");
     setClosePrompt(true);
+  };
+
+  const saveDraftNow = async () => {
+    setSavingDraft(true); setDraftError("");
+    try {
+      const id = await saveDraft(client, userId, {
+        draftId: draftRecordId,
+        file: files[0] ?? null,
+        existingImageUrl,
+        caption,
+        pollOptions: mode === "poll" ? pollOptions : null,
+        pollDurationDays: mode === "poll" ? POLL_DURATION_DAYS : null,
+      });
+      setDraftRecordId(id);
+      onClose();
+    } catch (reason) { setDraftError(reason instanceof Error ? reason.message : "บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง"); }
+    finally { setSavingDraft(false); }
   };
 
   const publishPoll = async () => {
@@ -90,6 +128,7 @@ export function Beta4Composer({
         imageAspectRatio: aspectRatio,
         onImageUploaded: (uploaded, total) => setUploadProgress(total > 0 ? { uploaded, total } : null),
       });
+      if (draftRecordId) void deleteDraft(client, draftRecordId).catch(() => undefined);
       onPublished();
       onClose();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง"); }
@@ -118,7 +157,10 @@ export function Beta4Composer({
           {uploadProgress && uploadProgress.total > 0 ? <div className="beta4-upload-progress"><span>กำลังอัปโหลด {uploadProgress.uploaded}/{uploadProgress.total} รูป... {Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%</span><progress max={uploadProgress.total} value={uploadProgress.uploaded} /></div> : null}
 
           {mode === "image" ? (
-            previews.length ? <><div className="beta4-image-strip">{previews.map((url, index) => <div className={`beta4-image-preview ratio-${aspectRatio.replace(":", "-")}`} key={url}><img src={url} alt="" /><button type="button" aria-label={`ลบรูปที่ ${index + 1}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={13} /></button></div>)}</div><div className="beta4-ratio-chips" role="group" aria-label="อัตราส่วนรูป">{(["original", "1:1", "4:5", "16:9"] as AspectRatioChoice[]).map((ratio) => <button className={`ratio-chip ratio-${ratio.replace(":", "-")} ${aspectRatio === ratio ? "active" : ""}`} aria-pressed={aspectRatio === ratio} type="button" onClick={() => setAspectRatio(ratio)} key={ratio}>{ratio === "original" ? "ต้นฉบับ" : ratio}</button>)}</div><div className="beta4-image-count">{files.length}/9</div></> : null
+            previews.length || existingImageUrl ? <><div className="beta4-image-strip">
+              {!files.length && existingImageUrl ? <div className={`beta4-image-preview ratio-${aspectRatio.replace(":", "-")}`} key="existing-draft-image"><img src={existingImageUrl} alt="" /><button type="button" aria-label="ลบรูปที่บันทึกไว้ในร่าง" onClick={() => setExistingImageUrl(null)}><X size={13} /></button></div> : null}
+              {previews.map((url, index) => <div className={`beta4-image-preview ratio-${aspectRatio.replace(":", "-")}`} key={url}><img src={url} alt="" /><button type="button" aria-label={`ลบรูปที่ ${index + 1}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={13} /></button></div>)}
+            </div><div className="beta4-ratio-chips" role="group" aria-label="อัตราส่วนรูป">{(["original", "1:1", "4:5", "16:9"] as AspectRatioChoice[]).map((ratio) => <button className={`ratio-chip ratio-${ratio.replace(":", "-")} ${aspectRatio === ratio ? "active" : ""}`} aria-pressed={aspectRatio === ratio} type="button" onClick={() => setAspectRatio(ratio)} key={ratio}>{ratio === "original" ? "ต้นฉบับ" : ratio}</button>)}</div><div className="beta4-image-count">{files.length}/9</div></> : null
           ) : (
             <div className="beta4-poll-composer">
               <div className="beta4-poll-options">{pollOptions.map((value, index) => <label key={index}><input maxLength={80} value={value} disabled={busy} onChange={(event) => updatePollOption(index, event.target.value)} placeholder={`ตัวเลือกที่ ${index + 1}`} />{index >= 2 ? <button type="button" aria-label={`ลบตัวเลือก ${index + 1}`} onClick={() => removePollOption(index)}><X size={18} /></button> : null}</label>)}</div>
@@ -142,12 +184,14 @@ export function Beta4Composer({
         </div>
 
         {closePrompt ? (
-          <div className="route-modal-backdrop detail-dialog-backdrop" role="presentation" onClick={() => setClosePrompt(false)}>
-            <section className="route-modal detail-confirm-dialog" role="alertdialog" aria-modal="true" aria-label="ทิ้งโพสต์นี้หรือไม่?" onClick={(event) => event.stopPropagation()}>
-              <strong>ทิ้งโพสต์นี้หรือไม่?</strong>
+          <div className="route-modal-backdrop detail-dialog-backdrop" role="presentation" onClick={() => !savingDraft && setClosePrompt(false)}>
+            <section className="route-modal detail-confirm-dialog" role="alertdialog" aria-modal="true" aria-label="บันทึกเป็นร่างก่อนออกไหม?" onClick={(event) => event.stopPropagation()}>
+              <strong>บันทึกเป็นร่างก่อนออกไหม?</strong>
+              {draftError ? <p className="route-error">{draftError}</p> : null}
               <footer>
-                <button type="button" onClick={() => setClosePrompt(false)}>ยกเลิก</button>
-                <button className="danger" type="button" onClick={onClose}>ทิ้ง</button>
+                <button type="button" disabled={savingDraft} onClick={onClose}>ทิ้ง</button>
+                <button type="button" disabled={savingDraft} onClick={() => setClosePrompt(false)}>ยกเลิก</button>
+                <button className="primary" type="button" disabled={savingDraft} onClick={() => void saveDraftNow()}>{savingDraft ? <span className="route-system-spinner tiny" /> : "บันทึกร่าง"}</button>
               </footer>
             </section>
           </div>
