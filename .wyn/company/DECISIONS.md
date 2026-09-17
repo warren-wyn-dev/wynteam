@@ -1138,4 +1138,37 @@ Regression suite เดิมผ่านครบ 87 เทสเหมือ�
 `web/app/phase3.css`, `app/lib/features/chat/data/chat_repository.dart` (`subscribeToMyMessages`),
 `app/lib/features/chat/presentation/chat_inbox_screen.dart`
 
-อ้างอิง: `web/components/beta4-composer.tsx`, `web/app/system-parity-final.css`
+## [2026-09-17] พบ session คู่ขนานอีกอันบน `main` — reconcile งานทั้งสองฝั่งเข้าด้วยกัน
+
+ระหว่างเตรียม push งานแก้ #1/#2 พบว่า `main` เดินหน้าไปอีก ~15 commit โดยไม่ผ่าน PR เลย (push ตรงเข้า `main`)
+แก้ไฟล์ชุดเดียวกัน (`beta4-composer.tsx`, `chat-inbox-parity.tsx`, `chat-routes.tsx`) — ถาม Founder แล้วยืนยัน
+ว่าเป็น**อีกเซสชันหนึ่งที่ Founder เปิดคู่กันเอง** ตอนนี้เซสชันนั้นหยุดแล้ว ให้เซสชันนี้ทำต่อ
+
+**สิ่งที่อีกเซสชันทำ** (สรุปจาก commit message เพื่อบันทึกไว้): เพิ่มตัวเลือกผู้ชมโพสต์ (audience picker:
+สาธารณะ/เพื่อน/เฉพาะฉัน) ในหน้าสร้างโพสต์, ย้าย styling ของ composer ไปใช้ CSS module
+(`beta4-composer-refresh.module.css`), redesign หน้ารายการแชทให้มีช่องค้นหาแทน tab ทั้งหมด/ยังไม่อ่าน (ปุ่ม
+"คำขอ" แยกออกมาที่ header แทน), redesign หน้าสนทนาเป็น "conversation-modern" (มี profile hero, จัดกลุ่ม
+ข้อความตามวัน, read receipt แบบ ✓)
+
+**Merge**: `git merge origin/main` เข้า branch นี้ ชนกัน 3 ไฟล์ (`beta4-composer.tsx`,
+`chat-inbox-parity.tsx`, `chat-routes.tsx`) แก้ทีละจุดเก็บเจตนาทั้งสองฝั่งไว้ครบ — ของอีกเซสชัน (audience
+picker, CSS module, search-based inbox, conversation-modern) ใช้ของเขาเป็นหลัก ของฝั่งนี้ (realtime
+subscription บน inbox, textarea auto-grow บน composer) เอากลับไปแปะบนโครงใหม่ของเขา (ปรับขนาดไอคอน/
+placeholder/border-radius ให้ตรงสเกลใหม่ ไม่ทิ้งค่าเก่าไว้ให้ไม่เข้ากัน) ระหว่างแก้เจอบั๊ก JSX ที่ตัวเองทำพลาด
+(ลบ `</div>` ปิด `beta4-composer-scroll` หายไปตอน resolve conflict) แก้แล้วตรวจ `tsc --noEmit` ผ่าน
+
+**เจอ regression ที่ push ตรงไม่ผ่าน PR ทำไว้โดยไม่รู้ตัว**: lock test 2 ไฟล์
+(`system-visual-parity.spec.ts`, `final-source-parity-gate.spec.ts`) ยังเช็คของเก่าอยู่ (ห้ามมี audience
+selector, ต้องมี tab ทั้งหมด/ยังไม่อ่าน) ทั้งที่ของจริงเปลี่ยนไปแล้ว — ไม่มีใครจับได้เพราะ push ตรงเข้า main
+ข้าม PR/`browser-qa` (Playwright suite เต็มรูปแบบรันเฉพาะตอนมี PR) ไปเลย แก้ assertion ให้ตรงกับของจริงปัจจุบัน
+(อนุญาต audience picker, เปลี่ยนจาก tab-check เป็น search+คำขอ-check) — รัน regression suite เต็มทุกไฟล์ (117
+เทส ไม่ใช่แค่ 87 เทสที่ใช้ประจำ) ผ่านครบทั้ง 3 อุปกรณ์
+
+**ข้อสังเกตเพิ่ม (ยังไม่แก้)**: เจอบั๊กเล็กในโค้ดที่อีกเซสชันเขียน — read receipt ใน `chat-routes.tsx` เขียน
+`read ? "✓" : "✓"` (ทั้ง 2 ฝั่งเป็นเครื่องหมายเดียวกัน ไม่มีทางแยกสถานะอ่านแล้ว/ส่งแล้วจากภาพเลย ต่างกันแค่
+`aria-label`) — ไม่ได้แก้ตอนนี้เพราะไม่ได้อยู่ใน scope ที่ขอ รอ Founder สั่งแยก
+
+อ้างอิง: `web/components/beta4-composer.tsx`, `web/components/chat-inbox-parity.tsx`,
+`web/components/chat-routes.tsx`, `web/app/conversation-modern.css`,
+`web/tests/browser/system-visual-parity.spec.ts`, `web/tests/browser/final-source-parity-gate.spec.ts`,
+commit `57be9fd` (merge)
