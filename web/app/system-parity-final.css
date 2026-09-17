@@ -263,7 +263,7 @@
 .beta4-compose-text::placeholder { color: var(--wyn-text-muted); opacity: 1; }
 .beta4-image-strip { margin-top: 12px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
 .beta4-image-strip::-webkit-scrollbar { display: none; }
-.beta4-image-preview { position: relative; flex: 0 0 auto; width: 128px; height: 160px; overflow: hidden; border-radius: 16px; background: var(--wyn-surface); }
+.beta4-image-preview { position: relative; flex: 0 0 auto; width: 128px; height: 160px; overflow: hidden; border-radius: 14px; background: var(--wyn-surface); }
 .beta4-image-preview.ratio-1-1 { width: 160px; }
 .beta4-image-preview.ratio-16-9 { width: 284px; }
 .beta4-image-preview.ratio-original { width: 128px; }
@@ -322,20 +322,20 @@
 .beta4-image-preview > button { width: 23px; height: 23px; }
 .beta4-image-preview > button svg { width: 13px; height: 13px; }
 .beta4-ratio-chips { margin-top: 8px; gap: 8px; }
-.beta4-ratio-chips button { min-height: 44px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 7px; border-color: var(--hairline); color: var(--graphite); }
-.beta4-ratio-chips button.active { border-color: var(--sapphire); color: var(--sapphire); font-weight: 600; }
+.beta4-ratio-chips button { min-height: 44px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 7px; border-color: var(--wyn-border-strong); color: var(--wyn-text-secondary); }
+.beta4-ratio-chips button.active { border-color: var(--wyn-text); color: var(--wyn-text); font-weight: 600; }
 .beta4-ratio-chips button::before { content: ""; display: block; flex: 0 0 auto; border: 1px solid currentColor; border-radius: 2px; box-sizing: border-box; }
 .beta4-ratio-chips .ratio-original::before { width: 14px; height: 10.5px; }
 .beta4-ratio-chips .ratio-1-1::before { width: 14px; height: 14px; }
 .beta4-ratio-chips .ratio-4-5::before { width: 11.2px; height: 14px; }
 .beta4-ratio-chips .ratio-16-9::before { width: 14px; height: 7.875px; }
-.beta4-image-count { margin-top: 4px; color: var(--faint); font-size: 13px; line-height: 1.2; }
+.beta4-image-count { margin-top: 4px; color: var(--wyn-text-muted); font-size: 13px; line-height: 1.2; }
 
 /* Poll composer mirrors Flutter TextField rows rather than numbered card rows. */
 .beta4-poll-options label { min-height: 48px; display: grid; grid-template-columns: minmax(0,1fr) 44px; gap: 4px; border: 0; border-radius: 0; overflow: visible; }
 .beta4-poll-options label > span { display: none; }
-.beta4-poll-options input { height: 48px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--paper); font-size: 16px; }
-.beta4-poll-options input:focus { border-color: var(--sapphire); }
+.beta4-poll-options input { height: 48px; padding: 0 12px; border: 1px solid var(--wyn-border-strong); border-radius: 10px; background: var(--wyn-bg); font-size: 16px; }
+.beta4-poll-options input:focus { border-color: var(--wyn-text); }
 .beta4-poll-options label > button { width: 44px; height: 48px; }
 .beta4-add-option { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; }
 
