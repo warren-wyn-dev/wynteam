@@ -25,7 +25,8 @@ comment on table public.conversation_wynii is
 
 alter table public.conversation_wynii enable row level security;
 
-revoke insert, update, delete on public.conversation_wynii from anon, authenticated;
+revoke all on public.conversation_wynii from anon;
+revoke insert, update, delete on public.conversation_wynii from authenticated;
 grant select on public.conversation_wynii to authenticated;
 
 drop policy if exists "Participants can view their Wynii" on public.conversation_wynii;
@@ -34,7 +35,8 @@ on public.conversation_wynii
 for select
 to authenticated
 using (
-  (auth.uid() = user_a_id or auth.uid() = user_b_id)
+  coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is false
+  and (auth.uid() = user_a_id or auth.uid() = user_b_id)
   and internal.chat_pair_allowed(user_a_id, user_b_id)
 );
 
@@ -93,7 +95,7 @@ begin
 end;
 $$;
 
-revoke all on function public.start_conversation_wynii(uuid) from public;
+revoke execute on function public.start_conversation_wynii(uuid) from public, anon;
 grant execute on function public.start_conversation_wynii(uuid) to authenticated;
 
 create or replace function public.advance_conversation_wynii()
@@ -165,7 +167,8 @@ begin
 end;
 $$;
 
-revoke all on function public.advance_conversation_wynii() from public;
+-- Trigger-only helper. It must not be callable as an exposed RPC.
+revoke execute on function public.advance_conversation_wynii() from public, anon, authenticated;
 
 drop trigger if exists messages_advance_conversation_wynii on public.messages;
 create trigger messages_advance_conversation_wynii
