@@ -28,7 +28,7 @@ jobs:
           path = Path('lib/features/chat/presentation/widgets/wynii_menu.dart')
           text = path.read_text()
           text = text.replace('if (!mounted || pet == null) return;', 'if (!mounted) return;')
-          text = text.replace('initialPet: pet!,', 'initialPet: pet,')
+          text = text.replace('initialPet: pet,', 'initialPet: pet!,')
           path.write_text(text)
           PY
       - name: Format Wynii files
