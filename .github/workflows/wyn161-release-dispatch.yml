@@ -1,5 +1,6 @@
 name: WYN-161 one-off production deploy
 
+# Temporary dispatcher for the verified Flutter Wynii release.
 on:
   push:
     branches:
