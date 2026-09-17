@@ -1172,3 +1172,61 @@ selector, ต้องมี tab ทั้งหมด/ยังไม่อ่�
 `web/components/chat-routes.tsx`, `web/app/conversation-modern.css`,
 `web/tests/browser/system-visual-parity.spec.ts`, `web/tests/browser/final-source-parity-gate.spec.ts`,
 commit `57be9fd` (merge)
+
+## [2026-09-17] PR #500 (header ปุ่มโพสต์/ฉบับร่าง + chat realtime/multiline + reconcile session คู่ขนาน) — merge + deploy สำเร็จ
+
+Founder สั่ง "merge PR ให้เลย" หลัง CI เขียวครบ — pipeline เดิม:
+1. Squash-merge PR #500 เข้า `main` — commit `5778e16`
+2. `wyn-158-production-deploy.yml` auto-trigger — run #92
+   ([35209995521](https://github.com/warren-wyn-dev/wynteam/actions/runs/35209995521)) — **SUCCESS**
+3. `curl https://wynos.online/` → **HTTP 200**
+
+ยืนยันได้แค่เว็บขึ้นจริงไม่พัง — ยังต้องให้ Founder เปิดของจริงยืนยันอีกขั้นตาม Production Verification เดิม
+(คีย์บอร์ดอัตโนมัติ, บันทึก/เปิดร่างต่อ, header ใหม่, แชท realtime, ช่องพิมพ์หลายบรรทัด, audience picker,
+หน้าแชท/สนทนาที่ redesign ใหม่ — ทั้งหมดของทั้ง 2 session รวมกันแล้ว)
+
+อ้างอิง: PR #500, commit `5778e16`, deploy run `35209995521` (SUCCESS)
+
+## [2026-09-17] WYN-160 batch 1 (Auth: welcome/login) — ภาพก่อน-หลังอนุมัติแล้ว, เขียนโค้ดจริงแล้ว
+
+Founder บอก "รู้สึกว่า UX UI ทั้งระบบ ไม่ไปในทิศทางเดียวกัน" → ตรวจจริงพบ ~20 ค่า font-size, ~20 ค่า
+border-radius ต่างกันเล็กน้อยทั่วเว็บ, `conversation-modern.css` ไม่ใช้ `var(--wyn-*)` เลย → เปิด WYN-160
+(`.wyn/docs/design/wyn-160-web-design-system-consolidation.md`, task `.wyn/tasks/backlog/WYN-160-...md`) —
+สรุป: ไม่ใช่คิดทิศทางใหม่ เป็นการบังคับใช้ base design system เดิม (`wynos-web-base-design-system.md`) ให้ตรง
+กันทุกหน้า Founder ยืนยันโทน Threads/X ขาว-ดำ-ธีมสว่าง ตรงกับของเดิมอยู่แล้ว ไม่ต้องเปลี่ยนสี
+
+**ภาพก่อน-หลัง** (ตามกติกา WYN-141 ต้องมีภาพอนุมัติก่อนโค้ดจริง): ทำ canvas เปรียบเทียบหน้า welcome/login
+จริง (screenshot) กับหลังแก้ ที่ https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz — พบว่าหน้า auth ใกล้เคียง
+สเปกที่อนุมัติแล้วมาก (ปุ่ม pill 999px, มุมโค้งช่องกรอก 10px, ตัวหนังสือหัวข้อ/ปุ่มส่วนใหญ่ตรง 7-scale ที่เสนอ
+อยู่แล้ว) เจอแค่จุดหลุดสเปกจริงไม่กี่จุด Founder รีวิว 2 รอบ เพิ่ม 2 จุดเข้ามา: (1) โลโก้ปัจจุบันเป็น SVG วาด
+มือ ไม่ใช่โลโก้จริง `wynos_logo_mark.png` ที่ Home header/แอป Flutter ใช้ (2) ขอโลโก้ใหญ่ขึ้น + เอาเส้นคั่น
+(border-bottom) ใต้ topbar ของหน้าที่มีปุ่มย้อนกลับออก → อนุมัติภาพสุดท้ายแล้ว สั่ง "เริ่มเขียนโค้ดจริงเลย"
+
+**โค้ดจริงที่แก้** (`web/components/auth-flow/screens.tsx`, `web/app/auth-reference.css`,
+`web/app/design-system.css`):
+1. โลโก้ — เปลี่ยนจาก inline SVG วาดมือ (`<path d="M2 4 L8 22...">`) เป็น `next/image` ชี้ `/wynos_logo_mark.png`
+   (ไฟล์เดียวกับ Home header) ทั้ง `WelcomeScreen` (สูง 48→62px) และ `LoginScreen` (สูง 36→46px)
+2. `WelcomeScreen` — ข้อความยอมรับข้อกำหนดท้ายหน้า 11px → 12px (ค่า 11px ไม่อยู่ใน 7-scale ที่เสนอ)
+3. `.auth-ref-viewport .field .wyn-input`/`textarea` — font-size 14px → 16px (role "input") ตามกติกาเดิมของ
+   WYN-141 ที่ล็อกไว้ว่าช่องกรอกข้อมูลต้อง ≥16px กัน iOS Safari auto-zoom แต่หลุดมาที่ 14px — แก้จุดเดียวที่
+   คลาสกลาง กระทบทุกหน้าที่ใช้ `.field` (login/signup step 1-2/forgot-password/onboarding) พร้อมกัน
+4. `.auth-ref-viewport .topbar` — เอา `border-bottom: 1px solid var(--border)` ออก (คลาสกลางเดียวกัน กระทบ
+   ทุกหน้าที่ใช้ `BackTopbar`)
+5. ประกาศ CSS variable กลางชุดใหม่ใน `design-system.css` (`--wyn-font-caption/secondary/body/input/subhead/
+   title/display`, `--wyn-radius-sheet/tile/tail`) ไว้ให้หน้าอื่นอ้างต่อในรอบถัดไป — ยังไม่ไปแก้หน้าอื่น
+   (`--wyn-radius-control` เดิม 12px ยังไม่ล็อกเป็น 10px ตอนนี้ รอ Composer/Home ตามลำดับ rollout)
+
+**ตรวจสอบ**: `tsc --noEmit` ผ่าน, `eslint` ผ่าน (0 error), รัน regression suite เต็ม
+(`system-visual-parity.spec.ts` + `final-source-parity-gate.spec.ts`, 13 เทส) ผ่านหมด, เปิดจริงด้วย
+Playwright ยืนยันภาพตรงกับที่อนุมัติ และกดปุ่มจริงครบ: welcome→login, login back→welcome, login→forgot-
+password, login→signup, submit ฟอร์ม login (เจอ error "ยังไม่ได้ตั้งค่าการเชื่อมต่อ..." เพราะ sandbox นี้ไม่มี
+Supabase env จริง — ยืนยันว่า handler เดิมถูกเรียกจริง ไม่ใช่ปุ่มลอย ไม่ได้แก้ logic ปุ่มเลย มีแต่ภาพ/ขนาด)
+
+**ต่อไป** (ตามลำดับ rollout ใน WYN-160): Home/Bottom Nav → Composer → Chat (`conversation-modern.css`
+ก่อนสุดในกลุ่มนี้) → Profile/Settings → Search/Notifications/Club → ไล่ลบ CSS dead code — ทำทีละหน้า ต้องมี
+ภาพอนุมัติก่อนโค้ดจริงทุกรอบตามกติกา WYN-141 เดิม ยังไม่ได้ commit/push รอ Founder confirm ก่อน merge
+
+อ้างอิง: `.wyn/docs/design/wyn-160-web-design-system-consolidation.md`,
+`.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`,
+https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz, `web/components/auth-flow/screens.tsx`,
+`web/app/auth-reference.css`, `web/app/design-system.css`
