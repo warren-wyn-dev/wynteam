@@ -85,7 +85,7 @@ class _WyniiConversationMenuRowState extends State<WyniiConversationMenuRow> {
       }
     }
 
-    if (!mounted || pet == null) return;
+    if (!mounted) return;
     final navigator = Navigator.of(context);
     final parentContext = navigator.context;
     navigator.pop();
@@ -96,7 +96,7 @@ class _WyniiConversationMenuRowState extends State<WyniiConversationMenuRow> {
         isScrollControlled: true,
         builder: (_) => WyniiDetailSheet(
           conversationId: widget.conversationId,
-          initialPet: pet!,
+          initialPet: pet,
         ),
       );
     });
