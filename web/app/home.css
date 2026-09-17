@@ -1,13 +1,9 @@
 /*
- * Canonical Home stylesheet (WYN-158).
+ * Canonical Home stylesheet (WYN-158 + Founder Home mockup refresh).
  *
- * Single source of truth for Home's header, tabs, feed cards, media and
- * action row. Layout/spacing metrics are copied verbatim from the current
- * Flutter Beta4 source (see docs/wyn-158-visual-parity-audit.md, section
- * 7) — do not add another Home override file on top of this one; edit
- * here instead. Colors follow the WYNOS base design system tokens
- * (app/design-system.css's --wyn-* custom properties) instead of the
- * older warm Beta4 palette, per the Founder-supplied 24-screen reference.
+ * Home keeps WYNOS features and behavior while using the approved clean,
+ * compact, conversation-first visual direction. This remains the single
+ * source of truth for Home chrome and post geometry.
  */
 
 /* ---------- Shell: sticky header + tabs ---------- */
@@ -20,13 +16,13 @@
   background: var(--wyn-bg);
 }
 
-/* ---------- Header: WynosSocialHeader override, height 52, no divider ---------- */
+/* ---------- Header ---------- */
 
 .wyn-home-header {
-  height: 52px;
-  padding: 0 8px;
+  height: 56px;
+  padding: 0 12px;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) 88px;
   align-items: center;
 }
 
@@ -36,20 +32,21 @@
 }
 
 .wyn-home-header-action {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: 14px;
   background: transparent;
   color: var(--wyn-text);
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .wyn-home-header-action svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 .wyn-home-wordmark {
@@ -67,10 +64,10 @@
 }
 
 .wyn-home-title {
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1;
   font-weight: 700;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.7px;
   color: var(--wyn-text);
 }
 
@@ -78,29 +75,21 @@
   position: relative;
 }
 
-.wyn-home-chat-action svg {
-  width: 24px;
-  height: 24px;
-}
-
 .wyn-home-chat-badge {
   position: absolute;
-  top: -4px;
-  right: -6px;
-  min-width: 16px;
-  min-height: 16px;
-  padding: 1px 4px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--wyn-radius-sm);
-  background: var(--wyn-accent);
-  color: var(--wyn-bg);
-  font-size: 10px;
-  line-height: 1;
-  font-weight: 700;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  min-height: 8px;
+  padding: 0;
+  border: 2px solid var(--wyn-bg);
+  border-radius: 50%;
+  background: #ff453a;
 }
 
-/* ---------- Tabs: WynosSocialTabs, height 52 ---------- */
+/* ---------- Tabs: text + underline, no segmented pill ---------- */
 
 .wyn-home-tabs {
   height: 52px;
@@ -114,24 +103,27 @@
   flex: 1 1 0;
   min-width: 0;
   height: 52px;
-  padding: 0;
+  padding: 0 10px;
   border: 0;
+  border-radius: 0;
   background: transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
   color: var(--wyn-text-secondary);
   font: inherit;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .wyn-home-tab-label {
   flex: 1 1 auto;
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
@@ -145,9 +137,9 @@
 
 .wyn-home-tab-indicator {
   flex: 0 0 auto;
-  width: 36px;
+  display: block;
+  width: calc(100% - 20px);
   height: 2px;
-  margin-bottom: 0;
   border-radius: var(--wyn-radius-full);
   background: transparent;
 }
@@ -160,18 +152,7 @@
 
 .wyn-home-feed {
   background: var(--wyn-bg);
-  /* Tap/swipe touch handlers live on this element (home-screen.tsx). With
-     only a couple of short rows -- e.g. คลับของฉัน with just one or two
-     posts -- its natural height stopped well short of the viewport, so
-     the blank space below the last post belonged to a parent element with
-     no touch handlers at all: swiping there did nothing, reading as the
-     gesture being broken rather than just aimed outside the swipeable
-     area. min-height keeps it covering the full screen regardless of how
-     little content a tab has. */
   min-height: 100dvh;
-  /* Tab switches (tap or swipe) animate this container with a small
-     translateX (see home-screen.tsx) — clip it so that never shows a
-     horizontal scrollbar mid-transition. */
   overflow-x: hidden;
 }
 
@@ -186,12 +167,8 @@
   text-align: center;
 }
 
-/* ---------- Post card: home_drop_card.dart + home_card_metrics.dart ---------- */
-/* edge=16 avatar=44 avatarTop=16 avatar/content-gap=8 content-x=68
-   outer vertical rhythm=3 caption lift=3 (net trailing gap 0). */
+/* ---------- Post card ---------- */
 
-/* One hairline divider between posts (Flutter's `Divider(height: 1)`
-   between SliverList items) — never before the first post. */
 .wyn-post + .wyn-post {
   border-top: 1px solid var(--wyn-border);
 }
@@ -200,10 +177,10 @@
   position: relative;
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
-  column-gap: 8px;
+  column-gap: 10px;
   row-gap: 0;
   width: 100%;
-  padding: 3px 0 3px 16px;
+  padding: 12px 16px 0;
   box-sizing: border-box;
 }
 
@@ -211,7 +188,7 @@
   grid-column: 1;
   width: 44px;
   height: 44px;
-  margin-top: 16px;
+  margin-top: 6px;
   align-self: start;
 }
 
@@ -225,7 +202,6 @@
   min-width: 0;
 }
 
-/* ReDrop attribution / quote text are pre-column rows spanning the card. */
 .wyn-post-redrop-line,
 .wyn-post-quote {
   grid-column: 1 / -1;
@@ -233,22 +209,23 @@
 
 .wyn-post-redrop-line {
   min-height: 18px;
-  margin: 0 16px 4px;
+  margin: 0 0 8px 52px;
   display: flex;
   align-items: center;
   gap: 5px;
   color: var(--wyn-text-secondary);
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 1.3;
 }
 
 .wyn-post-quote {
-  margin: 0 16px 8px;
+  margin: 0 0 8px 54px;
 }
 
 .wyn-post-author-row {
   min-width: 0;
-  min-height: 24px;
-  margin-right: 16px;
+  min-height: 28px;
+  margin-right: 0;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -260,75 +237,77 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   overflow: hidden;
   text-decoration: none !important;
   color: inherit;
 }
 
 .wyn-post-author-name {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--wyn-text);
-  font-size: 17px;
-  line-height: 1.15;
+  font-size: 16px;
+  line-height: 1.25;
   font-weight: 700;
 }
 
-/* Sibling of the name, not nested inside it, so a long name's ellipsis
-   never clips the badge away — matches Flutter's Row(Flexible(name),
-   if(verified) VerifiedBadge, ...) exactly. */
 .wyn-post-verified {
   flex: 0 0 auto;
 }
 
 .wyn-post-timestamp {
   flex: 0 0 auto;
-  max-width: 112px;
+  max-width: 104px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--wyn-text-muted);
-  font-size: 15px;
-  line-height: 1.15;
+  font-size: 14px;
+  line-height: 1.2;
   font-weight: 400;
 }
 
-/* FollowActionButton(filled, headerCompact): minHeight 28, horizontal 12,
-   labelSmall 13/700. */
+/* Follow state from the approved mockup:
+   - not following: soft gray filled pill
+   - following/requested: white/background pill with a light gray border
+   Legacy parity contract previously asserted `background: var(--wyn-text)`;
+   this refresh intentionally replaces that black treatment. */
 .wyn-post-follow-pill {
   flex: 0 0 auto;
   min-height: 28px;
   height: 28px;
   padding: 0 12px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: var(--wyn-radius-full);
-  background: var(--wyn-text);
-  color: var(--wyn-bg);
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
   font: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.3;
   font-weight: 700;
-  letter-spacing: 0.1px;
+  letter-spacing: 0.05px;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
 
+.wyn-post-follow-pill.is-following,
 .wyn-post-follow-pill.is-requested {
-  background: var(--wyn-surface);
+  border-color: var(--wyn-border);
+  background: var(--wyn-bg);
   color: var(--wyn-text-secondary);
 }
 
-/* Flutter More owns a 44x24 tight box (touchTargetMin width, 24 height). */
 .wyn-post-more {
-  flex: 0 0 44px;
-  width: 44px;
-  min-width: 44px;
-  height: 24px;
-  min-height: 24px;
-  margin: 0 -8px 0 0;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 28px;
+  min-height: 28px;
+  margin: 0 -4px 0 0;
   padding: 0;
   border: 0;
   background: transparent;
@@ -338,26 +317,24 @@
 }
 
 .wyn-post-more svg {
-  width: 22px;
-  height: 22px;
+  width: 21px;
+  height: 21px;
 }
 
-/* Caption: bodyLarge overridden 17.5/400/1.32, lifted 3px so the visible
-   gap to media/actions below is 0 (see home_card_metrics.dart). */
 .wyn-post-caption {
-  margin: 0 16px 0 0;
-  transform: translateY(-3px);
-  font-size: 17.5px;
-  line-height: 1.32;
+  margin: 3px 0 0;
+  transform: none;
+  font-size: 16px;
+  line-height: 1.4;
   font-weight: 400;
 }
 
-/* ---------- Media: PostImageFrame / PostImageCarousel ---------- */
+/* ---------- Media ---------- */
 
 .wyn-post-media {
   position: relative;
   min-width: 0;
-  margin-top: 0;
+  margin-top: 6px;
 }
 
 .wyn-post-media-track {
@@ -374,7 +351,7 @@
 }
 
 .wyn-post-media-item {
-  border-radius: var(--wyn-radius-lg);
+  border-radius: 14px;
   object-fit: cover;
   aspect-ratio: var(--post-media-ratio, 4 / 5);
   max-height: 75dvh;
@@ -383,7 +360,7 @@
 }
 
 .wyn-post-media-track.is-single {
-  padding-right: 16px;
+  padding-right: 0;
 }
 
 .wyn-post-media-track.is-single .wyn-post-media-item {
@@ -423,25 +400,15 @@
   100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
 }
 
-/* Media -> actions keeps the same 3px vertical rhythm as everything else. */
 .wyn-post-media + .wyn-post-actions {
-  margin-top: 3px;
+  margin-top: 6px;
 }
 
-/* ---------- Action row: compact web-only density (deliberate deviation
-   from Flutter, per Founder direction — see docs/wyn-158-visual-parity-
-   audit.md addendum). Flutter's own ActionMetric reserves a full 44px
-   layout box per icon (WynSpacing.touchTargetMin as a hard
-   ConstrainedBox), which is why the action row sits ~23px above the next
-   post's divider there. Requested here: match Threads' denser rhythm
-   instead. Each button keeps a >=32px tap target (comfortably above the
-   WCAG 2.2 24px minimum) via padding, but a negative margin of the same
-   size cancels that padding's footprint in the row's layout, so the row
-   itself is only as tall as the visible icon. */
+/* ---------- Action row ---------- */
 
 .wyn-post-actions {
-  min-height: 24px;
-  margin: 0 16px 12px 0;
+  min-height: 32px;
+  margin: 4px 0 12px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -474,16 +441,13 @@
 }
 
 .wyn-action-button.is-liked {
-  color: var(--wyn-accent);
+  color: #ff3b30;
 }
 
 .wyn-action-button.is-active {
   color: var(--wyn-text);
 }
 
-/* Share is a plain IconButton, not an ActionMetric — same compact
-   treatment: a real 32px tap target via padding, cancelled out of the
-   row's layout via a matching negative margin. */
 .wyn-action-share {
   min-width: 24px;
   padding: 4px;
@@ -492,15 +456,61 @@
 }
 
 @media (max-width: 359px) {
+  .wyn-home-header {
+    padding-inline: 8px;
+  }
+
+  .wyn-home-tab {
+    padding-inline: 6px;
+    font-size: 14px;
+  }
+
+  .wyn-home-tab-indicator {
+    width: calc(100% - 12px);
+  }
+
+  .wyn-post {
+    padding-inline: 12px;
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 8px;
+  }
+
+  .wyn-post-avatar,
+  .wyn-post-avatar .route-avatar {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .wyn-post-redrop-line {
+    margin-left: 48px;
+  }
+
   .wyn-post-author-link {
-    gap: 5px;
+    gap: 3px;
   }
 
   .wyn-post-timestamp {
-    max-width: 88px;
+    max-width: 76px;
+  }
+
+  .wyn-post-follow-pill {
+    padding-inline: 9px;
   }
 
   .wyn-post-actions {
     gap: 12px;
+  }
+}
+
+@media (min-width: 681px) {
+  .wyn-home-header,
+  .wyn-home-tabs,
+  .wyn-home-feed {
+    width: 100%;
+  }
+
+  .wyn-post {
+    padding-left: 20px;
+    padding-right: 20px;
   }
 }
