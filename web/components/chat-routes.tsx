@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, CirclePlus, ImagePlus, MessageSquarePlus, MoreHorizontal, Send, Trash2, UserRound, X } from "lucide-react";
+import { ChevronLeft, CirclePlus, ImagePlus, MessageSquarePlus, Send, Trash2, UserRound, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,6 +10,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
+import { WyniiConversationHeader } from "@/components/wynii-chat";
 import { relativeTimeTh } from "@/lib/feed";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
@@ -334,8 +335,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
         <div className="conversation-page conversation-modern">
           <header className="conversation-modern-header">
             <Link className="conversation-modern-back" href="/chat" aria-label="ย้อนกลับ"><ChevronLeft size={30} strokeWidth={1.8} /></Link>
-            {other ? <Link className="conversation-modern-header-person" href={`/profile/${other.id}`}><Avatar src={other.avatar_url} label={other.username} size={44} /><span><strong>{displayName}</strong><small>@{other.username}</small></span></Link> : <span />}
-            <button className="conversation-modern-more" type="button" aria-label="เพิ่มเติม" onClick={() => other && router.push(`/profile/${other.id}`)}><MoreHorizontal size={26} strokeWidth={1.8} /></button>
+            {other ? <WyniiConversationHeader client={client} userId={userId} conversationId={conversationId} other={other} displayName={displayName} canStart={meta?.status === "active"} onOpenProfile={() => router.push(`/profile/${other.id}`)} /> : <><span /><span /></>}
           </header>
 
           {other ? <section className="conversation-profile-hero">
