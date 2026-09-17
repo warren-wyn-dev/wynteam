@@ -47,14 +47,7 @@ export function HomePostCard({
   const profileHref = `/profile/${row.author_id}`;
 
   return (
-    <article
-      className="wyn-post"
-      style={{
-        padding: "14px 16px 0",
-        gridTemplateColumns: "40px minmax(0, 1fr)",
-        columnGap: 14,
-      }}
-    >
+    <article className="wyn-post">
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
           <Repeat2 size={14} />
@@ -62,7 +55,7 @@ export function HomePostCard({
         </div>
       ) : null}
       {row.quote_text ? <RichPostText className="wyn-post-quote" value={row.quote_text} /> : null}
-      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 2 }}>
+      <Link className="wyn-post-avatar" href={profileHref}>
         <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={40} />
       </Link>
       <div className="wyn-post-body">
