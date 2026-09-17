@@ -1310,3 +1310,32 @@ ordering) mergeable_state clean Founder สั่ง "merge PR ให้เล�
 `curl https://wynos.online/` → **HTTP 200**
 
 อ้างอิง: PR #503, commit `5c17819`, deploy run `35217536553` (SUCCESS)
+
+## [2026-09-17] WYN-160 batch 4 (Composer) — เจอสี Sapphire (น้ำเงินเข้ม) ของ Beta4 เดิมหลุดมาโผล่จริง
+
+Founder สั่งให้ทำหน้า Composer ต่อ — ตรวจ `system-parity-final.css` เจอว่า `.beta4-ratio-chips button` และ
+`.beta4-poll-options input` ยังอ้าง CSS variable ชุดเก่าของ Beta4 (`--ink`/`--paper`/`--graphite`/
+`--hairline`/`--sapphire`/`--faint` ที่ประกาศใน `globals.css`) อยู่ ไม่ได้ย้ายมาใช้ `--wyn-*` ตอน redesign
+หน้านี้รอบก่อนๆ ตรวจ cascade แล้วยืนยันว่าเป็นค่าที่ชนะจริง (ประกาศซ้อนเป็นบล็อกที่สองท้ายไฟล์ ทับบล็อกแรกที่
+ใช้ `--wyn-*` ถูกต้องอยู่แล้ว) ที่กระทบเห็นชัดสุดคือ **`--sapphire: #1b3a6b`** (น้ำเงินเข้มของแอป Flutter เดิม)
+ถูกใช้เป็นสี active/focus จริง — เลือกอัตราส่วนรูปหรือโฟกัสช่องกรอกตัวเลือกโพล ขอบ/ตัวหนังสือกลายเป็นสีน้ำเงิน
+ขัดกับทิศทางขาว-ดำ-แดงตรงๆ เจอเพิ่มมุมโค้งหลุดสเปกอีก 2 จุด (รูปภาพ preview 16px ควรเป็น 14 "tile", ช่องกรอก
+โพล 12px ควรเป็น 10 "control") `.beta4-toolbar-actions`/audience sheet ที่ใช้ token เก่าเหมือนกันตรวจแล้ว
+เป็น dead code จริง (ไม่มีหน้าไหนเรียกใช้แล้ว) เก็บไว้ทำตอนไล่ลบ CSS dead code แทน ทำภาพก่อน-หลังเพิ่มในแคนวาส
+เดิม (https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz) Founder อนุมัติ "โอเค"
+
+**โค้ดจริงที่แก้** (`web/app/system-parity-final.css`, 5 จุด): `.beta4-ratio-chips button`
+border/color → `var(--wyn-border-strong)`/`var(--wyn-text-secondary)`, `.beta4-ratio-chips button.active`
+`var(--sapphire)` → `var(--wyn-text)`, `.beta4-image-count` `var(--faint)` → `var(--wyn-text-muted)`,
+`.beta4-poll-options input` border/background `var(--hairline)`/`var(--paper)` →
+`var(--wyn-border-strong)`/`var(--wyn-bg)` + `:focus` `var(--sapphire)` → `var(--wyn-text)`,
+`.beta4-image-preview` radius 16→14px, `.beta4-poll-options input` radius 12→10px — ช่องพิมพ์หลัก 22px
+(ล็อกกับ Flutter fontSize:22) และ header "ฉบับร่าง" 16px (Founder สั่งเองรอบก่อน) ไม่แตะ
+
+**ตรวจสอบ**: `tsc --noEmit` ผ่าน, ทำ standalone harness โหลด CSS จริงจาก `system-parity-final.css` +
+`design-system.css` มา render markup ที่ใช้ class เดียวกับ composer จริง ยืนยัน computed style ตรงเป้าหมด
+(`rgb(10,10,10)` แทนน้ำเงิน, radius 10px/14px, `rgb(154,154,154)` สำหรับ image-count) — ไม่ได้ผ่าน
+authenticated flow จริงเพราะ sandbox ไม่มี Supabase session แต่ยืนยัน CSS ที่คอมไพล์จริงตรงกัน, regression
+suite เดิม 13 เทสผ่านหมด (รวมเทสที่ยังล็อก composer 22px/70px กับ Flutter — ยืนยันไม่ได้แก้โดยไม่ตั้งใจ)
+
+อ้างอิง: `web/app/system-parity-final.css`, https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
