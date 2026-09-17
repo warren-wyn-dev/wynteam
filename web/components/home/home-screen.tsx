@@ -391,12 +391,18 @@ export function HomeScreen({ session }: { session: Session }) {
           getHomeScreenStore(userId).mode = visibleModeRef.current;
           setMode(visibleModeRef.current);
           restoreScroll(visibleModeRef.current);
+          // Reverting keeps the previously-loaded tab's rows on screen, so
+          // this failure never reaches the empty-state error branch below —
+          // without a toast, a tap or swipe to a tab whose fetch throws just
+          // silently snaps back with zero feedback, reading as "switching
+          // doesn't work" rather than "that tab failed to load".
+          showToast("สลับแท็บไม่สำเร็จ ลองใหม่อีกครั้ง");
         }
         setError(e instanceof Error ? e.message : "โหลดฟีดไม่สำเร็จ");
         setLoading(false);
       }
     }
-  }, [applySnapshot, fetchModeSnapshot, restoreScroll, userId]);
+  }, [applySnapshot, fetchModeSnapshot, restoreScroll, showToast, userId]);
 
   const load = useCallback(async () => {
     await loadMode(visibleModeRef.current, { showLoading: false });
