@@ -1,0 +1,29 @@
+name: WYN-161 Flutter Wynii check
+
+on:
+  push:
+    branches:
+      - chatgpt/wyn-161-flutter-wynii
+
+permissions:
+  contents: read
+
+jobs:
+  flutter-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - run: flutter pub get
+      - name: Format check
+        run: dart format --output=none --set-exit-if-changed lib/features/chat/data/wynii_pet.dart lib/features/chat/presentation/widgets/chat_ui.dart lib/features/chat/presentation/widgets/wynii_menu.dart test/wynii_pet_test.dart
+      - name: Analyze Wynii files
+        run: flutter analyze lib/features/chat/data/wynii_pet.dart lib/features/chat/presentation/widgets/chat_ui.dart lib/features/chat/presentation/widgets/wynii_menu.dart test/wynii_pet_test.dart
+      - name: Run Wynii tests
+        run: flutter test test/wynii_pet_test.dart
