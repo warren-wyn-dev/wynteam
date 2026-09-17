@@ -7,19 +7,26 @@ import { triggerRouteRefresh } from "@/components/route-refresh-runtime";
 
 /**
  * Root bottom navigation shared by the top-level social routes.
- *
- * The five destinations use one consistent outline icon system and equal
- * sizing. Selection is communicated by the soft background tile and darker
- * label/icon rather than by enlarging or filling a destination.
+ * The five existing destinations stay unchanged; the visual treatment is the
+ * approved lightweight app dock with no selected background tile.
  */
 type MaterialNavKind = "home" | "club" | "chat" | "profile" | "add";
 
 export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNavKind; selected?: boolean }) {
-  const strokeWidth = selected ? 2.05 : 1.9;
+  const strokeWidth = selected ? 2.15 : 1.9;
 
   if (kind === "home") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        className="route-nav-glyph"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        fill={selected ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M3.5 10.5 12 3l8.5 7.5V20h-6v-6h-5v6h-6v-9.5Z" />
       </svg>
     );
@@ -73,11 +80,6 @@ export function BottomNavigation({
   const homeActive = isActive("/");
   const profileActive = isActive(profileHref);
 
-  // When a tab is already selected, tapping it again acts like X/Instagram:
-  // first tap returns to the top instead of navigating to the same route,
-  // and a second tap once already at the top refreshes that page's data.
-  // Query/hash state is allowed to navigate normally so e.g. an open
-  // composer still closes.
   const handleActiveTabTap = (active: boolean, path: string) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (!active) return;
     if (window.location.pathname !== path || window.location.search || window.location.hash) return;
