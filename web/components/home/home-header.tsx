@@ -17,9 +17,13 @@ export function HomeHeader({
   onOpenNotifications: () => void;
 }) {
   return (
-    <header className="wyn-home-header">
+    <header
+      className="wyn-home-header"
+      style={{ gridTemplateColumns: "80px minmax(0, 1fr) 80px" }}
+    >
       <button
         className="wyn-home-header-action wyn-home-menu-action"
+        style={{ marginLeft: 4 }}
         type="button"
         aria-label="เมนู"
         onClick={onOpenMenu}
@@ -39,7 +43,10 @@ export function HomeHeader({
         <strong className="wyn-home-title">WYNOS</strong>
       </div>
 
-      <div className="wyn-home-header-actions">
+      <div
+        className="wyn-home-header-actions"
+        style={{ justifyContent: "flex-end", gap: 3, transform: "translateX(-6px)" }}
+      >
         <button
           className="wyn-home-header-action"
           type="button"
