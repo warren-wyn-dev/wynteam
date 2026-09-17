@@ -445,7 +445,17 @@ export function HomeScreen({ session }: { session: Session }) {
         applySnapshot(cached, mode, true);
         setLoading(false);
       }
-      return;
+      if (mode !== "clubs") return;
+      // Clubs is its own, much lower-traffic tab (a handful of posts across
+      // however many clubs someone's in, not an endless feed) — entering it
+      // always revalidates in the background, the same freshness a manual
+      // pull-to-refresh gives elsewhere, just automatic. showLoading stays
+      // false so this never flashes a spinner over the cached posts already
+      // on screen.
+      const revalidateTimer = window.setTimeout(() => {
+        void loadMode(mode, { showLoading: false });
+      }, 0);
+      return () => window.clearTimeout(revalidateTimer);
     }
     const timer = window.setTimeout(() => {
       void loadMode(mode, { showLoading: true });
@@ -714,9 +724,29 @@ export function HomeScreen({ session }: { session: Session }) {
   const onTouchMove = (event: TouchEvent<HTMLDivElement>) => {
     const start = touchGesture.current;
     const touch = event.changedTouches[0];
-    if (!start || !touch || !start.canPull || refreshing) return;
+    if (!start || !touch) return;
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
+
+    // Horizontal-dominant drag: follow the finger live, the same tab-switch
+    // gesture big-platform feeds use. This runs regardless of canPull/scroll
+    // position (unlike the pull-to-refresh branch below) since switching
+    // tabs by swipe shouldn't require being scrolled to the top. Without
+    // this, a swipe that falls short of onTouchEnd's switch threshold — or
+    // one aimed past the first/last tab — produced no visible response at
+    // all, reading as the gesture not being registered rather than as an
+    // incomplete or out-of-bounds swipe.
+    if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      const index = modeIndex(mode);
+      const atStart = index === 0 && deltaX > 0;
+      const atEnd = index === HOME_FEED_MODES.length - 1 && deltaX < 0;
+      const dragX = atStart || atEnd ? deltaX * 0.35 : deltaX;
+      setSlideStyle({ transform: `translateX(${dragX}px)`, opacity: 1, transition: "none" });
+      if (pullDistance) setPullDistance(0);
+      return;
+    }
+
+    if (!start.canPull || refreshing) return;
     if (deltaY <= 0 || Math.abs(deltaY) <= Math.abs(deltaX) * 1.1) {
       if (pullDistance) setPullDistance(0);
       return;
@@ -745,7 +775,14 @@ export function HomeScreen({ session }: { session: Session }) {
     }
     setPullDistance(0);
 
-    if (Math.abs(deltaY) >= Math.abs(deltaX) || Math.abs(deltaX) < 55) return;
+    if (Math.abs(deltaY) >= Math.abs(deltaX) || Math.abs(deltaX) < 55) {
+      // Didn't clear the switch threshold (too short, too diagonal, or
+      // aimed past the first/last tab) — spring the live drag back to rest
+      // instead of leaving it wherever the finger let go, so an incomplete
+      // swipe still visibly did something rather than looking unresponsive.
+      setSlideStyle({ transform: "translateX(0px)", opacity: 1, transition: "transform 200ms ease-out" });
+      return;
+    }
     const index = modeIndex(mode);
     const next = deltaX < 0
       ? Math.min(HOME_FEED_MODES.length - 1, index + 1)
@@ -755,6 +792,7 @@ export function HomeScreen({ session }: { session: Session }) {
   const onTouchCancel = () => {
     touchGesture.current = null;
     setPullDistance(0);
+    setSlideStyle({ transform: "translateX(0px)", opacity: 1, transition: "transform 200ms ease-out" });
   };
 
   const visibleRows = rows.slice(0, visibleCount);
