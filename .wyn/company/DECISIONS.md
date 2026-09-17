@@ -1075,3 +1075,18 @@ Founder ส่งภาพหน้าสร้างเธรดของแอ
 สองยังอยู่ครบ แค่ย้ายตำแหน่ง/เปลี่ยนสไตล์ภายใน ยืนยัน regression suite เดิมผ่านครบ 87 เทสเหมือนทุกรอบก่อนหน้า
 
 อ้างอิง: `web/components/beta4-composer.tsx`, `web/app/system-parity-final.css`
+
+## [2026-09-17] PR #499 (คีย์บอร์ด autofocus + ปุ่มโพสต์/ชื่อ + ระบบร่าง + toolbar แบบเธรด) — merge + deploy สำเร็จ
+
+Founder สั่ง "ทำให้เสร็จทุกอย่างเลย" หลัง CI เขียวครบ — ทำตาม pipeline เดียวกับงานอื่นในโปรเจกต์นี้:
+1. Squash-merge PR #499 เข้า `main` — commit `ec86072`
+2. `wyn-158-production-deploy.yml` auto-trigger จาก push (`web/**` เปลี่ยน) — run #76
+   ([35188286280](https://github.com/warren-wyn-dev/wynteam/actions/runs/35188286280)) — **SUCCESS**
+3. `curl https://wynos.online/` → **HTTP 200**
+
+**ยืนยันได้แค่ว่าเว็บขึ้นจริงไม่พัง** — ตาม Production Verification เดิมของโปรเจกต์
+(`.wyn/company/WORKFLOW.md`) ยังต้องให้ Founder เปิดของจริงยืนยันเองอีกขั้น โดยเฉพาะจุดที่ยืนยันบน sandbox
+นี้ไม่ได้เลย (คีย์บอร์ดเด้งอัตโนมัติจริงบน iOS, บันทึก/เปิดร่างต่อ/โพสต์จริงกับ Supabase จริง) ก่อนถือว่างานนี้
+เสร็จสมบูรณ์
+
+อ้างอิง: PR #499, commit `ec86072`, CI run `35187778599` (PASS), deploy run `35188286280` (SUCCESS)
