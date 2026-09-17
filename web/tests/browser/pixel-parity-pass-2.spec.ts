@@ -5,41 +5,36 @@ import { join } from "node:path";
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
-test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
+test("pixel parity pass 2 keeps product behavior while applying the approved Home mockup", () => {
   const home = read("app/home.css");
   const homeHeader = read("components/home/home-header.tsx");
+  const homeTabs = read("components/home/home-tabs.tsx");
+  const authorRow = read("components/home/post-author-row.tsx");
   const chrome = read("components/phase3-ui.tsx");
   const nav = read("components/bottom-navigation.tsx");
   const navCss = read("app/bottom-nav.css");
   const css = read("app/pixel-parity-final.css");
-  const flutterHome = read("../app/lib/features/home/presentation/home_feed_screen.dart");
-  const flutterCard = read("../app/lib/features/home/presentation/widgets/home_drop_card.dart");
-  const flutterFollow = read("../app/lib/features/follow/presentation/widgets/follow_action_button.dart");
   const flutterProfile = read("../app/lib/features/profile/presentation/widgets/wynos_founder_profile_header.dart");
   const flutterNav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
   const flutterRoot = read("../app/lib/features/root/presentation/root_shell.dart");
   const flutterDetail = read("../app/lib/features/drop/presentation/drop_detail_screen.dart");
 
-  expect(flutterHome).toContain("height: 52");
-  expect(flutterHome).toContain("Icons.menu, size: 22");
-  expect(flutterHome).toContain("count > 9 ? '9+' : '$count'");
-  expect(home).toContain(".wyn-home-header {");
-  expect(home).toContain("height: 52px");
-  // Home caps the notification badge at the source (React), not via a
-  // runtime DOM-mutation patch — see docs/wyn-158-visual-parity-audit.md, #4.
-  expect(homeHeader).toContain('notificationBadgeCount > 9 ? "9+" : notificationBadgeCount');
-
-  expect(flutterCard).toContain("fontSize: 17.5");
-  expect(flutterCard).toContain("fontSize: 17");
-  expect(flutterCard).toContain("fontSize: 15");
-  expect(flutterCard).toContain("width: WynSpacing.touchTargetMin");
-  expect(flutterCard).toContain("Icons.send_outlined");
-  expect(flutterFollow).toContain("minimumSize: widget.headerCompact");
-  expect(flutterFollow).toContain("horizontal: widget.headerCompact ? 12");
-  expect(home).toContain("padding: 0 12px");
-  expect(home).toContain("font-size: 13px");
-  expect(home).toContain("width: 44px");
-  expect(home).toContain("font-size: 15px");
+  // Founder-approved web Home direction intentionally supersedes the old
+  // Flutter Home card/header visual parity while preserving the same actions.
+  expect(home).toContain("height: 56px");
+  expect(home).toContain(".wyn-home-chat-badge");
+  expect(home).toContain("width: 8px");
+  expect(homeHeader).toContain("notificationBadgeCount > 0");
+  expect(homeHeader).toContain("aria-hidden=\"true\"");
+  expect(homeTabs).toContain("wyn-home-tab-indicator");
+  expect(homeTabs).not.toContain('background: active ? "var(--wyn-surface)"');
+  expect(home).toContain("padding: 12px 16px 0");
+  expect(home).toContain("font-size: 16px");
+  expect(home).toContain("font-size: 14px");
+  expect(home).toContain("background: var(--wyn-surface)");
+  expect(home).toContain(".wyn-post-follow-pill.is-following");
+  expect(authorRow).toContain('"กำลังติดตาม"');
+  expect(authorRow).toContain('aria-pressed={following || followRequested}');
 
   expect(flutterProfile).toContain("EdgeInsets.symmetric(horizontal: 72)");
   expect(flutterProfile).toContain("color: WynColors.online");
@@ -57,8 +52,6 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   expect(flutterNav).toContain("Icons.person_rounded");
   expect(flutterNav).toContain("const SizedBox(height: 6)");
 
-  // Web navigation follows the latest WYNOS product direction: five equal
-  // destinations with Club and Chat in the root bar and no raised Post FAB.
   expect(nav).toContain('type MaterialNavKind = "home" | "club" | "chat" | "profile" | "add";');
   expect(chrome).toContain('unreadNotificationCount > 9 ? "9+"');
   expect(nav).toContain('const homeActive = isActive("/");');
@@ -68,6 +61,9 @@ test("pixel parity pass 2 mirrors current Flutter Beta4 metrics", () => {
   expect(nav).toContain('href="/?compose=1"');
   expect(nav).not.toContain('className="route-create-button"');
   expect(navCss).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
+  expect(navCss).toContain("border-radius: 0");
+  expect(navCss).toContain("border-top: 1px solid");
+  expect(navCss).toContain("width: 27px");
 
   expect(flutterDetail).toContain("Icons.mode_comment_outlined");
   expect(flutterDetail).toContain("Icons.repeat_rounded");

@@ -105,6 +105,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
 
   for (const label of ["สำหรับคุณ", "กำลังติดตาม", "คลับของฉัน"]) expect(homeTabs).toContain(label);
   expect(homeTabs).not.toContain("กำลังนิยม");
+  expect(homeTabs).toContain("wyn-home-tab-indicator");
   const homeHeader = await readFile(path.join(root, "components/home/home-header.tsx"), "utf8");
   expect(homeHeader).toContain('/wynos_logo_mark.png');
   const homeDrawer = await readFile(path.join(root, "components/home/home-drawer.tsx"), "utf8");
@@ -115,18 +116,31 @@ test("source contracts cannot regress to staged migration UI", async () => {
   ]) expect(home).toContain(contract);
   expect(postActions).toContain('<Send size={24} />');
   expect(postAuthorRow).toContain("ขอติดตามแล้ว");
+  expect(postAuthorRow).toContain("กำลังติดตาม");
   const homePostCard = await readFile(path.join(root, "components/home/home-post-card.tsx"), "utf8");
-  expect(homePostCard).toContain("รีโพสต์โดย @");
+  expect(homePostCard).toContain('รีโพสต์โดย {row.redropper_username || "WYNOS"}');
+  expect(homePostCard).not.toContain("รีโพสต์โดย @");
   expect(homePostCard).toContain('row.audience == null || row.audience === "everyone"');
   expect(home).not.toContain('location.assign');
-  for (const contract of ["wyn-post-follow-pill", "background: var(--wyn-text)", "font-size: 17px", "max-width: 112px", "gap: 16px"]) expect(homeCss).toContain(contract);
+  for (const contract of [
+    "wyn-post-follow-pill",
+    "background: var(--wyn-surface)",
+    ".wyn-post-follow-pill.is-following",
+    "font-size: 16px",
+    "max-width: 104px",
+    "gap: 16px",
+  ]) expect(homeCss).toContain(contract);
 
   const bottomNav = await readFile(path.join(root, "components/bottom-navigation.tsx"), "utf8");
+  const bottomNavCss = await readFile(path.join(root, "app/bottom-nav.css"), "utf8");
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(bottomNav).toContain(label);
   expect(bottomNav).toContain('href="/clubs"');
   expect(bottomNav).toContain('href="/chat"');
   expect(bottomNav).toContain('href="/?compose=1"');
   expect(bottomNav).not.toContain('className="route-create-button"');
+  expect(bottomNavCss).toContain("width: min(100%, 680px)");
+  expect(bottomNavCss).toContain("font-size: 11.5px");
+  expect(bottomNavCss).toContain("border-top: 1px solid");
   expect(routeUi).toContain("GoldenDropCard");
 
   expect(search).toContain('headerMode="hidden"');

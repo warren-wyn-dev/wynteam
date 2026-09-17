@@ -73,17 +73,28 @@ test("Settings root preserves exact current seven-row Beta4 structure", () => {
   expect(flutter).toContain("height: 34");
 });
 
-test("root navigation matches Founder metrics", () => {
+test("root navigation keeps the five WYNOS destinations with the approved web-app dock geometry", () => {
   const navCss = read("app/bottom-nav.css");
+  const nav = read("components/bottom-navigation.tsx");
   const metrics = read("../app/lib/core/design/wynos_founder_metrics.dart");
-  const nav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
+  const flutterNav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
+
+  // Native metrics are intentionally preserved; Web Home now follows the
+  // Founder-approved responsive mockup rather than pixel-matching Flutter.
   expect(metrics).toContain("bottomNavContentHeight = 80");
   expect(metrics).toContain("createActionDiameter = 56");
-  expect(nav).toContain("Icon(icon, size: 28)");
-  expect(nav).toContain("fontSize: 11.5");
-  expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 8px);");
+  expect(flutterNav).toContain("Icon(icon, size: 28)");
+  expect(flutterNav).toContain("fontSize: 11.5");
+
+  for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(nav).toContain(label);
+  expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 12px);");
   expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom))");
-  expect(navCss).toContain("width: 28px");
+  expect(navCss).toContain("width: min(100%, 680px)");
+  expect(navCss).toContain("border-top: 1px solid");
+  expect(navCss).toContain("width: 27px");
+  expect(navCss).toContain("height: 27px");
+  expect(navCss).toContain("flex: 0 0 27px");
+  expect(nav).toContain('fill={selected ? "currentColor" : "none"}');
 });
 
 test("bottom navigation has exactly one canonical stylesheet (no competing override layer)", () => {
