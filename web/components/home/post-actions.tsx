@@ -1,4 +1,4 @@
-import { MessageCircle, Repeat2, Send } from "lucide-react";
+import { Bookmark, MessageCircle, Repeat2, Send } from "lucide-react";
 import Link from "next/link";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
@@ -15,10 +15,12 @@ export function PostActions({
   canRedrop,
   redropped,
   redropCount,
+  saved = false,
   onLike,
   commentHref,
   onRedrop,
   onShare,
+  onSave,
   modernFeed = false,
 }: {
   liked: boolean;
@@ -27,10 +29,12 @@ export function PostActions({
   canRedrop: boolean;
   redropped: boolean;
   redropCount: number;
+  saved?: boolean;
   onLike: () => void;
   commentHref: string;
   onRedrop: () => void;
   onShare: () => void;
+  onSave?: () => void;
   modernFeed?: boolean;
 }) {
   const count = (value: number) => (
@@ -75,6 +79,17 @@ export function PostActions({
       >
         <Send size={20} strokeWidth={2} />
       </button>
+      {onSave ? (
+        <button
+          className={`wyn-action-button wyn-action-save ${saved ? "is-active" : ""}`}
+          type="button"
+          aria-label={saved ? "ยกเลิกบันทึก" : "บันทึก"}
+          aria-pressed={saved}
+          onClick={onSave}
+        >
+          <Bookmark size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
+        </button>
+      ) : null}
     </div>
   );
 }
