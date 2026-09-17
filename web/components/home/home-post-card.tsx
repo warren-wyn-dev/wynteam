@@ -49,8 +49,8 @@ export function HomePostCard({
     <article
       className="wyn-post"
       style={{
-        padding: "12px 16px 0",
-        gridTemplateColumns: "44px minmax(0, 1fr)",
+        padding: "14px 16px 0",
+        gridTemplateColumns: "36px minmax(0, 1fr)",
         columnGap: 10,
       }}
     >
@@ -61,8 +61,8 @@ export function HomePostCard({
         </div>
       ) : null}
       {row.quote_text ? <RichPostText className="wyn-post-quote" value={row.quote_text} /> : null}
-      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 6 }}>
-        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} />
+      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 4 }}>
+        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={36} />
       </Link>
       <div className="wyn-post-body">
         <PostAuthorRow
@@ -83,10 +83,10 @@ export function HomePostCard({
             postHref={`/drop/${row.id}`}
             compact
             style={{
-              margin: "3px 0 0",
+              margin: "6px 0 0",
               transform: "none",
-              fontSize: 16,
-              lineHeight: 1.4,
+              fontSize: 15,
+              lineHeight: 1.5,
               fontWeight: 400,
             }}
           />
