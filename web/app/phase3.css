@@ -383,7 +383,7 @@ button.settings-row { cursor: pointer; }
 .settings-subsection { padding: 12px 0 2px; }
 .settings-subsection > strong { display: block; padding: 0 14px 8px; font-size: 13px; }
 .settings-subsection > small { display: block; padding: 8px 14px 14px; color: var(--wyn-text-secondary); }
-.settings-safety { display: flex; gap: 7px; color: var(--wyn-text-secondary); font-size: 11px; line-height: 1.4; padding: 9px 5px; }
+.settings-safety { display: flex; gap: 7px; color: var(--wyn-text-secondary); font-size: 12px; line-height: 1.4; padding: 9px 5px; }
 .legal-modal { height: min(82dvh, 760px); }
 .legal-content { padding: 18px; white-space: pre-wrap; line-height: 1.65; font-size: 14px; }
 .legal-content small { color: var(--graphite); }

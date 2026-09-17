@@ -130,9 +130,9 @@
   flex: 1 1 0;
   min-height: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 999px;
   font: inherit;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -167,11 +167,11 @@
 .wyn-profile-actions.is-own .wyn-profile-action-secondary {
   min-height: 38px;
   height: 38px;
-  border: 1px solid #e2e2e2;
+  border: 1px solid var(--wyn-border);
   border-radius: 10px;
-  background: #f2f2f2;
-  color: #111;
-  font-size: 15.5px;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -344,7 +344,7 @@
 }
 
 .profile-account-select strong {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -362,10 +362,10 @@
   min-width: 62px;
   height: 32px;
   padding: 0 10px;
-  border: 1px solid #ef4444;
-  border-radius: 9px;
+  border: 1px solid var(--wyn-accent);
+  border-radius: 10px;
   background: transparent;
-  color: #dc2626;
+  color: var(--wyn-accent);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -381,11 +381,11 @@
   min-height: 42px;
   margin: 0 12px;
   border: 1px solid var(--wyn-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--wyn-surface);
   color: var(--wyn-text);
   font: inherit;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -407,7 +407,7 @@
 
 .profile-account-error {
   margin: 0 16px 10px;
-  color: #dc2626;
+  color: var(--wyn-accent);
   font-size: 12px;
   line-height: 1.4;
   text-align: center;
@@ -455,7 +455,7 @@
 }
 
 .profile-more-sheet > button.danger {
-  color: #dc2626;
+  color: var(--wyn-accent);
 }
 
 @media (max-width: 359px) {
