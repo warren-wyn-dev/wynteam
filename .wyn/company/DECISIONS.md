@@ -1339,3 +1339,47 @@ authenticated flow จริงเพราะ sandbox ไม่มี Supabase 
 suite เดิม 13 เทสผ่านหมด (รวมเทสที่ยังล็อก composer 22px/70px กับ Flutter — ยืนยันไม่ได้แก้โดยไม่ตั้งใจ)
 
 อ้างอิง: `web/app/system-parity-final.css`, https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
+
+## [2026-09-17] WYN-160 batch 5 (Chat) — token fix + Founder ขอปรับสไตล์ให้ใกล้ IG เพิ่ม (สีดำ, ฟีเจอเดิม)
+
+ตรวจ `conversation-modern.css` พบ ~23 จุดตามที่ audit ไว้ก่อนหน้า (สีเทา/ขาว/ดำ hardcode ทั้งไฟล์ ปนกับ token
+เก่า `--paper`/`--ink`, ชื่อคนใน profile hero ใหญ่เกินเพดาน 28px, ชื่อคนใน header 18px) — ทำภาพก่อน-หลังด้วย
+standalone harness (โหลด CSS จริง render markup ทดสอบ) เพราะ sandbox เข้าห้องแชทจริงไม่ได้ Founder ดูแล้วส่ง
+ภาพ Instagram DM มาเพิ่ม บอก "ชอบแบบไอจี แต่ต้องเป็นสีดำ ฟีเจอเดิม" — ปรับภาพเป็นหลายรอบตาม feedback:
+1. รวมช่องพิมพ์ข้อความ+ปุ่มส่งเป็น pill เดียว แบบ IG (ปุ่มส่งฝังในขอบขวา ไม่ใช่ปุ่มลอยแยก)
+2. เอาเส้นคั่นซ้าย-ขวาของตัวคั่นวันที่ออก เหลือตัวหนังสือเทาเล็กตรงกลางแบบ IG
+3. Founder ขอเพิ่มรูปโปรไฟล์ฝั่งคนสั่ง (mine) ด้วย → ตรวจโค้ดพบว่าไม่มีข้อมูลรูปตัวเองโหลดมาเลย ต้องดึง
+   `fetchProfile(client, userId)` เพิ่ม ไม่ใช่แค่ CSS — เตรียมแผนไว้แล้วแต่ยังไม่ได้ทำ
+4. Founder กลับคำ: "รูปโปรไฟล์ ใส่แค่ฝ่ายตรงข้ามพอ" (ยกเลิกจุดที่ 3 — กลับไปเหมือนเดิม ไม่ต้องแก้โค้ดส่วนนี้)
+   + "เอาเส้นคั่น ที่อยู่ใกล้ๆแป้นพิมพ์ออก" (เพิ่มใหม่ — เอา border-top เหนือแป้นพิมพ์ออกด้วย)
+Founder อนุมัติภาพสุดท้าย "โอเคเขียนโค้ดจริงเลย"
+
+**โค้ดจริงที่แก้**:
+- `web/app/conversation-modern.css`: แทนสีเทา/ขาว/ดำ hardcode ทั้ง ~20 จุดเป็น `var(--wyn-*)` ตามบทบาท + แทน
+  `var(--paper)`/`var(--ink)` อีก 5 จุด + ชื่อคนใน profile hero 28→22px + ชื่อคนใน header 18→17px + ตัดคั่น
+  วันที่ซ้าย-ขวาออก (`::before`/`::after` ลบทั้งคู่ เปลี่ยน grid เป็น flex+justify-center) + รื้อ
+  `.message-composer` เป็น 2 คอลัมน์ (`48px minmax(0,1fr)`) เพิ่ม `.message-input-group` ครอบ
+  textarea+ปุ่มส่งเป็น pill เดียว (`border-radius: 22px`, `background: var(--wyn-surface)`) ปุ่มส่งเป็นวงกลม
+  ดำฝังในขอบขวา (`border-radius: 50%`) + ลบ `border-top` ของ `.message-composer` ออก (ต้องเขียน
+  `border-top: 0;` ตรงๆ เพราะ `phase3.css` (ไฟล์ฐานที่ import ก่อน) ยังมี `border-top: var(--wyn-border)`
+  อยู่ ถ้าไม่เขียนทับตรงๆ property จะหลุดมาจากไฟล์ฐานเพราะ CSS cascade ทำงานทีละ property ไม่ใช่ทีละ rule)
+- `web/components/chat-routes.tsx`: เพิ่ม `<div className="message-input-group">` ครอบ textarea+ปุ่มส่ง (จาก
+  เดิมเป็น sibling แยกกัน) + ลดขนาดไอคอนปุ่มส่ง 22→18px ให้สัดส่วนพอดีกับวงกลมที่เล็กลง (38px จาก 48px)
+- ไม่แก้เรื่องรูปโปรไฟล์เลย (ตามที่ Founder กลับคำ) — เรื่อง read receipt "✓"/"✓" เหมือนกันทั้งสองสถานะยัง
+  ไม่แก้ (บั๊ก logic คนละเรื่อง รอสั่งแยกตามเดิม)
+
+**เจอ WYN-161 "Wynii" (ฟีเจอร์สัตว์เลี้ยง AI ในแชท) merge ตรงเข้า `main` ระหว่างทำงาน** (พารัลเลลเซสชันเดิมที่
+เคยเจอตอน PR #500) — ตรวจแล้วไม่กระทบงานนี้: `WyniiConversationHeader` (components/wynii-chat.tsx) แทนที่
+header เดิมใน `chat-routes.tsx` แต่ยังใช้ className `conversation-modern-header-person`/
+`conversation-modern-more` เดิมอยู่ (ห่อด้วย CSS module ของตัวเองสำหรับส่วนเพิ่มเติมอย่าง pill "Wynii" และ
+sheet เลี้ยงไข่) — token fix ของงานนี้ยังใช้ได้ปกติกับ header ใหม่ ไม่ต้องแก้อะไรเพิ่ม ฟีเจอร์ Wynii เองมีสี
+ม่วง/ฟ้าแบบ gradient ในไฟล์ `wynii-chat.module.css` ของตัวเอง เป็นมาสคอตที่ตั้งใจมีสีสัน ไม่เกี่ยวกับ WYN-160
+(ไม่แตะ)
+
+**ตรวจสอบ**: rebase branch ไปตั้งฐานที่ `main` ล่าสุด (มี WYN-161 merge เข้ามาแล้ว) ก่อน — `tsc --noEmit`
+ผ่าน, standalone harness ยืนยัน computed style ตรงเป้าหมด (border-top 0px, ไม่มีเส้นคั่นวันที่, pill
+รวมกัน 22px, ปุ่มส่งดำ 50%, bubble สีตรง token), regression suite 16 เทส (system-visual-parity +
+final-source-parity-gate + parity) ผ่านหมด
+
+อ้างอิง: `web/app/conversation-modern.css`, `web/components/chat-routes.tsx`,
+https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz

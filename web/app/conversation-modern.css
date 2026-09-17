@@ -2,7 +2,7 @@
 .conversation-modern {
   min-height: 100dvh;
   padding-bottom: calc(82px + env(safe-area-inset-bottom));
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 .conversation-modern-header {
@@ -15,7 +15,7 @@
   grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
   gap: 8px;
-  background: color-mix(in srgb, var(--paper) 96%, transparent);
+  background: color-mix(in srgb, var(--wyn-bg) 96%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
@@ -29,7 +29,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--ink);
+  color: var(--wyn-text);
   text-decoration: none;
 }
 
@@ -38,7 +38,7 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  color: var(--ink);
+  color: var(--wyn-text);
   text-decoration: none;
 }
 
@@ -56,20 +56,20 @@
 }
 
 .conversation-modern-header-person strong {
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.1;
   font-weight: 700;
 }
 
 .conversation-modern-header-person small {
-  color: #8d8d8d;
+  color: var(--wyn-text-secondary);
   font-size: 14px;
   line-height: 1.2;
 }
 
 .conversation-modern-more {
   justify-self: end;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--wyn-text);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -94,19 +94,19 @@
 .conversation-profile-identity .route-avatar {
   width: 112px !important;
   height: 112px !important;
-  border-color: #e4e4e4;
+  border-color: var(--wyn-border);
 }
 
 .conversation-profile-identity strong {
   margin-top: 8px;
-  color: #000;
-  font-size: 28px;
+  color: var(--wyn-text);
+  font-size: 22px;
   line-height: 1.05;
   font-weight: 800;
 }
 
 .conversation-profile-identity small {
-  color: #8c8c8c;
+  color: var(--wyn-text-secondary);
   font-size: 17px;
   line-height: 1.2;
 }
@@ -137,18 +137,18 @@
 }
 
 .conversation-profile-button.profile {
-  background: #f5f5f5;
-  color: #111;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
 }
 
 .conversation-profile-button.follow {
-  background: #000;
-  color: #fff;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
 }
 
 .conversation-profile-button.follow.soft {
-  background: #f1f1f1;
-  color: #111;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
 }
 
 .conversation-profile-button:disabled {
@@ -175,21 +175,12 @@
 
 .conversation-date-separator {
   margin: 8px 0 22px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 14px;
-  color: #929292;
+  display: flex;
+  justify-content: center;
+  color: var(--wyn-text-muted);
   font-size: 14px;
   line-height: 1;
   text-align: center;
-}
-
-.conversation-date-separator::before,
-.conversation-date-separator::after {
-  content: "";
-  height: 1px;
-  background: #ececec;
 }
 
 .conversation-modern .message-row {
@@ -229,8 +220,8 @@
   max-width: 100%;
   padding: 10px 14px;
   border-radius: 20px;
-  background: #f4f4f4;
-  color: #111;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -241,8 +232,8 @@
 
 .conversation-modern .message-row.mine .message-bubble {
   border-bottom-right-radius: 20px;
-  background: #000;
-  color: #fff;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
 }
 
 .conversation-modern .message-bubble time {
@@ -255,7 +246,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #949494;
+  color: var(--wyn-text-muted);
   font-size: 12px;
   line-height: 1;
 }
@@ -286,51 +277,66 @@
   bottom: calc(70px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   width: min(100%, 680px);
-  background: var(--paper);
+  background: var(--wyn-bg);
 }
 
 .conversation-modern .message-composer {
   min-height: 72px;
-  grid-template-columns: 48px minmax(0, 1fr) 52px;
+  grid-template-columns: 48px minmax(0, 1fr);
   gap: 8px;
   padding: 9px 18px 9px 20px;
-  border-top: 1px solid #ececec;
-  background: var(--paper);
+  border-top: 0;
+  background: var(--wyn-bg);
+}
+
+.conversation-modern .message-input-group {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 18px;
+  border: 1px solid var(--wyn-border);
+  border-radius: 22px;
+  background: var(--wyn-surface);
 }
 
 .conversation-modern .message-composer > input,
 .conversation-modern .message-composer input[type="text"],
 .conversation-modern .message-composer textarea {
-  min-height: 48px;
-  padding: 13px 18px;
-  border: 1px solid #e4e4e4;
-  border-radius: 22px;
-  background: #fafafa;
-  color: #111;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--wyn-text);
   font-size: 16px;
   line-height: 22px;
 }
 
 .conversation-modern .message-composer > input::placeholder,
 .conversation-modern .message-composer textarea::placeholder {
-  color: #aaa;
+  color: var(--wyn-text-muted);
   opacity: 1;
 }
 
 .conversation-modern .message-image-picker {
   width: 48px;
   height: 48px;
-  color: #111;
+  color: var(--wyn-text);
 }
 
-.conversation-modern .message-composer > button[type="submit"] {
-  width: 48px;
-  height: 48px;
-  background: #000;
-  color: #fff;
+.conversation-modern .message-input-group > button[type="submit"] {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
 }
 
-.conversation-modern .message-composer > button[type="submit"]:disabled {
+.conversation-modern .message-input-group > button[type="submit"]:disabled {
   opacity: .45;
 }
 
