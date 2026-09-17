@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design/wyn_colors.dart';
 import '../../../../core/design/wyn_spacing.dart';
+import '../active_conversation_tracker.dart';
+import 'wynii_menu.dart';
 
 /// Shared visual primitives for WYNOS chat surfaces only.
 ///
@@ -154,8 +156,23 @@ class ChatActionSheetBody extends StatelessWidget {
   final String? title;
   final String? subtitle;
 
+  bool get _isConversationOptionsMenu {
+    final actionRows = rows.whereType<ChatActionSheetRow>();
+    return actionRows.any((row) => row.label == 'ดูโปรไฟล์') &&
+        actionRows.any((row) => row.label.contains('แจ้งเตือนบทสนทนานี้'));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final conversationId = _isConversationOptionsMenu
+        ? ActiveConversationTracker.currentConversationId
+        : null;
+    final visibleRows = <Widget>[
+      if (conversationId != null)
+        WyniiConversationMenuRow(conversationId: conversationId),
+      ...rows,
+    ];
+
     return Container(
       decoration: const BoxDecoration(
         color: WynColors.paper,
@@ -211,7 +228,7 @@ class ChatActionSheetBody extends StatelessWidget {
                   ),
                 ),
               ),
-            for (var i = 0; i < rows.length; i++) ...[
+            for (var i = 0; i < visibleRows.length; i++) ...[
               if (i > 0)
                 const Divider(
                   height: 1,
@@ -219,7 +236,7 @@ class ChatActionSheetBody extends StatelessWidget {
                   endIndent: WynSpacing.space5,
                   color: WynColors.hairline,
                 ),
-              rows[i],
+              visibleRows[i],
             ],
             const SizedBox(height: WynSpacing.space3),
           ],
