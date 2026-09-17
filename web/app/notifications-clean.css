@@ -41,6 +41,20 @@
   display: none;
 }
 
+.notification-list {
+  margin-top: -2px;
+}
+
+.notification-group-label {
+  margin: 0 !important;
+  padding: 2px 34px 8px !important;
+  color: #aaa7a0 !important;
+  font-size: 14px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+
 /* The notifications screen now shows the full activity stream directly. */
 .flutter-notification-tabs {
   display: none !important;
