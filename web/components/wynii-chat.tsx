@@ -147,7 +147,10 @@ export function WyniiConversationHeader({ client, userId, conversationId, other,
     }
   }, [client, conversationId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
   useEffect(() => {
     let channel: RealtimeChannel | null = subscribeWyniiMessages(client, conversationId, () => { void load(); });
     return () => { if (channel) void client.removeChannel(channel); channel = null; };
