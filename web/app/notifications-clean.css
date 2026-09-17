@@ -60,3 +60,55 @@
   display: none !important;
   border-bottom: 0 !important;
 }
+
+/* WYNOS search: approved mobile discovery layout. */
+.flutter-search-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding-left: 8px !important;
+  padding-right: 16px !important;
+}
+
+.search-back-button {
+  width: 40px;
+  height: 44px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.flutter-search-header .search-route-form {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.flutter-search-discovery .route-section-title h2 {
+  color: var(--ink) !important;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+
+.search-follow-button {
+  min-width: 88px;
+  height: 36px;
+  padding: 0 18px !important;
+  border-color: #000 !important;
+  border-radius: 999px !important;
+  background: #000 !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.search-follow-button.soft {
+  border-color: var(--hairline) !important;
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+}
