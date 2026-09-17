@@ -1443,3 +1443,55 @@ auto-trigger run #101
 `curl https://wynos.online/` → **HTTP 200**
 
 อ้างอิง: PR #508, commit `2aaaf84`, deploy run `35241386333` (SUCCESS)
+
+## WYN-160 Batch 7 — Search/Notifications/Club (2026-09-17)
+
+**ตรวจ Club**: `club-audit.css` (หน้ารวม/ค้นหา/สร้าง Club) และ `club-detail-golden.css`
+(หน้า Club จริงที่ route `/club/[id]` ใช้งานผ่าน `ClubDetailGoldenRoute`) ใช้ `var(--wyn-*)`
+ถูกต้องอยู่แล้วทั้งคู่ ทำไว้ตั้งแต่รอบ WYN-158 — ไม่ต้องแก้ เจอไฟล์ตาย 2 คู่ที่ไม่มี route
+ไหนเรียกใช้จริงแล้ว (ตรวจด้วย grep ยืนยันไม่มีการ import/render):
+1. `club-detail-route.tsx` (`ClubDetailRoute`) + `club-detail-audit.css` — ถูกแทนที่ด้วย
+   `club-detail-golden.tsx` ไปแล้ว ยังใช้ token เก่า (`--paper`/`--ink`/`--hairline`/`--sapphire`)
+2. `club-post-card-web.tsx` (`ClubPostCardWeb`) + `club-post-card-web.css` — ไม่มีใครเรียกใช้เลย
+
+เก็บทั้ง 2 คู่ไว้ทำรอบสุดท้าย "ไล่ลบ CSS dead code" แทน ไม่รวมในรอบนี้
+
+**ตรวจ Search/Notifications/กล่องข้อความ**: ทั้ง 3 หน้าใช้ไฟล์เดียวกันคุม
+(`web/app/notifications-clean.css`) เขียนก่อนมี token กลาง เจอสี hardcode ~26 จุด
+(#111,#000,#fff,#666,#777,#7d7d7d,#999,#92908a,#8f8f8f,#aaa7a0,#f6f6f6,#f3f3f3,#ececec,#eceae5)
++ legacy token เก่า var(--paper)/var(--ink)/var(--hairline) อีก ~8 จุด (ปุ่มติดตามแบบ soft +
+กล่องข้อความทั้งหมด) — ปัญหาจริงคือถ้าเปิด dark mode ตัวหนังสือ/พื้นหลังพวกนี้จะไม่สลับสีตาม
+ต่างจากทุกจุดที่ผ่าน `--wyn-*` แล้ว เช็ค Flutter source (`notification_list_screen.dart`,
+`search_screen.dart`, `chat_inbox_screen.dart`) แล้วไม่มีคอมเมนต์/เทสล็อกไว้ว่าต้องตรง Flutter
+เป๊ะ — ไฟล์นี้เขียนคอมเมนต์หัวไฟล์เองไว้ว่าเป็น "founder-approved simplified layout" (เรื่อง
+โครงสร้าง ไม่ใช่ pixel values) จึงยึดตาม WYN-160 scale ได้เลย
+
+**จุดที่แก้** (`web/app/notifications-clean.css`):
+1. สี hardcode ทั้ง ~26 จุด → `var(--wyn-text/--wyn-text-secondary/--wyn-text-muted/--wyn-bg/
+   --wyn-surface/--wyn-border)` ตามบทบาท
+2. legacy token เก่า var(--paper)/var(--ink)/var(--hairline) (~8 จุด) → var(--wyn-bg)/
+   var(--wyn-text)/var(--wyn-border)
+3. หัวข้อ "การแจ้งเตือน" 24px → 20px (title)
+4. หัวข้อ "ข้อความ" ในกล่องแชท 25px → 20px (title)
+5. หัวข้อย่อย "แฮชแท็กกำลังนิยม"/"แนะนำให้ติดตาม" 18px → 17px (subhead)
+
+ตัวหนังสือ input ค้นหา/แชท (16px), chat-row (17px/14px), ป้ายชื่อในแถวแนะนำติดตาม (16px)
+ตรง scale อยู่แล้วไม่แก้
+
+ทำภาพก่อน-หลังด้วย standalone harness (โหลด CSS จริง render markup ทดสอบ) เพิ่มในแคนวาสเดิม
+(https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz) Founder ดูแล้วตอบ "โอเค เขียนโค้ดจริงเลย"
+
+**ตรวจสอบ**: `tsc --noEmit` ผ่าน, `npx playwright test system-visual-parity + final-source-parity-gate
++ parity --project=chromium-desktop` → 14/16 ผ่าน 2 เทสที่ fail (`parity.spec.ts` root→`/welcome`
+redirect) ยืนยันแล้วว่าเป็นปัญหาเดิมไม่เกี่ยวกับไฟล์นี้ (stash การแก้ไขตัวเองแล้วรันซ้ำ พบว่า fail
+เหมือนกันทั้งที่ไม่มีการแก้ไข) grep ยืนยันไม่มีสี hardcode/legacy token หลงเหลือในไฟล์แล้ว
+
+อ้างอิง: `web/app/notifications-clean.css`, https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
+
+**Merge + Deploy**: เปิด PR #509, Netlify deploy preview ผ่าน ไม่มี CI แดง Founder สั่ง merge
+("merge PR ให้เลย") — merge แบบ squash เอง (commit `aec0413`) — `wyn-158-production-deploy.yml`
+auto-trigger run #102
+([35243890755](https://github.com/warren-wyn-dev/wynteam/actions/runs/35243890755)) — **SUCCESS** →
+`curl https://wynos.online/` → **HTTP 200**
+
+อ้างอิง: PR #509, commit `aec0413`, deploy run `35243890755` (SUCCESS)
