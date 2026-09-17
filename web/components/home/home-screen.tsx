@@ -445,7 +445,17 @@ export function HomeScreen({ session }: { session: Session }) {
         applySnapshot(cached, mode, true);
         setLoading(false);
       }
-      return;
+      if (mode !== "clubs") return;
+      // Clubs is its own, much lower-traffic tab (a handful of posts across
+      // however many clubs someone's in, not an endless feed) — entering it
+      // always revalidates in the background, the same freshness a manual
+      // pull-to-refresh gives elsewhere, just automatic. showLoading stays
+      // false so this never flashes a spinner over the cached posts already
+      // on screen.
+      const revalidateTimer = window.setTimeout(() => {
+        void loadMode(mode, { showLoading: false });
+      }, 0);
+      return () => window.clearTimeout(revalidateTimer);
     }
     const timer = window.setTimeout(() => {
       void loadMode(mode, { showLoading: true });
