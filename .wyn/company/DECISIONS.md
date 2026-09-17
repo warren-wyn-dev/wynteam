@@ -1053,3 +1053,25 @@ suite เดิมผ่านครบ 87 เทสทั้ง 3 อุปก�
 อ้างอิง: `web/lib/drafts.ts`, `web/components/beta4-composer.tsx`, `web/components/drafts-route.tsx`,
 `web/app/drafts/page.tsx`, `web/components/home/home-drawer.tsx`, `.wyn/tasks/approved/WYN-036-draft-system.md`,
 `.wyn/docs/design/wyn-036-draft-system.md`, `.wyn/logs/deployments/2026-08-23-wyn-036-merge-to-main.md`
+
+## [2026-09-17] Beta4Composer (เว็บ) — ปรับ toolbar/แถบล่างให้เรียบขึ้นตามภาพตัวอย่าง Threads
+
+Founder ส่งภาพหน้าสร้างเธรดของแอป Threads พร้อมบอก "ชอบประมาณนี้ ดูการจัดเรียงโพสต์ดี" — คุยแยกให้ชัดก่อนว่า
+จุดไหนเอามาใช้กับ WYN ได้ (ไม่ใช่การลอก Layout คู่แข่งตรงๆ ตามกติกาถาวรของ `design-principles.md`) กับจุดไหน
+เป็นฟีเจอร์เฉพาะของ Threads ที่ WYNOS ไม่มี (เลือกคอมมูนิตี้/หัวข้อ, ต่อเธรดหลายโพสต์ในอันเดียว, sticker/GIF/
+เพลง) — Founder เลือก **"ปรับแค่ toolbar + แถบล่าง ให้เรียบขึ้น"** เท่านั้น ไม่แตะฟีเจอร์ที่ไม่มีจริงใน WYN
+
+**สิ่งที่ทำ**:
+1. ย้ายปุ่ม "โพสต์" ออกจาก header (`beta4-composer-header` เหลือแค่ "ยกเลิก") ไปไว้แถบใหม่ล่างสุด
+   (`beta4-bottom-bar`, มี border-top + safe-area-inset-bottom เพราะเป็น element ล่างสุดแทน) คู่กับ hint
+   เล็กๆทางซ้าย (ตัวนับอักษรที่เหลือตอนเกิน 400 ตัว หรือ "โพลจะปิดใน 1 วัน" ตอนโหมดโพล — ใช้ค่าที่มีอยู่แล้ว
+   ไม่ได้เพิ่ม state ใหม่)
+2. Toolbar ไอคอน (รูปภาพ/กล้อง/โพล) จากการ์ดใหญ่มีป้ายชื่อ 3 ช่องเท่ากัน ปักหมุดชิดขอบจอด้านล่าง เปลี่ยนเป็น
+   แถวไอคอนกลมเล็ก (40×40px) ไม่มีป้าย ต่อจากเนื้อหาโดยตรง (เลื่อนไปกับ scroll แทนที่จะลอยอยู่ล่างจอตลอด) —
+   accessible name ย้ายจาก visible label text ไปเป็น `aria-label` แทน (ตรวจแล้วไม่กระทบ screen reader)
+
+**Lock test ที่มีอยู่ก่อนไม่ต้องแก้เหมือนกัน**: `system-visual-parity.spec.ts`/`final-source-parity-gate.spec.ts`
+ต้องการแค่ว่า class `beta4-composer-header`/`beta4-toolbar` ยังมีอยู่ (ไม่ได้ล็อกตำแหน่ง/หน้าตาภายใน) — ทั้ง
+สองยังอยู่ครบ แค่ย้ายตำแหน่ง/เปลี่ยนสไตล์ภายใน ยืนยัน regression suite เดิมผ่านครบ 87 เทสเหมือนทุกรอบก่อนหน้า
+
+อ้างอิง: `web/components/beta4-composer.tsx`, `web/app/system-parity-final.css`

@@ -144,7 +144,6 @@ export function Beta4Composer({
       <section className="beta4-composer" role="dialog" aria-modal="true" aria-label="สร้างโพสต์" onClick={(event) => event.stopPropagation()}>
         <header className="beta4-composer-header">
           <button className="beta4-cancel" type="button" onClick={requestClose}>ยกเลิก</button>
-          <button className="beta4-post" type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
         </header>
 
         <div className="beta4-composer-scroll">
@@ -168,19 +167,22 @@ export function Beta4Composer({
             </div>
           )}
 
-          {caption.length > 400 ? <div className="beta4-character-count">{500 - caption.length}</div> : null}
           {error ? <p className="route-error beta4-composer-error">{error}</p> : null}
+
+          <div className="beta4-toolbar">
+            <div className="beta4-toolbar-actions">
+              <button type="button" aria-label="แนบรูปภาพ" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => galleryRef.current?.click()}><ImagePlus size={22} /></button>
+              <button type="button" aria-label="เปิดกล้อง" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => cameraRef.current?.click()}><Camera size={22} /></button>
+              <button className={mode === "poll" ? "active" : ""} type="button" aria-label="สร้างโพล" aria-pressed={mode === "poll"} disabled={busy} onClick={() => setMode((current) => current === "poll" ? "image" : "poll")}><BarChart3 size={22} /></button>
+            </div>
+            <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => { setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9)); event.currentTarget.value = ""; }} />
+            <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) setFiles((current) => [...current, picked].slice(0, 9)); event.currentTarget.value = ""; }} />
+          </div>
         </div>
 
-        <div className="beta4-toolbar">
-          <strong>เพิ่มไปยังโพสต์ของคุณ</strong>
-          <div className="beta4-toolbar-actions">
-            <button type="button" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => galleryRef.current?.click()}><ImagePlus size={24} /><span>รูปภาพ</span></button>
-            <button type="button" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => cameraRef.current?.click()}><Camera size={24} /><span>กล้อง</span></button>
-            <button className={mode === "poll" ? "active" : ""} type="button" disabled={busy} onClick={() => setMode((current) => current === "poll" ? "image" : "poll")}><BarChart3 size={24} /><span>โพล</span></button>
-          </div>
-          <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => { setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9)); event.currentTarget.value = ""; }} />
-          <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) setFiles((current) => [...current, picked].slice(0, 9)); event.currentTarget.value = ""; }} />
+        <div className="beta4-bottom-bar">
+          <span className="beta4-character-count">{mode === "poll" ? "โพลจะปิดใน 1 วัน" : caption.length > 400 ? 500 - caption.length : ""}</span>
+          <button className="beta4-post" type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
         </div>
 
         {closePrompt ? (
