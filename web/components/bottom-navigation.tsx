@@ -98,7 +98,12 @@ export function BottomNavigation({
         <MaterialNavGlyph kind="club" selected={isActive("/clubs")} />
         <span>คลับ</span>
       </Link>
-      <Link className="route-nav-link" href="/?compose=1" aria-label="สร้างโพสต์ใหม่">
+      <Link
+        className="route-nav-link"
+        href="/?compose=1"
+        aria-label="สร้างโพสต์ใหม่"
+        onPointerDown={() => { void import("@/components/beta4-composer"); }}
+      >
         <MaterialNavGlyph kind="add" />
         <span>โพสต์</span>
       </Link>
