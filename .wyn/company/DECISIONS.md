@@ -1383,3 +1383,11 @@ final-source-parity-gate + parity) ผ่านหมด
 
 อ้างอิง: `web/app/conversation-modern.css`, `web/components/chat-routes.tsx`,
 https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
+
+**Merge + Deploy**: เปิด PR #507 (เลขข้าม 505/506 เพราะอีกเซสชัน WYN-161 เปิด PR คั่นระหว่างนั้น) base ตรงกับ
+`main` ล่าสุดที่มี WYN-161 merge แล้วพอดี ไม่มี conflict Founder merge เอง — `wyn-158-production-deploy.yml`
+auto-trigger run #100
+([35239020506](https://github.com/warren-wyn-dev/wynteam/actions/runs/35239020506)) — **SUCCESS** →
+`curl https://wynos.online/` → **HTTP 200**
+
+อ้างอิง: PR #507, commit `9341781`, deploy run `35239020506` (SUCCESS)
