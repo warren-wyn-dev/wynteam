@@ -160,6 +160,10 @@
 
 .wyn-home-feed {
   background: var(--wyn-bg);
+  /* Tab switches (tap or swipe) animate this container with a small
+     translateX (see home-screen.tsx) — clip it so that never shows a
+     horizontal scrollbar mid-transition. */
+  overflow-x: hidden;
 }
 
 .wyn-home-state {

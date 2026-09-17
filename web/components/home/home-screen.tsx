@@ -6,7 +6,7 @@ import { Bookmark, ChevronRight, Flag, Quote, Repeat2, Share2, X } from "lucide-
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { useInView } from "react-intersection-observer";
 
 import { ClubFeedPost } from "@/components/home/club-feed-post";
@@ -240,6 +240,13 @@ export function HomeScreen({ session }: { session: Session }) {
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const touchGesture = useRef<{ x: number; y: number; canPull: boolean } | null>(null);
+  const slideDirectionRef = useRef<1 | -1>(1);
+  const skipSlideAnimationRef = useRef(true);
+  const [slideStyle, setSlideStyle] = useState<{ transform: string; opacity: number; transition: string }>({
+    transform: "translateX(0)",
+    opacity: 1,
+    transition: "none",
+  });
   const activeModeRef = useRef<HomeFeedMode>(store.mode);
   const visibleModeRef = useRef<HomeFeedMode>(store.visibleMode);
   const feedCache = useRef(store.feedCache);
@@ -266,6 +273,29 @@ export function HomeScreen({ session }: { session: Session }) {
   // Shares its cache with AppChrome's own root-nav badge (lib/notification-count.ts)
   // so opening /notifications clears both instantly instead of each polling separately.
   const notificationBadge = useUnreadNotificationCount(client, userId, true);
+
+  // Plays a directional slide the moment the visible tab's content actually
+  // lands (tap or swipe both funnel through switchMode, which records the
+  // direction) — a plain content swap read as an abrupt cut, not the
+  // sliding-tab feel every large social app uses. Runs as a layout effect so
+  // the "shifted, faded" start frame paints before the browser's next
+  // repaint, instead of flashing the settled position first.
+  useLayoutEffect(() => {
+    if (skipSlideAnimationRef.current) {
+      skipSlideAnimationRef.current = false;
+      return;
+    }
+    const direction = slideDirectionRef.current;
+    setSlideStyle({ transform: `translateX(${direction * 28}px)`, opacity: 0.4, transition: "none" });
+    const raf = window.requestAnimationFrame(() => {
+      setSlideStyle({
+        transform: "translateX(0px)",
+        opacity: 1,
+        transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease-out",
+      });
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [visibleMode]);
 
   const restoreScroll = useCallback((targetMode: HomeFeedMode) => {
     const top = scrollPositions.current[targetMode] ?? 0;
@@ -641,6 +671,7 @@ export function HomeScreen({ session }: { session: Session }) {
 
   const switchMode = (next: HomeFeedMode) => {
     if (next === mode) return;
+    slideDirectionRef.current = modeIndex(next) > modeIndex(mode) ? 1 : -1;
     scrollPositions.current[visibleModeRef.current] = window.scrollY;
     activeModeRef.current = next;
     getHomeScreenStore(userId).mode = next;
@@ -775,6 +806,7 @@ export function HomeScreen({ session }: { session: Session }) {
 
       <div
         className="wyn-home-feed"
+        style={slideStyle}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
