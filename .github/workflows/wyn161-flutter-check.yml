@@ -6,7 +6,7 @@ on:
       - chatgpt/wyn-161-flutter-wynii
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   flutter-check:
@@ -21,8 +21,17 @@ jobs:
           channel: stable
           flutter-version: 3.47.1
       - run: flutter pub get
-      - name: Format check
-        run: dart format --output=none --set-exit-if-changed lib/features/chat/data/wynii_pet.dart lib/features/chat/presentation/widgets/chat_ui.dart lib/features/chat/presentation/widgets/wynii_menu.dart test/wynii_pet_test.dart
+      - name: Format Wynii files
+        run: dart format lib/features/chat/data/wynii_pet.dart lib/features/chat/presentation/widgets/chat_ui.dart lib/features/chat/presentation/widgets/wynii_menu.dart test/wynii_pet_test.dart
+      - name: Commit formatter output
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lib/features/chat/data/wynii_pet.dart lib/features/chat/presentation/widgets/chat_ui.dart lib/features/chat/presentation/widgets/wynii_menu.dart test/wynii_pet_test.dart
+            git commit -m "style(chat): format Wynii Flutter sources"
+            git push
+          fi
       - name: Analyze Wynii files
         run: flutter analyze lib/features/chat/data/wynii_pet.dart lib/features/chat/presentation/widgets/chat_ui.dart lib/features/chat/presentation/widgets/wynii_menu.dart test/wynii_pet_test.dart
       - name: Run Wynii tests
