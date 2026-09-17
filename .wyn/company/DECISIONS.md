@@ -1172,3 +1172,17 @@ selector, ต้องมี tab ทั้งหมด/ยังไม่อ่�
 `web/components/chat-routes.tsx`, `web/app/conversation-modern.css`,
 `web/tests/browser/system-visual-parity.spec.ts`, `web/tests/browser/final-source-parity-gate.spec.ts`,
 commit `57be9fd` (merge)
+
+## [2026-09-17] PR #500 (header ปุ่มโพสต์/ฉบับร่าง + chat realtime/multiline + reconcile session คู่ขนาน) — merge + deploy สำเร็จ
+
+Founder สั่ง "merge PR ให้เลย" หลัง CI เขียวครบ — pipeline เดิม:
+1. Squash-merge PR #500 เข้า `main` — commit `5778e16`
+2. `wyn-158-production-deploy.yml` auto-trigger — run #92
+   ([35209995521](https://github.com/warren-wyn-dev/wynteam/actions/runs/35209995521)) — **SUCCESS**
+3. `curl https://wynos.online/` → **HTTP 200**
+
+ยืนยันได้แค่เว็บขึ้นจริงไม่พัง — ยังต้องให้ Founder เปิดของจริงยืนยันอีกขั้นตาม Production Verification เดิม
+(คีย์บอร์ดอัตโนมัติ, บันทึก/เปิดร่างต่อ, header ใหม่, แชท realtime, ช่องพิมพ์หลายบรรทัด, audience picker,
+หน้าแชท/สนทนาที่ redesign ใหม่ — ทั้งหมดของทั้ง 2 session รวมกันแล้ว)
+
+อ้างอิง: PR #500, commit `5778e16`, deploy run `35209995521` (SUCCESS)
