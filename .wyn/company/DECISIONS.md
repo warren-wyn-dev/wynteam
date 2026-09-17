@@ -1383,3 +1383,56 @@ final-source-parity-gate + parity) ผ่านหมด
 
 อ้างอิง: `web/app/conversation-modern.css`, `web/components/chat-routes.tsx`,
 https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
+
+**Merge + Deploy**: เปิด PR #507 (เลขข้าม 505/506 เพราะอีกเซสชัน WYN-161 เปิด PR คั่นระหว่างนั้น) base ตรงกับ
+`main` ล่าสุดที่มี WYN-161 merge แล้วพอดี ไม่มี conflict Founder merge เอง — `wyn-158-production-deploy.yml`
+auto-trigger run #100
+([35239020506](https://github.com/warren-wyn-dev/wynteam/actions/runs/35239020506)) — **SUCCESS** →
+`curl https://wynos.online/` → **HTTP 200**
+
+อ้างอิง: PR #507, commit `9341781`, deploy run `35239020506` (SUCCESS)
+
+## [2026-09-17] WYN-160 batch 6 (Profile/Settings) — เช็ค Flutter parity ก่อนทุกจุด ประหยัดงานไปหลายจุด
+
+ตรวจ Profile/Settings แบบเดียวกับ Home/Composer — เช็ค Flutter source ก่อนแก้ทุกจุด พบว่า settings row
+15px/min-height 52px, group label 13px, header 17px, icon 34px/radius 10px ตรงกับ
+`settings_screen.dart` เป๊ะ (มีคอมเมนต์หัวไฟล์ยืนยันด้วย) — **ไม่แก้จุดเหล่านี้**
+
+**เจอเคสพิเศษที่ต้องคิดละเอียดกว่าเดิม**: ปุ่มแก้ไข/แชร์โปรไฟล์ (โปรไฟล์ตัวเอง) — font-size 15.5px ตรงกับ
+Flutter `view_profile_screen.dart` เป๊ะ (`fontSize: 15.5`) แต่ตรวจโครงจริงพบว่า Flutter ใช้ปุ่มดำเต็ม
+(filled, StadiumBorder) + ไอคอนแยก 2 ปุ่ม (แนะนำ/บันทึกไว้) ส่วนเว็บใช้ปุ่มเทา 2 ปุ่มข้อความล้วน (ไม่มีไอคอน)
+ตามภาพอ้างอิงที่ Founder อนุมัติไว้ก่อนแล้ว (ล็อกด้วยเทส "Profile own action matches the Founder-supplied
+reference") — สรุปว่าเลข 15.5 ที่ตรงกันเป็นเศษที่หลงเหลือจากตอน copy โครง Flutter มาก่อนที่ Founder จะสั่งตัด
+ไม่ใช่ parity ที่ตั้งใจไว้จริงในตอนนี้ (เพราะทุกอย่างอื่นของปุ่มนี้ไม่ตรง Flutter อยู่แล้ว) → ตัดสินใจแก้ตาม
+สเกลเว็บ
+
+**เจอจริง 8 จุด**:
+1. `.wyn-profile-action-primary/.secondary` (ปุ่มติดตาม/ส่งข้อความ ดูโปรไฟล์คนอื่น) — มุมโค้ง 12px →
+   999px (Flutter ใช้ StadiumBorder เต็มวง + ปุ่มลักษณะเดียวกันทั่วเว็บก็ใช้ pill 999 หมด) + font-size
+   15px → 14px
+2. `.wyn-profile-actions.is-own` (ปุ่มแก้ไข/แชร์โปรไฟล์) — border/background/color `#e2e2e2`/`#f2f2f2`/
+   `#111` → `var(--wyn-border)`/`var(--wyn-surface)`/`var(--wyn-text)` + font-size 15.5px → 14px
+   (เหตุผลด้านบน)
+3. `.profile-account-remove` (ปุ่มลบบัญชีในหน้าสลับบัญชี) — border/color `#ef4444`/`#dc2626` (2 สีแดง
+   คนละค่ากันเอง) → `var(--wyn-accent)` ทั้งคู่ + มุมโค้ง 9px → 10px (control)
+4. `.profile-account-error` — color `#dc2626` → `var(--wyn-accent)`
+5. `.profile-more-sheet > button.danger` — color `#dc2626` → `var(--wyn-accent)`
+6. `.profile-account-select strong` (ชื่อบัญชีในหน้าสลับบัญชี) — 15px → 14px
+7. `.profile-account-use-other` — 15px → 14px + มุมโค้ง 12px → 10px (control)
+8. `web/app/phase3.css` `.settings-safety` (ข้อความความปลอดภัยท้ายหน้าตั้งค่า) — 11px → 12px
+
+หมายเหตุ `#dc2626` ตรงกับ `WynColors.errorLight` ของ Flutter เป๊ะ (`Color(0xFFDC2626)`) แต่ตรวจแล้วปุ่ม/
+ข้อความพวกนี้เป็น UI ที่เว็บสร้างขึ้นเองไม่ตรงโครงกับของ Flutter อยู่แล้ว (Flutter ใช้ไอคอนเปล่าสีเทา ไม่ใช่
+ปุ่มขอบแดง) — ไฟล์ `profile-golden-final.css` เองก็เขียนคอมเมนต์หัวไฟล์ไว้ว่า "Colors follow the WYNOS
+base design system tokens... instead of the older warm Beta4 palette" ยืนยันว่าควรใช้ token กลางของเว็บ
+ไม่ใช่จับคู่กับสี Flutter จึงแก้เป็น `var(--wyn-accent)`
+
+ทำภาพก่อน-หลังด้วย standalone harness (โหลด CSS จริง render markup ทดสอบ) เพิ่มในแคนวาสเดิม
+(https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz) Founder ดูแล้วตอบ "โอเค เขียนโค้ดจริงเลย"
+
+**ตรวจสอบ**: `tsc --noEmit` ผ่าน, regression suite 16 เทส (system-visual-parity + final-source-parity-gate
++ parity) ผ่านหมด รวมเทสที่ยังล็อก settings 7-row structure กับ profile own-action ไว้ — ยืนยันไม่ได้แก้
+จุดที่ Founder ล็อกไว้ก่อนโดยไม่ตั้งใจ
+
+อ้างอิง: `web/app/profile-golden-final.css`, `web/app/phase3.css`,
+https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz
