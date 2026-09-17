@@ -1271,3 +1271,34 @@ rebase ตั้งฐานใหม่ก่อน push ทุกรอบ) Fo
 
 อ้างอิง: `web/components/auth-flow/screens.tsx`, https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz,
 PR #502, deploy run `35215643137` (SUCCESS)
+
+## [2026-09-17] WYN-160 batch 3 (Home/Bottom Nav) — พบว่า Home ล็อกกับ Flutter parity อยู่แล้ว เจอจริงแค่ Nav
+
+Founder สั่งให้ทำ Home/Bottom Nav ต่อ — ตรวจแล้วผลไม่เหมือนที่คาด: ขนาดตัวหนังสือของ `home.css` (17.5/17/15/13px
+ฯลฯ) **ไม่ใช่ WYN-160 drift** — คอมเมนต์ในไฟล์เองระบุว่า copy จาก Flutter `home_drop_card.dart` ตรงๆ เพื่อ
+pixel parity ข้ามแพลตฟอร์ม และมี lock test อยู่แล้ว (`pixel-parity-pass-2.spec.ts` เทียบตรงกับค่าใน Flutter
+source) ถ้ายุบเป็น 7-scale ของ WYN-160 จะพัง parity กับแอปจริงและพังเทสที่ล็อกไว้ —**ไม่แก้จุดนี้** สีของ
+`home.css` ก็ใช้ `var(--wyn-*)` ถูกต้องอยู่แล้วทั้งไฟล์ (ยกเว้น `color: #fff` ใน heart-burst animation ซึ่ง
+ถูกต้องแล้วที่ hardcode เพราะวาดทับรูปภาพ ไม่ใช่พื้นหลังเพจ ไม่ควรตามธีม)
+
+**เจอจริงแค่ใน `bottom-nav.css`**: `.route-nav-link` สีเทาปกติ hardcode `#747474` (ใกล้เคียงแต่ไม่ตรง
+`--wyn-text-secondary: #6b6b6b`) และ `.route-nav-link.active` hardcode `#111111` (ไม่ตรง `--wyn-text:
+#0a0a0a`) — ทำภาพก่อน-หลังเพิ่มในแคนวาสเดิม พลาดรอบแรกที่ครอปภาพเหลือแค่ 3 ปุ่ม (ไม่ครบ 5: หน้าหลัก/คลับ/
+โพสต์/แชท/โปรไฟล์) Founder ทัก แก้ภาพให้ครบแล้ว ยืนยันด้วยว่าจำนวน/ไอคอนปุ่มไม่ได้เปลี่ยน แก้แค่สี 2 จุดเท่ากับ
+ทุกปุ่ม — Founder อนุมัติ "โอเคครับ เขียนโค้ดจริงเลย"
+
+เจอเพิ่ม (ไม่รวมรอบนี้): badge สีแดง `#dc2626` กับ class `.route-create-destination` ในไฟล์เดียวกันเป็น dead
+code จริง (grep ไม่มีหน้าไหนเรียกใช้ `route-nav-badge`/`route-create-destination` แล้ว) เก็บไว้ทำตอน "ไล่ลบ
+CSS dead code" ซึ่งเป็นขั้นสุดท้ายของ WYN-160 อยู่แล้ว มุมโค้ง dock 30px กับ font-size 11.5px ของปุ่มก็ล็อกกับ
+Flutter metrics + มี comment "Founder-approved" ในไฟล์เหมือนกัน ไม่แก้
+
+**โค้ดจริงที่แก้** (`web/app/bottom-nav.css`): `.route-nav-link` color → `var(--wyn-text-secondary, #747474)`,
+`.route-nav-link.active` color → `var(--wyn-text, #111111)` — ใช้ fallback syntax เดียวกับที่ไฟล์นี้ใช้อยู่
+แล้วกับ `--wyn-bg`/`--wyn-border` จุดอื่น ไม่แตะ `::before` ของ active tile (`rgba(17,17,17,0.035)`) เพราะไม่
+อยู่ใน 2 จุดที่ Founder อนุมัติในภาพ
+
+**ตรวจสอบ**: `tsc --noEmit` ผ่าน, screenshot ยืนยัน computed color `rgb(107,107,107)`/`rgb(10,10,10)` ตรงกับ
+token ที่ตั้งใจ, regression suite เดิม 13 เทสผ่านหมด (รวม "root navigation matches Founder metrics" ที่ยัง
+เช็ค 11.5px กับ Flutter อยู่ — ยืนยันว่าไม่ได้ไปแก้ font-size โดยไม่ตั้งใจ)
+
+อ้างอิง: `web/app/bottom-nav.css`, `web/app/home.css` (ตรวจแล้วไม่แก้), https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz

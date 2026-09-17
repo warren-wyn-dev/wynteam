@@ -42,7 +42,7 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  color: #747474;
+  color: var(--wyn-text-secondary, #747474);
   text-decoration: none;
   font-size: 11.5px;
   line-height: 1;
@@ -61,7 +61,7 @@
 }
 
 .route-nav-link.active {
-  color: #111111;
+  color: var(--wyn-text, #111111);
   font-weight: 600;
 }
 
