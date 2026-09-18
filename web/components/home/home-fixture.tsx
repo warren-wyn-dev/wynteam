@@ -45,6 +45,8 @@ const rows: HomeFeedRow[] = [
     like_count: 128,
     comment_count: 12,
     redrop_count: 4,
+    redrop_id: "redrop-fixture-1",
+    redropper_username: "wynos_online",
     audience: "everyone",
   },
   {
@@ -80,6 +82,8 @@ const images = new Map<string, string[]>([["drop-1", [rows[0].image_url as strin
 
 export function HomeFixture() {
   const [mode, setMode] = useState<HomeFeedMode>("for-you");
+  const [savedDropIds, setSavedDropIds] = useState<Set<string>>(new Set());
+  const fixtureViewer = { ...viewer, savedDropIds };
 
   return (
     <div className="route-app route-with-bottom-nav">
@@ -97,7 +101,7 @@ export function HomeFixture() {
           {rows.map((row) => (
             <HomePostCard
               row={row}
-              viewer={viewer}
+              viewer={fixtureViewer}
               images={images.get(row.id) ?? []}
               userId={VIEWER_ID}
               onLike={() => {}}
@@ -105,6 +109,12 @@ export function HomeFixture() {
               onRedrop={() => {}}
               onFollow={() => {}}
               onShare={() => {}}
+              onSave={() => setSavedDropIds((current) => {
+                const next = new Set(current);
+                if (next.has(row.id)) next.delete(row.id);
+                else next.add(row.id);
+                return next;
+              })}
               key={row.id}
             />
           ))}
