@@ -65,10 +65,12 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(notesCss).toContain(".wyn-chat-note-plus");
   expect(notesCss).toContain(".wyn-chat-note-bubble");
   expect(notesCss).toContain(".wyn-note-screen");
-  expect(notesCss).toContain("width: 96px");
-  expect(notesCss).toContain("width: min(80%, 300px)");
-  expect(notesCss).toContain("min-height: 390px");
-  expect(notesCss).toContain("border-radius: 24px");
+  expect(notesCss).toContain("width: 88px");
+  expect(notesCss).toContain("width: min(72%, 270px)");
+  expect(notesCss).toContain("min-height: 318px");
+  expect(notesCss).toContain("width: min(88%, 460px)");
+  expect(notesCss).toContain("font-size: 10.5px");
+  expect(notesCss).toContain("border-radius: 20px");
   expect(layout).toContain('import "./chat-notes.css";');
 });
 
