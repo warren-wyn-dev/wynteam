@@ -25,6 +25,7 @@
 .golden-drop-actions > button, .golden-drop-actions > a, .golden-drop-view { min-width: 32px; min-height: 48px; padding: 0; display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; border: 0; background: transparent; color: var(--graphite); text-decoration: none; font: inherit; font-size: 13px; }
 .golden-drop-actions > button.liked { color: var(--like); }
 .golden-drop-actions > button.active { color: var(--sapphire); }
+.golden-drop-save-inline { display: none !important; }
 .golden-drop-view { margin-left: auto; min-width: auto; color: var(--faint); }
 
 .golden-drop-sheet-backdrop { align-items: flex-end; z-index: 135; }
