@@ -63,10 +63,11 @@ test("first post matches compact avatar author caption and action geometry", asy
   await expect(redrop).toHaveCSS("color", "rgb(115, 115, 120)");
   await expect(redrop.locator("svg")).toHaveCSS("width", "16px");
   await expect(actions).toHaveCSS("min-height", "30px");
-  await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "22px");
-  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(116, 116, 120)");
+  await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "24px");
+  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(115, 119, 127)");
   await expect(moreText).toBeVisible();
   await expect(tags).toContainText("#WYNOS");
+  await expect(tags).toHaveCSS("display", "inline");
 
   const [postBox, avatarBox, bodyBox, redropBox, actionsBox] = await Promise.all([
     post.boundingBox(),
@@ -121,6 +122,29 @@ test("bottom navigation stays compact and preserves all five WYNOS destinations"
   const glyph = nav.locator(".route-nav-glyph").first();
   await expect(glyph).toHaveCSS("width", "24px");
   await expect(glyph).toHaveCSS("height", "24px");
+});
+
+test("follow control is absent for authors already followed", async ({ page }) => {
+  const followedPost = page.locator(".wyn-post").nth(1);
+  await expect(followedPost.getByRole("button", { name: "ติดตาม", exact: true })).toHaveCount(0);
+  await expect(followedPost.getByRole("button", { name: "กำลังติดตาม", exact: true })).toHaveCount(0);
+});
+
+test("action buttons keep a shared baseline while zero-count actions stay compact", async ({ page }) => {
+  const post = page.locator(".wyn-post").nth(3);
+  const actions = post.locator(".wyn-post-actions");
+  const buttons = actions.locator(".wyn-action-button");
+  await expect(buttons).toHaveCount(5);
+
+  const boxes = await Promise.all(Array.from({ length: 5 }, (_, index) => buttons.nth(index).boundingBox()));
+  for (const box of boxes) expect(box).not.toBeNull();
+  const centers = boxes.map((box) => (box!.y + box!.height / 2));
+  expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
+
+  const firstFour = boxes.slice(0, 4) as NonNullable<(typeof boxes)[number]>[];
+  const clusterWidth = (firstFour[3].x + firstFour[3].width) - firstFour[0].x;
+  expect(clusterWidth).toBeLessThan(170);
+  expect((boxes[4]!.x - (firstFour[3].x + firstFour[3].width))).toBeGreaterThan(80);
 });
 
 test("bookmark remains a direct action after the visual compaction", async ({ page }) => {
