@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, MessageSquarePlus, Plus, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, MessageSquarePlus, Plus, Search, Smile, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -387,37 +387,75 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
       </section>
 
       {noteOpen ? (
-        <div className="route-modal-backdrop wyn-note-backdrop" role="presentation" onClick={() => setNoteOpen(false)}>
-          <section className="route-modal wyn-note-modal" role="dialog" aria-modal="true" aria-label="โน้ตของคุณ" onClick={(event) => event.stopPropagation()}>
-            <header>
-              <strong>{me?.note ? "แก้ไขโน้ต" : "เพิ่มโน้ต"}</strong>
-              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setNoteOpen(false)}><X size={20} /></button>
-            </header>
-            <div className="wyn-note-editor">
-              <div className="wyn-note-editor-preview">
-                <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={58} />
-                <span>{noteDraft.trim() || "แชร์ความคิดสั้น ๆ..."}</span>
-              </div>
-              <textarea
-                autoFocus
-                value={noteDraft}
-                maxLength={NOTE_MAX_LENGTH}
-                onChange={(event) => setNoteDraft(event.target.value)}
-                placeholder="แชร์ความคิด..."
-              />
-              <div className="wyn-note-editor-meta">
-                <small>โน้ตจะหายไปหลัง 24 ชั่วโมง</small>
-                <small>{noteDraft.length}/{NOTE_MAX_LENGTH}</small>
-              </div>
-              <button className="route-primary wyn-note-save" type="button" disabled={noteSaving || !noteDraft.trim()} onClick={() => void saveNote()}>
-                {noteSaving ? "กำลังบันทึก…" : "แชร์โน้ต"}
+        <div className="wyn-note-screen" role="presentation">
+          <section className="wyn-note-composer" role="dialog" aria-modal="true" aria-label={me?.note ? "แก้ไขโน้ต" : "โน้ตใหม่"}>
+            <header className="wyn-note-composer-header">
+              <button className="wyn-note-close" type="button" aria-label="ปิด" onClick={() => setNoteOpen(false)}>
+                <X size={28} strokeWidth={1.9} />
               </button>
-              {me?.note ? (
-                <button className="wyn-note-delete" type="button" disabled={noteSaving} onClick={() => void removeNote()}>
-                  ลบโน้ต
+              <div className="wyn-note-title-wrap">
+                <strong>{me?.note ? "แก้ไขโน้ต" : "โน้ตใหม่"}</strong>
+                <small>แชร์ความคิดกับเพื่อนของคุณ</small>
+              </div>
+              <button
+                className="wyn-note-share-top"
+                type="button"
+                disabled={noteSaving || !noteDraft.trim()}
+                onClick={() => void saveNote()}
+              >
+                {noteSaving ? "กำลังแชร์…" : "แชร์"}
+              </button>
+            </header>
+
+            <div className="wyn-note-stage">
+              <div className="wyn-note-bubble-editor">
+                <textarea
+                  autoFocus
+                  value={noteDraft}
+                  maxLength={NOTE_MAX_LENGTH}
+                  onChange={(event) => setNoteDraft(event.target.value)}
+                  placeholder="บอกเลยว่าคิดอะไร..."
+                  aria-label="ข้อความโน้ต"
+                />
+                <span className="wyn-note-counter">{noteDraft.length}/{NOTE_MAX_LENGTH}</span>
+              </div>
+
+              <div className="wyn-note-avatar-large">
+                <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={132} />
+              </div>
+
+              <div className="wyn-note-tools" aria-label="เครื่องมือโน้ต">
+                <button type="button" className="wyn-note-tool" aria-label="สถานที่">
+                  <span><MapPin size={28} strokeWidth={1.9} /></span>
+                  <small>สถานที่</small>
                 </button>
-              ) : null}
+                <button type="button" className="wyn-note-tool" aria-label="อีโมจิ">
+                  <span><Smile size={28} strokeWidth={1.9} /></span>
+                  <small>อีโมจิ</small>
+                </button>
+              </div>
             </div>
+
+            <div className="wyn-note-info-card">
+              <div className="wyn-note-info-row">
+                <Clock size={24} strokeWidth={1.8} />
+                <span><strong>แสดงเป็นเวลา 24 ชั่วโมง</strong><small>โน้ตของคุณจะหายไปโดยอัตโนมัติหลัง 24 ชั่วโมง</small></span>
+              </div>
+              <div className="wyn-note-info-row">
+                <Users size={24} strokeWidth={1.8} />
+                <span><strong>แสดงให้ผู้ติดตามที่คุณติดตามกลับ</strong><small>เฉพาะคนที่คุณติดตามกลับเท่านั้นที่เห็นโน้ตนี้</small></span>
+              </div>
+              <div className="wyn-note-info-row">
+                <MessageCircle size={24} strokeWidth={1.8} />
+                <span><strong>แชร์ความรู้สึกได้สั้น ๆ</strong><small>ใช้โน้ตเพื่อบอกสถานะ ความรู้สึก หรืออะไรก็ได้</small></span>
+              </div>
+            </div>
+
+            {me?.note ? (
+              <button className="wyn-note-delete" type="button" disabled={noteSaving} onClick={() => void removeNote()}>
+                ลบโน้ต
+              </button>
+            ) : null}
           </section>
         </div>
       ) : null}
