@@ -16,7 +16,8 @@ test("Home post keeps the approved avatar/content two-column contract", () => {
 
 test("caption media and actions remain compact in the right content column", () => {
   const home = css();
-  expect(home).toMatch(/\.wyn-post-caption-wrap \{[\s\S]*?margin-top: 2px;/);\n  expect(home).toMatch(/\.wyn-post-caption \{[\s\S]*?margin: 0;[\s\S]*?transform: none;/);
+  expect(home).toMatch(/\.wyn-post-caption-wrap \{[\s\S]*?margin-top: 2px;/);
+  expect(home).toMatch(/\.wyn-post-caption \{[\s\S]*?margin: 0;[\s\S]*?transform: none;/);
   expect(home).toMatch(/\.wyn-post-media \{[\s\S]*?margin-top: 8px;/);
   expect(home).toMatch(/\.wyn-post-actions \{[\s\S]*?margin: 4px 0 8px;/);
   expect(home).not.toMatch(/\.wyn-post-media \{[\s\S]{0,160}?grid-column: 1 \/ -1;/);
