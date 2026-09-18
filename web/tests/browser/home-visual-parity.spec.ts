@@ -64,11 +64,14 @@ test("first post matches compact avatar author caption and action geometry", asy
   await expect(redrop.locator("svg")).toHaveCSS("width", "16px");
   await expect(actions).toHaveCSS("min-height", "30px");
   await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "24px");
-  await expect(actions.getByRole("button", { name: "แชร์" }).locator("svg")).toHaveCSS("width", "22px");
-  await expect(actions.getByRole("button", { name: "แชร์" }).locator("svg")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 1)");
+  const shareIcon = actions.getByRole("button", { name: "แชร์" }).locator(".wyn-share-icon");
+  await expect(shareIcon).toHaveCSS("width", "24px");
+  await expect(shareIcon).toHaveCSS("height", "24px");
+  await expect(shareIcon.locator("path")).toHaveCount(2);
   await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(115, 119, 127)");
   await expect(moreText).toBeVisible();
   await expect(tags).toContainText("#WYNOS");
+  await expect(tags).not.toContainText("◌");
   await expect(tags).toHaveCSS("display", "inline");
 
   const [postBox, avatarBox, bodyBox, redropBox, actionsBox] = await Promise.all([
