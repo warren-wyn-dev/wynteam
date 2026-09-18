@@ -114,7 +114,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
     "Quote ReDrop", "ไม่สนใจโพสต์นี้", "เลิกทำ", "submit_report", 'from("feed_signals")',
     "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
   ]) expect(home).toContain(contract);
-  expect(postActions).toContain('<Send size={24} />');
+  expect(postActions).toContain('<Send size={20} strokeWidth={2} />');
   expect(postAuthorRow).toContain("ขอติดตามแล้ว");
   expect(postAuthorRow).toContain("กำลังติดตาม");
   const homePostCard = await readFile(path.join(root, "components/home/home-post-card.tsx"), "utf8");
@@ -124,11 +124,11 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(home).not.toContain('location.assign');
   for (const contract of [
     "wyn-post-follow-pill",
-    "background: var(--wyn-surface)",
+    "background: #efeff1",
     ".wyn-post-follow-pill.is-following",
     "font-size: 16px",
-    "max-width: 104px",
-    "gap: 16px",
+    "max-width: 96px",
+    "gap: 28px",
   ]) expect(homeCss).toContain(contract);
 
   const bottomNav = await readFile(path.join(root, "components/bottom-navigation.tsx"), "utf8");
