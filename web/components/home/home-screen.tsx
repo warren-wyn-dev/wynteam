@@ -902,6 +902,7 @@ export function HomeScreen({ session }: { session: Session }) {
                 }}
                 onFollow={() => void followAuthor(row)}
                 onShare={() => void share(row)}
+                onSave={() => void save(row)}
                 priority={index < 2}
                 key={`${row.id}:${row.redrop_id ?? "plain"}`}
               />
