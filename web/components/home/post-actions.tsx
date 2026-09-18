@@ -49,7 +49,7 @@ export function PostActions({
         aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"}
         onClick={onLike}
       >
-        <AnimatedHeart size={20} strokeWidth={2} liked={liked} />
+        <AnimatedHeart size={19} strokeWidth={2} liked={liked} />
         {count(likeCount)}
       </button>
       <Link
@@ -57,7 +57,7 @@ export function PostActions({
         href={commentHref}
         aria-label="ความคิดเห็น"
       >
-        <MessageCircle size={20} strokeWidth={2} />
+        <MessageCircle size={19} strokeWidth={2} />
         {count(commentCount)}
       </Link>
       {canRedrop ? (
@@ -67,7 +67,7 @@ export function PostActions({
           aria-label="รีโพสต์"
           onClick={onRedrop}
         >
-          <Repeat2 size={20} strokeWidth={2} />
+          <Repeat2 size={19} strokeWidth={2} />
           {count(redropCount)}
         </button>
       ) : null}
@@ -77,7 +77,7 @@ export function PostActions({
         aria-label="แชร์"
         onClick={onShare}
       >
-        <Send size={20} strokeWidth={2} />
+        <Send size={19} strokeWidth={2} />
       </button>
       {onSave ? (
         <button
@@ -87,7 +87,7 @@ export function PostActions({
           aria-pressed={saved}
           onClick={onSave}
         >
-          <Bookmark size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
+          <Bookmark size={19} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
         </button>
       ) : null}
     </div>

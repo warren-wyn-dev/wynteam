@@ -20,21 +20,21 @@ test("approved Founder Home mockup geometry cannot drift", () => {
     layout.lastIndexOf('import "./founder-parity-lock.css";'),
   );
 
-  expect(home).toContain("height: 44px");
+  expect(home).toContain("height: 32px");
   expect(home).toContain("grid-template-columns: 40px minmax(0, 1fr)");
-  expect(home).toContain("column-gap: 14px");
-  expect(home).toContain("padding: 14px 16px 0");
-  expect(home).toContain("margin-top: 2px");
-  expect(home).toContain("margin: 0 0 3px 25px");
+  expect(home).toContain("column-gap: 10px");
+  expect(home).toContain("padding: 10px 16px 0");
+  expect(home).toContain("margin-top: 1px");
+  expect(home).toContain("margin: 0 0 2px 21px");
   expect(home).toContain("grid-column: 2");
   expect(home).toContain("transform: none");
-  expect(home).toContain("margin: 6px 0 0");
+  expect(home).toContain("margin-top: 2px");
   expect(home).toContain("calc((100% - 16px) * 0.82)");
   expect(home).toContain("text-decoration: none !important");
   expect(home).toContain("background: #efeff1");
   expect(home).toContain(".wyn-post-follow-pill.is-following");
   expect(home).toContain("width: 120px");
-  expect(home).toContain("padding-top: min(env(safe-area-inset-top), 47px);");
+  expect(home).toContain("padding-top: min(env(safe-area-inset-top), 20px);");
   expect(home).toContain(".wyn-action-save");
   expect(tabs).toContain("wyn-home-tab-indicator");
   expect(tabs).not.toContain('background: active ? "var(--wyn-surface)"');
@@ -44,6 +44,7 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(card).toContain('size={40}');
   expect(card).toContain("viewer.savedDropIds.has(row.id)");
   expect(card).toContain("<RichPostText");
+  expect(card).toContain("… ดูเพิ่มเติม");
   expect(card).toContain("รีโพสต์โดย {row.redropper_username");
   expect(actions).toContain("<Bookmark");
 });

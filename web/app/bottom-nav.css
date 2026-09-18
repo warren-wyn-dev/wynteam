@@ -7,14 +7,14 @@
  */
 
 .route-with-bottom-nav {
-  --wyn-bottom-nav-height: 48px;
+  --wyn-bottom-nav-height: 44px;
   /* Keep route content and the fixed bar on the same capped iOS inset. */
-  padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 32px));
+  padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));
 }
 
 .route-bottom-nav {
-  /* The approved master reserves a 32px iOS home-indicator zone. */
-  --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 32px);
+  /* Keep the compact reference spacing above the iOS home indicator. */
+  --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);
   position: fixed;
   z-index: 70;
   left: 50%;
@@ -24,7 +24,7 @@
   width: min(100%, 680px);
   height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
   min-height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
-  padding: 4px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
+  padding: 2px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
   background: var(--wyn-bg, var(--paper));
   border: 0;
   border-top: 1px solid var(--wyn-border, var(--hairline));
@@ -40,16 +40,16 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  padding: 3px 3px 4px;
+  padding: 2px 3px 3px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  color: var(--wyn-text-secondary, #747474);
+  gap: 2px;
+  color: #737373;
   text-decoration: none;
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1;
   font-weight: 400;
   -webkit-tap-highlight-color: transparent;
@@ -72,22 +72,22 @@
 }
 
 .route-nav-glyph {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   display: block;
-  flex: 0 0 26px;
+  flex: 0 0 24px;
   color: currentColor;
 }
 
 /* Compatibility hooks kept for older fixtures. */
 .route-create-destination {
-  gap: 3px;
-  color: #747474;
+  gap: 2px;
+  color: #737373;
 }
 
 .route-create-button {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   background: transparent;
@@ -95,14 +95,14 @@
 }
 
 .route-create-button .route-nav-glyph {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
 .route-nav-icon-wrap {
   position: relative;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   display: block;
 }
 
@@ -130,7 +130,7 @@
 
 @media (max-width: 359px) {
   .route-with-bottom-nav {
-    --wyn-bottom-nav-height: 46px;
+    --wyn-bottom-nav-height: 42px;
   }
 
   .route-nav-link {

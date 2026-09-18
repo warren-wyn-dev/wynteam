@@ -9,6 +9,33 @@ import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import type { HomeViewerState } from "@/lib/home-actions";
 
+function splitHomeCaption(value: string) {
+  const lines = value.trim().split(/\r?\n/);
+  let tagStart = lines.length;
+  while (tagStart > 0) {
+    const line = lines[tagStart - 1].trim();
+    if (!line) {
+      if (tagStart < lines.length) {
+        tagStart -= 1;
+        continue;
+      }
+      break;
+    }
+    if (line.startsWith("#")) {
+      tagStart -= 1;
+      continue;
+    }
+    break;
+  }
+
+  const prose = lines.slice(0, tagStart).join("\n").trimEnd().replace(/\n{3,}/g, "\n\n");
+  const tags = lines.slice(tagStart).join("\n").trim();
+  const chars = Array.from(prose);
+  const truncated = chars.length > 190;
+  const visibleProse = truncated ? chars.slice(0, 190).join("").trimEnd() : prose;
+  return { visibleProse, tags, truncated };
+}
+
 /**
  * One Home feed card. Business logic stays in HomeScreen while the visual
  * composition follows the approved compact Threads-inspired WYNOS mockup.
@@ -47,11 +74,12 @@ export function HomePostCard({
   const time = relativeTimeTh(row.created_at);
   const timeAndLocation = row.location ? `${time} · 📍 ${row.location}` : time;
   const profileHref = `/profile/${row.author_id}`;
+  const caption = row.caption ? splitHomeCaption(row.caption) : null;
 
   return (
     <article
       className={`wyn-post ${row.redrop_id ? "has-redrop" : ""}`}
-      style={{ paddingTop: row.redrop_id ? 14 : 9 }}
+      style={{ paddingTop: row.redrop_id ? 10 : 8 }}
     >
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
@@ -75,20 +103,28 @@ export function HomePostCard({
           onFollow={onFollow}
           onMore={onMore}
         />
-        {row.caption ? (
-          <RichPostText
-            className="wyn-post-caption"
-            value={row.caption}
-            postHref={`/drop/${row.id}`}
-            compact
-            style={{
-              margin: "6px 0 0",
-              transform: "none",
-              fontSize: 15,
-              lineHeight: 1.5,
-              fontWeight: 400,
-            }}
-          />
+        {caption ? (
+          <div className="wyn-post-caption-wrap">
+            {caption.visibleProse ? (
+              <RichPostText
+                className="wyn-post-caption"
+                value={caption.visibleProse}
+                postHref={`/drop/${row.id}`}
+                compact
+              />
+            ) : null}
+            {caption.truncated ? (
+              <Link className="wyn-post-more-text" href={`/drop/${row.id}`}>… ดูเพิ่มเติม</Link>
+            ) : null}
+            {caption.tags ? (
+              <RichPostText
+                className="wyn-post-caption wyn-post-caption-tags"
+                value={caption.tags}
+                postHref={`/drop/${row.id}`}
+                compact
+              />
+            ) : null}
+          </div>
         ) : null}
         <PostMediaCarousel
           urls={images}

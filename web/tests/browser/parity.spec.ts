@@ -114,7 +114,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
     "Quote ReDrop", "ไม่สนใจโพสต์นี้", "เลิกทำ", "submit_report", 'from("feed_signals")',
     "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
   ]) expect(home).toContain(contract);
-  expect(postActions).toContain('<Send size={20} strokeWidth={2} />');
+  expect(postActions).toContain('<Send size={19} strokeWidth={2} />');
   expect(postAuthorRow).toContain("ขอติดตามแล้ว");
   expect(postAuthorRow).toContain("กำลังติดตาม");
   const homePostCard = await readFile(path.join(root, "components/home/home-post-card.tsx"), "utf8");
@@ -128,7 +128,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
     ".wyn-post-follow-pill.is-following",
     "font-size: 16px",
     "max-width: 96px",
-    "gap: 28px",
+    "gap: 26px",
   ]) expect(homeCss).toContain(contract);
 
   const bottomNav = await readFile(path.join(root, "components/bottom-navigation.tsx"), "utf8");
@@ -139,7 +139,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(bottomNav).toContain('href="/?compose=1"');
   expect(bottomNav).not.toContain('className="route-create-button"');
   expect(bottomNavCss).toContain("width: min(100%, 680px)");
-  expect(bottomNavCss).toContain("font-size: 11.5px");
+  expect(bottomNavCss).toContain("font-size: 11px");
   expect(bottomNavCss).toContain("border-top: 1px solid");
   expect(routeUi).toContain("GoldenDropCard");
 
