@@ -12,7 +12,7 @@
   position: sticky;
   top: 0;
   z-index: 32;
-  /* Cap tall Dynamic Island safe areas to the approved 426×923 master geometry. */
+  /* Reference screenshot uses a compact iPhone top inset; cap Dynamic Island spacing to that visual target. */
   padding-top: min(env(safe-area-inset-top), 20px);
   background: var(--wyn-bg);
 }
@@ -178,7 +178,7 @@
   position: relative;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
-  column-gap: 12px;
+  column-gap: 10px;
   row-gap: 0;
   width: 100%;
   padding: 10px 16px 0;
@@ -447,7 +447,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 5px;
-  color: var(--wyn-text-secondary);
+  color: #8e8e93;
   text-decoration: none;
 }
 
