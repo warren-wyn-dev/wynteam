@@ -100,7 +100,7 @@ const rows: HomeFeedRow[] = [
     redrop_count: 0,
     audience: "everyone",
   },
-]
+];
 
 const viewer: HomeViewerState = {
   likedDropIds: new Set(["drop-1"]),
