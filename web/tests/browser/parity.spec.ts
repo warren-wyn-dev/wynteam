@@ -115,6 +115,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
     "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
   ]) expect(home).toContain(contract);
   expect(postActions).toContain('<Send size={20} strokeWidth={2} />');
+  expect(postActions).toContain('<Repeat2 size={22} strokeWidth={2} />');
   expect(postAuthorRow).toContain("ขอติดตามแล้ว");
   expect(postAuthorRow).toContain("กำลังติดตาม");
   const homePostCard = await readFile(path.join(root, "components/home/home-post-card.tsx"), "utf8");

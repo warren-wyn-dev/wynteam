@@ -67,7 +67,7 @@ export function PostActions({
           aria-label="รีโพสต์"
           onClick={onRedrop}
         >
-          <Repeat2 size={20} strokeWidth={2} />
+          <Repeat2 size={22} strokeWidth={2} />
           {count(redropCount)}
         </button>
       ) : null}
