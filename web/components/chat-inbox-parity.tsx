@@ -421,16 +421,16 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
               </div>
 
               <div className="wyn-note-avatar-large">
-                <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={132} />
+                <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={88} />
               </div>
 
               <div className="wyn-note-tools" aria-label="เครื่องมือโน้ต">
                 <button type="button" className="wyn-note-tool" aria-label="สถานที่">
-                  <span><MapPin size={28} strokeWidth={1.9} /></span>
+                  <span><MapPin size={22} strokeWidth={1.9} /></span>
                   <small>สถานที่</small>
                 </button>
                 <button type="button" className="wyn-note-tool" aria-label="อีโมจิ">
-                  <span><Smile size={28} strokeWidth={1.9} /></span>
+                  <span><Smile size={22} strokeWidth={1.9} /></span>
                   <small>อีโมจิ</small>
                 </button>
               </div>
@@ -438,15 +438,15 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
 
             <div className="wyn-note-info-card">
               <div className="wyn-note-info-row">
-                <Clock size={24} strokeWidth={1.8} />
+                <Clock size={19} strokeWidth={1.8} />
                 <span><strong>แสดงเป็นเวลา 24 ชั่วโมง</strong><small>โน้ตของคุณจะหายไปโดยอัตโนมัติหลัง 24 ชั่วโมง</small></span>
               </div>
               <div className="wyn-note-info-row">
-                <Users size={24} strokeWidth={1.8} />
+                <Users size={19} strokeWidth={1.8} />
                 <span><strong>แสดงให้ผู้ติดตามที่คุณติดตามกลับ</strong><small>เฉพาะคนที่คุณติดตามกลับเท่านั้นที่เห็นโน้ตนี้</small></span>
               </div>
               <div className="wyn-note-info-row">
-                <MessageCircle size={24} strokeWidth={1.8} />
+                <MessageCircle size={19} strokeWidth={1.8} />
                 <span><strong>แชร์ความรู้สึกได้สั้น ๆ</strong><small>ใช้โน้ตเพื่อบอกสถานะ ความรู้สึก หรืออะไรก็ได้</small></span>
               </div>
             </div>
