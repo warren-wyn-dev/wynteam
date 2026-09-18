@@ -34,7 +34,7 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(home).toContain("line-height: 1.31");
   expect(home).toContain("font-size: 15px");
   expect(home).toContain("font-size: 14px");
-  expect(home).toContain("background: #efeff1");
+  expect(home).toContain("background: #f1f1f3");
   expect(home).toContain(".wyn-post-follow-pill.is-following");
   expect(authorRow).toContain('"กำลังติดตาม"');
   expect(authorRow).toContain('aria-pressed={following || followRequested}');
