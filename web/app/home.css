@@ -345,6 +345,11 @@
   margin-top: 4px;
 }
 
+.wyn-post-caption-tags.is-inline {
+  display: inline;
+  margin: 0 0 0 5px;
+}
+
 .wyn-post-more-text {
   margin-left: 5px;
   color: #737378;

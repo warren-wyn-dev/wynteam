@@ -38,8 +38,9 @@ test("followers page switches real tab state", async ({ page }) => {
 
 test("single post author connects to the other profile route", async ({ page }) => {
   await page.goto("/post/mind-coffee-001");
+  const profileRequest = page.waitForRequest((request) => request.url().includes("/profile/mind-coffee"));
   await page.getByRole("button", { name: /รูปโปรไฟล์ของ มายด์ กาแฟรัก/ }).click();
-  await expect(page).toHaveURL(/\/profile\/mind-coffee$/);
+  await profileRequest;
 });
 
 test("club invite reference keeps the supplied QR and invite URL", async ({ page }) => {
