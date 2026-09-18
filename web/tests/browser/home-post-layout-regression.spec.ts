@@ -8,17 +8,17 @@ const css = () => readFileSync(join(root, "app/home.css"), "utf8");
 test("Home post keeps the approved avatar/content two-column contract", () => {
   const home = css();
   expect(home).toMatch(/\.wyn-post \{[\s\S]*?display: grid;/);
-  expect(home).toContain("grid-template-columns: 44px minmax(0, 1fr)");
-  expect(home).toContain("padding: 12px 16px 0");
+  expect(home).toContain("grid-template-columns: 40px minmax(0, 1fr)");
+  expect(home).toContain("padding: 14px 16px 0");
   expect(home).toMatch(/\.wyn-post-body \{[\s\S]*?grid-column: 2;/);
-  expect(home).toMatch(/\.wyn-post-avatar \{[\s\S]*?margin-top: 6px;/);
+  expect(home).toMatch(/\.wyn-post-avatar \{[\s\S]*?margin-top: 2px;/);
 });
 
 test("caption media and actions remain compact in the right content column", () => {
   const home = css();
-  expect(home).toMatch(/\.wyn-post-caption \{[\s\S]*?margin: 3px 0 0;[\s\S]*?transform: none;/);
-  expect(home).toMatch(/\.wyn-post-media \{[\s\S]*?margin-top: 6px;/);
-  expect(home).toMatch(/\.wyn-post-actions \{[\s\S]*?margin: 4px 0 12px;/);
+  expect(home).toMatch(/\.wyn-post-caption \{[\s\S]*?margin: 6px 0 0;[\s\S]*?transform: none;/);
+  expect(home).toMatch(/\.wyn-post-media \{[\s\S]*?margin-top: 8px;/);
+  expect(home).toMatch(/\.wyn-post-actions \{[\s\S]*?margin: 6px 0 14px;/);
   expect(home).not.toMatch(/\.wyn-post-media \{[\s\S]{0,160}?grid-column: 1 \/ -1;/);
   expect(home).not.toMatch(/\.wyn-post-actions \{[\s\S]{0,160}?grid-column: 1 \/ -1;/);
 });
