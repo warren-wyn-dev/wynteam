@@ -26,7 +26,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 8px;
 }
 
 .wyn-chat-compose-action {
@@ -86,7 +86,7 @@
   padding: 7px 22px 12px;
   display: flex;
   align-items: flex-end;
-  gap: 12px;
+  gap: 14px;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scrollbar-width: none;
@@ -444,7 +444,7 @@
   padding: 0;
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 0;
   background: transparent;
   color: var(--wyn-text);
@@ -482,7 +482,7 @@
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   align-items: start;
-  gap: 14px;
+  gap: 12px;
 }
 
 .wyn-note-info-row > svg {
