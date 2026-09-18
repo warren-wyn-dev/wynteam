@@ -68,11 +68,13 @@
   justify-content: flex-end;
 }
 
-/* Profile uses GoldenDropCard. Override its older parity rules only inside
-   the profile feed so Search/Saved remain untouched. */
+/* Profile uses GoldenDropCard. Inside the profile feed, match Home's
+   action strip exactly: same icon sizing, muted color, intrinsic widths,
+   baseline, count rhythm, compact left cluster, and Bookmark pinned right. */
 .profile-feed-list .golden-drop-actions {
-  min-height: 40px;
-  margin: 4px 16px 8px 0;
+  min-height: 30px;
+  margin: 4px 0 6px;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -82,17 +84,22 @@
 .profile-feed-list .golden-drop-actions > button,
 .profile-feed-list .golden-drop-actions > a {
   flex: 0 0 auto;
-  min-width: 28px;
-  min-height: 40px;
-  padding: 4px 0;
+  min-width: 24px;
+  min-height: 34px;
+  height: 34px;
+  padding: 5px 0;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 4px;
+  gap: 5px;
   border: 0;
+  border-radius: 0;
   background: transparent;
-  color: #8e8e93;
-  font-size: 14px;
+  color: #73777f;
+  font-size: 13px;
+  line-height: 0;
+  font-weight: 500;
   text-decoration: none;
 }
 
@@ -101,17 +108,34 @@
 }
 
 .profile-feed-list .golden-drop-actions > button.active {
-  color: #0a84ff;
+  color: var(--wyn-text, #111111);
+}
+
+.profile-feed-list .golden-drop-actions .golden-drop-share {
+  min-width: 24px;
+}
+
+.profile-feed-list .golden-drop-actions .wyn-share-icon {
+  width: 24px;
+  height: 24px;
+  transform: translateY(0.5px);
+  transform-origin: center;
+}
+
+.profile-feed-list .golden-drop-actions .golden-drop-save-inline {
+  display: inline-flex !important;
+  min-width: 22px;
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 /* system-parity-lock previously synthesized a visible 0 for GoldenDropCard.
-   Profile now follows the requested Threads behavior: no number until > 0. */
-.profile-feed-list .golden-drop-actions > button:not([aria-label="แชร์"]):not(:has(> span))::after,
+   Profile follows Home: no engagement number until the count is above zero. */
+.profile-feed-list .golden-drop-actions > button:not([aria-label="แชร์"]):not([aria-label="บันทึก"]):not([aria-label="ยกเลิกบันทึก"]):not(:has(> span))::after,
 .profile-feed-list .golden-drop-actions > a:not(:has(> span))::after {
   content: none !important;
 }
 
-/* Keep the profile action strip identical to the requested four-action row. */
 .profile-feed-list .golden-drop-view {
   display: none !important;
 }
