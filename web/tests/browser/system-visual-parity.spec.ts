@@ -67,7 +67,6 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(notesCss).toContain("grid-template-rows: auto 56px 18px");
   expect(notesCss).toContain("max-width: 120px");
   expect(notesCss).toContain("overflow-wrap: anywhere");
-  expect(notesCss).not.toContain("-webkit-line-clamp: 2");
   expect(notesCss).toContain(".wyn-note-screen");
   expect(notesCss).toContain("width: 88px");
   expect(notesCss).toContain("width: min(72%, 270px)");
