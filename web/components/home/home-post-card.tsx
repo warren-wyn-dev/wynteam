@@ -23,6 +23,7 @@ export function HomePostCard({
   onRedrop,
   onFollow,
   onShare,
+  onSave,
   priority = false,
 }: {
   row: HomeFeedRow;
@@ -34,6 +35,7 @@ export function HomePostCard({
   onRedrop: () => void;
   onFollow: () => void;
   onShare: () => void;
+  onSave: () => void;
   priority?: boolean;
 }) {
   const liked = viewer.likedDropIds.has(row.id);
@@ -109,7 +111,7 @@ export function HomePostCard({
           commentHref={`/drop/${row.id}#comments`}
           onRedrop={onRedrop}
           onShare={onShare}
-          onSave={onMore}
+          onSave={onSave}
           modernFeed
         />
       </div>

@@ -88,7 +88,8 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
 
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(nav).toContain(label);
   expect(navCss).toContain("--wyn-bottom-nav-height: 48px;");
-  expect(navCss).toContain("--wyn-nav-safe-bottom: env(safe-area-inset-bottom);");
+  expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 32px);");
+  expect(navCss).toContain("padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 32px));");
   expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom))");
   expect(navCss).toContain("width: min(100%, 680px)");
   expect(navCss).toContain("border-top: 1px solid");

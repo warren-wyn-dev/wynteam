@@ -12,7 +12,8 @@
   position: sticky;
   top: 0;
   z-index: 32;
-  padding-top: env(safe-area-inset-top);
+  /* Cap tall Dynamic Island safe areas to the approved 426×923 master geometry. */
+  padding-top: min(env(safe-area-inset-top), 47px);
   background: var(--wyn-bg);
 }
 
@@ -138,7 +139,7 @@
 .wyn-home-tab-indicator {
   flex: 0 0 auto;
   display: block;
-  width: calc(100% - 22px);
+  width: 120px;
   height: 2px;
   border-radius: var(--wyn-radius-full);
   background: transparent;

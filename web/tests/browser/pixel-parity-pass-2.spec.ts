@@ -21,17 +21,18 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
 
   // Founder-approved web Home direction intentionally supersedes the old
   // Flutter Home card/header visual parity while preserving the same actions.
-  expect(home).toContain("height: 56px");
+  expect(home).toContain("height: 36px");
+  expect(home).toContain("padding-top: min(env(safe-area-inset-top), 47px);");
   expect(home).toContain(".wyn-home-chat-badge");
-  expect(home).toContain("width: 8px");
+  expect(home).toContain("width: 7px");
   expect(homeHeader).toContain("notificationBadgeCount > 0");
   expect(homeHeader).toContain("aria-hidden=\"true\"");
   expect(homeTabs).toContain("wyn-home-tab-indicator");
   expect(homeTabs).not.toContain('background: active ? "var(--wyn-surface)"');
-  expect(home).toContain("padding: 12px 16px 0");
+  expect(home).toContain("padding: 14px 16px 0");
   expect(home).toContain("font-size: 16px");
   expect(home).toContain("font-size: 14px");
-  expect(home).toContain("background: var(--wyn-surface)");
+  expect(home).toContain("background: #efeff1");
   expect(home).toContain(".wyn-post-follow-pill.is-following");
   expect(authorRow).toContain('"กำลังติดตาม"');
   expect(authorRow).toContain('aria-pressed={following || followRequested}');
@@ -63,7 +64,9 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(navCss).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
   expect(navCss).toContain("border-radius: 0");
   expect(navCss).toContain("border-top: 1px solid");
-  expect(navCss).toContain("width: 27px");
+  expect(navCss).toContain("width: 26px");
+  expect(home).toContain("width: 120px;");
+  expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 32px);");
 
   expect(flutterDetail).toContain("Icons.mode_comment_outlined");
   expect(flutterDetail).toContain("Icons.repeat_rounded");

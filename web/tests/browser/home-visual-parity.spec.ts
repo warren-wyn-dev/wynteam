@@ -57,21 +57,24 @@ test("first Home post matches the master avatar/body/action geometry", async ({ 
   const caption = post.locator(".wyn-post-caption");
   const follow = post.getByRole("button", { name: "ติดตาม", exact: true });
   const save = post.getByRole("button", { name: "บันทึก", exact: true });
+  const redropLine = post.locator(".wyn-post-redrop-line");
 
   await expect(post).toBeVisible();
+  await expect(redropLine).toContainText("รีโพสต์โดย wynos_online");
   await expect(follow).toBeVisible();
   await expect(follow).toHaveCSS("height", "26px");
   await expect(save).toBeVisible();
   await expect(save).toHaveAttribute("aria-pressed", "false");
   await expect(post.locator(".wyn-post-author-row")).not.toContainText("@");
 
-  const [postBox, postMetrics, avatarBox, bodyBox, captionBox, saveBox] = await Promise.all([
+  const [postBox, postMetrics, avatarBox, bodyBox, captionBox, saveBox, redropBox] = await Promise.all([
     post.boundingBox(),
     post.evaluate((node) => ({ clientWidth: node.clientWidth, scrollWidth: node.scrollWidth })),
     avatar.boundingBox(),
     body.boundingBox(),
     caption.boundingBox(),
     save.boundingBox(),
+    redropLine.boundingBox(),
   ]);
 
   expect(postMetrics.scrollWidth).toBeLessThanOrEqual(postMetrics.clientWidth + 1);
@@ -80,13 +83,19 @@ test("first Home post matches the master avatar/body/action geometry", async ({ 
   expect(bodyBox).not.toBeNull();
   expect(captionBox).not.toBeNull();
   expect(saveBox).not.toBeNull();
+  expect(redropBox).not.toBeNull();
   expect(Math.abs((avatarBox?.width ?? 0) - 40)).toBeLessThanOrEqual(1);
   expect(Math.abs(((bodyBox?.x ?? 0) - (avatarBox?.x ?? 0)) - 54)).toBeLessThanOrEqual(1);
   expect(Math.abs((captionBox?.x ?? 0) - (bodyBox?.x ?? 0))).toBeLessThanOrEqual(1);
   expect(Math.abs(((postBox?.x ?? 0) + (postBox?.width ?? 0)) - ((saveBox?.x ?? 0) + (saveBox?.width ?? 0)) - 16)).toBeLessThanOrEqual(2);
+  expect(Math.abs((redropBox?.x ?? 0) - 41)).toBeLessThanOrEqual(2);
 
   const followBackground = await follow.evaluate((node) => getComputedStyle(node).backgroundColor);
   expect(followBackground).not.toBe("rgba(0, 0, 0, 0)");
+
+  await save.click();
+  const unsave = post.getByRole("button", { name: "ยกเลิกบันทึก", exact: true });
+  await expect(unsave).toHaveAttribute("aria-pressed", "true");
 });
 
 test("followed-style pending state remains visible as a white bordered control", async ({ page }) => {
