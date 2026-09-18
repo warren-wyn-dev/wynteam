@@ -55,7 +55,7 @@
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-share svg {
-  transform: translateY(1px) rotate(10deg);
+  transform: translateY(1px);
   transform-origin: center;
 }
 
