@@ -129,31 +129,50 @@ test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hi
   expect(postActions).not.toContain("visibility");
 });
 
-test("Profile feed actions match Home action geometry and icon system", () => {
-  const profileActions = read("app/threads-action-row.css");
+test("Profile feed reuses the exact Home action component and post metrics", () => {
+  const profile = read("components/profile-route.tsx");
+  const preview = read("components/phase3-ui.tsx");
   const golden = read("components/golden-drop-card.tsx");
-  const share = read("components/ui/wynos-share-icon.tsx");
+  const profileFeed = read("app/profile-home-feed.css");
+  const home = read("app/home.css");
 
-  expect(golden).toContain('<AnimatedHeart size={22} strokeWidth={2} liked={liked} />');
-  expect(golden).toContain('<MessageCircle size={22} strokeWidth={2} />');
-  expect(golden).toContain('<Repeat2 size={24} strokeWidth={2} />');
-  expect(golden).toContain('<WynosShareIcon size={24} />');
-  expect(golden).toContain('<Bookmark size={22} strokeWidth={2} fill={saved ? "currentColor" : "none"} />');
-  expect(golden).toContain("golden-drop-save-inline");
+  expect(profile).toContain("<DropPreviewCard row={row} homeParity");
+  expect(preview).toContain("homeParity?: boolean");
+  expect(preview).toContain("<GoldenDropCard row={row} homeParity={homeParity} />");
+  expect(golden).toContain("import { PostActions }");
+  expect(golden).toContain("homeParity ? (");
+  expect(golden).toContain("<PostActions");
+  expect(golden).toContain("modernFeed");
 
   for (const contract of [
-    ".profile-feed-list .golden-drop-actions",
+    "grid-template-columns: 40px minmax(0, 1fr)",
+    "column-gap: 10px",
+    "padding: 8px 16px 0",
+    "width: 40px",
+    "height: 40px",
+    "min-height: 22px",
+    "font-size: 15px",
+    "font-weight: 600",
+    "font-size: 14px",
+    "font-size: 16px",
+    "line-height: 1.31",
+    "border-radius: 14px",
     "min-height: 30px",
     "gap: 18px",
-    "min-width: 24px",
-    "height: 34px",
-    "color: #73777f",
-    "font-size: 13px",
-    "margin-left: auto",
-  ]) expect(profileActions).toContain(contract);
+  ]) expect(profileFeed).toContain(contract);
 
-  expect(share).toContain('className="wyn-share-icon"');
-  expect(share).toContain('strokeWidth="2.15"');
+  for (const contract of [
+    "grid-template-columns: 40px minmax(0, 1fr)",
+    "column-gap: 10px",
+    "font-size: 15px",
+    "font-size: 14px",
+    "font-size: 16px",
+    "line-height: 1.31",
+    "border-radius: 14px",
+  ]) expect(home).toContain(contract);
+
+  expect(profileFeed).toContain('[aria-label="บันทึก"]::after');
+  expect(profileFeed).toContain("content: none !important");
 });
 
 test("Creation surface matches Beta4 composer metrics while keeping the no Check-in product rule", () => {

@@ -80,7 +80,7 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
   if (loading && !rows.length) return <FeedSkeleton items={2} />;
   if (!allowed) return <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>;
   if (!rows.length) return <EmptyState>{kind === "posts" ? "ยังไม่มี Post เลย" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>;
-  return <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
+  return <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
 function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClient; userId: string; summary: ProfileSummary; onDone: () => void }) {
