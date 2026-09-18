@@ -129,6 +129,33 @@ test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hi
   expect(postActions).not.toContain("visibility");
 });
 
+test("Profile feed actions match Home action geometry and icon system", () => {
+  const profileActions = read("app/threads-action-row.css");
+  const golden = read("components/golden-drop-card.tsx");
+  const share = read("components/ui/wynos-share-icon.tsx");
+
+  expect(golden).toContain('<AnimatedHeart size={22} strokeWidth={2} liked={liked} />');
+  expect(golden).toContain('<MessageCircle size={22} strokeWidth={2} />');
+  expect(golden).toContain('<Repeat2 size={24} strokeWidth={2} />');
+  expect(golden).toContain('<WynosShareIcon size={24} />');
+  expect(golden).toContain('<Bookmark size={22} strokeWidth={2} fill={saved ? "currentColor" : "none"} />');
+  expect(golden).toContain('className="golden-drop-save-inline"');
+
+  for (const contract of [
+    ".profile-feed-list .golden-drop-actions",
+    "min-height: 30px",
+    "gap: 18px",
+    "min-width: 24px",
+    "height: 34px",
+    "color: #73777f",
+    "font-size: 13px",
+    "margin-left: auto",
+  ]) expect(profileActions).toContain(contract);
+
+  expect(share).toContain('className="wyn-share-icon"');
+  expect(share).toContain('strokeWidth="2.15"');
+});
+
 test("Creation surface matches Beta4 composer metrics while keeping the no Check-in product rule", () => {
   const composer = read("components/beta4-composer.tsx");
   const finalLock = read("app/system-parity-final.css");
