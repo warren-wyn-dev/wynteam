@@ -365,14 +365,16 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                       href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}
                       key={row.conversation_id}
                     >
-                      {unread ? <span className="wyn-chat-unread-dot" aria-label="ยังไม่อ่าน" /> : null}
                       <Avatar src={row.other_avatar_url} label={row.other_username} size={52} />
                       <span className="chat-row-copy">
                         <strong>{row.other_display_name?.trim() || row.other_username}</strong>
                         <small>{conversationPreview(row)}</small>
                       </span>
                       <span className="flutter-chat-row-meta">
-                        <time>{row.last_message_at ? relativeTimeTh(row.last_message_at) : ""}</time>
+                        <span className="wyn-chat-meta-stack">
+                          <time>{row.last_message_at ? relativeTimeTh(row.last_message_at) : ""}</time>
+                          {unread ? <span className="wyn-chat-unread-dot" aria-label="ยังไม่อ่าน" /> : null}
+                        </span>
                         <ChevronRight size={21} strokeWidth={1.7} aria-hidden="true" />
                       </span>
                     </Link>
