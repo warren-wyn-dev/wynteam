@@ -31,6 +31,8 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(homeTabs).not.toContain('background: active ? "var(--wyn-surface)"');
   expect(home).toContain("padding: 10px 16px 0");
   expect(home).toContain("font-size: 16px");
+  expect(home).toContain("line-height: 1.31");
+  expect(home).toContain("font-size: 15px");
   expect(home).toContain("font-size: 14px");
   expect(home).toContain("background: #efeff1");
   expect(home).toContain(".wyn-post-follow-pill.is-following");

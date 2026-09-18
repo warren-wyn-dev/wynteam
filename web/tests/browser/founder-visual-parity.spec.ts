@@ -28,7 +28,7 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(home).toContain("margin: 0 0 2px 21px");
   expect(home).toContain("grid-column: 2");
   expect(home).toContain("transform: none");
-  expect(home).toContain("margin-top: 2px");
+  expect(home).toContain("margin-top: 3px");
   expect(home).toContain("calc((100% - 16px) * 0.82)");
   expect(home).toContain("text-decoration: none !important");
   expect(home).toContain("background: #efeff1");
@@ -36,6 +36,10 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(home).toContain("width: 120px");
   expect(home).toContain("padding-top: min(env(safe-area-inset-top), 20px);");
   expect(home).toContain(".wyn-action-save");
+  expect(home).toContain("font-size: 16px");
+  expect(home).toContain("line-height: 1.31");
+  expect(home).toContain("font-size: 15px");
+  expect(home).toContain("font-size: 14px");
   expect(tabs).toContain("wyn-home-tab-indicator");
   expect(tabs).not.toContain('background: active ? "var(--wyn-surface)"');
   expect(author).toContain('"กำลังติดตาม"');

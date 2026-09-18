@@ -55,8 +55,11 @@ test("first post matches compact avatar author caption and action geometry", asy
   const actions = post.locator(".wyn-post-actions");
 
   await expect(redrop).toContainText("รีโพสต์โดย WYNOS");
-  await expect(follow).toHaveCSS("height", "24px");
-  await expect(caption).toHaveCSS("font-size", "14px");
+  await expect(follow).toHaveCSS("height", "28px");
+  await expect(caption).toHaveCSS("font-size", "16px");
+  await expect(post.locator(".wyn-post-author-name")).toHaveCSS("font-size", "15px");
+  await expect(post.locator(".wyn-post-timestamp")).toHaveCSS("font-size", "14px");
+  await expect(redrop).toHaveCSS("font-size", "13px");
   await expect(moreText).toBeVisible();
   await expect(tags).toContainText("#WYNOS");
 
@@ -76,7 +79,7 @@ test("first post matches compact avatar author caption and action geometry", asy
   expect(Math.abs((avatarBox?.width ?? 0) - 40)).toBeLessThanOrEqual(1);
   expect(Math.abs(((bodyBox?.x ?? 0) - (avatarBox?.x ?? 0)) - 50)).toBeLessThanOrEqual(1);
   expect(Math.abs((redropBox?.x ?? 0) - 37)).toBeLessThanOrEqual(2);
-  expect((postBox?.height ?? 999)).toBeLessThan(330);
+  expect((postBox?.height ?? 999)).toBeLessThan(365);
   expect((actionsBox?.height ?? 0)).toBeLessThanOrEqual(34);
 });
 
@@ -94,9 +97,9 @@ test("feed density keeps short posts short instead of article-sized", async ({ p
   expect(firstBox).not.toBeNull();
   expect(secondBox).not.toBeNull();
   expect(thirdBox).not.toBeNull();
-  expect(firstBox?.height ?? 999).toBeLessThan(330);
-  expect(secondBox?.height ?? 999).toBeLessThan(230);
-  expect(thirdBox?.height ?? 999).toBeLessThan(130);
+  expect(firstBox?.height ?? 999).toBeLessThan(365);
+  expect(secondBox?.height ?? 999).toBeLessThan(260);
+  expect(thirdBox?.height ?? 999).toBeLessThan(150);
 });
 
 test("bottom navigation stays compact and preserves all five WYNOS destinations", async ({ page }) => {
