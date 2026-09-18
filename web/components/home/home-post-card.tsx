@@ -114,9 +114,18 @@ export function HomePostCard({
               />
             ) : null}
             {caption.truncated ? (
-              <Link className="wyn-post-more-text" href={`/drop/${row.id}`}>… ดูเพิ่มเติม</Link>
-            ) : null}
-            {caption.tags ? (
+              <>
+                {caption.tags ? (
+                  <RichPostText
+                    className="wyn-post-caption wyn-post-caption-tags is-inline"
+                    value={caption.tags}
+                    postHref={`/drop/${row.id}`}
+                    compact
+                  />
+                ) : null}
+                <Link className="wyn-post-more-text" href={`/drop/${row.id}`}>… ดูเพิ่มเติม</Link>
+              </>
+            ) : caption.tags ? (
               <RichPostText
                 className="wyn-post-caption wyn-post-caption-tags"
                 value={caption.tags}
