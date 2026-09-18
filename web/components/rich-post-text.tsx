@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
-const tokenPattern = /((?:https?:\/\/[^\s]+)|(?:#[\p{L}\p{N}_]+)|(?:@[\p{L}\p{N}_.]+))/gu;
+const tokenPattern = /((?:https?:\/\/[^\s]+)|(?:#[\p{L}\p{M}\p{N}_]+)|(?:@[\p{L}\p{M}\p{N}_.]+))/gu;
 const compactHashtagBlankLinePattern = /\r?\n(?:[ \t]*\r?\n)+(?=[ \t]*#)/g;
 
 function renderTokens(value: string, postHref?: string) {

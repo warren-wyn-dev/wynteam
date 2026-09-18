@@ -48,14 +48,16 @@
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-share {
-  min-width: 22px;
+  min-width: 24px;
   padding: 5px 0;
   margin: 0;
   justify-content: flex-start;
 }
 
-.wyn-post-actions.wyn-threads-actions .wyn-action-share svg {
-  transform: translateY(1px);
+.wyn-post-actions.wyn-threads-actions .wyn-action-share .wyn-share-icon {
+  width: 24px;
+  height: 24px;
+  transform: translateY(0.5px);
   transform-origin: center;
 }
 
