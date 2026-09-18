@@ -340,14 +340,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final displayName = _displayNameController.text.trim();
       final bio = _bioController.text.trim();
       final username = _usernameController.text.trim();
-      final socialLinks = <String, String>{
-        if (_instagramController.text.trim().isNotEmpty)
-          'instagram': _instagramController.text.trim(),
-        if (_twitterController.text.trim().isNotEmpty)
-          'twitter': _twitterController.text.trim(),
-        if (_youtubeController.text.trim().isNotEmpty)
-          'youtube': _youtubeController.text.trim(),
-      };
+      // Preserve forward-compatible profile metadata keys that this older
+      // editor does not render (for example the web Chat Notes metadata).
+      // Only replace the three social-link keys owned by this screen.
+      final socialLinks = <String, String>{...widget.profile.socialLinks}
+        ..remove('instagram')
+        ..remove('twitter')
+        ..remove('youtube');
+      if (_instagramController.text.trim().isNotEmpty) {
+        socialLinks['instagram'] = _instagramController.text.trim();
+      }
+      if (_twitterController.text.trim().isNotEmpty) {
+        socialLinks['twitter'] = _twitterController.text.trim();
+      }
+      if (_youtubeController.text.trim().isNotEmpty) {
+        socialLinks['youtube'] = _youtubeController.text.trim();
+      }
 
       await widget.profileRepository.updateProfile(
         userId: widget.profile.id,
