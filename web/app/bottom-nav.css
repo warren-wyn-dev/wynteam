@@ -13,7 +13,7 @@
 }
 
 .route-bottom-nav {
-  /* The approved master reserves a 32px iOS home-indicator zone. */
+  /* Keep the compact reference spacing above the iOS home indicator. */
   --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);
   position: fixed;
   z-index: 70;
@@ -130,7 +130,7 @@
 
 @media (max-width: 359px) {
   .route-with-bottom-nav {
-    --wyn-bottom-nav-height: 46px;
+    --wyn-bottom-nav-height: 42px;
   }
 
   .route-nav-link {
