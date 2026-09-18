@@ -2,22 +2,11 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  Bookmark,
-  CheckCircle2,
-  Flag,
-  Heart,
-  Link as LinkIcon,
-  MessageCircle,
-  MoreVertical,
-  Pin,
-  Share2,
-  Trash2,
-} from "lucide-react";
 import Link from "next/link";
 import { useRef, useState, type PointerEvent } from "react";
 
 import { Avatar } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import {
   deleteClubPost,
@@ -105,7 +94,7 @@ function ClubPoll({ post, viewerUserId, onVote }: { post: ClubHomePost; viewerUs
           >
             {percent != null ? <span className="web-club-poll-fill" style={{ width: `${percent}%` }} /> : null}
             <span className="web-club-poll-copy">
-              {mine ? <CheckCircle2 size={16} /> : null}
+              {mine ? <WynosIcon name="checkCircle" size={16} strokeWidth={2} /> : null}
               <span>{option}</span>
               {percent != null ? <b>{percent}%</b> : null}
             </span>
@@ -245,7 +234,7 @@ export function ClubPostCardWeb({ client, userId, post: initialPost, onChange, o
             <small>{relativeTimeTh(post.created_at)}</small>
           </Link>
           <button type="button" className="web-club-post-more" aria-label="เพิ่มเติม" onClick={() => setMenuOpen(true)}>
-            <MoreVertical size={22} />
+            <WynosIcon name="moreVertical" size={22} strokeWidth={2} />
           </button>
         </header>
 
@@ -267,16 +256,16 @@ export function ClubPostCardWeb({ client, userId, post: initialPost, onChange, o
 
         {post.link_url ? (
           <a className="web-club-post-link" href={post.link_url} target="_blank" rel="noreferrer">
-            <LinkIcon size={16} /><span>{post.link_url}</span>
+            <WynosIcon name="link" size={16} strokeWidth={2} /><span>{post.link_url}</span>
           </a>
         ) : null}
 
         <div className="web-club-post-actions">
           <button className={post.liked_by_me ? "liked" : ""} type="button" aria-label={post.liked_by_me ? "เลิกถูกใจ" : "ถูกใจ"} onClick={() => void like()}>
-            <Heart size={17} fill={post.liked_by_me ? "currentColor" : "none"} /><span>{post.like_count}</span>
+            <WynosIcon name="like" size={17} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} /><span>{post.like_count}</span>
           </button>
           <Link href={`/club-post/${post.id}`} aria-label="ดูคอมเมนต์">
-            <MessageCircle size={17} /><span>{post.comment_count}</span>
+            <WynosIcon name="comment" size={17} strokeWidth={2} /><span>{post.comment_count}</span>
           </Link>
         </div>
         {error ? <p className="route-error web-club-post-error">{error}</p> : null}
@@ -286,11 +275,11 @@ export function ClubPostCardWeb({ client, userId, post: initialPost, onChange, o
         <div className="route-modal-backdrop audit-sheet-backdrop" role="presentation" onClick={() => setMenuOpen(false)}>
           <section className="audit-action-sheet" role="dialog" aria-modal="true" aria-label="ตัวเลือกโพสต์ Club" onClick={(event) => event.stopPropagation()}>
             <div className="audit-sheet-grip" />
-            <button className="audit-sheet-row" type="button" onClick={() => void share()}><Share2 size={20} />แชร์</button>
-            <button className="audit-sheet-row" type="button" onClick={() => void save()}><Bookmark size={20} fill={post.saved_by_me ? "currentColor" : "none"} />{post.saved_by_me ? "เอาออกจากบันทึก" : "บันทึก"}</button>
-            {isOwn || canModerate ? <button className="audit-sheet-row" type="button" disabled={busy} onClick={() => void remove()}><Trash2 size={20} />ลบโพสต์</button> : null}
-            {!isOwn && canModerate ? <button className="audit-sheet-row" type="button" disabled={busy} onClick={() => void pin()}><Pin size={20} fill={post.pinned ? "currentColor" : "none"} />{post.pinned ? "เลิกปักหมุด" : "ปักหมุด"}</button> : null}
-            {!isOwn ? <button className="audit-sheet-row" type="button" disabled={busy} onClick={() => void report()}><Flag size={20} />รายงานโพสต์</button> : null}
+            <button className="audit-sheet-row" type="button" onClick={() => void share()}><WynosIcon name="share" size={20} strokeWidth={2} />แชร์</button>
+            <button className="audit-sheet-row" type="button" onClick={() => void save()}><WynosIcon name="bookmark" size={20} strokeWidth={2} fill={post.saved_by_me ? "currentColor" : "none"} />{post.saved_by_me ? "เอาออกจากบันทึก" : "บันทึก"}</button>
+            {isOwn || canModerate ? <button className="audit-sheet-row" type="button" disabled={busy} onClick={() => void remove()}><WynosIcon name="trash" size={20} strokeWidth={2} />ลบโพสต์</button> : null}
+            {!isOwn && canModerate ? <button className="audit-sheet-row" type="button" disabled={busy} onClick={() => void pin()}><WynosIcon name="pin" size={20} strokeWidth={2} fill={post.pinned ? "currentColor" : "none"} />{post.pinned ? "เลิกปักหมุด" : "ปักหมุด"}</button> : null}
+            {!isOwn ? <button className="audit-sheet-row" type="button" disabled={busy} onClick={() => void report()}><WynosIcon name="flag" size={20} strokeWidth={2} />รายงานโพสต์</button> : null}
           </section>
         </div>
       ) : null}
