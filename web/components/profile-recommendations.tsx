@@ -1,11 +1,11 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Avatar } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import type { HomeFeedRow } from "@/lib/feed";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
 import { fetchSuggestedProfiles, profileLabel, type ProfileRow } from "@/lib/phase3-data";
@@ -91,7 +91,7 @@ export function ProfileRecommendations({
           const following = viewer.followedAuthorIds.has(profile.id);
           const requested = viewer.pendingFollowAuthorIds.has(profile.id);
           return <article className="profile-recommendation-card" key={profile.id}>
-            <button className="recommendation-dismiss" type="button" aria-label="ซ่อนคำแนะนำนี้" onClick={() => void dismiss(profile)}><X size={16} /></button>
+            <button className="recommendation-dismiss" type="button" aria-label="ซ่อนคำแนะนำนี้" onClick={() => void dismiss(profile)}><WynosIcon name="close" size={16} strokeWidth={2} /></button>
             <button className="recommendation-person" type="button" onClick={() => router.push(`/profile/${profile.id}`)}>
               <Avatar src={profile.avatar_url} label={profile.username} size={56} />
               <strong>{profileLabel(profile)}</strong>

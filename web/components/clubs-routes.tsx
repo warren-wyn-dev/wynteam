@@ -1,6 +1,5 @@
 "use client";
 
-import { Camera, ChevronRight, Lock, Plus, Search, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, searchClubs, type ClubRow } from "@/lib/phase3-data";
 
@@ -67,8 +67,8 @@ function ExploreClubs({ client, userId }: { client: SupabaseClient; userId: stri
   const newest = sections.newest.filter(match);
   return <AppChrome title="สำรวจ Club" userId={userId} backHref="/" showBottomNav={false}>
     {loading ? <LoadingState /> : <div className="audit-club-explore">
-      <section className="audit-club-hero"><h2>เจอคอมมูนิตี้ที่ใช่<span>สำหรับคุณ</span></h2><p>ร่วมคอมมูนิตี้ที่คุณสนใจ เชื่อมต่อกับคนที่คิดเหมือนกัน</p><button type="button" onClick={() => router.push("/clubs/new")}><Plus size={17} />สร้าง Club</button></section>
-      <label className="audit-club-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหา Club" /></label>
+      <section className="audit-club-hero"><h2>เจอคอมมูนิตี้ที่ใช่<span>สำหรับคุณ</span></h2><p>ร่วมคอมมูนิตี้ที่คุณสนใจ เชื่อมต่อกับคนที่คิดเหมือนกัน</p><button type="button" onClick={() => router.push("/clubs/new")}><WynosIcon name="post" size={17} strokeWidth={2} />สร้าง Club</button></section>
+      <label className="audit-club-search"><WynosIcon name="search" size={16} strokeWidth={2} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหา Club" /></label>
       {error ? <p className="route-error audit-club-error">{error}</p> : null}
       <section className="audit-club-section"><h3>กำลังนิยม</h3>{popular.length ? popular.map((club) => <ExploreClubRow club={club} pending={sections.pending.has(club.id)} joining={joining === club.id} onJoin={() => void join(club)} key={`popular:${club.id}`} />) : <p className="audit-club-empty">{query ? `ไม่พบ Club ที่ตรงกับ “${query}”` : "ยังไม่มี Club กำลังนิยมตอนนี้"}</p>}</section>
       <section className="audit-club-section"><h3>ใหม่ล่าสุด</h3>{newest.length ? newest.map((club) => <ExploreClubRow club={club} pending={sections.pending.has(club.id)} joining={joining === club.id} onJoin={() => void join(club)} key={`new:${club.id}`} />) : <p className="audit-club-empty">{query ? `ไม่พบ Club ที่ตรงกับ “${query}”` : "ยังไม่มี Club ใหม่ตอนนี้"}</p>}</section>
@@ -98,7 +98,7 @@ function MyClubs({ client, userId }: { client: SupabaseClient; userId: string })
     finally { setLoading(false); }
   }, [client, userId, cacheKey]);
   useEffect(() => { void load(!hadCache.current); }, [load]);
-  return <AppChrome title="Club ของฉัน" userId={userId} backHref="/" showBottomNav={false}>{loading ? <LoadingState /> : error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div> : rows.length ? <div className="audit-my-clubs">{rows.map((club) => <Link className="audit-my-club-row" href={`/club/${club.id}`} key={club.id}><ClubAvatar club={club} /><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก</small></span><ChevronRight size={18} /></Link>)}</div> : <EmptyState>ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ</EmptyState>}</AppChrome>;
+  return <AppChrome title="Club ของฉัน" userId={userId} backHref="/" showBottomNav={false}>{loading ? <LoadingState /> : error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div> : rows.length ? <div className="audit-my-clubs">{rows.map((club) => <Link className="audit-my-club-row" href={`/club/${club.id}`} key={club.id}><ClubAvatar club={club} /><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก</small></span><WynosIcon name="chevronRight" size={18} strokeWidth={2} /></Link>)}</div> : <EmptyState>ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ</EmptyState>}</AppChrome>;
 }
 
 export function ClubsRoute({ mine = false }: { mine?: boolean }) {
@@ -138,7 +138,7 @@ function CreateClubInner({ client, userId }: { client: SupabaseClient; userId: s
   return <AppChrome title="สร้าง Club" userId={userId} backHref="/clubs" showBottomNav={false}><div className="audit-create-club"><section className="audit-create-club-intro"><h2>สร้างพื้นที่ของคุณ</h2><p>ตั้งชื่อ เล่าให้คนอื่นรู้ว่า Club นี้เกี่ยวกับอะไร แล้วเลือกว่าจะเปิดสาธารณะหรือส่วนตัว</p></section><label className="audit-club-image-picker">{preview ? (
         // Local blob preview of an unsaved file — not eligible for the remote image optimizer.
         <img src={preview} alt="" />
-      ) : <Camera size={26} />}<span>{file ? "เปลี่ยนรูป Club" : "เลือกรูป Club"}</span><input type="file" accept="image/*" hidden disabled={saving} onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><label className="route-field"><span>ชื่อ Club <small>{count}/50</small></span><input value={name} maxLength={50} onChange={(event) => setName(event.target.value)} placeholder="ชื่อ Club" /></label><label className="route-field"><span>คำอธิบาย</span><textarea value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} placeholder="Club นี้เกี่ยวกับอะไร?" /></label><label className="route-field"><span>หมวดหมู่</span><input value={category} maxLength={50} onChange={(event) => setCategory(event.target.value)} placeholder="เช่น เทคโนโลยี, กีฬา" /></label><div className="audit-club-privacy"><button className={privacy === "public" ? "active" : ""} type="button" onClick={() => setPrivacy("public")}><UsersRound size={19} /><span><strong>สาธารณะ</strong><small>ทุกคนค้นหาและเข้าร่วมได้</small></span></button><button className={privacy === "private" ? "active" : ""} type="button" onClick={() => setPrivacy("private")}><Lock size={19} /><span><strong>ส่วนตัว</strong><small>ต้องได้รับอนุมัติก่อนเข้าร่วม</small></span></button></div>{error ? <p className="route-error">{error}</p> : null}<button className="route-primary audit-create-club-submit" type="button" disabled={saving || !name.trim()} onClick={() => void submit()}>{saving ? "กำลังสร้าง…" : "สร้าง Club"}</button></div></AppChrome>;
+      ) : <WynosIcon name="camera" size={26} strokeWidth={2} />}<span>{file ? "เปลี่ยนรูป Club" : "เลือกรูป Club"}</span><input type="file" accept="image/*" hidden disabled={saving} onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><label className="route-field"><span>ชื่อ Club <small>{count}/50</small></span><input value={name} maxLength={50} onChange={(event) => setName(event.target.value)} placeholder="ชื่อ Club" /></label><label className="route-field"><span>คำอธิบาย</span><textarea value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} placeholder="Club นี้เกี่ยวกับอะไร?" /></label><label className="route-field"><span>หมวดหมู่</span><input value={category} maxLength={50} onChange={(event) => setCategory(event.target.value)} placeholder="เช่น เทคโนโลยี, กีฬา" /></label><div className="audit-club-privacy"><button className={privacy === "public" ? "active" : ""} type="button" onClick={() => setPrivacy("public")}><WynosIcon name="club" size={19} strokeWidth={2} /><span><strong>สาธารณะ</strong><small>ทุกคนค้นหาและเข้าร่วมได้</small></span></button><button className={privacy === "private" ? "active" : ""} type="button" onClick={() => setPrivacy("private")}><WynosIcon name="lock" size={19} strokeWidth={2} /><span><strong>ส่วนตัว</strong><small>ต้องได้รับอนุมัติก่อนเข้าร่วม</small></span></button></div>{error ? <p className="route-error">{error}</p> : null}<button className="route-primary audit-create-club-submit" type="button" disabled={saving || !name.trim()} onClick={() => void submit()}>{saving ? "กำลังสร้าง…" : "สร้าง Club"}</button></div></AppChrome>;
 }
 
 export function CreateClubRoute() {

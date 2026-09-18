@@ -255,7 +255,7 @@ test("Post Detail closes the exact current Flutter geometry and interaction gaps
   expect(detail).toContain('size={44}');
   expect(detail).toContain('size={isReply ? 32 : 36}');
   expect(detail).toContain('placeholder="แสดงความคิดเห็น..."');
-  expect(detail).toContain('<BarChart3 size={22} />');
+  expect(detail).toContain('<WynosIcon name="poll" size={22} strokeWidth={2} />');
   expect(detail).not.toContain("window.prompt");
   expect(detail).not.toContain("window.confirm");
   expect(interaction).toContain(".detail-dialog-backdrop");
