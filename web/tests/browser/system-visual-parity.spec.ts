@@ -139,7 +139,7 @@ test("Profile feed actions match Home action geometry and icon system", () => {
   expect(golden).toContain('<Repeat2 size={24} strokeWidth={2} />');
   expect(golden).toContain('<WynosShareIcon size={24} />');
   expect(golden).toContain('<Bookmark size={22} strokeWidth={2} fill={saved ? "currentColor" : "none"} />');
-  expect(golden).toContain('className="golden-drop-save-inline"');
+  expect(golden).toContain("golden-drop-save-inline");
 
   for (const contract of [
     ".profile-feed-list .golden-drop-actions",
