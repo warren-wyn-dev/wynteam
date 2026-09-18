@@ -46,7 +46,7 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(page).toContain("ChatInboxParityRoute");
   expect(chat).toContain("<h1>ข้อความ</h1>");
   expect(chat).toContain("wyn-chat-compose-action");
-  expect(chat).toContain("MessageSquarePlus");
+  expect(chat).toContain('name="messageSquarePlus"');
   expect(chat).toContain("flutter-chat-search");
   expect(chat).toContain('placeholder="ค้นหาข้อความ"');
   expect(chat).toContain("wyn-chat-notes");

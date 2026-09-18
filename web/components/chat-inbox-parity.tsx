@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Clock, MapPin, MessageCircle, MessageSquarePlus, Plus, Search, Smile, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -10,6 +9,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { ChatListSkeleton } from "@/components/ui/skeleton";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import {
   acceptMessageRequest,
@@ -277,7 +277,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
       <section className="flutter-chat-inbox wyn-chat-inbox" aria-label="ข้อความ">
         <header className="flutter-chat-header">
           <Link className="flutter-chat-header-action" href="/" aria-label="ย้อนกลับ">
-            <ChevronLeft size={30} strokeWidth={1.9} />
+            <WynosIcon name="back" size={30} strokeWidth={1.9} />
           </Link>
           <h1>ข้อความ</h1>
           <div className="wyn-chat-header-actions">
@@ -298,13 +298,13 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
               aria-label="ข้อความใหม่"
               onClick={() => setNewOpen(true)}
             >
-              <MessageSquarePlus size={25} strokeWidth={1.9} />
+              <WynosIcon name="messageSquarePlus" size={25} strokeWidth={1.9} />
             </button>
           </div>
         </header>
 
         <label className="flutter-chat-search">
-          <Search size={24} strokeWidth={1.8} aria-hidden="true" />
+          <WynosIcon name="search" size={24} strokeWidth={1.8} aria-hidden="true" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -322,7 +322,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
               </span>
               <span className="wyn-chat-note-avatar-wrap">
                 <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={54} />
-                <span className="wyn-chat-note-plus"><Plus size={15} strokeWidth={2.4} /></span>
+                <span className="wyn-chat-note-plus"><WynosIcon name="post" size={15} strokeWidth={2.4} /></span>
               </span>
               <small>โน้ตของคุณ</small>
             </button>
@@ -375,7 +375,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                           <time>{row.last_message_at ? relativeTimeTh(row.last_message_at) : ""}</time>
                           {unread ? <span className="wyn-chat-unread-dot" aria-label="ยังไม่อ่าน" /> : null}
                         </span>
-                        <ChevronRight size={21} strokeWidth={1.7} aria-hidden="true" />
+                        <WynosIcon name="chevronRight" size={21} strokeWidth={1.7} aria-hidden="true" />
                       </span>
                     </Link>
                   );
@@ -393,7 +393,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           <section className="wyn-note-composer" role="dialog" aria-modal="true" aria-label={me?.note ? "แก้ไขโน้ต" : "โน้ตใหม่"}>
             <header className="wyn-note-composer-header">
               <button className="wyn-note-close" type="button" aria-label="ปิด" onClick={() => setNoteOpen(false)}>
-                <X size={28} strokeWidth={1.9} />
+                <WynosIcon name="close" size={28} strokeWidth={1.9} />
               </button>
               <div className="wyn-note-title-wrap">
                 <strong>{me?.note ? "แก้ไขโน้ต" : "โน้ตใหม่"}</strong>
@@ -428,11 +428,11 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
 
               <div className="wyn-note-tools" aria-label="เครื่องมือโน้ต">
                 <button type="button" className="wyn-note-tool" aria-label="สถานที่">
-                  <span><MapPin size={22} strokeWidth={1.9} /></span>
+                  <span><WynosIcon name="location" size={22} strokeWidth={1.9} /></span>
                   <small>สถานที่</small>
                 </button>
                 <button type="button" className="wyn-note-tool" aria-label="อีโมจิ">
-                  <span><Smile size={22} strokeWidth={1.9} /></span>
+                  <span><WynosIcon name="smile" size={22} strokeWidth={1.9} /></span>
                   <small>อีโมจิ</small>
                 </button>
               </div>
@@ -440,15 +440,15 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
 
             <div className="wyn-note-info-card">
               <div className="wyn-note-info-row">
-                <Clock size={19} strokeWidth={1.8} />
+                <WynosIcon name="clock" size={19} strokeWidth={1.8} />
                 <span><strong>แสดงเป็นเวลา 24 ชั่วโมง</strong><small>โน้ตของคุณจะหายไปโดยอัตโนมัติหลัง 24 ชั่วโมง</small></span>
               </div>
               <div className="wyn-note-info-row">
-                <Users size={19} strokeWidth={1.8} />
+                <WynosIcon name="users" size={19} strokeWidth={1.8} />
                 <span><strong>แสดงให้ผู้ติดตามที่คุณติดตามกลับ</strong><small>เฉพาะคนที่คุณติดตามกลับเท่านั้นที่เห็นโน้ตนี้</small></span>
               </div>
               <div className="wyn-note-info-row">
-                <MessageCircle size={19} strokeWidth={1.8} />
+                <WynosIcon name="comment" size={19} strokeWidth={1.8} />
                 <span><strong>แชร์ความรู้สึกได้สั้น ๆ</strong><small>ใช้โน้ตเพื่อบอกสถานะ ความรู้สึก หรืออะไรก็ได้</small></span>
               </div>
             </div>
@@ -467,10 +467,10 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           <section className="route-modal wyn-new-message-modal" role="dialog" aria-modal="true" aria-label="ข้อความใหม่" onClick={(event) => event.stopPropagation()}>
             <header>
               <strong>ข้อความใหม่</strong>
-              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setNewOpen(false)}><X size={20} /></button>
+              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setNewOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button>
             </header>
             <form className="wyn-new-message-search" onSubmit={(event) => { event.preventDefault(); void findPeople(); }}>
-              <Search size={20} aria-hidden="true" />
+              <WynosIcon name="search" size={20} strokeWidth={2} aria-hidden="true" />
               <input autoFocus value={peopleQuery} onChange={(event) => setPeopleQuery(event.target.value)} placeholder="ค้นหาชื่อหรือ username" />
               <button type="submit" disabled={finding || peopleQuery.trim().length < 2}>ค้นหา</button>
             </form>
@@ -494,7 +494,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           <section className="route-modal requests-modal" role="dialog" aria-modal="true" aria-label="คำขอข้อความ" onClick={(event) => event.stopPropagation()}>
             <header>
               <strong>คำขอข้อความ</strong>
-              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setRequestsOpen(false)}><X size={20} /></button>
+              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setRequestsOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button>
             </header>
             {requests.length ? (
               <div className="chat-list">
