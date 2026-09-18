@@ -1,7 +1,7 @@
-import { Bookmark, MessageCircle, Repeat2 } from "lucide-react";
 import Link from "next/link";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 
 /**
@@ -58,7 +58,7 @@ export function PostActions({
         href={commentHref}
         aria-label="ความคิดเห็น"
       >
-        <MessageCircle size={22} strokeWidth={2} />
+        <WynosIcon name="comment" size={22} strokeWidth={2} />
         {count(commentCount)}
       </Link>
       {canRedrop ? (
@@ -68,7 +68,7 @@ export function PostActions({
           aria-label="รีโพสต์"
           onClick={onRedrop}
         >
-          <Repeat2 size={24} strokeWidth={2} />
+          <WynosIcon name="repost" size={24} strokeWidth={2} />
           {count(redropCount)}
         </button>
       ) : null}
@@ -88,7 +88,7 @@ export function PostActions({
           aria-pressed={saved}
           onClick={onSave}
         >
-          <Bookmark size={22} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
+          <WynosIcon name="bookmark" size={22} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
         </button>
       ) : null}
     </div>
