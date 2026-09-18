@@ -11,7 +11,8 @@
 }
 
 .route-bottom-nav {
-  --wyn-nav-safe-bottom: env(safe-area-inset-bottom);
+  /* The approved master reserves a 32px iOS home-indicator zone. */
+  --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 32px);
   position: fixed;
   z-index: 70;
   left: 50%;
