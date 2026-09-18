@@ -75,6 +75,14 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(notesCss).toContain("width: min(88%, 460px)");
   expect(notesCss).toContain("font-size: 10.5px");
   expect(notesCss).toContain("border-radius: 20px");
+  expect(notesCss).toContain("min-height: 162px");
+  expect(notesCss).toContain("grid-template-rows: 50px 64px 20px");
+  expect(notesCss).toContain("max-width: 116px");
+  expect(notesCss).toContain("-webkit-line-clamp: 2");
+  expect(notesCss).toContain("width: 62px !important");
+  expect(notesCss).toContain("min-height: 82px !important");
+  expect(notesCss).toContain(".wyn-chat-meta-stack");
+  expect(chat).toContain("wyn-chat-meta-stack");
   expect(layout).toContain('import "./chat-notes.css";');
 });
 
