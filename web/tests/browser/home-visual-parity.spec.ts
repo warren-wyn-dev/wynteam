@@ -59,7 +59,11 @@ test("first post matches compact avatar author caption and action geometry", asy
   await expect(caption).toHaveCSS("font-size", "16px");
   await expect(post.locator(".wyn-post-author-name")).toHaveCSS("font-size", "15px");
   await expect(post.locator(".wyn-post-timestamp")).toHaveCSS("font-size", "14px");
-  await expect(redrop).toHaveCSS("font-size", "13px");
+  await expect(redrop).toHaveCSS("font-size", "14px");
+  await expect(redrop).toHaveCSS("color", "rgb(126, 126, 131)");
+  await expect(redrop.locator("svg")).toHaveCSS("width", "16px");
+  await expect(actions).toHaveCSS("min-height", "32px");
+  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(126, 126, 131)");
   await expect(moreText).toBeVisible();
   await expect(tags).toContainText("#WYNOS");
 

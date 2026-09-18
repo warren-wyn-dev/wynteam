@@ -25,7 +25,8 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(home).toContain("column-gap: 10px");
   expect(home).toContain("padding: 10px 16px 0");
   expect(home).toContain("margin-top: 1px");
-  expect(home).toContain("margin: 0 0 2px 21px");
+  expect(home).toContain("margin: 0 0 0 21px");
+  expect(home).toContain("color: #7e7e83");
   expect(home).toContain("grid-column: 2");
   expect(home).toContain("transform: none");
   expect(home).toContain("margin-top: 3px");
@@ -50,6 +51,7 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(card).toContain("<RichPostText");
   expect(card).toContain("… ดูเพิ่มเติม");
   expect(card).toContain("รีโพสต์โดย {row.redropper_username");
+  expect(card).toContain("<Repeat2 size={16} />");
   expect(actions).toContain("<Bookmark");
 });
 
