@@ -36,7 +36,8 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(home).toContain("font-size: 14px");
   expect(home).toContain("background: #f1f1f3");
   expect(home).toContain(".wyn-post-follow-pill.is-following");
-  expect(authorRow).toContain('"กำลังติดตาม"');
+  expect(authorRow).toContain("showFollow && !following");
+  expect(authorRow).not.toContain('"กำลังติดตาม"');
   expect(authorRow).toContain('aria-pressed={following || followRequested}');
 
   expect(flutterProfile).toContain("EdgeInsets.symmetric(horizontal: 72)");
