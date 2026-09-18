@@ -1,4 +1,4 @@
-import { Bookmark, MessageCircle, Repeat2, Send } from "lucide-react";
+import { Bookmark, Forward, MessageCircle, Repeat2 } from "lucide-react";
 import Link from "next/link";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
@@ -77,7 +77,7 @@ export function PostActions({
         aria-label="แชร์"
         onClick={onShare}
       >
-        <Send size={22} strokeWidth={2} />
+        <Forward size={22} strokeWidth={2} />
       </button>
       {onSave ? (
         <button
