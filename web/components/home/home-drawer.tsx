@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
-import { Bookmark, ChevronRight, Compass, FileText, Smartphone, UsersRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Avatar } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import type { HomeIdentity } from "@/lib/home-parity-data";
 
 /** Home's side menu (Flutter's SideMenu Drawer). Shares its
@@ -43,7 +43,7 @@ export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | nul
       >
         <div className="home-drawer-close">
           <button className="icon-button" type="button" aria-label="ปิด" onClick={onClose}>
-            <X size={22} />
+            <WynosIcon name="close" size={22} strokeWidth={2} />
           </button>
         </div>
         <button
@@ -61,34 +61,34 @@ export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | nul
               กำลังติดตาม
             </span>
           </span>
-          <ChevronRight size={20} />
+          <WynosIcon name="chevronRight" size={20} strokeWidth={2} />
         </button>
         <div className="drawer-divider" />
         <div className="drawer-menu-list">
           <button className="drawer-menu-row" type="button" onClick={() => go("/clubs")}>
-            <span className="drawer-menu-icon"><Compass size={19} /></span>
+            <span className="drawer-menu-icon"><WynosIcon name="compass" size={19} strokeWidth={2} /></span>
             <span>สำรวจ Club</span>
-            <ChevronRight size={19} />
+            <WynosIcon name="chevronRight" size={19} strokeWidth={2} />
           </button>
           <button className="drawer-menu-row" type="button" onClick={() => go("/clubs/new")}>
             <span className="drawer-menu-icon"><span className="drawer-plus">＋</span></span>
             <span>สร้าง Club</span>
-            <ChevronRight size={19} />
+            <WynosIcon name="chevronRight" size={19} strokeWidth={2} />
           </button>
           <button className="drawer-menu-row" type="button" onClick={() => go("/clubs?mine=1")}>
-            <span className="drawer-menu-icon"><UsersRound size={19} /></span>
+            <span className="drawer-menu-icon"><WynosIcon name="club" size={19} strokeWidth={2} /></span>
             <span>Club ของฉัน</span>
-            <ChevronRight size={19} />
+            <WynosIcon name="chevronRight" size={19} strokeWidth={2} />
           </button>
           <button className="drawer-menu-row" type="button" onClick={() => go("/bookmarks")}>
-            <span className="drawer-menu-icon"><Bookmark size={19} /></span>
+            <span className="drawer-menu-icon"><WynosIcon name="bookmark" size={19} strokeWidth={2} /></span>
             <span>บันทึกไว้</span>
-            <ChevronRight size={19} />
+            <WynosIcon name="chevronRight" size={19} strokeWidth={2} />
           </button>
           <button className="drawer-menu-row" type="button" onClick={() => go("/drafts")}>
-            <span className="drawer-menu-icon"><FileText size={19} /></span>
+            <span className="drawer-menu-icon"><WynosIcon name="fileText" size={19} strokeWidth={2} /></span>
             <span>ร่าง</span>
-            <ChevronRight size={19} />
+            <WynosIcon name="chevronRight" size={19} strokeWidth={2} />
           </button>
           {!standalone ? (
             <button
@@ -96,9 +96,9 @@ export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | nul
               type="button"
               onClick={() => window.open("/add-to-home.html", "_blank", "noopener,noreferrer")}
             >
-              <span className="drawer-menu-icon"><Smartphone size={19} /></span>
+              <span className="drawer-menu-icon"><WynosIcon name="smartphone" size={19} strokeWidth={2} /></span>
               <span>เพิ่ม WYNOS ไว้ที่หน้าจอหลัก</span>
-              <ChevronRight size={19} />
+              <WynosIcon name="chevronRight" size={19} strokeWidth={2} />
             </button>
           ) : null}
         </div>

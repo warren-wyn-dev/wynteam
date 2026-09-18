@@ -1,26 +1,12 @@
 "use client";
 
-import {
-  Bell,
-  ChevronLeft,
-  ChevronRight,
-  CircleHelp,
-  Download,
-  FileText,
-  LockKeyhole,
-  LogOut,
-  Moon,
-  ShieldCheck,
-  Trash2,
-  UserRound,
-  X,
-} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { pushSupported, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import {
@@ -87,7 +73,7 @@ function SettingRow({
         <strong>{title}</strong>
         {description ? <small>{description}</small> : null}
       </span>
-      {trailing ?? (onClick ? <ChevronRight className="settings-chevron" size={20} /> : null)}
+      {trailing ?? (onClick ? <WynosIcon name="chevronRight" className="settings-chevron" size={20} strokeWidth={2} /> : null)}
     </Tag>
   );
 }
@@ -240,37 +226,37 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       userId={userId}
       backHref={back}
       showBottomNav={false}
-      actions={section !== "root" ? <button className="route-icon-button" type="button" aria-label="กลับ" onClick={() => setSection("root")}><ChevronLeft size={26} /></button> : null}
+      actions={section !== "root" ? <button className="route-icon-button" type="button" aria-label="กลับ" onClick={() => setSection("root")}><WynosIcon name="back" size={26} strokeWidth={2} /></button> : null}
     >
       {error ? <p className="route-error route-pad">{error}</p> : null}
       {section === "root" ? (
         <div className="settings-page">
           <h2>บัญชี</h2>
           <div className="settings-group">
-            <SettingRow leading={<UserRound size={19} />} title="บัญชี" onClick={() => setSection("account")} />
-            <SettingRow leading={<LockKeyhole size={19} />} title="ความเป็นส่วนตัว" onClick={() => setSection("privacy")} />
+            <SettingRow leading={<WynosIcon name="profile" size={19} strokeWidth={2} />} title="บัญชี" onClick={() => setSection("account")} />
+            <SettingRow leading={<WynosIcon name="lockKeyhole" size={19} strokeWidth={2} />} title="ความเป็นส่วนตัว" onClick={() => setSection("privacy")} />
           </div>
           <h2>การตั้งค่าแอป</h2>
           <div className="settings-group">
-            <SettingRow leading={<Bell size={19} />} title="การแจ้งเตือน" onClick={() => setSection("notifications")} />
-            <SettingRow leading={<Moon size={19} />} title="ธีมเข้ม" />
+            <SettingRow leading={<WynosIcon name="notifications" size={19} strokeWidth={2} />} title="การแจ้งเตือน" onClick={() => setSection("notifications")} />
+            <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีมเข้ม" />
           </div>
           <h2>ช่วยเหลือ</h2>
           <div className="settings-group">
-            <SettingRow leading={<CircleHelp size={19} />} title="ช่วยเหลือ" />
-            <SettingRow leading={<FileText size={19} />} title="ข้อกำหนดและความเป็นส่วนตัว" onClick={() => setSection("legal")} />
+            <SettingRow leading={<WynosIcon name="circleHelp" size={19} strokeWidth={2} />} title="ช่วยเหลือ" />
+            <SettingRow leading={<WynosIcon name="fileText" size={19} strokeWidth={2} />} title="ข้อกำหนดและความเป็นส่วนตัว" onClick={() => setSection("legal")} />
           </div>
           <div className="settings-group separated">
-            <SettingRow leading={<LogOut size={19} />} title="ออกจากระบบ" danger onClick={() => { if (window.confirm("ออกจากระบบบัญชีของคุณใช่ไหม")) void signOut(); }} />
+            <SettingRow leading={<WynosIcon name="logOut" size={19} strokeWidth={2} />} title="ออกจากระบบ" danger onClick={() => { if (window.confirm("ออกจากระบบบัญชีของคุณใช่ไหม")) void signOut(); }} />
           </div>
           <VersionFooter client={client} />
         </div>
       ) : null}
       {section === "privacy" ? <div className="settings-page"><h2>บัญชี</h2><div className="settings-group"><SettingRow title="บัญชีส่วนตัว" description="อนุมัติผู้ติดตามก่อนเห็นโพสต์" trailing={<Toggle checked={profile.is_private} disabled={busy} onChange={(value) => void privacy("is_private", value)} />} /></div><h2>การโต้ตอบ</h2><div className="settings-group"><SettingRow title="ใครส่งข้อความได้" trailing={<PermissionSelect value={profile.dm_permission} onChange={(value) => void privacy("dm_permission", value)} />} /><SettingRow title="ใครกล่าวถึงคุณได้" trailing={<PermissionSelect value={profile.mention_permission} onChange={(value) => void privacy("mention_permission", value)} />} /><SettingRow title="ใครแสดงความคิดเห็นได้" trailing={<PermissionSelect value={profile.comment_permission} onChange={(value) => void privacy("comment_permission", value)} />} /><SettingRow title="ใครเห็นสิ่งที่คุณถูกใจ" trailing={<PermissionSelect kind="likes" value={profile.likes_visibility} onChange={(value) => void privacy("likes_visibility", value)} />} /></div><h2>สถานะ</h2><div className="settings-group"><SettingRow title="แสดงสถานะออนไลน์" trailing={<Toggle checked={online} disabled={busy} onChange={(value) => void onlineToggle(value)} />} /></div></div> : null}
       {section === "notifications" ? <div className="settings-page">{pushAvailable ? <><h2>อุปกรณ์นี้</h2><div className="settings-group"><SettingRow title="การแจ้งเตือนแบบพุช" description="รับการแจ้งเตือนแม้ปิดแท็บนี้อยู่" trailing={<Toggle checked={pushEnabled} disabled={pushBusy} onChange={(value) => void pushToggle(value)} />} /></div></> : null}<h2>แจ้งเตือนเมื่อ</h2><div className="settings-group">{notificationLabels.map(([key, label]) => <SettingRow title={label} key={key} trailing={<Toggle checked={notifications[key]} disabled={busy} onChange={(value) => void notification(key, value)} />} />)}</div></div> : null}
-      {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<Download size={19} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<Trash2 size={19} />} /></div><p className="settings-safety"><ShieldCheck size={16} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
+      {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<WynosIcon name="download" size={19} strokeWidth={2} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<WynosIcon name="trash" size={19} strokeWidth={2} />} /></div><p className="settings-safety"><WynosIcon name="shieldCheck" size={16} strokeWidth={2} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
       {section === "legal" ? <div className="settings-page"><div className="settings-group">{legalTypes.map(([type, label]) => <SettingRow title={label} key={type} onClick={() => void openDoc(type)} />)}</div></div> : null}
-      {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><X /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small><p>{document.content}</p></div></section></div> : null}
+      {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><WynosIcon name="close" size={24} strokeWidth={2} /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small><p>{document.content}</p></div></section></div> : null}
     </AppChrome>
   );
 }
