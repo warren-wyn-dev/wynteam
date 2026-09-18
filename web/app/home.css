@@ -210,13 +210,13 @@
 }
 
 .wyn-post-redrop-line {
-  min-height: 16px;
-  margin: 0 0 2px 21px;
+  min-height: 18px;
+  margin: 0 0 0 21px;
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #8e8e93;
-  font-size: 13px;
+  color: #7e7e83;
+  font-size: 14px;
   line-height: 1.25;
 }
 
@@ -267,7 +267,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #8a8a8e;
+  color: #7e7e83;
   font-size: 14px;
   line-height: 1.2;
   font-weight: 400;
@@ -280,7 +280,7 @@
   flex: 0 0 auto;
   min-height: 28px;
   height: 28px;
-  padding: 0 14px;
+  padding: 0 12px;
   border: 1px solid transparent;
   border-radius: var(--wyn-radius-full);
   background: #efeff1;
@@ -345,8 +345,8 @@
 }
 
 .wyn-post-more-text {
-  margin-left: 3px;
-  color: #8a8a8e;
+  margin-left: 5px;
+  color: #7e7e83;
   font-size: 15px;
   line-height: inherit;
   font-weight: 400;
