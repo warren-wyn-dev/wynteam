@@ -37,15 +37,28 @@ test("Notifications keep All/Mentions plus Flutter day grouping", () => {
   expect(notifications).toContain("groupWithinDay");
 });
 
-test("Chat inbox matches approved search layout with a requests action", () => {
+test("Chat inbox matches the approved Notes-first layout", () => {
   const page = read("app/chat/page.tsx");
   const chat = read("components/chat-inbox-parity.tsx");
+  const notesCss = read("app/chat-notes.css");
+  const layout = read("app/layout.tsx");
+
   expect(page).toContain("ChatInboxParityRoute");
   expect(chat).toContain("<h1>ข้อความ</h1>");
-  expect(chat).toContain("flutter-chat-request-action");
-  expect(chat).toContain("คำขอข้อความ");
+  expect(chat).toContain("wyn-chat-compose-action");
+  expect(chat).toContain("MessageSquarePlus");
   expect(chat).toContain("flutter-chat-search");
   expect(chat).toContain('placeholder="ค้นหาข้อความ"');
+  expect(chat).toContain("wyn-chat-notes");
+  expect(chat).toContain("โน้ตของคุณ");
+  expect(chat).toContain("NOTE_LIFETIME_MS");
+  expect(chat).toContain("24 ชั่วโมง");
+  expect(chat).toContain("NOTE_MAX_LENGTH = 60");
+  expect(chat).toContain("คำขอข้อความ");
+  expect(notesCss).toContain(".wyn-chat-note-plus");
+  expect(notesCss).toContain(".wyn-chat-note-bubble");
+  expect(notesCss).toContain("width: 54px");
+  expect(layout).toContain('import "./chat-notes.css";');
 });
 
 test("Settings root preserves exact current seven-row Beta4 structure", () => {
