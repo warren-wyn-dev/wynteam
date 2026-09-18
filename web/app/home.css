@@ -33,6 +33,7 @@
 }
 
 .wyn-home-header-action {
+  position: relative;
   width: 40px;
   height: 40px;
   display: grid;
@@ -43,6 +44,27 @@
   color: var(--wyn-text);
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Invisible larger tap target without growing the visible 40px chip or the
+   header grid it sits in. Menu has open space on every side and grows to a
+   full 44x44. Search and the notifications bell sit only 3px apart (measured),
+   so each grows freely away from its neighbor but stops flush at the shared
+   edge to avoid a click on one triggering the other. */
+.wyn-home-header-action::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+}
+
+.wyn-home-header-actions .wyn-home-header-action:not(.wyn-home-chat-action)::before {
+  /* search: open space to the left, notifications bell 3px to the right */
+  inset: -2px 0 -2px -8px;
+}
+
+.wyn-home-header-actions .wyn-home-chat-action::before {
+  /* notifications: search icon 3px to the left, open space to the right */
+  inset: -2px -8px -2px 0;
 }
 
 .wyn-home-header-action svg {
@@ -303,6 +325,7 @@
 }
 
 .wyn-post-more {
+  position: relative;
   flex: 0 0 28px;
   width: 28px;
   min-width: 28px;
@@ -315,6 +338,15 @@
   display: grid;
   place-items: center;
   color: var(--wyn-text-secondary);
+}
+
+/* Invisible larger tap target without growing the visible 28x26 box. The
+   follow pill sits only 4px to the left (measured), so this stays flush on
+   that side and grows into the open space above/right/below instead. */
+.wyn-post-more::before {
+  content: "";
+  position: absolute;
+  inset: -9px -10px -6px 0;
 }
 
  .wyn-post-more svg {
@@ -447,6 +479,7 @@
 }
 
 .wyn-action-button {
+  position: relative;
   min-width: 28px;
   padding: 4px 0;
   margin: -4px 0;
@@ -458,6 +491,19 @@
   gap: 5px;
   color: #111111;
   text-decoration: none;
+}
+
+/* Invisible larger tap target centered on the button, without growing its
+   visible icon/count box. Like/comment/repost/share sit only 18px apart
+   (measured), so horizontal growth is capped at 7px per side to grow the
+   target without adjacent buttons' hit areas overlapping each other. */
+.wyn-action-button::before {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: calc(100% + 14px);
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 
 .wyn-action-button svg {

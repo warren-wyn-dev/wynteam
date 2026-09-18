@@ -1,5 +1,6 @@
-import { Bell, Menu, Search } from "lucide-react";
 import Image from "next/image";
+
+import { WynosIcon } from "@/components/ui/wynos-icon";
 
 /**
  * Home header from the approved mobile mockup: WYNOS stays screen-centered
@@ -28,7 +29,7 @@ export function HomeHeader({
         aria-label="เมนู"
         onClick={onOpenMenu}
       >
-        <Menu size={22} strokeWidth={2.05} />
+        <WynosIcon name="menu" size={22} strokeWidth={2.05} />
       </button>
 
       <div className="wyn-home-wordmark">
@@ -53,7 +54,7 @@ export function HomeHeader({
           aria-label="ค้นหา"
           onClick={onOpenSearch}
         >
-          <Search size={22} strokeWidth={2.05} />
+          <WynosIcon name="search" size={22} strokeWidth={2.05} />
         </button>
         <button
           className="wyn-home-header-action wyn-home-chat-action"
@@ -61,7 +62,7 @@ export function HomeHeader({
           aria-label={notificationBadgeCount > 0 ? `การแจ้งเตือน ${notificationBadgeCount} รายการที่ยังไม่ได้อ่าน` : "การแจ้งเตือน"}
           onClick={onOpenNotifications}
         >
-          <Bell size={22} strokeWidth={2.05} />
+          <WynosIcon name="notifications" size={22} strokeWidth={2.05} />
           {notificationBadgeCount > 0 ? <span className="wyn-home-chat-badge" aria-hidden="true" /> : null}
         </button>
       </div>

@@ -2,7 +2,6 @@
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bookmark, ChevronRight, Flag, Quote, Repeat2, Share2, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -17,6 +16,7 @@ import { AppChrome } from "@/components/phase3-ui";
 import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { FeedSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { authorLabel, type HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
 import {
@@ -925,20 +925,20 @@ export function HomeScreen({ session }: { session: Session }) {
       {selected && sheet === "more" ? (
         <ActionSheet key="more" label="ตัวเลือกโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
           <button className="audit-sheet-row" type="button" onClick={() => { void share(selected); setSheet(null); }}>
-            <Share2 size={20} />แชร์
+            <WynosIcon name="share" size={20} strokeWidth={2} />แชร์
           </button>
           <button className="audit-sheet-row" type="button" onClick={() => { void save(selected); setSheet(null); }}>
-            <Bookmark size={20} fill={viewer?.savedDropIds.has(selected.id) ? "currentColor" : "none"} />
+            <WynosIcon name="bookmark" size={20} strokeWidth={2} fill={viewer?.savedDropIds.has(selected.id) ? "currentColor" : "none"} />
             {viewer?.savedDropIds.has(selected.id) ? "เอาออกจากบันทึก" : "บันทึก"}
           </button>
           {selected.author_id !== userId ? (
             <button className="audit-sheet-row" type="button" onClick={() => void hide(selected)}>
-              <X size={20} />ไม่สนใจโพสต์นี้
+              <WynosIcon name="close" size={20} strokeWidth={2} />ไม่สนใจโพสต์นี้
             </button>
           ) : null}
           {selected.author_id !== userId ? (
             <button className="audit-sheet-row" type="button" onClick={() => setSheet("report")}>
-              <Flag size={20} />รายงานโพสต์
+              <WynosIcon name="flag" size={20} strokeWidth={2} />รายงานโพสต์
             </button>
           ) : null}
           {selected.redrop_id && selected.redropper_username === identity?.username ? (
@@ -958,7 +958,7 @@ export function HomeScreen({ session }: { session: Session }) {
                 }
               }}
             >
-              <Repeat2 size={20} />ลบรีโพสต์
+              <WynosIcon name="repost" size={20} strokeWidth={2} />ลบรีโพสต์
             </button>
           ) : null}
         </ActionSheet>
@@ -968,7 +968,7 @@ export function HomeScreen({ session }: { session: Session }) {
         <ActionSheet key="redrop" label="รีโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
           <div className="wyn-redrop-sheet-options">
             <button className="wyn-redrop-sheet-option is-primary" type="button" onClick={() => void redrop(selected)}>
-              <span className="wyn-redrop-sheet-icon" aria-hidden="true"><Repeat2 size={28} /></span>
+              <span className="wyn-redrop-sheet-icon" aria-hidden="true"><WynosIcon name="repost" size={28} strokeWidth={2} /></span>
               <span className="wyn-redrop-sheet-copy">
                 <strong>{viewer?.redroppedDropIds.has(selected.id) ? "ยกเลิกรีโพสต์" : "รีโพสต์"}</strong>
                 <small>
@@ -977,15 +977,15 @@ export function HomeScreen({ session }: { session: Session }) {
                     : "แชร์โพสต์นี้ไปยังโปรไฟล์ของคุณ"}
                 </small>
               </span>
-              <ChevronRight className="wyn-redrop-sheet-chevron" size={22} aria-hidden="true" />
+              <WynosIcon name="chevronRight" className="wyn-redrop-sheet-chevron" size={22} strokeWidth={2} aria-hidden="true" />
             </button>
             <button className="wyn-redrop-sheet-option is-quote" type="button" onClick={() => setSheet("quote")}>
-              <span className="wyn-redrop-sheet-icon" aria-hidden="true"><Quote size={28} /></span>
+              <span className="wyn-redrop-sheet-icon" aria-hidden="true"><WynosIcon name="quote" size={28} strokeWidth={2} /></span>
               <span className="wyn-redrop-sheet-copy">
                 <strong>รีโพสต์พร้อมความคิดเห็น</strong>
                 <small>แชร์โพสต์นี้พร้อมเพิ่มความคิดเห็นของคุณ</small>
               </span>
-              <ChevronRight className="wyn-redrop-sheet-chevron" size={22} aria-hidden="true" />
+              <WynosIcon name="chevronRight" className="wyn-redrop-sheet-chevron" size={22} strokeWidth={2} aria-hidden="true" />
             </button>
             <button
               className="wyn-redrop-sheet-cancel"

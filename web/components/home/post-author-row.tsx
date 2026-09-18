@@ -1,5 +1,6 @@
-import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+
+import { WynosIcon } from "@/components/ui/wynos-icon";
 
 /**
  * Compact Threads-inspired author row for Home posts.
@@ -55,7 +56,7 @@ export function PostAuthorRow({
         aria-label="เพิ่มเติม"
         onClick={onMore}
       >
-        <MoreHorizontal size={16} />
+        <WynosIcon name="more" size={16} />
       </button>
     </header>
   );
