@@ -3,12 +3,11 @@ import { expect, test } from "@playwright/test";
 /**
  * Home regression coverage for the Founder-approved WYNOS mockup.
  *
- * The old suite compared Home against Flutter-era PNG goldens. Home now has
- * an explicitly approved Web-App visual direction, so this suite locks the
- * intended geometry and interaction states directly. That keeps the tests
- * useful across WebKit, Chromium Android and desktop without treating the
- * superseded screenshots as product requirements.
+ * The master reference is 852 x 1846 physical px, so this suite uses its
+ * exact 426 x 923 logical viewport at DPR 2. Geometry assertions then lock
+ * the app chrome/card rhythm independently from dynamic live-feed content.
  */
+test.use({ viewport: { width: 426, height: 923 }, deviceScaleFactor: 2 });
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
@@ -22,7 +21,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("Home header and three feed tabs use the approved 56 + 52 chrome", async ({ page }) => {
+test("Home header and three feed tabs match the 36 + 44 master chrome", async ({ page }) => {
   const home = page.locator(".wyn-home");
   const header = page.locator(".wyn-home-header");
   const tabs = page.locator(".wyn-home-tabs");
@@ -30,17 +29,18 @@ test("Home header and three feed tabs use the approved 56 + 52 chrome", async ({
   const indicator = activeTab.locator(".wyn-home-tab-indicator");
 
   await expect(home).toBeVisible();
-  await expect(header).toHaveCSS("height", "56px");
-  await expect(tabs).toHaveCSS("height", "52px");
+  await expect(header).toHaveCSS("height", "36px");
+  await expect(tabs).toHaveCSS("height", "44px");
   await expect(activeTab).toHaveAttribute("aria-selected", "true");
 
   const homeBox = await home.boundingBox();
   const indicatorBox = await indicator.boundingBox();
   expect(homeBox).not.toBeNull();
   expect(indicatorBox).not.toBeNull();
-  expect(Math.abs((homeBox?.height ?? 0) - 108)).toBeLessThanOrEqual(1);
+  expect(Math.abs((homeBox?.height ?? 0) - 80)).toBeLessThanOrEqual(1);
   expect(Math.abs((indicatorBox?.height ?? 0) - 2)).toBeLessThanOrEqual(0.5);
-  expect(indicatorBox?.width ?? 0).toBeGreaterThan(70);
+  expect(indicatorBox?.width ?? 0).toBeGreaterThanOrEqual(118);
+  expect(indicatorBox?.width ?? 0).toBeLessThanOrEqual(122);
 
   const activeIndicatorColor = await indicator.evaluate((node) => getComputedStyle(node).backgroundColor);
   expect(activeIndicatorColor).not.toBe("rgba(0, 0, 0, 0)");
@@ -50,32 +50,40 @@ test("Home header and three feed tabs use the approved 56 + 52 chrome", async ({
   await expect(page.getByRole("tab", { name: "สำหรับคุณ" })).toHaveAttribute("aria-selected", "false");
 });
 
-test("first Home post preserves the approved compact author and follow layout", async ({ page }) => {
+test("first Home post matches the master avatar/body/action geometry", async ({ page }) => {
   const post = page.locator(".wyn-post").first();
   const avatar = post.locator(".wyn-post-avatar");
   const body = post.locator(".wyn-post-body");
   const caption = post.locator(".wyn-post-caption");
   const follow = post.getByRole("button", { name: "ติดตาม", exact: true });
+  const save = post.getByRole("button", { name: "บันทึก", exact: true });
 
   await expect(post).toBeVisible();
   await expect(follow).toBeVisible();
-  await expect(follow).toHaveCSS("height", "28px");
+  await expect(follow).toHaveCSS("height", "26px");
+  await expect(save).toBeVisible();
+  await expect(save).toHaveAttribute("aria-pressed", "false");
   await expect(post.locator(".wyn-post-author-row")).not.toContainText("@");
 
-  const [postMetrics, avatarBox, bodyBox, captionBox] = await Promise.all([
+  const [postBox, postMetrics, avatarBox, bodyBox, captionBox, saveBox] = await Promise.all([
+    post.boundingBox(),
     post.evaluate((node) => ({ clientWidth: node.clientWidth, scrollWidth: node.scrollWidth })),
     avatar.boundingBox(),
     body.boundingBox(),
     caption.boundingBox(),
+    save.boundingBox(),
   ]);
 
   expect(postMetrics.scrollWidth).toBeLessThanOrEqual(postMetrics.clientWidth + 1);
+  expect(postBox).not.toBeNull();
   expect(avatarBox).not.toBeNull();
   expect(bodyBox).not.toBeNull();
   expect(captionBox).not.toBeNull();
-  expect(Math.abs((avatarBox?.width ?? 0) - 44)).toBeLessThanOrEqual(1);
-  expect((bodyBox?.x ?? 0) - (avatarBox?.x ?? 0)).toBeGreaterThanOrEqual(53);
+  expect(saveBox).not.toBeNull();
+  expect(Math.abs((avatarBox?.width ?? 0) - 40)).toBeLessThanOrEqual(1);
+  expect(Math.abs(((bodyBox?.x ?? 0) - (avatarBox?.x ?? 0)) - 54)).toBeLessThanOrEqual(1);
   expect(Math.abs((captionBox?.x ?? 0) - (bodyBox?.x ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs(((postBox?.x ?? 0) + (postBox?.width ?? 0)) - ((saveBox?.x ?? 0) + (saveBox?.width ?? 0)) - 16)).toBeLessThanOrEqual(2);
 
   const followBackground = await follow.evaluate((node) => getComputedStyle(node).backgroundColor);
   expect(followBackground).not.toBe("rgba(0, 0, 0, 0)");
@@ -141,5 +149,5 @@ test("long caption remains dense and never creates horizontal overflow", async (
 
   const blankGap = (actionsBox?.y ?? 0) - ((captionBox?.y ?? 0) + (captionBox?.height ?? 0));
   expect(blankGap).toBeGreaterThanOrEqual(0);
-  expect(blankGap).toBeLessThanOrEqual(12);
+  expect(blankGap).toBeLessThanOrEqual(14);
 });

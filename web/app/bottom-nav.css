@@ -6,8 +6,12 @@
  * no large selected tile.
  */
 
+.route-with-bottom-nav {
+  --wyn-bottom-nav-height: 48px;
+}
+
 .route-bottom-nav {
-  --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 12px);
+  --wyn-nav-safe-bottom: env(safe-area-inset-bottom);
   position: fixed;
   z-index: 70;
   left: 50%;
@@ -17,7 +21,7 @@
   width: min(100%, 680px);
   height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
   min-height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
-  padding: 5px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
+  padding: 4px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
   background: var(--wyn-bg, var(--paper));
   border: 0;
   border-top: 1px solid var(--wyn-border, var(--hairline));
@@ -33,13 +37,13 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  padding: 5px 3px 6px;
+  padding: 3px 3px 4px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
   color: var(--wyn-text-secondary, #747474);
   text-decoration: none;
   font-size: 11.5px;
@@ -65,22 +69,22 @@
 }
 
 .route-nav-glyph {
-  width: 27px;
-  height: 27px;
+  width: 26px;
+  height: 26px;
   display: block;
-  flex: 0 0 27px;
+  flex: 0 0 26px;
   color: currentColor;
 }
 
 /* Compatibility hooks kept for older fixtures. */
 .route-create-destination {
-  gap: 5px;
+  gap: 3px;
   color: #747474;
 }
 
 .route-create-button {
-  width: 27px;
-  height: 27px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   background: transparent;
@@ -88,14 +92,14 @@
 }
 
 .route-create-button .route-nav-glyph {
-  width: 27px;
-  height: 27px;
+  width: 26px;
+  height: 26px;
 }
 
 .route-nav-icon-wrap {
   position: relative;
-  width: 27px;
-  height: 27px;
+  width: 26px;
+  height: 26px;
   display: block;
 }
 
@@ -122,28 +126,36 @@
 }
 
 @media (max-width: 359px) {
+  .route-with-bottom-nav {
+    --wyn-bottom-nav-height: 46px;
+  }
+
   .route-nav-link {
-    gap: 4px;
+    gap: 2px;
     font-size: 10.5px;
   }
 
   .route-nav-glyph,
   .route-create-button,
   .route-nav-icon-wrap {
-    width: 25px;
-    height: 25px;
-    flex-basis: 25px;
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
   }
 }
 
 @media (min-width: 681px) {
+  .route-with-bottom-nav {
+    --wyn-bottom-nav-height: 64px;
+  }
+
   .route-bottom-nav {
     --wyn-nav-safe-bottom: 0px;
     width: min(calc(100% - 24px), 656px);
     bottom: 12px;
     height: var(--wyn-bottom-nav-height);
     min-height: var(--wyn-bottom-nav-height);
-    padding-bottom: 5px;
+    padding-bottom: 4px;
     border: 1px solid var(--wyn-border, var(--hairline));
     border-radius: 22px;
     box-shadow: 0 8px 28px rgb(0 0 0 / 7%);

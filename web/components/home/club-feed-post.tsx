@@ -14,16 +14,9 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
   const name = post.author_display_name?.trim() || post.author_username || "WYNOS";
 
   return (
-    <article
-      className="wyn-post"
-      style={{
-        padding: "12px 16px 0",
-        gridTemplateColumns: "44px minmax(0, 1fr)",
-        columnGap: 10,
-      }}
-    >
-      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 6 }}>
-        <Avatar src={post.author_avatar_url} label={post.author_username || "WYNOS"} size={44} />
+    <article className="wyn-post" style={{ paddingTop: 9 }}>
+      <Link className="wyn-post-avatar" href={profileHref}>
+        <Avatar src={post.author_avatar_url} label={post.author_username || "WYNOS"} size={40} />
       </Link>
       <div className="wyn-post-body">
         <header
@@ -37,13 +30,13 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
           >
             <strong
               className="wyn-post-author-name"
-              style={{ flex: "0 1 auto", fontSize: 16, lineHeight: 1.25, fontWeight: 700 }}
+              style={{ flex: "0 1 auto", fontSize: 14, lineHeight: 1.3, fontWeight: 600 }}
             >
               {name}
             </strong>
             <small
               className="wyn-post-timestamp"
-              style={{ maxWidth: 104, fontSize: 14, lineHeight: 1.2, flex: "0 0 auto" }}
+              style={{ maxWidth: 96, fontSize: 13.5, lineHeight: 1.2, flex: "0 0 auto" }}
             >
               · {relativeTimeTh(post.created_at)}
             </small>
@@ -56,10 +49,10 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
             postHref={`/club-post/${post.id}`}
             compact
             style={{
-              margin: "3px 0 0",
+              margin: "6px 0 0",
               transform: "none",
-              fontSize: 16,
-              lineHeight: 1.4,
+              fontSize: 15,
+              lineHeight: 1.5,
               fontWeight: 400,
             }}
           />
@@ -94,11 +87,11 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
             aria-label={post.liked_by_me ? "เลิกถูกใจ" : "ถูกใจ"}
             onClick={onLike}
           >
-            <Heart size={24} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} />
+            <Heart size={20} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} />
             {post.like_count > 0 ? <span className="wyn-action-button-count">{post.like_count}</span> : null}
           </button>
           <Link className="wyn-action-button" href={`/club-post/${post.id}`} aria-label="ความคิดเห็น">
-            <MessageCircle size={24} strokeWidth={2} />
+            <MessageCircle size={20} strokeWidth={2} />
             {post.comment_count > 0 ? <span className="wyn-action-button-count">{post.comment_count}</span> : null}
           </Link>
         </div>

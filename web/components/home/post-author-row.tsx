@@ -44,14 +44,14 @@ export function PostAuthorRow({
       >
         <strong
           className="wyn-post-author-name"
-          style={{ flex: "0 1 auto", fontSize: 16, lineHeight: 1.25, fontWeight: 700 }}
+          style={{ flex: "0 1 auto", fontSize: 14, lineHeight: 1.3, fontWeight: 600 }}
         >
           {name}
         </strong>
         {verified ? <span className="route-verified wyn-post-verified">✓</span> : null}
         <small
           className="wyn-post-timestamp"
-          style={{ maxWidth: 104, fontSize: 14, lineHeight: 1.2, flex: "0 0 auto" }}
+          style={{ maxWidth: 96, fontSize: 13.5, lineHeight: 1.2, flex: "0 0 auto" }}
         >
           · {timeLabel}
         </small>
@@ -59,7 +59,7 @@ export function PostAuthorRow({
       {showFollow ? (
         <button
           className={`wyn-post-follow-pill ${following ? "is-following" : ""} ${followRequested ? "is-requested" : ""}`}
-          style={{ minHeight: 28, height: 28, padding: "0 12px", fontSize: 12.5 }}
+          style={{ minHeight: 26, height: 26, padding: "0 12px", fontSize: 12 }}
           type="button"
           aria-pressed={following || followRequested}
           onClick={onFollow}
@@ -69,12 +69,12 @@ export function PostAuthorRow({
       ) : null}
       <button
         className="wyn-post-more"
-        style={{ flex: "0 0 32px", width: 32, minWidth: 32, margin: "0 -4px 0 0" }}
+        style={{ flex: "0 0 28px", width: 28, minWidth: 28, margin: "0 -2px 0 0" }}
         type="button"
         aria-label="เพิ่มเติม"
         onClick={onMore}
       >
-        <MoreHorizontal size={21} />
+        <MoreHorizontal size={18} />
       </button>
     </header>
   );

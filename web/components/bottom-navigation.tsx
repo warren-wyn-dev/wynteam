@@ -62,7 +62,7 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
 
   return (
     <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="4" width="16" height="16" rx="4" />
+      <circle cx="12" cy="12" r="8.25" />
       <path d="M12 8v8M8 12h8" />
     </svg>
   );

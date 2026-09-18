@@ -37,6 +37,7 @@ export function HomePostCard({
   priority?: boolean;
 }) {
   const liked = viewer.likedDropIds.has(row.id);
+  const saved = viewer.savedDropIds.has(row.id);
   const redropped = viewer.redroppedDropIds.has(row.id);
   const following = viewer.followedAuthorIds.has(row.author_id);
   const requested = viewer.pendingFollowAuthorIds.has(row.author_id);
@@ -47,12 +48,8 @@ export function HomePostCard({
 
   return (
     <article
-      className="wyn-post"
-      style={{
-        padding: "12px 16px 0",
-        gridTemplateColumns: "44px minmax(0, 1fr)",
-        columnGap: 10,
-      }}
+      className={`wyn-post ${row.redrop_id ? "has-redrop" : ""}`}
+      style={{ paddingTop: row.redrop_id ? 14 : 9 }}
     >
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
@@ -61,8 +58,8 @@ export function HomePostCard({
         </div>
       ) : null}
       {row.quote_text ? <RichPostText className="wyn-post-quote" value={row.quote_text} /> : null}
-      <Link className="wyn-post-avatar" href={profileHref} style={{ marginTop: 6 }}>
-        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} />
+      <Link className="wyn-post-avatar" href={profileHref}>
+        <Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={40} />
       </Link>
       <div className="wyn-post-body">
         <PostAuthorRow
@@ -83,10 +80,10 @@ export function HomePostCard({
             postHref={`/drop/${row.id}`}
             compact
             style={{
-              margin: "3px 0 0",
+              margin: "6px 0 0",
               transform: "none",
-              fontSize: 16,
-              lineHeight: 1.4,
+              fontSize: 15,
+              lineHeight: 1.5,
               fontWeight: 400,
             }}
           />
@@ -107,10 +104,12 @@ export function HomePostCard({
           canRedrop={canRedrop}
           redropped={redropped}
           redropCount={row.redrop_count ?? 0}
+          saved={saved}
           onLike={onLike}
           commentHref={`/drop/${row.id}#comments`}
           onRedrop={onRedrop}
           onShare={onShare}
+          onSave={onMore}
           modernFeed
         />
       </div>

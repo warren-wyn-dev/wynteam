@@ -79,21 +79,22 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   const metrics = read("../app/lib/core/design/wynos_founder_metrics.dart");
   const flutterNav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
 
-  // Native metrics are intentionally preserved; Web Home now follows the
-  // Founder-approved responsive mockup rather than pixel-matching Flutter.
+  // Native metrics are intentionally preserved; Web Home follows the
+  // Founder-approved responsive mockup, including the device safe area.
   expect(metrics).toContain("bottomNavContentHeight = 80");
   expect(metrics).toContain("createActionDiameter = 56");
   expect(flutterNav).toContain("Icon(icon, size: 28)");
   expect(flutterNav).toContain("fontSize: 11.5");
 
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(nav).toContain(label);
-  expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 12px);");
+  expect(navCss).toContain("--wyn-bottom-nav-height: 48px;");
+  expect(navCss).toContain("--wyn-nav-safe-bottom: env(safe-area-inset-bottom);");
   expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom))");
   expect(navCss).toContain("width: min(100%, 680px)");
   expect(navCss).toContain("border-top: 1px solid");
-  expect(navCss).toContain("width: 27px");
-  expect(navCss).toContain("height: 27px");
-  expect(navCss).toContain("flex: 0 0 27px");
+  expect(navCss).toContain("width: 26px");
+  expect(navCss).toContain("height: 26px");
+  expect(navCss).toContain("flex: 0 0 26px");
   expect(nav).toContain('fill={selected ? "currentColor" : "none"}');
 });
 
@@ -112,18 +113,16 @@ test("bottom navigation has exactly one canonical stylesheet (no competing overr
   expect(layout).toContain('import "./bottom-nav.css";');
 });
 
-test("Home actions mirror current Flutter: Like Comment Repost Share, no View", () => {
+test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hidden zero counts, no View", () => {
   const postActions = read("components/home/post-actions.tsx");
   const flutterPage = read("../app/lib/features/home/presentation/widgets/mode_feed_page.dart");
   const flutterCard = read("../app/lib/features/home/presentation/widgets/home_drop_card.dart");
   expect(flutterPage).toContain("showViewCount: false");
-  expect(flutterPage).toContain("hideZeroActionCounts: false");
   expect(flutterCard).toContain("Icons.send_outlined");
-  // Home renders every count (including zero) directly in React — no
-  // hideZeroActionCounts prop, no CSS `content: "0"` fallback needed.
   expect(postActions).toContain("wyn-action-share");
-  expect(postActions).not.toContain("hideZeroCount");
-  expect(postActions).toContain('<span className="wyn-action-button-count">{value}</span>');
+  expect(postActions).toContain("wyn-action-save");
+  expect(postActions).toContain("Bookmark");
+  expect(postActions).toContain("value > 0 ?");
   expect(postActions).toContain("{count(likeCount)}");
   expect(postActions).not.toContain("Eye");
   expect(postActions).not.toContain("visibility");

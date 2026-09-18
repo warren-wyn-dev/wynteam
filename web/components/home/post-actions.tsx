@@ -1,4 +1,4 @@
-import { MessageCircle, Repeat2, Send } from "lucide-react";
+import { Bookmark, MessageCircle, Repeat2, Send } from "lucide-react";
 import Link from "next/link";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
@@ -15,10 +15,12 @@ export function PostActions({
   canRedrop,
   redropped,
   redropCount,
+  saved = false,
   onLike,
   commentHref,
   onRedrop,
   onShare,
+  onSave,
   modernFeed = false,
 }: {
   liked: boolean;
@@ -27,10 +29,12 @@ export function PostActions({
   canRedrop: boolean;
   redropped: boolean;
   redropCount: number;
+  saved?: boolean;
   onLike: () => void;
   commentHref: string;
   onRedrop: () => void;
   onShare: () => void;
+  onSave?: () => void;
   modernFeed?: boolean;
 }) {
   const count = (value: number) => (
@@ -45,7 +49,7 @@ export function PostActions({
         aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"}
         onClick={onLike}
       >
-        <AnimatedHeart size={24} strokeWidth={2} liked={liked} />
+        <AnimatedHeart size={20} strokeWidth={2} liked={liked} />
         {count(likeCount)}
       </button>
       <Link
@@ -53,7 +57,7 @@ export function PostActions({
         href={commentHref}
         aria-label="ความคิดเห็น"
       >
-        <MessageCircle size={24} strokeWidth={2} />
+        <MessageCircle size={20} strokeWidth={2} />
         {count(commentCount)}
       </Link>
       {canRedrop ? (
@@ -63,7 +67,7 @@ export function PostActions({
           aria-label="รีโพสต์"
           onClick={onRedrop}
         >
-          <Repeat2 size={24} strokeWidth={2} />
+          <Repeat2 size={20} strokeWidth={2} />
           {count(redropCount)}
         </button>
       ) : null}
@@ -73,8 +77,19 @@ export function PostActions({
         aria-label="แชร์"
         onClick={onShare}
       >
-        <Send size={24} />
+        <Send size={20} strokeWidth={2} />
       </button>
+      {onSave ? (
+        <button
+          className={`wyn-action-button wyn-action-save ${saved ? "is-active" : ""}`}
+          type="button"
+          aria-label={saved ? "ยกเลิกบันทึก" : "บันทึก"}
+          aria-pressed={saved}
+          onClick={onSave}
+        >
+          <Bookmark size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
+        </button>
+      ) : null}
     </div>
   );
 }

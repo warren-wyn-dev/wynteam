@@ -3,20 +3,20 @@
    so later actions shift naturally when a count appears. */
 
 .wyn-post-actions.wyn-threads-actions {
-  min-height: 36px;
-  margin: 8px 0 12px;
+  min-height: 34px;
+  margin: 8px 0 14px;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 18px;
+  gap: 28px;
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-button {
   flex: 0 0 auto;
-  min-width: 28px;
-  min-height: 36px;
-  height: 36px;
+  min-width: 26px;
+  min-height: 34px;
+  height: 34px;
   padding: 4px 0;
   margin: 0;
   border: 0;
@@ -25,14 +25,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 4px;
+  gap: 5px;
   color: #8e8e93;
   text-decoration: none;
   transition: color 160ms ease, transform 120ms ease;
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-button-count {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   font-weight: 500;
   color: inherit;
@@ -43,14 +43,21 @@
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-button.is-active {
-  color: #0a84ff;
+  color: var(--wyn-text, #111111);
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-share {
-  min-width: 28px;
+  min-width: 20px;
   padding: 4px 0;
   margin: 0;
   justify-content: flex-start;
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-save {
+  min-width: 20px;
+  padding: 4px 0;
+  margin: 0 0 0 auto;
+  justify-content: flex-end;
 }
 
 /* Profile uses GoldenDropCard. Override its older parity rules only inside
@@ -119,7 +126,10 @@
 }
 
 @media (max-width: 359px) {
-  .wyn-post-actions.wyn-threads-actions,
+  .wyn-post-actions.wyn-threads-actions {
+    gap: 22px;
+  }
+
   .profile-feed-list .golden-drop-actions,
   .club-detail-post footer {
     gap: 15px;
