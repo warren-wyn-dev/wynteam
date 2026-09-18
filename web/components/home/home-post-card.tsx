@@ -83,7 +83,7 @@ export function HomePostCard({
     >
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
-          <Repeat2 size={14} />
+          <Repeat2 size={16} />
           รีโพสต์โดย {row.redropper_username || "WYNOS"} · {time}
         </div>
       ) : null}
