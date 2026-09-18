@@ -3,11 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { usePublishBottomNav } from "@/components/app-bottom-nav-runtime";
 import { GoldenDropCard } from "@/components/golden-drop-card";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import type { HomeFeedRow } from "@/lib/feed";
 import { useUnreadNotificationCount } from "@/lib/notification-count";
 import type { ProfileRow } from "@/lib/phase3-data";
@@ -72,7 +72,7 @@ export function AppChrome({
     : "การแจ้งเตือน";
   const notificationBadge = unreadNotificationCount > 9 ? "9+" : String(unreadNotificationCount);
   usePublishBottomNav(bottomNavVisible, userId, notificationLabel, visibleUnreadNotificationCount > 0 ? notificationBadge : null);
-  const backIcon = <ChevronLeft size={headerMode === "overlay" ? 32 : 24} strokeWidth={1.8} />;
+  const backIcon = <WynosIcon name="back" size={headerMode === "overlay" ? 32 : 24} strokeWidth={1.8} />;
   const backControl = onBack
     ? <button className="route-icon-link" type="button" aria-label="ย้อนกลับ" onClick={onBack}>{backIcon}</button>
     : backHref
@@ -107,7 +107,7 @@ export function DropPreviewCard({ row, homeParity = false }: { row: HomeFeedRow;
 }
 
 export function SettingsLink() {
-  return <Link className="route-icon-link" href="/settings" aria-label="ตั้งค่า"><Settings size={22} /></Link>;
+  return <Link className="route-icon-link" href="/settings" aria-label="ตั้งค่า"><WynosIcon name="settings" size={22} strokeWidth={2} /></Link>;
 }
 
 export function EmptyState({ children }: { children: React.ReactNode }) {

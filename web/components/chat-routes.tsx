@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronLeft, CirclePlus, ImagePlus, MessageSquarePlus, Send, Trash2, UserRound, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,6 +9,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WyniiConversationHeader } from "@/components/wynii-chat";
 import { relativeTimeTh } from "@/lib/feed";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
@@ -126,7 +126,7 @@ function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: st
       userId={userId}
       backHref="/"
       showBottomNav={false}
-      actions={<button className="route-icon-button" type="button" aria-label="ข้อความใหม่" onClick={() => setNewOpen(true)}><MessageSquarePlus size={22} /></button>}
+      actions={<button className="route-icon-button" type="button" aria-label="ข้อความใหม่" onClick={() => setNewOpen(true)}><WynosIcon name="messageSquarePlus" size={22} strokeWidth={2} /></button>}
     >
       {loading ? <LoadingState /> : allowed === false ? <EmptyState>Chat ยังไม่เปิดใช้งานสำหรับบัญชีนี้</EmptyState> : (
         <>
@@ -137,9 +137,9 @@ function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: st
         </>
       )}
 
-      {requestsOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setRequestsOpen(false)}><section className="route-modal requests-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>คำขอข้อความ</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setRequestsOpen(false)}><X size={20} /></button></header>{requests.length ? <div className="chat-list">{requests.map((row) => <div className="request-row" key={row.conversation_id}><Link className="chat-row request-main" href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}><Avatar src={row.other_avatar_url} label={row.other_username} size={48} /><span className="chat-row-copy"><strong>{row.other_display_name?.trim() || row.other_username}</strong><small>{conversationPreview(row)}</small></span></Link><div className="request-actions"><button className="route-primary small" type="button" onClick={() => void decide(row, true)}>ยอมรับ</button><button className="route-secondary small" type="button" onClick={() => void decide(row, false)}>ลบ</button></div></div>)}</div> : <EmptyState>ไม่มีคำขอข้อความ</EmptyState>}</section></div> : null}
+      {requestsOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setRequestsOpen(false)}><section className="route-modal requests-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>คำขอข้อความ</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setRequestsOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header>{requests.length ? <div className="chat-list">{requests.map((row) => <div className="request-row" key={row.conversation_id}><Link className="chat-row request-main" href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}><Avatar src={row.other_avatar_url} label={row.other_username} size={48} /><span className="chat-row-copy"><strong>{row.other_display_name?.trim() || row.other_username}</strong><small>{conversationPreview(row)}</small></span></Link><div className="request-actions"><button className="route-primary small" type="button" onClick={() => void decide(row, true)}>ยอมรับ</button><button className="route-secondary small" type="button" onClick={() => void decide(row, false)}>ลบ</button></div></div>)}</div> : <EmptyState>ไม่มีคำขอข้อความ</EmptyState>}</section></div> : null}
 
-      {newOpen ? <div className="route-modal-backdrop" onClick={() => setNewOpen(false)} role="presentation"><section className="route-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ข้อความใหม่</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setNewOpen(false)}><X /></button></header><form className="search-route-form compact" onSubmit={(e) => { e.preventDefault(); void findPeople(); }}><input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหา username" /><button className="route-pill" type="submit">ค้นหา</button></form>{finding && !people.length ? <LoadingState /> : <div className="route-list">{people.map((profile) => <ProfileRowView profile={profile} key={profile.id} trailing={<button className="route-pill" type="button" disabled={finding} onClick={() => void start(profile)}>ส่งข้อความ</button>} />)}</div>}</section></div> : null}
+      {newOpen ? <div className="route-modal-backdrop" onClick={() => setNewOpen(false)} role="presentation"><section className="route-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ข้อความใหม่</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setNewOpen(false)}><WynosIcon name="close" size={24} strokeWidth={2} /></button></header><form className="search-route-form compact" onSubmit={(e) => { e.preventDefault(); void findPeople(); }}><input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหา username" /><button className="route-pill" type="submit">ค้นหา</button></form>{finding && !people.length ? <LoadingState /> : <div className="route-list">{people.map((profile) => <ProfileRowView profile={profile} key={profile.id} trailing={<button className="route-pill" type="button" disabled={finding} onClick={() => void start(profile)}>ส่งข้อความ</button>} />)}</div>}</section></div> : null}
     </AppChrome>
   );
 }
@@ -334,7 +334,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       {loading && !messages.length && !other ? <LoadingState /> : (
         <div className="conversation-page conversation-modern">
           <header className="conversation-modern-header">
-            <Link className="conversation-modern-back" href="/chat" aria-label="ย้อนกลับ"><ChevronLeft size={30} strokeWidth={1.8} /></Link>
+            <Link className="conversation-modern-back" href="/chat" aria-label="ย้อนกลับ"><WynosIcon name="back" size={30} strokeWidth={1.8} /></Link>
             {other ? <WyniiConversationHeader client={client} userId={userId} conversationId={conversationId} other={other} displayName={displayName} canStart={meta?.status === "active"} onOpenProfile={() => router.push(`/profile/${other.id}`)} /> : <><span /><span /></>}
           </header>
 
@@ -345,8 +345,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
               <small>@{other.username}</small>
             </Link>
             <div className="conversation-profile-actions">
-              <Link className="conversation-profile-button profile" href={`/profile/${other.id}`}><UserRound size={24} strokeWidth={1.8} /><span>ดูโปรไฟล์</span></Link>
-              <button className={`conversation-profile-button follow ${otherSummary?.following || otherSummary?.requested ? "soft" : ""}`} type="button" disabled={followBusy || !otherSummary} onClick={() => void toggleFollow()}><CirclePlus size={24} strokeWidth={1.8} /><span>{followLabel}</span></button>
+              <Link className="conversation-profile-button profile" href={`/profile/${other.id}`}><WynosIcon name="profile" size={24} strokeWidth={1.8} /><span>ดูโปรไฟล์</span></Link>
+              <button className={`conversation-profile-button follow ${otherSummary?.following || otherSummary?.requested ? "soft" : ""}`} type="button" disabled={followBusy || !otherSummary} onClick={() => void toggleFollow()}><WynosIcon name="circlePlus" size={24} strokeWidth={1.8} /><span>{followLabel}</span></button>
             </div>
           </section> : null}
 
@@ -378,14 +378,14 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
                     </div>
                     <div className="message-meta"><time>{message.pending ? "กำลังส่ง…" : chatTimeLabel(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time>{mine && !message.pending ? <span aria-label={read ? "อ่านแล้ว" : "ส่งแล้ว"}>{read ? "✓" : "✓"}</span> : null}</div>
                   </div>
-                  {revealed ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><Trash2 size={13} /></button> : null}
+                  {revealed ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><WynosIcon name="trash" size={13} strokeWidth={2} /></button> : null}
                 </div>
               </div>;
             })}
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
-            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><ImagePlus size={23} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><Send size={18} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><X size={15} /></button> : null}</form>
+            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
           )}
         </div>
       )}
