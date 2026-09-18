@@ -1,6 +1,5 @@
 "use client";
 
-import { Bookmark, Heart, Repeat2, Send } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -8,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
@@ -88,11 +88,11 @@ function DropDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
         <Link className="route-drop-author" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} /><span><strong>{authorLabel(row)}</strong><small>@{row.author_username || "wynos"} · {relativeTimeTh(row.created_at)}</small></span></Link>
         {row.caption ? <p className="detail-caption">{row.caption}</p> : null}
         {row.image_url ? <img className="detail-image" src={row.image_url} alt="" /> : null}
-        <div className="detail-actions"><button className={liked ? "active like" : ""} type="button" onClick={() => void interact("like")}><Heart size={20} fill={liked ? "currentColor" : "none"} /> {row.like_count ?? 0}</button><button className={redropped ? "active" : ""} type="button" onClick={() => void interact("redrop")}><Repeat2 size={20} /> {row.redrop_count ?? 0}</button><button className={saved ? "active" : ""} type="button" onClick={() => void interact("save")}><Bookmark size={20} fill={saved ? "currentColor" : "none"} /></button></div>
+        <div className="detail-actions"><button className={liked ? "active like" : ""} type="button" onClick={() => void interact("like")}><WynosIcon name="like" size={20} strokeWidth={2} fill={liked ? "currentColor" : "none"} /> {row.like_count ?? 0}</button><button className={redropped ? "active" : ""} type="button" onClick={() => void interact("redrop")}><WynosIcon name="repost" size={20} strokeWidth={2} /> {row.redrop_count ?? 0}</button><button className={saved ? "active" : ""} type="button" onClick={() => void interact("save")}><WynosIcon name="bookmark" size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} /></button></div>
       </article>
       {error ? <p className="route-error route-pad">{error}</p> : null}
-      <section className="detail-comments"><h2>ความคิดเห็น</h2>{comments.length ? comments.map((comment) => <div className="detail-comment" key={comment.id}><Avatar src={comment.author_avatar_url} label={comment.author_username} size={34} /><div><strong>{comment.author_display_name?.trim() || comment.author_username}</strong><p>{comment.text_content}</p><small>{relativeTimeTh(comment.created_at)}</small></div><button className={comment.liked_by_me ? "active like" : ""} type="button" onClick={() => void likeComment(comment)}><Heart size={15} fill={comment.liked_by_me ? "currentColor" : "none"} />{comment.like_count || ""}</button></div>) : <EmptyState>ยังไม่มีความคิดเห็น</EmptyState>}</section>
-      <form className="detail-comment-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}><input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={500} placeholder="เพิ่มความคิดเห็น…" /><button type="submit" disabled={sending || !draft.trim()}><Send size={19} /></button></form>
+      <section className="detail-comments"><h2>ความคิดเห็น</h2>{comments.length ? comments.map((comment) => <div className="detail-comment" key={comment.id}><Avatar src={comment.author_avatar_url} label={comment.author_username} size={34} /><div><strong>{comment.author_display_name?.trim() || comment.author_username}</strong><p>{comment.text_content}</p><small>{relativeTimeTh(comment.created_at)}</small></div><button className={comment.liked_by_me ? "active like" : ""} type="button" onClick={() => void likeComment(comment)}><WynosIcon name="like" size={15} strokeWidth={2} fill={comment.liked_by_me ? "currentColor" : "none"} />{comment.like_count || ""}</button></div>) : <EmptyState>ยังไม่มีความคิดเห็น</EmptyState>}</section>
+      <form className="detail-comment-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}><input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={500} placeholder="เพิ่มความคิดเห็น…" /><button type="submit" disabled={sending || !draft.trim()}><WynosIcon name="send" size={19} strokeWidth={2} /></button></form>
     </AppChrome>
   );
 }
