@@ -26,11 +26,7 @@ export function PostAuthorRow({
   onFollow: () => void;
   onMore: () => void;
 }) {
-  const followLabel = following
-    ? "กำลังติดตาม"
-    : followRequested
-      ? "ขอติดตามแล้ว"
-      : "ติดตาม";
+  const followLabel = followRequested ? "ขอติดตามแล้ว" : "ติดตาม";
 
   return (
     <header className="wyn-post-author-row">
@@ -43,7 +39,7 @@ export function PostAuthorRow({
           · {timeLabel}
         </small>
       </Link>
-      {showFollow ? (
+      {showFollow && !following ? (
         <button
           className={`wyn-post-follow-pill ${following ? "is-following" : ""} ${followRequested ? "is-requested" : ""}`}
           type="button"
