@@ -1,32 +1,6 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  Bell,
-  BellOff,
-  Bookmark,
-  CalendarDays,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Flag,
-  Heart,
-  ImagePlus,
-  Info,
-  Link2,
-  Lock,
-  LogOut,
-  MessageCircle,
-  MessagesSquare,
-  MoreHorizontal,
-  MoreVertical,
-  Pin,
-  Send,
-  Share2,
-  Trash2,
-  X,
-} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import {
   deleteClubPost,
@@ -276,7 +251,7 @@ function ClubPoll({ post, onVote }: { post: ClubHomePost; onVote: (index: number
         return (
           <button className={mine ? "mine" : ""} type="button" disabled={!enabled} onClick={() => onVote(index)} key={`${post.id}:poll:${index}`}>
             {visible ? <span className="golden-club-poll-fill" style={{ width: `${pct}%` }} /> : null}
-            <span className="golden-club-poll-label">{mine ? <Check size={16} /> : null}<b>{option}</b></span>
+            <span className="golden-club-poll-label">{mine ? <WynosIcon name="check" size={16} strokeWidth={2} /> : null}<b>{option}</b></span>
             {visible ? <strong>{pct}%</strong> : null}
           </button>
         );
@@ -353,9 +328,9 @@ function ClubPostCard({
       <div className="golden-club-post-body">
         <header>
           <Link href={`/profile/${post.author_id}`}><strong>{author}</strong><small>{relativeTimeTh(post.created_at)}</small></Link>
-          <button type="button" aria-label="เพิ่มเติม" onClick={() => setMenu(true)}><MoreVertical size={22} /></button>
+          <button type="button" aria-label="เพิ่มเติม" onClick={() => setMenu(true)}><WynosIcon name="moreVertical" size={22} strokeWidth={2} /></button>
         </header>
-        {post.pinned ? <span className="golden-club-pin"><Pin size={12} /> ปักหมุด</span> : null}
+        {post.pinned ? <span className="golden-club-pin"><WynosIcon name="pin" size={12} strokeWidth={2} /> ปักหมุด</span> : null}
         {post.content ? <Link className="golden-club-post-open" href={`/club-post/${post.id}`}><p>{post.content}</p></Link> : null}
         {post.image_urls.length ? (
           <Link className={`golden-club-media ${post.image_urls.length > 1 ? "multi" : "single"}`} href={`/club-post/${post.id}`}>
@@ -363,19 +338,19 @@ function ClubPostCard({
           </Link>
         ) : null}
         {post.poll_id ? <ClubPoll post={post} onVote={vote} /> : null}
-        {post.link_url ? <a className="golden-club-link" href={post.link_url} target="_blank" rel="noreferrer"><Link2 size={16} /><span>{post.link_url}</span></a> : null}
+        {post.link_url ? <a className="golden-club-link" href={post.link_url} target="_blank" rel="noreferrer"><WynosIcon name="link" size={16} strokeWidth={2} /><span>{post.link_url}</span></a> : null}
         <div className="golden-club-actions">
-          <button className={post.liked_by_me ? "liked" : ""} type="button" onClick={() => void like()}><Heart size={17} fill={post.liked_by_me ? "currentColor" : "none"} />{post.like_count > 0 ? <span>{post.like_count}</span> : null}</button>
-          <Link href={`/club-post/${post.id}`}><MessageCircle size={17} />{post.comment_count > 0 ? <span>{post.comment_count}</span> : null}</Link>
+          <button className={post.liked_by_me ? "liked" : ""} type="button" onClick={() => void like()}><WynosIcon name="like" size={17} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} />{post.like_count > 0 ? <span>{post.like_count}</span> : null}</button>
+          <Link href={`/club-post/${post.id}`}><WynosIcon name="comment" size={17} strokeWidth={2} />{post.comment_count > 0 ? <span>{post.comment_count}</span> : null}</Link>
         </div>
       </div>
       {menu ? (
         <BottomSheet label="ตัวเลือกโพสต์" onClose={() => setMenu(false)}>
-          <button className="golden-club-sheet-row" type="button" onClick={() => { setMenu(false); void share(); }}><Share2 size={20} />แชร์</button>
-          <button className="golden-club-sheet-row" type="button" onClick={() => void save()}><Bookmark size={20} fill={post.saved_by_me ? "currentColor" : "none"} />{post.saved_by_me ? "เอาออกจากบันทึก" : "บันทึก"}</button>
-          {own || canModerate ? <button className="golden-club-sheet-row danger" type="button" disabled={busy} onClick={() => void remove()}><Trash2 size={20} />ลบโพสต์</button> : null}
-          {!own && canModerate ? <button className="golden-club-sheet-row" type="button" disabled={busy} onClick={() => void pin()}><Pin size={20} />{post.pinned ? "เลิกปักหมุด" : "ปักหมุด"}</button> : null}
-          {!own ? <button className="golden-club-sheet-row" type="button" onClick={() => { setMenu(false); setReport(true); }}><Flag size={20} />รายงานโพสต์</button> : null}
+          <button className="golden-club-sheet-row" type="button" onClick={() => { setMenu(false); void share(); }}><WynosIcon name="share" size={20} strokeWidth={2} />แชร์</button>
+          <button className="golden-club-sheet-row" type="button" onClick={() => void save()}><WynosIcon name="bookmark" size={20} strokeWidth={2} fill={post.saved_by_me ? "currentColor" : "none"} />{post.saved_by_me ? "เอาออกจากบันทึก" : "บันทึก"}</button>
+          {own || canModerate ? <button className="golden-club-sheet-row danger" type="button" disabled={busy} onClick={() => void remove()}><WynosIcon name="trash" size={20} strokeWidth={2} />ลบโพสต์</button> : null}
+          {!own && canModerate ? <button className="golden-club-sheet-row" type="button" disabled={busy} onClick={() => void pin()}><WynosIcon name="pin" size={20} strokeWidth={2} />{post.pinned ? "เลิกปักหมุด" : "ปักหมุด"}</button> : null}
+          {!own ? <button className="golden-club-sheet-row" type="button" onClick={() => { setMenu(false); setReport(true); }}><WynosIcon name="flag" size={20} strokeWidth={2} />รายงานโพสต์</button> : null}
         </BottomSheet>
       ) : null}
       {report ? <ReportSheet client={client} target={{ type: "club_post", id: post.id, label: `รายงานโพสต์ของ ${author}` }} onClose={() => setReport(false)} /> : null}
@@ -451,7 +426,7 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
             <div className={`golden-club-message ${message.author_id === userId ? "mine" : ""}`} key={message.id}>
               {message.author_id !== userId ? <Avatar src={message.author_avatar_url} label={message.author_username} size={30} /> : null}
               <div className="golden-club-bubble">
-                <div className="golden-club-message-head"><strong>{message.author_id === userId ? "คุณ" : message.author_display_name?.trim() || message.author_username}</strong><button type="button" aria-label="ตัวเลือกข้อความ" onClick={() => message.author_id === userId || canModerate ? void remove(message.id) : setReport({ type: "club_channel_message", id: message.id, label: "รายงานข้อความ" })}><MoreHorizontal size={16} /></button></div>
+                <div className="golden-club-message-head"><strong>{message.author_id === userId ? "คุณ" : message.author_display_name?.trim() || message.author_username}</strong><button type="button" aria-label="ตัวเลือกข้อความ" onClick={() => message.author_id === userId || canModerate ? void remove(message.id) : setReport({ type: "club_channel_message", id: message.id, label: "รายงานข้อความ" })}><WynosIcon name="more" size={16} strokeWidth={2} /></button></div>
                 {message.content ? <p>{message.content}</p> : null}
                 {message.image_url ? <Image src={message.image_url} alt="" width={280} height={330} sizes="280px" /> : null}
                 <small>{relativeTimeTh(message.created_at)}</small>
@@ -461,9 +436,9 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
         </div>
       )}
       <form className="golden-club-composer" onSubmit={(event) => { event.preventDefault(); void send(); }}>
-        <label aria-label="แนบรูป"><ImagePlus size={20} /><input hidden type="file" accept="image/*" disabled={sending} onChange={(event) => setImage(event.target.files?.[0] ?? null)} /></label>
+        <label aria-label="แนบรูป"><WynosIcon name="imagePlus" size={20} strokeWidth={2} /><input hidden type="file" accept="image/*" disabled={sending} onChange={(event) => setImage(event.target.files?.[0] ?? null)} /></label>
         <input value={draft} maxLength={2000} onChange={(event) => setDraft(event.target.value)} placeholder={image ? `แนบ ${image.name}` : "ส่งข้อความ…"} />
-        <button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !image)}><Send size={20} /></button>
+        <button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !image)}><WynosIcon name="send" size={20} strokeWidth={2} /></button>
       </form>
       {error ? <p className="route-error golden-club-chat-error">{error}</p> : null}
       {report ? <ReportSheet client={client} target={report} onClose={() => setReport(null)} /> : null}
@@ -518,9 +493,9 @@ function AboutTabView({ client, clubId, club, membership }: { client: SupabaseCl
           <h3>กฎของ Club</h3><p>{club.rules || "ยังไม่มีกฎของ Club"}</p>
         </div>
       ) : tab === "members" ? (
-        <div className="golden-club-members">{members.length ? members.map((person) => <Link href={`/profile/${person.user_id}`} key={person.user_id}><Avatar src={person.avatar_url} label={person.username} size={42} /><span><strong>{person.display_name?.trim() || person.username}</strong><small>@{person.username} · {person.role}</small></span><ChevronRight size={18} /></Link>) : <EmptyState>ยังไม่มีสมาชิก</EmptyState>}</div>
+        <div className="golden-club-members">{members.length ? members.map((person) => <Link href={`/profile/${person.user_id}`} key={person.user_id}><Avatar src={person.avatar_url} label={person.username} size={42} /><span><strong>{person.display_name?.trim() || person.username}</strong><small>@{person.username} · {person.role}</small></span><WynosIcon name="chevronRight" size={18} strokeWidth={2} /></Link>) : <EmptyState>ยังไม่มีสมาชิก</EmptyState>}</div>
       ) : tab === "events" ? (
-        <div className="golden-club-events">{events.length ? events.map((event) => <article key={event.id}><CalendarDays size={20} /><div><strong>{event.title}</strong><small>{new Date(event.starts_at).toLocaleString("th-TH")}</small><p>{event.location_type === "online" ? "ออนไลน์" : "สถานที่"}: {event.location}</p>{event.description ? <p>{event.description}</p> : null}</div></article>) : <EmptyState>ยังไม่มีกิจกรรม</EmptyState>}</div>
+        <div className="golden-club-events">{events.length ? events.map((event) => <article key={event.id}><WynosIcon name="calendarDays" size={20} strokeWidth={2} /><div><strong>{event.title}</strong><small>{new Date(event.starts_at).toLocaleString("th-TH")}</small><p>{event.location_type === "online" ? "ออนไลน์" : "สถานที่"}: {event.location}</p>{event.description ? <p>{event.description}</p> : null}</div></article>) : <EmptyState>ยังไม่มีกิจกรรม</EmptyState>}</div>
       ) : (
         <div className="golden-club-insights">{insights ? Object.entries(insights).map(([key, value]) => <div key={key}><span>{key.replaceAll("_", " ")}</span><strong>{String(value ?? 0)}</strong></div>) : <EmptyState>ยังไม่มีข้อมูล Insights</EmptyState>}</div>
       )}
@@ -617,21 +592,21 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
           <div className="golden-club-banner">
             {club.cover_url ? <Image src={club.cover_url} alt="" fill sizes="(max-width: 640px) 100vw, 640px" /> : null}
             <div className="golden-club-banner-scrim" />
-            <button className="golden-club-back" type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={28} /></button>
+            <button className="golden-club-back" type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><WynosIcon name="back" size={28} strokeWidth={2} /></button>
             <div className="golden-club-banner-title"><small>CLUB</small><h1>{club.name}</h1></div>
           </div>
           <div className="golden-club-meta">
             <div className="golden-club-meta-main">
               <span className="golden-club-avatar">{club.icon_url ? <Image src={club.icon_url} alt="" width={36} height={36} sizes="36px" /> : <strong>{club.name.slice(0, 1)}</strong>}</span>
               <strong>{club.name}</strong>
-              <button type="button" aria-label="แชร์" onClick={() => void share()}><Share2 size={15} /></button>
-              <button type="button" aria-label="เพิ่มเติม" onClick={() => setMenu(true)}><MoreVertical size={15} /></button>
+              <button type="button" aria-label="แชร์" onClick={() => void share()}><WynosIcon name="share" size={15} strokeWidth={2} /></button>
+              <button type="button" aria-label="เพิ่มเติม" onClick={() => setMenu(true)}><WynosIcon name="moreVertical" size={15} strokeWidth={2} /></button>
             </div>
             <div className="golden-club-membership-line">
               <span>{club.member_count.toLocaleString("th-TH")} สมาชิก</span>
               {club.category ? <span className="golden-club-category">{club.category}</span> : null}
-              {club.privacy === "private" ? <Lock size={13} /> : null}
-              {(approved || pending || owner) ? <button className="golden-club-inline-join" type="button" disabled={busy || owner || pending} onClick={() => void join()}>{approved && !owner ? <Check size={11} /> : null}{statusLabel}</button> : null}
+              {club.privacy === "private" ? <WynosIcon name="lock" size={13} strokeWidth={2} /> : null}
+              {(approved || pending || owner) ? <button className="golden-club-inline-join" type="button" disabled={busy || owner || pending} onClick={() => void join()}>{approved && !owner ? <WynosIcon name="check" size={11} strokeWidth={2} /> : null}{statusLabel}</button> : null}
             </div>
             {club.description ? <p>{club.description}</p> : null}
             {!membership ? <button className="golden-club-primary-join" type="button" disabled={busy} onClick={() => void join()}>{statusLabel}</button> : null}
@@ -640,9 +615,9 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
         </section>
 
         <nav className="golden-club-tabs" aria-label="Club">
-          <button className={tab === "posts" ? "active" : ""} type="button" onClick={() => setTab("posts")}><FileText size={16} />โพสต์</button>
-          <button className={tab === "chat" ? "active" : ""} type="button" onClick={() => setTab("chat")}><MessagesSquare size={16} />แชท</button>
-          <button className={tab === "about" ? "active" : ""} type="button" onClick={() => setTab("about")}><Info size={16} />เกี่ยวกับ</button>
+          <button className={tab === "posts" ? "active" : ""} type="button" onClick={() => setTab("posts")}><WynosIcon name="fileText" size={16} strokeWidth={2} />โพสต์</button>
+          <button className={tab === "chat" ? "active" : ""} type="button" onClick={() => setTab("chat")}><WynosIcon name="messagesSquare" size={16} strokeWidth={2} />แชท</button>
+          <button className={tab === "about" ? "active" : ""} type="button" onClick={() => setTab("about")}><WynosIcon name="info" size={16} strokeWidth={2} />เกี่ยวกับ</button>
         </nav>
 
         {tab === "posts" ? (
@@ -658,11 +633,11 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
 
       {menu ? (
         <BottomSheet label="ตัวเลือก Club" onClose={() => setMenu(false)}>
-          {approved ? <button className="golden-club-sheet-row" type="button" disabled={busy} onClick={() => void toggleMute()}>{muted ? <Bell size={20} /> : <BellOff size={20} />}{muted ? "เปิดการแจ้งเตือน Club นี้" : "ปิดการแจ้งเตือน Club นี้"}</button> : null}
-          {canManage ? <button className="golden-club-sheet-row" type="button" onClick={() => { setMenu(false); setTab("about"); }}><Info size={20} />จัดการข้อมูล Club</button> : null}
-          {approved && !canManage ? <button className="golden-club-sheet-row danger" type="button" disabled={busy} onClick={() => { setMenu(false); void join(); }}><LogOut size={20} />ออกจาก Club</button> : null}
-          {pending ? <button className="golden-club-sheet-row" type="button" disabled={busy} onClick={() => { setMenu(false); void join(); }}><X size={20} />ยกเลิกคำขอ</button> : null}
-          {!owner ? <button className="golden-club-sheet-row" type="button" onClick={() => { setMenu(false); setReport(true); }}><Flag size={20} />รายงาน Club</button> : null}
+          {approved ? <button className="golden-club-sheet-row" type="button" disabled={busy} onClick={() => void toggleMute()}>{muted ? <WynosIcon name="notifications" size={20} strokeWidth={2} /> : <WynosIcon name="bellOff" size={20} strokeWidth={2} />}{muted ? "เปิดการแจ้งเตือน Club นี้" : "ปิดการแจ้งเตือน Club นี้"}</button> : null}
+          {canManage ? <button className="golden-club-sheet-row" type="button" onClick={() => { setMenu(false); setTab("about"); }}><WynosIcon name="info" size={20} strokeWidth={2} />จัดการข้อมูล Club</button> : null}
+          {approved && !canManage ? <button className="golden-club-sheet-row danger" type="button" disabled={busy} onClick={() => { setMenu(false); void join(); }}><WynosIcon name="logOut" size={20} strokeWidth={2} />ออกจาก Club</button> : null}
+          {pending ? <button className="golden-club-sheet-row" type="button" disabled={busy} onClick={() => { setMenu(false); void join(); }}><WynosIcon name="close" size={20} strokeWidth={2} />ยกเลิกคำขอ</button> : null}
+          {!owner ? <button className="golden-club-sheet-row" type="button" onClick={() => { setMenu(false); setReport(true); }}><WynosIcon name="flag" size={20} strokeWidth={2} />รายงาน Club</button> : null}
         </BottomSheet>
       ) : null}
       {report ? <ReportSheet client={client} target={{ type: "club", id: clubId, label: `รายงาน Club “${club.name}”` }} onClose={() => setReport(false)} /> : null}
