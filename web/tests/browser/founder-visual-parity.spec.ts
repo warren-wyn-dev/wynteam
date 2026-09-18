@@ -52,8 +52,8 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(card).toContain("<RichPostText");
   expect(card).toContain("… ดูเพิ่มเติม");
   expect(card).toContain("รีโพสต์โดย {row.redropper_username");
-  expect(card).toContain("<Repeat2 size={16} />");
-  expect(actions).toContain("<Bookmark");
+  expect(card).toContain('<WynosIcon name="repost" size={16} strokeWidth={2} />');
+  expect(actions).toContain('<WynosIcon name="bookmark"');
 });
 
 test("post detail keeps the Founder activity and text contract", () => {

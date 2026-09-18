@@ -162,7 +162,7 @@ test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hi
   expect(flutterCard).toContain("Icons.send_outlined");
   expect(postActions).toContain("wyn-action-share");
   expect(postActions).toContain("wyn-action-save");
-  expect(postActions).toContain("Bookmark");
+  expect(postActions).toContain('name="bookmark"');
   expect(postActions).toContain("value > 0 ?");
   expect(postActions).toContain("{count(likeCount)}");
   expect(postActions).not.toContain("Eye");

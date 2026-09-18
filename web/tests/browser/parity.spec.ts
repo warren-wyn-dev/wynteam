@@ -115,8 +115,8 @@ test("source contracts cannot regress to staged migration UI", async () => {
     "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
   ]) expect(home).toContain(contract);
   expect(postActions).toContain("<WynosShareIcon size={24} />");
-  expect(postActions).toContain('<Repeat2 size={24} strokeWidth={2} />');
-  expect(postActions).toContain('<Bookmark size={22} strokeWidth={2}');
+  expect(postActions).toContain('<WynosIcon name="repost" size={24} strokeWidth={2} />');
+  expect(postActions).toContain('<WynosIcon name="bookmark" size={22} strokeWidth={2}');
   expect(postAuthorRow).toContain("ขอติดตามแล้ว");
   expect(postAuthorRow).toContain("showFollow && !following");
   expect(postAuthorRow).not.toContain('"กำลังติดตาม"');
