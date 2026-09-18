@@ -43,7 +43,8 @@ test("approved Founder Home mockup geometry cannot drift", () => {
 
   expect(card).toContain('size={40}');
   expect(card).toContain("viewer.savedDropIds.has(row.id)");
-  expect(card).toContain("<RichPostText");\n  expect(card).toContain("… ดูเพิ่มเติม");
+  expect(card).toContain("<RichPostText");
+  expect(card).toContain("… ดูเพิ่มเติม");
   expect(card).toContain("รีโพสต์โดย {row.redropper_username");
   expect(actions).toContain("<Bookmark");
 });
