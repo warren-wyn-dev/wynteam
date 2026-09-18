@@ -39,6 +39,7 @@ import "./chat-reference.css";
 import "./threads-action-row.css";
 import "./profile-home-feed.css";
 import "./notifications-clean.css";
+import "./chat-notes.css";
 import "./conversation-modern.css";
 import "./skeleton.css";
 // This Next.js version's `appleWebApp` metadata only emits the generic
