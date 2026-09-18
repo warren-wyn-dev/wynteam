@@ -63,6 +63,7 @@ test("first post matches compact avatar author caption and action geometry", asy
   await expect(redrop).toHaveCSS("color", "rgb(115, 115, 120)");
   await expect(redrop.locator("svg")).toHaveCSS("width", "16px");
   await expect(actions).toHaveCSS("min-height", "30px");
+  await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "22px");
   await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(116, 116, 120)");
   await expect(moreText).toBeVisible();
   await expect(tags).toContainText("#WYNOS");
