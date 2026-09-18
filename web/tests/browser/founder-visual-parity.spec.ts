@@ -25,14 +25,14 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(home).toContain("column-gap: 10px");
   expect(home).toContain("padding: 10px 16px 0");
   expect(home).toContain("margin-top: 1px");
-  expect(home).toContain("margin: 0 0 0 21px");
-  expect(home).toContain("color: #7e7e83");
+  expect(home).toContain("margin: 0 0 1px 21px");
+  expect(home).toContain("color: #737378");
   expect(home).toContain("grid-column: 2");
   expect(home).toContain("transform: none");
   expect(home).toContain("margin-top: 3px");
   expect(home).toContain("calc((100% - 16px) * 0.82)");
   expect(home).toContain("text-decoration: none !important");
-  expect(home).toContain("background: #efeff1");
+  expect(home).toContain("background: #f1f1f3");
   expect(home).toContain(".wyn-post-follow-pill.is-following");
   expect(home).toContain("width: 120px");
   expect(home).toContain("padding-top: min(env(safe-area-inset-top), 20px);");
