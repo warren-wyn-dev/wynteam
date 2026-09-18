@@ -94,7 +94,8 @@ test("first Home post matches the master avatar/body/action geometry", async ({ 
   expect(followBackground).not.toBe("rgba(0, 0, 0, 0)");
 
   await save.click();
-  await expect(save).toHaveAttribute("aria-pressed", "true");
+  const unsave = post.getByRole("button", { name: "ยกเลิกบันทึก", exact: true });
+  await expect(unsave).toHaveAttribute("aria-pressed", "true");
 });
 
 test("followed-style pending state remains visible as a white bordered control", async ({ page }) => {
