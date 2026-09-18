@@ -55,9 +55,18 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(chat).toContain("24 ชั่วโมง");
   expect(chat).toContain("NOTE_MAX_LENGTH = 60");
   expect(chat).toContain("คำขอข้อความ");
+  expect(chat).toContain("wyn-note-composer");
+  expect(chat).toContain("แชร์ความคิดกับเพื่อนของคุณ");
+  expect(chat).toContain("บอกเลยว่าคิดอะไร...");
+  expect(chat).toContain("สถานที่");
+  expect(chat).toContain("อีโมจิ");
+  expect(chat).not.toContain("เพลง");
+  expect(chat).not.toContain("GIF");
   expect(notesCss).toContain(".wyn-chat-note-plus");
   expect(notesCss).toContain(".wyn-chat-note-bubble");
-  expect(notesCss).toContain("width: 54px");
+  expect(notesCss).toContain(".wyn-note-screen");
+  expect(notesCss).toContain("width: 132px");
+  expect(notesCss).toContain("border-radius: 28px");
   expect(layout).toContain('import "./chat-notes.css";');
 });
 
