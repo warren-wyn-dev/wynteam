@@ -172,7 +172,7 @@
 /* ---------- Post card ---------- */
 
 .wyn-post + .wyn-post {
-  border-top: 1px solid var(--wyn-border);
+  border-top: 1px solid #ececef;
 }
 
 .wyn-post {
@@ -210,14 +210,15 @@
 }
 
 .wyn-post-redrop-line {
-  min-height: 18px;
-  margin: 0 0 0 21px;
+  min-height: 20px;
+  margin: 0 0 1px 21px;
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #7e7e83;
+  color: #737378;
   font-size: 14px;
-  line-height: 1.25;
+  line-height: 1.3;
+  font-weight: 500;
 }
 
 .wyn-post-quote {
@@ -267,7 +268,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #7e7e83;
+  color: #78787d;
   font-size: 14px;
   line-height: 1.2;
   font-weight: 400;
@@ -278,12 +279,12 @@
    - following/requested: white/background pill with a light gray border */
 .wyn-post-follow-pill {
   flex: 0 0 auto;
-  min-height: 28px;
-  height: 28px;
-  padding: 0 12px;
+  min-height: 26px;
+  height: 26px;
+  padding: 0 11px;
   border: 1px solid transparent;
   border-radius: var(--wyn-radius-full);
-  background: #efeff1;
+  background: #f1f1f3;
   color: var(--wyn-text);
   font: inherit;
   font-size: 14px;
@@ -305,8 +306,8 @@
   flex: 0 0 28px;
   width: 28px;
   min-width: 28px;
-  height: 28px;
-  min-height: 28px;
+  height: 26px;
+  min-height: 26px;
   margin: 0 -2px 0 0;
   padding: 0;
   border: 0;
@@ -346,7 +347,7 @@
 
 .wyn-post-more-text {
   margin-left: 5px;
-  color: #7e7e83;
+  color: #737378;
   font-size: 15px;
   line-height: inherit;
   font-weight: 400;
@@ -426,7 +427,7 @@
 }
 
 .wyn-post-media + .wyn-post-actions {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 /* ---------- Action row ---------- */

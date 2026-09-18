@@ -124,7 +124,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(home).not.toContain('location.assign');
   for (const contract of [
     "wyn-post-follow-pill",
-    "background: #efeff1",
+    "background: #f1f1f3",
     ".wyn-post-follow-pill.is-following",
     "font-size: 16px",
     "max-width: 96px",
