@@ -43,7 +43,8 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(home).toContain("font-size: 14px");
   expect(tabs).toContain("wyn-home-tab-indicator");
   expect(tabs).not.toContain('background: active ? "var(--wyn-surface)"');
-  expect(author).toContain('"กำลังติดตาม"');
+  expect(author).toContain("showFollow && !following");
+  expect(author).not.toContain('"กำลังติดตาม"');
   expect(lock).toContain("color: #1d9bf0");
 
   expect(card).toContain('size={40}');
