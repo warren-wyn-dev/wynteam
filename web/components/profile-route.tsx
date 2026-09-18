@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, CheckCircle2, ChevronDown, ChevronLeft, Heart, Image as ImageIcon, MoreVertical, Repeat2, Send, Settings, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -9,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, DropPreviewCard, EmptyState } from "@/components/phase3-ui";
 import { ProfileRecommendations } from "@/components/profile-recommendations";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { FeedSkeleton, ProfileSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
 import {
@@ -109,7 +109,7 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
     <div className="wyn-profile-edit">
       <div className="wyn-profile-edit-avatar">
         <Avatar src={avatar} label={username} size={84} />
-        <label><Camera size={16} /> รูปโปรไฟล์<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image(e.target.files?.[0])} /></label>
+        <label><WynosIcon name="camera" size={16} strokeWidth={2} /> รูปโปรไฟล์<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image(e.target.files?.[0])} /></label>
       </div>
       <label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label>
       <label className="route-field"><span>ชื่อผู้ใช้</span><input value={`@${username}`} autoCapitalize="none" maxLength={31} onChange={(e) => setUsername(e.target.value.replace(/^@+/, "").replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
@@ -239,15 +239,15 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
     <header className="wyn-profile-topbar">
-      <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={24} /></button>
+      <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><WynosIcon name="back" size={24} strokeWidth={2} /></button>
       {own ? (
         <button className="wyn-profile-account-switcher" type="button" aria-label="สลับบัญชี" onClick={openAccountSwitcher}>
-          <span>@{profile.username}</span><ChevronDown size={18} />
+          <span>@{profile.username}</span><WynosIcon name="chevronDown" size={18} strokeWidth={2} />
         </button>
       ) : <strong>@{profile.username}</strong>}
       {own
-        ? <button type="button" aria-label="ตั้งค่า" onClick={() => router.push("/settings")}><Settings size={22} /></button>
-        : <button type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><MoreVertical size={22} /></button>}
+        ? <button type="button" aria-label="ตั้งค่า" onClick={() => router.push("/settings")}><WynosIcon name="settings" size={22} strokeWidth={2} /></button>
+        : <button type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><WynosIcon name="moreVertical" size={22} strokeWidth={2} /></button>}
     </header>
     <section className="wyn-profile-header">
       <div className="wyn-profile-intro">
@@ -273,7 +273,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
       ) : (
         <div className="wyn-profile-actions">
           <button className={`wyn-profile-action-primary ${summary.following || summary.requested ? "soft" : ""}`} disabled={action || summary.blockedBy} type="button" onClick={() => void follow()}>{summary.following ? "กำลังติดตาม" : summary.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button>
-          <button className="wyn-profile-action-secondary" disabled={action || summary.blockedBy} type="button" onClick={() => void startChat()}><Send size={18} /> ส่งข้อความ</button>
+          <button className="wyn-profile-action-secondary" disabled={action || summary.blockedBy} type="button" onClick={() => void startChat()}><WynosIcon name="send" size={18} strokeWidth={2} /> ส่งข้อความ</button>
         </div>
       )}
       {summary.blockedBy ? <p className="route-notice">ไม่สามารถดูเนื้อหาของผู้ใช้นี้ได้</p> : null}
@@ -281,9 +281,9 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
       {error ? <p className="route-error">{error}</p> : null}
     </section>
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
-    {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><ImageIcon size={20} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><Repeat2 size={20} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><Heart size={20} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
-    {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><X size={20} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <CheckCircle2 size={21} /> : managingAccounts ? <button className="profile-account-remove" type="button" onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
-    {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><X size={20} /></button></header><button type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
+    {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><WynosIcon name="image" size={20} strokeWidth={2} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><WynosIcon name="repost" size={20} strokeWidth={2} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><WynosIcon name="like" size={20} strokeWidth={2} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
+    {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <WynosIcon name="checkCircle" size={21} strokeWidth={2} /> : managingAccounts ? <button className="profile-account-remove" type="button" onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
+    {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><button type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
     <Toast message={toastMessage} />
   </AppChrome>;
 }

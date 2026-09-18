@@ -1,12 +1,12 @@
 "use client";
 
-import { Heart, MessageCircle, Repeat2, UserPlus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { markNotificationsRead } from "@/lib/notification-count";
@@ -48,10 +48,10 @@ function messageFor(row: NotificationRow): string {
 }
 
 function TypeBadge({ type }: { type: string }) {
-  if (type.includes("like")) return <span className="notification-type-icon like"><Heart size={10} fill="currentColor" strokeWidth={0} /></span>;
-  if (type === "redrop") return <span className="notification-type-icon repost"><Repeat2 size={10} /></span>;
-  if (type === "follow" || type === "follow_request_accepted") return <span className="notification-type-icon follow"><UserPlus size={10} /></span>;
-  if (type.includes("comment")) return <span className="notification-type-icon comment"><MessageCircle size={10} fill="currentColor" /></span>;
+  if (type.includes("like")) return <span className="notification-type-icon like"><WynosIcon name="like" size={10} fill="currentColor" strokeWidth={0} /></span>;
+  if (type === "redrop") return <span className="notification-type-icon repost"><WynosIcon name="repost" size={10} strokeWidth={2} /></span>;
+  if (type === "follow" || type === "follow_request_accepted") return <span className="notification-type-icon follow"><WynosIcon name="userPlus" size={10} strokeWidth={2} /></span>;
+  if (type.includes("comment")) return <span className="notification-type-icon comment"><WynosIcon name="comment" size={10} fill="currentColor" strokeWidth={2} /></span>;
   return null;
 }
 
@@ -183,7 +183,7 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
       <header className="notification-root-header">
-        <button type="button" aria-label="ออกจากการแจ้งเตือน" onClick={closeNotifications}><X size={22} strokeWidth={2} /></button>
+        <button type="button" aria-label="ออกจากการแจ้งเตือน" onClick={closeNotifications}><WynosIcon name="close" size={22} strokeWidth={2} /></button>
         <strong>การแจ้งเตือน</strong>
         <span aria-hidden="true" />
       </header>

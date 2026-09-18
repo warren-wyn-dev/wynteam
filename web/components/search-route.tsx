@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, MoreHorizontal, Search, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, DropPreviewCard, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
@@ -239,11 +239,11 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
             <div className="hashtag-row flutter-rank-row" key={item.tag}>
               <b>{index + 1}</b>
               <span className="flutter-rank-copy"><strong>#{item.tag}</strong><small>{item.postCount.toLocaleString("th-TH")} โพสต์ · กำลังนิยมใน ไทย</small></span>
-              <MoreHorizontal size={16} aria-hidden="true" />
+              <WynosIcon name="more" size={16} strokeWidth={2} aria-hidden="true" />
             </div>
           )) : <EmptyState>ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้</EmptyState>}
         </div>
-        <button className="top100-link" type="button">ดูอันดับทั้งหมด (Top 100) <ChevronRight size={14} /></button>
+        <button className="top100-link" type="button">ดูอันดับทั้งหมด (Top 100) <WynosIcon name="chevronRight" size={14} strokeWidth={2} /></button>
       </section>
       <section className="route-section flutter-suggested-section">
         <div className="route-section-title"><h2>แนะนำให้ติดตาม</h2></div>
@@ -302,11 +302,11 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
       <div className="flutter-search-header">
-        <button className="search-back-button" type="button" aria-label="ออกจากหน้าค้นหา" onClick={closeSearch}><ChevronLeft size={28} strokeWidth={2} /></button>
+        <button className="search-back-button" type="button" aria-label="ออกจากหน้าค้นหา" onClick={closeSearch}><WynosIcon name="back" size={28} strokeWidth={2} /></button>
         <form className="search-route-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-          <button type="submit" aria-label="ค้นหา"><Search size={20} /></button>
+          <button type="submit" aria-label="ค้นหา"><WynosIcon name="search" size={20} strokeWidth={2} /></button>
           <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="ค้นหา username, โพสต์, Club" inputMode="search" />
-          {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={() => { setDraft(""); setQuery(""); }}><X size={18} /></button> : null}
+          {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={() => { setDraft(""); setQuery(""); }}><WynosIcon name="close" size={18} strokeWidth={2} /></button> : null}
         </form>
       </div>
       {!submitted ? <Discovery client={client} userId={userId} /> : (
