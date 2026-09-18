@@ -299,59 +299,6 @@
   color: var(--wyn-accent);
 }
 
-.wyn-top-bar {
-  min-height: 52px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--wyn-border);
-  background: color-mix(in srgb, var(--wyn-bg) 94%, transparent);
-  color: var(--wyn-text);
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 44px;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  backdrop-filter: blur(14px);
-}
-
-.wyn-top-bar__title {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.wyn-top-bar__right {
-  min-width: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.wyn-icon-button {
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--wyn-text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.wyn-icon-button:hover {
-  background: var(--wyn-surface);
-}
-
 .wyn-bottom-nav {
   min-height: 72px;
   padding: 7px max(8px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
