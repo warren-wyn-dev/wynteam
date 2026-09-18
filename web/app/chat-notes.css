@@ -1,0 +1,409 @@
+/* WYN-162 — Chat inbox + Instagram-inspired Notes row.
+   This layer is imported after notifications-clean.css so it owns only the
+   approved chat inbox refinement without touching conversation threads. */
+
+.wyn-chat-inbox {
+  min-height: 100dvh;
+  padding-bottom: calc(54px + min(env(safe-area-inset-bottom), 20px));
+  background: var(--wyn-bg);
+}
+
+.wyn-chat-inbox .flutter-chat-header {
+  height: 72px !important;
+  padding: 8px 22px 0 18px !important;
+  grid-template-columns: 48px minmax(0, 1fr) auto !important;
+  border-bottom: 0 !important;
+}
+
+.wyn-chat-inbox .flutter-chat-header h1 {
+  font-size: 27px !important;
+  line-height: 1 !important;
+  font-weight: 750 !important;
+  letter-spacing: -0.02em;
+}
+
+.wyn-chat-header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.wyn-chat-compose-action {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--wyn-text);
+}
+
+.wyn-chat-requests-link {
+  min-height: 36px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--wyn-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.wyn-chat-requests-link span {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.wyn-chat-inbox .flutter-chat-search {
+  height: 56px;
+  margin: 8px 28px 14px !important;
+  padding: 0 21px !important;
+  gap: 14px !important;
+  border-radius: 28px !important;
+  background: #f7f7f8 !important;
+}
+
+.wyn-chat-inbox .flutter-chat-search input {
+  font-size: 16px !important;
+}
+
+.wyn-chat-notes {
+  width: 100%;
+  min-height: 142px;
+  padding: 7px 22px 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--wyn-border);
+}
+
+.wyn-chat-notes::-webkit-scrollbar {
+  display: none;
+}
+
+.wyn-chat-note-card {
+  position: relative;
+  flex: 0 0 74px;
+  width: 74px;
+  min-height: 118px;
+  padding: 0;
+  display: grid;
+  grid-template-rows: 48px 56px 18px;
+  justify-items: center;
+  align-items: end;
+  border: 0;
+  background: transparent;
+  color: var(--wyn-text);
+  text-decoration: none;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wyn-chat-note-bubble {
+  position: relative;
+  z-index: 2;
+  max-width: 112px;
+  min-width: 58px;
+  min-height: 34px;
+  padding: 7px 10px;
+  display: -webkit-box;
+  overflow: hidden;
+  border: 1px solid #ececef;
+  border-radius: 14px;
+  background: var(--wyn-bg);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 6%);
+  color: var(--wyn-text);
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.wyn-chat-note-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  transform: translateX(-50%) rotate(45deg);
+  border-right: 1px solid #ececef;
+  border-bottom: 1px solid #ececef;
+  background: var(--wyn-bg);
+}
+
+.wyn-chat-note-bubble.empty {
+  min-width: 64px;
+  color: var(--wyn-text-secondary);
+  font-weight: 550;
+}
+
+.wyn-chat-note-card.is-mine .wyn-chat-note-bubble {
+  background: #f7f7f8;
+  box-shadow: none;
+}
+
+.wyn-chat-note-avatar-wrap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+}
+
+.wyn-chat-note-avatar-wrap .route-avatar {
+  width: 54px !important;
+  height: 54px !important;
+  border-color: #e5e5e8;
+}
+
+.wyn-chat-note-plus {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  z-index: 3;
+  width: 21px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--wyn-bg);
+  border-radius: 50%;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
+}
+
+.wyn-chat-note-card > small {
+  max-width: 74px;
+  overflow: hidden;
+  color: var(--wyn-text);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 550;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wyn-chat-inbox .flutter-chat-list .chat-row {
+  position: relative;
+  min-height: 86px !important;
+  padding: 12px 28px !important;
+  gap: 14px !important;
+  border-bottom: 0 !important;
+}
+
+.wyn-chat-inbox .flutter-chat-list .chat-row::after {
+  content: "";
+  position: absolute;
+  left: 94px;
+  right: 28px;
+  bottom: 0;
+  height: 1px;
+  background: var(--wyn-border);
+}
+
+.wyn-chat-inbox .flutter-chat-list .chat-row:last-child::after {
+  display: none;
+}
+
+.wyn-chat-inbox .flutter-chat-list .chat-row > .route-avatar {
+  width: 52px !important;
+  height: 52px !important;
+}
+
+.wyn-chat-inbox .flutter-chat-list .chat-row-copy {
+  min-width: 0;
+  gap: 3px;
+}
+
+.wyn-chat-inbox .flutter-chat-list .chat-row-copy strong {
+  font-size: 17px !important;
+  font-weight: 700 !important;
+}
+
+.wyn-chat-inbox .flutter-chat-list .chat-row-copy small {
+  font-size: 14px !important;
+  line-height: 1.3 !important;
+}
+
+.wyn-chat-inbox .flutter-chat-row-meta {
+  align-self: center;
+  gap: 8px;
+}
+
+.wyn-chat-inbox .flutter-chat-row-meta time {
+  font-size: 14px !important;
+}
+
+.wyn-chat-unread-dot {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: #2f80ed;
+}
+
+.wyn-note-modal,
+.wyn-new-message-modal {
+  width: min(calc(100% - 28px), 520px);
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.wyn-note-editor {
+  padding: 6px 18px 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.wyn-note-editor-preview {
+  min-height: 86px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.wyn-note-editor-preview > span {
+  position: relative;
+  max-width: min(70%, 310px);
+  padding: 9px 12px;
+  border: 1px solid var(--wyn-border);
+  border-radius: 15px;
+  background: var(--wyn-bg);
+  color: var(--wyn-text);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.wyn-note-editor textarea {
+  min-height: 100px;
+  padding: 14px;
+  resize: none;
+  border: 1px solid var(--wyn-border);
+  border-radius: 18px;
+  outline: 0;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.wyn-note-editor-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--wyn-text-secondary);
+}
+
+.wyn-note-editor-meta small {
+  font-size: 12px;
+}
+
+.wyn-note-save {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 999px;
+}
+
+.wyn-note-delete {
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  color: #d33c32;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wyn-new-message-search {
+  margin: 6px 16px 12px;
+  min-height: 46px;
+  padding: 0 10px 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-radius: 999px;
+  background: var(--wyn-surface);
+}
+
+.wyn-new-message-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--wyn-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.wyn-new-message-search button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.wyn-new-message-search button:disabled {
+  opacity: .4;
+}
+
+@media (max-width: 430px) {
+  .wyn-chat-inbox .flutter-chat-header {
+    padding-left: 10px !important;
+    padding-right: 14px !important;
+  }
+
+  .wyn-chat-inbox .flutter-chat-header h1 {
+    font-size: 25px !important;
+  }
+
+  .wyn-chat-inbox .flutter-chat-search {
+    margin-left: 20px !important;
+    margin-right: 20px !important;
+  }
+
+  .wyn-chat-notes {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .wyn-chat-inbox .flutter-chat-list .chat-row {
+    padding-left: 22px !important;
+    padding-right: 20px !important;
+  }
+
+  .wyn-chat-inbox .flutter-chat-list .chat-row::after {
+    left: 88px;
+    right: 20px;
+  }
+
+  .wyn-chat-unread-dot {
+    left: 10px;
+  }
+}
