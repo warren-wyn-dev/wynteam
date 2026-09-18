@@ -114,7 +114,8 @@
   justify-content: center;
   color: #8e8e93;
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1.2;
   font-weight: 600;
   -webkit-tap-highlight-color: transparent;
 }
@@ -215,7 +216,7 @@
   align-items: center;
   gap: 5px;
   color: #8e8e93;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.25;
 }
 
@@ -251,8 +252,8 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--wyn-text);
-  font-size: 14px;
-  line-height: 1.2;
+  font-size: 15px;
+  line-height: 1.25;
   font-weight: 600;
 }
 
@@ -266,8 +267,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #8e8e93;
-  font-size: 12.5px;
+  color: #8a8a8e;
+  font-size: 14px;
   line-height: 1.2;
   font-weight: 400;
 }
@@ -277,15 +278,15 @@
    - following/requested: white/background pill with a light gray border */
 .wyn-post-follow-pill {
   flex: 0 0 auto;
-  min-height: 24px;
-  height: 24px;
-  padding: 0 13px;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 14px;
   border: 1px solid transparent;
   border-radius: var(--wyn-radius-full);
   background: #efeff1;
   color: var(--wyn-text);
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.2;
   font-weight: 600;
   letter-spacing: 0;
@@ -304,8 +305,8 @@
   flex: 0 0 28px;
   width: 28px;
   min-width: 28px;
-  height: 24px;
-  min-height: 24px;
+  height: 28px;
+  min-height: 28px;
   margin: 0 -2px 0 0;
   padding: 0;
   border: 0;
@@ -321,10 +322,10 @@
 }
 
 .wyn-post-caption-wrap {
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--wyn-text);
-  font-size: 14px;
-  line-height: 1.38;
+  font-size: 16px;
+  line-height: 1.31;
   font-weight: 400;
 }
 
@@ -345,8 +346,10 @@
 
 .wyn-post-more-text {
   margin-left: 3px;
-  color: #8e8e93;
-  font: inherit;
+  color: #8a8a8e;
+  font-size: 15px;
+  line-height: inherit;
+  font-weight: 400;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -456,7 +459,7 @@
 }
 
 .wyn-action-button-count {
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.3;
   font-weight: 500;
   color: inherit;
@@ -491,7 +494,7 @@
 
   .wyn-home-tab {
     padding-inline: 5px;
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .wyn-home-tab-indicator {
@@ -524,7 +527,7 @@
 
   .wyn-post-timestamp {
     max-width: 72px;
-    font-size: 13px;
+    font-size: 13.5px;
   }
 
   .wyn-post-follow-pill {
