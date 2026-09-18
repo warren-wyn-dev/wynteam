@@ -1,10 +1,10 @@
-import { Repeat2 } from "lucide-react";
 import Link from "next/link";
 
 import { PostActions } from "@/components/home/post-actions";
 import { PostAuthorRow } from "@/components/home/post-author-row";
 import { PostMediaCarousel } from "@/components/home/post-media-carousel";
 import { Avatar } from "@/components/phase3-ui";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import type { HomeViewerState } from "@/lib/home-actions";
@@ -83,7 +83,7 @@ export function HomePostCard({
     >
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
-          <Repeat2 size={16} />
+          <WynosIcon name="repost" size={16} strokeWidth={2} />
           รีโพสต์โดย {row.redropper_username || "WYNOS"} · {time}
         </div>
       ) : null}
