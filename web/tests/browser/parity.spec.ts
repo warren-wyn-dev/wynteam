@@ -114,7 +114,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
     "Quote ReDrop", "ไม่สนใจโพสต์นี้", "เลิกทำ", "submit_report", 'from("feed_signals")',
     "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
   ]) expect(home).toContain(contract);
-  expect(postActions).toContain('<Send size={22} strokeWidth={2} />');
+  expect(postActions).toContain('<Forward size={22} strokeWidth={2} />');
   expect(postActions).toContain('<Repeat2 size={24} strokeWidth={2} />');
   expect(postActions).toContain('<Bookmark size={22} strokeWidth={2}');
   expect(postAuthorRow).toContain("ขอติดตามแล้ว");
