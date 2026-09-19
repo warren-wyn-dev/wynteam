@@ -1,8 +1,8 @@
 # Design Task — WYN-163
 
-Status: approved (QA รอบ 2 = **PASS** 2026-09-19 — พร้อมส่งต่อ AI Deploy & DevOps)
+Status: approved (deploy สำเร็จแล้ว 2026-09-19 — รอ Founder ยืนยันบน production จริงก่อนย้ายไป completed/)
 Owner: AI Design → AI Coding → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (WYN-164) →
-AI QA & Security (**PASS รอบ 2**) → **AI Deploy & DevOps**
+AI QA & Security (PASS รอบ 2) → AI Deploy & DevOps (**deploy สำเร็จ**) → **รอ Founder ยืนยัน**
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
 `SignupStep2Screen`, `OnboardingProfileScreen`, `ForgotPasswordScreen`
@@ -104,3 +104,9 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
   64px ตรงสเปก — ไม่พบ finding ใหม่ ไม่มี security finding
 - ย้ายไป `.wyn/tasks/approved/` แล้ว — ถัดไป: **AI Deploy & DevOps** deploy ขึ้น WYNOS Web Beta1 (รอ Founder
   อนุมัติ production deployment ตาม AGENTS.md ก่อนเสมอ)
+- 2026-09-19 (AI Deploy & DevOps) — **Deploy สำเร็จ**: เปิด PR #545, CI เขียวครบ 8 checks, **Founder merge
+  เอง** ผ่าน GitHub เข้า `main` — trigger `wyn-158-production-deploy.yml` run #132 อัตโนมัติ ผ่านครบทั้ง 3
+  step (Production preflight / Deploy to Vercel production / Verify production routes) — AI ยืนยันได้เองแค่
+  ระดับ workflow (sandbox นี้ออก network ไป wynos.online ไม่ได้ ทดสอบแล้วจริง) **ยังรอ Founder เปิดดูจริงบน
+  `wynos.online` ก่อนถึงจะย้าย task นี้ไป `completed/` ได้** ตามกติกา WORKFLOW.md บันทึก deploy log เต็มที่
+  `.wyn/logs/deployments/2026-09-19-wyn-163-164-onboarding-button-redesign-deploy.md`
