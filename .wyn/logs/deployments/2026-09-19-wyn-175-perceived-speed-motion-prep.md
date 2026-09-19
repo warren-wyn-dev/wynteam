@@ -1,7 +1,7 @@
 # WYNOS Web Beta1 — WYN-175 Perceived Speed & Motion Deploy Prep
 
 Date: 2026-09-19
-Status: **PR OPEN — waiting on Founder to review/merge**
+Status: **MERGED — production deploy workflow in progress**
 
 ## Release
 
@@ -14,7 +14,8 @@ Status: **PR OPEN — waiting on Founder to review/merge**
 - Branch: `claude/wynos-online-version-1pqqws`, 7 commits ahead of `origin/main`, clean fast-forward (no
   conflicts)
 - PR: [#552](https://github.com/warren-wyn-dev/wynteam/pull/552) — opened 2026-09-19 after Founder confirmed
-  "เปิดเลย" in chat. Not merged yet — merging is the Founder's own action per the Founder Gate.
+  "เปิดเลย" in chat. **Merged by Founder** (`warren-wyn-dev`) at 2026-09-19T16:46:00Z, ~44s after opening —
+  same fast-merge pattern as PR #550/#551. Merge commit `497d836de4ad17049cd85fbc74184f1050c7e1d1` on `main`.
 
 ## QA Status
 
@@ -56,7 +57,7 @@ docs (product/design/decision/task/learning records). No backend/RPC/schema chan
 
 ## Deployment Result
 
-PR #552 opened, CI running. Not merged/deployed yet — waiting on Founder review and merge.
+PR #552 merged into `main` by Founder. [WYN-158 Production Deploy run #139](https://github.com/warren-wyn-dev/wynteam/actions/runs/35456002342) triggered automatically on the merge commit — status at time of writing: **in progress** (checking back shortly; prior runs on this workflow completed in ~1.5–2 minutes).
 
 ## Production Verification
 
