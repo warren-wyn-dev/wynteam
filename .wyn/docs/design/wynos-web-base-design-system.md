@@ -32,12 +32,16 @@ Accent red is reserved for like state, attached-media/status emphasis, and warni
 ## Button Interaction Spec (added 2026-09-19 — WYN-160/WYN-177, reconciled with WYN-176)
 
 Founder asked for every button across the web app to move in one consistent direction. Codebase audit
-(`web/app/*.css`, all 44 stylesheets imported by `app/layout.tsx`) found ~72 button-related class
-selectors, only 5 files with any `:active` state, only 3 files using the press-motion token introduced in
-WYN-169/170, and at least 6 different hardcoded danger-red values (`#b42318`, `#dc2626`, `#b12d25`,
-`#d33c32`, plus the approved accent `#E0203D`) across different screens. This section is the missing
+(`web/app/*.css`, the 38 stylesheets imported by `app/layout.tsx` as of 2026-09-19) found 4 distinct
+hardcoded danger-red hex values in addition to the approved accent token (`#b42318`, `#dc2626`, `#b12d25`,
+`#d33c32`, vs. the approved `#E0203D`) across different screens, and only a handful of files with any
+`:active` state or the press-motion token introduced in WYN-169/170 — re-measured after WYN-176 batch 1
+landed: `grep -rl ":active" web/app/*.css | wc -l` → 8 files, `grep -rl "scale(0.96)" web/app/*.css | wc -l`
+→ 7 files (up from 5/3 respectively before batch 1, since it added press-feedback to `.route-primary`/
+`.route-secondary`/`.route-pill`/`.route-more` among other selectors). This section is the missing
 interaction contract — not a new visual direction, an enforcement spec for the existing Button primitive
-above.
+above. Re-run these `grep`/`rg` commands rather than trusting the numbers here verbatim before using them
+to scope a rollout batch — they will keep drifting as WYN-176 ships more batches.
 
 **Reconciled 2026-09-19 with WYN-176** (a parallel workstream that reached Founder approval and shipped its
 first batch before this spec's sizing numbers were checked against it): WYN-163's Auth redesign picked
@@ -63,14 +67,19 @@ batch sequence instead of the Rollout note below.
 
 ### Motion token (mandatory on every tappable button)
 
-Proven in production across WYN-169/170/171 — reuse verbatim, do not invent a new curve:
+Proven in production across WYN-169/170/171, and now declared as shared `:root` custom properties in
+`web/app/design-system.css` (`--wyn-motion-duration`, `--wyn-motion-easing`, `--wyn-motion-press-scale`) —
+reference those tokens, don't repeat the literal values, so a future change to the formula only requires
+editing one place instead of every selector that adopted it:
 
 ```css
+/* Add to any existing selector's own transition — see "Compose, don't overwrite" below
+   if that selector already has other properties in its transition list or a static transform. */
 .wyn-btn-name {
-  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform var(--wyn-motion-duration) var(--wyn-motion-easing);
 }
 .wyn-btn-name:active {
-  transform: scale(0.96);
+  transform: scale(var(--wyn-motion-press-scale));
 }
 @media (prefers-reduced-motion: reduce) {
   .wyn-btn-name {
@@ -80,9 +89,20 @@ Proven in production across WYN-169/170/171 — reuse verbatim, do not invent a 
 ```
 
 Every button category below gets this triplet. No exceptions — even icon-only and text-link buttons need
-press feedback; only the `:active` scale value (0.96) may need a smaller number for very small icon
-buttons if 0.96 reads as imperceptible, but the base formula does not change without a Founder-reviewed
-reason recorded in the CSS as a comment.
+press feedback; only the `:active` scale value (`--wyn-motion-press-scale`, currently `0.96`) may need a
+smaller number for very small icon buttons if `0.96` reads as imperceptible, but the base formula does not
+change without a Founder-reviewed reason recorded in the CSS as a comment. WYN-176 batch 1 shipped this
+exact formula as literal values rather than these tokens (the tokens didn't exist yet when it landed) —
+new rollout phases should migrate those selectors to the tokens above rather than copy the literals again.
+
+**Compose, don't overwrite, an element's other transitioned properties.** Several existing buttons already
+carry a multi-property `transition` (e.g. `.wyn-button`'s `transform 120ms ease, background-color 120ms
+ease, border-color 120ms ease, opacity 120ms ease`, or `.wyn-chat-requests-link`'s background transition).
+Replacing that whole shorthand with just `transition: transform var(--wyn-motion-duration)
+var(--wyn-motion-easing)` silently drops the other properties' transitions, making hover/state changes on
+those selectors snap instead of animate. For any selector that already transitions other properties, add
+`transform var(--wyn-motion-duration) var(--wyn-motion-easing)` as one more comma-separated item in its
+existing `transition` list instead of replacing the whole declaration.
 
 **Compose, don't overwrite, an element's own static transform.** A few controls already carry a
 non-press `transform` for layout (e.g. `.wyn-bottom-nav__post { transform: translateY(-9px) }` for the
@@ -126,7 +146,9 @@ phase-0 spec pass — flag it to Founder before rollout reaches this token.
   area is acceptable only when the control sits inline in a text flow where a large hit box would
   overlap neighboring tap targets. When in doubt, give it 44px.
 - Audit finding: `.route-primary`/`.route-secondary`/`.route-pill`/`.route-more`
-  (`web/app/phase3.css:83-114`, used across 13 component files) currently ships at **38px** default /
+  (`web/app/phase3.css:83-116`, used across 17 component files as of 2026-09-19 —
+  `grep -rl "route-primary\|route-secondary\|route-pill\b\|route-more\b" web/components web/app
+  --include="*.tsx"`) currently ships at **38px** default /
   **32px** on `.small` — both under the 44px floor. This corrects the earlier WYN-160 consolidation
   doc's touch-target line ("สม่ำเสมอดี — ไม่ต้องแก้") — that pass evidently checked a different subset of
   controls; `route-primary`/`route-secondary` need to move into scope for the touch-target rollout.

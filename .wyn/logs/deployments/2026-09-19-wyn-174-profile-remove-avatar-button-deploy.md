@@ -36,10 +36,14 @@ Founder merge PR #555 เองโดยตรงบน GitHub อีกคร�
 
 - `git revert -m 1 5b3f8fff` บน `main` (ต้องระบุ `-m 1` เพราะเป็น merge commit มี 2 parent — `git revert`
   เฉยๆ จะ error ทันที) แล้ว push ผ่าน PR ใหม่ตามขั้นตอนปกติ (ต้องขออนุมัติ Founder ก่อน merge เหมือนเดิม)
-- ไม่มี migration/schema change ใดๆ ในรอบนี้ — ใช้ column `avatar_url` ที่มีอยู่แล้ว rollback ไม่กระทบ
-  ข้อมูล production เลย
-- ความเสี่ยงต่ำมาก: ปุ่มใหม่ทำแค่ set `avatar_url = null` ผ่าน RLS policy เดิม ไม่แตะ flow อัปโหลด/บันทึก
-  โปรไฟล์เดิมเลย
+- ไม่มี migration/schema change ใดๆ ในรอบนี้ — ใช้ column `avatar_url` ที่มีอยู่แล้ว
+- **สำคัญ**: นี่คือ **code-only rollback** — ลบแค่ปุ่ม/ฟังก์ชันออกจากโค้ด **ไม่คืนค่า `avatar_url` ที่ผู้ใช้
+  กดลบไปแล้ว** ถ้ามีผู้ใช้กดปุ่ม "ลบรูปโปรไฟล์" ไปแล้วก่อน rollback ค่า `avatar_url` ของบัญชีนั้นจะยังเป็น
+  `null` อยู่ต่อไปหลัง revert (ต้องให้ผู้ใช้อัปโหลดรูปใหม่เอง หรือกู้ URL เดิมจาก backup/audit log ด้วยมือ
+  ถ้าจำเป็น — ไฟล์เดิมใน storage bucket `avatars` ไม่ได้ถูกลบตอนกดปุ่มนี้ แค่ไม่มี reference ชี้ไปแล้ว)
+- ความเสี่ยงของการ deploy รอบนี้เองต่ำมาก: ปุ่มใหม่ทำแค่ set `avatar_url = null` ผ่าน RLS policy เดิม ไม่แตะ
+  flow อัปโหลด/บันทึกโปรไฟล์เดิมเลย — ความเสี่ยงข้างต้นเป็นเรื่อง data ที่เกิดจากการใช้งานฟีเจอร์ปกติ ไม่ใช่
+  บั๊กของ deploy นี้
 
 ## Process Note
 
