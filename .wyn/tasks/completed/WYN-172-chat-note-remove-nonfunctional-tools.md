@@ -1,7 +1,6 @@
 # Design Task — WYN-172
 
-Status: deployed to production (PR #551, merge commit d3ffcbfd) — รอ Founder ยืนยัน production จริงบน
-device ก่อนปิดงาน
+Status: closed — Founder ยืนยัน production จริงแล้ว ("โอเค")
 Owner: AI Design → Founder → AI Debug Engineer → รอ QA
 Screen: WYNOS Web Chat Inbox — Note Composer (`web/components/chat-inbox-parity.tsx`,
 `web/app/chat-notes.css`)

@@ -1733,3 +1733,22 @@ Founder เปิด `wynos.online/chat` จริงหลัง WYN-170 deploy
 WYN-169 ไปด้วยในตัว (deploy สำเร็จจริง ไม่เคยมีรายงานบั๊กใดๆ ระหว่างที่ยังใช้งานอยู่)
 
 ย้าย `.wyn/tasks/completed/`: WYN-169, WYN-170
+
+## [2026-09-19] Founder ยืนยัน production จริง — ปิดงาน WYN-171/172/173/174 ครบ
+
+หลัง WYN-170 confirm แล้ว Founder ขอให้ AI Design ตรวจฟังก์ชันโน้ตต่อ พบและแก้ 4 เรื่องรวด:
+
+- **WYN-171** (บั๊ก HIGH): การ์ด "โน้ตของคุณ" อ่านไม่ออกในโหมดมืด (background hardcode) — pattern เดียวกับ
+  WYN-168
+- **WYN-172**: ลบปุ่ม "สถานที่"/"อีโมจิ" ที่ไม่มี onClick ออกจาก note composer
+- **WYN-173** (บั๊ก HIGH): QA เจอเองระหว่างตรวจ WYN-171 — การ์ดข้อมูล "แสดงเป็นเวลา 24 ชั่วโมง..." มีบั๊ก
+  pattern เดียวกันเป๊ะ (instance ที่ 3 ของ pattern นี้ในวันเดียว — ดู `.wyn/learning/LESSONS_LEARNED.md`)
+- **WYN-174**: ระหว่างตรวจ WYN-171 Founder รายงานว่าวงกลม avatar "โน้ตของคุณ" เป็นโลโก้ WYNOS Club ไม่ใช่รูป
+  โปรไฟล์จริง (บัญชี @wynos_online มี `avatar_url` ตั้งไว้จริงในระบบ) แต่หน้าแก้ไขโปรไฟล์ไม่มีปุ่มลบรูปให้
+  ล้างทิ้ง — เพิ่มปุ่ม "ลบรูปโปรไฟล์" ใหม่
+
+Deploy ผ่าน PR #551 (WYN-171/172/173) และ PR #555 (WYN-174) ทั้งคู่ CI เขียวครบ + production deploy สำเร็จ
+Founder ทดสอบจริงบนมือถือแล้วตอบ **"โอเค"** ยืนยันปิดงานทั้ง 4 รายการ
+
+ย้าย `.wyn/tasks/completed/`: WYN-172, WYN-174 (WYN-171/173 เป็น bug report อยู่ที่ `.wyn/tasks/bugs/` เดิม
+ตาม convention — อัปเดตสถานะเป็น closed ในไฟล์เดิม ไม่ย้าย)
