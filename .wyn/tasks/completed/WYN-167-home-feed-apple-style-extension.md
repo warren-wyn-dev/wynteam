@@ -109,3 +109,8 @@ vacuous). Both production deploy workflow runs succeeded (#134, #135). Full log:
 
 **Still needed**: Founder to confirm on a real device that the follow pill, header icons, and tab underline
 show visible motion on `wynos.online`.
+
+## Founder Confirmation (2026-09-19)
+
+Founder opened production directly and confirmed: "เปิดดูเว็บจริงแล้ว โอเคหมดเลย" — moved to
+`.wyn/tasks/completed/`.

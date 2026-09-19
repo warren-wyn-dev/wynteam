@@ -1701,3 +1701,12 @@ Signup Step 1 (กรอบช่องชื่อผู้ใช้ + ช่�
 ย้าย `.wyn/tasks/completed/`: WYN-163 (Apple-style squircle redesign, parent task), WYN-166 (Thai birth date
 selects) — WYN-164/165 (bug report files) ยังอยู่ที่ `.wyn/tasks/bugs/` ตามธรรมเนียมเดิม (อัปเดต status
 เป็น closed/resolved แล้ว ไม่ย้ายไฟล์ bug report ออกจากโฟลเดอร์เดิม)
+
+## [2026-09-19] Founder ยืนยัน production จริง — ปิดงาน WYN-167/168 ครบ
+
+Founder เปิด `wynos.online` จริงหลัง WYN-167/168 deploy (รวม CI fix PR #548) แล้วตอบ
+**"เปิดดูเว็บจริงแล้ว โอเคหมดเลย"** — ยืนยันว่า motion บน Home feed (ปุ่มติดตาม/ไอคอน header/เส้นใต้แท็บ)
+และการแก้ dark-mode contrast ของปุ่มติดตาม ทำงานถูกต้องบน production จริงแล้ว
+
+ย้าย `.wyn/tasks/completed/`: WYN-167 — WYN-168 (bug report) ยังอยู่ที่ `.wyn/tasks/bugs/` ตามธรรมเนียมเดิม
+(อัปเดตสถานะเป็นปิดสมบูรณ์แล้ว ไม่ย้ายไฟล์ bug report ออกจากโฟลเดอร์เดิม)
