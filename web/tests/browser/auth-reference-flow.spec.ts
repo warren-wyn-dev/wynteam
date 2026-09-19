@@ -68,7 +68,9 @@ test.describe("HTML-reference auth flow", () => {
     await page.goto("/signup/step-1");
     await page.locator('input[name="username"]').fill("ploy_journey");
     await page.locator('input[name="displayName"]').fill("พลอย เดินทาง");
-    await page.locator('input[name="birthDate"]').fill("2000-01-01");
+    await page.locator('select[aria-label="วัน"]').selectOption("01");
+    await page.locator('select[aria-label="เดือน"]').selectOption({ label: "มกราคม" });
+    await page.locator('select[aria-label="ปี"]').selectOption("2000");
 
     await page.getByRole("button", { name: "หน้าถัดไป" }).click();
     await expect(page).toHaveURL(/\/signup\/step-2$/);
@@ -80,7 +82,9 @@ test.describe("HTML-reference auth flow", () => {
     await expect(page).toHaveURL(/\/signup\/step-1$/);
     await expect(page.locator('input[name="username"]')).toHaveValue("ploy_journey");
     await expect(page.locator('input[name="displayName"]')).toHaveValue("พลอย เดินทาง");
-    await expect(page.locator('input[name="birthDate"]')).toHaveValue("2000-01-01");
+    await expect(page.locator('select[aria-label="วัน"]')).toHaveValue("01");
+    await expect(page.locator('select[aria-label="เดือน"]')).toHaveValue("01");
+    await expect(page.locator('select[aria-label="ปี"]')).toHaveValue("2000");
   });
 
   test("reference buttons connect the auth routes", async ({ page }) => {
@@ -98,32 +102,37 @@ test.describe("HTML-reference auth flow", () => {
     await expect(page).toHaveURL(/\/signup\/step-1$/);
   });
 
-  // WYN-166 (2026-09-19): birth date on signup step 1 switched from a
-  // hand-typed "วว / ดด / ปปปป" text field to a native <input type="date">
-  // (Founder-requested, simpler OS-native picker instead of manual typing).
-  // The underlying value is always ISO "YYYY-MM-DD" regardless of the
-  // input's display locale, and the picker's own `max` attribute should
-  // already reflect the MIN_ONBOARDING_AGE cutoff so a too-young date isn't
-  // even offered — but this asserts the server-side-equivalent JS
-  // validation still rejects it too, in case a value is set past that
-  // attribute (e.g. programmatically, or a browser that ignores `max`).
-  test("signup step 1 birth date is a native date picker gated to the minimum onboarding age", async ({ page }) => {
+  // WYN-166 (2026-09-19), Founder follow-up same day: a native
+  // <input type="date"> displays in the browser/OS's own language, not the
+  // page's — so it could show English "mm/dd/yyyy" even on an all-Thai app.
+  // Replaced with 3 plain <select> boxes (วัน/เดือน/ปี) so the text is
+  // always Thai regardless of the visitor's device locale. Month labels are
+  // spelled-out Thai month names; the year option's visible label is the
+  // Buddhist Era year (Founder-approved, พ.ศ. = ค.ศ. + 543) but its value —
+  // and the value ultimately stored/validated — stays Gregorian, unchanged
+  // from before. The year dropdown itself only offers years satisfying
+  // MIN_ONBOARDING_AGE, but a day/month later in the calendar than today
+  // within the oldest eligible year is still genuinely underage, so this
+  // also confirms the JS validation on submit still catches that case
+  // (reachable through completely normal UI use, not just a bypass).
+  test("signup step 1 birth date is 3 Thai วัน/เดือน/ปี selects gated to the minimum onboarding age", async ({ page }) => {
     await page.goto("/signup/step-1");
-    const birthDateInput = page.locator('input[name="birthDate"]');
-    await expect(birthDateInput).toHaveAttribute("type", "date");
+    const monthOptionLabels = await page.locator('select[aria-label="เดือน"] option').allTextContents();
+    expect(monthOptionLabels).toContain("มกราคม");
+    expect(monthOptionLabels).toContain("ธันวาคม");
+    // No English digits should leak into the visible option text.
+    for (const label of monthOptionLabels) expect(label).not.toMatch(/[0-9]/);
 
-    const maxAttr = await birthDateInput.getAttribute("max");
+    const yearOptionLabels = await page.locator('select[aria-label="ปี"] option').allTextContents();
     const today = new Date();
-    const expectedMax = new Date(Date.UTC(today.getUTCFullYear() - 13, today.getUTCMonth(), today.getUTCDate()))
-      .toISOString()
-      .split("T")[0];
-    expect(maxAttr).toBe(expectedMax);
+    const newestEligibleGregorianYear = today.getUTCFullYear() - 13;
+    expect(yearOptionLabels[1]).toBe(String(newestEligibleGregorianYear + 543));
 
     await page.locator('input[name="username"]').fill("younguser");
     await page.locator('input[name="displayName"]').fill("Young User");
-    const underage = new Date();
-    underage.setFullYear(underage.getFullYear() - 10);
-    await birthDateInput.fill(underage.toISOString().split("T")[0]);
+    await page.locator('select[aria-label="วัน"]').selectOption("31");
+    await page.locator('select[aria-label="เดือน"]').selectOption({ label: "ธันวาคม" });
+    await page.locator('select[aria-label="ปี"]').selectOption({ index: 1 }); // newest eligible year, but Dec 31 hasn't happened yet this year
     await page.getByRole("button", { name: "หน้าถัดไป" }).click();
 
     await expect(page).toHaveURL(/\/signup\/step-1$/);

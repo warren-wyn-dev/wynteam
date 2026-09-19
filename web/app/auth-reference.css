@@ -133,6 +133,22 @@
   font-family: inherit;
 }
 
+/* WYN-166 follow-up (2026-09-19): วัน/เดือน/ปี selects for the birth date
+   field. A dedicated class/rule instead of extending .wyn-input above —
+   each <select> is its own full box (border/radius/height/background) with
+   no shared wrapper div carrying its own box styling, avoiding the nested
+   double-box-model collision fixed in WYN-165. */
+.auth-ref-viewport .field select.wyn-select {
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  padding: 0 10px;
+  font-size: 15px;
+  color: var(--text-primary);
+  background: var(--bg);
+  height: 56px;
+}
+
 .auth-ref-viewport .avatar {
   border-radius: 50%;
   background: var(--border);
