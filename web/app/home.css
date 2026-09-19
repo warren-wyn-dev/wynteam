@@ -312,7 +312,7 @@
   padding: 0 11px;
   border: 1px solid transparent;
   border-radius: var(--wyn-radius-full);
-  background: #f1f1f3;
+  background: var(--wyn-surface);
   color: var(--wyn-text);
   font: inherit;
   font-size: 14px;
@@ -332,7 +332,7 @@
 .wyn-post-follow-pill.is-requested {
   border-color: #e1e1e4;
   background: var(--wyn-bg);
-  color: #6b6b6b;
+  color: var(--wyn-text-secondary);
 }
 
 .wyn-post-more {

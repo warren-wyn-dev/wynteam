@@ -1,7 +1,7 @@
 # Bug Report — WYN-168
 
-Status: design decided (AI Design, 2026-09-19) — ready for AI Debug Engineer to implement
-Owner: AI Debug Engineer
+Status: fixed (AI Debug Engineer) — handed back to AI QA & Security for verification
+Owner: AI Debug Engineer → AI QA & Security
 Parent: none (pre-existing production bug, unrelated to any in-flight task) — discovered as a side effect of
 adversarial dark-mode testing during WYN-167's QA round (2026-09-19)
 
@@ -113,3 +113,38 @@ Filed by AI QA & Security during WYN-167's QA round. Recommend: AI Design picks 
 token value → AI Debug Engineer or AI Coding implements → AI QA & Security re-verifies contrast ≥4.5:1 in
 both states → Deploy. Founder should be told this exists and is live on production now, independent of any
 in-flight work.
+
+---
+
+## Resolution (2026-09-19, AI Debug Engineer)
+
+Implemented exactly as AI Design specified — 2-line change in `web/app/home.css`:
+1. `.wyn-post-follow-pill { background: #f1f1f3 }` → `background: var(--wyn-surface)`
+2. `.wyn-post-follow-pill.is-following, .wyn-post-follow-pill.is-requested { color: #6b6b6b }` →
+   `color: var(--wyn-text-secondary)`
+
+**Verification**: `npm run typecheck`/`lint`/`build` all clean (0 errors, same 3 pre-existing unrelated
+warnings). Re-measured actual rendered contrast via `playwright-core` + `/opt/pw-browsers/chromium` against
+a live dev server (this sandbox's `@playwright/test`-managed browsers still aren't installed):
+- Light mode, default state: `rgb(250,250,250)` bg / `rgb(10,10,10)` text → **18.97:1**
+- Dark mode, default state: `rgb(17,17,17)` bg / `rgb(255,255,255)` text → **18.88:1** (was 1.13:1)
+- Light mode, `.is-requested`: `rgb(255,255,255)` bg / `rgb(107,107,107)` text → **5.33:1**
+- Dark mode, `.is-requested`: `rgb(0,0,0)` bg / `rgb(138,136,128)` text → **5.91:1** (was 3.94:1)
+
+All 4 combinations now clear WCAG AA's 4.5:1 threshold with margin. Screenshots confirm: dark mode now shows
+readable white-on-dark-gray "ติดตาม" text; light mode is visually unchanged (as predicted — both token
+swaps resolve to values imperceptibly close to, or byte-for-byte identical to, the previous hardcoded ones
+in light mode).
+
+Added a permanent regression test: `web/tests/browser/home-visual-parity.spec.ts`, new
+`test.describe("dark mode")` block, `"follow pill text clears WCAG AA contrast in both states"` — computes
+the actual WCAG relative-luminance contrast ratio from `getComputedStyle()` at runtime (same formula used to
+find this bug) and asserts ≥4.5:1 for both the default and `.is-requested` pill states. Verified the test's
+own logic independently against the live app before committing (both ratios reproduce exactly: 18.88 and
+5.91) — the project's own Playwright test runner still can't execute in this sandbox (missing
+`chromium_headless_shell` binary, same pre-existing gap as every prior round), so this needs a real CI/dev-
+machine run to execute the `.spec.ts` file itself; the `browser-qa` CI check on the next PR will do this.
+
+**Lessons recorded**: `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md` (2026-09-19 entries).
+
+Handing back to **AI QA & Security** for verification.

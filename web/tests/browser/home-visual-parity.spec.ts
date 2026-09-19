@@ -160,3 +160,44 @@ test("bookmark remains a direct action after the visual compaction", async ({ pa
   const unsave = post.getByRole("button", { name: "ยกเลิกบันทึก", exact: true });
   await expect(unsave).toHaveAttribute("aria-pressed", "true");
 });
+
+// WYN-168 (2026-09-19): .wyn-post-follow-pill used to hardcode #f1f1f3/#6b6b6b
+// instead of var(--wyn-surface)/var(--wyn-text-secondary), so it never adapted
+// to dark mode — white text on a near-white background computed to 1.13:1
+// (WCAG AA needs 4.5:1), effectively unreadable. Fixed by switching both to
+// existing dark-mode-aware tokens from the 2026-09-16 dark mode pass; this
+// asserts the actual rendered contrast clears AA in both pill states.
+test.describe("dark mode", () => {
+  test.use({ colorScheme: "dark" });
+
+  test("follow pill text clears WCAG AA contrast in both states", async ({ page }) => {
+    await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
+
+    const contrastOf = (bg: string, fg: string) => {
+      const parse = (s: string) => s.match(/\d+/g)!.slice(0, 3).map(Number) as [number, number, number];
+      const luminance = ([r, g, b]: [number, number, number]) => {
+        const c = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+        return 0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b);
+      };
+      const l1 = luminance(parse(bg));
+      const l2 = luminance(parse(fg));
+      const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+
+    const defaultStyles = await page.locator(".wyn-post-follow-pill").first().evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { bg: cs.backgroundColor, color: cs.color };
+    });
+    expect(contrastOf(defaultStyles.bg, defaultStyles.color)).toBeGreaterThanOrEqual(4.5);
+
+    const requestedStyles = await page.locator(".wyn-post-follow-pill").first().evaluate((el) => {
+      el.classList.add("is-requested");
+      const cs = getComputedStyle(el);
+      const result = { bg: cs.backgroundColor, color: cs.color };
+      el.classList.remove("is-requested");
+      return result;
+    });
+    expect(contrastOf(requestedStyles.bg, requestedStyles.color)).toBeGreaterThanOrEqual(4.5);
+  });
+});
