@@ -1814,3 +1814,11 @@ Reproduce บั๊กซ้ำก่อนแก้ (ได้ผล FAIL เ�
 ส่งกลับ AI QA & Security ตรวจซ้ำ
 
 อ้างอิง: `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md`, `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md`
+
+## [2026-09-19] WYN-175 — QA รอบ 2 PASS (independent, ไม่เชื่อผลที่ Debug Engineer รายงานเอง)
+
+รัน harness เดิม 13 จุด + regression spec logic ใหม่ 6 จุด + e2e เพิ่มเติม 10 จุด (HTTP/console error บน `/`, `/search`, `/notifications`, `/welcome`, PageTransition mount, fixture route ไม่ถูก link จากที่ไหน) รวม 29/29 ผ่าน, `lint`/`typecheck`/`build` สะอาดทั้งหมด, ไม่มี security finding
+
+**Known ไม่ block**: physical iPhone จริง (สภาพแวดล้อมนี้ไม่มีอุปกรณ์ ต้องรอ Founder ยืนยันหลัง deploy ตามบทเรียน WYN-158), `GoldenDropCard` press feedback (ตัดออกจาก scope โดยเจตนา ไม่ใช่บั๊ก)
+
+**Final Status: PASS** — ย้าย `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md` → `.wyn/tasks/approved/`, ย้าย bug report → `.wyn/tasks/completed/` ส่งต่อ AI Deploy & DevOps (ยังต้องผ่าน Founder approval ก่อน production ตาม Release Gates ปกติ)

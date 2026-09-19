@@ -1,7 +1,7 @@
 # Product Task — WYN-175
 
-Status: FAIL — QA พบ layout-shift bug 2 จุด (skeleton row height ไม่ตรงกับ real row ตาม CSS cascade จริง) ส่งต่อ AI Debug Engineer, ดู `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md`
-Owner: AI Product Manager → AI Design (`.wyn/docs/design/wyn-175-perceived-speed-motion.md`) → AI Coding (เสร็จ 2026-09-19) → AI QA & Security (FAIL 2026-09-19) → AI Debug Engineer
+Status: PASS (QA รอบ 2, 2026-09-19) — approved, ส่งต่อ AI Deploy & DevOps
+Owner: AI Product Manager → AI Design (`.wyn/docs/design/wyn-175-perceived-speed-motion.md`) → AI Coding (เสร็จ 2026-09-19) → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (fix เสร็จ) → AI QA & Security (PASS รอบ 2) → AI Deploy & DevOps
 Feature: WYNOS Web Beta1 — Perceived Speed & Motion (WYN-174 Track 1, Founder เลือก 2026-09-19)
 Goal: ทำให้การใช้งาน `wynos.online` รู้สึกเหมือนแอปมือถือ native มากที่สุด ด้วยการเปลี่ยนจากการสลับหน้าแบบ instant/snap เป็นมี motion, และแทน spinner/blank loading ด้วย skeleton state + press feedback ที่ตอบสนองทันทีเมื่อแตะ
 Target User: ผู้ใช้ WYNOS ทั่วไปที่เข้าเว็บผ่านมือถือ (iOS Safari/Android Chrome) เป็นหลัก
@@ -95,3 +95,25 @@ P0 — Founder ยืนยันให้เริ่ม track นี้ก่�
 **Regression Risk**: ต่ำ — แก้แค่ CSS value ในไฟล์เดียว ไม่แตะ logic/data/auth บันทึกบทเรียนไว้ที่ `.wyn/learning/LESSONS_LEARNED.md` และ `.wyn/learning/MISTAKES.md` แล้ว (pattern "อ่าน CSS rule แรกที่เจอ ไม่ใช่ rule ที่ชนะ cascade" ในไฟล์ที่มี parity/pixel-parity override ซ้อนกันหลายชั้น)
 
 **Handoff to QA**: → **AI QA & Security** ตรวจซ้ำตามที่ระบุไว้ใน Handoff เดิมทั้งหมด + ยืนยัน regression test ใหม่ทำงานถูกต้องใน CI (`.github/workflows/web-phase4-browser-qa.yml`/`web-next-phase5-preview.yml` รัน `npm run qa:browser` ซึ่งจะรวม spec ใหม่นี้โดยอัตโนมัติ)
+
+## QA รอบ 2 (AI QA & Security, 2026-09-19)
+
+**Test Cases**: รัน independent ใหม่ทั้งหมด ไม่เชื่อผลที่ AI Debug Engineer รายงานเอง — (1) harness เดิม 13 จุด (dimension parity 4 skeleton, shimmer, press feedback 3 จุดด้วย mouse down/up จริง, reduced-motion 2 จุด) (2) regression spec ใหม่ (`wyn-175-skeleton-parity.spec.ts` logic) 6 จุด ผ่าน raw Playwright script เพราะ `npx playwright test` ชน browser-version mismatch ในสภาพแวดล้อมนี้เอง (ไม่ใช่บั๊กของโค้ด — CI จริงมี `playwright install` ก่อนรันเสมอ) (3) e2e เพิ่มเติมรอบนี้: HTTP 200 + ไม่มี console/page error บน `/`, `/search`, `/notifications`, `/welcome`, `PageTransition` mount ไม่พัง, fixture route ใหม่ไม่ถูก link จากที่ไหนในแอป (4) `lint`/`typecheck`/`build` ใหม่ทั้งหมด
+
+**Passed**: 13/13 (harness เดิม) + 6/6 (regression spec logic) + 10/10 (e2e เพิ่มเติม) = 29/29, lint 0 errors, typecheck 0 errors, build สำเร็จ
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่มี — diff ทั้งหมดยังเป็น presentational layer, fixture route ใหม่ไม่มี real data/auth bypass (unauthenticated แต่ไม่มีข้อมูลจริงให้เข้าถึง เหมือน `/dev/home-fixture` เดิม)
+
+**Known Issues ที่ไม่ block PASS** (ตรวจสอบแล้วว่าไม่ใช่ regression ของงานนี้):
+- Physical iPhone Safari จริง — สภาพแวดล้อมนี้ไม่มีอุปกรณ์จริงให้ทดสอบ ยืนยันเองไม่ได้ (ตามบทเรียน WYN-158 "Production Verification คือใครยืนยัน") ต้องรอ Founder ยืนยันหลัง deploy จริง
+- `GoldenDropCard` press feedback — ตั้งใจไม่ทำในรอบนี้ตามที่ AI Coding บันทึกไว้ (Known Issue เดิม) ไม่ใช่บั๊ก เป็น scope ที่ตัดออกอย่างมีเหตุผล
+
+**Recommendation**: Approve — เข้า Deploy gate ปกติ (ต้องผ่าน Founder approval ก่อน production ตาม Release Gates) ระบุใน deployment record ให้ชัดว่า physical device verification ยังไม่เกิดขึ้น รอ Founder ยืนยันหลัง deploy
+
+**Final Status: PASS**
+
+ย้าย task ไป `.wyn/tasks/approved/` ส่งต่อ AI Deploy & DevOps
