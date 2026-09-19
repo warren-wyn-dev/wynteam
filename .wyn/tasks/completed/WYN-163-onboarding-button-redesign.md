@@ -1,8 +1,8 @@
 # Design Task — WYN-163
 
-Status: approved (deploy สำเร็จแล้ว 2026-09-19 — รอ Founder ยืนยันบน production จริงก่อนย้ายไป completed/)
+Status: completed (Founder ยืนยันบน production จริงแล้ว 2026-09-19)
 Owner: AI Design → AI Coding → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (WYN-164) →
-AI QA & Security (PASS รอบ 2) → AI Deploy & DevOps (**deploy สำเร็จ**) → **รอ Founder ยืนยัน**
+AI QA & Security (PASS รอบ 2) → AI Deploy & DevOps (deploy สำเร็จ) → Founder ยืนยันแล้ว (เสร็จสิ้น)
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
 `SignupStep2Screen`, `OnboardingProfileScreen`, `ForgotPasswordScreen`
@@ -110,3 +110,10 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
   ระดับ workflow (sandbox นี้ออก network ไป wynos.online ไม่ได้ ทดสอบแล้วจริง) **ยังรอ Founder เปิดดูจริงบน
   `wynos.online` ก่อนถึงจะย้าย task นี้ไป `completed/` ได้** ตามกติกา WORKFLOW.md บันทึก deploy log เต็มที่
   `.wyn/logs/deployments/2026-09-19-wyn-163-164-onboarding-button-redesign-deploy.md`
+
+- 2026-09-19 (Founder Confirmation) — Founder เปิด production จริง (`wynos.online/signup/step-1`) เจอบั๊ก
+  จริง 2 จุดที่ QA รอบก่อนไม่จับได้ (WYN-165: กรอบช่องชื่อผู้ใช้หาย, WYN-166: ขอเปลี่ยนช่องวันเกิดให้เลือก
+  ง่ายขึ้นเป็นภาษาไทย) — แก้ผ่าน Debug Engineer → QA → Deploy ครบรอบ (ดู `.wyn/tasks/completed/
+  WYN-166-signup-birthdate-thai-selects.md`, `.wyn/tasks/bugs/WYN-165-signup-username-field-border-broken.md`)
+  จากนั้น Founder ยืนยัน **"เสร็จแล้ว"** บน production จริงอีกครั้ง — ปิดงาน WYN-163 อย่างสมบูรณ์ ย้ายไป
+  `.wyn/tasks/completed/`

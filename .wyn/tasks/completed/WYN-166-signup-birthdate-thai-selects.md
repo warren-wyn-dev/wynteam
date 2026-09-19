@@ -196,3 +196,7 @@ test exercises). Not a regression from this change.
 complete username field border, (2) 3 Thai วัน/เดือน/ปี dropdowns. This file moves to `.wyn/tasks/completed/`
 only after that confirmation, per the standing WORKFLOW.md rule that deploy-workflow success alone isn't
 sufficient.
+
+## Founder Confirmation (2026-09-19)
+
+Founder confirmed on real production ("เสร็จแล้ว") — moved to `.wyn/tasks/completed/`.
