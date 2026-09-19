@@ -1720,3 +1720,16 @@ Founder เปิด `wynos.online` จริงหลัง WYN-167/168 deploy 
 
 บันทึกไว้ที่ `.wyn/tasks/backlog/WYN-159-chat-web-threads-redesign.md` (ยัง backlog เหมือนเดิม รอจัดลำดับงาน
 เข้า roadmap ทีหลัง) — WYN-169 ยังรอ Founder ตอบข้อ 1 ก่อนจึงจะส่งต่อ AI Coding ได้
+
+## [2026-09-19] Founder ยืนยัน production จริง — ปิดงาน WYN-169/170 ครบ
+
+Founder เปิด `wynos.online/chat` จริงหลัง WYN-170 deploy แล้วตอบ **"โอเคแล้ว"** — ยืนยันว่าหน้า Chat Inbox
+ที่ปรับปรุงใหม่ (header title ชิดซ้าย, ปุ่ม "คำขอ" toggle เดียว, ไม่มีปุ่มเขียนข้อความใหม่แล้ว, chat row
+เรียบแบน, ท้ายรายการมี marker) ทำงานถูกต้องบน production จริงแล้ว
+
+หมายเหตุ: WYN-169 (deploy ไปก่อนหน้า WYN-170 ไม่กี่ชั่วโมง) ไม่เคยได้รับการยืนยันแยกจาก Founder ด้วยตัวเอง
+เพราะ Founder ขอทำ WYN-170 ต่อทันทีหลัง deploy WYN-169 เสร็จ — UI ของ WYN-169 (ปุ่ม "คำขอ N" ใน header)
+ถูกแทนที่ทั้งหมดโดย WYN-170 (กลายเป็นปุ่ม toggle เดียว) ไปแล้ว ถือว่าการยืนยัน "โอเคแล้ว" รอบนี้ครอบคลุม
+WYN-169 ไปด้วยในตัว (deploy สำเร็จจริง ไม่เคยมีรายงานบั๊กใดๆ ระหว่างที่ยังใช้งานอยู่)
+
+ย้าย `.wyn/tasks/completed/`: WYN-169, WYN-170

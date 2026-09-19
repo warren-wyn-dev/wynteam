@@ -1,6 +1,6 @@
 # Design Task — WYN-170
 
-Status: Deploy สำเร็จ (PR #550 merged, production deploy เขียวหมด) — รอ Founder ยืนยันบนเว็บจริงก่อนย้ายไป completed/
+Status: เสร็จสมบูรณ์ — Founder ยืนยัน production จริงแล้ว ("โอเคแล้ว", 2026-09-19)
 Owner: AI Design → Founder → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ยืนยัน production จริง
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: แก้จุดบกพร่องที่ Founder พบจากภาพหน้าจอจริง ("ออกแบบหน้าใหม่ได้ไหม มันไม่สวย") ผ่าน 6 รอบ feedback
