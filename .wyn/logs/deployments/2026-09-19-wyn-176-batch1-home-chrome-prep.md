@@ -1,7 +1,7 @@
 # WYNOS Web Beta1 — WYN-176 Batch 1 (Home Chrome) Deploy Prep
 
 Date: 2026-09-19
-Status: **PREPARED — not yet opened as a PR, waiting on Founder**
+Status: **PR OPEN — waiting on Founder to review/merge**
 
 ## Release
 
@@ -17,8 +17,8 @@ Status: **PREPARED — not yet opened as a PR, waiting on Founder**
   only extra commit there is `497d836`, the merge of this same branch's own prior PR #552 — no unrelated
   changes landed on `main` since, confirmed via `git diff origin/main...HEAD`, which shows only this
   branch's own new files). PR would merge cleanly, no conflicts expected.
-- PR: not opened yet — waiting on Founder confirmation before creating one (per this session's own rule
-  requiring an explicit ask)
+- PR: [#553](https://github.com/warren-wyn-dev/wynteam/pull/553) — opened 2026-09-19 after Founder confirmed
+  "เปิด PR" in chat. Not merged yet — merging is the Founder's own action per the Founder Gate.
 
 ## QA Status
 
@@ -51,7 +51,7 @@ CSS-only diff — no `.tsx` component files, no backend/RPC/schema changes.
 
 ## Deployment Result
 
-Not yet — waiting on Founder to say whether to open the PR now.
+PR #553 opened, CI running. Not merged/deployed yet — waiting on Founder review and merge.
 
 ## Production Verification
 
