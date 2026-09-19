@@ -1,6 +1,6 @@
 # Bug Report — WYN-171
 
-Status: fixed by AI Debug Engineer, รอ AI QA & Security ยืนยัน
+Status: fixed and verified — PASS by AI QA & Security, พร้อม Deploy
 Owner: AI Design
 Parent: none (pre-existing production bug, unรelated to WYN-169/170) — พบระหว่าง Founder ขอให้ตรวจสอบ
 ฟังก์ชันโน้ต (Chat Inbox) 2026-09-19
@@ -118,3 +118,16 @@ contrast ซ้ำ → Deploy
 เพราะแก้ไฟล์เดียวกัน คนละจุด ไม่ทับซ้อนกัน)
 
 **ส่งต่อ**: AI QA & Security เพื่อยืนยัน contrast ซ้ำแบบอิสระ + regression เต็มรูปแบบของ Notes composer
+
+## QA Verification (AI QA & Security, 2026-09-19)
+
+วัด contrast จริงซ้ำแบบอิสระด้วย Playwright + full 44-file CSS cascade จริงจาก `app/layout.tsx` (ไม่ใช่แค่
+3 ไฟล์ที่เกี่ยวข้องโดยตรง เพื่อป้องกัน false-positive/negative แบบที่เคยเจอใน WYN-169) ได้ตัวเลขตรงกับที่
+AI Debug Engineer รายงานทุกตัว:
+- Dark, has-note: **18.88:1** ✅ | Dark, empty: **5.32:1** ✅
+- Light, has-note: **18.97:1** ✅ | Light, empty: **5.11:1** ✅
+
+`grep -n "f7f7f8" web/app/chat-notes.css` ยืนยันไม่มี hardcode เหลือใน selector นี้อีก (2 จุดเดิมแก้ครบแล้ว)
+— ดูหัวข้อ "Security Findings" ด้านล่างสำหรับบั๊กใหม่ที่เจอข้างเคียง (WYN-173 — ไม่เกี่ยวกับ commit นี้)
+
+**Final Status: PASS**

@@ -1,6 +1,6 @@
 # Design Task — WYN-172
 
-Status: implemented by AI Debug Engineer, รอ AI QA & Security ยืนยัน
+Status: implemented and verified — PASS by AI QA & Security, พร้อม Deploy
 Owner: AI Design → Founder → AI Debug Engineer → รอ QA
 Screen: WYNOS Web Chat Inbox — Note Composer (`web/components/chat-inbox-parity.tsx`,
 `web/app/chat-notes.css`)
@@ -47,3 +47,17 @@ regression ต่ำมาก (ลบ UI ที่ไม่เคยมีกา
 **Commit**: `21bbef58` บน branch `claude/ux-ui-button-design-ult3lz` (รวมกับ WYN-171)
 
 **ส่งต่อ**: AI QA & Security เพื่อยืนยันว่าปุ่มหายไปจริงไม่มี orphan และ flow พิมพ์/แชร์/ลบโน้ตยังทำงานปกติ
+
+## QA Verification (AI QA & Security, 2026-09-19)
+
+- `grep -rn "wyn-note-tool" web/components web/app --include="*.tsx" --include="*.css"` → ไม่พบเลย (ไม่มี
+  orphaned JSX/CSS หลงเหลือ) ✅
+- ตรวจ diff ของ commit `21bbef58` ตรง — ลบ JSX block ครบ, ลบ CSS ครบทั้ง 4 selector + responsive override ✅
+- `.wyn-note-stage` วัดจริงด้วย Playwright: `min-height` = 240px (ปกติ), 210px (`@media max-height:760px`)
+  ตรงกับที่รายงาน ไม่มี layout โหว่ผิดปกติ ✅
+- ตรวจ core logic composer (`openMyNote`/`saveNote`/`removeNote`/`writeMyNote`/`NOTE_MAX_LENGTH`/
+  `NOTE_LIFETIME_MS`) ทั้งหมดยังอยู่ครบ ไม่ถูกแตะเลย ตรงกับ diff ที่มีแค่ 11 บรรทัดลบใน `.tsx` (JSX บล็อกเดียว)
+  ✅
+- `npm run check` (lint + typecheck + build): 0 error, มีแค่ 3 warning เดิมที่ไม่เกี่ยวข้อง ✅
+
+**Final Status: PASS**
