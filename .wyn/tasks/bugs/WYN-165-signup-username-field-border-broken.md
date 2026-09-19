@@ -146,3 +146,13 @@ round on this branch):
 **Result: PASS.** No regressions found beyond what the Debug Engineer already reported fixed. Full QA report
 covering this together with WYN-166: see `.wyn/tasks/approved/WYN-166-signup-birthdate-thai-selects.md`.
 Handing off to **AI Deploy & DevOps**.
+
+---
+
+## Deployment (2026-09-19, AI Deploy & DevOps)
+
+Deployed together with WYN-166 via PR #546, merged by the Founder at 2026-09-19T08:52:07Z. Production
+deploy workflow succeeded end-to-end. Full deployment log:
+`.wyn/logs/deployments/2026-09-19-wyn-165-166-username-border-birthdate-thai-selects-deploy.md`. Still
+needs the Founder's real-device confirmation that the username field border now renders correctly on
+`wynos.online/signup/step-1`.

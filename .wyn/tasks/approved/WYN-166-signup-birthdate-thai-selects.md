@@ -177,3 +177,22 @@ DB constraint before this change; this change only alters how the client collect
 
 **Result: PASS.** No CRITICAL/HIGH/MEDIUM findings. Both WYN-165 and WYN-166 approved together — moving this
 file to `.wyn/tasks/approved/` and handing off to **AI Deploy & DevOps**.
+
+---
+
+## Deployment (2026-09-19, AI Deploy & DevOps)
+
+Merged via PR #546 by the Founder at 2026-09-19T08:52:07Z (merge commit `f841aabf`), which triggered
+`wyn-158-production-deploy.yml` [run #133](https://github.com/warren-wyn-dev/wynteam/actions/runs/35433161442) —
+**success** end-to-end (preflight, Vercel deploy, route verification). Full log:
+`.wyn/logs/deployments/2026-09-19-wyn-165-166-username-border-birthdate-thai-selects-deploy.md`.
+
+One CI check (`browser-qa`) failed on first run on an unrelated pre-existing test
+(`reference buttons connect the auth routes`, webkit-iphone only) — investigated, confirmed a flake (passed
+on re-run, passed on the prior PR before this change, and this PR's diff never touches the code path that
+test exercises). Not a regression from this change.
+
+**Still needed**: Founder to confirm on a real device that `wynos.online/signup/step-1` now shows (1) a
+complete username field border, (2) 3 Thai วัน/เดือน/ปี dropdowns. This file moves to `.wyn/tasks/completed/`
+only after that confirmation, per the standing WORKFLOW.md rule that deploy-workflow success alone isn't
+sufficient.
