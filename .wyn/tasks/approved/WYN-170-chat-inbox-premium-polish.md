@@ -1,7 +1,7 @@
 # Design Task — WYN-170
 
-Status: QA PASS — ส่งต่อ AI Deploy & DevOps
-Owner: AI Design → Founder → AI Coding → AI QA & Security → รอ AI Deploy & DevOps
+Status: PR เปิดแล้ว รอ CI เขียว + Founder อนุมัติ merge (PR #550)
+Owner: AI Design → Founder → AI Coding → AI QA & Security → AI Deploy & DevOps (กำลังดำเนินการ)
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: แก้จุดบกพร่องที่ Founder พบจากภาพหน้าจอจริง ("ออกแบบหน้าใหม่ได้ไหม มันไม่สวย") ผ่าน 6 รอบ feedback
 (ดูสรุปเต็มที่ `.wyn/docs/design/wyn-170-chat-inbox-premium-polish.md` หัวข้อ "สรุปขอบเขตสุดท้าย (v6)")
