@@ -65,4 +65,8 @@ P0 (Perceived Speed & Motion, Visual Design Rollout) → P1 (Install & Launch) �
 
 ## Handoff
 
-**[2026-09-19] Founder ยืนยันแล้ว**: เริ่ม Track 1 — Perceived Speed & Motion ก่อน (ตามคำแนะนำ) → แตกเป็น `WYN-175-web-perceived-speed-motion.md` (`.wyn/tasks/backlog/`) ส่งต่อ AI Design ทำ audit + motion spec + preview ให้ Founder อนุมัติก่อน AI Coding เริ่ม Track อื่น (Visual Design Rollout / Install & Launch / Platform Integration Polish) ยังอยู่ใน backlog รอคิวถัดไป
+**[2026-09-19] Founder ยืนยันแล้ว**: เริ่ม Track 1 — Perceived Speed & Motion ก่อน (ตามคำแนะนำ) → แตกเป็น `WYN-175-web-perceived-speed-motion.md` ส่งต่อ AI Design ทำ audit + motion spec + preview ให้ Founder อนุมัติก่อน AI Coding เริ่ม
+
+**[2026-09-19] Track 1 (WYN-175) เสร็จสมบูรณ์**: Design → Coding → QA (FAIL รอบ 1 → Debug fix → PASS รอบ 2) → Deploy (PR #552 merge, production deploy สำเร็จ) → Founder ยืนยัน production ใช้งานจริงแล้ว ย้ายไป `.wyn/tasks/completed/WYN-175-web-perceived-speed-motion.md`
+
+Track อื่น (Visual Design Rollout — รอ WYN-163 finalize ก่อน / Install & Launch Experience / Platform Integration Polish) ยังอยู่ใน backlog รอคิวถัดไป ยังไม่มีคำสั่งให้เริ่ม

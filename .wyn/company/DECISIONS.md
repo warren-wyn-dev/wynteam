@@ -1844,3 +1844,13 @@ Founder merge PR #552 เอง (~44 วินาทีหลังเปิด,
 Unsubscribe จาก PR #552 แล้ว (merged/closed)
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`, `.wyn/tasks/approved/WYN-175-web-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — Founder ยืนยัน production verification แล้ว ปิด task เป็น completed
+
+Founder พิมพ์ยืนยันในแชท: "ยืนยันแล้ว ปิด task เป็น completed ได้เลย" — ทดสอบบน `wynos.online` จริงแล้ว ครบทั้ง skeleton loading, press feedback, route transition motion ตามที่ AI Deploy & DevOps ขอให้ยืนยัน
+
+ตามกติกา WORKFLOW.md ("Task จะย้าย approved/ → completed/ ได้ก็ต่อเมื่อ Founder ยืนยัน production verification แล้วเท่านั้น") — เงื่อนไขครบ ย้าย `.wyn/tasks/approved/WYN-175-web-perceived-speed-motion.md` → `.wyn/tasks/completed/` และอัปเดต WYN-174 epic ให้สะท้อนว่า Track 1 เสร็จสมบูรณ์แล้ว (Track อื่นยังอยู่ backlog รอคิว)
+
+**WYN-175 ปิดงานสมบูรณ์**: Product → Design → Coding → QA (FAIL→fix→PASS) → Deploy → Founder verification ครบทุกขั้นตอนตาม Default Team Workflow
+
+อ้างอิง: `.wyn/tasks/completed/WYN-175-web-perceived-speed-motion.md`, `.wyn/tasks/backlog/WYN-174-web-native-app-feel-v2.md`

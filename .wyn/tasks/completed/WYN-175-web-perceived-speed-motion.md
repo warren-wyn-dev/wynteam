@@ -1,7 +1,7 @@
 # Product Task — WYN-175
 
-Status: PASS (QA รอบ 2, 2026-09-19) — approved, ส่งต่อ AI Deploy & DevOps
-Owner: AI Product Manager → AI Design (`.wyn/docs/design/wyn-175-perceived-speed-motion.md`) → AI Coding (เสร็จ 2026-09-19) → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (fix เสร็จ) → AI QA & Security (PASS รอบ 2) → AI Deploy & DevOps
+Status: COMPLETED — deploy สำเร็จ + Founder ยืนยัน production verification บนมือถือจริงแล้ว (2026-09-19)
+Owner: AI Product Manager → AI Design (`.wyn/docs/design/wyn-175-perceived-speed-motion.md`) → AI Coding (เสร็จ 2026-09-19) → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (fix เสร็จ) → AI QA & Security (PASS รอบ 2) → AI Deploy & DevOps (deploy สำเร็จ) → Founder (ยืนยัน production ใช้งานจริงแล้ว)
 Feature: WYNOS Web Beta1 — Perceived Speed & Motion (WYN-174 Track 1, Founder เลือก 2026-09-19)
 Goal: ทำให้การใช้งาน `wynos.online` รู้สึกเหมือนแอปมือถือ native มากที่สุด ด้วยการเปลี่ยนจากการสลับหน้าแบบ instant/snap เป็นมี motion, และแทน spinner/blank loading ด้วย skeleton state + press feedback ที่ตอบสนองทันทีเมื่อแตะ
 Target User: ผู้ใช้ WYNOS ทั่วไปที่เข้าเว็บผ่านมือถือ (iOS Safari/Android Chrome) เป็นหลัก
@@ -123,3 +123,9 @@ P0 — Founder ยืนยันให้เริ่ม track นี้ก่�
 PR #552 เปิดตามคำสั่ง Founder "เปิดเลย" → Founder merge เอง (`warren-wyn-dev`) ~44 วินาทีหลังเปิด → `WYN-158 Production Deploy` run #139 สำเร็จทุก step (preflight, Vercel deploy, verify production routes) → post-merge `CI` บน `main` เขียวด้วย รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`
 
 **ยังไม่ย้ายไป `completed/`** ตามกติกา WORKFLOW.md — ต้องรอ Founder ยืนยัน physical device (`wynos.online/search`, `/notifications` บนมือถือจริง) ก่อนถึงจะถือว่า production verification เสร็จสมบูรณ์
+
+## Founder Production Verification (2026-09-19)
+
+Founder ยืนยันในแชท ("ยืนยันแล้ว ปิด task เป็น completed ได้เลย") ว่าทดสอบบน `wynos.online` จริงแล้ว ครบทั้ง 2 ข้อที่ AI Deploy & DevOps เดิมระบุไว้: skeleton loading, press feedback บนแถวผลค้นหา/แจ้งเตือน, และ route transition motion ทำงานถูกต้อง
+
+ตาม WORKFLOW.md ("Task จะย้ายจาก approved/ → completed/ ได้ก็ต่อเมื่อ Founder ยืนยันข้อ 2 แล้วเท่านั้น") — เงื่อนไขครบแล้ว ย้าย task นี้ไป `.wyn/tasks/completed/`
