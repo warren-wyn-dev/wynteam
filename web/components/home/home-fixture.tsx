@@ -156,8 +156,6 @@ export function HomeFixture() {
       <BottomNavigation
         profileHref={`/profile/${VIEWER_ID}`}
         isActive={(href) => href === "/"}
-        notificationLabel="การแจ้งเตือน มี 2 รายการที่ยังไม่อ่าน"
-        notificationBadge="2"
       />
     </div>
   );
