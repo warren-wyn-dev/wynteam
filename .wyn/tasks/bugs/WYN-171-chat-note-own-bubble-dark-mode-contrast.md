@@ -1,6 +1,6 @@
 # Bug Report — WYN-171
 
-Status: open — Fix decided by AI Design, รอ Founder ตัดสินใจว่าจะแก้ทันทีไหม
+Status: fixed by AI Debug Engineer, รอ AI QA & Security ยืนยัน
 Owner: AI Design
 Parent: none (pre-existing production bug, unรelated to WYN-169/170) — พบระหว่าง Founder ขอให้ตรวจสอบ
 ฟังก์ชันโน้ต (Chat Inbox) 2026-09-19
@@ -83,3 +83,38 @@ lock-test เพราะแก้ไม่ครบทุกจุดที่�
 พบโดย AI Design ระหว่าง audit ฟังก์ชันโน้ตตามคำขอ Founder (2026-09-19) — แนะนำ: ถ้า Founder อยากแก้ทันที
 ส่งต่อ AI Debug Engineer ได้เลย (fix ตัดสินใจไว้แล้ว เหมือน WYN-168 ทุกประการ) → AI QA & Security ยืนยัน
 contrast ซ้ำ → Deploy
+
+## Resolution (AI Debug Engineer, 2026-09-19)
+
+**Reproduction (ก่อนแก้, independent — ไม่เชื่อตัวเลขจาก AI Design เฉยๆ)**: สร้าง Playwright harness ใหม่
+(โหลด CSS จริงจาก repo ผ่าน static file server, ลำดับเดียวกับ `app/layout.tsx`) แล้ว emulate
+`colorScheme: dark`/`light` วัด contrast จริงได้ตรงกับรายงานของ AI Design ทุกตัวเลข:
+- Dark, has-note: **1.07:1**
+- Dark, empty: **3.32:1**
+- Light, has-note: **18.49:1**
+- Light, empty: **4.98:1**
+
+ยืนยัน root cause ตรงกัน: `background: #f7f7f8` hardcode ซ้ำ 2 จุดใน `web/app/chat-notes.css`
+(บรรทัด ~158 และ ~682)
+
+**Fix ที่ใช้จริง**: แก้ทั้ง 2 จุดตามที่ AI Design ระบุ —
+`.wyn-chat-note-card.is-mine .wyn-chat-note-bubble { background: #f7f7f8 }` →
+`background: var(--wyn-surface)` (ทั้งคู่ ไม่มีจุดใดหลงเหลือ hardcode — เช็คด้วย `grep -n "f7f7f8"` ซ้ำ
+หลังแก้ ไม่พบอีก)
+
+**Verification (หลังแก้)**: วัด contrast ซ้ำด้วย harness เดิม —
+- Dark, has-note: 1.07:1 → **18.88:1** ✅
+- Dark, empty: 3.32:1 → **5.32:1** ✅ (ผ่าน WCAG AA แล้ว)
+- Light, has-note: 18.49:1 → **18.97:1** ✅ (ยังใกล้เคียงเดิมตามคาด)
+- Light, empty: 4.98:1 → **5.11:1** ✅
+
+ทุกค่า ≥4.5:1 ตาม WCAG AA ครบ 4 combination
+
+**Regression check**: `npm run check` (lint + typecheck + build) ผ่านทั้งหมด, 0 error, มีแค่ 3 warning เดิม
+ที่ไม่เกี่ยวข้อง (pre-existing, ไม่ได้เกิดจาก commit นี้) ไม่ได้แตะ layout/ขนาด/ฟังก์ชันอื่นใดๆ ตามที่ประเมิน
+ความเสี่ยงไว้ว่าต่ำ
+
+**Commit**: `21bbef58` บน branch `claude/ux-ui-button-design-ult3lz` (รวมกับ WYN-172 ในคอมมิตเดียวกัน
+เพราะแก้ไฟล์เดียวกัน คนละจุด ไม่ทับซ้อนกัน)
+
+**ส่งต่อ**: AI QA & Security เพื่อยืนยัน contrast ซ้ำแบบอิสระ + regression เต็มรูปแบบของ Notes composer

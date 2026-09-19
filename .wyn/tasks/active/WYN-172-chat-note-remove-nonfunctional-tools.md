@@ -1,7 +1,7 @@
 # Design Task — WYN-172
 
-Status: approved (Founder ตัดสินใจแล้ว — ส่งต่อ Coding พร้อม WYN-171)
-Owner: AI Design → Founder → รอ Coding
+Status: implemented by AI Debug Engineer, รอ AI QA & Security ยืนยัน
+Owner: AI Design → Founder → AI Debug Engineer → รอ QA
 Screen: WYNOS Web Chat Inbox — Note Composer (`web/components/chat-inbox-parity.tsx`,
 `web/app/chat-notes.css`)
 Purpose: เอาปุ่ม "สถานที่"/"อีโมจิ" ในหน้าเขียนโน้ตออก เพราะพบระหว่าง audit ฟังก์ชันโน้ต (2026-09-19) ว่า
@@ -23,3 +23,27 @@ Design Rules: ไม่ประดิษฐ์ปุ่ม/ฟีเจอร�
 งานแยกที่ผ่าน Product Manager ก่อน (เป็นฟีเจอร์ใหม่ ไม่ใช่แค่ UI cleanup)
 Handoff: พร้อมส่ง Coding ทันที รวมไปกับ WYN-171 (ไฟล์เดียวกัน คนละจุดในไฟล์ ไม่ทับซ้อนกัน) ความเสี่ยง
 regression ต่ำมาก (ลบ UI ที่ไม่เคยมีการเรียกใช้ logic ใดๆ)
+
+## Resolution (AI Debug Engineer, 2026-09-19)
+
+**Implementation**: ยืนยันก่อนแก้ด้วย `grep -n "wyn-note-tools\|wyn-note-tool"` ว่าปุ่มทั้งสองไม่มี
+`onClick` ใดๆ จริงตามที่ AI Design รายงาน จากนั้นลบ:
+
+- `web/components/chat-inbox-parity.tsx`: ลบ JSX block `<div className="wyn-note-tools">...</div>`
+  (ปุ่ม "สถานที่" + "อีโมจิ") ทั้งหมด — ไม่แตะ `noteOpen`/`noteDraft`/`noteSaving`/`openMyNote`/`saveNote`/
+  `removeNote`/`writeMyNote` เลย (ฟังก์ชันหลักไม่เปลี่ยน)
+- `web/app/chat-notes.css`: ลบ `.wyn-note-tools`, `.wyn-note-tool`, `.wyn-note-tool > span`,
+  `.wyn-note-tool small` และ responsive override `@media (max-height: 760px) { .wyn-note-tools {
+  margin-top: 14px } }` ครบทุกจุด
+
+**Spacing adjustment (authorized in task file above)**: หลังลบแล้วเช็ค layout ของ `.wyn-note-stage`
+พบช่องว่างด้านล่างเกินไปจริงตามที่คาด — ปรับ `min-height` ลงตามสัดส่วนเดิม (ไม่ได้รื้อ layout ใหม่):
+- Base: `318px → 240px`
+- `@media (max-height: 760px)`: `285px → 210px`
+
+**Verification**: `grep -rn "wyn-note-tool"` หลังแก้ → ไม่พบ reference เหลือทั้งใน `.tsx` และ `.css`
+(ไม่มี orphaned CSS/JSX) `npm run check` ผ่านทั้งหมด (lint + typecheck + build), 0 error
+
+**Commit**: `21bbef58` บน branch `claude/ux-ui-button-design-ult3lz` (รวมกับ WYN-171)
+
+**ส่งต่อ**: AI QA & Security เพื่อยืนยันว่าปุ่มหายไปจริงไม่มี orphan และ flow พิมพ์/แชร์/ลบโน้ตยังทำงานปกติ
