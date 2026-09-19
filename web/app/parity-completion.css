@@ -54,7 +54,7 @@
 .notification-drawer-identity { margin: 0 12px; }
 
 /* Real drawer destinations: Bookmarks / Explore Clubs / My Clubs / Create Club. */
-.bookmarks-list { background: var(--paper); }
+.bookmarks-list { background: var(--wyn-bg); }
 .clubs-list { padding: 8px 0 28px; }
 .club-list-row { min-height: 78px; padding: 12px 16px; display: grid; grid-template-columns: 52px minmax(0,1fr) 24px; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); border-bottom: 1px solid var(--hairline); }
 .club-list-avatar { width: 52px; height: 52px; border-radius: 14px; overflow: hidden; display: grid; place-items: center; background: var(--surface-tint, #f1efe9); font-weight: 700; }
