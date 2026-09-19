@@ -68,7 +68,7 @@ test.describe("HTML-reference auth flow", () => {
     await page.goto("/signup/step-1");
     await page.locator('input[name="username"]').fill("ploy_journey");
     await page.locator('input[name="displayName"]').fill("พลอย เดินทาง");
-    await page.locator('input[name="birthDate"]').fill("01 / 01 / 2000");
+    await page.locator('input[name="birthDate"]').fill("2000-01-01");
 
     await page.getByRole("button", { name: "หน้าถัดไป" }).click();
     await expect(page).toHaveURL(/\/signup\/step-2$/);
@@ -80,7 +80,7 @@ test.describe("HTML-reference auth flow", () => {
     await expect(page).toHaveURL(/\/signup\/step-1$/);
     await expect(page.locator('input[name="username"]')).toHaveValue("ploy_journey");
     await expect(page.locator('input[name="displayName"]')).toHaveValue("พลอย เดินทาง");
-    await expect(page.locator('input[name="birthDate"]')).toHaveValue("01 / 01 / 2000");
+    await expect(page.locator('input[name="birthDate"]')).toHaveValue("2000-01-01");
   });
 
   test("reference buttons connect the auth routes", async ({ page }) => {
@@ -96,6 +96,38 @@ test.describe("HTML-reference auth flow", () => {
 
     await page.getByText("สร้างบัญชีใหม่", { exact: true }).last().click();
     await expect(page).toHaveURL(/\/signup\/step-1$/);
+  });
+
+  // WYN-166 (2026-09-19): birth date on signup step 1 switched from a
+  // hand-typed "วว / ดด / ปปปป" text field to a native <input type="date">
+  // (Founder-requested, simpler OS-native picker instead of manual typing).
+  // The underlying value is always ISO "YYYY-MM-DD" regardless of the
+  // input's display locale, and the picker's own `max` attribute should
+  // already reflect the MIN_ONBOARDING_AGE cutoff so a too-young date isn't
+  // even offered — but this asserts the server-side-equivalent JS
+  // validation still rejects it too, in case a value is set past that
+  // attribute (e.g. programmatically, or a browser that ignores `max`).
+  test("signup step 1 birth date is a native date picker gated to the minimum onboarding age", async ({ page }) => {
+    await page.goto("/signup/step-1");
+    const birthDateInput = page.locator('input[name="birthDate"]');
+    await expect(birthDateInput).toHaveAttribute("type", "date");
+
+    const maxAttr = await birthDateInput.getAttribute("max");
+    const today = new Date();
+    const expectedMax = new Date(Date.UTC(today.getUTCFullYear() - 13, today.getUTCMonth(), today.getUTCDate()))
+      .toISOString()
+      .split("T")[0];
+    expect(maxAttr).toBe(expectedMax);
+
+    await page.locator('input[name="username"]').fill("younguser");
+    await page.locator('input[name="displayName"]').fill("Young User");
+    const underage = new Date();
+    underage.setFullYear(underage.getFullYear() - 10);
+    await birthDateInput.fill(underage.toISOString().split("T")[0]);
+    await page.getByRole("button", { name: "หน้าถัดไป" }).click();
+
+    await expect(page).toHaveURL(/\/signup\/step-1$/);
+    await expect(page.getByText("กรุณากรอกวันเกิดให้ถูกต้อง (อายุอย่างน้อย 13 ปี)")).toBeVisible();
   });
 
   // WYN-164 (2026-09-19): regression coverage for the 2 findings from

@@ -1626,3 +1626,34 @@ screens.tsx`, `WelcomeScreen`) จาก `height: 62` → **`height: 110`** (`wi
 ทั้งเว็บสอดคล้องกัน (ไม่ต้องใหญ่เท่า Welcome เพราะไม่ใช่จุด hero เดียวกัน)
 
 อัปเดต Artifact อาร์ตบอร์ด 6 ให้ใช้โลโก้ขนาดใหม่แล้ว: https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x
+
+## [2026-09-19] WYN-166 — เปลี่ยนช่องวันเกิดหน้า Signup Step 1 จากพิมพ์เองเป็น native date picker
+
+Founder ถามว่า "ตอนเลือกวันเกิดได้ไหม อยากให้เลือกวันเกิดง่ายๆ มีแนะนำไหม" — ช่องเดิมเป็น text input ที่ต้อง
+พิมพ์ตัวเลขเองแล้ว auto-format เป็น "วว / ดด / ปปปป" เสี่ยงพิมพ์ผิด/รูปแบบผิดง่าย
+
+AI เสนอ 2 ทาง: (1) native `<input type="date">` — ใช้ picker ของระบบมือถือเลย (iOS wheel / Android ปฏิทิน)
+effort ต่ำ แต่ปรับสไตล์ picker เองไม่ได้ (2) custom wheel picker แบบ Apple-style ให้ตรงกับ WYN-163 ทั้งหมด
+แต่ต้องผ่าน Design → Coding → QA เต็มรูปแบบ
+
+**Founder ตอบ "1"** — เลือก native date picker
+
+**สิ่งที่ทำ**: เปลี่ยนช่อง "วันเกิด" ใน `SignupStep1Screen` (`web/components/auth-flow/screens.tsx`) จาก
+`<Input bare inputMode="numeric">` + `formatBirthDateInput()` (auto-insert "/") เป็น
+`<Input bare type="date">` ตรงๆ — ค่าที่ได้จาก native date input เป็น ISO "YYYY-MM-DD" เสมอตาม HTML spec
+จึงลบ `formatBirthDateInput()` ทิ้งและปรับ `parseBirthDate()` ให้ validate รูปแบบ ISO แทนรูปแบบ 8 หลักเดิม
+(ตรรกะตรวจอายุ/ห้ามเป็นวันที่อนาคตเหมือนเดิมทุกอย่าง) เพิ่ม `max` attribute เป็นวันที่ล่าสุดที่อายุครบ
+`MIN_ONBOARDING_AGE` (13 ปี) พอดี ให้ picker ของ OS เองกันไม่ให้เลือกวันเกิดที่อายุไม่ถึงได้ตั้งแต่ต้น และ
+`min="1900-01-01"` กันช่วงปีให้เลื่อนดูไม่กว้างเกินจำเป็น — ฝั่ง JS validation (`parseBirthDate`) ยังตรวจซ้ำ
+เสมอ ไม่ได้พึ่ง `max`/`min` attribute อย่างเดียว (ป้องกันกรณี browser เก่า/ค่าที่ถูกแก้ผ่าน devtools)
+
+Trade-off ที่ Founder รับทราบแล้วจากตัวเลือกที่เสนอ: หน้าตาของ picker เองควบคุมไม่ได้ (เป็นของ OS/browser
+แต่ละแพลตฟอร์ม) ต่างจากปุ่ม/ช่องอื่นที่เป็น custom squircle design ของ WYN-163
+
+Verified: `typecheck`/`lint`/`build` ผ่านหมด, ทดสอบ manual ผ่าน Playwright ที่ 320/360/390/430px (กล่อง
+สมบูรณ์ ไม่ล้น), ทดสอบ flow เต็ม (กรอก → ไป step 2 → ย้อนกลับ → ค่ายังอยู่ครบ), ทดสอบ underage (อายุ 10 ปี)
+ถูก block พร้อม error message เดิม เพิ่ม regression test ใหม่ใน
+`web/tests/browser/auth-reference-flow.spec.ts` และแก้ 2 assertion เดิมที่ยังอ้างอิงรูปแบบข้อความเก่า
+("01 / 01 / 2000" → "2000-01-01")
+
+รอ QA & Security ตรวจก่อน deploy

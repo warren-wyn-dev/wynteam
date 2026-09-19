@@ -45,12 +45,14 @@ async function resolvePostAuthPath(client: NonNullable<ReturnType<typeof getSupa
   }
 }
 
+/// `raw` is a native <input type="date"> value, which the HTML spec
+/// guarantees is either "" or a valid "YYYY-MM-DD" calendar date — but this
+/// still re-validates defensively (format, real calendar date, age, not in
+/// the future) since `raw` can also come from a re-read of stale/tampered
+/// draft state (e.g. after navigating back from step 2).
 function parseBirthDate(raw: string): string | null {
-  const digits = raw.replace(/[^0-9]/g, "");
-  if (digits.length !== 8) return null;
-  const day = Number(digits.slice(0, 2));
-  const month = Number(digits.slice(2, 4));
-  const year = Number(digits.slice(4, 8));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const [year, month, day] = raw.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
   const now = new Date();
@@ -58,19 +60,17 @@ function parseBirthDate(raw: string): string | null {
   const hadBirthdayThisYear = now.getUTCMonth() > month - 1 || (now.getUTCMonth() === month - 1 && now.getUTCDate() >= day);
   if (!hadBirthdayThisYear) age -= 1;
   if (age < MIN_ONBOARDING_AGE || date > now) return null;
-  return date.toISOString().split("T")[0];
+  return raw;
 }
 
-/// Auto-inserts the "วว / ดด / ปปปป" separators as the user types digits,
-/// so a birth date can be filled with just the numeric keypad instead of
-/// typing slashes/spaces by hand. Deleting characters still works normally
-/// since this only ever re-derives the display string from the digits
-/// already present.
-function formatBirthDateInput(raw: string): string {
-  const digits = raw.replace(/[^0-9]/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)} / ${digits.slice(2)}`;
-  return `${digits.slice(0, 2)} / ${digits.slice(2, 4)} / ${digits.slice(4)}`;
+/// The latest birth date that satisfies MIN_ONBOARDING_AGE, as the `max`
+/// attribute on the native date picker — so the OS picker itself refuses to
+/// offer a too-young date instead of the user finding out only after
+/// submitting.
+function maxOnboardingBirthDate(): string {
+  const now = new Date();
+  const cutoff = new Date(Date.UTC(now.getUTCFullYear() - MIN_ONBOARDING_AGE, now.getUTCMonth(), now.getUTCDate()));
+  return cutoff.toISOString().split("T")[0];
 }
 
 /// A `useSyncExternalStore` snapshot never changes on its own (there is
@@ -315,9 +315,6 @@ export function SignupStep1Screen() {
     const value = event.target.value;
     setDraft((current) => ({ ...current, [key]: value }));
   };
-  const updateBirthDate = (event: ChangeEvent<HTMLInputElement>) => {
-    setDraft((current) => ({ ...current, birthDate: formatBirthDateInput(event.target.value) }));
-  };
 
   async function goNext() {
     if (loading) return;
@@ -398,7 +395,7 @@ export function SignupStep1Screen() {
         <Field label="ชื่อที่แสดง" name="displayName" placeholder="ชื่อของคุณ" value={draft.displayName} onChange={update("displayName")} disabled={!mounted} />
         <div className="field">
           <label>วันเกิด</label>
-          <Input bare inputMode="numeric" name="birthDate" placeholder="วว / ดด / ปปปป" value={draft.birthDate} onChange={updateBirthDate} disabled={!mounted} />
+          <Input bare type="date" name="birthDate" value={draft.birthDate} onChange={update("birthDate")} disabled={!mounted} min="1900-01-01" max={maxOnboardingBirthDate()} />
         </div>
         <Button className="btn-primary" disabled={loading} onClick={() => void goNext()} style={{ marginTop: 10 }}>{loading ? "กำลังดำเนินการ…" : "หน้าถัดไป"}</Button>
         <ErrorText>{error}</ErrorText>
