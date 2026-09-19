@@ -124,3 +124,21 @@ Batch 1 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ ba
 **Known Issues**: `.wynos-confirm-dialog` (ปุ่ม "บันทึกร่าง" ตอนปิดหน้าจอกลางทาง) ยังไม่มี press feedback — ตั้งใจไม่แตะเพราะเป็น shared component ข้ามหน้าจอ ไม่ใช่ Composer-specific เก็บไว้เป็นงานแยก (อาจเป็น batch "shared dialogs" ในอนาคต)
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/compose-post` จริง (2) ไม่มี regression ต่อ Flutter-parity ที่ล็อกไว้ (compose text 22px, row height 70px ฯลฯ) (3) `.wynos-confirm-dialog` ยังทำงานเหมือนเดิมไม่ถูกกระทบ
+
+## QA Batch 2 (AI QA & Security, 2026-09-19)
+
+**Test Cases**: ไม่เชื่อผลที่ AI Coding รายงานเอง — (1) console/HTTP error sweep บน `/`, `/compose-post`, `/notifications`, `/search` จริง (2) ตรวจ source-parity gate string 5 จุดที่ล็อก Flutter dimension (70px header, 22px compose text, 72px/42px post button, `beta4-ratio-chips` className) ยังอยู่ครบใน source จริง (3) press feedback จริงด้วย mouse down/up 8 จุด + release (4) reduced-motion 8 จุด (5) `typecheck`/`lint`/`build` อิสระใหม่
+
+**Passed**: 32/32 (console/HTTP 8 + press feedback 16 + reduced-motion 8) + source-parity string 5/5 ครบ + lint/typecheck/build สะอาดหมด
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่มี — CSS-only diff
+
+**Recommendation**: Approve batch 2
+
+**Final Status: PASS**
+
+ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 2 นี้ (WYN-176 โดยรวมยังไม่ปิด เหลือ batch 3-7)
