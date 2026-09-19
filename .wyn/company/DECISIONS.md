@@ -1752,3 +1752,15 @@ Founder ทดสอบจริงบนมือถือแล้วตอบ
 
 ย้าย `.wyn/tasks/completed/`: WYN-172, WYN-174 (WYN-171/173 เป็น bug report อยู่ที่ `.wyn/tasks/bugs/` เดิม
 ตาม convention — อัปเดตสถานะเป็น closed ในไฟล์เดิม ไม่ย้าย)
+
+## [2026-09-19] Founder สั่ง "ปรับ UX/UI ปุ่มทุกอย่างไปทิศทางเดียวกันทั้งระบบ" — รวมเข้ากับ WYN-160
+
+Founder ขอให้ทำปุ่มทั้งระบบเว็บให้ไปทิศทางเดียวกัน — AI Product Manager สำรวจโค้ดจริงพบ ~72 button class
+กระจายทั่ว `web/app/*.css`, มีแค่ 5 ไฟล์ที่มี `:active` state และ 3 ไฟล์ที่ใช้ motion token `scale(0.96)`
+(จาก WYN-169/170) เขียนเป็น WYN-175 แล้วถาม Founder 2 เรื่อง: (1) จะแยกงานหรือรวมกับ WYN-160 (backlog เดิม
+ที่ทำ token consolidation ทั้งระบบอยู่แล้ว) — Founder ตอบ **"รวมเข้ากับ WYN-160 เป็นงานเดียว"** (2) จะเริ่ม
+rollout จากส่วนไหนก่อน — Founder ตอบ **"เขียน spec ก่อน แล้วค่อยเริ่มแก้โค้ด"**
+
+ดำเนินการ: รวม WYN-175 เข้า WYN-160 แล้ว (ขยาย scope ให้มี Button Interaction Spec เป็น deliverable),
+WYN-175 เก็บไว้เป็น reference เท่านั้น (status: merged), เพิ่ม "เฟส 0: เขียน spec ก่อน ไม่แตะโค้ด" เป็นเฟส
+แรกสุดของ WYN-160 handoff — ส่งต่อ AI Design ทำเฟส 0 ต่อไป
