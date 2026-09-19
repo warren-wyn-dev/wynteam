@@ -1834,3 +1834,93 @@ Reproduce บั๊กซ้ำก่อนแก้ (ได้ผล FAIL เ�
 เปิด PR [#552](https://github.com/warren-wyn-dev/wynteam/pull/552) (`claude/wynos-online-version-1pqqws` → `main`) แล้วตามที่ Founder ยืนยัน — ยังไม่ merge (merge เป็นสิทธิ์ของ Founder เองตาม Founder Gate, AI Deploy & DevOps ไม่ merge เอง) เมื่อ Founder merge แล้ว `wyn-158-production-deploy.yml` จะ deploy ขึ้น `wynos.online` อัตโนมัติ
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`
+
+## [2026-09-19] WYN-175 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+Founder merge PR #552 เอง (~44 วินาทีหลังเปิด, pattern เดียวกับ #550/#551) → `WYN-158 Production Deploy` run #139 **success** ทุก step (preflight, Vercel deploy, verify production routes, รวม ~2 นาที) → post-merge `CI` บน `main` (run #1391) **success** เช่นกัน — ตรวจสอบอิสระเองทั้งหมดผ่าน GitHub Actions API ไม่เชื่อแค่สถานะ PR ว่า merge แล้ว
+
+ยังไม่ย้าย task ไป `completed/` เพราะสภาพแวดล้อมนี้เข้าถึง `wynos.online` ไม่ได้ (outbound network policy บล็อก) — รอ Founder เปิด `wynos.online/search`/`/notifications` บนมือถือจริงยืนยัน skeleton/press feedback/route transition ทำงานจริงตามบทเรียน WYN-158
+
+Unsubscribe จาก PR #552 แล้ว (merged/closed)
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`, `.wyn/tasks/approved/WYN-175-web-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — Founder ยืนยัน production verification แล้ว ปิด task เป็น completed
+
+Founder พิมพ์ยืนยันในแชท: "ยืนยันแล้ว ปิด task เป็น completed ได้เลย" — ทดสอบบน `wynos.online` จริงแล้ว ครบทั้ง skeleton loading, press feedback, route transition motion ตามที่ AI Deploy & DevOps ขอให้ยืนยัน
+
+ตามกติกา WORKFLOW.md ("Task จะย้าย approved/ → completed/ ได้ก็ต่อเมื่อ Founder ยืนยัน production verification แล้วเท่านั้น") — เงื่อนไขครบ ย้าย `.wyn/tasks/approved/WYN-175-web-perceived-speed-motion.md` → `.wyn/tasks/completed/` และอัปเดต WYN-174 epic ให้สะท้อนว่า Track 1 เสร็จสมบูรณ์แล้ว (Track อื่นยังอยู่ backlog รอคิว)
+
+**WYN-175 ปิดงานสมบูรณ์**: Product → Design → Coding → QA (FAIL→fix→PASS) → Deploy → Founder verification ครบทุกขั้นตอนตาม Default Team Workflow
+
+อ้างอิง: `.wyn/tasks/completed/WYN-175-web-perceived-speed-motion.md`, `.wyn/tasks/backlog/WYN-174-web-native-app-feel-v2.md`
+
+## [2026-09-19] WYN-176 — Founder เลือกทำ Track 2 (Visual Design Rollout) ต่อ พบว่าเป็นการต่อยอด WYN-160 ที่ทำค้างไว้ ไม่ใช่งานใหม่
+
+AI Product Manager ตรวจก่อนเขียน spec พบว่า **WYN-160** (2026-09-17, ยังอยู่ `.wyn/tasks/backlog/`) วางแผน rollout token consolidation ทั้งเว็บไว้แล้ว 8 batch — batch 1-6 (token ประกาศ, Auth, Home/Nav, Composer, Chat, Profile/Settings) ทำไปแล้วจริง เหลือ batch 7 (Search/Notifications/Club) กับ batch 8 (ลบ CSS dead code) ที่ยังไม่ทำ
+
+แต่ **WYN-163** (2026-09-19, ทำทีหลัง WYN-160 batch 6) เปลี่ยนทิศทางปุ่ม/input/หัวข้อของ Auth เป็นค่าใหม่ที่ใหญ่กว่าเดิมมาก (ปุ่ม 24px/58px, input 18px/56px, หัวข้อ 32px/800) แทนที่ค่าเดิมของ WYN-160 (pill 999px, input 10px, หัวข้อ 20px) — ตรวจ `web/app/design-system.css` จริงยืนยันว่า `--wyn-radius-control` ยังเป็น 12px ไม่เคย converge เป็น 10px ตามแผน WYN-160 เดิมเลย คอมเมนต์ในไฟล์เองยังบอก "not changed yet here"
+
+**ผลคือตอนนี้ Auth หน้าตาใหญ่/หนากว่าหน้าอื่นทั้งหมดของเว็บอย่างเห็นได้ชัด** — WYN-163 เองก็เขียน design rule ข้อ 9 ดักไว้ล่วงหน้าแล้วว่า "ถ้าจะขยายทั้งเว็บต้องเป็นงานแยก" ซึ่งคืองานนี้พอดี
+
+เขียน `WYN-176-visual-design-rollout-squircle.md` สรุปว่าเป็นการ "เอาค่าของ WYN-163 ไปแทนที่ค่าเดิมของ WYN-160" ในหน้าที่ทำไปแล้ว (Home/Composer/Chat/Profile) + ทำ batch 7 ที่ยังไม่เคยทำ (Search/Notifications/Club) ด้วยค่าใหม่ไปเลยโดยข้ามค่ากลางของ WYN-160 — ระบุข้อยกเว้นสำคัญ: การ์ดโพสต์ของ Home ล็อก parity กับ Flutter อยู่แล้ว (`home_drop_card.dart`) มี regression test ล็อกไว้ ห้ามแตะ
+
+ถามยืนยัน Founder 2 เรื่องก่อนส่ง AI Design: (1) ให้ค่าของ WYN-163 เป็นมาตรฐานทั้งเว็บแทนค่าเดิมของ WYN-160 หรือไม่ (2) เริ่ม batch ไหนก่อน (ต่อลำดับเดิม Home/Nav หรือข้ามไปทำ Search/Notifications/Club ที่ยังไม่เคยแตะเลย)
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-176-visual-design-rollout-squircle.md`, `.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`
+
+## [2026-09-19] WYN-176 — Founder ยืนยันทั้ง 2 จุด: ใช้ค่า WYN-163 ทั้งเว็บ + เริ่ม Home/Bottom Nav ก่อน
+
+Founder ตอบผ่าน structured question: (1) **ใช้ค่าของ WYN-163 เป็นมาตรฐานทั้งเว็บ** (ปุ่ม 24px/58px/16px-700, input 18px/56px, หัวข้อ 32px/800, press scale 0.96) แทนที่ค่าเดิมของ WYN-160 ทุกจุด (2) **เริ่ม batch Home/Bottom Nav ก่อน** ต่อลำดับเดิมของ WYN-160
+
+อัปเดต WYN-160 (`.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`) เป็น status "superseded" — batch 1-6 ที่ทำไปแล้วยังนับเป็นงานจริง แต่ batch 7-8 ที่เหลือไปทำต่อภายใต้ WYN-176 ด้วยค่าใหม่แทน
+
+ส่งต่อ AI Design ทำ batch 1 (Home/Bottom Nav) — เน้นย้ำห้ามแตะการ์ดโพสต์ที่ล็อก Flutter parity อยู่แล้ว (WYN-160 batch 3 เคยตรวจแล้วว่าเป็น intentional parity ไม่ใช่ drift)
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-176-visual-design-rollout-squircle.md`
+
+## [2026-09-19] WYN-176 Batch 1 — AI Design ตรวจโค้ดจริงพบว่า Home แทบไม่มีอะไรให้แก้ตรงๆ, ปรับขอบเขตแล้ว Founder ยืนยัน
+
+ตรวจโค้ดจริงก่อนออกแบบ (ตามกติกา "ห้ามคิดทิศทางใหม่หากไม่ตรวจของเดิมก่อน") พบว่า Home ไม่มีทั้ง `.wyn-button` และ `.btn-primary`/`.btn-outline` (ที่ WYN-163 แก้) อยู่เลยแม้แต่จุดเดียว — การ์ดโพสต์กับ bottom nav dock ล็อก Flutter parity อยู่แล้วตามที่ WYN-160 batch 3 เคยตรวจไว้ (มี regression test คุม) ส่วนที่ไม่ล็อกจริงๆ คือ chrome ทั่วไป: เมนูลิ้น (`home-drawer.tsx`, ใช้ร่วมกับ Notifications), ปุ่ม header, action sheet, ปุ่ม retry (`.route-secondary` ตระกูลที่ 3 แยกจาก `.wyn-button`/`.btn-primary` อีกชุด)
+
+ถามยืนยัน Founder ว่าจะทำตามขอบเขตที่ปรับใหม่นี้ไหม (chrome ที่ไม่ล็อก แทนที่จะบังคับยัด token ของ Auth เข้าไปทุกจุด) — **Founder ยืนยัน "ทำตาม chrome ที่ไม่ล็อก"**
+
+เขียนสเปก: ตีความ "เอาทิศทาง WYN-163 มาใช้" แบบ proportional ไม่ใช่ copy ตัวเลขตรงๆ — press feedback spring (`scale(0.96)`, 160ms) ใส่ทุกจุดที่ยังไม่มี (ตรงตัวกับ Auth), ส่วน radius ปรับขึ้นเล็กน้อยตามสัดส่วนเดิม (drawer menu row 14→16px, drawer identity 18→20px) ไม่ยัด 24px/58px ของปุ่ม CTA เข้าไปในแถวเมนู/sheet ที่ไม่ใช่ CTA
+
+ทำ Artifact เปรียบเทียบก่อน-หลัง กดทดลอง press feedback ได้จริง: https://claude.ai/artifact/1TPXW71STZtUn2jU7J9asu
+
+บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch1-home-chrome.md`
+
+## [2026-09-19] WYN-176 Batch 1 — Founder อนุมัติ preview, AI Coding implement เสร็จ
+
+Founder ดู Artifact แล้วตอบ "อนุมัติ เขียนโค้ดจริงเลย" — implement 5 จุดตามสเปก: `.drawer-identity` (radius 18→20px), `.drawer-menu-row` (radius 14→16px), `.home-drawer-close .icon-button`, `.audit-sheet-row`, `.route-primary`/`.route-secondary`/`.route-pill`/`.route-more` — ทุกจุดเพิ่ม press feedback spring (`scale(0.96)`, 160ms cubic-bezier เดียวกับ WYN-163) + `prefers-reduced-motion` fallback
+
+ตรวจ full cascade ก่อนแก้ทุก selector (บทเรียนจาก WYN-175) ไม่พบ override ที่จะทำให้ค่าใหม่ใช้ไม่ได้จริง — ตั้งใจไม่แตะ `.wyn-redrop-sheet-option`/`.wyn-redrop-sheet-cancel` เพราะมี press feedback ของตัวเองอยู่แล้ว (สไตล์ต่างกันโดยตั้งใจ ไม่ได้อยู่ใน scope ที่ Artifact แสดง) และไม่แตะ `.wyn-home-header-action` เพราะมี spec เดียวกันเป๊ะอยู่แล้วจาก WYN-167
+
+ยืนยันด้วย Playwright harness จริง (โหลด CSS 38 ไฟล์ตามลำดับ import จริง) — radius คำนวณจริง + press feedback ด้วย mouse down/up จริง 8 จุด + `wyn-redrop-sheet-option` ไม่ถูกทับ + reduced-motion ทำงาน **12/12 ผ่าน** `typecheck`/`lint`/`build` สะอาดหมด ยืนยัน `git diff --stat` ว่าไม่แตะ `home.css`/`bottom-nav.css` เลย
+
+ส่งต่อ AI QA & Security
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`
+
+## [2026-09-19] WYN-176 Batch 1 — QA PASS (independent, ไม่เชื่อผลที่ Coding รายงานเอง)
+
+ทำ harness แยกใหม่ทั้งหมด: console/HTTP error sweep บน `/`, `/notifications`, `/search`, `/welcome` จริง, radius คำนวณจริงผ่าน full cascade, press feedback จริงด้วย mouse down/up 8 จุด, ยืนยัน `wyn-redrop-sheet-option`/`.wyn-home-header-action` ไม่ถูกแตะ, reduced-motion 4 จุด, ตรวจ `parity.spec.ts` เดิมว่าอ้างอิง text content ของ `.tsx` เท่านั้นไม่ใช่ CSS จึงไม่เสี่ยง regression — รวม **32/32 ผ่าน** `typecheck`/`lint`/`build` สะอาดหมด ไม่มี security finding
+
+**Final Status: PASS** — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 1 (ไม่ย้าย WYN-176 ทั้งไฟล์ไป `approved/` เพราะยังมี batch อื่นค้าง เหมือน pattern WYN-160)
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`
+
+## [2026-09-19] WYN-176 Batch 1 — AI Deploy & DevOps เตรียม deploy เสร็จ รอ Founder อนุมัติเปิด PR
+
+ตรวจ QA PASS แล้ว รัน `typecheck`/`lint`/`build` อิสระอีกรอบเอง — สะอาดหมด ตรวจ branch เทียบ `origin/main` ด้วย `git diff origin/main...HEAD` ยืนยันว่าไม่มีการเปลี่ยนแปลงที่ conflict กัน (main มีแค่ merge commit ของ PR #552 เดิมเราเอง ไม่มี PR อื่นแทรก) — merge ได้สะอาด
+
+บันทึก deployment prep log ที่ `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md` — ยังไม่เปิด PR รอ Founder ยืนยันตามกติกา session นี้
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
+
+## [2026-09-19] WYN-176 Batch 1 — Founder ตอบ "เปิด PR" เปิด PR #553 แล้ว รอ merge
+
+เปิด PR [#553](https://github.com/warren-wyn-dev/wynteam/pull/553) (`claude/wynos-online-version-1pqqws` → `main`) ตามที่ Founder ยืนยัน — ยังไม่ merge (merge เป็นสิทธิ์ของ Founder เองตาม Founder Gate) subscribe PR activity แล้ว
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`

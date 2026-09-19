@@ -1,7 +1,7 @@
 # WYNOS Web Beta1 — WYN-175 Perceived Speed & Motion Deploy Prep
 
 Date: 2026-09-19
-Status: **PR OPEN — waiting on Founder to review/merge**
+Status: **DEPLOYED — production deploy workflow succeeded, waiting on Founder physical-device confirmation**
 
 ## Release
 
@@ -14,7 +14,8 @@ Status: **PR OPEN — waiting on Founder to review/merge**
 - Branch: `claude/wynos-online-version-1pqqws`, 7 commits ahead of `origin/main`, clean fast-forward (no
   conflicts)
 - PR: [#552](https://github.com/warren-wyn-dev/wynteam/pull/552) — opened 2026-09-19 after Founder confirmed
-  "เปิดเลย" in chat. Not merged yet — merging is the Founder's own action per the Founder Gate.
+  "เปิดเลย" in chat. **Merged by Founder** (`warren-wyn-dev`) at 2026-09-19T16:46:00Z, ~44s after opening —
+  same fast-merge pattern as PR #550/#551. Merge commit `497d836de4ad17049cd85fbc74184f1050c7e1d1` on `main`.
 
 ## QA Status
 
@@ -56,18 +57,23 @@ docs (product/design/decision/task/learning records). No backend/RPC/schema chan
 
 ## Deployment Result
 
-PR #552 opened, CI running. Not merged/deployed yet — waiting on Founder review and merge.
+PR #552 merged into `main` by Founder (commit `497d836de4ad17049cd85fbc74184f1050c7e1d1`).
+[WYN-158 Production Deploy run #139](https://github.com/warren-wyn-dev/wynteam/actions/runs/35456002342) —
+**success**, all steps green: Production preflight, Deploy to Vercel production, Verify production routes
+(completed 2026-09-19T16:48:05Z, total runtime ~2 minutes). Post-merge
+[`CI` run #1391](https://github.com/warren-wyn-dev/wynteam/actions/runs/35456002373) on the same commit also
+**success**. The PR's own CI (run #1390, on the final pushed commit) was also **success** before merge.
 
 ## Production Verification
 
-Not applicable yet — no deploy has happened. Once merged, the existing `wyn-158-production-deploy.yml`
-workflow (`WYN-158 Production Deploy`) will run automatically on merge to `main`, same as every prior web
-deploy in this log folder. This sandbox's outbound network policy blocks `wynos.online`, so independent
-post-deploy verification will rely on the workflow's own `Verify production routes` step; physical-device
-confirmation (per the WYN-158 lesson that CI green ≠ confirmed working on a real phone) will still need the
-Founder to open `wynos.online/search` and `wynos.online/notifications` on a real device and confirm: the
-skeleton placeholders appear briefly instead of a spinner, tapping a search/notification row visibly presses
-before navigating, and switching pages has a visible slide instead of an instant cut.
+- **AI-confirmed**: the production workflow's own `Verify production routes` step (real network access from
+  the GitHub Actions runner) — success. Post-merge `main` CI independently confirmed green as well.
+- **Not AI-confirmed**: this sandbox's outbound network policy blocks `wynos.online`, so independent
+  verification isn't possible from here — same limitation as every prior web deploy in this log folder.
+- **Still needed from Founder**: open `wynos.online/search` and `wynos.online/notifications` on a real
+  phone/browser and confirm: skeleton placeholders appear briefly instead of a spinner, tapping a
+  search/notification row visibly presses before navigating, and switching pages shows a visible slide
+  instead of an instant cut.
 
 ## Rollback Plan
 
