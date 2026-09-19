@@ -1822,3 +1822,9 @@ Reproduce บั๊กซ้ำก่อนแก้ (ได้ผล FAIL เ�
 **Known ไม่ block**: physical iPhone จริง (สภาพแวดล้อมนี้ไม่มีอุปกรณ์ ต้องรอ Founder ยืนยันหลัง deploy ตามบทเรียน WYN-158), `GoldenDropCard` press feedback (ตัดออกจาก scope โดยเจตนา ไม่ใช่บั๊ก)
 
 **Final Status: PASS** — ย้าย `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md` → `.wyn/tasks/approved/`, ย้าย bug report → `.wyn/tasks/completed/` ส่งต่อ AI Deploy & DevOps (ยังต้องผ่าน Founder approval ก่อน production ตาม Release Gates ปกติ)
+
+## [2026-09-19] WYN-175 — AI Deploy & DevOps เตรียม deploy เสร็จ รอ Founder อนุมัติเปิด PR
+
+ตรวจ QA PASS แล้ว รัน `typecheck`/`lint`/`build` อิสระอีกรอบเอง (ไม่เชื่อผลที่ QA/Coding รายงาน) — สะอาดหมด, 31 route compile ผ่าน branch `claude/wynos-online-version-1pqqws` ไปข้างหน้า `main` 7 commits, fast-forward ได้สะอาด ไม่มี conflict
+
+บันทึก deployment prep log ที่ `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md` — **ยังไม่เปิด PR** เพราะกติกาของ session นี้ (system instruction) ระบุห้ามเปิด pull request โดยไม่มีคำขอชัดเจนจาก Founder ก่อน จึงถามใน chat ก่อนดำเนินการต่อ ไม่ใช่การชะลอโดยไม่มีเหตุผล — เมื่อ merge เข้า `main` แล้ว `wyn-158-production-deploy.yml` จะ deploy ขึ้น production อัตโนมัติเหมือน deploy web ทุกครั้งที่ผ่านมา
