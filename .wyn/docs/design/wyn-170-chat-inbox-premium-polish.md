@@ -30,54 +30,72 @@ Founder: "ออกแบบหน้าใหม่ได้ไหม มัน
    เพิ่งได้ press-scale ไปใน WYN-169 แถวบทสนทนาทั้งแถว (ที่กดบ่อยที่สุดในหน้านี้) ยังไม่มี feedback ตอนกดเลย
    สัมผัสจึงรู้สึก "เรียบเป็นทางการ" (bare list) มากกว่า "พรีเมียม" แบบที่ WYN-163/167 วางแนวไว้
 
-## ขอบเขตที่เสนอ (WYN-170)
+## ขอบเขตที่เสนอ (WYN-170) — v2 (ขยายตามที่ Founder อนุมัติ)
 
-**Purpose**: แก้จุดบกพร่องที่เป็นรูปธรรม (พื้นที่ว่างท้ายรายการ) และเติม polish ที่สอดคล้องกับภาษาการออกแบบ
-เดิม (ไม่ใช่คิดทิศทางใหม่) ให้หน้า Chat Inbox รู้สึกตั้งใจ/พรีเมียมขึ้น โดยไม่แตะ IA/user flow เดิม
+Founder เห็น demo รอบแรก (แค่ข้อ 1 พื้นที่ว่างโล่ง) แล้วถาม "โอเค แก้แค่นี้หรอ" — AI Design เสนอขยายขอบเขต
+ให้ครอบคลุมข้อ 2 (Notes row โดดเดี่ยว) และข้อ 3 (แถวแชทไม่มีความเป็นการ์ด) ด้วย **Founder อนุมัติ "ขยาย —
+ทำให้ครบ"**
+
+**Purpose**: แก้จุดบกพร่องที่เป็นรูปธรรม (พื้นที่ว่างท้ายรายการ) + ยกระดับความรู้สึก "พรีเมียม" ของ Notes row
+และแถวบทสนทนาให้สอดคล้องกับภาษาการออกแบบเดิม (WYN-163/167) มากขึ้น โดยไม่แตะ IA/user flow เดิม ไม่ใช่การรื้อ
+หน้าใหม่ทั้งหมด
 
 ### Screen: WYNOS Web Chat Inbox (`/chat`)
 
 **Components**:
-- ใหม่: "ท้ายรายการ" (end-of-list marker) — ไอคอนวงกลมเล็ก + ข้อความสั้นภาษาไทย (เช่น "เห็นข้อความล่าสุดแล้ว")
-  ต่อท้าย `.chat-list` เสมอ (ไม่ใช่แค่ตอนรายการสั้น — ใช้ pattern เดียวกับ "จบฟีดแล้ว" ที่แอปแชทส่วนใหญ่ใช้ ทำให้
-  ไม่ต้องเช็คเงื่อนไข "สั้นแค่ไหนถึงจะโชว์" ซึ่งเปราะบาง) ใช้ icon-in-circle pattern เดียวกับที่มีอยู่แล้วใน
-  `.route-empty::before` ของหน้า Discovery/hashtag (ไม่ประดิษฐ์ pattern ใหม่) สีและ token ใช้ `--wyn-text-muted`/
-  `--wyn-surface` ชุดเดิม
-- แก้ไข: `.wyn-chat-inbox .flutter-chat-list .chat-row` — เพิ่ม `:active { transform: scale(0.96) }` +
-  `transition` (สูตรเดียวกับ WYN-163/167/169 เป๊ะ) ให้ทั้งแถว ไม่ใช่แค่ปุ่ม header
-- ไม่แตะ: Notes row structure เดิม (ข้อ 2 ด้านบน เป็นแค่ observation ไม่ใช่ scope ที่เสนอแก้รอบนี้ — ถ้าจะแก้ควร
-  รอดูว่าหลังแก้ข้อ 1 แล้วยังรู้สึกโล่งอยู่ไหมก่อน ไม่อยากแก้เกินจำเป็นในรอบเดียว)
-- ไม่แตะ: `.wyn-chat-note-card`, `.wyn-chat-note-bubble`, note composer, new-message modal, requests modal,
-  ปุ่มย้อนกลับ (ประกาศซ้ำ 4 ไฟล์ ตามที่ WYN-169 เคยระบุไว้ — ยังไม่ปลอดภัยจะแตะ)
+1. ใหม่: "ท้ายรายการ" (end-of-list marker) — ไอคอนวงกลมเล็ก + ข้อความสั้นภาษาไทย **"เห็นข้อความล่าสุดแล้ว"**
+   ต่อท้าย `.chat-list` เสมอ (ไม่ใช่แค่ตอนรายการสั้น — ใช้ pattern เดียวกับ "จบฟีดแล้ว" ที่แอปแชทส่วนใหญ่ใช้
+   ทำให้ไม่ต้องเช็คเงื่อนไข "สั้นแค่ไหนถึงจะโชว์" ซึ่งเปราะบาง) ใช้ icon-in-circle pattern เดียวกับที่มีอยู่แล้ว
+   ใน `.route-empty::before` ของหน้า Discovery/hashtag (ไม่ประดิษฐ์ pattern ใหม่) สีและ token ใช้
+   `--wyn-text-muted`/`--wyn-surface` ชุดเดิม
+2. แก้ไข: `.wyn-chat-inbox .flutter-chat-list .chat-row` — เปลี่ยนจาก "flat list + เส้นคั่นบางๆ" เป็น
+   **squircle card**: `background: var(--wyn-surface)`, `border-radius: 18px` (ค่าเดียวกับ input/section
+   radius ที่ใช้บ่อยที่สุดในระบบทั้งเว็บ — ยืนยันด้วย grep ว่า `18px` เป็นค่าที่ใช้ซ้ำมากที่สุดอันดับ 2 ทั่ว
+   `web/app/*.css` ไม่ใช่ค่าประดิษฐ์ใหม่), เว้นระยะห่างระหว่างการ์ด (margin แนวตั้ง ~8px) แทนเส้นคั่น — ลบ
+   `::after` divider เดิมออกเพราะไม่จำเป็นอีกต่อไปเมื่อแต่ละแถวแยกเป็นการ์ดของตัวเอง เพิ่ม `:active { transform:
+   scale(0.96) }` + `transition` (สูตรเดียวกับ WYN-163/167/169 เป๊ะ) ให้ทั้งการ์ด
+3. แก้ไข: `.wyn-chat-notes` — เพิ่ม modifier class `.is-solo` (ใส่เมื่อ `notes.length === 0` คือมีแค่การ์ด
+   "เพิ่มโน้ต" ของตัวเอง ไม่มีโน้ตเพื่อนเลย) ลด `min-height` จาก 136px เหลือขนาดที่พอดีกับการ์ดเดียว (~118px,
+   เท่ากับ `min-height` ของตัว `.wyn-chat-note-card` เอง + padding เล็กน้อย) ให้แถบดูเป็น "ช่องที่ตั้งใจให้พอดี
+   กับของที่มี" แทนที่จะเป็น "แกลเลอรีที่ว่างเปล่าเกือบหมด" — ไม่เปลี่ยนโครงสร้าง/ตำแหน่งการ์ดใดๆ เปลี่ยนแค่
+   ความสูงของ container เมื่ออยู่ในสถานะ solo
+- ไม่แตะ: `.wyn-chat-note-card`, `.wyn-chat-note-bubble` เนื้อหาภายในการ์ดโน้ต, note composer, new-message
+  modal, requests modal, ปุ่มย้อนกลับ (ประกาศซ้ำ 4 ไฟล์ ตามที่ WYN-169 เคยระบุไว้ — ยังไม่ปลอดภัยจะแตะ)
 
 **Interactions**:
-- แถวบทสนทนา: `:active { transform: scale(0.96) }`, `transition: transform 160ms
+- แถวบทสนทนา (การ์ดใหม่): `:active { transform: scale(0.96) }`, `transition: transform 160ms
   cubic-bezier(0.34, 1.56, 0.64, 1)` — สูตรเดียวกับทุกจุดที่ทำมาแล้ว ไม่ประดิษฐ์ค่าใหม่
 - ท้ายรายการ: ไม่ต้อง interactive (เป็นแค่ marker บอกจบรายการ)
+- Notes row solo state: ไม่มี interaction ใหม่ เปลี่ยนแค่ขนาด container
 
 **States**: เพิ่ม state ที่ 3 ที่ขาดไปของรายการแชท ("มีข้อความ + จบรายการแล้ว") ให้ชัดเจนแยกจาก "ว่างเปล่า
 สนิท" (`EmptyState` เดิม) และ "กำลังโหลด" (`ChatListSkeleton` เดิม) — ครบ 3 state ตามหลักการที่ AGENTS.md ระบุ
-ว่า loading/empty/error/interaction states เป็น requirement ไม่ใช่งานเก็บท้ายรอบ
+ว่า loading/empty/error/interaction states เป็น requirement ไม่ใช่งานเก็บท้ายรอบ; เพิ่ม state ใหม่ของ Notes row
+("solo" vs "มีโน้ตเพื่อนด้วย" — ใช้ CSS class ตาม `notes.length`, ไม่กระทบ logic การดึงข้อมูล)
 
-**Responsive Behavior**: ไม่เปลี่ยนจากเดิม ใช้ breakpoint เดิมที่มีอยู่ (`max-width: 430px`)
+**Responsive Behavior**: ไม่เปลี่ยนจากเดิม ใช้ breakpoint เดิมที่มีอยู่ (`max-width: 430px`) — ปรับ margin ของ
+การ์ดแชทให้สอดคล้องกับ padding เดิมที่มีอยู่แล้วในแต่ละ breakpoint เท่านั้น ไม่เพิ่ม breakpoint ใหม่
 
 **Accessibility**: ท้ายรายการใช้ข้อความจริง (ไม่ใช่แค่ไอคอน) มี `aria-hidden` บนไอคอนตกแต่งเหมือน pattern เดิม
 ของ `.route-empty`; press-scale ของแถวบทสนทนาต้องอยู่ใต้ `@media (prefers-reduced-motion: reduce)` เดียวกับที่
-`chat-notes.css` มีอยู่แล้ว (เพิ่ม selector เข้าไปในบล็อกเดิม ไม่สร้างบล็อกใหม่)
+`chat-notes.css` มีอยู่แล้ว (เพิ่ม selector เข้าไปในบล็อกเดิม ไม่สร้างบล็อกใหม่); touch target ของการ์ดแชทยังคง
+≥44px เหมือนเดิม (แค่เปลี่ยน background/radius ไม่เปลี่ยนขนาด)
 
 **Design Rules**:
-1. ใช้ token/motion เดิมทั้งหมด (`--wyn-*`, สูตร press-scale เดิม) ไม่ประดิษฐ์สี/effect ใหม่
-2. ไม่ทำ Notes row ใหม่ในรอบนี้ (ข้อ 2 จากการวิเคราะห์ — เก็บไว้ดูผลหลังแก้ข้อ 1 ก่อน)
-3. ไม่แตะปุ่มย้อนกลับ/`.route-*` ที่ใช้ร่วมหลายหน้าจอ (เหตุผลเดียวกับ WYN-169)
-4. ไม่ใช่การรื้อ layout/IA — เป็น polish pass ไม่ใช่ redesign ทั้งหน้า
+1. ใช้ token/motion/radius เดิมทั้งหมด (`--wyn-*`, 18px, สูตร press-scale เดิม) ไม่ประดิษฐ์สี/effect/ค่าตัวเลข
+   ใหม่ — ทุกค่ายืนยันแล้วว่ามีใช้ซ้ำในระบบจริง
+2. ไม่แตะปุ่มย้อนกลับ/`.route-*` ที่ใช้ร่วมหลายหน้าจอ (เหตุผลเดียวกับ WYN-169)
+3. ไม่แตะเนื้อหา/ฟังก์ชันของการ์ดโน้ต (note composer, badge, avatar) เปลี่ยนแค่ความสูงของแถบเมื่ออยู่ใน solo
+   state
+4. ไม่ใช่การรื้อ layout/IA — ยังเป็น polish pass ไม่ใช่ redesign ทั้งหน้า (ไม่เปลี่ยนลำดับ/ตำแหน่งของ
+   header → search → notes → chat list)
 
 ## Handoff
 
 พร้อมส่ง AI Coding หลัง Founder อนุมัติ — 2 ไฟล์ (`web/components/chat-inbox-parity.tsx` เพิ่ม JSX ท้าย
-`.chat-list`, `web/app/chat-notes.css` เพิ่ม CSS ของ marker ใหม่ + press-scale ของแถว) ความเสี่ยง regression
-ต่ำ (ไม่แตะ data flow/logic ใดๆ เป็น presentational เพิ่มเติมล้วนๆ)
+`.chat-list` + เพิ่ม conditional class บน `.wyn-chat-notes`, `web/app/chat-notes.css` เพิ่ม CSS ของ marker
+ใหม่ + squircle card ของแถวแชท + `.is-solo` modifier) ความเสี่ยง regression ต่ำ-กลาง (เปลี่ยน visual ของแถว
+แชทมากกว่ารอบแรก แต่ไม่แตะ data flow/logic ใดๆ ยังเป็น presentational ล้วนๆ)
 
-**คำถามสำหรับ Founder**:
-1. เห็นด้วยกับขอบเขตนี้ไหม (เติม "ท้ายรายการ" กันพื้นที่ว่างโล่ง + เพิ่ม press feedback ให้แถวบทสนทนา ไม่รื้อ
-   layout/Notes row ทั้งหมด)?
-2. ข้อความ "ท้ายรายการ" อยากให้เขียนว่าอะไร (เสนอ: "เห็นข้อความล่าสุดแล้ว") หรือให้ AI Design เลือกเอง?
+**คำถามสำหรับ Founder**: เห็นด้วยกับขอบเขตที่ขยายแล้วนี้ไหม (เติมท้ายรายการ + การ์ด squircle ให้แถวแชท + ลด
+ความสูง Notes row ตอนมีแค่การ์ดเดียว)?
