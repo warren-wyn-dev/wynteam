@@ -1,6 +1,6 @@
 # Design Task — WYN-170
 
-Status: active (รอ Founder ยืนยัน demo v5.1 — title "ข้อความ" ชิดซ้าย — ครั้งสุดท้ายก่อนส่ง AI Coding)
+Status: active (รอ Founder ยืนยัน demo v6 — เอาปุ่มลอยเขียนข้อความใหม่ออก — ครั้งสุดท้ายก่อนส่ง AI Coding)
 Owner: AI Design → รอ Founder → AI Coding → AI QA & Security → AI Deploy & DevOps
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: แก้จุดบกพร่องที่พบจากภาพหน้าจอจริงที่ Founder ส่งมา ("ออกแบบหน้าใหม่ได้ไหม มันไม่สวย") ผ่าน 3 รอบ
@@ -49,4 +49,7 @@ Handoff: รอ Founder ดู demo v3 ก่อนส่ง AI Coding — ไ�
    เอาปุ่ม "กล่องข้อความ" ออก คืนปุ่มย้อนกลับ ← กลับมาแทนที่ — เหลือปุ่ม "คำขอ" ตัวเดียวทางขวาทำหน้าที่ toggle
    เข้า/ออกจากมุมมองคำขอ — ทำ demo v5 แล้ว
 7. Founder ขอ "ย้ายคำว่า ข้อความ ไปมุมซ้าย" — เปลี่ยน title จากกึ่งกลางเป็นชิดซ้ายติดปุ่มย้อนกลับ ทำ demo
-   v5.1 แล้ว รอ Founder ยืนยันครั้งสุดท้ายก่อนส่ง Coding
+   v5.1 แล้ว
+8. Founder ถามปุ่มดินสอลอยคืออะไร (อธิบายว่าคือปุ่มเขียนข้อความใหม่ที่ย้ายมาจาก header) แล้วขอ "เอาออกได้
+   ไหม" — ตรวจโค้ดพบว่ามีทางเริ่มแชทใหม่อีกทาง (ปุ่ม "ส่งข้อความ" ในหน้าโปรไฟล์) ไม่ทำให้ผู้ใช้ติดค้าง —
+   เอาปุ่มลอยออก ทำ demo v6 แล้ว รอ Founder ยืนยันครั้งสุดท้ายก่อนส่ง Coding
