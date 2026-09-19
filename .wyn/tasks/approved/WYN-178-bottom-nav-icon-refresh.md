@@ -73,6 +73,25 @@ Security Findings: ไม่มี — เป็นการเปลี่ย�
 Recommendation: PASS — ไม่มี regression, แก้บั๊ก contrast เดิมที่ไม่เคยถูกจับได้เป็นผลพลอยได้ พร้อม deploy
 
 Final Status: **PASS**
+
+## Revision (2026-09-19, Founder review on PR #557)
+
+Founder feedback: "คลับ 3 คน ไม่ใช่ 3หัว ดูดีๆ" — original club icon had 3 head circles but only 2 body arcs
+(front-left, front-right); the back-center head had no body at all, so it read as a floating disconnected
+head rather than a third person. First attempted fix (adding a thin stroked shoulder arc for the back head)
+was rendered and visually verified via the same real-CSS-cascade Playwright harness before pushing — it
+created a "flower/pretzel" artifact where the back head's stroke crossed the front two heads' strokes at
+this icon size (24px), making it look worse, not better. Caught this via the harness before pushing, not
+after Founder review.
+
+Final fix: the back-center person is now a solid filled silhouette (`fill="currentColor" stroke="none"` on
+both its head circle and body path) sitting behind the two front people, who keep the original outline
+style. This avoids any stroke-crossing artifact (a fill overlapping an outline reads as normal occlusion, not
+confusing intersecting lines) and reads clearly as 3 distinct people at actual 24px size in both light and
+dark mode — verified via the same harness (screenshot inspected directly, not assumed).
+
+Updated `web/components/bottom-navigation.tsx` club icon paths. No other files changed in this revision.
+`npm run check` re-run clean after the fix. Re-verify before merge; PR #557 updated with a new commit.
 Owner: AI Design
 Screen: แท็ปบาร์ล่าง (bottom navigation) ทั้งระบบเว็บ — `web/components/bottom-navigation.tsx`, `web/app/bottom-nav.css`
 Purpose: ปรับไอคอน "คลับ" และ "แชท" ให้ตรงกับภาพอ้างอิงที่ Founder ส่งมา (ยืนยันครั้งที่ 2 ด้วยภาพเดิมทุกประการ พร้อมคำว่า

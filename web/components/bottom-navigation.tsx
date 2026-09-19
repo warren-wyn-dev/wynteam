@@ -35,11 +35,12 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
   if (kind === "club") {
     return (
       <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="8.5" cy="8" r="2.6" />
-        <circle cx="15.5" cy="8" r="2.6" />
-        <circle cx="12" cy="5.7" r="2.2" />
-        <path d="M3.3 19c.4-3.5 2.35-5.2 5.2-5.2s4.8 1.7 5.2 5.2" />
-        <path d="M10.3 19c.4-3.5 2.35-5.2 5.2-5.2s4.8 1.7 5.2 5.2" />
+        <circle cx="12" cy="6.3" r="2.1" fill="currentColor" stroke="none" />
+        <path d="M9.3 11c.3-2.3 1.3-3.5 2.7-3.5s2.4 1.2 2.7 3.5H9.3Z" fill="currentColor" stroke="none" />
+        <circle cx="7" cy="9.3" r="2.5" />
+        <path d="M2.3 19c.3-3.4 2.1-5.1 4.5-5.1s4.2 1.7 4.5 5.1H2.3Z" />
+        <circle cx="17" cy="9.3" r="2.5" />
+        <path d="M12.7 19c.3-3.4 2.1-5.1 4.5-5.1s4.2 1.7 4.5 5.1H12.7Z" />
       </svg>
     );
   }
