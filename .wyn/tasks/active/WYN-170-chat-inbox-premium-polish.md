@@ -1,6 +1,7 @@
 # Design Task — WYN-170
 
-Status: active (รอ Founder ยืนยัน demo v3 อัปเดต (ช่องค้นหา 44px) ครั้งสุดท้าย ก่อนส่ง AI Coding)
+Status: active (รอ Founder ยืนยัน demo v4 — แท็บย้ายเข้า header + ปุ่มลอย + ช่องค้นหา 40px — ครั้งสุดท้ายก่อน
+ส่ง AI Coding)
 Owner: AI Design → รอ Founder → AI Coding → AI QA & Security → AI Deploy & DevOps
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: แก้จุดบกพร่องที่พบจากภาพหน้าจอจริงที่ Founder ส่งมา ("ออกแบบหน้าใหม่ได้ไหม มันไม่สวย") ผ่าน 3 รอบ
@@ -39,5 +40,9 @@ Handoff: รอ Founder ดู demo v3 ก่อนส่ง AI Coding — ไ�
 3. v3: Founder ส่งภาพอ้างอิง Instagram จริง ("ตัวอย่าง") — ถาม 2 คำถาม (สไตล์แถว, เพิ่มแท็บไหม) **Founder
    ตอบ: เปลี่ยนเป็นเรียบแบน + เพิ่มแท็บด้วย** — ทำ demo ให้ดู
 4. Founder ดู demo v3 แล้วตอบ **"ก็โอเคนะ มันมีฟังชั่นโน๊ตด้วย"** (โอเคกับภาพรวม ยืนยัน Notes row ยังอยู่)
-   พร้อมขอ **"ปรับความสูงปุ่มค้นหาหน่อย กว้างไป"** — ลดจาก 50px → 44px แล้ว อัปเดต demo รอบสุดท้าย รอ
-   Founder ยืนยันก่อนส่ง Coding
+   พร้อมขอ **"ปรับความสูงปุ่มค้นหาหน่อย กว้างไป"** — ลดจาก 50px → 44px แล้ว
+5. Founder ส่งภาพ annotate ชี้ตำแหน่งปุ่มย้อนกลับ/เขียนข้อความใหม่ ขอย้ายแท็บกล่องข้อความ/คำขอเข้าไปแทนที่ใน
+   header เลย ("ใช่ — ย้ายเข้า header เลย") + ขอลดช่องค้นหาอีกเป็น 40px — ตรวจโค้ดจริงก่อนทำ พบว่า swipe-back
+   ที่เสนอไว้ไม่ทำงานจริงในหน้านี้ (`/chat` อยู่ใน `ROOT_ROUTES`) แต่ bottom nav มองเห็นอยู่แล้วตลอดเวลา
+   (`AppChrome` บังคับ `bottomNavVisible=true` สำหรับ `/chat`) จึงมีทางกลับหน้าโฮมอยู่แล้วโดยไม่ต้องแก้โค้ด
+   navigation เพิ่ม — ทำ demo v4 แล้ว รอ Founder ยืนยันครั้งสุดท้ายก่อนส่ง Coding
