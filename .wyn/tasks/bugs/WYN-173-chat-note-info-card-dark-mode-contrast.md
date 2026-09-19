@@ -1,6 +1,6 @@
 # Bug Report — WYN-173
 
-Status: fixed by AI Debug Engineer, รอ AI QA & Security ยืนยัน
+Status: fixed and verified — PASS by AI QA & Security, พร้อม Deploy
 Owner: AI QA & Security
 Parent: none (pre-existing production bug, ไม่เกี่ยวกับ WYN-171/172 ที่เพิ่งแก้) — พบระหว่างตรวจสอบ
 (verify) การแก้ WYN-171 ในไฟล์เดียวกัน (`web/app/chat-notes.css`)
@@ -104,3 +104,23 @@ emulate `colorScheme: dark`/`light` วัด contrast จริงได้ต�
 อื่นใดๆ ตามที่ประเมินความเสี่ยงไว้ว่าต่ำมาก
 
 **ส่งต่อ**: AI QA & Security เพื่อยืนยัน contrast ซ้ำแบบอิสระ ก่อนไป Deploy พร้อมกับ WYN-171/172
+
+## QA Verification (AI QA & Security, 2026-09-19)
+
+**Diff check**: `git show 83df6f79 -- web/app/chat-notes.css` ยืนยันแก้แค่ 1 บรรทัด (`background: #f7f7f8` →
+`background: var(--wyn-surface)` ใน `.wyn-note-info-card`) ไม่กระทบส่วนอื่นของไฟล์ที่เพิ่งผ่าน QA ไปแล้วใน
+รอบ WYN-171/172 เลย
+
+**Contrast re-measurement (independent, full 44-file CSS cascade)**:
+- Dark, strong: **18.88:1** ✅ | Dark, small: **5.32:1** ✅
+- Light, strong: **18.97:1** ✅ | Light, small: **5.11:1** ✅
+
+ทุกค่า ≥4.5:1 ตาม WCAG AA — ตรงกับที่ AI Debug Engineer รายงานทุกตัวเลข
+
+**Orphan hex check**: `grep -n "f7f7f8" web/app/chat-notes.css` เหลือจุดเดียว (บรรทัด 75,
+`.flutter-chat-search` — คนละ selector คนละ scope ไม่เกี่ยวกับ WYN-173) ยืนยันว่า `.wyn-note-info-card` ไม่มี
+hardcode หลงเหลือแล้ว
+
+**Regression**: `npm run check` (lint + typecheck + build): 0 error, 3 warning เดิมที่ไม่เกี่ยวข้อง
+
+**Final Status: PASS** — WYN-171, WYN-172, WYN-173 ผ่าน QA ครบทั้ง 3 เรื่อง พร้อมส่งต่อ AI Deploy & DevOps
