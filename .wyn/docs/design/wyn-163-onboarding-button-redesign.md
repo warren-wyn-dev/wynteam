@@ -1,4 +1,4 @@
-# Design Spec — WYN-161: Onboarding Button + Color Redesign
+# Design Spec — WYN-163: Onboarding Button + Color Redesign
 
 Owner: AI Design → Founder review → AI Coding
 Ref: Founder ขอเองผ่านข้อความตรง (2026-09-19): "เรามาช่วยกันออกแบบ UX UI ปุ่มต่างๆใหม่ เริ่มจาก0" → ยืนยัน
@@ -7,7 +7,7 @@ Ref: Founder ขอเองผ่านข้อความตรง (2026-09-
 + สั่งตัดปุ่ม "เข้าชม WYNOS ได้เลย" ออก → **ผลสุดท้าย: ไม่มีสีแดง/สีอื่นเลย เป็นขาว-ดำ-เทาล้วน**
 Artifact: https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x (อาร์ตบอร์ด 1 = สี, อาร์ตบอร์ด 2 = ทรง, อาร์ตบอร์ด
 3 = งานจริงทั้ง 5 หน้าจอ)
-Decision log: `.wyn/company/DECISIONS.md` (2026-09-19, WYN-161, รอบ 1-3)
+Decision log: `.wyn/company/DECISIONS.md` (2026-09-19, WYN-163, รอบ 1-3)
 
 > **นี่คือ visual direction ใหม่ที่ Founder ร้องขอเอง** ไม่ขัดกับกติกา "ห้ามคิดทิศทาง visual ใหม่หากมี design
 > system ที่อนุมัติแล้ว" เพราะ Founder เป็นฝ่ายเปิดคำขอเองตามข้อยกเว้นที่บันทึกไว้ 2026-09-07 ("ไม่ต้องเสนอ
@@ -48,7 +48,7 @@ Phone → OTP → Username Setup → Home) งานนี้เป็น visual
    - ขอบ 1.5px `ink`, พื้น `paper`, ตัวหนังสือ `ink`, `border-radius: 16px`, สูง 46-48px
    - **หมายเหตุสำคัญ**: ปุ่มนี้ในโค้ดปัจจุบัน (`auth_method_screen.dart`) ยังไม่ใช้ asset ทางการของ Google
      (`Icons.g_mobiledata` ธรรมดา) — ขัดกับ Design Rule เดิมของ WYN-002 ("ห้ามดัดแปลงโลโก้/สีปุ่ม Google/
-     Apple เอง ต้องใช้ asset ทางการ") เป็น gap ที่มีอยู่ก่อนงานนี้ ไม่ใช่สิ่งที่ WYN-161 สร้างขึ้นใหม่ — บันทึก
+     Apple เอง ต้องใช้ asset ทางการ") เป็น gap ที่มีอยู่ก่อนงานนี้ ไม่ใช่สิ่งที่ WYN-163 สร้างขึ้นใหม่ — บันทึก
      ไว้เป็นข้อสังเกตแยก ให้ Founder ตัดสินใจว่าจะแก้พร้อมกันในรอบนี้หรือแยกเป็นงานอื่น (ดู Handoff)
 3. **Outline (tertiary)** — "เข้าสู่ระบบด้วยอีเมล", "ใช้เบอร์โทรศัพท์แทน"
    - ขอบ 1.5px `hairline #E8E6E0` (จางกว่าระดับ 2 เพื่อให้ลำดับสำคัญต่างกันชัด), พื้น `paper`, ตัวหนังสือ
@@ -113,7 +113,7 @@ Phone → OTP → Username Setup → Home) งานนี้เป็น visual
 
 1. อนุมัติ spec นี้ทั้งหมด (สีขาว-ดำ-เทาล้วน, ทรง 16px, ขนาด, states, ตัดปุ่ม "เข้าชม" ออก) ให้ส่ง AI Coding
    แก้ 5 หน้าจอ Onboarding ได้เลยหรือไม่
-2. ปุ่ม Google ที่ยังไม่ใช้ asset ทางการ (พบระหว่างเขียน spec นี้ ไม่ใช่สิ่งที่ WYN-161 สร้างใหม่) — อยากให้
+2. ปุ่ม Google ที่ยังไม่ใช้ asset ทางการ (พบระหว่างเขียน spec นี้ ไม่ใช่สิ่งที่ WYN-163 สร้างใหม่) — อยากให้
    แก้พร้อมกันในรอบนี้ หรือแยกเป็น task ใหม่ทำทีหลัง
 
 เมื่ออนุมัติแล้ว ส่งต่อ AI Coding: แก้ theme-level button style (`app/lib/core/design/wyn_theme.dart` — เพิ่ม

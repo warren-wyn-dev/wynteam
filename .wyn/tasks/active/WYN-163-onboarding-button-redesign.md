@@ -1,4 +1,4 @@
-# Design Task — WYN-161
+# Design Task — WYN-163
 
 Status: review (spec เต็มเขียนเสร็จแล้ว รอ Founder อนุมัติก่อนส่ง AI Coding)
 Owner: AI Design
