@@ -168,6 +168,12 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.home-drawer-close .icon-button:active {
+  transform: scale(0.96);
 }
 
 .drawer-identity {
@@ -180,10 +186,16 @@
   gap: 12px;
   align-items: center;
   border: 1px solid var(--hairline);
-  border-radius: 18px;
+  border-radius: 20px;
   background: var(--paper);
   color: var(--ink);
   text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.drawer-identity:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .drawer-identity-copy {
@@ -215,12 +227,18 @@
   gap: 12px;
   align-items: center;
   border: 0;
-  border-radius: 14px;
+  border-radius: 16px;
   background: transparent;
   color: var(--ink);
   text-align: left;
   font-size: 15px;
   font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.drawer-menu-row:active {
+  transform: scale(0.96);
 }
 
 .drawer-menu-icon {
@@ -265,5 +283,15 @@
   .route-main {
     border-left: 1px solid var(--hairline);
     border-right: 1px solid var(--hairline);
+  }
+}
+
+/* WYN-176 batch 1: press-feedback transitions added above reuse WYN-163's
+   spring formula. */
+@media (prefers-reduced-motion: reduce) {
+  .home-drawer-close .icon-button,
+  .drawer-identity,
+  .drawer-menu-row {
+    transition: none;
   }
 }

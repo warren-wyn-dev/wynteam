@@ -1,7 +1,7 @@
 # Product Task — WYN-176
 
-Status: approved — Founder ยืนยันทั้ง 2 จุดแล้ว (2026-09-19), ส่งต่อ AI Design ทำ batch 1
-Owner: AI Product Manager → AI Design
+Status: review — batch 1 (Home chrome) เขียนโค้ดเสร็จแล้ว (2026-09-19), ส่งต่อ AI QA & Security
+Owner: AI Product Manager → AI Design (batch 1 spec + preview เสร็จ) → AI Coding (batch 1 เสร็จ) → AI QA & Security
 Feature: WYNOS Web Beta1 — Visual Design Rollout (WYN-174 Track 2) — extend WYN-163's Apple-style squircle direction system-wide
 Goal: Make the rest of WYNOS Web (Home, Composer, Chat, Profile/Settings, Search/Notifications/Club) visually consistent with the Auth screens' Apple-style redesign (WYN-163), instead of the app looking like two different products depending on which screen you're on
 Target User: All WYNOS Web users — the whole app, not just onboarding
@@ -58,3 +58,26 @@ Two decisions before AI Design starts:
 **[2026-09-19] Founder ยืนยันแล้วทั้ง 2 จุด**: (1) ใช้ค่า WYN-163 เป็นมาตรฐานทั้งเว็บ แทนค่าเดิมของ WYN-160 (2) เริ่ม batch **Home/Bottom Nav** ก่อน (ต่อลำดับเดิมของ WYN-160)
 
 → **AI Design**: ทำ batch 1 (Home/Bottom Nav) — audit CSS จริงของหน้า Home/Nav (เทียบ cascade เต็มเหมือนที่ WYN-175 ทำ ไม่ใช่แค่ rule แรกที่เจอ), แยกให้ชัดว่าจุดไหนเป็น Bottom Nav (แก้ได้) vs การ์ดโพสต์ที่ล็อก Flutter parity (ห้ามแตะ), ทำภาพก่อน-หลังด้วย token ใหม่จาก WYN-163 (ปุ่ม 24px/58px/16px-700, input 18px/56px, หัวข้อ 32px/800, press scale 0.96) ให้ Founder อนุมัติก่อนส่ง AI Coding
+
+## Batch 1 Implementation (AI Coding, 2026-09-19)
+
+**Implementation**: ตรวจ full cascade ของทุก selector ที่จะแก้ก่อน (เรียนบทเรียนจาก WYN-175 bug) ไม่พบ override ที่จะทำให้ค่าใหม่ไม่ได้ผล:
+1. `.drawer-identity` — radius 18→20px + press feedback spring (`scale(0.96)`, 160ms cubic-bezier) (`app/parity-final.css`)
+2. `.drawer-menu-row` — radius 14→16px + press feedback (`app/parity-final.css`)
+3. `.home-drawer-close .icon-button` — press feedback เพิ่ม (ไม่เคยมี) (`app/parity-final.css`)
+4. `.audit-sheet-row` (share/save/hide/report) — press feedback เพิ่ม (`app/parity-audit.css`)
+5. `.route-primary`/`.route-secondary`/`.route-pill`/`.route-more` — press feedback เพิ่ม (ใช้ร่วมกับ Search/Notifications ด้วย) (`app/phase3.css`)
+
+**ตั้งใจไม่แตะ**: `.wyn-redrop-sheet-option`/`.wyn-redrop-sheet-cancel` — ตรวจแล้วมี press feedback ของตัวเองอยู่แล้ว (`scale(0.992)` + `filter: brightness`, สไตล์ต่างจาก spring ของ WYN-163 โดยตั้งใจ) ไม่ได้อยู่ใน "ตอนนี้" ที่ Artifact แสดงไว้ตรงๆ จึงไม่แก้ทับของเดิมที่ทำงานอยู่แล้วโดยไม่มีการอนุมัติใหม่ (smallest safe change) — `.wyn-home-header-action` (ปุ่ม header) ก็ไม่ต้องแก้เพราะมี press feedback สเปกเดียวกันเป๊ะอยู่แล้วจาก WYN-167
+
+**Files Changed**: `web/app/parity-final.css`, `web/app/parity-audit.css`, `web/app/phase3.css`
+
+**Reason**: ตาม design spec `.wyn/docs/design/wyn-176-batch1-home-chrome.md`, Founder อนุมัติ preview แล้ว
+
+**Tests**: สร้าง harness ยืนยันด้วย Playwright จริง (โหลด CSS ทั้ง 38 ไฟล์ตามลำดับ import จริงใน `layout.tsx`) — ตรวจ radius คำนวณจริง 2 จุด + press feedback จริงด้วย mouse down/up 8 จุด + ยืนยัน `.wyn-redrop-sheet-option` ยังมี feedback เดิมไม่ถูกทับ + `prefers-reduced-motion` ปิด transition ได้จริง — **12/12 ผ่าน**
+
+**Build**: `npm run typecheck` (0 errors), `npm run lint` (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง), `npm run build` (สำเร็จทุก route) — ตรวจ `git diff --stat` ยืนยันว่าไม่ได้แตะ `home.css`/`bottom-nav.css` (ไฟล์ที่ล็อก Flutter parity) เลยแม้แต่บรรทัดเดียว
+
+**Known Issues**: batch 1 นี้ครอบคลุมแค่ Home chrome (เมนูลิ้น/sheet/retry button) — Composer, Chat, Profile/Settings, Search/Notifications/Club ยังเป็น batch ถัดไปที่ยังไม่เริ่ม (ดู WYN-176 scope เต็ม)
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) radius/press feedback ตรงตาม spec จริงบน dev server ไม่ใช่แค่ harness แยก (2) เมนูลิ้นที่ใช้ร่วมกับ Notifications ก็ได้ผลด้วย (ตรวจทั้ง `/` และ `/notifications`) (3) ไม่มี regression ต่อการ์ดโพสต์/bottom nav (Flutter parity test เดิมต้องผ่านหมด) (4) `wyn-redrop-sheet-option` ยังทำงานเหมือนเดิมไม่เปลี่ยน

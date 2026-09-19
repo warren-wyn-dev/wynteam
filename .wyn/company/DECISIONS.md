@@ -1890,3 +1890,15 @@ Founder ตอบผ่าน structured question: (1) **ใช้ค่าข�
 ทำ Artifact เปรียบเทียบก่อน-หลัง กดทดลอง press feedback ได้จริง: https://claude.ai/artifact/1TPXW71STZtUn2jU7J9asu
 
 บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch1-home-chrome.md`
+
+## [2026-09-19] WYN-176 Batch 1 — Founder อนุมัติ preview, AI Coding implement เสร็จ
+
+Founder ดู Artifact แล้วตอบ "อนุมัติ เขียนโค้ดจริงเลย" — implement 5 จุดตามสเปก: `.drawer-identity` (radius 18→20px), `.drawer-menu-row` (radius 14→16px), `.home-drawer-close .icon-button`, `.audit-sheet-row`, `.route-primary`/`.route-secondary`/`.route-pill`/`.route-more` — ทุกจุดเพิ่ม press feedback spring (`scale(0.96)`, 160ms cubic-bezier เดียวกับ WYN-163) + `prefers-reduced-motion` fallback
+
+ตรวจ full cascade ก่อนแก้ทุก selector (บทเรียนจาก WYN-175) ไม่พบ override ที่จะทำให้ค่าใหม่ใช้ไม่ได้จริง — ตั้งใจไม่แตะ `.wyn-redrop-sheet-option`/`.wyn-redrop-sheet-cancel` เพราะมี press feedback ของตัวเองอยู่แล้ว (สไตล์ต่างกันโดยตั้งใจ ไม่ได้อยู่ใน scope ที่ Artifact แสดง) และไม่แตะ `.wyn-home-header-action` เพราะมี spec เดียวกันเป๊ะอยู่แล้วจาก WYN-167
+
+ยืนยันด้วย Playwright harness จริง (โหลด CSS 38 ไฟล์ตามลำดับ import จริง) — radius คำนวณจริง + press feedback ด้วย mouse down/up จริง 8 จุด + `wyn-redrop-sheet-option` ไม่ถูกทับ + reduced-motion ทำงาน **12/12 ผ่าน** `typecheck`/`lint`/`build` สะอาดหมด ยืนยัน `git diff --stat` ว่าไม่แตะ `home.css`/`bottom-nav.css` เลย
+
+ส่งต่อ AI QA & Security
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`
