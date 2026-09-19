@@ -1,6 +1,6 @@
 # Design Task — WYN-160
 
-Status: backlog
+Status: active — เฟส 0 (Button Interaction Spec) เขียนเสร็จแล้ว รอ Founder อนุมัติก่อนแตะโค้ด
 Owner: AI Design
 Screen: ทั้งระบบเว็บ (WYN-158) เริ่มจากหน้าล็อกอิน/สมัคร/onboarding ตามที่ Founder สั่ง
 Purpose: บังคับใช้ design system ที่อนุมัติแล้ว (`wynos-web-base-design-system.md`) ให้ตรงกันทุกหน้า — ไม่ใช่คิดสีใหม่ แต่ยุบตัวเลขที่หลุดสเปกไปแล้ว (font-size ~20 ค่า → 7 ค่า, border-radius ~20 ค่า → 5 ค่า, สีเทาที่ hardcode ใหม่ใน conversation-modern.css → กลับไปใช้ var(--wyn-*))
