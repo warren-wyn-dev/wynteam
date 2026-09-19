@@ -1,7 +1,7 @@
 # Product Task — WYN-175
 
 Status: merged into WYN-160 (Founder ตัดสินใจ 2026-09-19 — "รวมเข้ากับ WYN-160 เป็นงานเดียว") — เก็บไฟล์นี้
-ไว้เป็น reference/audit trail เท่านั้น ดูงานจริงที่ `.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`
+ไว้เป็น reference/audit trail เท่านั้น ดูงานจริงที่ `.wyn/tasks/active/WYN-160-web-design-system-consolidation.md`
 Owner: AI Product Manager
 Feature: ปุ่มทั้งระบบเว็บไปในทิศทางเดียวกัน (System-wide Button Consistency)
 

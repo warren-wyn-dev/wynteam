@@ -1237,7 +1237,7 @@ run #93 ([35214409445](https://github.com/warren-wyn-dev/wynteam/actions/runs/35
 (11:11:47–11:13:31 UTC) → `curl https://wynos.online/`, `/welcome`, `/login` → **HTTP 200** ทั้งหมด
 
 อ้างอิง: `.wyn/docs/design/wyn-160-web-design-system-consolidation.md`,
-`.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`,
+`.wyn/tasks/active/WYN-160-web-design-system-consolidation.md` (ย้ายจาก `backlog/` เมื่อ 2026-09-19),
 https://claude.ai/artifact/W9PxAkYrFdiTKyQsP1Gpyz, `web/components/auth-flow/screens.tsx`,
 `web/app/auth-reference.css`, `web/app/design-system.css`, PR #501, deploy run `35214409445` (SUCCESS)
 

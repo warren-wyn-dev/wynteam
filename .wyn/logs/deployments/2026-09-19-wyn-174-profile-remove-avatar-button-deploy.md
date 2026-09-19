@@ -2,7 +2,7 @@
 
 Release: Edit Profile — ปุ่มลบรูปโปรไฟล์
 Version: ไม่มีการเปลี่ยน WYNOS version (ฟีเจอร์ย่อยที่ไม่ gate ด้วย version)
-QA Status: PASS — ดู section "QA Verification" ใน `.wyn/tasks/approved/WYN-174-profile-remove-avatar-button.md`
+QA Status: PASS — ดู section "QA Verification" ใน `.wyn/tasks/completed/WYN-174-profile-remove-avatar-button.md`
 Build Status: `npm run check` เขียวก่อนเปิด PR — 0 error, 3 warning เดิมที่ไม่เกี่ยวข้อง
 Deployment Target: Production (Vercel ผ่าน GitHub Actions workflow `WYN-158 Production Deploy`)
 
@@ -34,8 +34,8 @@ Founder merge PR #555 เองโดยตรงบน GitHub อีกคร�
 
 ## Rollback Plan
 
-- `git revert` merge commit `5b3f8fff` บน `main` แล้ว push ผ่าน PR ใหม่ตามขั้นตอนปกติ (ต้องขออนุมัติ
-  Founder ก่อน merge เหมือนเดิม)
+- `git revert -m 1 5b3f8fff` บน `main` (ต้องระบุ `-m 1` เพราะเป็น merge commit มี 2 parent — `git revert`
+  เฉยๆ จะ error ทันที) แล้ว push ผ่าน PR ใหม่ตามขั้นตอนปกติ (ต้องขออนุมัติ Founder ก่อน merge เหมือนเดิม)
 - ไม่มี migration/schema change ใดๆ ในรอบนี้ — ใช้ column `avatar_url` ที่มีอยู่แล้ว rollback ไม่กระทบ
   ข้อมูล production เลย
 - ความเสี่ยงต่ำมาก: ปุ่มใหม่ทำแค่ set `avatar_url = null` ผ่าน RLS policy เดิม ไม่แตะ flow อัปโหลด/บันทึก

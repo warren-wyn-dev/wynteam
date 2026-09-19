@@ -62,28 +62,55 @@ press feedback; only the `:active` scale value (0.96) may need a smaller number 
 buttons if 0.96 reads as imperceptible, but the base formula does not change without a Founder-reviewed
 reason recorded in the CSS as a comment.
 
+**Compose, don't overwrite, an element's own static transform.** A few controls already carry a
+non-press `transform` for layout (e.g. `.wyn-bottom-nav__post { transform: translateY(-9px) }` for the
+central Post button's lift). Applying `:active { transform: scale(0.96) }` verbatim on such an element
+replaces its base transform instead of combining with it — the Post button would visibly drop 9px on
+every press. For any control that already sets a static `transform`, either apply the press-scale to an
+inner wrapper element instead of the element carrying the static transform, or write the combined value
+explicitly (`transform: translateY(-9px) scale(0.96)`) in that control's own `:active` rule — never rely
+on the generic triplet verbatim when a static transform is already present.
+
 ### Danger / destructive variant
 
 One token only: `color: var(--wyn-accent)` (or `background: var(--wyn-accent)` for a filled danger
 button). No screen may declare its own danger red. The 6 hardcoded values found in the audit above are the
 migration list for the rollout phases below — each gets swapped to the token, not redesigned.
 
+**Known gap, not yet resolved**: `var(--wyn-accent)` (`#e0203d`) is intentionally fixed across themes
+(see `design-system.css`'s comment, "stays fixed across themes, same treatment as sapphire/like
+elsewhere"). Measured as text-on-background contrast: **4.73:1 on light** (`--wyn-bg: #ffffff`) passes
+WCAG AA, but only **4.44:1 on dark** (`--wyn-bg: #000000`) — just under the 4.5:1 AA floor (confirmed by
+QA on the WYN-174 PR). Migrating every hardcoded danger red to this one token, as directed above, spreads
+that same marginal dark-mode shortfall to every danger button the rollout touches — which would violate
+this spec's own acceptance criterion ("ทุกปุ่มที่แก้ต้องผ่าน WCAG AA ทั้ง light/dark"). This needs a
+Founder decision before the danger-token migration reaches any dark-mode-visible screen: either accept
+the existing token's dark-mode contrast as a documented, Founder-approved risk (matching the AGENTS.md
+policy for a HIGH-severity finding), or introduce a dark-mode-specific override for text-on-background
+danger use that clears AA, kept separate from `--wyn-accent`'s existing fixed-across-themes role
+elsewhere (like/error backgrounds, borders) so that role isn't disturbed. Not resolved in this
+phase-0 spec pass — flag it to Founder before rollout reaches this token.
+
 ### Touch target
 
-- **Primary action** (the button a user taps to complete the screen's main task, or any destructive
-  action like delete/remove/block): **minimum 44px hit area**, matching DS-008. This applies to the *hit
-  area*, not necessarily the visible size — a small icon can sit inside a larger invisible padding box,
-  same pattern as the Flutter `ActionMetric` reference in WYN-106.
-- **Secondary text-link action** (a lower-emphasis action that sits next to a primary one and is not the
-  main reason the user is on the screen — e.g. "ลบรูปโปรไฟล์" next to the avatar upload control in
-  WYN-174): may stay below 44px if it is genuinely optional/secondary and not the only way to complete a
-  required task. When in doubt, treat it as primary and give it 44px.
+- **Any tappable action, including destructive text-links** (delete/remove/block — e.g.
+  `.wyn-note-delete`, "ลบรูปโปรไฟล์" in WYN-174): **minimum 44px hit area**, matching DS-008. This applies
+  to the *hit area*, not the visible size — a small icon or small text-only control can sit inside a
+  larger invisible padding box, same pattern as the Flutter `ActionMetric` reference in WYN-106 and the
+  Dismiss Icon category below. A destructive action never gets a pass on hit area just because it's
+  styled as a text-link; only its *visual weight* (no border/background) differs from a Primary button.
+- **Genuinely optional secondary text-link** (does not complete a required task, and isn't
+  delete/remove/block — e.g. "ดูเพิ่มเติม"): still target 44px hit area where practical; a smaller hit
+  area is acceptable only when the control sits inline in a text flow where a large hit box would
+  overlap neighboring tap targets. When in doubt, give it 44px.
 - Audit finding: `.route-primary`/`.route-secondary`/`.route-pill`/`.route-more`
   (`web/app/phase3.css:83-114`, used across 13 component files) currently ships at **38px** default /
-  **32px** on `.small` — both under the 44px floor, and both are primary-action buttons (form submit,
-  confirm, follow, etc.), not secondary text-links. This corrects the earlier WYN-160 consolidation
+  **32px** on `.small` — both under the 44px floor. This corrects the earlier WYN-160 consolidation
   doc's touch-target line ("สม่ำเสมอดี — ไม่ต้องแก้") — that pass evidently checked a different subset of
   controls; `route-primary`/`route-secondary` need to move into scope for the touch-target rollout.
+- Audit finding: `.wyn-note-delete` (`web/app/chat-notes.css:469`) ships at 36px min-height, and the
+  WYN-174 "ลบรูปโปรไฟล์" button has no explicit min-height at all — both need a 44px hit area added in
+  their rollout phase (visual size/styling stays the same, only the invisible hit box grows).
 
 ### Button category map
 
@@ -92,11 +119,11 @@ to one of these categories; do not invent a 7th without a Founder-reviewed reaso
 
 | Category | Real example (web) | Shape | Fill | When to use |
 |---|---|---|---|---|
-| Primary Pill/Rounded | `.route-primary` | pill `999px` or rounded `12px` | solid `--wyn-text` bg, `--wyn-bg` text | The single most important action on a screen |
+| Primary Pill/Rounded | `.route-primary` | pill `999px` or rounded `--wyn-radius-control` (target 10px; currently 12px pending its own rollout turn — see design-system.css comment) | solid `--wyn-text` bg, `--wyn-bg` text | The single most important action on a screen |
 | Secondary Outline | `.route-secondary` | same geometry as Primary | `1px --wyn-border` border, `--wyn-bg` fill | A lower-emphasis alternative next to a Primary (cancel, follow-back) |
 | Icon Button | `.route-icon-button`, `.wyn-chat-note-plus` | circle or square, `--wyn-radius-control` (10px) or `50%` | transparent or filled per context | Navigation, compose triggers, non-CTA actions |
 | Tab / Toggle | `.wyn-chat-requests-link` (`is-active` modifier) | pill `999px` | transparent default, `--wyn-surface` when active | Switching between two or more views on the same screen |
-| Text-link secondary action | `.wyn-note-delete`, `.wyn-profile-edit-avatar-remove` | no border/background, text-only | `--wyn-accent` for danger, `--wyn-text` for neutral | A secondary action that doesn't need visual weight (delete, remove) |
+| Destructive text-link | `.wyn-note-delete`, `.wyn-profile-edit-avatar-remove` | no border/background, text-only, but 44px hit area (see Touch target above) | `--wyn-accent` | Delete/remove — low visual weight but still a required 44px target since it's destructive |
 | Dismiss Icon | close/X buttons on modals and sheets | icon only | transparent | Closing an overlay — must have real 44px hit area even though the icon itself is small |
 
 ### Rollout note
