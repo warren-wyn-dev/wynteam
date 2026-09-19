@@ -1784,3 +1784,17 @@ Implement ตาม design spec + Founder decision (Option B):
 Task ย้ายจาก scope "approved" เป็น "review" ส่งต่อ AI QA & Security แล้ว — ยังไม่ deploy
 
 อ้างอิง: `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — QA FAIL: พบ layout-shift bug 2 จุดจริง (skeleton height ไม่ตรง production cascade)
+
+AI QA & Security ไม่เชื่อผลที่ AI Coding รายงานเอง สร้าง standalone harness โหลด CSS จริงทั้ง 38 ไฟล์ตามลำดับ import จริงใน `web/app/layout.tsx` (ไม่ใช่แค่ไฟล์ที่นิยาม class ครั้งแรก) มา render markup ของ skeleton ใหม่คู่กับ markup ของแถวจริง แล้ววัด `getBoundingClientRect().height` เทียบกันจริงด้วย Playwright + Chromium ที่ติดตั้งไว้ในสภาพแวดล้อมนี้
+
+**พบบั๊กจริง 2 จุด** (root cause เดียวกัน — โค้ดตอน design/coding อ่านแค่ CSS rule แรกที่เจอของแต่ละ class ไม่ได้ไล่ cascade เต็มของไฟล์ `parity-*`/`pixel-parity-*`/`system-parity-*` ที่ override กันหลายชั้นในไฟล์นี้):
+1. `NotificationSkeleton` สูง 76px (copy มาจาก `phase3.css`) แต่แถวจริง (ชนะโดย `pixel-parity-audit-closure.css` ที่ import ทีหลัง) สูงแค่ 62px — ต่างกัน 14px
+2. Hashtag row ใน `SearchDiscoverySkeleton` สูง 44px (copy มาจาก `phase3.css` `.hashtag-row`) แต่แถวจริงมีทั้ง class `hashtag-row` และ `flutter-rank-row` — `.flutter-rank-row` (`parity-completion.css`, import ทีหลัง) ชนะ ทำให้แถวจริงสูง 63px — ต่างกัน 19px
+
+ทั้งสองจุดจะทำให้เนื้อหากระโดดเมื่อข้อมูลจริงโหลดเสร็จ ตรงกับความเสี่ยงที่ระบุไว้ใน Risks ของ task เองตั้งแต่ต้น ("Skeleton loading ถ้าออกแบบไม่ตรงกับ layout จริงจะเกิด layout shift")
+
+**สิ่งที่ผ่าน**: search-user-row skeleton (64px=64px), search-club-row skeleton (68px=68px), shimmer animation, press feedback `:active` scale(0.96) ทั้ง 3 จุด (ทดสอบจริงด้วย mouse down/up ผ่าน Playwright ไม่ใช่แค่อ่านโค้ด), `prefers-reduced-motion` ปิดทั้ง transition และ shimmer ได้จริง (ทดสอบด้วย `page.emulateMedia`)
+
+**Final Status: FAIL** — เขียน bug report ที่ `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md` พร้อมค่าที่ถูกต้องให้แก้ตรงๆ (ไม่ต้องสืบสวนใหม่) ส่งต่อ AI Debug Engineer ยังไม่ approve/ยังไม่ deploy

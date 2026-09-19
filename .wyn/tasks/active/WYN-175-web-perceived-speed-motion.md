@@ -1,7 +1,7 @@
 # Product Task — WYN-175
 
-Status: review — implementation เสร็จ (lint/typecheck/build ผ่าน), ส่งต่อ AI QA & Security
-Owner: AI Product Manager → AI Design (`.wyn/docs/design/wyn-175-perceived-speed-motion.md`) → AI Coding (เสร็จ 2026-09-19) → AI QA & Security
+Status: FAIL — QA พบ layout-shift bug 2 จุด (skeleton row height ไม่ตรงกับ real row ตาม CSS cascade จริง) ส่งต่อ AI Debug Engineer, ดู `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md`
+Owner: AI Product Manager → AI Design (`.wyn/docs/design/wyn-175-perceived-speed-motion.md`) → AI Coding (เสร็จ 2026-09-19) → AI QA & Security (FAIL 2026-09-19) → AI Debug Engineer
 Feature: WYNOS Web Beta1 — Perceived Speed & Motion (WYN-174 Track 1, Founder เลือก 2026-09-19)
 Goal: ทำให้การใช้งาน `wynos.online` รู้สึกเหมือนแอปมือถือ native มากที่สุด ด้วยการเปลี่ยนจากการสลับหน้าแบบ instant/snap เป็นมี motion, และแทน spinner/blank loading ด้วย skeleton state + press feedback ที่ตอบสนองทันทีเมื่อแตะ
 Target User: ผู้ใช้ WYNOS ทั่วไปที่เข้าเว็บผ่านมือถือ (iOS Safari/Android Chrome) เป็นหลัก
