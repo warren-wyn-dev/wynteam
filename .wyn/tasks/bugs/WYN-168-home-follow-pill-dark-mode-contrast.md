@@ -1,7 +1,7 @@
 # Bug Report — WYN-168
 
-Status: fixed (AI Debug Engineer) — handed back to AI QA & Security for verification
-Owner: AI Debug Engineer → AI QA & Security
+Status: closed (AI QA & Security ยืนยัน PASS แล้ว 2026-09-19 — ดูรายละเอียดที่ท้ายไฟล์)
+Owner: AI Deploy & DevOps
 Parent: none (pre-existing production bug, unrelated to any in-flight task) — discovered as a side effect of
 adversarial dark-mode testing during WYN-167's QA round (2026-09-19)
 
@@ -148,3 +148,30 @@ machine run to execute the `.spec.ts` file itself; the `browser-qa` CI check on 
 **Lessons recorded**: `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md` (2026-09-19 entries).
 
 Handing back to **AI QA & Security** for verification.
+
+---
+
+## QA Verification (2026-09-19, AI QA & Security)
+
+**Independent re-test** on commit `b27c4ccd` — re-ran `typecheck`/`lint`/`build` fresh (all clean), then 13
+checks against a live dev server (`playwright-core` + `/opt/pw-browsers/chromium`):
+
+- Re-measured contrast in both themes × both pill states (4 combinations) — all clear 4.5:1: light default
+  18.97:1, light `.is-requested` 5.33:1, dark default 18.88:1, dark `.is-requested` 5.91:1
+- Confirmed light mode's background literally matches the new token value (`rgb(250, 250, 250)` =
+  `#fafafa`), consistent with the "no meaningful light-mode change" claim
+- Checked the `border-color: #e1e1e4` point the fix left out of scope, for due diligence rather than taking
+  the claim at face value: dark mode border-vs-bg is actually 16.09:1 (fine, ironically — light gray border
+  reads clearly against a black background), light mode is 1.31:1 (unchanged from before this fix — a
+  pre-existing subtle-border choice, not something this fix regressed)
+- Confirmed the follow-pill's click handler still works, 0 console errors
+- Confirmed WYN-167's press-scale motion (`transform: scale(0.96)` on `:active`) still functions correctly
+  on the now-recolored pill — the two fixes compose without conflict
+- Swept `/welcome`, `/signup/step-1`, `/login`, `/dev/home-fixture` for console errors — 0 on all 4
+
+**13/13 passed. Result: PASS.**
+
+**Security**: CSS-only change, no secrets, no new trust boundary.
+
+Both WYN-167 and WYN-168 are now verified and ready for deploy together. Handing off to
+**AI Deploy & DevOps**.
