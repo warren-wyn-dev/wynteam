@@ -1,7 +1,7 @@
 # Design Task — WYN-169
 
-Status: coding done — ส่งต่อ AI QA & Security
-Owner: AI Design → Founder → AI Coding → รอ AI QA & Security → AI Deploy & DevOps
+Status: QA PASS — ส่งต่อ AI Deploy & DevOps
+Owner: AI Design → Founder → AI Coding → AI QA & Security → รอ AI Deploy & DevOps
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: ขยายภาษา press-scale motion จาก WYN-163/167 มาที่ปุ่ม header 2 จุดของ Chat Inbox
 (`.wyn-chat-compose-action`, `.wyn-chat-requests-link`) — ขอบเขตแคบเหมือน WYN-167 เป๊ะ ไม่แตะขนาด/สี/layout
@@ -61,3 +61,62 @@ Known Issues: ไม่มีการตรวจ live browser interaction ใ�
 Handoff: ส่งต่อ AI QA & Security — ตรวจ regression บนหน้า Chat Inbox ทั้งหมด (ไม่ใช่แค่ 2 ปุ่มที่แก้),
 ตรวจว่าปุ่มย้อนกลับยังไม่มี motion ตามที่ตั้งใจ, ตรวจ reduced-motion fallback ทำงานจริง, ตรวจว่าไม่มี CSS
 อื่นใน `chat-notes.css` ถูกกระทบโดยไม่ตั้งใจ
+
+## AI QA & Security (2026-09-19)
+
+Feature: WYN-169 press-scale motion บน `.wyn-chat-compose-action` / `.wyn-chat-requests-link` (Chat Inbox
+header), ยืนยันว่าปุ่มย้อนกลับ (`.flutter-chat-header-action`) ยังไม่มี motion ตามที่ออกแบบไว้
+
+Environment: sandbox นี้ render หน้า `/chat` จริงไม่ได้ (ไม่มีค่า Supabase/Firebase — หน้าขึ้น "ยังไม่ได้
+ตั้งค่าการเชื่อมต่อ WYNOS สำหรับเว็บ" ตามที่ AI Coding รายงานไว้จริง) — ไม่มี fixture route สำหรับ Chat
+Inbox อยู่แล้วในโปรเจกต์ (ต่างจาก Home ที่มี `/dev/home-fixture`) และ `ChatInboxParityRoute` ไม่รับ props
+เลย (ดึงข้อมูลเองข้างในผ่าน hook) ทำให้สร้าง fixture แบบ Home ในรอบนี้ไม่คุ้มความเสี่ยง (ต้อง mock
+data-fetching hook ภายใน ซึ่งเกินขอบเขตงาน CSS-only ชิ้นนี้ไปมาก) — แทนที่ด้วยการสร้างหน้าทดสอบแยก
+(`/tmp` scratchpad, ไม่ commit) ที่ดึง **ไฟล์ CSS จริงจาก repo ตรงๆ** (`system-parity-lock.css` →
+`pixel-parity-audit-closure.css` → `design-system.css` → `notifications-clean.css` → `chat-notes.css`
+เรียงลำดับ import เดียวกับ `app/layout.tsx` เป๊ะ ยืนยัน import order จากไฟล์จริงก่อนสร้าง) ผ่าน static
+file server ชั่วคราว (`python3 -m http.server`, ไม่ commit, ปิด process หลังใช้เสร็จ) ใช้ markup ของ header
+คัดลอกจาก `chat-inbox-parity.tsx` บรรทัดจริง แล้วรัน Playwright (`playwright-core` +
+`/opt/pw-browsers/chromium`) จำลอง `:active`/`prefers-color-scheme`/`prefers-reduced-motion` จริง — เป็น
+วิธีที่แม่นยำกว่า mockup ด้วยค่าคัดลอกมือ (แบบ Artifact demo ที่ Founder เคยดู) เพราะดึง CSS ไฟล์จริงจาก
+repo ทั้งหมด ไม่ใช่ค่าที่ AI พิมพ์ซ้ำเอง
+
+Test Cases:
+1. `.wyn-chat-compose-action`/`.wyn-chat-requests-link` มี `transition: transform` และเมื่อกดค้าง (mouse
+   down จริงผ่าน Playwright, วัด mid-transition ที่ 80ms เข้า transition 160ms) `transform` ขยับเข้าใกล้
+   `scale(0.96)` จริง (วัดได้ `matrix(0.956-0.958, ...)` ระหว่างเคลื่อนที่ — ตรงตามสูตร spring easing)
+2. `.flutter-chat-header-action` (ปุ่มย้อนกลับ) กดค้างแล้ว `transform` ยังคง `"none"` ในทุกกรณี (light/dark
+   × reduced-motion on/off) — ยืนยันว่าไม่มี motion ถูกเพิ่มเข้าไปจริง ตรงตามขอบเขตที่ออกแบบไว้
+3. `@media (prefers-reduced-motion: reduce)` — เปิด emulation จริงผ่าน Playwright
+   (`reducedMotion: "reduce"`) ยืนยันว่า `.wyn-chat-compose-action`/`.wyn-chat-requests-link` มี
+   `transitionProperty` เป็น `"none"` และปุ่มยังคง snap ไป `scale(0.96)` ทันทีตอนกด (ไม่ใช่ไม่มี feedback
+   เลย — behavior ถูกต้องตรงมาตรฐานเดิมของ WYN-163/167)
+4. ตรวจ regression contrast (ป้องกันบั๊กแบบ WYN-168 ซ้ำ) — คำนวณ WCAG contrast ratio จริงจาก
+   `getComputedStyle()` ของทั้ง 3 ปุ่ม (compose/requests/back) เทียบพื้นหลังจริง ทั้ง light และ dark mode:
+   compose/requests = 19.80:1 (light) / 21:1 (dark), back button = 19.80:1 (light) / 21:1 (dark) — **ผ่าน
+   WCAG AA (≥4.5:1) แบบขาดลอยทุกจุด ไม่มี regression** (พบ false positive ระหว่างตรวจรอบแรกที่โหลด CSS ไม่
+   ครบ 4 ไฟล์ ทำให้ปุ่มย้อนกลับไม่มี `color` rule เลยและตกไปใช้สี link สีน้ำเงิน default ของ browser แทน —
+   แก้โดยโหลด cascade ให้ครบตามลำดับ import จริงแล้ววัดซ้ำ ยืนยันว่าเป็นปัญหาจาก test harness เอง ไม่ใช่บั๊ก
+   จริงในโค้ด — `color` ตัวจริงถูกกำหนดจาก `notifications-clean.css` (`color: var(--wyn-text) !important`)
+   ซึ่งชนะทุกไฟล์อื่นเพราะเป็น `!important` เดียวที่ตั้งค่า `color` ของ class นี้)
+5. ตรวจ diff ของ `web/app/chat-notes.css` ทีละบรรทัดเทียบ git history — ยืนยันว่ามีแค่ 17 บรรทัดที่เพิ่ม
+   (2 × `transition` ในบล็อกฐาน, 2 × `:active` rule ใหม่, 1 × `@media (prefers-reduced-motion: reduce)`
+   block ท้ายไฟล์) ไม่มีบรรทัดอื่นถูกลบ/แก้ไข ไม่มีผลกระทบต่อ `.wyn-chat-note-card`, `.route-*` classes,
+   หรือ selector อื่นใดในไฟล์เดียวกัน
+6. รัน `npm run check` (lint + typecheck + build) ซ้ำอิสระจาก AI Coding — ผ่านทั้งหมดตรงกับที่ AI Coding
+   รายงาน (lint 0 errors/3 warning เดิมไม่เกี่ยวกับไฟล์นี้, typecheck ผ่าน, build ผ่านทุก route)
+
+Passed: 6/6 test cases ข้างต้น
+
+Failed: ไม่มี
+
+Severity: N/A (ไม่พบบั๊ก)
+
+Security Findings: ไม่มี — เป็น CSS-only change ไม่มี data flow/auth/input handling เกี่ยวข้อง
+
+Recommendation: PASS — ส่งต่อ AI Deploy & DevOps ได้ทันที ไม่มี blocker ระดับใดเลย ข้อสังเกตเสริม (ไม่ใช่
+blocker): โปรเจกต์ยังไม่มี automated visual-regression test ของ Chat Inbox เหมือนที่ Home feed มี
+(`home-visual-parity.spec.ts` + `/dev/home-fixture`) — ถ้าต้องแก้ Chat Inbox บ่อยขึ้นในอนาคต ควรพิจารณา
+สร้าง fixture route ถาวรแบบเดียวกัน (เป็นงานแยก ไม่ใช่ส่วนหนึ่งของ WYN-169 นี้)
+
+Final Status: PASS
