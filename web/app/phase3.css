@@ -90,6 +90,16 @@
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* WYN-176 batch 1: press feedback reusing WYN-163's spring formula — shared
+   with Search/Notifications, which use this same button family. */
+.route-primary:active:not(:disabled),
+.route-secondary:active:not(:disabled),
+.route-pill:active:not(:disabled),
+.route-more:active:not(:disabled) {
+  transform: scale(0.96);
 }
 .route-primary,
 .route-pill {
@@ -273,6 +283,20 @@
 .route-club-row > span:last-child { display: grid; gap: 2px; }
 .route-club-row small { color: var(--wyn-text-secondary); }
 
+/* WYN-175: press feedback for tappable rows that had none — matches the
+   90ms/scale(0.96) treatment used across the rest of the preview, kept
+   subtler than .wyn-button's translateY since these are full-width rows,
+   not buttons. */
+.route-person-main,
+.route-club-row {
+  transition: transform 90ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.route-person-main:active,
+.route-club-row:active {
+  transform: scale(0.96);
+}
+
 .route-field { display: grid; gap: 7px; padding: 9px 16px; }
 .route-field span { font-size: 12px; color: var(--graphite); }
 .route-field input,
@@ -285,6 +309,11 @@
   border: 0; border-bottom: 1px solid var(--hairline); background: var(--paper);
   display: grid; grid-template-columns: 48px minmax(0, 1fr) 10px; gap: 11px; align-items: center;
   text-align: left; cursor: pointer;
+  transition: transform 90ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.notification-row:active {
+  transform: scale(0.96);
 }
 .notification-row.unread { background: color-mix(in srgb, var(--sapphire) 5%, var(--paper)); }
 .notification-avatar-wrap { position: relative; width: 44px; }
@@ -426,4 +455,16 @@ button.settings-row { cursor: pointer; }
   .route-main { border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
   .route-modal-backdrop { align-items: center; padding: 30px; }
   .route-modal { border-radius: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-person-main,
+  .route-club-row,
+  .notification-row,
+  .route-primary,
+  .route-secondary,
+  .route-pill,
+  .route-more {
+    transition: none;
+  }
 }

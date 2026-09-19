@@ -1,7 +1,15 @@
-# Product Task — WYN-175
+# Product Task — WYN-177
 
-Status: merged into WYN-160 (Founder ตัดสินใจ 2026-09-19 — "รวมเข้ากับ WYN-160 เป็นงานเดียว") — เก็บไฟล์นี้
-ไว้เป็น reference/audit trail เท่านั้น ดูงานจริงที่ `.wyn/tasks/active/WYN-160-web-design-system-consolidation.md`
+> **เดิมชื่อ WYN-175** — เปลี่ยนเลขเป็น WYN-177 เมื่อ 2026-09-19 เพราะชนกับ `WYN-175-web-perceived-speed-motion.md`
+> ที่อีก session หนึ่งสร้างไว้ก่อนแล้วในคนละ branch (พบตอน merge PR #556 เข้า `main`) เนื้อหาเดิมไม่เปลี่ยน
+
+Status: superseded — งานนี้ทับซ้อนกับ **WYN-176** (`.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`)
+เกือบทั้งหมด ซึ่งเป็นงานที่ Founder อนุมัติแล้วในอีก session หนึ่งและ deploy ไปแล้วบางส่วน (batch 1: Home/Bottom
+Nav) — Founder ตัดสินใจ 2026-09-19 ("รวม 2 spec เข้าด้วยกัน") ให้เอา motion token/danger token/touch-target/
+category-map ที่ WYN-177 นี้เขียนไว้ ไปรวมเข้ากับตัวเลขจริงที่ WYN-176 อนุมัติแล้ว (ปุ่ม 24px radius/58px
+height, input 18px radius/56px height, หัวข้อ 32px/800) แทนที่จะใช้ตัวเลขเดิมของ WYN-160/177 — ดูผลการรวม
+จริงที่ `.wyn/docs/design/wynos-web-base-design-system.md` หัวข้อ "Button Interaction Spec" (อัปเดตแล้ว) และ
+งานต่อจากนี้ไปทั้งหมดเดินตาม WYN-176 เป็นหลัก ไฟล์นี้เก็บไว้เป็น reference/audit trail เท่านั้น
 Owner: AI Product Manager
 Feature: ปุ่มทั้งระบบเว็บไปในทิศทางเดียวกัน (System-wide Button Consistency)
 

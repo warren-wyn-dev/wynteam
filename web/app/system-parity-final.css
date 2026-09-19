@@ -256,6 +256,10 @@
 .beta4-cancel { min-width: 54px; min-height: 48px; padding: 0; background: transparent; color: var(--wyn-text); text-align: left; font-size: 15.5px; line-height: 1; font-weight: 600; }
 .beta4-post { min-width: 72px; height: 42px; padding: 0 18px; border-radius: 999px; background: var(--wyn-text); color: var(--wyn-bg); font-size: 15px; line-height: 1; font-weight: 700; }
 .beta4-post:disabled { background: var(--wyn-border); color: var(--wyn-text-muted); }
+/* WYN-176 batch 2: press feedback reusing WYN-163's spring formula — this
+   header had none before. */
+.beta4-cancel, .beta4-post { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.beta4-cancel:active, .beta4-post:active:not(:disabled) { transform: scale(0.96); }
 .beta4-composer-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; background: var(--wyn-bg); }
 .beta4-composer-identity { display: flex; align-items: center; gap: 12px; }
 .beta4-composer-identity strong { font-size: 15px; font-weight: 700; color: var(--wyn-text); }
@@ -325,6 +329,9 @@
 .beta4-ratio-chips button { min-height: 44px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 7px; border-color: var(--wyn-border-strong); color: var(--wyn-text-secondary); }
 .beta4-ratio-chips button.active { border-color: var(--wyn-text); color: var(--wyn-text); font-weight: 600; }
 .beta4-ratio-chips button::before { content: ""; display: block; flex: 0 0 auto; border: 1px solid currentColor; border-radius: 2px; box-sizing: border-box; }
+/* WYN-176 batch 2: press feedback reusing WYN-163's spring formula. */
+.beta4-ratio-chips button, .beta4-image-preview > button { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.beta4-ratio-chips button:active, .beta4-image-preview > button:active { transform: scale(0.96); }
 .beta4-ratio-chips .ratio-original::before { width: 14px; height: 10.5px; }
 .beta4-ratio-chips .ratio-1-1::before { width: 14px; height: 14px; }
 .beta4-ratio-chips .ratio-4-5::before { width: 11.2px; height: 14px; }
@@ -338,6 +345,9 @@
 .beta4-poll-options input:focus { border-color: var(--wyn-text); }
 .beta4-poll-options label > button { width: 44px; height: 48px; }
 .beta4-add-option { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; }
+/* WYN-176 batch 2: press feedback reusing WYN-163's spring formula. */
+.beta4-add-option { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.beta4-add-option:active:not(:disabled) { transform: scale(0.96); }
 
 /* Bottom toolbar: Flutter _ToolbarIcon is 72px high, radius 18, 24px icon, 7px icon-label gap. */
 .beta4-toolbar-actions button { min-height: 72px; height: 72px; gap: 7px; border-radius: 18px; border-color: var(--hairline); background: var(--surface-tint, #f1efe9); color: var(--ink); font-size: 12.5px; font-weight: 500; }
@@ -358,3 +368,15 @@
 .beta4-audience-row > i, .beta4-audience-nested > i { width: 22px; height: 22px; border: 1.5px solid var(--graphite); border-radius: 50%; box-sizing: border-box; }
 .beta4-audience-row > i.selected, .beta4-audience-nested > i.selected { border: 6px solid var(--sapphire); }
 .beta4-audience-nested { display: inline-flex; align-items: center; gap: 4px; color: var(--graphite); }
+
+/* WYN-176 batch 2: press-feedback transitions added above reuse WYN-163's
+   spring formula. */
+@media (prefers-reduced-motion: reduce) {
+  .beta4-cancel,
+  .beta4-post,
+  .beta4-add-option,
+  .beta4-ratio-chips button,
+  .beta4-image-preview > button {
+    transition: none;
+  }
+}

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
+import { NotificationSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
@@ -192,7 +193,7 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
         <button className={tab === "mentions" ? "active" : ""} type="button" onClick={() => setTab("mentions")}>การกล่าวถึง</button>
       </div>
 
-      {loading && !rows.length ? <LoadingState /> : !visible.length ? (
+      {loading && !rows.length ? <NotificationSkeleton /> : !visible.length ? (
         <EmptyState>{tab === "mentions" ? "ยังไม่มีใครกล่าวถึงคุณ" : "ยังไม่มีการแจ้งเตือน"}</EmptyState>
       ) : (
         <div className="notification-list">

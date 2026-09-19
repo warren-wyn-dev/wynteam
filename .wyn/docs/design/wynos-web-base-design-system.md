@@ -29,7 +29,7 @@ Accent red is reserved for like state, attached-media/status emphasis, and warni
 - `TopBar`: back action, centered title, right-side action slot.
 - `WynosIcon`: semantic mapping to `lucide-react`; stroke icons only, no filled icon treatment. Back uses a chevron matching the supplied HTML references and Camera is available for onboarding.
 
-## Button Interaction Spec (added 2026-09-19 — WYN-160/WYN-175)
+## Button Interaction Spec (added 2026-09-19 — WYN-160/WYN-177, reconciled with WYN-176)
 
 Founder asked for every button across the web app to move in one consistent direction. Codebase audit
 (`web/app/*.css`, all 44 stylesheets imported by `app/layout.tsx`) found ~72 button-related class
@@ -38,6 +38,28 @@ WYN-169/170, and at least 6 different hardcoded danger-red values (`#b42318`, `#
 `#d33c32`, plus the approved accent `#E0203D`) across different screens. This section is the missing
 interaction contract — not a new visual direction, an enforcement spec for the existing Button primitive
 above.
+
+**Reconciled 2026-09-19 with WYN-176** (a parallel workstream that reached Founder approval and shipped its
+first batch before this spec's sizing numbers were checked against it): WYN-163's Auth redesign picked
+*bigger* button/input/headline values than this doc originally assumed, and Founder confirmed those values
+— not WYN-160's original smaller pill/12px numbers — are now the system-wide target:
+
+- **Button**: `24px` radius, `58px` height, `16px/700` text (replaces the pill-`999px`/rounded-`12px`
+  geometry this section originally specified)
+- **Input**: `18px` radius, `56px` height (replaces the Base primitives section's `10px`/`44px` line above
+  for any surface WYN-176 rolls out to — that original Input line still describes what's live today on
+  unmigrated screens)
+- **Screen headline**: `32px/800`
+- **Press feedback**: `scale(0.96)`, `160ms cubic-bezier(0.34, 1.56, 0.64, 1)` — **matches this spec's
+  Motion token below exactly**, so nothing here changes; WYN-176 batch 1 already shipped this exact
+  formula (hardcoded per-selector rather than via the shared tokens below) to `.drawer-identity`,
+  `.drawer-menu-row`, `.home-drawer-close .icon-button`, `.audit-sheet-row`, and
+  `.route-primary`/`.route-secondary`/`.route-pill`/`.route-more`
+
+The Motion token, Danger variant, and Touch target sections below remain the enforcement spec; the
+Button category map's geometry column is updated to the values above. Rollout now continues under
+**WYN-176** (`.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`), not WYN-160 — see that task's
+batch sequence instead of the Rollout note below.
 
 ### Motion token (mandatory on every tappable button)
 
@@ -119,17 +141,23 @@ to one of these categories; do not invent a 7th without a Founder-reviewed reaso
 
 | Category | Real example (web) | Shape | Fill | When to use |
 |---|---|---|---|---|
-| Primary Pill/Rounded | `.route-primary` | pill `999px` or rounded `--wyn-radius-control` (target 10px; currently 12px pending its own rollout turn — see design-system.css comment) | solid `--wyn-text` bg, `--wyn-bg` text | The single most important action on a screen |
+| Primary | `.route-primary` | `24px` radius, `58px` height (WYN-163/176 target — see reconciliation note above) | solid `--wyn-text` bg, `--wyn-bg` text | The single most important action on a screen |
 | Secondary Outline | `.route-secondary` | same geometry as Primary | `1px --wyn-border` border, `--wyn-bg` fill | A lower-emphasis alternative next to a Primary (cancel, follow-back) |
 | Icon Button | `.route-icon-button`, `.wyn-chat-note-plus` | circle or square, `--wyn-radius-control` (10px) or `50%` | transparent or filled per context | Navigation, compose triggers, non-CTA actions |
 | Tab / Toggle | `.wyn-chat-requests-link` (`is-active` modifier) | pill `999px` | transparent default, `--wyn-surface` when active | Switching between two or more views on the same screen |
 | Destructive text-link | `.wyn-note-delete`, `.wyn-profile-edit-avatar-remove` | no border/background, text-only, but 44px hit area (see Touch target above) | `--wyn-accent` | Delete/remove — low visual weight but still a required 44px target since it's destructive |
 | Dismiss Icon | close/X buttons on modals and sheets | icon only | transparent | Closing an overlay — must have real 44px hit area even though the icon itself is small |
 
+Icon Button and Tab/Toggle keep their existing smaller geometry (`--wyn-radius-control`/pill) — WYN-163/176
+only redefined Primary/Secondary buttons and Input, not every control category; confirm with Founder
+before widening the bigger-squircle treatment to icon buttons or tabs.
+
 ### Rollout note
 
-This spec is written and needs Founder approval before any code changes — see WYN-160's handoff for the
-phased rollout order this attaches to.
+This spec's motion/danger/touch-target rules are enforcement guidance; the phased rollout itself now
+continues under **WYN-176** (`.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`), which has its
+own batch sequence and has already shipped batch 1 (Home/Bottom Nav). WYN-160's original 8-phase plan is
+superseded — see that task file's status line.
 
 ## Six-screen auth reference flow
 
