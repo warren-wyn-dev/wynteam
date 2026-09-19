@@ -1,6 +1,7 @@
 # Design + Coding Task — WYN-174
 
-Status: implemented and verified — PASS by AI QA & Security, พร้อม Deploy
+Status: deployed to production (PR #555, merge commit 5b3f8fff) — รอ Founder ยืนยัน production จริงบน
+device ก่อนปิดงาน
 Owner: AI Design → Founder → AI Coding → AI QA & Security
 Screen: หน้า "แก้ไขโปรไฟล์" (`web/components/profile-route.tsx`, component `EditProfile`,
 เปิดจากปุ่ม "แก้ไขโปรไฟล์" ในหน้าโปรไฟล์ตัวเอง)
