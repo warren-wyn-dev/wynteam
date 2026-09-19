@@ -90,6 +90,73 @@
   gap: 7px;
 }
 
+/* WYN-175: Search (users/clubs/discovery) + Notifications row shapes —
+   dimensions mirror .route-person-row/.route-club-row/.notification-row
+   in app/phase3.css. */
+.wyn-skeleton-search-person-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 64px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--hairline, #e8e6e0);
+}
+
+.wyn-skeleton-search-club-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 68px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--hairline, #e8e6e0);
+}
+
+.wyn-skeleton-search-person-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* WYN-175 bug fix (2026-09-19): the real hashtag row markup
+   (search-route.tsx) carries both `hashtag-row` and `flutter-rank-row`
+   classes — `.flutter-rank-row` (app/parity-completion.css, imported after
+   phase3.css in layout.tsx) wins the cascade and sets the row's actual
+   height, not the base `.hashtag-row` rule this skeleton was copied from.
+   Matching `.flutter-rank-row`'s box model here, not `.hashtag-row`'s. */
+.wyn-skeleton-hashtag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline, #e8e6e0);
+}
+
+/* WYN-175 bug fix (2026-09-19): app/pixel-parity-audit-closure.css
+   (imported after phase3.css in layout.tsx) is the last same-specificity
+   `.notification-row` rule and wins the cascade — this skeleton was
+   copied from phase3.css's earlier, superseded values. Matching the
+   winning rule's box model (62px/8px 16px/46px avatar column + trailing
+   column for the unread dot) instead. */
+.wyn-skeleton-notification-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--hairline, #e8e6e0);
+}
+
+.wyn-skeleton-notification-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
 /* Optimistic chat bubble still in flight (components/chat-routes.tsx). */
 .message-row.is-pending {
   opacity: 0.6;

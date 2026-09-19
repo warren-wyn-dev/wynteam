@@ -7,7 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, DropPreviewCard, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { AppChrome, DropPreviewCard, EmptyState, ProfileRowView } from "@/components/phase3-ui";
+import { FeedSkeleton, SearchClubSkeleton, SearchDiscoverySkeleton, SearchUserSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
@@ -92,7 +93,7 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
     }
   }, [client, pending, userId, viewer]);
 
-  if (loading && !rows.length) return <LoadingState />;
+  if (loading && !rows.length) return <SearchUserSkeleton />;
   if (!rows.length) return <EmptyState>ไม่พบผู้ใช้สำหรับ “{query}”</EmptyState>;
   return (
     <div className="route-list">
@@ -140,7 +141,7 @@ function DropResults({ client, query }: { client: SupabaseClient; query: string 
     } finally { setLoading(false); }
   }, [client, query, cacheKey]);
   useEffect(() => { void load(0, false); }, [load]);
-  if (loading && !rows.length) return <LoadingState />;
+  if (loading && !rows.length) return <FeedSkeleton items={3} />;
   if (!rows.length) return <EmptyState>ไม่พบโพสต์สำหรับ “{query}”</EmptyState>;
   return <div>{rows.map((row) => <DropPreviewCard row={row} key={row.id} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
@@ -167,7 +168,7 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
     } finally { setLoading(false); }
   }, [client, query, cacheKey]);
   useEffect(() => { void load(0, false); }, [load]);
-  if (loading && !rows.length) return <LoadingState />;
+  if (loading && !rows.length) return <SearchClubSkeleton />;
   if (!rows.length) return <EmptyState>ไม่พบ Club สำหรับ “{query}”</EmptyState>;
   return <div className="route-list">{rows.map((club) => <Link href={`/club/${club.id}`} className="route-club-row" key={club.id}><span className="route-club-image">{club.icon_url ? <Image src={club.icon_url} alt="" width={46} height={46} sizes="46px" /> : club.name.slice(0, 1)}</span><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small></span></Link>)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
@@ -229,7 +230,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
     }
   }, [client, pending, userId, viewer]);
 
-  if (loading && !hashtags.length && !suggested.length) return <LoadingState />;
+  if (loading && !hashtags.length && !suggested.length) return <SearchDiscoverySkeleton />;
   return (
     <div className="discovery-page flutter-search-discovery">
       <section className="route-section">

@@ -258,3 +258,18 @@
 - วิธีป้องกันในอนาคต: **ก่อนแก้ shared CSS/class ใดๆ ต้อง `grep -rln` หา consumer ทั้งหมดของ
   selector/class นั้นทั่ว repo ก่อนเริ่มแก้เสมอ** ไม่ใช่เชื่อรายชื่อหน้าจอใน design spec อย่างเดียว — บันทึก
   รายละเอียดเต็มที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน
+
+### [2026-09-19] Task WYN-175
+- ข้อผิดพลาด: `NotificationSkeleton` และ hashtag row ใน `SearchDiscoverySkeleton` ใช้ min-height/padding ที่
+  copy มาจาก CSS rule แรกที่เจอของ `.notification-row`/`.hashtag-row` (`app/phase3.css`) แทนที่จะเป็นค่าที่ชนะ
+  cascade จริงหลังไฟล์ `pixel-parity-audit-closure.css`/`parity-completion.css` override ทีหลัง
+- ผลกระทบ: layout shift จริง 14px (notification) และ 19px (hashtag) เมื่อข้อมูลจริงโหลดมาแทน skeleton — QA
+  จับได้ก่อน deploy ไม่ถึงมือผู้ใช้จริง
+- วิธีป้องกันในอนาคต: ก่อน copy ขนาดจาก selector ที่มีอยู่แล้วมาสร้าง component ใหม่ ต้อง `grep -rn` หาทุกไฟล์ที่
+  นิยาม selector เดิมทั่ว `app/*.css` เทียบลำดับ import ใน `layout.tsx` หาตัวที่ import ทีหลังสุด (ชนะ) ก่อน แล้ว
+  ยืนยันด้วยการ render จริงเทียบ computed style ไม่ใช่อ่าน source อย่างเดียว — รายละเอียดเต็มที่
+  `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน
+- Regression test ที่เพิ่ม: `web/tests/browser/wyn-175-skeleton-parity.spec.ts` + fixture route
+  `web/app/dev/wyn-175-skeleton-fixture/page.tsx` (`web/components/dev/wyn-175-skeleton-fixture.tsx`) — เทียบ
+  computed height ของ skeleton ทั้ง 4 แบบกับแถวจริง + shimmer animation + reduced-motion ผ่าน Playwright จริง
+  (ยืนยันแล้วว่า pass ทั้งหมดหลังแก้)

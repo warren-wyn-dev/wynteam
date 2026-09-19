@@ -1733,3 +1733,104 @@ Founder เปิด `wynos.online/chat` จริงหลัง WYN-170 deploy
 WYN-169 ไปด้วยในตัว (deploy สำเร็จจริง ไม่เคยมีรายงานบั๊กใดๆ ระหว่างที่ยังใช้งานอยู่)
 
 ย้าย `.wyn/tasks/completed/`: WYN-169, WYN-170
+
+## [2026-09-19] WYN-174 — Founder สั่ง "พัฒนา web Beta1 ให้เหมือนแอปจริงที่สุด" ยืนยันเริ่ม Track 1: Perceived Speed & Motion
+
+Founder พิมพ์ทิศทางกว้างว่า "อยากพัฒนา web Beta1 ให้เหมือนแอปจริงที่สุด" — AI Product Manager ตรวจโค้ดจริงพบว่างานบางส่วนทำไปแล้วใน WYN-158 (PWA manifest/service worker, swipe-back gesture, bottom nav, touch-target, tap-highlight/overscroll fix จาก PR #468/#469) และ WYN-163 (กำลัง iterate สี/ทรงปุ่มแนว Apple ink/paper อยู่ เฉพาะหน้า Auth) แต่ยังขาด: route/page transition animation, skeleton loading มาตรฐาน, custom install prompt, iOS splash screen, visual rollout นอกหน้า Auth, safe-area audit ทั้งระบบ, micro-interaction press feedback
+
+เขียน epic `WYN-174-web-native-app-feel-v2.md` แบ่งเป็น 4 sub-track (P0 Perceived Speed & Motion, P0 Visual Design Rollout รอ WYN-163 finalize ก่อน, P1 Install & Launch Experience, P2 Platform Integration Polish) ถามยืนยันลำดับผ่าน AskUserQuestion — **Founder เลือก "Perceived Speed & Motion (แนะนำ)"** ให้เริ่มก่อน
+
+แตก sub-task `WYN-175-web-perceived-speed-motion.md`: route transition (<300ms, respect `prefers-reduced-motion`), skeleton loading (Home/Profile/Chat/Search/Notifications), press feedback ทั่วระบบ — ไม่แตะ business logic/Supabase contract, ไม่แตะ WYN-163 (คนละ layer) ส่งต่อ AI Design ทำ audit + motion spec + preview ก่อน AI Coding เริ่ม
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-174-web-native-app-feel-v2.md`, `.wyn/tasks/backlog/WYN-175-web-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — AI Design ตรวจโค้ดจริงพบว่า audit เดิมของ WYN-174 นับของที่มีอยู่แล้วไม่ครบ
+
+AI Design อ่านโค้ดจริงของ `web/components/ui/page-transition.tsx` และ `web/components/ui/skeleton.tsx` ก่อนเริ่มออกแบบ (ตามกติกา "ห้ามคิดทิศทาง visual ใหม่หากมี design system ที่อนุมัติแล้ว") พบว่า:
+
+1. **Route transition มีอยู่แล้ว** — `PageTransition` (framer-motion, opacity fade 70ms, ครอบทุก route ใน `web/app/layout.tsx`) โค้ดมีคอมเมนต์อธิบายชัดว่าตั้งใจให้เบามาก เพราะ navigation เร็วอยู่แล้วจาก `lib/mount-cache.ts` ไม่ได้ตั้งใจให้เป็น animation ที่เห็นชัด
+2. **Skeleton loading มีอยู่แล้ว** เป็นระบบกลาง (`SkeletonBlock`/`FeedSkeleton`/`ProfileSkeleton`/`ChatListSkeleton`) ใช้อยู่ใน Home/Profile/Chat inbox แล้ว
+3. **ช่องว่างจริง** คือแค่ Search กับ Notifications ที่ยังใช้ spinner กลางจอ (`LoadingState`) แทน skeleton, และการ์ด/แถวบางจุด (post card, search result row) ยังไม่มี `:active` press feedback ทั้งที่ปุ่ม (`.wyn-button`) มีอยู่แล้ว
+
+แก้ scope ของ WYN-175 ให้ตรงกับความจริง: skeleton (Search/Notifications) และ press feedback (การ์ด/แถวที่ขาด) ทำได้เลยเพราะ reuse ของเดิม 100% ไม่ต้องรอ Founder อนุมัติภาพเพิ่ม ส่วน route transition เป็นเรื่อง **product feel decision ที่ Founder ต้องเลือกเอง** (คง fade 70ms เดิม หรือเพิ่ม motion แบบ native มากขึ้น 220ms) ไม่ใช่เรื่องทางเทคนิคที่ AI ตัดสินใจแทนได้
+
+ทำ Artifact เปรียบเทียบจริงทั้ง 3 ส่วน (skeleton before/after, press-feedback ที่กดทดลองได้จริง, route transition Option A/B ที่เล่น demo ได้): https://claude.ai/artifact/V8UKS6DB4nkvWdvk2XGcS2
+
+บันทึก design spec เต็มที่ `.wyn/docs/design/wyn-175-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — Founder เลือก Option B: เพิ่ม motion ให้ route transition
+
+หลังดู Artifact preview (https://claude.ai/artifact/V8UKS6DB4nkvWdvk2XGcS2) เปรียบเทียบ Option A (คง fade 70ms เดิม) กับ Option B (slide+fade 220ms) — **Founder เลือก Option B** พร้อมสั่ง "เริ่มเลย"
+
+Scope สุดท้ายของ WYN-175 ที่อนุมัติครบแล้ว ส่งต่อ AI Coding ได้ทั้ง 3 ส่วน:
+1. Skeleton loading สำหรับ Search + Notifications (reuse `SkeletonBlock` เดิม)
+2. Press feedback (`scale(0.96)`, 90ms) สำหรับการ์ด/แถวที่ยังไม่มี (post card, search result row)
+3. Route transition: เปลี่ยน `PageTransition` (`web/components/ui/page-transition.tsx`) จาก opacity-only 70ms เป็น slide(24px)+fade 220ms, easing `cubic-bezier(.22,.61,.36,1)`, ต้อง respect `prefers-reduced-motion` (ยุบกลับเป็น fade เฉยๆ ไม่มี slide)
+
+อ้างอิง: `.wyn/docs/design/wyn-175-perceived-speed-motion.md`, `.wyn/tasks/backlog/WYN-175-web-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — AI Coding implement ครบ 3 ส่วน, lint/typecheck/build ผ่าน, ส่งต่อ QA
+
+Implement ตาม design spec + Founder decision (Option B):
+
+1. Skeleton loading: `SearchUserSkeleton`/`SearchClubSkeleton`/`SearchDiscoverySkeleton`/`NotificationSkeleton` ใหม่ใน `web/components/ui/skeleton.tsx` (reuse `SkeletonBlock`/`SkeletonCircle`), สลับ `<LoadingState />` ใน `search-route.tsx` (4 จุด) และ `notifications-route.tsx` (1 จุด) — ระหว่างเขียนโค้ดพบว่า Drops tab (`DropPreviewCard`) จริงๆ render เป็น full post card ไม่ใช่ grid แบบที่ preview artifact สมมติไว้ตอน design จึงใช้ `FeedSkeleton` เดิมแทนที่จะสร้าง grid skeleton ใหม่ (ถูกต้องกว่าและ reuse มากกว่า)
+2. Press feedback: `:active { transform: scale(0.96) }` (90ms + reduced-motion guard) ใน `app/phase3.css` สำหรับ `.route-person-main`/`.route-club-row`/`.notification-row`
+3. Route transition: `page-transition.tsx` เปลี่ยนเป็น slide(24px)+fade 220ms ตาม Option B ที่ Founder เลือก, ใช้ `useReducedMotion()` ของ framer-motion
+
+**ไม่ทำ** press feedback บน `GoldenDropCard` (post card ในฟีด/Search Drops tab) ในรอบนี้ — มี interactive element ซ้อนกันหลายชั้นที่มี animation เฉพาะอยู่แล้ว (double-tap like burst ฯลฯ) การใส่ `:active` ที่การ์ดทั้งใบจะ bubble ขึ้นมาจากปุ่มย่อยข้างในด้วยและอาจขัดกัน ตัดสินใจตาม "smallest safe change" ไม่แตะ ต้องออกแบบแยกเป็นรอบต่อไป (บันทึกเป็น Known Issue ใน task file)
+
+**Verification**: `npm install` แล้ว `npm run lint` (0 errors, warning เดิม 3 จุดไม่เกี่ยวกับไฟล์ที่แก้), `npm run typecheck` (0 errors), `npm run build` (Next.js production build สำเร็จทุก route รวม `/search`, `/notifications`) — environment เดิมไม่มี `node_modules` เลยตอนเริ่มงาน จึงต้อง `npm install` ก่อนถึงรัน check พวกนี้ได้จริง ยังไม่ได้ทดสอบบน physical iPhone Safari จริง (ต้องรอ QA/Founder ตามบทเรียน WYN-158)
+
+Task ย้ายจาก scope "approved" เป็น "review" ส่งต่อ AI QA & Security แล้ว — ยังไม่ deploy
+
+อ้างอิง: `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — QA FAIL: พบ layout-shift bug 2 จุดจริง (skeleton height ไม่ตรง production cascade)
+
+AI QA & Security ไม่เชื่อผลที่ AI Coding รายงานเอง สร้าง standalone harness โหลด CSS จริงทั้ง 38 ไฟล์ตามลำดับ import จริงใน `web/app/layout.tsx` (ไม่ใช่แค่ไฟล์ที่นิยาม class ครั้งแรก) มา render markup ของ skeleton ใหม่คู่กับ markup ของแถวจริง แล้ววัด `getBoundingClientRect().height` เทียบกันจริงด้วย Playwright + Chromium ที่ติดตั้งไว้ในสภาพแวดล้อมนี้
+
+**พบบั๊กจริง 2 จุด** (root cause เดียวกัน — โค้ดตอน design/coding อ่านแค่ CSS rule แรกที่เจอของแต่ละ class ไม่ได้ไล่ cascade เต็มของไฟล์ `parity-*`/`pixel-parity-*`/`system-parity-*` ที่ override กันหลายชั้นในไฟล์นี้):
+1. `NotificationSkeleton` สูง 76px (copy มาจาก `phase3.css`) แต่แถวจริง (ชนะโดย `pixel-parity-audit-closure.css` ที่ import ทีหลัง) สูงแค่ 62px — ต่างกัน 14px
+2. Hashtag row ใน `SearchDiscoverySkeleton` สูง 44px (copy มาจาก `phase3.css` `.hashtag-row`) แต่แถวจริงมีทั้ง class `hashtag-row` และ `flutter-rank-row` — `.flutter-rank-row` (`parity-completion.css`, import ทีหลัง) ชนะ ทำให้แถวจริงสูง 63px — ต่างกัน 19px
+
+ทั้งสองจุดจะทำให้เนื้อหากระโดดเมื่อข้อมูลจริงโหลดเสร็จ ตรงกับความเสี่ยงที่ระบุไว้ใน Risks ของ task เองตั้งแต่ต้น ("Skeleton loading ถ้าออกแบบไม่ตรงกับ layout จริงจะเกิด layout shift")
+
+**สิ่งที่ผ่าน**: search-user-row skeleton (64px=64px), search-club-row skeleton (68px=68px), shimmer animation, press feedback `:active` scale(0.96) ทั้ง 3 จุด (ทดสอบจริงด้วย mouse down/up ผ่าน Playwright ไม่ใช่แค่อ่านโค้ด), `prefers-reduced-motion` ปิดทั้ง transition และ shimmer ได้จริง (ทดสอบด้วย `page.emulateMedia`)
+
+**Final Status: FAIL** — เขียน bug report ที่ `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md` พร้อมค่าที่ถูกต้องให้แก้ตรงๆ (ไม่ต้องสืบสวนใหม่) ส่งต่อ AI Debug Engineer ยังไม่ approve/ยังไม่ deploy
+
+## [2026-09-19] WYN-175 — AI Debug Engineer แก้บั๊กแล้ว + เพิ่ม regression test จริงเข้า repo
+
+Reproduce บั๊กซ้ำก่อนแก้ (ได้ผล FAIL เดียวกับ QA เป๊ะ) ยืนยัน root cause ด้วยการอ่าน source จริงเอง (`pixel-parity-audit-closure.css:184-190`, `parity-completion.css:22`) ไม่เชื่อ bug report เฉยๆ ตามกติกา "ห้ามเดา root cause"
+
+**Fix**: แก้ `web/app/skeleton.css` เฉพาะ 2 selector (`.wyn-skeleton-notification-row`, `.wyn-skeleton-hashtag-row`) ให้ตรงกับค่าที่ชนะ cascade จริง — ไม่แตะไฟล์อื่น
+
+**เพิ่ม regression test จริง**: `web/components/dev/wyn-175-skeleton-fixture.tsx` + route `/dev/wyn-175-skeleton-fixture` (ตาม pattern `/dev/home-fixture` เดิม, unauthenticated test-only fixture ไม่มี real data) + `web/tests/browser/wyn-175-skeleton-parity.spec.ts` — ระหว่างเขียน test เจอบั๊กเพิ่มอีก 2 จุดในตัว test เอง (comment `*/` ปิด JSDoc พลาดกลางคำ "parity-*/pixel-parity-*" ทำให้ parse error ทั้ง component และ spec file, Playwright strict-mode locator ชน element ซ้ำที่หน้า Discovery เพราะมี 3 hashtag row) แก้แล้วยืนยัน 6/6 pass จริงกับ dev server ก่อน commit (ไม่ใช่เขียน `.spec.ts` แล้วเชื่อว่าถูกโดยไม่รัน — `npx playwright test` ในสภาพแวดล้อมนี้เจอ browser version mismatch ระหว่าง `@playwright/test` ที่ npm install กับ browser ที่ pre-install ไว้ จึง verify ด้วย raw `playwright` package + `executablePath` แทน ตาม README ของสภาพแวดล้อมนี้ — CI จริงมี `npx playwright install` ในทุก workflow ที่รัน `qa:browser` จึงไม่เจอปัญหานี้)
+
+**Verification**: harness เดิมของ QA จาก 11/13 → 13/13, `npm run lint`/`typecheck`/`build` ผ่านหมด
+
+บันทึกบทเรียนที่ `.wyn/learning/LESSONS_LEARNED.md` และ `.wyn/learning/MISTAKES.md` แล้ว (pattern: อ่าน CSS rule แรกที่เจอ ไม่ใช่ rule ที่ชนะ cascade ในไฟล์ที่มี parity/pixel-parity override ซ้อนกันหลายชั้น — ต้อง grep หาทุกไฟล์ที่นิยาม selector เดียวกันแล้วเทียบลำดับ import ใน layout.tsx ก่อนเชื่อค่า)
+
+ส่งกลับ AI QA & Security ตรวจซ้ำ
+
+อ้างอิง: `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md`, `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md`
+
+## [2026-09-19] WYN-175 — QA รอบ 2 PASS (independent, ไม่เชื่อผลที่ Debug Engineer รายงานเอง)
+
+รัน harness เดิม 13 จุด + regression spec logic ใหม่ 6 จุด + e2e เพิ่มเติม 10 จุด (HTTP/console error บน `/`, `/search`, `/notifications`, `/welcome`, PageTransition mount, fixture route ไม่ถูก link จากที่ไหน) รวม 29/29 ผ่าน, `lint`/`typecheck`/`build` สะอาดทั้งหมด, ไม่มี security finding
+
+**Known ไม่ block**: physical iPhone จริง (สภาพแวดล้อมนี้ไม่มีอุปกรณ์ ต้องรอ Founder ยืนยันหลัง deploy ตามบทเรียน WYN-158), `GoldenDropCard` press feedback (ตัดออกจาก scope โดยเจตนา ไม่ใช่บั๊ก)
+
+**Final Status: PASS** — ย้าย `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md` → `.wyn/tasks/approved/`, ย้าย bug report → `.wyn/tasks/completed/` ส่งต่อ AI Deploy & DevOps (ยังต้องผ่าน Founder approval ก่อน production ตาม Release Gates ปกติ)
+
+## [2026-09-19] WYN-175 — AI Deploy & DevOps เตรียม deploy เสร็จ รอ Founder อนุมัติเปิด PR
+
+ตรวจ QA PASS แล้ว รัน `typecheck`/`lint`/`build` อิสระอีกรอบเอง (ไม่เชื่อผลที่ QA/Coding รายงาน) — สะอาดหมด, 31 route compile ผ่าน branch `claude/wynos-online-version-1pqqws` ไปข้างหน้า `main` 7 commits, fast-forward ได้สะอาด ไม่มี conflict
+
+บันทึก deployment prep log ที่ `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md` — **ยังไม่เปิด PR** เพราะกติกาของ session นี้ (system instruction) ระบุห้ามเปิด pull request โดยไม่มีคำขอชัดเจนจาก Founder ก่อน จึงถามใน chat ก่อนดำเนินการต่อ ไม่ใช่การชะลอโดยไม่มีเหตุผล — เมื่อ merge เข้า `main` แล้ว `wyn-158-production-deploy.yml` จะ deploy ขึ้น production อัตโนมัติเหมือน deploy web ทุกครั้งที่ผ่านมา
+
+## [2026-09-19] WYN-175 — Founder ตอบ "เปิดเลย" เปิด PR #552 แล้ว รอ merge
+
+เปิด PR [#552](https://github.com/warren-wyn-dev/wynteam/pull/552) (`claude/wynos-online-version-1pqqws` → `main`) แล้วตามที่ Founder ยืนยัน — ยังไม่ merge (merge เป็นสิทธิ์ของ Founder เองตาม Founder Gate, AI Deploy & DevOps ไม่ merge เอง) เมื่อ Founder merge แล้ว `wyn-158-production-deploy.yml` จะ deploy ขึ้น `wynos.online` อัตโนมัติ
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`
