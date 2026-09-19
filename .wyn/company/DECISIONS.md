@@ -1878,3 +1878,15 @@ Founder ตอบผ่าน structured question: (1) **ใช้ค่าข�
 ส่งต่อ AI Design ทำ batch 1 (Home/Bottom Nav) — เน้นย้ำห้ามแตะการ์ดโพสต์ที่ล็อก Flutter parity อยู่แล้ว (WYN-160 batch 3 เคยตรวจแล้วว่าเป็น intentional parity ไม่ใช่ drift)
 
 อ้างอิง: `.wyn/tasks/backlog/WYN-176-visual-design-rollout-squircle.md`
+
+## [2026-09-19] WYN-176 Batch 1 — AI Design ตรวจโค้ดจริงพบว่า Home แทบไม่มีอะไรให้แก้ตรงๆ, ปรับขอบเขตแล้ว Founder ยืนยัน
+
+ตรวจโค้ดจริงก่อนออกแบบ (ตามกติกา "ห้ามคิดทิศทางใหม่หากไม่ตรวจของเดิมก่อน") พบว่า Home ไม่มีทั้ง `.wyn-button` และ `.btn-primary`/`.btn-outline` (ที่ WYN-163 แก้) อยู่เลยแม้แต่จุดเดียว — การ์ดโพสต์กับ bottom nav dock ล็อก Flutter parity อยู่แล้วตามที่ WYN-160 batch 3 เคยตรวจไว้ (มี regression test คุม) ส่วนที่ไม่ล็อกจริงๆ คือ chrome ทั่วไป: เมนูลิ้น (`home-drawer.tsx`, ใช้ร่วมกับ Notifications), ปุ่ม header, action sheet, ปุ่ม retry (`.route-secondary` ตระกูลที่ 3 แยกจาก `.wyn-button`/`.btn-primary` อีกชุด)
+
+ถามยืนยัน Founder ว่าจะทำตามขอบเขตที่ปรับใหม่นี้ไหม (chrome ที่ไม่ล็อก แทนที่จะบังคับยัด token ของ Auth เข้าไปทุกจุด) — **Founder ยืนยัน "ทำตาม chrome ที่ไม่ล็อก"**
+
+เขียนสเปก: ตีความ "เอาทิศทาง WYN-163 มาใช้" แบบ proportional ไม่ใช่ copy ตัวเลขตรงๆ — press feedback spring (`scale(0.96)`, 160ms) ใส่ทุกจุดที่ยังไม่มี (ตรงตัวกับ Auth), ส่วน radius ปรับขึ้นเล็กน้อยตามสัดส่วนเดิม (drawer menu row 14→16px, drawer identity 18→20px) ไม่ยัด 24px/58px ของปุ่ม CTA เข้าไปในแถวเมนู/sheet ที่ไม่ใช่ CTA
+
+ทำ Artifact เปรียบเทียบก่อน-หลัง กดทดลอง press feedback ได้จริง: https://claude.ai/artifact/1TPXW71STZtUn2jU7J9asu
+
+บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch1-home-chrome.md`
