@@ -111,6 +111,51 @@ cleanly masks the overlapping inner edges of the two side people's bodies, produ
 "front person in front" look as the reference without any stroke-crossing artifact. Verified via the same
 real-CSS-cascade harness (light + dark, actual 24px size) before pushing — matches the reference closely.
 Pushed onto the still-open PR #558 (amended, not a new PR) since it hadn't been merged yet.
+
+## QA Re-verification, revision 2 (2026-09-19, prompted by a Codex P1 finding on PR #558)
+
+Codex correctly flagged that `Final Status: PASS` above still only covers the original QA pass (8/8, run
+against the very first club-icon SVG). Both hotfix revisions after that were verified by Coding/Deploy
+directly (screenshot inspection), never routed back through a formal QA handoff — a real QA-gate skip per
+`AGENTS.md`, even though the verification itself was genuine. Re-verifying revision 2's actual current SVG
+(commit `7a53a186` on PR #558, not yet merged) as AI QA & Security, independently:
+
+Feature: WYN-178 revision 2 — club icon now a "front-and-center" 3-person composition
+(`web/components/bottom-navigation.tsx`, `kind === "club"` only)
+
+Environment: sandbox, Playwright + `/opt/pw-browsers/chromium`, real-CSS-cascade harness (`design-system.css` +
+`bottom-nav.css` loaded from disk via static file server, not assumed)
+
+Test Cases:
+1. `git diff origin/main HEAD -- web/components/bottom-navigation.tsx` — confirmed the only change is the
+   6 SVG child elements inside the `club` branch; home/add/chat/profile branches and the rest of the file
+   are byte-identical to `main`. No unintended regression surface.
+2. Render real markup + real CSS, light mode (`--wyn-bg: #ffffff`) at actual 24px size inside a real
+   `.route-bottom-nav` — reads clearly as 3 distinct people, center one prominent/in front, no stroke-crossing
+   or "flower" artifact, no visible seam where the mask fill meets the background
+3. Same render, dark mode (`page.emulateMedia({colorScheme:'dark'})`, `--wyn-bg: #000000`) — same result,
+   mask fill correctly follows the token into dark mode (not hardcoded white)
+4. Checked `.route-bottom-nav`'s actual background declaration in `bottom-nav.css`:
+   `background: var(--wyn-bg, var(--paper));` — same `--wyn-bg` token the icon's mask fill uses, and
+   `--wyn-bg` is unconditionally declared in `design-system.css`'s `:root` (both light and dark blocks), so
+   the `var(--paper)` fallback never triggers and the mask can never mismatch the bar's real background
+5. `npm run check` (lint + typecheck + `next build`) re-run independently — clean, 0 errors, same 3
+   pre-existing unrelated warnings as every prior run this task
+6. Confirmed no other icon (home/post/chat/profile) touched by this revision — diff (test case 1) already
+   proves this structurally, not just by description
+
+Passed: 6/6
+Failed: ไม่มี
+Severity: -
+
+Security Findings: ไม่มี — SVG path + CSS var change only, no new attack surface
+
+Recommendation: PASS — revision 2's actual current SVG is now formally verified, not just self-checked by
+Coding/Deploy. Safe to merge PR #558.
+
+Final Status: **PASS** (supersedes the original PASS above, which covered a different, already-superseded
+SVG — kept above for audit history, not as the operative status)
+
 Owner: AI Design
 Screen: แท็ปบาร์ล่าง (bottom navigation) ทั้งระบบเว็บ — `web/components/bottom-navigation.tsx`, `web/app/bottom-nav.css`
 Purpose: ปรับไอคอน "คลับ" และ "แชท" ให้ตรงกับภาพอ้างอิงที่ Founder ส่งมา (ยืนยันครั้งที่ 2 ด้วยภาพเดิมทุกประการ พร้อมคำว่า
