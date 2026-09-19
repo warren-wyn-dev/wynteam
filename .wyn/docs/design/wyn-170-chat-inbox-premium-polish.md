@@ -90,12 +90,72 @@ Founder เห็น demo รอบแรก (แค่ข้อ 1 พื้น�
 4. ไม่ใช่การรื้อ layout/IA — ยังเป็น polish pass ไม่ใช่ redesign ทั้งหน้า (ไม่เปลี่ยนลำดับ/ตำแหน่งของ
    header → search → notes → chat list)
 
+## ขอบเขตที่เสนอ (WYN-170) — v3 (Founder ส่งภาพอ้างอิง Instagram จริง)
+
+Founder ส่งภาพหน้าจอ Instagram DM inbox จริงเป็น "ตัวอย่าง" พร้อม 2 คำตอบ:
+1. สไตล์แถวแชท: **เปลี่ยนเป็นเรียบแบน (ไม่มีการ์ด/มุมโค้ง)** แทนที่ squircle card ที่เสนอไปใน v2
+2. แท็บ **"กล่องข้อความ / คำขอ"** ใต้ช่องค้นหา: **เพิ่มด้วย**
+
+นี่คือการเปลี่ยนที่ใหญ่กว่า "polish pass" เดิม เพราะแท็บกล่องข้อความ/คำขอเป็น component ใหม่ที่มีผลต่อ
+interaction/state logic ของหน้า (ไม่ใช่แค่ CSS/JSX เพิ่มเติมล้วนๆ อีกต่อไป) — บันทึกไว้ให้ชัดเจนตรงนี้
+
+### แก้ไขจาก v2: แถวบทสนทนากลับไปเป็นทรงเรียบแบน
+
+ยกเลิกแนวทาง squircle card (`background: var(--wyn-surface)`, `border-radius: 18px`, margin ระหว่างการ์ด)
+ที่เสนอใน v2 — **แทนที่ด้วยทรงเรียบแบนแบบภาพอ้างอิง**: ไม่มีพื้นหลัง ไม่มีมุมโค้ง ไม่มีเส้นคั่นระหว่างแถว
+(ต่างจากของเดิมที่มีเส้นคั่นบางๆ) ใช้ระยะห่างแนวตั้งจาก padding ภายในแถวเองแทน (แถวสูงพอ + avatar/ข้อความมี
+breathing room เพียงพอ ไม่ต้องพึ่งเส้นคั่นเพื่อแยกแถว) ยังคง **press-scale `:active` เดิมไว้** (จุดเดียวที่เก็บ
+ไว้จาก v2) เพราะไม่ขัดกับสไตล์เรียบแบน — กดแล้วยังรู้สึกถึง feedback ได้แม้ไม่มีพื้นหลังการ์ด
+
+### เพิ่มใหม่: แท็บ "กล่องข้อความ / คำขอ"
+
+**Components**:
+- `.wyn-chat-tabs` — segmented pill control ใต้ `.flutter-chat-search` วางก่อน `.wyn-chat-notes`/`.chat-list`
+  มี 2 ปุ่ม: **"กล่องข้อความ"** (default/active) และ **"คำขอ"** (badge ตัวเลขเมื่อ `requests.length > 0` —
+  รูปแบบ badge เดียวกับที่ `.wyn-chat-requests-link span` มีอยู่แล้ว) ปุ่ม active = พื้นหลัง `var(--wyn-surface)`
+  ทรง pill (`border-radius: var(--wyn-radius-full)` เดิม), ปุ่มไม่ active = โปร่งใส/ข้อความเฉยๆ — ใช้ token/
+  รัศมีเดิมทั้งหมด ไม่ประดิษฐ์ใหม่
+- **ไม่เพิ่มปุ่ม filter icon ทางซ้ายของแท็บ** (ภาพอ้างอิงมี แต่ WYNOS Web ยังไม่มีฟีเจอร์ filter ข้อความจริง
+  การเพิ่มปุ่มที่กดแล้วไม่ทำอะไรเป็นการหลอกผู้ใช้ — ถ้า Founder อยากได้ฟีเจอร์ filter จริง ควรเป็นงานแยกที่ผ่าน
+  Product Manager ก่อน เพราะเป็นฟีเจอร์ใหม่ ไม่ใช่แค่ UI)
+
+**Interactions**:
+- กด "กล่องข้อความ" → แสดงรายการบทสนทนาปกติ (state เดิม, ไม่เปลี่ยน)
+- กด "คำขอ" → แสดงรายการคำขอข้อความ **แทนที่ในพื้นที่เดิม** (ไม่ใช่ modal popup แบบเดิมอีกต่อไป — ย้าย UI
+  ของ `requestsModal` เดิม ทั้งแถว avatar+ชื่อ+ข้อความตัวอย่าง+ปุ่ม "ยอมรับ"/"ลบ" มาแสดงในตำแหน่งเดียวกับ
+  `.chat-list` เมื่อแท็บนี้ active) — action "ยอมรับ"/"ลบ" ทำงานเหมือนเดิมทุกประการ (เรียก `decide()` เดิม)
+  เพียงแต่เปลี่ยนที่แสดงผลจาก modal เป็น inline tab panel
+- press-scale บนแท็บปุ่ม: ใช้สูตรเดิม `scale(0.96)` เหมือนปุ่มอื่นๆ
+
+**States**:
+- Local UI state ใหม่: `activeTab: "inbox" | "requests"` (แทนที่ `requestsOpen: boolean` เดิม — Coding
+  ตัดสินใจได้เองว่าจะ rename ตัวแปรหรือ map ค่าเดิมยังไงให้ผลกระทบต่อโค้ดส่วนอื่นน้อยที่สุด)
+- แท็บ "คำขอ" ว่าง (ไม่มีคำขอค้าง) → ใช้ `EmptyState` เดิม ("ไม่มีคำขอข้อความ") แสดงในตำแหน่ง tab panel แทน
+  modal เหมือนเดิมทุกประการ แค่เปลี่ยนที่วาง
+
+**Responsive Behavior**: ไม่เพิ่ม breakpoint ใหม่ แท็บสูงมาตรฐานเดียวกับปุ่ม pill อื่นในระบบ (~36-38px)
+
+**Accessibility**: แท็บใช้ `role="tab"`/`aria-selected` หรือ `<button aria-pressed>` ตามที่ Coding เห็นสมควร
+(ขอแค่ screen reader รู้ได้ว่าแท็บไหน active) — badge ตัวเลขต้องมี `aria-label` บอกจำนวนคำขอ (pattern เดียวกับ
+ที่ `.wyn-chat-requests-link` เดิมมี `aria-label` อยู่แล้ว ย้าย pattern นี้มาใช้กับแท็บแทน)
+
+**Design Rules (เพิ่มเติมจาก v2)**:
+5. ยกเลิก squircle card จาก v2 — แถวบทสนทนากลับไปเป็นทรงเรียบแบนตามภาพอ้างอิง แต่คง press-scale ไว้
+6. แท็บใหม่ใช้ token/รัศมี/badge pattern ที่มีอยู่แล้วในระบบทั้งหมด ไม่ประดิษฐ์ใหม่
+7. ไม่เพิ่มปุ่ม filter (ยังไม่มีฟีเจอร์รองรับจริง — ป้องกัน UI หลอกผู้ใช้)
+8. ปุ่ม "คำขอ N" เดิมที่อยู่ใน header (`.wyn-chat-requests-link`, เพิ่งได้ press-scale จาก WYN-169) **จะถูก
+   เอาออกจาก header** เพราะฟังก์ชันย้ายไปอยู่ที่แท็บแทน (สอดคล้องกับภาพอ้างอิงที่ header มีแค่ title + ปุ่ม
+   compose) — บันทึกไว้ชัดเจนว่านี่คือการเปลี่ยนทิศทางจาก WYN-169 ที่เพิ่ง deploy ไปเมื่อครู่ ไม่ใช่ความผิดพลาด
+   แต่เป็นวิวัฒนาการของดีไซน์ตามที่ Founder เห็นภาพอ้างอิงเพิ่มเติม
+
 ## Handoff
 
-พร้อมส่ง AI Coding หลัง Founder อนุมัติ — 2 ไฟล์ (`web/components/chat-inbox-parity.tsx` เพิ่ม JSX ท้าย
-`.chat-list` + เพิ่ม conditional class บน `.wyn-chat-notes`, `web/app/chat-notes.css` เพิ่ม CSS ของ marker
-ใหม่ + squircle card ของแถวแชท + `.is-solo` modifier) ความเสี่ยง regression ต่ำ-กลาง (เปลี่ยน visual ของแถว
-แชทมากกว่ารอบแรก แต่ไม่แตะ data flow/logic ใดๆ ยังเป็น presentational ล้วนๆ)
+พร้อมส่ง AI Coding หลัง Founder อนุมัติ demo สุดท้าย — ไฟล์ที่แตะ: `web/components/chat-inbox-parity.tsx`
+(เพิ่ม JSX ท้าย `.chat-list`, เพิ่ม `.wyn-chat-tabs`, เปลี่ยน `requestsOpen` เป็น `activeTab`, ย้าย requests
+list ออกจาก modal มาเป็น inline panel, ลบปุ่ม "คำขอ" ออกจาก header), `web/app/chat-notes.css` (CSS ของ
+marker + แท็บ + ปรับแถวแชทกลับเป็นเรียบแบน + `.is-solo` modifier + ลบ CSS ของปุ่ม header เดิมที่ไม่ใช้แล้ว)
+ความเสี่ยง regression **กลาง** (แตะ interaction/state logic จริง ไม่ใช่แค่ presentational ล้วนๆ เหมือน v1/v2
+— QA ต้องทดสอบ flow "ยอมรับ/ลบคำขอ" ผ่าน tab ใหม่อย่างละเอียด ไม่ใช่แค่ดูภาพ)
 
-**คำถามสำหรับ Founder**: เห็นด้วยกับขอบเขตที่ขยายแล้วนี้ไหม (เติมท้ายรายการ + การ์ด squircle ให้แถวแชท + ลด
-ความสูง Notes row ตอนมีแค่การ์ดเดียว)?
+**คำถามสำหรับ Founder**: เห็นด้วยกับขอบเขต v3 นี้ไหม (แถวเรียบแบนตามภาพอ้างอิง + เพิ่มแท็บกล่องข้อความ/คำขอ
+แทนปุ่ม header เดิม + ไม่เพิ่มปุ่ม filter)? กำลังทำ demo อัปเดตให้ดูก่อนส่ง Coding
