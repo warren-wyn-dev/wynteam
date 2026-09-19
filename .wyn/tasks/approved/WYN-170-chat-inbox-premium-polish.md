@@ -1,7 +1,7 @@
 # Design Task — WYN-170
 
-Status: approved (Founder อนุมัติ scope สุดท้าย "เอาแบบนี้เลย" — ส่งต่อ AI Coding)
-Owner: AI Design → Founder → รอ AI Coding → AI QA & Security → AI Deploy & DevOps
+Status: coding done — ส่งต่อ AI QA & Security
+Owner: AI Design → Founder → AI Coding → รอ AI QA & Security → AI Deploy & DevOps
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: แก้จุดบกพร่องที่ Founder พบจากภาพหน้าจอจริง ("ออกแบบหน้าใหม่ได้ไหม มันไม่สวย") ผ่าน 6 รอบ feedback
 (ดูสรุปเต็มที่ `.wyn/docs/design/wyn-170-chat-inbox-premium-polish.md` หัวข้อ "สรุปขอบเขตสุดท้าย (v6)")
@@ -51,3 +51,53 @@ inline — QA ต้องทดสอบละเอียด ไม่ใช�
 9. **Founder ดู demo v6 แล้วตอบ "เอาแบบนี้เลย" — อนุมัติ scope สุดท้าย** ส่งต่อ AI Coding
 
 Demo สุดท้ายที่ Founder อนุมัติ: `https://claude.ai/artifact/2LA78untcXJXUzsHNhrpgG`
+
+## AI Coding (2026-09-19)
+
+Implementation: แก้ 2 ไฟล์ตาม spec v6 ครบทุกจุด —
+1. Header: title "ข้อความ" เปลี่ยน `text-align:center` (จริงๆ ควบคุมด้วย `justify-self`) เป็น
+   `justify-self:start !important; text-align:left` ในบล็อก final-lock ของ `chat-notes.css` (ยืนยันแล้วว่า
+   เป็นบล็อกที่ชนะ cascade จริง — บล็อกก่อนหน้าในไฟล์เดียวกันถูก override ทับ)
+2. ปุ่ม "คำขอ" (`.wyn-chat-requests-link`) เปลี่ยนจาก conditional render (`requests.length ? ... : null`)
+   เป็น render เสมอ, เพิ่ม `.is-active` state (`background: var(--wyn-surface)`), ผูกกับ `activeTab` state
+   ใหม่แทน `requestsOpen` เดิม — toggle onClick สลับ `"inbox"`/`"requests"`
+3. เอาปุ่ม `.wyn-chat-compose-action` ออกทั้ง JSX และ CSS (ทั้ง base block และ final-lock responsive block)
+4. Search bar: `height: 50px` → `40px`, ปรับ `padding`/`gap`/`border-radius` ให้สัดส่วนสมดุล (25px→20px)
+5. `.wyn-chat-notes` เพิ่ม `.is-solo` modifier (`min-height: 118px` เมื่อ `notes.length === 0`)
+6. `.chat-row`: เพิ่ม `:active{transform:scale(0.96)}` + transition, ปิด `::after` divider เดิมด้วย
+   `content:none` (ตาม design v3 "ไม่มีเส้นคั่นระหว่างแถว" — ยืนยันว่า rule นี้ชนะ cascade ในทุก breakpoint
+   รวมถึงใน `@media (max-width:430px)` เพราะอยู่หลังสุดในไฟล์)
+7. เพิ่ม end-of-list marker (`.wyn-chat-end-marker` + ไอคอน `check` จาก WynosIcon) ต่อท้ายรายการแชทเสมอ
+8. Requests panel: ย้าย JSX จาก `route-modal-backdrop` มาเป็น inline branch (`activeTab === "requests"`)
+   ใน main content area — reuse `request-row`/`request-actions`/`route-primary.small`/`route-secondary.small`
+   CSS เดิมที่มีอยู่แล้วใน `phase3.css` (ไม่ต้องเขียน CSS ใหม่)
+9. ลบ state/function/import ที่ไม่มี UI trigger แล้วทั้งหมด: `newOpen`, `peopleQuery`, `people`, `finding`,
+   `findPeople`, `startConversation`, `router`/`useRouter` (ใช้แค่ใน `startConversation`), imports
+   `getOrCreateConversation`/`searchProfiles`/`ProfileRow`/`ProfileRowView`/`LoadingState`
+10. ลบ CSS ที่กลายเป็น dead code: `.wyn-new-message-modal`, `.wyn-new-message-search` (+children) ใน
+    `chat-notes.css`
+
+Files Changed: `web/app/chat-notes.css` (+95/-203 บรรทัด รวมสุทธิลดลงเพราะลบ dead CSS เยอะ),
+`web/components/chat-inbox-parity.tsx` (+95/-159 บรรทัด)
+
+Reason: ตาม design spec v6 ที่ Founder อนุมัติ ("เอาแบบนี้เลย") ทุกประการ
+
+Tests: ไม่มี automated test เดิมของ Chat Inbox — ตรวจ diff ทีละบรรทัดเทียบกับ spec, ตรวจสอบ **cascade
+priority** ด้วยมือทุกจุดที่ chat-notes.css มี declaration ซ้ำหลายบล็อก (title alignment, search height,
+divider) ก่อนแก้ เพื่อให้แน่ใจว่าแก้บล็อกที่ชนะจริง ไม่ใช่บล็อกที่ถูก override ทับอยู่แล้ว — grep ยืนยันว่า
+`.requests-modal` (ใช้ร่วมกับ `chat-routes.tsx` คนละ route/คนละ state) ไม่ได้ถูกแตะ/ลบผิดโดยไม่ตั้งใจ,
+grep ยืนยันไม่มีจุดอื่นเรียกใช้ state/function ที่ถูกลบทั้งหมดก่อนลบจริง
+
+Build: `npm run check` (lint + typecheck + build) ผ่านทั้งหมด — lint 0 errors (3 warning เดิมไม่เกี่ยวกับ
+ไฟล์นี้), typecheck ผ่าน, build ผ่านทุก route รวม `/chat`
+
+Known Issues: เหมือน WYN-169 — render live ในเครื่อง sandbox ไม่ได้ (ไม่มีค่า Supabase/Firebase) ขอให้ AI QA
+& Security ใช้วิธีเดียวกับที่ทำสำเร็จใน WYN-169 (โหลด CSS จริงจาก repo ผ่าน static file server + Playwright)
+ถ้าเป็นไปได้ — เพิ่มเติมจาก WYN-169 รอบนี้ต้องทดสอบ **flow ยอมรับ/ลบคำขอผ่าน inline panel ใหม่** และ
+**toggle เข้า/ออกจากมุมมองคำขอ** อย่างละเอียดเพราะเป็น interaction/state logic ใหม่จริง ไม่ใช่แค่ presentational
+
+Handoff: ส่งต่อ AI QA & Security — ตรวจ regression ทั้งหน้า Chat Inbox, ตรวจ toggle "คำขอ" เข้า/ออกทำงานถูก
+(รวม auto-switch กลับ "inbox" เมื่อจัดการคำขอสุดท้ายเสร็จ), ตรวจปุ่มย้อนกลับซ้าย header ยังทำงานปกติ (ไม่ถูก
+แตะ), ตรวจว่าไม่มีทางเข้าถึงปุ่มเขียนข้อความใหม่บนหน้านี้เหลืออยู่จริง, ตรวจ title ชิดซ้ายจริง, ตรวจ search bar
+40px ยังกดง่ายพอ (ต่ำกว่า DS-008 เล็กน้อย), ตรวจ end-of-list marker แสดงถูกต้อง, ตรวจ dark-mode contrast ไม่มี
+regression แบบ WYN-168 (โดยเฉพาะปุ่ม "คำขอ" ตอน active state ใหม่)
