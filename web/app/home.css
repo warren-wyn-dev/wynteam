@@ -44,6 +44,11 @@
   color: var(--wyn-text);
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wyn-home-header-action:active {
+  transform: scale(0.96);
 }
 
 /* Invisible larger tap target without growing the visible 40px chip or the
@@ -166,6 +171,7 @@
   height: 2px;
   border-radius: var(--wyn-radius-full);
   background: transparent;
+  transition: background-color 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .wyn-home-tab.is-active .wyn-home-tab-indicator {
@@ -315,6 +321,11 @@
   letter-spacing: 0;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wyn-post-follow-pill:active {
+  transform: scale(0.96);
 }
 
 .wyn-post-follow-pill.is-following,
@@ -601,5 +612,17 @@
   .wyn-post {
     padding-left: 20px;
     padding-right: 20px;
+  }
+}
+
+/* WYN-167 (2026-09-19): press-scale + tab-indicator transitions added above
+   reuse WYN-163's onboarding motion formula. None of Home's other motion
+   (heart-burst like animation, etc.) was gated behind this before now either
+   — consolidating the fallback here for the 3 new transitions this task adds. */
+@media (prefers-reduced-motion: reduce) {
+  .wyn-home-header-action,
+  .wyn-post-follow-pill,
+  .wyn-home-tab-indicator {
+    transition: none;
   }
 }
