@@ -1,7 +1,7 @@
 # Design Task — WYN-167
 
-Status: implemented (AI Coding) — waiting for AI QA & Security
-Owner: AI QA & Security
+Status: approved (AI QA & Security ยืนยัน PASS แล้ว 2026-09-19 — ดูรายละเอียดที่ท้ายไฟล์)
+Owner: AI Deploy & DevOps
 Screen: WYNOS Web Home Feed (`/home`, `web/components/home/*.tsx`, `web/app/home.css`)
 Purpose: ขยายภาษา interaction motion จาก WYN-163 (Apple-style press-scale) มาที่ Home feed ตามแผน rollout
 เดิมของ WYN-160 (ลำดับที่ 3: Home/Bottom Nav ต่อจาก Auth) — ขอบเขตแคบมาก: เพิ่ม press feedback ให้ปุ่ม
@@ -58,3 +58,41 @@ Playwright จริงบน dev server (`/dev/home-fixture`, `playwright-core`
 **Handoff to QA**: ตรวจว่า 3 จุดกดแล้วรู้สึกได้จริงบนอุปกรณ์จริง/emulate, ตรวจ `prefers-reduced-motion`
 ทำงานถูก, ตรวจว่าไม่มี regression กับหน้าอื่นที่ใช้ `home.css` ร่วม (ตรวจแล้วว่าไม่มีไฟล์อื่นใช้ 3 class นี้
 แต่ QA ควรยืนยันซ้ำอิสระ), sweep console error หน้า Home + หน้าอื่นที่เกี่ยวข้อง
+
+---
+
+## QA Verification (2026-09-19, AI QA & Security)
+
+**Independent re-test** on commit `443317cb` — re-ran `typecheck`/`lint`/`build` fresh (all clean), then 15
+adversarial checks against a live dev server (`playwright-core` + `/opt/pw-browsers/chromium`, since the
+project's own `@playwright/test` runner still can't launch in this sandbox):
+
+- Confirmed all 3 transitions have the exact values specified (`transform 0.16s` on the 2 press-scale
+  targets, `background-color 0.22s` on the tab indicator)
+- Confirmed a **real** `:active` press (mouse down, not just reading the CSS rule) actually produces a
+  non-identity `transform: matrix(...)` on the header action button
+- Confirmed `prefers-reduced-motion: reduce` emulation correctly zeroes `transitionDuration` on all 3
+  targets
+- Confirmed tab-click still functionally switches the active tab (not just a visual check)
+- Confirmed the follow-pill button's click handler still fires with 0 console errors
+- Swept `/welcome`, `/signup/step-1`, `/login`, `/dev/home-fixture` for console errors — 0 on all 4,
+  confirming no regression to unrelated pages that also share `web/app/`'s CSS import chain
+- Re-verified independently (grep) that all 3 touched classes (`.wyn-post-follow-pill`,
+  `.wyn-home-header-action`, `.wyn-home-tab-indicator`) are declared only in `home.css` and referenced only
+  by Home's own components — confirms the "scoped to Home only" claim, no other page touched
+
+**15/15 passed.**
+
+**New finding (not a WYN-167 regression)**: while running the dark-mode check, found that
+`.wyn-post-follow-pill`'s existing background (`#f1f1f3`, hardcoded, predates this task — confirmed via
+`git show 443317cb^:web/app/home.css`) doesn't adapt to dark mode, producing white-on-near-white text at a
+computed **1.13:1 contrast ratio** (WCAG AA needs ≥4.5:1) — the Follow button is effectively unreadable in
+dark mode right now, live on production, unrelated to anything WYN-167 changed. Filed as
+**WYN-168** (`.wyn/tasks/bugs/WYN-168-home-follow-pill-dark-mode-contrast.md`), severity **HIGH**. Does not
+block this task — WYN-167's own diff has zero regression risk and is unrelated to color/background at all.
+
+**Security**: scanned the diff for hardcoded secrets — none (CSS-only change). No new client-server trust
+boundary.
+
+**Result: PASS.** Moving to `.wyn/tasks/approved/`, handing off to **AI Deploy & DevOps**. Recommend the
+Founder is told about WYN-168 separately as a new, unrelated finding needing prioritization.
