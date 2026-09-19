@@ -1,6 +1,7 @@
 # Design Task — WYN-160
 
-Status: active — Founder อนุมัติ spec แล้ว ("ส่งต่อเลย") ส่งต่อ AI Coding เริ่มเฟส 1 (ประกาศ CSS variable กลาง)
+Status: active — เฟส 1 (motion token) ผ่าน QA แล้ว (PASS) พร้อม Deploy, รอเริ่มเฟส 2 (Auth/Login/Signup) แยก
+รอบต่างหาก
 Owner: AI Design
 Screen: ทั้งระบบเว็บ (WYN-158) เริ่มจากหน้าล็อกอิน/สมัคร/onboarding ตามที่ Founder สั่ง
 Purpose: บังคับใช้ design system ที่อนุมัติแล้ว (`wynos-web-base-design-system.md`) ให้ตรงกันทุกหน้า — ไม่ใช่คิดสีใหม่ แต่ยุบตัวเลขที่หลุดสเปกไปแล้ว (font-size ~20 ค่า → 7 ค่า, border-radius ~20 ค่า → 5 ค่า, สีเทาที่ hardcode ใหม่ใน conversation-modern.css → กลับไปใช้ var(--wyn-*))
@@ -27,3 +28,18 @@ Handoff: **เฟส 0 (ใหม่ ก่อนเฟสอื่นทั้�
 (5) Chat — เฉพาะ conversation-modern.css เร่งก่อนสุดในกลุ่มนี้ (Chat Inbox ทำไปแล้วบางส่วนใน WYN-169/170/171
 ใช้เป็น baseline เช็คว่าตรง spec ใหม่จริง) (6) Profile/Settings (7) Search/Notifications/Club (8) ไล่ลบ
 CSS dead code — ต้องมีภาพก่อน-หลังของหน้าล็อกอินให้ Founder อนุมัติก่อนเริ่มโค้ดจริง ตามกติกา WYN-141
+
+## เฟส 1 — QA Verification (AI QA & Security, 2026-09-19)
+
+Commit `0a4ca38b` ตรวจแล้ว:
+- Diff เพิ่มบรรทัดอย่างเดียว 8 บรรทัด ไม่มีการลบ/แก้ selector เดิมเลย (`git show` ยืนยัน 0 deletion) ✅
+- `grep -rn "wyn-motion"` ทั่ว `web/app/*.css` และ `components/` พบแค่จุดประกาศ 3 บรรทัดในไฟล์เดียว
+  ไม่มี consumer เรียกใช้ `var(--wyn-motion-*)` ที่ไหนเลย → ยืนยันไม่มีหน้าไหนเปลี่ยนหน้าตา ✅
+- `grep` หาการประกาศซ้ำของทั้ง 3 ตัวแปรใหม่ทั่วระบบ พบแค่จุดเดียว ไม่ชนกับตัวแปรอื่น ✅
+- `npm run check` อิสระ: 0 error, 3 warning เดิมที่ไม่เกี่ยวข้อง ✅
+- ยืนยันเพิ่มเติม (ไม่ได้อยู่ใน scope เฟส 1 แต่ตรวจสอบเพื่อความชัดเจน): font-size 7 ระดับ, border-radius
+  4/5 ระดับ (`pill`/`sheet`/`tile`/`tail`), และ `--wyn-accent` มีอยู่แล้วจริงจากรอบก่อนหน้า ตรงกับที่
+  AI Coding รายงาน — เหลือแค่ `--wyn-radius-control` (12px ควรเป็น 10px) ที่ตั้งใจเลื่อนไปแก้ตอน rollout
+  เฟส Composer/Home ตามที่ comment เดิมในไฟล์ระบุไว้
+
+**Final Status: PASS** — เฟส 1 เสร็จสมบูรณ์ ไม่มี regression ใดๆ พร้อม Deploy
