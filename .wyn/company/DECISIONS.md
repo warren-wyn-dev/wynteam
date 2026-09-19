@@ -1733,3 +1733,13 @@ Founder เปิด `wynos.online/chat` จริงหลัง WYN-170 deploy
 WYN-169 ไปด้วยในตัว (deploy สำเร็จจริง ไม่เคยมีรายงานบั๊กใดๆ ระหว่างที่ยังใช้งานอยู่)
 
 ย้าย `.wyn/tasks/completed/`: WYN-169, WYN-170
+
+## [2026-09-19] WYN-174 — Founder สั่ง "พัฒนา web Beta1 ให้เหมือนแอปจริงที่สุด" ยืนยันเริ่ม Track 1: Perceived Speed & Motion
+
+Founder พิมพ์ทิศทางกว้างว่า "อยากพัฒนา web Beta1 ให้เหมือนแอปจริงที่สุด" — AI Product Manager ตรวจโค้ดจริงพบว่างานบางส่วนทำไปแล้วใน WYN-158 (PWA manifest/service worker, swipe-back gesture, bottom nav, touch-target, tap-highlight/overscroll fix จาก PR #468/#469) และ WYN-163 (กำลัง iterate สี/ทรงปุ่มแนว Apple ink/paper อยู่ เฉพาะหน้า Auth) แต่ยังขาด: route/page transition animation, skeleton loading มาตรฐาน, custom install prompt, iOS splash screen, visual rollout นอกหน้า Auth, safe-area audit ทั้งระบบ, micro-interaction press feedback
+
+เขียน epic `WYN-174-web-native-app-feel-v2.md` แบ่งเป็น 4 sub-track (P0 Perceived Speed & Motion, P0 Visual Design Rollout รอ WYN-163 finalize ก่อน, P1 Install & Launch Experience, P2 Platform Integration Polish) ถามยืนยันลำดับผ่าน AskUserQuestion — **Founder เลือก "Perceived Speed & Motion (แนะนำ)"** ให้เริ่มก่อน
+
+แตก sub-task `WYN-175-web-perceived-speed-motion.md`: route transition (<300ms, respect `prefers-reduced-motion`), skeleton loading (Home/Profile/Chat/Search/Notifications), press feedback ทั่วระบบ — ไม่แตะ business logic/Supabase contract, ไม่แตะ WYN-163 (คนละ layer) ส่งต่อ AI Design ทำ audit + motion spec + preview ก่อน AI Coding เริ่ม
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-174-web-native-app-feel-v2.md`, `.wyn/tasks/backlog/WYN-175-web-perceived-speed-motion.md`
