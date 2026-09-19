@@ -263,3 +263,48 @@ AI Coding ตรวจสอบว่าไม่มีจุดอื่นเ�
 
 **Design Rules เพิ่มเติม**:
 12. เอาปุ่มลอยเขียนข้อความใหม่ออกทั้งหมด — ทางเข้าสู่การเริ่มแชทใหม่เหลือแค่ผ่านหน้าโปรไฟล์ผู้ใช้เท่านั้น
+
+## ✅ Founder อนุมัติ scope สุดท้ายแล้ว ("เอาแบบนี้เลย")
+
+Demo สุดท้ายที่ดู: `https://claude.ai/artifact/2LA78untcXJXUzsHNhrpgG` (v6)
+
+## สรุปขอบเขตสุดท้าย (v6) — สำหรับ AI Coding อ่านจุดนี้จุดเดียวพอ
+
+**Header** (`.flutter-chat-header`):
+- ซ้าย: ปุ่มย้อนกลับ ← เดิมทุกประการ (`WynosIcon name="back"`, `href="/"`) — **ไม่เปลี่ยนจากของเดิมก่อนเริ่ม
+  WYN-170 เลย**
+- กลาง: title "ข้อความ" — **เปลี่ยนจาก `text-align: center` เป็นชิดซ้าย** (`text-align: left`, ชิดติดปุ่ม
+  ย้อนกลับ)
+- ขวา: ปุ่ม **"คำขอ"** ตัวเดียว (แทนที่ `.wyn-chat-requests-link` เดิม) — badge ตัวเลขเมื่อ `requests.length >
+  0` (pattern เดิม) — เป็น **toggle**: กด → สลับพื้นที่เนื้อหาเป็นรายการคำขอแบบ inline (ไม่ popup), ปุ่มเข้า
+  active state (`background: var(--wyn-surface)`); กดซ้ำ (ตอน active) → สลับกลับมาที่รายการแชทปกติ — **ไม่มี
+  ปุ่ม/แท็บ "กล่องข้อความ" แยกต่างหาก**
+- **ไม่มีปุ่มเขียนข้อความใหม่ในหน้านี้แล้ว** (ทั้งใน header และไม่มีปุ่มลอย/FAB ด้วย) — ทางเริ่มแชทใหม่เหลือ
+  แค่ปุ่ม "ส่งข้อความ" ในหน้าโปรไฟล์ (`profile-route.tsx:175`, ของเดิมที่มีอยู่แล้ว ไม่ต้องแตะ)
+
+**Search bar** (`.flutter-chat-search`): ลดความสูงจาก 50px → **40px** (ต่ำกว่า DS-008 44px เล็กน้อย — Founder
+ขอเจาะจง ให้ QA ตรวจ usability จริง)
+
+**Notes row** (`.wyn-chat-notes`): เพิ่ม `.is-solo` modifier (เมื่อ `notes.length === 0`) ลด `min-height` จาก
+136px เหลือ ~118px
+
+**Chat list rows** (`.chat-row`): ทรงเรียบแบน (ไม่มีการ์ด/มุมโค้ง/เส้นคั่น) — เพิ่ม `:active { transform:
+scale(0.96) }` + `transition` (สูตร WYN-163/167/169)
+
+**ท้ายรายการ**: เพิ่ม end-of-list marker (ไอคอนวงกลม + "เห็นข้อความล่าสุดแล้ว") ต่อท้าย `.chat-list` เสมอ
+
+**Requests panel**: ย้าย UI ของ `requestsModal` เดิม (avatar+ชื่อ+preview+ปุ่ม "ยอมรับ"/"ลบ") จาก modal มา
+เป็น inline panel แทนที่ `.chat-list` เมื่อ toggle "คำขอ" active — logic เดิม (`decide()`) ไม่เปลี่ยน
+
+**โค้ดที่ต้องลบ** (ไม่มี UI trigger เหลือแล้ว): `newOpen`, `wyn-new-message-modal`, `wyn-new-message-search`,
+`findPeople`, `startConversation`, `people`, `peopleQuery`, `finding` ทั้งหมดใน `chat-inbox-parity.tsx`,
+CSS ของปุ่ม `.wyn-chat-compose-action`/`.wyn-chat-fab` ใน `chat-notes.css` (ตรวจให้แน่ใจว่าไม่มีจุดอื่นเรียก
+ใช้ก่อนลบจริง)
+
+**State**: `activeTab: "inbox" | "requests"` แทนที่ `requestsOpen: boolean` เดิม
+
+**ไฟล์ที่แตะ**: `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css` (ไฟล์เดียวกับที่ WYN-169
+เพิ่งแตะ — ตรวจ conflict/overlap กับ motion CSS ของ WYN-169 ให้ดี)
+
+**ความเสี่ยง regression**: กลาง (แตะ interaction/state logic จริง โดยเฉพาะ flow ยอมรับ/ลบคำขอที่ย้ายจาก modal
+มาเป็น inline — QA ต้องทดสอบละเอียด ไม่ใช่แค่ดูภาพ)
