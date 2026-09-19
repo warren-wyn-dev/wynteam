@@ -35,10 +35,11 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
   if (kind === "club") {
     return (
       <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="9" cy="8" r="3" />
-        <circle cx="17" cy="7" r="2.25" />
-        <path d="M3.5 19c.35-3.4 2.45-5.2 5.5-5.2s5.15 1.8 5.5 5.2H3.5Z" />
-        <path d="M15 12.5c.6-.3 1.3-.45 2.05-.45 2.25 0 3.9 1.25 4.25 3.55h-4.1" />
+        <circle cx="8.5" cy="8" r="2.6" />
+        <circle cx="15.5" cy="8" r="2.6" />
+        <circle cx="12" cy="5.7" r="2.2" />
+        <path d="M3.3 19c.4-3.5 2.35-5.2 5.2-5.2s4.8 1.7 5.2 5.2" />
+        <path d="M10.3 19c.4-3.5 2.35-5.2 5.2-5.2s4.8 1.7 5.2 5.2" />
       </svg>
     );
   }
@@ -46,7 +47,10 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
   if (kind === "chat") {
     return (
       <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5.5 4.5h13A1.5 1.5 0 0 1 20 6v9a1.5 1.5 0 0 1-1.5 1.5H9L4 20v-4.5A1.5 1.5 0 0 1 4 15V6a1.5 1.5 0 0 1 1.5-1.5Z" />
+        <path d="M12 4.5c4.42 0 7.5 2.84 7.5 6.5 0 3.66-3.08 6.5-7.5 6.5-.86 0-1.68-.11-2.44-.31L5.5 19.5l1.1-3.38C5.06 14.87 4.5 13.15 4.5 11c0-3.66 3.08-6.5 7.5-6.5Z" />
+        <circle cx="8.7" cy="11" r="1.05" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="11" r="1.05" fill="currentColor" stroke="none" />
+        <circle cx="15.3" cy="11" r="1.05" fill="currentColor" stroke="none" />
       </svg>
     );
   }
@@ -74,8 +78,6 @@ export function BottomNavigation({
 }: {
   profileHref: string;
   isActive: (href: string) => boolean;
-  notificationLabel: string;
-  notificationBadge: string | null;
 }) {
   const homeActive = isActive("/");
   const profileActive = isActive(profileHref);

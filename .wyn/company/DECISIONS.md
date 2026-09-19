@@ -2139,3 +2139,26 @@ deploy batch 1 (Home/Bottom Nav) ขึ้น production สำเร็จแ�
 บทเรียน: session คู่ขนานที่ทำงานเรื่องคล้ายกันบนคนละ branch โดยไม่รู้ตัวกันมาก่อน เป็นความเสี่ยงจริงที่เกิด
 ขึ้นแล้ว — ควรตรวจ `mergeable_state` ของ PR ทุกครั้งก่อนขอ merge ไม่ใช่เชื่อแค่ CI เขียว และควรสังเกตความ
 เป็นไปได้ที่จะมีงานคล้ายกันเกิดขึ้นคู่ขนานเมื่อ Founder น่าจะเปิดหลาย session พร้อมกัน
+
+## [2026-09-19] WYN-178 — แท็ปบาร์: ไอคอนคลับ/แชทใหม่ (Founder อนุมัติ "เอาแบบนี้ 100%")
+
+Founder ขอ "ออกแบบแท็ปบาร์ใหม่" กว้างๆ — AI Design audit โค้ดจริง (`web/components/bottom-navigation.tsx`,
+`web/app/bottom-nav.css`) พบ: (1) ลำดับ/label 5 แท็บ (หน้าหลัก/คลับ/โพสต์/แชท/โปรไฟล์) เป็นคำสั่งถาวรเดิมของ
+Founder (2026-09-16, ดู log revert PR #469) (2) สียัง hardcode ไม่ใช้ token (3) ไม่มี press-feedback เลย
+ทั้งที่ทุกจุดอื่นมีแล้ว (4) `notificationLabel`/`notificationBadge` เป็น dead prop ค้างจากก่อน revert PR #468
+(5) WYN-176 (session คู่ขนาน) ตั้งใจไม่แตะ bottom nav dock ใน batch 1 — ไม่มีงานชนกันถ้าทำเฉพาะไอคอน/token
+
+Founder ส่งภาพอ้างอิง (บับเบิลแชทมีจุดไข่ปลา, คลับ 3 คน) ถามยืนยัน 2 เรื่อง: ทิศทาง visual และจะเปิดทบทวน
+โครงสร้างแท็บไหม — Founder ตอบ "เปิดให้ทบทวนโครงสร้างด้วย" แต่ภาพอ้างอิงที่ส่งจริงคือ Home/คลับ/โพสต์/แชท/
+โปรไฟล์ ลำดับเดิมเป๊ะ จึงไม่มีการเปลี่ยนโครงสร้างจริง
+
+ทำ Artifact demo เทียบ Before/After (ไอคอนคลับ 2→3 คน, แชทเพิ่มจุดไข่ปลา) แล้ว Founder ขอดูตัวเลือกสไตล์
+Apple/SF-Symbols เพิ่ม (filled-icon ตอน active, person.crop.circle, accent-tint ทางเลือก) — เพิ่มเป็น 2 แถว
+ทางเลือกเสริมใน Artifact เดียวกัน จากนั้น Founder ส่งภาพอ้างอิงเดิมซ้ำอีกครั้งพร้อม **"เอาแบบนี้ 100%"** —
+สรุปว่า Founder เลือกทางเลือกแรก (icon refresh ธรรมดา ไม่ใช่ Apple-style filled/circle/accent) ไม่ใช่ตัวเลือก
+เสริมที่เพิ่มเข้ามาทีหลัง
+
+สร้าง `.wyn/tasks/active/WYN-178-bottom-nav-icon-refresh.md` ส่งต่อ AI Coding: เปลี่ยนไอคอนคลับ (3 คน) +
+แชท (บับเบิลกลม+จุดไข่ปลา), เปลี่ยน hardcode hex เป็น `var(--wyn-text)`/`var(--wyn-text-secondary)`, เพิ่ม
+press-feedback token มาตรฐาน, ลบ dead code badge prop — ไม่แตะสี ไม่แตะโครงสร้าง/ลำดับแท็บ ไม่ใช้ Apple-style
+filled/circle/accent (Founder ไม่ได้เลือกตัวเลือกนั้น)
