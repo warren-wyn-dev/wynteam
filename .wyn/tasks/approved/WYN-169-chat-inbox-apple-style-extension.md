@@ -1,7 +1,7 @@
 # Design Task — WYN-169
 
-Status: QA PASS — ส่งต่อ AI Deploy & DevOps
-Owner: AI Design → Founder → AI Coding → AI QA & Security → รอ AI Deploy & DevOps
+Status: PR เปิดแล้ว รอ CI เขียว + Founder อนุมัติ merge (PR #549)
+Owner: AI Design → Founder → AI Coding → AI QA & Security → AI Deploy & DevOps (กำลังดำเนินการ)
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: ขยายภาษา press-scale motion จาก WYN-163/167 มาที่ปุ่ม header 2 จุดของ Chat Inbox
 (`.wyn-chat-compose-action`, `.wyn-chat-requests-link`) — ขอบเขตแคบเหมือน WYN-167 เป๊ะ ไม่แตะขนาด/สี/layout
