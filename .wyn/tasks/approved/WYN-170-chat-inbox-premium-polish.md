@@ -1,7 +1,7 @@
 # Design Task — WYN-170
 
-Status: PR เปิดแล้ว รอ CI เขียว + Founder อนุมัติ merge (PR #550)
-Owner: AI Design → Founder → AI Coding → AI QA & Security → AI Deploy & DevOps (กำลังดำเนินการ)
+Status: Deploy สำเร็จ (PR #550 merged, production deploy เขียวหมด) — รอ Founder ยืนยันบนเว็บจริงก่อนย้ายไป completed/
+Owner: AI Design → Founder → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ยืนยัน production จริง
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: แก้จุดบกพร่องที่ Founder พบจากภาพหน้าจอจริง ("ออกแบบหน้าใหม่ได้ไหม มันไม่สวย") ผ่าน 6 รอบ feedback
 (ดูสรุปเต็มที่ `.wyn/docs/design/wyn-170-chat-inbox-premium-polish.md` หัวข้อ "สรุปขอบเขตสุดท้าย (v6)")
@@ -163,3 +163,26 @@ Recommendation: **PASS** — ส่งต่อ AI Deploy & DevOps ได้ท�
 บันทึกไว้เผื่อ Founder อยากได้ยินความเห็นทาง accessibility ตอนใช้งานจริงบนมือถือ
 
 Final Status: PASS
+
+## AI Deploy & DevOps (2026-09-19)
+
+Release: WYN-170 — Chat Inbox premium polish pass
+Version: within WYNOS Web Beta1 — no version bump
+QA Status: PASS (12/12 test cases, ดูรายละเอียดข้างต้น)
+Build Status: `npm run check` เขียวทุกจุด (ตรวจอิสระซ้ำก่อนเปิด PR); CI บน `main` หลัง merge เขียวครบ 5/5 job
+Deployment Target: Vercel production (`wynos.online`), existing project
+Changes: `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`
+Deployment Result: PR #550 merged (`f9b5563b`) → production deploy workflow (run #137) เขียวหมด รวม route
+verification, CI หลักบน main ก็เขียวครบ 5/5 job — รายละเอียดเต็ม
+`.wyn/logs/deployments/2026-09-19-wyn-170-chat-inbox-premium-polish-deploy.md`
+
+**หมายเหตุสำคัญ**: Founder merge PR #550 เข้า production **เองโดยตรงบน GitHub** เพียง ~28 วินาทีหลังเปิด PR
+— ก่อนที่ CI ของ PR เองจะรันเสร็จด้วยซ้ำ (`merged_by: warren-wyn-dev`) เป็นสิทธิ์เต็มของ Founder ในฐานะ
+final decision maker — AI Deploy ไม่ได้ merge เองและยังไม่ทันขออนุมัติรอบนี้ เมื่อเจอสถานการณ์นี้ AI Deploy
+จึงเปลี่ยนมาตรวจสอบ CI **หลัง merge** แทน — monitor ทั้ง `main` CI workflow และ production deploy workflow
+จนจบ ยืนยันว่าเขียวครบทุกจุดจริง (ไม่มี CI แดงหลุดรอดไปหลัง merge) ไม่ต้องส่ง fix PR ตามหลัง
+
+Production Verification: AI-confirmed ผ่าน route-verification step ของ deploy workflow + CI เขียวครบหลัง
+merge — sandbox เข้าเว็บจริงไม่ได้ **รอ Founder เปิดเว็บจริงยืนยัน** ก่อนย้าย task นี้ไป `completed/`
+Rollback Plan: fix-forward หรือ revert commit เดียว (ไฟล์เดียวกัน 2 ไฟล์, ไม่กระทบ schema/data) — hard
+rollback ต้องได้รับคำสั่ง Founder ชัดเจน
