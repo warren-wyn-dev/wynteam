@@ -1,7 +1,7 @@
 # Design Task — WYN-163
 
-Status: qa (implement เสร็จแล้ว 2026-09-19 — รอ AI QA & Security ตรวจก่อน deploy)
-Owner: AI Design → AI Coding (implement เสร็จ) → **AI QA & Security ตรวจต่อ**
+Status: bugs (QA รอบ 1 = **FAIL** 2026-09-19 — 2 findings, ส่งต่อ AI Debug Engineer ที่ WYN-164)
+Owner: AI Design → AI Coding (implement เสร็จ) → AI QA & Security (**FAIL รอบ 1**) → **AI Debug Engineer (WYN-164)**
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
 `SignupStep2Screen`, `OnboardingProfileScreen`, `ForgotPasswordScreen`
@@ -83,4 +83,12 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
   screenshot ทั้ง 6 หน้าจอผ่าน dev server จริง ตรงตามมอคอัพที่ Founder อนุมัติ, อัปเดต regression test
   `auth-reference-flow.spec.ts` 2 จุดที่ยังล็อกค่าเดิม (999px/50px, 10px/44px) ให้ตรงค่าใหม่ที่อนุมัติแล้ว —
   รายละเอียดเต็มดู commit `16d3ccaa`
-- ถัดไป: **AI QA & Security** ตรวจก่อน deploy ขึ้น WYNOS Web Beta1 (ห้ามข้าม QA)
+- 2026-09-19 (AI QA & Security) — **QA รอบ 1: FAIL**: ทดสอบจริงบน dev server ผ่าน Playwright (ทั้ง 6 หน้าจอ
+  + คลิกผ่าน flow จริง Welcome→Login/Signup, ตรวจ console error 0 จุด, ตรวจ `prefers-reduced-motion` ทำงาน
+  ถูกต้อง, ตรวจ 320/390/430px) เจอ 2 findings ระดับ MEDIUM: (1) `/account/add` ใช้ CSS ไฟล์เดียวกันแต่ไม่อยู่
+  ใน scope ที่อนุมัติ — ได้ปุ่ม/input ใหญ่ขึ้นตามไปด้วยแบบไม่ได้ตั้งใจ แต่ไม่ได้โลโก้ Google/หัวข้อใหญ่ตามไป
+  ด้วย ทำให้หน้าจอนี้ดูค้างกลางทาง (2) หัวข้อ Welcome 32px ตัดคำกลางคำที่จอ 320px (ปกติที่ 390px+) — ไม่มี
+  security finding, ไม่มี functional break, ไม่มี regression ของฟีเจอร์เดิม รายละเอียดเต็ม/repro/fix ที่แนะนำ
+  อยู่ที่ `.wyn/tasks/bugs/WYN-164-onboarding-redesign-followup.md`
+- ถัดไป: **AI Debug Engineer** แก้ WYN-164 แล้วส่งกลับ AI QA & Security ตรวจซ้ำก่อน deploy ขึ้น WYNOS Web
+  Beta1 (ห้ามข้าม QA)
