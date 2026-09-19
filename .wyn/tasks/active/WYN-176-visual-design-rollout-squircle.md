@@ -1,7 +1,7 @@
 # Product Task — WYN-176
 
-Status: review — batch 1 (Home chrome) เขียนโค้ดเสร็จแล้ว (2026-09-19), ส่งต่อ AI QA & Security
-Owner: AI Product Manager → AI Design (batch 1 spec + preview เสร็จ) → AI Coding (batch 1 เสร็จ) → AI QA & Security
+Status: batch 1 PASS (2026-09-19) — approved, รอ Founder อนุมัติ production deployment; batch 2+ (Composer/Chat/Profile/Search/Notifications/Club) ยังไม่เริ่ม
+Owner: AI Product Manager → AI Design (batch 1 spec + preview เสร็จ) → AI Coding (batch 1 เสร็จ) → AI QA & Security (batch 1 PASS)
 Feature: WYNOS Web Beta1 — Visual Design Rollout (WYN-174 Track 2) — extend WYN-163's Apple-style squircle direction system-wide
 Goal: Make the rest of WYNOS Web (Home, Composer, Chat, Profile/Settings, Search/Notifications/Club) visually consistent with the Auth screens' Apple-style redesign (WYN-163), instead of the app looking like two different products depending on which screen you're on
 Target User: All WYNOS Web users — the whole app, not just onboarding
@@ -81,3 +81,21 @@ Two decisions before AI Design starts:
 **Known Issues**: batch 1 นี้ครอบคลุมแค่ Home chrome (เมนูลิ้น/sheet/retry button) — Composer, Chat, Profile/Settings, Search/Notifications/Club ยังเป็น batch ถัดไปที่ยังไม่เริ่ม (ดู WYN-176 scope เต็ม)
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) radius/press feedback ตรงตาม spec จริงบน dev server ไม่ใช่แค่ harness แยก (2) เมนูลิ้นที่ใช้ร่วมกับ Notifications ก็ได้ผลด้วย (ตรวจทั้ง `/` และ `/notifications`) (3) ไม่มี regression ต่อการ์ดโพสต์/bottom nav (Flutter parity test เดิมต้องผ่านหมด) (4) `wyn-redrop-sheet-option` ยังทำงานเหมือนเดิมไม่เปลี่ยน
+
+## QA Batch 1 (AI QA & Security, 2026-09-19)
+
+**Test Cases**: ไม่เชื่อผลที่ AI Coding รายงานเอง ทำ harness แยกใหม่ทั้งหมด — (1) console/HTTP error sweep บน `/`, `/notifications`, `/search`, `/welcome` ด้วย dev server จริง (2) radius คำนวณจริง 2 จุด ผ่าน full CSS cascade (38 ไฟล์ตามลำดับ import จริง) (3) press feedback จริงด้วย mouse down/up 8 จุด + ตรวจว่า release กลับเป็น `none` ถูกต้อง (4) ยืนยัน `wyn-redrop-sheet-option`/`.wyn-home-header-action` ไม่ถูกแตะ/ทับ (5) `prefers-reduced-motion` ปิด transition 4 จุด (6) ตรวจ `parity.spec.ts` (source-parity gate เดิม) ว่าอ้างอิงแค่ text content ของ `.tsx` ไม่ใช่ CSS computed value — ยืนยันว่า diff รอบนี้แตะแค่ไฟล์ CSS ไม่แตะ `.tsx` เลย จึงไม่มีความเสี่ยงต่อ parity test เดิม (7) `typecheck`/`lint`/`build` อิสระใหม่
+
+**Passed**: 32/32 (console/HTTP 8 + radius 2 + press feedback 16 + unchanged-behavior 2 + reduced-motion 4) + lint/typecheck/build สะอาดหมด
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่มี — CSS-only diff ไม่แตะ logic/data/auth
+
+**Recommendation**: Approve batch 1 — เข้า Deploy gate ปกติ
+
+**Final Status: PASS**
+
+Batch 1 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 1 นี้ก่อน (ไม่ย้าย task ไป `approved/` ทั้งไฟล์ เพราะ WYN-176 เป็น multi-batch task ยังมี batch อื่นค้างอยู่ — ตาม pattern เดียวกับ WYN-160 ที่แต่ละ batch deploy แยกกันแต่ task หลักยังอยู่ active จนกว่าจะครบทุก batch)

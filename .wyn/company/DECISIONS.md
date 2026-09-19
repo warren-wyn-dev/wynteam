@@ -1902,3 +1902,11 @@ Founder ดู Artifact แล้วตอบ "อนุมัติ เขี�
 ส่งต่อ AI QA & Security
 
 อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`
+
+## [2026-09-19] WYN-176 Batch 1 — QA PASS (independent, ไม่เชื่อผลที่ Coding รายงานเอง)
+
+ทำ harness แยกใหม่ทั้งหมด: console/HTTP error sweep บน `/`, `/notifications`, `/search`, `/welcome` จริง, radius คำนวณจริงผ่าน full cascade, press feedback จริงด้วย mouse down/up 8 จุด, ยืนยัน `wyn-redrop-sheet-option`/`.wyn-home-header-action` ไม่ถูกแตะ, reduced-motion 4 จุด, ตรวจ `parity.spec.ts` เดิมว่าอ้างอิง text content ของ `.tsx` เท่านั้นไม่ใช่ CSS จึงไม่เสี่ยง regression — รวม **32/32 ผ่าน** `typecheck`/`lint`/`build` สะอาดหมด ไม่มี security finding
+
+**Final Status: PASS** — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 1 (ไม่ย้าย WYN-176 ทั้งไฟล์ไป `approved/` เพราะยังมี batch อื่นค้าง เหมือน pattern WYN-160)
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`
