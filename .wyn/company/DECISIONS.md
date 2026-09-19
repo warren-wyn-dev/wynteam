@@ -1538,3 +1538,18 @@ Founder พิมพ์ยืนยันตรง ๆ: **"ตอนนี้ม
    Dart/Flutter theme อีกต่อไป จนกว่า Founder จะสั่งให้กลับไปทำ Flutter ต่อ
 
 ยังไม่มีการเปลี่ยนแปลงโค้ดจริงจากคำสั่งนี้ — เป็นการบันทึกทิศทาง/priority เท่านั้น
+
+## [2026-09-19] WYN-163 รอบ 5 — Founder อนุมัติ scope สุดท้าย: แก้ border-radius + เพิ่มโลโก้ Google จริง
+
+AI Design ถามยืนยัน 2 ข้อก่อนส่ง AI Coding: (1) อนุมัติแก้ `border-radius` 999px → 16px ใน
+`web/app/auth-reference.css` (2) ปุ่ม "เข้าสู่ระบบด้วย Google" ที่ไม่มีโลโก้เลย จะเพิ่มโลโก้จริงพร้อมกันไหม
+หรือแยกทีหลัง — คำตอบแรก ("2") กำกวม ถามย้ำเป็นตัวเลือกชัดเจน 2 ข้อ Founder ตอบ **"2" = อยากเพิ่มโลโก้ Google
+จริงพร้อมกันเลยตอนนี้**
+
+**Scope สุดท้ายของ WYN-163 ที่อนุมัติแล้ว ส่งต่อ AI Coding ได้**:
+1. `web/app/auth-reference.css`: `.btn-primary`/`.btn-outline` `border-radius: 999px` → `16px`
+2. เพิ่มโลโก้ Google ทางการ (ตาม Google Identity branding guideline) ในปุ่ม "เข้าสู่ระบบด้วย Google" ที่
+   `web/components/auth-flow/screens.tsx` (`WelcomeScreen`) — ปัจจุบันเป็นตัวหนังสือล้วน ไม่มีไอคอนเลย ต้อง
+   หา/เพิ่ม asset โลโก้ Google ที่ยังไม่มีอยู่ใน repo (ตรวจแล้วไม่พบไฟล์ google logo ที่ไหนใน repo นี้มาก่อน)
+
+ทั้งสองข้อยังอยู่ในขอบเขต "Onboarding/Auth ของ WYNOS Web" เท่านั้น ไม่กระทบหน้าจออื่น

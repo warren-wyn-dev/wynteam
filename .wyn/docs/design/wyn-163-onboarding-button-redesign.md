@@ -60,10 +60,9 @@ text (`ErrorText` component) ไม่ได้ใช้กับปุ่ม �
 2. **Outline** (`.btn-outline`) — "เข้าสู่ระบบด้วย Google", "เข้าสู่ระบบ" (ปุ่มรองในหน้า Welcome)
    - โปร่งใส + ขอบ `var(--border-strong)` + ตัวหนังสือ `var(--text-primary)` — **สีเดิมถูกต้องแล้ว ไม่แตะ**
    - **[แก้]** `border-radius: 999px` → **`16px`**
-   - **หมายเหตุสำคัญ**: ปุ่ม "เข้าสู่ระบบด้วย Google" ในโค้ดปัจจุบันเป็นแค่ตัวหนังสือล้วน ไม่มีโลโก้/ไอคอน
-     Google เลยแม้แต่น้อย (ต่างจากฝั่ง Flutter ที่อย่างน้อยยังมีไอคอนเปล่า) — ยิ่งห่างจาก Design Rule เดิมที่
-     บังคับใช้ asset ทางการของ Google เป็น gap ที่มีอยู่ก่อนงานนี้ ให้ Founder ตัดสินใจว่าจะแก้พร้อมกันไหม (ดู
-     Handoff)
+   - **[อนุมัติแก้ในรอบนี้]** ปุ่มนี้ในโค้ดปัจจุบันเป็นแค่ตัวหนังสือล้วน ไม่มีโลโก้/ไอคอน Google เลยแม้แต่น้อย
+     (ต่างจากฝั่ง Flutter ที่อย่างน้อยยังมีไอคอนเปล่า) — Founder อนุมัติให้เพิ่มโลโก้ทางการพร้อมกันในรอบนี้
+     (ดูรายละเอียด asset ที่ Handoff)
 
 ทั้งสองคลาสกำหนดขนาดร่วมกันอยู่แล้วที่ `height: 50px` (ผ่าน touch target ≥44px อยู่แล้ว ไม่ต้องแก้)
 
@@ -111,13 +110,20 @@ text (`ErrorText` component) ไม่ได้ใช้กับปุ่ม �
 
 ## Handoff
 
-**ยังไม่ส่ง AI Coding** — รอ Founder ยืนยัน 2 เรื่อง:
+**อนุมัติแล้ว (2026-09-19 รอบ 5) — พร้อมส่ง AI Coding**:
 
-1. อนุมัติให้แก้ `web/app/auth-reference.css` เปลี่ยน `border-radius: 999px` → `16px` (จุดเดียว ผลกระทบ
-   ครบทั้ง 6 หน้าจอ Onboarding ของเว็บทันที) ได้เลยหรือไม่
-2. ปุ่ม "เข้าสู่ระบบด้วย Google" ที่ไม่มีโลโก้เลย — อยากให้เพิ่มโลโก้/ไอคอน Google จริงพร้อมกันในรอบนี้ หรือ
-   แยกเป็นงานทีหลัง
+1. **[อนุมัติ]** แก้ `web/app/auth-reference.css`: `.btn-primary`/`.btn-outline` `border-radius: 999px` →
+   `16px` (จุดเดียว ครอบคลุมทั้ง 6 หน้าจอ Onboarding ของเว็บทันที)
+2. **[อนุมัติ — เพิ่มสโคป]** เพิ่มโลโก้ Google ทางการในปุ่ม "เข้าสู่ระบบด้วย Google"
+   (`web/components/auth-flow/screens.tsx`, `WelcomeScreen`) — ปัจจุบันเป็นตัวหนังสือล้วน ไม่มีไอคอนเลย
+   ต้องใช้ asset ตาม [Google Identity branding
+   guideline](https://developers.google.com/identity/branding-guidelines) จริง (โลโก้ "G" 4 สีทางการ) ห้าม
+   วาดเลียนแบบเอง/ใช้ไอคอนเปล่าแทน — ตรวจ repo แล้วไม่มี asset นี้อยู่ก่อน ต้องหา/เพิ่มใหม่ (SVG จาก official
+   source หรือ npm package ที่ยี่ห้อ Google เผยแพร่เอง) ขนาดไอคอนแนะนำ 18-20px วางซ้ายข้อความ เว้นระยะจาก
+   ข้อความ ~10px สีพื้นปุ่ม/ขอบ/ตัวหนังสือ "เข้าสู่ระบบด้วย Google" ยังใช้ `.btn-outline` เดิม (ดำ/ขาว/เทา) ตาม
+   Design Rule เดิม — เปลี่ยนแค่เพิ่มไอคอนโลโก้เข้าไป ไม่เปลี่ยนสี/ทรงปุ่มทั้งก้อนให้เป็นสีของ Google
 
-เมื่ออนุมัติแล้ว ส่งต่อ AI Coding: แก้ `web/app/auth-reference.css` 1 จุด, รัน visual/parity regression suite
-ที่มีอยู่แล้ว (ดู `.wyn/company/DECISIONS.md` งาน WYN-158 ก่อนหน้าที่ใช้ suite เดียวกันตรวจ CSS การ์ด) +
-screenshot ทั้ง 6 หน้าก่อน-หลังให้ Founder ดูก่อน merge/deploy ขึ้น `WYNOS Web Beta1`
+ส่งต่อ AI Coding: แก้ 2 จุดข้างต้น, รัน visual/parity regression suite ที่มีอยู่แล้ว (ดู
+`.wyn/company/DECISIONS.md` งาน WYN-158 ก่อนหน้าที่ใช้ suite เดียวกันตรวจ CSS การ์ด) + screenshot ทั้ง 6
+หน้าก่อน-หลังให้ Founder ดูก่อน merge/deploy ขึ้น `WYNOS Web Beta1` — ต้องผ่าน QA ก่อน deploy เสมอ (ห้ามข้าม
+QA ตาม AGENTS.md)

@@ -1,6 +1,6 @@
 # Design Task — WYN-163
 
-Status: review (spec เต็มเขียนเสร็จแล้ว รอ Founder อนุมัติก่อนส่ง AI Coding)
+Status: approved (Founder อนุมัติ scope สุดท้ายแล้ว 2026-09-19 รอบ 5 — พร้อมส่ง AI Coding)
 Owner: AI Design
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
@@ -29,9 +29,10 @@ Design Rules:
    รอบ 4) — สเปกเวอร์ชันก่อนหน้าที่เขียนไว้สำหรับ Flutter เก็บเป็น reference เผื่อ Founder สั่งกลับมาทำต่อ
 6. จุดอื่นที่ sapphire/ink เคยทำหน้าที่นอกปุ่ม (ฝั่ง Flutter: avatar ring, active tab ฯลฯ) ไม่เกี่ยวกับงานนี้
    เพราะเว็บใช้ token คนละชุด (`--wyn-*`) อยู่แล้ว
-Handoff: spec เต็มเขียนเสร็จแล้วที่ `.wyn/docs/design/wyn-163-onboarding-button-redesign.md` — ยังไม่ส่ง
-AI Coding จนกว่า Founder จะตอบ 2 ข้อในหัวข้อ Handoff ของเอกสารนั้น (อนุมัติแก้ `border-radius` / จะเพิ่มโลโก้
-Google จริงพร้อมกันไหม)
+Handoff: **อนุมัติแล้ว พร้อมส่ง AI Coding** — spec เต็มที่
+`.wyn/docs/design/wyn-163-onboarding-button-redesign.md`: (1) แก้ `border-radius: 999px` → `16px` ใน
+`web/app/auth-reference.css` (2) เพิ่มโลโก้ Google ทางการในปุ่ม "เข้าสู่ระบบด้วย Google"
+(`web/components/auth-flow/screens.tsx`) — ทั้งสองข้อต้องผ่าน QA ก่อน deploy ขึ้น WYNOS Web Beta1 เสมอ
 
 Artifact (canvas เดียว ใช้ต่อเนื่องทุกรอบ — ทำไว้ตอน scope ยังเป็น Flutter แต่ทิศทางสี/ทรง/การตัดปุ่มเข้าชม
 ยังใช้อ้างอิงได้เหมือนเดิม): https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x
@@ -50,4 +51,6 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
   **ย้าย scope งานนี้ทั้งหมดจากแอป Flutter มาเป็น WYNOS Web** ตรวจโค้ดเว็บจริงพบว่าสีตรงกับที่ตัดสินใจไว้แล้ว
   100% (ไม่ต้องแก้สี) เหลือแก้แค่ `border-radius` จุดเดียวใน `web/app/auth-reference.css` และไม่มีปุ่ม
   guest-browse ในเว็บอยู่แล้วจึงไม่ต้องแก้เรื่องนั้น — เขียน spec ใหม่ให้ตรง scope เว็บแล้ว
-- ถัดไป: รอ Founder ยืนยัน 2 ข้อใน Handoff (อนุมัติแก้ border-radius / โลโก้ Google) ก่อนส่ง AI Coding
+- 2026-09-19 รอบ 5: Founder อนุมัติ scope สุดท้าย — แก้ border-radius + **เพิ่มโลโก้ Google จริงพร้อมกัน**
+  บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
+- ถัดไป: ส่งต่อ AI Coding implement 2 จุด แล้วเข้า QA ก่อน deploy (ห้ามข้าม QA)
