@@ -92,6 +92,25 @@ dark mode — verified via the same harness (screenshot inspected directly, not 
 
 Updated `web/components/bottom-navigation.tsx` club icon paths. No other files changed in this revision.
 `npm run check` re-run clean after the fix. Re-verify before merge; PR #557 updated with a new commit.
+
+**Process note**: Founder merged PR #557 (containing the "3 heads, no body" version) before this correction's
+commit landed — the buggy icon went live in production (`WYN-158 Production Deploy` run #144, success,
+2026-09-19T19:56:46Z). Restarted the branch from the latest `main` per the merged-PR rule and opened
+hotfix PR #558 with just this fix.
+
+## Revision 2 (2026-09-19, Founder sent a cleaner reference — "อยากได้แบบนี้")
+
+Founder sent a reference image showing a different, cleaner 3-person composition: one larger person in
+front/center (prominent head + body) with two smaller people behind/beside, their inner body portions
+occluded by the center person — all pure outline style, no filled silhouette look like the previous fix.
+
+Rebuilt the icon: two smaller side people drawn first (stroke only, `fill="none"`), then a larger center
+person drawn last with `fill="var(--wyn-bg)"` (matches the nav bar's own background token, so the mask is
+correct in both light and dark mode, not a hardcoded white) + `stroke="currentColor"` — the background fill
+cleanly masks the overlapping inner edges of the two side people's bodies, producing the same layered
+"front person in front" look as the reference without any stroke-crossing artifact. Verified via the same
+real-CSS-cascade harness (light + dark, actual 24px size) before pushing — matches the reference closely.
+Pushed onto the still-open PR #558 (amended, not a new PR) since it hadn't been merged yet.
 Owner: AI Design
 Screen: แท็ปบาร์ล่าง (bottom navigation) ทั้งระบบเว็บ — `web/components/bottom-navigation.tsx`, `web/app/bottom-nav.css`
 Purpose: ปรับไอคอน "คลับ" และ "แชท" ให้ตรงกับภาพอ้างอิงที่ Founder ส่งมา (ยืนยันครั้งที่ 2 ด้วยภาพเดิมทุกประการ พร้อมคำว่า
