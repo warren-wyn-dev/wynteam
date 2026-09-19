@@ -1854,3 +1854,17 @@ Founder พิมพ์ยืนยันในแชท: "ยืนยันแ
 **WYN-175 ปิดงานสมบูรณ์**: Product → Design → Coding → QA (FAIL→fix→PASS) → Deploy → Founder verification ครบทุกขั้นตอนตาม Default Team Workflow
 
 อ้างอิง: `.wyn/tasks/completed/WYN-175-web-perceived-speed-motion.md`, `.wyn/tasks/backlog/WYN-174-web-native-app-feel-v2.md`
+
+## [2026-09-19] WYN-176 — Founder เลือกทำ Track 2 (Visual Design Rollout) ต่อ พบว่าเป็นการต่อยอด WYN-160 ที่ทำค้างไว้ ไม่ใช่งานใหม่
+
+AI Product Manager ตรวจก่อนเขียน spec พบว่า **WYN-160** (2026-09-17, ยังอยู่ `.wyn/tasks/backlog/`) วางแผน rollout token consolidation ทั้งเว็บไว้แล้ว 8 batch — batch 1-6 (token ประกาศ, Auth, Home/Nav, Composer, Chat, Profile/Settings) ทำไปแล้วจริง เหลือ batch 7 (Search/Notifications/Club) กับ batch 8 (ลบ CSS dead code) ที่ยังไม่ทำ
+
+แต่ **WYN-163** (2026-09-19, ทำทีหลัง WYN-160 batch 6) เปลี่ยนทิศทางปุ่ม/input/หัวข้อของ Auth เป็นค่าใหม่ที่ใหญ่กว่าเดิมมาก (ปุ่ม 24px/58px, input 18px/56px, หัวข้อ 32px/800) แทนที่ค่าเดิมของ WYN-160 (pill 999px, input 10px, หัวข้อ 20px) — ตรวจ `web/app/design-system.css` จริงยืนยันว่า `--wyn-radius-control` ยังเป็น 12px ไม่เคย converge เป็น 10px ตามแผน WYN-160 เดิมเลย คอมเมนต์ในไฟล์เองยังบอก "not changed yet here"
+
+**ผลคือตอนนี้ Auth หน้าตาใหญ่/หนากว่าหน้าอื่นทั้งหมดของเว็บอย่างเห็นได้ชัด** — WYN-163 เองก็เขียน design rule ข้อ 9 ดักไว้ล่วงหน้าแล้วว่า "ถ้าจะขยายทั้งเว็บต้องเป็นงานแยก" ซึ่งคืองานนี้พอดี
+
+เขียน `WYN-176-visual-design-rollout-squircle.md` สรุปว่าเป็นการ "เอาค่าของ WYN-163 ไปแทนที่ค่าเดิมของ WYN-160" ในหน้าที่ทำไปแล้ว (Home/Composer/Chat/Profile) + ทำ batch 7 ที่ยังไม่เคยทำ (Search/Notifications/Club) ด้วยค่าใหม่ไปเลยโดยข้ามค่ากลางของ WYN-160 — ระบุข้อยกเว้นสำคัญ: การ์ดโพสต์ของ Home ล็อก parity กับ Flutter อยู่แล้ว (`home_drop_card.dart`) มี regression test ล็อกไว้ ห้ามแตะ
+
+ถามยืนยัน Founder 2 เรื่องก่อนส่ง AI Design: (1) ให้ค่าของ WYN-163 เป็นมาตรฐานทั้งเว็บแทนค่าเดิมของ WYN-160 หรือไม่ (2) เริ่ม batch ไหนก่อน (ต่อลำดับเดิม Home/Nav หรือข้ามไปทำ Search/Notifications/Club ที่ยังไม่เคยแตะเลย)
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-176-visual-design-rollout-squircle.md`, `.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`
