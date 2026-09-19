@@ -1,7 +1,7 @@
 # Design Task — WYN-170
 
-Status: coding done — ส่งต่อ AI QA & Security
-Owner: AI Design → Founder → AI Coding → รอ AI QA & Security → AI Deploy & DevOps
+Status: QA PASS — ส่งต่อ AI Deploy & DevOps
+Owner: AI Design → Founder → AI Coding → AI QA & Security → รอ AI Deploy & DevOps
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: แก้จุดบกพร่องที่ Founder พบจากภาพหน้าจอจริง ("ออกแบบหน้าใหม่ได้ไหม มันไม่สวย") ผ่าน 6 รอบ feedback
 (ดูสรุปเต็มที่ `.wyn/docs/design/wyn-170-chat-inbox-premium-polish.md` หัวข้อ "สรุปขอบเขตสุดท้าย (v6)")
@@ -101,3 +101,65 @@ Handoff: ส่งต่อ AI QA & Security — ตรวจ regression ทั�
 แตะ), ตรวจว่าไม่มีทางเข้าถึงปุ่มเขียนข้อความใหม่บนหน้านี้เหลืออยู่จริง, ตรวจ title ชิดซ้ายจริง, ตรวจ search bar
 40px ยังกดง่ายพอ (ต่ำกว่า DS-008 เล็กน้อย), ตรวจ end-of-list marker แสดงถูกต้อง, ตรวจ dark-mode contrast ไม่มี
 regression แบบ WYN-168 (โดยเฉพาะปุ่ม "คำขอ" ตอน active state ใหม่)
+
+## AI QA & Security (2026-09-19)
+
+Feature: WYN-170 Chat Inbox premium polish — header title ชิดซ้าย, ปุ่ม "คำขอ" toggle เดียวแทน modal เดิม,
+เอาปุ่มเขียนข้อความใหม่ออก, search bar 40px, chat row เรียบแบน+press-scale, Notes row `.is-solo`,
+end-of-list marker
+
+Environment: sandbox render live ไม่ได้ (ไม่มีค่า Supabase/Firebase) — ใช้วิธีเดียวกับ WYN-169: ดึง CSS จริง
+จาก repo ตรงๆ (`globals.css` → `phase3.css` → `system-parity-lock.css` → `pixel-parity-audit-closure.css` →
+`design-system.css` → `notifications-clean.css` → `chat-notes.css` เรียงตาม import order จริงใน
+`app/layout.tsx`) ผ่าน static file server ชั่วคราว ประกอบ markup ตรงจากโค้ดจริงใน `chat-inbox-parity.tsx`
+(header/search/notes/chat-row/requests-panel ทุกจุดใช้ class name เดียวกับโค้ดจริงเป๊ะ) รัน Playwright
+(`playwright-core` + `/opt/pw-browsers/chromium`) จำลอง `:active`/`prefers-color-scheme`/
+`prefers-reduced-motion` จริง — ไม่ commit ไฟล์ทดสอบใดๆ ปิด process หลังใช้เสร็จ
+
+Test Cases:
+1. **Title ชิดซ้าย** — วัดจริงว่า `justify-self:start`/`text-align:left` ถูก apply และ bounding box ของ
+   title ชิดติดขอบขวาของปุ่มย้อนกลับพอดี (0px gap) ในทุก color scheme — ตรงตาม spec
+2. **Search bar 40px** — วัด `getBoundingClientRect().height` ได้ 40px ตรงเป๊ะทั้ง light/dark/reduced-motion
+3. **ไม่มีปุ่มเขียนข้อความใหม่เหลือ** — `querySelectorAll(".wyn-chat-compose-action, .wyn-chat-fab")` = 0
+   จุด ยืนยันด้วย grep ทั้ง `.tsx`/`.css` ว่าไม่มีร่องรอยเหลือเลย
+4. **Toggle "คำขอ"** — กด 1 ครั้ง: `aria-pressed` เปลี่ยน false→true, panel คำขอโชว์+panel inbox กับ
+   Notes row ซ่อน, class `.is-active` ติด; กดซ้ำ: กลับสู่ค่าเริ่มต้นครบทุกจุด — ตรวจตรงกับ logic จริงใน
+   `onClick={() => setActiveTab((current) => (current === "requests" ? "inbox" : "requests"))}` แล้ว (อ่าน
+   source โดยตรงยืนยัน logic ถูกต้อง เพราะ sandbox รัน React component จริงไม่ได้)
+5. **Motion** — `.chat-row` และปุ่ม "คำขอ" กดค้างจริงแล้ว `transform` ขยับเข้าใกล้ `scale(0.96)` (วัดได้
+   `matrix(0.958-0.963,...)` ระหว่างเคลื่อนที่ที่ 80ms เข้า transition 160ms — ตรงสูตร), `reduced-motion`
+   ปิด transition แต่ยัง snap ไป `scale(0.96)` ทันที (เหมือน WYN-163/167/169 ทุกจุด)
+6. **ไม่มีเส้นคั่นระหว่างแถว** — `getComputedStyle(el, "::after").content` = `"none"` ยืนยันว่า pseudo-element
+   ถูกปิดจริง ตรงตาม design "ทรงเรียบแบน"
+7. **End-of-list marker** — ข้อความ "เห็นข้อความล่าสุดแล้ว" แสดงถูกต้อง
+8. **WCAG contrast ของปุ่ม "คำขอ" active state** (ป้องกันบั๊กแบบ WYN-168) — คำนวณจริงจาก
+   `getComputedStyle()`: **18.97:1 (light) / 18.88:1 (dark)** — ผ่าน WCAG AA (≥4.5:1) แบบขาดลอยมาก
+   ไม่มี regression
+9. **Notes row `.is-solo`** — วัดได้ 118px (มี `.is-solo`) vs 136px (ไม่มี) ถูกต้องตาม spec — ระหว่างตรวจพบ
+   false-positive ของตัวเองรอบแรก (อ่านค่าได้ 118px ทั้งสองกรณี) เพราะ query `getComputedStyle` แบบ
+   synchronous ทันทีหลัง toggle class บน element ที่มี `transition: min-height` — แก้โดยรอ `waitForTimeout`
+   ให้ transition (220ms) settle ก่อนอ่านค่า แล้ววัดซ้ำได้ผลถูกต้องตรงกับ spec ยืนยันว่าเป็นปัญหาจาก
+   test methodology ของตัวเอง ไม่ใช่บั๊กในโค้ดจริง
+10. **ปุ่มย้อนกลับซ้าย header** — ตรวจ diff ยืนยันว่า element นี้ไม่ถูกแก้ไขเลยในรอบนี้ (ไม่มีบรรทัด diff ใด
+    แตะ `<Link className="flutter-chat-header-action">` เลย) ปลอดภัย 100%
+11. **`.requests-modal` ของ `chat-routes.tsx`** — grep ยืนยันว่าเป็นคนละ route/คนละ component/คนละ state
+    (`/chat/[id]` ไม่ใช่ `/chat`) ไม่ได้รับผลกระทบจากการเปลี่ยนแปลงรอบนี้เลย
+12. รัน `npm run check` (lint + typecheck + build) ซ้ำอิสระจาก AI Coding — ผ่านทั้งหมดตรงกับที่รายงานไว้
+    (lint 0 errors/3 warning เดิมไม่เกี่ยวกับไฟล์นี้, typecheck ผ่าน, build ผ่านทุก route)
+
+Passed: 12/12 test cases ข้างต้น
+
+Failed: ไม่มี
+
+Severity: N/A (ไม่พบบั๊ก)
+
+Security Findings: ไม่มี — เป็น UI/interaction change ล้วนๆ ไม่มี data flow/auth ใหม่เกี่ยวข้อง (ปุ่ม
+ยอมรับ/ลบคำขอเรียก `decide()`/`acceptMessageRequest`/`deleteMessageRequest` เดิมที่ผ่าน server-side
+authorization อยู่แล้ว ไม่ได้แก้ logic เหล่านั้นเลย)
+
+Recommendation: **PASS** — ส่งต่อ AI Deploy & DevOps ได้ทันที ข้อสังเกตเสริม (ไม่ใช่ blocker): search bar
+40px ต่ำกว่า DS-008 minimum touch target (44px) อยู่ ~9% แต่เนื่องจากเป็น element แนวนอนที่กว้างมาก (พื้นที่
+กดง่ายตามความกว้าง ไม่ใช่แค่ความสูง) และ Founder ขอเจาะจงโดยรู้ตัวแล้ว จึงไม่ถือเป็นปัญหาชัดเจนที่ต้อง block —
+บันทึกไว้เผื่อ Founder อยากได้ยินความเห็นทาง accessibility ตอนใช้งานจริงบนมือถือ
+
+Final Status: PASS
