@@ -117,3 +117,9 @@ P0 — Founder ยืนยันให้เริ่ม track นี้ก่�
 **Final Status: PASS**
 
 ย้าย task ไป `.wyn/tasks/approved/` ส่งต่อ AI Deploy & DevOps
+
+## Deploy (AI Deploy & DevOps, 2026-09-19)
+
+PR #552 เปิดตามคำสั่ง Founder "เปิดเลย" → Founder merge เอง (`warren-wyn-dev`) ~44 วินาทีหลังเปิด → `WYN-158 Production Deploy` run #139 สำเร็จทุก step (preflight, Vercel deploy, verify production routes) → post-merge `CI` บน `main` เขียวด้วย รายละเอียดเต็ม: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`
+
+**ยังไม่ย้ายไป `completed/`** ตามกติกา WORKFLOW.md — ต้องรอ Founder ยืนยัน physical device (`wynos.online/search`, `/notifications` บนมือถือจริง) ก่อนถึงจะถือว่า production verification เสร็จสมบูรณ์

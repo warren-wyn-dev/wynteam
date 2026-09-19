@@ -1834,3 +1834,13 @@ Reproduce บั๊กซ้ำก่อนแก้ (ได้ผล FAIL เ�
 เปิด PR [#552](https://github.com/warren-wyn-dev/wynteam/pull/552) (`claude/wynos-online-version-1pqqws` → `main`) แล้วตามที่ Founder ยืนยัน — ยังไม่ merge (merge เป็นสิทธิ์ของ Founder เองตาม Founder Gate, AI Deploy & DevOps ไม่ merge เอง) เมื่อ Founder merge แล้ว `wyn-158-production-deploy.yml` จะ deploy ขึ้น `wynos.online` อัตโนมัติ
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`
+
+## [2026-09-19] WYN-175 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+Founder merge PR #552 เอง (~44 วินาทีหลังเปิด, pattern เดียวกับ #550/#551) → `WYN-158 Production Deploy` run #139 **success** ทุก step (preflight, Vercel deploy, verify production routes, รวม ~2 นาที) → post-merge `CI` บน `main` (run #1391) **success** เช่นกัน — ตรวจสอบอิสระเองทั้งหมดผ่าน GitHub Actions API ไม่เชื่อแค่สถานะ PR ว่า merge แล้ว
+
+ยังไม่ย้าย task ไป `completed/` เพราะสภาพแวดล้อมนี้เข้าถึง `wynos.online` ไม่ได้ (outbound network policy บล็อก) — รอ Founder เปิด `wynos.online/search`/`/notifications` บนมือถือจริงยืนยัน skeleton/press feedback/route transition ทำงานจริงตามบทเรียน WYN-158
+
+Unsubscribe จาก PR #552 แล้ว (merged/closed)
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`, `.wyn/tasks/approved/WYN-175-web-perceived-speed-motion.md`
