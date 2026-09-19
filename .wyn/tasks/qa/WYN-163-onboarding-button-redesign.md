@@ -1,7 +1,7 @@
 # Design Task — WYN-163
 
-Status: approved (Founder อนุมัติ scope สุดท้ายแล้ว 2026-09-19 รอบ 5-8 — พร้อมส่ง AI Coding)
-Owner: AI Design
+Status: qa (implement เสร็จแล้ว 2026-09-19 — รอ AI QA & Security ตรวจก่อน deploy)
+Owner: AI Design → AI Coding (implement เสร็จ) → **AI QA & Security ตรวจต่อ**
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
 `SignupStep2Screen`, `OnboardingProfileScreen`, `ForgotPasswordScreen`
@@ -76,4 +76,11 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
 - 2026-09-19 รอบ 8: Founder ถาม "งานจริงจะออกมาแบบไหน" → AI Design ทำอาร์ตบอร์ด 6 รวมทุกการอนุมัติเข้าด้วย
   กัน (ครบ 6 หน้าจอ) → Founder ตอบ **"โลแบรนด์ไม่เด่น นอกนั้นโอเค"** → ขยายโลโก้ WYNOS หน้า Welcome/Login
   บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน — **อนุมัติครบทุกจุดแล้ว**
-- ถัดไป: ส่งต่อ AI Coding implement 7 จุด แล้วเข้า QA ก่อน deploy (ห้ามข้าม QA)
+- 2026-09-19 (AI Coding): Implement ครบทั้ง 7 จุดใน `web/app/auth-reference.css` +
+  `web/components/auth-flow/screens.tsx` แล้ว — `npm run typecheck`/`npm run lint`/`npm run build` ผ่านหมด
+  (0 error), เพิ่ม fix เสริม 1 จุดที่ spec ไม่ได้ระบุไว้ตรงๆ (ช่องกรอกชื่อผู้ใช้ในหน้า Signup 1 ใช้ inline
+  style แยกจาก `.wyn-input` ทำให้มุมโค้งไม่ตรงกับช่องอื่น — แก้ให้ตรงกันด้วย), เช็คภาพจริงด้วย Playwright
+  screenshot ทั้ง 6 หน้าจอผ่าน dev server จริง ตรงตามมอคอัพที่ Founder อนุมัติ, อัปเดต regression test
+  `auth-reference-flow.spec.ts` 2 จุดที่ยังล็อกค่าเดิม (999px/50px, 10px/44px) ให้ตรงค่าใหม่ที่อนุมัติแล้ว —
+  รายละเอียดเต็มดู commit `16d3ccaa`
+- ถัดไป: **AI QA & Security** ตรวจก่อน deploy ขึ้น WYNOS Web Beta1 (ห้ามข้าม QA)
