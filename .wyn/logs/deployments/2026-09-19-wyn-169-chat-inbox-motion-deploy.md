@@ -58,13 +58,18 @@ changes, no new dependencies, no new environment variables. Plus `.wyn/` process
 
 ## Deployment Result
 
-_Filled in once the post-merge `WYN-158 Production Deploy` workflow run finishes — see
-[run #136](https://github.com/warren-wyn-dev/wynteam/actions/runs/35445198178)._
+[Run #136](https://github.com/warren-wyn-dev/wynteam/actions/runs/35445198178) (PR #549 merge, commit
+`315e3acc`) — **success**, all steps green: preflight (13:15:31–13:16:10), Vercel production deploy
+(13:16:10–13:16:45), route verification (13:16:45–13:16:48). The full `main`-branch `CI` workflow (run
+[#1383](https://github.com/warren-wyn-dev/wynteam/actions/runs/35445198089)) also finished green on the same
+commit — `Supabase Edge Functions`, `schema.sql ordering`, `Admin (Next.js)`, `Flutter`, `Supabase PostgreSQL
+integration` all success. No CI-red rounds this deploy (unlike WYN-167/168's #547→#548) — PR #549 was green
+on its first push and stayed green through merge.
 
 ## Production Verification
 
-- **AI-confirmed**: pending — the production workflow's own `Verify production routes` step (real network
-  access from the GitHub Actions runner)
+- **AI-confirmed**: the production workflow's own `Verify production routes` step (real network access from
+  the GitHub Actions runner) — success
 - **Not AI-confirmed**: this sandbox's outbound network policy blocks `wynos.online`, so independent
   verification isn't possible from here — same limitation as every prior web deploy in this log folder
 - **Still needed from Founder**: open `wynos.online/chat` (or equivalent) on a real phone/browser and press
