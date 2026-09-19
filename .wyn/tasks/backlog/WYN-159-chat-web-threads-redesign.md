@@ -12,3 +12,15 @@ Responsive Behavior: ไม่เปลี่ยน composer/safe-area ที่
 Accessibility: bubble ต้องมี aria-label รวมผู้ส่ง+เวลา+เนื้อหาแม้ timestamp ไม่โชว์ถาวร, touch target ≥44px (DS-008), unread dot ใหม่ต้อง aria-hidden
 Design Rules: ห้าม Cyan/Rainbow ในหน้าแชท, ห้าม liquid-glass, ใช้ token `--wyn-*` เดิมเท่านั้น ไม่ประดิษฐ์สีใหม่
 Handoff: ดูลำดับงานเต็มที่ `.wyn/docs/design/wyn-159-chat-web-threads-redesign.md#handoff` — แนะนำให้ทำภาพเปรียบเทียบก่อน-หลังให้ Founder ดูก่อน AI Coding เริ่ม (ตามกติกาถาวร WYN-141) รอ Founder ยืนยันว่าต้องการดูภาพก่อนหรือให้เริ่ม coding ได้เลย
+
+## Update (2026-09-19) — Founder ยืนยันอยากทบทวนใหม่
+
+ระหว่างออกแบบ WYN-169 (Chat Inbox motion extension) AI Design ตรวจพบว่าเอกสารนี้อ้างอิง "DS-001 ยืนยันสีแบรนด์
+WYN คือ Cyan `#00C8FF`" ซึ่ง**ไม่ตรงกับโค้ดจริงของเว็บ ณ วันที่ 19 ก.ย. 2026** — เว็บใช้ระบบ token
+`--wyn-bg`/`--wyn-text`/`--wyn-surface` (ขาว-ดำ-เทา) + `--wyn-accent:#e0203d` (แดง สงวนไว้เฉพาะ error) ไม่มี
+Cyan อยู่ในระบบเลย (สมมติฐานสีน่าจะอ้างอิงจาก Flutter's `wyn_colors.dart` คนละ track กับเว็บ) — ถาม Founder
+ว่าอยากให้ทบทวนงานนี้ใหม่เป็นงานแยกไหม **Founder ตอบ "ใช่ อยากให้ทบทวนใหม่"**
+
+**สถานะ**: ยังเป็น backlog เหมือนเดิม ยังไม่ได้เริ่มงาน — แค่บันทึกว่า Founder ต้องการให้มีการทบทวนสเปกทั้งฉบับ
+ใหม่ (โดยเฉพาะ DS-001/สมมติฐานสี Cyan ที่ล้าสมัย) เป็นงานแยกในอนาคต ก่อนจะส่งต่อ AI Design ทำสเปกจริงหรือส่ง
+AI Coding — ยังไม่ได้กำหนดคิว/ลำดับความสำคัญ รอ Founder หรือ Product Manager จัดลำดับงานนี้เข้า roadmap ทีหลัง

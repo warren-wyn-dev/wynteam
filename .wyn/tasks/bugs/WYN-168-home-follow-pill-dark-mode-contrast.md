@@ -175,3 +175,20 @@ checks against a live dev server (`playwright-core` + `/opt/pw-browsers/chromium
 
 Both WYN-167 and WYN-168 are now verified and ready for deploy together. Handing off to
 **AI Deploy & DevOps**.
+
+---
+
+## Deployment (2026-09-19, AI Deploy & DevOps)
+
+Deployed together with WYN-167 via PR #547, merged by the Founder at 2026-09-19T09:42:24Z. A follow-up CI
+fix (PR #548) was needed post-merge — 3 pre-existing source-lock tests pinned the old hardcoded color value
+this fix intentionally changed, and a Codex review then caught that the first fix attempt was itself
+vacuous (didn't actually scope the check to the follow-pill rule). Both resolved; production deploy
+succeeded end-to-end on the final state. Full log:
+`.wyn/logs/deployments/2026-09-19-wyn-167-168-home-feed-motion-contrast-fix-deploy.md`. Still needs the
+Founder's real-device confirmation that the follow button now reads clearly in dark mode on
+`wynos.online`.
+
+## Founder Confirmation (2026-09-19)
+
+Founder opened production directly and confirmed: "เปิดดูเว็บจริงแล้ว โอเคหมดเลย" — bug fully closed.
