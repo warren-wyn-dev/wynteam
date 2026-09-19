@@ -100,7 +100,7 @@ function ErrorText({ children }: { children?: string }) {
 /// guideline (https://developers.google.com/identity/branding-guidelines) —
 /// used only on the "เข้าสู่ระบบด้วย Google" button, never redrawn or
 /// recolored to match the button's own black/white/gray palette.
-function GoogleGlyph() {
+export function GoogleGlyph() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style={{ flexShrink: 0, marginRight: 8 }}>
       <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z" />
@@ -243,7 +243,7 @@ export function WelcomeScreen() {
         <div />
         <div style={{ textAlign: "center" }}>
           <Image src="/wynos_logo_mark.png" alt="Wynos" width={170} height={110} style={{ height: 110, width: "auto", margin: "0 auto 18px", display: "block" }} priority />
-          <p style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>ทุกเรื่องราว มีจุดเริ่มต้น</p>
+          <p style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>ทุกเรื่องราว มีจุดเริ่มต้น</p>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>Welcome to WYNOS.</p>
         </div>
         <div>

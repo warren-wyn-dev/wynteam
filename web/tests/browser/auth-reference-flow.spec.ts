@@ -97,4 +97,35 @@ test.describe("HTML-reference auth flow", () => {
     await page.getByText("สร้างบัญชีใหม่", { exact: true }).last().click();
     await expect(page).toHaveURL(/\/signup\/step-1$/);
   });
+
+  // WYN-164 (2026-09-19): regression coverage for the 2 findings from
+  // WYN-163's QA round 1 — a mid-word headline wrap at 320px, and
+  // /account/add silently inheriting the new button/input sizing from
+  // shared auth-reference.css without the matching Google icon/headline.
+  test("welcome headline stays on one line at 320px", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.goto("/welcome");
+    const tagline = page.getByText("ทุกเรื่องราว มีจุดเริ่มต้น", { exact: true });
+    await expect(tagline).toBeVisible();
+    const box = await tagline.boundingBox();
+    // A single line at this font size is ~34-40px tall; 2 lines would be
+    // roughly double that. 55px is a safe ceiling that still fails loudly
+    // if the text wraps again.
+    expect(box?.height ?? 0).toBeLessThan(55);
+  });
+
+  test("account/add matches the shared squircle button treatment and has a Google icon", async ({ page }) => {
+    await page.goto("/account/add");
+    const primaryStyles = await page.getByRole("button", { name: "เข้าสู่ระบบและเพิ่มบัญชี" }).evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { height: style.height, borderRadius: style.borderRadius };
+    });
+    expect(primaryStyles).toEqual({ height: "58px", borderRadius: "24px" });
+
+    const googleButton = page.getByRole("button", { name: "เข้าสู่ระบบด้วย Google" });
+    await expect(googleButton.locator("svg")).toBeVisible();
+
+    const headlineFontSize = await page.getByText("เพิ่มบัญชี", { exact: true }).evaluate((element) => getComputedStyle(element).fontSize);
+    expect(headlineFontSize).toBe("32px");
+  });
 });
