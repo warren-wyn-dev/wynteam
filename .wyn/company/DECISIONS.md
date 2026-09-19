@@ -1482,3 +1482,14 @@ Welcome/Auth Method (WYN-002) พร้อมค่า contrast ที่คำ�
 
 Artifact: https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x (canvas เดียวกัน จะใช้ต่อสำหรับรอบทรง/ขนาดปุ่ม)
 Task: `.wyn/tasks/active/WYN-161-onboarding-button-redesign.md`
+
+**รอบ 2 (2026-09-19) — เลือกทรงปุ่ม**: AI Design เพิ่มอาร์ตบอร์ดที่สองในแคนวาสเดิม เทียบ 3 ทรงบนสี D ที่เลือก
+แล้ว: (1) กลมเต็ม/pill radius 999 [ทรงเดิมของระบบตอนนี้], (2) โค้งมนปานกลาง radius 16px, (3) เหลี่ยมคม
+radius 8px — **Founder เลือก "2" (โค้งมนปานกลาง 16px)**
+
+**สรุปกติกาทรงปุ่มใหม่ที่ตัดสินใจแล้ว**: ปุ่มทุกประเภท (primary/secondary outline/tertiary text) ใช้
+`border-radius: 16px` แทนทรง pill เต็ม (M3 default เดิม) — ขนาดสูงตามที่เสนอใน mockup: primary CTA 52px,
+secondary/outline 46-48px, text button 36-40px (ยังเกิน touch target ขั้นต่ำ 44px ทุกจุดเพราะขยายพื้นที่กด
+โปร่งใสรอบตัวตามแบบที่ WYN-106 ทำไว้แล้ว) — ทรง 16px นี้ยังไม่ได้ยืนยันว่าจะใช้แทนที่ `WynSpacing.radiusMd`
+(12px) เดิมของทั้งระบบหรือเป็นค่าเฉพาะปุ่มเท่านั้น ให้ AI Coding ยึดตามที่ระบุในเอกสาร design spec ฉบับเต็ม
+ของ WYN-161 เมื่อเขียนเสร็จ ไม่ใช่เดาจากบันทึกนี้

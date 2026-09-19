@@ -1,6 +1,6 @@
 # Design Task — WYN-161
 
-Status: active
+Status: review (spec เต็มเขียนเสร็จแล้ว รอ Founder อนุมัติก่อนส่ง AI Coding)
 Owner: AI Design
 Screen: Onboarding/Auth (WYN-002) — `WelcomeScreen`, `AuthMethodScreen`, `PhoneEntryScreen`,
 `OtpVerificationScreen`, Username Setup step — จุดเริ่มต้นตามที่ Founder ระบุ ("เริ่มจากหน้าจอแรกสุด")
@@ -22,17 +22,24 @@ Design Rules:
    แทนที่ sapphire `#1B3A6B` ในบทบาท "ปุ่มหลัก"
 2. **[ตัดสินใจแล้ว]** สีแดง `#E11D48` (ค่าเดียวกับ `likeLight`) เป็น signal accent จุดเล็กๆ เท่านั้น (ลิงก์/
    ปุ่ม text รอง/badge) — ห้ามใช้เป็นพื้นปุ่มขนาดใหญ่
-3. **[ยังไม่ตัดสินใจ]** ทรง/ขนาดปุ่ม (pill เต็ม / rounded-rect / เหลี่ยม) — รอ Founder เลือกในรอบถัดไป
+3. **[ตัดสินใจแล้ว 2026-09-19]** ทรงปุ่มทุกประเภท: `border-radius: 16px` (โค้งมนปานกลาง) แทนทรง pill เต็ม
+   เดิม — ขนาดสูง: primary CTA 52px / secondary-outline 46-48px / text button 36-40px (ขยายพื้นที่กดโปร่งใส
+   ให้ครบ ≥44px ทุกจุดตอนขึ้นโค้ดจริง ตามแบบ WYN-106)
 4. **[ยังไม่ตัดสินใจ]** จุดอื่นที่ sapphire เคยทำหน้าที่อยู่นอกปุ่ม (avatar ring, active tab underline,
    verified badge, liked-heart) — คงไว้หรือเปลี่ยนตาม ink/red รอตรวจทีละจุดแยกจากงานนี้
 5. ขอบเขตหน้าจอปัจจุบัน = Onboarding เท่านั้น ยังไม่ขยายไปหน้าอื่น (Home ที่ทำไปแล้วใน WYN-106 ฯลฯ) จนกว่า
    Founder จะสั่งขยาย
-Handoff: ยังไม่ส่ง AI Coding — อยู่ระหว่างรอบเลือกทรง/ขนาดปุ่มกับ Founder ต่อ (ใช้ Artifact เดิม) เมื่อครบทั้ง
-สี+ทรง+ขนาด+states แล้วจะสรุปเป็น spec เต็มก่อนส่ง AI Coding
+Handoff: spec เต็มเขียนเสร็จแล้วที่ `.wyn/docs/design/wyn-161-onboarding-button-redesign.md` (สี+ทรง+ขนาด+
+states+accessibility ครบ) — ยังไม่ส่ง AI Coding จนกว่า Founder จะตอบ 2 ข้อในหัวข้อ Handoff ของเอกสารนั้น
+(อนุมัติ spec / จะแก้ปุ่ม Google asset พร้อมกันไหม)
 
 Artifact (canvas เดียว ใช้ต่อเนื่องทุกรอบ): https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x
 
 ## Log
 
-- 2026-09-19: เสนอ 4 ทิศทางสี (Coral/Emerald/Violet/Ink+Red) พร้อม contrast จริง — Founder เลือก **D (Ink
-  Mono + Red Signal)** บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
+- 2026-09-19 รอบ 1: เสนอ 4 ทิศทางสี (Coral/Emerald/Violet/Ink+Red) พร้อม contrast จริง — Founder เลือก
+  **D (Ink Mono + Red Signal)** บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
+- 2026-09-19 รอบ 2: เสนอ 3 ทรงปุ่มบนสี D ที่เลือกแล้ว (pill / rounded-rect 16px / เหลี่ยม 8px) — Founder
+  เลือก **"2" (โค้งมนปานกลาง 16px)** บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
+- ถัดไป: ยืนยัน states (default/pressed/disabled/loading) + จุดอื่นที่ sapphire เคยใช้อยู่ (avatar ring,
+  active tab, verified badge, liked-heart) ว่าเปลี่ยนตามหรือคงไว้ แล้วสรุป spec เต็มก่อนส่ง AI Coding
