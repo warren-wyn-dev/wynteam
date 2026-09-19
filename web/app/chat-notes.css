@@ -38,6 +38,11 @@
   border: 0;
   background: transparent;
   color: var(--wyn-text);
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wyn-chat-compose-action:active {
+  transform: scale(0.96);
 }
 
 .wyn-chat-requests-link {
@@ -52,6 +57,11 @@
   font: inherit;
   font-size: 14px;
   font-weight: 650;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wyn-chat-requests-link:active {
+  transform: scale(0.96);
 }
 
 .wyn-chat-requests-link span {
@@ -847,5 +857,12 @@
   .wyn-chat-inbox .flutter-chat-list .chat-row::after {
     left: 82px;
     right: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wyn-chat-compose-action,
+  .wyn-chat-requests-link {
+    transition: none;
   }
 }
