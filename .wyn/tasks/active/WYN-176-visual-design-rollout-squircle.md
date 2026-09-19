@@ -1,7 +1,7 @@
 # Product Task — WYN-176
 
-Status: batch 1 PASS (2026-09-19) — approved, รอ Founder อนุมัติ production deployment; batch 2+ (Composer/Chat/Profile/Search/Notifications/Club) ยังไม่เริ่ม
-Owner: AI Product Manager → AI Design (batch 1 spec + preview เสร็จ) → AI Coding (batch 1 เสร็จ) → AI QA & Security (batch 1 PASS)
+Status: batch 1 DONE (deployed + Founder ยืนยัน production แล้ว "ชอบผ่าน", 2026-09-19); batch 2+ (Composer/Chat/Profile/Search/Notifications/Club) ยังไม่เริ่ม — WYN-176 โดยรวมยังเป็น active จนกว่าจะครบทุก batch
+Owner: AI Product Manager → AI Design (batch 1 เสร็จ) → AI Coding (batch 1 เสร็จ) → AI QA & Security (batch 1 PASS) → AI Deploy & DevOps (batch 1 deploy สำเร็จ) → Founder (ยืนยัน batch 1 แล้ว)
 Feature: WYNOS Web Beta1 — Visual Design Rollout (WYN-174 Track 2) — extend WYN-163's Apple-style squircle direction system-wide
 Goal: Make the rest of WYNOS Web (Home, Composer, Chat, Profile/Settings, Search/Notifications/Club) visually consistent with the Auth screens' Apple-style redesign (WYN-163), instead of the app looking like two different products depending on which screen you're on
 Target User: All WYNOS Web users — the whole app, not just onboarding

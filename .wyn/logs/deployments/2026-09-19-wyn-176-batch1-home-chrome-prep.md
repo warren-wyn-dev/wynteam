@@ -1,7 +1,7 @@
 # WYNOS Web Beta1 — WYN-176 Batch 1 (Home Chrome) Deploy Prep
 
 Date: 2026-09-19
-Status: **DEPLOYED — production deploy workflow succeeded, waiting on Founder physical-device confirmation**
+Status: **DONE — deployed and Founder-confirmed on production ("ชอบผ่าน")**
 
 ## Release
 
@@ -65,9 +65,8 @@ PR #553 merged into `main` by Founder (commit `48f7c41d03aaf1e36ad10286797ca9580
   the GitHub Actions runner) — success. Post-merge `main` CI independently confirmed green as well.
 - **Not AI-confirmed**: this sandbox's outbound network policy blocks `wynos.online`, so independent
   verification isn't possible from here — same limitation as every prior web deploy in this log folder.
-- **Still needed from Founder**: open the side drawer on `wynos.online` (from Home or Notifications) and a
-  post's action sheet, and confirm rows visibly press when tapped and the drawer's rounded corners look
-  slightly more pronounced than before.
+- **Founder-confirmed** (2026-09-19, in chat: "ชอบผ่าน"): tested on real production, likes it, passes. Batch 1
+  is fully verified end-to-end.
 
 ## Rollback Plan
 

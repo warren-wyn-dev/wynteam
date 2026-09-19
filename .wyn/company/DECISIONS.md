@@ -1938,3 +1938,11 @@ Founder merge PR #553 เอง ภายในไม่กี่วินาท
 ยังไม่ย้าย task ไป `completed/` เพราะสภาพแวดล้อมนี้เข้าถึง `wynos.online` ไม่ได้ — รอ Founder เปิดเมนูลิ้น/action sheet บน `wynos.online` จริงยืนยัน press feedback/radius ทำงานจริงตามบทเรียน WYN-158 (และ WYN-176 batch 1 ยังไม่ใช่ WYN-176 ทั้งงาน เหลือ batch อื่นค้างอยู่ — task หลักจะยังไม่ปิดแม้ batch นี้ยืนยันแล้วก็ตาม)
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
+
+## [2026-09-19] WYN-176 Batch 1 — Founder ยืนยัน production จริงแล้ว "ชอบผ่าน"
+
+Founder ทดสอบบน `wynos.online` จริงแล้วตอบ "ชอบผ่าน" — batch 1 (press feedback + radius บนเมนูลิ้น/action sheet/ปุ่ม route-*) ยืนยัน production verification ครบตาม WORKFLOW.md แล้ว
+
+**WYN-176 โดยรวมยังไม่ปิด** — เหลือ batch 2-7 ตามแผนเดิม (Composer, Chat, Profile/Settings, Search/Notifications/Club, ลบ CSS dead code) รอ Founder สั่งต่อว่าจะทำ batch ไหนต่อ
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`, `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
