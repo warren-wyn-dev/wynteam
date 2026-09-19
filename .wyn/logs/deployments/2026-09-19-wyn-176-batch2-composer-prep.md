@@ -1,7 +1,7 @@
 # WYNOS Web Beta1 — WYN-176 Batch 2 (Composer) Deploy Prep
 
 Date: 2026-09-19
-Status: **PREPARED — not yet opened as a PR, waiting on Founder**
+Status: **PR OPEN — waiting on Founder to review/merge**
 
 ## Release
 
@@ -15,7 +15,8 @@ Status: **PREPARED — not yet opened as a PR, waiting on Founder**
 - Version: within **WYNOS Web Beta1** — no version bump requested by Founder
 - Branch: `claude/wynos-online-version-1pqqws`. `git diff origin/main...HEAD` shows only this branch's own
   new files — no unrelated changes landed on `main` since the WYN-176 batch 1 merge. PR would merge cleanly.
-- PR: not opened yet — waiting on Founder confirmation before creating one
+- PR: [#554](https://github.com/warren-wyn-dev/wynteam/pull/554) — opened 2026-09-19 after Founder confirmed
+  "PR" in chat. Not merged yet — merging is the Founder's own action per the Founder Gate.
 
 ## QA Status
 
@@ -47,7 +48,7 @@ lines removed) — no `.tsx` component files, no backend/RPC/schema changes.
 
 ## Deployment Result
 
-Not yet — waiting on Founder to say whether to open the PR now.
+PR #554 opened, CI running. Not merged/deployed yet — waiting on Founder review and merge.
 
 ## Production Verification
 
