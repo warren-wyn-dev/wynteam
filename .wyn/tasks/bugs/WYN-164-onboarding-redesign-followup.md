@@ -1,7 +1,8 @@
 # Bug Report — WYN-164
 
-Status: review (แก้แล้ว 2026-09-19 — รอ AI QA & Security ตรวจซ้ำ)
-Owner: AI Debug Engineer → **AI QA & Security ตรวจซ้ำ**
+Status: closed (AI QA & Security ยืนยัน PASS รอบ 2 แล้ว 2026-09-19 — ดูรายละเอียดที่
+`.wyn/tasks/approved/WYN-163-onboarding-button-redesign.md`)
+Owner: AI Debug Engineer → AI QA & Security (**verified PASS**)
 Parent: WYN-163 (`.wyn/tasks/qa/WYN-163-onboarding-button-redesign.md`)
 
 ## Bug

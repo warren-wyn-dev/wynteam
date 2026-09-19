@@ -1,8 +1,8 @@
 # Design Task — WYN-163
 
-Status: review (WYN-164 แก้แล้ว 2026-09-19 — รอ AI QA & Security ตรวจซ้ำรอบ 2)
-Owner: AI Design → AI Coding → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (แก้แล้ว, WYN-164) →
-**AI QA & Security ตรวจซ้ำ**
+Status: approved (QA รอบ 2 = **PASS** 2026-09-19 — พร้อมส่งต่อ AI Deploy & DevOps)
+Owner: AI Design → AI Coding → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (WYN-164) →
+AI QA & Security (**PASS รอบ 2**) → **AI Deploy & DevOps**
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
 `SignupStep2Screen`, `OnboardingProfileScreen`, `ForgotPasswordScreen`
@@ -95,4 +95,12 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
   หัวข้อ 32px) และลดขนาด tagline หน้า Welcome เหลือ 28px แก้ปัญหาตัดคำที่ 320px — typecheck/lint/build ผ่าน
   หมด, ตรวจซ้ำทั้ง 7 หน้าจอด้วย Playwright จริงไม่มี regression, เพิ่ม regression test 2 เคส รายละเอียดเต็ม
   ที่ `.wyn/tasks/bugs/WYN-164-onboarding-redesign-followup.md` (commit `a657e7bc`)
-- ถัดไป: **AI QA & Security** ตรวจซ้ำรอบ 2 ก่อน deploy ขึ้น WYNOS Web Beta1 (ห้ามข้าม QA)
+- 2026-09-19 (AI QA & Security) — **QA รอบ 2: PASS**: ยืนยัน `.auth-ref-viewport` มีแค่ 2 ไฟล์ที่ใช้จริงทั้ง
+  repo (`screens.tsx`, `account-add-route.tsx` — ไม่มีจุดที่ 3 หลุดรอด), `typecheck`/`lint`/`build` ผ่านหมด
+  (0 error, 3 pre-existing warning เดิม), ทดสอบจริงด้วย Playwright บน dev server: sweep ทั้ง 7 หน้าจอ ×
+  320/390/430px ไม่มี console error เลย (0/21), `/account/add` มีโลโก้ Google + หัวข้อ 32px ตามที่แก้แล้ว,
+  หัวข้อ Welcome ที่ 320px เหลือบรรทัดเดียว (44px จากเดิม ~102px), ปุ่ม/ลำดับปุ่มเดิมของ WYN-163 (58px/24px,
+  สร้างบัญชีใหม่→เข้าสู่ระบบ→Google) ไม่ regression, คลิกผ่าน flow จริงได้ปกติ, โลโก้ Welcome/Login = 110px/
+  64px ตรงสเปก — ไม่พบ finding ใหม่ ไม่มี security finding
+- ย้ายไป `.wyn/tasks/approved/` แล้ว — ถัดไป: **AI Deploy & DevOps** deploy ขึ้น WYNOS Web Beta1 (รอ Founder
+  อนุมัติ production deployment ตาม AGENTS.md ก่อนเสมอ)
