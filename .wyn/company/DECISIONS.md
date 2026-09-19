@@ -1757,3 +1757,14 @@ AI Design อ่านโค้ดจริงของ `web/components/ui/page-
 ทำ Artifact เปรียบเทียบจริงทั้ง 3 ส่วน (skeleton before/after, press-feedback ที่กดทดลองได้จริง, route transition Option A/B ที่เล่น demo ได้): https://claude.ai/artifact/V8UKS6DB4nkvWdvk2XGcS2
 
 บันทึก design spec เต็มที่ `.wyn/docs/design/wyn-175-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — Founder เลือก Option B: เพิ่ม motion ให้ route transition
+
+หลังดู Artifact preview (https://claude.ai/artifact/V8UKS6DB4nkvWdvk2XGcS2) เปรียบเทียบ Option A (คง fade 70ms เดิม) กับ Option B (slide+fade 220ms) — **Founder เลือก Option B** พร้อมสั่ง "เริ่มเลย"
+
+Scope สุดท้ายของ WYN-175 ที่อนุมัติครบแล้ว ส่งต่อ AI Coding ได้ทั้ง 3 ส่วน:
+1. Skeleton loading สำหรับ Search + Notifications (reuse `SkeletonBlock` เดิม)
+2. Press feedback (`scale(0.96)`, 90ms) สำหรับการ์ด/แถวที่ยังไม่มี (post card, search result row)
+3. Route transition: เปลี่ยน `PageTransition` (`web/components/ui/page-transition.tsx`) จาก opacity-only 70ms เป็น slide(24px)+fade 220ms, easing `cubic-bezier(.22,.61,.36,1)`, ต้อง respect `prefers-reduced-motion` (ยุบกลับเป็น fade เฉยๆ ไม่มี slide)
+
+อ้างอิง: `.wyn/docs/design/wyn-175-perceived-speed-motion.md`, `.wyn/tasks/backlog/WYN-175-web-perceived-speed-motion.md`
