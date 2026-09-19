@@ -96,3 +96,16 @@ boundary.
 
 **Result: PASS.** Moving to `.wyn/tasks/approved/`, handing off to **AI Deploy & DevOps**. Recommend the
 Founder is told about WYN-168 separately as a new, unrelated finding needing prioritization.
+
+---
+
+## Deployment (2026-09-19, AI Deploy & DevOps)
+
+Merged together with WYN-168 via PR #547 (Founder, 2026-09-19T09:42:24Z) and a follow-up CI fix PR #548
+(Founder, 2026-09-19T09:58:15Z, after `browser-qa` failed post-merge on 3 source-lock tests that hadn't been
+updated for WYN-168's intentional CSS change, plus a Codex review finding that the first fix attempt was
+vacuous). Both production deploy workflow runs succeeded (#134, #135). Full log:
+`.wyn/logs/deployments/2026-09-19-wyn-167-168-home-feed-motion-contrast-fix-deploy.md`.
+
+**Still needed**: Founder to confirm on a real device that the follow pill, header icons, and tab underline
+show visible motion on `wynos.online`.
