@@ -1,7 +1,7 @@
 # WYNOS Web Beta1 — WYN-176 Batch 1 (Home Chrome) Deploy Prep
 
 Date: 2026-09-19
-Status: **PR OPEN — waiting on Founder to review/merge**
+Status: **DONE — deployed and Founder-confirmed on production ("ชอบผ่าน")**
 
 ## Release
 
@@ -18,7 +18,8 @@ Status: **PR OPEN — waiting on Founder to review/merge**
   changes landed on `main` since, confirmed via `git diff origin/main...HEAD`, which shows only this
   branch's own new files). PR would merge cleanly, no conflicts expected.
 - PR: [#553](https://github.com/warren-wyn-dev/wynteam/pull/553) — opened 2026-09-19 after Founder confirmed
-  "เปิด PR" in chat. Not merged yet — merging is the Founder's own action per the Founder Gate.
+  "เปิด PR" in chat. **Merged by Founder** within seconds of opening, merge commit
+  `48f7c41d03aaf1e36ad10286797ca95800a88207` on `main`.
 
 ## QA Status
 
@@ -51,15 +52,21 @@ CSS-only diff — no `.tsx` component files, no backend/RPC/schema changes.
 
 ## Deployment Result
 
-PR #553 opened, CI running. Not merged/deployed yet — waiting on Founder review and merge.
+PR #553 merged into `main` by Founder (commit `48f7c41d03aaf1e36ad10286797ca95800a88207`).
+[WYN-158 Production Deploy run #140](https://github.com/warren-wyn-dev/wynteam/actions/runs/35457524004) —
+**success**, all steps green: Production preflight, Deploy to Vercel production, Verify production routes
+(completed 2026-09-19T17:17:23Z, total runtime ~2 minutes). Post-merge
+[`CI` run #1394](https://github.com/warren-wyn-dev/wynteam/actions/runs/35457524012) on the same commit also
+**success**.
 
 ## Production Verification
 
-Not applicable yet. Once merged, `wyn-158-production-deploy.yml` runs automatically, same as every prior web
-deploy. This sandbox can't reach `wynos.online`, so independent post-deploy verification relies on the
-workflow's own `Verify production routes` step; physical-device confirmation will still need the Founder to
-open the side drawer on `wynos.online` (from Home or Notifications) and a post's action sheet, and confirm
-rows visibly press when tapped and the drawer's rounded corners look slightly more pronounced than before.
+- **AI-confirmed**: the production workflow's own `Verify production routes` step (real network access from
+  the GitHub Actions runner) — success. Post-merge `main` CI independently confirmed green as well.
+- **Not AI-confirmed**: this sandbox's outbound network policy blocks `wynos.online`, so independent
+  verification isn't possible from here — same limitation as every prior web deploy in this log folder.
+- **Founder-confirmed** (2026-09-19, in chat: "ชอบผ่าน"): tested on real production, likes it, passes. Batch 1
+  is fully verified end-to-end.
 
 ## Rollback Plan
 

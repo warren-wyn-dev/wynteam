@@ -1924,3 +1924,61 @@ Founder ดู Artifact แล้วตอบ "อนุมัติ เขี�
 เปิด PR [#553](https://github.com/warren-wyn-dev/wynteam/pull/553) (`claude/wynos-online-version-1pqqws` → `main`) ตามที่ Founder ยืนยัน — ยังไม่ merge (merge เป็นสิทธิ์ของ Founder เองตาม Founder Gate) subscribe PR activity แล้ว
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
+
+## [2026-09-19] WYN-176 Batch 1 — Founder merge PR #553 ทันที, deploy workflow กำลังรัน
+
+Founder merge PR #553 เอง ภายในไม่กี่วินาทีหลังเปิด (pattern เดียวกับ #550/#551/#552) merge commit `48f7c41d` — `WYN-158 Production Deploy` run #140 trigger อัตโนมัติ กำลังรันอยู่ (unsubscribe จาก PR อัตโนมัติแล้วเพราะ merged) ตั้ง check-in ไว้ 3 นาทีเพื่อยืนยันผล deploy ต่อ
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
+
+## [2026-09-19] WYN-176 Batch 1 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+`WYN-158 Production Deploy` run #140 **success** ทุก step (preflight, Vercel deploy, verify production routes, รวม ~2 นาที) → post-merge `CI` บน `main` (run #1394) **success** เช่นกัน — ตรวจสอบอิสระเองทั้งหมดผ่าน GitHub Actions API
+
+ยังไม่ย้าย task ไป `completed/` เพราะสภาพแวดล้อมนี้เข้าถึง `wynos.online` ไม่ได้ — รอ Founder เปิดเมนูลิ้น/action sheet บน `wynos.online` จริงยืนยัน press feedback/radius ทำงานจริงตามบทเรียน WYN-158 (และ WYN-176 batch 1 ยังไม่ใช่ WYN-176 ทั้งงาน เหลือ batch อื่นค้างอยู่ — task หลักจะยังไม่ปิดแม้ batch นี้ยืนยันแล้วก็ตาม)
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
+
+## [2026-09-19] WYN-176 Batch 1 — Founder ยืนยัน production จริงแล้ว "ชอบผ่าน"
+
+Founder ทดสอบบน `wynos.online` จริงแล้วตอบ "ชอบผ่าน" — batch 1 (press feedback + radius บนเมนูลิ้น/action sheet/ปุ่ม route-*) ยืนยัน production verification ครบตาม WORKFLOW.md แล้ว
+
+**WYN-176 โดยรวมยังไม่ปิด** — เหลือ batch 2-7 ตามแผนเดิม (Composer, Chat, Profile/Settings, Search/Notifications/Club, ลบ CSS dead code) รอ Founder สั่งต่อว่าจะทำ batch ไหนต่อ
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`, `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
+
+## [2026-09-19] WYN-176 Batch 2 (Composer) — AI Design ตรวจโค้ดจริงแล้ว ไม่ต้องแก้ radius เพิ่ม แค่ press feedback
+
+Founder สั่ง "ทำ batch ถัดไปเลย" — ตรวจ `beta4-composer.tsx`/`beta4-composer-refresh.module.css`/`system-parity-final.css` ก่อนออกแบบ พบว่า WYN-160 batch 4 (2026-09-17) แก้ radius ของ Composer ไปตรง target scale แล้ว (pill 999px ปุ่มโพสต์, tile 14px รูป preview, control 10px ช่องโพล) — **ไม่ต้องแก้ radius รอบนี้** ปุ่ม "โพสต์" เป็น compact pill header (42px) ไม่ใช่ CTA เต็มความกว้างแบบ Auth ก็เลยไม่ยัดค่า 24px/58px เข้าไปเหมือนเดิม
+
+grep ยืนยันว่าทุกจุด (ปุ่มยกเลิก/โพสต์, quick action 4 ปุ่ม, ratio chip, audience picker sheet, ปุ่มลบรูป) ไม่มี press feedback เลยแม้แต่จุดเดียว — เพิ่ม spring เดียวกับ batch 1/WYN-163 (`scale(0.96)`, 160ms) ทุกจุด, ไม่แตะ `.wynos-confirm-dialog` (shared component ไม่ใช่ Composer-specific)
+
+ทำ Artifact preview: https://claude.ai/artifact/APBY3a2KZrVwxqLcCycTZc
+
+บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch2-composer.md`
+
+## [2026-09-19] WYN-176 Batch 2 — Founder อนุมัติ preview, AI Coding implement เสร็จ
+
+Founder ตอบ "อนุญาต" — implement press feedback (`scale(0.96)`, 160ms) 8 จุดตามสเปก ไม่แก้ radius เลย diff เป็น additive ล้วนๆ ตรวจ cascade ก่อนแก้พบว่าหลาย selector มีนิยามซ้ำ 2 จุดในไฟล์เดียวกัน เพิ่ม rule หลังนิยามที่ชนะจริงเพื่อไม่ให้ถูกทับ (บทเรียนเดิมจาก WYN-175)
+
+ยืนยันด้วย Playwright harness จริง — press feedback + release + reduced-motion 8 จุด **24/24 ผ่าน** `typecheck`/`lint`/`build` สะอาดหมด
+
+ส่งต่อ AI QA & Security
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`
+
+## [2026-09-19] WYN-176 Batch 2 — QA PASS (independent)
+
+ทำ harness แยกใหม่: console/HTTP error sweep บน `/`, `/compose-post`, `/notifications`, `/search` จริง, ตรวจ source-parity string 5 จุดที่ล็อก Flutter dimension ยังอยู่ครบ, press feedback จริงด้วย mouse down/up 8 จุด + release, reduced-motion 8 จุด — รวม **32/32 ผ่าน** + source-parity 5/5 `typecheck`/`lint`/`build` สะอาดหมด ไม่มี security finding
+
+**Final Status: PASS** — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 2
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`
+
+## [2026-09-19] WYN-176 Batch 2 — AI Deploy & DevOps เตรียม deploy เสร็จ รอ Founder อนุมัติเปิด PR
+
+ตรวจ QA PASS แล้ว รัน `typecheck`/`lint`/`build` อิสระอีกรอบเอง — สะอาดหมด ตรวจ `git diff origin/main...HEAD` ยืนยันไม่มี conflict กับ `main`
+
+บันทึก deployment prep log ที่ `.wyn/logs/deployments/2026-09-19-wyn-176-batch2-composer-prep.md` — ยังไม่เปิด PR รอ Founder ยืนยัน
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch2-composer-prep.md`
