@@ -1,60 +1,73 @@
 # Design Task — WYN-163
 
-Status: approved (Founder อนุมัติ scope สุดท้ายแล้ว 2026-09-19 รอบ 5-6 — พร้อมส่ง AI Coding)
+Status: approved (Founder อนุมัติ scope สุดท้ายแล้ว 2026-09-19 รอบ 5-7 — พร้อมส่ง AI Coding)
 Owner: AI Design
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
 `SignupStep2Screen`, `OnboardingProfileScreen`, `ForgotPasswordScreen`
-Purpose: ทำสี+ทรงปุ่มที่ Founder ตัดสินใจไปแล้ว (ขาว-ดำ-เทาล้วน, โค้งมนปานกลาง 16px, ไม่มีปุ่ม guest-browse)
-ให้เกิดจริงบน WYNOS Web (แพลตฟอร์มเดียวที่พัฒนาต่อตอนนี้ — ดู DECISIONS.md รอบ 4/VERSION_CONTROL.md)
-User Flow: ไม่เปลี่ยน — ทุกปุ่มยังทำงาน/ไปหน้าเดิมทุกประการ งานนี้คือ visual only แก้ CSS ไฟล์เดียว
-Components: ปุ่ม Primary (`.btn-primary`: สร้างบัญชีใหม่/ดำเนินการต่อ/หน้าถัดไป/สร้างบัญชี/เข้าสู่ระบบ/
-เริ่มใช้งาน Wynos/ส่งลิงก์รีเซ็ตรหัสผ่าน), ปุ่ม Outline (`.btn-outline`: เข้าสู่ระบบด้วย Google, เข้าสู่ระบบ)
-— ประกาศรวมอยู่ไฟล์เดียว `web/app/auth-reference.css` ไม่มีปุ่ม guest-browse ในเว็บอยู่แล้ว (ต่างจาก Flutter)
-Interactions: ไม่เปลี่ยน — ไม่เพิ่ม motion/animation ใหม่ (นอกขอบเขตที่ Founder ขอ)
-States: Default/Disabled/Hover-Active คงพฤติกรรมเดิมทั้งหมด (CSS เดิมตั้งใจปิด transform บน hover/active
-อยู่แล้ว) — งานนี้ไม่แตะ state ใหม่
-Responsive Behavior: ไม่กระทบ (เว็บออกแบบมือถือเป็นหลักอยู่แล้ว, ปุ่มกว้างเต็ม container)
-Accessibility: touch target สูง 50px เกินเกณฑ์ 44px อยู่แล้ว, contrast ขาว/ดำเดิมผ่าน AA อยู่แล้ว (ไม่เปลี่ยน
-ค่าสี จึงไม่มี contrast ใหม่ต้องเช็ค) — แก้แค่ `border-radius` ไม่กระทบ semantics/focus
+Purpose: ทำทิศทาง "แนว Apple ขาว-ดำ" ที่ Founder อนุมัติล่าสุด (ตัวอักษรใหญ่มั่นใจ + ทรง squircle + เว้น
+ระยะเยอะขึ้น + press motion เบาๆ, สียังขาว-ดำ-เทาล้วนเหมือนเดิม) ให้เกิดจริงบน WYNOS Web (แพลตฟอร์มเดียวที่
+พัฒนาต่อตอนนี้ — ดู DECISIONS.md รอบ 4/VERSION_CONTROL.md) — **แทนที่ทิศทาง "border-radius 16px เรียบๆ" ที่
+เคยอนุมัติไปก่อน** เพราะ Founder รู้สึกว่าแบบนั้น "เหมือนแอปอื่น"
+User Flow: ไม่เปลี่ยน action ปุ่มไหนเลย เปลี่ยนแค่ลำดับการมองเห็น (ปุ่ม "เข้าสู่ระบบ" มาก่อน Google ในหน้า
+Welcome ตามรอบ 6) งานนี้เป็น visual + motion เบาๆ ไม่แตะ business logic
+Components: ปุ่ม Primary (`.btn-primary`), ปุ่ม Outline (`.btn-outline`) — ประกาศรวมไฟล์เดียว
+`web/app/auth-reference.css`, บวก Text Input/Textarea (`.field .wyn-input`/`.field textarea`) และหัวข้อ
+หน้าจอ (`screens.tsx` inline style) ที่เปลี่ยนพร้อมกันเพื่อให้เป็นภาษาภาพเดียวกัน — ไม่มีปุ่ม guest-browse
+ในเว็บอยู่แล้ว (ต่างจาก Flutter)
+Interactions: เพิ่ม press feedback ใหม่ `transform: scale(0.96)` บน `:active` (ลบกฎ `transform: none` เดิม)
++ ต้องมี `prefers-reduced-motion` fallback — logic อื่นไม่เปลี่ยน
+States: Default/Disabled คงพฤติกรรมเดิม, เพิ่ม Pressed state ใหม่ (scale 0.96) แทนที่ "ไม่มีการเปลี่ยนภาพ"
+เดิม
+Responsive Behavior: ไม่กระทบโครงสร้าง (เว็บออกแบบมือถือเป็นหลักอยู่แล้ว) — QA ต้องตรวจว่าหัวข้อ 32px ไม่ล้น
+จอแคบ 320px และปุ่ม/input ไม่ล้นที่ textScale สูง (จุดใหม่ที่เพิ่มความเสี่ยงจากตัวอักษร/ขนาดที่ใหญ่ขึ้น)
+Accessibility: touch target สูงขึ้น (58px ปุ่ม/56px input) ดีขึ้นกว่าเดิม, contrast ขาว/ดำเดิมผ่าน AA อยู่แล้ว
+(ไม่เปลี่ยนค่าสี), motion ใหม่ต้อง respect `prefers-reduced-motion`
 Design Rules:
-1. **[ยืนยันแล้ว ไม่ต้องแก้]** สีปุ่มเว็บทั้งระบบเป็นขาว-ดำ-เทาล้วนอยู่แล้วในโค้ดจริง (`--text-primary`/
-   `--bg`/`--border-strong` alias ไปที่ `--wyn-*` tokens) ตรงกับที่ Founder ยืนยัน "โทนสี ขาว ดำ เทา ธีมสว่าง"
-   เป๊ะอยู่แล้ว ไม่มีสีที่สามปนอยู่ (`--red` สงวนไว้เฉพาะ error text)
-2. **[ต้องแก้]** ทรงปุ่ม: `border-radius: 999px` → **`16px`** ใน `web/app/auth-reference.css` (จุดเดียว
-   ครอบคลุมทั้ง 6 หน้าจอ)
-3. ปุ่ม guest-browse ไม่มีอยู่แล้วในเว็บ — ไม่ต้องทำอะไรเพิ่มสำหรับข้อนี้
-4. ขอบเขตงานนี้ = ไฟล์ `auth-reference.css` (Onboarding/Auth เท่านั้น) ไม่ไล่แก้ปุ่มหน้าจออื่นของเว็บ
-5. **แอป Flutter (`app/`) ไม่แตะเลยในรอบนี้** ตามคำสั่ง Founder พักงาน Flutter ยาว (DECISIONS.md 2026-09-19
-   รอบ 4) — สเปกเวอร์ชันก่อนหน้าที่เขียนไว้สำหรับ Flutter เก็บเป็น reference เผื่อ Founder สั่งกลับมาทำต่อ
-6. จุดอื่นที่ sapphire/ink เคยทำหน้าที่นอกปุ่ม (ฝั่ง Flutter: avatar ring, active tab ฯลฯ) ไม่เกี่ยวกับงานนี้
-   เพราะเว็บใช้ token คนละชุด (`--wyn-*`) อยู่แล้ว
-Handoff: **อนุมัติแล้ว พร้อมส่ง AI Coding** — spec เต็มที่
-`.wyn/docs/design/wyn-163-onboarding-button-redesign.md`: (1) แก้ `border-radius: 999px` → `16px` ใน
-`web/app/auth-reference.css` (2) เพิ่มโลโก้ Google ทางการในปุ่ม "เข้าสู่ระบบด้วย Google"
-(`web/components/auth-flow/screens.tsx`) (3) สลับลำดับปุ่ม "เข้าสู่ระบบ" มาก่อน "เข้าสู่ระบบด้วย Google" ใน
-`WelcomeScreen` — ทั้งสามข้อต้องผ่าน QA ก่อน deploy ขึ้น WYNOS Web Beta1 เสมอ
+1. **[ยืนยันแล้ว ไม่ต้องแก้]** สีปุ่มเว็บทั้งระบบเป็นขาว-ดำ-เทาล้วนอยู่แล้ว ตรงกับที่ Founder ยืนยันซ้ำในรอบ 7
+   ("โทน ขาว ดำ เหมือนเดิม") — ไม่มีสีที่สาม (`--red` สงวนไว้เฉพาะ error text)
+2. **[แก้ รอบ 7 — ค่าสุดท้าย แทนที่ 16px เดิม]** ปุ่ม: `border-radius` 999px → **24px**, `height` 50px →
+   **58px**, ตัวหนังสือ 14px/600 → **16px/700**
+3. **[แก้ รอบ 7]** Input/textarea: `border-radius` 10px → **18px**, `height` 44px → **56px**, `padding`
+   0 14px → **0 18px**
+4. **[แก้ รอบ 7]** หัวข้อหน้าจอทั้ง 6 หน้า: รวมเป็น **32px / weight 800 / letter-spacing -0.02em**
+5. **[เพิ่ม รอบ 7]** press feedback `scale(0.96)` แทนที่ `transform: none` เดิม + reduced-motion fallback
+6. ปุ่ม guest-browse ไม่มีอยู่แล้วในเว็บ — ไม่ต้องทำอะไรเพิ่มสำหรับข้อนี้
+7. ขอบเขตงานนี้ = `auth-reference.css` + typography ใน `screens.tsx` (Onboarding/Auth เท่านั้น) — ไม่ไล่แก้
+   หน้าจออื่นของเว็บ (แต่ Founder อาจสั่งขยายทิศทางนี้ทั้งเว็บในอนาคต เพราะเป็นการเปลี่ยนความรู้สึกทั้งแอป)
+8. **แอป Flutter (`app/`) ไม่แตะเลยในรอบนี้** ตามคำสั่ง Founder พักงาน Flutter ยาว (DECISIONS.md 2026-09-19
+   รอบ 4)
+9. จุดอื่นที่ sapphire/ink เคยทำหน้าที่นอกปุ่ม (ฝั่ง Flutter) ไม่เกี่ยวกับงานนี้ เว็บใช้ token คนละชุดอยู่แล้ว
+Handoff: **อนุมัติแล้ว พร้อมส่ง AI Coding — 5 จุด** (spec เต็มที่
+`.wyn/docs/design/wyn-163-onboarding-button-redesign.md`):
+1. ปุ่ม: radius/height/font ตามข้อ 2 ด้านบน
+2. Input/textarea: radius/height/padding ตามข้อ 3
+3. หัวข้อหน้าจอ 6 หน้า: 32px/800/-0.02em ตามข้อ 4
+4. press feedback ใหม่ตามข้อ 5
+5. เพิ่มโลโก้ Google ทางการในปุ่ม "เข้าสู่ระบบด้วย Google" (asset จริงตาม Google Identity branding
+   guideline — ยังไม่มีใน repo ต้องหา/เพิ่มใหม่) + สลับลำดับปุ่ม "เข้าสู่ระบบ" มาก่อน Google ใน `WelcomeScreen`
+   (รอบ 5-6 เดิม)
 
-Artifact (canvas เดียว ใช้ต่อเนื่องทุกรอบ — ทำไว้ตอน scope ยังเป็น Flutter แต่ทิศทางสี/ทรง/การตัดปุ่มเข้าชม
-ยังใช้อ้างอิงได้เหมือนเดิม): https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x
+ทั้ง 5 จุดต้องผ่าน QA ก่อน deploy ขึ้น WYNOS Web Beta1 เสมอ (ห้ามข้าม QA ตาม AGENTS.md)
+
+Artifact (canvas เดียว ใช้ต่อเนื่องทุกรอบ): https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x (อาร์ตบอร์ด 5
+= เวอร์ชันล่าสุดที่อนุมัติแล้ว, อาร์ตบอร์ด 1-4 เป็นประวัติการตัดสินใจ)
 
 ## Log
 
 - 2026-09-19 รอบ 1: เสนอ 4 ทิศทางสี (Coral/Emerald/Violet/Ink+Red) พร้อม contrast จริง — Founder เลือก
-  **D (Ink Mono + Red Signal)** บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
-- 2026-09-19 รอบ 2: เสนอ 3 ทรงปุ่มบนสี D ที่เลือกแล้ว (pill / rounded-rect 16px / เหลี่ยม 8px) — Founder
-  เลือก **"2" (โค้งมนปานกลาง 16px)**
+  **D (Ink Mono + Red Signal)**
+- 2026-09-19 รอบ 2: เสนอ 3 ทรงปุ่มบนสี D — Founder เลือก **"2" (โค้งมนปานกลาง 16px)** [ค่านี้ถูกแทนที่แล้ว
+  ในรอบ 7]
 - 2026-09-19: ทำ mockup งานจริงทั้ง 5 หน้าจอ Flutter (อาร์ตบอร์ด 3) ตามคำขอ "ขอดูงานจริง"
-- 2026-09-19 รอบ 3: Founder ยืนยัน "โทนสี ขาว ดำ เทา ธีมสว่าง" + สั่งตัดปุ่ม "เข้าชม WYNOS ได้เลย" ออก →
-  ยกเลิกสีแดงทั้งระบบปุ่มนี้
-- แก้เลขงานจาก WYN-161 → **WYN-163** (ชนกับงานอื่นที่มีอยู่แล้วในระบบ — ดู DECISIONS.md)
-- 2026-09-19 รอบ 4 (สำคัญ): Founder สั่ง "ตอนนี้มีแค่ Wynos Web Beta1 V.1.0.0 Beta4 พักไปก่อนยาวๆเลย" —
-  **ย้าย scope งานนี้ทั้งหมดจากแอป Flutter มาเป็น WYNOS Web** ตรวจโค้ดเว็บจริงพบว่าสีตรงกับที่ตัดสินใจไว้แล้ว
-  100% (ไม่ต้องแก้สี) เหลือแก้แค่ `border-radius` จุดเดียวใน `web/app/auth-reference.css` และไม่มีปุ่ม
-  guest-browse ในเว็บอยู่แล้วจึงไม่ต้องแก้เรื่องนั้น — เขียน spec ใหม่ให้ตรง scope เว็บแล้ว
-- 2026-09-19 รอบ 5: Founder อนุมัติ scope สุดท้าย — แก้ border-radius + **เพิ่มโลโก้ Google จริงพร้อมกัน**
-  บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
-- 2026-09-19 รอบ 6: Founder ส่งไฟล์โลโก้ WYNOS จริงมาให้ใช้ในมอคอัพ (ตรวจแล้วโค้ดจริงใช้อยู่ก่อนแล้ว ไม่ใช่
-  งานใหม่) + สั่ง **สลับตำแหน่งปุ่ม "เข้าสู่ระบบ" มาก่อน "เข้าสู่ระบบด้วย Google"** ในหน้า Welcome — เพิ่มเป็น
-  จุดที่ 3 ที่ต้องแก้จริง บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
-- ถัดไป: ส่งต่อ AI Coding implement 3 จุด แล้วเข้า QA ก่อน deploy (ห้ามข้าม QA)
+- 2026-09-19 รอบ 3: Founder ยืนยัน "โทนสี ขาว ดำ เทา ธีมสว่าง" + สั่งตัดปุ่ม "เข้าชม WYNOS ได้เลย" ออก
+- แก้เลขงานจาก WYN-161 → **WYN-163** (ชนกับงานอื่นที่มีอยู่แล้วในระบบ)
+- 2026-09-19 รอบ 4 (สำคัญ): Founder สั่งพัก Flutter ยาว — **ย้าย scope งานนี้ทั้งหมดมาเป็น WYNOS Web**
+- 2026-09-19 รอบ 5: Founder อนุมัติ scope — border-radius 16px + เพิ่มโลโก้ Google จริง [radius ถูกแทนที่
+  แล้วในรอบ 7]
+- 2026-09-19 รอบ 6: Founder สั่งสลับตำแหน่งปุ่ม "เข้าสู่ระบบ" มาก่อน "เข้าสู่ระบบด้วย Google"
+- 2026-09-19 รอบ 7 (สำคัญ): Founder ดูเวอร์ชัน 16px แล้วบอก **"ไม่สวย เหมือนแอปอื่นเลย ท้อละ"** → ถามว่า
+  "ถ้า Apple ออกแบบโซเชียลจะเป็นยังไง" → AI Design ทำมอคอัพแนว Apple (ตัวอักษรใหญ่ + squircle + สีเดียว/
+  ขาว-ดำ) → Founder เลือกเวอร์ชันขาว-ดำล้วน แล้วอนุมัติ **"ใช่แบบนี้เลย ทำจริงได้เลย"** — เขียน spec ใหม่
+  แทนที่ค่า radius/typography เดิมทั้งหมด บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
+- ถัดไป: ส่งต่อ AI Coding implement 5 จุด แล้วเข้า QA ก่อน deploy (ห้ามข้าม QA)
