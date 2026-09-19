@@ -1,6 +1,6 @@
 # Bug Report — WYN-168
 
-Status: open — found by AI QA & Security during WYN-167 testing, not caused by WYN-167
+Status: design decided (AI Design, 2026-09-19) — ready for AI Debug Engineer to implement
 Owner: AI Debug Engineer
 Parent: none (pre-existing production bug, unrelated to any in-flight task) — discovered as a side effect of
 adversarial dark-mode testing during WYN-167's QA round (2026-09-19)
@@ -54,21 +54,36 @@ This is exactly the class of issue `.wyn/docs/design/wyn-160-web-design-system-c
 already flagged generally ("ห้ามมีไฟล์ CSS ไหน hardcode สีเทา/ขาว/ดำเป็น hex ตรงๆ — ต้องอ้าง `var(--wyn-*)`
 เท่านั้น") — this is one concrete instance of that broader known gap.
 
-## Fix (recommended, not yet implemented)
+## Fix (decided by AI Design, 2026-09-19 — ready for AI Debug Engineer)
 
-Replace the hardcoded hex values with theme-aware tokens:
-- Default state: `background: #f1f1f3` → a token that keeps the light-mode value at/near `#f1f1f3` and adds
-  a dark-mode value with real contrast against white text (e.g. a new `--wyn-surface-strong`-style token, or
-  reuse an existing dark-appropriate surface token if one already fits — needs a look at what dark-mode
-  surface tokens `design-system.css`/`globals.css` already define from the 2026-09-16 dark mode pass). This
-  is a color decision, not just a rename, so it should go through AI Design rather than AI Coding picking a
-  value unilaterally.
-- `.is-requested` state: `color: #6b6b6b` → `var(--wyn-text-secondary)` likely (already used elsewhere for
-  secondary text, needs confirming its dark-mode value clears 4.5:1 against `var(--wyn-bg)`)
+Checked `web/app/design-system.css` first per the standing rule ("ห้ามคิดทิศทางสีใหม่หากมี design system ที่
+อนุมัติแล้ว") — the 2026-09-16 dark mode pass already declared exactly the tokens this needs; **no new color
+invented**, this is a pure hardcoded-hex → existing-token swap:
 
-Since this changes an actual color decision (not just a token rename), this should go through AI Design
-first to pick the exact dark-mode background value, then AI Coding to implement — not decided unilaterally
-by QA.
+1. **Default state** — `.wyn-post-follow-pill { background: #f1f1f3 }` → `background: var(--wyn-surface)`
+   - Light mode: `--wyn-surface` = `#fafafa` (vs. the current `#f1f1f3`) — both are near-white neutral grays,
+     visually indistinguishable at this size/weight; no meaningful light-mode change
+   - Dark mode: `--wyn-surface` = `#111111` → white text on `#111111` computes to **18.88:1** (WCAG AA needs
+     4.5:1, AAA needs 7:1 — clears both with large margin)
+
+2. **`.is-requested` state** — `.wyn-post-follow-pill.is-following, .wyn-post-follow-pill.is-requested { color: #6b6b6b }`
+   → `color: var(--wyn-text-secondary)`
+   - Light mode: `--wyn-text-secondary` = `#6b6b6b` — **byte-for-byte identical** to the current hardcoded
+     value, zero visual change
+   - Dark mode: `--wyn-text-secondary` = `#8a8880` on `var(--wyn-bg)` (`#000000`) computes to **5.91:1**,
+     clears the 4.5:1 AA threshold
+
+3. **`.is-following`/`.is-requested`'s `border-color: #e1e1e4`** — left as-is, out of scope. This isn't part
+   of the text-contrast bug (borders follow WCAG's separate 3:1 non-text threshold, and `#e1e1e4` only
+   applies in light mode already since `border-color` isn't re-declared for dark mode on this rule — a
+   pre-existing, separate, lower-priority gap; not touched here to keep this fix minimal and scoped to the
+   actual unreadable-text bug).
+
+**Design Rules**: both replacements are drop-in — same property, same selector, only the value moves from a
+literal hex to the token that already carries the correct value for both themes. No spacing/size/layout
+change. No new CSS custom property needs declaring.
+
+**Handoff**: AI Debug Engineer — 2-line change in `web/app/home.css`, no `.tsx` changes needed.
 
 ## Tests
 
