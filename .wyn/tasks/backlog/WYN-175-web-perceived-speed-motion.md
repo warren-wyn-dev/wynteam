@@ -1,11 +1,11 @@
 # Product Task — WYN-175
 
-Status: backlog
-Owner: AI Product Manager
+Status: design (spec + preview ready, route transition รอ Founder เลือก A/B)
+Owner: AI Product Manager → AI Design (ดู `.wyn/docs/design/wyn-175-perceived-speed-motion.md`)
 Feature: WYNOS Web Beta1 — Perceived Speed & Motion (WYN-174 Track 1, Founder เลือก 2026-09-19)
 Goal: ทำให้การใช้งาน `wynos.online` รู้สึกเหมือนแอปมือถือ native มากที่สุด ด้วยการเปลี่ยนจากการสลับหน้าแบบ instant/snap เป็นมี motion, และแทน spinner/blank loading ด้วย skeleton state + press feedback ที่ตอบสนองทันทีเมื่อแตะ
 Target User: ผู้ใช้ WYNOS ทั่วไปที่เข้าเว็บผ่านมือถือ (iOS Safari/Android Chrome) เป็นหลัก
-Problem: ตรวจโค้ดจริงแล้วพบว่า WYNOS Web Beta1 ตอนนี้สลับหน้าแบบ instant ไม่มี transition, ไม่มี pattern skeleton loading มาตรฐาน, และไม่มี press/tap feedback (scale-down) แบบแอป native — ทำให้ยังรู้สึก "เป็นเว็บ" อยู่ แม้จะมี PWA/gesture/touch-target จาก WYN-158 แล้วก็ตาม
+Problem: (แก้ไขจาก audit เดิม — ดู DECISIONS.md 2026-09-19 "AI Design ตรวจโค้ดจริง") ที่จริง `PageTransition` และ skeleton system มีอยู่แล้ว (ใช้ใน Home/Profile/Chat) ช่องว่างจริงมีแค่: (1) Search/Notifications ยังใช้ spinner แทน skeleton (2) การ์ด/แถวบางจุดยังไม่มี press feedback (3) route transition ปัจจุบันตั้งใจให้เบามาก (fade 70ms) — ต้องให้ Founder ตัดสินใจว่าจะคงไว้หรือเพิ่ม motion ให้ชัดขึ้น
 
 ## ขอบเขต (3 ส่วนย่อย)
 

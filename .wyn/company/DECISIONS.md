@@ -1743,3 +1743,17 @@ Founder พิมพ์ทิศทางกว้างว่า "อยาก�
 แตก sub-task `WYN-175-web-perceived-speed-motion.md`: route transition (<300ms, respect `prefers-reduced-motion`), skeleton loading (Home/Profile/Chat/Search/Notifications), press feedback ทั่วระบบ — ไม่แตะ business logic/Supabase contract, ไม่แตะ WYN-163 (คนละ layer) ส่งต่อ AI Design ทำ audit + motion spec + preview ก่อน AI Coding เริ่ม
 
 อ้างอิง: `.wyn/tasks/backlog/WYN-174-web-native-app-feel-v2.md`, `.wyn/tasks/backlog/WYN-175-web-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — AI Design ตรวจโค้ดจริงพบว่า audit เดิมของ WYN-174 นับของที่มีอยู่แล้วไม่ครบ
+
+AI Design อ่านโค้ดจริงของ `web/components/ui/page-transition.tsx` และ `web/components/ui/skeleton.tsx` ก่อนเริ่มออกแบบ (ตามกติกา "ห้ามคิดทิศทาง visual ใหม่หากมี design system ที่อนุมัติแล้ว") พบว่า:
+
+1. **Route transition มีอยู่แล้ว** — `PageTransition` (framer-motion, opacity fade 70ms, ครอบทุก route ใน `web/app/layout.tsx`) โค้ดมีคอมเมนต์อธิบายชัดว่าตั้งใจให้เบามาก เพราะ navigation เร็วอยู่แล้วจาก `lib/mount-cache.ts` ไม่ได้ตั้งใจให้เป็น animation ที่เห็นชัด
+2. **Skeleton loading มีอยู่แล้ว** เป็นระบบกลาง (`SkeletonBlock`/`FeedSkeleton`/`ProfileSkeleton`/`ChatListSkeleton`) ใช้อยู่ใน Home/Profile/Chat inbox แล้ว
+3. **ช่องว่างจริง** คือแค่ Search กับ Notifications ที่ยังใช้ spinner กลางจอ (`LoadingState`) แทน skeleton, และการ์ด/แถวบางจุด (post card, search result row) ยังไม่มี `:active` press feedback ทั้งที่ปุ่ม (`.wyn-button`) มีอยู่แล้ว
+
+แก้ scope ของ WYN-175 ให้ตรงกับความจริง: skeleton (Search/Notifications) และ press feedback (การ์ด/แถวที่ขาด) ทำได้เลยเพราะ reuse ของเดิม 100% ไม่ต้องรอ Founder อนุมัติภาพเพิ่ม ส่วน route transition เป็นเรื่อง **product feel decision ที่ Founder ต้องเลือกเอง** (คง fade 70ms เดิม หรือเพิ่ม motion แบบ native มากขึ้น 220ms) ไม่ใช่เรื่องทางเทคนิคที่ AI ตัดสินใจแทนได้
+
+ทำ Artifact เปรียบเทียบจริงทั้ง 3 ส่วน (skeleton before/after, press-feedback ที่กดทดลองได้จริง, route transition Option A/B ที่เล่น demo ได้): https://claude.ai/artifact/V8UKS6DB4nkvWdvk2XGcS2
+
+บันทึก design spec เต็มที่ `.wyn/docs/design/wyn-175-perceived-speed-motion.md`
