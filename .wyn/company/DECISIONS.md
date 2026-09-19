@@ -1626,3 +1626,69 @@ screens.tsx`, `WelcomeScreen`) จาก `height: 62` → **`height: 110`** (`wi
 ทั้งเว็บสอดคล้องกัน (ไม่ต้องใหญ่เท่า Welcome เพราะไม่ใช่จุด hero เดียวกัน)
 
 อัปเดต Artifact อาร์ตบอร์ด 6 ให้ใช้โลโก้ขนาดใหม่แล้ว: https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x
+
+## [2026-09-19] WYN-166 — เปลี่ยนช่องวันเกิดหน้า Signup Step 1 จากพิมพ์เองเป็น native date picker
+
+Founder ถามว่า "ตอนเลือกวันเกิดได้ไหม อยากให้เลือกวันเกิดง่ายๆ มีแนะนำไหม" — ช่องเดิมเป็น text input ที่ต้อง
+พิมพ์ตัวเลขเองแล้ว auto-format เป็น "วว / ดด / ปปปป" เสี่ยงพิมพ์ผิด/รูปแบบผิดง่าย
+
+AI เสนอ 2 ทาง: (1) native `<input type="date">` — ใช้ picker ของระบบมือถือเลย (iOS wheel / Android ปฏิทิน)
+effort ต่ำ แต่ปรับสไตล์ picker เองไม่ได้ (2) custom wheel picker แบบ Apple-style ให้ตรงกับ WYN-163 ทั้งหมด
+แต่ต้องผ่าน Design → Coding → QA เต็มรูปแบบ
+
+**Founder ตอบ "1"** — เลือก native date picker
+
+**สิ่งที่ทำ**: เปลี่ยนช่อง "วันเกิด" ใน `SignupStep1Screen` (`web/components/auth-flow/screens.tsx`) จาก
+`<Input bare inputMode="numeric">` + `formatBirthDateInput()` (auto-insert "/") เป็น
+`<Input bare type="date">` ตรงๆ — ค่าที่ได้จาก native date input เป็น ISO "YYYY-MM-DD" เสมอตาม HTML spec
+จึงลบ `formatBirthDateInput()` ทิ้งและปรับ `parseBirthDate()` ให้ validate รูปแบบ ISO แทนรูปแบบ 8 หลักเดิม
+(ตรรกะตรวจอายุ/ห้ามเป็นวันที่อนาคตเหมือนเดิมทุกอย่าง) เพิ่ม `max` attribute เป็นวันที่ล่าสุดที่อายุครบ
+`MIN_ONBOARDING_AGE` (13 ปี) พอดี ให้ picker ของ OS เองกันไม่ให้เลือกวันเกิดที่อายุไม่ถึงได้ตั้งแต่ต้น และ
+`min="1900-01-01"` กันช่วงปีให้เลื่อนดูไม่กว้างเกินจำเป็น — ฝั่ง JS validation (`parseBirthDate`) ยังตรวจซ้ำ
+เสมอ ไม่ได้พึ่ง `max`/`min` attribute อย่างเดียว (ป้องกันกรณี browser เก่า/ค่าที่ถูกแก้ผ่าน devtools)
+
+Trade-off ที่ Founder รับทราบแล้วจากตัวเลือกที่เสนอ: หน้าตาของ picker เองควบคุมไม่ได้ (เป็นของ OS/browser
+แต่ละแพลตฟอร์ม) ต่างจากปุ่ม/ช่องอื่นที่เป็น custom squircle design ของ WYN-163
+
+Verified: `typecheck`/`lint`/`build` ผ่านหมด, ทดสอบ manual ผ่าน Playwright ที่ 320/360/390/430px (กล่อง
+สมบูรณ์ ไม่ล้น), ทดสอบ flow เต็ม (กรอก → ไป step 2 → ย้อนกลับ → ค่ายังอยู่ครบ), ทดสอบ underage (อายุ 10 ปี)
+ถูก block พร้อม error message เดิม เพิ่ม regression test ใหม่ใน
+`web/tests/browser/auth-reference-flow.spec.ts` และแก้ 2 assertion เดิมที่ยังอ้างอิงรูปแบบข้อความเก่า
+("01 / 01 / 2000" → "2000-01-01")
+
+รอ QA & Security ตรวจก่อน deploy
+
+## [2026-09-19] WYN-166 follow-up — เปลี่ยนช่องวันเกิดจาก native date picker เป็น 3 dropdown ภาษาไทย (วัน/เดือน/ปี)
+
+วันเดียวกับที่ implement native `<input type="date">` เสร็จ (ดูรายการ WYN-166 ด้านบน) Founder เห็นผลจริงแล้ว
+ตอบว่า **"วันเกิด ไม่เอา mm/dd/yyyy สิ เอาภาษาไทย"** — ปฏิเสธ native picker เพราะขึ้นภาษาอังกฤษ
+
+**สาเหตุ**: หน้าตา/ภาษาที่แสดงใน native `<input type="date">` ขึ้นอยู่กับภาษาของเบราว์เซอร์/ระบบปฏิบัติการ
+ของผู้ใช้แต่ละคน ไม่ใช่ภาษาของหน้าเว็บ — เว็บบังคับให้ขึ้นภาษาไทยเสมอไม่ได้ แม้ตัวแอปทั้งหมดจะเป็นภาษาไทยก็ตาม
+(เป็น trade-off ที่บอก Founder ไว้ล่วงหน้าตอนเสนอตัวเลือกแล้วว่า "ปรับสไตล์ตัว picker เองไม่ได้" แต่ Founder
+ไม่ได้คาดคิดว่าจะกระทบถึงภาษาที่แสดงด้วย)
+
+**ทางแก้**: เปลี่ยนจาก native date picker เป็น **3 dropdown ธรรมดา** (วัน / เดือน / ปี) สะกดชื่อเดือนเป็น
+ภาษาไทยเต็ม ("มกราคม"..."ธันวาคม") ควบคุมข้อความเองได้ 100% ไม่ขึ้นกับ locale ของเครื่องผู้ใช้อีกต่อไป
+
+ก่อน implement ถามคำถามเดียวกลับ Founder เพราะเป็นการตัดสินใจเรื่อง product/locale ที่ AI ไม่ควรเดาเอง:
+**ปีเกิดใน dropdown ให้แสดงเป็น พ.ศ. หรือ ค.ศ.?** — **Founder ตอบ "พ.ศ. (แนะนำ)"** ค่าที่เก็บ/validate จริง
+ยังเป็นปีคริสต์ศักราชเหมือนเดิมทุกที่ในระบบ (ไม่กระทบ `setDateOfBirth`/`profile_private.date_of_birth`) —
+แปลงแค่ตัวเลข label ที่แสดงใน dropdown เท่านั้น (`ปีที่แสดง = ปี ค.ศ. + 543`)
+
+**รายละเอียดทางเทคนิค**: `web/components/auth-flow/screens.tsx` ลบ native `<input type="date">` และ
+`maxOnboardingBirthDate()` ออก เปลี่ยนเป็น 3 `<select>` (`.wyn-select` class ใหม่ใน
+`web/app/auth-reference.css`) โดย wrapper ที่ห่อ 3 select เป็น layout เฉยๆ (`display:flex; gap`) ไม่มี
+border/height ของตัวเอง — ตั้งใจหลีกเลี่ยง bug แบบ WYN-165 (nested box ชนกัน) ตั้งแต่ต้น dropdown ปีจำกัด
+range ให้เสนอเฉพาะปีที่เป็นไปได้ที่อายุครบ 13 ปีเท่านั้น (เหมือนที่ native picker เคยทำด้วย `max` attribute)
+แต่ `parseBirthDate()` ฝั่ง JS ยังตรวจอายุแบบละเอียดระดับวัน/เดือนซ้ำเสมอตอนกดส่ง (เพราะปีล่าสุดที่ dropdown
+เสนอ ยังมีบางวันเกิดในปีนั้นที่อายุไม่ถึง 13 จริง — เช่นเกิด 31 ธันวาคม ของปีล่าสุดที่ dropdown เสนอ อาจยังไม่
+ครบ 13 ปีจริงถ้าวันนี้ยังไม่ถึงวันเกิดของปีนั้น)
+
+Verified: `typecheck`/`lint`/`build` ผ่านหมด, ทดสอบ manual ผ่าน Playwright ยืนยันข้อความเดือนเป็นภาษาไทยครบ
+12 เดือน ไม่มีตัวเลข/ภาษาอังกฤษหลุดมา, ปีปีแรกใน dropdown ตรงกับ พ.ศ. ที่คำนวณถูกต้อง, ทดสอบ flow เต็ม
+(กรอก → ไป step 2 → ย้อนกลับ → ค่ายังอยู่ครบ), ทดสอบ edge case "ปีล่าสุดที่ dropdown เสนอ + 31 ธันวาคม" ถูก
+block ถูกต้อง (ยืนยันว่า JS validation ยังทำงานจริง ไม่ใช่แค่ปล่อยให้ dropdown กรองอย่างเดียว), เช็คกล่อง
+ไม่ล้น/ไม่ขาดที่ 320-430px ซ้ำอีกครั้งเทียบกับ WYN-165 โดยเฉพาะ แก้ regression test ให้ตรงกับ UI ใหม่ทั้งหมด
+
+รอ QA & Security ตรวจก่อน deploy

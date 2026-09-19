@@ -45,12 +45,34 @@ async function resolvePostAuthPath(client: NonNullable<ReturnType<typeof getSupa
   }
 }
 
+const THAI_MONTHS = [
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
+];
+
+const BUDDHIST_ERA_OFFSET = 543;
+const MIN_BIRTH_YEAR = 1900;
+
+/// `raw` is the "YYYY-MM-DD" string assembled from the 3 วัน/เดือน/ปี select
+/// boxes below — always well-formed digit-wise once all 3 are chosen (the
+/// select options only ever offer zero-padded numeric values), but this
+/// still re-validates defensively (format, real calendar date, age, not in
+/// the future) since `raw` can also be a still-incomplete "-MM-" /
+/// "YYYY--" string while the user hasn't finished picking all 3 yet, or a
+/// re-read of stale draft state (e.g. after navigating back from step 2).
 function parseBirthDate(raw: string): string | null {
-  const digits = raw.replace(/[^0-9]/g, "");
-  if (digits.length !== 8) return null;
-  const day = Number(digits.slice(0, 2));
-  const month = Number(digits.slice(2, 4));
-  const year = Number(digits.slice(4, 8));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const [year, month, day] = raw.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
   const now = new Date();
@@ -58,19 +80,20 @@ function parseBirthDate(raw: string): string | null {
   const hadBirthdayThisYear = now.getUTCMonth() > month - 1 || (now.getUTCMonth() === month - 1 && now.getUTCDate() >= day);
   if (!hadBirthdayThisYear) age -= 1;
   if (age < MIN_ONBOARDING_AGE || date > now) return null;
-  return date.toISOString().split("T")[0];
+  return raw;
 }
 
-/// Auto-inserts the "วว / ดด / ปปปป" separators as the user types digits,
-/// so a birth date can be filled with just the numeric keypad instead of
-/// typing slashes/spaces by hand. Deleting characters still works normally
-/// since this only ever re-derives the display string from the digits
-/// already present.
-function formatBirthDateInput(raw: string): string {
-  const digits = raw.replace(/[^0-9]/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)} / ${digits.slice(2)}`;
-  return `${digits.slice(0, 2)} / ${digits.slice(2, 4)} / ${digits.slice(4)}`;
+/// Gregorian birth years eligible under MIN_ONBOARDING_AGE, newest first
+/// (most users' birth years are closer to today than to 1900, so this
+/// keeps the common case near the top of the dropdown). Each option's
+/// visible label is the Buddhist-era year (Founder-approved 2026-09-19,
+/// WYN-166 follow-up) — the stored/validated value stays Gregorian, the
+/// same as every other date in this codebase.
+function eligibleBirthYears(): number[] {
+  const maxYear = new Date().getUTCFullYear() - MIN_ONBOARDING_AGE;
+  const years: number[] = [];
+  for (let year = maxYear; year >= MIN_BIRTH_YEAR; year--) years.push(year);
+  return years;
 }
 
 /// A `useSyncExternalStore` snapshot never changes on its own (there is
@@ -315,8 +338,20 @@ export function SignupStep1Screen() {
     const value = event.target.value;
     setDraft((current) => ({ ...current, [key]: value }));
   };
-  const updateBirthDate = (event: ChangeEvent<HTMLInputElement>) => {
-    setDraft((current) => ({ ...current, birthDate: formatBirthDateInput(event.target.value) }));
+  // draft.birthDate is always the 3-part "YYYY-MM-DD" join, even while
+  // incomplete (e.g. "-05-" after only picking a month) — see
+  // parseBirthDate's doc comment. Deriving the 3 select values straight
+  // from draft.birthDate on every render (instead of separate local state)
+  // means they stay correct after a route remount (e.g. the "ย้อนกลับ" flow
+  // from step 2) and after signup-draft-context's own sessionStorage-resume
+  // effect runs, the same way the plain username/displayName inputs already do.
+  const [birthYear, birthMonth, birthDay] = draft.birthDate.split("-");
+  const updateBirthDatePart = (part: "year" | "month" | "day") => (event: ChangeEvent<HTMLSelectElement>) => {
+    const [y, m, d] = draft.birthDate.split("-");
+    const year = part === "year" ? event.target.value : (y ?? "");
+    const month = part === "month" ? event.target.value : (m ?? "");
+    const day = part === "day" ? event.target.value : (d ?? "");
+    setDraft((current) => ({ ...current, birthDate: `${year}-${month}-${day}` }));
   };
 
   async function goNext() {
@@ -392,13 +427,53 @@ export function SignupStep1Screen() {
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 56, border: "1px solid var(--border-strong)", borderRadius: 18, padding: "0 18px" }}>
             <span style={{ color: "var(--text-muted)" }}>@</span>
-            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", flex: 1, fontSize: 16 }} />
+            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", background: "transparent", height: "100%", padding: 0, borderRadius: 0, flex: 1, fontSize: 16 }} />
           </div>
         </div>
         <Field label="ชื่อที่แสดง" name="displayName" placeholder="ชื่อของคุณ" value={draft.displayName} onChange={update("displayName")} disabled={!mounted} />
         <div className="field">
           <label>วันเกิด</label>
-          <Input bare inputMode="numeric" name="birthDate" placeholder="วว / ดด / ปปปป" value={draft.birthDate} onChange={updateBirthDate} disabled={!mounted} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <select
+              aria-label="วัน"
+              className="wyn-select"
+              value={birthDay ?? ""}
+              onChange={updateBirthDatePart("day")}
+              disabled={!mounted}
+              style={{ flex: "0 0 74px" }}
+            >
+              <option value="">วัน</option>
+              {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((day) => (
+                <option key={day} value={day}>{Number(day)}</option>
+              ))}
+            </select>
+            <select
+              aria-label="เดือน"
+              className="wyn-select"
+              value={birthMonth ?? ""}
+              onChange={updateBirthDatePart("month")}
+              disabled={!mounted}
+              style={{ flex: 1 }}
+            >
+              <option value="">เดือน</option>
+              {THAI_MONTHS.map((label, i) => (
+                <option key={label} value={String(i + 1).padStart(2, "0")}>{label}</option>
+              ))}
+            </select>
+            <select
+              aria-label="ปี"
+              className="wyn-select"
+              value={birthYear ?? ""}
+              onChange={updateBirthDatePart("year")}
+              disabled={!mounted}
+              style={{ flex: "0 0 92px" }}
+            >
+              <option value="">ปี</option>
+              {eligibleBirthYears().map((year) => (
+                <option key={year} value={year}>{year + BUDDHIST_ERA_OFFSET}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <Button className="btn-primary" disabled={loading} onClick={() => void goNext()} style={{ marginTop: 10 }}>{loading ? "กำลังดำเนินการ…" : "หน้าถัดไป"}</Button>
         <ErrorText>{error}</ErrorText>

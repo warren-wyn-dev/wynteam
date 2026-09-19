@@ -14,6 +14,31 @@
 
 ## รายการ
 
+### [2026-09-19] Task WYN-165 (Founder รายงานสดจาก production — ช่องชื่อผู้ใช้บนหน้า Signup Step 1 "ช่องหาย")
+- ข้อผิดพลาด: WYN-163 บังคับให้ `.field .wyn-input` (ใน `web/app/auth-reference.css`) ใช้ `height: 56px` แต่
+  `web/components/ui/input.tsx`'s `Input` component ใส่ class `wyn-input` ให้ input เสมอ **แม้จะส่ง prop
+  `bare` มาก็ตาม**. `SignupStep1Screen`'s ช่องชื่อผู้ใช้ห่อ `<Input bare>` ด้วย `<div>` ที่ตั้งค่า
+  `border`/`height: 56`/`padding` เองอีกชั้น (เพื่อวาง "@" กับ input ในแถวเดียวกัน) — ทำให้ input ชั้นในโดน
+  `.wyn-input` บังคับ height 56px ซ้ำ ทั้งที่ wrapper เป็น `box-sizing: border-box` มี border 1px ทำให้
+  content box จริงเหลือแค่ 54px — input ที่สูง 56px จึงล้นออกมาทับเส้นขอบบน-ล่างของ wrapper ด้วย background
+  สีขาวทึบของตัวเอง ทำให้เส้นขอบดูหายไป ไม่ถูกจับได้ตอน QA รอบ 1/2 ของ WYN-163/164 เพราะ QA ตรวจแค่ค่า
+  ตัวเลข geometry (สูง/radius) และความสอดคล้องข้ามหน้าจอ ไม่ได้ screenshot ตรวจ sub-pixel border rendering
+  ของแต่ละช่องแยกกัน
+- ผลกระทบ: บั๊ก visual จริงบน production ที่ Founder ต้องเห็นเองผ่านมือถือจริงถึงจะรู้ ไม่ถูกจับได้เลยตลอด
+  ทั้ง pipeline (Design → Coding → QA×2 → Deploy)
+- วิธีป้องกันในอนาคต: เวลา component ห่อ `<Input bare>` (หรือ shared input/button component อื่นที่ผูก class
+  กลางไว้แบบไม่มีเงื่อนไข) ด้วย wrapper ของตัวเองที่ตั้ง `height`/`border`/`padding` เอง ต้องเช็คว่า class
+  กลางที่ input ชั้นในยังพ่วงมาด้วย (`bare` ไม่ได้ตัด class ออก แค่ตัด label/hint/error wrapper) จะชนกับ
+  wrapper หรือไม่ — โดยเฉพาะเรื่อง `height` ที่ต้องคิดผลต่างระหว่าง border-box กับ content-box (border หนา
+  เท่าไหร่ ก็ eat เข้า content height เท่านั้น) ไม่ใช่แค่เทียบตัวเลข height ที่เท่ากันแล้วคิดว่าปลอดภัย และ
+  QA ที่ตรวจ redesign ที่เปลี่ยนขนาด (height/radius/padding) ควร screenshot ทุกช่อง input แบบ per-field
+  ไม่ใช่แค่เทียบค่าตัวเลข computed style ของ class เดียว
+- Regression test ที่เพิ่ม: `web/tests/browser/auth-reference-flow.spec.ts` — `signup step 1 username field
+  input never exceeds its wrapper's content box` (เทียบ `input.boundingBox().height` กับ
+  `wrapper.clientHeight` ไม่ใช่เทียบ `boundingBox()` กับ `boundingBox()` ตรงๆ เพราะ input ที่ล้นจะทับเส้นขอบ
+  ไม่ได้ยื่นพ้นกรอบนอกของ wrapper ทำให้ bounding box ภายนอกยังเท่ากันอยู่ ตรวจ regression นี้ด้วย
+  `git stash` เทียบ assertion กับโค้ดก่อน/หลัง fix จริง ยืนยันว่า fail ก่อน fix และ pass หลัง fix)
+
 ### [2026-09-06] Task WYN-120 (Founder รายงานสด — ลบโพสต์แล้วหน้าโปรไฟล์ไม่หาย)
 - ข้อผิดพลาด: ตอนทำ WYN-037 (Edit/Delete Drop + "รายการที่ลบ") เพิ่ม RLS exception ให้ author เห็นโพสต์ที่ตัวเองลบไปแล้ว (`deleted_at is null or auth.uid() = author_id`) และเขียน `fetchDeletedDrops()` filter ตรงข้ามให้ถูกต้องสำหรับหน้าใหม่ที่เพิ่มเข้ามา แต่ไม่ได้ไล่ตรวจ caller เดิมที่มีอยู่ก่อนแล้ว (`DropRepository.fetchById()`) ว่ายังพึ่งพาสมมติฐาน "row หายจาก SELECT = ถูกลบสำหรับทุกคนรวมถึง author" อยู่หรือไม่ — สมมติฐานนั้นเป็นจริงมาตลอดก่อน WYN-037 แต่กลายเป็นเท็จทันทีสำหรับกรณี "author query แถวของตัวเอง" หลัง WYN-037 merge
 - ผลกระทบ: ทุกครั้งที่เจ้าของโพสต์ลบโพสต์ตัวเองแล้วกลับมาหน้าที่ใช้ `fetchById()` refresh แถว (Profile grid/แท็บถูกใจ/hashtag feed เป็นอย่างน้อย) โพสต์ที่ลบไปแล้วยังค้างแสดงอยู่จนกว่าจะ full page reload — Founder ต้องรายงานเองสด ไม่ได้ถูก QA จับได้ก่อน เพราะ WYN-037's QA คงทดสอบแค่ flow ใหม่ (delete/restore ทำงานถูกต้องไหม) ไม่ได้ทดสอบ regression กับหน้าจอเก่าที่มีอยู่ก่อนที่พึ่งพา method เดียวกัน

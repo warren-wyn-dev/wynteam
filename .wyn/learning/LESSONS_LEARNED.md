@@ -13,6 +13,29 @@
 
 ## รายการ
 
+### [2026-09-19] `bare` prop บน shared input component ไม่ได้แปลว่าไม่มี class กลางติดมาด้วย — wrapper ที่ตั้ง height เองต้องคิดผลต่าง border-box vs content-box ให้ครบ
+- บริบท: WYN-165 — Founder รายงานสดจาก production ว่าช่องชื่อผู้ใช้บนหน้า Signup Step 1 "ช่องหาย" (เส้นขอบบน-
+  ล่างหายไป) หลัง WYN-163/164 deploy. Root cause: `Input` component (`web/components/ui/input.tsx`) ใส่
+  class `wyn-input` ให้ input **เสมอ** ไม่ว่าจะส่ง `bare` prop มาหรือไม่ (`bare` แค่ตัด label/hint/error
+  wrapper ออก ไม่ได้ตัด class) — ช่องนี้ห่อ `<Input bare>` ด้วย `<div>` ที่ตั้ง `height: 56`/`border`/
+  `padding` เองอีกชั้นเพื่อวาง "@" กับ input ในแถวเดียวกัน ทำให้ input ชั้นในโดน `.wyn-input`'s `height: 56px`
+  บังคับซ้ำ ทั้งที่ wrapper เป็น `box-sizing: border-box` มี border 1px ทำให้ content box จริงเหลือแค่ 54px
+  — ผลคือ input ล้น 1px บน-ล่าง ทับเส้นขอบของ wrapper ด้วย background สีขาวทึบของตัวเอง
+- บทเรียน: เวลาเห็น prop ชื่อ `bare`/`unstyled`/`plain` บน shared component อย่าสรุปเองว่ามันตัด styling
+  ออกทั้งหมด — ต้องอ่านโค้ดจริงของ component นั้นว่า prop นี้ตัดอะไรออกจริงๆ (ในเคสนี้ตัดแค่ wrapper
+  `<label>`/hint/error แต่ class หลักยังติดอยู่). และเมื่อ wrapper ของเราเองตั้ง `height` ที่ตรงกับตัวเลขใน
+  shared class พอดี (56px ทั้งคู่) อย่าคิดว่า "เท่ากันแปลว่าปลอดภัย" — ต้องคิดผลต่างระหว่าง border-box กับ
+  content-box: border ยิ่งหนา content height ยิ่งถูก eat เข้าไปมากกว่าที่ input ชั้นในรู้ ทำให้ input ที่ตั้ง
+  height เท่ากับ wrapper เป๊ะ กลับล้นออกมาจริง
+- การนำไปใช้ในอนาคต: (1) ก่อนห่อ shared input/button component ด้วย wrapper `<div>` ของตัวเองที่ตั้ง
+  height/border/padding เอง ต้อง grep ดู component นั้นว่า class กลางที่ผูกมาด้วยเสมอ (ไม่ว่าจะส่ง prop
+  อะไร) คืออะไรบ้าง แล้วเทียบว่าจะชนกับ wrapper หรือไม่ — ถ้าจำเป็นต้องห่อจริงๆ ให้ override ค่าที่ชนกันผ่าน
+  inline style locally (height เป็น `100%` แทนตัวเลข fix, background เป็น transparent) แทนที่จะปล่อยให้ค่า
+  ซ้ำกันโดยไม่ตั้งใจ (2) QA ที่ตรวจ redesign ที่เปลี่ยนขนาด (height/radius/padding) ของ input/button ควร
+  screenshot ตรวจทุกช่องแบบ per-field โดยเฉพาะช่องที่มี custom wrapper/layout พิเศษ (เช่นมี icon/prefix นำ
+  หน้า) ไม่ใช่แค่เทียบ computed style ตัวเลขของ shared class เดียว เพราะบั๊กแบบนี้ไม่โผล่ในค่าตัวเลขของ
+  class กลาง แต่โผล่จากการชนกันของสอง element ที่ nest กัน
+
 ### [2026-09-06] ฟังก์ชัน `internal.*` ใหม่ที่ถูกเรียกตรงจาก RLS policy ต้องมี `grant execute ... to authenticated` เสมอ ไม่ว่าจะดู "ทำงานได้อยู่แล้ว" แค่ไหนตอนทดสอบ local
 - บริบท: WYN-122 เพิ่มฟังก์ชัน `internal.chat_pair_allowed()` ใหม่ ถูกเรียกตรงจากใน `using`/`with check` ของ RLS policy 4 จุด (conversations SELECT, messages SELECT/INSERT, chat-media storage INSERT) — Coding ลืมใส่ `grant execute ... to authenticated` ทั้งที่ทุก `internal.*` helper อื่นในไฟล์เดียวกัน (10 ตัว) มี grant นี้ครบไม่มีข้อยกเว้น เหตุผลที่ regression test ของ Coding เอง (15 checks) ยัง "ผ่านหมด" ทั้งที่มีบั๊กจริงอยู่ คือ local Postgres test harness ไม่เคย revoke default EXECUTE-to-PUBLIC ที่ Postgres ให้มาตอนสร้าง function เลย จึงทำงานได้ปกติโดยไม่รู้ตัวว่ากำลังพึ่งพา default ที่ยังไม่ถูกปิดอยู่ — QA จับได้เพราะทดสอบแบบ adversarial เพิ่มเติม (grep เทียบ grant statement ของ helper function ทุกตัวในไฟล์แล้วพบว่าตัวใหม่ขาดไปตัวเดียว จากนั้นพิสูจน์ด้วยการ `revoke execute ... from public` จริงแล้วเห็น RLS policy พังจริง) ไม่ใช่แค่รัน test suite เดิมซ้ำ
 - บทเรียน: การที่ regression test ผ่านหมดไม่ได้แปลว่าโค้ดปลอดภัยจริงเสมอไป โดยเฉพาะเรื่อง permission/grant ที่ local test harness "ใจดี" กว่าที่ production อาจเป็นจริง (Postgres default ให้ EXECUTE ทุกคนตอนสร้าง function แต่ hardening practice จริงมักจะ revoke default นี้ทิ้ง) — โค้ดที่ "ดูทำงานได้" ในสภาพแวดล้อมทดสอบอาจกำลังพึ่งพา default ที่ปิดได้ทุกเมื่อโดยไม่มีการเตือนล่วงหน้า วิธีจับบั๊กคลาสนี้ที่ได้ผลจริงคือ**เทียบ pattern กับของที่มีอยู่แล้วในไฟล์เดียวกันแบบ 1:1** (grep หา `grant execute on function internal.*` ทั้งหมดแล้วนับว่าตัวใหม่ตรงกับ pattern เดิมหรือไม่) ไม่ใช่แค่เชื่อว่า "รันผ่านแปลว่าถูก"
