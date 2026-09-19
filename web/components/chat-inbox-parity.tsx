@@ -409,17 +409,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
               <div className="wyn-note-avatar-large">
                 <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={88} />
               </div>
-
-              <div className="wyn-note-tools" aria-label="เครื่องมือโน้ต">
-                <button type="button" className="wyn-note-tool" aria-label="สถานที่">
-                  <span><WynosIcon name="location" size={22} strokeWidth={1.9} /></span>
-                  <small>สถานที่</small>
-                </button>
-                <button type="button" className="wyn-note-tool" aria-label="อีโมจิ">
-                  <span><WynosIcon name="smile" size={22} strokeWidth={1.9} /></span>
-                  <small>อีโมจิ</small>
-                </button>
-              </div>
             </div>
 
             <div className="wyn-note-info-card">

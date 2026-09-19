@@ -156,7 +156,7 @@
 }
 
 .wyn-chat-note-card.is-mine .wyn-chat-note-bubble {
-  background: #f7f7f8;
+  background: var(--wyn-surface);
   box-shadow: none;
 }
 
@@ -345,7 +345,7 @@
 }
 
 .wyn-note-stage {
-  min-height: 318px;
+  min-height: 240px;
   padding: 24px 0 16px;
   display: grid;
   justify-items: center;
@@ -425,42 +425,6 @@
   box-shadow: none !important;
 }
 
-.wyn-note-tools {
-  margin-top: 16px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 22px;
-}
-
-.wyn-note-tool {
-  width: 58px;
-  padding: 0;
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  border: 0;
-  background: transparent;
-  color: var(--wyn-text);
-  font: inherit;
-}
-
-.wyn-note-tool > span {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #f5f5f6;
-}
-
-.wyn-note-tool small {
-  color: var(--wyn-text-secondary);
-  font-size: 11px;
-  line-height: 1;
-  font-weight: 550;
-}
-
 .wyn-note-info-card {
   width: min(88%, 460px);
   margin: 2px auto 0;
@@ -517,7 +481,7 @@
 
 @media (max-height: 760px) {
   .wyn-note-stage {
-    min-height: 285px;
+    min-height: 210px;
     padding-top: 18px;
     padding-bottom: 14px;
   }
@@ -526,10 +490,6 @@
   .wyn-note-avatar-large .route-avatar {
     width: 80px !important;
     height: 80px !important;
-  }
-
-  .wyn-note-tools {
-    margin-top: 14px;
   }
 }
 
@@ -680,7 +640,7 @@
 }
 
 .wyn-chat-note-card.is-mine .wyn-chat-note-bubble {
-  background: #f7f7f8;
+  background: var(--wyn-surface);
 }
 
 .wyn-chat-note-avatar-wrap {
