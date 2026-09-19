@@ -1798,3 +1798,19 @@ AI QA & Security ไม่เชื่อผลที่ AI Coding รายง�
 **สิ่งที่ผ่าน**: search-user-row skeleton (64px=64px), search-club-row skeleton (68px=68px), shimmer animation, press feedback `:active` scale(0.96) ทั้ง 3 จุด (ทดสอบจริงด้วย mouse down/up ผ่าน Playwright ไม่ใช่แค่อ่านโค้ด), `prefers-reduced-motion` ปิดทั้ง transition และ shimmer ได้จริง (ทดสอบด้วย `page.emulateMedia`)
 
 **Final Status: FAIL** — เขียน bug report ที่ `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md` พร้อมค่าที่ถูกต้องให้แก้ตรงๆ (ไม่ต้องสืบสวนใหม่) ส่งต่อ AI Debug Engineer ยังไม่ approve/ยังไม่ deploy
+
+## [2026-09-19] WYN-175 — AI Debug Engineer แก้บั๊กแล้ว + เพิ่ม regression test จริงเข้า repo
+
+Reproduce บั๊กซ้ำก่อนแก้ (ได้ผล FAIL เดียวกับ QA เป๊ะ) ยืนยัน root cause ด้วยการอ่าน source จริงเอง (`pixel-parity-audit-closure.css:184-190`, `parity-completion.css:22`) ไม่เชื่อ bug report เฉยๆ ตามกติกา "ห้ามเดา root cause"
+
+**Fix**: แก้ `web/app/skeleton.css` เฉพาะ 2 selector (`.wyn-skeleton-notification-row`, `.wyn-skeleton-hashtag-row`) ให้ตรงกับค่าที่ชนะ cascade จริง — ไม่แตะไฟล์อื่น
+
+**เพิ่ม regression test จริง**: `web/components/dev/wyn-175-skeleton-fixture.tsx` + route `/dev/wyn-175-skeleton-fixture` (ตาม pattern `/dev/home-fixture` เดิม, unauthenticated test-only fixture ไม่มี real data) + `web/tests/browser/wyn-175-skeleton-parity.spec.ts` — ระหว่างเขียน test เจอบั๊กเพิ่มอีก 2 จุดในตัว test เอง (comment `*/` ปิด JSDoc พลาดกลางคำ "parity-*/pixel-parity-*" ทำให้ parse error ทั้ง component และ spec file, Playwright strict-mode locator ชน element ซ้ำที่หน้า Discovery เพราะมี 3 hashtag row) แก้แล้วยืนยัน 6/6 pass จริงกับ dev server ก่อน commit (ไม่ใช่เขียน `.spec.ts` แล้วเชื่อว่าถูกโดยไม่รัน — `npx playwright test` ในสภาพแวดล้อมนี้เจอ browser version mismatch ระหว่าง `@playwright/test` ที่ npm install กับ browser ที่ pre-install ไว้ จึง verify ด้วย raw `playwright` package + `executablePath` แทน ตาม README ของสภาพแวดล้อมนี้ — CI จริงมี `npx playwright install` ในทุก workflow ที่รัน `qa:browser` จึงไม่เจอปัญหานี้)
+
+**Verification**: harness เดิมของ QA จาก 11/13 → 13/13, `npm run lint`/`typecheck`/`build` ผ่านหมด
+
+บันทึกบทเรียนที่ `.wyn/learning/LESSONS_LEARNED.md` และ `.wyn/learning/MISTAKES.md` แล้ว (pattern: อ่าน CSS rule แรกที่เจอ ไม่ใช่ rule ที่ชนะ cascade ในไฟล์ที่มี parity/pixel-parity override ซ้อนกันหลายชั้น — ต้อง grep หาทุกไฟล์ที่นิยาม selector เดียวกันแล้วเทียบลำดับ import ใน layout.tsx ก่อนเชื่อค่า)
+
+ส่งกลับ AI QA & Security ตรวจซ้ำ
+
+อ้างอิง: `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md`, `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md`

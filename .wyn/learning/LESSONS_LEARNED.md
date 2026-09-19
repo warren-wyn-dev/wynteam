@@ -292,3 +292,23 @@
   WYN-171 เอง ไม่ใช่จากการทำ sweep เชิงรุกตามที่แนะนำไว้ข้างต้น — ยืนยันชัดเจนว่าการรอเจอทีละจุดยังไม่พอ ถึงเวลา
   ที่ควรทำ repo-wide grep sweep แบบเป็นระบบจริงจัง (ไม่ใช่แค่บันทึกไว้เฉยๆ) ในโอกาสถัดไปที่มี AI Design/QA ว่าง
   ที่ไม่มีใครตั้งใจ
+
+### [2026-09-19] WYN-175 — "first CSS rule found" ≠ "CSS rule that wins" ในโค้ดที่มีไฟล์ override ซ้อนกันหลายชั้น
+- บริบท: AI Design/Coding สร้าง skeleton loading ใหม่ (`NotificationSkeleton`, hashtag row ใน
+  `SearchDiscoverySkeleton`) โดยอ่านขนาด (min-height/padding) จาก CSS rule แรกที่เจอของ class
+  `.notification-row`/`.hashtag-row` ใน `app/phase3.css` แล้ว copy ค่ามาใช้ตรงๆ — ไม่รู้ว่า repo นี้มีไฟล์
+  `parity-*.css`/`pixel-parity-*.css`/`system-parity-*.css` หลายไฟล์ import ทีหลังใน `layout.tsx` ที่ override
+  ค่าเดิมด้วย selector specificity เท่ากัน (ชนะด้วย source order) ทำให้ค่าที่ copy มาใช้จริงผิดไปจากค่าที่ browser
+  render จริงถึง 14-19px — QA จับได้ด้วยการโหลด CSS ทั้ง 38 ไฟล์ตามลำดับ import จริงมาวัด
+  `getBoundingClientRect()` เทียบกัน ไม่ใช่แค่อ่านโค้ด
+- บทเรียน: ใน codebase ที่มีไฟล์ CSS override กันหลายชั้น (โดยเฉพาะที่มีคำว่า "parity"/"final"/"closure"/"lock"
+  ในชื่อไฟล์ ซึ่งบ่งบอกว่าเป็น layer ที่เขียนทับของเดิมโดยเจตนา) **การอ่าน CSS rule แรกที่ grep เจอไม่พอ** ต้อง
+  `grep -rn "<selector>"` ทั่ว `app/*.css` แล้วดูว่า selector เดียวกันถูกนิยามในไฟล์ไหนบ้าง เทียบลำดับ import ใน
+  `layout.tsx` เพื่อหาไฟล์ที่ import ทีหลังสุด (ชนะที่ specificity เท่ากัน) ก่อนเชื่อว่าค่าที่เห็นคือค่าจริงที่
+  browser render
+- การนำไปใช้ในอนาคต: เมื่อจะ copy ขนาด/สไตล์จาก selector ที่มีอยู่แล้วไปสร้าง component ใหม่ (skeleton, preview,
+  ฯลฯ) ให้ยืนยันด้วยการ render จริงในเบราว์เซอร์ (Playwright/standalone harness ที่โหลด CSS ครบทุกไฟล์ตามลำดับ
+  import จริง) แล้ววัด computed style เทียบกัน แทนการอ่าน source แล้วเดาว่า rule แรกที่เจอคือค่าที่ใช้จริง —
+  โดยเฉพาะกับ property ที่มีผลต่อ layout (height/padding/margin) ซึ่งผิดแล้วเห็นผลเป็น layout shift ทันที เพิ่ม
+  regression test ไว้แล้วที่ `web/tests/browser/wyn-175-skeleton-parity.spec.ts` + fixture route
+  `/dev/wyn-175-skeleton-fixture` (ตาม pattern `/dev/home-fixture` เดิม) ให้ CI จับ class นี้ได้เองในอนาคต

@@ -79,3 +79,19 @@ P0 — Founder ยืนยันให้เริ่ม track นี้ก่�
 - ยังไม่ได้ทดสอบบน physical iPhone Safari จริง (ตามบทเรียน WYN-158 ว่า CI เขียว/build ผ่าน ≠ ใช้งานได้จริงบนอุปกรณ์จริง) — QA/Founder ต้องยืนยันเพิ่ม
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) skeleton ไม่ทำให้ layout shift ตอนข้อมูลจริงโหลดเสร็จ (2) press feedback ไม่ค้างสถานะ scale หลังปล่อยนิ้ว (3) route transition ทำงานถูกทั้งสองทิศทาง (ไปหน้าใหม่/กลับ) และ `prefers-reduced-motion` ลด slide ได้จริง (4) `aria-live`/`aria-label` ของ skeleton อ่านออกเสียงได้เหมาะสมกับ screen reader
+
+## Debug Fix (AI Debug Engineer, 2026-09-19)
+
+**Bug**: `.wyn/tasks/bugs/WYN-175-skeleton-row-height-cascade-mismatch.md` — `NotificationSkeleton` (76px vs. real 62px) และ hashtag row ใน `SearchDiscoverySkeleton` (44px vs. real 63px) ใช้ขนาดที่ copy มาจาก CSS rule แรกที่เจอ ไม่ใช่ rule ที่ชนะ cascade จริง
+
+**Reproduction**: reproduce ซ้ำด้วย harness เดิมของ QA ก่อนแก้ — ได้ผล FAIL เดียวกันทุกประการ (76px/62px, 44px/63px) ยืนยัน root cause ตรงกับที่ QA ระบุโดยอ่าน source จริง (`app/pixel-parity-audit-closure.css:184-190`, `app/parity-completion.css:22`) ไม่ได้เชื่อ bug report เฉยๆ
+
+**Fix**: แก้ `web/app/skeleton.css` เฉพาะ 2 selector (`.wyn-skeleton-notification-row`, `.wyn-skeleton-hashtag-row`) ให้ min-height/padding/gap/grid-template-columns ตรงกับ CSS rule ที่ชนะ cascade จริง (`pixel-parity-audit-closure.css`/`parity-completion.css`) แทนที่ base rule เดิมที่ถูก override — ไม่แตะไฟล์อื่น ไม่แตะ component ใน `skeleton.tsx`
+
+**Verification**: rerun harness เดิม → 13/13 ผ่าน (จาก 11/13) — เพิ่ม regression test จริงเข้า repo: `web/components/dev/wyn-175-skeleton-fixture.tsx` + `web/app/dev/wyn-175-skeleton-fixture/page.tsx` (fixture route ตาม pattern `/dev/home-fixture` เดิม) + `web/tests/browser/wyn-175-skeleton-parity.spec.ts` (Playwright, ยืนยันรันผ่านจริงกับ dev server ก่อน commit ไม่ใช่แค่เขียนแล้วเชื่อว่าถูก — ระหว่างเขียนพบ bug เพิ่มอีก 2 จุดในตัว test เอง: comment `*/ ` ปิด JSDoc พลาดกลางคำ "parity-*/pixel-parity-*", และ Playwright strict-mode locator ชน element ซ้ำในหน้า Discovery ที่มี 3 hashtag row — แก้ทั้งสองจุดแล้วยืนยัน pass จริงก่อน commit) — `npm run lint`/`typecheck`/`build` ผ่านหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง)
+
+**Files Changed**: `web/app/skeleton.css` (fix), `web/components/dev/wyn-175-skeleton-fixture.tsx`, `web/app/dev/wyn-175-skeleton-fixture/page.tsx`, `web/tests/browser/wyn-175-skeleton-parity.spec.ts` (regression test, ใหม่ทั้งหมด)
+
+**Regression Risk**: ต่ำ — แก้แค่ CSS value ในไฟล์เดียว ไม่แตะ logic/data/auth บันทึกบทเรียนไว้ที่ `.wyn/learning/LESSONS_LEARNED.md` และ `.wyn/learning/MISTAKES.md` แล้ว (pattern "อ่าน CSS rule แรกที่เจอ ไม่ใช่ rule ที่ชนะ cascade" ในไฟล์ที่มี parity/pixel-parity override ซ้อนกันหลายชั้น)
+
+**Handoff to QA**: → **AI QA & Security** ตรวจซ้ำตามที่ระบุไว้ใน Handoff เดิมทั้งหมด + ยืนยัน regression test ใหม่ทำงานถูกต้องใน CI (`.github/workflows/web-phase4-browser-qa.yml`/`web-next-phase5-preview.yml` รัน `npm run qa:browser` ซึ่งจะรวม spec ใหม่นี้โดยอัตโนมัติ)

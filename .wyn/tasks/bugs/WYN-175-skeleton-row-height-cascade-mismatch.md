@@ -1,6 +1,6 @@
 # Bug Report — WYN-175
 
-Status: bugs
+Status: fixed — reproduced, root cause confirmed against source, fix applied and re-verified, ส่งต่อ AI QA & Security
 Owner: AI Debug Engineer
 Bug: Two of the new WYN-175 skeleton rows use the wrong height — `NotificationSkeleton` and the hashtag rows inside `SearchDiscoverySkeleton` are taller/shorter than the real rows they stand in for, so the page visibly jumps once real data replaces the skeleton (the exact regression this task's own Risks section warned about: "Skeleton loading ถ้าออกแบบไม่ตรงกับ layout จริงของ content จะเกิด layout shift").
 
