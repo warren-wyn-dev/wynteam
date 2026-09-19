@@ -1,7 +1,7 @@
 # Bug Report — WYN-164
 
-Status: bugs
-Owner: AI Debug Engineer
+Status: review (แก้แล้ว 2026-09-19 — รอ AI QA & Security ตรวจซ้ำ)
+Owner: AI Debug Engineer → **AI QA & Security ตรวจซ้ำ**
 Parent: WYN-163 (`.wyn/tasks/qa/WYN-163-onboarding-button-redesign.md`)
 
 ## Bug
@@ -99,3 +99,37 @@ Low — both fixes are additive/cosmetic (an icon + a font-size tweak on one par
 Once fixed, re-request AI QA & Security on WYN-163/WYN-164 together — re-verify both findings resolved,
 re-run the full functional/regression pass done in QA round 1 (documented in
 `.wyn/tasks/qa/WYN-163-onboarding-button-redesign.md`) to confirm nothing else regressed.
+
+---
+
+## Resolution (2026-09-19, AI Debug Engineer)
+
+Both fixes implemented exactly as recommended above (option 1 for each), commit `a657e7bc`:
+
+1. Exported `GoogleGlyph` from `screens.tsx`, imported it into `account-add-route.tsx`, wired it as
+   `leadingIcon` on the Google button (same pattern as `WelcomeScreen`), and bumped the "เพิ่มบัญชี" headline
+   to `32px / 800 / letter-spacing -0.02em` to match the other 6 screens.
+2. Reduced the Welcome tagline specifically from `32px` to `28px` (only that one `<p>` — every other
+   headline in the set is a short 1-2 word title and doesn't wrap, so they stay at 32px).
+
+**Verification**: `npm run typecheck` / `npm run lint` / `npm run build` all clean (0 errors, same 3
+pre-existing unrelated warnings as before). Manual Playwright verification against a live dev server
+(`/opt/pw-browsers/chromium`, since this sandbox's `@playwright/test`-managed browser binaries aren't
+installed — same pre-existing gap noted in WYN-163's Coding/QA rounds):
+- `/welcome` at 320px: tagline renders as a single line (44px tall vs the ~102px/2-line wrap before)
+- `/account/add` at 390px: primary button now `58px`/`24px` radius (already was — untouched), Google button
+  now has the icon (`svg` count 1), headline now `32px`
+- Re-swept all 7 screens (6 onboarding + `/account/add`) at 390px: correct text, 0 console errors, Welcome
+  button order and geometry from WYN-163 unchanged (`58px`/`24px` primary, order
+  สร้างบัญชีใหม่→เข้าสู่ระบบ→Google)
+
+Added 2 regression tests to `web/tests/browser/auth-reference-flow.spec.ts` (`welcome headline stays on one
+line at 320px`, `account/add matches the shared squircle button treatment and has a Google icon`) — their
+assertions were verified by hand against the same real running app; the project's own Playwright test
+runner still can't execute in this sandbox (missing `chromium_headless_shell` binary for the
+`chromium-desktop`/`chromium-android`/`webkit-iphone` projects, a pre-existing environment gap unrelated to
+this change) — needs a real CI/dev-machine run to execute the `.spec.ts` file itself.
+
+**Lessons recorded**: `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md` (2026-09-19 entries).
+
+Handing back to **AI QA & Security** for round 2.

@@ -205,3 +205,25 @@
 - บริบท: Founder รายงานอาการเดิมทุกประการกับ WYN-120 ("กดลบโพสต์แล้ว โพสต์ที่อยู่หน้าโปรไฟล์ไม่หาย") หลังจาก WYN-120's fix (`DropRepository.fetchById()` เพิ่ม `.isFilter('deleted_at', null)`) deploy ขึ้น production ไปแล้วจริง (ยืนยันด้วย curl production header/commit hash) — ก่อนเดา root cause ใหม่ ถาม Founder 3 คำถามแบบ popup ตามลำดับ: (1) แท็บไหน (Drops/ReDrops/Likes) (2) ทดสอบบนแพลตฟอร์มไหน (3) **ที่สำคัญที่สุด**: ทดสอบด้วยการ "รีเฟรชหน้าใหม่ทั้งหมด" หรือแค่ pull-to-refresh ในแอป — คำตอบข้อ 3 ("ยังค้างอยู่เหมือนเดิม แม้รีเฟรชหน้าใหม่ทั้งหมด") คือกุญแจที่ตัดทฤษฎี "แค่ client cache/stale tab เก่าค้าง" ทิ้งไปได้ทันที เพราะ full page reload สร้าง widget ใหม่ทั้งหมด ไม่มีทางพึ่ง in-memory state เก่าได้เลย
 - Root cause ที่แท้จริง (แยกจาก WYN-120): `ProfileDropGridTab._loadInitial()` เรียก `DropRepository.fetchByAuthor()` ไม่ใช่ `fetchById()` — เป็นคนละ query ที่ WYN-120 ไม่เคยแตะเลย `fetchByAuthor()` ไม่มี `deleted_at` filter จึงยังคืนโพสต์ที่ลบไปแล้วกลับมาทุกครั้งที่โหลดกริดใหม่ (initial load/pull-to-refresh/full page reload) เพราะ RLS author-exception เดียวกับ WYN-120 ยังใช้ได้ตรงนี้ด้วย
 - **การนำไปใช้ในอนาคต**: เมื่อ Founder รายงานอาการที่ "เหมือนบั๊กที่เพิ่งแก้ไปเป๊ะ" หลัง fix ตัวก่อน deploy แล้ว **ห้ามสรุปทันทีว่า fix เดิมไม่ได้ผล/เป็น cache** และห้ามสรุปทันทีว่า root cause เดิมกลับมาใหม่ — ต้องถามคำถามที่แยกสมมติฐานออกจากกันได้จริงก่อนเสมอ (ในเคสนี้: full reload vs. in-app refresh) เพราะสอง path มักพึ่ง method/query คนละตัวกันในโค้ดจริง แม้ผลลัพธ์ที่ผู้ใช้เห็นจะหน้าตาเหมือนกันทุกประการ แล้วค่อย `grep` หา method อื่นที่มี pattern query เดียวกัน (`.from('drops')` ไม่มี `deleted_at` filter) เพื่อยืนยัน scope ที่แท้จริงก่อนแก้
+
+### [2026-09-19] WYN-163/164: แก้ shared CSS file ต้อง grep หาทุกหน้าจอที่ใช้ class เดียวกันก่อนเสมอ ไม่ใช่แค่ตามรายชื่อหน้าจอใน design spec
+
+- บริบท: WYN-163 (ปุ่ม Onboarding ของ WYNOS Web) มี design spec ระบุขอบเขตชัดเจนว่าแก้ 6 หน้าจอใน
+  `web/app/(auth-flow)/**` เท่านั้น AI Coding แก้ `web/app/auth-reference.css` (`.btn-primary`,
+  `.btn-outline`, `.field .wyn-input` ฯลฯ) ตาม spec ตรงเป๊ะ แต่ไม่ได้ grep หาว่ามีไฟล์อื่นนอกเหนือ 6 หน้าจอ
+  ใน spec ที่ import CSS class ชุดเดียวกันหรือไม่ ก่อน deploy code
+- ผลกระทบ: `web/components/account-add-route.tsx` (หน้า "เพิ่มบัญชี" — account switcher's add-account flow,
+  ไม่ได้อยู่ใน `(auth-flow)/` route group และไม่มีชื่ออยู่ใน design spec เลย) ใช้ `.auth-ref-viewport`/
+  `.btn-primary`/`.btn-outline`/`.field` ชุดเดียวกันเป๊ะ — ได้ปุ่ม/input ขนาดใหญ่ขึ้นตามไปด้วยโดยไม่มีใคร
+  ตั้งใจ แต่ไม่ได้โลโก้ Google/หัวข้อใหญ่ตามไปด้วย (เพราะสองอย่างนั้นแก้แยกไฟล์ต่อไฟล์ใน `screens.tsx`
+  ไม่ใช่ CSS กลาง) กลายเป็นหน้าจอที่ดู "ทำค้างกลางทาง" — จับได้โดย AI QA & Security รอบทดสอบจริง ไม่ใช่จาก
+  การอ่าน design spec หรือ code review
+- จับได้อย่างไร: QA เปิดทุกหน้าที่ import `auth-reference.css` เทียบกัน (ไม่ใช่แค่ 6 หน้าใน spec) ด้วยการ
+  `grep -rln 'className="btn-primary"\|auth-reference.css'` ทั้ง repo แล้วเจอไฟล์ที่ 3 นอกเหนือ 6 หน้าจอ
+  ที่ spec ระบุ
+- วิธีป้องกันในอนาคต: **ก่อนแก้ shared CSS file/class ใดๆ (ไม่ใช่เฉพาะ CSS — component ที่ export มาใช้ร่วมกัน
+  ก็เข้าข่ายเดียวกัน) ต้อง `grep -rln` หา consumer ทั้งหมดของ selector/class/component นั้นทั่ว repo ก่อนเริ่ม
+  แก้เสมอ** ไม่ใช่เชื่อรายชื่อหน้าจอใน design spec อย่างเดียว เพราะ spec เขียนจากมุมมอง "หน้าจอที่ตั้งใจแก้"
+  ไม่ใช่จากการสำรวจ codebase จริงว่าใครใช้ไฟล์ CSS นั้นบ้าง — ถ้าเจอ consumer เพิ่มที่ไม่อยู่ใน scope ต้อง
+  แจ้ง Founder/AI Design ก่อนตัดสินใจว่าจะขยาย scope ให้ครบ หรือแยก CSS ออกจากกัน ไม่ใช่ปล่อยให้เป็นผลข้างเคียง
+  ที่ไม่มีใครตั้งใจ

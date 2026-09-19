@@ -191,3 +191,21 @@
 - ผลกระทบ: Founder เจอบั๊กหน้าตาเดียวกันเป๊ะซ้ำอีกครั้งหลัง WYN-120 ขึ้น production ไปแล้ว (เห็นเฉพาะตอนรีเฟรชหน้าใหม่ทั้งหมด/เปิดโปรไฟล์ใหม่ ไม่ใช่แค่ตอนกลับจาก Detail) ต้องเปิด task ใหม่ (WYN-132) และเสียรอบ Debug Engineer เพิ่มหนึ่งรอบ ทั้งที่ควรจับได้ตั้งแต่รอบ WYN-120 ถ้า grep หาทุก `.from('drops')` ใน `drop_repository.dart` ตอนแก้ครั้งแรก
 - จับได้อย่างไร: Founder รายงานอาการซ้ำตรงๆ ไม่ใช่ QA เชิงรุก — ยืนยัน root cause ใหม่ด้วยการถามคำถามแยกสมมติฐาน (แท็บไหน/แพลตฟอร์มไหน/รีเฟรชแบบไหน) ก่อนอ่านโค้ด แล้ว grep `fetchByAuthor` เจอ query ที่ไม่มี `deleted_at` filter เลย
 - วิธีป้องกันในอนาคต: **เมื่อแก้บั๊ก "query ที่ RLS author-exception ทำให้เห็นข้อมูลที่ควรถูกซ่อน" (deleted_at, hidden flag, หรือ exception รูปแบบเดียวกันในอนาคต) ต้อง `grep -rn ".from('<table>')" ` ทั้งไฟล์ repository นั้นทันทีในรอบแก้บั๊กเดียวกัน แล้วเช็คทีละ query ว่ามี filter ที่จำเป็นหรือยัง** ไม่ใช่แก้แค่ query ตัวที่ reproduction step ของบั๊กนั้นเดินผ่านพอดี — เพราะหน้าจอเดียวมักมีมากกว่าหนึ่ง query จริง (initial-load query กับ single-row-refresh query) ที่ดูจากภายนอกเหมือนเป็นบั๊กเดียวกัน แต่เป็นคนละ code path ในโค้ดจริง (ดูรูปแบบเดียวกันกับ WYN-130's ghost-account lesson ด้านบน — นี่คือ instance ที่สองของ mistake class เดียวกัน: "แก้จุดที่ report มาแล้วปิดเคส โดยไม่ไล่หา call site อื่นที่มี root cause เดียวกัน")
+
+### [2026-09-19] WYN-163: AI Coding แก้ shared `auth-reference.css` ตาม design spec ตรงเป๊ะ แต่ไม่ได้ grep หา consumer อื่นของไฟล์เดียวกันก่อน
+
+- เกิดอะไรขึ้น: WYN-163's design spec ระบุขอบเขต 6 หน้าจอ Onboarding ของ WYNOS Web ชัดเจน AI Coding แก้
+  `web/app/auth-reference.css` (border-radius/height/font ของ `.btn-primary`/`.btn-outline`/`.wyn-input`)
+  ตรงตาม spec ทุกตัวเลข แต่ไม่ได้เช็คก่อนว่ามีไฟล์อื่นนอกเหนือ 6 หน้าจอที่ import CSS class ชุดเดียวกันอยู่
+  หรือไม่ — เป็น instance เดียวกันกับ pattern "แก้จุดที่ spec/report ระบุ โดยไม่ไล่หา call site อื่นที่ใช้
+  โค้ด/สไตล์เดียวกัน" ที่เคยบันทึกไว้แล้วจากฝั่ง repository query (WYN-120/130/132 ด้านบน) — คราวนี้เป็น
+  instance เดียวกันแต่ฝั่ง shared CSS/component แทน shared query
+- ผลกระทบ: `web/components/account-add-route.tsx` (หน้า "เพิ่มบัญชี") ที่ import `.auth-ref-viewport`/
+  `.btn-primary`/`.btn-outline` ชุดเดียวกัน ได้ปุ่ม/input ใหญ่ขึ้นตาม CSS ที่แก้ไปโดยไม่มีใครตั้งใจ แต่ไม่ได้
+  โลโก้ Google/หัวข้อใหญ่ที่แก้แยกไฟล์ต่อไฟล์ใน `screens.tsx` ตามไปด้วย กลายเป็นหน้าจอที่ดูทำค้างกลางทาง
+  QA จับได้ในรอบทดสอบจริง (ไม่ใช่ code review) ต้องเปิด WYN-164 และเสียรอบ Debug Engineer เพิ่มหนึ่งรอบ
+- จับได้อย่างไร: AI QA & Security รัน `grep -rln 'className="btn-primary"\|auth-reference.css'` ทั่ว repo
+  (ไม่ใช่แค่ตามรายชื่อ 6 หน้าจอใน spec) ระหว่างทดสอบจริง เจอไฟล์ที่ 3 ที่ไม่มีใครนึกถึง
+- วิธีป้องกันในอนาคต: **ก่อนแก้ shared CSS/class ใดๆ ต้อง `grep -rln` หา consumer ทั้งหมดของ
+  selector/class นั้นทั่ว repo ก่อนเริ่มแก้เสมอ** ไม่ใช่เชื่อรายชื่อหน้าจอใน design spec อย่างเดียว — บันทึก
+  รายละเอียดเต็มที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน

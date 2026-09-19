@@ -1,7 +1,8 @@
 # Design Task — WYN-163
 
-Status: bugs (QA รอบ 1 = **FAIL** 2026-09-19 — 2 findings, ส่งต่อ AI Debug Engineer ที่ WYN-164)
-Owner: AI Design → AI Coding (implement เสร็จ) → AI QA & Security (**FAIL รอบ 1**) → **AI Debug Engineer (WYN-164)**
+Status: review (WYN-164 แก้แล้ว 2026-09-19 — รอ AI QA & Security ตรวจซ้ำรอบ 2)
+Owner: AI Design → AI Coding → AI QA & Security (FAIL รอบ 1) → AI Debug Engineer (แก้แล้ว, WYN-164) →
+**AI QA & Security ตรวจซ้ำ**
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
 `SignupStep2Screen`, `OnboardingProfileScreen`, `ForgotPasswordScreen`
@@ -90,5 +91,8 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
   ด้วย ทำให้หน้าจอนี้ดูค้างกลางทาง (2) หัวข้อ Welcome 32px ตัดคำกลางคำที่จอ 320px (ปกติที่ 390px+) — ไม่มี
   security finding, ไม่มี functional break, ไม่มี regression ของฟีเจอร์เดิม รายละเอียดเต็ม/repro/fix ที่แนะนำ
   อยู่ที่ `.wyn/tasks/bugs/WYN-164-onboarding-redesign-followup.md`
-- ถัดไป: **AI Debug Engineer** แก้ WYN-164 แล้วส่งกลับ AI QA & Security ตรวจซ้ำก่อน deploy ขึ้น WYNOS Web
-  Beta1 (ห้ามข้าม QA)
+- 2026-09-19 (AI Debug Engineer) — **WYN-164 แก้แล้ว**: ขยาย `/account/add` ให้ครบชุด (โลโก้ Google +
+  หัวข้อ 32px) และลดขนาด tagline หน้า Welcome เหลือ 28px แก้ปัญหาตัดคำที่ 320px — typecheck/lint/build ผ่าน
+  หมด, ตรวจซ้ำทั้ง 7 หน้าจอด้วย Playwright จริงไม่มี regression, เพิ่ม regression test 2 เคส รายละเอียดเต็ม
+  ที่ `.wyn/tasks/bugs/WYN-164-onboarding-redesign-followup.md` (commit `a657e7bc`)
+- ถัดไป: **AI QA & Security** ตรวจซ้ำรอบ 2 ก่อน deploy ขึ้น WYNOS Web Beta1 (ห้ามข้าม QA)
