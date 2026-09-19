@@ -1,6 +1,6 @@
 # Bug Report — WYN-173
 
-Status: open — พบโดย AI QA & Security ระหว่างตรวจ WYN-171/172, รอ Founder ตัดสินใจว่าจะแก้ทันทีไหม
+Status: fixed by AI Debug Engineer, รอ AI QA & Security ยืนยัน
 Owner: AI QA & Security
 Parent: none (pre-existing production bug, ไม่เกี่ยวกับ WYN-171/172 ที่เพิ่งแก้) — พบระหว่างตรวจสอบ
 (verify) การแก้ WYN-171 ในไฟล์เดียวกัน (`web/app/chat-notes.css`)
@@ -77,3 +77,30 @@ finding ต้องได้รับการแก้ไขหรือ Found
 `.wyn-note-info-card` เลยทั้ง WYN-171 และ WYN-172) — แนะนำ: ถ้า Founder อยากแก้ทันทีเหมือน WYN-171
 (เพราะเป็น fix 1 บรรทัดที่ตัดสินใจไว้แล้ว) ส่งต่อ AI Debug Engineer ได้เลย → AI QA & Security ยืนยัน contrast
 ซ้ำ → Deploy พร้อมกับรอบถัดไป
+
+## Resolution (AI Debug Engineer, 2026-09-19)
+
+**Reproduction (ก่อนแก้, independent)**: Playwright + full 44-file CSS cascade จริงจาก `app/layout.tsx`,
+emulate `colorScheme: dark`/`light` วัด contrast จริงได้ตรงกับที่ AI QA & Security รายงานทุกตัวเลข:
+- Dark, strong: **1.07:1** | Dark, small: **3.32:1**
+- Light, strong: **18.49:1** | Light, small: **4.98:1**
+
+ยืนยัน root cause ตรงกัน: `background: #f7f7f8` hardcode ที่ `.wyn-note-info-card` (บรรทัด ~435 ของ
+`web/app/chat-notes.css`) — จุดเดียวในไฟล์ ไม่ซ้ำเหมือน WYN-171 (เช็คด้วย `grep -n "wyn-note-info-card"`
+ก่อนแก้ พบประกาศ 1 ครั้ง)
+
+**Fix ที่ใช้จริง**: `.wyn-note-info-card { background: #f7f7f8 }` → `background: var(--wyn-surface)`
+(token เดียวกับ WYN-168/171 ไม่ประดิษฐ์สีใหม่)
+
+**Verification (หลังแก้)**: วัด contrast ซ้ำ —
+- Dark, strong: 1.07:1 → **18.88:1** ✅ | Dark, small: 3.32:1 → **5.32:1** ✅
+- Light, strong: 18.49:1 → **18.97:1** ✅ | Light, small: 4.98:1 → **5.11:1** ✅
+
+ทุกค่า ≥4.5:1 ตาม WCAG AA ครบ — ตัวเลขตรงกับที่ WYN-171 ได้เป๊ะ (เพราะใช้สีตั้งต้นและ token เดียวกันทุก
+ประการ) `grep -n "wyn-note-info-card" chat-notes.css` ซ้ำหลังแก้ยังพบจุดเดียวเดิม ไม่มีจุดอื่นตกหล่น
+
+**Regression check**: `npm run check` (lint + typecheck + build) ผ่านทั้งหมด, 0 error, มีแค่ 3 warning เดิม
+ที่ไม่เกี่ยวข้อง (pre-existing) แก้แค่ background 1 property ใน selector เดียว ไม่กระทบ layout/ขนาด/ฟังก์ชัน
+อื่นใดๆ ตามที่ประเมินความเสี่ยงไว้ว่าต่ำมาก
+
+**ส่งต่อ**: AI QA & Security เพื่อยืนยัน contrast ซ้ำแบบอิสระ ก่อนไป Deploy พร้อมกับ WYN-171/172
