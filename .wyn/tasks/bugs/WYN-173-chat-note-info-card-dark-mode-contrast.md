@@ -1,6 +1,7 @@
 # Bug Report — WYN-173
 
-Status: fixed and verified — PASS by AI QA & Security, พร้อม Deploy
+Status: deployed to production (PR #551, merge commit d3ffcbfd) — รอ Founder ยืนยัน production จริงบน
+device ก่อนปิดงาน
 Owner: AI QA & Security
 Parent: none (pre-existing production bug, ไม่เกี่ยวกับ WYN-171/172 ที่เพิ่งแก้) — พบระหว่างตรวจสอบ
 (verify) การแก้ WYN-171 ในไฟล์เดียวกัน (`web/app/chat-notes.css`)
