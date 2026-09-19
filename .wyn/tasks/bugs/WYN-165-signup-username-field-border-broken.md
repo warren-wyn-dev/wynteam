@@ -1,7 +1,7 @@
 # Bug Report — WYN-165
 
-Status: fixed (AI Debug Engineer) — handed back to AI QA & Security for verification
-Owner: AI Debug Engineer → AI QA & Security
+Status: closed (AI QA & Security ยืนยัน PASS แล้ว 2026-09-19 — ดูรายละเอียดที่ท้ายไฟล์)
+Owner: AI Deploy & DevOps
 Parent: WYN-163 (`.wyn/tasks/approved/WYN-163-onboarding-button-redesign.md`), live production regression
 reported directly by Founder after the WYN-163/164 deploy.
 
@@ -116,3 +116,33 @@ Ready for AI QA & Security re-verification: confirm the username field box rende
 rectangle at 320/360/390/430px on `/signup/step-1`, confirm the other two fields and the rest of WYN-163's
 scope are unaffected, and confirm the new regression test's intent (re-run manually if the CI Playwright
 runner isn't available in the QA session either).
+
+---
+
+## QA Verification (2026-09-19, AI QA & Security)
+
+**Independent re-test** (not trusting the Debug Engineer's own report — re-ran everything fresh): checked
+out `claude/ux-ui-button-design-ult3lz` at commit `4c885033`, ran `npm run typecheck`/`lint`/`build` fresh
+(all clean, 0 errors, same 3 pre-existing unrelated warnings), started a live dev server, and independently
+verified with a fresh Playwright script (`playwright-core` + `/opt/pw-browsers/chromium` — the project's own
+`@playwright/test` runner still can't launch in this sandbox, same pre-existing gap noted in every prior QA
+round on this branch):
+
+- Username input height vs. wrapper's `clientHeight` (the actual regression check, not just outer
+  `boundingBox()` which the original bug report already noted is insufficient) — confirmed `input=54px <=
+  wrapper=54px` at **320/360/390/430/768px** (added 768px beyond the original 4 widths as an extra check)
+- Filled a 40-character username to check for box overflow from long text — wrapper's `scrollWidth` stayed
+  within its own width, no horizontal overflow
+- **Dark mode** (`colorScheme: "dark"` emulation, not covered by the original Debug Engineer's fix
+  verification): wrapper border renders as a visible non-transparent gray, screenshot confirms the box
+  still renders as a complete rounded rectangle in dark mode too — same CSS custom properties
+  (`--border-strong`/`--bg`) as light mode, so this was expected to hold, but confirmed directly rather than
+  assumed
+- Swept all 7 auth-flow screens (`/welcome`, `/signup/step-1`, `/signup/step-2`, `/onboarding/profile`,
+  `/login`, `/forgot-password`, `/account/add`) for browser console errors — 0 errors on any screen
+- Scanned the full diff (WYN-165 + WYN-166 commits) for hardcoded secrets/keys/tokens/credentials — none
+  found (only unrelated `key=` React props and pre-existing `password` field names/labels)
+
+**Result: PASS.** No regressions found beyond what the Debug Engineer already reported fixed. Full QA report
+covering this together with WYN-166: see `.wyn/tasks/approved/WYN-166-signup-birthdate-thai-selects.md`.
+Handing off to **AI Deploy & DevOps**.

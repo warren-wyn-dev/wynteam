@@ -1,7 +1,7 @@
 # Task — WYN-166: Signup Step 1 birth date → Thai วัน/เดือน/ปี selects
 
-Status: implemented (AI Coding) — waiting for AI QA & Security
-Owner: AI QA & Security
+Status: approved (AI QA & Security ยืนยัน PASS แล้ว 2026-09-19 — ดูรายละเอียดที่ท้ายไฟล์)
+Owner: AI Deploy & DevOps
 Scope: `web/components/auth-flow/screens.tsx` (`SignupStep1Screen`, `parseBirthDate`), `web/app/auth-reference.css`, regression test
 
 ## Request
@@ -115,3 +115,65 @@ Ready for AI QA & Security: verify the 3 Thai selects on `/signup/step-1` at 320
 geometry, no WYN-165-style border clipping), all Thai text renders correctly with no English/digit leakage,
 full step 1 → step 2 → back persistence, underage rejection (including the newest-eligible-year edge case),
 and that the rest of WYN-163/164/165's scope is unaffected.
+
+---
+
+## QA Verification (2026-09-19, AI QA & Security)
+
+**Independent re-test** on `claude/ux-ui-button-design-ult3lz` at commit `4c885033` — re-ran `typecheck`/
+`lint`/`build` fresh (all clean), then adversarial functional testing against a live dev server with a fresh
+Playwright script (`playwright-core` + `/opt/pw-browsers/chromium`, since the project's own
+`@playwright/test` runner still can't launch in this sandbox — same pre-existing gap as every prior QA round
+on this branch; the `browser-qa` CI check will run the actual `.spec.ts` file on the next PR).
+
+**Functional / regression**:
+- All 12 Thai month names present in the เดือน dropdown, zero digits leak into any month label
+- ปี dropdown bounds correct: newest option `2556` BE (`= 2026 − 13 + 543`), oldest option `2443` BE
+  (`= 1900 + 543`) — matches `eligibleBirthYears()`'s intended range exactly
+- All 3 selects render at a consistent `56px` height at 320/360/390/430px, no overflow
+- Full flow (fill 3 selects → "หน้าถัดไป" → step 2 → "ย้อนกลับ" → step 1) — all 5 fields persist correctly
+- **sessionStorage resume simulated as a genuine fresh page load** (not just a client-side route
+  transition): wrote a saved draft directly into `sessionStorage` then did a hard `page.reload()` — the 3
+  selects correctly resumed the previously-saved date (`1995-06-20` → วัน=20, เดือน=06, ปี=1995). This
+  specifically re-tests the hydration-timing concern the task file's Implementation section says was caught
+  and rewritten before shipping (an earlier draft using local `useState` would have shown blank selects
+  here) — confirmed the shipped version does NOT have that regression
+
+**Edge cases / adversarial (trying to break it, not just confirm the happy path)**:
+- Invalid calendar date (30 กุมภาพันธ์ 2543) → correctly rejected, stays on step 1, shows the existing
+  "กรุณากรอกวันเกิดให้ถูกต้อง" error — `parseBirthDate`'s calendar round-trip check catches it even though
+  the day dropdown doesn't adapt options to the selected month (by design, per the task file)
+  - Confirms the flip side too: valid leap-year date (29 กุมภาพันธ์ 2543, 2000 being a leap year) →
+    correctly **accepted**, advances to step 2 — the day-31-static-options design choice doesn't
+    accidentally reject a valid Feb 29
+- Newest-eligible-year + 31 ธันวาคม (still genuinely underage today) → correctly rejected — confirms the
+  day/month-level age check is load-bearing, not just the year dropdown's pre-filtering, exactly as the
+  Coding/Decision notes claimed
+- **DOM-injected out-of-range value** (`day="99"`, injected via `page.evaluate` bypassing the actual
+  `<option>` list, simulating a manipulated/malicious client) → still correctly rejected by `parseBirthDate`
+  on submit, confirms the validation doesn't trust that only in-list values can ever reach it
+- Confirmed server-side defense in depth exists independent of this change: `supabase/schema.sql` has
+  `profile_private_date_of_birth_min_age` and `profile_private_date_of_birth_not_future` CHECK constraints
+  on `profile_private.date_of_birth` — so even a fully client-bypassed submission (e.g. calling the Supabase
+  client directly, skipping the UI/JS validation entirely) would still be rejected at the database layer.
+  Pre-existing, unrelated to WYN-166, noted here as a positive finding, not a gap.
+
+**Cross-cutting with WYN-165** (tested together since both changes are in the same field/screen):
+- Username field box (WYN-165 fix) re-verified independently at 320/360/390/430/768px via
+  `wrapper.clientHeight` vs. input height comparison (not just outer `boundingBox()`, which the original bug
+  report already established doesn't catch this class of bug) — all pass
+- Long username (40 chars) doesn't cause horizontal overflow of its wrapper box
+- **Dark mode** (not explicitly re-checked by the Debug Engineer's own WYN-165 verification): both the
+  username field border and the new วัน/เดือน/ปี selects render with correct light-on-dark contrast
+  (`background: rgb(0,0,0)`, `color: rgb(255,255,255)`, visible gray border) — screenshot confirms all 3
+  date-select boxes and the username box render as complete, uncut rounded rectangles in dark mode too
+- Swept all 7 auth-flow screens (`/welcome`, `/signup/step-1`, `/signup/step-2`, `/onboarding/profile`,
+  `/login`, `/forgot-password`, `/account/add`) for browser console errors — 0 errors on any screen,
+  confirming WYN-163/164's scope is unaffected
+
+**Security**: scanned the full diff for hardcoded secrets/keys/tokens/credentials — none found. No new
+client-server trust boundary introduced (birth date was already client-collected and server-validated via
+DB constraint before this change; this change only alters how the client collects it).
+
+**Result: PASS.** No CRITICAL/HIGH/MEDIUM findings. Both WYN-165 and WYN-166 approved together — moving this
+file to `.wyn/tasks/approved/` and handing off to **AI Deploy & DevOps**.
