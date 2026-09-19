@@ -1956,3 +1956,13 @@ grep ยืนยันว่าทุกจุด (ปุ่มยกเลิ�
 ทำ Artifact preview: https://claude.ai/artifact/APBY3a2KZrVwxqLcCycTZc
 
 บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch2-composer.md`
+
+## [2026-09-19] WYN-176 Batch 2 — Founder อนุมัติ preview, AI Coding implement เสร็จ
+
+Founder ตอบ "อนุญาต" — implement press feedback (`scale(0.96)`, 160ms) 8 จุดตามสเปก ไม่แก้ radius เลย diff เป็น additive ล้วนๆ ตรวจ cascade ก่อนแก้พบว่าหลาย selector มีนิยามซ้ำ 2 จุดในไฟล์เดียวกัน เพิ่ม rule หลังนิยามที่ชนะจริงเพื่อไม่ให้ถูกทับ (บทเรียนเดิมจาก WYN-175)
+
+ยืนยันด้วย Playwright harness จริง — press feedback + release + reduced-motion 8 จุด **24/24 ผ่าน** `typecheck`/`lint`/`build` สะอาดหมด
+
+ส่งต่อ AI QA & Security
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`

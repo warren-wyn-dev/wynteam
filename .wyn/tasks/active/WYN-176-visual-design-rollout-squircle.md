@@ -99,3 +99,28 @@ Two decisions before AI Design starts:
 **Final Status: PASS**
 
 Batch 1 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 1 นี้ก่อน (ไม่ย้าย task ไป `approved/` ทั้งไฟล์ เพราะ WYN-176 เป็น multi-batch task ยังมี batch อื่นค้างอยู่ — ตาม pattern เดียวกับ WYN-160 ที่แต่ละ batch deploy แยกกันแต่ task หลักยังอยู่ active จนกว่าจะครบทุก batch)
+
+## Batch 2 Implementation (AI Coding, 2026-09-19)
+
+**Implementation**: เพิ่ม press feedback spring (`scale(0.96)`, 160ms cubic-bezier เดียวกับ WYN-163) ให้ 8 จุดที่ยังไม่มีเลย — ไม่แก้ radius/ขนาดใดๆ (WYN-160 batch 4 ทำไปแล้วตรง target scale):
+1. `.beta4-cancel` / `.beta4-post` — ปุ่ม header ยกเลิก/โพสต์ (`app/system-parity-final.css`)
+2. `.beta4-add-option` — ลิงก์เพิ่มตัวเลือกโพล (`app/system-parity-final.css`)
+3. `.beta4-ratio-chips button` — chip อัตราส่วนรูป (`app/system-parity-final.css`)
+4. `.beta4-image-preview > button` — ปุ่มลบรูป (`app/system-parity-final.css`)
+5. `.quickAction` — 4 ปุ่ม quick action (ผู้ชม/รูป/กล้อง/โพล) (`components/beta4-composer-refresh.module.css`)
+6. `.audienceOption` — แถวเลือกผู้ชมใน sheet (`components/beta4-composer-refresh.module.css`)
+7. `.sheetHeader button` — ปุ่มปิด audience sheet (`components/beta4-composer-refresh.module.css`)
+
+ตรวจ cascade ก่อนแก้ทุก selector พบว่า `.beta4-cancel`/`.beta4-post`/`.beta4-add-option`/`.beta4-ratio-chips button`/`.beta4-image-preview > button` มีนิยามซ้ำ 2 จุดในไฟล์เดียวกัน (ค่าที่สองทับค่าแรกบางส่วน) — เพิ่ม press feedback rule ไว้หลังนิยามที่ชนะจริงเพื่อไม่ให้ถูกทับ, ยืนยันว่า `.beta4-toolbar-actions`/`.beta4-audience-row` เป็น dead code จริง (ไม่มีการอ้างอิงใน `.tsx`) ไม่แตะ
+
+**Files Changed**: `web/app/system-parity-final.css`, `web/components/beta4-composer-refresh.module.css` — diff เป็น additive ล้วนๆ (ไม่มีบรรทัดถูกลบ/แก้เลย ยืนยันด้วย `git diff`)
+
+**Reason**: ตาม design spec `.wyn/docs/design/wyn-176-batch2-composer.md`, Founder อนุมัติ preview แล้ว
+
+**Tests**: harness Playwright จริง (โหลด CSS 38 ไฟล์ + module.css ตามลำดับจริง) ตรวจ press feedback ด้วย mouse down/up จริง 8 จุด + release กลับ `none` + reduced-motion 8 จุด — **24/24 ผ่าน**
+
+**Build**: `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง)
+
+**Known Issues**: `.wynos-confirm-dialog` (ปุ่ม "บันทึกร่าง" ตอนปิดหน้าจอกลางทาง) ยังไม่มี press feedback — ตั้งใจไม่แตะเพราะเป็น shared component ข้ามหน้าจอ ไม่ใช่ Composer-specific เก็บไว้เป็นงานแยก (อาจเป็น batch "shared dialogs" ในอนาคต)
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/compose-post` จริง (2) ไม่มี regression ต่อ Flutter-parity ที่ล็อกไว้ (compose text 22px, row height 70px ฯลฯ) (3) `.wynos-confirm-dialog` ยังทำงานเหมือนเดิมไม่ถูกกระทบ
