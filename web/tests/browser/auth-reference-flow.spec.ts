@@ -44,7 +44,10 @@ test.describe("HTML-reference auth flow", () => {
       const style = getComputedStyle(element);
       return { height: style.height, borderRadius: style.borderRadius };
     });
-    expect(primaryButtonStyles).toEqual({ height: "50px", borderRadius: "999px" });
+    // WYN-163 (2026-09-19): Founder-approved "Apple-inspired" squircle pass —
+    // buttons moved off the full-pill shape to a taller, more rounded-rect
+    // treatment. See .wyn/docs/design/wyn-163-onboarding-button-redesign.md.
+    expect(primaryButtonStyles).toEqual({ height: "58px", borderRadius: "24px" });
 
     await page.goto("/signup/step-1");
     const topbarStyles = await page.locator(".topbar").evaluate((element) => {
@@ -57,7 +60,8 @@ test.describe("HTML-reference auth flow", () => {
       const style = getComputedStyle(element);
       return { height: style.height, borderRadius: style.borderRadius };
     });
-    expect(inputStyles).toEqual({ height: "44px", borderRadius: "10px" });
+    // WYN-163 (2026-09-19): same squircle pass as the button geometry above.
+    expect(inputStyles).toEqual({ height: "56px", borderRadius: "18px" });
   });
 
   test("signup step 1 state survives step 2 and the in-flow back button", async ({ page }) => {
