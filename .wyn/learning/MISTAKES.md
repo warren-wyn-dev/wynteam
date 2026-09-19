@@ -14,6 +14,30 @@
 
 ## รายการ
 
+### [2026-09-19] Task WYN-168 (QA เจอระหว่างทดสอบ WYN-167 — ปุ่ม "ติดตาม" อ่านไม่ออกใน dark mode มานานแล้วบน production)
+- ข้อผิดพลาด: `.wyn-post-follow-pill` (`web/app/home.css`, commit `dfadc434` "expand Home icon-button tap
+  targets") hardcode สี `background: #f1f1f3` และ `color: #6b6b6b` เป็น hex ตรงๆ แทนที่จะอ้าง
+  `var(--wyn-surface)`/`var(--wyn-text-secondary)` ทั้งที่ตอนนั้น dark mode (2026-09-16) deploy ไปแล้วและ
+  token เหล่านี้ถูกประกาศไว้พร้อมใช้อยู่แล้ว — ทำให้ text (ที่ผูก `var(--wyn-text)` ถูกต้อง เลยเปลี่ยนเป็นขาว
+  ใน dark mode) วางอยู่บน background ที่ไม่เปลี่ยนสีตาม theme เลย เกิดเป็นตัวหนังสือขาวบนพื้นเกือบขาว
+  (contrast วัดจริงได้ 1.13:1 ทั้งที่ WCAG AA ต้องการ 4.5:1) — เป็นตัวอย่างจริงของปัญหาที่
+  `wyn-160-web-design-system-consolidation.md`'s audit เคยเตือนไว้ทั่วไปแล้ว ("ห้าม hardcode สีเทา/ขาว/ดำเป็น
+  hex ตรงๆ") แต่ไม่มีใครไล่ตรวจ CSS ที่เขียนหลังจากนั้นว่าทำตามจริงไหม
+- ผลกระทบ: ปุ่ม "ติดตาม" (การกระทำหลักในการติดตามคนอื่นทั้งแอป) ใช้งานไม่ได้จริงสำหรับผู้ใช้ที่เปิด dark mode
+  ทุกคน (กดได้เพราะตำแหน่งยังคลิกได้ แต่มองไม่เห็นข้อความเลย) อยู่บน production มาตั้งแต่ dark mode deploy
+  (2026-09-16) จนกระทั่ง QA เจอโดยบังเอิญระหว่างทดสอบงานอื่น (WYN-167) ที่ไม่เกี่ยวข้องกันเลย — ไม่มี QA รอบไหน
+  ก่อนหน้านี้ (รวมถึง dark mode deploy เองด้วย) ทดสอบ contrast จริงของปุ่มนี้โดยเฉพาะ
+- วิธีป้องกันในอนาคต: (1) ทุกครั้งที่ QA ทดสอบ dark mode ต้องคำนวณ contrast ratio จริงจาก `getComputedStyle()`
+  (สูตร WCAG relative luminance) ของ interactive control หลักทุกตัว ไม่ใช่แค่ดูภาพผ่านตาว่า "ดูโอเคไหม" —
+  ตัวเลขขาวบนขาวอ่อนอาจดูไม่ผิดปกติในภาพ screenshot ที่ไม่ได้ตั้งใจสังเกต (2) เมื่อ deploy CSS ใหม่ทับไฟล์ที่มี
+  dark mode override อยู่แล้ว (เช่น `home.css`) ต้อง grep หา hex literal ใหม่ที่เพิ่งเขียนเทียบกับ
+  `var(--wyn-*)` ที่มีอยู่แล้วเสมอ ก่อน commit ไม่ใช่แค่ตอนทำ design-system audit รอบใหญ่ (3) เมื่อ QA เจอบั๊ก
+  ที่ไม่เกี่ยวกับ task ที่กำลังทดสอบอยู่ ให้แยกเป็น bug report ใหม่ทันที (ไม่ปนกับ task เดิม) แล้วรายงาน
+  Founder แยกต่างหาก ไม่ block งานที่ไม่เกี่ยวข้องกัน — แต่ก็ห้ามเงียบเฉยปล่อยผ่านเพราะ "ไม่ใช่ scope งานนี้"
+- Regression test ที่เพิ่ม: `web/tests/browser/home-visual-parity.spec.ts` → `test.describe("dark mode")` →
+  `"follow pill text clears WCAG AA contrast in both states"` — คำนวณ contrast ratio จริงจาก
+  `getComputedStyle()` ที่ runtime ยืนยันทั้ง default state และ `.is-requested` state ต้อง ≥4.5:1
+
 ### [2026-09-19] Task WYN-165 (Founder รายงานสดจาก production — ช่องชื่อผู้ใช้บนหน้า Signup Step 1 "ช่องหาย")
 - ข้อผิดพลาด: WYN-163 บังคับให้ `.field .wyn-input` (ใน `web/app/auth-reference.css`) ใช้ `height: 56px` แต่
   `web/components/ui/input.tsx`'s `Input` component ใส่ class `wyn-input` ให้ input เสมอ **แม้จะส่ง prop

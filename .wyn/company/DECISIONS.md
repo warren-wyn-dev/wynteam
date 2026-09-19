@@ -1692,3 +1692,12 @@ block ถูกต้อง (ยืนยันว่า JS validation ยัง
 ไม่ล้น/ไม่ขาดที่ 320-430px ซ้ำอีกครั้งเทียบกับ WYN-165 โดยเฉพาะ แก้ regression test ให้ตรงกับ UI ใหม่ทั้งหมด
 
 รอ QA & Security ตรวจก่อน deploy
+
+## [2026-09-19] Founder ยืนยัน production จริง — ปิดงาน WYN-163/164/165/166 ครบ
+
+Founder เปิด `wynos.online` จริงหลัง WYN-165/166 deploy แล้วตอบ **"เสร็จแล้ว ไปหน้าต่อไป"** — ยืนยันว่า
+Signup Step 1 (กรอบช่องชื่อผู้ใช้ + ช่องวันเกิด 3 dropdown ภาษาไทย) ทำงานถูกต้องบน production จริงแล้ว
+
+ย้าย `.wyn/tasks/completed/`: WYN-163 (Apple-style squircle redesign, parent task), WYN-166 (Thai birth date
+selects) — WYN-164/165 (bug report files) ยังอยู่ที่ `.wyn/tasks/bugs/` ตามธรรมเนียมเดิม (อัปเดต status
+เป็น closed/resolved แล้ว ไม่ย้ายไฟล์ bug report ออกจากโฟลเดอร์เดิม)
