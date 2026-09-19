@@ -429,6 +429,11 @@
   border: 3px solid var(--wyn-bg);
 }
 
+.wyn-profile-edit-avatar-actions {
+  display: grid;
+  gap: 6px;
+}
+
 .wyn-profile-edit-avatar label {
   display: flex;
   align-items: center;
@@ -437,6 +442,23 @@
   font-weight: 600;
   color: var(--wyn-text);
   cursor: pointer;
+}
+
+.wyn-profile-edit-avatar-remove {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wyn-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wyn-profile-edit-avatar-remove:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .profile-more-sheet > button {

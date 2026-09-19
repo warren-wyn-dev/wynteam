@@ -544,6 +544,11 @@ export async function uploadProfileImage(
   return url;
 }
 
+export async function removeProfileImage(client: SupabaseClient, userId: string): Promise<void> {
+  const update = await client.from("profiles").update({ avatar_url: null }).eq("id", userId);
+  fail(update.error, "ลบรูปโปรไฟล์ไม่สำเร็จ");
+}
+
 export async function fetchNotifications(client: SupabaseClient, page = 0): Promise<NotificationRow[]> {
   const from = page * 30;
   const result = await client

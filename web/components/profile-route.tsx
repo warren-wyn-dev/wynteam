@@ -31,6 +31,7 @@ import {
   fetchProfileSummary,
   getOrCreateConversation,
   profileLabel,
+  removeProfileImage,
   updateProfileBasics,
   updateUsername,
   uploadProfileImage,
@@ -98,6 +99,12 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
     catch (e) { setError(e instanceof Error ? e.message : "อัปโหลดรูปไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
+  const removeImage = async () => {
+    setSaving(true); setError("");
+    try { await removeProfileImage(client, userId); setAvatar(null); }
+    catch (e) { setError(e instanceof Error ? e.message : "ลบรูปโปรไฟล์ไม่สำเร็จ"); }
+    finally { setSaving(false); }
+  };
   const save = async () => {
     if (!displayName.trim() && !profile.display_name) { setError("กรุณาใส่ชื่อที่แสดง"); return; }
     setSaving(true); setError("");
@@ -109,7 +116,10 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
     <div className="wyn-profile-edit">
       <div className="wyn-profile-edit-avatar">
         <Avatar src={avatar} label={username} size={84} />
-        <label><WynosIcon name="camera" size={16} strokeWidth={2} /> รูปโปรไฟล์<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image(e.target.files?.[0])} /></label>
+        <div className="wyn-profile-edit-avatar-actions">
+          <label><WynosIcon name="camera" size={16} strokeWidth={2} /> รูปโปรไฟล์<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image(e.target.files?.[0])} /></label>
+          {avatar ? <button type="button" className="wyn-profile-edit-avatar-remove" disabled={saving} onClick={() => void removeImage()}>ลบรูปโปรไฟล์</button> : null}
+        </div>
       </div>
       <label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label>
       <label className="route-field"><span>ชื่อผู้ใช้</span><input value={`@${username}`} autoCapitalize="none" maxLength={31} onChange={(e) => setUsername(e.target.value.replace(/^@+/, "").replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
