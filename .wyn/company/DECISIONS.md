@@ -1946,3 +1946,13 @@ Founder ทดสอบบน `wynos.online` จริงแล้วตอบ "
 **WYN-176 โดยรวมยังไม่ปิด** — เหลือ batch 2-7 ตามแผนเดิม (Composer, Chat, Profile/Settings, Search/Notifications/Club, ลบ CSS dead code) รอ Founder สั่งต่อว่าจะทำ batch ไหนต่อ
 
 อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md`, `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
+
+## [2026-09-19] WYN-176 Batch 2 (Composer) — AI Design ตรวจโค้ดจริงแล้ว ไม่ต้องแก้ radius เพิ่ม แค่ press feedback
+
+Founder สั่ง "ทำ batch ถัดไปเลย" — ตรวจ `beta4-composer.tsx`/`beta4-composer-refresh.module.css`/`system-parity-final.css` ก่อนออกแบบ พบว่า WYN-160 batch 4 (2026-09-17) แก้ radius ของ Composer ไปตรง target scale แล้ว (pill 999px ปุ่มโพสต์, tile 14px รูป preview, control 10px ช่องโพล) — **ไม่ต้องแก้ radius รอบนี้** ปุ่ม "โพสต์" เป็น compact pill header (42px) ไม่ใช่ CTA เต็มความกว้างแบบ Auth ก็เลยไม่ยัดค่า 24px/58px เข้าไปเหมือนเดิม
+
+grep ยืนยันว่าทุกจุด (ปุ่มยกเลิก/โพสต์, quick action 4 ปุ่ม, ratio chip, audience picker sheet, ปุ่มลบรูป) ไม่มี press feedback เลยแม้แต่จุดเดียว — เพิ่ม spring เดียวกับ batch 1/WYN-163 (`scale(0.96)`, 160ms) ทุกจุด, ไม่แตะ `.wynos-confirm-dialog` (shared component ไม่ใช่ Composer-specific)
+
+ทำ Artifact preview: https://claude.ai/artifact/APBY3a2KZrVwxqLcCycTZc
+
+บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch2-composer.md`
