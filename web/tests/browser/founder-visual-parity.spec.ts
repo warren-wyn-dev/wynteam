@@ -32,7 +32,7 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(home).toContain("margin-top: 3px");
   expect(home).toContain("calc((100% - 16px) * 0.82)");
   expect(home).toContain("text-decoration: none !important");
-  expect(home).toContain("background: #f1f1f3");
+  expect(home).toContain("background: var(--wyn-surface)");
   expect(home).toContain(".wyn-post-follow-pill.is-following");
   expect(home).toContain("width: 120px");
   expect(home).toContain("padding-top: min(env(safe-area-inset-top), 20px);");
