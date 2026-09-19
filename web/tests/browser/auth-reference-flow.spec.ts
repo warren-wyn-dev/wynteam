@@ -128,4 +128,26 @@ test.describe("HTML-reference auth flow", () => {
     const headlineFontSize = await page.getByText("เพิ่มบัญชี", { exact: true }).evaluate((element) => getComputedStyle(element).fontSize);
     expect(headlineFontSize).toBe("32px");
   });
+
+  // WYN-165 (2026-09-19): the username field on signup step 1 wraps its
+  // <Input bare> in a manually-styled box, but Input always applies the
+  // shared .wyn-input class regardless of `bare`. That class's own height
+  // (56px) exceeded the wrapper's content-box height (54px, after its 1px
+  // border), so the input's opaque background overflowed 1px top/bottom and
+  // painted over the wrapper's border — making the box look broken on
+  // production. A plain boundingBox() comparison doesn't catch this (the
+  // input's rendered rect coincides with the wrapper's outer rect since the
+  // overflow paints over the border rather than extending past it), so this
+  // compares against the wrapper's clientHeight (content box, border excluded).
+  test("signup step 1 username field input never exceeds its wrapper's content box", async ({ page }) => {
+    await page.goto("/signup/step-1");
+    const field = page.locator(".field", { has: page.locator("label", { hasText: "ชื่อผู้ใช้" }) });
+    const wrapper = field.locator("> div").first();
+    const input = field.locator("input");
+
+    const wrapperClientHeight = await wrapper.evaluate((element) => element.clientHeight);
+    const inputBox = await input.boundingBox();
+    expect(inputBox).not.toBeNull();
+    expect(inputBox!.height).toBeLessThanOrEqual(wrapperClientHeight);
+  });
 });

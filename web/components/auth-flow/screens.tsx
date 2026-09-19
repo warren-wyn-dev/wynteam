@@ -392,7 +392,7 @@ export function SignupStep1Screen() {
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 56, border: "1px solid var(--border-strong)", borderRadius: 18, padding: "0 18px" }}>
             <span style={{ color: "var(--text-muted)" }}>@</span>
-            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", flex: 1, fontSize: 16 }} />
+            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", background: "transparent", height: "100%", padding: 0, borderRadius: 0, flex: 1, fontSize: 16 }} />
           </div>
         </div>
         <Field label="ชื่อที่แสดง" name="displayName" placeholder="ชื่อของคุณ" value={draft.displayName} onChange={update("displayName")} disabled={!mounted} />
