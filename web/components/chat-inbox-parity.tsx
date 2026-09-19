@@ -2,12 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
 import { ChatListSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
@@ -17,11 +16,8 @@ import {
   deleteMessageRequest,
   fetchInbox,
   fetchMessageRequests,
-  getOrCreateConversation,
-  searchProfiles,
   subscribeMyMessages,
   type ConversationRow,
-  type ProfileRow,
 } from "@/lib/phase3-data";
 
 const NOTE_TEXT_KEY = "__wynos_note";
@@ -143,7 +139,6 @@ async function writeMyNote(client: SupabaseClient, userId: string, text: string)
 }
 
 function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; userId: string }) {
-  const router = useRouter();
   const { data, isLoading: loading, error: loadError, refetch } = useQuery({
     queryKey: ["chat-inbox", userId] as const,
     queryFn: () => fetchChatInboxData(client, userId),
@@ -161,15 +156,11 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
     return () => { void client.removeChannel(channel); };
   }, [client, userId, allowed, refetch]);
 
-  const [requestsOpen, setRequestsOpen] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"inbox" | "requests">("inbox");
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
   const [query, setQuery] = useState("");
-  const [peopleQuery, setPeopleQuery] = useState("");
-  const [people, setPeople] = useState<ProfileRow[]>([]);
-  const [finding, setFinding] = useState(false);
   const [actionError, setActionError] = useState("");
   const error = actionError || (loadError instanceof Error ? loadError.message : "");
 
@@ -190,7 +181,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
         return;
       }
       await load();
-      if (requests.length <= 1) setRequestsOpen(false);
+      if (requests.length <= 1) setActiveTab("inbox");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "อัปเดตคำขอไม่สำเร็จ");
     }
@@ -233,35 +224,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
     }
   };
 
-  const findPeople = async () => {
-    const value = peopleQuery.trim();
-    if (value.length < 2) { setPeople([]); return; }
-    setFinding(true);
-    setActionError("");
-    try {
-      setPeople((await searchProfiles(client, value, 0)).filter((profile) => profile.id !== userId));
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "ค้นหาผู้ใช้ไม่สำเร็จ");
-    } finally {
-      setFinding(false);
-    }
-  };
-
-  const startConversation = async (profile: ProfileRow) => {
-    setFinding(true);
-    setActionError("");
-    try {
-      if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้");
-      const id = await getOrCreateConversation(client, profile.id);
-      setNewOpen(false);
-      router.push(`/chat/${id}?user=${encodeURIComponent(profile.id)}`);
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "เริ่มแชทไม่สำเร็จ");
-    } finally {
-      setFinding(false);
-    }
-  };
-
   const normalizedQuery = query.trim().toLocaleLowerCase("th-TH");
   const visibleRows = normalizedQuery
     ? rows.filter((row) => {
@@ -281,24 +243,15 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           </Link>
           <h1>ข้อความ</h1>
           <div className="wyn-chat-header-actions">
-            {requests.length ? (
-              <button
-                className="wyn-chat-requests-link"
-                type="button"
-                aria-label={`คำขอข้อความ ${requests.length} รายการ`}
-                onClick={() => setRequestsOpen(true)}
-              >
-                คำขอ
-                <span>{requests.length}</span>
-              </button>
-            ) : null}
             <button
-              className="wyn-chat-compose-action"
+              className={`wyn-chat-requests-link ${activeTab === "requests" ? "is-active" : ""}`}
               type="button"
-              aria-label="ข้อความใหม่"
-              onClick={() => setNewOpen(true)}
+              aria-pressed={activeTab === "requests"}
+              aria-label={requests.length ? `คำขอข้อความ ${requests.length} รายการ` : "คำขอข้อความ"}
+              onClick={() => setActiveTab((current) => (current === "requests" ? "inbox" : "requests"))}
             >
-              <WynosIcon name="messageSquarePlus" size={25} strokeWidth={1.9} />
+              คำขอ
+              {requests.length ? <span>{requests.length}</span> : null}
             </button>
           </div>
         </header>
@@ -314,8 +267,8 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           />
         </label>
 
-        {!loading && allowed !== false ? (
-          <div className="wyn-chat-notes" aria-label="โน้ต">
+        {!loading && allowed !== false && activeTab !== "requests" ? (
+          <div className={`wyn-chat-notes ${notes.length ? "" : "is-solo"}`} aria-label="โน้ต">
             <button className="wyn-chat-note-card is-mine" type="button" onClick={openMyNote} aria-label={me?.note ? "แก้ไขโน้ตของคุณ" : "เพิ่มโน้ต"}>
               <span className={`wyn-chat-note-bubble ${me?.note ? "has-note" : "empty"}`}>
                 {me?.note || "เพิ่มโน้ต"}
@@ -352,6 +305,31 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
             <strong>ระบบแชทปิดปรับปรุงชั่วคราว</strong>
             <small>จะเปิดให้ใช้งานได้เร็ว ๆ นี้</small>
           </div>
+        ) : activeTab === "requests" ? (
+          <>
+            {error ? <p className="route-error route-pad">{error}</p> : null}
+            {requests.length ? (
+              <div className="chat-list">
+                {requests.map((row) => (
+                  <div className="request-row" key={row.conversation_id}>
+                    <Link className="chat-row request-main" href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}>
+                      <Avatar src={row.other_avatar_url} label={row.other_username} size={48} />
+                      <span className="chat-row-copy">
+                        <strong>{row.other_display_name?.trim() || row.other_username}</strong>
+                        <small>{conversationPreview(row)}</small>
+                      </span>
+                    </Link>
+                    <div className="request-actions">
+                      <button className="route-primary small" type="button" onClick={() => void decide(row, true)}>ยอมรับ</button>
+                      <button className="route-secondary small" type="button" onClick={() => void decide(row, false)}>ลบ</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState>ไม่มีคำขอข้อความ</EmptyState>
+            )}
+          </>
         ) : (
           <>
             {error ? <p className="route-error route-pad">{error}</p> : null}
@@ -380,6 +358,12 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                     </Link>
                   );
                 })}
+                <div className="wyn-chat-end-marker">
+                  <span className="wyn-chat-end-marker-icon" aria-hidden="true">
+                    <WynosIcon name="check" size={18} strokeWidth={2} />
+                  </span>
+                  <span>เห็นข้อความล่าสุดแล้ว</span>
+                </div>
               </div>
             ) : (
               <EmptyState>{normalizedQuery ? "ไม่พบข้อความ" : "ยังไม่มีข้อความ"}</EmptyState>
@@ -458,65 +442,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                 ลบโน้ต
               </button>
             ) : null}
-          </section>
-        </div>
-      ) : null}
-
-      {newOpen ? (
-        <div className="route-modal-backdrop" onClick={() => setNewOpen(false)} role="presentation">
-          <section className="route-modal wyn-new-message-modal" role="dialog" aria-modal="true" aria-label="ข้อความใหม่" onClick={(event) => event.stopPropagation()}>
-            <header>
-              <strong>ข้อความใหม่</strong>
-              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setNewOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button>
-            </header>
-            <form className="wyn-new-message-search" onSubmit={(event) => { event.preventDefault(); void findPeople(); }}>
-              <WynosIcon name="search" size={20} strokeWidth={2} aria-hidden="true" />
-              <input autoFocus value={peopleQuery} onChange={(event) => setPeopleQuery(event.target.value)} placeholder="ค้นหาชื่อหรือ username" />
-              <button type="submit" disabled={finding || peopleQuery.trim().length < 2}>ค้นหา</button>
-            </form>
-            {finding && !people.length ? <LoadingState /> : (
-              <div className="route-list">
-                {people.map((profile) => (
-                  <ProfileRowView
-                    profile={profile}
-                    key={profile.id}
-                    trailing={<button className="route-pill" type="button" disabled={finding} onClick={() => void startConversation(profile)}>ส่งข้อความ</button>}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-      ) : null}
-
-      {requestsOpen ? (
-        <div className="route-modal-backdrop" role="presentation" onClick={() => setRequestsOpen(false)}>
-          <section className="route-modal requests-modal" role="dialog" aria-modal="true" aria-label="คำขอข้อความ" onClick={(event) => event.stopPropagation()}>
-            <header>
-              <strong>คำขอข้อความ</strong>
-              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setRequestsOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button>
-            </header>
-            {requests.length ? (
-              <div className="chat-list">
-                {requests.map((row) => (
-                  <div className="request-row" key={row.conversation_id}>
-                    <Link className="chat-row request-main" href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}>
-                      <Avatar src={row.other_avatar_url} label={row.other_username} size={48} />
-                      <span className="chat-row-copy">
-                        <strong>{row.other_display_name?.trim() || row.other_username}</strong>
-                        <small>{conversationPreview(row)}</small>
-                      </span>
-                    </Link>
-                    <div className="request-actions">
-                      <button className="route-primary small" type="button" onClick={() => void decide(row, true)}>ยอมรับ</button>
-                      <button className="route-secondary small" type="button" onClick={() => void decide(row, false)}>ลบ</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState>ไม่มีคำขอข้อความ</EmptyState>
-            )}
           </section>
         </div>
       ) : null}

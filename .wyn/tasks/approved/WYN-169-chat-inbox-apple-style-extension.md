@@ -1,7 +1,7 @@
 # Design Task — WYN-169
 
-Status: PR เปิดแล้ว รอ CI เขียว + Founder อนุมัติ merge (PR #549)
-Owner: AI Design → Founder → AI Coding → AI QA & Security → AI Deploy & DevOps (กำลังดำเนินการ)
+Status: Deploy สำเร็จ (PR #549 merged, production deploy เขียวหมด) — รอ Founder ยืนยันบนเว็บจริงก่อนย้ายไป completed/
+Owner: AI Design → Founder → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ยืนยัน production จริง
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: ขยายภาษา press-scale motion จาก WYN-163/167 มาที่ปุ่ม header 2 จุดของ Chat Inbox
 (`.wyn-chat-compose-action`, `.wyn-chat-requests-link`) — ขอบเขตแคบเหมือน WYN-167 เป๊ะ ไม่แตะขนาด/สี/layout
@@ -120,3 +120,20 @@ blocker): โปรเจกต์ยังไม่มี automated visual-regr
 สร้าง fixture route ถาวรแบบเดียวกัน (เป็นงานแยก ไม่ใช่ส่วนหนึ่งของ WYN-169 นี้)
 
 Final Status: PASS
+
+## AI Deploy & DevOps (2026-09-19)
+
+Release: WYN-169 — Chat Inbox header button press-scale motion
+Version: within WYNOS Web Beta1 — no version bump
+QA Status: PASS (6/6 test cases, see above)
+Build Status: `npm run check` green (independently re-run a 3rd time before opening PR); PR #549 CI 11/11
+green on first push, no CI-red rounds needed
+Deployment Target: Vercel production (`wynos.online`), existing project
+Changes: `web/app/chat-notes.css` only, +17 lines
+Deployment Result: PR #549 merged (`315e3acc`, Founder approved merge via popup confirmation), production
+deploy workflow run #136 — all steps green (preflight, Vercel deploy, route verification), full `main`
+CI workflow also green on the same commit. Full details: `.wyn/logs/deployments/2026-09-19-wyn-169-chat-inbox-motion-deploy.md`
+Production Verification: AI-confirmed via the deploy workflow's own route-verification step — sandbox itself
+cannot reach `wynos.online` directly. **รอ Founder เปิดเว็บจริงยืนยัน** ก่อนย้าย task นี้ไป `completed/`
+Rollback Plan: fix-forward หรือ revert single commit (`web/app/chat-notes.css` only, additive-only change,
+ไม่กระทบไฟล์อื่น) — hard rollback ต้องได้รับคำสั่ง Founder ชัดเจน
