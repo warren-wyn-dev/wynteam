@@ -45,8 +45,10 @@ test("Chat inbox matches the approved Notes-first layout", () => {
 
   expect(page).toContain("ChatInboxParityRoute");
   expect(chat).toContain("<h1>ข้อความ</h1>");
-  expect(chat).toContain("wyn-chat-compose-action");
-  expect(chat).toContain('name="messageSquarePlus"');
+  // WYN-170 removed the header compose button entirely (entry to a new chat
+  // moved to the profile page instead) — assert it stays gone.
+  expect(chat).not.toContain("wyn-chat-compose-action");
+  expect(chat).not.toContain('name="messageSquarePlus"');
   expect(chat).toContain("flutter-chat-search");
   expect(chat).toContain('placeholder="ค้นหาข้อความ"');
   expect(chat).toContain("wyn-chat-notes");
@@ -58,8 +60,10 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(chat).toContain("wyn-note-composer");
   expect(chat).toContain("แชร์ความคิดกับเพื่อนของคุณ");
   expect(chat).toContain("บอกเลยว่าคิดอะไร...");
-  expect(chat).toContain("สถานที่");
-  expect(chat).toContain("อีโมจิ");
+  // WYN-172 removed the non-functional "สถานที่"/"อีโมจิ" tool buttons
+  // (no onClick handler ever existed) — assert they stay gone.
+  expect(chat).not.toContain("สถานที่");
+  expect(chat).not.toContain("อีโมจิ");
   expect(chat).not.toContain("เพลง");
   expect(chat).not.toContain("GIF");
   expect(notesCss).toContain(".wyn-chat-note-plus");
@@ -70,7 +74,8 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(notesCss).toContain(".wyn-note-screen");
   expect(notesCss).toContain("width: 88px");
   expect(notesCss).toContain("width: min(72%, 270px)");
-  expect(notesCss).toContain("min-height: 318px");
+  // WYN-172 tightened .wyn-note-stage after removing the tools row above.
+  expect(notesCss).toContain("min-height: 240px");
   expect(notesCss).toContain("width: min(88%, 460px)");
   expect(notesCss).toContain("font-size: 10.5px");
   expect(notesCss).toContain("border-radius: 20px");

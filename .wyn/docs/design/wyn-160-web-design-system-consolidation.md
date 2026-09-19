@@ -21,10 +21,18 @@ Avatar/PostCard/BottomNav/TopBar เป็น primitive หลัก **งาน
 | `font-size` | **~20 ค่า** ต่างกันแค่ 0.5-1px | 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16, 17, 17.5, 18, 20, 22, 24px |
 | `border-radius` | **~20 ค่า** | 2, 9, 10, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 30, 999px |
 | สีเทา/พื้นหลังใน `conversation-modern.css` (redesign หน้าแชทล่าสุด) | **ไม่ใช้ `var(--wyn-*)` เลยแม้แต่จุดเดียว** | สร้างชุดสีเทาใหม่ของตัวเอง `#111`/`#8c8c8c`/`#8d8d8d`/`#929292`/`#949494`/`#aaa`/`#e4e4e4`/`#ececec`/`#f1f1f1`/`#f4f4f4`/`#f5f5f5` ที่ใกล้เคียงแต่ไม่ตรงกับ token จริง (`--wyn-text-secondary:#6b6b6b`, `--wyn-border:#e7e7e7`) |
-| Touch target (44/48px) | **สม่ำเสมอดี** — จุดเดียวที่ตาม DS-008 ได้ตรง | ไม่ต้องแก้ |
+| Touch target (44/48px) | ~~สม่ำเสมอดี~~ **แก้ไข 2026-09-19**: `.route-primary`/`.route-secondary` (13 ไฟล์ใช้) อยู่ที่ 38px/32px(.small) ต่ำกว่าเกณฑ์ | ต้องแก้ — ดู "Button Interaction Spec" |
 
 สรุป: ปุ่ม/ช่องกรอกข้อมูลขนาดใหญ่ๆ (accessibility) ยังโอเคเพราะมี base doc คุมไว้ชัด แต่**ตัวหนังสือ/มุมโค้ง/สี
 รายละเอียดหลุดจากสเปกไปเรื่อยๆทีละหน้า** — ตรงกับที่ Founder สังเกต
+
+**[2026-09-19] อัปเดต — WYN-175 รวมเข้ามาแล้ว**: audit รอบใหม่ (เจาะจงที่ปุ่ม) พบเพิ่มเติมว่า audit เดิมข้างบน
+(touch target "สม่ำเสมอดี") ตรวจแค่บาง component ไม่ครบ — `.route-primary`/`.route-secondary`/`.route-pill`/
+`.route-more` (`web/app/phase3.css:83-114`, ใช้ใน 13 ไฟล์) จริงๆ อยู่ที่ 38px (default) / 32px (`.small`)
+ต่ำกว่าเกณฑ์ 44px ทั้งคู่ และเป็นปุ่ม primary action (submit form, confirm, follow ฯลฯ) ไม่ใช่ secondary
+text-link ที่ยกเว้นได้ — เพิ่ม "Button Interaction Spec" เต็มรูปแบบ (motion token, danger color, touch
+target, category map) ไว้ที่ `.wyn/docs/design/wynos-web-base-design-system.md` แล้ว เป็นส่วนขยายของ
+Design Rules ด้านล่างนี้
 
 ## Design Rules — ชุด token ที่ต้องบังคับใช้ทุกหน้าจากนี้ (ไม่ใช่ของใหม่ ต่อยอดจาก base doc เดิม)
 

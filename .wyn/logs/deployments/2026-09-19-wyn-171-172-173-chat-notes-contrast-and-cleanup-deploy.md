@@ -3,7 +3,7 @@
 Release: Chat Inbox Notes composer — dark-mode contrast fixes + dead-button cleanup
 Version: no WYNOS version change (bug fix + UI cleanup, not a version-gated release)
 QA Status: PASS ทั้ง 3 เรื่อง (WYN-171, WYN-172, WYN-173) — ดูรายละเอียดใน section "QA Verification"
-ของแต่ละ task file (`.wyn/tasks/bugs/WYN-171-...md`, `.wyn/tasks/approved/WYN-172-...md`,
+ของแต่ละ task file (`.wyn/tasks/bugs/WYN-171-...md`, `.wyn/tasks/completed/WYN-172-...md`,
 `.wyn/tasks/bugs/WYN-173-...md`)
 Build Status: `npm run check` (lint + typecheck + build) เขียวก่อนเปิด PR — 0 error, 3 warning เดิมที่ไม่
 เกี่ยวข้อง (pre-existing)
@@ -48,8 +48,8 @@ Founder merge PR #551 เองโดยตรงบน GitHub เร็วม�
 ## Rollback Plan
 
 การเปลี่ยนแปลงทั้งหมดเป็น CSS/JSX ที่ย้อนกลับได้ง่าย — ถ้าพบปัญหาหลัง deploy:
-1. `git revert` commit `d3ffcbfd` (merge commit) บน `main` แล้ว push ผ่าน PR ใหม่ตามขั้นตอนปกติ
-   (ต้องขออนุมัติ Founder ก่อน merge เหมือนเดิม)
+1. `git revert -m 1 d3ffcbfd` บน `main` (ต้องระบุ `-m 1` เพราะเป็น merge commit มี 2 parent) แล้ว push
+   ผ่าน PR ใหม่ตามขั้นตอนปกติ (ต้องขออนุมัติ Founder ก่อน merge เหมือนเดิม)
 2. ไม่มี migration/schema change ใดๆ ในรอบนี้ — rollback ไม่กระทบข้อมูล production เลย
 3. ความเสี่ยงต่ำมาก: ทั้ง 3 เรื่องเป็น CSS 1-property change (WYN-171/173) หรือ UI element removal ที่ไม่มี
    logic ผูกอยู่ (WYN-172) ไม่แตะ core note-saving logic เลย

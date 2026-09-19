@@ -25,7 +25,7 @@ mouse-down/up on 3 row types, `prefers-reduced-motion` on both transition and sh
 regression spec's 6 assertions run live against a browser, and 10 additional end-to-end checks (HTTP 200 +
 no console/page errors on `/`, `/search`, `/notifications`, `/welcome`; `PageTransition` mounts without
 crashing; the new dev fixture route isn't linked from anywhere in the app). No CRITICAL/HIGH/MEDIUM findings.
-Full detail: `.wyn/tasks/approved/WYN-175-web-perceived-speed-motion.md`.
+Full detail: `.wyn/tasks/completed/WYN-175-web-perceived-speed-motion.md`.
 
 One bug was found and fixed mid-pipeline: `NotificationSkeleton`/Discovery hashtag skeleton row heights
 didn't match production (CSS cascade mismatch, not caught until QA rendered against the real cascade) — see

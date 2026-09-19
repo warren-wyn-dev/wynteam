@@ -1,6 +1,6 @@
 # Design Task — WYN-160
 
-Status: superseded — batch 1-6 shipped (see DECISIONS.md 2026-09-17 entries), remaining batch 7 (Search/Notifications/Club) and batch 8 (dead CSS cleanup) continue under **WYN-176** with WYN-163's updated token values instead of this task's original numbers (see `.wyn/tasks/backlog/WYN-176-visual-design-rollout-squircle.md` and DECISIONS.md 2026-09-19)
+Status: superseded — batch 1-6 shipped (see DECISIONS.md 2026-09-17 entries), remaining batch 7 (Search/Notifications/Club) and batch 8 (dead CSS cleanup) continue under **WYN-176** with WYN-163's updated token values instead of this task's original numbers (see `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` and DECISIONS.md 2026-09-19)
 Owner: AI Design
 Screen: ทั้งระบบเว็บ (WYN-158) เริ่มจากหน้าล็อกอิน/สมัคร/onboarding ตามที่ Founder สั่ง
 Purpose: บังคับใช้ design system ที่อนุมัติแล้ว (`wynos-web-base-design-system.md`) ให้ตรงกันทุกหน้า — ไม่ใช่คิดสีใหม่ แต่ยุบตัวเลขที่หลุดสเปกไปแล้ว (font-size ~20 ค่า → 7 ค่า, border-radius ~20 ค่า → 5 ค่า, สีเทาที่ hardcode ใหม่ใน conversation-modern.css → กลับไปใช้ var(--wyn-*))
