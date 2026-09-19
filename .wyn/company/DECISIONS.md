@@ -1768,3 +1768,19 @@ Scope สุดท้ายของ WYN-175 ที่อนุมัติค�
 3. Route transition: เปลี่ยน `PageTransition` (`web/components/ui/page-transition.tsx`) จาก opacity-only 70ms เป็น slide(24px)+fade 220ms, easing `cubic-bezier(.22,.61,.36,1)`, ต้อง respect `prefers-reduced-motion` (ยุบกลับเป็น fade เฉยๆ ไม่มี slide)
 
 อ้างอิง: `.wyn/docs/design/wyn-175-perceived-speed-motion.md`, `.wyn/tasks/backlog/WYN-175-web-perceived-speed-motion.md`
+
+## [2026-09-19] WYN-175 — AI Coding implement ครบ 3 ส่วน, lint/typecheck/build ผ่าน, ส่งต่อ QA
+
+Implement ตาม design spec + Founder decision (Option B):
+
+1. Skeleton loading: `SearchUserSkeleton`/`SearchClubSkeleton`/`SearchDiscoverySkeleton`/`NotificationSkeleton` ใหม่ใน `web/components/ui/skeleton.tsx` (reuse `SkeletonBlock`/`SkeletonCircle`), สลับ `<LoadingState />` ใน `search-route.tsx` (4 จุด) และ `notifications-route.tsx` (1 จุด) — ระหว่างเขียนโค้ดพบว่า Drops tab (`DropPreviewCard`) จริงๆ render เป็น full post card ไม่ใช่ grid แบบที่ preview artifact สมมติไว้ตอน design จึงใช้ `FeedSkeleton` เดิมแทนที่จะสร้าง grid skeleton ใหม่ (ถูกต้องกว่าและ reuse มากกว่า)
+2. Press feedback: `:active { transform: scale(0.96) }` (90ms + reduced-motion guard) ใน `app/phase3.css` สำหรับ `.route-person-main`/`.route-club-row`/`.notification-row`
+3. Route transition: `page-transition.tsx` เปลี่ยนเป็น slide(24px)+fade 220ms ตาม Option B ที่ Founder เลือก, ใช้ `useReducedMotion()` ของ framer-motion
+
+**ไม่ทำ** press feedback บน `GoldenDropCard` (post card ในฟีด/Search Drops tab) ในรอบนี้ — มี interactive element ซ้อนกันหลายชั้นที่มี animation เฉพาะอยู่แล้ว (double-tap like burst ฯลฯ) การใส่ `:active` ที่การ์ดทั้งใบจะ bubble ขึ้นมาจากปุ่มย่อยข้างในด้วยและอาจขัดกัน ตัดสินใจตาม "smallest safe change" ไม่แตะ ต้องออกแบบแยกเป็นรอบต่อไป (บันทึกเป็น Known Issue ใน task file)
+
+**Verification**: `npm install` แล้ว `npm run lint` (0 errors, warning เดิม 3 จุดไม่เกี่ยวกับไฟล์ที่แก้), `npm run typecheck` (0 errors), `npm run build` (Next.js production build สำเร็จทุก route รวม `/search`, `/notifications`) — environment เดิมไม่มี `node_modules` เลยตอนเริ่มงาน จึงต้อง `npm install` ก่อนถึงรัน check พวกนี้ได้จริง ยังไม่ได้ทดสอบบน physical iPhone Safari จริง (ต้องรอ QA/Founder ตามบทเรียน WYN-158)
+
+Task ย้ายจาก scope "approved" เป็น "review" ส่งต่อ AI QA & Security แล้ว — ยังไม่ deploy
+
+อ้างอิง: `.wyn/tasks/active/WYN-175-web-perceived-speed-motion.md`

@@ -96,3 +96,91 @@ export function ChatListSkeleton({ items = 6 }: { items?: number }) {
     </div>
   );
 }
+
+// WYN-175: Search and Notifications used a spinner instead of a
+// content-shaped placeholder. Row dimensions below mirror the real
+// .route-person-row/.route-club-row/.notification-row CSS (app/phase3.css)
+// so nothing jumps once real rows replace these.
+function SearchUserRowSkeleton() {
+  return (
+    <div className="wyn-skeleton-search-person-row">
+      <SkeletonCircle size={42} />
+      <div className="wyn-skeleton-search-person-copy">
+        <SkeletonBlock width="42%" height={14} />
+        <SkeletonBlock width="28%" height={12} />
+      </div>
+    </div>
+  );
+}
+
+export function SearchUserSkeleton({ items = 6 }: { items?: number }) {
+  return (
+    <div aria-label="กำลังค้นหาผู้ใช้" aria-live="polite">
+      {Array.from({ length: items }, (_, index) => (
+        <SearchUserRowSkeleton key={index} />
+      ))}
+    </div>
+  );
+}
+
+function SearchClubRowSkeleton() {
+  return (
+    <div className="wyn-skeleton-search-club-row">
+      <SkeletonBlock width={46} height={46} radius={13} />
+      <div className="wyn-skeleton-search-person-copy">
+        <SkeletonBlock width="50%" height={14} />
+        <SkeletonBlock width="34%" height={12} />
+      </div>
+    </div>
+  );
+}
+
+export function SearchClubSkeleton({ items = 6 }: { items?: number }) {
+  return (
+    <div aria-label="กำลังค้นหา Club" aria-live="polite">
+      {Array.from({ length: items }, (_, index) => (
+        <SearchClubRowSkeleton key={index} />
+      ))}
+    </div>
+  );
+}
+
+function HashtagRowSkeleton() {
+  return (
+    <div className="wyn-skeleton-hashtag-row">
+      <SkeletonBlock width={16} height={12} />
+      <SkeletonBlock width="55%" height={13} />
+    </div>
+  );
+}
+
+export function SearchDiscoverySkeleton() {
+  return (
+    <div aria-label="กำลังโหลดคำแนะนำ" aria-live="polite">
+      {Array.from({ length: 3 }, (_, index) => <HashtagRowSkeleton key={index} />)}
+      {Array.from({ length: 3 }, (_, index) => <SearchUserRowSkeleton key={index} />)}
+    </div>
+  );
+}
+
+function NotificationRowSkeleton() {
+  return (
+    <div className="wyn-skeleton-notification-row">
+      <SkeletonCircle size={44} />
+      <div className="wyn-skeleton-notification-copy">
+        <SkeletonBlock width="80%" height={13} />
+        <SkeletonBlock width="30%" height={11} />
+      </div>
+    </div>
+  );
+}
+
+export function NotificationSkeleton({ items = 6 }: { items?: number }) {
+  return (
+    <div aria-label="กำลังโหลดการแจ้งเตือน" aria-live="polite">
+      {Array.from({ length: items }, (_, index) => (
+        <NotificationRowSkeleton key={index} />
+      ))}
+    </div>
+  );
+}

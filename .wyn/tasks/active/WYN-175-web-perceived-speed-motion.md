@@ -1,7 +1,7 @@
 # Product Task — WYN-175
 
-Status: design (spec + preview ready, route transition รอ Founder เลือก A/B)
-Owner: AI Product Manager → AI Design (ดู `.wyn/docs/design/wyn-175-perceived-speed-motion.md`)
+Status: review — implementation เสร็จ (lint/typecheck/build ผ่าน), ส่งต่อ AI QA & Security
+Owner: AI Product Manager → AI Design (`.wyn/docs/design/wyn-175-perceived-speed-motion.md`) → AI Coding (เสร็จ 2026-09-19) → AI QA & Security
 Feature: WYNOS Web Beta1 — Perceived Speed & Motion (WYN-174 Track 1, Founder เลือก 2026-09-19)
 Goal: ทำให้การใช้งาน `wynos.online` รู้สึกเหมือนแอปมือถือ native มากที่สุด ด้วยการเปลี่ยนจากการสลับหน้าแบบ instant/snap เป็นมี motion, และแทน spinner/blank loading ด้วย skeleton state + press feedback ที่ตอบสนองทันทีเมื่อแตะ
 Target User: ผู้ใช้ WYNOS ทั่วไปที่เข้าเว็บผ่านมือถือ (iOS Safari/Android Chrome) เป็นหลัก
@@ -54,3 +54,28 @@ P0 — Founder ยืนยันให้เริ่ม track นี้ก่�
 ## Handoff
 
 → **AI Design**: ทำ audit + motion spec + preview สำหรับ route transition, skeleton loading, press feedback ตามขอบเขตนี้ ก่อนส่งต่อ AI Coding
+
+## Implementation (AI Coding, 2026-09-19)
+
+**Implementation**:
+1. Skeleton — เพิ่ม `SearchUserSkeleton`, `SearchClubSkeleton`, `SearchDiscoverySkeleton`, `NotificationSkeleton` ใน `components/ui/skeleton.tsx` (reuse `SkeletonBlock`/`SkeletonCircle` เดิม, ขนาด row ตรงกับ CSS จริงของ `.route-person-row`/`.route-club-row`/`.notification-row`) และเปลี่ยน `<LoadingState />` เป็น skeleton ที่ตรงจุดใน `search-route.tsx` (4 จุด: Users/Clubs/Discovery + Drops tab ใช้ `FeedSkeleton` ที่มีอยู่แล้วเพราะ `DropPreviewCard` render เป็น full post card ไม่ใช่ grid ตามที่ design mockup เคยสมมติผิดไว้) และ `notifications-route.tsx` (1 จุด)
+2. Press feedback — เพิ่ม `:active { transform: scale(0.96) }` (90ms, มี `prefers-reduced-motion` guard) ให้ `.route-person-main`, `.route-club-row`, `.notification-row` ใน `app/phase3.css`
+3. Route transition — แก้ `components/ui/page-transition.tsx` จาก opacity fade 70ms เป็น slide(24px)+fade 220ms, easing `cubic-bezier(.22,.61,.36,1)`, ใช้ `useReducedMotion()` ของ framer-motion ยุบ slide เหลือ fade เฉยๆ เมื่อผู้ใช้เปิด reduced motion (ตาม Design Rules ข้อ "ตัดการเดินทาง ไม่ตัดสถานะ")
+
+**Files Changed**: `web/components/ui/skeleton.tsx`, `web/app/skeleton.css`, `web/components/search-route.tsx`, `web/components/notifications-route.tsx`, `web/app/phase3.css`, `web/components/ui/page-transition.tsx`
+
+**Reason**: ตาม design spec `.wyn/docs/design/wyn-175-perceived-speed-motion.md` และ Founder decision เลือก route transition Option B (2026-09-19)
+
+**Tests**: ไม่มี automated test เดิมครอบคลุม loading state ของ Search/Notifications หรือ `PageTransition` — ไม่ได้เพิ่ม test ใหม่ในรอบนี้ (ไม่มี regression test framework สำหรับ visual/motion behavior ใน repo นี้ นอกจาก Playwright browser test ที่ไม่ได้รันในรอบนี้) เป็น **Known Issue** ที่ควรพิจารณาก่อน production
+
+**Build**:
+- `npm run lint` → ผ่าน (0 errors, 3 pre-existing warnings ที่ไม่เกี่ยวกับไฟล์ที่แก้)
+- `npm run typecheck` → ผ่าน (0 errors)
+- `npm run build` (Next.js production build) → สำเร็จ ทุก route compile ผ่านรวมถึง `/search` และ `/notifications`
+- ยืนยันแล้วว่า error ที่เจอตอน typecheck รอบแรก (ก่อน `npm install`) เป็นเพราะ dependency ยังไม่ได้ติดตั้งในสภาพแวดล้อมนี้ ไม่เกี่ยวกับโค้ดที่แก้ — รัน `npm install` แล้วทุกอย่างผ่านสะอาด
+
+**Known Issues**:
+- **Post card / feed press feedback ยังไม่ทำ** — `GoldenDropCard` (ใช้ใน Home/Profile/Club feed และ Search Drops tab) มี interactive element ซ้อนกันหลายชั้น (avatar link, author link, more-menu button, like/comment/redrop actions ที่มี animation เฉพาะตัวอยู่แล้วเช่น double-tap burst) — เพิ่ม `:active` scale ที่ตัว `<article>` ทั้งใบจะทำให้การ์ดยุบตัวทุกครั้งที่กดปุ่มย่อยข้างในด้วย (เพราะ `:active` bubble ขึ้นมาตาม DOM ancestor) ซึ่งอาจขัดกับ animation ที่มีอยู่แล้ว — ตัดสินใจไม่แตะในรอบนี้ตามกติกา "smallest safe change" ต้องออกแบบแยกว่าจะใส่ press feedback เฉพาะพื้นที่ "เปิดดูโพสต์" หรือทั้งการ์ด แล้วส่งเป็น task ต่อยอด
+- ยังไม่ได้ทดสอบบน physical iPhone Safari จริง (ตามบทเรียน WYN-158 ว่า CI เขียว/build ผ่าน ≠ ใช้งานได้จริงบนอุปกรณ์จริง) — QA/Founder ต้องยืนยันเพิ่ม
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) skeleton ไม่ทำให้ layout shift ตอนข้อมูลจริงโหลดเสร็จ (2) press feedback ไม่ค้างสถานะ scale หลังปล่อยนิ้ว (3) route transition ทำงานถูกทั้งสองทิศทาง (ไปหน้าใหม่/กลับ) และ `prefers-reduced-motion` ลด slide ได้จริง (4) `aria-live`/`aria-label` ของ skeleton อ่านออกเสียงได้เหมาะสมกับ screen reader

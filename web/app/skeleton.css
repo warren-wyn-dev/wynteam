@@ -90,6 +90,61 @@
   gap: 7px;
 }
 
+/* WYN-175: Search (users/clubs/discovery) + Notifications row shapes —
+   dimensions mirror .route-person-row/.route-club-row/.notification-row
+   in app/phase3.css. */
+.wyn-skeleton-search-person-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 64px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--hairline, #e8e6e0);
+}
+
+.wyn-skeleton-search-club-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 68px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--hairline, #e8e6e0);
+}
+
+.wyn-skeleton-search-person-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.wyn-skeleton-hashtag-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-top: 1px solid var(--hairline, #e8e6e0);
+}
+
+.wyn-skeleton-notification-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  min-height: 76px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--hairline, #e8e6e0);
+}
+
+.wyn-skeleton-notification-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
 /* Optimistic chat bubble still in flight (components/chat-routes.tsx). */
 .message-row.is-pending {
   opacity: 0.6;
