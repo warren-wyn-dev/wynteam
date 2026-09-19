@@ -2,6 +2,11 @@
 
 > บันทึกโดย Founder เมื่อ 2026-09-01 — กติกานี้มีผลผูกพันกับทีม AI ทุกบทบาททันที ดู `AGENTS.md` หัวข้อ "อ่านก่อนเริ่มงานทุกครั้ง"
 
+> **[2026-09-19] พักการพัฒนาแอปนี้ยาวๆ**: Founder สั่งตรง ๆ ว่า "ตอนนี้มีแค่ Wynos Web Beta1 V.1.0.0 Beta4
+> พักไปก่อนยาวๆเลย" — ห้าม AI role ใดเริ่มงานใหม่บนแอป Flutter (`app/`, `seller_app/`) โดยไม่ถาม Founder ก่อน
+> จนกว่าจะมีคำสั่งให้กลับมาทำต่อ งานทั้งหมดตอนนี้ให้โฟกัสที่ `WYNOS Web Beta1` แทน (ดู
+> `.wyn/company/WEB_VERSION_CONTROL.md`) รายละเอียดเต็มที่ `.wyn/company/DECISIONS.md` (2026-09-19)
+
 ## Current Version
 
 **WYNOS v1.0.0 Beta4** คือ Baseline ปัจจุบันที่ผู้ใช้ทั่วไปใช้งานอยู่ (production, deploy จริงตั้งแต่ 2026-09-03 — ดู `.wyn/logs/deployments/2026-09-03-wynos-beta4-real-deploy.md`)

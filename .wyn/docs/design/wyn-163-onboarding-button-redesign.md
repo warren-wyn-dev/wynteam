@@ -1,122 +1,123 @@
-# Design Spec — WYN-163: Onboarding Button + Color Redesign
+# Design Spec — WYN-163: Onboarding Button Redesign (WYNOS Web)
 
 Owner: AI Design → Founder review → AI Coding
 Ref: Founder ขอเองผ่านข้อความตรง (2026-09-19): "เรามาช่วยกันออกแบบ UX UI ปุ่มต่างๆใหม่ เริ่มจาก0" → ยืนยัน
-เป็นการเปลี่ยนทิศทาง visual จริง (ไม่ใช่แค่จัดระเบียบแบบ WYN-106) → "เราจะออกแบบใหม่หมดเลย เริ่มตั้งแต่เลือกสี
-ทุกอย่างใหม่หมด" → เริ่มจากหน้าจอ Onboarding/Login ตามที่ Founder ระบุ → รอบ 3: "โทนสี ขาว ดำ เทา ธีมสว่าง"
-+ สั่งตัดปุ่ม "เข้าชม WYNOS ได้เลย" ออก → **ผลสุดท้าย: ไม่มีสีแดง/สีอื่นเลย เป็นขาว-ดำ-เทาล้วน**
-Artifact: https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x (อาร์ตบอร์ด 1 = สี, อาร์ตบอร์ด 2 = ทรง, อาร์ตบอร์ด
-3 = งานจริงทั้ง 5 หน้าจอ)
-Decision log: `.wyn/company/DECISIONS.md` (2026-09-19, WYN-163, รอบ 1-3)
+เป็นการเปลี่ยนทิศทาง visual จริง → "เราจะออกแบบใหม่หมดเลย เริ่มตั้งแต่เลือกสี ทุกอย่างใหม่หมด" → เริ่มจากหน้าจอ
+Onboarding/Login → รอบ 3: "โทนสี ขาว ดำ เทา ธีมสว่าง" + ตัดปุ่ม "เข้าชม" ออก → **รอบ 4 (สำคัญ)**: "ตอนนี้มีแค่
+Wynos Web Beta1 V.1.0.0 Beta4 พักไปก่อนยาวๆเลย" — **งานนี้ย้าย scope จากแอป Flutter มาเป็น WYNOS Web ทั้งหมด**
+Artifact: https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x (อาร์ตบอร์ด 1-3 ทำไว้ตอน scope ยังเป็น Flutter —
+ใช้เป็น reference ทิศทางสี/ทรง/การตัดปุ่มเข้าชมได้เหมือนเดิม ค่า token/ชื่อไฟล์เปลี่ยนเป็นของเว็บ)
+Decision log: `.wyn/company/DECISIONS.md` (2026-09-19, WYN-163 รอบ 1-4), `.wyn/company/VERSION_CONTROL.md`,
+`.wyn/company/WEB_VERSION_CONTROL.md`
 
 > **นี่คือ visual direction ใหม่ที่ Founder ร้องขอเอง** ไม่ขัดกับกติกา "ห้ามคิดทิศทาง visual ใหม่หากมี design
-> system ที่อนุมัติแล้ว" เพราะ Founder เป็นฝ่ายเปิดคำขอเองตามข้อยกเว้นที่บันทึกไว้ 2026-09-07 ("ไม่ต้องเสนอ
-> visual ใหม่จนกว่า Founder จะร้องขอเอง")
+> system ที่อนุมัติแล้ว" — Founder เป็นฝ่ายเปิดคำขอเองตามข้อยกเว้นที่บันทึกไว้ 2026-09-07
 
 ---
 
 ## Screen
 
-`WelcomeScreen`, `AuthMethodScreen`, `PhoneEntryScreen`, `OtpVerificationScreen`, Username Setup step
-(`app/lib/features/auth/presentation/**`) — ตาม WYN-002 ทั้ง 5 หน้าจอ
+หน้าจอ Onboarding/Auth ทั้งหมดของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงอยู่ที่
+`web/components/auth-flow/screens.tsx`):
+
+1. `WelcomeScreen` (`/welcome`)
+2. `LoginScreen` (`/login`)
+3. `SignupStep1Screen` (`/signup/step-1`)
+4. `SignupStep2Screen` (`/signup/step-2`)
+5. `OnboardingProfileScreen` (`/onboarding/profile`)
+6. `ForgotPasswordScreen` (`/forgot-password`)
+
+ปุ่มทุกหน้าใช้ CSS ชุดเดียวกัน (`.btn-primary`/`.btn-outline` scope ใต้ `.auth-ref-viewport`) ที่ประกาศรวมไว้
+ที่ไฟล์เดียว: **`web/app/auth-reference.css`** — แก้ไฟล์นี้ไฟล์เดียวก็ครบทั้ง 6 หน้าจอ
 
 ## Purpose
 
-เปลี่ยนสี + ทรงปุ่มของหน้า Onboarding ทั้งหมดตามทิศทางใหม่ที่ Founder เลือก แทนที่ sapphire (บทบาทปุ่มหลัก)
-ด้วย **ink ล้วน** (ไม่มีสีแดง/สีอื่นแล้ว ตามที่ Founder ยืนยัน "ขาว ดำ เทา ธีมสว่าง" รอบ 3) และเปลี่ยนทรงปุ่ม
-จาก pill เต็ม (M3 default) เป็น rounded-rect 16px — เป็นจุดเริ่มของ button system ใหม่ทั้ง WYNOS (หน้าจอ
-ถัดไปจะตามมาทีหลัง คนละรอบ)
+ทำสิ่งที่ Founder ตัดสินใจไปแล้ว 3 รอบก่อนหน้า (สีขาว-ดำ-เทาล้วน, ทรงปุ่มโค้งมนปานกลาง 16px, ไม่มีปุ่ม
+guest-browse) ให้เกิดขึ้นจริงบน **WYNOS Web** ซึ่งเป็นแพลตฟอร์มเดียวที่ยังพัฒนาต่อตอนนี้ (Flutter app พักยาว)
+
+**ข่าวดี**: ตรวจโค้ดจริงแล้วพบว่า **สีของปุ่มเว็บตอนนี้ตรงกับทิศทางที่ Founder เลือกอยู่แล้ว 100%** —
+`.btn-primary` ใช้ `background: var(--text-primary)` ซึ่ง alias ไปที่ `var(--wyn-text)` (สีเข้ม/ดำ) และ
+`color: var(--bg)` (ขาว) อยู่แล้ว ไม่มีสีที่สามปนอยู่เลยนอกจาก `--red: var(--wyn-accent)` ที่ใช้เฉพาะ error
+text (`ErrorText` component) ไม่ได้ใช้กับปุ่ม — **งานนี้จึงไม่ต้องแก้สีเลย** สิ่งที่ต้องแก้จริงมีแค่ **ทรงปุ่ม**
+(ตอนนี้ยังเป็น pill เต็ม `border-radius: 999px` ต้องเปลี่ยนเป็น 16px ตามที่ตัดสินใจไว้) และปุ่ม guest-browse
+ก็**ไม่มีอยู่แล้ว**ในหน้า Welcome ของเว็บ (มีแค่ "สร้างบัญชีใหม่" / "เข้าสู่ระบบด้วย Google" / "เข้าสู่ระบบ")
+ดังนั้นข้อตัดสินใจ "ตัดปุ่มเข้าชมออก" ไม่มีผลอะไรต้องแก้ในเว็บ
 
 ## User Flow
 
-ไม่เปลี่ยน — ทุกปุ่มนำทาง/เรียก action เดิมทุกประการ (Welcome → Auth Method → Google/Apple/Email หรือ
-Phone → OTP → Username Setup → Home) งานนี้เป็น visual only
+ไม่เปลี่ยน — ทุกปุ่มนำทาง/เรียก action เดิมทุกประการ งานนี้เป็น visual only (แก้ CSS ไฟล์เดียว)
 
 ## Components
 
-ปุ่มทั้งหมดที่ปรากฏใน 5 หน้าจอ แบ่งเป็น 4 ระดับความสำคัญ (คงโครงสร้าง 3 ระดับของ WYN-106 ไว้ + เพิ่ม 1 ระดับ
-สำหรับปุ่ม text รอง เช่น "ส่งรหัสอีกครั้ง"):
+ปุ่มทั้งหมดในระบบมี 2 ระดับความสำคัญเท่านั้น (เว็บใช้ 2 คลาสอยู่แล้ว ไม่มีปุ่ม text/tertiary สีแยกแบบที่เคย
+ออกแบบไว้ฝั่ง Flutter เพราะหน้าเว็บไม่มีปุ่ม "ส่งรหัสอีกครั้ง"/OTP แบบเดียวกัน — ฝั่งเว็บ auth ใช้ email/password
+ไม่ใช้ OTP):
 
-> **[เปลี่ยนรอบ 3]** ปุ่ม "เข้าชม WYNOS ได้เลย" (guest browsing) **ตัดออกจากการออกแบบนี้ทั้งหมดตามคำสั่ง
-> Founder** — ไม่อยู่ใน 4 ระดับด้านล่างอีกต่อไป โค้ดจริงยังปิดอยู่ด้วย flag `_guestBrowsingEnabled = false`
-> เดิม (DECISIONS.md 2026-09-08) เอกสารนี้ไม่ได้สั่งลบ widget/flag ออกจากซอร์ส — เป็นแค่การไม่รวมอยู่ในระบบ
-> ปุ่มใหม่ ถ้าต้องการลบโค้ดทิ้งจริงต้องแยกเป็นการตัดสินใจอีกครั้ง
+1. **Primary** (`.btn-primary`) — "สร้างบัญชีใหม่", "ดำเนินการต่อ", "หน้าถัดไป", "สร้างบัญชี", "เข้าสู่ระบบ",
+   "เริ่มใช้งาน Wynos", "ส่งลิงก์รีเซ็ตรหัสผ่าน"
+   - พื้น `var(--text-primary)` (ดำ), ตัวหนังสือ `var(--bg)` (ขาว) — **สีเดิมถูกต้องแล้ว ไม่แตะ**
+   - **[แก้]** `border-radius: 999px` → **`16px`**
+2. **Outline** (`.btn-outline`) — "เข้าสู่ระบบด้วย Google", "เข้าสู่ระบบ" (ปุ่มรองในหน้า Welcome)
+   - โปร่งใส + ขอบ `var(--border-strong)` + ตัวหนังสือ `var(--text-primary)` — **สีเดิมถูกต้องแล้ว ไม่แตะ**
+   - **[แก้]** `border-radius: 999px` → **`16px`**
+   - **หมายเหตุสำคัญ**: ปุ่ม "เข้าสู่ระบบด้วย Google" ในโค้ดปัจจุบันเป็นแค่ตัวหนังสือล้วน ไม่มีโลโก้/ไอคอน
+     Google เลยแม้แต่น้อย (ต่างจากฝั่ง Flutter ที่อย่างน้อยยังมีไอคอนเปล่า) — ยิ่งห่างจาก Design Rule เดิมที่
+     บังคับใช้ asset ทางการของ Google เป็น gap ที่มีอยู่ก่อนงานนี้ ให้ Founder ตัดสินใจว่าจะแก้พร้อมกันไหม (ดู
+     Handoff)
 
-1. **Primary CTA** (Filled) — "เริ่มต้นใช้งาน", "ส่งรหัส OTP", "เสร็จสิ้น", "กรอกโค้ดเชิญ"
-   - พื้น `ink #12120F` เต็ม, ตัวหนังสือ `paper #FFFFFF`, `border-radius: 16px`, สูง 52px, เต็มความกว้าง
-2. **Secondary Filled-outline** — "เข้าสู่ระบบด้วย Google" (และ Apple เมื่อเปิดใช้อีกครั้ง)
-   - ขอบ 1.5px `ink`, พื้น `paper`, ตัวหนังสือ `ink`, `border-radius: 16px`, สูง 46-48px
-   - **หมายเหตุสำคัญ**: ปุ่มนี้ในโค้ดปัจจุบัน (`auth_method_screen.dart`) ยังไม่ใช้ asset ทางการของ Google
-     (`Icons.g_mobiledata` ธรรมดา) — ขัดกับ Design Rule เดิมของ WYN-002 ("ห้ามดัดแปลงโลโก้/สีปุ่ม Google/
-     Apple เอง ต้องใช้ asset ทางการ") เป็น gap ที่มีอยู่ก่อนงานนี้ ไม่ใช่สิ่งที่ WYN-163 สร้างขึ้นใหม่ — บันทึก
-     ไว้เป็นข้อสังเกตแยก ให้ Founder ตัดสินใจว่าจะแก้พร้อมกันในรอบนี้หรือแยกเป็นงานอื่น (ดู Handoff)
-3. **Outline (tertiary)** — "เข้าสู่ระบบด้วยอีเมล", "ใช้เบอร์โทรศัพท์แทน"
-   - ขอบ 1.5px `hairline #E8E6E0` (จางกว่าระดับ 2 เพื่อให้ลำดับสำคัญต่างกันชัด), พื้น `paper`, ตัวหนังสือ
-     `ink`, `border-radius: 16px`, สูง 46-48px
-4. **Text (quiet)** — "ส่งรหัสอีกครั้ง" (เมื่อ countdown หมด)
-   - ไม่มีพื้น/ขอบ, ตัวหนังสือ **`graphite #8A8880`** (เทา — **[เปลี่ยนรอบ 3]** เดิมเสนอสีแดง `#E11D48` เป็น
-     signal accent แต่ Founder ยืนยันธีมขาว-ดำ-เทาล้วน จึงตัดสีแดงออกทั้งระบบปุ่มนี้) น้ำหนัก 600, สูงที่เห็น
-     36-40px แต่ขยาย hit-area โปร่งใสให้ครบ ≥44px เสมอ (pattern เดียวกับ `action_metric.dart`) — ตอน
-     countdown ยังไม่หมด (`disabled`) ใช้ `faint #C7C4BC`
+ทั้งสองคลาสกำหนดขนาดร่วมกันอยู่แล้วที่ `height: 50px` (ผ่าน touch target ≥44px อยู่แล้ว ไม่ต้องแก้)
 
 ## Interactions
 
-ไม่เปลี่ยนจากเดิม — `onPressed`/`onTap`, disable ระหว่าง `_isLoading`, debounce/validation ของแต่ละหน้าจอ
-ยังทำงานเหมือนเดิมทุกประการ กด primary/secondary/outline ค้างจะย่อ scale 0.94 ตาม `WynMotion.pressedScale`
-ที่มีอยู่แล้ว (DS-010) — ไม่สร้าง motion token ใหม่
+ไม่เปลี่ยน — `onClick`, `disabled` ระหว่าง loading, validation ของแต่ละหน้าจอยังทำงานเหมือนเดิมทุกประการ CSS
+ปัจจุบันตั้งใจปิด transform บน hover/active (`transform: none`) ไว้อยู่แล้ว — **ไม่เพิ่ม motion/animation ใหม่
+ในรอบนี้** (นอกขอบเขตที่ Founder ขอ ซึ่งคือสี+ทรงเท่านั้น)
 
 ## States
 
-| State | Primary | Secondary/Outline | Text |
-|---|---|---|---|
-| Default | พื้น ink, ตัวหนังสือ paper | ขอบ+ตัวหนังสือตามระดับ | ตัวหนังสือ graphite |
-| Pressed | scale 0.94 (DS-010 เดิม) | scale 0.94 | opacity 0.7 |
-| Disabled (`_isLoading`/validation ไม่ผ่าน) | พื้น ink @ 38% opacity, ตัวหนังสือ paper @ 70% | ขอบ+ตัวหนังสือ @ 38% opacity | ตัวหนังสือ @ 38% opacity |
-| Loading | แทนข้อความด้วย spinner ขนาด 18px สี paper อยู่กึ่งกลางปุ่ม (ปุ่มคงขนาดเดิม ไม่ยุบ) | เหมือน primary แต่สี ink | ไม่มี (ปุ่ม text ไม่มี loading state ของตัวเอง — ใช้ spinner กลางจอเดิมของ `AuthMethodScreen`) |
+| State | Primary | Outline |
+|---|---|---|
+| Default | พื้นดำ ตัวหนังสือขาว | โปร่งใส ขอบเข้ม ตัวหนังสือดำ |
+| Disabled | พึ่งพฤติกรรม native ของ `<button disabled>` (เดิมไม่มี custom style — คงเดิม ไม่ใช่ scope งานนี้) | เหมือนกัน |
+| Hover/Active | ไม่มีการเปลี่ยนภาพ (ตั้งใจ `transform: none` ไว้แล้วในโค้ดเดิม) | เหมือนกัน |
 
-ไม่มีปุ่มไหนสื่อสารสถานะด้วยสีอย่างเดียว — ทุกปุ่มยังมีข้อความ/label ชัดเจนตามเดิม (ตรง DS-001 ข้อ 5)
+ไม่มีปุ่มไหนสื่อสารสถานะด้วยสีอย่างเดียว — ทุกปุ่มมีข้อความ label ของตัวเองอยู่แล้ว
 
 ## Responsive Behavior
 
-ไม่กระทบ — px คงที่ทุกจอมือถือ (มาตรฐานเดียวกับ DS-008) ปุ่ม primary ยังเต็มความกว้างจอ (minus margin) และ
-ขยับตามคีย์บอร์ดเหมือนเดิมในหน้า Phone Entry/Username
+ไม่กระทบ — ปุ่มกว้างเต็ม container (`width: 100%`) ของ `.phone` viewport อยู่แล้ว ไม่มี breakpoint แยก
+(WYNOS Web ออกแบบมาสำหรับหน้าจอมือถือเป็นหลักอยู่แล้วตาม `wynos-web-base-design-system.md`)
 
 ## Accessibility
 
-- Touch target ทุกปุ่ม ≥44×44px จริง (ปุ่ม text ขยาย hit-area โปร่งใส) — ตรวจซ้ำด้วย widget test แบบ
-  WYN-106
-- Contrast: paper บน ink = **19.7:1 ✅**, ink บน paper (secondary/outline) = **19.7:1 ✅**, graphite
-  `#8A8880` บน paper (ปุ่ม text) = **4.83:1 ✅** ผ่านเกณฑ์ตัวหนังสือปกติ (ค่าเดียวกับที่ DS-001 ยืนยันไว้แล้ว)
-- `Semantics(label:..., button:true)` ทุกปุ่มที่ tappable เหมือนเดิม (ไม่แตะ)
-- รองรับ textScale 130% เหมือนเดิม (ปุ่ม primary สูง 52px มีเนื้อที่พอสำหรับข้อความขยาย ไม่ overflow ในกรณี
-  ทดสอบเบื้องต้น — QA ต้องตรวจซ้ำจริงตอน implement)
+- Touch target: สูง 50px เกินเกณฑ์ขั้นต่ำ 44px อยู่แล้ว ไม่ต้องแก้
+- Contrast: ตัวหนังสือขาวบนพื้นดำ (`--text-primary`) และตัวหนังสือดำบนพื้นขาวโปร่งใส — ทั้งคู่เป็นคู่สีเดิมที่
+  ผ่าน AA อยู่แล้วจาก `--wyn-*` token system (ไม่ได้เปลี่ยนค่าสี จึงไม่มี contrast ใหม่ต้องตรวจ)
+- การเปลี่ยน `border-radius` เพียงอย่างเดียวไม่กระทบ semantics/keyboard focus/screen reader ที่มีอยู่แล้ว
 
 ## Design Rules
 
-1. สีปุ่มหลักทั้งระบบ (ไม่ใช่แค่ Onboarding): พื้น `ink #12120F` แทนที่ `sapphire` ในบทบาท "ปุ่มหลัก" — แต่
-   งานนี้ **แก้เฉพาะ 5 หน้าจอ Onboarding เท่านั้น** หน้าจออื่น (Home ฯลฯ) ยังใช้ sapphire เดิมจนกว่าจะมีงาน
-   ขยายขอบเขตแยกต่างหาก (ห้าม AI Coding ไล่แก้ทั้งแอปเองจากเอกสารนี้)
-2. **[เปลี่ยนรอบ 3]** ไม่มีสีที่สามในระบบปุ่มนี้เลย — ขาว (`paper`) / ดำ (`ink`) / เทา (`graphite`,
-   `hairline`, `faint`) เท่านั้น ตามที่ Founder ยืนยัน "โทนสี ขาว ดำ เทา ธีมสว่าง" (สีแดง `#E11D48` ที่เคย
-   เสนอไว้ก่อนหน้าถูกตัดออกทั้งหมด — สีแดงยังคงความหมาย "ผิดพลาด/destructive"/หัวใจ Like ในจุดอื่นของแอป
-   เหมือนเดิม เพียงแต่ไม่ถูกใช้ในระบบปุ่ม Onboarding นี้)
-2b. ปุ่ม "เข้าชม WYNOS ได้เลย" ตัดออกจากขอบเขตการออกแบบนี้ทั้งหมด (ดู Components หัวข้อ 4)
-3. ทรงปุ่มทุกประเภทในขอบเขตนี้ = `border-radius: 16px` แทน pill เต็ม
-4. ปุ่ม Google/Apple ที่ต้องใช้ asset ทางการ — สีพื้น/โลโก้ของปุ่มนั้นเองยังคงตาม official guideline (ไม่ใช้
-   ink) เปลี่ยนได้แค่กรอบ/รัศมีมุมของ container รอบนอกถ้ามี ไม่แตะตัว asset
-5. ห้ามเพิ่มประเภทปุ่มที่ 5 นอกเหนือ 4 ระดับข้างต้นโดยไม่ทวนกับ Founder ก่อน (คงหลักการเดียวกับ WYN-106 ข้อ
-   1)
+1. **[ยืนยันแล้ว ไม่ต้องแก้]** สีปุ่มทั้งระบบเว็บเป็นขาว-ดำ-เทาล้วนอยู่แล้ว (ดำ=`--text-primary`,
+   ขาว=`--bg`, เทา=`--text-secondary`/`--text-muted`/`--border-strong`) แดง (`--red`) สงวนไว้เฉพาะ error
+   text เท่านั้น ตรงกับที่ Founder ยืนยัน "โทนสี ขาว ดำ เทา ธีมสว่าง" เป๊ะอยู่แล้ว
+2. **[แก้]** ทรงปุ่มทุกประเภท: `border-radius: 999px` → **`16px`** ในไฟล์ `web/app/auth-reference.css`
+   (2 selector: `.auth-ref-viewport .btn-primary, .auth-ref-viewport .btn-outline`)
+3. ปุ่ม guest-browse ไม่มีอยู่ในเว็บ — ไม่ต้องทำอะไรเพิ่มสำหรับข้อนี้
+4. งานนี้แก้เฉพาะไฟล์ `auth-reference.css` (ขอบเขต Onboarding/Auth เท่านั้น) — ไม่ไล่แก้ `border-radius` ของ
+   ปุ่มหน้าจออื่นของเว็บ (Home/Feed/Profile ฯลฯ) จากเอกสารนี้ ถ้าจะขยายทั้งเว็บต้องเป็นงานแยก
+5. **แอป Flutter (`app/`) ไม่แตะเลยในรอบนี้** ตามคำสั่ง Founder พักงาน Flutter ยาว — งาน spec เดิมที่เคยเขียน
+   ไว้สำหรับ Flutter (เวอร์ชันก่อนหน้าของเอกสารนี้) เก็บไว้เป็น reference ในกรณีที่ Founder สั่งกลับมาทำ
+   Flutter ต่อในอนาคตเท่านั้น
 
 ## Handoff
 
-**ยังไม่ส่ง AI Coding** — รอ Founder ยืนยัน 2 เรื่องนี้ก่อน (ถามในข้อความถัดไป):
+**ยังไม่ส่ง AI Coding** — รอ Founder ยืนยัน 2 เรื่อง:
 
-1. อนุมัติ spec นี้ทั้งหมด (สีขาว-ดำ-เทาล้วน, ทรง 16px, ขนาด, states, ตัดปุ่ม "เข้าชม" ออก) ให้ส่ง AI Coding
-   แก้ 5 หน้าจอ Onboarding ได้เลยหรือไม่
-2. ปุ่ม Google ที่ยังไม่ใช้ asset ทางการ (พบระหว่างเขียน spec นี้ ไม่ใช่สิ่งที่ WYN-163 สร้างใหม่) — อยากให้
-   แก้พร้อมกันในรอบนี้ หรือแยกเป็น task ใหม่ทำทีหลัง
+1. อนุมัติให้แก้ `web/app/auth-reference.css` เปลี่ยน `border-radius: 999px` → `16px` (จุดเดียว ผลกระทบ
+   ครบทั้ง 6 หน้าจอ Onboarding ของเว็บทันที) ได้เลยหรือไม่
+2. ปุ่ม "เข้าสู่ระบบด้วย Google" ที่ไม่มีโลโก้เลย — อยากให้เพิ่มโลโก้/ไอคอน Google จริงพร้อมกันในรอบนี้ หรือ
+   แยกเป็นงานทีหลัง
 
-เมื่ออนุมัติแล้ว ส่งต่อ AI Coding: แก้ theme-level button style (`app/lib/core/design/wyn_theme.dart` — เพิ่ม
-`FilledButtonThemeData`/`OutlinedButtonThemeData`/`TextButtonThemeData` ที่ยังไม่มีอยู่ก่อน) + ปุ่ม
-`FilledButton`/`OutlinedButton`/`TextButton` ใน 5 ไฟล์ Onboarding ให้ตรงตาม spec, เพิ่ม/แก้ widget test
-ยืนยัน touch target ≥44px และสี, `flutter analyze` + `flutter test` ต้องผ่านครบไม่มี regression ก่อนเข้า QA
+เมื่ออนุมัติแล้ว ส่งต่อ AI Coding: แก้ `web/app/auth-reference.css` 1 จุด, รัน visual/parity regression suite
+ที่มีอยู่แล้ว (ดู `.wyn/company/DECISIONS.md` งาน WYN-158 ก่อนหน้าที่ใช้ suite เดียวกันตรวจ CSS การ์ด) +
+screenshot ทั้ง 6 หน้าก่อน-หลังให้ Founder ดูก่อน merge/deploy ขึ้น `WYNOS Web Beta1`

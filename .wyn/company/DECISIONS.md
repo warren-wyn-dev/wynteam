@@ -1517,3 +1517,24 @@ secondary/outline 46-48px, text button 36-40px (ยังเกิน touch targ
    ตามธีมขาว-ดำ-เทาล้วนที่ Founder ยืนยัน — ระบบปุ่ม Onboarding ทั้งหมดตอนนี้ไม่มีสีอื่นนอกจาก ink/paper/
    graphite/hairline
 3. อัปเดต Artifact (อาร์ตบอร์ด 3 "งานจริง") ให้ตรงกับข้อ 1-2 แล้ว: https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x
+
+## [2026-09-19] Founder: พัก WYNOS App (Flutter, v1.0.0 Beta4) ยาวๆ — เหลือแค่ WYNOS Web Beta1 เป็นงานหลัก
+
+Founder พิมพ์ยืนยันตรง ๆ: **"ตอนนี้มีแค่ Wynos Web Beta1 V.1.0.0 Beta4 พักไปก่อนยาวๆเลย"**
+
+**สรุปกติกาถาวรจากนี้ไป** (บันทึกตามกติกา Founder Feedback ใน `.wyn/company/RULES.md`):
+
+1. **WYNOS App (Flutter, `app/`, `seller_app/`, VERSION_CONTROL.md v1.0.0 Beta4/Beta5)** — หยุดพัฒนา
+   ("พักยาวๆ") จนกว่า Founder จะสั่งกลับมาทำต่อเองอย่างชัดเจน ห้าม AI role ใดเริ่มงานใหม่บนแอป Flutter โดย
+   ไม่ถาม Founder ก่อน แม้จะเป็นงานที่ดูเหมือนต่อเนื่องจากงานเดิมที่เคยอนุมัติไว้ก่อนหน้า (เช่น WYN-163 เดิม
+   ที่ scope ไว้เป็นหน้าจอ Flutter)
+2. **WYNOS Web (Next.js, `web/app/`, WEB_VERSION_CONTROL.md — WYNOS Web Beta1)** เป็น**งานหลักเพียงงานเดียว**
+   ตอนนี้ — งานใหม่ทุกชิ้นที่ Founder สั่งจากนี้ไป ให้ถือว่าหมายถึงฝั่งเว็บ เว้นแต่ Founder จะระบุเจาะจงว่าเป็น
+   แอป Flutter
+3. **ผลกระทบต่องานที่กำลังทำอยู่ (WYN-163 — ปุ่ม Onboarding)**: scope เดิมเขียนไว้สำหรับหน้าจอ Flutter
+   (`app/lib/features/auth/presentation/**`) ต้องปรับมาที่หน้าจอเทียบเท่าฝั่งเว็บแทน
+   (`web/app/(auth-flow)/{welcome,login,signup,onboarding}`) — งานฝั่ง Flutter ที่ทำไปแล้ว (สี/ทรง/ขนาด/
+   ตัดปุ่มเข้าชม) ยังใช้เป็นแนวทาง reference ได้ แต่ implementation ต้องย้ายไปเป็น React/CSS ของเว็บ ไม่ใช่
+   Dart/Flutter theme อีกต่อไป จนกว่า Founder จะสั่งให้กลับไปทำ Flutter ต่อ
+
+ยังไม่มีการเปลี่ยนแปลงโค้ดจริงจากคำสั่งนี้ — เป็นการบันทึกทิศทาง/priority เท่านั้น
