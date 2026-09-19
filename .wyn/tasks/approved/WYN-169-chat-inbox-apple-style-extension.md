@@ -1,6 +1,6 @@
 # Design Task — WYN-169
 
-Status: active (รอ Founder อนุมัติ scope ก่อนส่ง AI Coding)
+Status: approved (Founder อนุมัติ scope แล้ว — ส่งต่อ AI Coding)
 Owner: AI Design → รอ Founder → AI Coding → AI QA & Security → AI Deploy & DevOps
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: ขยายภาษา press-scale motion จาก WYN-163/167 มาที่ปุ่ม header 2 จุดของ Chat Inbox
@@ -19,7 +19,11 @@ Design Rules: ดูรายละเอียดเต็มที่ `.wyn/do
 Handoff: พร้อมส่ง AI Coding ทันทีหลัง Founder อนุมัติ scope — ไฟล์เดียว (`web/app/chat-notes.css`), ความเสี่ยง
 regression ต่ำมาก
 
-## คำถามรอ Founder ตอบ
+## Founder Approval (2026-09-19)
 
-1. เห็นด้วยกับขอบเขตนี้ไหม (แค่ปุ่ม header 2 จุด ไม่แตะปุ่มย้อนกลับ/การ์ดโน้ต/ไม่ทำ WYN-159)?
-2. อยากให้หยิบ WYN-159 มาทบทวนใหม่เป็นงานแยกในอนาคตไหม?
+1. เห็นด้วยกับขอบเขตนี้ไหม? — **Founder ตอบ "เห็นด้วย"** อนุมัติขอบเขต WYN-169 ตามที่เสนอ (ปุ่ม header
+   2 จุดเท่านั้น ไม่แตะปุ่มย้อนกลับ/การ์ดโน้ต/ไม่ทำ WYN-159)
+2. อยากให้หยิบ WYN-159 มาทบทวนใหม่เป็นงานแยกในอนาคตไหม? — **Founder ตอบ "ใช่"** บันทึกไว้ที่
+   `.wyn/tasks/backlog/WYN-159-chat-web-threads-redesign.md` แล้ว (ยัง backlog รอจัดลำดับงาน)
+
+ส่งต่อ AI Coding ทันที
