@@ -96,6 +96,21 @@ function ErrorText({ children }: { children?: string }) {
   return <p style={{ color: "var(--red)", fontSize: 12, margin: "8px 0 0" }} role="alert">{children}</p>;
 }
 
+/// The official multi-color Google "G" mark, per Google's Sign In branding
+/// guideline (https://developers.google.com/identity/branding-guidelines) —
+/// used only on the "เข้าสู่ระบบด้วย Google" button, never redrawn or
+/// recolored to match the button's own black/white/gray palette.
+export function GoogleGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style={{ flexShrink: 0, marginRight: 8 }}>
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.83.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z" />
+      <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z" />
+    </svg>
+  );
+}
+
 function BackTopbar({ href, step, onBack }: { href: string; step?: string; onBack?: () => void }) {
   const router = useRouter();
   return (
@@ -227,8 +242,8 @@ export function WelcomeScreen() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "40px 24px 32px" }}>
         <div />
         <div style={{ textAlign: "center" }}>
-          <Image src="/wynos_logo_mark.png" alt="Wynos" width={96} height={62} style={{ height: 62, width: "auto", margin: "0 auto 18px", display: "block" }} priority />
-          <p style={{ fontSize: 17, fontWeight: 600, margin: "0 0 6px" }}>ทุกเรื่องราว มีจุดเริ่มต้น</p>
+          <Image src="/wynos_logo_mark.png" alt="Wynos" width={170} height={110} style={{ height: 110, width: "auto", margin: "0 auto 18px", display: "block" }} priority />
+          <p style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>ทุกเรื่องราว มีจุดเริ่มต้น</p>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>Welcome to WYNOS.</p>
         </div>
         <div>
@@ -255,10 +270,17 @@ export function WelcomeScreen() {
           ) : (
             <>
               <Button className="btn-primary" disabled={gate === "checking"} onClick={() => router.push("/signup/step-1")} style={{ marginBottom: 10 }}>สร้างบัญชีใหม่</Button>
-              <Button className="btn-outline" variant="outline" disabled={googleLoading} onClick={() => void google()} style={{ marginBottom: 10 }}>
+              <Button className="btn-outline" variant="outline" onClick={() => router.push("/login")} style={{ marginBottom: 10 }}>เข้าสู่ระบบ</Button>
+              <Button
+                className="btn-outline"
+                variant="outline"
+                disabled={googleLoading}
+                onClick={() => void google()}
+                leadingIcon={googleLoading ? undefined : <GoogleGlyph />}
+                style={{ marginBottom: 16 }}
+              >
                 {googleLoading ? "กำลังเชื่อมต่อ Google…" : "เข้าสู่ระบบด้วย Google"}
               </Button>
-              <Button className="btn-outline" variant="outline" onClick={() => router.push("/login")} style={{ marginBottom: 16 }}>เข้าสู่ระบบ</Button>
               <ErrorText>{error}</ErrorText>
               <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.5, margin: 0 }}>
                 การสร้างบัญชีถือว่ายอมรับ<br />
@@ -364,11 +386,11 @@ export function SignupStep1Screen() {
     <AuthPhone>
       <BackTopbar href="/welcome" step="1/2" />
       <div ref={fieldsRef} style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>สร้างบัญชี</div>
+        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>สร้างบัญชี</div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>มาทำความรู้จักคุณกันก่อน</p>
         <div className="field">
           <label>ชื่อผู้ใช้</label>
-          <div style={{ display: "flex", alignItems: "center", height: 44, border: "1px solid var(--border-strong)", borderRadius: 10, padding: "0 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", height: 56, border: "1px solid var(--border-strong)", borderRadius: 18, padding: "0 18px" }}>
             <span style={{ color: "var(--text-muted)" }}>@</span>
             <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", flex: 1, fontSize: 16 }} />
           </div>
@@ -461,7 +483,7 @@ export function SignupStep2Screen() {
     <AuthPhone>
       <BackTopbar href="/signup/step-1" step="2/2" />
       <div style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>ตั้งรหัสผ่าน</div>
+        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ตั้งรหัสผ่าน</div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
         <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} />
         <Field label="รหัสผ่าน" name="password" placeholder="อย่างน้อย 6 ตัวอักษร" type="password" value={draft.password} onChange={update("password")} />
@@ -510,7 +532,7 @@ export function OnboardingProfileScreen() {
       </div>
       <div style={{ padding: "0 20px", flex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>เพิ่มรูปโปรไฟล์</div>
+          <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em" }}>เพิ่มรูปโปรไฟล์</div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0" }}>ให้คนอื่นรู้จักคุณมากขึ้น</p>
         </div>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
@@ -572,8 +594,8 @@ export function LoginScreen() {
       <BackTopbar href="/welcome" />
       <div style={{ padding: "16px 20px", flex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <Image src="/wynos_logo_mark.png" alt="Wynos" width={71} height={46} style={{ height: 46, width: "auto", margin: "0 auto 14px", display: "block" }} priority />
-          <div style={{ fontSize: 20, fontWeight: 700 }}>เข้าสู่ระบบ</div>
+          <Image src="/wynos_logo_mark.png" alt="Wynos" width={99} height={64} style={{ height: 64, width: "auto", margin: "0 auto 14px", display: "block" }} priority />
+          <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em" }}>เข้าสู่ระบบ</div>
         </div>
         <Field label="อีเมล" name="loginIdentifier" placeholder="you@example.com" value={identifier} onChange={(event) => setIdentifier(event.target.value)} />
         <Field label="รหัสผ่าน" name="loginPassword" placeholder="รหัสผ่านของคุณ" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
@@ -624,7 +646,7 @@ export function ForgotPasswordScreen() {
     <AuthPhone>
       <BackTopbar href="/login" />
       <div style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>ลืมรหัสผ่าน?</div>
+        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ลืมรหัสผ่าน?</div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px", lineHeight: 1.5 }}>กรอกอีเมลที่ใช้สมัคร เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้</p>
         {sent ? (
           <p style={{ fontSize: 13, color: "var(--text-primary)" }}>ส่งลิงก์ไปที่ {email.trim()} แล้ว ตรวจสอบกล่องอีเมลของคุณ</p>

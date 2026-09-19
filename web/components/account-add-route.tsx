@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button, Input, WynosIcon } from "@/components/ui";
+import { GoogleGlyph } from "@/components/auth-flow/screens";
 import {
   MAX_SAVED_ACCOUNTS,
   createAccountStorageKey,
@@ -122,7 +123,7 @@ export function AccountAddRoute() {
             <svg height="36" style={{ margin: "0 auto 14px" }} viewBox="0 0 26 26" width="36" aria-label="Wynos">
               <path d="M2 4 L8 22 L13 9 L18 22 L24 4" fill="none" stroke="#0A0A0A" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
             </svg>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>เพิ่มบัญชี</div>
+            <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em" }}>เพิ่มบัญชี</div>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0" }}>เข้าสู่ระบบเพื่อบันทึกบัญชีนี้ไว้สำหรับสลับภายหลัง</p>
           </div>
           <div className="field">
@@ -136,7 +137,14 @@ export function AccountAddRoute() {
           <Button className="btn-primary" disabled={loading || googleLoading} onClick={() => void signIn()}>
             {loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบและเพิ่มบัญชี"}
           </Button>
-          <Button className="btn-outline" variant="outline" disabled={loading || googleLoading} onClick={() => void google()} style={{ marginTop: 10 }}>
+          <Button
+            className="btn-outline"
+            variant="outline"
+            disabled={loading || googleLoading}
+            onClick={() => void google()}
+            leadingIcon={googleLoading ? undefined : <GoogleGlyph />}
+            style={{ marginTop: 10 }}
+          >
             {googleLoading ? "กำลังเชื่อมต่อ Google…" : "เข้าสู่ระบบด้วย Google"}
           </Button>
           {message ? <p style={{ color: "var(--red)", fontSize: 12, margin: "10px 0 0" }} role="alert">{message}</p> : null}

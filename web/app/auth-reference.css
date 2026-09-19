@@ -61,17 +61,17 @@
 
 .auth-ref-viewport .btn-primary,
 .auth-ref-viewport .btn-outline {
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  height: 50px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 700;
+  height: 58px;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   line-height: normal;
   gap: 0;
-  transition: none;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .auth-ref-viewport .btn-primary {
@@ -86,11 +86,16 @@
   border: 1px solid var(--border-strong);
 }
 
-.auth-ref-viewport .btn-primary:hover:not(:disabled),
-.auth-ref-viewport .btn-outline:hover:not(:disabled),
 .auth-ref-viewport .btn-primary:active:not(:disabled),
 .auth-ref-viewport .btn-outline:active:not(:disabled) {
-  transform: none;
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-ref-viewport .btn-primary,
+  .auth-ref-viewport .btn-outline {
+    transition: none;
+  }
 }
 
 .auth-ref-viewport .field {
@@ -99,6 +104,7 @@
 
 .auth-ref-viewport .field label {
   font-size: 12px;
+  font-weight: 600;
   color: var(--text-secondary);
   display: block;
   margin-bottom: 5px;
@@ -109,11 +115,11 @@
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  padding: 0 14px;
+  border-radius: 18px;
+  padding: 0 18px;
   font-size: 16px;
   color: var(--text-primary);
-  height: 44px;
+  height: 56px;
 }
 
 .auth-ref-viewport .field .wyn-input {
@@ -121,7 +127,7 @@
 }
 
 .auth-ref-viewport .field textarea {
-  padding: 10px 14px;
+  padding: 10px 18px;
   height: 70px;
   resize: none;
   font-family: inherit;
