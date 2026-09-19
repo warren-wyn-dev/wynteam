@@ -1553,3 +1553,24 @@ AI Design ถามยืนยัน 2 ข้อก่อนส่ง AI Coding
    หา/เพิ่ม asset โลโก้ Google ที่ยังไม่มีอยู่ใน repo (ตรวจแล้วไม่พบไฟล์ google logo ที่ไหนใน repo นี้มาก่อน)
 
 ทั้งสองข้อยังอยู่ในขอบเขต "Onboarding/Auth ของ WYNOS Web" เท่านั้น ไม่กระทบหน้าจออื่น
+
+## [2026-09-19] WYN-163 รอบ 6 — Founder ส่งโลโก้ WYNOS จริง + สั่งสลับตำแหน่งปุ่ม Login/Google
+
+Founder ส่งไฟล์โลโก้ WYNOS จริง (ไอคอนตัว "W" สีดำบนพื้นขาวมุมโค้ง) มาให้ใช้ในมอคอัพ พร้อมสั่ง 2 อย่าง:
+
+1. **ใส่โลโก้แอป WYNOS ในมอคอัพ** — AI Design อัปโหลดไฟล์เข้า Artifact เป็น asset แล้วแทนที่กล่องดำ
+   placeholder เดิมในหน้า Welcome/Login ของอาร์ตบอร์ด 4 — **ตรวจโค้ดจริงพบว่าเว็บใช้โลโก้จริงอยู่แล้ว**
+   (`web/components/auth-flow/screens.tsx` เรียก `/wynos_logo_mark.png` อยู่ก่อนแล้วทั้ง 2 หน้าจอ) จึง
+   **ไม่ใช่งานใหม่ที่ต้องแก้โค้ด** เป็นแค่การแก้มอคอัพให้ตรงกับของจริงมากขึ้นเท่านั้น
+2. **สลับตำแหน่งปุ่ม "เข้าสู่ระบบ" กับ "เข้าสู่ระบบด้วย Google"** ในหน้า Welcome — เดิมลำดับคือ
+   สร้างบัญชีใหม่ (primary) → Google (outline) → เข้าสู่ระบบ (outline) **เปลี่ยนเป็น**: สร้างบัญชีใหม่ →
+   **เข้าสู่ระบบ** → **เข้าสู่ระบบด้วย Google** — **นี่คือการเปลี่ยนโค้ดจริงเพิ่มเติม** ต้องสลับลำดับ JSX ของ
+   ปุ่มทั้งสองใน `WelcomeScreen` (`web/components/auth-flow/screens.tsx`)
+
+**Scope ล่าสุดของ WYN-163 ที่ส่ง AI Coding (3 จุด รวมรอบนี้)**:
+1. `web/app/auth-reference.css`: border-radius 999px → 16px
+2. `web/components/auth-flow/screens.tsx` (`WelcomeScreen`): เพิ่มโลโก้ Google ในปุ่ม "เข้าสู่ระบบด้วย Google"
+3. `web/components/auth-flow/screens.tsx` (`WelcomeScreen`): สลับลำดับปุ่ม "เข้าสู่ระบบ" มาก่อน "เข้าสู่ระบบ
+   ด้วย Google"
+
+อัปเดต Artifact อาร์ตบอร์ด 4 ให้ตรงแล้ว: https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x

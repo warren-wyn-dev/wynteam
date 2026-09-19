@@ -1,6 +1,6 @@
 # Design Task — WYN-163
 
-Status: approved (Founder อนุมัติ scope สุดท้ายแล้ว 2026-09-19 รอบ 5 — พร้อมส่ง AI Coding)
+Status: approved (Founder อนุมัติ scope สุดท้ายแล้ว 2026-09-19 รอบ 5-6 — พร้อมส่ง AI Coding)
 Owner: AI Design
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
@@ -32,7 +32,8 @@ Design Rules:
 Handoff: **อนุมัติแล้ว พร้อมส่ง AI Coding** — spec เต็มที่
 `.wyn/docs/design/wyn-163-onboarding-button-redesign.md`: (1) แก้ `border-radius: 999px` → `16px` ใน
 `web/app/auth-reference.css` (2) เพิ่มโลโก้ Google ทางการในปุ่ม "เข้าสู่ระบบด้วย Google"
-(`web/components/auth-flow/screens.tsx`) — ทั้งสองข้อต้องผ่าน QA ก่อน deploy ขึ้น WYNOS Web Beta1 เสมอ
+(`web/components/auth-flow/screens.tsx`) (3) สลับลำดับปุ่ม "เข้าสู่ระบบ" มาก่อน "เข้าสู่ระบบด้วย Google" ใน
+`WelcomeScreen` — ทั้งสามข้อต้องผ่าน QA ก่อน deploy ขึ้น WYNOS Web Beta1 เสมอ
 
 Artifact (canvas เดียว ใช้ต่อเนื่องทุกรอบ — ทำไว้ตอน scope ยังเป็น Flutter แต่ทิศทางสี/ทรง/การตัดปุ่มเข้าชม
 ยังใช้อ้างอิงได้เหมือนเดิม): https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x
@@ -53,4 +54,7 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
   guest-browse ในเว็บอยู่แล้วจึงไม่ต้องแก้เรื่องนั้น — เขียน spec ใหม่ให้ตรง scope เว็บแล้ว
 - 2026-09-19 รอบ 5: Founder อนุมัติ scope สุดท้าย — แก้ border-radius + **เพิ่มโลโก้ Google จริงพร้อมกัน**
   บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
-- ถัดไป: ส่งต่อ AI Coding implement 2 จุด แล้วเข้า QA ก่อน deploy (ห้ามข้าม QA)
+- 2026-09-19 รอบ 6: Founder ส่งไฟล์โลโก้ WYNOS จริงมาให้ใช้ในมอคอัพ (ตรวจแล้วโค้ดจริงใช้อยู่ก่อนแล้ว ไม่ใช่
+  งานใหม่) + สั่ง **สลับตำแหน่งปุ่ม "เข้าสู่ระบบ" มาก่อน "เข้าสู่ระบบด้วย Google"** ในหน้า Welcome — เพิ่มเป็น
+  จุดที่ 3 ที่ต้องแก้จริง บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
+- ถัดไป: ส่งต่อ AI Coding implement 3 จุด แล้วเข้า QA ก่อน deploy (ห้ามข้าม QA)
