@@ -1,7 +1,7 @@
 # Product Task — WYN-176
 
-Status: backlog
-Owner: AI Product Manager
+Status: approved — Founder ยืนยันทั้ง 2 จุดแล้ว (2026-09-19), ส่งต่อ AI Design ทำ batch 1
+Owner: AI Product Manager → AI Design
 Feature: WYNOS Web Beta1 — Visual Design Rollout (WYN-174 Track 2) — extend WYN-163's Apple-style squircle direction system-wide
 Goal: Make the rest of WYNOS Web (Home, Composer, Chat, Profile/Settings, Search/Notifications/Club) visually consistent with the Auth screens' Apple-style redesign (WYN-163), instead of the app looking like two different products depending on which screen you're on
 Target User: All WYNOS Web users — the whole app, not just onboarding
@@ -55,4 +55,6 @@ Two decisions before AI Design starts:
 
 ## Handoff
 
-→ Founder decision on the two points above, then **AI Design**: pick the first batch, audit the real current CSS for that batch's screens (matching the precedent set in WYN-175 — verify against the actual rendered cascade, not just the first CSS rule found for a class), and produce a before/after visual preview for Founder approval before AI Coding starts.
+**[2026-09-19] Founder ยืนยันแล้วทั้ง 2 จุด**: (1) ใช้ค่า WYN-163 เป็นมาตรฐานทั้งเว็บ แทนค่าเดิมของ WYN-160 (2) เริ่ม batch **Home/Bottom Nav** ก่อน (ต่อลำดับเดิมของ WYN-160)
+
+→ **AI Design**: ทำ batch 1 (Home/Bottom Nav) — audit CSS จริงของหน้า Home/Nav (เทียบ cascade เต็มเหมือนที่ WYN-175 ทำ ไม่ใช่แค่ rule แรกที่เจอ), แยกให้ชัดว่าจุดไหนเป็น Bottom Nav (แก้ได้) vs การ์ดโพสต์ที่ล็อก Flutter parity (ห้ามแตะ), ทำภาพก่อน-หลังด้วย token ใหม่จาก WYN-163 (ปุ่ม 24px/58px/16px-700, input 18px/56px, หัวข้อ 32px/800, press scale 0.96) ให้ Founder อนุมัติก่อนส่ง AI Coding

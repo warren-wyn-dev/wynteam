@@ -1868,3 +1868,13 @@ AI Product Manager ตรวจก่อนเขียน spec พบว่า 
 ถามยืนยัน Founder 2 เรื่องก่อนส่ง AI Design: (1) ให้ค่าของ WYN-163 เป็นมาตรฐานทั้งเว็บแทนค่าเดิมของ WYN-160 หรือไม่ (2) เริ่ม batch ไหนก่อน (ต่อลำดับเดิม Home/Nav หรือข้ามไปทำ Search/Notifications/Club ที่ยังไม่เคยแตะเลย)
 
 อ้างอิง: `.wyn/tasks/backlog/WYN-176-visual-design-rollout-squircle.md`, `.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`
+
+## [2026-09-19] WYN-176 — Founder ยืนยันทั้ง 2 จุด: ใช้ค่า WYN-163 ทั้งเว็บ + เริ่ม Home/Bottom Nav ก่อน
+
+Founder ตอบผ่าน structured question: (1) **ใช้ค่าของ WYN-163 เป็นมาตรฐานทั้งเว็บ** (ปุ่ม 24px/58px/16px-700, input 18px/56px, หัวข้อ 32px/800, press scale 0.96) แทนที่ค่าเดิมของ WYN-160 ทุกจุด (2) **เริ่ม batch Home/Bottom Nav ก่อน** ต่อลำดับเดิมของ WYN-160
+
+อัปเดต WYN-160 (`.wyn/tasks/backlog/WYN-160-web-design-system-consolidation.md`) เป็น status "superseded" — batch 1-6 ที่ทำไปแล้วยังนับเป็นงานจริง แต่ batch 7-8 ที่เหลือไปทำต่อภายใต้ WYN-176 ด้วยค่าใหม่แทน
+
+ส่งต่อ AI Design ทำ batch 1 (Home/Bottom Nav) — เน้นย้ำห้ามแตะการ์ดโพสต์ที่ล็อก Flutter parity อยู่แล้ว (WYN-160 batch 3 เคยตรวจแล้วว่าเป็น intentional parity ไม่ใช่ drift)
+
+อ้างอิง: `.wyn/tasks/backlog/WYN-176-visual-design-rollout-squircle.md`
