@@ -1,7 +1,7 @@
 # Design Task — WYN-170
 
-Status: active (รอ Founder ยืนยัน demo v4 — แท็บย้ายเข้า header + ปุ่มลอย + ช่องค้นหา 40px — ครั้งสุดท้ายก่อน
-ส่ง AI Coding)
+Status: active (รอ Founder ยืนยัน demo v5 — คืนปุ่มย้อนกลับ + ปุ่ม "คำขอ" toggle เดียว — ครั้งสุดท้ายก่อนส่ง
+AI Coding)
 Owner: AI Design → รอ Founder → AI Coding → AI QA & Security → AI Deploy & DevOps
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
 Purpose: แก้จุดบกพร่องที่พบจากภาพหน้าจอจริงที่ Founder ส่งมา ("ออกแบบหน้าใหม่ได้ไหม มันไม่สวย") ผ่าน 3 รอบ
@@ -45,4 +45,7 @@ Handoff: รอ Founder ดู demo v3 ก่อนส่ง AI Coding — ไ�
    header เลย ("ใช่ — ย้ายเข้า header เลย") + ขอลดช่องค้นหาอีกเป็น 40px — ตรวจโค้ดจริงก่อนทำ พบว่า swipe-back
    ที่เสนอไว้ไม่ทำงานจริงในหน้านี้ (`/chat` อยู่ใน `ROOT_ROUTES`) แต่ bottom nav มองเห็นอยู่แล้วตลอดเวลา
    (`AppChrome` บังคับ `bottomNavVisible=true` สำหรับ `/chat`) จึงมีทางกลับหน้าโฮมอยู่แล้วโดยไม่ต้องแก้โค้ด
-   navigation เพิ่ม — ทำ demo v4 แล้ว รอ Founder ยืนยันครั้งสุดท้ายก่อนส่ง Coding
+   navigation เพิ่ม — ทำ demo v4 แล้ว
+6. Founder ดู demo v4 แล้วตอบ "เอากล่องข้อความออก เปลี่ยนเป็นกลุ่มกดออก" — ขอยืนยันความเข้าใจแล้ว หมายถึง
+   เอาปุ่ม "กล่องข้อความ" ออก คืนปุ่มย้อนกลับ ← กลับมาแทนที่ — เหลือปุ่ม "คำขอ" ตัวเดียวทางขวาทำหน้าที่ toggle
+   เข้า/ออกจากมุมมองคำขอ — ทำ demo v5 แล้ว รอ Founder ยืนยันครั้งสุดท้ายก่อนส่ง Coding
