@@ -3,7 +3,7 @@
 Release: Chat Inbox Notes composer — dark-mode contrast fixes + dead-button cleanup
 Version: no WYNOS version change (bug fix + UI cleanup, not a version-gated release)
 QA Status: PASS ทั้ง 3 เรื่อง (WYN-171, WYN-172, WYN-173) — ดูรายละเอียดใน section "QA Verification"
-ของแต่ละ task file (`.wyn/tasks/bugs/WYN-171-...md`, `.wyn/tasks/approved/WYN-172-...md`,
+ของแต่ละ task file (`.wyn/tasks/bugs/WYN-171-...md`, `.wyn/tasks/completed/WYN-172-...md`,
 `.wyn/tasks/bugs/WYN-173-...md`)
 Build Status: `npm run check` (lint + typecheck + build) เขียวก่อนเปิด PR — 0 error, 3 warning เดิมที่ไม่
 เกี่ยวข้อง (pre-existing)

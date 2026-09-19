@@ -29,7 +29,7 @@ the row style and introduced the requests-tab concept, then further rounds of an
 moved the toggle into the header, removed the compose button (after confirming via grep a working
 alternative entry point exists via the profile page), and adjusted the title alignment and search bar size.
 Full history: `.wyn/company/DECISIONS.md`, `.wyn/docs/design/wyn-170-chat-inbox-premium-polish.md`,
-`.wyn/tasks/approved/WYN-170-chat-inbox-premium-polish.md`.
+`.wyn/tasks/completed/WYN-170-chat-inbox-premium-polish.md`.
 
 ## QA Status
 
