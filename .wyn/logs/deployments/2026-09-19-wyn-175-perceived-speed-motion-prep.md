@@ -1,7 +1,7 @@
 # WYNOS Web Beta1 — WYN-175 Perceived Speed & Motion Deploy Prep
 
 Date: 2026-09-19
-Status: **PREPARED — not yet opened as a PR, waiting on Founder**
+Status: **PR OPEN — waiting on Founder to review/merge**
 
 ## Release
 
@@ -13,8 +13,8 @@ Status: **PREPARED — not yet opened as a PR, waiting on Founder**
 - Version: within **WYNOS Web Beta1** — no version bump requested by Founder
 - Branch: `claude/wynos-online-version-1pqqws`, 7 commits ahead of `origin/main`, clean fast-forward (no
   conflicts)
-- PR: **not opened yet** — this session's system instructions require an explicit Founder request before
-  opening a pull request; asking Founder directly in chat before proceeding
+- PR: [#552](https://github.com/warren-wyn-dev/wynteam/pull/552) — opened 2026-09-19 after Founder confirmed
+  "เปิดเลย" in chat. Not merged yet — merging is the Founder's own action per the Founder Gate.
 
 ## QA Status
 
@@ -56,7 +56,7 @@ docs (product/design/decision/task/learning records). No backend/RPC/schema chan
 
 ## Deployment Result
 
-Not yet — waiting on Founder to say whether to open the PR now.
+PR #552 opened, CI running. Not merged/deployed yet — waiting on Founder review and merge.
 
 ## Production Verification
 

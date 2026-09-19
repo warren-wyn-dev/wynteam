@@ -1828,3 +1828,9 @@ Reproduce บั๊กซ้ำก่อนแก้ (ได้ผล FAIL เ�
 ตรวจ QA PASS แล้ว รัน `typecheck`/`lint`/`build` อิสระอีกรอบเอง (ไม่เชื่อผลที่ QA/Coding รายงาน) — สะอาดหมด, 31 route compile ผ่าน branch `claude/wynos-online-version-1pqqws` ไปข้างหน้า `main` 7 commits, fast-forward ได้สะอาด ไม่มี conflict
 
 บันทึก deployment prep log ที่ `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md` — **ยังไม่เปิด PR** เพราะกติกาของ session นี้ (system instruction) ระบุห้ามเปิด pull request โดยไม่มีคำขอชัดเจนจาก Founder ก่อน จึงถามใน chat ก่อนดำเนินการต่อ ไม่ใช่การชะลอโดยไม่มีเหตุผล — เมื่อ merge เข้า `main` แล้ว `wyn-158-production-deploy.yml` จะ deploy ขึ้น production อัตโนมัติเหมือน deploy web ทุกครั้งที่ผ่านมา
+
+## [2026-09-19] WYN-175 — Founder ตอบ "เปิดเลย" เปิด PR #552 แล้ว รอ merge
+
+เปิด PR [#552](https://github.com/warren-wyn-dev/wynteam/pull/552) (`claude/wynos-online-version-1pqqws` → `main`) แล้วตามที่ Founder ยืนยัน — ยังไม่ merge (merge เป็นสิทธิ์ของ Founder เองตาม Founder Gate, AI Deploy & DevOps ไม่ merge เอง) เมื่อ Founder merge แล้ว `wyn-158-production-deploy.yml` จะ deploy ขึ้น `wynos.online` อัตโนมัติ
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-175-perceived-speed-motion-prep.md`
