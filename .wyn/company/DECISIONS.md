@@ -1930,3 +1930,11 @@ Founder ดู Artifact แล้วตอบ "อนุมัติ เขี�
 Founder merge PR #553 เอง ภายในไม่กี่วินาทีหลังเปิด (pattern เดียวกับ #550/#551/#552) merge commit `48f7c41d` — `WYN-158 Production Deploy` run #140 trigger อัตโนมัติ กำลังรันอยู่ (unsubscribe จาก PR อัตโนมัติแล้วเพราะ merged) ตั้ง check-in ไว้ 3 นาทีเพื่อยืนยันผล deploy ต่อ
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
+
+## [2026-09-19] WYN-176 Batch 1 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+`WYN-158 Production Deploy` run #140 **success** ทุก step (preflight, Vercel deploy, verify production routes, รวม ~2 นาที) → post-merge `CI` บน `main` (run #1394) **success** เช่นกัน — ตรวจสอบอิสระเองทั้งหมดผ่าน GitHub Actions API
+
+ยังไม่ย้าย task ไป `completed/` เพราะสภาพแวดล้อมนี้เข้าถึง `wynos.online` ไม่ได้ — รอ Founder เปิดเมนูลิ้น/action sheet บน `wynos.online` จริงยืนยัน press feedback/radius ทำงานจริงตามบทเรียน WYN-158 (และ WYN-176 batch 1 ยังไม่ใช่ WYN-176 ทั้งงาน เหลือ batch อื่นค้างอยู่ — task หลักจะยังไม่ปิดแม้ batch นี้ยืนยันแล้วก็ตาม)
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch1-home-chrome-prep.md`
