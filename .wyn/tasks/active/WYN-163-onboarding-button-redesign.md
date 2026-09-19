@@ -1,6 +1,6 @@
 # Design Task — WYN-163
 
-Status: approved (Founder อนุมัติ scope สุดท้ายแล้ว 2026-09-19 รอบ 5-7 — พร้อมส่ง AI Coding)
+Status: approved (Founder อนุมัติ scope สุดท้ายแล้ว 2026-09-19 รอบ 5-8 — พร้อมส่ง AI Coding)
 Owner: AI Design
 Screen: Onboarding/Auth ของ **WYNOS Web** (`web/app/(auth-flow)/**`, component จริงที่
 `web/components/auth-flow/screens.tsx`) — `WelcomeScreen`, `LoginScreen`, `SignupStep1Screen`,
@@ -32,26 +32,29 @@ Design Rules:
    0 14px → **0 18px**
 4. **[แก้ รอบ 7]** หัวข้อหน้าจอทั้ง 6 หน้า: รวมเป็น **32px / weight 800 / letter-spacing -0.02em**
 5. **[เพิ่ม รอบ 7]** press feedback `scale(0.96)` แทนที่ `transform: none` เดิม + reduced-motion fallback
+5b. **[เพิ่ม รอบ 8]** ขยายโลโก้ WYNOS: `WelcomeScreen` `height: 62`→**`110`**, `LoginScreen` `height: 46`→
+   **`64`** (`width: "auto"` คงสัดส่วนไฟล์ 660:426 เดิม) — Founder บอก "โลแบรนด์ไม่เด่น"
 6. ปุ่ม guest-browse ไม่มีอยู่แล้วในเว็บ — ไม่ต้องทำอะไรเพิ่มสำหรับข้อนี้
 7. ขอบเขตงานนี้ = `auth-reference.css` + typography ใน `screens.tsx` (Onboarding/Auth เท่านั้น) — ไม่ไล่แก้
    หน้าจออื่นของเว็บ (แต่ Founder อาจสั่งขยายทิศทางนี้ทั้งเว็บในอนาคต เพราะเป็นการเปลี่ยนความรู้สึกทั้งแอป)
 8. **แอป Flutter (`app/`) ไม่แตะเลยในรอบนี้** ตามคำสั่ง Founder พักงาน Flutter ยาว (DECISIONS.md 2026-09-19
    รอบ 4)
 9. จุดอื่นที่ sapphire/ink เคยทำหน้าที่นอกปุ่ม (ฝั่ง Flutter) ไม่เกี่ยวกับงานนี้ เว็บใช้ token คนละชุดอยู่แล้ว
-Handoff: **อนุมัติแล้ว พร้อมส่ง AI Coding — 5 จุด** (spec เต็มที่
+Handoff: **อนุมัติแล้ว พร้อมส่ง AI Coding — 7 จุด** (spec เต็มที่
 `.wyn/docs/design/wyn-163-onboarding-button-redesign.md`):
 1. ปุ่ม: radius/height/font ตามข้อ 2 ด้านบน
 2. Input/textarea: radius/height/padding ตามข้อ 3
 3. หัวข้อหน้าจอ 6 หน้า: 32px/800/-0.02em ตามข้อ 4
 4. press feedback ใหม่ตามข้อ 5
-5. เพิ่มโลโก้ Google ทางการในปุ่ม "เข้าสู่ระบบด้วย Google" (asset จริงตาม Google Identity branding
-   guideline — ยังไม่มีใน repo ต้องหา/เพิ่มใหม่) + สลับลำดับปุ่ม "เข้าสู่ระบบ" มาก่อน Google ใน `WelcomeScreen`
-   (รอบ 5-6 เดิม)
+5. ขยายโลโก้ WYNOS (Welcome 110px / Login 64px) ตามข้อ 5b
+6. เพิ่มโลโก้ Google ทางการในปุ่ม "เข้าสู่ระบบด้วย Google" (asset จริงตาม Google Identity branding
+   guideline — ยังไม่มีใน repo ต้องหา/เพิ่มใหม่)
+7. สลับลำดับปุ่ม "เข้าสู่ระบบ" มาก่อน Google ใน `WelcomeScreen` (รอบ 5-6 เดิม)
 
-ทั้ง 5 จุดต้องผ่าน QA ก่อน deploy ขึ้น WYNOS Web Beta1 เสมอ (ห้ามข้าม QA ตาม AGENTS.md)
+ทั้ง 7 จุดต้องผ่าน QA ก่อน deploy ขึ้น WYNOS Web Beta1 เสมอ (ห้ามข้าม QA ตาม AGENTS.md)
 
-Artifact (canvas เดียว ใช้ต่อเนื่องทุกรอบ): https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x (อาร์ตบอร์ด 5
-= เวอร์ชันล่าสุดที่อนุมัติแล้ว, อาร์ตบอร์ด 1-4 เป็นประวัติการตัดสินใจ)
+Artifact (canvas เดียว ใช้ต่อเนื่องทุกรอบ): https://claude.ai/artifact/Gq2encfg9hTqbrAHJ45o7x (อาร์ตบอร์ด 6
+= เวอร์ชันล่าสุดที่อนุมัติแล้ว รวมทุกอย่าง, อาร์ตบอร์ด 1-5 เป็นประวัติการตัดสินใจ)
 
 ## Log
 
@@ -70,4 +73,7 @@ Artifact (canvas เดียว ใช้ต่อเนื่องทุก�
   "ถ้า Apple ออกแบบโซเชียลจะเป็นยังไง" → AI Design ทำมอคอัพแนว Apple (ตัวอักษรใหญ่ + squircle + สีเดียว/
   ขาว-ดำ) → Founder เลือกเวอร์ชันขาว-ดำล้วน แล้วอนุมัติ **"ใช่แบบนี้เลย ทำจริงได้เลย"** — เขียน spec ใหม่
   แทนที่ค่า radius/typography เดิมทั้งหมด บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน
-- ถัดไป: ส่งต่อ AI Coding implement 5 จุด แล้วเข้า QA ก่อน deploy (ห้ามข้าม QA)
+- 2026-09-19 รอบ 8: Founder ถาม "งานจริงจะออกมาแบบไหน" → AI Design ทำอาร์ตบอร์ด 6 รวมทุกการอนุมัติเข้าด้วย
+  กัน (ครบ 6 หน้าจอ) → Founder ตอบ **"โลแบรนด์ไม่เด่น นอกนั้นโอเค"** → ขยายโลโก้ WYNOS หน้า Welcome/Login
+  บันทึกที่ `.wyn/company/DECISIONS.md` วันเดียวกัน — **อนุมัติครบทุกจุดแล้ว**
+- ถัดไป: ส่งต่อ AI Coding implement 7 จุด แล้วเข้า QA ก่อน deploy (ห้ามข้าม QA)

@@ -140,6 +140,10 @@ text ปุ่ม guest-browse ก็**ไม่มีอยู่แล้ว**
    letter-spacing -0.02em` แทนค่าเดิมที่ไม่สม่ำเสมอ (20/700 บางหน้า, 17/600 หน้า Welcome)
 5. **[เพิ่ม รอบ 7]** press feedback: `scale(0.96)` บน `:active` แทนที่กฎ `transform: none` เดิม (ดู
    Interactions) — ต้องมี `prefers-reduced-motion` fallback
+5b. **[เพิ่ม รอบ 8]** โลโก้ WYNOS (`web/public/wynos_logo_mark.png`, สัดส่วนจริง 660:426) ในหน้า
+   `WelcomeScreen` ปัจจุบันเล็กเกินไป (`height: 62`) — Founder บอก "โลแบรนด์ไม่เด่น" ให้ขยายเป็น
+   **`height: 110`** (`width: "auto"` ตามสัดส่วนเดิม ได้กว้างประมาณ 170px) ส่วนโลโก้หน้า `LoginScreen`
+   (ปัจจุบัน `height: 46`) ปรับเป็น **`height: 64`** ให้สัดส่วนทั้งเว็บสอดคล้องกัน (ไม่ต้องใหญ่เท่า Welcome)
 6. **[กว้างขึ้นได้ตามดุลยพินิจ]** ระยะห่าง/padding ระหว่าง element ให้ "เพิ่มขึ้นจากเดิมอย่างเห็นได้ชัด"
    (มอคอัพใช้ padding เนื้อหา ~28px แทน 16-24px เดิม) — AI Coding ปรับตัวเลขปลีกย่อยระหว่าง field ได้เอง
    ตราบใดที่ยึดหลัก "หายใจได้มากกว่าเดิม" ไม่ต้อง pixel-match มอคอัพเป๊ะทุกจุด (คนละเรื่องกับข้อ 2-4 ที่ต้อง
@@ -155,7 +159,7 @@ text ปุ่ม guest-browse ก็**ไม่มีอยู่แล้ว**
 
 ## Handoff
 
-**อนุมัติแล้ว (2026-09-19 รอบ 5-7) — พร้อมส่ง AI Coding, 5 จุด ใน `web/app/auth-reference.css` +
+**อนุมัติแล้ว (2026-09-19 รอบ 5-8) — พร้อมส่ง AI Coding, 7 จุด ใน `web/app/auth-reference.css` +
 `web/components/auth-flow/screens.tsx`**:
 
 1. **[อนุมัติ รอบ 7 — ค่าสุดท้าย]** `.btn-primary`/`.btn-outline`: `border-radius: 999px` → **`24px`**,
@@ -174,11 +178,11 @@ text ปุ่ม guest-browse ก็**ไม่มีอยู่แล้ว**
 6. **[อนุมัติรอบ 6]** สลับลำดับปุ่มในหน้า `WelcomeScreen`: ย้ายปุ่ม "เข้าสู่ระบบ" มาไว้ **ก่อน** ปุ่ม
    "เข้าสู่ระบบด้วย Google" (เดิม Google อยู่ก่อน) — ตรวจโค้ดจริงว่ามีกี่จุด (state ปกติ / state
    `gate === "blocked"`) ที่ต้องสลับ
+7. **[อนุมัติรอบ 8]** ขยายโลโก้ WYNOS: `WelcomeScreen` `height: 62` → **`110`**, `LoginScreen`
+   `height: 46` → **`64`** (`width: "auto"` ทั้งคู่ ตามสัดส่วนไฟล์เดิม 660:426) — ใช้ไฟล์
+   `/wynos_logo_mark.png` เดิม ไม่ใช่ไฟล์ใหม่
 
-**หมายเหตุ**: โลโก้ WYNOS ที่ใช้ในมอคอัพ (จากไฟล์ที่ Founder ส่งมา) เป็นของจริงที่โค้ดใช้อยู่แล้ว
-(`/wynos_logo_mark.png`) — ไม่ใช่งานใหม่ที่ต้องแก้
-
-ส่งต่อ AI Coding: แก้ 5 จุดข้างต้น (ข้อ 1-2 เป็นค่าตัวเลขล้วนแก้ได้ตรงไปตรงมา, ข้อ 5 ต้องหา asset จริงของ
+ส่งต่อ AI Coding: แก้ 7 จุดข้างต้น (ข้อ 1-2 เป็นค่าตัวเลขล้วนแก้ได้ตรงไปตรงมา, ข้อ 5 ต้องหา asset จริงของ
 Google ก่อน), รัน visual/parity regression suite ที่มีอยู่แล้ว (ดู `.wyn/company/DECISIONS.md` งาน WYN-158
 ก่อนหน้าที่ใช้ suite เดียวกันตรวจ CSS การ์ด) + screenshot ทั้ง 6 หน้าก่อน-หลังให้ Founder ดูก่อน merge/deploy
 ขึ้น `WYNOS Web Beta1` — ต้องผ่าน QA ก่อน deploy เสมอ (ห้ามข้าม QA ตาม AGENTS.md) โดยเฉพาะเช็ค**ไม่ overflow
