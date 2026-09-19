@@ -1,7 +1,7 @@
 # Design + Coding Task — WYN-174
 
-Status: approved (Founder ตัดสินใจแล้ว — ส่งต่อ Coding ทันที)
-Owner: AI Design → Founder → AI Coding
+Status: implemented and verified — PASS by AI QA & Security, พร้อม Deploy
+Owner: AI Design → Founder → AI Coding → AI QA & Security
 Screen: หน้า "แก้ไขโปรไฟล์" (`web/components/profile-route.tsx`, component `EditProfile`,
 เปิดจากปุ่ม "แก้ไขโปรไฟล์" ในหน้าโปรไฟล์ตัวเอง)
 
@@ -45,3 +45,36 @@ Founder รายงานว่าวงกลม "โน้ตของคุ�
 ## Handoff
 
 พร้อมส่ง AI Coding ทันที → AI QA & Security → Deploy
+
+## QA Verification (AI QA & Security, 2026-09-19)
+
+**Logic**:
+- ปุ่ม "ลบรูปโปรไฟล์" render เฉพาะเมื่อ `{avatar ? ... : null}` — ตรวจ diff ยืนยันตรงตาม spec ✅
+- กด → `removeProfileImage(client, userId)` → `setAvatar(null)` → ปุ่มหายไปทันที (avatar falsy) →
+  `<Avatar src={null} .../>` fallback กลับเป็นตัวอักษรตาม username เหมือนที่ออกแบบไว้ ✅
+
+**Security/RLS**: ตรวจ `supabase/schema.sql` บรรทัด 29-33 — policy `"Users can update their own profile"`
+บังคับ `using (auth.uid() = id)` ที่ระดับ Postgres RLS ครอบคลุม `removeProfileImage` เหมือนกับ
+`uploadProfileImage`/`updateProfileBasics` เดิมทุกประการ — ต่อให้ `userId` param ถูกแก้ไขฝั่ง client ก็ยัง
+ถูก RLS บล็อกไม่ให้แก้ไขแถวคนอื่นได้ ไม่มีช่องโหว่ ✅
+
+**Regression**: จุดเรียกใช้ `<EditProfile>` มีจุดเดียว (`profile-route.tsx:247`) ไม่มี prop เปลี่ยน —
+flow อัปโหลดรูปใหม่/บันทึกชื่อ/username/bio ไม่ถูกแตะเลย (diff จำกัดอยู่แค่ฟังก์ชันใหม่ + ปุ่มใหม่) ✅
+
+**Error handling**: `try/catch/finally` เหมือน pattern `image()` เดิมทุกประการ — error แสดงผ่าน
+`route-error`, `saving` reset เป็น `false` ใน `finally` เสมอ ปุ่มไม่ค้าง disabled ✅
+
+**Build**: `npm run check` (lint + typecheck + build) อิสระ: 0 error, 3 warning เดิมที่ไม่เกี่ยวข้อง ✅
+
+**พบ 2 จุด LOW severity (ไม่ block release)**:
+1. `var(--wyn-accent)` (#e0203d) ที่ใช้เป็นสีปุ่ม เมื่อคำนวณ WCAG contrast บนพื้นหลังโหมดมืด (`--wyn-bg:
+   #000000`) ได้ **4.44:1** — ต่ำกว่าเกณฑ์ AA (4.5:1) เล็กน้อย (โหมดสว่างผ่านที่ 4.73:1) — แต่เป็นสีที่
+   comment ใน `design-system.css:42` ระบุชัดว่า "stays fixed across themes" โดยตั้งใจ และใช้ร่วมกับปุ่ม
+   danger อื่นที่มีอยู่แล้วในโปรดักชัน (เช่น `.profile-more-sheet > button.danger`) — ไม่ใช่บั๊กที่ WYN-174
+   สร้างขึ้นใหม่ เป็นลักษณะของ token เดิมที่ใช้ทั่วระบบ แนะนำให้ Design ทบทวน token นี้แยกเป็นงานของตัวเอง
+   ในอนาคต ไม่ใช่ scope ของ WYN-174
+2. ปุ่มใหม่ไม่มี `min-height` กำหนดชัดเจน (touch target อาจเล็กกว่าเกณฑ์ DS-008 44px) — แต่ตรงตาม pattern
+   เดียวกับ label "รูปโปรไฟล์" ข้างๆ ที่ไม่มี min-height เช่นกัน (ตามที่ spec สั่งให้ style คู่กัน) ไม่ใช่
+   regression ใหม่
+
+**Final Status: PASS**
