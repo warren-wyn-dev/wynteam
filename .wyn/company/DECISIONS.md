@@ -1832,3 +1832,15 @@ Founder ตอบ "พร้อม" — branch diverge จาก `main` 19 commi
 **Epic WYN-174 (Web Native App Feel รอบ 2) ครบทั้ง 4 track แล้ว** (Perceived Speed & Motion, Visual Design Rollout, Install & Launch Experience, Platform Integration Polish) ฝั่ง implementation/QA/deploy — WYN-182 ยังไม่ย้ายไป `completed/` รอ Founder ยืนยัน physical device เหมือนทุก track ก่อนหน้า
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-182-platform-integration-polish-deploy.md`
+
+## [2026-09-20] WYN-184 — safe-area fix 2 จุด (Profile topbar + Chat header) พร้อม Deploy gate หลังผ่าน bug/fix/re-verify 1 รอบ
+
+Founder ถาม "safe-area audit อื่นเพิ่มไหม" หลัง WYN-182 เสร็จ — surface 2 known finding ที่เคยเจอระหว่าง WYN-182 audit แต่นอก scope ทางการ (`.wyn-profile-topbar`, `.flutter-chat-header`) Founder เลือกเปิด audit ใหม่เต็มรูปแบบแทนที่จะแก้แค่ 2 จุดเดิม — เปิด WYN-184 ตรวจ header แบบ static (ไม่ sticky/fixed) ทุกหน้าที่ใช้ `headerMode="hidden"` ครบ 9 route พบ GAP จริง 2 จุดเดิมที่รู้ (ยืนยันซ้ำด้วย evidence ใหม่ — chat header จริงๆ มี 5 ไฟล์ประกาศ ไม่ใช่ 2 ไฟล์ที่เคยบันทึกไว้) Founder อนุมัติทั้ง 2 จุด
+
+AI Coding implement + **ยืนยัน cascade winner ของ `.flutter-chat-header` อิสระด้วยตัวเอง ตรงกับ spec 100%** (แก้ที่ `chat-notes.css:537-542` ตัวจริงที่ชนะ cascade ไม่ใช่ dead code ในไฟล์อื่น) — QA รอบแรก **FAIL**: พบว่า diff ทำให้ regression suite ที่มีอยู่แล้วพัง 3/159 (test เก่า hardcode ค่า CSS แบบ literal string ที่ไม่ทันการเปลี่ยนสูตร ไม่ใช่ CSS ผิด) ส่งต่อ AI Debug Engineer แก้ 1 บรรทัดใน `parity.spec.ts:162` (ไม่แตะ CSS) → QA re-verify รอบ 2 **PASS** ยืนยัน 159/159 อิสระอีกรอบ + ตรวจ cascade evidence เดิมไม่ต้องทำซ้ำ (มั่นใจแล้วจากรอบแรก)
+
+บันทึกบทเรียนเพิ่มใน `.wyn/learning/LESSONS_LEARNED.md`/`MISTAKES.md`: literal-string CSS assertion ต้องอัปเดตคู่กับการแก้ CSS เสมอ + AI Coding ต้องรัน `web/tests/browser/` suite จริงก่อนส่ง QA ไม่ใช่แค่ ad hoc harness
+
+**WYN-184 พร้อมเข้า Deploy gate** — รอ Founder สั่งเปิด PR
+
+อ้างอิง: `.wyn/tasks/active/WYN-184-non-sticky-header-safe-area-audit.md`
