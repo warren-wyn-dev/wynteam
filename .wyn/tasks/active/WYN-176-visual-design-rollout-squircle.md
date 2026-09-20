@@ -193,3 +193,32 @@ Founder สั่ง "Merge เลย" — merge PR สำเร็จ (`45f0b6a
 ยังไม่ย้าย task ไป `completed/` — รอ Founder เปิด Chat จริงบน `wynos.online` ยืนยัน press feedback ทำงานจริง
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-176-batch3-chat-deploy.md`
+
+## Batch 4 Implementation (AI Coding, 2026-09-20)
+
+**Implementation**: เพิ่ม press feedback spring (`scale(0.96)`, 160ms cubic-bezier เดียวกับ WYN-163) ให้ 9 จุดใน Profile/Settings ที่ยังไม่มีเลย:
+1. `.wyn-profile-account-switcher` — ปุ่มสลับบัญชีใน topbar
+2. `.wyn-profile-action-primary` / `.wyn-profile-action-secondary` — ปุ่มแก้ไขโปรไฟล์/แชร์/ติดตาม/ส่งข้อความ (**Founder เลือกทางเลือก A จาก preview — คงทรง pill 999px/44px เดิม ไม่ปรับเป็น squircle ของ WYN-163**)
+3. `.wyn-profile-edit-avatar-remove` — ลิงก์ "ลบรูปโปรไฟล์"
+4. `.profile-account-select` — แถวเลือกบัญชีใน account switcher sheet
+5. `.profile-account-remove` — ปุ่ม "นำออก"
+6. `.profile-account-use-other` — ปุ่ม "เข้าสู่ระบบบัญชีอื่น"
+7. `.profile-account-manage` — ปุ่ม "จัดการบัญชี/เสร็จ"
+8. `.profile-more-sheet > button` — แถวใน sheet ตัวเลือกโปรไฟล์
+9. `.settings-row.enabled` — แถว settings ที่กดนำทางได้จริง (สโคปเฉพาะ `.enabled` ไม่แตะแถว toggle ที่เป็น `<div>`)
+
+ทั้งหมดอยู่ใน `web/app/profile-golden-final.css` (8 จุดแรก) และ `web/app/phase3.css` (`.settings-row.enabled`) — grep ยืนยันว่า 8 จุดแรกมีนิยามอยู่ในไฟล์เดียว (`profile-golden-final.css`) ไม่มีที่อื่นชนกัน ส่วน `.settings-row` มีนิยามซ้ำ 5 ไฟล์แต่ไม่มีไฟล์ไหนแตะ `transform`/`transition` มาก่อนเลย จึงเพิ่มได้โดยไม่ชน cascade
+
+พบจุดที่ไม่อยู่ใน scope นี้: `.wyn-profile-stats button` (ปุ่มนับผู้ติดตาม/กำลังติดตาม) ไม่มี `onClick` เลยในซอร์ส (`components/profile-route.tsx`) — เป็น dead interaction ที่มีอยู่ก่อนแล้ว ไม่ใช่ scope ของ press-feedback rollout จึงไม่แตะ (บันทึกไว้เป็น observation ไม่ใช่ task ใหม่)
+
+**Files Changed**: `web/app/profile-golden-final.css`, `web/app/phase3.css` — diff additive ล้วนๆ ยืนยันด้วย `git diff --stat` (71 insertions ใน profile-golden-final.css; 7 insertions/1 deletion ใน phase3.css — บรรทัดที่ "ลบ" คือขยาย reduced-motion selector list เดิม)
+
+**Reason**: ตาม design spec `.wyn/docs/design/wyn-176-batch4-profile-settings.md`, Founder เลือกทางเลือก A จาก preview (https://claude.ai/artifact/8LyHCBKh1AaX3zyLZH56yh) แล้วตอบ "A ไปก่อน"
+
+**Tests**: harness Playwright จริง (โหลด CSS 38 ไฟล์ตามลำดับ import จริง) ตรวจ press feedback ด้วย mouse down/up จริง 10 จุด (รวม `.wyn-profile-account-switcher`) + release กลับ `none` + reduced-motion 10 จุด — **30/30 ผ่านตั้งแต่รอบแรก**
+
+**Build**: `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) — ตรวจ `tests/browser/parity.spec.ts`/`system-visual-parity.spec.ts` ที่อ้างอิง string `--wyn-profile-action: 44px` และ `.wyn-profile-action-primary` (แค่ตรวจว่ามีอยู่ใน source ไม่ได้ตรวจ computed style) ยืนยันว่ายังผ่านเพราะไม่ได้ลบ/เปลี่ยนชื่อ class หรือ CSS variable ใดๆ
+
+**Known Issues**: `.wyn-profile-stats button` (นับผู้ติดตาม) ไม่มี onClick มาก่อนแล้ว — เป็นบั๊กฟังก์ชันเก่าที่ไม่เกี่ยวกับ scope นี้ ไม่แก้ไข
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/profile/me`, `/settings` ผ่าน dev server จริง (2) ปุ่ม action ในหน้าโปรไฟล์ยังเป็นทรง pill เดิม (ตามที่ Founder เลือก A) ไม่มีการเปลี่ยนขนาด (3) ไม่มี regression ต่อ parity spec ที่อ้างอิง class เหล่านี้

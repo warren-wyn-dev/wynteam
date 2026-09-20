@@ -413,6 +413,10 @@ button.settings-row { cursor: pointer; }
 .settings-row strong { font-size: 14px; }
 .settings-row small { color: var(--wyn-text-secondary); font-size: 11px; line-height: 1.35; }
 .settings-row.danger { color: #b12d25; }
+/* WYN-176 batch 4: press feedback reusing WYN-163's spring formula — scoped
+   to .enabled since that's the only variant rendered as a <button>. */
+.settings-row.enabled { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.settings-row.enabled:active { transform: scale(0.96); }
 .settings-select { max-width: 160px; border: 0; outline: 0; background: transparent; color: var(--wyn-text-secondary); font-size: 12px; text-align: right; }
 .switch { position: relative; width: 46px; height: 28px; flex: 0 0 auto; }
 .switch input { position: absolute; opacity: 0; }
@@ -479,7 +483,8 @@ button.settings-row { cursor: pointer; }
   .route-icon-link,
   .route-icon-button,
   .message-delete,
-  .message-clear-file {
+  .message-clear-file,
+  .settings-row.enabled {
     transition: none;
   }
 }

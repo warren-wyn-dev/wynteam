@@ -2221,3 +2221,21 @@ Founder สั่ง "Merge เลย" — merge สำเร็จ (`45f0b6a`) 
 ยังไม่ปิด task — รอ Founder confirm physical device ของ batch 2 (Composer) และ batch 3 (Chat) ทั้งคู่
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-176-batch3-chat-deploy.md`
+
+## [2026-09-20] WYN-176 Batch 4 (Profile/Settings) — เจอจุดที่ต้องเลือก ทำ preview ถาม Founder เลือก A
+
+ตรวจ `profile-route.tsx`/`settings-route.tsx` ก่อนออกแบบ พบว่า Profile/Settings ทุกจุดไม่มี press feedback เลย ส่วนใหญ่เป็น list row/utility button เพิ่มได้ตรงไปตรงมา แต่มีจุดเดียวที่ต่าง: ปุ่ม "แก้ไขโปรไฟล์/ติดตาม/ส่งข้อความ" ยังเป็นทรง pill 999px/44px เดิม ไม่เคยถูกปรับเป็น squircle ของ WYN-163 (ต่างจาก Composer/Chat ที่ WYN-160 ปรับ scale ไว้ก่อนแล้ว)
+
+ทำ Artifact preview เทียบ 2 ทาง (A: คงทรงเดิม + เพิ่ม press feedback / B: ปรับเป็น squircle 24px/58px ตรง WYN-163): https://claude.ai/artifact/8LyHCBKh1AaX3zyLZH56yh — Founder ตอบ **"A ไปก่อน"** คงทรง pill เดิม
+
+บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch4-profile-settings.md`
+
+## [2026-09-20] WYN-176 Batch 4 (Profile/Settings) — Coding เสร็จ ยืนยันด้วย harness จริง 30/30 รอบแรก
+
+เพิ่ม press feedback 9 จุด (`.wyn-profile-account-switcher`, `.wyn-profile-action-primary/-secondary` คงทรง pill เดิมตามที่ Founder เลือก, `.wyn-profile-edit-avatar-remove`, `.profile-account-select/-remove/-use-other/-manage`, `.profile-more-sheet > button`, `.settings-row.enabled`) ใน `web/app/profile-golden-final.css` และ `web/app/phase3.css` — grep ยืนยัน 8 จุดแรกอยู่ในไฟล์เดียวไม่ชน cascade, `.settings-row` มีนิยามซ้ำ 5 ไฟล์แต่ไม่มีไฟล์ไหนแตะ transform มาก่อน
+
+พบ `.wyn-profile-stats button` (ปุ่มนับผู้ติดตาม) ไม่มี onClick เลยในซอร์ส — เป็นบั๊กฟังก์ชันเก่าไม่เกี่ยวกับ scope นี้ บันทึกไว้เป็น observation ไม่แก้
+
+harness Playwright อิสระ 30/30 ผ่านตั้งแต่รอบแรก + `typecheck`/`lint`/`build` สะอาด + ตรวจ parity spec 2 ไฟล์ที่อ้างอิง class เหล่านี้ (เป็น string check ไม่ใช่ computed style) ยืนยันไม่ชน
+
+ส่งต่อ **AI QA & Security** ตรวจอิสระก่อนเข้า Deploy gate — อ้างอิงรายละเอียดเต็มที่ `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (Batch 4 Implementation section)
