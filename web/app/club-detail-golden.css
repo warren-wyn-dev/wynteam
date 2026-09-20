@@ -163,7 +163,7 @@
 .golden-club-about-tabs button:active,
 .golden-club-members > a:active,
 .golden-club-composer label:active,
-.golden-club-composer button:active,
+.golden-club-composer button:active:not(:disabled),
 .golden-club-message-head button:active {
   transform: scale(0.96);
 }
