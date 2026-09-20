@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns: supabaseRemotePattern ? [supabaseRemotePattern] : [],
+    // remotePatterns alone doesn't cover it: Next.js's image optimizer also
+    // unconditionally rejects any hostname that resolves to a private/loopback
+    // IP (see is-private-ip.js), which is exactly what local Supabase CLI
+    // (`supabase start`) binds to by default -- so local dev against it would
+    // still 400 without this. Gated on NODE_ENV, which next build/Vercel
+    // always set to "production" and which isn't settable via .env, so
+    // production keeps full SSRF protection unconditionally; only `next dev`
+    // gets the local-IP allowance. Founder-approved 2026-09-20 (see
+    // .wyn/company/APPROVALS.md) since this is a security-policy change.
+    dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
   },
 };
 
