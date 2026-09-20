@@ -78,3 +78,9 @@ Founder สั่ง "ทำต่อเลย" — เริ่ม **Track 3: I
 **[2026-09-20] Track 3 (Install & Launch Experience) เสร็จสมบูรณ์**: แตกเป็น `WYN-181-install-launch-experience.md` — 2 sub-task (custom install prompt banner + iOS splash screen 32 ไฟล์) แต่ละ sub-task ผ่าน Design → Coding → QA (sub-task 1 มีรอบ fix/re-verify สำหรับบั๊ก iPad detection + accept-persistence) → Deploy production สำเร็จ (PR #562)
 
 **[2026-09-20] Founder ยืนยัน "เสร็จแล้ว"** — ทดสอบจริงบน `wynos.online` ผ่านครบทั้ง Track 2 (WYN-176 ทุก batch 1-6) และ Track 3 (WYN-181 ทั้ง 2 sub-task) ย้ายทั้งสอง task ไป `.wyn/tasks/completed/` แล้ว เหลือ **Track 4: Platform Integration Polish (P2)** ใน backlog ยังไม่เริ่ม รอคำสั่ง Founder
+
+Founder สั่ง "เริ่มเลย" — เริ่ม **Track 4: Platform Integration Polish (P2)** ต่อไป (safe-area inset audit + pull-to-refresh/overscroll audit ทั้งแอป) แตกเป็น `WYN-182-platform-integration-polish.md`
+
+**[2026-09-20] Track 4 (Platform Integration Polish) เสร็จสมบูรณ์ — track สุดท้ายของ epic นี้**: Full audit (safe-area 3 gap, overscroll 7 gap, pull-to-refresh scoped ให้ 4 หน้า) → Founder อนุมัติ scope 3 ประเด็นผ่าน AskUserQuestion → Coding implement ครบ → QA PASS อิสระ 0 บั๊ก (regression 159/159) → Deploy production สำเร็จ (PR #570, run #157, CI #1438)
+
+**Epic WYN-174 ครบทั้ง 4 track แล้ว** (Perceived Speed & Motion / Visual Design Rollout / Install & Launch Experience / Platform Integration Polish) ฝั่ง implementation/QA/deploy — WYN-182 รอ Founder ยืนยัน physical device ก่อนปิด epic นี้อย่างสมบูรณ์

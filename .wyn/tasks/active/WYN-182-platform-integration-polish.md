@@ -167,3 +167,11 @@ Regression suite เต็ม (`npx playwright test`, ติดตั้ง chro
 **Recommendation**: Approve — WYN-182 พร้อมเข้า Deploy gate ต่อ (CTO Final Review → Staging) โดยมีเงื่อนไขต้องยืนยันก่อนเปิดฟีเจอร์ pull-to-refresh ให้ non-developer account เห็นจริง (ตามที่ออกแบบไว้แต่แรกว่าต้อง staged-rollout): (1) ทดสอบ `is_developer_account()` gate จริงบน staging ด้วยบัญชี dev และบัญชีทั่วไป ยืนยัน gate เปิด/ปิดถูกต้อง (2) ทดสอบ pull-to-refresh จริงทั้ง 4 หน้าบนอุปกรณ์จริง โดยเฉพาะ Club detail ต้องไม่ทำงานตอนแท็บแชท/เกี่ยวกับ (3) ทดสอบ Android Chrome จริงว่า native pull-to-refresh ไม่ชนซ้อนกับของแอปอีกต่อไป — ทั้ง 3 ข้อนี้เป็นเงื่อนไขที่ AI Coding เองก็ระบุไว้แต่แรกว่าต้องรอ environment ที่มี Supabase จริง ไม่ใช่ finding ใหม่จาก QA รอบนี้ ไม่ block การเข้า Deploy gate (staging) แต่ต้อง verify ก่อน production widen scope ให้ non-dev เห็น
 
 **Final Status: PASS**
+
+## Deploy (AI Deploy & DevOps, 2026-09-20)
+
+Founder ตอบ "พร้อม" — พบว่า branch diverge จาก `main` 19 commits (เพราะ parallel session อื่นทำงานคู่ขนาน) ทำ `git merge origin/main` ก่อนเปิด PR — auto-merge สำเร็จไม่มี conflict (ตรวจยืนยันว่าไฟล์ที่ WYN-182 แก้ทั้ง 4 หน้า + Home ยังมี `usePullToRefresh`/`useIsDeveloperAccount` wiring ครบถูกต้องหลัง merge) รัน typecheck/lint/build อิสระอีกรอบหลัง merge สะอาดหมด เปิด PR #570 Founder merge เองภายในไม่กี่วินาที → `WYN-158 Production Deploy` run #157 **success** ทุก step → post-merge `CI` run #1438 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด
+
+**WYN-182 (Track 4, track สุดท้ายของ epic WYN-174) เสร็จสมบูรณ์ทั้ง implementation, QA และ deploy แล้ว** — ยังไม่ย้าย task ไป `completed/` รอ Founder เปิดแอปจริงบน `wynos.online` ยืนยัน (1) Profile/Club tabs ไม่ชน notch บนอุปกรณ์มี Dynamic Island (2) pull-to-refresh ทำงานถูกต้องสำหรับบัญชี developer ปิดสำหรับบัญชีทั่วไป (3) ไม่มี native Android Chrome pull-to-refresh ชนซ้อนอีกต่อไป
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-182-platform-integration-polish-deploy.md`

@@ -2433,3 +2433,11 @@ AI QA & Security ตรวจซ้ำอิสระบน commit `f58586a1` �
 อ้างอิง: `.wyn/tasks/active/WYN-182-platform-integration-polish.md`
 
 → พร้อมเข้า Deploy gate (รอ Founder สั่งเปิด PR)
+
+## [2026-09-20] WYN-182 — Deploy ขึ้น production สำเร็จ — Track 4 (track สุดท้าย) ของ WYN-174 เสร็จสมบูรณ์
+
+Founder ตอบ "พร้อม" — branch diverge จาก `main` 19 commits, merge `origin/main` สำเร็จไม่มี conflict (ยืนยัน wiring ของ WYN-182 ทั้ง 4 หน้า+Home ยังครบถูกต้อง) รัน typecheck/lint/build อิสระอีกรอบสะอาดหมด เปิด PR #570 Founder merge เองภายในไม่กี่วินาที → `WYN-158 Production Deploy` run #157 **success** ทุก step → post-merge `CI` run #1438 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด
+
+**Epic WYN-174 (Web Native App Feel รอบ 2) ครบทั้ง 4 track แล้ว** (Perceived Speed & Motion, Visual Design Rollout, Install & Launch Experience, Platform Integration Polish) ฝั่ง implementation/QA/deploy — WYN-182 ยังไม่ย้ายไป `completed/` รอ Founder ยืนยัน physical device เหมือนทุก track ก่อนหน้า
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-182-platform-integration-polish-deploy.md`
