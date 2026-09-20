@@ -9,6 +9,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
   addDropComment,
@@ -66,8 +67,8 @@ function DropDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   });
   const interact = async (kind: "like" | "save" | "redrop") => {
     try {
-      if (kind === "like") { patchSet("likedDropIds", !liked); await toggleDropLike(client, userId, row.id, liked); setRow({ ...row, like_count: Math.max(0, (row.like_count ?? 0) + (liked ? -1 : 1)) }); }
-      if (kind === "save") { patchSet("savedDropIds", !saved); await toggleDropSave(client, userId, row.id, saved); }
+      if (kind === "like") { if (!liked) haptic(); patchSet("likedDropIds", !liked); await toggleDropLike(client, userId, row.id, liked); setRow({ ...row, like_count: Math.max(0, (row.like_count ?? 0) + (liked ? -1 : 1)) }); }
+      if (kind === "save") { if (!saved) haptic(); patchSet("savedDropIds", !saved); await toggleDropSave(client, userId, row.id, saved); }
       if (kind === "redrop") { patchSet("redroppedDropIds", !redropped); await toggleDropRedrop(client, userId, row.id, redropped); setRow({ ...row, redrop_count: Math.max(0, (row.redrop_count ?? 0) + (redropped ? -1 : 1)) }); }
     } catch { setError("อัปเดตกิจกรรมไม่สำเร็จ"); void load(); }
   };
@@ -78,7 +79,7 @@ function DropDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     catch { setError("ส่งความคิดเห็นไม่สำเร็จ"); } finally { setSending(false); }
   };
   const likeComment = async (comment: DropCommentRow) => {
-    try { await toggleDropCommentLike(client, userId, comment.id, comment.liked_by_me); setComments((current) => current.map((item) => item.id === comment.id ? { ...item, liked_by_me: !item.liked_by_me, like_count: Math.max(0, item.like_count + (item.liked_by_me ? -1 : 1)) } : item)); }
+    try { if (!comment.liked_by_me) haptic(); await toggleDropCommentLike(client, userId, comment.id, comment.liked_by_me); setComments((current) => current.map((item) => item.id === comment.id ? { ...item, liked_by_me: !item.liked_by_me, like_count: Math.max(0, item.like_count + (item.liked_by_me ? -1 : 1)) } : item)); }
     catch { setError("ถูกใจความคิดเห็นไม่สำเร็จ"); }
   };
 
@@ -87,7 +88,7 @@ function DropDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       <article className="detail-post">
         <Link className="route-drop-author" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} /><span><strong>{authorLabel(row)}</strong><small>@{row.author_username || "wynos"} · {relativeTimeTh(row.created_at)}</small></span></Link>
         {row.caption ? <p className="detail-caption">{row.caption}</p> : null}
-        {row.image_url ? <img className="detail-image" src={row.image_url} alt="" /> : null}
+        {row.image_url ? <img className="detail-image" src={row.image_url} alt="" loading="lazy" decoding="async" /> : null}
         <div className="detail-actions"><button className={liked ? "active like" : ""} type="button" onClick={() => void interact("like")}><WynosIcon name="like" size={20} strokeWidth={2} fill={liked ? "currentColor" : "none"} /> {row.like_count ?? 0}</button><button className={redropped ? "active" : ""} type="button" onClick={() => void interact("redrop")}><WynosIcon name="repost" size={20} strokeWidth={2} /> {row.redrop_count ?? 0}</button><button className={saved ? "active" : ""} type="button" onClick={() => void interact("save")}><WynosIcon name="bookmark" size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} /></button></div>
       </article>
       {error ? <p className="route-error route-pad">{error}</p> : null}
@@ -108,7 +109,7 @@ function ClubPostCard({ client, post }: { client: SupabaseClient; post: ClubPost
   const paths = Array.isArray(post.image_urls) ? post.image_urls.map(String) : [];
   const [image, setImage] = useState<string | null>(null);
   useEffect(() => { if (!paths[0]) return; let live = true; void client.storage.from("club-media").createSignedUrl(paths[0], 3600).then(({ data }) => { if (live) setImage(data?.signedUrl ?? null); }); return () => { live = false; }; }, [client, post.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <Link className="club-post-card" href={`/club-post/${String(post.id)}`}><div className="club-post-author"><Avatar src={author?.avatar_url ? String(author.avatar_url) : null} label={String(author?.username ?? "WYNOS")} size={34} /><span><strong>{String(author?.display_name || author?.username || "WYNOS")}</strong><small>{relativeTimeTh(String(post.created_at ?? ""))}</small></span></div>{post.content ? <p>{String(post.content)}</p> : null}{image ? <img src={image} alt="" /> : null}</Link>;
+  return <Link className="club-post-card" href={`/club-post/${String(post.id)}`}><div className="club-post-author"><Avatar src={author?.avatar_url ? String(author.avatar_url) : null} label={String(author?.username ?? "WYNOS")} size={34} /><span><strong>{String(author?.display_name || author?.username || "WYNOS")}</strong><small>{relativeTimeTh(String(post.created_at ?? ""))}</small></span></div>{post.content ? <p>{String(post.content)}</p> : null}{image ? <img src={image} alt="" loading="lazy" decoding="async" /> : null}</Link>;
 }
 
 function ClubInner({ client, userId, clubId }: { client: SupabaseClient; userId: string; clubId: string }) {
@@ -149,7 +150,7 @@ function ClubInner({ client, userId, clubId }: { client: SupabaseClient; userId:
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "อัปเดตสมาชิกไม่สำเร็จ"); } finally { setBusy(false); }
   };
-  return <AppChrome title={club.name} userId={userId} backHref="/search"><section className="club-header"><div className="club-cover">{club.cover_url || club.icon_url ? <img src={club.icon_url || club.cover_url || ""} alt="" /> : null}</div><h2>{club.name}</h2>{club.description ? <p>{club.description}</p> : null}<small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small><button className={`route-pill ${membership ? "soft" : ""}`} disabled={busy || membership?.role === "owner"} type="button" onClick={() => void join()}>{membership?.status === "approved" ? "เป็นสมาชิกแล้ว" : membership?.status === "pending" ? "รออนุมัติ" : "เข้าร่วม"}</button>{error ? <p className="route-error">{error}</p> : null}</section><section className="club-posts"><h2>โพสต์</h2>{posts.length ? posts.map((post) => <ClubPostCard client={client} post={post} key={String(post.id)} />) : <EmptyState>{club.privacy === "private" && membership?.status !== "approved" ? "เข้าร่วม Club เพื่อดูโพสต์" : "ยังไม่มีโพสต์"}</EmptyState>}</section></AppChrome>;
+  return <AppChrome title={club.name} userId={userId} backHref="/search"><section className="club-header"><div className="club-cover">{club.cover_url || club.icon_url ? <Image src={club.icon_url || club.cover_url || ""} alt="" width={76} height={76} sizes="76px" /> : null}</div><h2>{club.name}</h2>{club.description ? <p>{club.description}</p> : null}<small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small><button className={`route-pill ${membership ? "soft" : ""}`} disabled={busy || membership?.role === "owner"} type="button" onClick={() => void join()}>{membership?.status === "approved" ? "เป็นสมาชิกแล้ว" : membership?.status === "pending" ? "รออนุมัติ" : "เข้าร่วม"}</button>{error ? <p className="route-error">{error}</p> : null}</section><section className="club-posts"><h2>โพสต์</h2>{posts.length ? posts.map((post) => <ClubPostCard client={client} post={post} key={String(post.id)} />) : <EmptyState>{club.privacy === "private" && membership?.status !== "approved" ? "เข้าร่วม Club เพื่อดูโพสต์" : "ยังไม่มีโพสต์"}</EmptyState>}</section></AppChrome>;
 }
 
 export function ClubRoute({ clubId }: { clubId: string }) {

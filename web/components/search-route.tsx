@@ -11,6 +11,7 @@ import { AppChrome, DropPreviewCard, EmptyState, ProfileRowView } from "@/compon
 import { FeedSkeleton, SearchClubSkeleton, SearchDiscoverySkeleton, SearchUserSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
+import { haptic } from "@/lib/haptics";
 import type { HomeFeedRow } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
@@ -73,6 +74,7 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
     const wasRequested = viewer.pendingFollowAuthorIds.has(profile.id);
     const isPrivate = viewer.privateAuthorIds.has(profile.id) || profile.is_private;
     if (wasRequested && isPrivate && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
+    if (!wasFollowing) haptic();
     setPending((current) => new Set(current).add(profile.id));
     try {
       const state = await toggleAuthorFollow(client, userId, profile.id, {
@@ -210,6 +212,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
     const wasRequested = viewer.pendingFollowAuthorIds.has(profile.id);
     const isPrivate = viewer.privateAuthorIds.has(profile.id) || profile.is_private;
     if (wasRequested && isPrivate && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
+    if (!wasFollowing) haptic();
     setPending((current) => new Set(current).add(profile.id));
     try {
       const state = await toggleAuthorFollow(client, userId, profile.id, {

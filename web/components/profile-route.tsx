@@ -21,6 +21,7 @@ import {
 } from "@/lib/account-registry";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
+import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
@@ -199,6 +200,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     const wasFollowing = summary.following;
     const wasRequested = summary.requested;
     const optimisticNext = predictFollowState({ currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private });
+    if (!wasFollowing) haptic();
     setAction(true); setError("");
     patchSummary((current) => ({
       ...current,
@@ -235,7 +237,20 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   };
   const share = async () => {
     const url = `${window.location.origin}/@${profile.username}`;
-    try { if (navigator.share) await navigator.share({ title: name, text: `@${profile.username}`, url }); else await navigator.clipboard.writeText(url); } catch { /* user cancelled */ }
+    const copyLink = async () => {
+      try { await navigator.clipboard.writeText(url); showToast("คัดลอกลิงก์แล้ว"); }
+      catch { showToast("แชร์ไม่สำเร็จ"); }
+    };
+    if (!navigator.share) { await copyLink(); return; }
+    try { await navigator.share({ title: name, text: `@${profile.username}`, url }); }
+    catch (e) {
+      // AbortError fires both on a deliberate cancel and when the OS reports
+      // no compatible share target -- the API gives no way to tell those
+      // apart, so fall back to a clipboard copy either way rather than
+      // leaving the no-target case looking like the button did nothing.
+      if (e instanceof DOMException && e.name === "AbortError") { await copyLink(); return; }
+      showToast("แชร์ไม่สำเร็จ");
+    }
   };
   const openAccountSwitcher = () => {
     setManagingAccounts(false);
@@ -334,9 +349,3 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
 }
 
 export function ProfileRoute({ profileId }: { profileId: string }) { return <DeveloperRouteGate>{({ client, userId }) => <ProfileInner client={client} userId={userId} profileId={profileId} />}</DeveloperRouteGate>; }
-
-export function ProfileSlugRoute({ username }: { username: string }) {
-  const router = useRouter();
-  const [message, setMessage] = useState("กำลังเปิดโปรไฟล์…");
-  return <DeveloperRouteGate>{({ client, userId }) => { void client.from("profiles").select("id").eq("username", username).maybeSingle().then(({ data, error }) => { if (error || !data) setMessage("ไม่พบโปรไฟล์"); else router.replace(`/profile/${data.id}`); }); return <AppChrome title={`@${username}`} userId={userId} backHref="/"><EmptyState>{message}</EmptyState></AppChrome>; }}</DeveloperRouteGate>;
-}

@@ -19,6 +19,7 @@ import {
   voteClubPostPoll,
   type ClubHomePost,
 } from "@/lib/home-parity-data";
+import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
 import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
@@ -291,6 +292,7 @@ function ClubPostCard({
   };
   const like = async () => {
     if (busy) return;
+    if (!post.liked_by_me) haptic();
     const previous = post;
     setPost({ ...post, liked_by_me: !post.liked_by_me, like_count: Math.max(0, post.like_count + (post.liked_by_me ? -1 : 1)) });
     try { await toggleClubPostLike(client, userId, post.id, post.liked_by_me); }
@@ -298,6 +300,7 @@ function ClubPostCard({
   };
   const save = async () => {
     if (busy) return;
+    if (!post.saved_by_me) haptic();
     const previous = post;
     setPost({ ...post, saved_by_me: !post.saved_by_me });
     try { await toggleClubPostSave(client, userId, post.id, post.saved_by_me); }

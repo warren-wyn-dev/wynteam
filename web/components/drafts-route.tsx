@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -63,7 +64,7 @@ function DraftsInner({ client, userId }: { client: SupabaseClient; userId: strin
             {rows.map((row) => (
               <div className="drafts-row" key={row.id}>
                 <button className="drafts-row-main" type="button" onClick={() => router.push(`/?compose=1&draft=${row.id}`)}>
-                  {row.image_url ? <img src={row.image_url} alt="" /> : <span className="drafts-row-placeholder" aria-hidden="true" />}
+                  {row.image_url ? <Image src={row.image_url} alt="" width={48} height={48} sizes="48px" /> : <span className="drafts-row-placeholder" aria-hidden="true" />}
                   <span className="drafts-row-copy">
                     <strong>{draftPreviewText(row)}</strong>
                     <small>{relativeLabel(row.updated_at)}</small>

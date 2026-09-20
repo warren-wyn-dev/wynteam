@@ -26,6 +26,8 @@ function messageFor(row: NotificationRow): string {
   switch (row.type) {
     case "like_drop": return `${actor} ถูกใจโพสต์ของคุณ`;
     case "comment_drop": return `${actor} แสดงความคิดเห็นในโพสต์ของคุณ`;
+    case "like_pop": return `${actor} ถูกใจ Pop ของคุณ`;
+    case "comment_pop": return `${actor} แสดงความคิดเห็นใน Pop ของคุณ`;
     case "follow": return `${actor} เริ่มติดตามคุณ`;
     case "follow_request": return `${actor} ขอติดตามคุณ`;
     case "follow_request_accepted": return `${actor} ยอมรับคำขอติดตามของคุณแล้ว`;
@@ -175,6 +177,7 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   const open = (row: NotificationRow) => {
     if (row.conversation_id) { router.push(`/chat/${row.conversation_id}${row.actor_id ? `?user=${encodeURIComponent(row.actor_id)}` : ""}`); return; }
     if (row.drop_id) { router.push(`/drop/${row.drop_id}`); return; }
+    if (row.pop_id) { router.push(`/pop/${row.pop_id}`); return; }
     if (row.club_post_id) { router.push(`/club-post/${row.club_post_id}`); return; }
     if (row.club_id) { router.push(`/club/${row.club_id}`); return; }
     if (row.actor_id) router.push(`/profile/${row.actor_id}`);

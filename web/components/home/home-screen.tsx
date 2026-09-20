@@ -546,6 +546,7 @@ export function HomeScreen({ session }: { session: Session }) {
   const save = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
     const saved = viewer.savedDropIds.has(row.id);
+    if (!saved) haptic();
     patchSet("savedDropIds", row.id, !saved);
     try {
       await toggleDropSave(client, userId, row.id, saved);
