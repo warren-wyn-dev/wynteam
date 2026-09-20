@@ -2341,3 +2341,17 @@ Founder สั่ง "ทำต่อเลย" — WYN-176 (Track 2) เสร�
 พบว่า Playwright Clock API ไม่ทำงานร่วมกับ Next dev server ได้ดี (fast-forward ไม่ trigger setTimeout ในคอมโพเนนต์) เปลี่ยนมาใช้ real wait 24 วินาทีต่อเคสแทน ยืนยันผ่าน **10/10** + typecheck/lint/build สะอาด + regression suite 54/54 ที่รันได้จริงผ่าน
 
 ย้าย task ไป `.wyn/tasks/active/` (จาก backlog) — เหลือ sub-task 2 (iOS splash screen) ยังไม่เริ่ม ส่งต่อ **AI QA & Security** ตรวจ sub-task 1 ก่อน
+
+## [2026-09-20] WYN-181 sub-task 1 — QA พบบั๊กจริง 2 จุด **FAIL**: iPad ไม่เห็น banner เลย + accept ไม่บันทึกการปิด
+
+AI QA & Security ทำ harness อิสระ 22 เคส พบ 2 บั๊กจริง: (1) **HIGH** — `isIos()` เช็คแค่ UA string ไม่รองรับ iPadOS 13+ ที่ Safari ปลอมตัวเป็น Mac desktop เป็นค่าเริ่มต้น (ไม่มีคำว่า "iPad" ใน UA เลย) ทำให้ banner ไม่มีทางโผล่บน iPad จริงเลยแบบเงียบๆ ถาวร กระทบอุปกรณ์ทั้งกลุ่มที่ scope นี้ตั้งใจรองรับ (2) **MEDIUM** — กด "ติดตั้ง" แล้ว accept ไม่เขียน dismissal timestamp ต่างจาก close/reject ผิดจาก spec ตรงๆ
+
+QA ยังค้นพบเทคนิค harness ที่เร็วกว่า real-wait — wrap `window.setTimeout` ให้ delay ยาวๆ เหลือสั้นแทน (ไม่ใช้ Clock API ที่ AI Coding ยืนยันแล้วว่าใช้ไม่ได้กับ Next dev) ทำให้ทดสอบ 20+ เคสเสร็จในไม่กี่วินาที
+
+Severity: HIGH/MEDIUM **Final Status: FAIL** — ส่งต่อ **AI Debug Engineer** แก้ไข
+
+## [2026-09-20] WYN-181 sub-task 1 — แก้บั๊กแล้ว ยืนยัน 7/7 + 10/10 ผ่าน
+
+แก้ 2 จุดใน `install-prompt-banner.tsx`: เพิ่ม `navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1` เข้า `isIos()` (มาตรฐานตรวจจับ iPad ปลอมตัวเป็น Mac) + `install()` เรียก `dismiss()` เสมอไม่ว่า outcome จะเป็นอะไร
+
+ใช้เทคนิค setTimeout-shrink ของ QA แทน real-wait — ตรวจ 7/7 จุดที่แก้ผ่าน + rerun harness เดิม 10/10 ยังผ่าน + typecheck/lint/build สะอาด ส่งต่อ **AI QA & Security** ตรวจซ้ำ

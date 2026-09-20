@@ -84,3 +84,33 @@ P1 — รองจาก WYN-176 (เสร็จแล้ว) ตามลำ�
 **Known Issues**: iOS splash screen (sub-task 2 ของ scope นี้) ยังไม่เริ่ม — เป็นงานแยกที่ต้อง generate static image หลายขนาดด้วย `sharp`
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) logic การแสดง/ซ่อน banner ถูกต้องตาม spec ทั้ง 4 สถานการณ์ (2) ไม่มี regression ต่อ layout/parity เดิม (3) localStorage wrap try/catch ปลอดภัยจริง ไม่ throw ทำแอปพัง
+
+## QA Sub-task 1 — Round 1 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ตรวจ diff จริง + อ่านโค้ดทั้งไฟล์เทียบกับ spec ทีละบรรทัด + harness Playwright อิสระ 22 เคส (Android 7, iOS 3, dismiss 4, standalone 1, edge case เพิ่มเอง 7 — StrictMode listener leak, double-install guard, timer อยู่รอด navigation, XSS surface) + adversarial check นอกลิสต์ (iPad UA จริงที่ปลอมตัวเป็น Mac) + typecheck/lint/build + regression suite
+
+**Passed**: 20/22 (รวม non-issue ที่ยืนยันโค้ดถูกต้อง — preventDefault synchronous, StrictMode ไม่ leak listener, ไม่มี XSS surface) + typecheck/lint/build สะอาด + regression suite 54/54 ที่รันได้จริงผ่าน
+
+**Failed**: 2 จุด
+1. **HIGH** — `isIos()` เช็คแค่ UA string ไม่ครอบคลุม iPadOS 13+ ที่ Safari ปลอมตัวเป็น Mac desktop ในค่าเริ่มต้น (ไม่มีคำว่า "iPad" ใน UA เลย) → banner ไม่มีทางโผล่บน iPad จริงเลยแบบเงียบๆ ถาวร
+2. **MEDIUM** — กด "ติดตั้ง" แล้ว accept ไม่เขียน dismissal timestamp (ต่างจาก close/reject ที่เขียนถูก) ผิดจาก spec ข้อ 4
+
+**Severity**: HIGH (บั๊ก 1), MEDIUM (บั๊ก 2)
+
+**Security Findings**: ไม่มี — ไม่มี XSS surface, localStorage wrap try/catch ครบ, ไม่แตะ auth/data/API ใดๆ
+
+**Recommendation**: ส่งต่อ AI Debug Engineer แก้ทั้งสองจุดก่อนเข้า Deploy gate — บั๊ก iPad ต้องแก้ก่อนเพราะกระทบอุปกรณ์ทั้งกลุ่มแบบเงียบๆ
+
+**Final Status: FAIL**
+
+## Sub-task 1 Debug Fix (AI Debug Engineer, 2026-09-20)
+
+**Fix**:
+1. `isIos()` เพิ่มเช็ค `navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1` คู่กับ UA regex เดิม — มาตรฐานที่ใช้กันทั่วไปสำหรับตรวจจับ iPad ที่ปลอมตัวเป็น Mac (Mac จริงไม่มี touch points เลย)
+2. `install()` เรียก `dismiss()` เสมอไม่ว่า outcome จะเป็น accepted หรือ dismissed (เดิมเรียกแค่ตอน dismissed)
+
+**Files Changed**: `web/components/install-prompt-banner.tsx` เท่านั้น — ~8 บรรทัด
+
+**Tests**: harness ใหม่ (ใช้เทคนิคจาก QA — wrap `window.setTimeout` ให้ delay ≥15000ms เหลือ 300ms แทน real-wait 24 วินาที เร็วกว่ามาก) ตรวจ iPad-as-Mac (banner โผล่ถูกต้อง) + sanity check ว่า Mac desktop จริงไม่ถูกเข้าใจผิดเป็น iOS + accept-persistence (เขียน timestamp ถูกต้อง + ไม่โผล่ซ้ำ) **7/7 ผ่าน** + rerun harness เดิม 10 เคสยืนยันไม่กระทบ **10/10 ยังผ่าน** + typecheck/lint/build สะอาด
+
+**Handoff**: → **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
