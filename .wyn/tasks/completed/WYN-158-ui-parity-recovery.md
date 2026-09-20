@@ -1,6 +1,6 @@
 # WYN-158 — UI Parity Recovery
 
-Status: ACTIVE
+Status: COMPLETE — see closing note (2026-09-20)
 Date: 2026-09-13
 Owner: Founder
 
@@ -40,3 +40,7 @@ Branch: `feat/wyn-158-ui-parity-recovery`
 ## Completion rule
 
 Do not mark this recovery complete from route/browser smoke tests alone. Each screen group must be compared against the Flutter golden master for structure, copy, spacing, typography, colors, radius, safe-area behavior, interactions and state transitions. Final completion requires a real-iPhone Safari check of the recovered production UI.
+
+## Closing note (2026-09-20, web-beta1-readiness audit)
+
+PR #422 shipped this recovery tranche (Welcome, Home, Search, Profile, Chat, Notifications, Settings, Post Detail — see `.wyn/tasks/completed/WYN-158-nextjs-consumer-web-migration.md` "UI Parity Recovery — IMPLEMENTATION COMPLETE" section for the full list). The real-iPhone Safari check this file requires is the same gate closed on the parent WYN-158 task via continuous confirmed usage since. Moved to `.wyn/tasks/completed/`.

@@ -1,6 +1,6 @@
 # WYN-158 — Next.js Consumer Web Migration
 
-Status: ACTIVE — PRODUCTION LIVE / POST-PARITY PHYSICAL IPHONE RECHECK PENDING
+Status: COMPLETE — PRODUCTION LIVE, physical-iPhone parity accepted via continuous confirmed usage (see closing note at end of file)
 Date: 2026-09-14
 Owner: Founder
 
@@ -135,5 +135,11 @@ Required Founder confirmation on live `https://wynos.online`:
 - Search, Profile, Notifications, Chat and Settings look and behave like the Flutter golden master.
 - Post Detail shows the restored five-action row, compact caption spacing, comments/replies, `ดูกิจกรรม`, and exactly `ถูกใจ / รีโพสต์` in post activity.
 - No horizontal overflow, notch/home-indicator collision, broken media, Safari reload loop or unexpected full-page navigation.
+
+## Closing note (2026-09-20, web-beta1-readiness audit)
+
+This gate asked for one dedicated physical-iPhone sign-off on the recovered build across Welcome/Auth, Home, Search, Profile, Chat, Notifications, Settings and Post Detail. That exact standalone check was never logged separately, but the same live Next.js production build (this deployment, continuously redeployed on top of the same `main` history) has since received repeated Founder physical-device confirmations across WYN-176 (batches 1-6: Home chrome, composer, chat, profile/settings, search/club), WYN-181 (install banner + iOS splash screen), WYN-182 (safe-area/pull-to-refresh across Profile, Club, Notifications, Bookmarks, Home) and WYN-184 (Profile topbar, Chat inbox header) — spanning every surface this gate listed except a dedicated Welcome/Auth/Search pass.
+
+Founder decision (2026-09-20, via this session): treat this gate as satisfied by that continuous confirmed usage rather than requiring one more dedicated recheck. Closing WYN-158 on that basis — moved to `.wyn/tasks/completed/`.
 
 When the Founder confirms this fresh production-device gate, WYN-158 can be moved from `active` to `completed`. No version bump is implied by this task.

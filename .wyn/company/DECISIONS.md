@@ -1866,3 +1866,19 @@ Founder ทดสอบจริงบน `wynos.online` ยืนยันผ�
 **Epic WYN-174 (Web Native App Feel รอบ 2) ปิดสมบูรณ์ทั้ง 4 track** (WYN-175 Perceived Speed & Motion, WYN-176 Visual Design Rollout, WYN-181 Install & Launch Experience, WYN-182 Platform Integration Polish) — deploy ขึ้น production และ Founder ยืนยัน physical device ครบทุก track แล้ว ย้าย `.wyn/tasks/backlog/WYN-174-web-native-app-feel-v2.md` ไป `.wyn/tasks/completed/` ด้วย
 
 Web Beta1 ตอนนี้**ไม่มี task ค้างใน `active/` ที่เกี่ยวกับ known gap เหลืออยู่เลย** — audit ของ web-beta1-readiness session นี้ปิดครบตามที่ตรวจพบทั้งหมด
+
+## [2026-09-20] Founder สั่ง "แก้ทุกงานเลย ไม่ให้เหลืองานค้าง" — เคลียร์ backlog/active document ทั้งหมดเท่าที่ทำได้จริง
+
+ถาม Founder 2 คำถามผ่าน AskUserQuestion ก่อนลงมือ (เพราะเป็นการตัดสินใจที่สงวนไว้ให้ Founder ตามกติกาเดิมของทีม ไม่ใช่สิ่งที่ AI ตัดสินเองได้):
+
+1. **WYN-158 physical-iPhone recheck**: Founder เลือก "ถือว่าผ่านแล้ว" (อิงจากการใช้งานจริงต่อเนื่องหลายวันผ่าน WYN-176/181/182/184 บน production build เดียวกัน) — ปิด WYN-158 ทั้ง 3 ไฟล์ (`WYN-158-nextjs-consumer-web-migration.md`, `WYN-158-phase4-parity-qa.md`, `WYN-158-ui-parity-recovery.md`) ย้ายไป `completed/` — บันทึกไว้ตรงๆ ในแต่ละไฟล์ว่า Welcome/Auth/Search ไม่เคยมี dedicated confirmation แยกต่างหาก (ยอมรับโดย Founder decision ไม่ใช่ inference ของ AI เอง)
+2. **WYN-137 scope**: Founder เลือก "สร้าง Announcement แยกเต็มรูปแบบ" (ไม่ใช่ filter บน Pinned Post เดิม) — อัปเดต spec พร้อมส่งต่อ AI Design
+
+เคลียร์เพิ่มเติมที่ทำได้เองโดยไม่ต้องถาม (ยืนยันด้วยหลักฐานจริง ไม่ใช่แค่แก้ข้อความ):
+- **WYN-135**: ตรวจยืนยัน WYN-128 (dependency เดิมที่ block งานนี้) deploy จริงแล้วตั้งแต่ 2026-09-07 และตาราง `club_channel_messages` มีอยู่จริงใน `schema.sql` — ปลด blocker แล้ว พร้อมส่งต่อ AI Design
+- **WYN-159**: แก้ contradiction ในสเปกเดิม (Purpose paragraph อ้าง "DS-001 Cyan" ที่ล้าสมัย ขัดกับ Design Rules ข้อเดียวกันที่ห้าม Cyan) ยืนยันด้วย grep โค้ดจริงว่าไม่มี Cyan ในระบบ token เว็บแล้ว — แก้ให้ตรงกัน แต่ยังไม่ทำ mockup/preview ให้ Founder ดู (ตามกติกา WYN-141 ที่ AI Coding ห้ามเริ่มก่อนมี preview) ส่งต่อ AI Design ทำต่อ
+
+**สิ่งที่ปิดให้ไม่ได้จริง — ไม่ใช่เอกสาร เป็นข้อจำกัดจริง**:
+- **WYN-141** (Flutter batches ของ Admin UX/UI system) — sandbox นี้ไม่มี Flutter SDK และ network proxy บล็อกการดาวน์โหลด (403) ต้องมี CI runner ที่มี Flutter 3.47.1 ถึงทำต่อได้ ไม่ใช่สิ่งที่แก้เอกสารแล้วหายไป
+- **WYN-016** (Push Notifications) — โค้ดเสร็จ + self-QA ผ่านแล้ว แต่ต้องรอ Founder ตั้งค่า Firebase project จริง 4 ขั้นตอนด้วยบัญชีของ Founder เอง AI ทำแทนไม่ได้
+- **WYN-112** (activation funnel) — root cause แก้ + deploy แล้ว แต่ปิดงานได้ก็ต่อเมื่อเห็นตัวเลข signup กลับมาจริงใน WYN Admin Dashboard ซึ่ง AI ในสภาพแวดล้อมนี้เข้าดูไม่ได้ (ไม่มี Supabase backend จริง/ไม่มีสิทธิ์ dashboard) — ปล่อยให้ Founder ปิดเองเมื่อเห็นผล ไม่ปิดปลอมด้วยเอกสาร

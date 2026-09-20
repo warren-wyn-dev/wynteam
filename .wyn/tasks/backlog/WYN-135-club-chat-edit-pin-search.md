@@ -38,3 +38,9 @@ Risks: Search ต้องออกแบบ index ตั้งแต่ Design 
 Recommendation: อนุมัติ scope ได้ แต่ **ห้ามส่งต่อ AI Design ก่อน WYN-128 deploy จริง**
 
 Handoff: รอ (1) Founder สั่ง deploy WYN-128 และ (2) ยืนยัน priority ของ Phase A ทั้งชุด ก่อนส่งต่อ AI Design
+
+## Dependency check (2026-09-20, web-beta1-readiness audit)
+
+ยืนยันแล้วว่า **WYN-128 deploy จริงบน production แล้ว** ตั้งแต่ 2026-09-07 (`.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md`: "closed — shipped to production, deploy run #96") และตาราง `public.club_channel_messages` มีอยู่จริงใน `supabase/schema.sql` (บรรทัด 14620) — **blocker เดิมของ task นี้หมดไปแล้ว**
+
+Status: เปลี่ยนจาก "blocked" → **พร้อมส่งต่อ AI Design** (spec ข้างบนยังใช้ได้ครบ ไม่ต้องแก้) — เหลือรอ Founder ยืนยัน priority เทียบกับงานอื่นใน queue เท่านั้น
