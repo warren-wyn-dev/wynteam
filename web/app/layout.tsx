@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { preconnect } from "react-dom";
 import { AppBottomNavHost } from "@/components/app-bottom-nav-runtime";
 import { AppNavigationRuntime } from "@/components/app-navigation-runtime";
 import { InstallPromptBanner } from "@/components/install-prompt-banner";
@@ -97,4 +98,19 @@ export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",app
 // viewport, does. Without this it's the one thing that gives away "this is
 // a website" even from the home-screen icon.
 export const viewport:Viewport={width:"device-width",initialScale:1,maximumScale:1,userScalable:false,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition><AppBottomNavHost /><InstallPromptBanner /></QueryProvider></body></html>}
+// Every route mounts DeveloperRouteGate on first paint, which immediately
+// calls Supabase auth.getSession() — a cross-origin request that otherwise
+// pays DNS + TCP + TLS from a cold start. Warming that connection while the
+// HTML/JS is still streaming shaves that handshake off the critical path.
+const supabaseOrigin = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : null;
+  } catch {
+    return null;
+  }
+})();
+
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){
+  if (supabaseOrigin) preconnect(supabaseOrigin, { crossOrigin: "anonymous" });
+  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition><AppBottomNavHost /><InstallPromptBanner /></QueryProvider></body></html>;
+}
