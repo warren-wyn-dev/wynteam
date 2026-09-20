@@ -119,44 +119,50 @@ export function HomeFixture() {
   const fixtureViewer = { ...viewer, savedDropIds };
 
   return (
-    <div className="route-app route-with-bottom-nav">
-      <main className="route-main">
-        <div className="wyn-home">
-          <HomeHeader
-            notificationBadgeCount={3}
-            onOpenMenu={() => {}}
-            onOpenSearch={() => {}}
-            onOpenNotifications={() => {}}
-          />
-          <HomeTabs mode={mode} onSelect={setMode} />
-        </div>
-        <div className="wyn-home-feed">
-          {rows.map((row) => (
-            <HomePostCard
-              row={row}
-              viewer={fixtureViewer}
-              images={images.get(row.id) ?? []}
-              userId={VIEWER_ID}
-              onLike={() => {}}
-              onMore={() => {}}
-              onRedrop={() => {}}
-              onFollow={() => {}}
-              onShare={() => {}}
-              onSave={() => setSavedDropIds((current) => {
-                const next = new Set(current);
-                if (next.has(row.id)) next.delete(row.id);
-                else next.add(row.id);
-                return next;
-              })}
-              key={row.id}
+    <>
+      <div className="route-app route-with-bottom-nav">
+        <main className="route-main">
+          <div className="wyn-home">
+            <HomeHeader
+              notificationBadgeCount={3}
+              onOpenMenu={() => {}}
+              onOpenSearch={() => {}}
+              onOpenNotifications={() => {}}
             />
-          ))}
-        </div>
-      </main>
+            <HomeTabs mode={mode} onSelect={setMode} />
+          </div>
+          <div className="wyn-home-feed">
+            {rows.map((row) => (
+              <HomePostCard
+                row={row}
+                viewer={fixtureViewer}
+                images={images.get(row.id) ?? []}
+                userId={VIEWER_ID}
+                onLike={() => {}}
+                onMore={() => {}}
+                onRedrop={() => {}}
+                onFollow={() => {}}
+                onShare={() => {}}
+                onSave={() => setSavedDropIds((current) => {
+                  const next = new Set(current);
+                  if (next.has(row.id)) next.delete(row.id);
+                  else next.add(row.id);
+                  return next;
+                })}
+                key={row.id}
+              />
+            ))}
+          </div>
+        </main>
+      </div>
+      {/* Sibling of .route-with-bottom-nav, matching AppBottomNavHost's
+          placement in app/layout.tsx — not nested inside it, so this
+          fixture actually exercises the same custom-property scoping the
+          real app depends on instead of masking a cross-subtree bug. */}
       <BottomNavigation
         profileHref={`/profile/${VIEWER_ID}`}
         isActive={(href) => href === "/"}
       />
-    </div>
+    </>
   );
 }

@@ -140,7 +140,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(bottomNav).toContain('href="/?compose=1"');
   expect(bottomNav).not.toContain('className="route-create-button"');
   expect(bottomNavCss).toContain("width: min(100%, 680px)");
-  expect(bottomNavCss).toContain("font-size: 11.5px");
+  expect(bottomNavCss).toContain("font-size: 10px");
   expect(bottomNavCss).toContain("border-top: 1px solid");
   expect(routeUi).toContain("GoldenDropCard");
 

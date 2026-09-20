@@ -6,8 +6,21 @@
  * no large selected tile.
  */
 
+/*
+ * Declared at :root, not on .route-with-bottom-nav: the persistent nav
+ * (AppBottomNavHost, in app/layout.tsx) renders as a sibling of the page
+ * content tree that carries .route-with-bottom-nav, not a descendant of
+ * it, so a custom property scoped to that class never reaches
+ * .route-bottom-nav below — it would silently fall through to whatever
+ * :root value happens to win instead (see app/parity.css's own, unrelated
+ * --wyn-bottom-nav-height). Keeping this at :root is what makes the two
+ * separate subtrees agree on one number.
+ */
+:root {
+  --wyn-bottom-nav-height: 50px;
+}
+
 .route-with-bottom-nav {
-  --wyn-bottom-nav-height: 44px;
   /* Keep route content and the fixed bar on the same capped iOS inset. */
   padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));
 }
@@ -40,16 +53,16 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  padding: 2px 3px 3px;
+  padding: 1px 3px 2px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   color: var(--wyn-text-secondary);
   text-decoration: none;
-  font-size: 11.5px;
+  font-size: 10px;
   line-height: 1;
   font-weight: 400;
   -webkit-tap-highlight-color: transparent;
@@ -83,16 +96,16 @@
 }
 
 .route-nav-glyph {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: block;
-  flex: 0 0 24px;
+  flex: 0 0 28px;
   color: currentColor;
 }
 
 .route-create-button {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   background: transparent;
@@ -100,14 +113,14 @@
 }
 
 .route-create-button .route-nav-glyph {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
 }
 
 .route-nav-icon-wrap {
   position: relative;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: block;
 }
 
@@ -117,26 +130,26 @@
 }
 
 @media (max-width: 359px) {
-  .route-with-bottom-nav {
-    --wyn-bottom-nav-height: 42px;
+  :root {
+    --wyn-bottom-nav-height: 48px;
   }
 
   .route-nav-link {
-    gap: 2px;
-    font-size: 10.5px;
+    gap: 1px;
+    font-size: 9.5px;
   }
 
   .route-nav-glyph,
   .route-create-button,
   .route-nav-icon-wrap {
-    width: 24px;
-    height: 24px;
-    flex-basis: 24px;
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
   }
 }
 
 @media (min-width: 681px) {
-  .route-with-bottom-nav {
+  :root {
     --wyn-bottom-nav-height: 64px;
   }
 
