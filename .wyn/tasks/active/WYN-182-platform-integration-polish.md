@@ -102,3 +102,68 @@ Component: `components/home/home-screen.tsx`, `components/notifications-route.ts
 ใหม่: `lib/use-pull-to-refresh.ts`, `lib/use-is-developer-account.ts`
 
 → ส่งต่อ **AI QA & Security** ตรวจซ้ำอิสระก่อนเข้า Deploy gate (ห้ามเชื่อ self-report ของ AI Coding ตามมาตรฐานเดิมของ epic)
+
+## QA (AI QA & Security, 2026-09-20)
+
+**หมายเหตุ environment ก่อนเริ่ม (สำคัญ ไม่ใช่บั๊กของ WYN-182 แต่เป็น process finding ที่ต้องบันทึก)**: worktree ที่ได้รับมอบหมาย (`.claude/worktrees/agent-a276daa8c6894895c`) ตอนเริ่มงานอยู่ที่ branch `worktree-agent-a276daa8c6894895c` (HEAD = merge commit `3239b681`, PR #561) ซึ่ง**ไม่มี** commit `f58586a1` อยู่ในประวัติเลย (`git merge-base --is-ancestor f58586a1 HEAD` = false) — ไฟล์ `web/lib/use-pull-to-refresh.ts`/`use-is-developer-account.ts` ไม่มีอยู่จริงในต้นไม้ของ worktree เลยตอนนั้น ตรวจพบตอนรัน `npm run dev`/build แล้วเจอ "Module not found" หลัง `npm run build` รอบแรกผ่าน (เพราะรอบแรก build จากโค้ดคนละคอมมิทโดยไม่รู้ตัว) แก้ด้วย `git checkout --detach f58586a1` เข้า worktree เดิม (ไม่แตะ branch `claude/wynos-online-version-1pqqws` ที่ worktree อื่นเช็คเอาท์อยู่ ไม่ force push/rewrite ใดๆ) ยืนยัน `git log -1` = `f58586a1` และไฟล์ `lib/` ครบถูกต้องก่อนเริ่มตรวจใหม่ทั้งหมด — **ทุกผลลัพธ์ด้านล่างนี้มาจากการตรวจซ้ำบนคอมมิท `f58586a1` จริงเท่านั้น** (lint/typecheck/build/regression suite รอบแรกที่รันผิดคอมมิทถูกทิ้งไปทั้งหมด ไม่ถูกนับ)
+
+**Test Cases**: อ่าน diff จริงทีละไฟล์ (`git show f58586a1`) + re-verify cascade ทุก selector ที่แก้ด้วย grep ทั้ง repo (ไม่ใช่แค่ `app/`) อิสระจาก AI Coding + ตรวจ `layout.tsx` CSS import order + อ่านโค้ดเต็มไฟล์ `use-pull-to-refresh.ts`/`use-is-developer-account.ts`/`home-screen.tsx`/4 หน้าที่ wire ทีละบรรทัด + พิสูจน์ทางคณิตศาสตร์ซ้ำเองว่าเงื่อนไข pull-gesture กับ tab-swipe mutually exclusive จริง (ไม่เชื่อคำอ้าง "พิสูจน์แล้ว") + สร้าง Playwright harness ใหม่ทั้งหมดของตัวเอง (ไม่ reuse ของ AI Coding) รันกับ dev server จริง ใช้ CDP `Emulation.setSafeAreaInsetsOverride` จำลอง notch จริง + สร้าง dev-only fixture ของตัวเองมาวาง hook จริง (`usePullToRefresh`) แล้วจำลอง touch gesture จริงผ่าน CDP `Input.dispatchTouchEvent` + typecheck/lint/build อิสระ + รัน regression suite เต็ม (`npx playwright test`) หลังติดตั้ง browser binaries เอง + ตรวจ RPC `is_developer_account()` ใน `supabase/schema.sql` (SECURITY DEFINER, fail-closed, auth.uid()-only)
+
+### A. Safe-area (3 จุด)
+ยืนยันตรงตาม diff ที่อ้างเป๊ะทั้ง 3 จุด (`profile-golden-final.css:200-212`, `club-detail-golden.css:31`, `parity-final.css:219`) — grep ทั้ง repo (ไม่ใช่แค่ `app/`) ยืนยันทั้ง 3 selector ประกาศ base rule ครั้งเดียวเท่านั้น ไม่มี selector อื่นแตะ `height`/`padding-top`/`padding-bottom` ของ 3 ตัวนี้ซ้ำที่ไหนเลย (child selector อย่าง `.golden-club-tabs button` ไม่กระทบ parent) — ไม่มีความเสี่ยง cascade แบบ WYN-175 จริง `layout.tsx` import `globals.css` เป็นไฟล์แรกสุด (บรรทัด 8) แต่ไม่มีผลต่อ tie-break เพราะไม่มี selector คู่แข่งอยู่แล้ว
+
+Live verification ด้วย CDP `Emulation.setSafeAreaInsetsOverride` (top:47/bottom:34 จำลอง iPhone notch) บน dev server จริง: `.wyn-profile-tabs` computed `height`=103px `padding-top`=47px ตรงสูตร `calc(56px+inset)` เป๊ะ, `.golden-club-tabs` computed `height`=101px `padding-top`=47px ตรงสูตร `calc(54px+inset)`, `.drawer-menu-list` computed `padding-bottom`=34px ตรง `env(safe-area-inset-bottom)` — รีเซ็ต inset=0 (จำลอง Android ส่วนใหญ่ไม่มี notch) ยืนยัน 3 selector กลับมาเหมือนค่าก่อนแก้เป๊ะ (56px/54px/0 โดยไม่มี padding เพิ่ม) **ไม่มี regression บนอุปกรณ์ไม่มี notch**
+
+### B. Overscroll (7 declaration)
+ยืนยันทั้ง 7 จุดตรงตามที่อ้าง (`globals.css` html/body + 6 sheet/modal) grep ทั้ง repo ยืนยันซ้ำเองว่าทั้ง 6 selector (ไม่รวม html/body) ประกาศครั้งเดียวในทั้งระบบ อ่าน `phase3.css:471-472` เอง (media query `min-width:681px`) ยืนยันแก้แค่ `border-radius` จริง ไม่แตะ `overflow`/`overscroll-behavior` ตามที่ AI Coding อ้าง และอ่าน `system-parity-lock.css:472-473` เพิ่มเติมเอง (จุดที่ AI Coding ไม่ได้พูดถึง แต่ก็แตะ `.route-modal-backdrop:has(...)` เหมือนกัน) พบว่าแก้แค่ `padding`/`align-items` สำหรับ composer variant เท่านั้น ไม่กระทบเช่นกัน — ยืนยัน cascade ปลอดภัยครบ
+
+Live verification (browser จริง ไม่ใช่แค่อ่าน source): computed `overscroll-behavior-y` = `contain` ทั้ง `html` และทั้ง 6 selector (`.route-modal`, `.requests-modal`, `.detail-activity-content`, `.golden-drop-sheet`, `.golden-club-sheet`, `.audit-action-sheet`) — ยืนยัน cascade ชนะจริงในเบราว์เซอร์ ไม่ใช่แค่ใน source
+
+### C. Pull-to-refresh
+อ่าน `use-pull-to-refresh.ts`/`use-is-developer-account.ts` เต็มไฟล์ — คุณภาพโค้ดดี: fail-closed โดยธรรมชาติ (`useState(false)` ไม่เปลี่ยนจนกว่า RPC ตอบ `true` จริง), ใช้ `refreshingRef` (ref) แทน state ธรรมดาสำหรับ gating ภายใน hook เอง (แม่นยำกว่าเดิมที่อ่าน closure state ที่อาจ stale)
+
+**พิสูจน์ mutual-exclusivity ซ้ำเอง** (ไม่เชื่อคำอ้าง): เทียบเงื่อนไขจริงบรรทัดต่อบรรทัดระหว่าง hook ใหม่กับโค้ดเดิมก่อนแก้ (`git show f58586a1^:web/components/home/home-screen.tsx`) — เงื่อนไข trigger ของ hook (`deltaY>0 && |deltaY|>1.1|deltaX|`) implies `|deltaY|>|deltaX|` เสมอ (เพราะ 1.1>1) ซึ่งขัดแย้งกับเงื่อนไข swipe เดิม (`|deltaX|>8 && |deltaX|>|deltaY|`) โดยธรรมชาติทางคณิตศาสตร์ — ตรวจแล้วว่า mutually exclusive จริง ไม่ใช่แค่คำกล่าวอ้าง และไล่เทียบทุก branch (onTouchMove/onTouchEnd/onTouchCancel) ระหว่างโค้ดเก่ากับใหม่ทีละเงื่อนไข ยืนยัน behavior เทียบเท่ากันทุกกรณี รวมถึงกรณี "pull สำเร็จแล้ว spring-back ไม่ trigger switchMode ซ้ำ" ที่ AI Coding อ้างไว้
+
+**Wiring 4 หน้า** (grep+read จาก `git show f58586a1` และไฟล์จริงใน worktree หลังแก้ checkout แล้วตรงกัน 100%):
+- Notifications (`notifications-route.tsx:189-190`): `enabled: isDeveloper`
+- Bookmarks (`bookmarks-route.tsx:47-48`): `enabled: isDeveloper`
+- Profile feed (`profile-route.tsx:86-87`): `enabled: isDeveloper`
+- Club detail (`club-detail-golden.tsx:558-559`): `enabled: isDeveloper && tab === "posts"` — **ตรวจ trace เอง ไม่เชื่อว่ามี `&& tab === "posts"` แล้วจบ**: touch handler (`pull.onTouchStart/Move/End/Cancel`) ผูกอยู่กับ `<section className="golden-club-posts">` ที่ render เฉพาะตอน `tab === "posts"` เท่านั้น (อยู่ใน ternary `{tab === "posts" ? (...) : tab === "chat" ? ... : ...}`) — เป็น double-guard (ทั้ง `enabled` prop และ DOM ไม่ถูก mount เลยตอนอยู่แท็บอื่น) ปลอดภัยกว่าที่ spec ขอด้วยซ้ำ
+- Home (`home-screen.tsx:441`): `enabled: () => mode === visibleModeRef.current` — **ไม่มี** `useIsDeveloperAccount` ใน import/เนื้อไฟล์เลย (grep ยืนยัน 0 match) — Home ยังคง ungated ตรงตาม Founder decision
+
+**ตรวจ pattern บั๊กที่ session นี้เจอซ้ำๆ (guard ใส่ไม่ครบทุกจุดใน batch เดียวกัน แบบ WYN-176)**: ไล่ทั้ง 4 จุดแล้ว **ไม่พบ** ความไม่สม่ำเสมอ — ทุกจุด gate ด้วย `isDeveloper` ครบ, Club detail เพิ่ม tab-scope ถูกต้อง, Home ไม่ gate ตามที่ควรจะเป็น ไม่มีจุดไหนลืม/ใส่ผิด
+
+**Live gesture test อิสระ**: สร้าง dev-only fixture ของตัวเอง (`app/dev/qa-wyn182-ptr-fixture/page.tsx`, mount `usePullToRefresh` ของจริงตรงๆ ไม่ mock) ลบทิ้งหลังใช้แล้ว รันผ่าน CDP `Input.dispatchTouchEvent` จำลองการลากนิ้วจริง:
+- gate ปิด (ค่าเริ่มต้น) → ลากเกิน threshold → `onRefresh` **ไม่ถูกเรียกเลย** และ `pullDistance` ไม่ขยับแม้แต่น้อย (ยืนยัน fail-closed สมบูรณ์ ไม่ใช่แค่ปิดปลายทาง)
+- เปิด gate → ลากเกิน threshold → `onRefresh` ถูกเรียก**พอดี 1 ครั้ง**
+- เปิด gate → ลากสั้นกว่า threshold → ไม่ trigger
+- เปิด gate → ลากแนวนอนล้วนๆ → ไม่ trigger (sanity check mutual-exclusivity เวอร์ชัน generic)
+- ปิด gate กลับ → ลากเกิน threshold อีกครั้ง → ไม่ trigger (ยืนยัน toggle กลับทำงานถูกต้อง ไม่ค้างสถานะเดิม)
+
+**ข้อจำกัดที่ยืนยันตรงกับที่ AI Coding แจ้งไว้ (ตรวจสอบเองแล้ว ไม่ใช่แค่เชื่อ)**: environment นี้ไม่มี Supabase backend จริงเช่นกัน (ตรวจแล้ว: ไม่มี `.env.local`, ไม่มี `NEXT_PUBLIC_SUPABASE_*` ใน env variables เลย) — จึงทดสอบ live gate ผ่าน RPC จริงกับบัญชี dev/ทั่วไปจริงไม่ได้ในรอบนี้เช่นกัน **ยังต้องทดสอบบน staging/production ที่มี Supabase จริงก่อนเปิดให้ non-dev เห็นฟีเจอร์นี้** — สิ่งที่ตรวจแทนได้และตรวจแล้ว: (1) ฟังก์ชัน `is_developer_account()` เอง (`supabase/schema.sql:14079-14092`) เป็นกลไกเดิมที่ผ่าน QA มาแล้วจาก WYN-125 (SECURITY DEFINER, เช็คแค่ `auth.uid()` ของผู้เรียกเอง, ไม่มี SELECT policy ให้ client เห็น, fail-closed สมบูรณ์) WYN-182 ไม่ได้แก้ RPC/schema/RLS ใดๆ เลย ใช้ตรงๆ ตามที่มีอยู่แล้ว (2) hook wrapper (`use-is-developer-account.ts`) ฝั่ง client เรียก RPC ถูกต้อง fail-closed ถูกต้อง (3) กลไก gesture ของ hook เองทำงานถูกต้อง 100% (ยืนยันด้วย live test ข้างบน) จุดเดียวที่ยืนยันไม่ได้ในนี้คือ "RPC ตอบ `true` จริงสำหรับบัญชี dev จริงบน production DB" ซึ่งเป็น environment-only gap ไม่ใช่ code defect และ (4) native pull-to-refresh ของ Android Chrome จริงต้องทดสอบบนอุปกรณ์จริงเท่านั้น (Chromium headless ไม่ reproduce พฤติกรรมระดับ browser chrome นี้) — ยังไม่ได้ยืนยัน ต้องทำก่อนเปิดวงกว้าง
+
+### D. Regression + Build
+`npm run lint`: 0 errors, warning 3 จุดเดิม (`chat-inbox-parity.tsx`, `home-screen.tsx`, `profile-route.tsx`) — ยืนยันเป็น pre-existing จริงด้วยการเทียบโค้ดกับ parent commit (`f58586a1^`) เอง ไม่ใช่แค่เชื่อคำอ้าง
+`npm run typecheck`: ผ่านสะอาด 0 error
+`npm run build`: สำเร็จ ไม่มี error, ทุก route generate ครบ (31 route)
+`git status` หลัง build: สะอาด ไม่มี `next-env.d.ts` diff ค้าง
+Regression suite เต็ม (`npx playwright test`, ติดตั้ง chromium+webkit binaries เองก่อนรัน): **159/159 ผ่านทั้งหมด (0 failed)** — ดีกว่า baseline ที่ระบุไว้ใน task brief (6 failures จาก missing `chromium_headless_shell`) เพราะ environment นี้ติดตั้ง browser binary ครบ ไม่มี failure ที่เกี่ยวหรือไม่เกี่ยวกับ diff นี้เลย
+
+### E. Security Review
+`is_developer_account()` (`supabase/schema.sql:14062-14102`): `SECURITY DEFINER`, เช็คเฉพาะ `auth.uid()` ของผู้เรียกเอง ไม่รับ parameter (ไม่มีทาง enumerate บัญชีคนอื่น), ตาราง `developer_accounts` ไม่มี SELECT policy ให้ client เลย (อ่านได้ผ่านฟังก์ชันนี้ทางเดียว), fail-closed ด้วย `coalesce(..., false)` — **เป็นกลไกที่ deploy และผ่าน QA ไปแล้วตั้งแต่ WYN-125** WYN-182 ไม่แตะ schema/RLS/RPC นี้เลย เรียกใช้ตรงๆ เหมือนที่ `settings-route.tsx` ทำอยู่แล้ว — ไม่ใช่ security boundary ใหม่ที่ต้อง re-review ทั้งหมด เป็นแค่ UI-level staged-rollout flag (ไม่ใช่ authorization boundary จริง เพราะ pull-to-refresh ไม่ได้เปิด data access ใหม่ใดๆ — `refresh()`/`load()` ของทั้ง 4 หน้าเรียก fetch function เดิมที่มีอยู่แล้วซึ่งผ่าน RLS ปกติอยู่แล้ว ไม่มี query ใหม่)
+
+ตรวจ diff ทั้งหมดยืนยันไม่มีการแก้ schema/RLS/migration/auth architecture ใดๆ เลย (`git show f58586a1 --stat` มีแค่ CSS 9 ไฟล์ + component 5 ไฟล์ + lib ใหม่ 2 ไฟล์ + doc 2 ไฟล์ ไม่มี `supabase/` เลย) — ไม่ลดระดับ security policy ใดๆ ตรงตามกติกา `AGENTS.md`
+
+**Passed**: 24/24 live-check เองผ่านทั้งหมด (safe-area 8, overscroll 7, pull-to-refresh gesture 9) + wiring/cascade/mutual-exclusivity source-review ทุกจุดตรงตามที่อ้าง + typecheck/lint/build สะอาด + regression suite 159/159
+
+**Failed**: ไม่มี — ไม่พบบั๊กใหม่จาก diff นี้เลยสักจุด
+
+**Severity**: N/A (ไม่มี CRITICAL/HIGH/MEDIUM/LOW บั๊กจากตัว diff เอง)
+
+**Security Findings**: ไม่มี CRITICAL/HIGH — ไม่แตะ RLS/auth architecture, ไม่มี new data-access surface, staged-rollout flag เดิมที่ผ่าน review แล้วจาก WYN-125 ถูกใช้ตรงตามที่ออกแบบไว้
+
+**หมายเหตุ LOW ที่พบเอง (ไม่ block, เป็น process/operational finding ไม่ใช่บั๊กใน diff)**: worktree assignment ที่ได้รับตอนเริ่มงาน HEAD ไม่ตรงกับคอมมิทที่ต้องตรวจจริง (ดูหมายเหตุ environment ด้านบน) แนะนำ DevOps/CTO ตรวจสอบ process การ assign worktree ให้ QA agent ว่า sync กับ branch ที่ระบุใน task ก่อนส่งมอบงานเสมอ เพื่อไม่ให้ QA agent อื่นในอนาคตตรวจโค้ดผิดคอมมิทโดยไม่รู้ตัว (ครั้งนี้จับได้เพราะ build error ชัดเจน แต่ถ้า AI Coding ไม่ได้เพิ่มไฟล์ใหม่ ควรมีจุดสังเกตอื่นที่ชัดกว่านี้)
+
+**Recommendation**: Approve — WYN-182 พร้อมเข้า Deploy gate ต่อ (CTO Final Review → Staging) โดยมีเงื่อนไขต้องยืนยันก่อนเปิดฟีเจอร์ pull-to-refresh ให้ non-developer account เห็นจริง (ตามที่ออกแบบไว้แต่แรกว่าต้อง staged-rollout): (1) ทดสอบ `is_developer_account()` gate จริงบน staging ด้วยบัญชี dev และบัญชีทั่วไป ยืนยัน gate เปิด/ปิดถูกต้อง (2) ทดสอบ pull-to-refresh จริงทั้ง 4 หน้าบนอุปกรณ์จริง โดยเฉพาะ Club detail ต้องไม่ทำงานตอนแท็บแชท/เกี่ยวกับ (3) ทดสอบ Android Chrome จริงว่า native pull-to-refresh ไม่ชนซ้อนกับของแอปอีกต่อไป — ทั้ง 3 ข้อนี้เป็นเงื่อนไขที่ AI Coding เองก็ระบุไว้แต่แรกว่าต้องรอ environment ที่มี Supabase จริง ไม่ใช่ finding ใหม่จาก QA รอบนี้ ไม่ block การเข้า Deploy gate (staging) แต่ต้อง verify ก่อน production widen scope ให้ non-dev เห็น
+
+**Final Status: PASS**
