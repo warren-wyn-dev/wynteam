@@ -2387,3 +2387,11 @@ AI QA & Security ตรวจอิสระ 15 หัวข้อ (diff, alpha 
 **สรุป: WYN-181 (Track 3 ของ WYN-174) เสร็จสมบูรณ์ฝั่ง implementation/QA ทั้ง 2 sub-task แล้ว** (install prompt banner + iOS splash screen) — รอ Founder สั่งเปิด PR แล้วยืนยัน production จริงบนอุปกรณ์ตาม acceptance criteria เดิม
 
 อ้างอิง: `.wyn/tasks/active/WYN-181-install-launch-experience.md`
+
+## [2026-09-20] WYN-181 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+Founder ตอบ "ต่อเลย" → "พร้อม" — ตรวจ branch ไม่ diverge จาก `main` (อัปเดตล่าสุดจาก PR #561 อยู่แล้ว) รัน typecheck/lint/build อิสระอีกรอบสะอาดหมด เปิด PR #562 Founder merge เองภายในไม่กี่วินาที → `WYN-158 Production Deploy` run #149 **success** ทุก step (preflight/Vercel deploy/verify production routes) → post-merge `CI` run #1421 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด
+
+WYN-181 ทั้ง implementation, QA และ deploy เสร็จสมบูรณ์แล้ว — ยังไม่ย้าย task ไป `completed/` รอ Founder เปิดแอปจริงบน `wynos.online` ยืนยัน (1) install banner ทำงานถูกต้องบน Android/iOS (2) splash screen ตอนเปิดจาก home screen บน iOS ขึ้นถูกต้องไม่ใช่จอขาว — เช่นเดียวกับ WYN-176 (batch 1-6) ที่ deploy ครบแล้วเช่นกัน รอยืนยัน physical device อยู่
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-181-install-launch-deploy.md`
