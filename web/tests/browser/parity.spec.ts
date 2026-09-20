@@ -179,7 +179,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(clubs).not.toContain("Club แนะนำสำหรับคุณ");
   expect(clubPage).toContain("ClubDetailGoldenRoute");
   for (const label of ["โพสต์", "แชท", "เกี่ยวกับ", "รายละเอียด", "สมาชิก", "กิจกรรม", "Insights", "เข้าร่วม", "รออนุมัติ", "รายงาน Club", "ปิดการแจ้งเตือน Club นี้", "บันทึก", "ปักหมุด"]) expect(clubGolden).toContain(label);
-  for (const contract of ["fetchClubPostsForClub", "toggleClubPostSave", "toggleClubPostPin", "voteClubPostPoll", 'from("club_channel_messages")', "mark_club_channel_read", "club_notification_mutes", 'rpc("club_insights"', "submit_report"]) expect(clubGolden).toContain(contract);
+  for (const contract of ["fetchClubPostsForClub", "toggleClubPostSave", "toggleClubPostPin", "voteClubPostPoll", 'from("club_channels")', 'from("club_channel_messages")', 'from("club_events")', "mark_club_channel_read", "club_notification_mutes", 'rpc("club_insights"', "submit_report"]) expect(clubGolden).toContain(contract);
   expect(clubGolden).toContain(`${"${clubId}"}/chat/${"${channelId}"}/${"${userId}"}-${"${Date.now()}"}`);
   expect(clubGoldenCss).toContain("height: 140px");
   expect(clubGoldenCss).toContain("grid-template-columns: repeat(3, 1fr)");
