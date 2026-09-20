@@ -52,3 +52,14 @@ Spec เต็ม: `.wyn/docs/design/wyn-182-platform-integration-polish.md`
 **Audit 2 (Overscroll/PTR)**: ยืนยัน `html`/`body` ไม่มี base `overscroll-behavior` จริง — เสี่ยงสูงเพราะ Home/Club/Chat/Profile scroll ผ่าน document ตรงๆ ไม่มี nested container และ Home's PTR ไม่เรียก `preventDefault()` เลย (เสี่ยง native Android pull-to-refresh ชนซ้อน) พบ scroll container ขาด `overscroll-behavior` อีก 6 จุด (action sheet/modal ที่ reuse กว้าง) วิเคราะห์กลไก PTR ของ Home ละเอียดสำหรับ extract เป็น hook กลาง ตรวจทีละหน้าจริงแล้วแนะนำเพิ่ม PTR ที่ Club posts tab, Notifications, Bookmarks (Profile feed เข้าเกณฑ์เดียวกันแต่เสนอแยกเป็นตัวเลือก ไม่รวม default)
 
 **รอ Founder ตัดสินใจ 3 ประเด็นก่อน AI Coding เริ่ม**: (ก) safe-area tabs 2 จุดที่เปลี่ยน spacing บนอุปกรณ์มี notch (ข) `overscroll-behavior-y: contain` ที่ html/body ที่เปลี่ยนพฤติกรรม scroll ทั้งแอป (ค) PTR ใหม่ 3 หน้า (+Profile เป็นตัวเลือกเสริม) ต้อง gate ด้วย staged-rollout (`isDeveloperAccount()`) หรือไม่
+
+## Founder Decision (2026-09-20)
+
+ตอบผ่าน AskUserQuestion ครบ 3 ข้อ:
+1. **Safe-area tabs (`.wyn-profile-tabs`, `.golden-club-tabs`)** — **อนุมัติ** ให้แก้ตามที่เสนอ
+2. **`overscroll-behavior-y: contain` ที่ `html`/`body`** — **อนุมัติ** ให้แก้ตามที่เสนอ
+3. **Pull-to-refresh scope** — **อนุมัติให้รวม Profile feed เข้าไปด้วย เป็น 4 หน้ารวม**: Club detail (แท็บโพสต์), Notifications, Bookmarks, Profile feed — Founder ไม่ได้เลือกตัวเลือก "ไม่ต้อง gate" จึงยึดตาม default ที่ spec เสนอไว้: **gate ทั้ง 4 หน้าด้วย staged-rollout (`isDeveloperAccount()`)** ตาม WYN-125 เนื่องจากเป็น user-facing feature ใหม่
+
+**Scope สุดท้ายสำหรับ AI Coding**: fix proposal ข้อ 1-10 ทั้งหมดตาม spec (safe-area 3 จุด + overscroll 7 จุด รวม html/body) + extract pull-to-refresh hook จาก `home-screen.tsx` ไปใช้ใน 4 หน้า (Club posts tab, Notifications, Bookmarks, Profile feed) โดย gate ด้วย `isDeveloperAccount()` เป็นค่าเริ่มต้น
+
+→ ส่งต่อ **AI Coding** implement ตาม scope นี้
