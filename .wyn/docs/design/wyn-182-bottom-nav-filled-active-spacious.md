@@ -31,10 +31,13 @@ Components:
 6. **Label** — ทั้ง 5 แท็บยังแสดงข้อความเหมือนเดิมทุกสถานะ ไม่ซ่อน ไม่มีเงื่อนไขใหม่
 
 Interactions:
-- เพิ่มช่องไฟ `.route-nav-link`: `padding: 1px 3px 2px` → **`padding: 4px 4px 4px`**, `gap: 1px` → **`gap: 3px`** (ทุก breakpoint ที่มีอยู่ ปรับตามสัดส่วนเดิม — breakpoint แคบ <359px คงอัตราส่วนใกล้เคียง เช่น padding `3px 3px 3px`/gap `2px`)
+- เพิ่มช่องไฟ `.route-nav-link`: `padding: 1px 3px 2px` → **`padding: 2px 4px 3px`** (vertical รวม 3px→5px), `gap: 1px` → **`gap: 2px`** — คำนวณ slack จริงจากโค้ดปัจจุบันก่อนเลือกตัวเลข (ไม่ใช่กะประมาณ):
+  - หลัก (390px, bar 50px): content height ของ `.route-nav-link` = `50 - 2(padding บนของ .route-bottom-nav) - 0(safe-bottom ปกติ)` = **48px**; ปัจจุบันใช้จริง padding3+icon28+gap1+label~10 = **42px** → เหลือ slack 6px; เลข ใหม่ใช้ 44px (+2px vertical padding +1px gap) → เหลือ slack 4px ปลอดภัย
+  - แคบ (<359px, bar 48px): content = `48-2-0` = **46px**; ปัจจุบันใช้จริง padding3+icon26+gap1+label~9.5 = **39.5px** → slack 6.5px; เลขใหม่ใช้ ~41.5px → เหลือ slack 4.5px (breakpoint นี้ไม่ override padding/gap เอง จึงรับค่าเดียวกับหลักอัตโนมัติ ปลอดภัยเช่นกัน)
+  - กว้าง (≥681px floating dock, bar 64px, padding-bottom override เป็น 4px): content = `64-2-4` = **58px** — slack กว้างมาก (16px+) ไม่มีความเสี่ยง
+  - ตัวเลขนี้ผ่านการคำนวณ slack จริงจากค่าที่ implement อยู่ในโค้ดปัจจุบันแล้ว **แต่ AI Coding ยังต้อง render จริงแล้ววัดด้วย DOM ซ้ำอีกครั้งก่อนส่ง QA** (เรียนรู้จาก WYN-180 ที่เจอบั๊ก cross-subtree CSS scoping ที่ทุก harness ก่อนหน้าพลาดจับ — เลขคำนวณบนกระดาษไม่เคยแทนการ render จริงได้ 100%)
 - **ไม่แตะ** `--wyn-bottom-nav-height` (คงที่ 50px/48px/64px ตาม WYN-180 ที่เพิ่ง PASS QA) — เพิ่ม breathing room ด้วย padding ภายในคอลัมน์แทนการขยายความสูงบาร์ทั้งก้อน เพื่อไม่ชนงานที่เพิ่งอนุมัติ
 - Press feedback เดิมไม่เปลี่ยน: `transform: scale(var(--wyn-motion-press-scale))` (0.96) ที่ `:active`, `transition: transform var(--wyn-motion-duration) var(--wyn-motion-easing)` (160ms spring)
-- **ต้อง verify ด้วยตัวเลขจริง (DOM measurement)** ว่า padding ใหม่ไม่ทำให้ icon (28px) + label (10px) รวมกันล้นพื้นที่ 50px content height ที่มีอยู่ — คำนวณคร่าวๆ: padding บน+ล่าง 8px + icon 28px + gap 3px + label ~11px (line-height 1) = 50px พอดี แต่ **AI Coding ต้อง render จริงแล้ววัด ไม่เดาจากตัวเลขนี้อย่างเดียว** (เรียนรู้จาก WYN-180 ที่เจอบั๊ก cross-subtree CSS scoping ที่ทุก harness ก่อนหน้าพลาดจับ)
 
 States:
 - **Inactive**: icon `stroke="currentColor" stroke-width="1.9" fill="none"` (เหมือนเดิมทุกไอคอนยกเว้นที่ระบุ), `color: var(--wyn-text-secondary)`, `font-weight: 400`
