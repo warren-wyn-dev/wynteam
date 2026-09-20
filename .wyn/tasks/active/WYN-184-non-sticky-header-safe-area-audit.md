@@ -98,3 +98,65 @@ Grep ซ้ำยืนยันประกาศไฟล์เดียวใ
 CSS: `web/app/profile-golden-final.css`, `web/app/chat-notes.css` (2 ไฟล์เท่านั้น ตรงตาม scope ที่ Founder อนุมัติ)
 
 → ส่งต่อ **AI QA & Security** ตรวจซ้ำอิสระบนอุปกรณ์/เบราว์เซอร์ที่มี notch/Dynamic Island จริงก่อนเข้า Deploy gate (sandbox นี้ไม่มี Supabase backend จริง — QA ต้องยืนยันซ้ำบน environment ที่มี auth จริงว่า Profile/Profile follow list/Chat inbox หน้าจริง render header ถูกต้อง ไม่ใช่แค่ fixture ที่ inject เข้า `/welcome`)
+
+## QA (AI QA & Security, 2026-09-20)
+
+**หมายเหตุ environment ก่อนเริ่ม (ไม่ใช่บั๊กของ WYN-184 แต่เป็น process finding ที่ต้องบันทึกตามวินัยเดิมของ epic)**: worktree ที่ได้รับมอบหมาย ตอนเริ่มงาน HEAD = `17a1403c` (merge commit ของ PR #570) ซึ่ง**ไม่ตรง**กับ `568997d2` ที่ต้องตรวจ (`git log -1` ไม่ match ตั้งแต่แรก) — `git status` ยืนยัน working tree สะอาดก่อนแก้ จึงปลอดภัยที่จะ `git checkout --detach 568997d2` ในเฉพาะ worktree ของตัวเอง (ไม่แตะ branch/worktree อื่น ไม่ force push/rewrite ใดๆ) ยืนยัน `git log -1` = `568997d2af3945114fb697824119285034096297` ตรงเป๊ะก่อนเริ่มตรวจใหม่ทั้งหมด — **ทุกผลลัพธ์ด้านล่างมาจากคอมมิทนี้จริงเท่านั้น**
+
+**Test Cases**: อ่าน diff จริง (`git show 568997d2`) + grep ทั้ง repo อิสระ (ไม่จำกัด extension) ยืนยัน cascade ทั้ง 2 selector เอง ไม่เชื่อคำอ้างของ AI Coding + ตรวจ `layout.tsx` CSS import order เอง + ติดตั้ง `npm install` + Playwright browser binaries (`chromium`, `chromium-headless-shell`, `webkit` — มีอยู่แล้วที่ `/opt/pw-browsers` ในสภาพแวดล้อมนี้) + สร้าง Playwright harness ของตัวเองใหม่ทั้งหมด (ไม่ reuse ของ AI Coding ซึ่งลบไปแล้ว) รันกับ `next dev` จริง ใช้ CDP `Emulation.setSafeAreaInsetsOverride` จำลอง notch จริงทั้งกรณี notch/non-notch + typecheck/lint/build อิสระ + รัน regression suite เต็ม (`npx playwright test`, 159 test ทั้ง 3 project) + ตรวจ `pixel-parity-audit-closure.css` ไม่ถูกแตะ + ตรวจ security surface ของ diff
+
+### 1. `.wyn-profile-topbar` (`web/app/profile-golden-final.css`)
+ยืนยัน CSS แก้ตรงตามที่อ้างเป๊ะ (`height: calc(52px + env(safe-area-inset-top))`, `padding: env(safe-area-inset-top) 4px 0`) grep ทั้ง repo ทุกนามสกุลไฟล์ (ไม่จำกัด `.css`/`.tsx`) ยืนยันมีแค่ 1 base rule (`profile-golden-final.css:10`) ในทั้ง repo — sub-selector อื่น (`button`, `strong`, `.wyn-profile-account-switcher`) เป็น descendant selector ที่ไม่กระทบ `height`/`padding` ของ parent เอง ไม่มี cascade risk จริง
+
+Live verification ด้วย CDP `Emulation.setSafeAreaInsetsOverride` (inject markup จริงเข้า `/welcome` ที่โหลด global stylesheet bundle จริงจาก `layout.tsx`): notch (top=59px) → computed `padding-top`=59px, `height`=111px (ตรงสูตร `52+59`) เป๊ะ; non-notch (top=0) → `padding-top`=0px, `height`=52px **เหมือนค่าก่อนแก้ทุกประการ ไม่มี regression**
+
+### 2. `.flutter-chat-header` cascade — ประเด็นความเสี่ยงสูงสุด
+
+**Re-derive cascade อิสระทั้งหมดเอง (ไม่เชื่อ grep/สรุปของ AI Coding แม้แต่จุดเดียว)**: grep `flutter-chat-header` ทั้ง repo (ไม่จำกัด extension) พบตรงกับที่ AI Coding อ้าง **5 rule declaration ใน 4 ไฟล์**:
+
+| # | ไฟล์:บรรทัด | Selector | Specificity | `!important` | padding-top |
+|---|---|---|---|---|---|
+| A | `system-parity-lock.css:209` | `.flutter-chat-header` | (0,1,0) | ไม่มี | `0` |
+| B | `pixel-parity-audit-closure.css:9` | `.flutter-chat-header` | (0,1,0) | ไม่มี | `env(safe-area-inset-top)` (dead code) |
+| C | `notifications-clean.css:206` | `.flutter-chat-header` | (0,1,0) | มี | `8px` |
+| D | `chat-notes.css:11` | `.wyn-chat-inbox .flutter-chat-header` | (0,2,0) | มี | `8px` |
+| E | `chat-notes.css:537` | `.wyn-chat-inbox .flutter-chat-header` | (0,2,0) | มี | `6px` → หลังแก้ = `calc(env(safe-area-inset-top)+6px)` |
+
+**บทสรุปการไล่ cascade ของตัวเอง**: (1) `!important` ทั้งหมดชนะ non-`!important` ก่อนเสมอไม่สนใจ specificity/order → ตัด A, B ทิ้ง (2) เหลือ C/D/E ที่มี `!important` — C specificity (0,1,0) ต่ำกว่า D/E (0,2,0) → ตัด C ทิ้ง (3) D กับ E specificity เท่ากัน อยู่ไฟล์เดียวกัน (`chat-notes.css`) — source order tie-break: บรรทัดหลังชนะ → **E (บรรทัด 537) ชนะ D (บรรทัด 11)** ยืนยัน `layout.tsx` import order เองด้วย (`system-parity-lock.css:25` → `pixel-parity-audit-closure.css:29` → `notifications-clean.css:40` → `chat-notes.css:41`) ตรงตามที่อ้าง แต่ไม่ใช่ปัจจัยตัดสินในกรณีนี้เพราะ D/E อยู่ไฟล์เดียวกันอยู่แล้ว ตรวจ media query เสริม (`:497`, `:744`) ด้วยตัวเอง ยืนยันแก้แค่ `padding-left`/`padding-right` ไม่แตะ `padding-top`/`height` จริง ไม่กระทบผลสรุป
+
+**ผลการ re-derive อิสระของ QA: ตรงกับที่ AI Coding อ้าง 100% ไม่มี discrepancy — rule ที่ชนะจริงคือ `chat-notes.css:537-542` (E) ซึ่งเป็น rule เดียวกับที่ถูกแก้ในคอมมิทนี้ ไม่ใช่ no-op**
+
+**Live verification** (สำคัญที่สุด — ไม่ใช่แค่ตรวจ source): inject markup จริงพร้อม wrapper `.wyn-chat-inbox`, notch (top=59px) → computed `padding-top`=65px (ตรงสูตร `59+6`), `height`=127px (ตรงสูตร `68+59`); non-notch → `padding-top`=6px, `height`=68px **เหมือนค่าก่อนแก้ ไม่มี regression** ยืนยันเพิ่มด้วย signature check: computed `grid-template-columns` เริ่มด้วย `"40px"` ซึ่งเป็นค่าเฉพาะของ rule E เท่านั้น (A/B ใช้ 48px/56px, C/D ใช้ 48px) — พิสูจน์ว่า rule ที่แก้เป็นตัวที่ชนะ cascade จริงในหน้าที่ render จริง ไม่ใช่แค่การเดาจาก source
+
+ยืนยัน `pixel-parity-audit-closure.css:9-11` **ไม่ถูกแตะ** (`git diff 568997d2^ 568997d2 -- web/app/pixel-parity-audit-closure.css` ว่างเปล่า) ตรงตาม scope ที่ Founder อนุมัติ (ห้ามแก้ dead code)
+
+### 3. Regression + Build — **พบบั๊กจริงที่ AI Coding ไม่จับได้**
+`npm run lint`: 0 error, warning 3 จุดเดิม (`chat-inbox-parity.tsx`, `home-screen.tsx`, `profile-route.tsx`) ตรงตามที่อ้าง
+`npm run typecheck`: ผ่านสะอาด 0 error
+`npm run build`: สำเร็จ ไม่มี error, generate ครบ 31/31 route
+`git status` หลัง build/dev: มี `web/next-env.d.ts` ถูก auto-touch จริงตามที่ AI Coding อธิบาย (`next dev`/`next build` เปลี่ยน path เป็น `.next/dev/types/...`) — revert แล้วด้วย `git checkout -- web/next-env.d.ts` ยืนยัน `git status` สะอาด
+
+**Regression suite เต็ม (`npx playwright test`, ติดตั้ง `chromium`/`chromium-headless-shell`/`webkit` ครบเองก่อนรัน)**: **3 failed / 156 passed** (ไม่ใช่ 159/159 แบบ WYN-182 QA) — **ทั้ง 3 failure ไม่ใช่ baseline เดิม** (ไม่เกี่ยวกับ `chromium_headless_shell` ที่ขาดหาย เพราะ binary ติดตั้งครบแล้วในสภาพแวดล้อมนี้) แต่เป็น **regression จริงที่เกิดจาก diff นี้โดยตรง**: `tests/browser/parity.spec.ts:162` — `expect(profileGoldenCss).toContain("height: 52px")` fail ทั้ง 3 browser project (`webkit-iphone`, `chromium-android`, `chromium-desktop`) เพราะ WYN-184 เปลี่ยน `.wyn-profile-topbar { height: 52px; }` เป็น `height: calc(52px + env(safe-area-inset-top));` ทำให้สตริง literal `"height: 52px"` หายไปจากไฟล์จริง (grep ยืนยัน: ไม่มี match เหลือใน `profile-golden-final.css` อีกแล้ว) — reproduce ซ้ำแบบ isolated (`npx playwright test tests/browser/parity.spec.ts -g "source contracts cannot regress" --project=chromium-desktop`) ได้ผลเดิมทุกครั้ง ยืนยันด้วย `git show 568997d2^:web/app/profile-golden-final.css` ว่า parent commit มีสตริงนี้จริง (แปลว่า test นี้ผ่านมาก่อนหน้า diff นี้แน่นอน)
+
+**Root cause**: `parity.spec.ts:162` เป็น literal-string regression guard ที่ hardcode ค่าเก่า ไม่ทนต่อการเปลี่ยนแปลงที่ถูกต้องและอนุมัติแล้วของ WYN-184 — CSS ที่แก้ **ถูกต้อง** (ยืนยันด้วย live verification ข้างบนแล้ว) แต่ test ยังไม่อัปเดตตาม ต้องแก้ assertion ที่ test ไม่ใช่ CSS
+
+**สาเหตุที่ AI Coding พลาด**: validation ที่รายงานไว้มีแค่ `npm run check` (lint+typecheck+build) และ ad hoc harness ของตัวเอง — **ไม่ได้รัน `web/tests/browser/` (regression suite ที่มีอยู่แล้ว) เลย** ทั้งที่ task brief ของ epic ระบุไว้ชัดว่าต้องรัน — เป็นสาเหตุที่บั๊กนี้หลุดมาถึง QA แทนที่จะถูกจับตั้งแต่ตอน implement และ CI workflow `web-phase4-browser-qa.yml` (trigger บน PR ที่แตะ `web/**`) จะ fail แดงจริงถ้า merge ไปโดยไม่แก้
+
+รายละเอียด repro + fix proposal เต็ม: `.wyn/tasks/bugs/WYN-184-regression-suite-literal-height-assertion-broken.md`
+
+### 4. Security Review
+Diff เป็น pure CSS เปลี่ยนแค่ 2 property (`height`, `padding`) ของ 2 selector ที่มีอยู่แล้ว ไม่มี selector ใหม่ ไม่มี `url()`/`@import`/data-URI/`expression()` ใหม่ (grep ยืนยัน) ไม่แตะ component/JS/schema/RLS/auth ใดๆ เลย (`git show 568997d2 --stat` มีแค่ 2 ไฟล์ CSS + 1 ไฟล์ doc) ไม่มี data-access surface ใหม่ ไม่มี secret/credential ใน diff — **ไม่มี security finding ระดับใดเลย ตรงตามที่คาดไว้ว่าเป็น pure CSS change**
+
+**Passed**: safe-area live-check 9/9 (ของ QA เอง) + cascade re-derivation อิสระตรงกับ AI Coding 100% + lint/typecheck/build สะอาด + scope check (`pixel-parity-audit-closure.css` ไม่ถูกแตะ) + security review สะอาด
+
+**Failed**: Regression suite `tests/browser/parity.spec.ts:162` fail ทั้ง 3 browser project เนื่องจาก literal-string assertion เก่าไม่ทันการเปลี่ยนแปลงที่ถูกต้องของ WYN-184 (ดูรายละเอียด #3 ด้านบน)
+
+**Severity**: HIGH — ไม่ใช่ security bug และไม่กระทบผู้ใช้จริงบนอุปกรณ์ (CSS ที่แก้ถูกต้องและยืนยันแล้วด้วย live test) แต่เป็น regression suite ที่พังจริงจาก diff นี้โดยตรง ซึ่งเป็น required release gate ตาม requirement ของ WYN-184 เอง ("Regression: lint/typecheck/build ผ่าน + QA อิสระตรวจซ้ำ") และจะทำให้ CI workflow `web-phase4-browser-qa.yml` แดงจริงถ้าเข้า PR/merge โดยไม่แก้ — block release ตามกติกา QA gate ("ห้ามอนุมัติงานที่ยังไม่ได้ทดสอบจริง" + Definition of Done ต้องการ "tests ที่เกี่ยวข้องผ่าน")
+
+**Security Findings**: ไม่มี CRITICAL/HIGH/MEDIUM/LOW — pure CSS change ไม่มี security surface ใหม่
+
+**Recommendation**: **ส่งต่อ AI Debug Engineer** แก้ `web/tests/browser/parity.spec.ts:162` ให้ assertion ตรงกับ CSS ใหม่ที่ถูกต้อง (**ห้ามแก้ CSS กลับ** — ค่าที่แก้ไปแล้วถูกต้องตาม Founder approval และยืนยันด้วย live verification แล้ว) ดูรายละเอียดที่ `.wyn/tasks/bugs/WYN-184-regression-suite-literal-height-assertion-broken.md` หลังแก้แล้วให้ QA รัน `npx playwright test` เต็ม suite ซ้ำอีกรอบยืนยัน 0 failed ก่อนอนุมัติเข้า Deploy gate — **ไม่ต้องตรวจซ้ำ cascade/safe-area ของ 2 จุด CSS อีก** (ตรวจผ่านสมบูรณ์แล้วในรอบนี้ ทั้ง source-level cascade re-derivation และ live CDP rendering ไม่มี discrepancy กับที่ AI Coding อ้าง)
+
+**Final Status: FAIL**
+
+(หมายเหตุ: FAIL รอบนี้มาจาก regression suite เท่านั้น ไม่ใช่จากตัว fix ของ WYN-184 เอง — ทั้ง `.wyn-profile-topbar` และ `.flutter-chat-header` cascade fix ตรวจสอบอิสระแล้วว่าถูกต้อง 100% ตรงตามที่ AI Coding อ้างทุกจุด รวมถึง cascade analysis ที่เป็นความเสี่ยงสูงสุดของงานนี้)
