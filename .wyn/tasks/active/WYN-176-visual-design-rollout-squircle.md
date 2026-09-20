@@ -425,3 +425,11 @@ Founder สั่ง "ต่อเลย" — เตรียม deploy ให�
 รัน `typecheck`/`lint`/`build` อิสระอีกรอบหลัง merge สะอาดหมด + regression suite เต็ม (`parity.spec.ts`, `system-visual-parity.spec.ts`, `pixel-parity-pass-2.spec.ts`, `final-source-parity-gate.spec.ts`, `founder-visual-parity.spec.ts`) 54/54 ที่รันได้จริงผ่าน (6 fail เดิมจาก sandbox `chromium_headless_shell` binary mismatch ไม่เกี่ยวกับ diff นี้) + ตรวจ `home-visual-parity.spec.ts` เพิ่มเติมเพราะอีก session แก้ไฟล์นี้ด้วย ยืนยัน fail ทั้งหมดเป็น environment limitation เดิมเช่นกัน push ขึ้น branch แล้ว (`53de114f`)
 
 บันทึก deployment prep log ที่ `.wyn/logs/deployments/2026-09-20-wyn-176-batch4-6-deploy-prep.md` — ยังไม่เปิด PR รอ Founder ยืนยัน
+
+## Batch 4-6 Deploy (AI Deploy & DevOps, 2026-09-20)
+
+Founder ตอบ "พร้อม" — เปิด PR #561 (`claude/wynos-online-version-1pqqws` → `main`) รอ deploy preview เขียว (Netlify success) แล้ว Founder สั่ง "ต่อให้เสร็จเลย" — ติดตามจน Founder merge เอง (`3239b681`) → `WYN-158 Production Deploy` run #148 **success** ทุก step (preflight/Vercel deploy/verify production routes, ~1.5 นาที) → post-merge `CI` run #1419 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด
+
+ยังไม่ย้าย task ไป `completed/` — รอ Founder เปิด Profile/Settings, Search, Club จริงบน `wynos.online` ยืนยัน press feedback ทำงานถูกต้อง (พร้อมกับ batch 2/3 ที่ยังรอยืนยันอยู่)
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-176-batch4-6-deploy-prep.md`

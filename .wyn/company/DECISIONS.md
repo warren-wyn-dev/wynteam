@@ -2319,3 +2319,71 @@ AI QA & Security ตรวจซ้ำอิสระในอีก worktree �
 Founder สั่ง "ต่อเลย" — เตรียม deploy batch 4-6 พบว่า session คู่ขนานอื่น (WYN-179/180 ปรับขนาด bottom nav) merge เข้า `main` ไปแล้ว ชนไฟล์เดียวกันบางส่วน (`bottom-nav.css`, `parity.spec.ts`) — merge `main` เข้า branch สำเร็จอัตโนมัติไม่มี conflict เลย (ort strategy) ยืนยันการเปลี่ยนแปลงทั้งสองฝั่งอยู่ครบถูกต้องหลัง merge, รัน typecheck/lint/build + regression suite เต็มอิสระอีกรอบสะอาดหมด push ขึ้น branch แล้ว (`53de114f`)
 
 ยังไม่เปิด PR รอ Founder สั่งชัดเจน — อ้างอิง `.wyn/logs/deployments/2026-09-20-wyn-176-batch4-6-deploy-prep.md`
+
+## [2026-09-20] WYN-176 Batch 4-6 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+Founder ตอบ "พร้อม" — เปิด PR #561 รอ deploy preview เขียว Founder สั่ง "ต่อให้เสร็จเลย" — ติดตามจน Founder merge เอง (`3239b681`) → `WYN-158 Production Deploy` run #148 **success** ทุก step + post-merge `CI` run #1419 **success** — ตรวจสอบอิสระผ่าน GitHub Actions API ทั้งหมด
+
+WYN-176 ทุก batch (1-6) implementation + QA + deploy เสร็จสมบูรณ์แล้ว เหลือรอ Founder ยืนยัน production จริงบนมือถือ (batch 2/3/4-6) ก่อนปิด task ทั้งฉบับเป็น completed
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-176-batch4-6-deploy-prep.md`
+
+## [2026-09-20] WYN-181 (Track 3 ของ WYN-174) — เริ่ม Install & Launch Experience หลัง WYN-176 เสร็จ
+
+Founder สั่ง "ทำต่อเลย" — WYN-176 (Track 2) เสร็จสมบูรณ์แล้ว เริ่ม Track 3 ต่อตามลำดับ priority เดิมของ WYN-174 (P1 — Install & Launch Experience) ตรวจโค้ดจริงยืนยัน 2 ช่องว่าง: (1) ไม่มีการดัก `beforeinstallprompt`/`appinstalled` เลย พึ่ง native browser prompt อย่างเดียว (2) ไม่มี iOS splash screen เลย
+
+ทำ preview เทียบ banner ชวนติดตั้งแยก Android/Chrome (ปุ่มติดตั้งจริง) กับ iOS Safari (สอน manual steps เพราะ iOS ไม่มี API นี้เลย): https://claude.ai/artifact/3Ktj6GuRtW2oLZBTWkKuJv — Founder ตอบ **"โอเค ครับ"**
+
+## [2026-09-20] WYN-181 sub-task 1 (Install banner) — Coding เสร็จ ยืนยันด้วย harness จริง 10/10
+
+สร้าง `install-prompt-banner.tsx` + `install-prompt.css` mount ใน `layout.tsx` — ครอบคลุม 4 สถานการณ์ตาม spec (Android event จริง, iOS manual steps, dismiss persistence 7 วัน, standalone mode ไม่โชว์เลย)
+
+พบว่า Playwright Clock API ไม่ทำงานร่วมกับ Next dev server ได้ดี (fast-forward ไม่ trigger setTimeout ในคอมโพเนนต์) เปลี่ยนมาใช้ real wait 24 วินาทีต่อเคสแทน ยืนยันผ่าน **10/10** + typecheck/lint/build สะอาด + regression suite 54/54 ที่รันได้จริงผ่าน
+
+ย้าย task ไป `.wyn/tasks/active/` (จาก backlog) — เหลือ sub-task 2 (iOS splash screen) ยังไม่เริ่ม ส่งต่อ **AI QA & Security** ตรวจ sub-task 1 ก่อน
+
+## [2026-09-20] WYN-181 sub-task 1 — QA พบบั๊กจริง 2 จุด **FAIL**: iPad ไม่เห็น banner เลย + accept ไม่บันทึกการปิด
+
+AI QA & Security ทำ harness อิสระ 22 เคส พบ 2 บั๊กจริง: (1) **HIGH** — `isIos()` เช็คแค่ UA string ไม่รองรับ iPadOS 13+ ที่ Safari ปลอมตัวเป็น Mac desktop เป็นค่าเริ่มต้น (ไม่มีคำว่า "iPad" ใน UA เลย) ทำให้ banner ไม่มีทางโผล่บน iPad จริงเลยแบบเงียบๆ ถาวร กระทบอุปกรณ์ทั้งกลุ่มที่ scope นี้ตั้งใจรองรับ (2) **MEDIUM** — กด "ติดตั้ง" แล้ว accept ไม่เขียน dismissal timestamp ต่างจาก close/reject ผิดจาก spec ตรงๆ
+
+QA ยังค้นพบเทคนิค harness ที่เร็วกว่า real-wait — wrap `window.setTimeout` ให้ delay ยาวๆ เหลือสั้นแทน (ไม่ใช้ Clock API ที่ AI Coding ยืนยันแล้วว่าใช้ไม่ได้กับ Next dev) ทำให้ทดสอบ 20+ เคสเสร็จในไม่กี่วินาที
+
+Severity: HIGH/MEDIUM **Final Status: FAIL** — ส่งต่อ **AI Debug Engineer** แก้ไข
+
+## [2026-09-20] WYN-181 sub-task 1 — แก้บั๊กแล้ว ยืนยัน 7/7 + 10/10 ผ่าน
+
+แก้ 2 จุดใน `install-prompt-banner.tsx`: เพิ่ม `navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1` เข้า `isIos()` (มาตรฐานตรวจจับ iPad ปลอมตัวเป็น Mac) + `install()` เรียก `dismiss()` เสมอไม่ว่า outcome จะเป็นอะไร
+
+ใช้เทคนิค setTimeout-shrink ของ QA แทน real-wait — ตรวจ 7/7 จุดที่แก้ผ่าน + rerun harness เดิม 10/10 ยังผ่าน + typecheck/lint/build สะอาด ส่งต่อ **AI QA & Security** ตรวจซ้ำ
+
+## [2026-09-20] WYN-181 sub-task 1 — QA re-verify PASS พร้อมเข้า Deploy gate
+
+AI QA & Security ตรวจซ้ำอิสระในอีก worktree ยืนยันทั้งสองบั๊กแก้ถูกต้อง (12/13 harness ผ่าน) — จุดที่ fail เดียว (ดับเบิลคลิกปุ่มติดตั้งเร็วมากเรียก prompt() ซ้ำ) ทดสอบย้อนกับโค้ดก่อนแก้แล้วได้ผลเดิม ยืนยันเป็นพฤติกรรมเดิมไม่เกี่ยวกับ diff นี้ (LOW, แนะนำเปิด backlog แยก ไม่ block) + typecheck/lint/build สะอาด + regression suite 54/54
+
+**Final Status: PASS** — WYN-181 Sub-task 1 (Install Prompt Banner) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว เหลือ sub-task 2 (iOS splash screen) ยังไม่เริ่ม
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-181-install-banner-ipad-detection-and-accept-persistence.md`
+
+## [2026-09-20] WYN-181 sub-task 2 (iOS splash screen) — เขียนโค้ดเสร็จ เจอบั๊กสีพื้นหลังระหว่างทาง แก้ก่อนส่ง QA
+
+ทำสคริปต์ generate ภาพ launch screen 32 ไฟล์ (16 ขนาดจอ × light/dark) ด้วย `sharp` — ระหว่างทำเจอว่า `icon-512.png` มีพื้นหลังขาวทึบฝังในไฟล์ (ตรวจ alpha channel ยืนยันจริง ไม่ใช่แค่เดา) ทำให้เวอร์ชัน dark ขึ้นเป็นกล่องขาวน่าเกลียด — เปลี่ยนไปใช้ `wynos_logo_mark.png` ที่มี alpha โปร่งใสจริง + ใช้ `negate({alpha:false})` กลับสีหมึกเป็นขาวสำหรับ dark theme (ยืนยันด้วยภาพจริงก่อนใช้)
+
+ตรวจสอบตามกติกา `web/AGENTS.md` (Next.js เวอร์ชันนี้มี breaking change ต้องอ่าน docs ใน node_modules ก่อนเขียนโค้ดที่เกี่ยวกับ metadata) ว่า `appleWebApp.startupImage` ทำงานถูกต้องสมบูรณ์ในเวอร์ชันนี้จริง (อ่าน source ตรงๆ) ต่างจาก `capable` ที่เคยมี gap มาก่อน — ไม่ต้อง workaround เพิ่ม
+
+เก็บสคริปต์ generator ไว้ที่ `web/tools/wyn181_generate_ios_splash_screens.mjs` ให้ regenerate ได้ในอนาคต (เปลี่ยนโลโก้/เพิ่มขนาดจอใหม่) — ยืนยัน reproducibility ด้วยการรันซ้ำแล้ว diff กับ array ที่ฝังใน layout.tsx ตรงกัน 100%
+
+ตรวจสอบด้วย dev server จริง: `<head>` มี `<link rel="apple-touch-startup-image">` ครบ 32 จุด ทุก href ตอบ HTTP 200 จริง + typecheck/lint/build สะอาด + regression suite 54/54
+
+ส่งต่อ **AI QA & Security** ตรวจ — WYN-181 ทั้ง 2 sub-task เขียนโค้ดเสร็จครบแล้ว
+
+## [2026-09-20] WYN-181 sub-task 2 — QA PASS 15/15 — WYN-181 ทั้ง 2 sub-task ผ่าน QA ครบแล้ว (Track 3 ของ WYN-174 เสร็จฝั่งโค้ด)
+
+AI QA & Security ตรวจอิสระ 15 หัวข้อ (diff, alpha channel ของ icon/logo/negate เอง, อ่านภาพจริง 4 ไฟล์ตัวแทน, เทียบ media query 16 entry กับสเปก iOS จริง, curl `<head>` เอง, regenerate script เทียบ byte-identical, typecheck/lint/build, regression suite, security) — **ผ่านหมด 15/15** ไม่มีบั๊กที่ block
+
+พบ LOW note เอง (ไม่ block): ชื่อไฟล์ 2 กลุ่มใน generator script มีคำว่า "15"/"15-plus" ผิดกลุ่มความละเอียดจริง (เป็นแค่ label สับสน ไม่กระทบผู้ใช้เพราะ media query ใช้ตัวเลขตรงๆ ไม่อิงชื่อไฟล์) — แนะนำแก้รอบถัดไปที่แตะไฟล์ ไม่ต้องรีบ
+
+**Final Status: PASS**
+
+**สรุป: WYN-181 (Track 3 ของ WYN-174) เสร็จสมบูรณ์ฝั่ง implementation/QA ทั้ง 2 sub-task แล้ว** (install prompt banner + iOS splash screen) — รอ Founder สั่งเปิด PR แล้วยืนยัน production จริงบนอุปกรณ์ตาม acceptance criteria เดิม
+
+อ้างอิง: `.wyn/tasks/active/WYN-181-install-launch-experience.md`

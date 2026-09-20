@@ -1,0 +1,145 @@
+/* WYN-181: custom install prompt banner (Android/Chrome + iOS Safari). */
+.install-prompt-banner {
+  position: fixed;
+  z-index: 80;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--wyn-bottom-nav-height, 50px) + 12px + env(safe-area-inset-bottom));
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--wyn-border);
+  border-radius: 24px;
+  background: var(--wyn-bg);
+  color: var(--wyn-text);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.install-prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.install-prompt-icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+
+.install-prompt-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.install-prompt-copy strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.install-prompt-copy small {
+  display: block;
+  margin-top: 2px;
+  color: var(--wyn-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.install-prompt-close {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--wyn-surface);
+  color: var(--wyn-text-secondary);
+  display: grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.install-prompt-close:active {
+  transform: scale(0.9);
+}
+
+.install-prompt-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.install-prompt-primary,
+.install-prompt-ghost {
+  flex: 1 1 0;
+  height: 44px;
+  border: 0;
+  border-radius: 20px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.install-prompt-primary:active,
+.install-prompt-ghost:active {
+  transform: scale(0.96);
+}
+
+.install-prompt-primary {
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
+}
+
+.install-prompt-ghost {
+  background: transparent;
+  color: var(--wyn-text-secondary);
+}
+
+.install-prompt-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.install-prompt-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--wyn-border);
+  font-size: 13px;
+  color: var(--wyn-text);
+}
+
+.install-prompt-steps li:first-child {
+  border-top: 0;
+}
+
+.install-prompt-step-index {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--wyn-surface);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .install-prompt-close,
+  .install-prompt-primary,
+  .install-prompt-ghost {
+    transition: none;
+  }
+}

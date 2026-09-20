@@ -10,8 +10,8 @@
 
 **Merge with `main`**: branch had diverged from `main` (another parallel session's WYN-179/180 bottom-nav resize work touched `web/app/bottom-nav.css` and `web/tests/browser/parity.spec.ts`, overlapping files with this work) — merged cleanly via `git merge origin/main`, no conflicts, both branches' changes coexist correctly (verified `.route-create-destination` stayed removed and `club_channels`/`club_events` contract checks stayed present post-merge). Re-ran `typecheck`/`lint`/`build` and the regression suite after the merge — all still clean.
 
-**Deployment Result**: Not yet deployed — awaiting Founder's explicit "เปิด PR" instruction before opening a pull request, per standing house rule.
+**Deployment Result**: PR #561 opened, deploy preview green, Founder merged (`3239b681`) — `WYN-158 Production Deploy` run #148 **success** all steps (preflight, Vercel deploy, verify production routes, ~1.5 min total) → post-merge `CI` run #1419 on `main` **success** as well. Verified independently through the GitHub Actions API.
 
-**Production Verification**: N/A — pending deploy
+**Production Verification**: GitHub Actions "Verify production routes" step passed (sandbox itself cannot reach `wynos.online` directly) — awaiting Founder physical-device confirmation on Profile/Settings, Search, and Club
 
 **Rollback Plan**: Revert the merge commit (`53de114f`) or the individual batch commits via a follow-up PR; all changes are CSS/test-only, no data/schema impact — safe to revert instantly if needed
