@@ -216,7 +216,7 @@
 .drawer-identity-copy > span { margin-top: 5px; color: var(--graphite); font-size: 13px; line-height: 1.35; }
 .drawer-identity-copy b { color: var(--ink); }
 .drawer-divider { height: 1px; margin-top: 16px; background: var(--hairline); }
-.drawer-menu-list { padding: 8px; }
+.drawer-menu-list { padding: 8px; padding-bottom: env(safe-area-inset-bottom); }
 
 .drawer-menu-row {
   width: 100%;

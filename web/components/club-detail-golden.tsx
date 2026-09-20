@@ -21,6 +21,8 @@ import {
 } from "@/lib/home-parity-data";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
+import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type ClubTab = "posts" | "chat" | "about";
 type AboutTab = "details" | "members" | "events" | "insights";
@@ -549,6 +551,13 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
     return () => { live = false; };
   }, [load, cacheKey]);
 
+  // Staged rollout (WYN-125/WYN-182): pull-to-refresh here is gated to
+  // developer accounts until the Founder asks to widen it, and scoped to
+  // the "posts" tab only — chat has its own realtime subscription, about is
+  // static, neither is the feed/list pattern this gesture is for.
+  const isDeveloper = useIsDeveloperAccount(client);
+  const pull = usePullToRefresh({ enabled: isDeveloper && tab === "posts", onRefresh: refresh });
+
   if (loading && !data) return <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}><LoadingState /></AppChrome>;
   if (!data) return <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}><EmptyState>{error || "ไม่พบ Club"}</EmptyState></AppChrome>;
 
@@ -621,9 +630,36 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
         </nav>
 
         {tab === "posts" ? (
-          <section className="golden-club-posts">
+          <>
+            {pull.pullDistance > 0 || pull.refreshing ? (
+              <div
+                aria-label={pull.refreshing ? "กำลังรีเฟรชโพสต์ Club" : "ลากลงเพื่อรีเฟรช"}
+                aria-live="polite"
+                style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
+              >
+                <div
+                  className="route-system-spinner tiny"
+                  style={{
+                    position: "absolute",
+                    top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
+                    left: "50%",
+                    opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
+                    transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
+                    transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
+                  }}
+                />
+              </div>
+            ) : null}
+            <section
+              className="golden-club-posts"
+              onTouchStart={pull.onTouchStart}
+              onTouchMove={pull.onTouchMove}
+              onTouchEnd={pull.onTouchEnd}
+              onTouchCancel={pull.onTouchCancel}
+            >
             {club.privacy === "private" && !approved ? <EmptyState>เข้าร่วม Club เพื่อดูโพสต์</EmptyState> : posts.length ? posts.map((post) => <ClubPostCard client={client} userId={userId} initial={post} onChanged={() => void refresh()} key={post.id} />) : <EmptyState>ยังไม่มีโพสต์ใน Club นี้</EmptyState>}
-          </section>
+            </section>
+          </>
         ) : tab === "chat" ? (
           <ChatTab client={client} userId={userId} clubId={clubId} membership={membership} channels={channels} />
         ) : (

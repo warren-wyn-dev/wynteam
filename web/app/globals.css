@@ -86,6 +86,11 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+html,
+body {
+  overscroll-behavior-y: contain;
+}
+
 button,
 input,
 textarea,

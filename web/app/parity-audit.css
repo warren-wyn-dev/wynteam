@@ -2,7 +2,7 @@
 .drawer-plus { font-size: 22px; line-height: 1; font-weight: 400; }
 
 .audit-sheet-backdrop { align-items: flex-end; }
-.audit-action-sheet { width: min(100%, 680px); margin: 0 auto; padding: 8px 0 calc(10px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: var(--paper); box-shadow: 0 -12px 40px rgb(18 18 15 / 16%); max-height: 84dvh; overflow-y: auto; }
+.audit-action-sheet { width: min(100%, 680px); margin: 0 auto; padding: 8px 0 calc(10px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: var(--paper); box-shadow: 0 -12px 40px rgb(18 18 15 / 16%); max-height: 84dvh; overflow-y: auto; overscroll-behavior: contain; }
 .audit-sheet-grip { width: 38px; height: 4px; margin: 2px auto 8px; border-radius: 999px; background: var(--hairline); }
 .audit-sheet-row { width: 100%; min-height: 54px; display: flex; align-items: center; gap: 14px; padding: 0 20px; border: 0; border-top: 1px solid var(--hairline); background: var(--paper); color: var(--ink); font: inherit; font-size: 15px; text-align: left; -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 .audit-sheet-row:first-of-type { border-top: 0; }

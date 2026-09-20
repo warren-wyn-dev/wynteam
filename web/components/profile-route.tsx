@@ -23,6 +23,8 @@ import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
+import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   canViewProfileLikes,
   chatAllowed,
@@ -78,10 +80,43 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
   }, [client, kind, profileId, cacheKey]);
   useEffect(() => { setAllowed(true); void load(0, false); }, [load]);
   useRouteRefreshListener(useCallback(() => { void load(0, false); }, [load]));
-  if (loading && !rows.length) return <FeedSkeleton items={2} />;
-  if (!allowed) return <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>;
-  if (!rows.length) return <EmptyState>{kind === "posts" ? "ยังไม่มี Post เลย" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>;
-  return <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
+
+  // Staged rollout (WYN-125/WYN-182): pull-to-refresh here is gated to
+  // developer accounts until the Founder asks to widen it.
+  const isDeveloper = useIsDeveloperAccount(client);
+  const pull = usePullToRefresh({ enabled: isDeveloper, onRefresh: () => load(0, false) });
+
+  const body = loading && !rows.length ? <FeedSkeleton items={2} />
+    : !allowed ? <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>
+    : !rows.length ? <EmptyState>{kind === "posts" ? "ยังไม่มี Post เลย" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>
+    : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
+
+  return (
+    <>
+      {pull.pullDistance > 0 || pull.refreshing ? (
+        <div
+          aria-label={pull.refreshing ? "กำลังรีเฟรชฟีด" : "ลากลงเพื่อรีเฟรช"}
+          aria-live="polite"
+          style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
+        >
+          <div
+            className="route-system-spinner tiny"
+            style={{
+              position: "absolute",
+              top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
+              left: "50%",
+              opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
+              transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
+              transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
+            }}
+          />
+        </div>
+      ) : null}
+      <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+        {body}
+      </div>
+    </>
+  );
 }
 
 function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClient; userId: string; summary: ProfileSummary; onDone: () => void }) {

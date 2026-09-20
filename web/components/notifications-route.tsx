@@ -12,6 +12,8 @@ import { relativeTimeTh } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { markNotificationsRead } from "@/lib/notification-count";
 import { fetchNotifications, markAllNotificationsRead, type NotificationRow } from "@/lib/phase3-data";
+import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type NotificationsSnapshot = { rows: NotificationRow[]; unreadSnapshot: Set<string>; page: number; hasMore: boolean };
 
@@ -181,6 +183,12 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   const visible = tab === "mentions" ? rows.filter(isMention) : rows;
   const sections = useMemo(() => buildSections(visible), [visible]);
 
+  // Staged rollout (WYN-125/WYN-182): pull-to-refresh here is gated to
+  // developer accounts until the Founder asks to widen it — the route
+  // itself, notifications loading, and everything else stays unaffected.
+  const isDeveloper = useIsDeveloperAccount(client);
+  const pull = usePullToRefresh({ enabled: isDeveloper, onRefresh: () => load(0, false) });
+
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
       <header className="notification-root-header">
@@ -193,40 +201,62 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
         <button className={tab === "mentions" ? "active" : ""} type="button" onClick={() => setTab("mentions")}>การกล่าวถึง</button>
       </div>
 
-      {loading && !rows.length ? <NotificationSkeleton /> : !visible.length ? (
-        <EmptyState>{tab === "mentions" ? "ยังไม่มีใครกล่าวถึงคุณ" : "ยังไม่มีการแจ้งเตือน"}</EmptyState>
-      ) : (
-        <div className="notification-list">
-          {sections.map((section) => (
-            <section className="notification-day-section" key={section.label}>
-              <h2 className="notification-group-label">{section.label}</h2>
-              {section.groups.map((group) => {
-                const row = group.head;
-                const wasUnread = group.items.some((item) => unreadSnapshot.has(item.id));
-                return (
-                  <button className={`notification-row ${wasUnread ? "unread" : ""}`} type="button" onClick={() => open(row)} key={row.id}>
-                    <span className="notification-avatar-wrap">
-                      <Avatar src={row.actor_avatar_url} label={row.actor_username || "WYNOS"} size={40} />
-                      <TypeBadge type={row.type} />
-                    </span>
-                    <span className="notification-copy">
-                      <NotificationMessage row={row} extraActorCount={group.extraActorCount} />
-                      {row.content_preview ? <small className="notification-preview">“{row.content_preview}”</small> : null}
-                      <small>{relativeTimeTh(row.created_at)}</small>
-                    </span>
-                    {wasUnread ? <i className="notification-dot" /> : null}
-                  </button>
-                );
-              })}
-            </section>
-          ))}
-          {tab === "all" && hasMore ? (
-            <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button>
-          ) : tab === "all" ? (
-            <p className="notification-end">ไม่มีการแจ้งเตือนเพิ่มเติมแล้ว</p>
-          ) : null}
+      {pull.pullDistance > 0 || pull.refreshing ? (
+        <div
+          aria-label={pull.refreshing ? "กำลังรีเฟรชการแจ้งเตือน" : "ลากลงเพื่อรีเฟรช"}
+          aria-live="polite"
+          style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
+        >
+          <div
+            className="route-system-spinner tiny"
+            style={{
+              position: "absolute",
+              top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
+              left: "50%",
+              opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
+              transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
+              transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
+            }}
+          />
         </div>
-      )}
+      ) : null}
+
+      <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+        {loading && !rows.length ? <NotificationSkeleton /> : !visible.length ? (
+          <EmptyState>{tab === "mentions" ? "ยังไม่มีใครกล่าวถึงคุณ" : "ยังไม่มีการแจ้งเตือน"}</EmptyState>
+        ) : (
+          <div className="notification-list">
+            {sections.map((section) => (
+              <section className="notification-day-section" key={section.label}>
+                <h2 className="notification-group-label">{section.label}</h2>
+                {section.groups.map((group) => {
+                  const row = group.head;
+                  const wasUnread = group.items.some((item) => unreadSnapshot.has(item.id));
+                  return (
+                    <button className={`notification-row ${wasUnread ? "unread" : ""}`} type="button" onClick={() => open(row)} key={row.id}>
+                      <span className="notification-avatar-wrap">
+                        <Avatar src={row.actor_avatar_url} label={row.actor_username || "WYNOS"} size={40} />
+                        <TypeBadge type={row.type} />
+                      </span>
+                      <span className="notification-copy">
+                        <NotificationMessage row={row} extraActorCount={group.extraActorCount} />
+                        {row.content_preview ? <small className="notification-preview">“{row.content_preview}”</small> : null}
+                        <small>{relativeTimeTh(row.created_at)}</small>
+                      </span>
+                      {wasUnread ? <i className="notification-dot" /> : null}
+                    </button>
+                  );
+                })}
+              </section>
+            ))}
+            {tab === "all" && hasMore ? (
+              <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button>
+            ) : tab === "all" ? (
+              <p className="notification-end">ไม่มีการแจ้งเตือนเพิ่มเติมแล้ว</p>
+            ) : null}
+          </div>
+        )}
+      </div>
     </AppChrome>
   );
 }

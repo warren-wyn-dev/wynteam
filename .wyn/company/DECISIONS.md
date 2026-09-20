@@ -2401,3 +2401,17 @@ WYN-181 ทั้ง implementation, QA และ deploy เสร็จสม�
 Founder ทดสอบจริงบน `wynos.online` ยืนยันผ่านครบ: WYN-176 (Visual Design Rollout, ทุก batch 1-6) และ WYN-181 (Install Prompt Banner + iOS Splash Screen) — ย้ายทั้งสอง task ไป `.wyn/tasks/completed/` แล้ว พร้อมอัปเดต epic `WYN-174-web-native-app-feel-v2.md` บันทึกว่า Track 2 และ Track 3 เสร็จสมบูรณ์ทั้งคู่
 
 เหลือ Track 4 (Platform Integration Polish, P2 — safe-area inset audit, pull-to-refresh/overscroll audit) ใน backlog ยังไม่เริ่ม รอคำสั่ง Founder
+
+## [2026-09-20] WYN-182 (Track 4/P2, track สุดท้ายของ WYN-174) — Implementation เสร็จ, ผ่าน typecheck/lint/build + harness 36/36
+
+Implement ตาม Founder Decision เป๊ะ: safe-area 3 จุด (`.wyn-profile-tabs`, `.golden-club-tabs`, `.drawer-menu-list`) + overscroll 7 จุด (`html`/`body` + 6 action sheet/modal) + extract `usePullToRefresh` hook จาก `home-screen.tsx` ไปใช้ 4 หน้า (Club posts tab, Notifications, Bookmarks, Profile feed) gate ด้วย `useIsDeveloperAccount` (wrap `is_developer_account()` RPC เดียวกับที่ `settings-route.tsx` ใช้อยู่แล้ว) — ก่อนแก้แต่ละจุด re-verify selector/line จริงและ grep cascade ซ้ำทุกจุดตามคำเตือนใน task ว่า spec เขียนโดย agent อีกรอบหนึ่ง
+
+Regression risk ที่ต้องระวังเป็นพิเศษ: `home-screen.tsx` เดิมผูก pull-gesture กับ horizontal tab-swipe ในชุด touch handler เดียวกัน — แยกออกมาโดยพิสูจน์ทางคณิตศาสตร์ว่าเงื่อนไข "shouldRefresh" (deltaY > |deltaX|) กับเงื่อนไข "tab-switch" (|deltaX| > |deltaY|) เป็น mutually exclusive จึงเรียก `pull.onTouchMove/onTouchEnd` แบบ unconditional ได้โดยไม่ต้อง coordinate กับ swipe logic เดิม — Home's tab-tap-to-refresh (bottom nav) เปลี่ยนไปเรียกผ่าน `pull.refresh()` แทนเพื่อคง spinner state ร่วมเดียวกับของเดิม
+
+ยืนยันด้วย Playwright harness ชั่วคราว (ลบแล้ว) รันกับ dev server จริง ผ่าน 36/36: CSS source check + cascade re-verify, live computed-style ผ่าน CDP `Emulation.setSafeAreaInsetsOverride` จำลอง notch/home-indicator จริงบน route สาธารณะ (CSS ทั้งหมด import global ใน `layout.tsx`), pull-to-refresh gate เปิด/ปิดผ่าน dev-only fixture ชั่วคราว (ลบแล้ว) จำลอง touch gesture จริงผ่าน CDP `Input.dispatchTouchEvent`, source-level wiring check ทั้ง 4 หน้า — sandbox นี้ไม่มี Supabase backend จริงจึงไม่สามารถ mount route ที่ผ่าน `DeveloperRouteGate` พร้อม session จริงได้ ระบุไว้ชัดเจนให้ **QA ต้องทดสอบซ้ำบน environment ที่มี Supabase backend จริง** โดยเฉพาะ gate จริงกับบัญชี dev/ทั่วไป และ native Android Chrome pull-to-refresh (ตามที่ Design spec เองก็ระบุว่าต้องยืนยันบนอุปกรณ์จริงเท่านั้น)
+
+**หมายเหตุพบระหว่างทาง (ไม่เกี่ยวกับ WYN-182)**: ไฟล์ `.wyn/company/DECISIONS.md` นี้มี byte corruption (U+FFFD replacement characters) อยู่แล้วที่ช่วงต้นไฟล์ก่อนถึงส่วนที่อ่านได้ปกติ — ยืนยันว่าอยู่ใน git history เดิม (`git show HEAD:...` ให้ byte เดียวกัน ไม่ใช่ local corruption) ไม่ได้แก้ในรอบนี้เพราะนอก scope ของ WYN-182 และเป็นการเปลี่ยนแปลงที่มีความเสี่ยงสูง ควรแจ้ง Founder/CTO แยกต่างหาก
+
+อ้างอิง: `.wyn/tasks/active/WYN-182-platform-integration-polish.md`
+
+→ ส่งต่อ **AI QA & Security** ตรวจซ้ำอิสระก่อนเข้า Deploy gate
