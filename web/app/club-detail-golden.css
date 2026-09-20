@@ -127,6 +127,68 @@
 .golden-club-report-list input { accent-color: var(--wyn-text); }
 .golden-club-report textarea { min-height: 96px; padding: 12px; resize: vertical; border: 1px solid var(--wyn-border); border-radius: 14px; background: var(--wyn-bg); color: var(--wyn-text); font: inherit; }
 
+/* WYN-176 batch 5: press feedback reusing WYN-163's spring formula — this
+   is the live Club detail page (routed from /club/[id] via
+   ClubDetailGoldenRoute); none of these had press feedback before. */
+.golden-club-back,
+.golden-club-meta-main > button,
+.golden-club-inline-join,
+.golden-club-primary-join,
+.golden-club-sheet-row,
+.golden-club-post-body > header > button,
+.golden-club-tabs button,
+.golden-club-channels button,
+.golden-club-poll > button,
+.golden-club-actions button,
+.golden-club-actions a,
+.golden-club-about-tabs button,
+.golden-club-members > a,
+.golden-club-composer label,
+.golden-club-composer button,
+.golden-club-message-head button {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.golden-club-back:active,
+.golden-club-meta-main > button:active,
+.golden-club-inline-join:active:not(:disabled),
+.golden-club-primary-join:active:not(:disabled),
+.golden-club-sheet-row:active:not(:disabled),
+.golden-club-post-body > header > button:active,
+.golden-club-tabs button:active,
+.golden-club-channels button:active,
+.golden-club-poll > button:active:not(:disabled),
+.golden-club-actions button:active,
+.golden-club-actions a:active,
+.golden-club-about-tabs button:active,
+.golden-club-members > a:active,
+.golden-club-composer label:active,
+.golden-club-composer button:active:not(:disabled),
+.golden-club-message-head button:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .golden-club-back,
+  .golden-club-meta-main > button,
+  .golden-club-inline-join,
+  .golden-club-primary-join,
+  .golden-club-sheet-row,
+  .golden-club-post-body > header > button,
+  .golden-club-tabs button,
+  .golden-club-channels button,
+  .golden-club-poll > button,
+  .golden-club-actions button,
+  .golden-club-actions a,
+  .golden-club-about-tabs button,
+  .golden-club-members > a,
+  .golden-club-composer label,
+  .golden-club-composer button,
+  .golden-club-message-head button {
+    transition: none;
+  }
+}
+
 @media (min-width: 681px) {
   .golden-club-page { border-left: 1px solid var(--wyn-border); border-right: 1px solid var(--wyn-border); }
   .golden-club-sheet { border: 1px solid var(--wyn-border); border-bottom: 0; }

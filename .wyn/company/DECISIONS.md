@@ -2211,3 +2211,111 @@ Apple/SF-Symbols เพิ่ม (filled-icon ตอน active, person.crop.circ
 แชท (บับเบิลกลม+จุดไข่ปลา), เปลี่ยน hardcode hex เป็น `var(--wyn-text)`/`var(--wyn-text-secondary)`, เพิ่ม
 press-feedback token มาตรฐาน, ลบ dead code badge prop — ไม่แตะสี ไม่แตะโครงสร้าง/ลำดับแท็บ ไม่ใช้ Apple-style
 filled/circle/accent (Founder ไม่ได้เลือกตัวเลือกนั้น)
+
+## [2026-09-20] WYN-176 Batch 3 (Chat) — เปิด PR #559 เจอ merge conflict กับ session คู่ขนาน แก้แล้ว merge สำเร็จ deploy production เขียวหมด
+
+Founder สั่ง "เปิด PR" — เปิด PR #559 (`claude/wynos-online-version-1pqqws` → `main`) พบ `mergeable_state: dirty` ทันที ตรวจสอบพบว่า session คู่ขนานอื่น merge PR #557 (ไอคอนคลับ/แชท) เข้า `main` ไปก่อนแล้ว ชนกันเฉพาะที่ `.wyn/company/DECISIONS.md` (ไฟล์ log ที่ทั้งสอง session เขียนต่อท้ายพร้อมกัน ไม่ใช่โค้ด) — merge `main` เข้า branch, resolve conflict โดยเก็บ entry ทั้งสองฝั่งไว้ครบไม่มีอะไรหาย, รัน `typecheck`/`lint`/`build` อิสระอีกรอบหลัง merge สะอาดหมด, push แล้วยืนยัน `mergeable_state: clean` ก่อนแจ้ง Founder
+
+Founder สั่ง "Merge เลย" — merge สำเร็จ (`45f0b6a`) → `WYN-158 Production Deploy` run #145 **success** ทุก step + post-merge `CI` run #1409 **success** — ตรวจสอบอิสระผ่าน GitHub Actions API ทั้งหมด (แก้บั๊ก JSON parsing เล็กน้อยในสคริปต์ poll เอง — API คืนค่า pretty-printed JSON มีช่องว่างหลัง `:` ที่ grep pattern เดิมไม่รองรับ)
+
+ยังไม่ปิด task — รอ Founder confirm physical device ของ batch 2 (Composer) และ batch 3 (Chat) ทั้งคู่
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-176-batch3-chat-deploy.md`
+
+## [2026-09-20] WYN-176 Batch 4 (Profile/Settings) — เจอจุดที่ต้องเลือก ทำ preview ถาม Founder เลือก A
+
+ตรวจ `profile-route.tsx`/`settings-route.tsx` ก่อนออกแบบ พบว่า Profile/Settings ทุกจุดไม่มี press feedback เลย ส่วนใหญ่เป็น list row/utility button เพิ่มได้ตรงไปตรงมา แต่มีจุดเดียวที่ต่าง: ปุ่ม "แก้ไขโปรไฟล์/ติดตาม/ส่งข้อความ" ยังเป็นทรง pill 999px/44px เดิม ไม่เคยถูกปรับเป็น squircle ของ WYN-163 (ต่างจาก Composer/Chat ที่ WYN-160 ปรับ scale ไว้ก่อนแล้ว)
+
+ทำ Artifact preview เทียบ 2 ทาง (A: คงทรงเดิม + เพิ่ม press feedback / B: ปรับเป็น squircle 24px/58px ตรง WYN-163): https://claude.ai/artifact/8LyHCBKh1AaX3zyLZH56yh — Founder ตอบ **"A ไปก่อน"** คงทรง pill เดิม
+
+บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch4-profile-settings.md`
+
+## [2026-09-20] WYN-176 Batch 4 (Profile/Settings) — Coding เสร็จ ยืนยันด้วย harness จริง 30/30 รอบแรก
+
+เพิ่ม press feedback 9 จุด (`.wyn-profile-account-switcher`, `.wyn-profile-action-primary/-secondary` คงทรง pill เดิมตามที่ Founder เลือก, `.wyn-profile-edit-avatar-remove`, `.profile-account-select/-remove/-use-other/-manage`, `.profile-more-sheet > button`, `.settings-row.enabled`) ใน `web/app/profile-golden-final.css` และ `web/app/phase3.css` — grep ยืนยัน 8 จุดแรกอยู่ในไฟล์เดียวไม่ชน cascade, `.settings-row` มีนิยามซ้ำ 5 ไฟล์แต่ไม่มีไฟล์ไหนแตะ transform มาก่อน
+
+พบ `.wyn-profile-stats button` (ปุ่มนับผู้ติดตาม) ไม่มี onClick เลยในซอร์ส — เป็นบั๊กฟังก์ชันเก่าไม่เกี่ยวกับ scope นี้ บันทึกไว้เป็น observation ไม่แก้
+
+harness Playwright อิสระ 30/30 ผ่านตั้งแต่รอบแรก + `typecheck`/`lint`/`build` สะอาด + ตรวจ parity spec 2 ไฟล์ที่อ้างอิง class เหล่านี้ (เป็น string check ไม่ใช่ computed style) ยืนยันไม่ชน
+
+ส่งต่อ **AI QA & Security** ตรวจอิสระก่อนเข้า Deploy gate — อ้างอิงรายละเอียดเต็มที่ `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (Batch 4 Implementation section)
+
+## [2026-09-20] WYN-176 Batch 4 — QA พบบั๊กจริง **FAIL**: ปุ่ม disabled 5 จุดยังมี press feedback
+
+AI QA & Security ทำ harness อิสระใหม่ทั้งหมด รอบนี้เพิ่ม edge case สำคัญที่ AI Coding ไม่ได้ตรวจ: ทดสอบทุกจุดที่มี `disabled={...}` จริงในซอร์ส (`profile-route.tsx`) ไม่ใช่แค่ 2 จุดตัวอย่างที่มี guard อยู่แล้ว — พบว่า 5 ใน 9 selector (`.wyn-profile-action-primary`/`-secondary`, `.profile-account-select`, `.profile-account-use-other`, `.profile-more-sheet > button`) ไม่มี `:not(:disabled)` guard ทั้งที่มี disabled state จริง ทำให้ปุ่มที่ปิดใช้งานอยู่ยังแสดง press feedback เหมือนกดได้ปกติ (ขัดกับเจตนาหลักของฟีเจอร์นี้เอง) — root cause: implement ไม่สม่ำเสมอ (2 จุดที่เหลือ `.profile-account-manage`/`.wyn-profile-edit-avatar-remove` ทำ guard ถูกต้องอยู่แล้วในคอมมิตเดียวกัน)
+
+Severity: MEDIUM — บันทึก bug report เต็มที่ `.wyn/tasks/bugs/WYN-176-batch4-disabled-button-press-feedback.md` พร้อม root cause + fix ที่แนะนำ **Final Status: FAIL** ไม่ให้เข้า Deploy gate จนกว่าจะแก้
+
+ส่งต่อ **AI Debug Engineer** แก้ไข
+
+## [2026-09-20] WYN-176 Batch 4 — Debug Engineer แก้บั๊กแล้ว ยืนยัน 7/7 + 30/30 ผ่าน
+
+แก้ตรงตาม fix ที่ QA แนะนำ — เพิ่ม `:not(:disabled)` ให้ 5 selector ที่ขาดใน `web/app/profile-golden-final.css` (ไม่แตะ `.profile-account-remove` เพราะยืนยันแล้วว่าไม่มี `disabled` attribute เลยในซอร์ส ตรงกับที่ QA ไม่ได้แจ้งเตือนจุดนี้)
+
+Tests: harness ใหม่ตรวจเฉพาะ disabled-state 7 จุด (5 จุดที่แก้ + 2 จุด control ที่ถูกต้องอยู่แล้ว) **7/7 ผ่าน** (`transform: none` ระหว่างกดค้างตอน disabled) + รัน harness เดิม 30 จุดซ้ำยืนยันไม่กระทบ enabled-state press feedback ปกติ **30/30 ยังผ่าน** + `typecheck`/`lint`/`build` สะอาด — diff เป็นการเพิ่ม `:not(:disabled)` 6 บรรทัดในไฟล์เดียว ไม่กระทบไฟล์อื่น
+
+อัปเดต bug report เป็น status: fixed แล้ว ส่งต่อ **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
+
+## [2026-09-20] WYN-176 Batch 4 — QA re-verify PASS 37/37 พร้อมเข้า Deploy gate
+
+AI QA & Security ตรวจซ้ำอิสระอีกรอบ (worktree แยก ไม่แตะ working tree หลัก) ไม่เชื่อผลที่ Debug Engineer รายงานเอง — ยืนยัน diff จริงมีแค่ `profile-golden-final.css` (10 บรรทัดเปลี่ยน), grep `profile-route.tsx` เองยืนยัน `.profile-account-remove` ไม่มี `disabled` attribute จริง (ไม่ต้องแก้ตรงตามที่ Debug Engineer อ้าง), สร้าง harness ใหม่ทั้งหมดตรวจ 5 จุดที่เคยพัง (ตอน disabled ต้องไม่มี feedback) + 2 จุด control + enabled-state ปกติทั้ง 9 จุด + reduced-motion — **37/37 ผ่าน** + console/HTTP sweep สะอาด + typecheck/lint/build สะอาด + parity spec ที่รันได้จริงผ่านหมด (ที่ fail เป็น sandbox environment limitation เดิม ไม่เกี่ยวกับ diff นี้)
+
+**Final Status: PASS** — WYN-176 Batch 4 (Profile/Settings) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-176-batch4-disabled-button-press-feedback.md`
+
+## [2026-09-20] WYN-176 Batch 5 — QA พบบั๊กเดิมซ้ำ **FAIL**: ปุ่มส่งข้อความแชท Club ยังมี press feedback ตอน disabled
+
+AI QA & Security ยืนยัน dead-code claim ของ batch 5 เป็นจริงทุกข้อ (grep import/render จริง + เทียบ `parity.spec.ts` ที่ lock `ClubDetailGoldenRoute` อยู่แล้ว) — Founder's ตัดสินใจขยาย scope กลายเป็น moot จริง ไม่มีอะไรตกหล่น จากนั้นทำ harness อิสระตรวจ 22 selector เจอบั๊กรูปแบบเดิมกับ batch 4 อีกครั้ง: `.golden-club-composer button` (ปุ่มส่งข้อความแชท Club) ไม่มี `:not(:disabled)` guard ทั้งที่มี disabled state จริง (`disabled={sending || (!draft.trim() && !image)}`) — จุดอื่นในชุดเดียวกันที่มี disabled จริง (`.audit-club-join`, `.golden-club-inline-join`, `.golden-club-primary-join`, `.golden-club-sheet-row`, `.golden-club-poll > button`) ถูก guard ถูกต้องหมด มีแค่จุดนี้จุดเดียวที่หลุด
+
+Severity: MEDIUM — บันทึก bug report ที่ `.wyn/tasks/bugs/WYN-176-batch5-composer-send-button-disabled-press-feedback.md` **Final Status: FAIL**
+
+ส่งต่อ **AI Debug Engineer** แก้ไข — บทเรียนซ้ำ: ทุกครั้งที่เพิ่ม press feedback ให้ selector ที่มี disabled state จริงในซอร์ส ต้องตรวจสอบ `:not(:disabled)` ให้ครบทุกจุดในชุดเดียวกัน ไม่ใช่แค่บางจุด (เกิดซ้ำ 2 batch ติดกันแล้ว — ควรเพิ่มเป็น checklist item ถาวรใน AI Coding self-check ก่อนส่ง QA)
+
+## [2026-09-20] WYN-176 Batch 5 — Debug Engineer แก้บั๊กแล้ว ยืนยัน 3/3 ผ่าน
+
+แก้ตรงจุดเดียว — เพิ่ม `:not(:disabled)` ให้ `.golden-club-composer button:active` ใน `web/app/club-detail-golden.css` (ไม่แตะ `.golden-club-composer label` เพราะเป็น `<label>` ไม่รองรับ `:disabled` pseudo-class ตามข้อจำกัด CSS เอง)
+
+Tests: harness ใหม่ (inline `<style>` หลีกเลี่ยงปัญหา Chromium บล็อก `<link file://>` ที่ QA เจอ) ตรวจ disabled variant + enabled variant **3/3 ผ่าน** + typecheck/lint/build สะอาด
+
+ส่งต่อ **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
+
+## [2026-09-20] WYN-176 Batch 5 — QA re-verify PASS 16/16 พร้อมเข้า Deploy gate
+
+AI QA & Security ตรวจซ้ำอิสระในอีก worktree ไม่เชื่อผลที่ Debug Engineer รายงานเอง — สร้าง harness ใหม่ครอบคลุม disabled/enabled/reduced-motion ของจุดที่แก้ + re-verify 5 selector พี่น้อง เพิ่ม sanity check พิเศษ (revert CSS กลับไปก่อนแก้แล้วรัน harness ซ้ำ พิสูจน์ว่า harness จับบั๊กเดิมได้จริงไม่ใช่ false-positive) ก่อน restore กลับ — **16/16 ผ่าน** + typecheck/lint/build สะอาด
+
+**Final Status: PASS** — WYN-176 Batch 5 (Search/Club) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-176-batch5-composer-send-button-disabled-press-feedback.md`
+
+## [2026-09-20] WYN-176 Batch 6 — QA พบช่องว่าง test coverage **FAIL**: แก้ parity.spec.ts ไม่ครอบคลุมเท่าที่อ้าง
+
+AI QA & Security ยืนยันการลบ dead code ทั้งหมดใน batch 6 ถูกต้อง 100% (grep 8 identifier ทั่ว repo = 0 hit) แต่พบว่าจุดที่ commit message เรียกว่า "highest-risk" — การแก้ `parity.spec.ts` ให้เลิกอ้างอิงไฟล์ dead แล้วใช้ assertion ของไฟล์จริงแทน — ไม่ครอบคลุมจริงตามที่อ้าง: assertion เดิมเช็ค 4 contract string แต่ assertion ใหม่มีแค่ 2 ใน 4 (`club_channels`/`club_events` หายไปเฉยๆ ทั้งที่เป็น query จริงใน `club-detail-golden.tsx`)
+
+ไม่ใช่ live bug (พฤติกรรมแอปไม่เคยถูกป้องกันจากจุดนี้มาก่อนเพราะ assertion เดิมเช็คไฟล์ dead) แต่เป็นการลดระดับการป้องกัน (test-coverage regression) ที่ commit message สื่อสารคลาดเคลื่อนว่าครอบคลุมกว่าเดิม — Severity: MEDIUM **Final Status: FAIL**
+
+บทเรียน: เมื่อรวม/ย้าย assertion จากไฟล์หนึ่งไปอีกไฟล์ ต้อง diff รายการ string ทีละตัวเทียบก่อน-หลังให้ครบ ไม่ใช่แค่เชื่อว่า "ครอบคลุมกว่าเดิม" จากความรู้สึก
+
+ส่งต่อ **AI Coding** เพิ่ม 2 contract string ที่ขาด
+
+## [2026-09-20] WYN-176 Batch 6 — แก้เสร็จ ยืนยัน 3/3 + regression suite 54/54 ผ่าน
+
+เพิ่ม `'from("club_channels")'`/`'from("club_events")'` เข้า `clubGolden` assertion เดิมใน `web/tests/browser/parity.spec.ts` (1 บรรทัด) — รัน `npx playwright test` จริงยืนยันผ่านทั้ง 3 project + regression suite เต็ม 5 spec file ซ้ำผ่านหมด (54/54 ที่รันได้จริง) + typecheck/lint/build สะอาด
+
+ส่งต่อ **AI QA & Security** ตรวจซ้ำ — เหลือจุดเดียวก่อน WYN-176 จะครบทุก batch
+
+## [2026-09-20] WYN-176 Batch 6 — QA re-verify PASS พร้อมเข้า Deploy gate — WYN-176 ทุก batch ผ่าน QA ครบแล้ว
+
+AI QA & Security ตรวจซ้ำอิสระในอีก worktree — re-derive การเปรียบเทียบ before/after เองทั้ง label-check (9→13) และ contract-check (4→11) array ยืนยันเป็น superset ครบไม่มีตกหล่นและไม่มีช่องโหว่ใหม่ + grep live query อิสระยืนยัน + test เป้าหมาย 3/3 + regression suite 54/54 ที่รันได้จริง + typecheck/lint/build สะอาด
+
+**Final Status: PASS** — WYN-176 Batch 6 พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
+
+**สรุป: WYN-176 ทุก batch (1-6) ผ่าน QA ครบแล้ว** — batch 1-3 deploy production แล้ว (batch 1 Founder ยืนยันแล้ว, batch 2-3 รอยืนยัน physical device), batch 4-6 ผ่าน QA พร้อมเข้า Deploy gate รอ Founder สั่งเปิด PR — งาน implementation ของ epic นี้เสร็จสมบูรณ์แล้ว
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (สรุปสถานะทั้ง epic)
+
+## [2026-09-20] WYN-176 Batch 4-6 — เตรียม deploy พร้อมกัน เจอ branch แยกจาก main อีกครั้ง merge สำเร็จ
+
+Founder สั่ง "ต่อเลย" — เตรียม deploy batch 4-6 พบว่า session คู่ขนานอื่น (WYN-179/180 ปรับขนาด bottom nav) merge เข้า `main` ไปแล้ว ชนไฟล์เดียวกันบางส่วน (`bottom-nav.css`, `parity.spec.ts`) — merge `main` เข้า branch สำเร็จอัตโนมัติไม่มี conflict เลย (ort strategy) ยืนยันการเปลี่ยนแปลงทั้งสองฝั่งอยู่ครบถูกต้องหลัง merge, รัน typecheck/lint/build + regression suite เต็มอิสระอีกรอบสะอาดหมด push ขึ้น branch แล้ว (`53de114f`)
+
+ยังไม่เปิด PR รอ Founder สั่งชัดเจน — อ้างอิง `.wyn/logs/deployments/2026-09-20-wyn-176-batch4-6-deploy-prep.md`

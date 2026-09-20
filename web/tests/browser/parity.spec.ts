@@ -54,7 +54,6 @@ test("source contracts cannot regress to staged migration UI", async () => {
     notifications,
     settings,
     clubs,
-    clubDetail,
     clubGolden,
     clubGoldenCss,
     clubPage,
@@ -86,7 +85,6 @@ test("source contracts cannot regress to staged migration UI", async () => {
     readFile(path.join(root, "components/notifications-route.tsx"), "utf8"),
     readFile(path.join(root, "components/settings-route.tsx"), "utf8"),
     readFile(path.join(root, "components/clubs-routes.tsx"), "utf8"),
-    readFile(path.join(root, "components/club-detail-route.tsx"), "utf8"),
     readFile(path.join(root, "components/club-detail-golden.tsx"), "utf8"),
     readFile(path.join(root, "app/club-detail-golden.css"), "utf8"),
     readFile(path.join(root, "app/club/[id]/page.tsx"), "utf8"),
@@ -179,11 +177,9 @@ test("source contracts cannot regress to staged migration UI", async () => {
 
   for (const label of ["เจอคอมมูนิตี้ที่ใช่", "สำหรับคุณ", "ค้นหา Club", "กำลังนิยม", "ใหม่ล่าสุด", "รออนุมัติ", "Club ของฉัน", "สร้าง Club"]) expect(clubs).toContain(label);
   expect(clubs).not.toContain("Club แนะนำสำหรับคุณ");
-  for (const label of ["โพสต์", "แชท", "เกี่ยวกับ", "รายละเอียด", "สมาชิก", "กิจกรรม", "Insights", "รออนุมัติ", "เข้าร่วม"]) expect(clubDetail).toContain(label);
-  for (const contract of ['from("club_channels")', 'from("club_channel_messages")', 'from("club_events")', 'rpc("club_insights"']) expect(clubDetail).toContain(contract);
   expect(clubPage).toContain("ClubDetailGoldenRoute");
   for (const label of ["โพสต์", "แชท", "เกี่ยวกับ", "รายละเอียด", "สมาชิก", "กิจกรรม", "Insights", "เข้าร่วม", "รออนุมัติ", "รายงาน Club", "ปิดการแจ้งเตือน Club นี้", "บันทึก", "ปักหมุด"]) expect(clubGolden).toContain(label);
-  for (const contract of ["fetchClubPostsForClub", "toggleClubPostSave", "toggleClubPostPin", "voteClubPostPoll", 'from("club_channel_messages")', "mark_club_channel_read", "club_notification_mutes", 'rpc("club_insights"', "submit_report"]) expect(clubGolden).toContain(contract);
+  for (const contract of ["fetchClubPostsForClub", "toggleClubPostSave", "toggleClubPostPin", "voteClubPostPoll", 'from("club_channels")', 'from("club_channel_messages")', 'from("club_events")', "mark_club_channel_read", "club_notification_mutes", 'rpc("club_insights"', "submit_report"]) expect(clubGolden).toContain(contract);
   expect(clubGolden).toContain(`${"${clubId}"}/chat/${"${channelId}"}/${"${userId}"}-${"${Date.now()}"}`);
   expect(clubGoldenCss).toContain("height: 140px");
   expect(clubGoldenCss).toContain("grid-template-columns: repeat(3, 1fr)");

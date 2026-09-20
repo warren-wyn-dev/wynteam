@@ -103,12 +103,6 @@
   color: currentColor;
 }
 
-/* Compatibility hooks kept for older fixtures. */
-.route-create-destination {
-  gap: 2px;
-  color: #737373;
-}
-
 .route-create-button {
   width: 28px;
   height: 28px;
