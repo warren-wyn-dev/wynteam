@@ -49,3 +49,11 @@ P3 (follow-up หลัง Track 4 ของ epic WYN-174 — epic หลัก�
 ทั้ง 2 fix proposal เป็นการเปลี่ยน spacing ที่มองเห็นได้จริงบนอุปกรณ์มี notch/Dynamic Island เท่านั้น (ไม่มีจุดไหนเป็น defensive-only ในรอบนี้) ไม่แตะ business logic/Supabase contract — รอ Founder อนุมัติก่อน AI Coding เริ่ม
 
 **ข้อจำกัด**: session นี้ไม่มี Bash/browser tool จึงตรวจได้แค่จากการอ่าน source + cascade evidence เท่านั้น ยังไม่ได้ยืนยัน computed style บนอุปกรณ์จริง ต้องให้ QA ยืนยันซ้ำบน iPhone ที่มี notch ก่อนปิด task
+
+## Founder Decision (2026-09-20)
+
+ตอบผ่าน AskUserQuestion — **อนุมัติทั้ง 2 จุด**:
+1. `.wyn-profile-topbar` เพิ่ม `padding-top: env(safe-area-inset-top)` (หรือเทียบเท่าตามที่ spec เสนอ)
+2. `.flutter-chat-header` แก้ที่ rule ผู้ชนะจริง (`web/app/chat-notes.css:537-542`) ให้มี safe-area — **ห้ามแก้ที่ `pixel-parity-audit-closure.css` เพราะเป็น dead code ที่โดนทับอยู่แล้ว**
+
+→ ส่งต่อ **AI Coding** implement ตาม fix proposal ในสเปกเต็ม
