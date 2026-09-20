@@ -249,6 +249,24 @@ Founder สั่ง "Merge เลย" — merge PR สำเร็จ (`45f0b6a
 
 **Handoff**: → **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
 
+## QA Batch 4 — Round 2 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ตรวจซ้ำอิสระในอีก worktree (ไม่เชื่อผลที่ Debug Engineer รายงานเอง) — ยืนยัน diff จริง (`git show --stat 86afa16`), grep `profile-route.tsx` เองยืนยัน `.profile-account-remove` ไม่มี `disabled` attribute จริง, harness ใหม่ทั้งหมดตรวจ disabled-state 5 จุดที่แก้ + 2 control + enabled-state ปกติ 9 จุด + reduced-motion 9 จุด + console/HTTP sweep + typecheck/lint/build + รัน parity spec จริงด้วย `npx playwright test`
+
+**Passed**: 37/37 harness (disabled-guard 5 + control 2 + enabled press-apply/release 20 + reduced-motion 10) + console/HTTP sweep สะอาด + typecheck/lint/build สะอาด + parity spec ที่รันได้จริงผ่านหมด (ที่เหลือ fail จาก sandbox environment limitation เดิมไม่เกี่ยวกับ diff นี้)
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่มี — ยืนยัน CSS-only diff
+
+**Recommendation**: Approve — ส่งต่อ Deploy gate ได้
+
+**Final Status: PASS**
+
+WYN-176 Batch 4 (Profile/Settings) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว — อ้างอิง `.wyn/tasks/bugs/WYN-176-batch4-disabled-button-press-feedback.md`
+
 ## Batch 5 Implementation (AI Coding, 2026-09-20)
 
 **Implementation**: เพิ่ม press feedback spring (`scale(0.96)`, 160ms cubic-bezier เดียวกับ WYN-163) ให้ 22 จุดใน Search/Club ที่ยังไม่มีเลย — batch นี้ใหญ่กว่าปกติ (batch อื่น 7-10 จุด) เพราะ Club detail (`club-detail-golden.tsx`) ไม่เคยผ่านการปรับ interaction เลยทั้งหน้า:
@@ -272,3 +290,26 @@ Founder สั่ง "Merge เลย" — merge PR สำเร็จ (`45f0b6a
 **Known Issues**: พบ dead interaction 2 จุดที่ไม่แก้ (นอก scope): `.hashtag-row`/`.top100-link` ใน Search ไม่มี `onClick` เลย — เหมือนกับ `.wyn-profile-stats button` ที่เจอใน batch 4
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/search`, `/clubs`, `/clubs/new`, `/club/[id]` ผ่าน dev server จริง (2) ยืนยัน `club-detail-route.tsx`/`club-detail-audit.css`/`club-post-card-web.*` เป็น dead code จริงตามที่อ้าง (3) ไม่มี regression ต่อ parity spec
+
+## Batch 6 — Dead Code Cleanup (AI Coding, 2026-09-20)
+
+**Implementation**: ทำ "batch 8" เดิมของ WYN-160 (ไล่ลบ CSS/component dead code ที่สะสมมาจากหลาย batch) — ตรวจ routing/import จริงทุกจุดก่อนลบ ไม่เชื่อ comment ในไฟล์ ("kept for older fixtures" กลายเป็นเท็จเมื่อ grep จริง):
+
+1. **ลบไฟล์ dead code ทั้งชุด 2 คู่** (ยืนยันด้วย grep ทั้ง `app/`/`components/` ว่าไม่มีการ import component จริงเลย มีแค่ CSS ถูก import เข้า `layout.tsx` เฉยๆ ซึ่งไม่ทำให้ class ที่ไม่มีใครใช้ render อะไร):
+   - `web/components/club-detail-route.tsx` + `web/app/club-detail-audit.css` (สี `--sapphire`/`--ink`/`--graphite` เก่าที่เจอระหว่าง batch 5 — ยืนยันแล้วว่า dead จริง)
+   - `web/components/club-post-card-web.tsx` + `web/app/club-post-card-web.css`
+   - ลบ 2 บรรทัด `import` ของ CSS ทั้งสองไฟล์ออกจาก `web/app/layout.tsx`
+
+2. **แก้ regression test ที่พึ่งพาไฟล์ dead code** — `web/tests/browser/parity.spec.ts` เดิมอ่าน `club-detail-route.tsx` (ไฟล์ dead) มาเช็ค label/contract string 2 บรรทัด (บรรทัด 182-183 เดิม) ตรวจแล้วพบว่า **ทุก string เดียวกันมีอยู่ใน `club-detail-golden.tsx` (ไฟล์จริงที่ route ใช้) อยู่แล้ว** และมี assertion ชุดที่ครอบคลุมกว่าเช็คซ้ำอยู่ก่อนแล้ว (`clubGolden` บรรทัด 185-187) — ลบ read + assertion ของไฟล์ dead ออก ไม่ใช่แค่ cleanup แต่เป็นการแก้ test ที่เคย "ป้องกัน" ไฟล์ที่ไม่มีใครเห็นจริง ให้ตรงกับไฟล์ที่ผู้ใช้เห็นจริงแทน (ยืนยันด้วย `npx playwright test` ว่า pass ปกติหลังแก้)
+
+3. **ลบ selector dead code ที่ยืนยันแล้วจากบันทึกก่อนหน้า** (WYN-160 batch 3/4 เคยตรวจพบและตั้งใจเก็บไว้รอ cleanup):
+   - `.route-create-destination` (`web/app/bottom-nav.css`) — ไม่มีใครเรียกใช้ (`.route-nav-badge` ที่เคยพบคู่กันถูกลบไปแล้วจาก PR #557)
+   - `.beta4-toolbar`/`.beta4-toolbar-actions` (2 บล็อก ทั้งเวอร์ชัน `--wyn-*` และเวอร์ชัน `--sapphire` เก่า), `.beta4-sheet:not(.beta4-drafts-sheet)`, `.beta4-audience-row`/`.beta4-audience-icon`/`.beta4-audience-nested` (`web/app/system-parity-final.css`) — ยืนยันว่า composer จริง (`beta4-composer.tsx`) ใช้ CSS module (`beta4-composer-refresh.module.css`, class แบบ `styles.audienceOption` ฯลฯ) แทนไปหมดแล้ว ไม่เหลือการอ้างอิง global class เหล่านี้เลยแม้แต่จุดเดียว
+
+**Files Changed**: ลบ 4 ไฟล์ (`club-detail-route.tsx`, `club-detail-audit.css`, `club-post-card-web.tsx`, `club-post-card-web.css`), แก้ 4 ไฟล์ (`layout.tsx` -2 imports, `bottom-nav.css` -6 บรรทัด, `system-parity-final.css` -28 บรรทัด, `parity.spec.ts` -4 บรรทัด) — ไม่มีการเปลี่ยนพฤติกรรม/หน้าตาใดๆ เพราะทุกอย่างที่ลบไม่เคย render อยู่แล้ว
+
+**Tests**: `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุด) + รัน `npx playwright test` จริงกับ `parity.spec.ts` (3/3 ผ่านทุก project), `system-visual-parity.spec.ts`/`pixel-parity-pass-2.spec.ts`/`final-source-parity-gate.spec.ts`/`founder-visual-parity.spec.ts` (51/51 ผ่าน) — `home-visual-parity.spec.ts`/`wyn-175-skeleton-parity.spec.ts` และ 2 test ที่ใช้ `page.goto` ใน `parity.spec.ts` fail ด้วย sandbox environment limitation เดิม (`chromium_headless_shell` binary ไม่ได้ติดตั้งใน `/opt/pw-browsers` — ไม่เกี่ยวกับ diff นี้ เกิดกับทุก branch เหมือนกัน ตามที่เคยบันทึกไว้ตั้งแต่ session ก่อนหน้า)
+
+**Known Issues**: dead interaction 2 จุดจาก batch 4/5 (`.wyn-profile-stats button`, `.hashtag-row`/`.top100-link`) ยังไม่แก้ เพราะเป็นบั๊กฟังก์ชัน (ไม่มี onClick) ไม่ใช่ dead CSS — ต้องส่ง PM/Design ตัดสินใจว่าจะเพิ่มฟีเจอร์จริงหรือลบทิ้งทั้ง element ก่อนถึงจะทำอะไรกับมันได้
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) ยืนยัน 4 ไฟล์ที่ลบไม่มีการ import ที่ไหนหลงเหลือ (build error จะฟ้องอยู่แล้วถ้าพลาด) (2) รัน parity/regression spec ที่เกี่ยวข้องอิสระอีกรอบ (3) ตรวจว่า `/clubs`, `/club/[id]`, `/compose-post` ยังทำงานปกติทุกอย่างผ่าน dev server จริง — นี่คือ batch สุดท้ายของ WYN-176 ถ้า QA ผ่านและ Founder ยืนยัน production ครบทุก batch ก่อนหน้าแล้ว จะปิด task ทั้งฉบับได้

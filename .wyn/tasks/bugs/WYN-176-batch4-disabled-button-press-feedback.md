@@ -1,6 +1,6 @@
 # Bug Report — WYN-176 (batch 4)
 
-Status: fixed
+Status: verified — QA PASS, ready for Deploy gate
 Owner: AI Debug Engineer
 Bug: 5 of the 9 press-feedback selectors added in WYN-176 batch 4 (`web/app/profile-golden-final.css`) apply the `scale(0.96)` press-feedback transform even when the underlying `<button>` is genuinely `disabled` in real usage, because their `:active` rules are missing the `:not(:disabled)` guard that two sibling selectors in the very same commit correctly received. This makes disabled/non-functional buttons visually "press" as if they were interactive, which is the opposite of the intent of the WYN-163/175/176 press-feedback system (giving honest, intentional interaction feedback).
 
@@ -55,3 +55,13 @@ Applied exactly the suggested fix — added `:not(:disabled)` to the 5 flagged `
 **Files Changed**: `web/app/profile-golden-final.css` only
 
 Handoff: → **AI QA & Security** for re-verification before this batch can proceed to Deploy gate.
+
+## QA Re-Verification (AI QA & Security, 2026-09-20)
+
+Independently re-verified from scratch in an isolated worktree (did not trust Debug Engineer's self-report) — confirmed `git show --stat 86afa16` is exactly the claimed 6-line change to `web/app/profile-golden-final.css`; independently grepped `web/components/profile-route.tsx` and confirmed `.profile-account-remove` genuinely has no `disabled` attribute anywhere, so leaving it unguarded was correct.
+
+Built a fresh independent Playwright harness (`chromium.launch({ executablePath: "/opt/pw-browsers/chromium" })`, real 38-file CSS cascade): the 5 previously-broken selectors now show `transform: none` while disabled (5/5), the 2 already-correct control selectors still show no regression (2/2), all 9 selectors' normal enabled press-feedback still applies/releases correctly (20/20), and `prefers-reduced-motion: reduce` still disables the transition on all 9 (10/10) — **37/37 pass**. Dev server console/HTTP sweep on `/profile/me` and `/settings` clean. `typecheck`/`lint`/`build` clean. Ran `tests/browser/parity.spec.ts` + `tests/browser/system-visual-parity.spec.ts` for real via `npx playwright test` — all Profile/Settings-relevant checks pass; the only failures are `page.goto`-based tests hitting the sandbox's pre-existing `chromium_headless_shell` binary mismatch, unrelated to this diff.
+
+Security: confirmed CSS-only diff, no `.ts`/`.tsx`/API route touched, no new data flow or auth/authorization surface.
+
+**Final Status: PASS** — approved for Deploy gate.

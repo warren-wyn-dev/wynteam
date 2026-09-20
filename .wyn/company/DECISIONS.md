@@ -2255,3 +2255,11 @@ Severity: MEDIUM — บันทึก bug report เต็มที่ `.wyn/t
 Tests: harness ใหม่ตรวจเฉพาะ disabled-state 7 จุด (5 จุดที่แก้ + 2 จุด control ที่ถูกต้องอยู่แล้ว) **7/7 ผ่าน** (`transform: none` ระหว่างกดค้างตอน disabled) + รัน harness เดิม 30 จุดซ้ำยืนยันไม่กระทบ enabled-state press feedback ปกติ **30/30 ยังผ่าน** + `typecheck`/`lint`/`build` สะอาด — diff เป็นการเพิ่ม `:not(:disabled)` 6 บรรทัดในไฟล์เดียว ไม่กระทบไฟล์อื่น
 
 อัปเดต bug report เป็น status: fixed แล้ว ส่งต่อ **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
+
+## [2026-09-20] WYN-176 Batch 4 — QA re-verify PASS 37/37 พร้อมเข้า Deploy gate
+
+AI QA & Security ตรวจซ้ำอิสระอีกรอบ (worktree แยก ไม่แตะ working tree หลัก) ไม่เชื่อผลที่ Debug Engineer รายงานเอง — ยืนยัน diff จริงมีแค่ `profile-golden-final.css` (10 บรรทัดเปลี่ยน), grep `profile-route.tsx` เองยืนยัน `.profile-account-remove` ไม่มี `disabled` attribute จริง (ไม่ต้องแก้ตรงตามที่ Debug Engineer อ้าง), สร้าง harness ใหม่ทั้งหมดตรวจ 5 จุดที่เคยพัง (ตอน disabled ต้องไม่มี feedback) + 2 จุด control + enabled-state ปกติทั้ง 9 จุด + reduced-motion — **37/37 ผ่าน** + console/HTTP sweep สะอาด + typecheck/lint/build สะอาด + parity spec ที่รันได้จริงผ่านหมด (ที่ fail เป็น sandbox environment limitation เดิม ไม่เกี่ยวกับ diff นี้)
+
+**Final Status: PASS** — WYN-176 Batch 4 (Profile/Settings) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-176-batch4-disabled-button-press-feedback.md`
