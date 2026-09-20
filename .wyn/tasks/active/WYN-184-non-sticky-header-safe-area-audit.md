@@ -57,3 +57,44 @@ P3 (follow-up หลัง Track 4 ของ epic WYN-174 — epic หลัก�
 2. `.flutter-chat-header` แก้ที่ rule ผู้ชนะจริง (`web/app/chat-notes.css:537-542`) ให้มี safe-area — **ห้ามแก้ที่ `pixel-parity-audit-closure.css` เพราะเป็น dead code ที่โดนทับอยู่แล้ว**
 
 → ส่งต่อ **AI Coding** implement ตาม fix proposal ในสเปกเต็ม
+
+## Implementation (AI Coding, 2026-09-20)
+
+Branch ไม่ behind `origin/main` (fetch ยืนยันแล้ว, HEAD เป็น ancestor ที่ตามหลัง merge ล่าสุดของ PR #570 อยู่แล้ว) ไม่ต้อง merge ก่อนเริ่ม — grep ซ้ำยืนยัน selector/บรรทัดตรงกับ spec เป๊ะ ไม่มีอะไรขยับ
+
+### 1. `.wyn-profile-topbar` (`web/app/profile-golden-final.css:10-18`)
+Grep ซ้ำยืนยันประกาศไฟล์เดียวในทั้ง repo จริง (ไม่มี cascade risk) แก้ตาม fix proposal เป๊ะ:
+```css
+.wyn-profile-topbar {
+  height: calc(52px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 4px 0;
+  ...
+}
+```
+ใช้ pattern เดียวกับ `.wyn-profile-tabs` ที่ WYN-182 แก้ไปแล้ว กระทบ 4 route path ที่ reuse selector นี้ (`/profile/[id]`, `/profile/me`, `/profile/[id]/followers`, `/profile/[id]/following`)
+
+### 2. `.flutter-chat-header` cascade fix
+ก่อนแก้ re-verify cascade ใหม่ทั้งหมดด้วยตัวเอง (ไม่เชื่อ spec เฉยๆ ตามคำเตือนใน task brief): grep ยืนยันครบ 5 rule declaration ใน 4 ไฟล์จริง (`system-parity-lock.css:209`, `pixel-parity-audit-closure.css:9`, `notifications-clean.css:206`, `chat-notes.css:11` และ `chat-notes.css:537`), เช็ค import order ใน `layout.tsx` ตรงกับที่ spec อ้างเป๊ะ (`system-parity-lock.css` → `pixel-parity-audit-closure.css` → `notifications-clean.css` → `chat-notes.css`) ไล่ cascade เอง: rule ที่ไม่มี `!important` (A, B) แพ้ทันทีให้ทุก rule ที่มี `!important` โดยไม่สนใจ specificity/order — เหลือ C/D/E ที่มี `!important`; C specificity (0,1,0) แพ้ D/E (0,2,0); D กับ E specificity เท่ากันอยู่ไฟล์เดียวกัน (`chat-notes.css`) — E (บรรทัด 537) มาหลัง D (บรรทัด 11) ในไฟล์เดียวกันจึงชนะ ตรวจ media query เสริมอีก 2 จุด (`:497`, `:744`) ด้วย ยืนยันว่าแก้แค่ `padding-left`/`padding-right` (longhand) ไม่แตะ `padding-top` เลย ไม่กระทบผลสรุป
+
+**ผลการ re-verify อิสระ: ตรงกับ spec 100% ไม่มี discrepancy** — rule ที่ชนะจริงคือ `chat-notes.css:537-542` แก้ที่นี่:
+```css
+.wyn-chat-inbox .flutter-chat-header {
+  height: calc(68px + env(safe-area-inset-top)) !important;
+  padding: calc(env(safe-area-inset-top) + 6px) 18px 0 14px !important;
+  ...
+}
+```
+คง `!important` ทุกตัวไว้เหมือนเดิม ไม่แตะ `pixel-parity-audit-closure.css:9-11` (dead code ตามที่ scope ระบุห้ามแตะ)
+
+### Validation
+- `npm run lint` / `npm run typecheck` / `npm run build` (`npm run check`) ใน `web/` — ผ่านสะอาดทั้ง 3 (lint มี warning 3 จุดเดิมที่มีอยู่ก่อนแก้ ไม่เพิ่ม error ใหม่)
+- เขียน Playwright harness ชั่วคราว (`web/__wyn184-safe-area-check.mjs`, ลบแล้วหลังใช้) รันกับ `next dev` จริง (ไม่ใช่ static fixture คัดลอก CSS มาเอง — ใช้ route สาธารณะ `/welcome` ที่ไม่ต้อง auth แล้ว inject markup จริงของทั้ง 2 header เข้า DOM ที่โหลด bundled CSS จริงจาก `app/layout.tsx` ทั้ง 36 ไฟล์ตามลำดับจริง) จำลอง notch ผ่าน CDP `Emulation.setSafeAreaInsetsOverride` (top=59px) และ non-notch (top=0) — **10/10 checks ผ่าน**:
+  - Profile topbar: `padding-top`/`height` คำนวณตรงสูตรทั้งกรณี notch (59px / 111px) และ non-notch (0px / 52px เดิม ไม่มี regression)
+  - Chat header: `padding-top`/`height` ตรงสูตรทั้งกรณี notch (65px / 127px) และ non-notch (6px / 68px เดิม ไม่มี regression) — ยืนยันเพิ่มด้วย `grid-template-columns` (`40px ...` เป็นลายเซ็นเฉพาะของ rule E เท่านั้น ต่างจาก A/C/D ที่ใช้ `48px`) ว่า rule ที่แก้เป็นตัวที่ชนะ cascade จริงในหน้าที่ render จริง ไม่ใช่แค่ตรวจ source
+- Reason ที่ใช้ dev server จริงแทน static fixture: routes ที่มี header ทั้ง 2 (`/profile/[id]`, `/chat`) ต้องผ่าน `DeveloperRouteGate` (ต้องมี Supabase session จริง, sandbox นี้ไม่มี live backend) จึง inject markup เข้า route สาธารณะที่ share stylesheet bundle เดียวกันแทน — ได้ CSS ที่ผ่าน Next's bundler จริง ไม่ใช่การเดา specificity จาก source อย่างเดียว
+- Revert `web/next-env.d.ts` ที่ `next dev`/`next build` auto-touch แล้ว (`git checkout -- web/next-env.d.ts`) — ยืนยัน `git status` เหลือแค่ 2 ไฟล์ CSS ที่ตั้งใจแก้
+
+### สรุปไฟล์ที่แก้
+CSS: `web/app/profile-golden-final.css`, `web/app/chat-notes.css` (2 ไฟล์เท่านั้น ตรงตาม scope ที่ Founder อนุมัติ)
+
+→ ส่งต่อ **AI QA & Security** ตรวจซ้ำอิสระบนอุปกรณ์/เบราว์เซอร์ที่มี notch/Dynamic Island จริงก่อนเข้า Deploy gate (sandbox นี้ไม่มี Supabase backend จริง — QA ต้องยืนยันซ้ำบน environment ที่มี auth จริงว่า Profile/Profile follow list/Chat inbox หน้าจริง render header ถูกต้อง ไม่ใช่แค่ fixture ที่ inject เข้า `/welcome`)
