@@ -2386,4 +2386,20 @@ AI QA & Security ตรวจอิสระ 15 หัวข้อ (diff, alpha 
 
 **สรุป: WYN-181 (Track 3 ของ WYN-174) เสร็จสมบูรณ์ฝั่ง implementation/QA ทั้ง 2 sub-task แล้ว** (install prompt banner + iOS splash screen) — รอ Founder สั่งเปิด PR แล้วยืนยัน production จริงบนอุปกรณ์ตาม acceptance criteria เดิม
 
+## [2026-09-20] WYN-182 — ทิศทางใหม่แท็บล่าง: Founder เลือก "เหมือนเธรด" เฉพาะ 3 ลักษณะ ไม่ใช่ก็อปทั้งหน้าจอ
+
+Founder ขอ "ออกแบบปุ่ม หน้าหลัก คลับ โพสต์ แชท โปรไฟล์ใหม่" — ตรวจก่อนพบว่าแท็บล่างเพิ่งผ่าน 3 รอบปรับเมื่อวาน-วันนี้แล้ว (WYN-178/179/180 ทั้งหมด PASS QA) จึงถามก่อนว่าต้องการต่อยอดหรือทิศทางใหม่ — **Founder ยืนยัน "อยากได้ทิศทางใหม่ทั้งหมด"**
+
+ทำ Artifact เทียบ 3 ทางเลือกรอบ 1 (เปลี่ยนแค่วิธีสื่อ active state: A. outline→filled, B. squircle chip, C. เส้นบอกตำแหน่ง) — **Founder ไม่ชอบทั้ง 3** และบอกเพิ่มว่า "อยากเปลี่ยนโครงสร้าง ไม่ใช่แค่ active state" ทำรอบ 2 เสนอ 3 ทางเลือกเปลี่ยน silhouette บาร์ (A. โพสต์ยกลอยกลมในบาร์เดิม — พบว่ามีโค้ดต้นแบบเดิมที่ไม่เคยขึ้น production คือ `components/ui/bottom-nav.tsx`/`wyn-bottom-nav__post-icon` แต่ติด Liquid Glass เก่าที่ต้องตัดทิ้ง, B. โพสต์แยกลอยอิสระนอกบาร์ 4 ปุ่ม, C. ไอคอนอย่างเดียว label โผล่เฉพาะ active)
+
+Founder ตอบ **"ชอบเหมือนเธรด"** — ตาม DS-001 ข้อ 2 (ห้ามลอกโครงหน้าจอ/ลำดับ element/ท่า interaction ของ Threads ตรง ๆ เอาได้แค่ "ความเรียบ") จึงถามแยกเป็นรายลักษณะแทนที่จะเดาว่า "เหมือนเธรด" หมายถึงอะไร — **Founder เลือก 3 ข้อ (จากตัวเลือกที่ AI Design แตกให้)**:
+
+1. **ไอคอนทึบ (filled) ตอน active — ไม่มีสี/chip/เส้น** (ตรงกับ Concept A ของรอบ 1)
+2. **บาร์เรียบแบนราบ ไม่มีปุ่มยกลอย** (ปัดตก Concept A/B ของรอบ 2 ที่ยกปุ่มโพสต์ลอย)
+3. **โปร่ง/เว้นระยะเยอะขึ้น** (เพิ่ม padding/gap ของ `.route-nav-link`)
+
+**Founder ไม่เลือก** "ไอคอนล้วนไม่มี label เลย" (Concept C ของรอบ 2) — แปลว่า label ยังคงแสดงทั้ง active/inactive เหมือนเดิม **นี่คือคำตัดสินใจสุดท้าย** ที่ใช้เขียน spec ทางการ WYN-182 — ไม่ใช่การก็อป Threads ทั้งหน้าจอ เอาแค่ 3 ลักษณะที่ระบุไว้ชัดเจนเท่านั้น ไม่แตะ `--wyn-bottom-nav-height`/breakpoint ที่เพิ่งอนุมัติใน WYN-179/180
+
+อ้างอิง: Artifact เปรียบเทียบ (รอบ 1 เก็บใน section พับท้ายหน้า, รอบ 2 เป็นเนื้อหาหลัก) https://claude.ai/artifact/P2sAcfYmzKwDBU71UYE8BG, spec ฉบับทางการ `.wyn/docs/design/wyn-182-bottom-nav-filled-active-spacious.md`, task `.wyn/tasks/active/WYN-182-bottom-nav-filled-active-spacious.md`
+
 อ้างอิง: `.wyn/tasks/active/WYN-181-install-launch-experience.md`
