@@ -70,3 +70,7 @@ P0 (Perceived Speed & Motion, Visual Design Rollout) → P1 (Install & Launch) �
 **[2026-09-19] Track 1 (WYN-175) เสร็จสมบูรณ์**: Design → Coding → QA (FAIL รอบ 1 → Debug fix → PASS รอบ 2) → Deploy (PR #552 merge, production deploy สำเร็จ) → Founder ยืนยัน production ใช้งานจริงแล้ว ย้ายไป `.wyn/tasks/completed/WYN-175-web-perceived-speed-motion.md`
 
 Track อื่น (Visual Design Rollout — รอ WYN-163 finalize ก่อน / Install & Launch Experience / Platform Integration Polish) ยังอยู่ใน backlog รอคิวถัดไป ยังไม่มีคำสั่งให้เริ่ม
+
+**[2026-09-20] Track 2 (Visual Design Rollout) เสร็จสมบูรณ์**: แตกเป็น `WYN-176-visual-design-rollout-squircle.md` — ทำครบ 6 batch (Home chrome → Composer → Chat → Profile/Settings → Search/Club → dead code cleanup) แต่ละ batch ผ่าน Design preview → Coding → QA (batch 4/5/6 มีรอบ fix/re-verify) → Deploy production สำเร็จครบ (PR #553/#554/#559/#561) Founder ยืนยัน production แล้วสำหรับ batch 1 ("ชอบผ่าน") ส่วน batch 2-6 deploy สำเร็จรอ Founder ยืนยัน physical device
+
+Founder สั่ง "ทำต่อเลย" — เริ่ม **Track 3: Install & Launch Experience (P1)** ต่อไป (custom install prompt banner + iOS splash screen images)
