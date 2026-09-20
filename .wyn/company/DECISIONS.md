@@ -1998,3 +1998,13 @@ Founder merge PR #554 เอง — `WYN-158 Production Deploy` run #141 **succe
 ยังไม่ย้าย task ไป `completed/` — รอ Founder เปิด Composer จริงบน `wynos.online` ยืนยัน press feedback ทำงานจริง
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch2-composer-prep.md`
+
+## [2026-09-19] WYN-176 Batch 3 (Chat) — AI Design ตรวจโค้ดจริงแล้ว เจอเฉพาะ conversation view ที่ขาด press feedback
+
+Founder สั่ง "ต่อเลย" — ตรวจ `chat-routes.tsx`/`conversation-modern.css`/`phase3.css` ก่อนออกแบบ พบว่า chat inbox (list) มี press-scale ของตัวเองอยู่แล้วจาก WYN-169/170 ไม่ต้องแตะ และ WYN-160 batch 5 (2026-09-17) เคยปรับ radius ของ conversation view ให้ตรง target scale แล้ว (input group 22px, ปุ่มวงกลม) — **ไม่ต้องแก้ radius รอบนี้เหมือนเดิม**
+
+ช่องว่างจริง: ปุ่ม header (ย้อนกลับ/เมนู), profile hero (ดูโปรไฟล์/ติดตาม), ปุ่มลบข้อความ, ปุ่มแนบรูป/ส่ง, ปุ่มยกเลิกไฟล์แนบ ไม่มี press feedback เลย — เพิ่มเป็นข้อ 7: `.route-icon-button`/`.route-icon-link` (shared class ใช้ร่วม Chat/Post detail/Profile/Settings) ก็ไม่มีเหมือนกัน แก้ที่นี่ได้ประโยชน์ล่วงหน้าให้ batch อื่นด้วย
+
+ทำ Artifact preview: https://claude.ai/artifact/CrQrnN8uw1JbHHrub9ie5L
+
+บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch3-chat.md`
