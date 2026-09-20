@@ -13,6 +13,7 @@ import { PostActions } from "@/components/home/post-actions";
 import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import { loadHomeViewerState, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
+import { haptic } from "@/lib/haptics";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Sheet = "more" | "redrop" | "quote" | "report" | null;
@@ -123,6 +124,7 @@ export function GoldenDropCard({ row, homeParity = false }: { row: HomeFeedRow; 
 
   const like = async () => {
     if (!client || !viewer || !userId || busy) return;
+    if (!liked) haptic();
     patchViewer("likedDropIds", !liked);
     setLikeCount((count) => Math.max(0, count + (liked ? -1 : 1)));
     try { await toggleDropLike(client, userId, row.id, liked); }
@@ -144,6 +146,7 @@ export function GoldenDropCard({ row, homeParity = false }: { row: HomeFeedRow; 
 
   const save = async () => {
     if (!client || !viewer || !userId || busy) return;
+    if (!saved) haptic();
     patchViewer("savedDropIds", !saved);
     try { await toggleDropSave(client, userId, row.id, saved); setSheet(null); }
     catch { void reloadViewer(userId); }

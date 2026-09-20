@@ -9,6 +9,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
   addDropComment,
@@ -66,8 +67,8 @@ function DropDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   });
   const interact = async (kind: "like" | "save" | "redrop") => {
     try {
-      if (kind === "like") { patchSet("likedDropIds", !liked); await toggleDropLike(client, userId, row.id, liked); setRow({ ...row, like_count: Math.max(0, (row.like_count ?? 0) + (liked ? -1 : 1)) }); }
-      if (kind === "save") { patchSet("savedDropIds", !saved); await toggleDropSave(client, userId, row.id, saved); }
+      if (kind === "like") { if (!liked) haptic(); patchSet("likedDropIds", !liked); await toggleDropLike(client, userId, row.id, liked); setRow({ ...row, like_count: Math.max(0, (row.like_count ?? 0) + (liked ? -1 : 1)) }); }
+      if (kind === "save") { if (!saved) haptic(); patchSet("savedDropIds", !saved); await toggleDropSave(client, userId, row.id, saved); }
       if (kind === "redrop") { patchSet("redroppedDropIds", !redropped); await toggleDropRedrop(client, userId, row.id, redropped); setRow({ ...row, redrop_count: Math.max(0, (row.redrop_count ?? 0) + (redropped ? -1 : 1)) }); }
     } catch { setError("อัปเดตกิจกรรมไม่สำเร็จ"); void load(); }
   };
@@ -78,7 +79,7 @@ function DropDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     catch { setError("ส่งความคิดเห็นไม่สำเร็จ"); } finally { setSending(false); }
   };
   const likeComment = async (comment: DropCommentRow) => {
-    try { await toggleDropCommentLike(client, userId, comment.id, comment.liked_by_me); setComments((current) => current.map((item) => item.id === comment.id ? { ...item, liked_by_me: !item.liked_by_me, like_count: Math.max(0, item.like_count + (item.liked_by_me ? -1 : 1)) } : item)); }
+    try { if (!comment.liked_by_me) haptic(); await toggleDropCommentLike(client, userId, comment.id, comment.liked_by_me); setComments((current) => current.map((item) => item.id === comment.id ? { ...item, liked_by_me: !item.liked_by_me, like_count: Math.max(0, item.like_count + (item.liked_by_me ? -1 : 1)) } : item)); }
     catch { setError("ถูกใจความคิดเห็นไม่สำเร็จ"); }
   };
 

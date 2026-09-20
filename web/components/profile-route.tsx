@@ -21,6 +21,7 @@ import {
 } from "@/lib/account-registry";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
+import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import {
@@ -164,6 +165,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     const wasFollowing = summary.following;
     const wasRequested = summary.requested;
     const optimisticNext = predictFollowState({ currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private });
+    if (!wasFollowing) haptic();
     setAction(true); setError("");
     patchSummary((current) => ({
       ...current,

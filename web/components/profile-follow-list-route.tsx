@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { toggleAuthorFollow } from "@/lib/home-actions";
+import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 
 type Kind = "followers" | "following";
@@ -60,6 +61,7 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
   useEffect(() => { void load(); }, [load]);
   const follow = async (person: Person) => {
     if (person.id === viewerId || busy) return;
+    if (!person.following) haptic();
     setBusy(person.id); setError("");
     try {
       const next = await toggleAuthorFollow(client, viewerId, person.id, { currentlyFollowing: person.following, pendingRequest: person.requested, isPrivate: person.is_private });

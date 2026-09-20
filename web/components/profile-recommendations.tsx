@@ -8,6 +8,7 @@ import { Avatar } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import type { HomeFeedRow } from "@/lib/feed";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
+import { haptic } from "@/lib/haptics";
 import { fetchSuggestedProfiles, profileLabel, type ProfileRow } from "@/lib/phase3-data";
 
 function fakeRows(profiles: ProfileRow[]): HomeFeedRow[] {
@@ -66,6 +67,7 @@ export function ProfileRecommendations({
     const wasRequested = viewer.pendingFollowAuthorIds.has(profile.id);
     const isPrivate = viewer.privateAuthorIds.has(profile.id) || profile.is_private;
     if (wasRequested && isPrivate && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
+    if (!wasFollowing) haptic();
     setPending((current) => new Set(current).add(profile.id));
     try {
       const state = await toggleAuthorFollow(client, userId, profile.id, { currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate });
