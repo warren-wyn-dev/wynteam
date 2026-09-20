@@ -312,3 +312,18 @@
   โดยเฉพาะกับ property ที่มีผลต่อ layout (height/padding/margin) ซึ่งผิดแล้วเห็นผลเป็น layout shift ทันที เพิ่ม
   regression test ไว้แล้วที่ `web/tests/browser/wyn-175-skeleton-parity.spec.ts` + fixture route
   `/dev/wyn-175-skeleton-fixture` (ตาม pattern `/dev/home-fixture` เดิม) ให้ CI จับ class นี้ได้เองในอนาคต
+
+### [2026-09-20] WYN-176 batch 4 + batch 5 — เพิ่ม `:active` press feedback ให้ selector ที่มี `disabled` state จริง ต้องใส่ `:not(:disabled)` ให้ครบทุกจุด ไม่ใช่บางจุด
+- บริบท: เกิดบั๊กเดียวกัน 2 batch ติดกัน — AI Coding เพิ่ม `scale(0.96)` press feedback ให้ปุ่มหลายจุดในคราวเดียว
+  บางจุดมี `disabled={...}` จริงในซอร์สแต่ลืมใส่ `:not(:disabled)` ใน `:active` rule (batch 4: 5 จุดจาก 9;
+  batch 5: 1 จุดจาก 22 — `.golden-club-composer button`) ทำให้ปุ่มที่ปิดใช้งานอยู่ยังแสดง press feedback
+  เหมือนกดได้ปกติ ขัดกับเจตนาหลักของฟีเจอร์ (feedback ต้องซื่อสัตย์ต่อผู้ใช้) — QA จับได้ทั้งสองครั้งด้วยการ
+  ทดสอบทุกจุดที่มี `disabled={...}` จริงในซอร์สโดยเฉพาะ ไม่ใช่แค่ตัวอย่าง 1-2 จุด
+- บทเรียน: `:active` เป็น pseudo-class ที่ browser จะ apply ให้ `<button disabled>` เหมือนปุ่มปกติเว้นแต่จะกัน
+  ด้วย `:not(:disabled)` เอง (ไม่ใช่พฤติกรรม default ที่ปลอดภัย) — เมื่อเพิ่ม press feedback ให้ selector ชุดใหญ่
+  พร้อมกันหลายจุด (7+ จุด) ต้องเช็ค**ทุกจุด**ในซอร์ส `.tsx` จริงว่ามี `disabled={...}` หรือไม่ ก่อนตัดสินใจว่าจะใส่
+  `:not(:disabled)` guard หรือไม่ ห้ามใช้ pattern เดียวกันซ้ำๆ โดยไม่ตรวจแต่ละจุด (`<label>` เป็นข้อยกเว้น —
+  ไม่รองรับ `:disabled` pseudo-class เลยตามสเปก CSS ไม่ใช่บั๊ก)
+- การนำไปใช้ในอนาคต: ทำเป็น checklist item ถาวรของ AI Coding self-check ก่อนส่ง QA ทุกครั้งที่เพิ่ม `:active`
+  press feedback ให้ selector ใหม่ — grep หา `disabled=` ทุกจุดที่ใช้ selector นั้นใน `.tsx` จริง แล้ว cross-check
+  ว่า CSS `:active` rule มี `:not(:disabled)` ครบตามจำนวนจุดที่มี disabled state จริง ไม่ใช่แค่ทดสอบตัวอย่างสุ่ม

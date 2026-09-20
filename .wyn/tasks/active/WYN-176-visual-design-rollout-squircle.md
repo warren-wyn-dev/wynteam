@@ -291,6 +291,34 @@ WYN-176 Batch 4 (Profile/Settings) พร้อมเข้า Deploy gate เ�
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/search`, `/clubs`, `/clubs/new`, `/club/[id]` ผ่าน dev server จริง (2) ยืนยัน `club-detail-route.tsx`/`club-detail-audit.css`/`club-post-card-web.*` เป็น dead code จริงตามที่อ้าง (3) ไม่มี regression ต่อ parity spec
 
+## QA Batch 5 — Round 1 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ยืนยัน diff ตรงตามที่รายงาน + ยืนยัน dead-code claim อิสระ (grep import/render จริง, อ่าน `app/club/[id]/page.tsx` ตรงๆ, เทียบกับ `parity.spec.ts` ที่ lock `ClubDetailGoldenRoute` อยู่แล้ว) + cascade verification 22 selector + harness Playwright อิสระ (inline `<style>` หลังเจอว่า Chromium บล็อก `<link href="file://">` ใน `page.setContent()`) + dev server sweep 4 route + parity spec regression grep + typecheck/lint/build + security review
+
+**Passed**: 36/37 harness checks + dead-code claim ยืนยันจริง (Founder's ตัดสินใจขยาย scope กลายเป็น moot จริง ไม่มีอะไรตกหล่น) + cascade clean 22/22 + parity spec intact + console/HTTP sweep สะอาด 4/4 route + lint/typecheck/build สะอาด
+
+**Failed**: 1/37 — `.golden-club-composer button` (ปุ่มส่งข้อความแชท Club) แสดง press feedback ทั้งที่ disabled จริง — pattern เดียวกับบั๊ก batch 4 เป๊ะ (ใส่ `:not(:disabled)` ไม่ครบทุกจุดในชุดเดียวกัน)
+
+**Severity**: MEDIUM
+
+**Security Findings**: ไม่มี — CSS-only diff ยืนยันแล้ว
+
+**Recommendation**: ส่งต่อ AI Debug Engineer แก้ตาม bug report `.wyn/tasks/bugs/WYN-176-batch5-composer-send-button-disabled-press-feedback.md`
+
+**Final Status: FAIL**
+
+Observation เพิ่มเติม (ไม่ block): design doc เขียนว่า "21 selectors" แต่ implementation จริงมี 22 (ลืมนับ `.audit-club-hero > button`) — ความคลาดเคลื่อนของเอกสารเท่านั้น ไม่ใช่ scope creep
+
+## Batch 5 Debug Fix (AI Debug Engineer, 2026-09-20)
+
+**Fix**: เพิ่ม `:not(:disabled)` ให้ `.golden-club-composer button:active` ใน `web/app/club-detail-golden.css` (1 บรรทัด) — ไม่แตะ `.golden-club-composer label` เพราะเป็น `<label>` ครอบ input ไฟล์ ไม่รองรับ `:disabled` pseudo-class ตามข้อจำกัดของ CSS เอง (เหมือน `.audit-club-image-picker` ที่อื่นในแอป ไม่ใช่บั๊กใหม่)
+
+**Files Changed**: `web/app/club-detail-golden.css` เท่านั้น — diff 1 บรรทัด
+
+**Tests**: harness ใหม่ (inline `<style>` หลีกเลี่ยงปัญหา `file://` CSP ที่ QA เจอ) ตรวจ disabled variant (ต้อง `none`) + enabled variant (press-apply + release) **3/3 ผ่าน** + typecheck/lint/build สะอาด
+
+**Handoff**: → **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
+
 ## Batch 6 — Dead Code Cleanup (AI Coding, 2026-09-20)
 
 **Implementation**: ทำ "batch 8" เดิมของ WYN-160 (ไล่ลบ CSS/component dead code ที่สะสมมาจากหลาย batch) — ตรวจ routing/import จริงทุกจุดก่อนลบ ไม่เชื่อ comment ในไฟล์ ("kept for older fixtures" กลายเป็นเท็จเมื่อ grep จริง):

@@ -2263,3 +2263,19 @@ AI QA & Security ตรวจซ้ำอิสระอีกรอบ (worktre
 **Final Status: PASS** — WYN-176 Batch 4 (Profile/Settings) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
 
 อ้างอิง: `.wyn/tasks/bugs/WYN-176-batch4-disabled-button-press-feedback.md`
+
+## [2026-09-20] WYN-176 Batch 5 — QA พบบั๊กเดิมซ้ำ **FAIL**: ปุ่มส่งข้อความแชท Club ยังมี press feedback ตอน disabled
+
+AI QA & Security ยืนยัน dead-code claim ของ batch 5 เป็นจริงทุกข้อ (grep import/render จริง + เทียบ `parity.spec.ts` ที่ lock `ClubDetailGoldenRoute` อยู่แล้ว) — Founder's ตัดสินใจขยาย scope กลายเป็น moot จริง ไม่มีอะไรตกหล่น จากนั้นทำ harness อิสระตรวจ 22 selector เจอบั๊กรูปแบบเดิมกับ batch 4 อีกครั้ง: `.golden-club-composer button` (ปุ่มส่งข้อความแชท Club) ไม่มี `:not(:disabled)` guard ทั้งที่มี disabled state จริง (`disabled={sending || (!draft.trim() && !image)}`) — จุดอื่นในชุดเดียวกันที่มี disabled จริง (`.audit-club-join`, `.golden-club-inline-join`, `.golden-club-primary-join`, `.golden-club-sheet-row`, `.golden-club-poll > button`) ถูก guard ถูกต้องหมด มีแค่จุดนี้จุดเดียวที่หลุด
+
+Severity: MEDIUM — บันทึก bug report ที่ `.wyn/tasks/bugs/WYN-176-batch5-composer-send-button-disabled-press-feedback.md` **Final Status: FAIL**
+
+ส่งต่อ **AI Debug Engineer** แก้ไข — บทเรียนซ้ำ: ทุกครั้งที่เพิ่ม press feedback ให้ selector ที่มี disabled state จริงในซอร์ส ต้องตรวจสอบ `:not(:disabled)` ให้ครบทุกจุดในชุดเดียวกัน ไม่ใช่แค่บางจุด (เกิดซ้ำ 2 batch ติดกันแล้ว — ควรเพิ่มเป็น checklist item ถาวรใน AI Coding self-check ก่อนส่ง QA)
+
+## [2026-09-20] WYN-176 Batch 5 — Debug Engineer แก้บั๊กแล้ว ยืนยัน 3/3 ผ่าน
+
+แก้ตรงจุดเดียว — เพิ่ม `:not(:disabled)` ให้ `.golden-club-composer button:active` ใน `web/app/club-detail-golden.css` (ไม่แตะ `.golden-club-composer label` เพราะเป็น `<label>` ไม่รองรับ `:disabled` pseudo-class ตามข้อจำกัด CSS เอง)
+
+Tests: harness ใหม่ (inline `<style>` หลีกเลี่ยงปัญหา Chromium บล็อก `<link file://>` ที่ QA เจอ) ตรวจ disabled variant + enabled variant **3/3 ผ่าน** + typecheck/lint/build สะอาด
+
+ส่งต่อ **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
