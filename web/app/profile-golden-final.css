@@ -192,8 +192,8 @@
   -webkit-tap-highlight-color: transparent;
   transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.wyn-profile-action-primary:active,
-.wyn-profile-action-secondary:active {
+.wyn-profile-action-primary:active:not(:disabled),
+.wyn-profile-action-secondary:active:not(:disabled) {
   transform: scale(0.96);
 }
 
@@ -443,9 +443,9 @@
   -webkit-tap-highlight-color: transparent;
   transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.profile-account-select:active,
+.profile-account-select:active:not(:disabled),
 .profile-account-remove:active,
-.profile-account-use-other:active,
+.profile-account-use-other:active:not(:disabled),
 .profile-account-manage:active:not(:disabled) {
   transform: scale(0.96);
 }
@@ -531,7 +531,7 @@
   -webkit-tap-highlight-color: transparent;
   transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.profile-more-sheet > button:active {
+.profile-more-sheet > button:active:not(:disabled) {
   transform: scale(0.96);
 }
 
