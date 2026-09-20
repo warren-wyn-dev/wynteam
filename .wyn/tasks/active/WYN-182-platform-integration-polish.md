@@ -42,3 +42,13 @@ P2 (ตามลำดับเดิมของ epic — เริ่มหล
 ## Handoff
 
 → **AI Design** ทำ audit เต็มรูปแบบทั้ง 2 หัวข้อ (safe-area + overscroll/pull-to-refresh) แล้วเขียน spec พร้อมตารางจุดขาด/ข้อเสนอแก้ ให้ Founder อนุมัติก่อน AI Coding เริ่ม (ตามกติกาถาวรของ epic — audit/technical polish ก็ยังต้องผ่าน spec review แม้ไม่ใช่ UI ใหม่ เพราะบางจุดอาจกระทบ spacing ที่มองเห็นได้)
+
+## Design Audit — ผลสรุป (AI Design, 2026-09-20)
+
+Spec เต็ม: `.wyn/docs/design/wyn-182-platform-integration-polish.md`
+
+**Audit 1 (Safe-area)**: ตรวจ position:fixed/sticky ครบทุก selector ใน `web/app/*.css` (36 ไฟล์) + module CSS (2 ไฟล์) — พบ GAP จริง 3 จุด: `.wyn-profile-tabs`, `.golden-club-tabs` (ทั้งคู่เปลี่ยน spacing ที่มองเห็นได้บนอุปกรณ์มี notch) + `.home-drawer` (defensive ล้วนๆ) ตรวจ cascade ตามบทเรียน WYN-175 ด้วย พบ cascade regression จริงนอก scope ทางการ 2 จุด (`.wyn-profile-topbar`, `.flutter-chat-header`) รายงานแยกให้ Founder ตัดสินใจ
+
+**Audit 2 (Overscroll/PTR)**: ยืนยัน `html`/`body` ไม่มี base `overscroll-behavior` จริง — เสี่ยงสูงเพราะ Home/Club/Chat/Profile scroll ผ่าน document ตรงๆ ไม่มี nested container และ Home's PTR ไม่เรียก `preventDefault()` เลย (เสี่ยง native Android pull-to-refresh ชนซ้อน) พบ scroll container ขาด `overscroll-behavior` อีก 6 จุด (action sheet/modal ที่ reuse กว้าง) วิเคราะห์กลไก PTR ของ Home ละเอียดสำหรับ extract เป็น hook กลาง ตรวจทีละหน้าจริงแล้วแนะนำเพิ่ม PTR ที่ Club posts tab, Notifications, Bookmarks (Profile feed เข้าเกณฑ์เดียวกันแต่เสนอแยกเป็นตัวเลือก ไม่รวม default)
+
+**รอ Founder ตัดสินใจ 3 ประเด็นก่อน AI Coding เริ่ม**: (ก) safe-area tabs 2 จุดที่เปลี่ยน spacing บนอุปกรณ์มี notch (ข) `overscroll-behavior-y: contain` ที่ html/body ที่เปลี่ยนพฤติกรรม scroll ทั้งแอป (ค) PTR ใหม่ 3 หน้า (+Profile เป็นตัวเลือกเสริม) ต้อง gate ด้วย staged-rollout (`isDeveloperAccount()`) หรือไม่
