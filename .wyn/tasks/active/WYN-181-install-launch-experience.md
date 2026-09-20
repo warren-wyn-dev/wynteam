@@ -149,3 +149,25 @@ WYN-181 Sub-task 1 (Custom Install Prompt Banner) พร้อมเข้า De
 **Known Issues**: ไม่มี — WYN-181 ทั้ง 2 sub-task เขียนโค้ดเสร็จครบแล้ว (sub-task 1 ผ่าน QA แล้ว, sub-task 2 รอ QA รอบแรก)
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) `<link>` tag ทั้ง 32 จุดถูกต้องตาม media query จริง (ไม่ผิด device-width/height/dpr/orientation/color-scheme) (2) ภาพ light/dark ถูกต้องไม่มีกล่องขาวหรือ artifact อื่น (3) ไม่มี regression ต่อ metadata/head เดิม (4) `web/tools/` script รันซ้ำได้จริงตามที่อ้าง
+
+## QA Sub-task 2 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ตรวจ diff จริง + ตรวจ alpha channel ของ `icon-512.png`/`wynos_logo_mark.png`/ผล `negate()` เองอิสระ (ไม่เชื่อคำอ้างของ AI Coding) + อ่านภาพจริงด้วยสายตา 4 ไฟล์ตัวแทน (iPhone light/dark, iPad light/dark) + เทียบ media query ทั้ง 16 entry กับสเปกอุปกรณ์ iOS จริงที่รู้จักกันดี + เปิด dev server จริง curl `<head>` เอง + ตรวจ metadata เดิมไม่ regression + รัน generator script ซ้ำเองเทียบ byte-identical + typecheck/lint/build + regression suite + security review + ตรวจขนาดไฟล์รวม
+
+**Passed**: 15/15 — diff ตรงตามที่อ้าง, บั๊ก icon transparency ที่ AI Coding แก้ไปแล้วยืนยันจริง, ภาพทุกจุดถูกต้องไม่มี artifact, media query ตัวเลขถูกต้องครบทุก device class จริง, `<head>` มี link ครบ 32 จุดทุก href ตอบ 200, generator script reproduce ได้ byte-identical, typecheck/lint/build สะอาด, regression suite 54/54 ที่รันได้จริงผ่าน, ไม่มีปัญหา security
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่มี — static asset + metadata diff ล้วนๆ ไม่มี client JS logic ใหม่ ไม่มี data flow/auth/API surface ใดๆ
+
+**Recommendation**: Approve — WYN-181 Sub-task 2 พร้อมเข้า Deploy gate
+
+**Final Status: PASS**
+
+หมายเหตุ LOW ที่ QA พบเอง (ไม่ block, ไม่ต้องรีบแก้): ชื่อไฟล์ 2 กลุ่มใน generator script (`iphone-15-14-13-13-pro-12-12-pro` และ `iphone-15-plus-14-plus-13-pro-max-12-pro-max`) มีคำว่า "15"/"15-plus" ปนอยู่ทั้งที่ iPhone 15/15 Plus จริงใช้ความละเอียดคนละกลุ่ม (393×852 และ 430×932 ตามลำดับ ซึ่งมี entry ถูกต้องอยู่แล้วแยกต่างหาก) — เป็นแค่ label สับสนสำหรับคนดูแลไฟล์ในอนาคต **ไม่กระทบผู้ใช้จริงเลย** เพราะ media query ใช้ตัวเลข w/h/dpr ตรงๆ ไม่ได้อิงชื่อไฟล์ แนะนำแก้ชื่อให้ตรง (`iphone-14-13-13-pro-12-12-pro`, `iphone-14-plus-13-pro-max-12-pro-max`) ในรอบถัดไปที่แตะไฟล์นี้
+
+---
+
+**สรุป WYN-181 (Track 3 ของ WYN-174)**: ทั้ง 2 sub-task ผ่าน QA ครบแล้ว (sub-task 1 มีรอบ fix/re-verify 1 ครั้ง, sub-task 2 ผ่านรอบแรก) — เสร็จสมบูรณ์ฝั่ง implementation/QA รอ Founder สั่งเปิด PR แล้วยืนยัน production จริงบนอุปกรณ์ (ทั้ง install banner บน Android/iOS และ splash screen ตอนเปิดจาก home screen บน iOS) ตาม acceptance criteria เดิม

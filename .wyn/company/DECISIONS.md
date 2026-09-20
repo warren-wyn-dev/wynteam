@@ -2375,3 +2375,15 @@ AI QA & Security ตรวจซ้ำอิสระในอีก worktree �
 ตรวจสอบด้วย dev server จริง: `<head>` มี `<link rel="apple-touch-startup-image">` ครบ 32 จุด ทุก href ตอบ HTTP 200 จริง + typecheck/lint/build สะอาด + regression suite 54/54
 
 ส่งต่อ **AI QA & Security** ตรวจ — WYN-181 ทั้ง 2 sub-task เขียนโค้ดเสร็จครบแล้ว
+
+## [2026-09-20] WYN-181 sub-task 2 — QA PASS 15/15 — WYN-181 ทั้ง 2 sub-task ผ่าน QA ครบแล้ว (Track 3 ของ WYN-174 เสร็จฝั่งโค้ด)
+
+AI QA & Security ตรวจอิสระ 15 หัวข้อ (diff, alpha channel ของ icon/logo/negate เอง, อ่านภาพจริง 4 ไฟล์ตัวแทน, เทียบ media query 16 entry กับสเปก iOS จริง, curl `<head>` เอง, regenerate script เทียบ byte-identical, typecheck/lint/build, regression suite, security) — **ผ่านหมด 15/15** ไม่มีบั๊กที่ block
+
+พบ LOW note เอง (ไม่ block): ชื่อไฟล์ 2 กลุ่มใน generator script มีคำว่า "15"/"15-plus" ผิดกลุ่มความละเอียดจริง (เป็นแค่ label สับสน ไม่กระทบผู้ใช้เพราะ media query ใช้ตัวเลขตรงๆ ไม่อิงชื่อไฟล์) — แนะนำแก้รอบถัดไปที่แตะไฟล์ ไม่ต้องรีบ
+
+**Final Status: PASS**
+
+**สรุป: WYN-181 (Track 3 ของ WYN-174) เสร็จสมบูรณ์ฝั่ง implementation/QA ทั้ง 2 sub-task แล้ว** (install prompt banner + iOS splash screen) — รอ Founder สั่งเปิด PR แล้วยืนยัน production จริงบนอุปกรณ์ตาม acceptance criteria เดิม
+
+อ้างอิง: `.wyn/tasks/active/WYN-181-install-launch-experience.md`
