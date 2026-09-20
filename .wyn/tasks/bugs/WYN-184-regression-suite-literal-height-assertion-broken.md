@@ -1,6 +1,6 @@
 # Bug Report — WYN-184
 
-Status: bugs
+Status: fixed — awaiting QA re-verification
 Owner: AI Debug Engineer
 
 Bug:
@@ -33,3 +33,20 @@ Tests: หลังแก้ต้องรัน `npx playwright test tests/bro
 Regression Risk: ต่ำ — เป็นการแก้ test assertion ให้ตรงกับ CSS ที่ถูกต้องอยู่แล้ว ไม่กระทบ production code
 
 Handoff to QA: หลังแก้แล้วให้ AI QA & Security รัน `npx playwright test` เต็ม suite อีกรอบอิสระ ยืนยัน 0 failed ก่อนอนุมัติเข้า Deploy gate — ไม่ต้องตรวจซ้ำ cascade/safe-area ของ 2 จุด CSS อีก (ตรวจผ่านแล้วในรอบ QA นี้ ไม่มี discrepancy)
+
+## Fix Applied (AI Debug Engineer, 2026-09-20)
+
+แก้ตาม fix ที่เสนอไว้เป๊ะ: เปลี่ยน literal string ใน `web/tests/browser/parity.spec.ts:162` จาก `"height: 52px"` เป็น `"height: calc(52px + env(safe-area-inset-top))"` (ตรงกับ CSS ปัจจุบันของ `.wyn-profile-topbar` เป๊ะ) ใช้ pattern เดียวกับ assertion อื่นที่มีอยู่แล้วในโค้ดเบสสำหรับเช็ค safe-area formula แบบ exact substring (`final-source-parity-gate.spec.ts:41`, `system-visual-parity.spec.ts:250`) ไม่ได้เปลี่ยนเป็น regex หรือ pattern ใหม่ ไม่แตะไฟล์ CSS ใดเลย (`profile-golden-final.css`, `chat-notes.css` ไม่มีการเปลี่ยนแปลง)
+
+**ตรวจ stale assertion อื่นเพิ่มเติม**: grep ทั้ง `web/tests/browser/` หา `wyn-profile-topbar`, `flutter-chat-header`, `52px`, `68px` — พบอีกจุดที่มี literal `"height: 52px"` คือ `parity.spec.ts:204` แต่เป็นของ `completionCss` (`app/parity-completion.css`, `.club-list-avatar`) ซึ่งไม่เกี่ยวกับ WYN-184 และไม่ได้ถูกแตะ ยังผ่านปกติ ไม่ใช่ stale assertion — ไม่มี test ไฟล์ไหนอ้างอิง `.wyn-profile-topbar` โดยตรงนอกจาก `parity.spec.ts:162` และไม่มี assertion ใน `system-visual-parity.spec.ts` (ซึ่งอ่าน `chat-notes.css` เก็บไว้ในตัวแปร `notesCss`) ที่เช็ค `height`/`padding` ของ `.flutter-chat-header` เลย — สรุป: มี stale assertion จุดเดียวจริงตามที่รายงานไว้ ไม่มีจุดอื่นที่ต้องแก้เพิ่ม
+
+**Tests after fix**:
+- `npx playwright test tests/browser/parity.spec.ts -g "source contracts cannot regress"` — 3/3 pass (ทั้ง 3 browser project, จากที่ fail ทั้ง 3 ก่อนแก้)
+- Full regression suite `npx playwright test` — **159 passed, 0 failed** (clean baseline เต็ม ไม่มี pre-existing `chromium_headless_shell` failure เพราะ binary มีอยู่แล้วที่ `/opt/pw-browsers`)
+- `npm run check` (`lint`+`typecheck`+`build`) — ผ่านสะอาด 0 error (warning 3 จุดเดิม ไม่เพิ่มใหม่)
+
+Files Changed: `web/tests/browser/parity.spec.ts` เท่านั้น (1 บรรทัด)
+
+Regression Risk: ต่ำมาก — test-only, แก้ literal string ให้ตรงกับ CSS ที่ถูกต้องอยู่แล้ว ไม่กระทบ production code
+
+Handoff: → **AI QA & Security** ตรวจซ้ำอิสระก่อนเข้า Deploy gate — ยืนยัน `npx playwright test` เต็ม suite 159/159 ด้วยตัวเอง (ไม่ต้องตรวจซ้ำ cascade/safe-area ของ 2 จุด CSS อีก — QA รอบก่อนหน้ายืนยันสมบูรณ์แล้ว)

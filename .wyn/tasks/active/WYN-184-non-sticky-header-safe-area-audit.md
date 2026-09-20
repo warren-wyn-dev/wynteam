@@ -160,3 +160,34 @@ Diff เป็น pure CSS เปลี่ยนแค่ 2 property (`height`, 
 **Final Status: FAIL**
 
 (หมายเหตุ: FAIL รอบนี้มาจาก regression suite เท่านั้น ไม่ใช่จากตัว fix ของ WYN-184 เอง — ทั้ง `.wyn-profile-topbar` และ `.flutter-chat-header` cascade fix ตรวจสอบอิสระแล้วว่าถูกต้อง 100% ตรงตามที่ AI Coding อ้างทุกจุด รวมถึง cascade analysis ที่เป็นความเสี่ยงสูงสุดของงานนี้)
+
+## Debug Fix (AI Debug Engineer, 2026-09-20)
+
+**Bug**: `web/tests/browser/parity.spec.ts:162` — assertion `expect(profileGoldenCss).toContain("height: 52px")` เป็น literal-string regression guard ที่ hardcode ค่า `.wyn-profile-topbar { height: 52px; }` เดิม (มีไว้ตั้งแต่ก่อน WYN-184 คู่กับบรรทัดก่อนหน้าที่กัน regression กลับไปเป็นดีไซน์ cover-photo เก่า `height: calc(170px...)`) เมื่อ WYN-184 เปลี่ยน `.wyn-profile-topbar` เป็น `height: calc(52px + env(safe-area-inset-top));` ตามที่ Founder อนุมัติ สตริง literal `"height: 52px"` จึงหายไปจากไฟล์จริง ทำให้ assertion fail ทั้ง 3 browser project — ไม่ใช่ regression ของ product code เป็น stale test assertion ล้วนๆ ตรงตามที่ QA วินิจฉัยไว้ใน bug report
+
+**Root Cause**: ยืนยันซ้ำเองด้วย `git show 568997d2 -- web/app/profile-golden-final.css` และอ่าน context รอบบรรทัด 161-162 ของ `parity.spec.ts` — assertion นี้เจตนาป้องกัน 2 อย่างคู่กัน: (1) ห้ามกลับไปใช้ header สูง 170px แบบ cover-photo เก่า (บรรทัด 161, `.not.toContain`) และ (2) ยืนยันว่า metric สำคัญ 3 ตัวของ topbar (`font-size: 17px`, `min-height: 44px`, `height: 52px`) ยังอยู่ — invariant ที่แท้จริงคือ "topbar ยังคงใช้ฐาน 52px ไม่ใช่ 170px" ไม่ใช่ "ต้องเป็น `height: 52px` เป๊ะโดยไม่มี safe-area" WYN-184 เปลี่ยนแค่สูตรให้บวก safe-area เข้าไป ฐาน 52px ยังอยู่ครบ (`calc(52px + env(safe-area-inset-top))`) จึงไม่ใช่การผิด invariant จริง — เป็นแค่ assertion ที่เขียนแบบ literal substring ไม่ทนต่อการเปลี่ยนสูตรที่ถูกต้อง
+
+**Fix**: แก้ literal string ใน assertion เดียว จาก `"height: 52px"` เป็น `"height: calc(52px + env(safe-area-inset-top))"` (ตรงกับ CSS ปัจจุบันเป๊ะ) ใช้ pattern เดียวกับ assertion อื่นในโค้ดเบสที่เช็ค safe-area formula แบบ exact substring อยู่แล้ว (เช่น `final-source-parity-gate.spec.ts:41` และ `system-visual-parity.spec.ts:250` ที่เช็ค `"height: calc(70px + env(safe-area-inset-top))"`) — ไม่เปลี่ยนไปใช้ regex หรือ pattern ใหม่ เพื่อคงความเรียบง่ายและ consistency กับ convention เดิมของไฟล์
+
+```diff
+- for (const metric of ["font-size: 17px", "min-height: 44px", "height: 52px"]) expect(profileGoldenCss).toContain(metric);
++ for (const metric of ["font-size: 17px", "min-height: 44px", "height: calc(52px + env(safe-area-inset-top))"]) expect(profileGoldenCss).toContain(metric);
+```
+
+**ตรวจสอบ stale assertion อื่นที่อาจเกี่ยวกับ 2 selector ของ WYN-184 เพิ่มเติม** (ไม่เชื่อว่า QA เจอครบแค่เพราะรัน full suite ครั้งเดียว — grep เองทั้ง `web/tests/browser/` หา `wyn-profile-topbar`, `flutter-chat-header`, `52px`, `68px`, `safe-area-inset-top`):
+- `parity.spec.ts:204` มี literal `"height: 52px"` อีกจุด แต่เป็นของ `completionCss` (`app/parity-completion.css`) ซึ่ง WYN-184 ไม่ได้แตะ — grep ยืนยัน match จริงคือ `.club-list-avatar { width: 52px; height: 52px; ... }` (ไม่เกี่ยวกับ topbar) ยังผ่านปกติ ไม่ใช่ stale assertion ที่ต้องแก้
+- ไม่มี test ไฟล์ไหนอ้างอิง `.wyn-profile-topbar` โดยตรง (grep ทั้ง `web/tests/browser/` ไม่พบ)
+- `.flutter-chat-header`/`chat-notes.css`: มีแค่ `system-visual-parity.spec.ts` ที่ `readFile("app/chat-notes.css")` เก็บไว้ในตัวแปร `notesCss` แต่ assertion ทั้งหมดที่ใช้ตัวแปรนี้ (`.wyn-chat-note-plus`, `grid-template-rows`, ฯลฯ) ไม่แตะ `height`/`padding` ของ `.flutter-chat-header` เลย (เช็คแต่ metric ของ note bubble/plus button ส่วนอื่น) — ไม่มี stale assertion ซ่อนอยู่สำหรับ selector นี้
+- สรุป: มี stale assertion จุดเดียวจริงตามที่ QA รายงาน (บรรทัด 162) ไม่มีจุดอื่นที่ "ผ่านโดยบังเอิญ" ที่ต้องแก้เพิ่ม
+
+**Files Changed**: `web/tests/browser/parity.spec.ts` (1 บรรทัด, บรรทัด 162) — ไม่แตะ CSS ไฟล์ใดเลย (`profile-golden-final.css`, `chat-notes.css` ไม่มีการเปลี่ยนแปลง ยืนยันด้วย `git diff` ก่อน commit)
+
+**Tests**:
+- `npx playwright test tests/browser/parity.spec.ts -g "source contracts cannot regress"` (ทั้ง 3 browser project): **3/3 passed** (ก่อนแก้ fail ทั้ง 3, หลังแก้ผ่านทั้ง 3)
+- Full regression suite `npx playwright test`: **159 passed, 0 failed** (clean baseline ครบ ไม่มี failure จาก `chromium_headless_shell` เพราะ binary มีอยู่แล้วที่ `/opt/pw-browsers` ในสภาพแวดล้อมนี้)
+- `npm run check` (`lint` + `typecheck` + `build`) ใน `web/`: ผ่านสะอาดทั้ง 3 ขั้น (lint มี warning 3 จุดเดิมที่มีอยู่ก่อนแก้ — ไม่เพิ่ม error/warning ใหม่, build generate ครบ 31/31 route)
+- `web/next-env.d.ts` ถูก `next build` auto-touch ระหว่างรัน `npm run check` — ตรวจแล้วว่ากลับมาสะอาดเองหลัง build เสร็จ (`git status` เหลือแค่ `parity.spec.ts`) ไม่ต้อง revert เพิ่ม
+
+**Regression Risk**: ต่ำมาก — แก้แค่ literal string ใน test assertion ให้ตรงกับ CSS ที่ถูกต้องและอนุมัติแล้ว ไม่กระทบ production code/behavior ใดๆ
+
+**Handoff to QA**: ส่งกลับ **AI QA & Security** ตรวจซ้ำอิสระอีกรอบก่อนเข้า Deploy gate — ต้องยืนยัน `npx playwright test` เต็ม suite เป็น 159/159 ด้วยตัวเอง (ไม่ต้องตรวจซ้ำ cascade/safe-area ของ 2 จุด CSS อีก เพราะ QA รอบก่อนหน้ายืนยันสมบูรณ์แล้วว่า CSS ถูกต้อง — รอบนี้ตรวจแค่ว่า test fix ถูกต้องและ regression suite กลับมาเขียวจริง)

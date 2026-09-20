@@ -159,7 +159,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(followList).toContain('toggleAuthorFollow');
   expect(followList).toContain('kind === "followers"');
   expect(profileGoldenCss).not.toContain("height: calc(170px");
-  for (const metric of ["font-size: 17px", "min-height: 44px", "height: 52px"]) expect(profileGoldenCss).toContain(metric);
+  for (const metric of ["font-size: 17px", "min-height: 44px", "height: calc(52px + env(safe-area-inset-top))"]) expect(profileGoldenCss).toContain(metric);
   for (const contract of ["toggleDropLike", "toggleDropSave", "toggleDropRedrop", "drop_view_count", "Quote ReDrop", "submit_report", 'from("drop_images")']) expect(goldenDrop).toContain(contract);
   expect(goldenDropCss).toContain("font-size: 17.5px");
   expect(goldenDropCss).toContain("min-height: 48px");
