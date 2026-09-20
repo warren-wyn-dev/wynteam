@@ -175,3 +175,7 @@ Founder ตอบ "พร้อม" — พบว่า branch diverge จาก
 **WYN-182 (Track 4, track สุดท้ายของ epic WYN-174) เสร็จสมบูรณ์ทั้ง implementation, QA และ deploy แล้ว** — ยังไม่ย้าย task ไป `completed/` รอ Founder เปิดแอปจริงบน `wynos.online` ยืนยัน (1) Profile/Club tabs ไม่ชน notch บนอุปกรณ์มี Dynamic Island (2) pull-to-refresh ทำงานถูกต้องสำหรับบัญชี developer ปิดสำหรับบัญชีทั่วไป (3) ไม่มี native Android Chrome pull-to-refresh ชนซ้อนอีกต่อไป
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-182-platform-integration-polish-deploy.md`
+
+## Founder Confirmation (2026-09-20)
+
+Founder ยืนยัน ("ยืนยัน") — ทดสอบจริงบน `wynos.online` ผ่านทั้ง 3 ข้อ: (1) Profile/Club tabs ไม่ชน notch บนอุปกรณ์มี Dynamic Island (2) pull-to-refresh ทำงานถูกต้องสำหรับบัญชี developer ปิดสำหรับบัญชีทั่วไป (3) ไม่มี native Android Chrome pull-to-refresh ชนซ้อน ปิดงาน WYN-182 สมบูรณ์ ย้ายเข้า `completed/` — **Track 4 (track สุดท้าย) ของ epic WYN-174 ปิดครบแล้ว**

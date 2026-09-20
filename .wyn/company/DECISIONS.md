@@ -1858,3 +1858,11 @@ WYN-184 ทั้ง implementation, QA และ deploy เสร็จสม�
 Founder ทดสอบจริงบน `wynos.online` บนอุปกรณ์มี notch/Dynamic Island ยืนยันผ่านทั้ง Profile topbar (รวม follow list) และ Chat inbox header ไม่ชน notch อีกต่อไป — ย้าย `.wyn/tasks/active/WYN-184-non-sticky-header-safe-area-audit.md` ไป `.wyn/tasks/completed/` แล้ว
 
 Web Beta1 ตอนนี้ไม่มี known gap หรือ task ค้างที่ block การใช้งานเหลืออยู่เลย (WYN-182 ยัง active รอ Founder ยืนยัน physical device แยกต่างหาก — คนละ scope กับ WYN-184)
+
+## [2026-09-20] Founder ยืนยัน "ยืนยัน" — WYN-182 ปิดงานสมบูรณ์ — Epic WYN-174 ปิดครบทั้ง 4 track
+
+Founder ทดสอบจริงบน `wynos.online` ยืนยันผ่านครบทั้ง 3 ข้อของ WYN-182: (1) Profile/Club tabs ไม่ชน notch บนอุปกรณ์มี Dynamic Island (2) pull-to-refresh ทำงานถูกต้องสำหรับบัญชี developer ปิดสำหรับบัญชีทั่วไป (3) ไม่มี native Android Chrome pull-to-refresh ชนซ้อน — ย้าย `.wyn/tasks/active/WYN-182-platform-integration-polish.md` ไป `.wyn/tasks/completed/` แล้ว
+
+**Epic WYN-174 (Web Native App Feel รอบ 2) ปิดสมบูรณ์ทั้ง 4 track** (WYN-175 Perceived Speed & Motion, WYN-176 Visual Design Rollout, WYN-181 Install & Launch Experience, WYN-182 Platform Integration Polish) — deploy ขึ้น production และ Founder ยืนยัน physical device ครบทุก track แล้ว ย้าย `.wyn/tasks/backlog/WYN-174-web-native-app-feel-v2.md` ไป `.wyn/tasks/completed/` ด้วย
+
+Web Beta1 ตอนนี้**ไม่มี task ค้างใน `active/` ที่เกี่ยวกับ known gap เหลืออยู่เลย** — audit ของ web-beta1-readiness session นี้ปิดครบตามที่ตรวจพบทั้งหมด

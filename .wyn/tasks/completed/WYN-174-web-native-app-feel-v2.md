@@ -1,6 +1,6 @@
 # Product Task — WYN-174
 
-Status: backlog
+Status: completed (2026-09-20) — ทั้ง 4 track deploy ขึ้น production และ Founder ยืนยัน physical device ครบแล้ว
 Owner: AI Product Manager
 Feature: WYNOS Web Beta1 — Native App Feel รอบ 2 (ต่อยอดจาก WYN-158 "mobile app feel" และ WYN-163 visual redesign)
 Goal: ให้ `wynos.online` (WYNOS Web Beta1) ให้ความรู้สึกเหมือนแอปมือถือจริงมากที่สุดเท่าที่เว็บทำได้ — ทั้งด้าน install/launch, gesture/touch, transition, perceived performance และ visual polish — โดยไม่เปลี่ยน business logic/backend contract เดิม
@@ -84,3 +84,9 @@ Founder สั่ง "เริ่มเลย" — เริ่ม **Track 4: P
 **[2026-09-20] Track 4 (Platform Integration Polish) เสร็จสมบูรณ์ — track สุดท้ายของ epic นี้**: Full audit (safe-area 3 gap, overscroll 7 gap, pull-to-refresh scoped ให้ 4 หน้า) → Founder อนุมัติ scope 3 ประเด็นผ่าน AskUserQuestion → Coding implement ครบ → QA PASS อิสระ 0 บั๊ก (regression 159/159) → Deploy production สำเร็จ (PR #570, run #157, CI #1438)
 
 **Epic WYN-174 ครบทั้ง 4 track แล้ว** (Perceived Speed & Motion / Visual Design Rollout / Install & Launch Experience / Platform Integration Polish) ฝั่ง implementation/QA/deploy — WYN-182 รอ Founder ยืนยัน physical device ก่อนปิด epic นี้อย่างสมบูรณ์
+
+**[2026-09-20] Founder ยืนยัน physical device สำหรับ Track 4 (WYN-182) แล้ว — Epic WYN-174 ปิดสมบูรณ์ทั้ง 4 track**
+
+ทุก track deploy ขึ้น production และ Founder ยืนยันบนอุปกรณ์จริงครบแล้ว: Track 1 (WYN-175, perceived speed/motion), Track 2 (WYN-176, visual design rollout batch 1-6), Track 3 (WYN-181, install prompt banner + iOS splash screen), Track 4 (WYN-182, safe-area + overscroll + pull-to-refresh) ย้าย task file นี้ไป `.wyn/tasks/completed/` แล้ว
+
+ส่วน WYN-184 (non-sticky header safe-area gap-closing round ที่พบระหว่าง Track 4 audit แต่นอก scope ทางการของ epic นี้) ก็ deploy + Founder ยืนยันแล้วเช่นกัน แยกปิดเป็น task ของตัวเอง ไม่ใช่ track ที่ 5
