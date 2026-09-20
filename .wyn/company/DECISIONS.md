@@ -2327,3 +2327,17 @@ Founder ตอบ "พร้อม" — เปิด PR #561 รอ deploy previ
 WYN-176 ทุก batch (1-6) implementation + QA + deploy เสร็จสมบูรณ์แล้ว เหลือรอ Founder ยืนยัน production จริงบนมือถือ (batch 2/3/4-6) ก่อนปิด task ทั้งฉบับเป็น completed
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-176-batch4-6-deploy-prep.md`
+
+## [2026-09-20] WYN-181 (Track 3 ของ WYN-174) — เริ่ม Install & Launch Experience หลัง WYN-176 เสร็จ
+
+Founder สั่ง "ทำต่อเลย" — WYN-176 (Track 2) เสร็จสมบูรณ์แล้ว เริ่ม Track 3 ต่อตามลำดับ priority เดิมของ WYN-174 (P1 — Install & Launch Experience) ตรวจโค้ดจริงยืนยัน 2 ช่องว่าง: (1) ไม่มีการดัก `beforeinstallprompt`/`appinstalled` เลย พึ่ง native browser prompt อย่างเดียว (2) ไม่มี iOS splash screen เลย
+
+ทำ preview เทียบ banner ชวนติดตั้งแยก Android/Chrome (ปุ่มติดตั้งจริง) กับ iOS Safari (สอน manual steps เพราะ iOS ไม่มี API นี้เลย): https://claude.ai/artifact/3Ktj6GuRtW2oLZBTWkKuJv — Founder ตอบ **"โอเค ครับ"**
+
+## [2026-09-20] WYN-181 sub-task 1 (Install banner) — Coding เสร็จ ยืนยันด้วย harness จริง 10/10
+
+สร้าง `install-prompt-banner.tsx` + `install-prompt.css` mount ใน `layout.tsx` — ครอบคลุม 4 สถานการณ์ตาม spec (Android event จริง, iOS manual steps, dismiss persistence 7 วัน, standalone mode ไม่โชว์เลย)
+
+พบว่า Playwright Clock API ไม่ทำงานร่วมกับ Next dev server ได้ดี (fast-forward ไม่ trigger setTimeout ในคอมโพเนนต์) เปลี่ยนมาใช้ real wait 24 วินาทีต่อเคสแทน ยืนยันผ่าน **10/10** + typecheck/lint/build สะอาด + regression suite 54/54 ที่รันได้จริงผ่าน
+
+ย้าย task ไป `.wyn/tasks/active/` (จาก backlog) — เหลือ sub-task 2 (iOS splash screen) ยังไม่เริ่ม ส่งต่อ **AI QA & Security** ตรวจ sub-task 1 ก่อน

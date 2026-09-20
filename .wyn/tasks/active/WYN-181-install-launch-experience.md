@@ -59,3 +59,28 @@ P1 — รองจาก WYN-176 (เสร็จแล้ว) ตามลำ�
 ## Handoff
 
 ส่งต่อ **AI Design** ทำ audit UI/UX ของ banner (wording, ตำแหน่ง, timing ที่จะโชว์) + mockup preview ให้ Founder อนุมัติก่อน AI Coding เริ่ม
+
+**[2026-09-20] Design อนุมัติแล้ว ("โอเค ครับ")** — ส่งต่อ AI Coding ทำ custom install prompt banner (ส่วนแรกของ 2 requirement ในสโคปนี้ ยังไม่ทำ iOS splash screen)
+
+## Sub-task 1: Custom Install Prompt Banner — Implementation (AI Coding, 2026-09-20)
+
+**Implementation**: สร้าง `web/components/install-prompt-banner.tsx` (client component, mount ที่ `web/app/layout.tsx` เป็น sibling สุดท้ายใน body เหมือน `AppBottomNavHost`) + `web/app/install-prompt.css`:
+- ดัก `beforeinstallprompt` จริง, `event.preventDefault()`, เก็บ event ไว้ใน state
+- แยก path iOS (ตรวจ user agent) ที่ไม่มี `beforeinstallprompt` API เลย → โชว์ manual steps แทนปุ่มติดตั้ง
+- โชว์ banner หลังผ่านไป 20 วินาที (`SHOW_DELAY_MS`) ไม่ใช่ทันทีที่โหลดหน้า — ลด friction ตาม spec
+- เช็ค `display-mode: standalone` ก่อนทำอะไรเลย ถ้าติดตั้งอยู่แล้วไม่โชว์
+- จำการปิด/ปฏิเสธด้วย `localStorage` (key `wyn-install-prompt-dismissed-at`) cooldown 7 วัน, wrap try/catch ทุกจุดที่แตะ localStorage (private browsing อาจ throw)
+- ปุ่มใช้ token/motion เดียวกับ WYN-163/176 ทั้งเว็บ (`scale(0.96)`, 160ms cubic-bezier), เคารพ `prefers-reduced-motion`
+- ไอคอน banner ใช้ `/icons/icon-192.png` (ไอคอนแอปจริงที่มีอยู่แล้ว ไม่ใช่ wordmark `wynos_logo_mark.png` ที่ไม่ใช่สี่เหลี่ยมจัตุรัส)
+
+**Files Changed**: `web/components/install-prompt-banner.tsx` (ใหม่), `web/app/install-prompt.css` (ใหม่), `web/app/layout.tsx` (เพิ่ม import + mount 1 บรรทัด)
+
+**Tests**: harness Playwright จริงบน dev server จริง (ไม่ใช่ static harness เหมือน CSS batch ก่อนหน้า เพราะต้องทดสอบ JS event/timer logic) ครอบคลุม 4 สถานการณ์ — Android (dispatch `beforeinstallprompt` จริง → banner โชว์หลัง delay → กดติดตั้งเรียก `event.prompt()` จริง), iOS (user agent จริง → โชว์ manual steps ไม่มีปุ่มติดตั้ง), dismiss persistence (ปิดแล้ว reload ไม่โชว์ซ้ำในช่วง cooldown), standalone mode (mock `matchMedia` ไม่โชว์เลย) — **10/10 ผ่าน**
+
+**Known Issue ระหว่างพัฒนา harness**: ลองใช้ Playwright Clock API (`context.clock.fastForward()`) ก่อนเพื่อข้าม 20 วินาทีเร็วๆ แต่ไม่ทำงานร่วมกับ Next.js dev server ได้ดี (virtual timer ไม่ trigger `setTimeout` ที่ตั้งในตัว component แม้ fast-forward ไปไกลกว่า delay จริงมาก) — เปลี่ยนมาใช้ real wait (24 วินาที/เคส) แทน ทำงานถูกต้อง 100% ยืนยันด้วยการรันซ้ำ
+
+**Build**: `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) + regression suite เต็ม 54/54 ที่รันได้จริงผ่าน (fail 6 จุดเดิมจาก sandbox environment limitation)
+
+**Known Issues**: iOS splash screen (sub-task 2 ของ scope นี้) ยังไม่เริ่ม — เป็นงานแยกที่ต้อง generate static image หลายขนาดด้วย `sharp`
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) logic การแสดง/ซ่อน banner ถูกต้องตาม spec ทั้ง 4 สถานการณ์ (2) ไม่มี regression ต่อ layout/parity เดิม (3) localStorage wrap try/catch ปลอดภัยจริง ไม่ throw ทำแอปพัง

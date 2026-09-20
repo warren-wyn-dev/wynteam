@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { AppBottomNavHost } from "@/components/app-bottom-nav-runtime";
 import { AppNavigationRuntime } from "@/components/app-navigation-runtime";
+import { InstallPromptBanner } from "@/components/install-prompt-banner";
 import { QueryProvider } from "@/components/query-provider";
 import { SwipeBackGesture } from "@/components/swipe-back-gesture";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -40,6 +41,7 @@ import "./notifications-clean.css";
 import "./chat-notes.css";
 import "./conversation-modern.css";
 import "./skeleton.css";
+import "./install-prompt.css";
 // This Next.js version's `appleWebApp` metadata only emits the generic
 // `mobile-web-app-capable` tag (see node_modules/next/dist/docs/01-app/
 // 03-api-reference/04-functions/generate-metadata.md, "appleWebApp") and
@@ -53,4 +55,4 @@ export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",app
 // viewport, does. Without this it's the one thing that gives away "this is
 // a website" even from the home-screen icon.
 export const viewport:Viewport={width:"device-width",initialScale:1,maximumScale:1,userScalable:false,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition><AppBottomNavHost /></QueryProvider></body></html>}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition><AppBottomNavHost /><InstallPromptBanner /></QueryProvider></body></html>}
