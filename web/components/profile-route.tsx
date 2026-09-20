@@ -24,7 +24,6 @@ import type { HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   canViewProfileLikes,
@@ -87,10 +86,10 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
   useEffect(() => { setAllowed(true); void load(0, false); }, [load]);
   useRouteRefreshListener(useCallback(() => { void load(0, false); }, [load]));
 
-  // Staged rollout (WYN-125/WYN-182): pull-to-refresh here is gated to
-  // developer accounts until the Founder asks to widen it.
-  const isDeveloper = useIsDeveloperAccount(client);
-  const pull = usePullToRefresh({ enabled: isDeveloper, onRefresh: () => load(0, false) });
+  // GA (2026-09-20, Founder decision): was staged-rollout-gated to
+  // developer accounts (WYN-125/WYN-182) — Founder asked to widen it to
+  // everyone.
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load(0, false) });
 
   const body = loading && !rows.length ? <FeedSkeleton items={2} />
     : !allowed ? <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>
