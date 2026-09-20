@@ -1,0 +1,122 @@
+name: WYNOS Visual Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: "Branch, tag, or commit to test (must contain web/tests/browser/home-visual-capture.spec.ts)"
+        required: true
+        default: "main"
+        type: string
+      viewport:
+        description: "Capture all approved viewports or one viewport only"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - 320x568
+          - 375x812
+          - 390x844
+          - 430x932
+          - 768x1024
+          - 1024x768
+          - 1440x900
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wynos-visual-gate-${{ inputs.target_ref }}
+  cancel-in-progress: true
+
+jobs:
+  home-visual-gate:
+    name: Home visual gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: web
+
+    env:
+      CI: "true"
+      PLAYWRIGHT_HTML_OPEN: "never"
+
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_ref }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Verify visual capture spec exists
+        run: |
+          test -f tests/browser/home-visual-capture.spec.ts || {
+            echo "::error::The selected ref does not contain tests/browser/home-visual-capture.spec.ts"
+            echo "::error::Push the Codex Increment 1 visual-capture commit/branch first, then rerun this workflow with that ref."
+            exit 1
+          }
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Home visual capture
+        id: visual
+        shell: bash
+        run: |
+          set -o pipefail
+
+          if [ "${{ inputs.viewport }}" = "all" ]; then
+            npx playwright test tests/browser/home-visual-capture.spec.ts \
+              --project=chromium-desktop \
+              --workers=1 \
+              --reporter=html
+          else
+            npx playwright test tests/browser/home-visual-capture.spec.ts \
+              --project=chromium-desktop \
+              --workers=1 \
+              --grep "${{ inputs.viewport }}" \
+              --reporter=html
+          fi
+
+      - name: Upload screenshots, traces, and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynos-visual-gate-${{ inputs.viewport }}-${{ github.run_number }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            web/test-results/increment-1-after/*.png
+            web/test-results/**
+            web/playwright-report/**
+
+      - name: Add run summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## WYNOS Increment 1 Visual Gate"
+            echo ""
+            echo "- Ref: \`${{ inputs.target_ref }}\`"
+            echo "- Viewport selection: \`${{ inputs.viewport }}\`"
+            echo "- Expected screenshots: \`web/test-results/increment-1-after/\`"
+            echo "- Download the artifact named \`wynos-visual-gate-${{ inputs.viewport }}-${{ github.run_number }}\` from this run."
+            echo ""
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "✅ Browser-backed visual gate completed successfully."
+            else
+              echo "❌ Visual gate did not complete successfully. Open the failed step and the uploaded Playwright report/trace for details."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
