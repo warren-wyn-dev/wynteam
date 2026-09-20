@@ -6,8 +6,21 @@
  * no large selected tile.
  */
 
-.route-with-bottom-nav {
+/*
+ * Declared at :root, not on .route-with-bottom-nav: the persistent nav
+ * (AppBottomNavHost, in app/layout.tsx) renders as a sibling of the page
+ * content tree that carries .route-with-bottom-nav, not a descendant of
+ * it, so a custom property scoped to that class never reaches
+ * .route-bottom-nav below — it would silently fall through to whatever
+ * :root value happens to win instead (see app/parity.css's own, unrelated
+ * --wyn-bottom-nav-height). Keeping this at :root is what makes the two
+ * separate subtrees agree on one number.
+ */
+:root {
   --wyn-bottom-nav-height: 50px;
+}
+
+.route-with-bottom-nav {
   /* Keep route content and the fixed bar on the same capped iOS inset. */
   padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));
 }
@@ -123,7 +136,7 @@
 }
 
 @media (max-width: 359px) {
-  .route-with-bottom-nav {
+  :root {
     --wyn-bottom-nav-height: 48px;
   }
 
@@ -142,7 +155,7 @@
 }
 
 @media (min-width: 681px) {
-  .route-with-bottom-nav {
+  :root {
     --wyn-bottom-nav-height: 64px;
   }
 

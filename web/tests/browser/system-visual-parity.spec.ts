@@ -157,6 +157,21 @@ test("bottom navigation has exactly one canonical stylesheet (no competing overr
   }
   const layout = read("app/layout.tsx");
   expect(layout).toContain('import "./bottom-nav.css";');
+
+  // WYN-180: AppBottomNavHost (the real persistent nav) renders as a
+  // sibling of the page-content tree in app/layout.tsx, not a descendant
+  // of .route-with-bottom-nav — so --wyn-bottom-nav-height must live at
+  // :root, not scoped to that class, or the two subtrees silently
+  // disagree and whichever :root fallback exists elsewhere in the
+  // cascade wins for the real bar (found live: app/parity.css had its
+  // own unrelated 80px value doing exactly that). Guard both halves of
+  // the fix so this can't quietly regress either way.
+  const navCssRoot = read("app/bottom-nav.css");
+  expect(navCssRoot).toContain(":root {\n  --wyn-bottom-nav-height: 50px;\n}");
+  expect(navCssRoot).not.toContain(".route-with-bottom-nav {\n  --wyn-bottom-nav-height");
+  for (const file of ["parity.css", "parity-final.css", "phase3.css", "pixel-parity-final.css", "system-parity-final.css"]) {
+    expect(read(`app/${file}`), `${file} must not declare --wyn-bottom-nav-height`).not.toContain("--wyn-bottom-nav-height:");
+  }
 });
 
 test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hidden zero counts, no View", () => {

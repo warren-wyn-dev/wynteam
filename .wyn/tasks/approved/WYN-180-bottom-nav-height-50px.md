@@ -72,3 +72,55 @@ Security Findings: ไม่มี — CSS ตัวแปรความสู�
 Recommendation: PASS — ความเสี่ยงต่ำมาก (เพิ่มพื้นที่ ไม่ใช่ลด) verify ครบทุกจุดที่เคยพลาดใน WYN-179
 
 Final Status: **PASS**
+
+## CRITICAL fix (2026-09-20, Codex P1 finding on PR #560 — pre-existing production bug, not new)
+
+Codex found something much bigger than a WYN-180 nitpick: **the persistent bottom nav bar's real rendered
+height has never actually been controlled by `--wyn-bottom-nav-height` as scoped in `bottom-nav.css`, in
+production, at all** — since long before this session touched it.
+
+**Root cause**: `app/layout.tsx` renders `<AppBottomNavHost />` (which renders `.route-bottom-nav`) as a
+**sibling** of `<PageTransition>{children}</PageTransition>` (which is where `.route-with-bottom-nav`, from
+`phase3-ui.tsx`, actually lives) — both are children of `<body>`, not ancestor/descendant. A CSS custom
+property declared on `.route-with-bottom-nav` (where every past change to this variable, mine included, was
+scoped) is invisible to `.route-bottom-nav` in the sibling subtree — custom properties only inherit down the
+DOM tree. `.route-bottom-nav`'s `height: calc(var(--wyn-bottom-nav-height) + ...)` was instead resolving
+`--wyn-bottom-nav-height` from **`app/parity.css`'s `:root` block, which declared its own unrelated value:
+`80px`** (tagged WYN-158, predates this session entirely).
+
+**Proven, not assumed** — rebuilt a static harness that mirrors `layout.tsx`'s actual sibling structure
+(not the flawed nested one every prior harness used) and loaded the pre-fix files from commit `d54b84f8`
+(this PR's own last commit before this fix):
+- Real nav height: **80px**
+- `.route-with-bottom-nav` padding-bottom: **50px**
+- → a 30px gap where the last 30px of page content sits behind the nav bar, on every page with the bottom
+  nav visible, in production, right now (and has been since long before WYN-179/180 — the 40px/44px values
+  from earlier tasks never reached the real bar either, only ever the 80px from parity.css)
+
+**Why every prior test/harness missed it**: `home-visual-parity.spec.ts`'s browser test renders `HomeFixture`
+(`components/home/home-fixture.tsx`), which nested `<BottomNavigation>` *inside* the `.route-with-bottom-nav`
+div — a structure that does not match `layout.tsx`. That gave the test (and every manual Playwright harness
+built during WYN-178/179/180, mine included) a false pass. The file-content-assertion tests only checked
+that `--wyn-bottom-nav-height`'s *declared value* matched a string, never where it was scoped or what
+actually won the cascade for the real component tree.
+
+**Fix**:
+1. `bottom-nav.css` — moved `--wyn-bottom-nav-height` (and its two breakpoint overrides) from
+   `.route-with-bottom-nav` to `:root`, so both sibling subtrees agree on one value
+2. `parity.css` — deleted its competing `--wyn-bottom-nav-height: 80px` from `:root` (the actual value that
+   had been winning)
+3. `home-fixture.tsx` — moved `<BottomNavigation>` out to be a sibling of the `.route-with-bottom-nav` div
+   (matching `layout.tsx` exactly), so this fixture's Playwright test exercises the real architecture
+   instead of masking this class of bug again
+4. `system-visual-parity.spec.ts` — added assertions locking `--wyn-bottom-nav-height` to `:root` in
+   `bottom-nav.css` and forbidding its declaration in every other stylesheet that has ever redefined
+   bottom-nav rules, so this exact regression can't silently return
+
+**Re-verified after the fix**, same real-sibling-structure harness, current files: nav height = 50px,
+`.route-with-bottom-nav` padding-bottom = 50px — now agree. `npm run check` green. 4 local Playwright tests
+covering the affected contracts (including the newly strengthened one) pass.
+
+**Impact on already-merged work**: WYN-179 (merged, live in production) never actually resized the real bar
+either — production's real bottom nav has been 80px this whole time, not 44px/40px as every deployment log
+claimed. This fix corrects that for real, for the first time. Flagging this explicitly to the Founder as a
+production-impacting bug that predates this task, now resolved in the same PR.
