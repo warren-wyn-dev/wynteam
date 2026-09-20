@@ -226,3 +226,11 @@ Debug fix ตรงตามที่อ้างเป๊ะ 100% (diff 1 บ�
 **Final Status: PASS**
 
 → พร้อมเข้า Deploy gate (CTO Final Review → Staging → Founder Approval → Production) บันทึกปิด bug report `WYN-184-regression-suite-literal-height-assertion-broken.md` เป็น verified/closed แล้ว
+
+## Deploy (AI Deploy & DevOps, 2026-09-20)
+
+Founder ตอบ "พร้อม" — branch ไม่ diverge จาก `main` รัน typecheck/lint/build อิสระอีกรอบสะอาดหมด เปิด PR #571 Founder merge เองภายในไม่กี่วินาที → `WYN-158 Production Deploy` run #158 **success** → post-merge `CI` run #1440 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด
+
+**WYN-184 เสร็จสมบูรณ์ทั้ง implementation, QA และ deploy แล้ว** — ยังไม่ย้าย task ไป `completed/` รอ Founder เปิดแอปจริงบน `wynos.online` ยืนยัน Profile header (4 route) และ Chat inbox header ไม่ชน notch/Dynamic Island
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-184-header-safe-area-deploy.md`
