@@ -2211,3 +2211,13 @@ Apple/SF-Symbols เพิ่ม (filled-icon ตอน active, person.crop.circ
 แชท (บับเบิลกลม+จุดไข่ปลา), เปลี่ยน hardcode hex เป็น `var(--wyn-text)`/`var(--wyn-text-secondary)`, เพิ่ม
 press-feedback token มาตรฐาน, ลบ dead code badge prop — ไม่แตะสี ไม่แตะโครงสร้าง/ลำดับแท็บ ไม่ใช้ Apple-style
 filled/circle/accent (Founder ไม่ได้เลือกตัวเลือกนั้น)
+
+## [2026-09-20] WYN-176 Batch 3 (Chat) — เปิด PR #559 เจอ merge conflict กับ session คู่ขนาน แก้แล้ว merge สำเร็จ deploy production เขียวหมด
+
+Founder สั่ง "เปิด PR" — เปิด PR #559 (`claude/wynos-online-version-1pqqws` → `main`) พบ `mergeable_state: dirty` ทันที ตรวจสอบพบว่า session คู่ขนานอื่น merge PR #557 (ไอคอนคลับ/แชท) เข้า `main` ไปก่อนแล้ว ชนกันเฉพาะที่ `.wyn/company/DECISIONS.md` (ไฟล์ log ที่ทั้งสอง session เขียนต่อท้ายพร้อมกัน ไม่ใช่โค้ด) — merge `main` เข้า branch, resolve conflict โดยเก็บ entry ทั้งสองฝั่งไว้ครบไม่มีอะไรหาย, รัน `typecheck`/`lint`/`build` อิสระอีกรอบหลัง merge สะอาดหมด, push แล้วยืนยัน `mergeable_state: clean` ก่อนแจ้ง Founder
+
+Founder สั่ง "Merge เลย" — merge สำเร็จ (`45f0b6a`) → `WYN-158 Production Deploy` run #145 **success** ทุก step + post-merge `CI` run #1409 **success** — ตรวจสอบอิสระผ่าน GitHub Actions API ทั้งหมด (แก้บั๊ก JSON parsing เล็กน้อยในสคริปต์ poll เอง — API คืนค่า pretty-printed JSON มีช่องว่างหลัง `:` ที่ grep pattern เดิมไม่รองรับ)
+
+ยังไม่ปิด task — รอ Founder confirm physical device ของ batch 2 (Composer) และ batch 3 (Chat) ทั้งคู่
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-176-batch3-chat-deploy.md`

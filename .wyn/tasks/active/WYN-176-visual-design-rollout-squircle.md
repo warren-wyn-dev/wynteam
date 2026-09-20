@@ -183,3 +183,13 @@ Batch 1 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ ba
 **Final Status: PASS**
 
 Batch 3 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 3 นี้ (WYN-176 โดยรวมยังไม่ปิด เหลือ batch 4-7: Profile/Settings, Search/Notifications/Club, dead CSS cleanup)
+
+## Batch 3 Deploy (AI Deploy & DevOps, 2026-09-20)
+
+เปิด PR #559 ตามที่ Founder สั่ง "เปิด PR" — เจอ `mergeable_state: dirty` (session คู่ขนานอื่น merge PR #557 เข้า `main` ก่อนหน้า ชนกันเฉพาะที่ `.wyn/company/DECISIONS.md` ซึ่งเป็นไฟล์ log ที่ทั้งสอง session เขียนต่อท้ายพร้อมกัน) — merge `main` เข้า branch, แก้ conflict โดยเก็บ entry ทั้งสองฝั่งไว้ครบ (ไม่มีเนื้อหาหาย), รัน `typecheck`/`lint`/`build` อิสระอีกรอบหลัง merge สะอาดหมด, push แล้วยืนยัน `mergeable_state: clean`
+
+Founder สั่ง "Merge เลย" — merge PR สำเร็จ (`45f0b6a`) → `WYN-158 Production Deploy` run #145 **success** ทุก step (preflight/Vercel deploy/verify production routes, ~1.5 นาที) → post-merge `CI` run #1409 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด
+
+ยังไม่ย้าย task ไป `completed/` — รอ Founder เปิด Chat จริงบน `wynos.online` ยืนยัน press feedback ทำงานจริง
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-176-batch3-chat-deploy.md`
