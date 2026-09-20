@@ -1,6 +1,6 @@
 # Bug Report — WYN-176 (batch 6)
 
-Status: fixed
+Status: verified — QA PASS, ready for Deploy gate
 Owner: AI Debug Engineer
 Bug: When `web/tests/browser/parity.spec.ts` was edited in batch 6 to stop reading the now-deleted `club-detail-route.tsx` (dead code) and rely instead on the existing `clubGolden` assertions against `club-detail-golden.tsx` (the live component), the commit message claimed the same contracts were "already checked (more thoroughly)" by `clubGolden`. This was only half true: the removed assertion checked 4 Supabase contract strings (`from("club_channels")`, `from("club_channel_messages")`, `from("club_events")`, `rpc("club_insights"`), but the `clubGolden` assertion only covered 2 of them (`club_channel_messages`, `club_insights`) — `club_channels` and `club_events` were dropped entirely with no replacement, even though both are real, live queries in `club-detail-golden.tsx` (lines 138 and 217).
 
@@ -17,3 +17,9 @@ Files Changed: `web/tests/browser/parity.spec.ts` only (1 line).
 Regression Risk: None — test-only, purely additive assertion.
 
 Handoff: → **AI QA & Security** for re-verification before this batch can proceed to Deploy gate.
+
+## QA Re-Verification (AI QA & Security, 2026-09-20)
+
+Independently re-verified in an isolated worktree — confirmed the diff is exactly the claimed 1-line change; re-derived the full before/after comparison (`git diff b755a821^ e2c4ec0e -- web/tests/browser/parity.spec.ts`) and confirmed both the label-check array (9 → 13 items, full superset) and the contract-check array (4 → 11 items, full superset) now cover every string the deleted `clubDetail`-based assertions used to check, with nothing missing and no new gap introduced. Independently grepped `web/components/club-detail-golden.tsx` and confirmed `from("club_channels")` (line 138) and `from("club_events")` (line 217) are genuine live queries. Ran the targeted test (3/3 pass) and the full regression suite (54 passed / 6 failed — the same pre-existing sandbox limitation, not new). `typecheck`/`lint`/`build` clean.
+
+**Final Status: PASS** — approved for Deploy gate. This closes out QA on all of WYN-176's implementation.

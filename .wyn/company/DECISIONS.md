@@ -2303,3 +2303,13 @@ AI QA & Security ยืนยันการลบ dead code ทั้งหม�
 เพิ่ม `'from("club_channels")'`/`'from("club_events")'` เข้า `clubGolden` assertion เดิมใน `web/tests/browser/parity.spec.ts` (1 บรรทัด) — รัน `npx playwright test` จริงยืนยันผ่านทั้ง 3 project + regression suite เต็ม 5 spec file ซ้ำผ่านหมด (54/54 ที่รันได้จริง) + typecheck/lint/build สะอาด
 
 ส่งต่อ **AI QA & Security** ตรวจซ้ำ — เหลือจุดเดียวก่อน WYN-176 จะครบทุก batch
+
+## [2026-09-20] WYN-176 Batch 6 — QA re-verify PASS พร้อมเข้า Deploy gate — WYN-176 ทุก batch ผ่าน QA ครบแล้ว
+
+AI QA & Security ตรวจซ้ำอิสระในอีก worktree — re-derive การเปรียบเทียบ before/after เองทั้ง label-check (9→13) และ contract-check (4→11) array ยืนยันเป็น superset ครบไม่มีตกหล่นและไม่มีช่องโหว่ใหม่ + grep live query อิสระยืนยัน + test เป้าหมาย 3/3 + regression suite 54/54 ที่รันได้จริง + typecheck/lint/build สะอาด
+
+**Final Status: PASS** — WYN-176 Batch 6 พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
+
+**สรุป: WYN-176 ทุก batch (1-6) ผ่าน QA ครบแล้ว** — batch 1-3 deploy production แล้ว (batch 1 Founder ยืนยันแล้ว, batch 2-3 รอยืนยัน physical device), batch 4-6 ผ่าน QA พร้อมเข้า Deploy gate รอ Founder สั่งเปิด PR — งาน implementation ของ epic นี้เสร็จสมบูรณ์แล้ว
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (สรุปสถานะทั้ง epic)

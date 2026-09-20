@@ -387,3 +387,33 @@ WYN-176 Batch 5 (Search/Club) พร้อมเข้า Deploy gate เต็�
 **Tests**: `npx playwright test tests/browser/parity.spec.ts -g "source contracts cannot regress"` **3/3 ผ่านทุก project** + รัน regression suite เต็ม 5 spec file ซ้ำ **54 passed / 6 failed** (fail เดิมจาก sandbox limitation ไม่เกี่ยวกับ diff นี้) + typecheck/lint/build สะอาด
 
 **Handoff**: → **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate — นี่คือจุดสุดท้ายที่ค้างอยู่ก่อน WYN-176 จะครบทุก batch
+
+## QA Batch 6 — Round 2 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ตรวจซ้ำอิสระในอีก worktree — ยืนยัน diff จริง, re-derive การเปรียบเทียบ before/after ทั้ง label-check array (9→13 รายการ) และ contract-check array (4→11 รายการ) เอง ยืนยันเป็น superset ครบไม่มีตกหล่นและไม่มีช่องโหว่ใหม่, grep `club-detail-golden.tsx` อิสระยืนยัน live query จริง, รัน test เป้าหมาย + regression suite เต็ม + typecheck/lint/build
+
+**Passed**: diff ตรงตามที่อ้าง + coverage gap ปิดครบ (superset เต็ม) + test เป้าหมาย 3/3 + regression suite 54 passed/6 failed (fail เดิมจาก sandbox limitation) + typecheck/lint/build สะอาด
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่มี — ยืนยัน test-only diff
+
+**Recommendation**: Approve — WYN-176 Batch 6 พร้อมเข้า Deploy gate
+
+**Final Status: PASS**
+
+---
+
+## สรุปสถานะ WYN-176 ทั้ง epic (2026-09-20)
+
+ทุก batch ผ่าน QA ครบแล้ว:
+- **Batch 1** (Home chrome) — deploy production แล้ว, Founder ยืนยัน "ชอบผ่าน"
+- **Batch 2** (Composer) — deploy production แล้ว, รอ Founder ยืนยัน physical device
+- **Batch 3** (Chat) — deploy production แล้ว, รอ Founder ยืนยัน physical device
+- **Batch 4** (Profile/Settings) — QA PASS (ผ่าน 1 รอบ fix/re-verify), พร้อมเข้า Deploy gate
+- **Batch 5** (Search/Club) — QA PASS (ผ่าน 1 รอบ fix/re-verify), พร้อมเข้า Deploy gate
+- **Batch 6** (Dead code cleanup) — QA PASS (ผ่าน 1 รอบ fix/re-verify), พร้อมเข้า Deploy gate
+
+งาน implementation + QA ของ WYN-176 เสร็จสมบูรณ์ทั้งหมด เหลือ: (1) รอ Founder ยืนยัน production ของ batch 2/3 ผ่าน physical device (2) เปิด PR รวม batch 4-6 เมื่อ Founder สั่ง (3) Founder ยืนยัน production ของ batch 4-6 หลัง deploy ก่อนปิด task ทั้งฉบับเป็น completed
