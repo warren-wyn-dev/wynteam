@@ -179,3 +179,7 @@ Founder ตอบ "ต่อเลย" — ตรวจสอบว่า branch
 ยังไม่ย้าย task ไป `completed/` — รอ Founder เปิดแอปจริงบน `wynos.online` ยืนยัน (1) install banner ทำงานถูกต้องบน Android/iOS (2) splash screen ตอนเปิดจาก home screen บน iOS ขึ้นถูกต้องไม่ใช่จอขาว
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-181-install-launch-deploy.md`
+
+## Founder Confirmation (2026-09-20)
+
+Founder ยืนยัน "เสร็จแล้ว" — ทดสอบจริงบน `wynos.online` ผ่านทั้ง install banner และ iOS splash screen ปิดงาน WYN-181 สมบูรณ์ ย้ายเข้า `completed/`

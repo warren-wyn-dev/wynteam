@@ -74,3 +74,7 @@ Track อื่น (Visual Design Rollout — รอ WYN-163 finalize ก่อ�
 **[2026-09-20] Track 2 (Visual Design Rollout) เสร็จสมบูรณ์**: แตกเป็น `WYN-176-visual-design-rollout-squircle.md` — ทำครบ 6 batch (Home chrome → Composer → Chat → Profile/Settings → Search/Club → dead code cleanup) แต่ละ batch ผ่าน Design preview → Coding → QA (batch 4/5/6 มีรอบ fix/re-verify) → Deploy production สำเร็จครบ (PR #553/#554/#559/#561) Founder ยืนยัน production แล้วสำหรับ batch 1 ("ชอบผ่าน") ส่วน batch 2-6 deploy สำเร็จรอ Founder ยืนยัน physical device
 
 Founder สั่ง "ทำต่อเลย" — เริ่ม **Track 3: Install & Launch Experience (P1)** ต่อไป (custom install prompt banner + iOS splash screen images)
+
+**[2026-09-20] Track 3 (Install & Launch Experience) เสร็จสมบูรณ์**: แตกเป็น `WYN-181-install-launch-experience.md` — 2 sub-task (custom install prompt banner + iOS splash screen 32 ไฟล์) แต่ละ sub-task ผ่าน Design → Coding → QA (sub-task 1 มีรอบ fix/re-verify สำหรับบั๊ก iPad detection + accept-persistence) → Deploy production สำเร็จ (PR #562)
+
+**[2026-09-20] Founder ยืนยัน "เสร็จแล้ว"** — ทดสอบจริงบน `wynos.online` ผ่านครบทั้ง Track 2 (WYN-176 ทุก batch 1-6) และ Track 3 (WYN-181 ทั้ง 2 sub-task) ย้ายทั้งสอง task ไป `.wyn/tasks/completed/` แล้ว เหลือ **Track 4: Platform Integration Polish (P2)** ใน backlog ยังไม่เริ่ม รอคำสั่ง Founder

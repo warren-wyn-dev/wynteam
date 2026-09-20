@@ -2395,3 +2395,9 @@ Founder ตอบ "ต่อเลย" → "พร้อม" — ตรวจ br
 WYN-181 ทั้ง implementation, QA และ deploy เสร็จสมบูรณ์แล้ว — ยังไม่ย้าย task ไป `completed/` รอ Founder เปิดแอปจริงบน `wynos.online` ยืนยัน (1) install banner ทำงานถูกต้องบน Android/iOS (2) splash screen ตอนเปิดจาก home screen บน iOS ขึ้นถูกต้องไม่ใช่จอขาว — เช่นเดียวกับ WYN-176 (batch 1-6) ที่ deploy ครบแล้วเช่นกัน รอยืนยัน physical device อยู่
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-181-install-launch-deploy.md`
+
+## [2026-09-20] Founder ยืนยัน "เสร็จแล้ว" — WYN-176 และ WYN-181 ปิดงานสมบูรณ์ทั้งคู่
+
+Founder ทดสอบจริงบน `wynos.online` ยืนยันผ่านครบ: WYN-176 (Visual Design Rollout, ทุก batch 1-6) และ WYN-181 (Install Prompt Banner + iOS Splash Screen) — ย้ายทั้งสอง task ไป `.wyn/tasks/completed/` แล้ว พร้อมอัปเดต epic `WYN-174-web-native-app-feel-v2.md` บันทึกว่า Track 2 และ Track 3 เสร็จสมบูรณ์ทั้งคู่
+
+เหลือ Track 4 (Platform Integration Polish, P2 — safe-area inset audit, pull-to-refresh/overscroll audit) ใน backlog ยังไม่เริ่ม รอคำสั่ง Founder
