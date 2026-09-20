@@ -2415,3 +2415,21 @@ Regression risk ที่ต้องระวังเป็นพิเศษ:
 อ้างอิง: `.wyn/tasks/active/WYN-182-platform-integration-polish.md`
 
 → ส่งต่อ **AI QA & Security** ตรวจซ้ำอิสระก่อนเข้า Deploy gate
+
+## [2026-09-20] WYN-182 — QA PASS อิสระ 0 บั๊ก พร้อมเข้า Deploy gate
+
+AI QA & Security ตรวจซ้ำอิสระบน commit `f58586a1` จริง (เจอปัญหา environment ระหว่างทาง — worktree ที่ได้รับมอบหมาย HEAD ไม่ตรงกับ commit ที่ต้องตรวจ แก้ด้วย `git checkout --detach f58586a1` ตรวจซ้ำใหม่ทั้งหมด ไม่แตะ branch อื่น — แนะนำ DevOps ตรวจ process assign worktree ป้องกันไม่ให้เกิดซ้ำ) ไม่พบบั๊ก CRITICAL/HIGH/MEDIUM/LOW แม้แต่จุดเดียว:
+
+- Safe-area 3 จุด: cascade re-verify อิสระผ่าน, live CDP จำลอง notch (inset 47/34) computed style ตรงสูตรทุกจุด + ยืนยันไม่ regression บนอุปกรณ์ไม่มี notch
+- Overscroll 7 จุด: cascade ผ่าน (เจอจุดเพิ่มที่ AI Coding ไม่ได้พูดถึงคือ `system-parity-lock.css:472-473` ก็ไม่ชนกัน), live test ยืนยัน `overscroll-behavior-y: contain` ชนะ cascade จริงทุกจุด
+- Pull-to-refresh (จุดเสี่ยงสุด): พิสูจน์ mutual-exclusivity ซ้ำด้วยตัวเอง (ไม่เชื่อคำอ้าง AI Coding) ยืนยันถูกต้องจริง ตรวจ wiring ทั้ง 4 หน้า+Home ไม่พบ partial-application bug (ทุกหน้ากัน `isDeveloper` ครบ, Club detail มี double-guard ทั้ง `enabled` prop และ DOM ไม่ mount นอกแท็บ posts) สร้าง dev-only fixture อิสระทดสอบผ่าน CDP touch gesture — 9/9 เคสผ่าน
+- Build/Regression: typecheck/lint/build สะอาด 0 error, รัน regression suite เต็ม **159/159 ผ่าน** (ติดตั้ง browser binaries เพิ่มเองทำให้ดีกว่า baseline 6-failure เดิมของ session)
+- Security: ไม่แตะ schema/RLS/auth เลย ไม่มี data-access surface ใหม่
+
+ยืนยันข้อจำกัดเดียวกับ AI Coding: environment ไม่มี Supabase backend จริง จึงต้องทดสอบ RPC gate จริง + gesture จริงบนอุปกรณ์ + Android Chrome native-PTR ไม่ชนซ้อน **บน staging ก่อนเปิดให้ non-dev เห็น** — เป็นเงื่อนไขที่ออกแบบไว้ตั้งแต่แรก ไม่ใช่ finding ใหม่ ไม่ block staging
+
+**Final Status: PASS** — QA doc คือ `.wyn/tasks/active/WYN-182-platform-integration-polish.md` (หัวข้อ "## QA")
+
+อ้างอิง: `.wyn/tasks/active/WYN-182-platform-integration-polish.md`
+
+→ พร้อมเข้า Deploy gate (รอ Founder สั่งเปิด PR)
