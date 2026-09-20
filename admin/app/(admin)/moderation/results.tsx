@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,13 +24,12 @@ export async function SearchResults({ query }: { query: string }) {
             href={`/moderation/${drop.id}`}
             className="group relative aspect-square overflow-hidden rounded-lg border"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- drop.image_url
-                is a per-project Supabase storage URL; there is no real project
-                yet to pin into next.config's images.remotePatterns. */}
-            <img
+            <Image
               src={drop.image_url}
               alt={`Drop โดย ${drop.author_username}`}
-              className="h-full w-full object-cover"
+              fill
+              sizes="(min-width: 1024px) 16vw, (min-width: 768px) 25vw, 50vw"
+              className="object-cover"
             />
             {drop.deleted_at ? (
               <Badge variant="destructive" className="absolute right-1.5 top-1.5">
