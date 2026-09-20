@@ -1,7 +1,7 @@
 # WYNOS Web Beta1 — WYN-176 Batch 2 (Composer) Deploy Prep
 
 Date: 2026-09-19
-Status: **MERGED — production deploy workflow in progress**
+Status: **DEPLOYED — production deploy workflow succeeded, waiting on Founder physical-device confirmation**
 
 ## Release
 
@@ -48,14 +48,22 @@ lines removed) — no `.tsx` component files, no backend/RPC/schema changes.
 
 ## Deployment Result
 
-PR #554 merged into `main` by Founder. [WYN-158 Production Deploy run #141](https://github.com/warren-wyn-dev/wynteam/actions/runs/35459189392) triggered automatically — in progress, will confirm result shortly.
+PR #554 merged into `main` by Founder (commit `f6fc562d2f2aba0190b119f9ebb52ae0f542b8dd`).
+[WYN-158 Production Deploy run #141](https://github.com/warren-wyn-dev/wynteam/actions/runs/35459189392) —
+**success**, all steps green: Production preflight, Deploy to Vercel production, Verify production routes
+(completed 2026-09-19T17:49:34Z, total runtime ~2 minutes). Post-merge
+[`CI` run #1396](https://github.com/warren-wyn-dev/wynteam/actions/runs/35459189519) on the same commit also
+**success**.
 
 ## Production Verification
 
-Not applicable yet. Once merged, `wyn-158-production-deploy.yml` runs automatically. This sandbox can't
-reach `wynos.online`; physical-device confirmation will need the Founder to open the Composer
-(`wynos.online/compose-post`), tap the header cancel/post buttons, the quick-action grid, an aspect-ratio
-chip, and the audience picker, and confirm each visibly presses.
+- **AI-confirmed**: the production workflow's own `Verify production routes` step (real network access from
+  the GitHub Actions runner) — success. Post-merge `main` CI independently confirmed green as well.
+- **Not AI-confirmed**: this sandbox's outbound network policy blocks `wynos.online`, so independent
+  verification isn't possible from here.
+- **Still needed from Founder**: open the Composer (`wynos.online/compose-post`), tap the header cancel/post
+  buttons, the quick-action grid, an aspect-ratio chip, and the audience picker, and confirm each visibly
+  presses.
 
 ## Rollback Plan
 
