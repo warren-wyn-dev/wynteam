@@ -2008,3 +2008,15 @@ Founder สั่ง "ต่อเลย" — ตรวจ `chat-routes.tsx`/`co
 ทำ Artifact preview: https://claude.ai/artifact/CrQrnN8uw1JbHHrub9ie5L
 
 บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch3-chat.md`
+
+## [2026-09-20] WYN-176 Batch 3 (Chat) — Coding เสร็จ ยืนยันด้วย harness จริง 30/30 หลังแก้ harness bug 2 จุด
+
+Founder อนุมัติ ("อนุญาต") preview + spec แล้ว — เพิ่ม press feedback 10 จุดใน Chat conversation view ตามที่ AI Design สรุปไว้ (header back/more, profile hero 2 ปุ่ม, ปุ่มลบข้อความ, แนบรูป/ส่ง, ลบไฟล์แนบ, และ `.route-icon-link`/`.route-icon-button` ที่ใช้ร่วมหลายหน้า) — ไม่แก้ radius/ขนาดใดๆ ตามที่ WYN-160 batch 5 ทำไว้แล้ว
+
+ตรวจ cascade ก่อนแก้ทุกจุดตามวินัยที่ตั้งไว้ตั้งแต่บั๊ก WYN-175 (skeleton mismatch) — พบนิยามซ้ำของ `.conversation-modern-back`/`.conversation-modern-more` ในไฟล์เดียวกัน จึงแทรก press feedback ไว้หลังนิยามที่ชนะจริงเสมอ
+
+รัน harness Playwright อิสระตรวจ 30 จุด (press-applies 10 + release-to-none 10 + reduced-motion 10) รอบแรกได้ 27/30 — สืบสาเหตุแล้วพบว่าเป็นบั๊กของ harness เอง ไม่ใช่ CSS จริง: (1) `.message-clear-file` เป็น `position:absolute; top:-26px` harness ไม่ได้ครอบด้วย positioned ancestor ทำให้ element หลุดไปเหนือ viewport (2) `.route-icon-link`/`.route-icon-button` วางอยู่ต่ำกว่าขอบ viewport เริ่มต้นของ headless browser ทำให้ mouse event พลาดตำแหน่ง — แก้ harness (ครอบ positioned wrapper + `scrollIntoViewIfNeeded()`) ไม่แตะ CSS แล้วรันซ้ำได้ **30/30 ผ่าน**
+
+`typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) — grep ยืนยันไม่มี parity/regression spec ไหนอ้างอิง class ที่แก้รอบนี้
+
+ส่งต่อ **AI QA & Security** ตรวจอิสระอีกรอบก่อนเข้า Deploy gate — อ้างอิงรายละเอียดเต็มที่ `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (Batch 3 Implementation section)
