@@ -32,3 +32,20 @@ P3 (follow-up หลัง Track 4 ของ epic WYN-174 — epic หลัก�
 ## Handoff
 
 → **AI Design** ทำ audit เต็มรูปแบบตาม scope ข้างต้น เขียน spec พร้อมตาราง evidence + fix proposal ให้ Founder อนุมัติก่อน AI Coding เริ่ม (ตามกติกาเดิมของ epic)
+
+## Design Audit — ผลสรุป
+
+**Spec เต็ม**: `.wyn/docs/design/wyn-184-non-sticky-header-safe-area-audit.md` (audit + spec only, ยังไม่แก้โค้ด)
+
+ยืนยัน route enumeration ของ WYN-182 ซ้ำด้วย grep จริง (`headerMode="hidden"` เจอ 9 จุด ตรงกับลิสต์เดิมทุกตัว: Home, Profile, Notifications, Search, Chat inbox, Chat conversation, Club detail, Post detail, Profile follow list) ตรวจ header จริงของทั้ง 9 route ครบ ไม่ sample พบว่า header จริงที่เป็น **static-in-flow** (ไม่ใช่ sticky/fixed) มี 4 กรณี: Home, Profile, Chat inbox, Club detail (ส่วนอีก 5 route path header จริงเป็น sticky อยู่แล้ว หรือ reuse selector เดียวกับ Profile — นอก scope ของ WYN-184 ตามนิยาม trust WYN-182)
+
+**พบ GAP จริง 2 จุด CSS** (กระทบ 5 route path รวมกัน เพราะ 1 selector reuse กัน 2 route):
+
+1. **`.wyn-profile-topbar`** (`web/app/profile-golden-final.css:10-18`) — ไม่มี safe-area เลย ไม่เคยมีใครแก้มาก่อน (ประกาศไฟล์เดียว ไม่มี cascade risk) กระทบ **4 route path**: `/profile/[id]`, `/profile/me`, `/profile/[id]/followers`, `/profile/[id]/following` (Profile follow list ใช้ selector เดียวกันซ้ำ — เพิ่งพบระหว่าง audit นี้ ไม่เคยถูกเอ่ยถึงใน known finding เดิม)
+2. **`.flutter-chat-header`** (Chat inbox, `/chat`) — ยืนยัน cascade regression ซ้ำด้วยหลักฐานเต็ม พบว่าจริงๆ มี **5 ไฟล์** ประกาศ selector นี้ (ไม่ใช่ 2 ไฟล์อย่างที่ known finding เดิมระบุ) ไล่ specificity + `!important` + import order แล้วสรุปชัดว่า rule ที่ชนะจริงคือ `web/app/chat-notes.css:537-542` (ไม่มี safe-area) ไม่ใช่ `pixel-parity-audit-closure.css:9-11` ที่เคยพยายามแก้ไว้แต่โดนทับ — **fix ต้องแก้ที่ rule ผู้ชนะเท่านั้น**
+
+**ตรวจแล้วยืนยันว่า OK ไม่ใช่ GAP**: Home (`.wyn-home-header` เป็น static แต่ parent `.wyn-home` เป็น sticky+safe-area อยู่แล้ว) และ Club detail (`.golden-club-back` ปุ่มย้อนกลับมี `top: calc(env(safe-area-inset-top) + 8px)` ถูกต้องอยู่แล้ว)
+
+ทั้ง 2 fix proposal เป็นการเปลี่ยน spacing ที่มองเห็นได้จริงบนอุปกรณ์มี notch/Dynamic Island เท่านั้น (ไม่มีจุดไหนเป็น defensive-only ในรอบนี้) ไม่แตะ business logic/Supabase contract — รอ Founder อนุมัติก่อน AI Coding เริ่ม
+
+**ข้อจำกัด**: session นี้ไม่มี Bash/browser tool จึงตรวจได้แค่จากการอ่าน source + cascade evidence เท่านั้น ยังไม่ได้ยืนยัน computed style บนอุปกรณ์จริง ต้องให้ QA ยืนยันซ้ำบน iPhone ที่มี notch ก่อนปิด task
