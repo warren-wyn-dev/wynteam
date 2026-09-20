@@ -67,7 +67,7 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(navCss).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
   expect(navCss).toContain("border-radius: 0");
   expect(navCss).toContain("border-top: 1px solid");
-  expect(navCss).toContain("width: 24px");
+  expect(navCss).toContain("width: 28px");
   expect(home).toContain("width: 120px;");
   expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);");
 

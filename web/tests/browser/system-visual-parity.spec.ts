@@ -132,15 +132,15 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(flutterNav).toContain("fontSize: 11.5");
 
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(nav).toContain(label);
-  expect(navCss).toContain("--wyn-bottom-nav-height: 44px;");
+  expect(navCss).toContain("--wyn-bottom-nav-height: 40px;");
   expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);");
   expect(navCss).toContain("padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));");
   expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom))");
   expect(navCss).toContain("width: min(100%, 680px)");
   expect(navCss).toContain("border-top: 1px solid");
-  expect(navCss).toContain("width: 24px");
-  expect(navCss).toContain("height: 24px");
-  expect(navCss).toContain("flex: 0 0 24px");
+  expect(navCss).toContain("width: 28px");
+  expect(navCss).toContain("height: 28px");
+  expect(navCss).toContain("flex: 0 0 28px");
   expect(nav).toContain('fill={selected ? "currentColor" : "none"}');
 });
 
