@@ -84,3 +84,16 @@ Security Findings: ไม่มี — CSS ตัวเลขล้วนๆ ไ
 Recommendation: PASS — verify ครบทั้ง 3 breakpoint ด้วยตัวเลขจริงจาก DOM ไม่ใช่แค่ดูภาพ ทุกจุดตรงสเปกไม่มี overflow
 
 Final Status: **PASS**
+
+## Post-merge-attempt CI fix (2026-09-20)
+
+`browser-qa` CI failed on PR #558 after this change pushed: 4 pre-existing source-contract tests
+(`home-visual-parity.spec.ts`, `pixel-parity-pass-2.spec.ts`, `system-visual-parity.spec.ts`,
+`parity.spec.ts`) hardcoded the old bottom-nav numbers (44px height, 24px icon, 11.5px label) as
+"this must never change" assertions — legitimate contract tests doing their job, correctly catching
+that this PR intentionally changes those numbers. Updated all 4 to the new Founder-approved values.
+Verified 4/5 locally (the 5th, `home-visual-parity.spec.ts`, needs a real page load and hit this
+sandbox's pre-existing `chromium_headless_shell-1243` binary mismatch — same limitation documented
+earlier this session, unrelated to this change); its edit is the same mechanical value swap and the
+40px/28px numbers were already confirmed correct via direct DOM measurement in the QA pass above.
+`npm run check` green. Pushed as commit `6bcb6703`.
