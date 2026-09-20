@@ -89,6 +89,12 @@ Re-tested the "no Flutter SDK / network 403" claim above in a fresh session — 
 
 Recommendation: do **not** blind-implement Batches 2-6 in one pass. Next safe step is Batch 1 (tokens/primitives — `lib/core/design/wyn_colors.dart`, `wyn_spacing.dart`, `wyn_theme.dart`, `wyn_typography.dart`, `lib/core/widgets/`) since primitive-level changes are unit/widget-testable without visual rendering; screen-level batches (2-6) should wait until there's a way to visually verify (a Flutter-capable runner with a simulator/device, or the Founder available to spot-check each batch on their own phone before the next one starts) — consistent with this task's own Requirement #10 and #9.
 
+### Correction — Flutter web + CanvasKit rendering does work here (2026-09-20, same audit)
+
+The "no way to visually verify" claim above was too pessimistic. `app/web/` is a real (if unused-for-production) Flutter target: `flutter build web --release` compiles successfully, and `flutter devices` detects a usable Chrome target once `CHROME_EXECUTABLE` points at the Playwright Chromium already present in this sandbox (`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`). CanvasKit defaults to fetching from `gstatic.com`, which the sandbox proxy blocks, but patching the loader config to use the already-bundled local `canvaskit/` folder fixes that. Result: a real, pixel-accurate (same Skia/CanvasKit renderer Flutter uses on-device) screenshot of the Welcome screen, taken via Playwright — confirms WYNOS/BETA wordmark, Thai tagline and the `เริ่มต้นใช้งาน` CTA render correctly.
+
+**What this does and doesn't unlock**: this makes **unauthenticated screens** (Welcome, Auth method picker, sign-up/sign-in) genuinely visually verifiable in this sandbox — good enough to safely start Batch 2 (Auth/navigation shell) for the Auth portion. It does **not** unlock the screens that need a live Supabase session (Home, Feed, Profile, Search, Notifications, Settings, Clubs, Chat) — every other role in this codebase has hit that exact wall (no Supabase backend in sandbox), and screenshotting Flutter-web doesn't change that; those screens in Batches 2 (nav shell)-5 still need either a live backend connection or Founder device spot-checks per batch before shipping.
+
 
 ## Founder final visual reference — 2026-09-10
 
