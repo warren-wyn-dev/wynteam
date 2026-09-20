@@ -24,6 +24,7 @@ import {
   type DropCommentRow,
   type HomeViewerState,
 } from "@/lib/home-actions";
+import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchDropById } from "@/lib/phase3-data";
 
@@ -269,8 +270,8 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
 
   const interact = async (kind: "like" | "save" | "redrop") => {
     try {
-      if (kind === "like") { patchSet("likedDropIds", !liked); setRow((current) => current ? { ...current, like_count: Math.max(0, (current.like_count ?? 0) + (liked ? -1 : 1)) } : current); await toggleDropLike(client, userId, row.id, liked); }
-      if (kind === "save") { patchSet("savedDropIds", !saved); await toggleDropSave(client, userId, row.id, saved); }
+      if (kind === "like") { if (!liked) haptic(); patchSet("likedDropIds", !liked); setRow((current) => current ? { ...current, like_count: Math.max(0, (current.like_count ?? 0) + (liked ? -1 : 1)) } : current); await toggleDropLike(client, userId, row.id, liked); }
+      if (kind === "save") { if (!saved) haptic(); patchSet("savedDropIds", !saved); await toggleDropSave(client, userId, row.id, saved); }
       if (kind === "redrop") { patchSet("redroppedDropIds", !redropped); setRow((current) => current ? { ...current, redrop_count: Math.max(0, (current.redrop_count ?? 0) + (redropped ? -1 : 1)) } : current); await toggleDropRedrop(client, userId, row.id, redropped); }
     } catch { setError("อัปเดตกิจกรรมไม่สำเร็จ"); void load(); }
   };
@@ -294,6 +295,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
 
   const likeComment = async (comment: DropCommentRow) => {
     try {
+      if (!comment.liked_by_me) haptic();
       await toggleDropCommentLike(client, userId, comment.id, comment.liked_by_me);
       setComments((current) => current.map((item) => item.id === comment.id ? { ...item, liked_by_me: !item.liked_by_me, like_count: Math.max(0, item.like_count + (item.liked_by_me ? -1 : 1)) } : item));
     } catch { setError("ถูกใจความคิดเห็นไม่สำเร็จ"); }
@@ -327,6 +329,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     if (ownDrop) return;
     setError("");
     try {
+      if (!followingAuthor) haptic();
       const state = await toggleAuthorFollow(client, userId, row.author_id, { currentlyFollowing: followingAuthor, pendingRequest: pendingAuthor, isPrivate: privateAuthor });
       setViewer((current) => {
         if (!current) return current;

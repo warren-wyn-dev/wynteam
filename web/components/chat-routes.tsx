@@ -300,6 +300,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     const wasRequested = otherSummary.requested;
     if (wasRequested && other.is_private && !window.confirm(`ยกเลิกคำขอติดตาม @${other.username}?`)) return;
     const next = predictFollowState({ currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: other.is_private });
+    if (!wasFollowing) haptic();
     setFollowBusy(true);
     setOtherSummary((current) => current ? { ...current, following: next === "following", requested: next === "requested" } : current);
     try {
