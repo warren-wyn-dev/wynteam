@@ -2020,3 +2020,13 @@ Founder อนุมัติ ("อนุญาต") preview + spec แล้ว
 `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) — grep ยืนยันไม่มี parity/regression spec ไหนอ้างอิง class ที่แก้รอบนี้
 
 ส่งต่อ **AI QA & Security** ตรวจอิสระอีกรอบก่อนเข้า Deploy gate — อ้างอิงรายละเอียดเต็มที่ `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (Batch 3 Implementation section)
+
+## [2026-09-20] WYN-176 Batch 3 (Chat) — QA อิสระ PASS 43/43 พร้อมเข้า Deploy gate
+
+AI QA & Security ทำ harness/กระบวนการตรวจอิสระใหม่ทั้งหมด (ไม่ reuse ของ Coding) — cascade verification ยืนยันไม่มี override ทับ `:active` rule ที่เพิ่มใหม่ (ตรวจ `parity-final.css` ที่ override width/height ของ `.route-icon-link`/`.route-icon-button` แล้วยืนยันไม่แตะ transform), จำลอง DOM จริงจาก `chat-routes.tsx`/`wynii-chat.tsx`, เพิ่ม edge case เอง (กด mouse ค้างขณะปุ่ม `disabled` บน 3 จุดที่มี guard ยืนยันไม่มี press feedback หลุด), console/HTTP sweep dev server จริง 5 route, grep parity spec ทั้ง 11 ไฟล์ยืนยันไม่ชนกับที่แก้
+
+ผล: **43/43 harness ผ่าน** + parity spec 11/11 ไม่ชน + typecheck/lint/build สะอาด + ไม่มี security finding (CSS-only diff แท้จริง) — cleanup scratch harness files ครบ, working tree สะอาด
+
+**Final Status: PASS** — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 3 นี้ (รอ Founder สั่งเปิด PR ตาม pattern เดิม)
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (QA Batch 3 section)

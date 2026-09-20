@@ -165,3 +165,21 @@ Batch 1 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ ba
 **Known Issues**: ไม่มี
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/` conversation route จริงผ่าน dev server (ไม่ใช่แค่ harness) (2) ไม่มี regression ต่อ Flutter-parity ที่ล็อกไว้ของ Chat/inbox (3) `.route-icon-link`/`.route-icon-button` ที่ใช้ร่วมกันข้ามหน้า (Post detail/Profile/Settings) ยังทำงานปกติไม่มีจุดไหนพัง
+
+## QA Batch 3 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ไม่เชื่อผลที่ AI Coding รายงานเอง ทำ harness/กระบวนการตรวจอิสระใหม่ทั้งหมด — (1) `git show --stat 5c639de` ยืนยัน diff โค้ดจริงมีแค่ 2 ไฟล์ CSS (2) cascade verification: grep ทั้ง 10 selector ข้าม `web/app/*.css` ทั้ง 38 ไฟล์ + module.css ทั้งหมด ยืนยันไม่มี override rule ไหนทับ `:active` ที่เพิ่มใหม่ (พบว่า `parity-final.css` override เฉพาะ width/height ของ `.route-icon-link`/`.route-icon-button` ไม่แตะ transform) (3) harness Playwright ใหม่ทั้งหมด (ไม่ reuse ของ Coding) จำลอง DOM จริงจาก `chat-routes.tsx`/`wynii-chat.tsx` ทำ mouse down/up จริง 10 จุด + release + reduced-motion 10 จุด + edge case เพิ่มเอง: กด mouse ค้างขณะปุ่มมี `disabled` attribute บน 3 จุดที่มี `:not(:disabled)` guard ยืนยันไม่มี press feedback เกิดขึ้น (4) dev server จริง console/HTTP sweep บน `/`, `/chat`, `/chat/<uuid>`, `/notifications`, `/search` (5) grep 11 ไฟล์ parity/regression spec ทั้งหมดใน `tests/browser/` ยืนยันไม่มีไฟล์ไหนอ้างอิง selector/ไฟล์ที่แก้ (6) `typecheck`/`lint`/`build` อิสระใหม่
+
+**Passed**: 43/43 (harness: press-feedback 30 + disabled-guard edge case 3 + reduced-motion 10) + console/HTTP sweep 5 route สะอาด + parity spec 11/11 ไม่ชน + lint/typecheck/build สะอาดหมด
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ยืนยัน CSS-only diff แท้จริง — ไม่มีไฟล์ `.ts`/`.tsx`/API route ถูกแตะเลย ไม่มี data flow ใหม่ ไม่แตะ auth/authorization surface ไม่มีข้อกังวลด้าน security
+
+**Recommendation**: Approve batch 3 — เข้า Deploy gate ปกติ
+
+**Final Status: PASS**
+
+Batch 3 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 3 นี้ (WYN-176 โดยรวมยังไม่ปิด เหลือ batch 4-7: Profile/Settings, Search/Notifications/Club, dead CSS cleanup)
