@@ -1,6 +1,6 @@
 # Bug Report — WYN-181 (Sub-task 1: Install Prompt Banner)
 
-Status: fixed
+Status: verified — QA PASS, ready for Deploy gate
 Owner: AI Debug Engineer
 Bug: Two real bugs found in `web/components/install-prompt-banner.tsx`.
 
@@ -33,3 +33,9 @@ Files Changed: `web/components/install-prompt-banner.tsx` only (both fixes, ~8 l
 Regression Risk: Low — both fixes are scoped to the two specific functions flagged, no other files touched, no change to CSS/markup/design.
 
 Handoff: → **AI QA & Security** for re-verification before this sub-task can proceed to Deploy gate.
+
+## QA Re-Verification (AI QA & Security, 2026-09-20)
+
+Independently re-verified in an isolated worktree — confirmed the diff is exactly the claimed 13/-4 line change; independently confirmed both fixes work (iPad-as-Mac now shows the iOS steps, a real Mac desktop is still correctly not misclassified, accepting install now writes the dismissal timestamp and correctly suppresses reappearance on reload) with a fresh harness (12/13 pass). The one failure (D6: rapid double-click on "install" calling `event.prompt()` twice) was reproduced identically against the pre-fix commit (`143c3abd`) — confirmed pre-existing, unrelated to this diff, LOW severity, real-world impact minimal (native browser install dialogs generally block re-entry anyway). Recommended as a separate low-priority backlog item, not a blocker. `typecheck`/`lint`/`build` clean; regression suite 54/54 passing (6 known pre-existing sandbox-limitation failures, unrelated).
+
+**Final Status: PASS** — approved for Deploy gate.

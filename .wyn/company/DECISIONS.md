@@ -2355,3 +2355,11 @@ Severity: HIGH/MEDIUM **Final Status: FAIL** — ส่งต่อ **AI Debug E
 แก้ 2 จุดใน `install-prompt-banner.tsx`: เพิ่ม `navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1` เข้า `isIos()` (มาตรฐานตรวจจับ iPad ปลอมตัวเป็น Mac) + `install()` เรียก `dismiss()` เสมอไม่ว่า outcome จะเป็นอะไร
 
 ใช้เทคนิค setTimeout-shrink ของ QA แทน real-wait — ตรวจ 7/7 จุดที่แก้ผ่าน + rerun harness เดิม 10/10 ยังผ่าน + typecheck/lint/build สะอาด ส่งต่อ **AI QA & Security** ตรวจซ้ำ
+
+## [2026-09-20] WYN-181 sub-task 1 — QA re-verify PASS พร้อมเข้า Deploy gate
+
+AI QA & Security ตรวจซ้ำอิสระในอีก worktree ยืนยันทั้งสองบั๊กแก้ถูกต้อง (12/13 harness ผ่าน) — จุดที่ fail เดียว (ดับเบิลคลิกปุ่มติดตั้งเร็วมากเรียก prompt() ซ้ำ) ทดสอบย้อนกับโค้ดก่อนแก้แล้วได้ผลเดิม ยืนยันเป็นพฤติกรรมเดิมไม่เกี่ยวกับ diff นี้ (LOW, แนะนำเปิด backlog แยก ไม่ block) + typecheck/lint/build สะอาด + regression suite 54/54
+
+**Final Status: PASS** — WYN-181 Sub-task 1 (Install Prompt Banner) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว เหลือ sub-task 2 (iOS splash screen) ยังไม่เริ่ม
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-181-install-banner-ipad-detection-and-accept-persistence.md`

@@ -81,7 +81,7 @@ P1 — รองจาก WYN-176 (เสร็จแล้ว) ตามลำ�
 
 **Build**: `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) + regression suite เต็ม 54/54 ที่รันได้จริงผ่าน (fail 6 จุดเดิมจาก sandbox environment limitation)
 
-**Known Issues**: iOS splash screen (sub-task 2 ของ scope นี้) ยังไม่เริ่ม — เป็นงานแยกที่ต้อง generate static image หลายขนาดด้วย `sharp`
+**Known Issues**: iOS splash screen (sub-task 2 ของ scope นี้) ยังไม่เริ่ม — เป็นงานแยกที่ต้อง generate static image หลายขนาดด้วย `sharp`; ดับเบิลคลิกปุ่ม "ติดตั้ง" เร็วมาก (ในติกเดียวกันก่อน React re-render) เรียก `event.prompt()` ซ้ำ 2 ครั้ง — LOW severity, pre-existing ไม่เกี่ยวกับ fix รอบนี้, real-world impact ต่ำมาก, เก็บไว้เป็น backlog แยกถ้าจะแก้ (แนะนำ ref-based guard แทนพึ่ง state async)
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) logic การแสดง/ซ่อน banner ถูกต้องตาม spec ทั้ง 4 สถานการณ์ (2) ไม่มี regression ต่อ layout/parity เดิม (3) localStorage wrap try/catch ปลอดภัยจริง ไม่ throw ทำแอปพัง
 
@@ -114,3 +114,21 @@ P1 — รองจาก WYN-176 (เสร็จแล้ว) ตามลำ�
 **Tests**: harness ใหม่ (ใช้เทคนิคจาก QA — wrap `window.setTimeout` ให้ delay ≥15000ms เหลือ 300ms แทน real-wait 24 วินาที เร็วกว่ามาก) ตรวจ iPad-as-Mac (banner โผล่ถูกต้อง) + sanity check ว่า Mac desktop จริงไม่ถูกเข้าใจผิดเป็น iOS + accept-persistence (เขียน timestamp ถูกต้อง + ไม่โผล่ซ้ำ) **7/7 ผ่าน** + rerun harness เดิม 10 เคสยืนยันไม่กระทบ **10/10 ยังผ่าน** + typecheck/lint/build สะอาด
 
 **Handoff**: → **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
+
+## QA Sub-task 1 — Round 2 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ตรวจซ้ำอิสระในอีก worktree — ยืนยัน diff จริง (+13/-4), harness ใหม่ 13 เคส (iPad-as-Mac, Mac desktop no-regression ×2, accept-persistence ×4, regression battery เดิม ×5) + typecheck/lint/build + regression suite
+
+**Passed**: 12/13 (ทั้งสองบั๊กที่พบยืนยันแก้ถูกต้อง ไม่มี regression) + typecheck/lint/build สะอาด + regression suite 54/54 ที่รันได้จริงผ่าน
+
+**Failed**: 1/13 (ไม่ใช่ regression จาก diff นี้) — พบว่าดับเบิลคลิกปุ่ม "ติดตั้ง" เร็วมากในติกเดียวกันเรียก `event.prompt()` 2 ครั้ง ทดสอบซ้ำกับโค้ดก่อนแก้ (`143c3abd`) ได้ผลเดิมทุกประการ ยืนยันเป็นพฤติกรรมเดิมที่มีอยู่ก่อนแล้ว ไม่เกี่ยวกับ fix รอบนี้
+
+**Severity**: LOW (สำหรับ double-click guard เอง หากจะเปิด task แยก) — ไม่กระทบผลตัดสินของรอบนี้
+
+**Security Findings**: ไม่มี — client-UI-only, อ่านแค่ `navigator.platform`/`navigator.maxTouchPoints` (public browser property มาตรฐาน) ไม่มี network call ใหม่
+
+**Recommendation**: Approve — WYN-181 sub-task 1 พร้อมเข้า Deploy gate — แนะนำเปิด backlog item แยกสำหรับ double-click guard (ref-based แทน state async) ไม่ block release
+
+**Final Status: PASS**
+
+WYN-181 Sub-task 1 (Custom Install Prompt Banner) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว — เหลือ sub-task 2 (iOS splash screen) ยังไม่เริ่ม
