@@ -23,7 +23,11 @@ function isStandalone() {
 }
 
 function isIos() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) return true;
+  // iPadOS 13+ Safari's default UA masquerades as desktop macOS Safari (no
+  // "iPad" substring at all) — the standard sniff for it is a "Mac" UA that
+  // also reports touch points, which no real Mac ever does.
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
 }
 
 function readDismissedAt(): number | null {
@@ -86,10 +90,11 @@ export function InstallPromptBanner() {
   const install = async () => {
     if (!deferredEvent) return;
     await deferredEvent.prompt();
-    const choice = await deferredEvent.userChoice;
+    await deferredEvent.userChoice;
     setDeferredEvent(null);
-    if (choice.outcome === "accepted") setVisible(false);
-    else dismiss();
+    // Write the dismissal regardless of outcome — an accepted install still
+    // means this banner has done its job and shouldn't reappear.
+    dismiss();
   };
 
   if (!visible || !platform) return null;
