@@ -61,8 +61,6 @@ export function AppBottomNavHost() {
     <BottomNavigation
       profileHref={`/profile/${navState.userId}`}
       isActive={isActive}
-      notificationLabel={navState.notificationLabel}
-      notificationBadge={navState.notificationBadge}
     />
   );
 }

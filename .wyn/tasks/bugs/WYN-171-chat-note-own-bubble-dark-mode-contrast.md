@@ -1,6 +1,6 @@
 # Bug Report — WYN-171
 
-Status: fixed and verified — PASS by AI QA & Security, พร้อม Deploy
+Status: closed — Founder ยืนยัน production จริงแล้ว ("โอเค")
 Owner: AI Design
 Parent: none (pre-existing production bug, unรelated to WYN-169/170) — พบระหว่าง Founder ขอให้ตรวจสอบ
 ฟังก์ชันโน้ต (Chat Inbox) 2026-09-19
