@@ -2279,3 +2279,11 @@ Severity: MEDIUM — บันทึก bug report ที่ `.wyn/tasks/bugs/WY
 Tests: harness ใหม่ (inline `<style>` หลีกเลี่ยงปัญหา Chromium บล็อก `<link file://>` ที่ QA เจอ) ตรวจ disabled variant + enabled variant **3/3 ผ่าน** + typecheck/lint/build สะอาด
 
 ส่งต่อ **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
+
+## [2026-09-20] WYN-176 Batch 5 — QA re-verify PASS 16/16 พร้อมเข้า Deploy gate
+
+AI QA & Security ตรวจซ้ำอิสระในอีก worktree ไม่เชื่อผลที่ Debug Engineer รายงานเอง — สร้าง harness ใหม่ครอบคลุม disabled/enabled/reduced-motion ของจุดที่แก้ + re-verify 5 selector พี่น้อง เพิ่ม sanity check พิเศษ (revert CSS กลับไปก่อนแก้แล้วรัน harness ซ้ำ พิสูจน์ว่า harness จับบั๊กเดิมได้จริงไม่ใช่ false-positive) ก่อน restore กลับ — **16/16 ผ่าน** + typecheck/lint/build สะอาด
+
+**Final Status: PASS** — WYN-176 Batch 5 (Search/Club) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
+
+อ้างอิง: `.wyn/tasks/bugs/WYN-176-batch5-composer-send-button-disabled-press-feedback.md`

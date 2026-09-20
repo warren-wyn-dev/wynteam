@@ -341,3 +341,21 @@ Observation เพิ่มเติม (ไม่ block): design doc เขี�
 **Known Issues**: dead interaction 2 จุดจาก batch 4/5 (`.wyn-profile-stats button`, `.hashtag-row`/`.top100-link`) ยังไม่แก้ เพราะเป็นบั๊กฟังก์ชัน (ไม่มี onClick) ไม่ใช่ dead CSS — ต้องส่ง PM/Design ตัดสินใจว่าจะเพิ่มฟีเจอร์จริงหรือลบทิ้งทั้ง element ก่อนถึงจะทำอะไรกับมันได้
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) ยืนยัน 4 ไฟล์ที่ลบไม่มีการ import ที่ไหนหลงเหลือ (build error จะฟ้องอยู่แล้วถ้าพลาด) (2) รัน parity/regression spec ที่เกี่ยวข้องอิสระอีกรอบ (3) ตรวจว่า `/clubs`, `/club/[id]`, `/compose-post` ยังทำงานปกติทุกอย่างผ่าน dev server จริง — นี่คือ batch สุดท้ายของ WYN-176 ถ้า QA ผ่านและ Founder ยืนยัน production ครบทุก batch ก่อนหน้าแล้ว จะปิด task ทั้งฉบับได้
+
+## QA Batch 5 — Round 2 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ตรวจซ้ำอิสระในอีก worktree (ไม่เชื่อผลที่ Debug Engineer รายงานเอง) — ยืนยัน diff จริง, harness ใหม่ทั้งหมดตรวจ disabled/enabled/reduced-motion ของ `.golden-club-composer button` + re-verify 5 selector พี่น้องในชุดเดียวกัน + **sanity check พิเศษ**: revert CSS กลับไปเป็นเวอร์ชันก่อนแก้ (`aeb9e030`) แล้วรัน harness เดิมซ้ำเพื่อพิสูจน์ว่า harness จับบั๊กเดิมได้จริง (ไม่ใช่ false-positive PASS) ก่อน restore กลับ + typecheck/lint/build
+
+**Passed**: 16/16 harness checks + sanity-reproduction check ยืนยัน harness ไวพอจริง + typecheck/lint/build สะอาด
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ไม่มี — CSS-only diff (+ docs) ยืนยันแล้ว
+
+**Recommendation**: Approve — WYN-176 Batch 5 พร้อมเข้า Deploy gate
+
+**Final Status: PASS**
+
+WYN-176 Batch 5 (Search/Club) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว

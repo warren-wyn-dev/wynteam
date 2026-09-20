@@ -1,6 +1,6 @@
 # Bug Report — WYN-176 (batch 5)
 
-Status: fixed
+Status: verified — QA PASS, ready for Deploy gate
 Owner: AI Debug Engineer
 Bug: `.golden-club-composer button` (the Club chat send button, `web/app/club-detail-golden.css`) applied the `scale(0.96)` press-feedback transform even when the button was genuinely `disabled` in real usage (`disabled={sending || (!draft.trim() && !image)}`, `web/components/club-detail-golden.tsx:441`), because its `:active` rule was missing the `:not(:disabled)` guard that its sibling selectors in the same batch correctly received. Same root-cause pattern as the WYN-176 batch 4 disabled-button bug.
 
@@ -21,3 +21,9 @@ Files Changed: `web/app/club-detail-golden.css` only (1 line).
 Regression Risk: Low — single-selector additive guard, no other files affected, no radius/size/logic change.
 
 Handoff: → **AI QA & Security** for re-verification before this batch can proceed to Deploy gate.
+
+## QA Re-Verification (AI QA & Security, 2026-09-20)
+
+Independently re-verified in an isolated worktree — confirmed the diff is exactly the 1-line change, built a fresh harness (inline `<style>`, 16 checks: disabled/enabled/reduced-motion on the fixed selector + re-verification of the 5 sibling selectors with correct guards) — all pass. Additionally ran a sanity check: reverted the CSS to the pre-fix state (`aeb9e030`) and re-ran the same harness to confirm it correctly reproduces the original FAIL, proving the harness is sensitive enough to have caught this — not a false-positive PASS. Restored the fix afterward. `typecheck`/`lint`/`build` clean.
+
+**Final Status: PASS** — approved for Deploy gate.
