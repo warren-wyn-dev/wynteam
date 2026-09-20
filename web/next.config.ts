@@ -12,7 +12,11 @@ const supabaseRemotePattern = (() => {
   try {
     const url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    return { protocol: url.protocol.slice(0, -1) as "http" | "https", hostname: url.hostname };
+    // port must be explicit -- an omitted `port` field means "any port" to
+    // Next's matcher, not "no port": with dangerouslyAllowLocalIP on for
+    // dev, that would let /_next/image reach any other local service on
+    // 127.0.0.1, not just the one at this URL's port.
+    return { protocol: url.protocol.slice(0, -1) as "http" | "https", hostname: url.hostname, port: url.port };
   } catch {
     return null;
   }
