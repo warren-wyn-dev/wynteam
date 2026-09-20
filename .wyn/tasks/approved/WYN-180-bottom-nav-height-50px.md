@@ -1,7 +1,9 @@
 # Design Task — WYN-180
 
-Status: coding done, QA pending — Founder revised the bottom bar height target after seeing the
-Home-screen proportions audit (https://claude.ai/artifact/59nJwU9PG5JsWtCwcWtXNK)
+Status: QA PASS, approved — Founder revised the bottom bar height target after seeing the
+Home-screen proportions audit (https://claude.ai/artifact/59nJwU9PG5JsWtCwcWtXNK); a critical pre-existing
+cross-subtree CSS scoping bug was found and fixed during review (see "CRITICAL fix" section below) before
+this could be considered done
 Owner: AI Design
 Screen: แท็ปบาร์ล่าง — `web/app/bottom-nav.css` เท่านั้น
 Purpose: Founder สั่ง "ลดขนาด Bottom Bar เหลือ 50" หลังเห็น audit ที่เทียบสัดส่วนปัจจุบัน (40px content, รวม
