@@ -2239,3 +2239,19 @@ Founder สั่ง "Merge เลย" — merge สำเร็จ (`45f0b6a`) 
 harness Playwright อิสระ 30/30 ผ่านตั้งแต่รอบแรก + `typecheck`/`lint`/`build` สะอาด + ตรวจ parity spec 2 ไฟล์ที่อ้างอิง class เหล่านี้ (เป็น string check ไม่ใช่ computed style) ยืนยันไม่ชน
 
 ส่งต่อ **AI QA & Security** ตรวจอิสระก่อนเข้า Deploy gate — อ้างอิงรายละเอียดเต็มที่ `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (Batch 4 Implementation section)
+
+## [2026-09-20] WYN-176 Batch 4 — QA พบบั๊กจริง **FAIL**: ปุ่ม disabled 5 จุดยังมี press feedback
+
+AI QA & Security ทำ harness อิสระใหม่ทั้งหมด รอบนี้เพิ่ม edge case สำคัญที่ AI Coding ไม่ได้ตรวจ: ทดสอบทุกจุดที่มี `disabled={...}` จริงในซอร์ส (`profile-route.tsx`) ไม่ใช่แค่ 2 จุดตัวอย่างที่มี guard อยู่แล้ว — พบว่า 5 ใน 9 selector (`.wyn-profile-action-primary`/`-secondary`, `.profile-account-select`, `.profile-account-use-other`, `.profile-more-sheet > button`) ไม่มี `:not(:disabled)` guard ทั้งที่มี disabled state จริง ทำให้ปุ่มที่ปิดใช้งานอยู่ยังแสดง press feedback เหมือนกดได้ปกติ (ขัดกับเจตนาหลักของฟีเจอร์นี้เอง) — root cause: implement ไม่สม่ำเสมอ (2 จุดที่เหลือ `.profile-account-manage`/`.wyn-profile-edit-avatar-remove` ทำ guard ถูกต้องอยู่แล้วในคอมมิตเดียวกัน)
+
+Severity: MEDIUM — บันทึก bug report เต็มที่ `.wyn/tasks/bugs/WYN-176-batch4-disabled-button-press-feedback.md` พร้อม root cause + fix ที่แนะนำ **Final Status: FAIL** ไม่ให้เข้า Deploy gate จนกว่าจะแก้
+
+ส่งต่อ **AI Debug Engineer** แก้ไข
+
+## [2026-09-20] WYN-176 Batch 4 — Debug Engineer แก้บั๊กแล้ว ยืนยัน 7/7 + 30/30 ผ่าน
+
+แก้ตรงตาม fix ที่ QA แนะนำ — เพิ่ม `:not(:disabled)` ให้ 5 selector ที่ขาดใน `web/app/profile-golden-final.css` (ไม่แตะ `.profile-account-remove` เพราะยืนยันแล้วว่าไม่มี `disabled` attribute เลยในซอร์ส ตรงกับที่ QA ไม่ได้แจ้งเตือนจุดนี้)
+
+Tests: harness ใหม่ตรวจเฉพาะ disabled-state 7 จุด (5 จุดที่แก้ + 2 จุด control ที่ถูกต้องอยู่แล้ว) **7/7 ผ่าน** (`transform: none` ระหว่างกดค้างตอน disabled) + รัน harness เดิม 30 จุดซ้ำยืนยันไม่กระทบ enabled-state press feedback ปกติ **30/30 ยังผ่าน** + `typecheck`/`lint`/`build` สะอาด — diff เป็นการเพิ่ม `:not(:disabled)` 6 บรรทัดในไฟล์เดียว ไม่กระทบไฟล์อื่น
+
+อัปเดต bug report เป็น status: fixed แล้ว ส่งต่อ **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate

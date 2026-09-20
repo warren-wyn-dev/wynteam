@@ -222,3 +222,53 @@ Founder สั่ง "Merge เลย" — merge PR สำเร็จ (`45f0b6a
 **Known Issues**: `.wyn-profile-stats button` (นับผู้ติดตาม) ไม่มี onClick มาก่อนแล้ว — เป็นบั๊กฟังก์ชันเก่าที่ไม่เกี่ยวกับ scope นี้ ไม่แก้ไข
 
 **Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/profile/me`, `/settings` ผ่าน dev server จริง (2) ปุ่ม action ในหน้าโปรไฟล์ยังเป็นทรง pill เดิม (ตามที่ Founder เลือก A) ไม่มีการเปลี่ยนขนาด (3) ไม่มี regression ต่อ parity spec ที่อ้างอิง class เหล่านี้
+
+## QA Batch 4 — Round 1 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: cascade verification 9 selector + ยืนยัน Founder เลือก option A จริง (pill 999px/44px ไม่เปลี่ยน) + harness Playwright อิสระ (10 จุด × press-applies/release/reduced-motion) + **edge case เพิ่มเอง: ทดสอบทุกจุดที่มี `disabled={...}` จริงในซอร์ส ไม่ใช่แค่ตัวอย่างที่มี guard อยู่แล้ว** + console/HTTP sweep + รัน `parity.spec.ts`/`system-visual-parity.spec.ts` จริงด้วย `npx playwright test` + typecheck/lint/build
+
+**Passed**: 62/66 harness checks + console/HTTP sweep สะอาด + parity spec 14/14 ที่รันได้จริงผ่าน + typecheck/lint/build สะอาด
+
+**Failed**: 5/9 selector มี `:active` ไม่มี `:not(:disabled)` guard ทั้งที่มี disabled state จริง — ปุ่ม disabled แสดง press feedback เหมือนกดได้ปกติ
+
+**Severity**: MEDIUM (ไม่ critical/security แต่ขัดเจตนาหลักของฟีเจอร์ — "feedback ที่ซื่อสัตย์ต่อผู้ใช้")
+
+**Security Findings**: ไม่มี — CSS-only diff ยืนยันแล้ว
+
+**Recommendation**: ส่งต่อ AI Debug Engineer แก้ตาม bug report `.wyn/tasks/bugs/WYN-176-batch4-disabled-button-press-feedback.md` ก่อนเข้า Deploy gate
+
+**Final Status: FAIL**
+
+## Batch 4 Debug Fix (AI Debug Engineer, 2026-09-20)
+
+**Fix**: เพิ่ม `:not(:disabled)` ให้ 5 selector ที่ QA พบว่าขาด — `.wyn-profile-action-primary`, `.wyn-profile-action-secondary`, `.profile-account-select`, `.profile-account-use-other`, `.profile-more-sheet > button` (ไม่แตะ `.profile-account-remove` เพราะยืนยันแล้วว่าไม่มี `disabled` attribute ในซอร์สเลย)
+
+**Files Changed**: `web/app/profile-golden-final.css` เท่านั้น — diff 6 บรรทัด (เพิ่ม `:not(:disabled)` เข้า selector เดิม)
+
+**Tests**: harness ใหม่ตรวจ disabled-state 7 จุด (5 ที่แก้ + 2 control ที่ถูกต้องอยู่แล้ว) **7/7 ผ่าน** + rerun harness เดิม 30 จุดยืนยันไม่กระทบ enabled-state **30/30 ยังผ่าน** + typecheck/lint/build สะอาด
+
+**Handoff**: → **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate
+
+## Batch 5 Implementation (AI Coding, 2026-09-20)
+
+**Implementation**: เพิ่ม press feedback spring (`scale(0.96)`, 160ms cubic-bezier เดียวกับ WYN-163) ให้ 22 จุดใน Search/Club ที่ยังไม่มีเลย — batch นี้ใหญ่กว่าปกติ (batch อื่น 7-10 จุด) เพราะ Club detail (`club-detail-golden.tsx`) ไม่เคยผ่านการปรับ interaction เลยทั้งหน้า:
+
+**Search (1 จุด, `web/app/notifications-clean.css`)**: `.search-back-button`
+
+**Club list/create (6 จุด, `web/app/club-audit.css`)**: `.audit-club-hero > button`, `.audit-club-main`, `.audit-club-join`, `.audit-my-club-row`, `.audit-club-image-picker`, `.audit-club-privacy button`
+
+**Club detail (15 จุด, `web/app/club-detail-golden.css`)**: `.golden-club-back`, `.golden-club-meta-main > button`, `.golden-club-inline-join`, `.golden-club-primary-join`, `.golden-club-sheet-row`, `.golden-club-post-body > header > button`, `.golden-club-tabs button`, `.golden-club-channels button`, `.golden-club-poll > button`, `.golden-club-actions button`/`a`, `.golden-club-about-tabs button`, `.golden-club-members > a`, `.golden-club-composer label`/`button`, `.golden-club-message-head button`
+
+**การแก้ scope กลางทาง — สำคัญ**: ตรวจโค้ดจริงก่อนเริ่มพบว่า `.club-detail-*` (สี `--sapphire`/`--ink`/`--graphite` เก่า จาก `club-detail-route.tsx`/`club-detail-audit.css`) และ `club-post-card-web.tsx`/`.css` **เป็น dead code ทั้งคู่** — grep ยืนยันไม่มีที่ไหน import ใช้งานจริง หน้า Club detail จริง (`/club/[id]`) ใช้ `ClubDetailGoldenRoute` ซึ่งใช้ `--wyn-*` token ถูกต้องอยู่แล้ว รายงานแรกที่บอกว่า Club ใช้สีเก่า (นำไปสู่คำถามให้ Founder เลือกว่าจะ migrate token) **คลาดเคลื่อน** เพราะ match มาจากไฟล์ dead code โดยไม่ได้ตรวจ routing ก่อน — แก้ไขให้ Founder ทราบทันทีที่พบ แล้วดำเนินการ Batch 5 แบบ press-feedback-only ตามเดิม บันทึกไฟล์ dead code 2 ชุดไว้ให้ batch cleanup ท้ายสุด (WYN-160 เดิมเรียก "batch 8")
+
+**Files Changed**: `web/app/notifications-clean.css`, `web/app/club-audit.css`, `web/app/club-detail-golden.css` — diff additive ล้วนๆ ยืนยันด้วย `git diff --stat` (109 insertions รวม 3 ไฟล์ ไม่มีบรรทัดถูกลบเลย)
+
+**Reason**: ตาม design spec `.wyn/docs/design/wyn-176-batch5-search-club.md` — ไม่ทำ preview artifact รอบนี้เพราะไม่มีประเด็นตัดสินใจด้าน visual (ไม่มีทางเลือก scale/สีเหมือน batch 4 หลังแก้ scope แล้ว)
+
+**Tests**: harness Playwright จริง (โหลด CSS 38 ไฟล์ตามลำดับ import จริง) ตรวจ press feedback ด้วย mouse down/up จริง 23 จุด + release กลับ `none` + reduced-motion 23 จุด — รอบแรกได้ 64/69 พบบั๊ก harness เอง 3 อย่าง (ไม่ใช่ CSS จริง): (1) `.audit-club-hero > button` ทดสอบโดยไม่ได้ครอบ parent `.audit-club-hero` (2) `.golden-club-back` เป็น `position:absolute` ไม่ได้ครอบด้วย `.golden-club-banner` (position:relative) ทำให้หลุดไปทับ `.search-back-button` ที่มุมบนซ้าย (3) `.golden-club-composer` เป็น `position:sticky` ทำให้ในหน้าทดสอบสั้นๆ ไปทับ `.golden-club-channels` — แก้ harness (ครอบ parent ให้ถูกต้อง + เพิ่ม spacer) ไม่แตะ CSS แล้วรันซ้ำได้ **69/69 ผ่าน**
+
+**Build**: `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) — grep ยืนยันไม่มี parity/regression spec ไหนอ้างอิง selector ที่แก้รอบนี้เลย
+
+**Known Issues**: พบ dead interaction 2 จุดที่ไม่แก้ (นอก scope): `.hashtag-row`/`.top100-link` ใน Search ไม่มี `onClick` เลย — เหมือนกับ `.wyn-profile-stats button` ที่เจอใน batch 4
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/search`, `/clubs`, `/clubs/new`, `/club/[id]` ผ่าน dev server จริง (2) ยืนยัน `club-detail-route.tsx`/`club-detail-audit.css`/`club-post-card-web.*` เป็น dead code จริงตามที่อ้าง (3) ไม่มี regression ต่อ parity spec
