@@ -7,7 +7,7 @@
  */
 
 .route-with-bottom-nav {
-  --wyn-bottom-nav-height: 40px;
+  --wyn-bottom-nav-height: 50px;
   /* Keep route content and the fixed bar on the same capped iOS inset. */
   padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));
 }
@@ -124,7 +124,7 @@
 
 @media (max-width: 359px) {
   .route-with-bottom-nav {
-    --wyn-bottom-nav-height: 38px;
+    --wyn-bottom-nav-height: 48px;
   }
 
   .route-nav-link {

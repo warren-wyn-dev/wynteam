@@ -132,7 +132,7 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(flutterNav).toContain("fontSize: 11.5");
 
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(nav).toContain(label);
-  expect(navCss).toContain("--wyn-bottom-nav-height: 40px;");
+  expect(navCss).toContain("--wyn-bottom-nav-height: 50px;");
   expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);");
   expect(navCss).toContain("padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));");
   expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom))");

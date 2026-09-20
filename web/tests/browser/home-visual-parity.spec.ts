@@ -118,7 +118,7 @@ test("bottom navigation stays compact and preserves all five WYNOS destinations"
   const links = nav.locator(".route-nav-link");
 
   await expect(nav).toHaveCSS("position", "fixed");
-  await expect(nav).toHaveCSS("height", "40px");
+  await expect(nav).toHaveCSS("height", "50px");
   await expect(links).toHaveCount(5);
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) {
     await expect(nav.getByText(label, { exact: true })).toBeVisible();
