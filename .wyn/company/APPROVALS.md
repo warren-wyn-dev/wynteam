@@ -104,3 +104,14 @@
 - สถานะ: **อนุมัติแล้ว**
 - วันที่ตัดสินใจ: 2026-09-07 (Founder เลือก "เตรียมให้พร้อมที่สุด แต่ Founder กดเอง" หลังเห็นบริบทแบบแผนเดิมของโปรเจกต์)
 - **หมายเหตุ**: AI สร้าง workflow file ไว้เท่านั้น **ไม่ trigger เอง** — Founder ต้องไปที่ GitHub Actions → เลือก workflow แต่ละตัว → "Run workflow" เอง 4 ครั้ง (ลำดับไม่สำคัญ ทั้ง 4 ไฟล์ไม่มี dependency ข้ามกัน) แต่ละ workflow มี diagnose (ก่อนรัน) + verify + smoke-test step ในตัวให้ดูผลได้ทันทีใน Actions log
+
+### APPROVAL_REQUIRED — [2026-09-20] เปิด `images.dangerouslyAllowLocalIP` เฉพาะ non-production build เพื่อแก้ local Supabase image loading
+- Proposed change: เพิ่ม `images.dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production"` ใน `admin/next.config.ts` และ `web/next.config.ts` — เปิดเฉพาะตอน `next dev`/non-production build เท่านั้น production build ยังคง SSRF protection เต็มรูปแบบเหมือนเดิมไม่เปลี่ยนแปลง
+- Reason: QA รอบล่าสุดของ PR #563/#564 (image optimization + remotePatterns security fix) พบว่า remotePatterns fix แก้ protocol mismatch ถูกต้องแล้ว แต่ Next.js 16 มี guard แยกต่างหากจาก remotePatterns ทั้งหมด (`isPrivateIp()` ใน `image-optimizer.js`'s `fetchExternalImage()`) ที่ปฏิเสธทุก hostname ที่ resolve เป็น private/loopback IP เสมอไม่ว่า remotePatterns จะอนุญาตไว้หรือไม่ — พิสูจน์ด้วยการ build+run จริงแล้วยิง request จริงไปที่ `/_next/image?url=http://127.0.0.1:54321/...` ได้ 400 "not allowed" แม้ pattern ตรงเป๊ะ ทำให้รูปใน admin moderation โหลดไม่ขึ้นตอน dev ด้วย local Supabase (`supabase start` ผูก 127.0.0.1 เป็นค่าเริ่มต้น) ซึ่งเป็น local dev setup มาตรฐานที่สุด
+- Benefits: แก้ dev experience gap ที่ QA เจอจริง โดยไม่ลด security posture ของ production เลยแม้แต่นิดเดียว (gate ด้วย `NODE_ENV` ที่ client ตั้งเองไม่ได้ผ่าน `.env`)
+- Risks: ต่ำมาก — `next build`/Vercel deploy ตั้ง `NODE_ENV=production` เสมอโดยอัตโนมัติ ไม่ใช่ env var ที่ตั้งเองผ่าน `.env.local`/`NEXT_PUBLIC_*` ได้ เทียบเท่ากับ flag นี้ไม่มีผลใน production build เลย — ต่างจากการเปิด `dangerouslyAllowLocalIP: true` แบบไม่มีเงื่อนไขที่จะลด SSRF protection ในทุก environment รวม production ด้วย
+- Files affected: `admin/next.config.ts`, `web/next.config.ts`
+- Recommendation: อนุมัติ — เป็นทางแก้ที่แคบที่สุดเท่าที่เป็นไปได้ (gate ด้วย `NODE_ENV` ไม่ใช่ `true` เปล่าๆ ที่มีผลทุก environment)
+- สถานะ: **อนุมัติแล้ว**
+- วันที่ตัดสินใจ: 2026-09-20 (Founder เลือก "แก้ local-IP image gap ด้วย dangerouslyAllowLocalIP" ผ่าน AskUserQuestion หลังเห็นคำอธิบาย tradeoff ตรงๆ ว่าเป็นการลด SSRF protection ของ Next.js)
+- **หมายเหตุ**: ต้อง verify จริงหลัง implement ว่า production build (`NODE_ENV=production`) ยังปฏิเสธ private IP เหมือนเดิม ไม่ใช่แค่เชื่อ logic เฉยๆ
