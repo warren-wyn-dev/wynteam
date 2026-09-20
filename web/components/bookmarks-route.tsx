@@ -7,7 +7,6 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, DropPreviewCard, EmptyState, LoadingState } from "@/components/phase3-ui";
 import type { HomeFeedRow } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type BookmarksSnapshot = { rows: HomeFeedRow[]; page: number; hasMore: boolean };
@@ -42,10 +41,10 @@ function BookmarksInner({ client, userId }: { client: SupabaseClient; userId: st
 
   useEffect(() => { void load(0, false); }, [load]);
 
-  // Staged rollout (WYN-125/WYN-182): pull-to-refresh here is gated to
-  // developer accounts until the Founder asks to widen it.
-  const isDeveloper = useIsDeveloperAccount(client);
-  const pull = usePullToRefresh({ enabled: isDeveloper, onRefresh: () => load(0, false) });
+  // GA (2026-09-20, Founder decision): was staged-rollout-gated to
+  // developer accounts (WYN-125/WYN-182) — Founder asked to widen it to
+  // everyone.
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load(0, false) });
 
   return <AppChrome title="บันทึกไว้" userId={userId} backHref="/" showBottomNav={false}>
     {pull.pullDistance > 0 || pull.refreshing ? (

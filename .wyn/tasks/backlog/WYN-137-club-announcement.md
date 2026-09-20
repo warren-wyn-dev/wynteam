@@ -33,3 +33,9 @@ Risks: เสี่ยง over-engineering ถ้าทำเป็นระบ�
 Recommendation: **แนะนำให้ Founder พิจารณาทางเลือกที่เบากว่า (filter บน Pinned Post เดิม) ก่อน** แทนที่จะสร้าง content type ใหม่ทันที — ถ้า Founder ยืนยันว่าต้องการแยกจริงตามสเปก จึงค่อยเข้า Design เต็มรูปแบบ
 
 Handoff: รอ Founder ยืนยัน priority + ทางเลือก scope (แยกเต็มรูปแบบ vs filter บนของเดิม) ก่อนส่งต่อ AI Design
+
+## Founder Decision (2026-09-20, web-beta1-readiness audit)
+
+Founder เลือก **"สร้าง Announcement แยกเต็มรูปแบบ"** (ไม่ใช่แค่ filter บน Pinned Post เดิม) — ยืนยัน scope เต็มตาม Requirements ข้างบนทั้งหมด (content type ใหม่/extend `club_posts` ด้วย `type='announcement'`, สิทธิ์ Owner/Admin/Moderator, แท็บแยกระดับ Club ไม่ผูก channel, reuse notification mechanism ของ WYN-116)
+
+Status: เปลี่ยนจาก "รอ Founder ตัดสินใจ scope" → **พร้อมส่งต่อ AI Design** ให้ตัดสินใจแนวทาง schema (content type ใหม่ vs extend `club_posts`) ตามที่ระบุไว้ใน Requirements ว่า "ให้ AI Design ตัดสินใจแนวทาง schema ที่กระทบของเดิมน้อยที่สุด"

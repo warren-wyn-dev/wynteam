@@ -12,7 +12,6 @@ import { relativeTimeTh } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { markNotificationsRead } from "@/lib/notification-count";
 import { fetchNotifications, markAllNotificationsRead, type NotificationRow } from "@/lib/phase3-data";
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type NotificationsSnapshot = { rows: NotificationRow[]; unreadSnapshot: Set<string>; page: number; hasMore: boolean };
@@ -186,11 +185,10 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   const visible = tab === "mentions" ? rows.filter(isMention) : rows;
   const sections = useMemo(() => buildSections(visible), [visible]);
 
-  // Staged rollout (WYN-125/WYN-182): pull-to-refresh here is gated to
-  // developer accounts until the Founder asks to widen it — the route
-  // itself, notifications loading, and everything else stays unaffected.
-  const isDeveloper = useIsDeveloperAccount(client);
-  const pull = usePullToRefresh({ enabled: isDeveloper, onRefresh: () => load(0, false) });
+  // GA (2026-09-20, Founder decision): was staged-rollout-gated to
+  // developer accounts (WYN-125/WYN-182) — Founder asked to widen it to
+  // everyone.
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load(0, false) });
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">

@@ -3,7 +3,7 @@
 Status: backlog
 Owner: AI Design
 Screen: Chat Inbox (`components/chat-inbox-parity.tsx`) + Conversation (`components/chat-routes.tsx`) — WYNOS web (`web/`)
-Purpose: ปรับหน้าแชทเว็บให้รู้สึก restrained/โล่ง/ทันสมัยแบบที่ Founder ขอ ("เหมือนเธรด") โดยพอร์ต message-grouping/bubble-tail/timestamp-reveal/read-receipt spec ที่อนุมัติแล้วสำหรับ Flutter (`wyn-031-chat-message-grouping-bubble-spec.md`) มาให้เว็บ — ไม่เปลี่ยนสี/ไม่คิดทิศทาง visual ใหม่ ใช้ DS-001 (Cyan+ดำ/ขาว/เทา) เดิม ห้าม Rainbow ในหน้าแชท
+Purpose: ปรับหน้าแชทเว็บให้รู้สึก restrained/โล่ง/ทันสมัยแบบที่ Founder ขอ ("เหมือนเธรด") โดยพอร์ต message-grouping/bubble-tail/timestamp-reveal/read-receipt spec ที่อนุมัติแล้วสำหรับ Flutter (`wyn-031-chat-message-grouping-bubble-spec.md`) มาให้เว็บ — ไม่เปลี่ยนสี/ไม่คิดทิศทาง visual ใหม่ ใช้ระบบ token ปัจจุบันของเว็บจริงเท่านั้น (`--wyn-bg`/`--wyn-text`/`--wyn-surface` ขาว-ดำ-เทา + `--wyn-accent` แดง สงวนไว้เฉพาะ error) **ไม่มี Cyan ในระบบนี้แล้ว** (ยืนยันซ้ำด้วย grep จริงในโค้ด 2026-09-20 — ตรงกับ Design Rules ด้านล่างที่ห้าม Cyan/Rainbow อยู่แล้ว บรรทัดนี้เคยขัดกันเองเพราะอ้าง DS-001/Cyan ที่ล้าสมัย แก้ให้ตรงกันแล้ว)
 User Flow: ไม่เปลี่ยนจากเดิม (เข้าจาก bottom nav Chat tab → inbox → conversation) — เปลี่ยนแค่การแสดงผล/จังหวะ ไม่เปลี่ยนวิธีใช้งาน
 Components: ดูรายละเอียดเต็มที่ `.wyn/docs/design/wyn-159-chat-web-threads-redesign.md`
 Interactions: tap bubble ตัวเอง = แสดงปุ่มลบ + timestamp พร้อมกัน (รวมกับพฤติกรรมเดิมจาก PR #498), tap bubble อีกฝ่าย = แสดง timestamp เฉยๆ
@@ -24,3 +24,9 @@ Cyan อยู่ในระบบเลย (สมมติฐานสีน�
 **สถานะ**: ยังเป็น backlog เหมือนเดิม ยังไม่ได้เริ่มงาน — แค่บันทึกว่า Founder ต้องการให้มีการทบทวนสเปกทั้งฉบับ
 ใหม่ (โดยเฉพาะ DS-001/สมมติฐานสี Cyan ที่ล้าสมัย) เป็นงานแยกในอนาคต ก่อนจะส่งต่อ AI Design ทำสเปกจริงหรือส่ง
 AI Coding — ยังไม่ได้กำหนดคิว/ลำดับความสำคัญ รอ Founder หรือ Product Manager จัดลำดับงานนี้เข้า roadmap ทีหลัง
+
+## Correction (2026-09-20, web-beta1-readiness audit)
+
+แก้ contradiction ใน Purpose paragraph ด้านบนแล้ว (เคยอ้าง "DS-001 Cyan" ที่ล้าสมัย ขัดกับ Design Rules ข้อเดียวกันที่ห้าม Cyan อยู่แล้ว) — ยืนยันด้วย grep โค้ดจริงว่าระบบ token ปัจจุบันไม่มี Cyan เลย ตรงกับที่ Founder ยืนยันไว้เมื่อ 19 ก.ย.
+
+**สิ่งที่ยังไม่ทำ (นอก scope ของ doc-correction รอบนี้)**: ยังไม่มีภาพเปรียบเทียบก่อน-หลังให้ Founder ดูตามที่ Handoff ด้านบนระบุไว้ (กติกาถาวร WYN-141 — ห้าม AI Coding เริ่มก่อนมี preview ให้ Founder อนุมัติ) งานนี้ต้องให้ **AI Design** ทำ mockup/preview จริงก่อน ไม่ใช่แค่แก้ข้อความสเปก — ส่งต่อ AI Design พร้อมคิวลำดับความสำคัญที่ Founder จัดเมื่อพร้อม

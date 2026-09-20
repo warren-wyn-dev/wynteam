@@ -22,7 +22,6 @@ import {
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type ClubTab = "posts" | "chat" | "about";
@@ -554,12 +553,12 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
     return () => { live = false; };
   }, [load, cacheKey]);
 
-  // Staged rollout (WYN-125/WYN-182): pull-to-refresh here is gated to
-  // developer accounts until the Founder asks to widen it, and scoped to
-  // the "posts" tab only — chat has its own realtime subscription, about is
-  // static, neither is the feed/list pattern this gesture is for.
-  const isDeveloper = useIsDeveloperAccount(client);
-  const pull = usePullToRefresh({ enabled: isDeveloper && tab === "posts", onRefresh: refresh });
+  // GA (2026-09-20, Founder decision): was staged-rollout-gated to
+  // developer accounts (WYN-125/WYN-182) — Founder asked to widen it to
+  // everyone. Still scoped to the "posts" tab only — chat has its own
+  // realtime subscription, about is static, neither is the feed/list
+  // pattern this gesture is for.
+  const pull = usePullToRefresh({ enabled: tab === "posts", onRefresh: refresh });
 
   if (loading && !data) return <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}><LoadingState /></AppChrome>;
   if (!data) return <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}><EmptyState>{error || "ไม่พบ Club"}</EmptyState></AppChrome>;

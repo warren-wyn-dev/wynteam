@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type TouchEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -24,7 +24,6 @@ import type { HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   canViewProfileLikes,
@@ -49,6 +48,11 @@ async function fetchRedrops(client: SupabaseClient, userId: string, page: number
 }
 
 type ProfileFeedSnapshot = { rows: HomeFeedRow[]; page: number; hasMore: boolean; allowed: boolean };
+
+// Order matches the tab buttons rendered below — swiping right/left moves
+// to the previous/next entry in this array, same convention as Home's
+// HOME_FEED_MODES (components/home/home-tabs.tsx).
+const PROFILE_TABS = ["posts", "redrops", "likes"] as const;
 
 function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; profileId: string; kind: "posts" | "redrops" | "likes" }) {
   const cacheKey = `profile-feed:${profileId}:${kind}`;
@@ -82,10 +86,10 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
   useEffect(() => { setAllowed(true); void load(0, false); }, [load]);
   useRouteRefreshListener(useCallback(() => { void load(0, false); }, [load]));
 
-  // Staged rollout (WYN-125/WYN-182): pull-to-refresh here is gated to
-  // developer accounts until the Founder asks to widen it.
-  const isDeveloper = useIsDeveloperAccount(client);
-  const pull = usePullToRefresh({ enabled: isDeveloper, onRefresh: () => load(0, false) });
+  // GA (2026-09-20, Founder decision): was staged-rollout-gated to
+  // developer accounts (WYN-125/WYN-182) — Founder asked to widen it to
+  // everyone.
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load(0, false) });
 
   const body = loading && !rows.length ? <FeedSkeleton items={2} />
     : !allowed ? <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>
@@ -177,6 +181,17 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   const [action, setAction] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<"posts" | "redrops" | "likes">("posts");
+  // Horizontal tab-swipe gesture between สื่อ/รีโพสต์/ถูกใจ — mirrors Home's
+  // own tab-swipe (components/home/home-screen.tsx) so both feel the same.
+  // Independent from ProfileFeed's own pull-to-refresh touch handlers
+  // (lib/use-pull-to-refresh.ts): that hook already no-ops for
+  // horizontal-dominant drags, so layering this on a wrapper div around
+  // <ProfileFeed> (touch events bubble up to it) needs no coordination.
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const [slideStyle, setSlideStyle] = useState<{ transform: string; transition: string }>({
+    transform: "translateX(0px)",
+    transition: "none",
+  });
   const [error, setError] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
@@ -288,6 +303,46 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     removeSavedAccount(account.userId);
     setSavedAccounts(listSavedAccounts());
   };
+  const onTabSwipeStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.changedTouches[0];
+    if (touch) swipeStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+  const onTabSwipeMove = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      const index = PROFILE_TABS.indexOf(tab);
+      const atStart = index === 0 && deltaX > 0;
+      const atEnd = index === PROFILE_TABS.length - 1 && deltaX < 0;
+      const dragX = atStart || atEnd ? deltaX * 0.35 : deltaX;
+      setSlideStyle({ transform: `translateX(${dragX}px)`, transition: "none" });
+    }
+  };
+  const onTabSwipeEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    const touch = event.changedTouches[0];
+    swipeStart.current = null;
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaY) >= Math.abs(deltaX) || Math.abs(deltaX) < 55) {
+      setSlideStyle({ transform: "translateX(0px)", transition: "transform 200ms ease-out" });
+      return;
+    }
+    const index = PROFILE_TABS.indexOf(tab);
+    const next = deltaX < 0
+      ? Math.min(PROFILE_TABS.length - 1, index + 1)
+      : Math.max(0, index - 1);
+    setSlideStyle({ transform: "translateX(0px)", transition: "transform 200ms ease-out" });
+    setTab(PROFILE_TABS[next]);
+  };
+  const onTabSwipeCancel = () => {
+    swipeStart.current = null;
+    setSlideStyle({ transform: "translateX(0px)", transition: "transform 200ms ease-out" });
+  };
   if (editing && own) {
     const closeEditing = () => { setEditing(false); void load(); };
     // onBack, not backHref: editing is a local view toggle, not a route
@@ -341,7 +396,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
       {error ? <p className="route-error">{error}</p> : null}
     </section>
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
-    {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><WynosIcon name="image" size={20} strokeWidth={2} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><WynosIcon name="repost" size={20} strokeWidth={2} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><WynosIcon name="like" size={20} strokeWidth={2} />ถูกใจ</button></div><ProfileFeed client={client} profileId={profileId} kind={tab} /></> : null}
+    {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><WynosIcon name="image" size={20} strokeWidth={2} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><WynosIcon name="repost" size={20} strokeWidth={2} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><WynosIcon name="like" size={20} strokeWidth={2} />ถูกใจ</button></div><div style={slideStyle} onTouchStart={onTabSwipeStart} onTouchMove={onTabSwipeMove} onTouchEnd={onTabSwipeEnd} onTouchCancel={onTabSwipeCancel}><ProfileFeed client={client} profileId={profileId} kind={tab} /></div></> : null}
     {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <WynosIcon name="checkCircle" size={21} strokeWidth={2} /> : managingAccounts ? <button className="profile-account-remove" type="button" onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
     {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><button type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
     <Toast message={toastMessage} />
