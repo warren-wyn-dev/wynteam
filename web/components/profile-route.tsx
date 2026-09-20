@@ -200,8 +200,20 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   };
   const share = async () => {
     const url = `${window.location.origin}/@${profile.username}`;
-    try { if (navigator.share) await navigator.share({ title: name, text: `@${profile.username}`, url }); else await navigator.clipboard.writeText(url); }
-    catch (e) { if (e instanceof DOMException && e.name === "AbortError") return; showToast("แชร์ไม่สำเร็จ"); }
+    const copyLink = async () => {
+      try { await navigator.clipboard.writeText(url); showToast("คัดลอกลิงก์แล้ว"); }
+      catch { showToast("แชร์ไม่สำเร็จ"); }
+    };
+    if (!navigator.share) { await copyLink(); return; }
+    try { await navigator.share({ title: name, text: `@${profile.username}`, url }); }
+    catch (e) {
+      // AbortError fires both on a deliberate cancel and when the OS reports
+      // no compatible share target -- the API gives no way to tell those
+      // apart, so fall back to a clipboard copy either way rather than
+      // leaving the no-target case looking like the button did nothing.
+      if (e instanceof DOMException && e.name === "AbortError") { await copyLink(); return; }
+      showToast("แชร์ไม่สำเร็จ");
+    }
   };
   const openAccountSwitcher = () => {
     setManagingAccounts(false);
