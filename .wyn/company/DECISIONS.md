@@ -2313,3 +2313,9 @@ AI QA & Security ตรวจซ้ำอิสระในอีก worktree �
 **สรุป: WYN-176 ทุก batch (1-6) ผ่าน QA ครบแล้ว** — batch 1-3 deploy production แล้ว (batch 1 Founder ยืนยันแล้ว, batch 2-3 รอยืนยัน physical device), batch 4-6 ผ่าน QA พร้อมเข้า Deploy gate รอ Founder สั่งเปิด PR — งาน implementation ของ epic นี้เสร็จสมบูรณ์แล้ว
 
 อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (สรุปสถานะทั้ง epic)
+
+## [2026-09-20] WYN-176 Batch 4-6 — เตรียม deploy พร้อมกัน เจอ branch แยกจาก main อีกครั้ง merge สำเร็จ
+
+Founder สั่ง "ต่อเลย" — เตรียม deploy batch 4-6 พบว่า session คู่ขนานอื่น (WYN-179/180 ปรับขนาด bottom nav) merge เข้า `main` ไปแล้ว ชนไฟล์เดียวกันบางส่วน (`bottom-nav.css`, `parity.spec.ts`) — merge `main` เข้า branch สำเร็จอัตโนมัติไม่มี conflict เลย (ort strategy) ยืนยันการเปลี่ยนแปลงทั้งสองฝั่งอยู่ครบถูกต้องหลัง merge, รัน typecheck/lint/build + regression suite เต็มอิสระอีกรอบสะอาดหมด push ขึ้น branch แล้ว (`53de114f`)
+
+ยังไม่เปิด PR รอ Founder สั่งชัดเจน — อ้างอิง `.wyn/logs/deployments/2026-09-20-wyn-176-batch4-6-deploy-prep.md`

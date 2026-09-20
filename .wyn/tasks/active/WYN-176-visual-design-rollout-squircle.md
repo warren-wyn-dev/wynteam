@@ -417,3 +417,11 @@ WYN-176 Batch 5 (Search/Club) พร้อมเข้า Deploy gate เต็�
 - **Batch 6** (Dead code cleanup) — QA PASS (ผ่าน 1 รอบ fix/re-verify), พร้อมเข้า Deploy gate
 
 งาน implementation + QA ของ WYN-176 เสร็จสมบูรณ์ทั้งหมด เหลือ: (1) รอ Founder ยืนยัน production ของ batch 2/3 ผ่าน physical device (2) เปิด PR รวม batch 4-6 เมื่อ Founder สั่ง (3) Founder ยืนยัน production ของ batch 4-6 หลัง deploy ก่อนปิด task ทั้งฉบับเป็น completed
+
+## Batch 4-6 Deploy Prep (AI Deploy & DevOps, 2026-09-20)
+
+Founder สั่ง "ต่อเลย" — เตรียม deploy ให้ batch 4-6 พร้อมกัน (ยังไม่เปิด PR รอคำสั่งชัดเจน) พบว่า branch แยกจาก `main` แล้วจริง (อีก session ทำ WYN-179/180 ปรับขนาด bottom nav อยู่ ชนไฟล์เดียวกันบางส่วน — `web/app/bottom-nav.css`, `web/tests/browser/parity.spec.ts`) — merge `main` เข้า branch สำเร็จอัตโนมัติไม่มี conflict (`git merge` ใช้ ort strategy แก้ hunk ที่ทับซ้อนได้เอง) ตรวจยืนยันว่าการเปลี่ยนแปลงทั้งสองฝั่งอยู่ครบถูกต้อง (`.route-create-destination` ที่ลบไปยังหายอยู่, `club_channels`/`club_events` ที่เพิ่มเข้ามายังอยู่ครบ)
+
+รัน `typecheck`/`lint`/`build` อิสระอีกรอบหลัง merge สะอาดหมด + regression suite เต็ม (`parity.spec.ts`, `system-visual-parity.spec.ts`, `pixel-parity-pass-2.spec.ts`, `final-source-parity-gate.spec.ts`, `founder-visual-parity.spec.ts`) 54/54 ที่รันได้จริงผ่าน (6 fail เดิมจาก sandbox `chromium_headless_shell` binary mismatch ไม่เกี่ยวกับ diff นี้) + ตรวจ `home-visual-parity.spec.ts` เพิ่มเติมเพราะอีก session แก้ไฟล์นี้ด้วย ยืนยัน fail ทั้งหมดเป็น environment limitation เดิมเช่นกัน push ขึ้น branch แล้ว (`53de114f`)
+
+บันทึก deployment prep log ที่ `.wyn/logs/deployments/2026-09-20-wyn-176-batch4-6-deploy-prep.md` — ยังไม่เปิด PR รอ Founder ยืนยัน
