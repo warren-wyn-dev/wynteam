@@ -171,3 +171,15 @@ WYN-181 Sub-task 1 (Custom Install Prompt Banner) พร้อมเข้า De
 ---
 
 **สรุป WYN-181 (Track 3 ของ WYN-174)**: ทั้ง 2 sub-task ผ่าน QA ครบแล้ว (sub-task 1 มีรอบ fix/re-verify 1 ครั้ง, sub-task 2 ผ่านรอบแรก) — เสร็จสมบูรณ์ฝั่ง implementation/QA รอ Founder สั่งเปิด PR แล้วยืนยัน production จริงบนอุปกรณ์ (ทั้ง install banner บน Android/iOS และ splash screen ตอนเปิดจาก home screen บน iOS) ตาม acceptance criteria เดิม
+
+## Deploy (AI Deploy & DevOps, 2026-09-20)
+
+Founder ตอบ "ต่อเลย" — ตรวจสอบว่า branch ไม่ diverge จาก `main` แล้ว (อัปเดตล่าสุดจาก PR #561 อยู่แล้ว) รัน typecheck/lint/build อิสระอีกรอบสะอาดหมด เปิด PR #562 Founder merge เองภายในไม่กี่วินาที → `WYN-158 Production Deploy` run #149 **success** ทุก step (preflight/Vercel deploy/verify production routes, ~2 นาที) → post-merge `CI` run #1421 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด
+
+ยังไม่ย้าย task ไป `completed/` — รอ Founder เปิดแอปจริงบน `wynos.online` ยืนยัน (1) install banner ทำงานถูกต้องบน Android/iOS (2) splash screen ตอนเปิดจาก home screen บน iOS ขึ้นถูกต้องไม่ใช่จอขาว
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-181-install-launch-deploy.md`
+
+## Founder Confirmation (2026-09-20)
+
+Founder ยืนยัน "เสร็จแล้ว" — ทดสอบจริงบน `wynos.online` ผ่านทั้ง install banner และ iOS splash screen ปิดงาน WYN-181 สมบูรณ์ ย้ายเข้า `completed/`

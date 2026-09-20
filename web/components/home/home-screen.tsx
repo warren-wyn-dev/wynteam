@@ -38,6 +38,7 @@ import {
 } from "@/lib/home-parity-data";
 import { useUnreadNotificationCount } from "@/lib/notification-count";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 // These are heavy, interaction-only overlays (composer with image/poll
 // upload, quote-redrop composer, side drawer) — none of them are needed for
@@ -237,9 +238,9 @@ export function HomeScreen({ session }: { session: Session }) {
   // went unreported until now. Navigating here fresh from another route
   // happened to work, since that mount read the param directly.
   const composerOpen = searchParams.get("compose") === "1";
-  const [pullDistance, setPullDistance] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-  const touchGesture = useRef<{ x: number; y: number; canPull: boolean } | null>(null);
+  // Horizontal tab-swipe's own gesture tracking — separate, unrelated concern
+  // from the pull-to-refresh gesture below (see usePullToRefresh, WYN-182).
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const slideDirectionRef = useRef<1 | -1>(1);
   const skipSlideAnimationRef = useRef(true);
   const [slideStyle, setSlideStyle] = useState<{ transform: string; opacity: number; transition: string }>({
@@ -408,11 +409,14 @@ export function HomeScreen({ session }: { session: Session }) {
     await loadMode(visibleModeRef.current, { showLoading: false });
   }, [loadMode]);
 
+  // The de-duplication (only one refresh in flight) and refreshing/
+  // pullDistance state this used to own directly now live in
+  // usePullToRefresh below — both this function's callers (the pull
+  // gesture and the bottom-nav "tap active tab" refresh) go through the
+  // hook's `refresh()`/touch handlers, so this only needs to describe what
+  // a refresh actually does.
   const refreshVisibleMode = useCallback(async () => {
-    if (refreshing) return;
     const targetMode = visibleModeRef.current;
-    setRefreshing(true);
-    setPullDistance(0);
     setError("");
     try {
       const snapshot = await fetchModeSnapshot(targetMode);
@@ -425,12 +429,18 @@ export function HomeScreen({ session }: { session: Session }) {
       if (visibleModeRef.current === targetMode) {
         setError(e instanceof Error ? e.message : "รีเฟรชฟีดไม่สำเร็จ");
       }
-    } finally {
-      setRefreshing(false);
     }
-  }, [applySnapshot, fetchModeSnapshot, refreshing]);
+  }, [applySnapshot, fetchModeSnapshot]);
 
-  useRouteRefreshListener(refreshVisibleMode);
+  // Home's own pull-to-refresh — already shipped/GA, not staged-rollout
+  // gated. `enabled` mirrors the original inline canPull check exactly:
+  // only pull while looking at the tab whose data this would refresh. A
+  // getter (not a plain boolean) because visibleModeRef is a ref — reading
+  // it during render is disallowed, so resolution happens lazily inside
+  // the hook's onTouchStart instead, same as the original inline check did.
+  const pull = usePullToRefresh({ enabled: () => mode === visibleModeRef.current, onRefresh: refreshVisibleMode });
+
+  useRouteRefreshListener(pull.refresh);
 
   useEffect(() => {
     const cached = feedCache.current[mode];
@@ -713,25 +723,32 @@ export function HomeScreen({ session }: { session: Session }) {
       setLoading(true);
     }
   };
+  // Composes usePullToRefresh's pull-gesture handlers with Home's own
+  // horizontal tab-swipe gesture — two independent concerns layered on the
+  // same touch events (see swipeStart above and usePullToRefresh's own
+  // internal gesture tracking; each keeps its own start-position ref).
+  // pull.onTouchMove/onTouchEnd are called unconditionally on every event:
+  // their own start.canPull/delta checks already no-op (or reset
+  // pullDistance to 0) whenever the drag turns out to be horizontal-
+  // dominant or a refresh isn't eligible, so this never has to coordinate
+  // with the swipe branch below to avoid double-handling a gesture.
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     const touch = event.changedTouches[0];
-    if (!touch) return;
-    touchGesture.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      canPull: window.scrollY <= 2 && !refreshing && mode === visibleModeRef.current,
-    };
+    if (touch) swipeStart.current = { x: touch.clientX, y: touch.clientY };
+    pull.onTouchStart(event);
   };
   const onTouchMove = (event: TouchEvent<HTMLDivElement>) => {
-    const start = touchGesture.current;
+    pull.onTouchMove(event);
+
+    const start = swipeStart.current;
     const touch = event.changedTouches[0];
     if (!start || !touch) return;
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
 
     // Horizontal-dominant drag: follow the finger live, the same tab-switch
-    // gesture big-platform feeds use. This runs regardless of canPull/scroll
-    // position (unlike the pull-to-refresh branch below) since switching
+    // gesture big-platform feeds use. This runs regardless of scroll
+    // position (unlike the pull-to-refresh gesture above) since switching
     // tabs by swipe shouldn't require being scrolled to the top. Without
     // this, a swipe that falls short of onTouchEnd's switch threshold — or
     // one aimed past the first/last tab — produced no visible response at
@@ -743,44 +760,26 @@ export function HomeScreen({ session }: { session: Session }) {
       const atEnd = index === HOME_FEED_MODES.length - 1 && deltaX < 0;
       const dragX = atStart || atEnd ? deltaX * 0.35 : deltaX;
       setSlideStyle({ transform: `translateX(${dragX}px)`, opacity: 1, transition: "none" });
-      if (pullDistance) setPullDistance(0);
-      return;
     }
-
-    if (!start.canPull || refreshing) return;
-    if (deltaY <= 0 || Math.abs(deltaY) <= Math.abs(deltaX) * 1.1) {
-      if (pullDistance) setPullDistance(0);
-      return;
-    }
-    // Dampen the gesture so the refresh affordance feels native rather than
-    // moving one-for-one with the finger. The feed itself stays stable.
-    setPullDistance(Math.min(88, deltaY * 0.48));
   };
   const onTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    const start = touchGesture.current;
+    pull.onTouchEnd(event);
+
+    const start = swipeStart.current;
     const touch = event.changedTouches[0];
-    touchGesture.current = null;
-    if (!start || !touch) {
-      setPullDistance(0);
-      return;
-    }
+    swipeStart.current = null;
+    if (!start || !touch) return;
 
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
-    const releasedPullDistance = Math.min(88, Math.max(0, deltaY) * 0.48);
-    const shouldRefresh = start.canPull && releasedPullDistance >= 54 && deltaY > Math.abs(deltaX);
-    if (shouldRefresh) {
-      haptic();
-      void refreshVisibleMode();
-      return;
-    }
-    setPullDistance(0);
-
     if (Math.abs(deltaY) >= Math.abs(deltaX) || Math.abs(deltaX) < 55) {
       // Didn't clear the switch threshold (too short, too diagonal, or
       // aimed past the first/last tab) — spring the live drag back to rest
       // instead of leaving it wherever the finger let go, so an incomplete
       // swipe still visibly did something rather than looking unresponsive.
+      // (Also covers a just-triggered pull-to-refresh release: that always
+      // has deltaY > |deltaX|, so it lands here and simply springs back —
+      // matching the original's explicit early-return for that case.)
       setSlideStyle({ transform: "translateX(0px)", opacity: 1, transition: "transform 200ms ease-out" });
       return;
     }
@@ -791,8 +790,8 @@ export function HomeScreen({ session }: { session: Session }) {
     switchMode(HOME_FEED_MODES[next].key);
   };
   const onTouchCancel = () => {
-    touchGesture.current = null;
-    setPullDistance(0);
+    pull.onTouchCancel();
+    swipeStart.current = null;
     setSlideStyle({ transform: "translateX(0px)", opacity: 1, transition: "transform 200ms ease-out" });
   };
 
@@ -827,9 +826,9 @@ export function HomeScreen({ session }: { session: Session }) {
         <HomeTabs mode={mode} onSelect={switchMode} />
       </div>
 
-      {pullDistance > 0 || refreshing ? (
+      {pull.pullDistance > 0 || pull.refreshing ? (
         <div
-          aria-label={refreshing ? "กำลังรีเฟรชฟีด" : "ลากลงเพื่อรีเฟรช"}
+          aria-label={pull.refreshing ? "กำลังรีเฟรชฟีด" : "ลากลงเพื่อรีเฟรช"}
           aria-live="polite"
           style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
         >
@@ -837,11 +836,11 @@ export function HomeScreen({ session }: { session: Session }) {
             className="route-system-spinner tiny"
             style={{
               position: "absolute",
-              top: refreshing ? 10 : Math.max(4, Math.min(18, pullDistance * 0.2)),
+              top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
               left: "50%",
-              opacity: refreshing ? 1 : Math.max(0.22, Math.min(1, pullDistance / 54)),
-              transform: `translateX(-50%) scale(${refreshing ? 1 : Math.max(0.78, Math.min(1, pullDistance / 54))})`,
-              transition: refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
+              opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
+              transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
+              transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
             }}
           />
         </div>

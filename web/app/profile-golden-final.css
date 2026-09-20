@@ -201,8 +201,9 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  min-height: 56px;
-  height: 56px;
+  min-height: calc(56px + env(safe-area-inset-top));
+  height: calc(56px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;

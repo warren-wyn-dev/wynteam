@@ -2387,3 +2387,49 @@ AI QA & Security ตรวจอิสระ 15 หัวข้อ (diff, alpha 
 **สรุป: WYN-181 (Track 3 ของ WYN-174) เสร็จสมบูรณ์ฝั่ง implementation/QA ทั้ง 2 sub-task แล้ว** (install prompt banner + iOS splash screen) — รอ Founder สั่งเปิด PR แล้วยืนยัน production จริงบนอุปกรณ์ตาม acceptance criteria เดิม
 
 อ้างอิง: `.wyn/tasks/active/WYN-181-install-launch-experience.md`
+
+## [2026-09-20] WYN-181 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+Founder ตอบ "ต่อเลย" → "พร้อม" — ตรวจ branch ไม่ diverge จาก `main` (อัปเดตล่าสุดจาก PR #561 อยู่แล้ว) รัน typecheck/lint/build อิสระอีกรอบสะอาดหมด เปิด PR #562 Founder merge เองภายในไม่กี่วินาที → `WYN-158 Production Deploy` run #149 **success** ทุก step (preflight/Vercel deploy/verify production routes) → post-merge `CI` run #1421 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด
+
+WYN-181 ทั้ง implementation, QA และ deploy เสร็จสมบูรณ์แล้ว — ยังไม่ย้าย task ไป `completed/` รอ Founder เปิดแอปจริงบน `wynos.online` ยืนยัน (1) install banner ทำงานถูกต้องบน Android/iOS (2) splash screen ตอนเปิดจาก home screen บน iOS ขึ้นถูกต้องไม่ใช่จอขาว — เช่นเดียวกับ WYN-176 (batch 1-6) ที่ deploy ครบแล้วเช่นกัน รอยืนยัน physical device อยู่
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-181-install-launch-deploy.md`
+
+## [2026-09-20] Founder ยืนยัน "เสร็จแล้ว" — WYN-176 และ WYN-181 ปิดงานสมบูรณ์ทั้งคู่
+
+Founder ทดสอบจริงบน `wynos.online` ยืนยันผ่านครบ: WYN-176 (Visual Design Rollout, ทุก batch 1-6) และ WYN-181 (Install Prompt Banner + iOS Splash Screen) — ย้ายทั้งสอง task ไป `.wyn/tasks/completed/` แล้ว พร้อมอัปเดต epic `WYN-174-web-native-app-feel-v2.md` บันทึกว่า Track 2 และ Track 3 เสร็จสมบูรณ์ทั้งคู่
+
+เหลือ Track 4 (Platform Integration Polish, P2 — safe-area inset audit, pull-to-refresh/overscroll audit) ใน backlog ยังไม่เริ่ม รอคำสั่ง Founder
+
+## [2026-09-20] WYN-182 (Track 4/P2, track สุดท้ายของ WYN-174) — Implementation เสร็จ, ผ่าน typecheck/lint/build + harness 36/36
+
+Implement ตาม Founder Decision เป๊ะ: safe-area 3 จุด (`.wyn-profile-tabs`, `.golden-club-tabs`, `.drawer-menu-list`) + overscroll 7 จุด (`html`/`body` + 6 action sheet/modal) + extract `usePullToRefresh` hook จาก `home-screen.tsx` ไปใช้ 4 หน้า (Club posts tab, Notifications, Bookmarks, Profile feed) gate ด้วย `useIsDeveloperAccount` (wrap `is_developer_account()` RPC เดียวกับที่ `settings-route.tsx` ใช้อยู่แล้ว) — ก่อนแก้แต่ละจุด re-verify selector/line จริงและ grep cascade ซ้ำทุกจุดตามคำเตือนใน task ว่า spec เขียนโดย agent อีกรอบหนึ่ง
+
+Regression risk ที่ต้องระวังเป็นพิเศษ: `home-screen.tsx` เดิมผูก pull-gesture กับ horizontal tab-swipe ในชุด touch handler เดียวกัน — แยกออกมาโดยพิสูจน์ทางคณิตศาสตร์ว่าเงื่อนไข "shouldRefresh" (deltaY > |deltaX|) กับเงื่อนไข "tab-switch" (|deltaX| > |deltaY|) เป็น mutually exclusive จึงเรียก `pull.onTouchMove/onTouchEnd` แบบ unconditional ได้โดยไม่ต้อง coordinate กับ swipe logic เดิม — Home's tab-tap-to-refresh (bottom nav) เปลี่ยนไปเรียกผ่าน `pull.refresh()` แทนเพื่อคง spinner state ร่วมเดียวกับของเดิม
+
+ยืนยันด้วย Playwright harness ชั่วคราว (ลบแล้ว) รันกับ dev server จริง ผ่าน 36/36: CSS source check + cascade re-verify, live computed-style ผ่าน CDP `Emulation.setSafeAreaInsetsOverride` จำลอง notch/home-indicator จริงบน route สาธารณะ (CSS ทั้งหมด import global ใน `layout.tsx`), pull-to-refresh gate เปิด/ปิดผ่าน dev-only fixture ชั่วคราว (ลบแล้ว) จำลอง touch gesture จริงผ่าน CDP `Input.dispatchTouchEvent`, source-level wiring check ทั้ง 4 หน้า — sandbox นี้ไม่มี Supabase backend จริงจึงไม่สามารถ mount route ที่ผ่าน `DeveloperRouteGate` พร้อม session จริงได้ ระบุไว้ชัดเจนให้ **QA ต้องทดสอบซ้ำบน environment ที่มี Supabase backend จริง** โดยเฉพาะ gate จริงกับบัญชี dev/ทั่วไป และ native Android Chrome pull-to-refresh (ตามที่ Design spec เองก็ระบุว่าต้องยืนยันบนอุปกรณ์จริงเท่านั้น)
+
+**หมายเหตุพบระหว่างทาง (ไม่เกี่ยวกับ WYN-182)**: ไฟล์ `.wyn/company/DECISIONS.md` นี้มี byte corruption (U+FFFD replacement characters) อยู่แล้วที่ช่วงต้นไฟล์ก่อนถึงส่วนที่อ่านได้ปกติ — ยืนยันว่าอยู่ใน git history เดิม (`git show HEAD:...` ให้ byte เดียวกัน ไม่ใช่ local corruption) ไม่ได้แก้ในรอบนี้เพราะนอก scope ของ WYN-182 และเป็นการเปลี่ยนแปลงที่มีความเสี่ยงสูง ควรแจ้ง Founder/CTO แยกต่างหาก
+
+อ้างอิง: `.wyn/tasks/active/WYN-182-platform-integration-polish.md`
+
+→ ส่งต่อ **AI QA & Security** ตรวจซ้ำอิสระก่อนเข้า Deploy gate
+
+## [2026-09-20] WYN-182 — QA PASS อิสระ 0 บั๊ก พร้อมเข้า Deploy gate
+
+AI QA & Security ตรวจซ้ำอิสระบน commit `f58586a1` จริง (เจอปัญหา environment ระหว่างทาง — worktree ที่ได้รับมอบหมาย HEAD ไม่ตรงกับ commit ที่ต้องตรวจ แก้ด้วย `git checkout --detach f58586a1` ตรวจซ้ำใหม่ทั้งหมด ไม่แตะ branch อื่น — แนะนำ DevOps ตรวจ process assign worktree ป้องกันไม่ให้เกิดซ้ำ) ไม่พบบั๊ก CRITICAL/HIGH/MEDIUM/LOW แม้แต่จุดเดียว:
+
+- Safe-area 3 จุด: cascade re-verify อิสระผ่าน, live CDP จำลอง notch (inset 47/34) computed style ตรงสูตรทุกจุด + ยืนยันไม่ regression บนอุปกรณ์ไม่มี notch
+- Overscroll 7 จุด: cascade ผ่าน (เจอจุดเพิ่มที่ AI Coding ไม่ได้พูดถึงคือ `system-parity-lock.css:472-473` ก็ไม่ชนกัน), live test ยืนยัน `overscroll-behavior-y: contain` ชนะ cascade จริงทุกจุด
+- Pull-to-refresh (จุดเสี่ยงสุด): พิสูจน์ mutual-exclusivity ซ้ำด้วยตัวเอง (ไม่เชื่อคำอ้าง AI Coding) ยืนยันถูกต้องจริง ตรวจ wiring ทั้ง 4 หน้า+Home ไม่พบ partial-application bug (ทุกหน้ากัน `isDeveloper` ครบ, Club detail มี double-guard ทั้ง `enabled` prop และ DOM ไม่ mount นอกแท็บ posts) สร้าง dev-only fixture อิสระทดสอบผ่าน CDP touch gesture — 9/9 เคสผ่าน
+- Build/Regression: typecheck/lint/build สะอาด 0 error, รัน regression suite เต็ม **159/159 ผ่าน** (ติดตั้ง browser binaries เพิ่มเองทำให้ดีกว่า baseline 6-failure เดิมของ session)
+- Security: ไม่แตะ schema/RLS/auth เลย ไม่มี data-access surface ใหม่
+
+ยืนยันข้อจำกัดเดียวกับ AI Coding: environment ไม่มี Supabase backend จริง จึงต้องทดสอบ RPC gate จริง + gesture จริงบนอุปกรณ์ + Android Chrome native-PTR ไม่ชนซ้อน **บน staging ก่อนเปิดให้ non-dev เห็น** — เป็นเงื่อนไขที่ออกแบบไว้ตั้งแต่แรก ไม่ใช่ finding ใหม่ ไม่ block staging
+
+**Final Status: PASS** — QA doc คือ `.wyn/tasks/active/WYN-182-platform-integration-polish.md` (หัวข้อ "## QA")
+
+อ้างอิง: `.wyn/tasks/active/WYN-182-platform-integration-polish.md`
+
+→ พร้อมเข้า Deploy gate (รอ Founder สั่งเปิด PR)

@@ -62,7 +62,7 @@
 .detail-activity-tabs button { position: relative; border: 0; background: transparent; color: var(--wyn-text-secondary); font-size: 13.5px; font-weight: 500; }
 .detail-activity-tabs button.active { color: var(--wyn-text); font-weight: 700; }
 .detail-activity-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 34px; height: 2px; transform: translateX(-50%); border-radius: 999px; background: var(--wyn-text); }
-.detail-activity-content { min-height: 180px; max-height: calc(min(76dvh, 700px) - 102px); overflow-y: auto; }
+.detail-activity-content { min-height: 180px; max-height: calc(min(76dvh, 700px) - 102px); overflow-y: auto; overscroll-behavior: contain; }
 .detail-activity-person { min-height: 64px; padding: 10px 16px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--wyn-border); color: var(--wyn-text); text-decoration: none; }
 .detail-activity-person > span:last-child { min-width: 0; display: flex; flex-direction: column; }
 .detail-activity-person strong { display: flex; align-items: center; gap: 4px; font-size: 14px; }

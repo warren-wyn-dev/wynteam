@@ -41,7 +41,7 @@
 .message-requests-banner > b { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; display: grid; place-items: center; background: var(--wyn-text); color: var(--wyn-bg); font-size: 12px; }
 .chat-row-copy small { display: flex; align-items: center; gap: 6px; }
 .chat-inline-unread { width: 6px; height: 6px; border-radius: 50%; background: var(--wyn-text); display: inline-block; flex: 0 0 6px; }
-.requests-modal { max-height: min(72dvh, 620px); overflow-y: auto; }
+.requests-modal { max-height: min(72dvh, 620px); overflow-y: auto; overscroll-behavior: contain; }
 
 /* Notifications: 60px root header + all/mentions tabs, matching Flutter. */
 .notification-root-header { position: sticky; top: 0; z-index: 45; height: calc(60px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 8px 0; display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; align-items: center; background: var(--paper); border-bottom: 1px solid var(--hairline); }
