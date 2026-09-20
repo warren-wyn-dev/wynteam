@@ -226,3 +226,11 @@ Debug fix ตรงตามที่อ้างเป๊ะ 100% (diff 1 บ�
 **Final Status: PASS**
 
 → พร้อมเข้า Deploy gate (CTO Final Review → Staging → Founder Approval → Production) บันทึกปิด bug report `WYN-184-regression-suite-literal-height-assertion-broken.md` เป็น verified/closed แล้ว
+
+## Deploy (2026-09-20)
+
+Founder เปิดและ merge PR #571 เอง (`claude/wynos-online-version-1pqqws` → `main`, 14:41:35 UTC) → `WYN-158 Production Deploy` run #158 **success** ทุก step (preflight / Vercel deploy / verify production routes) → post-merge `CI` run #1440 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API
+
+WYN-184 ทั้ง implementation, QA และ deploy เสร็จสมบูรณ์แล้ว — ยังไม่ย้าย task ไป `completed/` รอ Founder ยืนยัน physical device บนอุปกรณ์มี notch/Dynamic Island (Profile topbar + follow list, Chat inbox header) เช่นเดียวกับทุก track ก่อนหน้าของ epic นี้
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-184-non-sticky-header-safe-area-deploy.md`

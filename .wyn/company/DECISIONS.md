@@ -1844,3 +1844,11 @@ AI Coding implement + **ยืนยัน cascade winner ของ `.flutter-ch
 **WYN-184 พร้อมเข้า Deploy gate** — รอ Founder สั่งเปิด PR
 
 อ้างอิง: `.wyn/tasks/active/WYN-184-non-sticky-header-safe-area-audit.md`
+
+## [2026-09-20] WYN-184 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+Founder เปิดและ merge PR #571 เอง (14:41:35 UTC) → `WYN-158 Production Deploy` run #158 **success** ทุก step → post-merge `CI` run #1440 บน `main` **success** เช่นกัน — ตรวจสอบผ่าน GitHub Actions API ทั้งหมด (พบระหว่างทำ web-beta1-readiness audit ว่าเอกสารก่อนหน้านี้ยังไม่ได้อัปเดตให้ตรงกับ deploy ที่เกิดขึ้นจริงแล้ว แก้ไขให้ตรงแล้ว)
+
+WYN-184 ทั้ง implementation, QA และ deploy เสร็จสมบูรณ์แล้ว — ยังไม่ย้าย task ไป `completed/` รอ Founder ยืนยัน physical device บนอุปกรณ์มี notch/Dynamic Island (Profile topbar + follow list, Chat inbox header)
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-184-non-sticky-header-safe-area-deploy.md`
