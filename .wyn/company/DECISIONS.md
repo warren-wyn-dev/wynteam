@@ -2363,3 +2363,15 @@ AI QA & Security ตรวจซ้ำอิสระในอีก worktree �
 **Final Status: PASS** — WYN-181 Sub-task 1 (Install Prompt Banner) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว เหลือ sub-task 2 (iOS splash screen) ยังไม่เริ่ม
 
 อ้างอิง: `.wyn/tasks/bugs/WYN-181-install-banner-ipad-detection-and-accept-persistence.md`
+
+## [2026-09-20] WYN-181 sub-task 2 (iOS splash screen) — เขียนโค้ดเสร็จ เจอบั๊กสีพื้นหลังระหว่างทาง แก้ก่อนส่ง QA
+
+ทำสคริปต์ generate ภาพ launch screen 32 ไฟล์ (16 ขนาดจอ × light/dark) ด้วย `sharp` — ระหว่างทำเจอว่า `icon-512.png` มีพื้นหลังขาวทึบฝังในไฟล์ (ตรวจ alpha channel ยืนยันจริง ไม่ใช่แค่เดา) ทำให้เวอร์ชัน dark ขึ้นเป็นกล่องขาวน่าเกลียด — เปลี่ยนไปใช้ `wynos_logo_mark.png` ที่มี alpha โปร่งใสจริง + ใช้ `negate({alpha:false})` กลับสีหมึกเป็นขาวสำหรับ dark theme (ยืนยันด้วยภาพจริงก่อนใช้)
+
+ตรวจสอบตามกติกา `web/AGENTS.md` (Next.js เวอร์ชันนี้มี breaking change ต้องอ่าน docs ใน node_modules ก่อนเขียนโค้ดที่เกี่ยวกับ metadata) ว่า `appleWebApp.startupImage` ทำงานถูกต้องสมบูรณ์ในเวอร์ชันนี้จริง (อ่าน source ตรงๆ) ต่างจาก `capable` ที่เคยมี gap มาก่อน — ไม่ต้อง workaround เพิ่ม
+
+เก็บสคริปต์ generator ไว้ที่ `web/tools/wyn181_generate_ios_splash_screens.mjs` ให้ regenerate ได้ในอนาคต (เปลี่ยนโลโก้/เพิ่มขนาดจอใหม่) — ยืนยัน reproducibility ด้วยการรันซ้ำแล้ว diff กับ array ที่ฝังใน layout.tsx ตรงกัน 100%
+
+ตรวจสอบด้วย dev server จริง: `<head>` มี `<link rel="apple-touch-startup-image">` ครบ 32 จุด ทุก href ตอบ HTTP 200 จริง + typecheck/lint/build สะอาด + regression suite 54/54
+
+ส่งต่อ **AI QA & Security** ตรวจ — WYN-181 ทั้ง 2 sub-task เขียนโค้ดเสร็จครบแล้ว

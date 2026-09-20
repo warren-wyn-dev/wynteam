@@ -132,3 +132,20 @@ P1 — รองจาก WYN-176 (เสร็จแล้ว) ตามลำ�
 **Final Status: PASS**
 
 WYN-181 Sub-task 1 (Custom Install Prompt Banner) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว — เหลือ sub-task 2 (iOS splash screen) ยังไม่เริ่ม
+
+## Sub-task 2: iOS Splash Screen — Implementation (AI Coding, 2026-09-20)
+
+**Implementation**:
+1. เขียนสคริปต์ generate ภาพ `web/tools/wyn181_generate_ios_splash_screens.mjs` (ใช้ `sharp` ที่มีอยู่แล้วใน `web/`) — สร้างภาพ launch screen 32 ไฟล์ (16 ขนาดจอ iPhone/iPad ปัจจุบัน × light/dark) วาง logo `wynos_logo_mark.png` ไว้กลางพื้นหลังสีขาว/ดำ (ขนาด logo ~42% ของด้านสั้นสุดของจอ) — Portrait อย่างเดียว (landscape แทบไม่เจอจริงตอน launch PWA ไม่คุ้มทำ asset เพิ่มเท่าตัว)
+2. **เจอบั๊กระหว่างทำ**: ลองใช้ `icon-512.png` (ไอคอนแอปจริง) เป็น logo ก่อน แต่พบว่ามันมีพื้นหลังสีขาวทึบฝังอยู่ในไฟล์เอง (ตรวจ alpha channel: min=max=255 ทึบเต็มพื้นที่) ทำให้เวอร์ชัน dark theme ขึ้นเป็นกล่องสี่เหลี่ยมขาวน่าเกลียดบนพื้นดำ — เปลี่ยนไปใช้ `wynos_logo_mark.png` แทน (ยืนยันด้วย stats ว่า alpha แปรผันจริง 0-255 มีความโปร่งใสจริง) สำหรับ theme มืดใช้ `sharp().negate({alpha:false})` กลับสีหมึกดำเป็นขาวโดยคง alpha เดิม (พิสูจน์ด้วยภาพจริงก่อนใช้งาน ไม่ได้เดา)
+3. เพิ่ม `APPLE_STARTUP_IMAGES` array (32 entry) เข้า `metadata.appleWebApp.startupImage` ใน `web/app/layout.tsx` — ตรวจสอบก่อนว่า field นี้ Next.js เวอร์ชันนี้ resolve และ render เป็น `<link rel="apple-touch-startup-image">` ถูกต้องจริง (อ่าน `node_modules/next/dist/lib/metadata/metadata.js` ตรงๆ ตามกติกา `web/AGENTS.md` — พบว่า `startupImage` ทำงานถูกต้องสมบูรณ์ ต่างจาก `capable` ที่มี gap ที่เคยมีคน workaround ไว้ก่อนแล้วในไฟล์เดียวกัน)
+
+**Files Changed**: `web/app/layout.tsx` (เพิ่ม `APPLE_STARTUP_IMAGES` const + wire เข้า `appleWebApp.startupImage`), `web/tools/wyn181_generate_ios_splash_screens.mjs` (ใหม่ — เก็บไว้ให้ regenerate ได้เมื่อเปลี่ยนโลโก้/เพิ่มขนาดจอในอนาคต ไม่ต้องเขียนใหม่), `web/public/splash/*.png` (32 ไฟล์ใหม่ ~3.5MB รวม)
+
+**Tests**: ยืนยันด้วยสายตาโดยตรง (อ่านภาพที่ generate จริงทั้ง light/dark หลายขนาด ก่อน-หลังแก้บั๊ก icon), รัน dev server จริงแล้ว `curl` ตรวจ `<head>` ว่ามี `<link rel="apple-touch-startup-image">` ครบ 32 จุดจริง + ตรวจทุก href ที่ประกาศไว้ตอบ HTTP 200 จริงครบทุกไฟล์ (ไม่มีไฟล์ไหน 404), รัน generator script ซ้ำแล้ว diff กับ array ที่ฝังใน `layout.tsx` ยืนยัน**ตรงกัน 100%** (พิสูจน์ reproducibility ของสคริปต์)
+
+**Build**: `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) + regression suite เต็ม 54/54 ที่รันได้จริงผ่าน
+
+**Known Issues**: ไม่มี — WYN-181 ทั้ง 2 sub-task เขียนโค้ดเสร็จครบแล้ว (sub-task 1 ผ่าน QA แล้ว, sub-task 2 รอ QA รอบแรก)
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) `<link>` tag ทั้ง 32 จุดถูกต้องตาม media query จริง (ไม่ผิด device-width/height/dpr/orientation/color-scheme) (2) ภาพ light/dark ถูกต้องไม่มีกล่องขาวหรือ artifact อื่น (3) ไม่มี regression ต่อ metadata/head เดิม (4) `web/tools/` script รันซ้ำได้จริงตามที่อ้าง
