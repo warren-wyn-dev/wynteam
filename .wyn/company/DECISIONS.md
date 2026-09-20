@@ -2081,6 +2081,55 @@ Founder ตอบ "อนุญาต" — implement press feedback (`scale(0.96
 บันทึก deployment prep log ที่ `.wyn/logs/deployments/2026-09-19-wyn-176-batch2-composer-prep.md` — ยังไม่เปิด PR รอ Founder ยืนยัน
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch2-composer-prep.md`
+
+## [2026-09-19] WYN-176 Batch 2 — เปิด PR #554 แล้ว รอ merge
+
+เปิด PR [#554](https://github.com/warren-wyn-dev/wynteam/pull/554) (`claude/wynos-online-version-1pqqws` → `main`) ตามที่ Founder ยืนยัน — ยังไม่ merge, subscribe PR activity แล้ว
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch2-composer-prep.md`
+
+## [2026-09-19] WYN-176 Batch 2 — Deploy ขึ้น production สำเร็จ รอ Founder ยืนยัน physical device
+
+Founder merge PR #554 เอง — `WYN-158 Production Deploy` run #141 **success** ทุก step (preflight, Vercel deploy, verify production routes, รวม ~2 นาที) → post-merge `CI` run #1396 บน `main` **success** เช่นกัน — ตรวจสอบอิสระเองทั้งหมดผ่าน GitHub Actions API (session หลุดการเชื่อมต่อ MCP ชั่วคราวระหว่างรอผล แต่กลับมาเชื่อมต่อใหม่ได้และตรวจสอบต่อได้ครบ)
+
+สังเกตว่ามี PR อื่น (#555/#556/#557, branch `claude/ux-ui-button-design-ult3lz`) merge เข้า `main` ต่อจากนี้โดย session คู่ขนานอื่น — ไม่เกี่ยวข้องกับ WYN-176 ไม่ต้องดำเนินการอะไรเพิ่ม
+
+ยังไม่ย้าย task ไป `completed/` — รอ Founder เปิด Composer จริงบน `wynos.online` ยืนยัน press feedback ทำงานจริง
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-19-wyn-176-batch2-composer-prep.md`
+
+## [2026-09-19] WYN-176 Batch 3 (Chat) — AI Design ตรวจโค้ดจริงแล้ว เจอเฉพาะ conversation view ที่ขาด press feedback
+
+Founder สั่ง "ต่อเลย" — ตรวจ `chat-routes.tsx`/`conversation-modern.css`/`phase3.css` ก่อนออกแบบ พบว่า chat inbox (list) มี press-scale ของตัวเองอยู่แล้วจาก WYN-169/170 ไม่ต้องแตะ และ WYN-160 batch 5 (2026-09-17) เคยปรับ radius ของ conversation view ให้ตรง target scale แล้ว (input group 22px, ปุ่มวงกลม) — **ไม่ต้องแก้ radius รอบนี้เหมือนเดิม**
+
+ช่องว่างจริง: ปุ่ม header (ย้อนกลับ/เมนู), profile hero (ดูโปรไฟล์/ติดตาม), ปุ่มลบข้อความ, ปุ่มแนบรูป/ส่ง, ปุ่มยกเลิกไฟล์แนบ ไม่มี press feedback เลย — เพิ่มเป็นข้อ 7: `.route-icon-button`/`.route-icon-link` (shared class ใช้ร่วม Chat/Post detail/Profile/Settings) ก็ไม่มีเหมือนกัน แก้ที่นี่ได้ประโยชน์ล่วงหน้าให้ batch อื่นด้วย
+
+ทำ Artifact preview: https://claude.ai/artifact/CrQrnN8uw1JbHHrub9ie5L
+
+บันทึก spec เต็มที่ `.wyn/docs/design/wyn-176-batch3-chat.md`
+
+## [2026-09-20] WYN-176 Batch 3 (Chat) — Coding เสร็จ ยืนยันด้วย harness จริง 30/30 หลังแก้ harness bug 2 จุด
+
+Founder อนุมัติ ("อนุญาต") preview + spec แล้ว — เพิ่ม press feedback 10 จุดใน Chat conversation view ตามที่ AI Design สรุปไว้ (header back/more, profile hero 2 ปุ่ม, ปุ่มลบข้อความ, แนบรูป/ส่ง, ลบไฟล์แนบ, และ `.route-icon-link`/`.route-icon-button` ที่ใช้ร่วมหลายหน้า) — ไม่แก้ radius/ขนาดใดๆ ตามที่ WYN-160 batch 5 ทำไว้แล้ว
+
+ตรวจ cascade ก่อนแก้ทุกจุดตามวินัยที่ตั้งไว้ตั้งแต่บั๊ก WYN-175 (skeleton mismatch) — พบนิยามซ้ำของ `.conversation-modern-back`/`.conversation-modern-more` ในไฟล์เดียวกัน จึงแทรก press feedback ไว้หลังนิยามที่ชนะจริงเสมอ
+
+รัน harness Playwright อิสระตรวจ 30 จุด (press-applies 10 + release-to-none 10 + reduced-motion 10) รอบแรกได้ 27/30 — สืบสาเหตุแล้วพบว่าเป็นบั๊กของ harness เอง ไม่ใช่ CSS จริง: (1) `.message-clear-file` เป็น `position:absolute; top:-26px` harness ไม่ได้ครอบด้วย positioned ancestor ทำให้ element หลุดไปเหนือ viewport (2) `.route-icon-link`/`.route-icon-button` วางอยู่ต่ำกว่าขอบ viewport เริ่มต้นของ headless browser ทำให้ mouse event พลาดตำแหน่ง — แก้ harness (ครอบ positioned wrapper + `scrollIntoViewIfNeeded()`) ไม่แตะ CSS แล้วรันซ้ำได้ **30/30 ผ่าน**
+
+`typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) — grep ยืนยันไม่มี parity/regression spec ไหนอ้างอิง class ที่แก้รอบนี้
+
+ส่งต่อ **AI QA & Security** ตรวจอิสระอีกรอบก่อนเข้า Deploy gate — อ้างอิงรายละเอียดเต็มที่ `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (Batch 3 Implementation section)
+
+## [2026-09-20] WYN-176 Batch 3 (Chat) — QA อิสระ PASS 43/43 พร้อมเข้า Deploy gate
+
+AI QA & Security ทำ harness/กระบวนการตรวจอิสระใหม่ทั้งหมด (ไม่ reuse ของ Coding) — cascade verification ยืนยันไม่มี override ทับ `:active` rule ที่เพิ่มใหม่ (ตรวจ `parity-final.css` ที่ override width/height ของ `.route-icon-link`/`.route-icon-button` แล้วยืนยันไม่แตะ transform), จำลอง DOM จริงจาก `chat-routes.tsx`/`wynii-chat.tsx`, เพิ่ม edge case เอง (กด mouse ค้างขณะปุ่ม `disabled` บน 3 จุดที่มี guard ยืนยันไม่มี press feedback หลุด), console/HTTP sweep dev server จริง 5 route, grep parity spec ทั้ง 11 ไฟล์ยืนยันไม่ชนกับที่แก้
+
+ผล: **43/43 harness ผ่าน** + parity spec 11/11 ไม่ชน + typecheck/lint/build สะอาด + ไม่มี security finding (CSS-only diff แท้จริง) — cleanup scratch harness files ครบ, working tree สะอาด
+
+**Final Status: PASS** — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 3 นี้ (รอ Founder สั่งเปิด PR ตาม pattern เดิม)
+
+อ้างอิง: `.wyn/tasks/active/WYN-176-visual-design-rollout-squircle.md` (QA Batch 3 section)
+
 ## [2026-09-19] Founder ยืนยัน production จริง — ปิดงาน WYN-171/172/173/174 ครบ
 
 หลัง WYN-170 confirm แล้ว Founder ขอให้ AI Design ตรวจฟังก์ชันโน้ตต่อ พบและแก้ 4 เรื่องรวด:

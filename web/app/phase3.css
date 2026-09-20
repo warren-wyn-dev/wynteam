@@ -60,9 +60,18 @@
   padding: 0;
   cursor: pointer;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .route-icon-button:disabled { opacity: .4; cursor: default; }
+/* WYN-176 batch 3: press feedback reusing WYN-163's spring formula —
+   shared with Chat's "new message" button and its modal close, also used
+   on Post detail/Profile/Settings. */
+.route-icon-link:active,
+.route-icon-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
 
 .route-state,
 .route-empty {
@@ -366,7 +375,8 @@
 /* min-width/min-height (not the visual box-shadow) carry the mobile 44x44
    touch-target minimum here — the icon/background stays visually compact so
    the delete affordance doesn't dominate a chat bubble. */
-.message-delete { border: 0; background: transparent; color: var(--wyn-text-secondary); min-width: 44px; min-height: 44px; display: grid; place-items: center; cursor: pointer; }
+.message-delete { border: 0; background: transparent; color: var(--wyn-text-secondary); min-width: 44px; min-height: 44px; display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.message-delete:active { transform: scale(0.96); }
 /* bottom: env(safe-area-inset-bottom) only, not the 62px a bottom-nav bar
    would need — the conversation page renders AppChrome with
    showBottomNav={false}, so there is no nav bar here to clear. The old
@@ -385,7 +395,8 @@
    attachment" chip, matching how iOS Messages/WhatsApp show attachment
    previews); an invisible ::before extends the actual tap target to 44x44
    without changing the badge's layout or appearance. */
-.message-clear-file { position: absolute; right: 52px; top: -26px; background: var(--wyn-text) !important; color: var(--wyn-bg); width: 25px !important; height: 25px !important; }
+.message-clear-file { position: absolute; right: 52px; top: -26px; background: var(--wyn-text) !important; color: var(--wyn-bg); width: 25px !important; height: 25px !important; -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.message-clear-file:active { transform: scale(0.96); }
 .message-clear-file::before { content: ""; position: absolute; inset: -9.5px; }
 .conversation-request-bar { position: sticky; bottom: env(safe-area-inset-bottom); padding: 12px 16px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); text-align: center; }
 .conversation-request-bar p { margin: 0 0 8px; color: var(--wyn-text-secondary); font-size: 13px; }
@@ -464,7 +475,11 @@ button.settings-row { cursor: pointer; }
   .route-primary,
   .route-secondary,
   .route-pill,
-  .route-more {
+  .route-more,
+  .route-icon-link,
+  .route-icon-button,
+  .message-delete,
+  .message-clear-file {
     transition: none;
   }
 }

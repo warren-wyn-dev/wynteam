@@ -142,3 +142,44 @@ Batch 1 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ ba
 **Final Status: PASS**
 
 ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 2 นี้ (WYN-176 โดยรวมยังไม่ปิด เหลือ batch 3-7)
+
+## Batch 3 Implementation (AI Coding, 2026-09-20)
+
+**Implementation**: เพิ่ม press feedback spring (`scale(0.96)`, 160ms cubic-bezier เดียวกับ WYN-163) ให้ 10 จุดใน Chat conversation view ที่ยังไม่มีเลย — ไม่แก้ radius/ขนาดใดๆ (WYN-160 batch 5 ทำไปแล้วตรง target scale) ไม่แตะ inbox/list เพราะมี press-scale ของตัวเองจาก WYN-169/170 อยู่แล้ว:
+1. `.conversation-modern-back` / `.conversation-modern-more` — ปุ่ม header ย้อนกลับ/เมนู (`app/conversation-modern.css`)
+2. `.conversation-profile-button` (ทั้ง `.profile`/`.follow`) — ปุ่มดูโปรไฟล์/ติดตามใน profile hero (`app/conversation-modern.css`)
+3. `.message-image-picker` / `.message-input-group > button[type="submit"]` — ปุ่มแนบรูป/ส่งข้อความ (`app/conversation-modern.css`)
+4. `.message-delete` / `.message-clear-file` — ปุ่มลบข้อความ/ลบไฟล์แนบ (`app/phase3.css`)
+5. `.route-icon-link` / `.route-icon-button` — ปุ่มไอคอนใช้ร่วมกัน (ใช้ใน Chat/Post detail/Profile/Settings ด้วย) (`app/phase3.css`)
+
+ตรวจ cascade ก่อนแก้ทุก selector พบว่า `.conversation-modern-back`/`.conversation-modern-more` มีนิยามซ้ำในไฟล์เดียวกัน (ค่าที่สองที่บรรทัด ~70-77 ทับค่าแรกบางส่วน) — เพิ่ม press feedback rule ไว้หลังนิยามที่ชนะจริง เช่นเดียวกับ `.conversation-profile-button` (หลัง `:disabled` block) และปุ่ม composer (หลัง `:disabled` block) เพื่อไม่ให้ specificity/ลำดับทับผิดจุด `.route-icon-link`/`.route-icon-button` เป็น shared class ยืนยันแล้วว่าไม่มีนิยาม `:active` อื่นชนกันในไฟล์ CSS อื่น (grep ทั้ง 38 ไฟล์)
+
+**Files Changed**: `web/app/conversation-modern.css`, `web/app/phase3.css` — diff เป็น additive ล้วนๆ ยืนยันด้วย `git diff --stat` (44 insertions ใน conversation-modern.css; 21 insertions/3 deletions ใน phase3.css — บรรทัดที่ "ลบ" คือการขยาย property list ในตำแหน่งเดิม ไม่มีเนื้อหาเดิมหายไป)
+
+**Reason**: ตาม design spec `.wyn/docs/design/wyn-176-batch3-chat.md`, Founder อนุมัติ preview แล้ว (https://claude.ai/artifact/CrQrnN8uw1JbHHrub9ie5L)
+
+**Tests**: harness Playwright จริง (โหลด CSS 38 ไฟล์ตามลำดับ import จริงจาก `layout.tsx`) ตรวจ press feedback ด้วย mouse down/up จริง 10 จุด + release กลับ `none` + reduced-motion 10 จุด — รอบแรกพบ FAIL 3/30 จาก harness เอง ไม่ใช่บั๊กจริง: (1) `.message-clear-file` เป็น `position:absolute; top:-26px` ต้องมี positioned ancestor ถึงจะอยู่ในตำแหน่งที่ถูกต้อง — harness เดิมไม่ได้ครอบด้วย container ที่ position:relative ทำให้ element หลุดไปอยู่เหนือ viewport (y:-26) แก้ harness ให้ครอบด้วย `<div style="position:relative">` (2) `.route-icon-link`/`.route-icon-button` อยู่ต่ำกว่าขอบ viewport เริ่มต้นของ headless browser ทำให้ mouse event ไม่ลงตำแหน่งจริง แก้ harness ด้วย `scrollIntoViewIfNeeded()` ก่อนกดทุกจุด — หลังแก้ harness (ไม่แก้ CSS) **30/30 ผ่าน**
+
+**Build**: `typecheck`/`lint`/`build` สะอาดหมด (0 errors, warning เดิม 3 จุดไม่เกี่ยวข้อง) — ตรวจ parity/regression spec ทั้งหมดใน `tests/browser/` ว่าไม่มีไฟล์ไหนอ้างอิง class ที่แก้รอบนี้ (`conversation-modern`, `message-clear-file`, `route-icon-*`, `message-delete`, `message-image-picker`, `conversation-profile-button`) ยืนยันไม่กระทบ pixel-parity lock ใดๆ
+
+**Known Issues**: ไม่มี
+
+**Handoff**: → **AI QA & Security** ตรวจ: (1) press feedback ทำงานจริงบน `/` conversation route จริงผ่าน dev server (ไม่ใช่แค่ harness) (2) ไม่มี regression ต่อ Flutter-parity ที่ล็อกไว้ของ Chat/inbox (3) `.route-icon-link`/`.route-icon-button` ที่ใช้ร่วมกันข้ามหน้า (Post detail/Profile/Settings) ยังทำงานปกติไม่มีจุดไหนพัง
+
+## QA Batch 3 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ไม่เชื่อผลที่ AI Coding รายงานเอง ทำ harness/กระบวนการตรวจอิสระใหม่ทั้งหมด — (1) `git show --stat 5c639de` ยืนยัน diff โค้ดจริงมีแค่ 2 ไฟล์ CSS (2) cascade verification: grep ทั้ง 10 selector ข้าม `web/app/*.css` ทั้ง 38 ไฟล์ + module.css ทั้งหมด ยืนยันไม่มี override rule ไหนทับ `:active` ที่เพิ่มใหม่ (พบว่า `parity-final.css` override เฉพาะ width/height ของ `.route-icon-link`/`.route-icon-button` ไม่แตะ transform) (3) harness Playwright ใหม่ทั้งหมด (ไม่ reuse ของ Coding) จำลอง DOM จริงจาก `chat-routes.tsx`/`wynii-chat.tsx` ทำ mouse down/up จริง 10 จุด + release + reduced-motion 10 จุด + edge case เพิ่มเอง: กด mouse ค้างขณะปุ่มมี `disabled` attribute บน 3 จุดที่มี `:not(:disabled)` guard ยืนยันไม่มี press feedback เกิดขึ้น (4) dev server จริง console/HTTP sweep บน `/`, `/chat`, `/chat/<uuid>`, `/notifications`, `/search` (5) grep 11 ไฟล์ parity/regression spec ทั้งหมดใน `tests/browser/` ยืนยันไม่มีไฟล์ไหนอ้างอิง selector/ไฟล์ที่แก้ (6) `typecheck`/`lint`/`build` อิสระใหม่
+
+**Passed**: 43/43 (harness: press-feedback 30 + disabled-guard edge case 3 + reduced-motion 10) + console/HTTP sweep 5 route สะอาด + parity spec 11/11 ไม่ชน + lint/typecheck/build สะอาดหมด
+
+**Failed**: ไม่มี
+
+**Severity**: N/A
+
+**Security Findings**: ยืนยัน CSS-only diff แท้จริง — ไม่มีไฟล์ `.ts`/`.tsx`/API route ถูกแตะเลย ไม่มี data flow ใหม่ ไม่แตะ auth/authorization surface ไม่มีข้อกังวลด้าน security
+
+**Recommendation**: Approve batch 3 — เข้า Deploy gate ปกติ
+
+**Final Status: PASS**
+
+Batch 3 PASS — ส่งต่อ AI Deploy & DevOps deploy เฉพาะ batch 3 นี้ (WYN-176 โดยรวมยังไม่ปิด เหลือ batch 4-7: Profile/Settings, Search/Notifications/Club, dead CSS cleanup)
