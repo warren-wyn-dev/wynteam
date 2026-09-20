@@ -8,7 +8,6 @@ import { SwipeBackGesture } from "@/components/swipe-back-gesture";
 import { PageTransition } from "@/components/ui/page-transition";
 import "./globals.css";
 import "./phase2.css";
-import "./phase2-polish.css";
 import "./phase3.css";
 import "./parity.css";
 import "./parity-auth-email.css";
