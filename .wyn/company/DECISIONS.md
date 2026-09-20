@@ -2287,3 +2287,19 @@ AI QA & Security ตรวจซ้ำอิสระในอีก worktree �
 **Final Status: PASS** — WYN-176 Batch 5 (Search/Club) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
 
 อ้างอิง: `.wyn/tasks/bugs/WYN-176-batch5-composer-send-button-disabled-press-feedback.md`
+
+## [2026-09-20] WYN-176 Batch 6 — QA พบช่องว่าง test coverage **FAIL**: แก้ parity.spec.ts ไม่ครอบคลุมเท่าที่อ้าง
+
+AI QA & Security ยืนยันการลบ dead code ทั้งหมดใน batch 6 ถูกต้อง 100% (grep 8 identifier ทั่ว repo = 0 hit) แต่พบว่าจุดที่ commit message เรียกว่า "highest-risk" — การแก้ `parity.spec.ts` ให้เลิกอ้างอิงไฟล์ dead แล้วใช้ assertion ของไฟล์จริงแทน — ไม่ครอบคลุมจริงตามที่อ้าง: assertion เดิมเช็ค 4 contract string แต่ assertion ใหม่มีแค่ 2 ใน 4 (`club_channels`/`club_events` หายไปเฉยๆ ทั้งที่เป็น query จริงใน `club-detail-golden.tsx`)
+
+ไม่ใช่ live bug (พฤติกรรมแอปไม่เคยถูกป้องกันจากจุดนี้มาก่อนเพราะ assertion เดิมเช็คไฟล์ dead) แต่เป็นการลดระดับการป้องกัน (test-coverage regression) ที่ commit message สื่อสารคลาดเคลื่อนว่าครอบคลุมกว่าเดิม — Severity: MEDIUM **Final Status: FAIL**
+
+บทเรียน: เมื่อรวม/ย้าย assertion จากไฟล์หนึ่งไปอีกไฟล์ ต้อง diff รายการ string ทีละตัวเทียบก่อน-หลังให้ครบ ไม่ใช่แค่เชื่อว่า "ครอบคลุมกว่าเดิม" จากความรู้สึก
+
+ส่งต่อ **AI Coding** เพิ่ม 2 contract string ที่ขาด
+
+## [2026-09-20] WYN-176 Batch 6 — แก้เสร็จ ยืนยัน 3/3 + regression suite 54/54 ผ่าน
+
+เพิ่ม `'from("club_channels")'`/`'from("club_events")'` เข้า `clubGolden` assertion เดิมใน `web/tests/browser/parity.spec.ts` (1 บรรทัด) — รัน `npx playwright test` จริงยืนยันผ่านทั้ง 3 project + regression suite เต็ม 5 spec file ซ้ำผ่านหมด (54/54 ที่รันได้จริง) + typecheck/lint/build สะอาด
+
+ส่งต่อ **AI QA & Security** ตรวจซ้ำ — เหลือจุดเดียวก่อน WYN-176 จะครบทุก batch

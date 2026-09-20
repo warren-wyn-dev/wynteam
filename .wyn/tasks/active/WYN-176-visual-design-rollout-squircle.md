@@ -359,3 +359,31 @@ Observation เพิ่มเติม (ไม่ block): design doc เขี�
 **Final Status: PASS**
 
 WYN-176 Batch 5 (Search/Club) พร้อมเข้า Deploy gate เต็มรูปแบบแล้ว
+
+## QA Batch 6 — Round 1 (AI QA & Security, 2026-09-20)
+
+**Test Cases**: ยืนยัน diff ตรงตามที่รายงาน + grep dead-code claim อิสระ (8 identifier ทั่ว repo) + อ่าน `club/[id]/page.tsx`/`beta4-composer.tsx` เต็มไฟล์ + **diff `parity.spec.ts` ก่อน/หลัง commit เทียบ string ทีละตัว** (จุดที่ task ระบุว่า "highest-risk") + typecheck/lint/build + รัน `npx playwright test` จริง 5 spec file + dev server sweep 6 route + security review
+
+**Passed**: diff ตรงตามรายงาน 100% + dead-code claim ยืนยันจริง 100% (0 hit ทุก identifier) + typecheck/lint/build สะอาด + Playwright 54 passed/6 failed (ตรงกับที่ AI Coding อ้าง — 6 fail เป็น sandbox environment limitation เดิม) + dev server sweep 6/6 route สะอาด
+
+**Failed**: 1 จุด — แก้ `parity.spec.ts` ไม่ครอบคลุมเท่าที่ commit message อ้าง: assertion เดิมเช็ค 4 contract string (`club_channels`, `club_channel_messages`, `club_events`, `club_insights`) แต่ assertion ใหม่ที่ย้ายไปเช็คไฟล์จริง (`clubGolden`) มีแค่ 2 ใน 4 — `club_channels`/`club_events` หายไปเฉยๆ ทั้งที่เป็น query จริงที่ใช้งานอยู่ใน `club-detail-golden.tsx` (บรรทัด 138, 217)
+
+**Severity**: MEDIUM (test-coverage integrity ไม่ใช่ live bug/security — พฤติกรรมแอปจริงไม่เคยถูกป้องกันจากจุดนี้มาก่อนเลยเพราะ assertion เดิมเช็คไฟล์ dead)
+
+**Security Findings**: ไม่มี — ยืนยัน pure-deletion + test-only diff จริง
+
+**Recommendation**: ส่งต่อ AI Coding เพิ่ม 2 contract string ที่ขาดเข้า `clubGolden` assertion เดิม (แก้ 1 บรรทัด additive ล้วน)
+
+**Final Status: FAIL**
+
+ส่วนอื่นของ batch 6 (ลบไฟล์/selector dead code ทั้งหมด) ยืนยันแล้วว่าถูกต้อง 100% ไม่ต้องแก้อะไรเพิ่ม
+
+## Batch 6 Fix (AI Coding, 2026-09-20)
+
+**Fix**: เพิ่ม `'from("club_channels")'` และ `'from("club_events")'` เข้า `clubGolden` contract-check array เดิมใน `web/tests/browser/parity.spec.ts` (1 บรรทัด additive) — ยืนยันทั้งสอง string มีอยู่จริงใน `club-detail-golden.tsx` (บรรทัด 138, 217) ก่อนเพิ่ม
+
+**Files Changed**: `web/tests/browser/parity.spec.ts` เท่านั้น — 1 บรรทัด
+
+**Tests**: `npx playwright test tests/browser/parity.spec.ts -g "source contracts cannot regress"` **3/3 ผ่านทุก project** + รัน regression suite เต็ม 5 spec file ซ้ำ **54 passed / 6 failed** (fail เดิมจาก sandbox limitation ไม่เกี่ยวกับ diff นี้) + typecheck/lint/build สะอาด
+
+**Handoff**: → **AI QA & Security** ตรวจซ้ำก่อนเข้า Deploy gate — นี่คือจุดสุดท้ายที่ค้างอยู่ก่อน WYN-176 จะครบทุก batch
