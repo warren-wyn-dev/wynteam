@@ -6,15 +6,24 @@
 .audit-club-hero > button { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 999px; background: var(--wyn-text); color: var(--wyn-bg); font: inherit; font-size: 15px; font-weight: 600; }
 .audit-club-search { height: 42px; margin: 20px 24px 0; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--wyn-border); border-radius: 999px; background: var(--wyn-surface); color: var(--wyn-text-secondary); }
 .audit-club-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--wyn-text); font: inherit; font-size: 16px; }
+/* WYN-176 batch 5: press feedback reusing WYN-163's spring formula. */
+.audit-club-hero > button { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.audit-club-hero > button:active { transform: scale(0.96); }
 .audit-club-section > h3 { margin: 24px 24px 8px; color: var(--wyn-text-secondary); font-size: 13px; font-weight: 600; letter-spacing: .14em; }
 .audit-club-row { min-height: 60px; margin: 0 24px; display: flex; align-items: center; gap: 10px; }
 .audit-club-main { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; color: var(--wyn-text); text-decoration: none; }
 .audit-club-main > span:last-child { min-width: 0; display: flex; flex-direction: column; }
 .audit-club-main strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; font-weight: 600; }
 .audit-club-main small { margin-top: 2px; color: var(--wyn-text-secondary); font-size: 13px; }
+/* WYN-176 batch 5: press feedback reusing WYN-163's spring formula. */
+.audit-club-main { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.audit-club-main:active { transform: scale(0.96); }
 .audit-club-avatar { flex: 0 0 auto; overflow: hidden; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--wyn-border); background: var(--wyn-surface); color: var(--wyn-text); }
 .audit-club-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .audit-club-join { min-width: 72px; min-height: 32px; padding: 0 12px; border: 1px solid var(--wyn-text); border-radius: 999px; background: var(--wyn-bg); color: var(--wyn-text); font: inherit; font-size: 13px; font-weight: 600; }
+/* WYN-176 batch 5: press feedback reusing WYN-163's spring formula. */
+.audit-club-join { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.audit-club-join:active:not(:disabled) { transform: scale(0.96); }
 .audit-club-pending { padding: 6px 12px; border-radius: 999px; background: var(--wyn-border); color: var(--wyn-text-secondary); font-size: 13px; font-weight: 600; }
 .route-system-spinner.tiny { width: 12px; height: 12px; border-width: 2px; display: inline-block; }
 .audit-club-empty, .audit-club-error { margin: 6px 24px; color: var(--wyn-text-secondary); font-size: 13px; }
@@ -23,6 +32,9 @@
 .audit-my-club-row > span:nth-child(2) { min-width: 0; display: flex; flex-direction: column; }
 .audit-my-club-row strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; }
 .audit-my-club-row small { margin-top: 2px; color: var(--wyn-text-secondary); font-size: 13px; }
+/* WYN-176 batch 5: press feedback reusing WYN-163's spring formula. */
+.audit-my-club-row { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.audit-my-club-row:active { transform: scale(0.96); }
 .audit-create-club { padding: 20px 16px 34px; display: flex; flex-direction: column; gap: 16px; }
 .audit-create-club-intro h2 { margin: 0; font-size: 20px; }
 .audit-create-club-intro p { margin: 6px 0 0; color: var(--wyn-text-secondary); font-size: 13px; line-height: 1.5; }
@@ -35,3 +47,26 @@
 .audit-club-privacy strong { font-size: 14px; }
 .audit-club-privacy small { color: var(--wyn-text-secondary); font-size: 11.5px; line-height: 1.35; }
 .audit-create-club-submit { min-height: 48px; }
+/* WYN-176 batch 5: press feedback reusing WYN-163's spring formula. */
+.audit-club-image-picker,
+.audit-club-privacy button {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.audit-club-image-picker:active,
+.audit-club-privacy button:active {
+  transform: scale(0.96);
+}
+
+/* WYN-176 batch 5: press-feedback transitions added above reuse WYN-163's
+   spring formula. */
+@media (prefers-reduced-motion: reduce) {
+  .audit-club-hero > button,
+  .audit-club-main,
+  .audit-club-join,
+  .audit-my-club-row,
+  .audit-club-image-picker,
+  .audit-club-privacy button {
+    transition: none;
+  }
+}
