@@ -191,3 +191,38 @@ Diff เป็น pure CSS เปลี่ยนแค่ 2 property (`height`, 
 **Regression Risk**: ต่ำมาก — แก้แค่ literal string ใน test assertion ให้ตรงกับ CSS ที่ถูกต้องและอนุมัติแล้ว ไม่กระทบ production code/behavior ใดๆ
 
 **Handoff to QA**: ส่งกลับ **AI QA & Security** ตรวจซ้ำอิสระอีกรอบก่อนเข้า Deploy gate — ต้องยืนยัน `npx playwright test` เต็ม suite เป็น 159/159 ด้วยตัวเอง (ไม่ต้องตรวจซ้ำ cascade/safe-area ของ 2 จุด CSS อีก เพราะ QA รอบก่อนหน้ายืนยันสมบูรณ์แล้วว่า CSS ถูกต้อง — รอบนี้ตรวจแค่ว่า test fix ถูกต้องและ regression suite กลับมาเขียวจริง)
+
+## QA Re-verification (AI QA & Security, 2026-09-20)
+
+**หมายเหตุ environment ก่อนเริ่ม**: worktree ที่ได้รับมอบหมาย ตอนเริ่มงาน HEAD = `17a1403c` (merge commit ของ PR #570) ไม่ตรงกับ `eb9c2fa8` ที่ต้องตรวจ — `git status` ยืนยัน working tree สะอาดก่อนแก้ จึง `git checkout --detach eb9c2fa8` ในเฉพาะ worktree ของตัวเอง (ไม่แตะ branch/worktree อื่น) ยืนยัน `git log -1` = `eb9c2fa80377e8eea56cb251fccb298f69632f8d` ตรงเป๊ะก่อนเริ่มตรวจ — **ทุกผลลัพธ์ด้านล่างมาจากคอมมิทนี้จริงเท่านั้น** นี่เป็น process finding ซ้ำแบบเดียวกับ QA รอบก่อนหน้า (worktree ยังไม่ sync กับ HEAD ล่าสุดของ branch โดยอัตโนมัติ) ไม่ใช่บั๊กของ WYN-184
+
+**Scope รอบนี้เป็น re-verification ไม่ใช่ full re-audit** — cascade/safe-area ของ 2 จุด CSS (`.wyn-profile-topbar`, `.flutter-chat-header`) ตรวจผ่านสมบูรณ์แล้วในรอบ QA ก่อนหน้า ไม่ตรวจซ้ำ รอบนี้ตรวจเฉพาะ: (1) diff ของ debug fix ตรงตามที่อ้างจริงหรือไม่ (2) regression suite กลับมาเขียวจริงหรือไม่ (3) claim เรื่อง "ไม่มี stale assertion อื่น" จริงหรือไม่ (4) typecheck/lint/build (5) `next-env.d.ts` สะอาด (6) security sanity check
+
+### 1. ยืนยัน diff ของ debug fix ตรงตามที่อ้างเป๊ะ
+`git show eb9c2fa8 -- web/tests/browser/parity.spec.ts` ยืนยัน **มีการเปลี่ยนแค่ 1 บรรทัดจริง** (บรรทัด 162): จาก `"height: 52px"` เป็น `"height: calc(52px + env(safe-area-inset-top))"` ตรงกับ CSS ปัจจุบันของ `.wyn-profile-topbar` เป๊ะ (`web/app/profile-golden-final.css`) ยืนยันเพิ่มด้วย `git diff 568997d2 eb9c2fa8 -- web/app/profile-golden-final.css web/app/chat-notes.css` → **diff ว่างเปล่า** ทั้ง 2 ไฟล์ CSS ที่ WYN-184 แก้ไม่ถูกแตะเลยตั้งแต่คอมมิทที่ QA รอบก่อนตรวจผ่าน (`git show eb9c2fa8 --stat` แสดงไฟล์ที่เปลี่ยนแค่ 5 ไฟล์: `.wyn/learning/LESSONS_LEARNED.md`, `.wyn/learning/MISTAKES.md`, task doc นี้, bug report, และ `parity.spec.ts` — ไม่มีไฟล์ CSS) ตรงตามที่อ้าง 100%
+
+### 2. Regression suite เต็ม — รันเองอิสระ
+ติดตั้ง dependency (`npm install`, browser binary มีอยู่แล้วที่ `/opt/pw-browsers` — `npx playwright install` ไม่ต้อง download ใหม่) รัน `npx playwright test` เต็ม suite ได้ผล **159 passed, 0 failed, exit code 0** (2.8 นาที) ตรงกับที่ AI Debug Engineer รายงาน ยืนยันเจาะจุดที่เคย fail ด้วย: `tests/browser/parity.spec.ts:30:5 "source contracts cannot regress to staged migration UI"` ผ่านทั้ง 3 browser project (`chromium-desktop`, `chromium-android`, `webkit-iphone` — นับรวมใน 159 total) ไม่มี failure ใดๆ เหลืออยู่
+
+### 3. ยืนยัน claim "ไม่มี stale assertion อื่น" ด้วย grep อิสระของตัวเอง
+`grep -rn "wyn-profile-topbar" web/tests/browser/` → ไม่มีผลลัพธ์ (ไม่มี test ไฟล์ไหนอ้างอิง selector นี้โดยตรง)
+`grep -rn "flutter-chat-header" web/tests/browser/` → ไม่มีผลลัพธ์
+`grep -rn "height: 52px" web/tests/browser/` → เจอ 2 จุด: `parity.spec.ts:204` (ตรวจแล้วเป็นของ `completionCss`/`.club-list-avatar` ใน `parity-completion.css` ที่ WYN-184 ไม่ได้แตะ) และ `system-visual-parity.spec.ts:113` (`min-height: 52px` ของ `finalLock` ซึ่งอ่านจาก `app/system-parity-final.css` — ไฟล์คนละไฟล์ ไม่เกี่ยวกับ WYN-184) — ทั้ง 2 จุดไม่ใช่ stale assertion ตรงตามที่ AI Debug Engineer อ้าง ไม่มีจุดอื่นที่ค้างอยู่
+
+### 4. Typecheck / Lint / Build — อิสระ
+`npm run lint`: 0 error, warning 3 จุดเดิม (`chat-inbox-parity.tsx`, `home-screen.tsx`, `profile-route.tsx`) ตรงตามที่อ้าง ไม่มี warning ใหม่
+`npm run typecheck`: ผ่านสะอาด 0 error
+`npm run build`: สำเร็จ compile ใน 8.7s, generate ครบ 31/31 route ไม่มี error
+
+### 5. `web/next-env.d.ts`
+ก่อนรัน suite: สะอาด หลังรัน `npx playwright test` (ซึ่ง spawn `next dev` เป็น webServer): พบ auto-touch ตามแพทเทิร์นเดิมที่เคยพบใน QA/Debug รอบก่อน (`import "./.next/types/...` → `import "./.next/dev/types/...`) — revert ด้วย `git checkout -- web/next-env.d.ts` ยืนยัน `git status` สะอาดหลัง revert ไม่ใช่การแก้ไขที่ตั้งใจ ไม่ใช่บั๊ก
+
+### 6. Security Sanity Check
+Diff ของคอมมิทนี้เป็น test assertion (1 บรรทัด) + learning docs + task docs เท่านั้น ไม่มี CSS/JS/component/schema/auth ใดถูกแตะ ไม่มี selector/data-access surface ใหม่ ไม่มี secret/credential ในดิฟ — ไม่มี security finding ระดับใดเลย ตรงตามที่คาดไว้สำหรับ test-only change
+
+### สรุป
+Debug fix ตรงตามที่อ้างเป๊ะ 100% (diff 1 บรรทัดจริง ไม่แตะ CSS) regression suite กลับมาเขียวจริง 159/159 (ยืนยันเองอิสระ ไม่เชื่อคำอ้าง) claim เรื่องไม่มี stale assertion อื่นตรวจสอบแล้วถูกต้อง typecheck/lint/build สะอาด ไม่มี security finding ใหม่ cascade/safe-area ของ 2 จุด CSS หลักยังคงตรวจผ่านสมบูรณ์จากรอบก่อนหน้า (ไม่มีการเปลี่ยนแปลงใดๆ ต่อ CSS ในคอมมิทนี้)
+
+**Final Status: PASS**
+
+→ พร้อมเข้า Deploy gate (CTO Final Review → Staging → Founder Approval → Production) บันทึกปิด bug report `WYN-184-regression-suite-literal-height-assertion-broken.md` เป็น verified/closed แล้ว

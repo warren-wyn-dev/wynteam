@@ -1,6 +1,6 @@
 # Bug Report — WYN-184
 
-Status: fixed — awaiting QA re-verification
+Status: closed — verified fixed by AI QA & Security (2026-09-20)
 Owner: AI Debug Engineer
 
 Bug:
@@ -50,3 +50,9 @@ Files Changed: `web/tests/browser/parity.spec.ts` เท่านั้น (1 �
 Regression Risk: ต่ำมาก — test-only, แก้ literal string ให้ตรงกับ CSS ที่ถูกต้องอยู่แล้ว ไม่กระทบ production code
 
 Handoff: → **AI QA & Security** ตรวจซ้ำอิสระก่อนเข้า Deploy gate — ยืนยัน `npx playwright test` เต็ม suite 159/159 ด้วยตัวเอง (ไม่ต้องตรวจซ้ำ cascade/safe-area ของ 2 จุด CSS อีก — QA รอบก่อนหน้ายืนยันสมบูรณ์แล้ว)
+
+## QA Re-verification (AI QA & Security, 2026-09-20)
+
+ยืนยันอิสระที่ commit `eb9c2fa8` (HEAD ปัจจุบันของ branch): `git show eb9c2fa8 -- web/tests/browser/parity.spec.ts` มีการเปลี่ยนแค่บรรทัด 162 จริงตามที่อ้าง (`"height: 52px"` → `"height: calc(52px + env(safe-area-inset-top))"`) ไม่แตะ CSS ไฟล์ใดเลย (`git diff 568997d2 eb9c2fa8 -- web/app/profile-golden-final.css web/app/chat-notes.css` ว่างเปล่า) รัน `npx playwright test` เต็ม suite เองอิสระ (ไม่เชื่อคำอ้าง) ได้ **159 passed, 0 failed** grep ยืนยันอิสระด้วยว่าไม่มี stale assertion อื่นที่อ้างอิง `.wyn-profile-topbar`/`.flutter-chat-header` ค้างอยู่ใน `web/tests/browser/` ตรงตามที่ AI Debug Engineer อ้าง typecheck/lint/build สะอาดทั้งหมด — รายละเอียดเต็มที่ `.wyn/tasks/active/WYN-184-non-sticky-header-safe-area-audit.md` ("## QA Re-verification")
+
+**Final Status: PASS** — บั๊กนี้ปิดแล้ว ยืนยัน fix ถูกต้องสมบูรณ์
