@@ -535,8 +535,8 @@
 }
 
 .wyn-chat-inbox .flutter-chat-header {
-  height: 68px !important;
-  padding: 6px 18px 0 14px !important;
+  height: calc(68px + env(safe-area-inset-top)) !important;
+  padding: calc(env(safe-area-inset-top) + 6px) 18px 0 14px !important;
   grid-template-columns: 40px minmax(0, 1fr) auto !important;
   align-items: center !important;
 }

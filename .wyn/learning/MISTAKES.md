@@ -273,3 +273,21 @@
   `web/app/dev/wyn-175-skeleton-fixture/page.tsx` (`web/components/dev/wyn-175-skeleton-fixture.tsx`) — เทียบ
   computed height ของ skeleton ทั้ง 4 แบบกับแถวจริง + shimmer animation + reduced-motion ผ่าน Playwright จริง
   (ยืนยันแล้วว่า pass ทั้งหมดหลังแก้)
+
+### [2026-09-20] WYN-184: AI Coding ไม่ได้รัน `web/tests/browser/` regression suite จริงก่อนส่ง QA ทำให้ literal-string CSS assertion เก่าที่ค้างอยู่หลุดไปถึง QA
+
+- เกิดอะไรขึ้น: WYN-184 แก้ `.wyn-profile-topbar` ใน `profile-golden-final.css` จาก `height: 52px` เป็น
+  `height: calc(52px + env(safe-area-inset-top))` ตาม Founder approval ถูกต้อง แต่ `web/tests/browser/parity.spec.ts:162`
+  มี literal-string regression guard ที่ hardcode ค่าเก่า `"height: 52px"` ไว้อยู่ก่อนแล้ว AI Coding validate ด้วยแค่
+  `npm run check` (lint+typecheck+build) และ ad hoc Playwright harness ของตัวเอง (`__wyn184-safe-area-check.mjs`)
+  ซึ่งไม่ครอบคลุม `web/tests/browser/parity.spec.ts` เลย ไม่ได้รัน regression suite ที่มีอยู่แล้วจริงก่อนส่งมอบ
+- ผลกระทบ: QA รันเต็ม suite (`npx playwright test`) เจอ fail 3/159 (assertion เดียวกัน x 3 browser project) ต้องเปิด
+  bug report แยก (WYN-184-regression-suite-literal-height-assertion-broken) และส่งต่อ AI Debug Engineer มาแก้ —
+  เสียรอบ QA + Debug Engineer เพิ่มหนึ่งรอบ ทั้งที่ AI Coding ควรจับได้เองถ้ารัน `npx playwright test` ก่อนส่ง
+- จับได้อย่างไร: AI QA & Security รัน `npx playwright test` เต็ม suite อิสระตามมาตรฐานเดิมของ epic (ไม่เชื่อ
+  ad hoc harness ของ AI Coding อย่างเดียว) เจอ fail 3 รายการทันที
+- วิธีป้องกันในอนาคต: **ทุกครั้งที่แก้ค่า CSS ที่มีอยู่แล้ว (ไม่ใช่แค่เพิ่มใหม่) ต้องรัน regression suite ที่มีอยู่แล้ว
+  จริงใน `web/tests/browser/` ก่อนส่ง QA เสมอ ไม่ใช่แค่ `npm run check`/ad hoc harness ของตัวเอง** — ad hoc harness
+  มีประโยชน์สำหรับยืนยัน live rendering/cascade แต่ไม่ทดแทน regression suite เดิมที่มี literal-string assertion
+  ผูกกับค่า CSS อยู่แล้ว ควร `grep -rn "<ค่าเดิมที่กำลังจะแก้>" web/tests/browser/` ก่อนแก้ CSS ทุกครั้งเพื่อหา
+  assertion ที่ต้องอัปเดตพร้อมกัน (รายละเอียดเต็มที่ `.wyn/learning/LESSONS_LEARNED.md` entry วันเดียวกัน)

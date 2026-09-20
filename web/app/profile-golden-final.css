@@ -8,8 +8,8 @@
  */
 
 .wyn-profile-topbar {
-  height: 52px;
-  padding: 0 4px;
+  height: calc(52px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 4px 0;
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;

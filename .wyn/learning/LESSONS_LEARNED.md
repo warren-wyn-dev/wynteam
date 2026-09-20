@@ -327,3 +327,20 @@
 - การนำไปใช้ในอนาคต: ทำเป็น checklist item ถาวรของ AI Coding self-check ก่อนส่ง QA ทุกครั้งที่เพิ่ม `:active`
   press feedback ให้ selector ใหม่ — grep หา `disabled=` ทุกจุดที่ใช้ selector นั้นใน `.tsx` จริง แล้ว cross-check
   ว่า CSS `:active` rule มี `:not(:disabled)` ครบตามจำนวนจุดที่มี disabled state จริง ไม่ใช่แค่ทดสอบตัวอย่างสุ่ม
+
+### [2026-09-20] WYN-184 — literal-string CSS assertion ใน regression test ต้องอัปเดตคู่กับทุกครั้งที่แก้ค่า CSS ที่ assertion นั้นอ้างอิง ไม่ใช่แค่ตอนสร้าง assertion ครั้งแรก
+- บริบท: `web/tests/browser/parity.spec.ts:162` มี regression guard ที่ hardcode ค่า literal `"height: 52px"`
+  ของ `.wyn-profile-topbar` ไว้ตั้งแต่ก่อนหน้า (คู่กับบรรทัดกัน regression กลับไปใช้ดีไซน์ cover-photo เก่า)
+  WYN-184 แก้ CSS ถูกต้องตาม Founder approval (`height: 52px` → `height: calc(52px + env(safe-area-inset-top))`)
+  แต่ AI Coding ไม่ได้รัน `web/tests/browser/` เลยก่อนส่ง QA (รันแค่ `npm run check` + ad hoc harness ของตัวเอง)
+  ทำให้ assertion เก่าที่ค้างอยู่ fail ทั้ง 3 browser project หลุดไปถึง QA แทนที่จะถูกจับตอน implement
+- บทเรียน: literal-substring CSS assertion (`toContain("height: 52px")`) เป็น regression guard ที่ทรงพลังแต่
+  เปราะบางมาก — มันไม่แยกแยะระหว่าง "ค่าที่ผิดเพราะ regression จริง" กับ "ค่าที่เปลี่ยนไปโดยตั้งใจและถูกต้อง"
+  เมื่อไหร่ก็ตามที่มีการแก้ CSS property ที่มี literal assertion แบบนี้อ้างอิงอยู่ ต้อง grep หา assertion ที่ตรง
+  กับ selector/property นั้นในทุกไฟล์ test ก่อน แล้วอัปเดตให้ตรงกับค่าใหม่ในรอบเดียวกับที่แก้ CSS ไม่ใช่ปล่อยให้
+  เป็นหน้าที่ของ QA/Debug Engineer มาจับทีหลัง
+- การนำไปใช้ในอนาคต: เพิ่มเป็น checklist item ถาวรของ AI Coding ก่อนส่ง QA ทุกครั้งที่แก้ค่า CSS ที่มีอยู่แล้ว
+  (ไม่ใช่แค่เพิ่ม CSS ใหม่) — ต้อง `grep -rn "<selector หรือค่าเดิมที่กำลังจะแก้>" web/tests/browser/` ก่อนแก้
+  ถ้าเจอ assertion ที่อ้างอิงค่าเดิม ให้อัปเดตพร้อมกันในรอบเดียวกัน และต้องรัน `web/tests/browser/` (regression
+  suite ที่มีอยู่แล้ว) จริงก่อนส่ง QA เสมอ ไม่ใช่แค่ `npm run check` — สอดคล้องกับ pattern เดียวกับ WYN-176
+  batch 6 (test coverage gap ที่หลุดเพราะไม่ cross-check ชุด assertion เดิม/ใหม่ให้ครบก่อน commit)
