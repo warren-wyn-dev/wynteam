@@ -234,3 +234,7 @@ Founder เปิดและ merge PR #571 เอง (`claude/wynos-online-vers
 WYN-184 ทั้ง implementation, QA และ deploy เสร็จสมบูรณ์แล้ว — ยังไม่ย้าย task ไป `completed/` รอ Founder ยืนยัน physical device บนอุปกรณ์มี notch/Dynamic Island (Profile topbar + follow list, Chat inbox header) เช่นเดียวกับทุก track ก่อนหน้าของ epic นี้
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-184-non-sticky-header-safe-area-deploy.md`
+
+## Founder Confirmation (2026-09-20)
+
+Founder ยืนยัน ("ยืนยัน") — ทดสอบจริงบน `wynos.online` บนอุปกรณ์มี notch/Dynamic Island ผ่านทั้ง Profile topbar (รวม follow list) และ Chat inbox header ไม่ชน notch อีกต่อไป ปิดงาน WYN-184 สมบูรณ์ ย้ายเข้า `completed/`

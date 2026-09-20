@@ -1852,3 +1852,9 @@ Founder เปิดและ merge PR #571 เอง (14:41:35 UTC) → `WYN-15
 WYN-184 ทั้ง implementation, QA และ deploy เสร็จสมบูรณ์แล้ว — ยังไม่ย้าย task ไป `completed/` รอ Founder ยืนยัน physical device บนอุปกรณ์มี notch/Dynamic Island (Profile topbar + follow list, Chat inbox header)
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-20-wyn-184-non-sticky-header-safe-area-deploy.md`
+
+## [2026-09-20] Founder ยืนยัน "ยืนยัน" — WYN-184 ปิดงานสมบูรณ์
+
+Founder ทดสอบจริงบน `wynos.online` บนอุปกรณ์มี notch/Dynamic Island ยืนยันผ่านทั้ง Profile topbar (รวม follow list) และ Chat inbox header ไม่ชน notch อีกต่อไป — ย้าย `.wyn/tasks/active/WYN-184-non-sticky-header-safe-area-audit.md` ไป `.wyn/tasks/completed/` แล้ว
+
+Web Beta1 ตอนนี้ไม่มี known gap หรือ task ค้างที่ block การใช้งานเหลืออยู่เลย (WYN-182 ยัง active รอ Founder ยืนยัน physical device แยกต่างหาก — คนละ scope กับ WYN-184)
