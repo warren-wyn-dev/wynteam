@@ -336,28 +336,39 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
     {pull.pullDistance > 0 || pull.refreshing ? (
-      // Pinned to the viewport top, not inline in the document flow —
-      // Profile's header/bio/stats/tabs are much taller than Home's
-      // compact header, so an inline indicator positioned where the feed
-      // starts (Home's original approach) would render buried below all
-      // that chrome, often off-screen, instead of visible where the pull
-      // gesture actually happens.
+      // Pinned below the topbar (not inline in the document flow, and not
+      // at the bare viewport edge either) — Profile's header/bio/stats/tabs
+      // are much taller than Home's compact header, so an inline indicator
+      // positioned where the feed starts (Home's original approach) would
+      // render buried below all that chrome, often off-screen. Sitting
+      // right at the safe-area edge instead collided visually with the
+      // topbar's back/username/settings row, so this settles just below it
+      // — same spot a native pull-to-refresh indicator peeks in from.
       <div
         aria-label={pull.refreshing ? "กำลังรีเฟรชโปรไฟล์" : "ลากลงเพื่อรีเฟรช"}
         aria-live="polite"
-        style={{ position: "fixed", top: "env(safe-area-inset-top, 0px)", left: 0, right: 0, height: 0, zIndex: 60, pointerEvents: "none" }}
+        style={{ position: "fixed", top: "calc(52px + env(safe-area-inset-top, 0px))", left: 0, right: 0, height: 0, zIndex: 60, pointerEvents: "none" }}
       >
         <div
-          className="route-system-spinner tiny"
           style={{
             position: "absolute",
-            top: pull.refreshing ? 14 : Math.max(6, Math.min(28, 8 + pull.pullDistance * 0.25)),
+            top: pull.refreshing ? 14 : Math.max(-18, Math.min(14, -18 + pull.pullDistance * 0.4)),
             left: "50%",
-            opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
-            transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
-            transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            background: "var(--wyn-surface)",
+            boxShadow: "0 2px 10px rgb(0 0 0 / 12%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pull.refreshing ? 1 : Math.max(0, Math.min(1, pull.pullDistance / 40)),
+            transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.6, Math.min(1, 0.6 + pull.pullDistance / 220))})`,
+            transition: pull.refreshing ? "top 180ms ease, opacity 180ms ease, transform 180ms ease" : "none",
           }}
-        />
+        >
+          <div className="route-system-spinner tiny" />
+        </div>
       </div>
     ) : null}
     <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
