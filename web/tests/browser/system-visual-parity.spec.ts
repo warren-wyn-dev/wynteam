@@ -18,11 +18,15 @@ test("source-derived system parity stylesheet is imported before interaction clo
 test("Search keeps the current Flutter Discovery then three-tab contract", () => {
   const search = read("components/search-route.tsx");
   const flutter = read("../app/lib/features/search/presentation/search_screen.dart");
-  expect(search).toContain('useState<"user" | "drop" | "club">');
+  // WYN-185 item 7: search state moved from local useState to a URL-derived
+  // SearchTab ("all" | "users" | "posts" | "clubs"), with a new "ทั้งหมด"
+  // (All) default tab in front of the three Flutter-parity tabs below.
+  expect(search).toContain('type SearchTab = "all" | "users" | "posts" | "clubs"');
+  expect(search).toContain('SEARCH_TABS: readonly SearchTab[] = ["all", "users", "posts", "clubs"]');
   expect(search).toContain("User");
   expect(search).toContain("โพสต์");
   expect(search).toContain("Club");
-  expect(search).not.toContain('setTab("all")');
+  expect(search).toContain('{ id: "all" as const, label: "ทั้งหมด" }');
   expect(flutter).toContain("const WynosSocialTabBar(labels: ['User', 'โพสต์', 'Club'])");
   expect(flutter).toContain("height: 64");
 });

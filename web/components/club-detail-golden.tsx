@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import {
@@ -23,6 +24,7 @@ import {
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
+import { shareOrCopyLink } from "@/lib/share";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type ClubTab = "posts" | "chat" | "about";
@@ -283,12 +285,10 @@ function ClubPostCard({
   const own = post.author_id === userId;
   const canModerate = ["owner", "admin", "moderator"].includes(post.my_role ?? "");
   const author = post.author_display_name?.trim() || post.author_username || "WYNOS";
+  const { toastMessage, showToast } = useToast();
   const share = async () => {
     const url = `${window.location.origin}/club-post/${post.id}`;
-    try {
-      if (navigator.share) await navigator.share({ title: author, text: post.content || "WYNOS Club", url });
-      else await navigator.clipboard.writeText(url);
-    } catch { /* native share cancelled */ }
+    await shareOrCopyLink({ title: author, text: post.content || "WYNOS Club", url }, showToast);
   };
   const like = async () => {
     if (busy) return;
@@ -359,6 +359,7 @@ function ClubPostCard({
         </BottomSheet>
       ) : null}
       {report ? <ReportSheet client={client} target={{ type: "club_post", id: post.id, label: `รายงานโพสต์ของ ${author}` }} onClose={() => setReport(false)} /> : null}
+      <Toast message={toastMessage} />
     </article>
   );
 }
@@ -523,6 +524,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
   const [error, setError] = useState("");
   const [menu, setMenu] = useState(false);
   const [report, setReport] = useState(false);
+  const { toastMessage, showToast } = useToast();
 
   const load = useCallback(async () => {
     const next = await fetchClubData(client, userId, clubId);
@@ -574,11 +576,34 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
     if (approved && !window.confirm("ออกจาก Club?")) return;
     if (pending && !window.confirm("ยกเลิกคำขอเข้าร่วม Club?")) return;
     setBusy(true); setError("");
+
+    // Optimistic: flip membership + member_count immediately so the button
+    // label and count feel instant, then roll both back if the API call
+    // fails instead of leaving the UI in a state the server never agreed to.
+    const previousData = data;
+    const joiningApproved = !membership && club.privacy !== "private";
+    const nextMembership: Membership = membership
+      ? null
+      : { role: "member", status: club.privacy === "private" ? "pending" : "approved" };
+    const memberCountDelta = joiningApproved ? 1 : approved && membership ? -1 : 0;
+    setData((current) => current ? {
+      ...current,
+      membership: nextMembership,
+      club: { ...current.club, member_count: Math.max(0, current.club.member_count + memberCountDelta) },
+    } : current);
+
     const result = membership
       ? await client.from("club_members").delete().eq("club_id", clubId).eq("user_id", userId)
       : await client.from("club_members").insert({ club_id: clubId, user_id: userId, role: "member", status: club.privacy === "private" ? "pending" : "approved" });
-    if (result.error) setError("อัปเดตสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง");
-    else await refresh();
+    if (result.error) {
+      setData(previousData);
+      setError("อัปเดตสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } else {
+      // Reconcile with the server in the background (role/status the
+      // trigger or RLS actually applied, real member_count) without
+      // blocking on it — the optimistic state above already reflects it.
+      void refresh();
+    }
     setBusy(false);
   };
   const toggleMute = async () => {
@@ -592,8 +617,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
   };
   const share = async () => {
     const url = `${window.location.origin}/club/${clubId}`;
-    try { if (navigator.share) await navigator.share({ title: club.name, text: `แชร์ Club ${club.name}`, url }); else await navigator.clipboard.writeText(url); }
-    catch { /* native share cancelled */ }
+    await shareOrCopyLink({ title: club.name, text: `แชร์ Club ${club.name}`, url }, showToast);
   };
   const statusLabel = owner ? "เจ้าของ Club" : approved ? "เข้าร่วมแล้ว" : pending ? "รออนุมัติ" : "เข้าร่วม";
 
@@ -607,7 +631,12 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
           starting in the list itself. Safe to attach unconditionally: the
           hook's own `enabled: tab === "posts"` (see usePullToRefresh call
           above) already no-ops on the chat/about tabs. */}
-      <main
+      {/* WYN-185 item 13: was a second <main> nested inside AppChrome's own
+          <main className="route-main">, an invalid-HTML/accessibility bug
+          (a page must have exactly one <main> landmark) -- a plain <div>
+          carries the same layout/gesture wiring below without claiming a
+          second landmark. */}
+      <div
         className="golden-club-page"
         onTouchStart={pull.onTouchStart}
         onTouchMove={pull.onTouchMove}
@@ -655,7 +684,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
         ) : (
           <AboutTabView client={client} clubId={clubId} club={club} membership={membership} />
         )}
-      </main>
+      </div>
 
       {menu ? (
         <BottomSheet label="ตัวเลือก Club" onClose={() => setMenu(false)}>
@@ -667,6 +696,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
         </BottomSheet>
       ) : null}
       {report ? <ReportSheet client={client} target={{ type: "club", id: clubId, label: `รายงาน Club “${club.name}”` }} onClose={() => setReport(false)} /> : null}
+      <Toast message={toastMessage} />
     </AppChrome>
   );
 }

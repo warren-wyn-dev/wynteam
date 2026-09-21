@@ -356,14 +356,17 @@ async function signClubMedia(client: SupabaseClient, path: unknown): Promise<str
 }
 
 async function mapClub(client: SupabaseClient, row: Record<string, unknown>): Promise<ClubRow> {
+  // WYN-185: a raw `count` query against club_members is RLS-blocked for
+  // anyone who isn't an approved member yet, even for a Public club -- the
+  // exact cause of "0 สมาชิก" before joining a Public club that shows the
+  // real count right after. club_member_count() is a security-definer RPC
+  // that returns the real count for a Public club to anyone, and for a
+  // Private club only to an approved member of it (same visibility the old
+  // query effectively enforced there, just without the Public-club bug).
   const [cover, icon, members] = await Promise.all([
     signClubMedia(client, row.cover_url),
     signClubMedia(client, row.icon_url),
-    client
-      .from("club_members")
-      .select("club_id", { count: "exact", head: true })
-      .eq("club_id", String(row.id ?? ""))
-      .eq("status", "approved"),
+    client.rpc("club_member_count", { p_club_id: String(row.id ?? "") }),
   ]);
   return {
     id: String(row.id ?? ""),
@@ -374,7 +377,7 @@ async function mapClub(client: SupabaseClient, row: Record<string, unknown>): Pr
     cover_url: cover,
     icon_url: icon,
     created_at: String(row.created_at ?? ""),
-    member_count: members.count ?? 0,
+    member_count: typeof members.data === "number" ? members.data : 0,
   };
 }
 
@@ -398,11 +401,13 @@ async function mapClubs(client: SupabaseClient, rows: Record<string, unknown>[])
     }
   }
   const ids = rows.map((row) => String(row.id ?? ""));
-  const memberships = await client.from("club_members").select("club_id").in("club_id", ids).eq("status", "approved");
+  // WYN-185: club_member_counts() (security-definer) instead of a raw
+  // club_members count -- see mapClub()'s comment for why the raw query
+  // undercounts (0) for a Public club the caller hasn't joined yet.
+  const memberships = await client.rpc("club_member_counts", { p_club_ids: ids });
   const countByClubId = new Map<string, number>();
-  for (const membership of (memberships.data ?? []) as { club_id: string }[]) {
-    const key = String(membership.club_id);
-    countByClubId.set(key, (countByClubId.get(key) ?? 0) + 1);
+  for (const row of (memberships.data ?? []) as { club_id: string; member_count: number }[]) {
+    countByClubId.set(String(row.club_id), Number(row.member_count) || 0);
   }
   return rows.map((row) => {
     const id = String(row.id ?? "");
@@ -690,6 +695,29 @@ export async function getOrCreateConversation(client: SupabaseClient, otherUserI
   const result = await client.rpc("get_or_create_conversation", { p_other_user_id: otherUserId });
   fail(result.error, "เริ่มบทสนทนาไม่สำเร็จ");
   return String(result.data);
+}
+
+// WYN-185 item 10: read-only lookup for the "compose a new DM" flow
+// (/chat/new?user=<id>) -- checked once on entry so re-opening a compose
+// screen for someone you already have a conversation (active or a pending
+// request either direction) with lands on that real conversation instead
+// of a stale, empty "start fresh" screen. get_or_create_conversation()
+// itself is already insert-idempotent (`on conflict ... do nothing` +
+// re-select), so this is a UX nicety, not the only thing preventing a
+// duplicate row -- just avoids showing compose mode at all when it isn't
+// needed.
+export async function findExistingConversationId(client: SupabaseClient, otherUserId: string): Promise<string | null> {
+  // RLS already scopes visible rows to conversations the caller is part of,
+  // and the (user_a_id, user_b_id) pair is unique per WYN-031's schema
+  // (always stored least/greatest), so filtering for "otherUserId is the
+  // other participant" can return at most one row.
+  const result = await client
+    .from("conversations")
+    .select("id")
+    .or(`user_a_id.eq.${otherUserId},user_b_id.eq.${otherUserId}`)
+    .maybeSingle();
+  fail(result.error, "ตรวจสอบบทสนทนาไม่สำเร็จ");
+  return result.data ? String(result.data.id) : null;
 }
 
 export async function acceptMessageRequest(client: SupabaseClient, conversationId: string): Promise<void> {

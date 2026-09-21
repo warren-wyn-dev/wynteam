@@ -55,8 +55,11 @@
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-share .wyn-share-icon {
-  width: 24px;
-  height: 24px;
+  /* WYN-185 item 13: was 24px, standing out against the row's other icons
+     (Like/Comment/Repost/Save), all 22px -- matches WynosShareIcon's own
+     size={22} prop now instead of overriding it up to 24. */
+  width: 22px;
+  height: 22px;
   transform: translateY(0.5px);
   transform-origin: center;
 }

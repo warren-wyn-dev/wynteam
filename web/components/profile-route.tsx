@@ -9,6 +9,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, DropPreviewCard, EmptyState } from "@/components/phase3-ui";
 import { ProfileRecommendations } from "@/components/profile-recommendations";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { FeedSkeleton, ProfileSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -24,6 +25,8 @@ import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { normalizeExternalUrl } from "@/lib/external-link";
+import { shareOrCopyLink } from "@/lib/share";
 import { triggerRouteRefresh, useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
@@ -32,7 +35,6 @@ import {
   fetchProfileDrops,
   fetchProfileLikedDrops,
   fetchProfileSummary,
-  getOrCreateConversation,
   profileLabel,
   removeProfileImage,
   updateProfileBasics,
@@ -97,11 +99,21 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
     : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
+function formatWebsiteLabel(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname !== "/" ? parsed.pathname : ""}`.replace(/\/$/, "");
+  } catch {
+    return url;
+  }
+}
+
 function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClient; userId: string; summary: ProfileSummary; onDone: () => void }) {
   const profile = summary.profile;
   const [displayName, setDisplayName] = useState(profile.display_name ?? "");
   const [username, setUsername] = useState(profile.username);
   const [bio, setBio] = useState(profile.bio ?? "");
+  const [website, setWebsite] = useState(profile.social_links?.website ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [avatar, setAvatar] = useState(profile.avatar_url);
@@ -120,8 +132,17 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
   };
   const save = async () => {
     if (!displayName.trim() && !profile.display_name) { setError("กรุณาใส่ชื่อที่แสดง"); return; }
+    const normalizedWebsite = normalizeExternalUrl(website);
+    if (website.trim() && !normalizedWebsite) { setError("ลิงก์เว็บไซต์ไม่ถูกต้อง"); return; }
     setSaving(true); setError("");
-    try { if (username.trim() !== profile.username) await updateUsername(client, userId, username); await updateProfileBasics(client, userId, { displayName, bio }); onDone(); }
+    try {
+      if (username.trim() !== profile.username) await updateUsername(client, userId, username);
+      const nextSocialLinks = { ...(profile.social_links ?? {}) };
+      if (normalizedWebsite) nextSocialLinks.website = normalizedWebsite;
+      else delete nextSocialLinks.website;
+      await updateProfileBasics(client, userId, { displayName, bio, socialLinks: nextSocialLinks });
+      onDone();
+    }
     catch (e) { setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
@@ -137,6 +158,7 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
       <label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label>
       <label className="route-field"><span>ชื่อผู้ใช้</span><input value={`@${username}`} autoCapitalize="none" maxLength={31} onChange={(e) => setUsername(e.target.value.replace(/^@+/, "").replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
       <label className="route-field"><span>คำอธิบายตัวเอง</span><textarea value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} /></label>
+      <label className="route-field"><span>เว็บไซต์ภายนอก</span><input type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" value={website} maxLength={300} placeholder="example.com" onChange={(e) => setWebsite(e.target.value)} /></label>
       {error ? <p className="route-error">{error}</p> : null}
       <div className="route-action-row"><button className="route-secondary" type="button" disabled={saving} onClick={onDone}>ยกเลิก</button><button className="route-primary" type="button" disabled={saving} onClick={() => void save()}>{saving ? "กำลังบันทึก…" : "บันทึก"}</button></div>
     </div>
@@ -197,6 +219,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     if (summary.requested && profile.is_private && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
     const wasFollowing = summary.following;
     const wasRequested = summary.requested;
+    const wasFollowerCount = summary.followerCount;
     const optimisticNext = predictFollowState({ currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private });
     if (!wasFollowing) haptic();
     setAction(true); setError("");
@@ -208,7 +231,10 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     }));
     try { await toggleAuthorFollow(client, userId, profile.id, { currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private }); }
     catch (e) {
-      patchSummary((current) => ({ ...current, following: wasFollowing, requested: wasRequested }));
+      // Full rollback -- the previous version only restored
+      // following/requested and left followerCount at its already-mutated
+      // (wrong) value on failure.
+      patchSummary((current) => ({ ...current, following: wasFollowing, requested: wasRequested, followerCount: wasFollowerCount }));
       setError(e instanceof Error ? e.message : "ติดตามไม่สำเร็จ");
       showToast("ติดตามไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
@@ -217,7 +243,10 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   const startChat = async () => {
     if (action) return;
     setAction(true); setError("");
-    try { if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้"); const id = await getOrCreateConversation(client, profile.id); router.push(`/chat/${id}?user=${encodeURIComponent(profile.id)}`); }
+    // WYN-185 item 10: open the composer first -- the conversation/Message
+    // Request itself is only created once the user actually sends, inside
+    // the composer's own submit(), not from tapping "ส่งข้อความ" here.
+    try { if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้"); router.push(`/chat/new?user=${encodeURIComponent(profile.id)}`); }
     catch (e) { setError(e instanceof Error ? e.message : "เปิด Chat ไม่สำเร็จ"); }
     finally { setAction(false); }
   };
@@ -235,20 +264,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   };
   const share = async () => {
     const url = `${window.location.origin}/@${profile.username}`;
-    const copyLink = async () => {
-      try { await navigator.clipboard.writeText(url); showToast("คัดลอกลิงก์แล้ว"); }
-      catch { showToast("แชร์ไม่สำเร็จ"); }
-    };
-    if (!navigator.share) { await copyLink(); return; }
-    try { await navigator.share({ title: name, text: `@${profile.username}`, url }); }
-    catch (e) {
-      // AbortError fires both on a deliberate cancel and when the OS reports
-      // no compatible share target -- the API gives no way to tell those
-      // apart, so fall back to a clipboard copy either way rather than
-      // leaving the no-target case looking like the button did nothing.
-      if (e instanceof DOMException && e.name === "AbortError") { await copyLink(); return; }
-      showToast("แชร์ไม่สำเร็จ");
-    }
+    await shareOrCopyLink({ title: name, text: `@${profile.username}`, url }, showToast);
   };
   const openAccountSwitcher = () => {
     setManagingAccounts(false);
@@ -355,6 +371,21 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
         <div className="wyn-profile-copy">
           <div className="wyn-profile-name">{name}{profile.is_verified ? <span className="route-verified">✓</span> : null}</div>
           {profile.bio ? <p className="wyn-profile-bio">{profile.bio}</p> : null}
+          {/* WYN-185 item 11 (QA follow-up): re-validate at render time, not
+              just at write time. The DB trigger is the real boundary, but a
+              raw REST write (or a not-yet-migrated database) could still
+              store something unsafe -- normalizeExternalUrl() rejects
+              anything that isn't a plain http(s) URL before it ever becomes
+              an href. */}
+          {(() => {
+            const safeWebsite = profile.social_links?.website ? normalizeExternalUrl(profile.social_links.website) : null;
+            return safeWebsite ? (
+              <a className="wyn-profile-website" href={safeWebsite} target="_blank" rel="noopener noreferrer nofollow ugc">
+                <WynosIcon name="link" size={13} strokeWidth={2} />
+                {formatWebsiteLabel(safeWebsite)}
+              </a>
+            ) : null;
+          })()}
         </div>
       </div>
       {!summary.blockedBy ? (
@@ -372,7 +403,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
         <div className="wyn-profile-actions"><button className="wyn-profile-action-primary soft" disabled={action} type="button" onClick={() => void unblock()}>ปลดบล็อก</button></div>
       ) : (
         <div className="wyn-profile-actions">
-          <button className={`wyn-profile-action-primary ${summary.following || summary.requested ? "soft" : ""}`} disabled={action || summary.blockedBy} type="button" onClick={() => void follow()}>{summary.following ? "กำลังติดตาม" : summary.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button>
+          <button className={`wyn-profile-action-primary ${summary.following || summary.requested ? "soft" : ""}`} disabled={action || summary.blockedBy} type="button" onClick={() => void follow()}>{followButtonLabel({ busy: action, following: summary.following, requested: summary.requested })}</button>
           <button className="wyn-profile-action-secondary" disabled={action || summary.blockedBy} type="button" onClick={() => void startChat()}><WynosIcon name="send" size={18} strokeWidth={2} /> ส่งข้อความ</button>
         </div>
       )}

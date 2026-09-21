@@ -10,6 +10,8 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { RichPostText } from "@/components/rich-post-text";
 import { AnimatedHeart } from "@/components/ui/animated-heart";
+import { followButtonLabel } from "@/components/ui/follow-button-label";
+import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import {
@@ -27,6 +29,8 @@ import {
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchDropById } from "@/lib/phase3-data";
+import { shareOrCopyLink } from "@/lib/share";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 
 type ActivityTab = "likes" | "redrops";
 type ActivityProfile = { id: string; username: string; display_name?: string | null; avatar_url?: string | null; is_verified?: boolean };
@@ -190,6 +194,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const [error, setError] = useState("");
   const [activityOpen, setActivityOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editCaption, setEditCaption] = useState("");
@@ -200,6 +205,9 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const [viewerProfile, setViewerProfile] = useState<{ username: string; avatar_url?: string | null } | null>(cached?.viewerProfile ?? null);
   const composerRef = useRef<HTMLInputElement | null>(null);
   const scrollYRef = useRef(0);
+  const { toastMessage, showToast } = useToast();
+
+  useKeyboardInset();
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -278,7 +286,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
 
   const share = async () => {
     const url = `${window.location.origin}/drop/${row.id}`;
-    try { if (navigator.share) await navigator.share({ title: `โพสต์โดย ${authorLabel(row)}`, text: row.caption ?? "WYNOS", url }); else await navigator.clipboard.writeText(url); } catch { /* cancelled */ }
+    await shareOrCopyLink({ title: `โพสต์โดย ${authorLabel(row)}`, text: row.caption ?? "WYNOS", url }, showToast);
   };
 
   const submit = async () => {
@@ -326,8 +334,8 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   };
 
   const followAuthor = async () => {
-    if (ownDrop) return;
-    setError("");
+    if (ownDrop || followBusy) return;
+    setError(""); setFollowBusy(true);
     try {
       if (!followingAuthor) haptic();
       const state = await toggleAuthorFollow(client, userId, row.author_id, { currentlyFollowing: followingAuthor, pendingRequest: pendingAuthor, isPrivate: privateAuthor });
@@ -340,6 +348,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
         return { ...current, followedAuthorIds, pendingFollowAuthorIds };
       });
     } catch { setError("ติดตามไม่สำเร็จ"); }
+    finally { setFollowBusy(false); }
   };
 
   const editDrop = async () => {
@@ -375,9 +384,9 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}>
       <header className={`detail-floating-header ${headerHidden ? "hidden" : ""}`}><button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><WynosIcon name="back" size={22} strokeWidth={2} /></button><strong>โพสต์</strong><span /></header>
       <article className="detail-post flutter-detail-post">
-        <div className="detail-post-copy"><div className="detail-author-row"><Link className="route-drop-author detail-author-link" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} /><span className="detail-author-copy"><span className="detail-author-primary"><strong>{authorLabel(row)}{row.author_is_verified ? <b className="route-verified">✓</b> : null}</strong><small>{relativeTimeTh(row.created_at)}</small></span><small className="detail-author-username">@{row.author_username || "wynos"}</small></span></Link>{!ownDrop ? <button className="detail-follow-button" type="button" onClick={() => void followAuthor()}>{followingAuthor ? "กำลังติดตาม" : pendingAuthor ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}<button className="detail-more-button" type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><WynosIcon name="moreVertical" size={18} strokeWidth={2} /></button></div>{row.caption ? <Caption value={row.caption} /> : null}</div>
+        <div className="detail-post-copy"><div className="detail-author-row"><Link className="route-drop-author detail-author-link" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} size={44} /><span className="detail-author-copy"><span className="detail-author-primary"><strong>{authorLabel(row)}{row.author_is_verified ? <b className="route-verified">✓</b> : null}</strong><small>{relativeTimeTh(row.created_at)}</small></span><small className="detail-author-username">@{row.author_username || "wynos"}</small></span></Link>{!ownDrop ? <button className="detail-follow-button" type="button" disabled={followBusy} onClick={() => void followAuthor()}>{followButtonLabel({ busy: followBusy, following: followingAuthor, requested: pendingAuthor })}</button> : null}<button className="detail-more-button" type="button" aria-label="เพิ่มเติม" onClick={() => setMoreOpen(true)}><WynosIcon name="moreVertical" size={18} strokeWidth={2} /></button></div>{row.caption ? <Caption value={row.caption} /> : null}</div>
         <MediaGallery urls={images} />
-        <div className={`detail-actions flutter-detail-actions ${publicAudience ? "public" : "private"}`}><button className={liked ? "active like" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} onClick={() => void interact("like")}><AnimatedHeart size={26} liked={liked} />{row.like_count ?? 0}</button><button type="button" aria-label="ความคิดเห็น" onClick={() => composerRef.current?.focus()}><WynosIcon name="comment" size={24} strokeWidth={2} />{row.comment_count ?? 0}</button>{publicAudience ? <button className={redropped ? "active" : ""} type="button" aria-label={redropped ? "ยกเลิกรีโพสต์" : "รีโพสต์"} onClick={() => void interact("redrop")}><WynosIcon name="repost" size={24} strokeWidth={2} />{row.redrop_count ?? 0}</button> : null}<button type="button" aria-label="แชร์โพสต์" onClick={() => void share()}><WynosIcon name="share" size={24} strokeWidth={2} /></button><button className={saved ? "active" : ""} type="button" aria-label={saved ? "นำออกจากที่บันทึก" : "บันทึกโพสต์"} onClick={() => void interact("save")}><WynosIcon name="bookmark" size={24} strokeWidth={2} fill={saved ? "currentColor" : "none"} /></button></div>
+        <div className={`detail-actions flutter-detail-actions ${publicAudience ? "public" : "private"}`}><button className={liked ? "active like" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} aria-pressed={liked} onClick={() => void interact("like")}><AnimatedHeart size={24} strokeWidth={2} liked={liked} />{row.like_count ?? 0}</button><button type="button" aria-label="ความคิดเห็น" onClick={() => composerRef.current?.focus()}><WynosIcon name="comment" size={24} strokeWidth={2} />{row.comment_count ?? 0}</button>{publicAudience ? <button className={redropped ? "active" : ""} type="button" aria-label={redropped ? "ยกเลิกรีโพสต์" : "รีโพสต์"} aria-pressed={redropped} onClick={() => void interact("redrop")}><WynosIcon name="repost" size={24} strokeWidth={2} />{row.redrop_count ?? 0}</button> : null}<button type="button" aria-label="แชร์โพสต์" onClick={() => void share()}><WynosIcon name="share" size={24} strokeWidth={2} /></button><button className={saved ? "active" : ""} type="button" aria-label={saved ? "นำออกจากที่บันทึก" : "บันทึกโพสต์"} aria-pressed={saved} onClick={() => void interact("save")}><WynosIcon name="bookmark" size={24} strokeWidth={2} fill={saved ? "currentColor" : "none"} /></button></div>
         <button className="detail-activity-row" type="button" onClick={() => setActivityOpen(true)}><span className="detail-activity-icon"><WynosIcon name="poll" size={22} strokeWidth={2} /></span><strong>ดูกิจกรรม</strong><WynosIcon name="chevronRight" size={27} strokeWidth={2} /></button>
       </article>
 
@@ -394,6 +403,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       {deleteDropOpen ? <ConfirmDialog title="ลบโพสต์นี้หรือไม่?" body="โพสต์จะถูกนำออกจาก WYNOS และยังคงใช้ระบบกู้คืนเดิม" dangerLabel="ลบ" onCancel={() => setDeleteDropOpen(false)} onConfirm={() => void deleteDrop()} /> : null}
       {deleteCommentTarget ? <ConfirmDialog title="ลบคอมเมนต์นี้หรือไม่?" dangerLabel="ลบ" onCancel={() => setDeleteCommentTarget(null)} onConfirm={() => void deleteComment(deleteCommentTarget)} /> : null}
       {reportOpen ? <TextDialog title="รายงานโพสต์" value={reportText} placeholder="รายละเอียดที่ต้องการรายงาน" confirmLabel="ส่งรายงาน" onChange={setReportText} onCancel={() => { setReportOpen(false); setReportText(""); }} onConfirm={() => void reportDrop()} /> : null}
+      <Toast message={toastMessage} />
       {moreOpen ? <div className="route-modal-backdrop detail-more-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal detail-more-sheet" role="dialog" aria-modal="true" aria-label="ตัวเลือกโพสต์" onClick={(event) => event.stopPropagation()}>{ownDrop ? <>{Date.now() - new Date(row.created_at).getTime() < 30 * 60 * 1000 ? <button type="button" onClick={() => { setEditCaption(row.caption ?? ""); setMoreOpen(false); setEditOpen(true); }}><WynosIcon name="pencil" size={19} strokeWidth={2} />แก้ไข</button> : null}<button className="danger" type="button" onClick={() => { setMoreOpen(false); setDeleteDropOpen(true); }}><WynosIcon name="trash" size={19} strokeWidth={2} />ลบ</button></> : <button type="button" onClick={() => { setMoreOpen(false); setReportOpen(true); }}><WynosIcon name="flag" size={19} strokeWidth={2} />รายงานโพสต์</button>}</section></div> : null}
     </AppChrome>
   );

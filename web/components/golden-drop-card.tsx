@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
+import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
@@ -14,6 +15,7 @@ import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import { loadHomeViewerState, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
+import { shareOrCopyLink } from "@/lib/share";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Sheet = "more" | "redrop" | "quote" | "report" | null;
@@ -169,10 +171,10 @@ export function GoldenDropCard({ row, homeParity = false }: { row: HomeFeedRow; 
     setBusy(false);
   };
 
+  const { toastMessage, showToast } = useToast();
   const share = async () => {
     const url = `${window.location.origin}/drop/${row.id}`;
-    try { if (navigator.share) await navigator.share({ title: authorLabel(row), text: row.caption || "WYNOS", url }); else await navigator.clipboard.writeText(url); }
-    catch { /* native share cancelled */ }
+    await shareOrCopyLink({ title: authorLabel(row), text: row.caption || "WYNOS", url }, showToast);
   };
 
   const report = async () => {
@@ -210,7 +212,7 @@ export function GoldenDropCard({ row, homeParity = false }: { row: HomeFeedRow; 
           modernFeed
         />
       ) : (
-        <div className="golden-drop-actions"><button className={liked ? "liked" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} onClick={() => void like()}><AnimatedHeart size={22} strokeWidth={2} liked={liked} />{likeCount > 0 ? <span>{likeCount}</span> : null}</button><Link href={`/drop/${row.id}#comments`} aria-label="ความคิดเห็น"><WynosIcon name="comment" size={22} strokeWidth={2} />{(row.comment_count ?? 0) > 0 ? <span>{row.comment_count}</span> : null}</Link>{canRedrop ? <button className={redropped ? "active" : ""} type="button" aria-label="รีโพสต์" onClick={() => setSheet("redrop")}><WynosIcon name="repost" size={24} strokeWidth={2} />{redropCount > 0 ? <span>{redropCount}</span> : null}</button> : null}<button className="golden-drop-share" type="button" aria-label="แชร์" onClick={() => void share()}><WynosShareIcon size={24} /></button><button className={`golden-drop-save-inline ${saved ? "active" : ""}`} type="button" aria-label={saved ? "ยกเลิกบันทึก" : "บันทึก"} aria-pressed={saved} onClick={() => void save()}><WynosIcon name="bookmark" size={22} strokeWidth={2} fill={saved ? "currentColor" : "none"} /></button>{viewCount != null ? <span className="golden-drop-view"><WynosIcon name="eye" size={22} strokeWidth={2} />{viewCount > 0 ? <span>{viewCount}</span> : null}</span> : null}</div>
+        <div className="golden-drop-actions"><button className={liked ? "liked" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} aria-pressed={liked} onClick={() => void like()}><AnimatedHeart size={22} strokeWidth={2} liked={liked} />{likeCount > 0 ? <span>{likeCount}</span> : null}</button><Link href={`/drop/${row.id}#comments`} aria-label="ความคิดเห็น"><WynosIcon name="comment" size={22} strokeWidth={2} />{(row.comment_count ?? 0) > 0 ? <span>{row.comment_count}</span> : null}</Link>{canRedrop ? <button className={redropped ? "active" : ""} type="button" aria-label="รีโพสต์" aria-pressed={redropped} onClick={() => setSheet("redrop")}><WynosIcon name="repost" size={22} strokeWidth={2} />{redropCount > 0 ? <span>{redropCount}</span> : null}</button> : null}<button className="golden-drop-share" type="button" aria-label="แชร์" onClick={() => void share()}><WynosShareIcon size={22} /></button><button className={`golden-drop-save-inline ${saved ? "active" : ""}`} type="button" aria-label={saved ? "ยกเลิกบันทึก" : "บันทึก"} aria-pressed={saved} onClick={() => void save()}><WynosIcon name="bookmark" size={22} strokeWidth={2} fill={saved ? "currentColor" : "none"} /></button>{viewCount != null ? <span className="golden-drop-view"><WynosIcon name="eye" size={22} strokeWidth={2} />{viewCount > 0 ? <span>{viewCount}</span> : null}</span> : null}</div>
       )}
     </div>
 
@@ -218,5 +220,6 @@ export function GoldenDropCard({ row, homeParity = false }: { row: HomeFeedRow; 
     {sheet === "redrop" ? <SheetFrame label="รีโพสต์" onClose={() => setSheet(null)}><button className="golden-drop-sheet-row" type="button" onClick={() => void redrop()}><WynosIcon name="repost" size={20} strokeWidth={2} />{redropped ? "ยกเลิก ReDrop" : "ReDrop"}</button><button className="golden-drop-sheet-row" type="button" onClick={() => setSheet("quote")}><WynosIcon name="quote" size={20} strokeWidth={2} />Quote ReDrop</button></SheetFrame> : null}
     {sheet === "quote" ? <SheetFrame label="Quote ReDrop" onClose={() => { setSheet(null); setQuote(""); }}><div className="golden-drop-sheet-form"><strong>Quote ReDrop</strong><textarea autoFocus maxLength={500} value={quote} onChange={(event) => setQuote(event.target.value)} placeholder="เขียนความคิดเห็นของคุณ…" />{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy || !quote.trim()} onClick={() => void quoteRedrop()}>รีโพสต์พร้อมความคิดเห็น</button></div></SheetFrame> : null}
     {sheet === "report" ? <SheetFrame label="รายงานโพสต์" onClose={() => { setSheet(null); setReportDetail(""); }}><div className="golden-drop-sheet-form"><strong>รายงานโพสต์</strong><div className="golden-drop-report-list">{reportCategories.map((item) => <label key={item.value}><input type="radio" name={`drop-report-${row.id}`} checked={reportCategory === item.value} onChange={() => setReportCategory(item.value)} />{item.label}</label>)}</div>{reportCategory === "other" ? <textarea maxLength={1000} value={reportDetail} onChange={(event) => setReportDetail(event.target.value)} placeholder="รายละเอียดเพิ่มเติม" /> : null}{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy} onClick={() => void report()}>ส่งรายงาน</button></div></SheetFrame> : null}
+    <Toast message={toastMessage} />
   </article>;
 }

@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
@@ -147,7 +148,7 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
                     <Avatar src={person.avatar_url} label={person.username} size={44} />
                     <span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span>
                   </Link>
-                  {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}
+                  {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{followButtonLabel({ busy: busy === person.id, following: person.following, requested: person.requested })}</button> : null}
                 </div>
               ))}
               {error ? <p className="route-error follow-list-error">{error}</p> : null}

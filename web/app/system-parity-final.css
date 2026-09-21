@@ -242,7 +242,20 @@
    during momentum scroll — the 2D-only transform it had before let the
    bar visually detach from the true viewport bottom mid-scroll, matching
    the "floating over content" screenshot the Founder flagged. */
-.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%,680px); transform: translate3d(-50%, 0, 0); will-change: transform; padding: 9px 9px max(9px, env(safe-area-inset-bottom)) 14px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); backdrop-filter: none; }
+/* --wyn-kb-inset / [data-keyboard-open] are published by useKeyboardInset()
+   (web/lib/use-keyboard-inset.ts) from window.visualViewport. Most of the
+   time interactiveWidget:"resizes-content" (app/layout.tsx) already shrinks
+   the layout viewport for the keyboard and --wyn-kb-inset stays 0, so the
+   transform below is a no-op; it only does real work where that isn't
+   honored (older iOS, in-app webviews, some standalone-PWA cases) and the
+   visual viewport shrinks without the layout viewport following — there
+   this keeps the composer pinned just above the keyboard instead of
+   getting hidden under it. */
+.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%,680px); transform: translate3d(-50%, calc(var(--wyn-kb-inset, 0px) * -1), 0); will-change: transform; padding: 9px 9px max(9px, env(safe-area-inset-bottom)) 14px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); backdrop-filter: none; transition: transform 0.12s ease-out; }
+/* The keyboard replaces the home-indicator safe area, so the extra
+   safe-area padding would otherwise leave a dead gap between the composer
+   and the keyboard while it's open. */
+:root[data-keyboard-open] .detail-composer-shell { padding-bottom: 9px; }
 .detail-reply-banner { min-height: 30px; padding: 0 0 6px 45px; display: flex; align-items: center; justify-content: space-between; color: var(--wyn-text-secondary); font-size: 12.5px; }
 .flutter-detail-composer { min-height: 46px; height: 46px; margin: 0; padding: 0; display: grid; grid-template-columns: 36px 10px minmax(0,1fr); align-items: center; border: 0; border-radius: 0; background: var(--wyn-bg); }
 .flutter-detail-composer > .route-avatar { grid-column: 1; }
@@ -294,6 +307,8 @@
 .beta4-ratio-chips button.active { border-color: var(--wyn-text); color: var(--wyn-text); font-weight: 600; }
 .beta4-character-count { margin-top: 10px; color: var(--wyn-text-secondary); font-size: 13px; }
 .beta4-composer-error { margin: 8px 0 0; }
+.beta4-draft-status { margin: 8px 0 0; color: var(--wyn-text-secondary); font-size: 13px; }
+.beta4-draft-status.error { color: #dc2626; }
 .beta4-poll-composer { margin-top: 12px; }
 .beta4-poll-options { display: grid; gap: 8px; }
 .beta4-poll-options label { min-height: 48px; display: grid; grid-template-columns: 28px minmax(0,1fr) 40px; align-items: center; border: 1px solid var(--wyn-border); border-radius: 12px; overflow: hidden; }

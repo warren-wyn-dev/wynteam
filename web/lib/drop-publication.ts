@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { MAX_POST_IMAGES } from "@/lib/post-limits";
+
 export class DropPublicationStateUnknownError extends Error {
   constructor(public readonly operationId: string) {
     super("สถานะการเผยแพร่ยังไม่แน่นอน กรุณาลองอีกครั้งโดยไม่เปลี่ยนโพสต์");
@@ -119,7 +121,7 @@ export async function publishDropSafely(
   input: PublishInput,
 ): Promise<PublishDropResult> {
   const caption = input.caption.trim();
-  const files = input.files.slice(0, 9);
+  const files = input.files.slice(0, MAX_POST_IMAGES);
   if (!caption && !files.length) throw new Error("Drop ต้องมีข้อความหรือรูปภาพ");
   if (caption.length > 500) throw new Error("ข้อความยาวเกิน 500 ตัวอักษร");
 

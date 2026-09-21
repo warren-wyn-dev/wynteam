@@ -63,10 +63,10 @@ test("first post matches compact avatar author caption and action geometry", asy
   await expect(redrop).toHaveCSS("color", "rgb(115, 115, 120)");
   await expect(redrop.locator("svg")).toHaveCSS("width", "16px");
   await expect(actions).toHaveCSS("min-height", "30px");
-  await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "24px");
+  await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "22px");
   const shareIcon = actions.getByRole("button", { name: "แชร์" }).locator(".wyn-share-icon");
-  await expect(shareIcon).toHaveCSS("width", "24px");
-  await expect(shareIcon).toHaveCSS("height", "24px");
+  await expect(shareIcon).toHaveCSS("width", "22px");
+  await expect(shareIcon).toHaveCSS("height", "22px");
   await expect(shareIcon.locator("path")).toHaveCount(2);
   await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(115, 119, 127)");
   await expect(moreText).toBeVisible();

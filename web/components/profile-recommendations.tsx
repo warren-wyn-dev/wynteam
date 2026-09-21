@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Avatar } from "@/components/phase3-ui";
+import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import type { HomeFeedRow } from "@/lib/feed";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
@@ -101,7 +102,7 @@ export function ProfileRecommendations({
               <strong>{profileLabel(profile)}</strong>
               <small>@{profile.username}</small>
             </button>
-            <button className={`recommendation-follow ${following || requested ? "soft" : ""}`} type="button" disabled={pending.has(profile.id)} onClick={() => void follow(profile)}>{following ? "กำลังติดตาม" : requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button>
+            <button className={`recommendation-follow ${following || requested ? "soft" : ""}`} type="button" disabled={pending.has(profile.id)} onClick={() => void follow(profile)}>{followButtonLabel({ busy: pending.has(profile.id), following, requested })}</button>
           </article>;
         })}
       </div>
