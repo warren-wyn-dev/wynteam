@@ -29,7 +29,16 @@ async function fetchExplore(client: SupabaseClient, userId: string): Promise<Sec
   const pending = new Set((membership.data ?? []).filter((row) => row.status === "pending").map((row) => String(row.club_id)));
   const discoverable = all.filter((club) => !approved.has(club.id));
   const popular = [...discoverable].sort((a, b) => b.member_count - a.member_count || b.created_at.localeCompare(a.created_at)).slice(0, 10);
-  const newest = [...discoverable].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 10);
+  // WYN-185 item 13: both sections used to slice the same `discoverable`
+  // pool independently, so with a small club count "ใหม่ล่าสุด" ended up
+  // showing the exact same clubs as "ยอดนิยม" in a different order.
+  // Excluding clubs already promoted into popular keeps the two sections
+  // distinct.
+  const popularIds = new Set(popular.map((club) => club.id));
+  const newest = [...discoverable]
+    .filter((club) => !popularIds.has(club.id))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 10);
   return { popular, newest, pending };
 }
 

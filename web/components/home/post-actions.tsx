@@ -48,6 +48,7 @@ export function PostActions({
         className={`wyn-action-button ${liked ? "is-liked" : ""}`}
         type="button"
         aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"}
+        aria-pressed={liked}
         onClick={onLike}
       >
         <AnimatedHeart size={22} strokeWidth={2} liked={liked} />
@@ -66,9 +67,12 @@ export function PostActions({
           className={`wyn-action-button ${redropped ? "is-active" : ""}`}
           type="button"
           aria-label="รีโพสต์"
+          aria-pressed={redropped}
           onClick={onRedrop}
         >
-          <WynosIcon name="repost" size={24} strokeWidth={2} />
+          {/* WYN-185 item 13: was 24 -- every other icon in this row is 22,
+              so this stood out slightly larger for no reason. */}
+          <WynosIcon name="repost" size={22} strokeWidth={2} />
           {count(redropCount)}
         </button>
       ) : null}
@@ -78,7 +82,7 @@ export function PostActions({
         aria-label="แชร์"
         onClick={onShare}
       >
-        <WynosShareIcon size={24} />
+        <WynosShareIcon size={22} />
       </button>
       {onSave ? (
         <button

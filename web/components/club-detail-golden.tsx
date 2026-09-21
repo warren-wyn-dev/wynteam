@@ -631,7 +631,12 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
           starting in the list itself. Safe to attach unconditionally: the
           hook's own `enabled: tab === "posts"` (see usePullToRefresh call
           above) already no-ops on the chat/about tabs. */}
-      <main
+      {/* WYN-185 item 13: was a second <main> nested inside AppChrome's own
+          <main className="route-main">, an invalid-HTML/accessibility bug
+          (a page must have exactly one <main> landmark) -- a plain <div>
+          carries the same layout/gesture wiring below without claiming a
+          second landmark. */}
+      <div
         className="golden-club-page"
         onTouchStart={pull.onTouchStart}
         onTouchMove={pull.onTouchMove}
@@ -679,7 +684,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
         ) : (
           <AboutTabView client={client} clubId={clubId} club={club} membership={membership} />
         )}
-      </main>
+      </div>
 
       {menu ? (
         <BottomSheet label="ตัวเลือก Club" onClose={() => setMenu(false)}>

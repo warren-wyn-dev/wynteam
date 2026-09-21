@@ -664,3 +664,90 @@ Files Changed:
 
 Tests: `npm run check` PASS. Playwright spec 3/3 PASS (chromium-desktop, same local
 executablePath workaround as prior batches, reverted after).
+
+## Batch 13 — UX/UI + Accessibility consistency pass
+
+Root Cause: A grab-bag of small consistency gaps accumulated across the app's several
+independent action-row/card implementations (Home feed, Search/Bookmarks feed, Post
+Detail, Club Detail, Club explore) because each was built at a different time and
+never cross-checked against the others.
+
+1. **Duplicate `<main>` landmark on Club Detail.** `club-detail-golden.tsx` wrapped its
+   whole page body in its own `<main className="golden-club-page">`, nested inside
+   `AppChrome`'s own `<main className="route-main">`. Two `<main>` landmarks on one
+   page is invalid HTML and breaks screen-reader page navigation (WCAG landmark
+   uniqueness). Fixed: changed the page's own wrapper from `<main>` to `<div>` — same
+   class, same gesture wiring (pull-to-refresh), no visual change.
+2. **Inconsistent action-row icon sizes.** Like/Comment/Bookmark were 22px while
+   Repost/Share were 24px, in three separate places: `post-actions.tsx` (Home feed),
+   `golden-drop-card.tsx`'s non-`homeParity` row (confirmed live on the Search results
+   page and Bookmarks page — neither passes `homeParity`, so they render this branch,
+   not the already-consistent Home-parity one), and `post-detail-route.tsx`'s
+   `detail-actions` row (`AnimatedHeart size={26}` vs `size={24}` for the rest — this
+   one turned out to already be visually masked by a global
+   `.flutter-detail-actions button svg { width:24px; height:24px }` CSS rule that
+   normalizes every icon's rendered size regardless of its React prop, but the prop
+   itself was still misleadingly wrong and is now fixed for correctness). Normalized
+   all three to 22/24px matching each row's other icons. Also fixed a matching CSS
+   override in `threads-action-row.css` (`.wyn-action-share .wyn-share-icon` was
+   pinned at 24px, which would have silently defeated the `post-actions.tsx` prop
+   change) — caught before shipping an ineffective fix, same class of bug as Batch 1's
+   cascade-order issue.
+3. **Missing `aria-pressed` on toggle buttons.** Like/Repost/Save buttons expose
+   on/off state visually (color change) but several didn't expose it to assistive
+   tech via `aria-pressed` (only `aria-label`, which doesn't convey current state).
+   Added `aria-pressed` to Like/Repost in `post-actions.tsx` (Save already had it),
+   and to Like/Repost/Save in `golden-drop-card.tsx`'s non-`homeParity` row and
+   `post-detail-route.tsx`'s `detail-actions` row (neither had any).
+4. **Trending/Newest club lists could show the same set twice.** Founder-flagged:
+   "Trending และ Newest ไม่ควรแสดงคลับชุดเดียวกันซ้ำทั้งหมด". Root cause:
+   `clubs-routes.tsx`'s `fetchExplore` built `popular` and `newest` as two independent
+   `.slice(0, 10)` selections from the same `discoverable` pool — with a small total
+   club count (expected at beta launch), both sections end up showing the exact same
+   clubs, just reordered. Fixed: `newest` now excludes any club already selected into
+   `popular` before its own top-10 slice, so the two sections stay visually distinct;
+   degrades gracefully (fewer items in "ใหม่ล่าสุด") rather than duplicating rows.
+5. **Club Detail's own like/save buttons audited** — confirmed it doesn't render a
+   duplicate action row of its own (posts inside a Club use the shared components
+   already covered above), so no separate fix needed there.
+
+Explicitly deferred / reported rather than silently resolved (too broad to safely
+complete inside this pass without dedicated design QA and a higher regression risk
+than the rest of this batch):
+- **44×44px hit areas for every icon button app-wide.** Spot-checked
+  `club-detail-golden.tsx`'s header/action buttons: `.golden-club-back` is 42×42,
+  `.golden-club-actions button/a` is min 34×38. Both are short of 44×44, and this
+  pattern likely repeats across many other screens' CSS. A full sweep touches dozens
+  of CSS files with real layout/visual risk on a design system that's otherwise
+  already shipped and reviewed — recommend a dedicated follow-up task scoped with
+  UI/UX Engineer review rather than folding it into this batch's tail end.
+- **App-wide terminology consistency (โพสต์/คลับ vs Post/Drop/Club mixing).** Spot
+  checks during this batch didn't surface a new instance beyond what's already
+  Thai-first per existing UI copy, but a systematic pass across every string in the
+  app is a large, separate audit better suited to its own task.
+- **Exhaustive "every action has success/error feedback" audit.** Largely already
+  covered incidentally by earlier batches (Share's toast, Save/Like's optimistic
+  state + rollback-on-error, image-limit's notice in Batch 12, etc.) — no new gap
+  found in the surfaces touched this batch, but this wasn't re-audited exhaustively
+  end-to-end across every action in the app.
+- **Page-transition timing** — already confirmed satisfied (`PageTransition` already
+  runs at 220ms, inside the requested 150–250ms range). No change needed.
+
+Files Changed:
+- `web/components/club-detail-golden.tsx` — `<main>` → `<div>` fix for the duplicate
+  landmark.
+- `web/components/home/post-actions.tsx` — Repost/Share icon size 24→22,
+  `aria-pressed` added to Like/Repost.
+- `web/app/threads-action-row.css` — `.wyn-action-share .wyn-share-icon` 24px→22px
+  to match the prop change above (was silently overriding it).
+- `web/components/golden-drop-card.tsx` — Repost/Share icon size 24→22, `aria-pressed`
+  added to Like/Repost/Save in the non-`homeParity` action row.
+- `web/components/post-detail-route.tsx` — `AnimatedHeart size={26}` → `size={24}`
+  with explicit `strokeWidth={2}` (source-level fix; CSS already normalized the
+  rendered size), `aria-pressed` added to Like/Repost/Save.
+- `web/components/clubs-routes.tsx` — `fetchExplore`'s `newest` selection now
+  excludes clubs already in `popular`.
+
+Tests: `npm run check` PASS (lint 0 errors / 2 pre-existing warnings, typecheck clean,
+build clean — same baseline as every prior batch) after each of the two edit rounds
+in this batch.
