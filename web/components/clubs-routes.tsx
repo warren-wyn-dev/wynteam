@@ -8,9 +8,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, searchClubs, type ClubRow } from "@/lib/phase3-data";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type Sections = { popular: ClubRow[]; newest: ClubRow[]; pending: Set<string> };
 
@@ -55,6 +57,7 @@ function ExploreClubs({ client, userId }: { client: SupabaseClient; userId: stri
     } catch { setError("โหลด Club ไม่สำเร็จ"); } finally { setLoading(false); }
   }, [client, userId, cacheKey]);
   useEffect(() => { void load(!hadCache.current); }, [load]);
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load() });
   const join = async (club: ClubRow) => {
     if (joining) return;
     setJoining(club.id); setError("");
@@ -66,6 +69,8 @@ function ExploreClubs({ client, userId }: { client: SupabaseClient; userId: stri
   const popular = sections.popular.filter(match);
   const newest = sections.newest.filter(match);
   return <AppChrome title="สำรวจ Club" userId={userId} backHref="/" showBottomNav={false}>
+    <PullToRefreshIndicator pull={pull} topOffset="60px" refreshingLabel="กำลังรีเฟรช Club" />
+    <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
     {loading ? <LoadingState /> : <div className="audit-club-explore">
       <section className="audit-club-hero"><h2>เจอคอมมูนิตี้ที่ใช่<span>สำหรับคุณ</span></h2><p>ร่วมคอมมูนิตี้ที่คุณสนใจ เชื่อมต่อกับคนที่คิดเหมือนกัน</p><button type="button" onClick={() => router.push("/clubs/new")}><WynosIcon name="post" size={17} strokeWidth={2} />สร้าง Club</button></section>
       <label className="audit-club-search"><WynosIcon name="search" size={16} strokeWidth={2} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหา Club" /></label>
@@ -73,6 +78,7 @@ function ExploreClubs({ client, userId }: { client: SupabaseClient; userId: stri
       <section className="audit-club-section"><h3>กำลังนิยม</h3>{popular.length ? popular.map((club) => <ExploreClubRow club={club} pending={sections.pending.has(club.id)} joining={joining === club.id} onJoin={() => void join(club)} key={`popular:${club.id}`} />) : <p className="audit-club-empty">{query ? `ไม่พบ Club ที่ตรงกับ “${query}”` : "ยังไม่มี Club กำลังนิยมตอนนี้"}</p>}</section>
       <section className="audit-club-section"><h3>ใหม่ล่าสุด</h3>{newest.length ? newest.map((club) => <ExploreClubRow club={club} pending={sections.pending.has(club.id)} joining={joining === club.id} onJoin={() => void join(club)} key={`new:${club.id}`} />) : <p className="audit-club-empty">{query ? `ไม่พบ Club ที่ตรงกับ “${query}”` : "ยังไม่มี Club ใหม่ตอนนี้"}</p>}</section>
     </div>}
+    </div>
   </AppChrome>;
 }
 
@@ -98,7 +104,13 @@ function MyClubs({ client, userId }: { client: SupabaseClient; userId: string })
     finally { setLoading(false); }
   }, [client, userId, cacheKey]);
   useEffect(() => { void load(!hadCache.current); }, [load]);
-  return <AppChrome title="Club ของฉัน" userId={userId} backHref="/" showBottomNav={false}>{loading ? <LoadingState /> : error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div> : rows.length ? <div className="audit-my-clubs">{rows.map((club) => <Link className="audit-my-club-row" href={`/club/${club.id}`} key={club.id}><ClubAvatar club={club} /><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก</small></span><WynosIcon name="chevronRight" size={18} strokeWidth={2} /></Link>)}</div> : <EmptyState>ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ</EmptyState>}</AppChrome>;
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load() });
+  return <AppChrome title="Club ของฉัน" userId={userId} backHref="/" showBottomNav={false}>
+    <PullToRefreshIndicator pull={pull} topOffset="60px" refreshingLabel="กำลังรีเฟรช Club ของฉัน" />
+    <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+      {loading ? <LoadingState /> : error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div> : rows.length ? <div className="audit-my-clubs">{rows.map((club) => <Link className="audit-my-club-row" href={`/club/${club.id}`} key={club.id}><ClubAvatar club={club} /><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก</small></span><WynosIcon name="chevronRight" size={18} strokeWidth={2} /></Link>)}</div> : <EmptyState>ยังไม่ได้เข้าร่วม Club ไหนเลย ลองสร้างหรือค้นหาดูสิ</EmptyState>}
+    </div>
+  </AppChrome>;
 }
 
 export function ClubsRoute({ mine = false }: { mine?: boolean }) {

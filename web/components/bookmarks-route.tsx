@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, DropPreviewCard, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import type { HomeFeedRow } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
@@ -47,25 +48,7 @@ function BookmarksInner({ client, userId }: { client: SupabaseClient; userId: st
   const pull = usePullToRefresh({ enabled: true, onRefresh: () => load(0, false) });
 
   return <AppChrome title="บันทึกไว้" userId={userId} backHref="/" showBottomNav={false}>
-    {pull.pullDistance > 0 || pull.refreshing ? (
-      <div
-        aria-label={pull.refreshing ? "กำลังรีเฟรชรายการที่บันทึกไว้" : "ลากลงเพื่อรีเฟรช"}
-        aria-live="polite"
-        style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
-      >
-        <div
-          className="route-system-spinner tiny"
-          style={{
-            position: "absolute",
-            top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
-            left: "50%",
-            opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
-            transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
-            transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
-          }}
-        />
-      </div>
-    ) : null}
+    <PullToRefreshIndicator pull={pull} topOffset="60px" refreshingLabel="กำลังรีเฟรชรายการที่บันทึกไว้" />
     <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
       {error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load(0, false)}>ลองใหม่</button></div> : loading && !rows.length ? <LoadingState /> : !rows.length ? <EmptyState>ยังไม่มีโพสต์ที่บันทึกไว้</EmptyState> : <div className="bookmarks-list">{rows.map((row) => <DropPreviewCard row={row} key={row.id} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>}
     </div>

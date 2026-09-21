@@ -8,9 +8,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type Kind = "followers" | "following";
 type Person = { id: string; username: string; display_name?: string | null; avatar_url?: string | null; is_verified: boolean; is_private: boolean; following: boolean; requested: boolean };
@@ -59,6 +61,7 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
     } catch { setError("โหลดรายชื่อไม่สำเร็จ"); } finally { setLoading(false); }
   }, [client, kind, profileId, viewerId, cacheKey]);
   useEffect(() => { void load(); }, [load]);
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load() });
   const follow = async (person: Person) => {
     if (person.id === viewerId || busy) return;
     if (!person.following) haptic();
@@ -71,29 +74,32 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
   };
   return (
     <AppChrome title="" userId={viewerId} backHref={`/profile/${profileId}`} headerMode="hidden" showBottomNav={false}>
-      <header className="wyn-profile-topbar">
-        <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={24} /></button>
-        <strong>{kind === "followers" ? "ผู้ติดตาม" : "กำลังติดตาม"}</strong>
-        <span />
-      </header>
-      <div className="follow-tabs" role="tablist" aria-label="ความสัมพันธ์">
-        <button type="button" role="tab" aria-selected={kind === "following"} className={kind === "following" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/following`)}>กำลังติดตาม</button>
-        <button type="button" role="tab" aria-selected={kind === "followers"} className={kind === "followers" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/followers`)}>ผู้ติดตาม</button>
-      </div>
-      {loading && !people.length ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : (
-        <div className="follow-list-route">
-          {people.map((person) => (
-            <div className="follow-list-row" key={person.id}>
-              <Link className="follow-list-person" href={`/profile/${person.id}`}>
-                <Avatar src={person.avatar_url} label={person.username} size={44} />
-                <span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span>
-              </Link>
-              {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}
-            </div>
-          ))}
-          {error ? <p className="route-error follow-list-error">{error}</p> : null}
+      <PullToRefreshIndicator pull={pull} topOffset="100px" refreshingLabel={kind === "followers" ? "กำลังรีเฟรชผู้ติดตาม" : "กำลังรีเฟรชกำลังติดตาม"} />
+      <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+        <header className="wyn-profile-topbar">
+          <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><ChevronLeft size={24} /></button>
+          <strong>{kind === "followers" ? "ผู้ติดตาม" : "กำลังติดตาม"}</strong>
+          <span />
+        </header>
+        <div className="follow-tabs" role="tablist" aria-label="ความสัมพันธ์">
+          <button type="button" role="tab" aria-selected={kind === "following"} className={kind === "following" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/following`)}>กำลังติดตาม</button>
+          <button type="button" role="tab" aria-selected={kind === "followers"} className={kind === "followers" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/followers`)}>ผู้ติดตาม</button>
         </div>
-      )}
+        {loading && !people.length ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : (
+          <div className="follow-list-route">
+            {people.map((person) => (
+              <div className="follow-list-row" key={person.id}>
+                <Link className="follow-list-person" href={`/profile/${person.id}`}>
+                  <Avatar src={person.avatar_url} label={person.username} size={44} />
+                  <span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span>
+                </Link>
+                {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}
+              </div>
+            ))}
+            {error ? <p className="route-error follow-list-error">{error}</p> : null}
+          </div>
+        )}
+      </div>
     </AppChrome>
   );
 }

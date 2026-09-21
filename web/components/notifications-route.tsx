@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NotificationSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
@@ -192,37 +193,22 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
-      <header className="notification-root-header">
-        <button type="button" aria-label="ออกจากการแจ้งเตือน" onClick={closeNotifications}><WynosIcon name="close" size={22} strokeWidth={2} /></button>
-        <strong>การแจ้งเตือน</strong>
-        <span aria-hidden="true" />
-      </header>
-      <div className="flutter-notification-tabs">
-        <button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>ทั้งหมด</button>
-        <button className={tab === "mentions" ? "active" : ""} type="button" onClick={() => setTab("mentions")}>การกล่าวถึง</button>
-      </div>
-
-      {pull.pullDistance > 0 || pull.refreshing ? (
-        <div
-          aria-label={pull.refreshing ? "กำลังรีเฟรชการแจ้งเตือน" : "ลากลงเพื่อรีเฟรช"}
-          aria-live="polite"
-          style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
-        >
-          <div
-            className="route-system-spinner tiny"
-            style={{
-              position: "absolute",
-              top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
-              left: "50%",
-              opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
-              transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
-              transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
-            }}
-          />
-        </div>
-      ) : null}
-
+      <PullToRefreshIndicator pull={pull} topOffset="106px" refreshingLabel="กำลังรีเฟรชการแจ้งเตือน" />
+      {/* Touch handlers wrap the header+tabs too, not just the list below —
+          a drag starting on that ~106px chrome (a small but real slice of a
+          scrolled-to-top screen) needs to register the same as one starting
+          lower, mirroring the fix applied to Profile's much taller header
+          for the same underlying reason. */}
       <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
+        <header className="notification-root-header">
+          <button type="button" aria-label="ออกจากการแจ้งเตือน" onClick={closeNotifications}><WynosIcon name="close" size={22} strokeWidth={2} /></button>
+          <strong>การแจ้งเตือน</strong>
+          <span aria-hidden="true" />
+        </header>
+        <div className="flutter-notification-tabs">
+          <button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>ทั้งหมด</button>
+          <button className={tab === "mentions" ? "active" : ""} type="button" onClick={() => setTab("mentions")}>การกล่าวถึง</button>
+        </div>
         {loading && !rows.length ? <NotificationSkeleton /> : !visible.length ? (
           <EmptyState>{tab === "mentions" ? "ยังไม่มีใครกล่าวถึงคุณ" : "ยังไม่มีการแจ้งเตือน"}</EmptyState>
         ) : (

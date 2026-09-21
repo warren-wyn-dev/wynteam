@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import {
@@ -598,7 +599,21 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}>
-      <main className="golden-club-page">
+      <PullToRefreshIndicator pull={pull} topOffset="0px" refreshingLabel="กำลังรีเฟรชโพสต์ Club" />
+      {/* Touch handlers wrap the whole page (banner/meta/tabs included),
+          not just the posts list below — a drag starting on that content
+          (most of a scrolled-to-top screen, since the banner alone can run
+          taller than the viewport) needs to register the same as one
+          starting in the list itself. Safe to attach unconditionally: the
+          hook's own `enabled: tab === "posts"` (see usePullToRefresh call
+          above) already no-ops on the chat/about tabs. */}
+      <main
+        className="golden-club-page"
+        onTouchStart={pull.onTouchStart}
+        onTouchMove={pull.onTouchMove}
+        onTouchEnd={pull.onTouchEnd}
+        onTouchCancel={pull.onTouchCancel}
+      >
         <section className="golden-club-header">
           <div className="golden-club-banner">
             {club.cover_url ? <Image src={club.cover_url} alt="" fill sizes="(max-width: 640px) 100vw, 640px" /> : null}
@@ -632,36 +647,9 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
         </nav>
 
         {tab === "posts" ? (
-          <>
-            {pull.pullDistance > 0 || pull.refreshing ? (
-              <div
-                aria-label={pull.refreshing ? "กำลังรีเฟรชโพสต์ Club" : "ลากลงเพื่อรีเฟรช"}
-                aria-live="polite"
-                style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
-              >
-                <div
-                  className="route-system-spinner tiny"
-                  style={{
-                    position: "absolute",
-                    top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
-                    left: "50%",
-                    opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
-                    transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
-                    transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
-                  }}
-                />
-              </div>
-            ) : null}
-            <section
-              className="golden-club-posts"
-              onTouchStart={pull.onTouchStart}
-              onTouchMove={pull.onTouchMove}
-              onTouchEnd={pull.onTouchEnd}
-              onTouchCancel={pull.onTouchCancel}
-            >
+          <section className="golden-club-posts">
             {club.privacy === "private" && !approved ? <EmptyState>เข้าร่วม Club เพื่อดูโพสต์</EmptyState> : posts.length ? posts.map((post) => <ClubPostCard client={client} userId={userId} initial={post} onChanged={() => void refresh()} key={post.id} />) : <EmptyState>ยังไม่มีโพสต์ใน Club นี้</EmptyState>}
-            </section>
-          </>
+          </section>
         ) : tab === "chat" ? (
           <ChatTab client={client} userId={userId} clubId={clubId} membership={membership} channels={channels} />
         ) : (
