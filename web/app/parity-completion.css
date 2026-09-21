@@ -27,6 +27,11 @@
 .top100-link { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 2px; border: 0; background: transparent; color: var(--sapphire); font-size: 13px; font-weight: 600; text-decoration: none; }
 .flutter-suggested-section { padding-bottom: 28px; }
 
+/* WYN-185 item 7: "ทั้งหมด" (All) tab — combined preview sections reusing
+   the same .route-section/.route-section-title rhythm as Discovery above. */
+.search-all-results { padding-bottom: 28px; }
+.search-all-see-more { min-height: 32px; padding: 0 4px; border: 0; background: transparent; color: var(--sapphire); font-size: 13px; font-weight: 600; }
+
 /* Profile: single canonical stylesheet is app/profile-golden-final.css —
    see docs/wyn-158-visual-parity-audit.md. Do not add profile rules here. */
 

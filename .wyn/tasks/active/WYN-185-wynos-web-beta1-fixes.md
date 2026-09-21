@@ -323,3 +323,57 @@ fix:
 No files changed in this batch. Reporting this as audited/verified rather than silently
 skipping it, per the Founder's own instruction to report rather than decide scope
 unilaterally when something doesn't need the assumed fix.
+
+## Batch 7 — Search: URL state, "ทั้งหมด" default tab, debounce, error states
+
+Root causes found:
+- `submit()` only ever set local React state (`query`), never touched the URL — so
+  typing a search and refreshing, going back, or sharing the link always landed back on
+  empty Discovery. There was no `type=` URL param at all.
+- Every submitted search defaulted to the "User" tab (`useState<...>("user")`, with a
+  `#`-prefixed query the only exception). A query that only matches post captions (no
+  matching username) opened on an empty "ไม่พบผู้ใช้" User tab first — exactly the bug
+  described.
+- No debounce — search only ran on explicit submit (Enter / the search icon).
+- `UserResults`/`DropResults`/`ClubResults` had no error handling at all: an unhandled
+  rejection just left `loading=false` with `rows=[]`, which renders identically to a
+  genuine "no results" empty state — a real search failure was indistinguishable from
+  "nothing matched."
+
+Files Changed:
+- `web/components/search-route.tsx`:
+  - `SearchInner` now reads `q`/`type` from the URL as the source of truth and writes
+    back via `router.replace()` (shallow, no history spam) — covers refresh/back/share.
+  - Added a debounced (400ms) as-you-type effect; Enter/the search icon still submits
+    immediately, bypassing the debounce.
+  - Added a new `AllResults` component (the "ทั้งหมด" tab, now the default) showing a
+    capped preview from each of Users/Posts/Clubs in one screen with "ดูทั้งหมด" links
+    into the full tab — the User-tab-first-look bug is gone by construction, since the
+    default no longer commits to one category before any data has loaded.
+  - Added a distinct error state (with a "ลองใหม่" retry) to `UserResults`,
+    `DropResults`, `ClubResults`, and the new `AllResults`, each with its own wording,
+    separate from their existing loading/empty states.
+  - Tab buttons got `role="tab"`/`aria-selected` (previously unlabeled toggle buttons).
+- `web/app/parity-completion.css` — `.search-all-results`/`.search-all-see-more` (reuses
+  the existing `.route-section`/`flutter-search-discovery` rhythm, no new visual
+  language introduced).
+- `web/components/dev/search-url-fixture.tsx` + `web/app/dev/search-url-fixture/page.tsx`
+  (new, no-backend fixture — reimplements just the URL/debounce plumbing against a stub
+  content area, since the real tab content needs a live Supabase session) +
+  `web/tests/browser/search-url-state.spec.ts` (new, 5 checks: debounced URL write,
+  "ทั้งหมด" default, tab-click persists across reload, a shared `?q=&type=` URL
+  reproduces the same search, a 1-character query doesn't fire).
+
+Tests: `npm run check` PASS. Playwright spec 5/5 PASS (chromium-desktop, same local
+executablePath workaround as prior batches, reverted after). Hit and worked around an
+apparent React Compiler ESLint bailout inconsistency (the identical
+sync-input-from-URL effect lints clean in the real, larger `search-route.tsx` but the
+same pattern in the small isolated fixture triggers `react-hooks/set-state-in-effect` —
+documented inline with a scoped disable rather than silently suppressed).
+
+Known Issues: Hashtag/mention links (`rich-post-text.tsx`, `/search?q=<tag>`) no longer
+jump straight to the Posts tab for a `#`-prefixed query the way the old code did —
+they now land on "ทั้งหมด" like every other search, per the Founder's explicit "All tab
+is the default" instruction. Flagging this behavior change explicitly since it wasn't
+called out by name in the bug report, in case the old hashtag-specific shortcut was
+intentional and should come back as a `type=posts` param on those specific links.

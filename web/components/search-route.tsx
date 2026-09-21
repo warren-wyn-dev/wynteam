@@ -54,10 +54,11 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
   const [page, setPage] = useState(cached?.page ?? 0);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(!cached);
+  const [error, setError] = useState("");
   const [pending, setPending] = useState<Set<string>>(new Set());
 
   const load = useCallback(async (nextPage: number, append: boolean) => {
-    setLoading(true);
+    setLoading(true); setError("");
     try {
       const next = await searchProfiles(client, query, nextPage);
       const combined = append ? [...rows, ...next] : next;
@@ -68,6 +69,8 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
       setHasMore(nextHasMore);
       setViewer(nextViewer);
       setMountCache(cacheKey, { rows: combined, viewer: nextViewer, page: nextPage, hasMore: nextHasMore });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ค้นหาผู้ใช้ไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
@@ -103,6 +106,7 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
   }, [client, pending, userId, viewer]);
 
   if (loading && !rows.length) return <SearchUserSkeleton />;
+  if (error && !rows.length) return <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load(0, false)}>ลองใหม่</button></div>;
   if (!rows.length) return <EmptyState>ไม่พบผู้ใช้สำหรับ “{query}”</EmptyState>;
   return (
     <div className="route-list">
@@ -135,8 +139,9 @@ function DropResults({ client, query }: { client: SupabaseClient; query: string 
   const [page, setPage] = useState(cached?.page ?? 0);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(!cached);
+  const [error, setError] = useState("");
   const load = useCallback(async (nextPage: number, append: boolean) => {
-    setLoading(true);
+    setLoading(true); setError("");
     try {
       const next = await searchDrops(client, query, nextPage);
       const nextHasMore = next.length === 21;
@@ -147,10 +152,13 @@ function DropResults({ client, query }: { client: SupabaseClient; query: string 
       });
       setPage(nextPage);
       setHasMore(nextHasMore);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ค้นหาโพสต์ไม่สำเร็จ");
     } finally { setLoading(false); }
   }, [client, query, cacheKey]);
   useEffect(() => { void load(0, false); }, [load]);
   if (loading && !rows.length) return <FeedSkeleton items={3} />;
+  if (error && !rows.length) return <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load(0, false)}>ลองใหม่</button></div>;
   if (!rows.length) return <EmptyState>ไม่พบโพสต์สำหรับ “{query}”</EmptyState>;
   return <div>{rows.map((row) => <DropPreviewCard row={row} key={row.id} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
@@ -162,8 +170,9 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
   const [page, setPage] = useState(cached?.page ?? 0);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(!cached);
+  const [error, setError] = useState("");
   const load = useCallback(async (nextPage: number, append: boolean) => {
-    setLoading(true);
+    setLoading(true); setError("");
     try {
       const next = await searchClubs(client, query, nextPage);
       const nextHasMore = next.length === 20;
@@ -174,10 +183,13 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
       });
       setPage(nextPage);
       setHasMore(nextHasMore);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ค้นหา Club ไม่สำเร็จ");
     } finally { setLoading(false); }
   }, [client, query, cacheKey]);
   useEffect(() => { void load(0, false); }, [load]);
   if (loading && !rows.length) return <SearchClubSkeleton />;
+  if (error && !rows.length) return <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load(0, false)}>ลองใหม่</button></div>;
   if (!rows.length) return <EmptyState>ไม่พบ Club สำหรับ “{query}”</EmptyState>;
   return <div className="route-list">{rows.map((club) => <Link href={`/club/${club.id}`} className="route-club-row" key={club.id}><span className="route-club-image">{club.icon_url ? <Image src={club.icon_url} alt="" width={46} height={46} sizes="46px" /> : club.name.slice(0, 1)}</span><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small></span></Link>)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
@@ -287,21 +299,128 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   );
 }
 
+type SearchTab = "all" | "users" | "posts" | "clubs";
+type AllResultsSnapshot = { users: ProfileRow[]; drops: HomeFeedRow[]; clubs: ClubRow[] };
+
+// WYN-185 item 7: the "ทั้งหมด" (All) default tab, so a query that only
+// matches posts (e.g. a caption keyword with no matching username) doesn't
+// land on an empty User tab first — every tab used to default to "user"
+// regardless of what the query actually matched.
+function AllResults({
+  client,
+  userId,
+  query,
+  onSelectTab,
+}: {
+  client: SupabaseClient;
+  userId: string;
+  query: string;
+  onSelectTab: (tab: SearchTab) => void;
+}) {
+  const cacheKey = `search-all:${userId}:${query}`;
+  const cached = getMountCache<AllResultsSnapshot>(cacheKey);
+  const [users, setUsers] = useState<ProfileRow[]>(cached?.users ?? []);
+  const [drops, setDrops] = useState<HomeFeedRow[]>(cached?.drops ?? []);
+  const [clubs, setClubs] = useState<ClubRow[]>(cached?.clubs ?? []);
+  const [loading, setLoading] = useState(!cached);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const [nextUsers, nextDrops, nextClubs] = await Promise.all([
+        searchProfiles(client, query, 0),
+        searchDrops(client, query, 0),
+        searchClubs(client, query, 0),
+      ]);
+      setUsers(nextUsers); setDrops(nextDrops); setClubs(nextClubs);
+      setMountCache(cacheKey, { users: nextUsers, drops: nextDrops, clubs: nextClubs });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ค้นหาไม่สำเร็จ");
+    } finally { setLoading(false); }
+  }, [client, query, cacheKey]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const empty = !users.length && !drops.length && !clubs.length;
+  if (loading && empty) {
+    return <div className="search-all-results"><SearchUserSkeleton items={3} /><FeedSkeleton items={2} /><SearchClubSkeleton items={2} /></div>;
+  }
+  if (error && empty) return <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div>;
+  if (empty) return <EmptyState>ไม่พบผลลัพธ์สำหรับ “{query}”</EmptyState>;
+
+  return (
+    <div className="search-all-results flutter-search-discovery">
+      {users.length ? (
+        <section className="route-section">
+          <div className="route-section-title"><h2>ผู้ใช้</h2>{users.length > 3 ? <button className="search-all-see-more" type="button" onClick={() => onSelectTab("users")}>ดูทั้งหมด</button> : null}</div>
+          <div className="route-list">{users.slice(0, 3).map((profile) => <ProfileRowView profile={profile} key={profile.id} />)}</div>
+        </section>
+      ) : null}
+      {drops.length ? (
+        <section className="route-section">
+          <div className="route-section-title"><h2>โพสต์</h2>{drops.length > 2 ? <button className="search-all-see-more" type="button" onClick={() => onSelectTab("posts")}>ดูทั้งหมด</button> : null}</div>
+          {drops.slice(0, 2).map((row) => <DropPreviewCard row={row} key={row.id} />)}
+        </section>
+      ) : null}
+      {clubs.length ? (
+        <section className="route-section">
+          <div className="route-section-title"><h2>Club</h2>{clubs.length > 2 ? <button className="search-all-see-more" type="button" onClick={() => onSelectTab("clubs")}>ดูทั้งหมด</button> : null}</div>
+          <div className="route-list">{clubs.slice(0, 2).map((club) => <Link href={`/club/${club.id}`} className="route-club-row" key={club.id}><span className="route-club-image">{club.icon_url ? <Image src={club.icon_url} alt="" width={46} height={46} sizes="46px" /> : club.name.slice(0, 1)}</span><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small></span></Link>)}</div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+const SEARCH_TABS: readonly SearchTab[] = ["all", "users", "posts", "clubs"];
+const SEARCH_DEBOUNCE_MS = 400;
+
+// WYN-185 item 7: query + result tab now live in the URL (?q=...&type=...)
+// instead of only in local state, so a refresh, back/forward navigation, or
+// a shared link all reproduce the same search instead of landing back on
+// empty Discovery. `type` is omitted from the URL for the "all" default to
+// keep the common-case URL short (/search?q=wynos instead of
+// /search?q=wynos&type=all).
 function SearchInner({ client, userId }: { client: SupabaseClient; userId: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const urlQuery = params.get("q")?.trim() ?? "";
+  const urlTabParam = params.get("type");
+  const tab: SearchTab = SEARCH_TABS.includes(urlTabParam as SearchTab) ? (urlTabParam as SearchTab) : "all";
   const [draft, setDraft] = useState(urlQuery);
-  const [query, setQuery] = useState(urlQuery.length >= 2 ? urlQuery : "");
-  const [tab, setTab] = useState<"user" | "drop" | "club">(urlQuery.startsWith("#") ? "drop" : "user");
+
+  // The URL is the source of truth; keep the input in sync when it changes
+  // from outside typing (back/forward, a shared link, the clear button).
+  useEffect(() => { setDraft(urlQuery); }, [urlQuery]);
+
+  const updateUrl = useCallback((nextQuery: string, nextTab: SearchTab) => {
+    const qs = new URLSearchParams();
+    if (nextQuery) qs.set("q", nextQuery);
+    if (nextTab !== "all") qs.set("type", nextTab);
+    const suffix = qs.toString();
+    router.replace(suffix ? `/search?${suffix}` : "/search");
+  }, [router]);
+
+  // Debounced as-you-type search (WYN-185 item 7: "ใช้ debounce สำหรับช่องค้นหา").
+  // Submitting via Enter/the search icon (submitNow below) bypasses this
+  // for an immediate result instead of waiting out the debounce.
   useEffect(() => {
-    if (urlQuery.length < 2) return;
-    setDraft(urlQuery);
-    setQuery(urlQuery);
-    if (urlQuery.startsWith("#")) setTab("drop");
-  }, [urlQuery]);
-  const submitted = query.trim().length >= 2 && draft.trim() === query;
-  const submit = () => setQuery(draft.trim());
+    const trimmed = draft.trim();
+    if (trimmed === urlQuery) return;
+    if (trimmed.length > 0 && trimmed.length < 2) return; // too short to search yet
+    const timer = window.setTimeout(() => updateUrl(trimmed, tab), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [draft, urlQuery, tab, updateUrl]);
+
+  const submitNow = () => {
+    const trimmed = draft.trim();
+    if (trimmed.length > 0 && trimmed.length < 2) return;
+    updateUrl(trimmed, tab);
+  };
+  const selectTab = (next: SearchTab) => updateUrl(urlQuery, next);
+  const clear = () => { setDraft(""); updateUrl("", tab); };
+
   const closeSearch = () => {
     if (window.history.length > 1) {
       router.back();
@@ -309,23 +428,30 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
     }
     router.push("/");
   };
-  const tabs = useMemo(() => [{ id: "user" as const, label: "User" }, { id: "drop" as const, label: "โพสต์" }, { id: "club" as const, label: "Club" }], []);
+  const submitted = urlQuery.length >= 2;
+  const tabs = useMemo(() => [
+    { id: "all" as const, label: "ทั้งหมด" },
+    { id: "users" as const, label: "User" },
+    { id: "posts" as const, label: "โพสต์" },
+    { id: "clubs" as const, label: "Club" },
+  ], []);
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
       <div className="flutter-search-header">
         <button className="search-back-button" type="button" aria-label="ออกจากหน้าค้นหา" onClick={closeSearch}><WynosIcon name="back" size={28} strokeWidth={2} /></button>
-        <form className="search-route-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+        <form className="search-route-form" onSubmit={(event) => { event.preventDefault(); submitNow(); }}>
           <button type="submit" aria-label="ค้นหา"><WynosIcon name="search" size={20} strokeWidth={2} /></button>
           <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="ค้นหา username, โพสต์, Club" inputMode="search" />
-          {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={() => { setDraft(""); setQuery(""); }}><WynosIcon name="close" size={18} strokeWidth={2} /></button> : null}
+          {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={clear}><WynosIcon name="close" size={18} strokeWidth={2} /></button> : null}
         </form>
       </div>
       {!submitted ? <Discovery client={client} userId={userId} /> : (
         <>
-          <div className="route-tabs flutter-search-tabs">{tabs.map((item) => <button type="button" className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}>{item.label}</button>)}</div>
-          {tab === "user" ? <UserResults client={client} userId={userId} query={query} /> : null}
-          {tab === "drop" ? <DropResults client={client} query={query} /> : null}
-          {tab === "club" ? <ClubResults client={client} query={query} /> : null}
+          <div className="route-tabs flutter-search-tabs" role="tablist" aria-label="ประเภทผลการค้นหา">{tabs.map((item) => <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => selectTab(item.id)} key={item.id}>{item.label}</button>)}</div>
+          {tab === "all" ? <AllResults client={client} userId={userId} query={urlQuery} onSelectTab={selectTab} /> : null}
+          {tab === "users" ? <UserResults client={client} userId={userId} query={urlQuery} /> : null}
+          {tab === "posts" ? <DropResults client={client} query={urlQuery} /> : null}
+          {tab === "clubs" ? <ClubResults client={client} query={urlQuery} /> : null}
         </>
       )}
     </AppChrome>
