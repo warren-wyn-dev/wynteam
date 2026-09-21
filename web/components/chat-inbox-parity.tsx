@@ -2,22 +2,26 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
+import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { ChatListSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
+import { useOnlineUserIds } from "@/lib/presence";
 import {
   acceptMessageRequest,
   chatAllowed,
   deleteMessageRequest,
   fetchInbox,
   fetchMessageRequests,
+  searchProfiles,
   subscribeMyMessages,
   type ConversationRow,
+  type ProfileRow,
 } from "@/lib/phase3-data";
 
 const NOTE_TEXT_KEY = "__wynos_note";
@@ -139,6 +143,8 @@ async function writeMyNote(client: SupabaseClient, userId: string, text: string)
 }
 
 function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; userId: string }) {
+  const router = useRouter();
+  const onlineIds = useOnlineUserIds();
   const { data, isLoading: loading, error: loadError, refetch } = useQuery({
     queryKey: ["chat-inbox", userId] as const,
     queryFn: () => fetchChatInboxData(client, userId),
@@ -162,6 +168,11 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   const [noteSaving, setNoteSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [actionError, setActionError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeQuery, setComposeQuery] = useState("");
+  const [composePeople, setComposePeople] = useState<ProfileRow[]>([]);
+  const [composeFinding, setComposeFinding] = useState(false);
   const error = actionError || (loadError instanceof Error ? loadError.message : "");
 
   const conversationByUserId = useMemo(
@@ -184,6 +195,28 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
       if (requests.length <= 1) setActiveTab("inbox");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "อัปเดตคำขอไม่สำเร็จ");
+    }
+  };
+
+  const findComposePeople = async () => {
+    const value = composeQuery.trim();
+    if (value.length < 2) { setComposePeople([]); return; }
+    setComposeFinding(true);
+    try { setComposePeople((await searchProfiles(client, value, 0)).filter((profile) => profile.id !== userId)); }
+    finally { setComposeFinding(false); }
+  };
+
+  const startConversation = async (profile: ProfileRow) => {
+    setComposeFinding(true);
+    setActionError("");
+    try {
+      if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้");
+      setComposeOpen(false);
+      router.push(`/chat/new?user=${encodeURIComponent(profile.id)}`);
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : "เริ่มแชทไม่สำเร็จ");
+    } finally {
+      setComposeFinding(false);
     }
   };
 
@@ -238,22 +271,52 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}>
       <section className="flutter-chat-inbox wyn-chat-inbox" aria-label="ข้อความ">
         <header className="flutter-chat-header">
-          <Link className="flutter-chat-header-action" href="/" aria-label="ย้อนกลับ">
-            <WynosIcon name="back" size={30} strokeWidth={1.9} />
-          </Link>
-          <h1>ข้อความ</h1>
-          <div className="wyn-chat-header-actions">
-            <button
-              className={`wyn-chat-requests-link ${activeTab === "requests" ? "is-active" : ""}`}
-              type="button"
-              aria-pressed={activeTab === "requests"}
-              aria-label={requests.length ? `คำขอข้อความ ${requests.length} รายการ` : "คำขอข้อความ"}
-              onClick={() => setActiveTab((current) => (current === "requests" ? "inbox" : "requests"))}
-            >
-              คำขอ
-              {requests.length ? <span>{requests.length}</span> : null}
+          {/* Chat is a root bottom-nav tab (AppChrome forces the bottom nav
+              visible on this route regardless of the showBottomNav prop
+              above), so a persistent "back to home" control doesn't belong
+              on its root screen -- matches every other root tab. Drilling
+              into "คำขอข้อความ" below still gets its own back control,
+              since that's a real sub-screen, not a root. */}
+          {activeTab === "requests" ? (
+            <button className="flutter-chat-header-action" type="button" aria-label="กลับ" onClick={() => setActiveTab("inbox")}>
+              <WynosIcon name="back" size={26} strokeWidth={1.9} />
             </button>
-          </div>
+          ) : <span />}
+          <h1>{activeTab === "requests" ? "คำขอข้อความ" : "ข้อความ"}</h1>
+          {activeTab === "requests" ? <span /> : (
+            <div className="wyn-chat-header-actions">
+              {/* Deliberately NOT .flutter-chat-header-action here (unlike
+                  the back button above): pixel-parity-audit-closure.css
+                  hardcodes that class to always render a back-arrow via a
+                  CSS mask and hides its actual child <svg> -- a leftover
+                  from when the class was exclusively the leading back
+                  button. Reusing it for these two made both of them render
+                  as back-arrows regardless of icon prop. */}
+              <button className="wyn-chat-header-icon" type="button" aria-label="เขียนข้อความใหม่" onClick={() => setComposeOpen(true)}>
+                <WynosIcon name="messageSquarePlus" size={22} strokeWidth={1.9} />
+              </button>
+              <div className="wyn-chat-menu-wrap">
+                <button className="wyn-chat-header-icon" type="button" aria-label="เพิ่มเติม" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
+                  <WynosIcon name="more" size={22} strokeWidth={1.9} />
+                  {/* "คำขอ" moved off the persistent header (the approved
+                      redesign has just two icon buttons here) and into this
+                      menu -- this dot keeps it discoverable without a
+                      permanent header badge. */}
+                  {requests.length ? <span className="wyn-chat-menu-dot" aria-hidden="true" /> : null}
+                </button>
+                {menuOpen ? <>
+                  <button className="wyn-chat-menu-backdrop" type="button" aria-label="ปิดเมนู" onClick={() => setMenuOpen(false)} />
+                  <div className="wyn-chat-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setActiveTab("requests"); }}>
+                      <WynosIcon name="messagesSquare" size={18} strokeWidth={1.9} />
+                      <span>คำขอข้อความ</span>
+                      {requests.length ? <b>{requests.length}</b> : null}
+                    </button>
+                  </div>
+                </> : null}
+              </div>
+            </div>
+          )}
         </header>
 
         <label className="flutter-chat-search">
@@ -274,7 +337,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                 {me?.note || "เพิ่มโน้ต"}
               </span>
               <span className="wyn-chat-note-avatar-wrap">
-                <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={54} />
+                <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={62} />
                 <span className="wyn-chat-note-plus"><WynosIcon name="post" size={15} strokeWidth={2.4} /></span>
               </span>
               <small>โน้ตของคุณ</small>
@@ -289,7 +352,8 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                 <Link className="wyn-chat-note-card" href={href} key={note.id}>
                   <span className="wyn-chat-note-bubble has-note">{note.note}</span>
                   <span className="wyn-chat-note-avatar-wrap">
-                    <Avatar src={note.avatarUrl} label={note.username} size={54} />
+                    <Avatar src={note.avatarUrl} label={note.username} size={62} />
+                    {onlineIds.has(note.id) ? <span className="wyn-chat-online-dot" aria-label="ออนไลน์" /> : null}
                   </span>
                   <small>{note.name}</small>
                 </Link>
@@ -343,7 +407,10 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                       href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}
                       key={row.conversation_id}
                     >
-                      <Avatar src={row.other_avatar_url} label={row.other_username} size={52} />
+                      <span className="wyn-chat-row-avatar-wrap">
+                        <Avatar src={row.other_avatar_url} label={row.other_username} size={54} />
+                        {onlineIds.has(row.other_user_id) ? <span className="wyn-chat-online-dot" aria-label="ออนไลน์" /> : null}
+                      </span>
                       <span className="chat-row-copy">
                         <strong>{row.other_display_name?.trim() || row.other_username}</strong>
                         <small>{conversationPreview(row)}</small>
@@ -353,7 +420,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                           <time>{row.last_message_at ? relativeTimeTh(row.last_message_at) : ""}</time>
                           {unread ? <span className="wyn-chat-unread-dot" aria-label="ยังไม่อ่าน" /> : null}
                         </span>
-                        <WynosIcon name="chevronRight" size={21} strokeWidth={1.7} aria-hidden="true" />
                       </span>
                     </Link>
                   );
@@ -371,6 +437,34 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           </>
         )}
       </section>
+
+      {composeOpen ? (
+        <div className="route-modal-backdrop" onClick={() => setComposeOpen(false)} role="presentation">
+          <section className="route-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <header>
+              <strong>ข้อความใหม่</strong>
+              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setComposeOpen(false)}>
+                <WynosIcon name="close" size={24} strokeWidth={2} />
+              </button>
+            </header>
+            <form className="search-route-form compact" onSubmit={(event) => { event.preventDefault(); void findComposePeople(); }}>
+              <input autoFocus value={composeQuery} onChange={(event) => setComposeQuery(event.target.value)} placeholder="ค้นหา username" />
+              <button className="route-pill" type="submit">ค้นหา</button>
+            </form>
+            {composeFinding && !composePeople.length ? <LoadingState /> : (
+              <div className="route-list">
+                {composePeople.map((profile) => (
+                  <ProfileRowView
+                    profile={profile}
+                    key={profile.id}
+                    trailing={<button className="route-pill" type="button" disabled={composeFinding} onClick={() => void startConversation(profile)}>ส่งข้อความ</button>}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
 
       {noteOpen ? (
         <div className="wyn-note-screen" role="presentation">

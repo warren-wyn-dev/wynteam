@@ -11,6 +11,7 @@ import { WynosIcon } from "@/components/ui/wynos-icon";
 import type { HomeFeedRow } from "@/lib/feed";
 import { useUnreadNotificationCount } from "@/lib/notification-count";
 import type { ProfileRow } from "@/lib/phase3-data";
+import { usePresenceTracking } from "@/lib/presence";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function Avatar({ src, label, size = 42 }: { src?: string | null; label: string; size?: number }) {
@@ -65,6 +66,7 @@ export function AppChrome({
     if (userId) router.prefetch(`/profile/${userId}`);
   }, [router, userId]);
 
+  usePresenceTracking(getSupabaseBrowserClient(), userId);
   const unreadNotificationCount = useUnreadNotificationCount(getSupabaseBrowserClient(), userId, bottomNavVisible && !notificationRouteActive);
   const visibleUnreadNotificationCount = notificationRouteActive ? 0 : unreadNotificationCount;
   const notificationLabel = visibleUnreadNotificationCount > 0

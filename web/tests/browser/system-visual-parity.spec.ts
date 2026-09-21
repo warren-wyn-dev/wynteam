@@ -48,11 +48,19 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   const layout = read("app/layout.tsx");
 
   expect(page).toContain("ChatInboxParityRoute");
-  expect(chat).toContain("<h1>ข้อความ</h1>");
-  // WYN-170 removed the header compose button entirely (entry to a new chat
-  // moved to the profile page instead) — assert it stays gone.
-  expect(chat).not.toContain("wyn-chat-compose-action");
-  expect(chat).not.toContain('name="messageSquarePlus"');
+  // A Founder-supplied redesign mockup explicitly reversed 3 of WYN-170's
+  // decisions (confirmed 2026-09-21, after checking back given WYN-170's own
+  // deliberation history): the header compose button is back, the leading
+  // back-arrow is gone from the inbox root (kept only when drilled into
+  // "คำขอข้อความ"), and that request access moved off a persistent header
+  // button into the new "..." menu.
+  expect(chat).toContain('<h1>{activeTab === "requests" ? "คำขอข้อความ" : "ข้อความ"}</h1>');
+  expect(chat).toContain('name="messageSquarePlus"');
+  expect(chat).toContain("wyn-chat-header-icon");
+  expect(chat).toContain("wyn-chat-menu-wrap");
+  expect(chat).toContain('role="menuitem"');
+  expect(chat).toContain("wyn-chat-online-dot");
+  expect(chat).toContain("useOnlineUserIds");
   expect(chat).toContain("flutter-chat-search");
   expect(chat).toContain('placeholder="ค้นหาข้อความ"');
   expect(chat).toContain("wyn-chat-notes");
@@ -83,15 +91,24 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(notesCss).toContain("width: min(88%, 460px)");
   expect(notesCss).toContain("font-size: 10.5px");
   expect(notesCss).toContain("border-radius: 20px");
-  expect(notesCss).toContain("min-height: 136px");
-  expect(notesCss).toContain("grid-template-rows: 42px 58px 18px");
-  expect(notesCss).toContain("max-width: 108px");
-  expect(notesCss).toContain("-webkit-line-clamp: 2");
+  // 2026-09-21 redesign (Founder mockup spec): bigger notes row (avatar
+  // 60-64px, bubble up to 3 lines/116px), 80px chat rows, 48px/24px-radius
+  // search bar -- see .wyn-chat-header-icon/.wyn-chat-online-dot above for
+  // the header/menu/presence-dot half of the same pass.
+  expect(notesCss).toContain("min-height: 178px");
+  expect(notesCss).toContain("grid-template-rows: 74px 66px 18px");
+  expect(notesCss).toContain("max-width: 116px");
+  expect(notesCss).toContain("-webkit-line-clamp: 3");
   expect(notesCss).toContain("padding: 0 18px 10px 24px");
   expect(notesCss).toContain("box-sizing: border-box");
   expect(notesCss).toContain("justify-self: center");
-  expect(notesCss).toContain("width: 56px !important");
-  expect(notesCss).toContain("min-height: 82px !important");
+  expect(notesCss).toContain("width: 62px !important");
+  expect(notesCss).toContain("min-height: 80px !important");
+  expect(notesCss).toContain("height: 48px");
+  expect(notesCss).toContain("border-radius: 24px !important");
+  expect(notesCss).toContain("font-weight: 600 !important");
+  expect(notesCss).toContain(".wyn-chat-online-dot");
+  expect(notesCss).toContain(".wyn-chat-menu {");
   expect(notesCss).toContain(".wyn-chat-meta-stack");
   expect(chat).toContain("wyn-chat-meta-stack");
   expect(layout).toContain('import "./chat-notes.css";');
