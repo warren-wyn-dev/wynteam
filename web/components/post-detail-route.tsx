@@ -27,6 +27,7 @@ import {
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchDropById } from "@/lib/phase3-data";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 
 type ActivityTab = "likes" | "redrops";
 type ActivityProfile = { id: string; username: string; display_name?: string | null; avatar_url?: string | null; is_verified?: boolean };
@@ -200,6 +201,8 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const [viewerProfile, setViewerProfile] = useState<{ username: string; avatar_url?: string | null } | null>(cached?.viewerProfile ?? null);
   const composerRef = useRef<HTMLInputElement | null>(null);
   const scrollYRef = useRef(0);
+
+  useKeyboardInset();
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
