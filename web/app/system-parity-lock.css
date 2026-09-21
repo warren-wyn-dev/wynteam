@@ -419,7 +419,7 @@
   border-bottom: 0;
 }
 
-.settings-row > span:first-child {
+.settings-row > .settings-row-copy {
   min-width: 0;
   display: flex;
   flex-direction: column;
