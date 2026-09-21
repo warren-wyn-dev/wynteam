@@ -23,3 +23,7 @@
 ทดสอบ scroll เร็วๆ ที่หน้า Post Detail บนไอโฟนจริงหลัง deploy
 
 **Rollback Plan**: Revert PR — เป็น CSS diff เล็ก ไม่กระทบ business logic ปลอดภัยที่จะ revert ทันที
+
+**Deployment Result**:
+- `WYN-158 Production Deploy` run #170 (https://github.com/warren-wyn-dev/wynteam/actions/runs/35562071732) — **success** ทุก step, deploy ขึ้น `wynos.online` แล้ว
+- รอ Founder verify การแก้ iOS momentum-scroll lag บนอุปกรณ์จริง (ลอง scroll เร็วๆ ที่หน้า Post Detail)
