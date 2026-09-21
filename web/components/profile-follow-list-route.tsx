@@ -2,7 +2,7 @@
 
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -15,6 +15,10 @@ import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type Kind = "followers" | "following";
+// Order matches the tab buttons rendered below (กำลังติดตาม, ผู้ติดตาม) —
+// swiping right/left moves to the previous/next entry, same convention as
+// Profile's PROFILE_TABS (components/profile-route.tsx).
+const FOLLOW_TABS: readonly Kind[] = ["following", "followers"];
 type Person = { id: string; username: string; display_name?: string | null; avatar_url?: string | null; is_verified: boolean; is_private: boolean; following: boolean; requested: boolean };
 
 async function fetchPeople(client: SupabaseClient, viewerId: string, profileId: string, kind: Kind): Promise<Person[]> {
@@ -62,6 +66,55 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
   }, [client, kind, profileId, viewerId, cacheKey]);
   useEffect(() => { void load(); }, [load]);
   const pull = usePullToRefresh({ enabled: true, onRefresh: () => load() });
+  // Horizontal tab-swipe between กำลังติดตาม/ผู้ติดตาม — mirrors Profile's
+  // own tab-swipe (components/profile-route.tsx). Unlike Profile, these
+  // "tabs" are separate routes (this component remounts with a new `kind`
+  // prop), so a completed swipe navigates instead of setting local state.
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const [slideStyle, setSlideStyle] = useState<{ transform: string; transition: string }>({
+    transform: "translateX(0px)",
+    transition: "none",
+  });
+  const onTabSwipeStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.changedTouches[0];
+    if (touch) swipeStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+  const onTabSwipeMove = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      const index = FOLLOW_TABS.indexOf(kind);
+      const atStart = index === 0 && deltaX > 0;
+      const atEnd = index === FOLLOW_TABS.length - 1 && deltaX < 0;
+      const dragX = atStart || atEnd ? deltaX * 0.35 : deltaX;
+      setSlideStyle({ transform: `translateX(${dragX}px)`, transition: "none" });
+    }
+  };
+  const onTabSwipeEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    const touch = event.changedTouches[0];
+    swipeStart.current = null;
+    if (!start || !touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaY) >= Math.abs(deltaX) || Math.abs(deltaX) < 55) {
+      setSlideStyle({ transform: "translateX(0px)", transition: "transform 200ms ease-out" });
+      return;
+    }
+    const index = FOLLOW_TABS.indexOf(kind);
+    const next = deltaX < 0
+      ? Math.min(FOLLOW_TABS.length - 1, index + 1)
+      : Math.max(0, index - 1);
+    setSlideStyle({ transform: "translateX(0px)", transition: "transform 200ms ease-out" });
+    if (FOLLOW_TABS[next] !== kind) router.push(`/profile/${profileId}/${FOLLOW_TABS[next]}`);
+  };
+  const onTabSwipeCancel = () => {
+    swipeStart.current = null;
+    setSlideStyle({ transform: "translateX(0px)", transition: "transform 200ms ease-out" });
+  };
   const follow = async (person: Person) => {
     if (person.id === viewerId || busy) return;
     if (!person.following) haptic();
@@ -85,20 +138,22 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
           <button type="button" role="tab" aria-selected={kind === "following"} className={kind === "following" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/following`)}>กำลังติดตาม</button>
           <button type="button" role="tab" aria-selected={kind === "followers"} className={kind === "followers" ? "active" : ""} onClick={() => router.push(`/profile/${profileId}/followers`)}>ผู้ติดตาม</button>
         </div>
-        {loading && !people.length ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : (
-          <div className="follow-list-route">
-            {people.map((person) => (
-              <div className="follow-list-row" key={person.id}>
-                <Link className="follow-list-person" href={`/profile/${person.id}`}>
-                  <Avatar src={person.avatar_url} label={person.username} size={44} />
-                  <span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span>
-                </Link>
-                {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}
-              </div>
-            ))}
-            {error ? <p className="route-error follow-list-error">{error}</p> : null}
-          </div>
-        )}
+        <div style={slideStyle} onTouchStart={onTabSwipeStart} onTouchMove={onTabSwipeMove} onTouchEnd={onTabSwipeEnd} onTouchCancel={onTabSwipeCancel}>
+          {loading && !people.length ? <LoadingState /> : !people.length ? <EmptyState>{error || (kind === "followers" ? "ยังไม่มีผู้ติดตาม" : "ยังไม่ได้ติดตามใคร")}</EmptyState> : (
+            <div className="follow-list-route">
+              {people.map((person) => (
+                <div className="follow-list-row" key={person.id}>
+                  <Link className="follow-list-person" href={`/profile/${person.id}`}>
+                    <Avatar src={person.avatar_url} label={person.username} size={44} />
+                    <span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span>
+                  </Link>
+                  {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{person.following ? "กำลังติดตาม" : person.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button> : null}
+                </div>
+              ))}
+              {error ? <p className="route-error follow-list-error">{error}</p> : null}
+            </div>
+          )}
+        </div>
       </div>
     </AppChrome>
   );
