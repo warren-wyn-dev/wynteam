@@ -70,6 +70,12 @@ test("post context stays reachable behind the fixed composer (single scroll cont
   // keyboard for space.
   const before = await page.locator("#post-context").boundingBox();
   await page.mouse.wheel(0, 400);
+  // mouse.wheel() dispatches the event and returns before the browser has
+  // necessarily painted the resulting scroll -- reading the bounding box
+  // immediately after is a race that occasionally samples the pre-scroll
+  // frame in headless Chromium/WebKit (flaky ~15-20% locally and in CI).
+  // Wait for the scroll to actually land before asserting on it.
+  await page.waitForFunction(() => window.scrollY > 0);
   const after = await page.locator("#post-context").boundingBox();
   expect(before).not.toBeNull();
   expect(after).not.toBeNull();

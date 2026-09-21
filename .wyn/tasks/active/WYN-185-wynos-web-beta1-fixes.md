@@ -836,3 +836,29 @@ requirement, not a new gap).
 Next per AGENTS.md Release Gates: CTO final review, then Staging Gate, then explicit
 Founder approval before Production. No AI agent deploys or applies production SQL
 without that approval.
+
+## Staging — Founder approved production ("อนุญาตขึ้นเว็บ"); CI flake fix
+
+Founder gave explicit production deployment approval and applied
+`migrations_wyn187_profile_external_link_validation.sql` themselves via the Supabase
+Dashboard (per Change Control — no AI applies production SQL). PR #586 (this branch
+→ `main`) updated with full 13-item scope description.
+
+Real CI (`browser-qa`, the full cross-browser Playwright matrix, 267 tests across
+5 projects) caught something the local/QA runs on this sandbox's single
+`chromium-desktop` project hadn't: `post-detail-keyboard.spec.ts`'s "single scroll
+container" test failed on 2 of 5 projects (webkit-iphone, chromium-desktop) — same
+test QA had already flagged as a known LOW/flaky local issue, but this was its first
+run against the full real matrix. Root cause confirmed: `page.mouse.wheel(0, 400)`
+returns before the browser necessarily paints the resulting scroll, so reading
+`#post-context`'s bounding box immediately after is a race — occasionally samples
+the pre-scroll frame. Fixed by waiting for `window.scrollY > 0` before asserting,
+instead of reading position synchronously after dispatch. Verified with 6 consecutive
+local runs (previously ~15-20% fail rate) — all passed. Full suite re-confirmed
+89/89 PASS, `npm run check` clean.
+
+Files Changed: `web/tests/browser/post-detail-keyboard.spec.ts` (test-only, waits for
+actual scroll completion instead of racing it).
+
+Tests: `npm run check` PASS. `npx playwright test --project=chromium-desktop` 89/89
+PASS. Isolated re-run of the previously-flaky test: 6/6 PASS (was ~15-20% fail rate).
