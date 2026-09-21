@@ -60,11 +60,11 @@
   align-items: center;
   justify-content: center;
   gap: 1px;
-  color: var(--wyn-text-secondary);
+  color: var(--wyn-text-muted);
   text-decoration: none;
   font-size: 10px;
   line-height: 1;
-  font-weight: 400;
+  font-weight: 500;
   -webkit-tap-highlight-color: transparent;
   transition: transform var(--wyn-motion-duration) var(--wyn-motion-easing);
 }
