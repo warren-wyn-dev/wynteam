@@ -226,8 +226,13 @@
 .detail-comment-like.active.like { color: var(--wyn-accent); }
 .detail-comments-end { margin: 0; padding: 24px 16px 28px; color: var(--wyn-text-muted); font-size: 13px; text-align: center; }
 
-/* Fixed composer: 14/9/9/9 shell, 36px viewer avatar, 46px tinted field. */
-.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%,680px); transform: translateX(-50%); padding: 9px 9px max(9px, env(safe-area-inset-bottom)) 14px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); backdrop-filter: none; }
+/* Fixed composer: 14/9/9/9 shell, 36px viewer avatar, 46px tinted field.
+   translate3d (not translateX) + will-change forces its own compositor
+   layer, which is what keeps iOS Safari from letting this bar lag behind
+   during momentum scroll — the 2D-only transform it had before let the
+   bar visually detach from the true viewport bottom mid-scroll, matching
+   the "floating over content" screenshot the Founder flagged. */
+.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%,680px); transform: translate3d(-50%, 0, 0); will-change: transform; padding: 9px 9px max(9px, env(safe-area-inset-bottom)) 14px; background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); backdrop-filter: none; }
 .detail-reply-banner { min-height: 30px; padding: 0 0 6px 45px; display: flex; align-items: center; justify-content: space-between; color: var(--wyn-text-secondary); font-size: 12.5px; }
 .flutter-detail-composer { min-height: 46px; height: 46px; margin: 0; padding: 0; display: grid; grid-template-columns: 36px 10px minmax(0,1fr); align-items: center; border: 0; border-radius: 0; background: var(--wyn-bg); }
 .flutter-detail-composer > .route-avatar { grid-column: 1; }

@@ -46,7 +46,7 @@
 .detail-comment-like.active.like { color: var(--wyn-accent); }
 .detail-comments-end { margin: 0; padding: 24px 16px 28px; text-align: center; color: var(--wyn-text-muted); font-size: 13px; }
 
-.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%, 680px); transform: translateX(-50%); padding: 0 12px max(8px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--wyn-bg) 96%, transparent); border-top: 1px solid var(--wyn-border); backdrop-filter: blur(18px); }
+.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%, 680px); transform: translate3d(-50%, 0, 0); will-change: transform; padding: 0 12px max(8px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--wyn-bg) 96%, transparent); border-top: 1px solid var(--wyn-border); backdrop-filter: blur(18px); }
 .detail-reply-banner { min-height: 30px; padding: 5px 8px 0; display: flex; align-items: center; justify-content: space-between; color: var(--wyn-text-secondary); font-size: 12px; }
 .detail-reply-banner button { width: 28px; height: 28px; border: 0; background: transparent; color: var(--wyn-text-secondary); display: grid; place-items: center; }
 .flutter-detail-composer { min-height: 46px; height: 46px; margin: 7px 0 0; padding: 0 5px 0 14px; display: grid; grid-template-columns: minmax(0,1fr) 38px; align-items: center; border: 1px solid var(--wyn-border); border-radius: 999px; background: var(--wyn-bg); }
