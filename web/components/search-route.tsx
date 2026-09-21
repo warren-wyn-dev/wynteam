@@ -25,9 +25,16 @@ import {
   type RankedHashtag,
 } from "@/lib/phase3-data";
 
+// loadHomeViewerState() also queries drop_likes/saves/redrops (all uuid
+// drop_id/content_id columns) for whatever `id` these rows carry — a
+// non-uuid placeholder like "profile:<uuid>" makes those queries fail
+// server-side (invalid input syntax for type uuid), which throws and
+// leaves the caller's viewer state stuck at null forever. An empty id is
+// filtered out of dropIds before any drop-table query runs, so only the
+// author-scoped follow/request/privacy queries we actually need fire.
 function fakeRows(profiles: ProfileRow[]): HomeFeedRow[] {
   return profiles.map((profile) => ({
-    id: `profile:${profile.id}`,
+    id: "",
     content_type: "drop",
     author_id: profile.id,
     author_username: profile.username,
