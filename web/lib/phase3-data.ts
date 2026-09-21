@@ -697,6 +697,29 @@ export async function getOrCreateConversation(client: SupabaseClient, otherUserI
   return String(result.data);
 }
 
+// WYN-185 item 10: read-only lookup for the "compose a new DM" flow
+// (/chat/new?user=<id>) -- checked once on entry so re-opening a compose
+// screen for someone you already have a conversation (active or a pending
+// request either direction) with lands on that real conversation instead
+// of a stale, empty "start fresh" screen. get_or_create_conversation()
+// itself is already insert-idempotent (`on conflict ... do nothing` +
+// re-select), so this is a UX nicety, not the only thing preventing a
+// duplicate row -- just avoids showing compose mode at all when it isn't
+// needed.
+export async function findExistingConversationId(client: SupabaseClient, otherUserId: string): Promise<string | null> {
+  // RLS already scopes visible rows to conversations the caller is part of,
+  // and the (user_a_id, user_b_id) pair is unique per WYN-031's schema
+  // (always stored least/greatest), so filtering for "otherUserId is the
+  // other participant" can return at most one row.
+  const result = await client
+    .from("conversations")
+    .select("id")
+    .or(`user_a_id.eq.${otherUserId},user_b_id.eq.${otherUserId}`)
+    .maybeSingle();
+  fail(result.error, "ตรวจสอบบทสนทนาไม่สำเร็จ");
+  return result.data ? String(result.data.id) : null;
+}
+
 export async function acceptMessageRequest(client: SupabaseClient, conversationId: string): Promise<void> {
   const result = await client.rpc("accept_message_request", { p_conversation_id: conversationId });
   fail(result.error, "ยอมรับคำขอไม่สำเร็จ");

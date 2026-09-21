@@ -34,7 +34,6 @@ import {
   fetchProfileDrops,
   fetchProfileLikedDrops,
   fetchProfileSummary,
-  getOrCreateConversation,
   profileLabel,
   removeProfileImage,
   updateProfileBasics,
@@ -223,7 +222,10 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   const startChat = async () => {
     if (action) return;
     setAction(true); setError("");
-    try { if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้"); const id = await getOrCreateConversation(client, profile.id); router.push(`/chat/${id}?user=${encodeURIComponent(profile.id)}`); }
+    // WYN-185 item 10: open the composer first -- the conversation/Message
+    // Request itself is only created once the user actually sends, inside
+    // the composer's own submit(), not from tapping "ส่งข้อความ" here.
+    try { if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้"); router.push(`/chat/new?user=${encodeURIComponent(profile.id)}`); }
     catch (e) { setError(e instanceof Error ? e.message : "เปิด Chat ไม่สำเร็จ"); }
     finally { setAction(false); }
   };

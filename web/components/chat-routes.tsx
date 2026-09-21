@@ -26,6 +26,7 @@ import {
   fetchMessageRequests,
   fetchMessages,
   fetchProfileSummary,
+  findExistingConversationId,
   getOrCreateConversation,
   markConversationRead,
   searchProfiles,
@@ -102,9 +103,12 @@ function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: st
   const start = async (profile: ProfileRow) => {
     setFinding(true); setError("");
     try {
+      // WYN-185 item 10: open the composer first -- getOrCreateConversation()
+      // (which is what actually creates the conversation row/Message
+      // Request) now only runs from inside the composer's own submit(),
+      // triggered by an actual first send, not by tapping a person here.
       if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้");
-      const id = await getOrCreateConversation(client, profile.id);
-      router.push(`/chat/${id}?user=${encodeURIComponent(profile.id)}`);
+      router.push(`/chat/new?user=${encodeURIComponent(profile.id)}`);
     } catch (e) { setError(e instanceof Error ? e.message : "เริ่มแชทไม่สำเร็จ"); }
     finally { setFinding(false); }
   };
@@ -158,6 +162,12 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const router = useRouter();
   const params = useSearchParams();
   const userFromUrl = params.get("user") || "";
+  // WYN-185 item 10: /chat/new?user=<id> is a compose-only screen -- no
+  // conversation/message request exists yet. One is only ever created
+  // (via getOrCreateConversation, inside submit() below) the moment the
+  // user actually sends their first message, not the moment they open the
+  // composer.
+  const isComposeMode = conversationId === "new";
   const cacheKey = `conversation:${userId}:${conversationId}`;
   const cached = getMountCache<ConversationSnapshot>(cacheKey);
   const [otherId, setOtherId] = useState(userFromUrl);
@@ -223,6 +233,19 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     setLoading(true);
     void (async () => {
       try {
+        if (isComposeMode) {
+          const id = await resolveOther();
+          if (!id) throw new Error("ไม่พบผู้ใช้ที่จะเริ่มบทสนทนาด้วย");
+          if (!(await chatAllowed(client, id))) throw new Error("ไม่สามารถเปิดบทสนทนานี้ได้");
+          // Redirect straight into the real conversation if one already
+          // exists (active, or a pending request either direction) instead
+          // of showing a stale "start fresh" compose screen for it.
+          const existingId = await findExistingConversationId(client, id);
+          if (existingId) { if (live) router.replace(`/chat/${existingId}?user=${encodeURIComponent(id)}`); return; }
+          const summary = await fetchProfileSummary(client, userId, id);
+          if (live) { setOtherSummary(summary); setOther(summary?.profile ?? null); }
+          return;
+        }
         const id = await resolveOther();
         if (id) {
           if (!(await chatAllowed(client, id))) throw new Error("ไม่สามารถเปิดบทสนทนานี้ได้");
@@ -236,10 +259,11 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       } catch (e) { if (live) setError(e instanceof Error ? e.message : "โหลดบทสนทนาไม่สำเร็จ"); }
       finally { if (live) setLoading(false); }
     })();
+    if (isComposeMode) return () => { live = false; };
     const channel = subscribeConversationMessages(client, conversationId, () => { void refresh(); });
     channelRef.current = channel;
     return () => { live = false; if (channelRef.current) void client.removeChannel(channelRef.current); };
-  }, [client, conversationId, refresh, resolveOther, userId]);
+  }, [client, conversationId, isComposeMode, refresh, resolveOther, router, userId]);
 
   const loadOlder = async () => {
     const oldest = messages[messages.length - 1];
@@ -254,6 +278,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
 
   const submit = async () => {
     if (sending || (!draft.trim() && !file)) return;
+    if (isComposeMode && !otherId) return;
     const text = draft.trim();
     const attachedFile = file;
     const localPreviewUrl = attachedFile ? URL.createObjectURL(attachedFile) : null;
@@ -272,12 +297,25 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     setDraft(""); setFile(null); setSending(true); setError("");
     haptic();
     try {
-      const created = await sendMessage(client, userId, conversationId, { text, file: attachedFile });
+      // WYN-185 item 10: the conversation (and, if the recipient doesn't
+      // already follow the sender, the pending Message Request) is only
+      // ever created here, at the moment of an actual first send -- never
+      // just from opening the composer.
+      const realConversationId = isComposeMode ? await getOrCreateConversation(client, otherId) : conversationId;
+      const created = await sendMessage(client, userId, realConversationId, { text, file: attachedFile });
+      if (isComposeMode) {
+        // A full navigation (not just a state update) so the destination
+        // mounts fresh against the real conversation id -- realtime
+        // subscription, pagination, and the pending-request banner all
+        // depend on that id being real.
+        router.replace(`/chat/${realConversationId}?user=${encodeURIComponent(otherId)}`);
+        return;
+      }
       setMessages((current) => {
         const withoutTemp = current.filter((item) => item.id !== tempId);
         return withoutTemp.some((item) => item.id === created.id) ? withoutTemp : [created, ...withoutTemp];
       });
-      await markConversationRead(client, conversationId);
+      await markConversationRead(client, realConversationId);
     } catch (e) {
       setMessages((current) => current.filter((item) => item.id !== tempId));
       setDraft(text); setFile(attachedFile);
@@ -337,7 +375,9 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
         <div className="conversation-page conversation-modern">
           <header className="conversation-modern-header">
             <Link className="conversation-modern-back" href="/chat" aria-label="ย้อนกลับ"><WynosIcon name="back" size={30} strokeWidth={1.8} /></Link>
-            {other ? <WyniiConversationHeader client={client} userId={userId} conversationId={conversationId} other={other} displayName={displayName} canStart={meta?.status === "active"} onOpenProfile={() => router.push(`/profile/${other.id}`)} /> : <><span /><span /></>}
+            {other && !isComposeMode ? <WyniiConversationHeader client={client} userId={userId} conversationId={conversationId} other={other} displayName={displayName} canStart={meta?.status === "active"} onOpenProfile={() => router.push(`/profile/${other.id}`)} /> : other ? (
+              <><div className="conversation-modern-header-person"><Link href={`/profile/${other.id}`} aria-label={`ดูโปรไฟล์ ${displayName}`}><Avatar src={other.avatar_url} label={other.username} size={44} /></Link><span><Link href={`/profile/${other.id}`}><strong>{displayName}</strong></Link><small>@{other.username}</small></span></div><span /></>
+            ) : <><span /><span /></>}
           </header>
 
           {other ? <section className="conversation-profile-hero">

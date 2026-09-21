@@ -505,3 +505,58 @@ doing so would mean the same conflict-of-scope tradeoff `toggleAuthorFollow`'s
 wait-for-server design represents everywhere else in the app (a bigger, more invasive
 change than this item's concrete complaints called for). Flagging rather than silently
 picking one.
+
+## Batch 10 — Direct Message Request (compose-first, not request-on-tap)
+
+Confirmed the exact bug at the RPC layer: `get_or_create_conversation()` inserts the
+`conversations` row (`status='pending'` when the recipient doesn't already follow the
+sender) *and* sends the recipient a `message_request` notification the instant it's
+called — and both of this app's "ส่งข้อความ" entry points (`profile-route.tsx`'s
+`startChat()`, `chat-routes.tsx`'s new-message search flow `start()`) called it
+immediately on tap, before the user had typed anything.
+
+Files Changed:
+- `web/components/chat-routes.tsx` — `ConversationInner` now treats `conversationId
+  === "new"` (reachable at `/chat/new?user=<id>`, matched by the existing `/chat/[id]`
+  dynamic route, no new route needed) as compose mode: no conversation/message-request
+  exists yet, only the recipient's profile is loaded so the composer has a header to
+  show. `submit()` now creates the conversation (`getOrCreateConversation()`) *and*
+  sends the first message together, only when the user actually presses send — then
+  does a full navigation to the real `/chat/<id>` (realtime subscription, pagination,
+  and the "รอการตอบรับ" pending-request banner all depend on a real id). On entry,
+  compose mode checks for an already-existing conversation (`findExistingConversationId()`,
+  new, a plain read no RLS loosening needed) and redirects straight into it instead of
+  showing a stale "start fresh" screen — `get_or_create_conversation()` was already
+  insert-idempotent (`on conflict ... do nothing` + re-select) so this is a UX nicety
+  layered on an existing guarantee, not the only thing preventing a duplicate row.
+  `start()` (the inbox's new-message search flow) now navigates to `/chat/new?user=...`
+  instead of calling `getOrCreateConversation()` itself.
+  `WyniiConversationHeader` (the shared brand-pet header, keyed by conversation id) is
+  skipped in compose mode — no real conversation id exists yet for it to query — with a
+  plain avatar+name header shown instead.
+- `web/components/profile-route.tsx` — `startChat()` navigates to `/chat/new?user=...`
+  the same way.
+- `web/lib/phase3-data.ts` — `findExistingConversationId()` (new).
+- The existing "รอการตอบรับ"/"ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ" pending-request UI
+  (`chat-routes.tsx`'s `recipientPending`/`requesterPending` banners) needed no changes
+  — it already covers item 10's "แสดงสถานะ 'รอการตอบรับ' อย่างชัดเจน" requirement once a
+  conversation is actually created as pending; the bug was purely about *when* that
+  happened, not how it's displayed afterward.
+- Duplicate-request prevention: unchanged at the DB layer (already idempotent); the new
+  client-side `findExistingConversationId()` check is additional, not load-bearing.
+
+Tests: `npm run check` (lint+typecheck+build) PASS.
+
+Known Issues: No Playwright coverage added — this touches `ConversationInner`'s
+realtime subscription, optimistic message send, and the full compose→create→navigate
+flow, all of which need a live Supabase session (messages, realtime channels,
+conversation rows) to exercise meaningfully; a fixture faking all of that would be a
+much larger investment than this session's other `/dev/*-fixture` specs. Verified by
+tracing every branch by hand instead (compose-mode data loading vs. the original
+conversation-view path kept byte-identical for the non-compose case; the
+existing-conversation redirect; the submit()-time id resolution) and
+`npm run check`. The Founder should smoke-test the actual "ส่งข้อความ" flow (tap →
+composer opens with no request sent yet → type → send → lands in the real
+conversation, recipient sees a Message Request only now) against a live backend before
+production, since this is the riskiest, least directly-testable change in this batch
+of 13 items.
