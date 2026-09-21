@@ -11,8 +11,13 @@ native app
 
 **Changes**:
 - `web/app/layout.tsx` — เพิ่ม `interactiveWidget: "resizes-content"` (iOS 16.4+)
+- `web/app/system-parity-final.css` — ข้อ #5 (ในชุด feedback เดียวกัน) ยึด `.detail-comments .route-empty`
+  ขึ้นบนแทนการ center แนวตั้งกลางพื้นที่ว่างจำนวนมาก, verify ด้วย screenshot ก่อน/หลัง
 
 **PR**: [#585](https://github.com/warren-wyn-dev/wynteam/pull/585) (`claude/web-beta1-readiness-7hysen` → `main`)
+
+**เช็คแล้วไม่พบปัญหา**: ข้อ #7 (composer เล็ก/เบา — ปุ่มส่งจริงๆ 48×48px เกิน 44px มาตรฐานอยู่แล้ว)
+และ #9 (icon/count spacing — gap 7px ใกล้เคียงมาตรฐาน) ไม่พบ defect ชัดเจนใน screenshot เลยไม่แก้แบบเดา
 
 **ยังไม่ verify**: ความรู้สึกจริงบนอุปกรณ์ — sandbox ไม่มี iOS Safari รอ Founder ทดสอบเปิดคีย์บอร์ดที่
 หน้า Post Detail หลัง deploy
