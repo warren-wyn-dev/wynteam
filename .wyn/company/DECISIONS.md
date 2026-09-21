@@ -1944,3 +1944,38 @@ computed style), ค้นหา toggle เปิด/ปิดได้ถูก
 projects 267/267 PASS
 
 อ้างอิง: `.wyn/logs/deployments/2026-09-21-messages-redesign-notes-removed-deploy.md`
+
+## [2026-09-21] Chat หน้าข้อความ/สนทนา รอบที่ 3 — เอาปุ่มเขียนข้อความใหม่ออก + กลับสีเป็นขาวดำ
+
+Founder ส่งภาพหน้าจอ `/chat` ที่ deploy จริงอยู่แล้ว (จาก PR #589 ที่เพิ่ง merge ไปเมื่อครู่นี้) วงกลมสีแดงรอบปุ่ม
+ไอคอน "เขียนข้อความใหม่" ในหัวข้อ Chat Inbox แล้วบอกสองข้อ:
+
+1. **"เอาปุ่มนี้ออก"** — ลบปุ่ม compose (`เขียนข้อความใหม่` / `messageSquarePlus`) ออกจากหัวข้อ Chat Inbox
+2. **"แล้วสีแชทจากสีแดง เป็นสีดำ-ขาว ฟิวเธรด"** — กลับสี accent แดงของหน้าสนทนา (ที่เพิ่งใส่ในรอบที่ 2 เมื่อ
+   เช้านี้เอง) เป็นขาว-ดำแบบเดิม
+
+สิ่งที่ทำจริง:
+- **ลบปุ่ม compose ทั้งหมด** จาก `web/components/chat-inbox-parity.tsx` — ปุ่ม JSX, compose modal ทั้งบล็อก,
+  state (`composeOpen`/`composeQuery`/`composePeople`/`composeFinding`), ฟังก์ชัน `findComposePeople()` /
+  `startConversation()`, และ import ที่ไม่ใช้แล้ว (`useRouter`, `searchProfiles`, `ProfileRow`,
+  `LoadingState`, `ProfileRowView`) — ไม่ใช่แค่ซ่อนด้วย CSS
+- **กลับบับเบิลข้อความที่ส่งเองเป็นขาวดำ** ใน `web/app/conversation-modern.css`:
+  `.message-row.mine .message-bubble` background/color จาก `var(--wyn-accent)`/`#fff` กลับเป็น
+  `var(--wyn-text)`/`var(--wyn-bg)` — **คงมุม "หาง" asymmetric 6px ไว้เหมือนเดิม** (เป็นการแก้บั๊กจริง ไม่
+  เกี่ยวกับสี ไม่ต้อง revert)
+- **กลับสี read-receipt (เครื่องหมายถูกคู่ "อ่านแล้ว")** จาก `var(--wyn-accent)` เป็น `var(--wyn-text)` ใน
+  ไฟล์เดียวกัน — ตีความว่าเป็นส่วนหนึ่งของ "ฟิวเธรด" เดียวกัน
+- **กลับสีข้อความ "ออนไลน์" ในหัวข้อหน้าสนทนา** จาก `var(--wyn-accent)` เป็น `var(--wyn-text)` ทั้งใน
+  `web/components/wynii-chat.module.css` (`.status`) และ inline style ใน `web/components/chat-routes.tsx`
+- **ไม่แตะ**: จุดสถานะออนไลน์สีเขียว (`.wyn-chat-online-dot`, `.statusDot`) และจุดแจ้งเตือนสีแดงบนปุ่ม "..."
+  (`.wyn-chat-menu-dot`) — ตีความว่าเป็นสีเชิง semantic (สถานะ/แจ้งเตือน) ไม่ใช่ "สีแชท" ที่ Founder หมายถึง
+  ไม่ได้ถามยืนยันแยกกับ Founder เรื่องขอบเขตนี้ — หากไม่ตรงใจแจ้งกลับมาแก้เพิ่มได้
+
+ตรวจสอบ: `npm run check` PASS (0 error, 2 warning เดิม), เขียน throwaway visual fixture (ลบก่อน commit)
+ยืนยันด้วย dev server จริง — ปุ่ม compose หายจริง (`aria-label="เขียนข้อความใหม่"` หาไม่เจอ), บับเบิลข้อความ
+ส่งเองเป็น `rgb(10, 10, 10)` (`--wyn-text`) ตัวหนังสือขาว, บับเบิลคู่สนทนาเป็น `rgb(250, 250, 250)`
+(`--wyn-surface`) เหมือนเดิม, read-status เป็น `rgb(10, 10, 10)` ไม่ใช่แดงแล้ว, แก้ assertion ที่ล้าสมัยใน
+`system-visual-parity.spec.ts` (เดิมคาดว่าต้องมีปุ่ม compose) รัน full `npx playwright test` ครบ 3 CI browser
+projects 267/267 PASS
+
+PR: claude/messages-monochrome-v3 → main
