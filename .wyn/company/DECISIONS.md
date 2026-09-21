@@ -2031,3 +2031,34 @@ PASS ในรอบแรก, 1 fail (`phase4.spec.ts` "consumer routes render 
 เป็น flake จาก resource contention ตอนรันพร้อมกันทั้ง suite ไม่ใช่ regression จากโค้ดที่แก้ — รวมแล้ว 267/267
 
 PR: claude/tab-bar-fill-all → main
+
+## [2026-09-21] Composer (สร้างโพสต์) — เอาปุ่ม "บันทึกร่าง" ออก + ทำให้หัวข้อ "ฉบับร่าง" กดได้
+
+Founder ส่งภาพหน้าจอ composer ที่ว่างเปล่า (ยังไม่พิมพ์อะไร) พร้อมสองข้อ:
+
+1. **"เอาบันทึกร่าง ออก ย้ายไปอยู่ในปุ่มยกเลิก"** — เอาปุ่ม quick-action "บันทึกร่าง" ออกจาก bottom bar เพราะ
+   ฟังก์ชันเดียวกันมีอยู่แล้วในปุ่ม "ยกเลิก" (เมื่อมีเนื้อหาค้างอยู่ กด "ยกเลิก" จะเด้ง dialog
+   "บันทึกเป็นร่างก่อนออกไหม?" ที่มีตัวเลือก ทิ้ง/ยกเลิก/บันทึกร่างอยู่แล้ว) — ปุ่ม quick-action จึงซ้ำซ้อน
+2. **"เพิ่มเติม ฉบับร่าง ด้านบนสุด ควรกดได้นะ"** — หัวข้อ "ฉบับร่าง" กลางส่วนหัว composer (เดิมเป็นแค่ข้อความ
+   `<strong>`) ควรกดได้
+
+สิ่งที่ทำจริงใน `web/components/beta4-composer.tsx` และ `beta4-composer-refresh.module.css`:
+- ลบปุ่ม "บันทึกร่าง" quick-action, ฟังก์ชัน `saveDraftExplicit()`, และ import ไอคอน `Save` ที่ไม่ใช้แล้ว —
+  bottom bar grid เป็น 4 คอลัมน์คงที่อยู่แล้ว พอเหลือ 4 ปุ่มพอดีก็หายปัญหาแถวที่ 2 มีปุ่มเดียวโดดๆ ไปด้วย (เห็นใน
+  screenshot ที่ Founder ส่งมา) — autosave (บันทึกพื้นหลังทุก ~800ms) และปุ่ม "บันทึกร่าง" ใน close-dialog ไม่
+  กระทบ
+- เปลี่ยน `<strong>ฉบับร่าง</strong>` เป็น `<button onClick={goToDrafts}>` — ไม่มีเนื้อหาค้างอยู่ → พาไป `/drafts`
+  ทันที; มีเนื้อหาค้างอยู่ → เปิด close-confirmation dialog เดียวกับปุ่ม "ยกเลิก" ก่อน (ไม่ทิ้งงานที่พิมพ์ไว้เงียบๆ)
+  แล้วค่อยไป `/drafts` หลัง dialog resolve (ผ่าน `pendingNavRef`) — ปุ่ม "ยกเลิก" เดิมพาไป "/" เหมือนเดิม ไม่กระทบ
+  กัน (ตรวจสอบแยกกันทั้งสอง flow แล้ว)
+- ปรับ CSS `.draftTitle` ให้เป็นปุ่มที่ใช้งานได้จริง (reset border/background/font, hit-area 44px ขั้นต่ำ,
+  press-feedback transform เหมือนปุ่มอื่นในหัว)
+
+ตรวจสอบ: `npm run check` PASS (0 error, 2 warning เดิม), visual fixture ยืนยันด้วย screenshot จริง — bottom bar
+เหลือ 4 ปุ่มพอดีแถวเดียว, หัว composer หน้าตาเหมือนเดิมทุกอย่าง, และ interaction script ยืนยันครบ 5 เคส: (1) กด
+"ฉบับร่าง" ตอนไม่มีเนื้อหา → ไป /drafts ทันที (2) มีเนื้อหา → เปิด dialog ไม่ไปทันที (2b) กด "ทิ้ง" ใน dialog
+นั้น → ไป /drafts (3)(3b) ปุ่ม "ยกเลิก" เดิมยังทำงานแยกกัน ไม่ไป /drafts เหมือน mockup รัน full
+`npx playwright test` ครบ 3 CI browser projects — รอบแรกปนเปื้อนเพราะแก้โค้ดระหว่าง suite รันอยู่ (fail 2 ตัวที่
+ไม่เกี่ยวกับที่แก้เลย) รันซ้ำสะอาดหลังแก้เสร็จ: 267/267 PASS
+
+PR: claude/composer-remove-save-draft-button → main
