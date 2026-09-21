@@ -14,13 +14,12 @@
 **Deployment Result**:
 - `WYN-158 Production Deploy` run #165 (https://github.com/warren-wyn-dev/wynteam/actions/runs/35555681599) — **success** ทุก step
 
-**ขั้นตอนที่เหลือ (ต้องทำเองใน Vercel dashboard — ทำแทนไม่ได้)**:
-1. เข้า Vercel dashboard ของโปรเจกต์นี้
-2. แท็บ **Analytics** → กด Enable
-3. แท็บ **Speed Insights** → กด Enable
+**ขั้นตอน Vercel dashboard (ทำแทนไม่ได้ — Founder ทำเอง)**:
+1. **Analytics** — เปิดสำเร็จแล้ว (2026-09-21) ไม่ต้องผูกบัตรเครดิต
+2. **Speed Insights** — ยังไม่เปิด เพราะ Vercel ขอผูกบัตรเครดิตก่อนถึงจะเปิดได้ (ต่างจาก Analytics) Founder เลือก "ข้ามไปก่อน" — ยังไม่ผูกบัตร ค่อยว่ากันทีหลังถ้าต้องการ
 
-ก่อนกด Enable ทั้ง 2 อย่าง component จะไม่เก็บ/แสดงข้อมูลอะไรเลย (ไม่ error แค่เงียบ) ทำได้ฟรีบนแผน Hobby
+โค้ด `<SpeedInsights />` ยังอยู่ในระบบตามเดิม ไม่ error แค่ยังไม่เก็บข้อมูลจนกว่าจะเปิดใช้งานในอนาคต
 
-**Production Verification**: รอ Founder enable ใน dashboard แล้วเข้าใช้งานจริงสัก 2-3 วัน ถึงจะเริ่มเห็นข้อมูล Core Web Vitals จริงใน dashboard
+**Production Verification**: Analytics เปิดแล้ว — รอให้คนเข้าใช้งานจริงสัก 2-3 วัน ถึงจะเริ่มเห็นข้อมูล page view จริงใน Vercel dashboard
 
 **Rollback Plan**: Revert merge commit ผ่าน PR แยก — diff เป็น additive ล้วนๆ (เพิ่ม monitoring script) ไม่กระทบ business logic ปลอดภัยที่จะ revert ทันที
