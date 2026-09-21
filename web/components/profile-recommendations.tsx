@@ -11,9 +11,11 @@ import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@
 import { haptic } from "@/lib/haptics";
 import { fetchSuggestedProfiles, profileLabel, type ProfileRow } from "@/lib/phase3-data";
 
+// See identical comment in components/search-route.tsx: a non-uuid
+// placeholder id here breaks loadHomeViewerState()'s drop-table queries.
 function fakeRows(profiles: ProfileRow[]): HomeFeedRow[] {
   return profiles.map((profile) => ({
-    id: `suggested:${profile.id}`,
+    id: "",
     content_type: "drop",
     author_id: profile.id,
     author_username: profile.username,

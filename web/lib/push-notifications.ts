@@ -49,10 +49,18 @@ function firebaseApp(fb: Awaited<ReturnType<typeof loadFirebase>>, config: PushC
   });
 }
 
-/** Whether this browser/session can receive Web Push at all, independent of permission state. */
+/**
+ * Whether this browser/session can receive Web Push at all, independent of
+ * permission state — and whether the server actually has Firebase
+ * configured (production is missing these env vars until WYN-016 ships, so
+ * without this check the toggle would show as available and then always
+ * fail with a confusing error on tap).
+ */
 export async function pushSupported(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   if (!("Notification" in window) || !("serviceWorker" in navigator)) return false;
+  const config = await fetchPushConfig();
+  if (!config?.configured) return false;
   try {
     const fb = await loadFirebase();
     return await fb.isSupported();
