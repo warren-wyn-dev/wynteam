@@ -1,3 +1,5 @@
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata, Viewport } from "next";
 import { preconnect } from "react-dom";
 import { AppBottomNavHost } from "@/components/app-bottom-nav-runtime";
@@ -111,5 +113,5 @@ const supabaseOrigin = (() => {
 
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){
   if (supabaseOrigin) preconnect(supabaseOrigin, { crossOrigin: "anonymous" });
-  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition><AppBottomNavHost /><InstallPromptBanner /></QueryProvider></body></html>;
+  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><PageTransition>{children}</PageTransition><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
 }
