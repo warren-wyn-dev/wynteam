@@ -110,10 +110,13 @@ test("source contracts cannot regress to staged migration UI", async () => {
   for (const label of ["สำรวจ Club", "สร้าง Club", "Club ของฉัน", "บันทึกไว้", "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก"]) expect(homeDrawer).toContain(label);
   for (const contract of [
     "Quote ReDrop", "ไม่สนใจโพสต์นี้", "เลิกทำ", "submit_report", 'from("feed_signals")',
-    "navigator.share", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
+    // WYN-185 item 5: every "แชร์" call site was centralized onto the shared
+    // navigator.share()-with-clipboard-fallback helper -- home-screen.tsx no
+    // longer calls navigator.share() directly, it calls shareOrCopyLink().
+    "shareOrCopyLink", "toggleClubPostLike", "toggleAuthorFollow", "onShare",
   ]) expect(home).toContain(contract);
-  expect(postActions).toContain("<WynosShareIcon size={24} />");
-  expect(postActions).toContain('<WynosIcon name="repost" size={24} strokeWidth={2} />');
+  expect(postActions).toContain("<WynosShareIcon size={22} />");
+  expect(postActions).toContain('<WynosIcon name="repost" size={22} strokeWidth={2} />');
   expect(postActions).toContain('<WynosIcon name="bookmark" size={22} strokeWidth={2}');
   expect(postAuthorRow).toContain("ขอติดตามแล้ว");
   expect(postAuthorRow).toContain("showFollow && !following");

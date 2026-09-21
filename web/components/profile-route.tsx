@@ -371,12 +371,21 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
         <div className="wyn-profile-copy">
           <div className="wyn-profile-name">{name}{profile.is_verified ? <span className="route-verified">✓</span> : null}</div>
           {profile.bio ? <p className="wyn-profile-bio">{profile.bio}</p> : null}
-          {profile.social_links?.website ? (
-            <a className="wyn-profile-website" href={profile.social_links.website} target="_blank" rel="noopener noreferrer nofollow ugc">
-              <WynosIcon name="link" size={13} strokeWidth={2} />
-              {formatWebsiteLabel(profile.social_links.website)}
-            </a>
-          ) : null}
+          {/* WYN-185 item 11 (QA follow-up): re-validate at render time, not
+              just at write time. The DB trigger is the real boundary, but a
+              raw REST write (or a not-yet-migrated database) could still
+              store something unsafe -- normalizeExternalUrl() rejects
+              anything that isn't a plain http(s) URL before it ever becomes
+              an href. */}
+          {(() => {
+            const safeWebsite = profile.social_links?.website ? normalizeExternalUrl(profile.social_links.website) : null;
+            return safeWebsite ? (
+              <a className="wyn-profile-website" href={safeWebsite} target="_blank" rel="noopener noreferrer nofollow ugc">
+                <WynosIcon name="link" size={13} strokeWidth={2} />
+                {formatWebsiteLabel(safeWebsite)}
+              </a>
+            ) : null;
+          })()}
         </div>
       </div>
       {!summary.blockedBy ? (

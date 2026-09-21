@@ -751,3 +751,61 @@ Files Changed:
 Tests: `npm run check` PASS (lint 0 errors / 2 pre-existing warnings, typecheck clean,
 build clean — same baseline as every prior batch) after each of the two edit rounds
 in this batch.
+
+## QA follow-up — stale regression assertions + item 11 defense-in-depth
+
+QA & Security ran a full pass on Batch 1–13 (commit `a24797b`) and returned **FAIL**,
+full report at `.wyn/tasks/bugs/WYN-185-stale-regression-assertions.md`. Two findings:
+
+1. **HIGH (process/tests):** running the full `web/tests/browser/` suite (not just
+   `npm run check` + each batch's own new spec) found 3 pre-existing regression tests
+   hardcoding values that Batches 7 and 13 intentionally changed:
+   - `parity.spec.ts` — literal `size={24}` for the repost/share icons in
+     `post-actions.tsx` (Batch 13 changed these to `22` on purpose).
+   - `home-visual-parity.spec.ts` — computed CSS asserting `24px` on the live-rendered
+     repost/share icons (confirms the 22px change is live end-to-end; the test was
+     stale, not the product code).
+   - `system-visual-parity.spec.ts` — literal `useState<"user" | "drop" | "club">`
+     for Search's old local-state shape (Batch 7 intentionally moved this to a
+     URL-derived `SearchTab` with a new "ทั้งหมด" default tab).
+   Same class of mistake as WYN-184's 2026-09-20 lesson (`DECISIONS.md`) — recurred
+   one day later. **Fixed:** updated all 3 assertions to match the new,
+   intentionally-correct behavior (did not touch the product code Batches 7/13 already
+   changed on purpose). While re-running the full suite to confirm, found and fixed a
+   **4th** stale assertion the QA pass had not caught: `parity.spec.ts` also checked
+   for the literal `"navigator.share"` string in `home-screen.tsx`, which Batch 5
+   (item 5) had already replaced with the shared `shareOrCopyLink()` helper
+   (`lib/share.ts`) — updated the contract to check for `"shareOrCopyLink"` instead.
+2. **HIGH (security, deploy sequencing):** item 11's client renders
+   `profile.social_links.website` as a clickable link, but the DB trigger that's the
+   real write-time validation boundary (`migrations_wyn187_...sql`) isn't applied to
+   any database yet (by design — only the Founder applies migrations, per AGENTS.md).
+   Until it's applied, a raw REST PATCH could store an unsafe URI that a visitor would
+   then click. QA confirmed the trigger design itself is correct (7/7 + 5 additional
+   QA-authored probes all PASS) — this is purely a deploy-ordering risk, not a logic
+   bug. **Fixed as recommended defense-in-depth:** `profile-route.tsx` now re-runs
+   `normalizeExternalUrl()` on `social_links.website` at render time, immediately
+   before using it as `href` — so even if the migration is skipped, delayed, or a
+   future write path forgets to validate, the web client itself will never render an
+   unsafe URI as a link. **Still requires Founder/DevOps action independent of this
+   code change:** apply `migrations_wyn187_profile_external_link_validation.sql`
+   before or atomically with deploying this batch's web code — the client-side
+   re-validation is a safety net, not a replacement for the DB-side boundary.
+
+Files Changed:
+- `web/tests/browser/parity.spec.ts` — 2 stale literal-string fixes (icon sizes,
+  navigator.share → shareOrCopyLink).
+- `web/tests/browser/home-visual-parity.spec.ts` — 1 stale computed-CSS fix (icon
+  sizes).
+- `web/tests/browser/system-visual-parity.spec.ts` — 1 stale literal-string fix
+  (Search tab state shape).
+- `web/components/profile-route.tsx` — render-time `normalizeExternalUrl()`
+  re-validation before using the external link as `href`.
+
+Tests: `npm run check` PASS. Full `npx playwright test --project=chromium-desktop`
+suite: 89/89 PASS (previously 86/89 — the 3 QA-flagged assertions plus the 1
+self-caught `navigator.share` assertion, all now fixed; no flakiness on re-run,
+including the `post-detail-keyboard.spec.ts` test QA flagged as LOW/flaky). DB
+migration test scripts (`wyn_185`/`wyn_187`/`wyn_130`/`wyn_115`/`wyn_117`) not
+re-run — no SQL/migration files were touched in this follow-up round, and QA had
+already independently verified all of them clean against the same commit.
