@@ -1901,3 +1901,46 @@ Implementation: แก้ `web/components/chat-inbox-parity.tsx`, `web/app/chat-
 ตรวจสอบก่อน commit: `npm run check` PASS, เขียน throwaway visual fixture (ลบก่อน commit) render ผ่าน dev server จริงเพื่อยืนยันด้วยตาว่าตรง mockup รวมถึง computed style ตรง spec เป๊ะ (search 48px/24px radius, note avatar 62px, bubble max-width 116px, chat row 80px, ชื่อ font-weight 600), แก้ test `system-visual-parity.spec.ts` ที่ assert พฤติกรรมเดิมของ WYN-170 ให้ตรงกับพฤติกรรมใหม่ที่ Founder อนุมัติแล้ว, รัน full `npx playwright test` ครบ 3 CI browser projects 267/267 PASS
 
 อ้างอิง: `.wyn/tasks/completed/WYN-170-chat-inbox-premium-polish.md` (การตัดสินใจเดิมที่ถูกกลับ), `.wyn/logs/deployments/2026-09-21-chat-inbox-redesign-reverses-wyn170-deploy.md`
+
+## [2026-09-21] ข้อความ/แชท redesign รอบที่ 2 (Founder ส่งไฟล์ HTML/CSS mockup เต็มรูปแบบ) — เอาฟีเจอร์โน้ตออก
+
+Founder อัปโหลดไฟล์ zip `wynos-messages-web.zip` (static HTML/CSS mockup ของหน้าข้อความ + หน้าแชท ทั้งคู่) เป็น
+redesign รอบใหม่ แยกต่างหากจากรอบเช้าเดียวกันนี้ (Chat Inbox redesign ที่กลับคำตัดสิน WYN-170) — mockup นี้มี
+องค์ประกอบที่ไม่มีระบบรองรับจริงหลายจุด จึงถาม Founder 4 คำถามผ่าน AskUserQuestion ก่อนลงมือ:
+
+1. **ปุ่มโทร/วิดีโอคอล** ในหน้าแชท — แอปไม่มีระบบ WebRTC/signaling เลย Founder เลือก **"ไม่เอา"** — ตัดออกจาก
+   scope ทั้งหมด ไม่ใส่แม้เป็น placeholder (ตรงกับหลักการเดิมของ WYN-170: "ไม่เพิ่มปุ่มที่ยังไม่มีฟีเจอร์รองรับจริง")
+2. **ฟีเจอร์ "โน้ต"** (Notes, ของจริงที่ใช้งานอยู่) ไม่ปรากฏใน mockup ใหม่นี้เลย Founder เลือก **"เอาออก"** — ลบ
+   ทั้งหมด (state, functions, JSX, CSS) ไม่ใช่แค่ซ่อน
+3. **Typing indicator** ("กำลังพิมพ์...") เป็นฟีเจอร์ใหม่ที่พอต่อยอดจาก Realtime Presence ที่เพิ่งสร้างเมื่อ
+   เช้านี้ได้ Founder เลือก **"ข้ามไปก่อน"** — ไม่สร้างรอบนี้
+4. **สี accent** — mockup ใช้เขียว (#2E6B4F) แทนสีแดงเดิมของ WYNOS Founder เลือก **"ใช้สีแดงเดิม"** — ไม่เปลี่ยน
+   `--wyn-accent` ทั้งแอป
+
+สิ่งที่ทำจริงหลังตอบครบ:
+- **ลบฟีเจอร์โน้ตทั้งหมด** จาก `web/components/chat-inbox-parity.tsx` (NOTE_* constants, ChatNoteProfile,
+  stringMap/activeNote, writeMyNote, note state/handlers, JSX ทั้งแถวโน้ตและ composer overlay) และ CSS ที่
+  เกี่ยวข้องทั้งหมดใน `web/app/chat-notes.css`
+- **ค้นหาย้ายจาก full-width bar ที่เห็นตลอด เป็น icon toggle ใน header** — กดไอคอนแว่นขยายเพื่อเปิด/ปิด
+  ช่องค้นหา ตรรกะ filter เดิมไม่เปลี่ยน
+- **Redesign bubble ของหน้าแชท**: ข้อความที่ส่งเองเปลี่ยนพื้นเป็นสี accent แดง (จากเดิมสีดำ/`var(--wyn-text)`)
+  ตัวหนังสือขาว + เพิ่มมุม "หาง" ไม่สมมาตร (flat corner ด้านที่หันเข้าหาผู้ส่ง) — พบบั๊กจริงระหว่างแก้:
+  `conversation-modern.css` เคย override `border-bottom-*-radius` เป็นค่าเดียวกับ base rule (20px) ซึ่ง
+  เท่ากับไม่มีผลอะไรเลย มุมไม่เคย asymmetric จริงตั้งแต่แรก (ในขณะที่ `phase3.css` ต้นทางมี asymmetric 5px
+  อยู่แล้วแต่ถูกบล็อกไว้) — แก้เป็น 6px จริง
+- **เพิ่มสถานะออนไลน์ในหน้าแชทสนทนา** — จุดเขียวบน avatar + ข้อความ "ออนไลน์" สีแดง (accent) แทน @username
+  เมื่อคู่สนทนาออนไลน์อยู่ (ต่อยอดจาก `web/lib/presence.ts` ที่สร้างไว้เมื่อเช้านี้ ไม่ต้องเพิ่ม infra ใหม่)
+- **เขียนไฟล์ `chat-notes.css` ใหม่ทั้งไฟล์เป็น single source of truth** — ไฟล์นี้เคยมี 2 ยุคของ rule ซ้อนกัน
+  (WYN-162 ต้นฉบับ ถูก override ทับทั้งไฟล์โดยบล็อก "WYN-158 final lock" ที่มาทีหลัง) เป็นต้นเหตุความสับสนที่
+  เจอมาหลายครั้งในเซสชันนี้แล้ว ถือโอกาสรวมเป็น block เดียวตอนลบฟีเจอร์โน้ตพอดี (ความเสี่ยงต่ำเพราะมี full
+  regression suite + visual fixture ยืนยันหลังแก้)
+- **กลุ่มแชท ("กลุ่มเพื่อนคาเฟ่") ใน mockup ถือเป็นตัวอย่างประกอบภาพเท่านั้น** ไม่ได้สร้างระบบ group chat จริง
+  (แอปยังเป็น DM แบบ 1:1 เท่านั้น ไม่ใช่ scope ของรอบนี้)
+
+ตรวจสอบ: `npm run check` PASS, เขียน throwaway visual fixture (ลบก่อน commit) ยืนยันด้วย dev server จริง —
+เห็นสีปุ่ม accent แดงถูกต้อง (`rgb(224, 32, 61)` = `#e0203d`) มุมบับเบิล asymmetric จริง (6px ยืนยันด้วย
+computed style), ค้นหา toggle เปิด/ปิดได้ถูกต้อง, สถานะออนไลน์แสดงถูกจุด, แก้ test
+`system-visual-parity.spec.ts` ให้ตรงกับการลบฟีเจอร์โน้ต, รัน full `npx playwright test` ครบ 3 CI browser
+projects 267/267 PASS
+
+อ้างอิง: `.wyn/logs/deployments/2026-09-21-messages-redesign-notes-removed-deploy.md`

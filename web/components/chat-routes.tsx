@@ -16,6 +16,7 @@ import { relativeTimeTh } from "@/lib/feed";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { useOnlineUserIds } from "@/lib/presence";
 import {
   acceptMessageRequest,
   chatAllowed,
@@ -160,6 +161,7 @@ type ConversationSnapshot = { other: ProfileRow | null; messages: MessageRow[]; 
 
 function ConversationInner({ client, userId, conversationId }: { client: SupabaseClient; userId: string; conversationId: string }) {
   const router = useRouter();
+  const onlineIds = useOnlineUserIds();
   const params = useSearchParams();
   const userFromUrl = params.get("user") || "";
   // WYN-185 item 10: /chat/new?user=<id> is a compose-only screen -- no
@@ -375,8 +377,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
         <div className="conversation-page conversation-modern">
           <header className="conversation-modern-header">
             <Link className="conversation-modern-back" href="/chat" aria-label="ย้อนกลับ"><WynosIcon name="back" size={30} strokeWidth={1.8} /></Link>
-            {other && !isComposeMode ? <WyniiConversationHeader client={client} userId={userId} conversationId={conversationId} other={other} displayName={displayName} canStart={meta?.status === "active"} onOpenProfile={() => router.push(`/profile/${other.id}`)} /> : other ? (
-              <><div className="conversation-modern-header-person"><Link href={`/profile/${other.id}`} aria-label={`ดูโปรไฟล์ ${displayName}`}><Avatar src={other.avatar_url} label={other.username} size={44} /></Link><span><Link href={`/profile/${other.id}`}><strong>{displayName}</strong></Link><small>@{other.username}</small></span></div><span /></>
+            {other && !isComposeMode ? <WyniiConversationHeader client={client} userId={userId} conversationId={conversationId} other={other} displayName={displayName} canStart={meta?.status === "active"} online={onlineIds.has(other.id)} onOpenProfile={() => router.push(`/profile/${other.id}`)} /> : other ? (
+              <><div className="conversation-modern-header-person"><Link href={`/profile/${other.id}`} aria-label={`ดูโปรไฟล์ ${displayName}`}><Avatar src={other.avatar_url} label={other.username} size={44} /></Link><span><Link href={`/profile/${other.id}`}><strong>{displayName}</strong></Link>{onlineIds.has(other.id) ? <small style={{ color: "var(--wyn-accent)", fontWeight: 600 }}>ออนไลน์</small> : <small>@{other.username}</small>}</span></div><span /></>
             ) : <><span /><span /></>}
           </header>
 
