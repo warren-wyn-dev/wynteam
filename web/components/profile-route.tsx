@@ -23,7 +23,7 @@ import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
+import { triggerRouteRefresh, useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   canViewProfileLikes,
@@ -84,44 +84,16 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
     finally { setLoading(false); }
   }, [client, kind, profileId, cacheKey]);
   useEffect(() => { setAllowed(true); void load(0, false); }, [load]);
+  // Also the pull-to-refresh trigger now (see ProfileInner): that gesture's
+  // touch handlers moved up to cover the whole page, not just this feed, so
+  // it reaches ProfileFeed the same way the bottom-nav tap-refresh already
+  // does — through this existing pub/sub instead of a local hook instance.
   useRouteRefreshListener(useCallback(() => { void load(0, false); }, [load]));
 
-  // GA (2026-09-20, Founder decision): was staged-rollout-gated to
-  // developer accounts (WYN-125/WYN-182) — Founder asked to widen it to
-  // everyone.
-  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load(0, false) });
-
-  const body = loading && !rows.length ? <FeedSkeleton items={2} />
+  return loading && !rows.length ? <FeedSkeleton items={2} />
     : !allowed ? <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>
     : !rows.length ? <EmptyState>{kind === "posts" ? "ยังไม่มี Post เลย" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>
     : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
-
-  return (
-    <>
-      {pull.pullDistance > 0 || pull.refreshing ? (
-        <div
-          aria-label={pull.refreshing ? "กำลังรีเฟรชฟีด" : "ลากลงเพื่อรีเฟรช"}
-          aria-live="polite"
-          style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
-        >
-          <div
-            className="route-system-spinner tiny"
-            style={{
-              position: "absolute",
-              top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
-              left: "50%",
-              opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
-              transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
-              transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
-            }}
-          />
-        </div>
-      ) : null}
-      <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
-        {body}
-      </div>
-    </>
-  );
 }
 
 function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClient; userId: string; summary: ProfileSummary; onDone: () => void }) {
@@ -183,15 +155,25 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   const [tab, setTab] = useState<"posts" | "redrops" | "likes">("posts");
   // Horizontal tab-swipe gesture between สื่อ/รีโพสต์/ถูกใจ — mirrors Home's
   // own tab-swipe (components/home/home-screen.tsx) so both feel the same.
-  // Independent from ProfileFeed's own pull-to-refresh touch handlers
-  // (lib/use-pull-to-refresh.ts): that hook already no-ops for
-  // horizontal-dominant drags, so layering this on a wrapper div around
-  // <ProfileFeed> (touch events bubble up to it) needs no coordination.
+  // Independent from the pull-to-refresh touch handlers below (lib/use-
+  // pull-to-refresh.ts): that hook already no-ops for horizontal-dominant
+  // drags, so layering this on a wrapper div around <ProfileFeed> (touch
+  // events bubble up through it) needs no coordination.
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const [slideStyle, setSlideStyle] = useState<{ transform: string; transition: string }>({
     transform: "translateX(0px)",
     transition: "none",
   });
+  // GA (2026-09-20, Founder decision): was staged-rollout-gated to
+  // developer accounts (WYN-125/WYN-182) — Founder asked to widen it to
+  // everyone. Lives here (not inside ProfileFeed, its original home) and
+  // its touch handlers wrap the *entire* page body below — Profile's
+  // header/bio/stats/tabs are much taller than Home's compact header, so
+  // scoping the gesture to just the feed area (as it originally was,
+  // mirroring Home) left most of a scrolled-to-top screen unable to start
+  // a pull at all. `triggerRouteRefresh()` reaches ProfileFeed's `load`
+  // through the same pub/sub the bottom nav's tap-to-refresh already uses.
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => triggerRouteRefresh() });
   const [error, setError] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
@@ -353,6 +335,32 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   }
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
+    {pull.pullDistance > 0 || pull.refreshing ? (
+      // Pinned to the viewport top, not inline in the document flow —
+      // Profile's header/bio/stats/tabs are much taller than Home's
+      // compact header, so an inline indicator positioned where the feed
+      // starts (Home's original approach) would render buried below all
+      // that chrome, often off-screen, instead of visible where the pull
+      // gesture actually happens.
+      <div
+        aria-label={pull.refreshing ? "กำลังรีเฟรชโปรไฟล์" : "ลากลงเพื่อรีเฟรช"}
+        aria-live="polite"
+        style={{ position: "fixed", top: "env(safe-area-inset-top, 0px)", left: 0, right: 0, height: 0, zIndex: 60, pointerEvents: "none" }}
+      >
+        <div
+          className="route-system-spinner tiny"
+          style={{
+            position: "absolute",
+            top: pull.refreshing ? 14 : Math.max(6, Math.min(28, 8 + pull.pullDistance * 0.25)),
+            left: "50%",
+            opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
+            transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
+            transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
+          }}
+        />
+      </div>
+    ) : null}
+    <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
     <header className="wyn-profile-topbar">
       <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><WynosIcon name="back" size={24} strokeWidth={2} /></button>
       {own ? (
@@ -397,6 +405,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     </section>
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
     {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}><WynosIcon name="image" size={20} strokeWidth={2} />สื่อ</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}><WynosIcon name="repost" size={20} strokeWidth={2} />รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}><WynosIcon name="like" size={20} strokeWidth={2} />ถูกใจ</button></div><div style={slideStyle} onTouchStart={onTabSwipeStart} onTouchMove={onTabSwipeMove} onTouchEnd={onTabSwipeEnd} onTouchCancel={onTabSwipeCancel}><ProfileFeed client={client} profileId={profileId} kind={tab} /></div></> : null}
+    </div>
     {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <WynosIcon name="checkCircle" size={21} strokeWidth={2} /> : managingAccounts ? <button className="profile-account-remove" type="button" onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
     {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><button type="button" onClick={() => void share()}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
     <Toast message={toastMessage} />
