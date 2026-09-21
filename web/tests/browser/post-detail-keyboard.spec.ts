@@ -69,12 +69,14 @@ test("post context stays reachable behind the fixed composer (single scroll cont
   // move them, proving there's no separate inner scroller fighting the
   // keyboard for space.
   const before = await page.locator("#post-context").boundingBox();
-  await page.mouse.wheel(0, 400);
-  // mouse.wheel() dispatches the event and returns before the browser has
-  // necessarily painted the resulting scroll -- reading the bounding box
-  // immediately after is a race that occasionally samples the pre-scroll
-  // frame in headless Chromium/WebKit (flaky ~15-20% locally and in CI).
-  // Wait for the scroll to actually land before asserting on it.
+  // mouse.wheel() isn't supported in mobile WebKit emulation at all (throws
+  // "Mouse wheel is not supported in mobile WebKit" every time on the
+  // webkit-iphone CI project) and, separately, dispatches the event without
+  // waiting for the resulting scroll to paint -- scrollBy() + waiting for
+  // scrollY to actually land works uniformly across every browser project
+  // and asserts the same thing: scrolling the real window moves
+  // #post-context, proving it's normal document flow, not a nested scroller.
+  await page.evaluate(() => window.scrollBy(0, 400));
   await page.waitForFunction(() => window.scrollY > 0);
   const after = await page.locator("#post-context").boundingBox();
   expect(before).not.toBeNull();

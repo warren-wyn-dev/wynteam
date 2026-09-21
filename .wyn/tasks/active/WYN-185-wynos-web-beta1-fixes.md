@@ -862,3 +862,28 @@ actual scroll completion instead of racing it).
 
 Tests: `npm run check` PASS. `npx playwright test --project=chromium-desktop` 89/89
 PASS. Isolated re-run of the previously-flaky test: 6/6 PASS (was ~15-20% fail rate).
+
+**Correction — first fix was incomplete.** Pushing the `window.scrollY > 0` fix and
+re-running CI's real 3-project matrix (`browser-qa`: chromium-desktop, chromium-android,
+webkit-iphone, 267 tests) surfaced the actual, full root cause: `chromium-desktop`'s
+failure genuinely was the scroll-paint race the first fix addressed (now 0/1 failures
+there), but `webkit-iphone` was failing for a completely different, deterministic
+reason the local sandbox never exercised (it only had `chromium-desktop` installed):
+`page.mouse.wheel()` throws `"Mouse wheel is not supported in mobile WebKit"` on every
+run under mobile WebKit emulation — not a timing flake at all on that project, a hard
+API gap. Installed `webkit` + its system deps locally (`npx playwright install webkit`,
+`sudo npx playwright install-deps webkit`) to reproduce and verify. Fixed by replacing
+`page.mouse.wheel(0, 400)` with `page.evaluate(() => window.scrollBy(0, 400))` — a
+plain JS scroll that works identically across every engine — followed by the same
+`waitForFunction(() => window.scrollY > 0)` wait. Verified 4/4 on `webkit-iphone`
+locally, then ran the full suite across all 3 CI projects
+(`--project=webkit-iphone --project=chromium-android --project=chromium-desktop`):
+**267/267 PASS**, matching CI's exact matrix. `npm run check` clean.
+
+Files Changed (this correction): `web/tests/browser/post-detail-keyboard.spec.ts`
+(replaced `mouse.wheel` with `evaluate(() => window.scrollBy(...))`, same
+`waitForFunction` wait retained).
+
+Tests: `npm run check` PASS. `npx playwright test --project=webkit-iphone
+--project=chromium-android --project=chromium-desktop`: 267/267 PASS (all 3 CI
+projects, run locally to match CI exactly before pushing).
