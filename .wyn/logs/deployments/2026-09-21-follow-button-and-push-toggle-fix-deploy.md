@@ -30,3 +30,6 @@ reuse ฟังก์ชันนี้กับ profile list ธรรมดา
 
 **Rollback Plan**: Revert PR — ทั้ง 3 ไฟล์เป็น diff เล็ก ไม่กระทบ schema/migration ปลอดภัยที่จะ revert ทันที
 ถ้าจำเป็น (push toggle จะกลับไปโชว์แบบเดิม, ปุ่มติดตามจะกลับไปพังแบบเดิม — ไม่มีความเสี่ยง data loss)
+
+**Deployment Result**:
+- `WYN-158 Production Deploy` run #168 (https://github.com/warren-wyn-dev/wynteam/actions/runs/35558239436) — **success** ทุก step, deploy ขึ้น `wynos.online` แล้ว
