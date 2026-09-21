@@ -611,3 +611,45 @@ Files Changed:
 Tests: `npm run check` PASS. `bash supabase/tests/wyn_187_profile_external_link_validation_test.sh`
 7/7 PASS. Playwright spec 8/8 PASS (chromium-desktop, same local executablePath
 workaround as prior batches, reverted after).
+
+## Batch 12 — MAX_POST_IMAGES=9 single source of truth
+
+Could not reproduce the literal "รูป 1 จาก 10" text anywhere in the current codebase
+(web or Flutter) — traced why: **the server-side 10→9 tightening (WYN-103) was already
+designed, coded, and *actually applied to production*** on 2026-09-03
+(`.wyn/logs/deployments/2026-09-03-wyn-077-105-beta2-real-deploy.md`: "Founder ran the
+corrected migration script ... Success", verified live afterward — `club_posts`
+rejects a 10-image insert, accepts 9). `schema.sql`'s declared constraints
+(`club_posts_image_urls_length`, `drop_images_position_max_9`) and the atomic-publish
+RPC's own `v_image_count > 9` check all already agree on 9, and web's composer
+(`beta4-composer.tsx`)/`drop-publication.ts` already hard-capped at 9 in every place
+checked. So the Founder's literal "shows 1 of 10" symptom is most likely from before
+that 2026-09-03 fix landed — already resolved, not a live bug. What item 12 explicitly
+also asks for regardless — "สร้างค่ากลาง เช่น MAX_POST_IMAGES = 9 ... ใช้ค่าเดียวกันใน
+Composer, Preview, API, Validation" — was still a real, standing gap: `9` was a bare
+magic number duplicated across 6 separate spots in the web client with nothing tying
+them together, so a future edit to one could silently drift from the rest. Fixed that.
+
+Files Changed:
+- `web/lib/post-limits.ts` (new) — `MAX_POST_IMAGES = 9`.
+- `web/components/beta4-composer.tsx` — every `9`/`>= 9` reference now reads
+  `MAX_POST_IMAGES`. Also added the missing "แจ้งผู้ใช้เมื่อเลือกรูปเกินจำนวน"
+  requirement: picking more than the cap (from the OS multi-select gallery picker, or
+  the camera capture on top of an already-full selection) previously silently
+  truncated with `.slice(0, 9)` and no feedback at all — now shows
+  "เลือกรูปได้สูงสุด 9 รูปต่อโพสต์" alongside the same truncation.
+- `web/lib/drop-publication.ts` — its own defense-in-depth `.slice(0, 9)` (this file
+  runs client-side but is the last stop before the publish RPC) now reads
+  `MAX_POST_IMAGES` too.
+- Server-side (RPC `v_image_count > 9` check, both DB CHECK constraints) intentionally
+  left as-is: correct already, and this batch's job was the client's missing shared
+  constant, not touching already-correct, already-deployed SQL.
+- `web/components/dev/image-limit-fixture.tsx` + `web/app/dev/image-limit-fixture/page.tsx`
+  (new, no-backend fixture reproducing just the gallery-picker onChange logic that
+  changed) + `web/tests/browser/image-limit.spec.ts` (new, 3 checks: exactly 9 shows no
+  error, selecting 12 truncates to 9 with a notice, adding more on top of an
+  already-full 9 still caps with a notice — using Playwright's `setInputFiles` with
+  inline-buffer fake images, no real files needed on disk).
+
+Tests: `npm run check` PASS. Playwright spec 3/3 PASS (chromium-desktop, same local
+executablePath workaround as prior batches, reverted after).

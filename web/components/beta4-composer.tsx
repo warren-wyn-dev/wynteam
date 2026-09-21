@@ -20,6 +20,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Avatar } from "@/components/phase3-ui";
 import { deleteDraft, fetchDraft, saveDraft } from "@/lib/drafts";
 import { publishDropSafely } from "@/lib/drop-publication";
+import { MAX_POST_IMAGES } from "@/lib/post-limits";
 import { fetchHomeIdentity, type HomeIdentity } from "@/lib/home-parity-data";
 import styles from "./beta4-composer-refresh.module.css";
 
@@ -257,7 +258,7 @@ export function Beta4Composer({
                 previews.length || existingImageUrl ? <><div className={`beta4-image-strip ${styles.mediaStrip}`}>
                   {!files.length && existingImageUrl ? <div className={`beta4-image-preview ratio-${aspectRatio.replace(":", "-")}`} key="existing-draft-image"><img src={existingImageUrl} alt="" /><button type="button" aria-label="ลบรูปที่บันทึกไว้ในร่าง" onClick={() => setExistingImageUrl(null)}><X size={13} /></button></div> : null}
                   {previews.map((url, index) => <div className={`beta4-image-preview ratio-${aspectRatio.replace(":", "-")}`} key={url}><img src={url} alt="" /><button type="button" aria-label={`ลบรูปที่ ${index + 1}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={13} /></button></div>)}
-                </div><div className="beta4-ratio-chips" role="group" aria-label="อัตราส่วนรูป">{(["original", "1:1", "4:5", "16:9"] as AspectRatioChoice[]).map((ratio) => <button className={`ratio-chip ratio-${ratio.replace(":", "-")} ${aspectRatio === ratio ? "active" : ""}`} aria-pressed={aspectRatio === ratio} type="button" onClick={() => setAspectRatio(ratio)} key={ratio}>{ratio === "original" ? "ต้นฉบับ" : ratio}</button>)}</div><div className="beta4-image-count">{files.length}/9</div></> : null
+                </div><div className="beta4-ratio-chips" role="group" aria-label="อัตราส่วนรูป">{(["original", "1:1", "4:5", "16:9"] as AspectRatioChoice[]).map((ratio) => <button className={`ratio-chip ratio-${ratio.replace(":", "-")} ${aspectRatio === ratio ? "active" : ""}`} aria-pressed={aspectRatio === ratio} type="button" onClick={() => setAspectRatio(ratio)} key={ratio}>{ratio === "original" ? "ต้นฉบับ" : ratio}</button>)}</div><div className="beta4-image-count">{files.length}/{MAX_POST_IMAGES}</div></> : null
               ) : (
                 <div className="beta4-poll-composer">
                   <div className="beta4-poll-options">{pollOptions.map((value, index) => <label key={index}><input maxLength={80} value={value} disabled={busy} onChange={(event) => updatePollOption(index, event.target.value)} placeholder={`ตัวเลือกที่ ${index + 1}`} />{index >= 2 ? <button type="button" aria-label={`ลบตัวเลือก ${index + 1}`} onClick={() => removePollOption(index)}><X size={18} /></button> : null}</label>)}</div>
@@ -280,11 +281,11 @@ export function Beta4Composer({
               <SelectedAudienceIcon aria-hidden="true" />
               <span>{selectedAudience.label}</span>
             </button>
-            <button className={styles.quickAction} type="button" aria-label="เพิ่มรูปภาพ" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => galleryRef.current?.click()}>
+            <button className={styles.quickAction} type="button" aria-label="เพิ่มรูปภาพ" disabled={busy || mode === "poll" || files.length >= MAX_POST_IMAGES} onClick={() => galleryRef.current?.click()}>
               <ImagePlus aria-hidden="true" />
               <span>เพิ่มรูปภาพ</span>
             </button>
-            <button className={styles.quickAction} type="button" aria-label="ถ่ายภาพ" disabled={busy || mode === "poll" || files.length >= 9} onClick={() => cameraRef.current?.click()}>
+            <button className={styles.quickAction} type="button" aria-label="ถ่ายภาพ" disabled={busy || mode === "poll" || files.length >= MAX_POST_IMAGES} onClick={() => cameraRef.current?.click()}>
               <Camera aria-hidden="true" />
               <span>ถ่ายภาพ</span>
             </button>
@@ -297,8 +298,24 @@ export function Beta4Composer({
               <span>บันทึกร่าง</span>
             </button>
           </div>
-          <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => { setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9)); event.currentTarget.value = ""; }} />
-          <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) setFiles((current) => [...current, picked].slice(0, 9)); event.currentTarget.value = ""; }} />
+          <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => {
+            const picked = Array.from(event.target.files ?? []);
+            setFiles((current) => {
+              const combined = [...current, ...picked];
+              if (combined.length > MAX_POST_IMAGES) setError(`เลือกรูปได้สูงสุด ${MAX_POST_IMAGES} รูปต่อโพสต์`);
+              return combined.slice(0, MAX_POST_IMAGES);
+            });
+            event.currentTarget.value = "";
+          }} />
+          <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => {
+            const picked = event.target.files?.[0];
+            if (!picked) return;
+            setFiles((current) => {
+              if (current.length >= MAX_POST_IMAGES) { setError(`เลือกรูปได้สูงสุด ${MAX_POST_IMAGES} รูปต่อโพสต์`); return current; }
+              return [...current, picked].slice(0, MAX_POST_IMAGES);
+            });
+            event.currentTarget.value = "";
+          }} />
         </div>
 
         {audienceOpen ? (
