@@ -9,7 +9,6 @@ import {
   ImagePlus,
   LockKeyhole,
   Plus,
-  Save,
   Users,
   X,
   type LucideIcon,
@@ -158,17 +157,6 @@ export function Beta4Composer({
     finally { setSavingDraft(false); }
   };
 
-  // Always-visible "บันทึกร่าง" quick action — WYN-185 item 4: the old flow
-  // only offered saving a draft as a side effect of trying to close, which
-  // the Founder flagged as not a clear/discoverable way to save one.
-  const saveDraftExplicit = async () => {
-    if (!hasContent || savingDraft) return;
-    setSavingDraft(true); setAutosaveStatus("saving"); setDraftError("");
-    try { await persistDraft(); setAutosaveStatus("saved"); }
-    catch { setAutosaveStatus("error"); }
-    finally { setSavingDraft(false); }
-  };
-
   // Autosave every ~800ms of no further edits (WYN-185 item 4). Skips the
   // very first run after mount/after a draft finishes loading into the form,
   // so opening an existing draft doesn't immediately re-save it unchanged.
@@ -292,10 +280,6 @@ export function Beta4Composer({
             <button className={`${styles.quickAction} ${mode === "poll" ? styles.active : ""}`} type="button" aria-label="เพิ่มโพล" aria-pressed={mode === "poll"} disabled={busy} onClick={() => setMode((current) => current === "poll" ? "image" : "poll")}>
               <BarChart3 aria-hidden="true" />
               <span>เพิ่มโพล</span>
-            </button>
-            <button className={styles.quickAction} type="button" aria-label="บันทึกร่าง" disabled={busy || savingDraft || !hasContent} onClick={() => void saveDraftExplicit()}>
-              {savingDraft ? <span className="route-system-spinner tiny" /> : <Save aria-hidden="true" />}
-              <span>บันทึกร่าง</span>
             </button>
           </div>
           <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => {
