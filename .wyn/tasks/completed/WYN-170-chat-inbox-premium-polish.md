@@ -1,5 +1,11 @@
 # Design Task — WYN-170
 
+**อัปเดต 2026-09-21**: Founder ยืนยันกลับคำตัดสินใจ 3 จุดจากงานนี้ (เอาปุ่มย้อนกลับออก, เพิ่มปุ่มเขียนข้อความ
+ใหม่กลับมา, ย้าย "คำขอข้อความ" จากปุ่มที่เห็นตลอดไปเก็บในเมนู "...") ผ่าน redesign รอบใหม่ตาม Founder mockup —
+รายละเอียดที่ `.wyn/company/DECISIONS.md` (หัวข้อ "[2026-09-21] Chat Inbox redesign") และ
+`.wyn/logs/deployments/2026-09-21-chat-inbox-redesign-reverses-wyn170-deploy.md` ส่วนอื่นของงานนี้ (Notes row,
+end-of-list marker, chat row เรียบแบน+press-scale, requests เป็น inline panel) ยังใช้งานอยู่ ไม่ถูกแตะ
+
 Status: เสร็จสมบูรณ์ — Founder ยืนยัน production จริงแล้ว ("โอเคแล้ว", 2026-09-19)
 Owner: AI Design → Founder → AI Coding → AI QA & Security → AI Deploy & DevOps → รอ Founder ยืนยัน production จริง
 Screen: WYNOS Web Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`)
