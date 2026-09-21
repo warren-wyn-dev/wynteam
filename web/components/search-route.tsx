@@ -254,7 +254,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
             </div>
           )) : <EmptyState>ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้</EmptyState>}
         </div>
-        <button className="top100-link" type="button">ดูอันดับทั้งหมด (Top 100) <WynosIcon name="chevronRight" size={14} strokeWidth={2} /></button>
+        <Link className="top100-link" href="/trending">ดูอันดับทั้งหมด (Top 100) <WynosIcon name="chevronRight" size={14} strokeWidth={2} /></Link>
       </section>
       <section className="route-section flutter-suggested-section">
         <div className="route-section-title"><h2>แนะนำให้ติดตาม</h2></div>

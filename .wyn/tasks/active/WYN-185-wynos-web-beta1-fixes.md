@@ -160,3 +160,40 @@ production.
 
 Handoff: AI QA & Security for a second look at the RLS scoping (privacy boundary is the
 security-sensitive part here) before the Founder applies the migration.
+
+## Batch 3 — Trending Top 100 button
+
+Root cause: `<button className="top100-link" type="button">ดูอันดับทั้งหมด (Top 100)</button>`
+in `search-route.tsx` had no `onClick` at all — a genuinely dead button, not a routing bug.
+
+Reused the existing `fetchTrendingHashtags(client, limit)` (already RPC-backed via
+`trending_hashtag_candidates`, already takes a `limit` param) instead of building new
+backend ranking infra — the Founder's own wording ("ข้อมูลแนวโน้มที่มีอยู่", trend data that
+already exists) scopes this to surfacing the existing computation at a bigger limit (100),
+not inventing a new one.
+
+Files Changed:
+- `web/components/trending-route.tsx` (new) + `web/app/trending/page.tsx` (new) — real
+  page (not a modal — the Founder's own URL-shareable/refreshable requirement pointed at a
+  route), distinct loading/error/empty states (error keeps a retry button, doesn't fall
+  back to the empty-state wording), `disabled={loading}` on retry to block a double-tap
+  mid-fetch.
+- `web/components/search-route.tsx` — the button is now `<Link href="/trending">` (Next
+  client-side nav + prefetch, no full reload).
+- `web/app/parity-completion.css` — added `text-decoration: none` to `.top100-link` (was
+  button-only CSS; needed now that the element renders as an `<a>`).
+- `web/components/dev/trending-fixture.tsx` + `web/app/dev/trending-fixture/page.tsx`
+  (new, no-backend fixture, `?state=loading|error|empty|list`) + `web/tests/browser/trending-top100.spec.ts`
+  (new, 6 checks: list content, loading/error/empty distinctness, retry gated to the error
+  state only, single `<main>`).
+
+Tests: `npm run check` PASS. Playwright spec 6/6 PASS (chromium-desktop, same local
+executablePath workaround as Batch 1, reverted after).
+
+Known Issues: `trending_hashtag_candidates` windows at 48h/100 candidate posts, so the
+"Top 100" list is realistically a shorter "however many hashtags survive from the last
+100 trending posts" list, not a guaranteed exactly-100 — flagging since the Founder's
+literal wording is "100 รายการ": widening the backend to a true always-100 chart (e.g. a
+dedicated `hashtag_scores` table refreshed like `top100_scores` already is for drops)
+is a bigger backend change than this item's button-is-dead root cause called for; said
+so here rather than silently deciding either way.
