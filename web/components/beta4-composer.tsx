@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Avatar } from "@/components/phase3-ui";
@@ -89,7 +90,9 @@ export function Beta4Composer({
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState("");
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const router = useRouter();
   const draftRecordIdRef = useRef<string | null>(null);
+  const pendingNavRef = useRef<string | null>(null); // set when the close-prompt was opened via "ฉบับร่าง" (go to /drafts after resolving) instead of Cancel
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosaveRef = useRef(true); // true until the user actually edits something post-mount/post-draft-load
   const galleryRef = useRef<HTMLInputElement | null>(null);
@@ -128,14 +131,32 @@ export function Beta4Composer({
 
   const requestClose = () => {
     if (busy) return;
+    pendingNavRef.current = null;
     if (!hasContent) { onClose(); return; }
     setDraftError("");
     setClosePrompt(true);
   };
 
-  // Shared by the close-prompt's "บันทึกร่าง", the always-visible quick-action
-  // button, and autosave below — insert when no draft row exists yet, update
-  // in place otherwise (mirrors lib/drafts.ts saveDraft's own upsert doc).
+  // "ฉบับร่าง" header title -- tapping it goes to the saved-drafts list. With
+  // nothing worth keeping, just navigate; with in-progress content, reuse
+  // the same close-prompt as Cancel so it's never silently discarded, then
+  // continue to /drafts once that resolves (see pendingNavRef below).
+  const goToDrafts = () => {
+    if (busy) return;
+    if (!hasContent) { onClose(); router.push("/drafts"); return; }
+    pendingNavRef.current = "/drafts";
+    setDraftError("");
+    setClosePrompt(true);
+  };
+
+  const closeAndNavigate = () => {
+    onClose();
+    if (pendingNavRef.current) router.push(pendingNavRef.current);
+  };
+
+  // Shared by the close-prompt's "บันทึกร่าง" and autosave below -- insert
+  // when no draft row exists yet, update in place otherwise (mirrors
+  // lib/drafts.ts saveDraft's own upsert doc).
   const persistDraft = useCallback(async (): Promise<string> => {
     const id = await saveDraft(client, userId, {
       draftId: draftRecordIdRef.current,
@@ -152,7 +173,7 @@ export function Beta4Composer({
 
   const saveDraftNow = async () => {
     setSavingDraft(true); setDraftError("");
-    try { await persistDraft(); onClose(); }
+    try { await persistDraft(); closeAndNavigate(); }
     catch (reason) { setDraftError(reason instanceof Error ? reason.message : "บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง"); }
     finally { setSavingDraft(false); }
   };
@@ -227,7 +248,7 @@ export function Beta4Composer({
       <section className="beta4-composer" role="dialog" aria-modal="true" aria-label="สร้างโพสต์" onClick={(event) => event.stopPropagation()}>
         <header className={`beta4-composer-header ${styles.header}`}>
           <button className="beta4-cancel" type="button" onClick={requestClose}>ยกเลิก</button>
-          <strong className={styles.draftTitle}>ฉบับร่าง</strong>
+          <button className={styles.draftTitle} type="button" onClick={goToDrafts}>ฉบับร่าง</button>
           <button className={`beta4-post ${styles.headerPost}`} type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
         </header>
 
@@ -344,7 +365,7 @@ export function Beta4Composer({
               <strong>บันทึกเป็นร่างก่อนออกไหม?</strong>
               {draftError ? <p className="route-error">{draftError}</p> : null}
               <footer>
-                <button type="button" disabled={savingDraft} onClick={onClose}>ทิ้ง</button>
+                <button type="button" disabled={savingDraft} onClick={closeAndNavigate}>ทิ้ง</button>
                 <button type="button" disabled={savingDraft} onClick={() => setClosePrompt(false)}>ยกเลิก</button>
                 <button className="primary" type="button" disabled={savingDraft} onClick={() => void saveDraftNow()}>{savingDraft ? <span className="route-system-spinner tiny" /> : "บันทึกร่าง"}</button>
               </footer>
