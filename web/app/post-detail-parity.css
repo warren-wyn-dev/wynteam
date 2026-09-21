@@ -29,7 +29,7 @@
 .detail-activity-icon { width: 42px; color: var(--wyn-text-secondary); font-size: 24px; line-height: 1; }
 .detail-activity-row svg { color: var(--wyn-text-secondary); }
 
-.flutter-detail-comments { padding: 0 0 120px; background: var(--wyn-bg); }
+.flutter-detail-comments { padding: 0 0 16px; background: var(--wyn-bg); }
 .detail-thread + .detail-thread { border-top: 1px solid var(--wyn-border); }
 .detail-comment { min-height: 64px; padding: 12px 16px; display: grid; grid-template-columns: 34px minmax(0,1fr) 38px; gap: 10px; align-items: start; }
 .detail-comment-reply { padding-left: 52px; position: relative; }
@@ -46,7 +46,7 @@
 .detail-comment-like.active.like { color: var(--wyn-accent); }
 .detail-comments-end { margin: 0; padding: 24px 16px 28px; text-align: center; color: var(--wyn-text-muted); font-size: 13px; }
 
-.detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%, 680px); transform: translateX(-50%); padding: 0 12px max(8px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--wyn-bg) 96%, transparent); border-top: 1px solid var(--wyn-border); backdrop-filter: blur(18px); }
+.detail-composer-shell { position: static; padding: 0 12px max(8px, env(safe-area-inset-bottom)); background: var(--wyn-bg); border-top: 1px solid var(--wyn-border); }
 .detail-reply-banner { min-height: 30px; padding: 5px 8px 0; display: flex; align-items: center; justify-content: space-between; color: var(--wyn-text-secondary); font-size: 12px; }
 .detail-reply-banner button { width: 28px; height: 28px; border: 0; background: transparent; color: var(--wyn-text-secondary); display: grid; place-items: center; }
 .flutter-detail-composer { min-height: 46px; height: 46px; margin: 7px 0 0; padding: 0 5px 0 14px; display: grid; grid-template-columns: minmax(0,1fr) 38px; align-items: center; border: 1px solid var(--wyn-border); border-radius: 999px; background: var(--wyn-bg); }
@@ -67,7 +67,3 @@
 .detail-activity-person > span:last-child { min-width: 0; display: flex; flex-direction: column; }
 .detail-activity-person strong { display: flex; align-items: center; gap: 4px; font-size: 14px; }
 .detail-activity-person small { color: var(--wyn-text-secondary); font-size: 12px; }
-
-@media (min-width: 681px) {
-  .detail-composer-shell { border-left: 1px solid var(--wyn-border); border-right: 1px solid var(--wyn-border); }
-}

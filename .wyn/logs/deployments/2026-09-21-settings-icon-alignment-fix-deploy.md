@@ -24,3 +24,8 @@
 
 **Rollback Plan**: Revert PR — diff เป็น CSS selector เดียว บรรทัดเดียว ไม่กระทบ business logic
 ปลอดภัยที่จะ revert ทันทีถ้าจำเป็น
+
+**Deployment Result**:
+- `WYN-158 Production Deploy` run #167 ยิงตามการ merge สำเร็จ และถูก superseded โดย run #168
+  (deploy ของ PR #582) ที่รวมการเปลี่ยนแปลงนี้ไปด้วยและจบสถานะ **success** ยืนยันว่า fix นี้ขึ้น
+  `wynos.online` แล้ว — ดูรายละเอียดที่ 2026-09-21-follow-button-and-push-toggle-fix-deploy.md
