@@ -378,7 +378,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           <header className="conversation-modern-header">
             <Link className="conversation-modern-back" href="/chat" aria-label="ย้อนกลับ"><WynosIcon name="back" size={30} strokeWidth={1.8} /></Link>
             {other && !isComposeMode ? <WyniiConversationHeader client={client} userId={userId} conversationId={conversationId} other={other} displayName={displayName} canStart={meta?.status === "active"} online={onlineIds.has(other.id)} onOpenProfile={() => router.push(`/profile/${other.id}`)} /> : other ? (
-              <><div className="conversation-modern-header-person"><Link href={`/profile/${other.id}`} aria-label={`ดูโปรไฟล์ ${displayName}`}><Avatar src={other.avatar_url} label={other.username} size={44} /></Link><span><Link href={`/profile/${other.id}`}><strong>{displayName}</strong></Link>{onlineIds.has(other.id) ? <small style={{ color: "var(--wyn-accent)", fontWeight: 600 }}>ออนไลน์</small> : <small>@{other.username}</small>}</span></div><span /></>
+              <><div className="conversation-modern-header-person"><Link href={`/profile/${other.id}`} aria-label={`ดูโปรไฟล์ ${displayName}`}><Avatar src={other.avatar_url} label={other.username} size={44} /></Link><span><Link href={`/profile/${other.id}`}><strong>{displayName}</strong></Link>{onlineIds.has(other.id) ? <small style={{ color: "var(--wyn-text)", fontWeight: 600 }}>ออนไลน์</small> : <small>@{other.username}</small>}</span></div><span /></>
             ) : <><span /><span /></>}
           </header>
 
