@@ -24,20 +24,6 @@ import {
   type ProfileRow,
 } from "@/lib/phase3-data";
 
-const NOTE_TEXT_KEY = "__wynos_note";
-const NOTE_EXPIRES_KEY = "__wynos_note_expires_at";
-const NOTE_MAX_LENGTH = 60;
-const NOTE_LIFETIME_MS = 24 * 60 * 60 * 1000;
-
-type ChatNoteProfile = {
-  id: string;
-  username: string;
-  name: string;
-  avatarUrl?: string | null;
-  note?: string | null;
-  noteExpiresAt?: string | null;
-};
-
 function conversationPreview(row: ConversationRow): string {
   if (row.last_message_deleted_at) return "ลบข้อความแล้ว";
   if (row.last_message_text?.trim()) return row.last_message_text;
@@ -53,93 +39,22 @@ function isUnread(row: ConversationRow, userId: string): boolean {
   );
 }
 
-function stringMap(value: unknown): Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const result: Record<string, string> = {};
-  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof raw === "string") result[key] = raw;
-  }
-  return result;
-}
-
-function activeNote(links: Record<string, string>): { text: string; expiresAt: string } | null {
-  const text = links[NOTE_TEXT_KEY]?.trim();
-  const expiresAt = links[NOTE_EXPIRES_KEY];
-  if (!text || !expiresAt) return null;
-  const expires = Date.parse(expiresAt);
-  if (!Number.isFinite(expires) || expires <= Date.now()) return null;
-  return { text, expiresAt };
-}
-
 type ChatInboxData = {
   allowed: boolean;
   rows: ConversationRow[];
   requests: ConversationRow[];
-  me: ChatNoteProfile | null;
-  notes: ChatNoteProfile[];
 };
 
-async function fetchChatInboxData(client: SupabaseClient, userId: string): Promise<ChatInboxData> {
+async function fetchChatInboxData(client: SupabaseClient): Promise<ChatInboxData> {
   const canChat = await chatAllowed(client);
-  if (!canChat) return { allowed: false, rows: [], requests: [], me: null, notes: [] };
+  if (!canChat) return { allowed: false, rows: [], requests: [] };
 
   const [inbox, pending] = await Promise.all([
     fetchInbox(client, 0),
     fetchMessageRequests(client, 0),
   ]);
 
-  const ids = [...new Set([userId, ...inbox.map((row) => row.other_user_id)])];
-  const profiles = ids.length
-    ? await client
-        .from("profiles")
-        .select("id,username,display_name,avatar_url,social_links")
-        .in("id", ids)
-    : { data: [], error: null };
-
-  if (profiles.error) throw new Error(profiles.error.message || "โหลดโน้ตไม่สำเร็จ");
-
-  const mapped = (profiles.data ?? []).map((raw) => {
-    const links = stringMap(raw.social_links);
-    const note = activeNote(links);
-    return {
-      id: String(raw.id),
-      username: String(raw.username ?? ""),
-      name: String(raw.display_name ?? "").trim() || String(raw.username ?? "WYNOS"),
-      avatarUrl: raw.avatar_url == null ? null : String(raw.avatar_url),
-      note: note?.text ?? null,
-      noteExpiresAt: note?.expiresAt ?? null,
-    } satisfies ChatNoteProfile;
-  });
-
-  const me = mapped.find((profile) => profile.id === userId) ?? null;
-  const notes = mapped.filter((profile) => profile.id !== userId && profile.note);
-
-  return {
-    allowed: true,
-    rows: inbox,
-    requests: pending as ConversationRow[],
-    me,
-    notes,
-  };
-}
-
-async function writeMyNote(client: SupabaseClient, userId: string, text: string): Promise<void> {
-  const current = await client.from("profiles").select("social_links").eq("id", userId).single();
-  if (current.error) throw new Error(current.error.message || "โหลดโน้ตไม่สำเร็จ");
-
-  const links = stringMap(current.data?.social_links);
-  const normalized = text.trim();
-
-  if (normalized) {
-    links[NOTE_TEXT_KEY] = normalized.slice(0, NOTE_MAX_LENGTH);
-    links[NOTE_EXPIRES_KEY] = new Date(Date.now() + NOTE_LIFETIME_MS).toISOString();
-  } else {
-    delete links[NOTE_TEXT_KEY];
-    delete links[NOTE_EXPIRES_KEY];
-  }
-
-  const updated = await client.from("profiles").update({ social_links: links }).eq("id", userId);
-  if (updated.error) throw new Error(updated.error.message || "บันทึกโน้ตไม่สำเร็จ");
+  return { allowed: true, rows: inbox, requests: pending as ConversationRow[] };
 }
 
 function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; userId: string }) {
@@ -147,14 +62,12 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   const onlineIds = useOnlineUserIds();
   const { data, isLoading: loading, error: loadError, refetch } = useQuery({
     queryKey: ["chat-inbox", userId] as const,
-    queryFn: () => fetchChatInboxData(client, userId),
+    queryFn: () => fetchChatInboxData(client),
   });
 
   const allowed = data?.allowed ?? null;
   const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
   const requests = data?.requests ?? [];
-  const me = data?.me ?? null;
-  const notes = data?.notes ?? [];
 
   useEffect(() => {
     if (allowed !== true) return;
@@ -163,9 +76,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   }, [client, userId, allowed, refetch]);
 
   const [activeTab, setActiveTab] = useState<"inbox" | "requests">("inbox");
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [noteDraft, setNoteDraft] = useState("");
-  const [noteSaving, setNoteSaving] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [actionError, setActionError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -175,10 +86,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   const [composeFinding, setComposeFinding] = useState(false);
   const error = actionError || (loadError instanceof Error ? loadError.message : "");
 
-  const conversationByUserId = useMemo(
-    () => new Map(rows.map((row) => [row.other_user_id, row] as const)),
-    [rows],
-  );
+  const closeSearch = () => { setSearchOpen(false); setQuery(""); };
 
   const load = async () => { await refetch(); };
 
@@ -220,43 +128,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
     }
   };
 
-  const openMyNote = () => {
-    setNoteDraft(me?.note ?? "");
-    setNoteOpen(true);
-    setActionError("");
-  };
-
-  const saveNote = async () => {
-    const next = noteDraft.trim();
-    if (!next) return;
-    setNoteSaving(true);
-    setActionError("");
-    try {
-      await writeMyNote(client, userId, next);
-      setNoteOpen(false);
-      await refetch();
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "บันทึกโน้ตไม่สำเร็จ");
-    } finally {
-      setNoteSaving(false);
-    }
-  };
-
-  const removeNote = async () => {
-    setNoteSaving(true);
-    setActionError("");
-    try {
-      await writeMyNote(client, userId, "");
-      setNoteDraft("");
-      setNoteOpen(false);
-      await refetch();
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "ลบโน้ตไม่สำเร็จ");
-    } finally {
-      setNoteSaving(false);
-    }
-  };
-
   const normalizedQuery = query.trim().toLocaleLowerCase("th-TH");
   const visibleRows = normalizedQuery
     ? rows.filter((row) => {
@@ -290,8 +161,17 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                   hardcodes that class to always render a back-arrow via a
                   CSS mask and hides its actual child <svg> -- a leftover
                   from when the class was exclusively the leading back
-                  button. Reusing it for these two made both of them render
-                  as back-arrows regardless of icon prop. */}
+                  button. Reusing it for these made them render as
+                  back-arrows regardless of icon prop. */}
+              <button
+                className={`wyn-chat-header-icon ${searchOpen ? "is-active" : ""}`}
+                type="button"
+                aria-label="ค้นหาข้อความ"
+                aria-pressed={searchOpen}
+                onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+              >
+                <WynosIcon name="search" size={21} strokeWidth={1.9} />
+              </button>
               <button className="wyn-chat-header-icon" type="button" aria-label="เขียนข้อความใหม่" onClick={() => setComposeOpen(true)}>
                 <WynosIcon name="messageSquarePlus" size={22} strokeWidth={1.9} />
               </button>
@@ -299,7 +179,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                 <button className="wyn-chat-header-icon" type="button" aria-label="เพิ่มเติม" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
                   <WynosIcon name="more" size={22} strokeWidth={1.9} />
                   {/* "คำขอ" moved off the persistent header (the approved
-                      redesign has just two icon buttons here) and into this
+                      redesign has just icon buttons here) and into this
                       menu -- this dot keeps it discoverable without a
                       permanent header badge. */}
                   {requests.length ? <span className="wyn-chat-menu-dot" aria-hidden="true" /> : null}
@@ -319,47 +199,21 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           )}
         </header>
 
-        <label className="flutter-chat-search">
-          <WynosIcon name="search" size={24} strokeWidth={1.8} aria-hidden="true" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="ค้นหาข้อความ"
-            inputMode="search"
-            aria-label="ค้นหาข้อความ"
-          />
-        </label>
-
-        {!loading && allowed !== false && activeTab !== "requests" ? (
-          <div className={`wyn-chat-notes ${notes.length ? "" : "is-solo"}`} aria-label="โน้ต">
-            <button className="wyn-chat-note-card is-mine" type="button" onClick={openMyNote} aria-label={me?.note ? "แก้ไขโน้ตของคุณ" : "เพิ่มโน้ต"}>
-              <span className={`wyn-chat-note-bubble ${me?.note ? "has-note" : "empty"}`}>
-                {me?.note || "เพิ่มโน้ต"}
-              </span>
-              <span className="wyn-chat-note-avatar-wrap">
-                <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={62} />
-                <span className="wyn-chat-note-plus"><WynosIcon name="post" size={15} strokeWidth={2.4} /></span>
-              </span>
-              <small>โน้ตของคุณ</small>
+        {searchOpen && activeTab !== "requests" ? (
+          <label className="flutter-chat-search">
+            <WynosIcon name="search" size={24} strokeWidth={1.8} aria-hidden="true" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="ค้นหาข้อความ"
+              inputMode="search"
+              aria-label="ค้นหาข้อความ"
+            />
+            <button className="flutter-chat-search-clear" type="button" aria-label="ปิดการค้นหา" onClick={closeSearch}>
+              <WynosIcon name="close" size={16} strokeWidth={2.2} />
             </button>
-
-            {notes.map((note) => {
-              const conversation = conversationByUserId.get(note.id);
-              const href = conversation
-                ? `/chat/${conversation.conversation_id}?user=${encodeURIComponent(note.id)}`
-                : `/profile/${note.id}`;
-              return (
-                <Link className="wyn-chat-note-card" href={href} key={note.id}>
-                  <span className="wyn-chat-note-bubble has-note">{note.note}</span>
-                  <span className="wyn-chat-note-avatar-wrap">
-                    <Avatar src={note.avatarUrl} label={note.username} size={62} />
-                    {onlineIds.has(note.id) ? <span className="wyn-chat-online-dot" aria-label="ออนไลน์" /> : null}
-                  </span>
-                  <small>{note.name}</small>
-                </Link>
-              );
-            })}
-          </div>
+          </label>
         ) : null}
 
         {loading ? (
@@ -462,69 +316,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                 ))}
               </div>
             )}
-          </section>
-        </div>
-      ) : null}
-
-      {noteOpen ? (
-        <div className="wyn-note-screen" role="presentation">
-          <section className="wyn-note-composer" role="dialog" aria-modal="true" aria-label={me?.note ? "แก้ไขโน้ต" : "โน้ตใหม่"}>
-            <header className="wyn-note-composer-header">
-              <button className="wyn-note-close" type="button" aria-label="ปิด" onClick={() => setNoteOpen(false)}>
-                <WynosIcon name="close" size={28} strokeWidth={1.9} />
-              </button>
-              <div className="wyn-note-title-wrap">
-                <strong>{me?.note ? "แก้ไขโน้ต" : "โน้ตใหม่"}</strong>
-                <small>แชร์ความคิดกับเพื่อนของคุณ</small>
-              </div>
-              <button
-                className="wyn-note-share-top"
-                type="button"
-                disabled={noteSaving || !noteDraft.trim()}
-                onClick={() => void saveNote()}
-              >
-                {noteSaving ? "กำลังแชร์…" : "แชร์"}
-              </button>
-            </header>
-
-            <div className="wyn-note-stage">
-              <div className="wyn-note-bubble-editor">
-                <textarea
-                  autoFocus
-                  value={noteDraft}
-                  maxLength={NOTE_MAX_LENGTH}
-                  onChange={(event) => setNoteDraft(event.target.value)}
-                  placeholder="บอกเลยว่าคิดอะไร..."
-                  aria-label="ข้อความโน้ต"
-                />
-                <span className="wyn-note-counter">{noteDraft.length}/{NOTE_MAX_LENGTH}</span>
-              </div>
-
-              <div className="wyn-note-avatar-large">
-                <Avatar src={me?.avatarUrl} label={me?.username || "WYNOS"} size={88} />
-              </div>
-            </div>
-
-            <div className="wyn-note-info-card">
-              <div className="wyn-note-info-row">
-                <WynosIcon name="clock" size={19} strokeWidth={1.8} />
-                <span><strong>แสดงเป็นเวลา 24 ชั่วโมง</strong><small>โน้ตของคุณจะหายไปโดยอัตโนมัติหลัง 24 ชั่วโมง</small></span>
-              </div>
-              <div className="wyn-note-info-row">
-                <WynosIcon name="users" size={19} strokeWidth={1.8} />
-                <span><strong>แสดงให้ผู้ติดตามที่คุณติดตามกลับ</strong><small>เฉพาะคนที่คุณติดตามกลับเท่านั้นที่เห็นโน้ตนี้</small></span>
-              </div>
-              <div className="wyn-note-info-row">
-                <WynosIcon name="comment" size={19} strokeWidth={1.8} />
-                <span><strong>แชร์ความรู้สึกได้สั้น ๆ</strong><small>ใช้โน้ตเพื่อบอกสถานะ ความรู้สึก หรืออะไรก็ได้</small></span>
-              </div>
-            </div>
-
-            {me?.note ? (
-              <button className="wyn-note-delete" type="button" disabled={noteSaving} onClick={() => void removeNote()}>
-                ลบโน้ต
-              </button>
-            ) : null}
           </section>
         </div>
       ) : null}

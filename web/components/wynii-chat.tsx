@@ -27,6 +27,7 @@ type Props = {
   other: ProfileRow;
   displayName: string;
   canStart: boolean;
+  online: boolean;
   onOpenProfile: () => void;
 };
 
@@ -127,7 +128,7 @@ function progressFor(ageDays: number, next: number | null): number {
   return Math.max(0, Math.min(100, ((ageDays - previous) / span) * 100));
 }
 
-export function WyniiConversationHeader({ client, userId, conversationId, other, displayName, canStart, onOpenProfile }: Props) {
+export function WyniiConversationHeader({ client, userId, conversationId, other, displayName, canStart, online, onOpenProfile }: Props) {
   const [pet, setPet] = useState<WyniiRow | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -184,12 +185,19 @@ export function WyniiConversationHeader({ client, userId, conversationId, other,
     <Fragment>
       <div className={`conversation-modern-header-person ${styles.person}`}>
         <Link className={styles.personLink} href={`/profile/${other.id}`} aria-label={`ดูโปรไฟล์ ${displayName}`}>
-          <Avatar src={other.avatar_url} label={other.username} size={44} />
+          <span className={styles.avatarWrap}>
+            <Avatar src={other.avatar_url} label={other.username} size={44} />
+            {online ? <span className={styles.statusDot} aria-hidden="true" /> : null}
+          </span>
         </Link>
         <span className={styles.copy}>
           <Link className={styles.personLink} href={`/profile/${other.id}`}><strong>{displayName}</strong></Link>
           <span className={styles.subline}>
-            <Link className={styles.personLink} href={`/profile/${other.id}`}><small className={styles.handle}>@{other.username}</small></Link>
+            {online ? (
+              <small className={styles.status}>ออนไลน์</small>
+            ) : (
+              <Link className={styles.personLink} href={`/profile/${other.id}`}><small className={styles.handle}>@{other.username}</small></Link>
+            )}
             {pet && status ? <><span className={styles.dot}>·</span><button className={styles.pill} type="button" onClick={() => setSheetOpen(true)} aria-label={`Wynii ${status.short}`}><WyniiGlyph stage={stage} className={styles.glyph} /><span className={styles.pillText}>Wynii {status.short}</span></button></> : null}
           </span>
         </span>

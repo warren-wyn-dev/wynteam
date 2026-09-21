@@ -41,19 +41,18 @@ test("Notifications keep All/Mentions plus Flutter day grouping", () => {
   expect(notifications).toContain("groupWithinDay");
 });
 
-test("Chat inbox matches the approved Notes-first layout", () => {
+test("Chat inbox matches the approved icon-header layout (Notes feature removed)", () => {
   const page = read("app/chat/page.tsx");
   const chat = read("components/chat-inbox-parity.tsx");
-  const notesCss = read("app/chat-notes.css");
+  const chatCss = read("app/chat-notes.css");
   const layout = read("app/layout.tsx");
 
   expect(page).toContain("ChatInboxParityRoute");
-  // A Founder-supplied redesign mockup explicitly reversed 3 of WYN-170's
-  // decisions (confirmed 2026-09-21, after checking back given WYN-170's own
-  // deliberation history): the header compose button is back, the leading
-  // back-arrow is gone from the inbox root (kept only when drilled into
-  // "คำขอข้อความ"), and that request access moved off a persistent header
-  // button into the new "..." menu.
+  // 2026-09-21: a second Founder mockup (separate from the same-day WYN-170
+  // reversal) removed the Notes feature entirely and replaced the
+  // always-visible search bar with a header search-icon toggle. Header now
+  // has 3 icon buttons: search, compose, and "..." (คำขอข้อความ lives in
+  // that menu, same as the WYN-170-reversal pass earlier the same day).
   expect(chat).toContain('<h1>{activeTab === "requests" ? "คำขอข้อความ" : "ข้อความ"}</h1>');
   expect(chat).toContain('name="messageSquarePlus"');
   expect(chat).toContain("wyn-chat-header-icon");
@@ -63,54 +62,25 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(chat).toContain("useOnlineUserIds");
   expect(chat).toContain("flutter-chat-search");
   expect(chat).toContain('placeholder="ค้นหาข้อความ"');
-  expect(chat).toContain("wyn-chat-notes");
-  expect(chat).toContain("โน้ตของคุณ");
-  expect(chat).toContain("NOTE_LIFETIME_MS");
-  expect(chat).toContain("24 ชั่วโมง");
-  expect(chat).toContain("NOTE_MAX_LENGTH = 60");
+  expect(chat).toContain("searchOpen");
   expect(chat).toContain("คำขอข้อความ");
-  expect(chat).toContain("wyn-note-composer");
-  expect(chat).toContain("แชร์ความคิดกับเพื่อนของคุณ");
-  expect(chat).toContain("บอกเลยว่าคิดอะไร...");
-  // WYN-172 removed the non-functional "สถานที่"/"อีโมจิ" tool buttons
-  // (no onClick handler ever existed) — assert they stay gone.
-  expect(chat).not.toContain("สถานที่");
-  expect(chat).not.toContain("อีโมจิ");
-  expect(chat).not.toContain("เพลง");
-  expect(chat).not.toContain("GIF");
-  expect(notesCss).toContain(".wyn-chat-note-plus");
-  expect(notesCss).toContain(".wyn-chat-note-bubble");
-  expect(notesCss).toContain("grid-template-rows: auto 56px 18px");
-  expect(notesCss).toContain("max-width: 120px");
-  expect(notesCss).toContain("overflow-wrap: anywhere");
-  expect(notesCss).toContain(".wyn-note-screen");
-  expect(notesCss).toContain("width: 88px");
-  expect(notesCss).toContain("width: min(72%, 270px)");
-  // WYN-172 tightened .wyn-note-stage after removing the tools row above.
-  expect(notesCss).toContain("min-height: 240px");
-  expect(notesCss).toContain("width: min(88%, 460px)");
-  expect(notesCss).toContain("font-size: 10.5px");
-  expect(notesCss).toContain("border-radius: 20px");
-  // 2026-09-21 redesign (Founder mockup spec): bigger notes row (avatar
-  // 60-64px, bubble up to 3 lines/116px), 80px chat rows, 48px/24px-radius
-  // search bar -- see .wyn-chat-header-icon/.wyn-chat-online-dot above for
-  // the header/menu/presence-dot half of the same pass.
-  expect(notesCss).toContain("min-height: 178px");
-  expect(notesCss).toContain("grid-template-rows: 74px 66px 18px");
-  expect(notesCss).toContain("max-width: 116px");
-  expect(notesCss).toContain("-webkit-line-clamp: 3");
-  expect(notesCss).toContain("padding: 0 18px 10px 24px");
-  expect(notesCss).toContain("box-sizing: border-box");
-  expect(notesCss).toContain("justify-self: center");
-  expect(notesCss).toContain("width: 62px !important");
-  expect(notesCss).toContain("min-height: 80px !important");
-  expect(notesCss).toContain("height: 48px");
-  expect(notesCss).toContain("border-radius: 24px !important");
-  expect(notesCss).toContain("font-weight: 600 !important");
-  expect(notesCss).toContain(".wyn-chat-online-dot");
-  expect(notesCss).toContain(".wyn-chat-menu {");
-  expect(notesCss).toContain(".wyn-chat-meta-stack");
+  // Notes feature removed 2026-09-21 (Founder-confirmed) -- assert every
+  // trace is gone, not just hidden behind a flag.
+  expect(chat).not.toContain("wyn-chat-notes");
+  expect(chat).not.toContain("โน้ตของคุณ");
+  expect(chat).not.toContain("NOTE_LIFETIME_MS");
+  expect(chat).not.toContain("wyn-note-composer");
+  expect(chat).not.toContain("writeMyNote");
+  expect(chat).not.toContain("ChatNoteProfile");
+  expect(chatCss).not.toContain(".wyn-chat-note-bubble");
+  expect(chatCss).not.toContain(".wyn-note-screen");
   expect(chat).toContain("wyn-chat-meta-stack");
+  expect(chatCss).toContain(".wyn-chat-meta-stack");
+  expect(chatCss).toContain("min-height: 80px !important");
+  expect(chatCss).toContain("height: 48px");
+  expect(chatCss).toContain("border-radius: 24px !important");
+  expect(chatCss).toContain("font-weight: 600 !important");
+  expect(chatCss).toContain(".wyn-chat-menu {");
   expect(layout).toContain('import "./chat-notes.css";');
 });
 

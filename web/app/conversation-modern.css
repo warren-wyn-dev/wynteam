@@ -251,14 +251,19 @@
   line-height: 1.4;
 }
 
+/* 2026-09-21 redesign: messaging-app "tail" shape (one flat corner on the
+   side facing the sender) and an accent-colored outgoing bubble, matching
+   the Founder-supplied mockup. The bottom-radius override here used to be
+   set to the same 20px as the base rule, which is a no-op -- neither
+   corner was ever actually flat before this. */
 .conversation-modern .message-row.theirs .message-bubble {
-  border-bottom-left-radius: 20px;
+  border-bottom-left-radius: 6px;
 }
 
 .conversation-modern .message-row.mine .message-bubble {
-  border-bottom-right-radius: 20px;
-  background: var(--wyn-text);
-  color: var(--wyn-bg);
+  border-bottom-right-radius: 6px;
+  background: var(--wyn-accent);
+  color: #fff;
 }
 
 .conversation-modern .message-bubble time {

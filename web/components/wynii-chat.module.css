@@ -26,6 +26,27 @@
   text-overflow: ellipsis;
 }
 
+.status {
+  color: var(--wyn-accent);
+  font-weight: 600;
+}
+
+.avatarWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.statusDot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--wyn-bg);
+  border-radius: 50%;
+  background: #34c759;
+}
+
 .dot {
   flex: 0 0 auto;
   color: #b1b1b1;
