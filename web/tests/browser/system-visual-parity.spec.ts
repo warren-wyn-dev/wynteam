@@ -93,7 +93,7 @@ test("Chat inbox matches the approved Notes-first layout", () => {
   expect(layout).toContain('import "./chat-notes.css";');
 });
 
-test("Settings root preserves exact current seven-row Beta4 structure", () => {
+test("Settings root preserves exact current seven-row structure", () => {
   const settings = read("components/settings-route.tsx");
   const finalLock = read("app/system-parity-final.css");
   const flutter = read("../app/lib/features/settings/presentation/settings_screen.dart");
@@ -106,7 +106,7 @@ test("Settings root preserves exact current seven-row Beta4 structure", () => {
     'title="ข้อกำหนดและความเป็นส่วนตัว"',
     'title="ออกจากระบบ"',
   ]) expect(settings).toContain(label);
-  expect(settings).toContain('useState("V1.0.0 Beta4")');
+  expect(settings).toContain('<p className="settings-version-footer">Web Beta1</p>');
   expect(settings).toContain("settings-leading-icon");
   expect(settings).not.toContain('title="ธีมเข้ม" description=');
   expect(settings).not.toContain('title="ช่วยเหลือ" description=');

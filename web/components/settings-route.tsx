@@ -89,16 +89,15 @@ function PermissionSelect({ value, onChange, kind = "interaction" }: { value: st
   return <select className="settings-select" value={value} onChange={(e) => onChange(e.target.value)}>{options.map(([wire, label]) => <option value={wire} key={wire}>{label}</option>)}</select>;
 }
 
-function VersionFooter({ client }: { client: SupabaseClient }) {
-  const [label, setLabel] = useState("V1.0.0 Beta4");
-  useEffect(() => {
-    let live = true;
-    void client.rpc("is_developer_account").then(({ data, error }) => {
-      if (live && !error && data === true) setLabel("V1.0.0 Beta5 [พัฒนาอยู่]");
-    });
-    return () => { live = false; };
-  }, [client]);
-  return <p className="settings-version-footer">{label}</p>;
+function VersionFooter() {
+  // Was two different, both-stale labels ("V1.0.0 Beta4" for everyone,
+  // "V1.0.0 Beta5 [พัฒนาอยู่]" for developer accounts only) left over from
+  // before the web's official baseline naming (2026-09-16, see
+  // .wyn/logs/deployments/2026-09-16-wynos-web-beta1-baseline.md) settled
+  // on "WYNOS Web Beta1" — neither matched that, and showing a different
+  // version to different accounts was itself confusing. One label for
+  // everyone now; no RPC call needed to decide it.
+  return <p className="settings-version-footer">Web Beta1</p>;
 }
 
 type SettingsSnapshot = { profile: ProfileRow; notifications: NotificationSettings; online: boolean; blocked: ProfileRow[]; muted: ProfileRow[] };
@@ -249,7 +248,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
           <div className="settings-group separated">
             <SettingRow leading={<WynosIcon name="logOut" size={19} strokeWidth={2} />} title="ออกจากระบบ" danger onClick={() => { if (window.confirm("ออกจากระบบบัญชีของคุณใช่ไหม")) void signOut(); }} />
           </div>
-          <VersionFooter client={client} />
+          <VersionFooter />
         </div>
       ) : null}
       {section === "privacy" ? <div className="settings-page"><h2>บัญชี</h2><div className="settings-group"><SettingRow title="บัญชีส่วนตัว" description="อนุมัติผู้ติดตามก่อนเห็นโพสต์" trailing={<Toggle checked={profile.is_private} disabled={busy} onChange={(value) => void privacy("is_private", value)} />} /></div><h2>การโต้ตอบ</h2><div className="settings-group"><SettingRow title="ใครส่งข้อความได้" trailing={<PermissionSelect value={profile.dm_permission} onChange={(value) => void privacy("dm_permission", value)} />} /><SettingRow title="ใครกล่าวถึงคุณได้" trailing={<PermissionSelect value={profile.mention_permission} onChange={(value) => void privacy("mention_permission", value)} />} /><SettingRow title="ใครแสดงความคิดเห็นได้" trailing={<PermissionSelect value={profile.comment_permission} onChange={(value) => void privacy("comment_permission", value)} />} /><SettingRow title="ใครเห็นสิ่งที่คุณถูกใจ" trailing={<PermissionSelect kind="likes" value={profile.likes_visibility} onChange={(value) => void privacy("likes_visibility", value)} />} /></div><h2>สถานะ</h2><div className="settings-group"><SettingRow title="แสดงสถานะออนไลน์" trailing={<Toggle checked={online} disabled={busy} onChange={(value) => void onlineToggle(value)} />} /></div></div> : null}
