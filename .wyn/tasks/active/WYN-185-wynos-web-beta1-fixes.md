@@ -560,3 +560,54 @@ composer opens with no request sent yet → type → send → lands in the real
 conversation, recipient sees a Message Request only now) against a live backend before
 production, since this is the riskiest, least directly-testable change in this batch
 of 13 items.
+
+## Batch 11 — Profile external website link
+
+Found the real Edit Profile form is inline in `profile-route.tsx` (`web/app/profile/edit`
+is a dev-only reference fixture, redirects to `/profile/me` in production) with only
+Display Name/Username/Bio fields — no website field existed. Also found
+`profiles.social_links` (a jsonb column, added by an earlier migration for
+Instagram/Twitter/YouTube) was never actually wired into the web UI at all, and had
+**zero server-side validation** — the profile-update RLS policy is `using (auth.uid() =
+id)` with no `WITH CHECK` content restriction, so a raw REST call could already write
+any jsonb shape/content into it, including a `javascript:` URI, before this batch.
+
+Files Changed:
+- `web/lib/external-link.ts` (new) — `normalizeExternalUrl()`: trims, prepends `https://`
+  when no scheme is given, parses via the browser's `URL` class, rejects anything that
+  isn't `http:`/`https:` (blocks `javascript:`/`data:`/etc.), rejects a bare word with
+  no dot in the hostname (so "hello" doesn't get stored as a fake domain), caps length.
+  Empty input returns `null`, meaning "remove the link."
+- `web/components/profile-route.tsx` — added the "เว็บไซต์ภายนอก" field to `EditProfile`
+  (reuses `social_links.website`, the same key/column shape already in place for the
+  never-built social links), validates on save (blocks saving if non-empty text didn't
+  normalize to a safe URL — no silent data loss), and displays it as a clickable link
+  under the bio on the profile view (`rel="noopener noreferrer nofollow ugc"` — a
+  security-relevant default for a `target="_blank"` link to untrusted user-supplied
+  content, not just a nicety) with the URL shown as a trimmed hostname+path label
+  instead of the raw `https://...` string.
+- `web/app/profile-golden-final.css` — `.wyn-profile-website`.
+- `supabase/migrations_wyn187_profile_external_link_validation.sql` (new) —
+  `profiles_validate_social_links()` BEFORE INSERT OR UPDATE trigger: `social_links`
+  must be a JSON object, keys restricted to an allowlist (`website`/`instagram`/
+  `twitter`/`youtube` — the same 4 the original social-links migration's comment named),
+  each value a non-empty string ≤300 chars matching a coarse `^https?://[^\s<>"]+$`
+  regex backstop (deliberately coarser than the client's full URL-object validation --
+  a Postgres regex can't parse a URL the way a browser does, so this is defense in
+  depth, not the primary check). **Not applied to any database** — Founder runs it via
+  the Supabase Dashboard SQL editor, per AGENTS.md Change Control.
+- `supabase/tests/wyn_187_profile_external_link_validation_test.sh` (new) — 7 checks
+  against a throwaway local Postgres DB, same harness as `wyn_130`/`wyn_185`/`wyn_186`.
+  Also re-ran `wyn_130`/`wyn_185`/`wyn_186` unmodified to confirm this batch didn't
+  touch anything they depend on (they don't load this new migration, so this is a
+  smoke check on the surrounding profiles-table behavior, not a claim the trigger was
+  exercised alongside them).
+- `web/components/dev/external-link-fixture.tsx` + `web/app/dev/external-link-fixture/page.tsx`
+  (new, no-backend fixture — `normalizeExternalUrl()` is a pure function) +
+  `web/tests/browser/external-link.spec.ts` (new, 8 checks: scheme-prepending,
+  https/http accepted as-is, `javascript:` rejected both with and without `//`, empty
+  input means remove, a bare word rejected, whitespace trimmed).
+
+Tests: `npm run check` PASS. `bash supabase/tests/wyn_187_profile_external_link_validation_test.sh`
+7/7 PASS. Playwright spec 8/8 PASS (chromium-desktop, same local executablePath
+workaround as prior batches, reverted after).

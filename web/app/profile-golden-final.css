@@ -108,6 +108,22 @@
   color: var(--wyn-text);
 }
 
+.wyn-profile-website {
+  margin: 6px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+  color: var(--wyn-accent, #2563eb);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .wyn-profile-stats {
   display: flex;
   gap: 16px;

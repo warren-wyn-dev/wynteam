@@ -25,6 +25,7 @@ import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { normalizeExternalUrl } from "@/lib/external-link";
 import { shareOrCopyLink } from "@/lib/share";
 import { triggerRouteRefresh, useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
@@ -98,11 +99,21 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
     : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
+function formatWebsiteLabel(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname !== "/" ? parsed.pathname : ""}`.replace(/\/$/, "");
+  } catch {
+    return url;
+  }
+}
+
 function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClient; userId: string; summary: ProfileSummary; onDone: () => void }) {
   const profile = summary.profile;
   const [displayName, setDisplayName] = useState(profile.display_name ?? "");
   const [username, setUsername] = useState(profile.username);
   const [bio, setBio] = useState(profile.bio ?? "");
+  const [website, setWebsite] = useState(profile.social_links?.website ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [avatar, setAvatar] = useState(profile.avatar_url);
@@ -121,8 +132,17 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
   };
   const save = async () => {
     if (!displayName.trim() && !profile.display_name) { setError("กรุณาใส่ชื่อที่แสดง"); return; }
+    const normalizedWebsite = normalizeExternalUrl(website);
+    if (website.trim() && !normalizedWebsite) { setError("ลิงก์เว็บไซต์ไม่ถูกต้อง"); return; }
     setSaving(true); setError("");
-    try { if (username.trim() !== profile.username) await updateUsername(client, userId, username); await updateProfileBasics(client, userId, { displayName, bio }); onDone(); }
+    try {
+      if (username.trim() !== profile.username) await updateUsername(client, userId, username);
+      const nextSocialLinks = { ...(profile.social_links ?? {}) };
+      if (normalizedWebsite) nextSocialLinks.website = normalizedWebsite;
+      else delete nextSocialLinks.website;
+      await updateProfileBasics(client, userId, { displayName, bio, socialLinks: nextSocialLinks });
+      onDone();
+    }
     catch (e) { setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
@@ -138,6 +158,7 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
       <label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label>
       <label className="route-field"><span>ชื่อผู้ใช้</span><input value={`@${username}`} autoCapitalize="none" maxLength={31} onChange={(e) => setUsername(e.target.value.replace(/^@+/, "").replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
       <label className="route-field"><span>คำอธิบายตัวเอง</span><textarea value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} /></label>
+      <label className="route-field"><span>เว็บไซต์ภายนอก</span><input type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" value={website} maxLength={300} placeholder="example.com" onChange={(e) => setWebsite(e.target.value)} /></label>
       {error ? <p className="route-error">{error}</p> : null}
       <div className="route-action-row"><button className="route-secondary" type="button" disabled={saving} onClick={onDone}>ยกเลิก</button><button className="route-primary" type="button" disabled={saving} onClick={() => void save()}>{saving ? "กำลังบันทึก…" : "บันทึก"}</button></div>
     </div>
@@ -350,6 +371,12 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
         <div className="wyn-profile-copy">
           <div className="wyn-profile-name">{name}{profile.is_verified ? <span className="route-verified">✓</span> : null}</div>
           {profile.bio ? <p className="wyn-profile-bio">{profile.bio}</p> : null}
+          {profile.social_links?.website ? (
+            <a className="wyn-profile-website" href={profile.social_links.website} target="_blank" rel="noopener noreferrer nofollow ugc">
+              <WynosIcon name="link" size={13} strokeWidth={2} />
+              {formatWebsiteLabel(profile.social_links.website)}
+            </a>
+          ) : null}
         </div>
       </div>
       {!summary.blockedBy ? (
