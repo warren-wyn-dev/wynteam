@@ -173,7 +173,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
   expect(notifications).toContain("markAllNotificationsRead");
 
   for (const label of ["บัญชี", "ความเป็นส่วนตัว", "การตั้งค่าแอป", "การแจ้งเตือน", "ธีมเข้ม", "ช่วยเหลือ", "ข้อกำหนดและความเป็นส่วนตัว", "ออกจากระบบ"]) expect(settings).toContain(label);
-  expect(settings).toContain("V1.0.0 Beta4");
+  expect(settings).toContain("Web Beta1");
 
   for (const label of ["เจอคอมมูนิตี้ที่ใช่", "สำหรับคุณ", "ค้นหา Club", "กำลังนิยม", "ใหม่ล่าสุด", "รออนุมัติ", "Club ของฉัน", "สร้าง Club"]) expect(clubs).toContain(label);
   expect(clubs).not.toContain("Club แนะนำสำหรับคุณ");
