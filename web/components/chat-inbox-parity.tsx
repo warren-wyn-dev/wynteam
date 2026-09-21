@@ -2,12 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
 import { ChatListSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
@@ -18,10 +17,8 @@ import {
   deleteMessageRequest,
   fetchInbox,
   fetchMessageRequests,
-  searchProfiles,
   subscribeMyMessages,
   type ConversationRow,
-  type ProfileRow,
 } from "@/lib/phase3-data";
 
 function conversationPreview(row: ConversationRow): string {
@@ -58,7 +55,6 @@ async function fetchChatInboxData(client: SupabaseClient): Promise<ChatInboxData
 }
 
 function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; userId: string }) {
-  const router = useRouter();
   const onlineIds = useOnlineUserIds();
   const { data, isLoading: loading, error: loadError, refetch } = useQuery({
     queryKey: ["chat-inbox", userId] as const,
@@ -80,10 +76,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   const [query, setQuery] = useState("");
   const [actionError, setActionError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeQuery, setComposeQuery] = useState("");
-  const [composePeople, setComposePeople] = useState<ProfileRow[]>([]);
-  const [composeFinding, setComposeFinding] = useState(false);
   const error = actionError || (loadError instanceof Error ? loadError.message : "");
 
   const closeSearch = () => { setSearchOpen(false); setQuery(""); };
@@ -103,28 +95,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
       if (requests.length <= 1) setActiveTab("inbox");
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "อัปเดตคำขอไม่สำเร็จ");
-    }
-  };
-
-  const findComposePeople = async () => {
-    const value = composeQuery.trim();
-    if (value.length < 2) { setComposePeople([]); return; }
-    setComposeFinding(true);
-    try { setComposePeople((await searchProfiles(client, value, 0)).filter((profile) => profile.id !== userId)); }
-    finally { setComposeFinding(false); }
-  };
-
-  const startConversation = async (profile: ProfileRow) => {
-    setComposeFinding(true);
-    setActionError("");
-    try {
-      if (!(await chatAllowed(client, profile.id))) throw new Error("ยังไม่สามารถส่งข้อความถึงบัญชีนี้ได้");
-      setComposeOpen(false);
-      router.push(`/chat/new?user=${encodeURIComponent(profile.id)}`);
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "เริ่มแชทไม่สำเร็จ");
-    } finally {
-      setComposeFinding(false);
     }
   };
 
@@ -171,9 +141,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                 onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
               >
                 <WynosIcon name="search" size={21} strokeWidth={1.9} />
-              </button>
-              <button className="wyn-chat-header-icon" type="button" aria-label="เขียนข้อความใหม่" onClick={() => setComposeOpen(true)}>
-                <WynosIcon name="messageSquarePlus" size={22} strokeWidth={1.9} />
               </button>
               <div className="wyn-chat-menu-wrap">
                 <button className="wyn-chat-header-icon" type="button" aria-label="เพิ่มเติม" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
@@ -291,34 +258,6 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
           </>
         )}
       </section>
-
-      {composeOpen ? (
-        <div className="route-modal-backdrop" onClick={() => setComposeOpen(false)} role="presentation">
-          <section className="route-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <header>
-              <strong>ข้อความใหม่</strong>
-              <button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setComposeOpen(false)}>
-                <WynosIcon name="close" size={24} strokeWidth={2} />
-              </button>
-            </header>
-            <form className="search-route-form compact" onSubmit={(event) => { event.preventDefault(); void findComposePeople(); }}>
-              <input autoFocus value={composeQuery} onChange={(event) => setComposeQuery(event.target.value)} placeholder="ค้นหา username" />
-              <button className="route-pill" type="submit">ค้นหา</button>
-            </form>
-            {composeFinding && !composePeople.length ? <LoadingState /> : (
-              <div className="route-list">
-                {composePeople.map((profile) => (
-                  <ProfileRowView
-                    profile={profile}
-                    key={profile.id}
-                    trailing={<button className="route-pill" type="button" disabled={composeFinding} onClick={() => void startConversation(profile)}>ส่งข้อความ</button>}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-      ) : null}
     </AppChrome>
   );
 }

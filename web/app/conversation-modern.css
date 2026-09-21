@@ -252,18 +252,18 @@
 }
 
 /* 2026-09-21 redesign: messaging-app "tail" shape (one flat corner on the
-   side facing the sender) and an accent-colored outgoing bubble, matching
-   the Founder-supplied mockup. The bottom-radius override here used to be
+   side facing the sender). The bottom-radius override here used to be
    set to the same 20px as the base rule, which is a no-op -- neither
-   corner was ever actually flat before this. */
+   corner was ever actually flat before this. Outgoing bubbles use a
+   monochrome black/white fill (not the WYNOS accent) per Founder request. */
 .conversation-modern .message-row.theirs .message-bubble {
   border-bottom-left-radius: 6px;
 }
 
 .conversation-modern .message-row.mine .message-bubble {
   border-bottom-right-radius: 6px;
-  background: var(--wyn-accent);
-  color: #fff;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
 }
 
 .conversation-modern .message-bubble time {
@@ -293,7 +293,7 @@
 }
 
 .conversation-modern .message-meta .message-read-status.read {
-  color: var(--wyn-accent);
+  color: var(--wyn-text);
 }
 
 .conversation-modern .message-delete {

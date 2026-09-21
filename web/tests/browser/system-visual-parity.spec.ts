@@ -50,11 +50,14 @@ test("Chat inbox matches the approved icon-header layout (Notes feature removed)
   expect(page).toContain("ChatInboxParityRoute");
   // 2026-09-21: a second Founder mockup (separate from the same-day WYN-170
   // reversal) removed the Notes feature entirely and replaced the
-  // always-visible search bar with a header search-icon toggle. Header now
-  // has 3 icon buttons: search, compose, and "..." (คำขอข้อความ lives in
-  // that menu, same as the WYN-170-reversal pass earlier the same day).
+  // always-visible search bar with a header search-icon toggle. Header has
+  // 2 icon buttons: search and "..." (คำขอข้อความ lives in that menu, same
+  // as the WYN-170-reversal pass earlier the same day). A later same-day
+  // Founder request removed the compose ("เขียนข้อความใหม่") button that
+  // originally sat between them.
   expect(chat).toContain('<h1>{activeTab === "requests" ? "คำขอข้อความ" : "ข้อความ"}</h1>');
-  expect(chat).toContain('name="messageSquarePlus"');
+  expect(chat).not.toContain('name="messageSquarePlus"');
+  expect(chat).not.toContain("เขียนข้อความใหม่");
   expect(chat).toContain("wyn-chat-header-icon");
   expect(chat).toContain("wyn-chat-menu-wrap");
   expect(chat).toContain('role="menuitem"');
