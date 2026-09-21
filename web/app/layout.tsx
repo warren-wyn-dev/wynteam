@@ -98,7 +98,17 @@ export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",app
 // only a standalone-launched web app, still carrying a plain browser
 // viewport, does. Without this it's the one thing that gives away "this is
 // a website" even from the home-screen icon.
-export const viewport:Viewport={width:"device-width",initialScale:1,maximumScale:1,userScalable:false,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
+// interactiveWidget "resizes-content" (iOS 16.4+/Chrome): without it, Safari's
+// default is "resizes-visual" — the visual viewport shrinks for the keyboard
+// but the layout viewport (what dvh units and position:fixed compute against)
+// does not, so the keyboard just overlays the page and Safari nudges fixed
+// elements above it as a compatibility patch. That patch is what produced the
+// "big gap above the keyboard, whole page jumps" feel the Founder flagged —
+// the page itself never actually resized, only the keyboard slid over it.
+// "resizes-content" makes the layout viewport itself shrink for the keyboard,
+// same as a native app's safe area shrinking, so dvh-based sizing and fixed
+// bottom bars stay flush with no separate compatibility jump.
+export const viewport:Viewport={width:"device-width",initialScale:1,maximumScale:1,userScalable:false,viewportFit:"cover",interactiveWidget:"resizes-content",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
 // Every route mounts DeveloperRouteGate on first paint, which immediately
 // calls Supabase auth.getSession() — a cross-origin request that otherwise
 // pays DNS + TCP + TLS from a cold start. Warming that connection while the
