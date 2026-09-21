@@ -14,6 +14,7 @@ import { HomePostCard } from "@/components/home/home-post-card";
 import { HOME_FEED_MODES, HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
 import { AppChrome } from "@/components/phase3-ui";
 import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { FeedSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -827,23 +828,7 @@ export function HomeScreen({ session }: { session: Session }) {
       </div>
 
       {pull.pullDistance > 0 || pull.refreshing ? (
-        <div
-          aria-label={pull.refreshing ? "กำลังรีเฟรชฟีด" : "ลากลงเพื่อรีเฟรช"}
-          aria-live="polite"
-          style={{ height: 0, position: "relative", zIndex: 6, pointerEvents: "none" }}
-        >
-          <div
-            className="route-system-spinner tiny"
-            style={{
-              position: "absolute",
-              top: pull.refreshing ? 10 : Math.max(4, Math.min(18, pull.pullDistance * 0.2)),
-              left: "50%",
-              opacity: pull.refreshing ? 1 : Math.max(0.22, Math.min(1, pull.pullDistance / 54)),
-              transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.78, Math.min(1, pull.pullDistance / 54))})`,
-              transition: pull.refreshing ? "top 140ms ease, opacity 140ms ease, transform 140ms ease" : "none",
-            }}
-          />
-        </div>
+        <PullToRefreshIndicator pull={pull} topOffset="68px" refreshingLabel="กำลังรีเฟรชฟีด" />
       ) : loading && mode !== visibleMode ? (
         <div
           aria-label="กำลังโหลดฟีด"

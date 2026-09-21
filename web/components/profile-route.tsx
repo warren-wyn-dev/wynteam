@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, DropPreviewCard, EmptyState } from "@/components/phase3-ui";
 import { ProfileRecommendations } from "@/components/profile-recommendations";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { FeedSkeleton, ProfileSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -335,42 +336,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   }
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
-    {pull.pullDistance > 0 || pull.refreshing ? (
-      // Pinned below the topbar (not inline in the document flow, and not
-      // at the bare viewport edge either) — Profile's header/bio/stats/tabs
-      // are much taller than Home's compact header, so an inline indicator
-      // positioned where the feed starts (Home's original approach) would
-      // render buried below all that chrome, often off-screen. Sitting
-      // right at the safe-area edge instead collided visually with the
-      // topbar's back/username/settings row, so this settles just below it
-      // — same spot a native pull-to-refresh indicator peeks in from.
-      <div
-        aria-label={pull.refreshing ? "กำลังรีเฟรชโปรไฟล์" : "ลากลงเพื่อรีเฟรช"}
-        aria-live="polite"
-        style={{ position: "fixed", top: "calc(52px + env(safe-area-inset-top, 0px))", left: 0, right: 0, height: 0, zIndex: 60, pointerEvents: "none" }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            top: pull.refreshing ? 14 : Math.max(-18, Math.min(14, -18 + pull.pullDistance * 0.4)),
-            left: "50%",
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            background: "var(--wyn-surface)",
-            boxShadow: "0 2px 10px rgb(0 0 0 / 12%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pull.refreshing ? 1 : Math.max(0, Math.min(1, pull.pullDistance / 40)),
-            transform: `translateX(-50%) scale(${pull.refreshing ? 1 : Math.max(0.6, Math.min(1, 0.6 + pull.pullDistance / 220))})`,
-            transition: pull.refreshing ? "top 180ms ease, opacity 180ms ease, transform 180ms ease" : "none",
-          }}
-        >
-          <div className="route-system-spinner tiny" />
-        </div>
-      </div>
-    ) : null}
+    <PullToRefreshIndicator pull={pull} topOffset="52px" refreshingLabel="กำลังรีเฟรชโปรไฟล์" />
     <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
     <header className="wyn-profile-topbar">
       <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><WynosIcon name="back" size={24} strokeWidth={2} /></button>
