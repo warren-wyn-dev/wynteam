@@ -1,6 +1,8 @@
 # Coding Task — WYN-185
 
-Status: active
+Status: review — Implementation + QA & Security PASS (commit c213ff0,
+2026-09-21). Awaiting CTO final review + Founder approval for Staging/
+Production per AGENTS.md Release Gates. See "QA re-check" entry below.
 Owner: AI Coding
 Feature: WYNOS Web Beta1 — 13-item bug/UX fix bundle (Founder-issued directly, full requirements below stand in for PRD/acceptance criteria)
 Branch: claude/wynos-web-beta1-fixes-r3c06k
@@ -809,3 +811,28 @@ including the `post-detail-keyboard.spec.ts` test QA flagged as LOW/flaky). DB
 migration test scripts (`wyn_185`/`wyn_187`/`wyn_130`/`wyn_115`/`wyn_117`) not
 re-run — no SQL/migration files were touched in this follow-up round, and QA had
 already independently verified all of them clean against the same commit.
+
+## QA re-check — PASS (commit c213ff0)
+
+QA & Security independently re-verified all 4 corrected assertions against current
+source (not just the diff) — confirmed each reflects real, current product behavior,
+not an assertion "fixed" to pass incorrectly. Also independently verified the item 11
+`profile-route.tsx` defense-in-depth: confirmed it blocks an unsafe URI end-to-end
+(returns `null` → no link rendered) and is a no-op for already-valid URLs (idempotent
+re-normalization, no UX change for the common case).
+
+Independent re-run: `npm run check` PASS. Full Playwright suite 89/89 PASS on one run;
+a second independent run reproduced 1 known flake —
+`post-detail-keyboard.spec.ts:66` ("single scroll container"), ~15-20% fail rate from
+`page.mouse.wheel()` timing in headless Chromium, not a product bug, not touched by
+commit `c213ff0`, already flagged LOW/non-blocking in QA's first pass. DB migration
+test scripts re-run independently, still clean (no SQL changed in this round).
+
+**Final QA Status: PASS.** Outstanding item before Production only: Founder/AI Deploy
+must apply `supabase/migrations_wyn187_profile_external_link_validation.sql` before or
+atomically with deploying this batch's web code (pre-existing Change Control
+requirement, not a new gap).
+
+Next per AGENTS.md Release Gates: CTO final review, then Staging Gate, then explicit
+Founder approval before Production. No AI agent deploys or applies production SQL
+without that approval.
