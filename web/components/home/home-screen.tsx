@@ -20,6 +20,7 @@ import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { authorLabel, type HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
+import { shareOrCopyLink } from "@/lib/share";
 import {
   loadHomeViewerState,
   predictFollowState,
@@ -633,15 +634,7 @@ export function HomeScreen({ session }: { session: Session }) {
 
   const share = async (row: HomeFeedRow) => {
     const url = `${window.location.origin}/drop/${row.id}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: authorLabel(row), text: row.caption || "WYNOS", url });
-      } else {
-        await navigator.clipboard.writeText(url);
-      }
-    } catch {
-      // Native share cancellation is not an application error.
-    }
+    await shareOrCopyLink({ title: authorLabel(row), text: row.caption || "WYNOS", url }, showToast);
   };
 
   const hide = async (row: HomeFeedRow) => {

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import {
@@ -23,6 +24,7 @@ import {
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
+import { shareOrCopyLink } from "@/lib/share";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type ClubTab = "posts" | "chat" | "about";
@@ -283,12 +285,10 @@ function ClubPostCard({
   const own = post.author_id === userId;
   const canModerate = ["owner", "admin", "moderator"].includes(post.my_role ?? "");
   const author = post.author_display_name?.trim() || post.author_username || "WYNOS";
+  const { toastMessage, showToast } = useToast();
   const share = async () => {
     const url = `${window.location.origin}/club-post/${post.id}`;
-    try {
-      if (navigator.share) await navigator.share({ title: author, text: post.content || "WYNOS Club", url });
-      else await navigator.clipboard.writeText(url);
-    } catch { /* native share cancelled */ }
+    await shareOrCopyLink({ title: author, text: post.content || "WYNOS Club", url }, showToast);
   };
   const like = async () => {
     if (busy) return;
@@ -359,6 +359,7 @@ function ClubPostCard({
         </BottomSheet>
       ) : null}
       {report ? <ReportSheet client={client} target={{ type: "club_post", id: post.id, label: `รายงานโพสต์ของ ${author}` }} onClose={() => setReport(false)} /> : null}
+      <Toast message={toastMessage} />
     </article>
   );
 }
@@ -523,6 +524,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
   const [error, setError] = useState("");
   const [menu, setMenu] = useState(false);
   const [report, setReport] = useState(false);
+  const { toastMessage, showToast } = useToast();
 
   const load = useCallback(async () => {
     const next = await fetchClubData(client, userId, clubId);
@@ -615,8 +617,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
   };
   const share = async () => {
     const url = `${window.location.origin}/club/${clubId}`;
-    try { if (navigator.share) await navigator.share({ title: club.name, text: `แชร์ Club ${club.name}`, url }); else await navigator.clipboard.writeText(url); }
-    catch { /* native share cancelled */ }
+    await shareOrCopyLink({ title: club.name, text: `แชร์ Club ${club.name}`, url }, showToast);
   };
   const statusLabel = owner ? "เจ้าของ Club" : approved ? "เข้าร่วมแล้ว" : pending ? "รออนุมัติ" : "เข้าร่วม";
 
@@ -690,6 +691,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
         </BottomSheet>
       ) : null}
       {report ? <ReportSheet client={client} target={{ type: "club", id: clubId, label: `รายงาน Club “${club.name}”` }} onClose={() => setReport(false)} /> : null}
+      <Toast message={toastMessage} />
     </AppChrome>
   );
 }

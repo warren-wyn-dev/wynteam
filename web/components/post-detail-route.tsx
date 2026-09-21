@@ -10,6 +10,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { RichPostText } from "@/components/rich-post-text";
 import { AnimatedHeart } from "@/components/ui/animated-heart";
+import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import {
@@ -27,6 +28,7 @@ import {
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchDropById } from "@/lib/phase3-data";
+import { shareOrCopyLink } from "@/lib/share";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 
 type ActivityTab = "likes" | "redrops";
@@ -201,6 +203,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const [viewerProfile, setViewerProfile] = useState<{ username: string; avatar_url?: string | null } | null>(cached?.viewerProfile ?? null);
   const composerRef = useRef<HTMLInputElement | null>(null);
   const scrollYRef = useRef(0);
+  const { toastMessage, showToast } = useToast();
 
   useKeyboardInset();
 
@@ -281,7 +284,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
 
   const share = async () => {
     const url = `${window.location.origin}/drop/${row.id}`;
-    try { if (navigator.share) await navigator.share({ title: `โพสต์โดย ${authorLabel(row)}`, text: row.caption ?? "WYNOS", url }); else await navigator.clipboard.writeText(url); } catch { /* cancelled */ }
+    await shareOrCopyLink({ title: `โพสต์โดย ${authorLabel(row)}`, text: row.caption ?? "WYNOS", url }, showToast);
   };
 
   const submit = async () => {
@@ -397,6 +400,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       {deleteDropOpen ? <ConfirmDialog title="ลบโพสต์นี้หรือไม่?" body="โพสต์จะถูกนำออกจาก WYNOS และยังคงใช้ระบบกู้คืนเดิม" dangerLabel="ลบ" onCancel={() => setDeleteDropOpen(false)} onConfirm={() => void deleteDrop()} /> : null}
       {deleteCommentTarget ? <ConfirmDialog title="ลบคอมเมนต์นี้หรือไม่?" dangerLabel="ลบ" onCancel={() => setDeleteCommentTarget(null)} onConfirm={() => void deleteComment(deleteCommentTarget)} /> : null}
       {reportOpen ? <TextDialog title="รายงานโพสต์" value={reportText} placeholder="รายละเอียดที่ต้องการรายงาน" confirmLabel="ส่งรายงาน" onChange={setReportText} onCancel={() => { setReportOpen(false); setReportText(""); }} onConfirm={() => void reportDrop()} /> : null}
+      <Toast message={toastMessage} />
       {moreOpen ? <div className="route-modal-backdrop detail-more-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal detail-more-sheet" role="dialog" aria-modal="true" aria-label="ตัวเลือกโพสต์" onClick={(event) => event.stopPropagation()}>{ownDrop ? <>{Date.now() - new Date(row.created_at).getTime() < 30 * 60 * 1000 ? <button type="button" onClick={() => { setEditCaption(row.caption ?? ""); setMoreOpen(false); setEditOpen(true); }}><WynosIcon name="pencil" size={19} strokeWidth={2} />แก้ไข</button> : null}<button className="danger" type="button" onClick={() => { setMoreOpen(false); setDeleteDropOpen(true); }}><WynosIcon name="trash" size={19} strokeWidth={2} />ลบ</button></> : <button type="button" onClick={() => { setMoreOpen(false); setReportOpen(true); }}><WynosIcon name="flag" size={19} strokeWidth={2} />รายงานโพสต์</button>}</section></div> : null}
     </AppChrome>
   );

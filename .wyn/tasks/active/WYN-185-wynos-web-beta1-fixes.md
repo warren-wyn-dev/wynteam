@@ -243,3 +243,36 @@ Supabase backend or a meaningfully larger network-mock harness than this session
 (debounce scheduling/cleanup, the publish-vs-autosave race, the skip-on-load flag) and
 `npm run check`. Flagging this gap explicitly rather than claiming test coverage that
 isn't there.
+
+## Batch 5 — Share (navigator.share + clipboard fallback + toast)
+
+Found `profile-route.tsx`'s `share()` already had the correct, complete implementation
+(navigator.share, clipboard fallback, `showToast("คัดลอกลิงก์แล้ว")` on success, an
+AbortError-vs-real-failure distinction since AbortError fires both for a deliberate
+cancel and for "no compatible share target" and the API can't tell them apart). The
+other 5 share call sites (post detail, club post, club, feed card, home feed) all
+duplicated the same navigator.share/clipboard logic *without* the toast — every outcome
+was swallowed by an empty `catch {}`, so a clipboard-only device got no confirmation at
+all and a real failure (e.g. clipboard permission denied) looked identical to the button
+doing nothing.
+
+Files Changed:
+- `web/lib/share.ts` (new) — `shareOrCopyLink()`, extracted from profile-route.tsx's
+  existing correct implementation, now the one shared helper every call site uses.
+- `web/components/profile-route.tsx` — switched to the shared helper (no behavior
+  change, just dedup).
+- `web/components/post-detail-route.tsx`, `web/components/golden-drop-card.tsx`,
+  `web/components/home/home-screen.tsx`, `web/components/club-detail-golden.tsx` (both
+  the club-post share and the main club share) — wired to the shared helper +
+  `useToast()`/`<Toast>` (added where missing; `home-screen.tsx` already had the
+  Toast plumbing for other actions, just wasn't using it for share).
+- `web/components/dev/share-fixture.tsx` + `web/app/dev/share-fixture/page.tsx` (new,
+  no-backend fixture — sharing a link never touches Supabase, so this one only needed
+  `navigator.share`/`navigator.clipboard` stubbed, not a Supabase session) +
+  `web/tests/browser/share.spec.ts` (new, 5 checks: clipboard-only success, clipboard
+  failure surfaces an error, `navigator.share` success shows no redundant toast,
+  AbortError falls back to clipboard, a real `navigator.share` failure surfaces an
+  error).
+
+Tests: `npm run check` PASS. Playwright spec 5/5 PASS (chromium-desktop, same local
+executablePath workaround as prior batches, reverted after).
