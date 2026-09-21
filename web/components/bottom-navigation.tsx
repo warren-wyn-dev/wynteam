@@ -13,21 +13,18 @@ import { triggerRouteRefresh } from "@/components/route-refresh-runtime";
 type MaterialNavKind = "home" | "club" | "chat" | "profile" | "add";
 
 export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNavKind; selected?: boolean }) {
-  const strokeWidth = selected ? 2.15 : 1.9;
+  // 2026-09-21 "Tab Bar A: เส้นบาง" redesign: a simpler, unified line-icon
+  // set (matching the Lucide icon language the rest of the app already uses
+  // via WynosIcon) replaces the previous bespoke glyphs. Only the chat icon
+  // fills on selection now -- the others stay outline-only and rely on
+  // color/weight (see bottom-nav.css) to signal the active tab.
+  const strokeWidth = 1.7;
 
   if (kind === "home") {
     return (
-      <svg
-        className="route-nav-glyph"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        fill={selected ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M3.5 10.5 12 3l8.5 7.5V20h-6v-6h-5v6h-6v-9.5Z" />
+      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+        <path d="m3 11 9-8 9 8" />
+        <path d="M5 10v10h14V10" />
       </svg>
     );
   }
@@ -35,23 +32,18 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
   if (kind === "club") {
     return (
       <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="6" cy="9.8" r="2.1" />
-        <path d="M2.2 19c.3-3.3 1.95-5 3.8-5s3.5 1.7 3.8 5H2.2Z" />
-        <circle cx="18" cy="9.8" r="2.1" />
-        <path d="M14.2 19c.3-3.3 1.95-5 3.8-5s3.5 1.7 3.8 5H14.2Z" />
-        <circle cx="12" cy="7" r="3" fill="var(--wyn-bg)" />
-        <path d="M5.2 19c.4-4.6 3-7.2 6.8-7.2s6.4 2.6 6.8 7.2H5.2Z" fill="var(--wyn-bg)" />
+        <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+        <circle cx="10" cy="7" r="4" />
+        <path d="M21 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
     );
   }
 
   if (kind === "chat") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 4.5c4.42 0 7.5 2.84 7.5 6.5 0 3.66-3.08 6.5-7.5 6.5-.86 0-1.68-.11-2.44-.31L5.5 19.5l1.1-3.38C5.06 14.87 4.5 13.15 4.5 11c0-3.66 3.08-6.5 7.5-6.5Z" />
-        <circle cx="8.7" cy="11" r="1.05" fill="currentColor" stroke="none" />
-        <circle cx="12" cy="11" r="1.05" fill="currentColor" stroke="none" />
-        <circle cx="15.3" cy="11" r="1.05" fill="currentColor" stroke="none" />
+      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill={selected ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.77 1.46 5.24 3.75 6.86-.13 1.13-.5 2.36-1.32 3.62a.5.5 0 0 0 .58.75c1.9-.6 3.36-1.4 4.4-2.11.83.17 1.7.26 2.59.26 5.52 0 10-3.94 10-8.8S17.52 2 12 2Z" />
       </svg>
     );
   }
@@ -59,16 +51,16 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
   if (kind === "profile") {
     return (
       <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="7.5" r="3.5" />
-        <path d="M5 20c.45-4.05 2.85-6 7-6s6.55 1.95 7 6H5Z" />
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
       </svg>
     );
   }
 
   return (
     <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="8.25" />
-      <path d="M12 8v8M8 12h8" />
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M12 7.5v9M7.5 12h9" />
     </svg>
   );
 }
