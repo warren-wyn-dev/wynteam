@@ -378,7 +378,18 @@ is the default" instruction. Flagging this behavior change explicitly since it w
 called out by name in the bug report, in case the old hashtag-specific shortcut was
 intentional and should come back as a `type=posts` param on those specific links.
 
-## Batch 8 — Activity (Views/Likes/Comments/Reposts/Saves, unique views, ghost fix)
+## Batch 8 — Activity: implemented, then reverted at Founder's request
+
+Originally implemented as Views/Likes/Comments/Reposts/Saves tabs + a unique-viewer
+count + a ghost-account fix for the Activity sheet, plus a `profiles.username`
+non-empty DB constraint (commit `902a745`). The Founder asked for item 8 to be removed
+entirely; reverted via `git revert 902a745` (clean auto-merge against every other file
+it touched — the only conflict was this log itself, resolved by dropping the Batch 8
+narrative and leaving this note in its place). Removed: the 5-tab ActivitySheet (back
+to the original 2-tab Likes/Reposts), `drop_unique_viewer_count()`,
+`drop_activity_profiles()`, `profiles_username_not_empty`, the `?activity=1`
+Notifications entry point, and their migration/test/fixture files. Nothing in Batches
+9-12 depended on any of it, so no further changes were needed elsewhere.
 
 **Conflict found and escalated before writing any code**: item 8 asks for Views to
 count by unique user/session, but the DB currently does the opposite on purpose —

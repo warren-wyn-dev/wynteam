@@ -58,12 +58,8 @@
 .detail-activity-sheet { width: min(100%, 680px); max-height: min(76dvh, 700px); padding: 0; overflow: hidden; border-radius: 22px 22px 0 0; background: var(--wyn-bg); }
 .detail-activity-header { height: 54px; padding: 0 8px 0 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--wyn-border); }
 .detail-activity-header strong { font-size: 17px; }
-/* WYN-185/186 item 8: grew from 2 tabs (Likes/Reposts) to 5 (+Views/
-   Comments/Saves) -- a rigid 5-column grid truncates Thai label+count text
-   at 390px, so this scrolls horizontally instead of forcing equal columns. */
-.detail-activity-tabs { display: flex; overflow-x: auto; scrollbar-width: none; height: 48px; border-bottom: 1px solid var(--wyn-border); }
-.detail-activity-tabs::-webkit-scrollbar { display: none; }
-.detail-activity-tabs button { position: relative; flex: 0 0 auto; min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: var(--wyn-text-secondary); font-size: 13.5px; font-weight: 500; white-space: nowrap; }
+.detail-activity-tabs { display: grid; grid-template-columns: 1fr 1fr; height: 48px; border-bottom: 1px solid var(--wyn-border); }
+.detail-activity-tabs button { position: relative; border: 0; background: transparent; color: var(--wyn-text-secondary); font-size: 13.5px; font-weight: 500; }
 .detail-activity-tabs button.active { color: var(--wyn-text); font-weight: 700; }
 .detail-activity-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 34px; height: 2px; transform: translateX(-50%); border-radius: 999px; background: var(--wyn-text); }
 .detail-activity-content { min-height: 180px; max-height: calc(min(76dvh, 700px) - 102px); overflow-y: auto; overscroll-behavior: contain; }
@@ -71,9 +67,6 @@
 .detail-activity-person > span:last-child { min-width: 0; display: flex; flex-direction: column; }
 .detail-activity-person strong { display: flex; align-items: center; gap: 4px; font-size: 14px; }
 .detail-activity-person small { color: var(--wyn-text-secondary); font-size: 12px; }
-.detail-activity-count { min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px 16px; text-align: center; }
-.detail-activity-count strong { font-size: 32px; font-weight: 700; color: var(--wyn-text); }
-.detail-activity-count span { color: var(--wyn-text-secondary); font-size: 13px; }
 
 @media (min-width: 681px) {
   .detail-composer-shell { border-left: 1px solid var(--wyn-border); border-right: 1px solid var(--wyn-border); }
