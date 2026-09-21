@@ -21,3 +21,6 @@
 **PR**: [#583](https://github.com/warren-wyn-dev/wynteam/pull/583) (`claude/web-beta1-readiness-7hysen` → `main`)
 
 **Rollback Plan**: Revert PR — ทั้งหมดเป็น CSS diff เล็ก ไม่กระทบ business logic ปลอดภัยที่จะ revert ทันที
+
+**Deployment Result**:
+- `WYN-158 Production Deploy` run #169 (https://github.com/warren-wyn-dev/wynteam/actions/runs/35559852334) — **success** ทุก step, deploy ขึ้น `wynos.online` แล้ว
