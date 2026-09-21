@@ -574,11 +574,34 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
     if (approved && !window.confirm("ออกจาก Club?")) return;
     if (pending && !window.confirm("ยกเลิกคำขอเข้าร่วม Club?")) return;
     setBusy(true); setError("");
+
+    // Optimistic: flip membership + member_count immediately so the button
+    // label and count feel instant, then roll both back if the API call
+    // fails instead of leaving the UI in a state the server never agreed to.
+    const previousData = data;
+    const joiningApproved = !membership && club.privacy !== "private";
+    const nextMembership: Membership = membership
+      ? null
+      : { role: "member", status: club.privacy === "private" ? "pending" : "approved" };
+    const memberCountDelta = joiningApproved ? 1 : approved && membership ? -1 : 0;
+    setData((current) => current ? {
+      ...current,
+      membership: nextMembership,
+      club: { ...current.club, member_count: Math.max(0, current.club.member_count + memberCountDelta) },
+    } : current);
+
     const result = membership
       ? await client.from("club_members").delete().eq("club_id", clubId).eq("user_id", userId)
       : await client.from("club_members").insert({ club_id: clubId, user_id: userId, role: "member", status: club.privacy === "private" ? "pending" : "approved" });
-    if (result.error) setError("อัปเดตสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง");
-    else await refresh();
+    if (result.error) {
+      setData(previousData);
+      setError("อัปเดตสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } else {
+      // Reconcile with the server in the background (role/status the
+      // trigger or RLS actually applied, real member_count) without
+      // blocking on it — the optimistic state above already reflects it.
+      void refresh();
+    }
     setBusy(false);
   };
   const toggleMute = async () => {

@@ -356,14 +356,17 @@ async function signClubMedia(client: SupabaseClient, path: unknown): Promise<str
 }
 
 async function mapClub(client: SupabaseClient, row: Record<string, unknown>): Promise<ClubRow> {
+  // WYN-185: a raw `count` query against club_members is RLS-blocked for
+  // anyone who isn't an approved member yet, even for a Public club -- the
+  // exact cause of "0 สมาชิก" before joining a Public club that shows the
+  // real count right after. club_member_count() is a security-definer RPC
+  // that returns the real count for a Public club to anyone, and for a
+  // Private club only to an approved member of it (same visibility the old
+  // query effectively enforced there, just without the Public-club bug).
   const [cover, icon, members] = await Promise.all([
     signClubMedia(client, row.cover_url),
     signClubMedia(client, row.icon_url),
-    client
-      .from("club_members")
-      .select("club_id", { count: "exact", head: true })
-      .eq("club_id", String(row.id ?? ""))
-      .eq("status", "approved"),
+    client.rpc("club_member_count", { p_club_id: String(row.id ?? "") }),
   ]);
   return {
     id: String(row.id ?? ""),
@@ -374,7 +377,7 @@ async function mapClub(client: SupabaseClient, row: Record<string, unknown>): Pr
     cover_url: cover,
     icon_url: icon,
     created_at: String(row.created_at ?? ""),
-    member_count: members.count ?? 0,
+    member_count: typeof members.data === "number" ? members.data : 0,
   };
 }
 
@@ -398,11 +401,13 @@ async function mapClubs(client: SupabaseClient, rows: Record<string, unknown>[])
     }
   }
   const ids = rows.map((row) => String(row.id ?? ""));
-  const memberships = await client.from("club_members").select("club_id").in("club_id", ids).eq("status", "approved");
+  // WYN-185: club_member_counts() (security-definer) instead of a raw
+  // club_members count -- see mapClub()'s comment for why the raw query
+  // undercounts (0) for a Public club the caller hasn't joined yet.
+  const memberships = await client.rpc("club_member_counts", { p_club_ids: ids });
   const countByClubId = new Map<string, number>();
-  for (const membership of (memberships.data ?? []) as { club_id: string }[]) {
-    const key = String(membership.club_id);
-    countByClubId.set(key, (countByClubId.get(key) ?? 0) + 1);
+  for (const row of (memberships.data ?? []) as { club_id: string; member_count: number }[]) {
+    countByClubId.set(String(row.club_id), Number(row.member_count) || 0);
   }
   return rows.map((row) => {
     const id = String(row.id ?? "");
