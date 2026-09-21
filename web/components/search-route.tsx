@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, DropPreviewCard, EmptyState, ProfileRowView } from "@/components/phase3-ui";
 import { FeedSkeleton, SearchClubSkeleton, SearchDiscoverySkeleton, SearchUserSkeleton } from "@/components/ui/skeleton";
+import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
@@ -119,7 +120,7 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
             key={profile.id}
             trailing={profile.id === userId ? null : (
               <button className={`route-pill ${followed || requested ? "soft" : ""}`} disabled={pending.has(profile.id)} type="button" onClick={() => void follow(profile)}>
-                {followed ? "กำลังติดตาม" : requested ? "ขอติดตามแล้ว" : "ติดตาม"}
+                {followButtonLabel({ busy: pending.has(profile.id), following: followed, requested })}
               </button>
             )}
           />
@@ -286,7 +287,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
                       type="button"
                       onClick={() => void follow(profile)}
                     >
-                      {followed ? "กำลังติดตาม" : requested ? "ขอติดตามแล้ว" : "ติดตาม"}
+                      {followButtonLabel({ busy: pending.has(profile.id), following: followed, requested })}
                     </button>
                   )}
                 />

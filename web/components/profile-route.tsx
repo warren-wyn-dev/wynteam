@@ -9,6 +9,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, DropPreviewCard, EmptyState } from "@/components/phase3-ui";
 import { ProfileRecommendations } from "@/components/profile-recommendations";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { FeedSkeleton, ProfileSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -198,6 +199,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     if (summary.requested && profile.is_private && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
     const wasFollowing = summary.following;
     const wasRequested = summary.requested;
+    const wasFollowerCount = summary.followerCount;
     const optimisticNext = predictFollowState({ currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private });
     if (!wasFollowing) haptic();
     setAction(true); setError("");
@@ -209,7 +211,10 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
     }));
     try { await toggleAuthorFollow(client, userId, profile.id, { currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private }); }
     catch (e) {
-      patchSummary((current) => ({ ...current, following: wasFollowing, requested: wasRequested }));
+      // Full rollback -- the previous version only restored
+      // following/requested and left followerCount at its already-mutated
+      // (wrong) value on failure.
+      patchSummary((current) => ({ ...current, following: wasFollowing, requested: wasRequested, followerCount: wasFollowerCount }));
       setError(e instanceof Error ? e.message : "ติดตามไม่สำเร็จ");
       showToast("ติดตามไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
@@ -360,7 +365,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
         <div className="wyn-profile-actions"><button className="wyn-profile-action-primary soft" disabled={action} type="button" onClick={() => void unblock()}>ปลดบล็อก</button></div>
       ) : (
         <div className="wyn-profile-actions">
-          <button className={`wyn-profile-action-primary ${summary.following || summary.requested ? "soft" : ""}`} disabled={action || summary.blockedBy} type="button" onClick={() => void follow()}>{summary.following ? "กำลังติดตาม" : summary.requested ? "ขอติดตามแล้ว" : "ติดตาม"}</button>
+          <button className={`wyn-profile-action-primary ${summary.following || summary.requested ? "soft" : ""}`} disabled={action || summary.blockedBy} type="button" onClick={() => void follow()}>{followButtonLabel({ busy: action, following: summary.following, requested: summary.requested })}</button>
           <button className="wyn-profile-action-secondary" disabled={action || summary.blockedBy} type="button" onClick={() => void startChat()}><WynosIcon name="send" size={18} strokeWidth={2} /> ส่งข้อความ</button>
         </div>
       )}

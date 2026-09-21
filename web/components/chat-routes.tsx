@@ -9,6 +9,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
+import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WyniiConversationHeader } from "@/components/wynii-chat";
 import { relativeTimeTh } from "@/lib/feed";
@@ -328,7 +329,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   };
 
   const displayName = other?.display_name?.trim() || other?.username || "ข้อความ";
-  const followLabel = otherSummary?.following ? "กำลังติดตาม" : otherSummary?.requested ? "ขอติดตามแล้ว" : "ติดตาม";
+  const followLabel = followButtonLabel({ busy: followBusy, following: otherSummary?.following ?? false, requested: otherSummary?.requested ?? false });
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}>

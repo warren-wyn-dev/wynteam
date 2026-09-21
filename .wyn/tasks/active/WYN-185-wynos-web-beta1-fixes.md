@@ -450,3 +450,58 @@ typecheck/build-verified and the RPC logic itself is DB-test-verified, but the t
 were never exercised together end-to-end. The Founder should apply the migration to
 staging first and confirm the Activity sheet's 5 tabs against a real post with real
 likes/comments/reposts/saves/views before production.
+
+## Batch 9 — Follow (wording, busy state, full rollback)
+
+Found the exact "กำลังติดตาม" complaint reproducible: every follow/unfollow toggle
+button in the app (6 production call sites: Profile, Post Detail, Chat, Search x2,
+Follower/Following lists, Suggested-to-follow) used
+`following ? "กำลังติดตาม" : requested ? "ขอติดตามแล้ว" : "ติดตาม"` — "กำลังติดตาม"
+("currently following") on a *button* reads as an in-progress verb, the same shape as
+"กำลังโหลด"/"กำลังส่ง", not a completed state. None of the 6 showed any visible
+difference between "request in flight" and "idle, waiting for a tap" beyond the
+button merely going `disabled` — no spinner, no text change at all during the request.
+
+`profile-route.tsx`'s `follow()` already had real optimistic follower-count updates
+(the only one of the 6 that did) — but its failure-path rollback only restored
+`following`/`requested`, not `followerCount`, so a failed request left the displayed
+follower count permanently off by one even though the button itself reverted
+correctly. Fixed as part of this batch.
+
+Files Changed:
+- `web/components/ui/follow-button-label.tsx` (new) — `followButtonLabel({ busy,
+  following, requested })`, the one shared label function every call site now uses:
+  `busy` → "กำลังดำเนินการ…", `following` → "ติดตามแล้ว" (was the ambiguous
+  "กำลังติดตาม"), `requested` → "ขอติดตามแล้ว" (unchanged — already an unambiguous
+  completed-state phrase), else "ติดตาม".
+- `web/components/profile-route.tsx` — wired to the shared label; fixed `follow()`'s
+  rollback to also restore `followerCount` on failure (previously left mutated).
+- `web/components/post-detail-route.tsx` — the author-follow button had *no* busy
+  guard or optimistic feedback at all (a genuine double-submit gap, not just a wording
+  one); added a `followBusy` state, `disabled` guard, and the shared label.
+- `web/components/chat-routes.tsx`, `web/components/profile-recommendations.tsx`,
+  `web/components/profile-follow-list-route.tsx`, `web/components/search-route.tsx`
+  (both the User-tab and Discovery-suggestions follow buttons) — wired to the shared
+  label using each file's own already-existing busy/pending tracking.
+- Left every *noun*/tab-label use of "กำลังติดตาม" untouched (Profile's "42
+  กำลังติดตาม" follower-count stat, the Following tab in Profile/Home/the follow-list
+  switcher) — those are standard, correct Thai for "(the list of accounts) being
+  followed," not the reported bug, which was specifically the button-state wording.
+- `web/components/dev/follow-button-fixture.tsx` + `web/app/dev/follow-button-fixture/page.tsx`
+  (new, no-backend fixture — `followButtonLabel()` is a pure function, no Supabase
+  needed) + `web/tests/browser/follow-button-label.spec.ts` (new, 5 checks: idle/busy/
+  following/requested wording, busy taking priority over following).
+
+Tests: `npm run check` PASS. Playwright spec 5/5 PASS (chromium-desktop, same local
+executablePath workaround as prior batches, reverted after).
+
+Known Issues: Optimistic follower-*count* updates (as opposed to the button's own
+state) only exist on the Profile page, the one place item 9's literal wording
+("อัปเดตจำนวนผู้ติดตามทันทีแบบ optimistic") applies to (it's the only follow button
+with a visible count next to it). The other 5 call sites now get correct busy-state
+feedback and completed-state wording, per the rest of item 9, but weren't converted to
+optimistic toggling — none of them have a follower count on screen to update, and
+doing so would mean the same conflict-of-scope tradeoff `toggleAuthorFollow`'s
+wait-for-server design represents everywhere else in the app (a bigger, more invasive
+change than this item's concrete complaints called for). Flagging rather than silently
+picking one.
