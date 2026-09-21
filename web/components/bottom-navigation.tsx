@@ -15,14 +15,15 @@ type MaterialNavKind = "home" | "club" | "chat" | "profile" | "add";
 export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNavKind; selected?: boolean }) {
   // 2026-09-21 "Tab Bar A: เส้นบาง" redesign: a simpler, unified line-icon
   // set (matching the Lucide icon language the rest of the app already uses
-  // via WynosIcon) replaces the previous bespoke glyphs. Only the chat icon
-  // fills on selection now -- the others stay outline-only and rely on
-  // color/weight (see bottom-nav.css) to signal the active tab.
+  // via WynosIcon) replaces the previous bespoke glyphs. Every tab that
+  // tracks an active route (home/club/chat/profile) fills solid on
+  // selection, same as the chat icon -- the Founder asked for that fill
+  // treatment across the whole bar, not just chat.
   const strokeWidth = 1.7;
 
   if (kind === "home") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill={selected ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
         <path d="m3 11 9-8 9 8" />
         <path d="M5 10v10h14V10" />
       </svg>
@@ -31,7 +32,7 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
 
   if (kind === "club") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill={selected ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
         <circle cx="10" cy="7" r="4" />
         <path d="M21 21v-2a4 4 0 0 0-3-3.87" />
@@ -50,7 +51,7 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
 
   if (kind === "profile") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill={selected ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="8" r="4" />
         <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
       </svg>
