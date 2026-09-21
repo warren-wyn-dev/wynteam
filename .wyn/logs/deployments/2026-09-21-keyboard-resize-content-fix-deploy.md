@@ -25,5 +25,8 @@ native app
 **Rollback Plan**: Revert PR — เป็นการเปลี่ยน viewport meta property เดียว ไม่กระทบ business logic
 ปลอดภัยที่จะ revert ทันที
 
+**Deployment Result**:
+- `WYN-158 Production Deploy` run #171 (https://github.com/warren-wyn-dev/wynteam/actions/runs/35563556283) — **success** ทุก step, deploy ขึ้น `wynos.online` แล้ว
+
 **บริบท**: นี่คือข้อ #1/#2 จาก feedback 10 ข้อที่ Founder ส่ง screen recording มาให้ (2026-09-21) —
 ดู DECISIONS.md/task ที่เกี่ยวข้องสำหรับ 8 ข้อที่เหลือ
