@@ -380,7 +380,12 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
             ) : <><span /><span /></>}
           </header>
 
-          {other ? <section className="conversation-profile-hero">
+          {/* Matches Instagram/LINE-style DM: the full profile-intro card
+              (large avatar, "View Profile" + follow actions) is only for a
+              brand-new, empty conversation. Once real messages exist, the
+              sticky header's small avatar+name is enough -- keeping the
+              hero around too just duplicates it and pushes the thread down. */}
+          {other && !messages.length ? <section className="conversation-profile-hero">
             <Link className="conversation-profile-identity" href={`/profile/${other.id}`}>
               <Avatar src={other.avatar_url} label={other.username} size={112} />
               <strong>{displayName}</strong>
@@ -388,7 +393,22 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
             </Link>
             <div className="conversation-profile-actions">
               <Link className="conversation-profile-button profile" href={`/profile/${other.id}`}><WynosIcon name="profile" size={24} strokeWidth={1.8} /><span>ดูโปรไฟล์</span></Link>
-              <button className={`conversation-profile-button follow ${otherSummary?.following || otherSummary?.requested ? "soft" : ""}`} type="button" disabled={followBusy || !otherSummary} onClick={() => void toggleFollow()}><WynosIcon name="circlePlus" size={24} strokeWidth={1.8} /><span>{followLabel}</span></button>
+              {/* Already following: no button at all, same pattern as the
+                  Home feed's follow pill (post-author-row.tsx) -- a
+                  "following" state has nothing left to invite the viewer to
+                  do here, and keeping a stale "+" icon next to "ติดตามแล้ว"
+                  read as an unfinished action instead of a completed one. */}
+              {!otherSummary?.following ? (
+                <button
+                  className={`conversation-profile-button follow ${otherSummary?.requested ? "soft" : ""}`}
+                  type="button"
+                  aria-pressed={Boolean(otherSummary?.requested)}
+                  disabled={followBusy || !otherSummary}
+                  onClick={() => void toggleFollow()}
+                >
+                  <WynosIcon name="circlePlus" size={24} strokeWidth={1.8} /><span>{followLabel}</span>
+                </button>
+              ) : null}
             </div>
           </section> : null}
 
@@ -418,7 +438,19 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
                         {message.localPreviewUrl ? <img className="message-image" src={message.localPreviewUrl} alt="" /> : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}
                       </>}
                     </div>
-                    <div className="message-meta"><time>{message.pending ? "กำลังส่ง…" : chatTimeLabel(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time>{mine && !message.pending ? <span aria-label={read ? "อ่านแล้ว" : "ส่งแล้ว"}>{read ? "✓" : "✓"}</span> : null}</div>
+                    <div className="message-meta">
+                      <time>{message.pending ? "กำลังส่ง…" : chatTimeLabel(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time>
+                      {mine && !message.pending ? (
+                        // WhatsApp/LINE-style receipt: single check = sent,
+                        // double check in the accent color = read. The
+                        // previous version rendered the identical glyph
+                        // ("✓" either way) so sent vs read never actually
+                        // differed on screen, only in the aria-label.
+                        <span className={`message-read-status ${read ? "read" : ""}`} aria-label={read ? "อ่านแล้ว" : "ส่งแล้ว"}>
+                          <WynosIcon name={read ? "checkCheck" : "check"} size={14} strokeWidth={2.4} />
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   {revealed ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><WynosIcon name="trash" size={13} strokeWidth={2} /></button> : null}
                 </div>
@@ -427,7 +459,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
-            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
+            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker" aria-label="แนบรูปภาพ"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
           )}
         </div>
       )}
