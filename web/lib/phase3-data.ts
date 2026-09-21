@@ -378,6 +378,48 @@ async function mapClub(client: SupabaseClient, row: Record<string, unknown>): Pr
   };
 }
 
+// Batched sibling of mapClub — for any list of clubs (searchClubs' 3-page
+// explore fetch, My Clubs' membership list), mapping each row through
+// mapClub individually meant N clubs cost up to N*3 separate network
+// round-trips (2 signed-URL calls + 1 count query per club — up to ~180
+// requests just to paint Explore Clubs' default 60-row fetch). This does
+// the same work in at most 3 requests total: one batched createSignedUrls
+// call for every cover+icon path, and one membership query for every club
+// id at once, counted client-side instead of via N separate `count: exact`
+// queries.
+async function mapClubs(client: SupabaseClient, rows: Record<string, unknown>[]): Promise<ClubRow[]> {
+  if (!rows.length) return [];
+  const paths = [...new Set(rows.flatMap((row) => [row.cover_url, row.icon_url]).filter((value): value is string => typeof value === "string" && value.length > 0))];
+  const signedByPath = new Map<string, string>();
+  if (paths.length) {
+    const signed = await client.storage.from("club-media").createSignedUrls(paths, 3600);
+    for (const entry of signed.data ?? []) {
+      if (entry.path && entry.signedUrl) signedByPath.set(entry.path, entry.signedUrl);
+    }
+  }
+  const ids = rows.map((row) => String(row.id ?? ""));
+  const memberships = await client.from("club_members").select("club_id").in("club_id", ids).eq("status", "approved");
+  const countByClubId = new Map<string, number>();
+  for (const membership of (memberships.data ?? []) as { club_id: string }[]) {
+    const key = String(membership.club_id);
+    countByClubId.set(key, (countByClubId.get(key) ?? 0) + 1);
+  }
+  return rows.map((row) => {
+    const id = String(row.id ?? "");
+    return {
+      id,
+      name: String(row.name ?? ""),
+      description: row.description == null ? null : String(row.description),
+      category: row.category == null ? null : String(row.category),
+      privacy: row.privacy == null ? null : String(row.privacy),
+      cover_url: typeof row.cover_url === "string" ? (signedByPath.get(row.cover_url) ?? null) : null,
+      icon_url: typeof row.icon_url === "string" ? (signedByPath.get(row.icon_url) ?? null) : null,
+      created_at: String(row.created_at ?? ""),
+      member_count: countByClubId.get(id) ?? 0,
+    };
+  });
+}
+
 export async function searchClubs(client: SupabaseClient, query: string, page = 0): Promise<ClubRow[]> {
   const from = page * 20;
   const result = await client
@@ -387,7 +429,21 @@ export async function searchClubs(client: SupabaseClient, query: string, page = 
     .order("created_at", { ascending: false })
     .range(from, from + 19);
   fail(result.error, "ค้นหา Club ไม่สำเร็จ");
-  return Promise.all((result.data ?? []).map((row) => mapClub(client, row as Record<string, unknown>)));
+  return mapClubs(client, (result.data ?? []) as Record<string, unknown>[]);
+}
+
+export async function fetchClubsByIds(client: SupabaseClient, ids: string[]): Promise<ClubRow[]> {
+  if (!ids.length) return [];
+  const result = await client
+    .from("clubs")
+    .select("id,name,description,category,privacy,cover_url,icon_url,created_at")
+    .in("id", ids);
+  fail(result.error, "โหลดรายชื่อ Club ไม่สำเร็จ");
+  const byId = new Map((result.data ?? []).map((row) => [String(row.id), row]));
+  // Preserve the caller's id order (e.g. membership.created_at order) rather
+  // than whatever order Postgres happens to return `.in()` results in.
+  const ordered = ids.map((id) => byId.get(id)).filter((row): row is NonNullable<typeof row> => Boolean(row));
+  return mapClubs(client, ordered as Record<string, unknown>[]);
 }
 
 export async function fetchClub(client: SupabaseClient, clubId: string): Promise<ClubRow | null> {
