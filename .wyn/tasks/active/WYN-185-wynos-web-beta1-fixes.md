@@ -276,3 +276,50 @@ Files Changed:
 
 Tests: `npm run check` PASS. Playwright spec 5/5 PASS (chromium-desktop, same local
 executablePath workaround as prior batches, reverted after).
+
+## Batch 6 — Performance/Navigation: audit, no code change
+
+Audited item 6's checklist against what's already in the codebase before writing
+anything new, per AGENTS.md's "reuse before duplication, don't rewrite what's already
+working" principle — found this one substantially already built, not a gap needing a
+fix:
+
+- **Client-side nav + prefetch**: no plain `<a href="/...">` internal links found
+  (grepped); every internal link is `next/link`. No `prefetch={false}` anywhere. No
+  `window.location.reload()`/`window.location.href =` full-reload calls anywhere. The
+  two `window.location.assign()` calls that exist are both intentional exceptions with
+  their own comments (switching Supabase auth session — needs a real reload to
+  reinitialize the client; a same-URL "back" link, where a Next `<Link>` would be a
+  no-op).
+- **Caching Feed/Profile/Search/Club**: `lib/mount-cache.ts` (module-level `Map`,
+  survives `PageTransition`'s unmount/remount on every route change) is already wired
+  into `search-route.tsx`, `club-detail-golden.tsx`, `profile-route.tsx` (also on
+  React Query with a persist-client), `post-detail-route.tsx`, `bookmarks-route.tsx`,
+  `notifications-route.tsx`, `settings-route.tsx`, `clubs-routes.tsx`,
+  `chat-routes.tsx`, `deep-link-routes.tsx`. The Feed (`home/home-screen.tsx`) uses its
+  own purpose-built equivalent (`getHomeScreenStore()`, a per-user module-level store
+  keyed by feed tab, which also prefetches the *other* tabs' data in the background) —
+  more sophisticated than `mount-cache`, not a gap.
+- **Skeleton on load**: every audited page seeds `loading` from whether a cache hit
+  exists and renders a dedicated skeleton component (`FeedSkeleton`,
+  `SearchUserSkeleton`, etc., in `components/ui/skeleton.tsx`) while `loading` is true.
+- **Route prefetch + scroll memory**: `app-navigation-runtime.tsx` (mounted once in
+  the root layout, survives every navigation) already `router.prefetch()`s the 5
+  primary tab routes and remembers/restores scroll position per root tab so returning
+  to one doesn't reset to the top.
+- **Double-submit prevention**: every primary submit/mutate action reviewed this
+  session (composer publish, draft save, club join/leave, follow) already guards with
+  a `busy`/`disabled` state. The one pattern that doesn't — optimistic like/save/redrop
+  toggles reading `viewer` state at the start of an async handler — has a theoretical
+  double-tap race, but `drop_likes`/`saves` (composite primary key) and
+  `redrops_standard_unique` (partial unique index) make a duplicate insert impossible
+  at the database layer regardless; worst case on a genuine simultaneous double-tap is
+  a harmless extra round-trip, not data corruption or a duplicate row. Rewriting every
+  toggle handler in the app for this low-severity edge case is a large, cross-cutting
+  change this batch didn't find a concrete bug to justify, and overlaps with the
+  already-tracked (not-yet-started) `WYN-160-web-design-system-consolidation` backlog
+  item — flagging it here rather than taking it on unprompted.
+
+No files changed in this batch. Reporting this as audited/verified rather than silently
+skipping it, per the Founder's own instruction to report rather than decide scope
+unilaterally when something doesn't need the assumed fix.
