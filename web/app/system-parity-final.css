@@ -307,6 +307,8 @@
 .beta4-ratio-chips button.active { border-color: var(--wyn-text); color: var(--wyn-text); font-weight: 600; }
 .beta4-character-count { margin-top: 10px; color: var(--wyn-text-secondary); font-size: 13px; }
 .beta4-composer-error { margin: 8px 0 0; }
+.beta4-draft-status { margin: 8px 0 0; color: var(--wyn-text-secondary); font-size: 13px; }
+.beta4-draft-status.error { color: #dc2626; }
 .beta4-poll-composer { margin-top: 12px; }
 .beta4-poll-options { display: grid; gap: 8px; }
 .beta4-poll-options label { min-height: 48px; display: grid; grid-template-columns: 28px minmax(0,1fr) 40px; align-items: center; border: 1px solid var(--wyn-border); border-radius: 12px; overflow: hidden; }

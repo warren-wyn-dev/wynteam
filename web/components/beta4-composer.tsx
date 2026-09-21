@@ -9,11 +9,12 @@ import {
   ImagePlus,
   LockKeyhole,
   Plus,
+  Save,
   Users,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Avatar } from "@/components/phase3-ui";
@@ -87,6 +88,10 @@ export function Beta4Composer({
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState("");
+  const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const draftRecordIdRef = useRef<string | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextAutosaveRef = useRef(true); // true until the user actually edits something post-mount/post-draft-load
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const captionRef = useRef<HTMLTextAreaElement | null>(null);
@@ -103,9 +108,11 @@ export function Beta4Composer({
     void fetchDraft(client, draftId).then((row) => {
       if (!live || !row) return;
       setDraftRecordId(row.id);
+      draftRecordIdRef.current = row.id;
       setCaption(row.caption ?? "");
       setExistingImageUrl(row.image_url ?? null);
       if (row.poll_options && row.poll_options.length) { setMode("poll"); setPollOptions(row.poll_options); }
+      skipNextAutosaveRef.current = true; // loading a saved draft into the form isn't itself an edit
     }).catch(() => undefined);
     return () => { live = false; };
   }, [client, draftId]);
@@ -126,22 +133,61 @@ export function Beta4Composer({
     setClosePrompt(true);
   };
 
+  // Shared by the close-prompt's "บันทึกร่าง", the always-visible quick-action
+  // button, and autosave below — insert when no draft row exists yet, update
+  // in place otherwise (mirrors lib/drafts.ts saveDraft's own upsert doc).
+  const persistDraft = useCallback(async (): Promise<string> => {
+    const id = await saveDraft(client, userId, {
+      draftId: draftRecordIdRef.current,
+      file: files[0] ?? null,
+      existingImageUrl,
+      caption,
+      pollOptions: mode === "poll" ? pollOptions : null,
+      pollDurationDays: mode === "poll" ? POLL_DURATION_DAYS : null,
+    });
+    draftRecordIdRef.current = id;
+    setDraftRecordId(id);
+    return id;
+  }, [client, userId, files, existingImageUrl, caption, mode, pollOptions]);
+
   const saveDraftNow = async () => {
     setSavingDraft(true); setDraftError("");
-    try {
-      const id = await saveDraft(client, userId, {
-        draftId: draftRecordId,
-        file: files[0] ?? null,
-        existingImageUrl,
-        caption,
-        pollOptions: mode === "poll" ? pollOptions : null,
-        pollDurationDays: mode === "poll" ? POLL_DURATION_DAYS : null,
-      });
-      setDraftRecordId(id);
-      onClose();
-    } catch (reason) { setDraftError(reason instanceof Error ? reason.message : "บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง"); }
+    try { await persistDraft(); onClose(); }
+    catch (reason) { setDraftError(reason instanceof Error ? reason.message : "บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง"); }
     finally { setSavingDraft(false); }
   };
+
+  // Always-visible "บันทึกร่าง" quick action — WYN-185 item 4: the old flow
+  // only offered saving a draft as a side effect of trying to close, which
+  // the Founder flagged as not a clear/discoverable way to save one.
+  const saveDraftExplicit = async () => {
+    if (!hasContent || savingDraft) return;
+    setSavingDraft(true); setAutosaveStatus("saving"); setDraftError("");
+    try { await persistDraft(); setAutosaveStatus("saved"); }
+    catch { setAutosaveStatus("error"); }
+    finally { setSavingDraft(false); }
+  };
+
+  // Autosave every ~800ms of no further edits (WYN-185 item 4). Skips the
+  // very first run after mount/after a draft finishes loading into the form,
+  // so opening an existing draft doesn't immediately re-save it unchanged.
+  useEffect(() => {
+    if (skipNextAutosaveRef.current) { skipNextAutosaveRef.current = false; return; }
+    if (!hasContent || busy) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      setAutosaveStatus("saving");
+      void persistDraft().then(() => setAutosaveStatus("saved")).catch(() => setAutosaveStatus("error"));
+    }, 800);
+    return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
+    // caption/pollOptions/mode/files/existingImageUrl are the editable draft
+    // fields; persistDraft/hasContent/busy are intentionally excluded so a
+    // re-render alone (e.g. busy flipping during publish) doesn't reset the
+    // debounce timer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caption, pollOptions, mode, files, existingImageUrl]);
+
+  useEffect(() => () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); }, []);
 
   const publishPoll = async () => {
     const result = await client.rpc("create_poll_drop", {
@@ -161,6 +207,9 @@ export function Beta4Composer({
 
   const submit = async () => {
     if (!canPublish) return;
+    // A pending autosave debounce firing after publish deletes the draft
+    // row would silently re-create it with now-stale content.
+    if (autosaveTimerRef.current) { clearTimeout(autosaveTimerRef.current); autosaveTimerRef.current = null; }
     setBusy(true); setError(""); setUploadProgress(null);
     try {
       if (mode === "poll") await publishPoll();
@@ -217,6 +266,10 @@ export function Beta4Composer({
               )}
 
               {error ? <p className="route-error beta4-composer-error">{error}</p> : null}
+              {autosaveStatus === "saving" ? <p className="beta4-draft-status" role="status">กำลังบันทึกร่าง…</p>
+                : autosaveStatus === "saved" ? <p className="beta4-draft-status" role="status">บันทึกร่างแล้ว</p>
+                : autosaveStatus === "error" ? <p className="beta4-draft-status error" role="alert">บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง</p>
+                : null}
             </div>
           </div>
         </div>
@@ -238,6 +291,10 @@ export function Beta4Composer({
             <button className={`${styles.quickAction} ${mode === "poll" ? styles.active : ""}`} type="button" aria-label="เพิ่มโพล" aria-pressed={mode === "poll"} disabled={busy} onClick={() => setMode((current) => current === "poll" ? "image" : "poll")}>
               <BarChart3 aria-hidden="true" />
               <span>เพิ่มโพล</span>
+            </button>
+            <button className={styles.quickAction} type="button" aria-label="บันทึกร่าง" disabled={busy || savingDraft || !hasContent} onClick={() => void saveDraftExplicit()}>
+              {savingDraft ? <span className="route-system-spinner tiny" /> : <Save aria-hidden="true" />}
+              <span>บันทึกร่าง</span>
             </button>
           </div>
           <input ref={galleryRef} hidden type="file" accept="image/*" multiple onChange={(event) => { setFiles((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 9)); event.currentTarget.value = ""; }} />

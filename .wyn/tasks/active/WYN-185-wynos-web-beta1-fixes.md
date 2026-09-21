@@ -197,3 +197,49 @@ literal wording is "100 รายการ": widening the backend to a true alwa
 dedicated `hashtag_scores` table refreshed like `top100_scores` already is for drops)
 is a bigger backend change than this item's button-is-dead root cause called for; said
 so here rather than silently deciding either way.
+
+## Batch 4 — Draft system (explicit save + autosave)
+
+Found the draft *system* itself already substantially built: `drop_drafts` table,
+`lib/drafts.ts` (`fetchDrafts`/`fetchDraft`/`saveDraft`/`deleteDraft`, DB-backed so
+already cross-device, not localStorage), a working `/drafts` list page with
+updated-at + preview text + delete-with-confirm (`drafts-route.tsx`), reopen-to-edit via
+`/?compose=1&draft=<id>`, and a close-confirmation dialog in the composer
+(`beta4-composer.tsx`'s `requestClose`/`closePrompt`) that already asks "บันทึกเป็นร่างก่อน
+ออกไหม?" with ทิ้ง/ยกเลิก/บันทึกร่าง when there's unsaved content — so "cancel silently
+discards" wasn't actually reproducible in the current code path.
+
+What was actually missing, matching the Founder's own wording: (1) no *explicit,
+always-visible* "บันทึกร่าง" action while composing — the only save path was buried inside
+the close-confirmation dialog, which is exactly "ไม่มีวิธีบันทึกร่างที่ชัดเจน" (no clear way);
+(2) no autosave at all.
+
+Files Changed:
+- `web/components/beta4-composer.tsx`:
+  - Factored the existing save-draft call into `persistDraft()`, shared by three
+    callers instead of one.
+  - Added an always-visible "บันทึกร่าง" quick-action button (disabled when there's
+    nothing to save or a save/publish is already in flight).
+  - Added autosave: an 800ms debounce on caption/poll-options/image/mode changes,
+    skipped on the very first render and right after an existing draft finishes
+    loading into the form (so opening a saved draft doesn't immediately re-save it
+    unchanged), and skipped while `busy` or with no content.
+  - Fixed a race the autosave introduces: publishing clears any pending autosave
+    timer before deleting the draft row, so a debounce that was already scheduled
+    can't fire after publish and silently re-create the just-deleted draft with
+    stale content.
+  - Added inline success/error/"saving" text feedback for both the manual button and
+    autosave (`autosaveStatus`), per the Founder's system-wide "every action needs
+    success/error feedback" requirement (item 13).
+- `web/app/system-parity-final.css` — `.beta4-draft-status` (+ `.error` variant).
+
+Tests: `npm run check` (lint+typecheck+build) PASS.
+
+Known Issues: No Playwright coverage added for this one — `saveDraft()` uploads to
+Supabase Storage and writes to `drop_drafts`, and the composer only mounts behind
+`DeveloperRouteGate` (a real session), so exercising it end-to-end needs either a live
+Supabase backend or a meaningfully larger network-mock harness than this session's other
+`/dev/*-fixture` specs use. Verified by tracing every code path by hand instead
+(debounce scheduling/cleanup, the publish-vs-autosave race, the skip-on-load flag) and
+`npm run check`. Flagging this gap explicitly rather than claiming test coverage that
+isn't there.
