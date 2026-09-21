@@ -1979,3 +1979,36 @@ Founder ส่งภาพหน้าจอ `/chat` ที่ deploy จริ�
 projects 267/267 PASS
 
 PR: claude/messages-monochrome-v3 → main
+
+## [2026-09-21] Bottom Navigation — redesign ไอคอนตาม mockup "Tab Bar A: เส้นบาง"
+
+Founder ส่งไฟล์ zip design mockup (`TabBar.dc.html`, สร้างจาก design tool ภายนอก ชื่อ "Tab Bar A: เส้นบาง")
+พร้อมข้อความ "เปลี่ยนตรงนี้ใหม่ด้วย" — ขอให้เปลี่ยนชุดไอคอนของ bottom navigation หลัก (5 แท็บ: หน้าหลัก/คลับ/
+โพสต์/แชท/โปรไฟล์) ให้ตรงกับ mockup
+
+สิ่งที่ทำจริงใน `web/components/bottom-navigation.tsx` (`MaterialNavGlyph`) และ `web/app/bottom-nav.css`:
+- **เปลี่ยนชุดไอคอนทั้ง 5 ปุ่ม** เป็น line-icon แบบเรียบง่ายตาม mockup เป๊ะ (house, users, circle-plus, message
+  bubble, user) — บังเอิญตรงกับชุดไอคอน Lucide ที่ `WynosIcon` (ใช้ทั่วแอปอยู่แล้ว) มีอยู่แล้วพอดี (home→House,
+  club→Users, post→CirclePlus, chat→MessageCircle, profile→UserRound) แต่เลือก**ไม่แก้ผ่าน WynosIcon component
+  โดยตรง** เพราะจะกระทบ test assertion ที่ผูกกับโครงสร้าง `MaterialNavGlyph` เดิม (`kind=... selected=...`,
+  `fill={selected ? "currentColor" : "none"}`) มากเกินจำเป็น — แก้แค่ path ข้างในแทน ความเสี่ยงต่ำกว่ามาก
+  ผลลัพธ์ทางสายตาเหมือนกัน
+- **ย้ายพฤติกรรม fill-on-selected จากไอคอน "หน้าหลัก" ไปที่ "แชท"** ตาม mockup (มีแค่ไอคอนแชทที่ทึบเมื่อ active
+  ผ่าน `sc-if`, ไอคอนอื่นเป็น outline เสมอ ใช้สี/น้ำหนักตัวอักษรบอกสถานะ active แทน)
+- **ปรับ stroke-width เป็นค่าคงที่ 1.7** (เดิมขึ้นกับ selected: 1.9/2.15) ให้ตรงกับ mockup ที่ใช้ค่าเดียวตลอด
+- **สีแท็บที่ไม่ active**: จาก `var(--wyn-text-secondary)` (#6b6b6b) เป็น `var(--wyn-text-muted)` (#9a9a9a) —
+  ใกล้เคียงสี "faint" (#A6A49C) ของ mockup ที่สุดในบรรดา design token ที่มีอยู่แล้ว ไม่สร้างค่าสีใหม่เพิ่ม
+- **font-weight ที่ไม่ active**: จาก 400 เป็น 500 ตาม mockup
+- **ไม่แตะ**: ขนาดไอคอน (คง 28px เดิม ไม่ลดเป็น 23px ตาม mockup), ขนาดตัวอักษร (คง 10px), border-top (ใกล้เคียง
+  #EFEEE8 ของ mockup อยู่แล้ว) — เหตุผล: mockup เป็น static canvas กว้าง 390px คงที่ ขณะที่ระบบจริงต้องรองรับ
+  responsive + safe-area หลายอุปกรณ์ที่ทดสอบแล้วบน CI จริง ไฟล์ README ของ mockup เองก็ระบุชัดว่า "ควร
+  replicate faithfully...ไม่ใช่ copy wholesale" — ตีความว่าค่าที่ไม่กระทบรูปลักษณ์หลัก (ไอคอน/สี/น้ำหนัก) ไม่
+  จำเป็นต้องตามพิกเซลเป๊ะ ไม่ได้ถามยืนยันแยกกับ Founder เรื่องขอบเขตนี้ — หากไม่ตรงใจแจ้งกลับมาแก้เพิ่มได้
+
+ตรวจสอบ: `npm run check` PASS (0 error, 2 warning เดิม), เขียน throwaway visual fixture (ลบก่อน commit)
+ยืนยันด้วย dev server จริง — ไอคอนแสดงถูกต้องตรงกับ mockup ทั้ง 5 ปุ่ม, สถานะ active สีดำ/น้ำหนัก 700 ถูกต้อง,
+สถานะ inactive สี `rgb(154, 154, 154)` (= `--wyn-text-muted`) น้ำหนัก 500 ถูกต้อง, ไอคอนแชททึบเมื่อ active
+(screenshot ยืนยัน), ขนาดไอคอนยังคง 28×28px ไม่กระทบ test เดิม รัน full `npx playwright test` ครบ 3 CI browser
+projects 267/267 PASS
+
+PR: claude/tab-bar-redesign → main
