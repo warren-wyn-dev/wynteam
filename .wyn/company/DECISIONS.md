@@ -1882,3 +1882,22 @@ Web Beta1 ตอนนี้**ไม่มี task ค้างใน `active/` 
 - **WYN-141** (Flutter batches ของ Admin UX/UI system) — sandbox นี้ไม่มี Flutter SDK และ network proxy บล็อกการดาวน์โหลด (403) ต้องมี CI runner ที่มี Flutter 3.47.1 ถึงทำต่อได้ ไม่ใช่สิ่งที่แก้เอกสารแล้วหายไป
 - **WYN-016** (Push Notifications) — โค้ดเสร็จ + self-QA ผ่านแล้ว แต่ต้องรอ Founder ตั้งค่า Firebase project จริง 4 ขั้นตอนด้วยบัญชีของ Founder เอง AI ทำแทนไม่ได้
 - **WYN-112** (activation funnel) — root cause แก้ + deploy แล้ว แต่ปิดงานได้ก็ต่อเมื่อเห็นตัวเลข signup กลับมาจริงใน WYN Admin Dashboard ซึ่ง AI ในสภาพแวดล้อมนี้เข้าดูไม่ได้ (ไม่มี Supabase backend จริง/ไม่มีสิทธิ์ dashboard) — ปล่อยให้ Founder ปิดเองเมื่อเห็นผล ไม่ปิดปลอมด้วยเอกสาร
+
+## [2026-09-21] Chat Inbox redesign (Founder mockup) — Founder ยืนยันกลับคำตัดสิน WYN-170 3 จุด
+
+Founder ส่ง mockup ก่อน/หลังของหน้า Chat Inbox (`/chat`, `web/components/chat-inbox-parity.tsx`) พร้อม spec ขนาดที่ชัดเจน ขอ: (1) แถวโน้ตใหญ่ขึ้น (avatar 60-64px, bubble ขยายได้ถึง 3 บรรทัด/116px) (2) avatar+ระยะห่างแถวแชทปรับสัดส่วน (3) ตัดเส้นคั่นระหว่างแถว (4) เอาลูกศร `>` ท้ายแถวออก (5) เพิ่มปุ่มเขียนข้อความใหม่+เมนูด้านบน (6) แสดงจุดสถานะออนไลน์ (7) ตัวอย่างแชทหลายรายการ
+
+ก่อนลงมือแก้ ตรวจพบว่า **3 จุดในนี้ย้อนกลับการตัดสินใจที่ Founder เพิ่งอนุมัติไปเมื่อ WYN-170** (2026-09-19, ผ่านการสรุป 6 รอบ feedback และ confirm production จริงแล้วด้วย "โอเคแล้ว") ตรงๆ:
+1. ปุ่มเขียนข้อความใหม่ — WYN-170 **ตัดออกโดยเจตนา** เพราะมีทางเข้าอื่น (ปุ่ม "ส่งข้อความ" ในหน้าโปรไฟล์) อยู่แล้ว
+2. ปุ่มย้อนกลับซ้าย header — WYN-170 **ตั้งใจเก็บไว้ไม่เปลี่ยน** ("เดิม ไม่เปลี่ยน")
+3. การเข้าถึง "คำขอข้อความ" — WYN-170 ย้ายจาก modal มาเป็นปุ่ม toggle ที่ **เห็นตลอดโดยเจตนา** (ไม่ใช่ซ่อนในเมนู)
+
+หยุดถาม Founder ผ่าน AskUserQuestion ก่อนตัดสินใจ (implement โค้ดตาม mockup ไว้ล่วงหน้าแล้วเพื่อไม่ให้เสียเวลา ถ้า confirm ก็พร้อม deploy ทันที) — **Founder ยืนยัน "กลับคำตัดสิน WYN-170 ทั้ง 3 จุด"** ชัดเจนว่าเป็นการเปลี่ยนใจจริง ไม่ใช่ mockup ที่ลืมประวัติเดิม
+
+ข้อ 6 (จุดสถานะออนไลน์) เป็นอีกจุดที่ถามแยก เพราะระบบไม่เคยมี "ออนไลน์จริง" เก็บอยู่เลย (มีแค่ `user_presence.show_online_status` ซึ่งเป็น privacy toggle เฉยๆ ไม่เคยถูกอ่านไปใช้จริงที่ไหนมาก่อน) — Founder เลือก "สร้างแบบง่ายเลย (Realtime Presence)" จึงสร้าง `web/lib/presence.ts` ใหม่ ใช้ Supabase Realtime Presence channel เดียวที่ mount ผ่าน `AppChrome` (รันบนแทบทุกหน้าที่ login แล้ว โดยไม่ต้องเพิ่ม global provider ใหม่) เคารพ `show_online_status` เดิมโดยอัตโนมัติ (คนที่ปิดไว้จะไม่ track ตัวเองเข้า channel เลย จึงไม่มีใครเห็นเขาออนไลน์)
+
+Implementation: แก้ `web/components/chat-inbox-parity.tsx`, `web/app/chat-notes.css`, `web/components/phase3-ui.tsx`, ไฟล์ใหม่ `web/lib/presence.ts` — ระหว่างทำพบบั๊กจริงที่ไม่เกี่ยวกับ WYN-170 คือ `pixel-parity-audit-closure.css` มี rule เก่าที่ hardcode ให้ `.flutter-chat-header-action` แสดง back-arrow เสมอผ่าน CSS mask (ซ่อน child `<svg>` จริงทิ้ง) ซึ่งใช้ได้ตอน class นี้มีแค่ปุ่มย้อนกลับปุ่มเดียว แต่พอเอามาใช้ซ้ำกับปุ่มเขียนข้อความใหม่/เมนู ทำให้ทั้งคู่โชว์เป็นลูกศรย้อนกลับผิดๆ — แก้โดยแยกปุ่มใหม่ไปใช้ class ของตัวเอง (`wyn-chat-header-icon`) แทนที่จะแก้ rule เดิม (ไม่อยากเสี่ยงกระทบปุ่มย้อนกลับจริงที่ยังต้องใช้ rule เดิมอยู่)
+
+ตรวจสอบก่อน commit: `npm run check` PASS, เขียน throwaway visual fixture (ลบก่อน commit) render ผ่าน dev server จริงเพื่อยืนยันด้วยตาว่าตรง mockup รวมถึง computed style ตรง spec เป๊ะ (search 48px/24px radius, note avatar 62px, bubble max-width 116px, chat row 80px, ชื่อ font-weight 600), แก้ test `system-visual-parity.spec.ts` ที่ assert พฤติกรรมเดิมของ WYN-170 ให้ตรงกับพฤติกรรมใหม่ที่ Founder อนุมัติแล้ว, รัน full `npx playwright test` ครบ 3 CI browser projects 267/267 PASS
+
+อ้างอิง: `.wyn/tasks/completed/WYN-170-chat-inbox-premium-polish.md` (การตัดสินใจเดิมที่ถูกกลับ), `.wyn/logs/deployments/2026-09-21-chat-inbox-redesign-reverses-wyn170-deploy.md`
