@@ -1,8 +1,9 @@
 # Coding Task — WYN-185
 
-Status: review — Implementation + QA & Security PASS (commit c213ff0,
-2026-09-21). Awaiting CTO final review + Founder approval for Staging/
-Production per AGENTS.md Release Gates. See "QA re-check" entry below.
+Status: completed — Founder approved production deployment ("อนุญาตขึ้นเว็บ") on
+2026-09-21; PR #586 merged to `main` (commit 8780fe9) and deployed via
+`WYN-158 Production Deploy` run #172 (success). Deployment log:
+`.wyn/logs/deployments/2026-09-21-wyn-185-wynos-web-beta1-fixes-deploy.md`.
 Owner: AI Coding
 Feature: WYNOS Web Beta1 — 13-item bug/UX fix bundle (Founder-issued directly, full requirements below stand in for PRD/acceptance criteria)
 Branch: claude/wynos-web-beta1-fixes-r3c06k
