@@ -68,11 +68,15 @@
 }
 
 .conversation-modern-more {
+  /* Width/height intentionally NOT redeclared here -- the shared
+     .conversation-modern-back, .conversation-modern-more rule above already
+     sets 48px (>= the 44px minimum touch target). A same-specificity 40px
+     override used to live in this block and silently win via source order,
+     shrinking only this button below the target size while the back button
+     stayed at 48px. */
   justify-self: end;
   border: 2px solid var(--wyn-text);
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
   cursor: pointer;
 }
 
@@ -277,6 +281,16 @@
   line-height: 1;
 }
 
+.conversation-modern .message-meta .message-read-status {
+  display: inline-flex;
+  align-items: center;
+  color: var(--wyn-text-muted);
+}
+
+.conversation-modern .message-meta .message-read-status.read {
+  color: var(--wyn-accent);
+}
+
 .conversation-modern .message-delete {
   align-self: center;
 }
@@ -350,8 +364,8 @@
 
 .conversation-modern .message-input-group > button[type="submit"] {
   flex: none;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--wyn-text);
   color: var(--wyn-bg);

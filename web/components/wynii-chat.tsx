@@ -196,7 +196,7 @@ export function WyniiConversationHeader({ client, userId, conversationId, other,
       </div>
 
       <div className={styles.moreWrap}>
-        <button className="conversation-modern-more" type="button" aria-label="เพิ่มเติม" onClick={() => setMenuOpen((value) => !value)}><MoreHorizontal size={26} strokeWidth={1.8} /></button>
+        <button className="conversation-modern-more" type="button" aria-label="เพิ่มเติม" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}><MoreHorizontal size={26} strokeWidth={1.8} /></button>
         {menuOpen ? <>
           <button className={styles.menuBackdrop} type="button" aria-label="ปิดเมนู" onClick={() => setMenuOpen(false)} />
           <div className={styles.menu} role="menu">
