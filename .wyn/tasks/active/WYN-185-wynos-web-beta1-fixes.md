@@ -377,3 +377,76 @@ they now land on "ทั้งหมด" like every other search, per the Founde
 is the default" instruction. Flagging this behavior change explicitly since it wasn't
 called out by name in the bug report, in case the old hashtag-specific shortcut was
 intentional and should come back as a `type=posts` param on those specific links.
+
+## Batch 8 — Activity (Views/Likes/Comments/Reposts/Saves, unique views, ghost fix)
+
+**Conflict found and escalated before writing any code**: item 8 asks for Views to
+count by unique user/session, but the DB currently does the opposite on purpose —
+WYN-083 (2026-09-02, Founder-approved, from the Beta2 spec directly, item 21/28)
+deliberately removed `drop_views`' original unique-viewer dedup so views count
+unlimited/every repeat, including the post's own author, exactly to fix a different
+Founder complaint at the time ("นับไม่จำกัด... รวมถึงเจ้าของโพสต์ด้วย"). Asked the
+Founder directly rather than picking a side; **decision: keep WYN-083's uncapped total
+(still what ranking/trending/the on-post view badge use) and add a *separate*
+unique-viewer count just for the Activity sheet's display.**
+
+Also found "Activity" isn't a page anywhere in this codebase (web or Flutter) — it's
+`post-detail-route.tsx`'s existing "ดูกิจกรรม" sheet (2 tabs: Likes/Reposts today),
+which matches "แก้ Activity" ("fix" implying something existing) and "รายชื่อใน Activity
+ต้องตรงกับข้อมูลจริง" (a list of *names*, which only this per-post sheet has — Views/
+Saves have no name list by design, see below).
+
+Root cause of the ghost "W @" rows: same class of bug WYN-130 already fixed for Club
+Members — a `profiles` row can exist with no username/display_name at all
+(`AuthRepository.setDateOfBirth` upserts a bare row before the Username onboarding
+step ever runs), and the sheet's previous raw `.from("profiles").select(...).in("id",
+ids)` join had no filter for it. `profiles.username` also had no length/non-empty
+CHECK at all (`display_name` already did) — only a reserved-word check.
+
+Files Changed:
+- `supabase/migrations_wyn186_activity_unique_views_ghost_fix.sql` (new) —
+  `drop_unique_viewer_count(uuid)` (new, separate from WYN-083's `drop_view_count()`,
+  untouched); `drop_activity_profiles(uuid, kind, limit)` (new, ghost-filtered via the
+  same `profile_private.onboarding_completed` check WYN-130 used, mirrors each source
+  table's own SELECT policy exactly — `drop_likes` unrestricted, `redrops`/
+  `drop_comments` exclude blocked-either-way authors — rather than loosening or
+  tightening what a caller could already see); `profiles_username_not_empty` CHECK
+  constraint (`not valid`, grandfathers existing rows, same safe pattern as the
+  existing `profiles_username_not_reserved`) — blocks empty-string only, NULL (the
+  legitimate not-yet-onboarded state) is untouched. **Not applied to any database** —
+  Founder runs it via Supabase Dashboard SQL editor, per AGENTS.md Change Control.
+  `content_save_count()` (WYN-014-era) and `drop_view_count()` (WYN-038/083) were
+  already exactly what was needed for Saves/Views-total — reused, not rebuilt.
+- `supabase/tests/wyn_186_activity_unique_views_ghost_fix_test.sh` (new) — 9 checks
+  against a throwaway local Postgres DB, same harness as `wyn_130`/`wyn_185`.
+- `web/components/post-detail-route.tsx` — `ActivitySheet` grew from 2 tabs to 5
+  (Views/Likes/Comments/Reposts/Saves), each tab showing its own count in the label.
+  Views and Saves are count-only (`drop_views`/`saves` are both RLS-scoped to
+  "only the viewer/saver themselves," a deliberate WYN-038 privacy decision — there is
+  no name list to show for these two, not even to the post's own author). Likes/
+  Comments/Reposts keep the person-list format, now backed by the ghost-filtered RPC,
+  plus a UI-level `Boolean(profile.username)` filter as a defense-in-depth backstop.
+  Added a distinct error+retry state (was: silently empty on failure). Reads
+  `?activity=1` to auto-open the sheet (the new Notifications entry point below).
+- `web/components/notifications-route.tsx` — a `like_drop`/`comment_drop`/`redrop`
+  notification now opens `/drop/<id>?activity=1` instead of the bare post, so tapping
+  one lands straight in Activity — the entry point item 8 asked for.
+- `web/app/post-detail-parity.css` — `.detail-activity-tabs` changed from a rigid
+  2-column grid to a horizontal scroller (5 Thai label+count tabs don't fit a fixed
+  grid at 390px without truncating), plus `.detail-activity-count` for the new
+  count-only tab layout.
+- `web/components/dev/activity-sheet-fixture.tsx` + `web/app/dev/activity-sheet-fixture/page.tsx`
+  (new, no-backend fixture) + `web/tests/browser/activity-sheet.spec.ts` (new, 5
+  checks: all 5 tab counts render, Views/Saves are count-only with no person list,
+  Likes shows its list, a 0-count list tab shows its own empty state rather than
+  looking like a count-only tab).
+
+Tests: `npm run check` PASS. `bash supabase/tests/wyn_186_activity_unique_views_ghost_fix_test.sh`
+9/9 PASS. Playwright spec 5/5 PASS (chromium-desktop, same local executablePath
+workaround as prior batches, reverted after).
+
+Known Issues: No live Supabase project, so the client-side RPC wiring is
+typecheck/build-verified and the RPC logic itself is DB-test-verified, but the two
+were never exercised together end-to-end. The Founder should apply the migration to
+staging first and confirm the Activity sheet's 5 tabs against a real post with real
+likes/comments/reposts/saves/views before production.

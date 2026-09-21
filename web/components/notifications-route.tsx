@@ -176,7 +176,14 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
 
   const open = (row: NotificationRow) => {
     if (row.conversation_id) { router.push(`/chat/${row.conversation_id}${row.actor_id ? `?user=${encodeURIComponent(row.actor_id)}` : ""}`); return; }
-    if (row.drop_id) { router.push(`/drop/${row.drop_id}`); return; }
+    // WYN-185/186 item 8: an entry point into the post's Activity sheet
+    // (Views/Likes/Comments/Reposts/Saves) from Notifications -- this was
+    // the only place besides scrolling to a post's own detail page.
+    if (row.drop_id) {
+      const isActivityNotification = row.type === "like_drop" || row.type === "comment_drop" || row.type === "redrop";
+      router.push(`/drop/${row.drop_id}${isActivityNotification ? "?activity=1" : ""}`);
+      return;
+    }
     if (row.pop_id) { router.push(`/pop/${row.pop_id}`); return; }
     if (row.club_post_id) { router.push(`/club-post/${row.club_post_id}`); return; }
     if (row.club_id) { router.push(`/club/${row.club_id}`); return; }

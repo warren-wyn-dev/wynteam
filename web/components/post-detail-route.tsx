@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -31,7 +31,8 @@ import { fetchDropById } from "@/lib/phase3-data";
 import { shareOrCopyLink } from "@/lib/share";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 
-type ActivityTab = "likes" | "redrops";
+type ActivityListTab = "likes" | "comments" | "redrops";
+type ActivityTab = ActivityListTab | "views" | "saves";
 type ActivityProfile = { id: string; username: string; display_name?: string | null; avatar_url?: string | null; is_verified?: boolean };
 type PostDetailSnapshot = {
   row: HomeFeedRow;
@@ -42,8 +43,14 @@ type PostDetailSnapshot = {
   hasMoreComments: boolean;
   viewerProfile: { username: string; avatar_url?: string | null } | null;
 };
-type ActivityState = { likes: ActivityProfile[]; redrops: ActivityProfile[] };
-const emptyActivity: ActivityState = { likes: [], redrops: [] };
+type ActivityState = {
+  likes: ActivityProfile[];
+  comments: ActivityProfile[];
+  redrops: ActivityProfile[];
+  uniqueViews: number;
+  saves: number;
+};
+const emptyActivity: ActivityState = { likes: [], comments: [], redrops: [], uniqueViews: 0, saves: 0 };
 
 function Caption({ value }: { value: string }) {
   return <RichPostText className="detail-caption" value={value} />;
@@ -57,31 +64,43 @@ async function fetchDropImages(client: SupabaseClient, dropId: string, fallback?
   return [...new Set(urls)];
 }
 
-async function fetchActivity(client: SupabaseClient, dropId: string): Promise<ActivityState> {
-  const [likesResult, redropsResult] = await Promise.all([
-    client.from("drop_likes").select("user_id,created_at").eq("drop_id", dropId).order("created_at", { ascending: false }).limit(100),
-    client.from("redrops").select("redropper_id,created_at").eq("drop_id", dropId).order("created_at", { ascending: false }).limit(100),
-  ]);
-  if (likesResult.error) throw new Error(likesResult.error.message);
-  if (redropsResult.error) throw new Error(redropsResult.error.message);
-  const likeIds = (likesResult.data ?? []).map((row) => String(row.user_id));
-  const redropIds = (redropsResult.data ?? []).map((row) => String(row.redropper_id));
-  const ids = [...new Set([...likeIds, ...redropIds])];
-  if (!ids.length) return emptyActivity;
-  const profilesResult = await client.from("profiles").select("id,username,display_name,avatar_url,is_verified").in("id", ids);
-  if (profilesResult.error) throw new Error(profilesResult.error.message);
-  const profiles = new Map<string, ActivityProfile>();
-  for (const raw of profilesResult.data ?? []) {
-    profiles.set(String(raw.id), {
-      id: String(raw.id),
+// WYN-186 (WYNOS Web Beta1, item 8): drop_activity_profiles() (SECURITY
+// DEFINER) already excludes ghost accounts (a `profiles` row with no
+// completed onboarding -- the same class of bug WYN-130 fixed for Club
+// Members) at the database layer; the `Boolean(row.username)` filter below
+// is a defense-in-depth backstop in the UI, not the primary fix.
+async function fetchActivityList(client: SupabaseClient, dropId: string, kind: ActivityListTab): Promise<ActivityProfile[]> {
+  const rpcKind = kind === "likes" ? "like" : kind === "comments" ? "comment" : "redrop";
+  const result = await client.rpc("drop_activity_profiles", { p_drop_id: dropId, p_kind: rpcKind, p_limit: 100 });
+  if (result.error) throw new Error(result.error.message);
+  return ((result.data ?? []) as Record<string, unknown>[])
+    .map((raw) => ({
+      id: String(raw.user_id ?? ""),
       username: String(raw.username ?? ""),
       display_name: raw.display_name ? String(raw.display_name) : null,
       avatar_url: raw.avatar_url ? String(raw.avatar_url) : null,
       is_verified: raw.is_verified === true,
-    });
-  }
-  const ordered = (idsToMap: string[]) => idsToMap.map((id) => profiles.get(id)).filter((value): value is ActivityProfile => Boolean(value));
-  return { likes: ordered(likeIds), redrops: ordered(redropIds) };
+    }))
+    .filter((profile) => Boolean(profile.id) && Boolean(profile.username));
+}
+
+async function fetchActivity(client: SupabaseClient, dropId: string): Promise<ActivityState> {
+  const [likes, comments, redrops, uniqueViewsResult, savesResult] = await Promise.all([
+    fetchActivityList(client, dropId, "likes"),
+    fetchActivityList(client, dropId, "comments"),
+    fetchActivityList(client, dropId, "redrops"),
+    client.rpc("drop_unique_viewer_count", { p_drop_id: dropId }),
+    client.rpc("content_save_count", { p_content_id: dropId }),
+  ]);
+  if (uniqueViewsResult.error) throw new Error(uniqueViewsResult.error.message);
+  if (savesResult.error) throw new Error(savesResult.error.message);
+  return {
+    likes,
+    comments,
+    redrops,
+    uniqueViews: Number(uniqueViewsResult.data ?? 0),
+    saves: Number(savesResult.data ?? 0),
+  };
 }
 
 function MediaGallery({ urls }: { urls: string[] }) {
@@ -114,30 +133,62 @@ function MediaGallery({ urls }: { urls: string[] }) {
   );
 }
 
-function ActivitySheet({ client, dropId, onClose }: { client: SupabaseClient; dropId: string; onClose: () => void }) {
-  const [tab, setTab] = useState<ActivityTab>("likes");
+const ACTIVITY_TABS: { id: ActivityTab; label: string }[] = [
+  { id: "views", label: "ยอดดู" },
+  { id: "likes", label: "ถูกใจ" },
+  { id: "comments", label: "ความคิดเห็น" },
+  { id: "redrops", label: "รีโพสต์" },
+  { id: "saves", label: "บันทึก" },
+];
+
+const ACTIVITY_EMPTY_LABEL: Record<ActivityListTab, string> = {
+  likes: "ยังไม่มีคนถูกใจโพสต์นี้",
+  comments: "ยังไม่มีคนแสดงความคิดเห็นในโพสต์นี้",
+  redrops: "ยังไม่มีคนรีโพสต์โพสต์นี้",
+};
+
+function ActivitySheet({ client, dropId, onClose, initialTab }: { client: SupabaseClient; dropId: string; onClose: () => void; initialTab?: ActivityTab }) {
+  const [tab, setTab] = useState<ActivityTab>(initialTab ?? "likes");
   const [state, setState] = useState<ActivityState>(emptyActivity);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  useEffect(() => {
-    let live = true;
-    void fetchActivity(client, dropId)
-      .then((next) => { if (live) setState(next); })
-      .catch(() => { if (live) setError("โหลดกิจกรรมโพสต์ไม่สำเร็จ"); })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try { setState(await fetchActivity(client, dropId)); }
+    catch { setError("โหลดกิจกรรมโพสต์ไม่สำเร็จ"); }
+    finally { setLoading(false); }
   }, [client, dropId]);
-  const rows = tab === "likes" ? state.likes : state.redrops;
+  useEffect(() => { void load(); }, [load]);
+
+  // Views/Saves are counts only, by design -- drop_views/saves are both
+  // RLS-scoped to "only the viewer/saver themselves can see their own row"
+  // (a deliberate privacy decision from WYN-038: "who viewed/saved what"
+  // is private, unlike a Like), so there is no list of names to show for
+  // these two tabs even for the post's own author.
+  const isListTab = tab === "likes" || tab === "comments" || tab === "redrops";
+  const rows = tab === "likes" ? state.likes : tab === "comments" ? state.comments : tab === "redrops" ? state.redrops : [];
+  const count = tab === "views" ? state.uniqueViews : tab === "saves" ? state.saves : rows.length;
+
   return (
     <div className="route-modal-backdrop detail-activity-backdrop" role="presentation" onClick={onClose}>
       <section className="route-modal detail-activity-sheet" role="dialog" aria-modal="true" aria-labelledby="post-activity-title" onClick={(event) => event.stopPropagation()}>
         <header className="detail-activity-header"><strong id="post-activity-title">กิจกรรมโพสต์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={onClose}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header>
         <div className="detail-activity-tabs" role="tablist" aria-label="กิจกรรมโพสต์">
-          <button type="button" role="tab" aria-selected={tab === "likes"} className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}>ถูกใจ</button>
-          <button type="button" role="tab" aria-selected={tab === "redrops"} className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}>รีโพสต์</button>
+          {ACTIVITY_TABS.map((item) => (
+            <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} key={item.id}>
+              {item.label}{!loading && !error ? ` (${(item.id === "views" ? state.uniqueViews : item.id === "saves" ? state.saves : item.id === "likes" ? state.likes.length : item.id === "comments" ? state.comments.length : state.redrops.length).toLocaleString("th-TH")})` : ""}
+            </button>
+          ))}
         </div>
         <div className="detail-activity-content">
-          {loading ? <LoadingState /> : error ? <EmptyState>{error}</EmptyState> : !rows.length ? <EmptyState>{tab === "likes" ? "ยังไม่มีคนถูกใจโพสต์นี้" : "ยังไม่มีคนรีโพสต์โพสต์นี้"}</EmptyState> : rows.map((profile) => (
+          {loading ? <LoadingState /> : error ? (
+            <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button></div>
+          ) : !isListTab ? (
+            <div className="detail-activity-count">
+              <strong>{count.toLocaleString("th-TH")}</strong>
+              <span>{tab === "views" ? "คนดูโพสต์นี้ (นับแบบไม่ซ้ำคน)" : "คนบันทึกโพสต์นี้"}</span>
+            </div>
+          ) : !rows.length ? <EmptyState>{ACTIVITY_EMPTY_LABEL[tab as ActivityListTab]}</EmptyState> : rows.map((profile) => (
             <Link className="detail-activity-person" href={`/profile/${profile.id}`} onClick={onClose} key={`${tab}:${profile.id}`}>
               <Avatar src={profile.avatar_url} label={profile.username} />
               <span><strong>{profile.display_name?.trim() || profile.username}{profile.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{profile.username}</small></span>
@@ -176,6 +227,7 @@ function CommentRow({ comment, isReply, currentUserId, onLike, onReply, onDelete
 
 function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; userId: string; dropId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const cacheKey = `post-detail:${userId}:${dropId}`;
   const cached = getMountCache<PostDetailSnapshot>(cacheKey);
   const hadCache = useRef(cached !== undefined);
@@ -191,7 +243,10 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const [replyTo, setReplyTo] = useState<DropCommentRow | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const [activityOpen, setActivityOpen] = useState(false);
+  // WYN-185/186 item 8: a notification about a like/comment/redrop links
+  // here with ?activity=1 so tapping it opens straight into the Activity
+  // sheet instead of just the bare post (the only entry point before).
+  const [activityOpen, setActivityOpen] = useState(() => searchParams.get("activity") === "1");
   const [moreOpen, setMoreOpen] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
