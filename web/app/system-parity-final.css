@@ -207,6 +207,16 @@
 
 /* Comment geometry mirrors radius 18/16, 15px copy, 48px action targets. */
 .flutter-detail-comments { padding: 0 0 96px; background: var(--wyn-bg); }
+
+/* The shared .route-empty centers in a 220px box everywhere else (search
+   results, discovery), which is right for a full standalone empty screen —
+   but here it's one section inside a page that already has "ดูกิจกรรม"
+   above it, so a floating, vertically-centered message with its own tall
+   reserved box reads as disconnected/half-loaded rather than "this section
+   has no comments yet." Anchoring it to the top of its own content instead
+   removes that dead space without touching every other empty state's
+   look. */
+.detail-comments .route-empty { min-height: 0; align-content: start; padding-top: 28px; }
 .detail-thread + .detail-thread { border-top: 1px solid var(--wyn-border); }
 .detail-comment { min-height: 60px; padding: 12px 16px 0; display: grid; grid-template-columns: 36px minmax(0,1fr) auto; gap: 8px; align-items: start; }
 .detail-comment-reply { position: relative; padding-left: 52px; grid-template-columns: 32px minmax(0,1fr) auto; }
