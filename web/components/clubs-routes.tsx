@@ -11,7 +11,7 @@ import { AppChrome, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { fetchClub, searchClubs, type ClubRow } from "@/lib/phase3-data";
+import { fetchClubsByIds, searchClubs, type ClubRow } from "@/lib/phase3-data";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type Sections = { popular: ClubRow[]; newest: ClubRow[]; pending: Set<string> };
@@ -96,8 +96,7 @@ function MyClubs({ client, userId }: { client: SupabaseClient; userId: string })
       const membership = await client.from("club_members").select("club_id").eq("user_id", userId).eq("status", "approved");
       if (membership.error) throw membership.error;
       const ids = (membership.data ?? []).map((row) => String(row.club_id));
-      const clubs = await Promise.all(ids.map((id) => fetchClub(client, id)));
-      const next = clubs.filter((club): club is ClubRow => Boolean(club));
+      const next = await fetchClubsByIds(client, ids);
       setRows(next);
       setMountCache(cacheKey, next);
     } catch { setError("โหลดรายชื่อ Club ไม่สำเร็จ"); }

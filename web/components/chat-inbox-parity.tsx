@@ -145,7 +145,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   });
 
   const allowed = data?.allowed ?? null;
-  const rows = data?.rows ?? [];
+  const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
   const requests = data?.requests ?? [];
   const me = data?.me ?? null;
   const notes = data?.notes ?? [];
