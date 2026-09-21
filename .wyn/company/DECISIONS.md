@@ -2012,3 +2012,22 @@ Founder ส่งไฟล์ zip design mockup (`TabBar.dc.html`, สร้า�
 projects 267/267 PASS
 
 PR: claude/tab-bar-redesign → main
+
+## [2026-09-21] Bottom Navigation — fill ทุกไอคอนตอน active (ไม่ใช่แค่แชท)
+
+ทันทีหลัง PR #591 (redesign ไอคอนตาม mockup "Tab Bar A: เส้นบาง") deploy เสร็จ Founder feาดback ต่อว่า
+"แท็ปบาร์ ตอนกด อยากให้เป็นสีดำทึบ ... เหมือนกดไอคอนแชท" — อยากให้ทุกแท็บ (ไม่ใช่แค่แชท) fill ทึบสีดำตอน
+active เหมือนที่ไอคอนแชททำอยู่แล้ว (ซึ่งตอนแรกตีความ mockup ว่ามีแค่แชทที่ fill ตาม `sc-if` ใน mockup)
+
+สิ่งที่ทำจริง: แก้ `MaterialNavGlyph` (`web/components/bottom-navigation.tsx`) ให้ไอคอน หน้าหลัก/คลับ/โปรไฟล์
+ใช้ `fill={selected ? "currentColor" : "none"}` เหมือนแชท (จากเดิม `fill="none"` เสมอ) — ตรวจสอบด้วย visual
+fixture ก่อนว่า path แบบ outline เดิมของแต่ละไอคอน fill เป็นทึบแล้วไม่มี artifact แปลกๆ (บ้าน→หลังคา+กล่องทึบ,
+คลับ→รูปคนสองคนทึบ, โปรไฟล์→หัว+ไหล่ทึบ) ผลออกมาดูดีทุกไอคอน ไม่ต้องปรับ path เพิ่ม
+
+ตรวจสอบ: `npm run check` PASS (0 error, 2 warning เดิม), screenshot ยืนยันทั้ง 4 แท็บที่มี active state (หน้าหลัก/
+คลับ/แชท/โปรไฟล์) fill ทึบถูกต้องเมื่อ active รัน full `npx playwright test` ครบ 3 CI browser projects: 266/267
+PASS ในรอบแรก, 1 fail (`phase4.spec.ts` "consumer routes render without fatal errors" บน webkit-iphone, timeout
+ที่ route `/pop/[id]` ไม่เกี่ยวกับ bottom nav เลย) รันแยกซ้ำผ่านปกติใน 26 วินาที (จำกัด timeout 45 วินาที) ยืนยัน
+เป็น flake จาก resource contention ตอนรันพร้อมกันทั้ง suite ไม่ใช่ regression จากโค้ดที่แก้ — รวมแล้ว 267/267
+
+PR: claude/tab-bar-fill-all → main
