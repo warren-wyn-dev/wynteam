@@ -111,10 +111,12 @@ export function GoldenDropCard({
   row,
   homeParity = false,
   onRepostChanged,
+  onQuoteCreated,
 }: {
   row: HomeFeedRow;
   homeParity?: boolean;
   onRepostChanged?: (actorId: string, dropId: string, removedStandard: boolean) => void;
+  onQuoteCreated?: (actorId: string) => void;
 }) {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
@@ -244,7 +246,7 @@ export function GoldenDropCard({
       setQuote("");
       setRedropCount((count) => count + 1);
       setSheet(null);
-      onRepostChanged?.(userId, row.id, false);
+      onQuoteCreated?.(userId);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Quote ReDrop ไม่สำเร็จ");
     } finally {
