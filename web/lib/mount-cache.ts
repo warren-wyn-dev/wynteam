@@ -20,3 +20,9 @@ export function getMountCache<T>(key: string): T | undefined {
 export function setMountCache<T>(key: string, value: T): void {
   store.set(key, value);
 }
+
+// Mutations invalidate only the affected profile's repost list. Clearing this
+// cache prevents a removed repost reappearing briefly after tab navigation.
+export function deleteMountCache(key: string): void {
+  store.delete(key);
+}
