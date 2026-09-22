@@ -192,6 +192,17 @@
   vertical-align: -3px;
 }
 
+/* Home's flex gap is already 4px: a second badge margin doubled the space. */
+.wyn-post-author-link .route-verified {
+  margin-left: 0;
+}
+
+/* GoldenDrop and detail names already have a 4px internal flex gap. */
+.golden-drop-head .route-verified,
+.detail-author-primary .route-verified {
+  margin-left: 0;
+}
+
 /* Follow/search lists have smaller author names. */
 .route-person-row .route-verified,
 .follow-list-person .route-verified {
