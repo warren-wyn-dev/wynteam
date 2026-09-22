@@ -38,9 +38,9 @@ test("successful repost and quote updates refresh own profile and invalidate its
   expect(card).toContain("await toggleDropRedrop(client, userId, row.id, redropped);");
   expect(card).toContain("onRepostChanged?.(userId, row.id, redropped)");
   expect(card).toContain("onRepostChanged?.(userId, row.id, false)");
-  expect(card).toContain("disabled={busy} onClick={() => void redrop()}");
-  expect(card).toContain("disabled={busy} onClick={() => setSheet(\"quote\")}");
-  expect(card).toContain('role="alert"');
+  expect(card).toContain('<RepostSheetChoices');
+  expect(card).toContain('onRepost={() => void redrop()}');
+  expect(card).toContain('onQuote={() => setSheet("quote")}');
 });
 
 test("profile repost action sheet is portaled out of the transformed swipe feed", async () => {
@@ -64,4 +64,28 @@ test("profile repost action sheet is portaled out of the transformed swipe feed"
   }
   expect(css).toContain(".golden-drop-sheet-backdrop { position: fixed; inset: 0;");
   expect(css).toContain("z-index: 180;");
+});
+
+test("Home and Profile share approved Thai two-option Repost sheet without separators", async () => {
+  const root = process.cwd();
+  const [home, card, choices, css] = await Promise.all([
+    readFile(path.join(root, "components/home/home-screen.tsx"), "utf8"),
+    readFile(path.join(root, "components/golden-drop-card.tsx"), "utf8"),
+    readFile(path.join(root, "components/ui/repost-sheet-choices.tsx"), "utf8"),
+    readFile(path.join(root, "app/parity-audit.css"), "utf8"),
+  ]);
+  expect(home).toContain('<RepostSheetChoices');
+  expect(card).toContain('<RepostSheetChoices');
+  expect(choices).toContain('<RepostIcon size={28} strokeWidth={2} />');
+  expect(choices).toContain('<WynosIcon name="pencil" size={27} strokeWidth={2} />');
+  expect(choices).toContain('<span>{reposted ? "ยกเลิกรีโพสต์" : "รีโพสต์"}</span>');
+  expect(choices).toContain('<span>อ้างอิง</span>');
+  expect(choices).toContain('disabled={busy}');
+  expect(choices).not.toContain("chevronRight");
+  expect(choices).not.toContain("border-bottom");
+  expect(css).toContain(".wyn-repost-sheet-choice");
+  expect(css).toContain("border: 0;");
+  expect(css).toContain(".golden-drop-sheet[aria-label=\"รีโพสต์\"]");
+  expect(css).toContain(".audit-action-sheet[aria-label=\"รีโพสต์\"]");
+  expect(css).not.toContain(".wyn-redrop-sheet-option.is-quote");
 });
