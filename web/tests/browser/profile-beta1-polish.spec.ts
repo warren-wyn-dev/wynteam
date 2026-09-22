@@ -33,7 +33,7 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   expect(profile).toContain('uploadProfileImage(client, userId, kind, file)');
   expect(profile).toContain('if (kind === "avatar") setAvatar(url);');
   expect(profile).toContain('else setCover(url);');
-  expect(profile).toContain('<ProfileFeed client={client} profileId={profileId} kind={tab} />');
+  expect(profile).toContain('<ProfileFeed key={`${profileId}:${tab}`} client={client} profileId={profileId} kind={tab} />');
   expect(profile).toContain("wyn-profile-display-name");
 
   // Fonts are intentionally unchanged from the prior Beta1 release.
