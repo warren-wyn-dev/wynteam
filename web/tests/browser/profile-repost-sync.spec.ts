@@ -7,15 +7,19 @@ import { expect, test } from "@playwright/test";
 // these contracts guard the on-device repost flow without altering user data.
 test("profile tabs keep independent rows and re-fetch reposts after changing tabs", async () => {
   const root = process.cwd();
-  const [profile, cache] = await Promise.all([
+  const [profile, cache, timeline] = await Promise.all([
     readFile(path.join(root, "components/profile-route.tsx"), "utf8"),
     readFile(path.join(root, "lib/mount-cache.ts"), "utf8"),
+    readFile(path.join(root, "lib/profile-post-feed.ts"), "utf8"),
   ]);
 
   expect(profile).toContain('const PROFILE_TABS = ["posts", "redrops", "likes"]');
-  expect(profile).toContain('<ProfileFeed key={`${profileId}:${tab}`} client={client} profileId={profileId} kind={tab} />');
-  expect(profile).toContain('kind === "redrops") next = await fetchRedrops(client, profileId, nextPage)');
-  expect(profile).toContain('.eq("redropper_id", userId)');
+  expect(profile).toContain('<ProfileFeed key={`${profileId}:${tab}`} client={client} profileId={profileId} viewerId={userId} kind={tab} />');
+  expect(profile).toContain('kind === "posts") next = await fetchProfilePostTimeline(client, profileId, nextPage)');
+  expect(profile).toContain('kind === "redrops") next = await fetchProfileStandardReposts(client, profileId, nextPage)');
+  expect(timeline).toContain('.eq("redropper_id", userId)');
+  expect(timeline).toContain('.is("quote_text", null)');
+  expect(timeline).toContain('.not("quote_text", "is", null)');
   expect(profile).toContain('key={`${row.id}:${row.redrop_id ?? "plain"}`}');
   expect(profile).toContain("request !== requestId.current");
   expect(profile).toContain("requestId.current += 1");
@@ -37,7 +41,10 @@ test("successful repost and quote updates refresh own profile and invalidate its
   expect(preview).toContain("onRepostChanged={onRepostChanged}");
   expect(card).toContain("await toggleDropRedrop(client, userId, row.id, redropped);");
   expect(card).toContain("onRepostChanged?.(userId, row.id, redropped)");
-  expect(card).toContain("onRepostChanged?.(userId, row.id, false)");
+  expect(card).toContain("onQuoteCreated?.(userId)");
+  expect(profile).toContain('deleteMountCache(`profile-feed:${actorId}:posts`)');
+  expect(profile).toContain('onQuoteCreated={onQuoteCreated}');
+  expect(profile).toContain('onQuoteDeleted={onQuoteDeleted}');
   expect(card).toContain('<RepostSheetChoices');
   expect(card).toContain('onRepost={() => void redrop()}');
   expect(card).toContain('onQuote={() => setSheet("quote")}');
