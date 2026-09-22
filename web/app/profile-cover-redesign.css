@@ -1,0 +1,316 @@
+/* Founder-approved mobile profile redesign (2026-09-22).
+ * Isolated after the legacy parity layers so only the profile page changes.
+ * Cover: full-bleed; identity: X-style side-by-side; actions: compact/right.
+ */
+.route-app:has(.wyn-profile-hero) .wyn-profile-hero {
+  position: relative;
+  width: 100%;
+  height: clamp(172px, 42vw, 242px);
+  min-height: calc(135px + env(safe-area-inset-top));
+  overflow: hidden;
+  isolation: isolate;
+  background: #111215;
+}
+
+.wyn-profile-cover {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: #151618;
+  background-image: linear-gradient(140deg, #292b2e 0%, #101113 60%, #08090b 100%);
+  background-size: cover;
+  background-position: center;
+}
+
+.wyn-profile-cover:not([style])::before {
+  content: "";
+  position: absolute;
+  left: -62%;
+  top: -225%;
+  width: 152%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 76% 83%, #4c4d50 0%, #242629 43%, #101114 73%, #090a0b 100%);
+  box-shadow: 7px 6px 14px 1px rgb(242 243 251 / 27%);
+  pointer-events: none;
+}
+
+.wyn-profile-cover[style]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(0 0 0 / 23%), transparent 40%, rgb(0 0 0 / 17%));
+  pointer-events: none;
+}
+
+.wyn-profile-cover-brand {
+  position: absolute;
+  right: 7%;
+  bottom: 18%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #e5e6eb;
+  text-align: center;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 70%);
+}
+
+.wyn-profile-cover-brand span {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.33em;
+  white-space: nowrap;
+}
+
+.wyn-profile-cover-brand small {
+  font-size: 5px;
+  letter-spacing: 0.46em;
+  line-height: 1.7;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-topbar {
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 auto;
+  width: 100%;
+  height: calc(54px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 12px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 0;
+  background: transparent;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-topbar > button {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 5%);
+  border-radius: 50%;
+  background: rgb(0 0 0 / 38%);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-header {
+  padding: 4px 16px 15px;
+  background: var(--wyn-bg);
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-intro {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-intro > .route-avatar {
+  flex: 0 0 60px;
+  width: 60px;
+  height: 60px;
+  border: 1px solid var(--wyn-border);
+  background: #191919;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: center;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  font-size: 17px;
+  line-height: 1.25;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-name .route-verified {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  margin-left: 0;
+}
+
+.wyn-profile-username {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--wyn-text-secondary);
+  font-size: 13px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wyn-profile-inline-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.wyn-profile-inline-edit,
+.wyn-profile-inline-share {
+  min-height: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--wyn-border);
+  border-radius: 999px;
+  background: var(--wyn-bg);
+  color: var(--wyn-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wyn-profile-inline-edit {
+  gap: 5px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.wyn-profile-inline-share {
+  flex: 0 0 42px;
+  width: 42px;
+  padding: 0;
+}
+
+.wyn-profile-inline-edit:active,
+.wyn-profile-inline-share:active {
+  transform: scale(0.96);
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-bio {
+  margin: 15px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-website {
+  display: inline-flex;
+  margin-top: 7px;
+  min-height: 22px;
+  gap: 6px;
+  color: #1685f9;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-stats {
+  margin-top: 15px;
+  gap: 16px;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-stats button {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-tabs {
+  top: env(safe-area-inset-top);
+  height: 54px;
+  min-height: 54px;
+  padding-top: 0;
+  border-bottom: 1px solid var(--wyn-border);
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-tabs button {
+  height: 54px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-tabs button.active {
+  font-weight: 700;
+}
+
+.route-app:has(.wyn-profile-hero) .wyn-profile-tabs button.active::after {
+  width: 46px;
+  height: 2px;
+}
+
+.route-app:has(.wyn-profile-hero) .profile-feed-list .golden-drop-card {
+  padding-top: 10px !important;
+  padding-bottom: 1px !important;
+}
+
+.route-app:has(.wyn-profile-hero) .profile-feed-list .golden-drop-author-avatar {
+  margin-top: 2px !important;
+}
+
+.route-app:has(.wyn-profile-hero) .profile-feed-list .golden-drop-head {
+  align-items: center;
+}
+
+@media (max-width: 410px) {
+  .route-app:has(.wyn-profile-hero) .wyn-profile-header {
+    padding-inline: 12px;
+  }
+  .route-app:has(.wyn-profile-hero) .wyn-profile-intro {
+    gap: 8px;
+  }
+  .route-app:has(.wyn-profile-hero) .wyn-profile-intro > .route-avatar {
+    flex-basis: 54px;
+    width: 54px;
+    height: 54px;
+  }
+  .route-app:has(.wyn-profile-hero) .wyn-profile-name {
+    font-size: 15px;
+  }
+  .wyn-profile-inline-edit {
+    font-size: 12px;
+    padding-inline: 8px;
+    gap: 4px;
+  }
+  .wyn-profile-inline-edit svg {
+    width: 15px;
+    height: 15px;
+  }
+  .wyn-profile-inline-share {
+    width: 40px;
+    min-height: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+}
+
+@media (max-width: 355px) {
+  .route-app:has(.wyn-profile-hero) .wyn-profile-intro {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    row-gap: 3px;
+  }
+  .route-app:has(.wyn-profile-hero) .wyn-profile-intro > .route-avatar {
+    width: 52px;
+    height: 52px;
+  }
+  .wyn-profile-inline-actions {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wyn-profile-inline-edit,
+  .wyn-profile-inline-share { transition: none; }
+}
