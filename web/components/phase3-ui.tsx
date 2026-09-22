@@ -104,8 +104,16 @@ export function ProfileRowView({ profile, trailing }: { profile: ProfileRow; tra
   return <div className="route-person-row"><Link href={`/profile/${profile.id}`} className="route-person-main"><Avatar src={profile.avatar_url} label={profile.username} /><span className="route-person-copy"><strong>{name}{profile.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}</strong><small>@{profile.username}</small></span></Link>{trailing}</div>;
 }
 
-export function DropPreviewCard({ row, homeParity = false }: { row: HomeFeedRow; homeParity?: boolean }) {
-  return <GoldenDropCard row={row} homeParity={homeParity} />;
+export function DropPreviewCard({
+  row,
+  homeParity = false,
+  onRepostChanged,
+}: {
+  row: HomeFeedRow;
+  homeParity?: boolean;
+  onRepostChanged?: (actorId: string, dropId: string, removedStandard: boolean) => void;
+}) {
+  return <GoldenDropCard row={row} homeParity={homeParity} onRepostChanged={onRepostChanged} />;
 }
 
 export function SettingsLink() {
