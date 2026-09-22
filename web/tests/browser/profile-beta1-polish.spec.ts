@@ -30,7 +30,9 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   // Profile editing remains icon-only; both cover and feed data remain live.
   expect(profile).toContain('aria-label="แก้ไขโปรไฟล์" title="แก้ไขโปรไฟล์"');
   expect(profile).toContain('profile.cover_url');
-  expect(profile).toContain('uploadProfileImage(client, userId, "cover", file)');
+  expect(profile).toContain('uploadProfileImage(client, userId, kind, file)');
+  expect(profile).toContain('if (kind === "avatar") setAvatar(url);');
+  expect(profile).toContain('else setCover(url);');
   expect(profile).toContain('<ProfileFeed client={client} profileId={profileId} kind={tab} />');
   expect(profile).toContain("wyn-profile-display-name");
 
@@ -51,4 +53,15 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   expect(css).toContain(".wyn-profile-cover::after");
   expect(css).not.toContain("margin-top: calc(-1 * env(safe-area-inset-top");
   expect(profile).toContain('<Image src={normalizeExternalUrl(profile.cover_url) ?? ""}');
+  // Global SVG already has the approved gold/orange gradient and white check.
+  // The profile must not override it with its previous black text check.
+  const globalBadgeCss = await readFile(path.join(root, "app/phase3.css"), "utf8");
+  const badgeSvg = await readFile(path.join(root, "public/verified-badge-v2.svg"), "utf8");
+  expect(globalBadgeCss).toContain('url("/verified-badge-v2.svg")');
+  expect(badgeSvg).toContain('stroke="#FFFFFF"');
+  expect(badgeSvg).toContain('stop-color="#FFE82A"');
+  expect(badgeSvg).toContain('stop-color="#FF7045"');
+  expect(css).not.toContain(".wyn-profile-beta1 .route-verified {");
+  expect(css).toContain(".wyn-profile-beta1 .wyn-profile-name .route-verified");
+
 });
