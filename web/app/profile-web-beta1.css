@@ -265,24 +265,10 @@
   height: 2px;
   background: var(--wyn-text, #111);
 }
-/* Soft-edged golden verification seal; shared by the account title and
-   post bylines on this screen, without changing non-profile surfaces. */
-.wyn-profile-beta1 .route-verified {
-  box-sizing: border-box;
-  display: inline-grid;
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-left: 1px;
-  place-items: center;
-  clip-path: polygon(50% 0,61% 9%,75% 5%,82% 18%,95% 25%,91% 39%,100% 50%,91% 61%,95% 75%,82% 82%,75% 95%,61% 91%,50% 100%,39% 91%,25% 95%,18% 82%,5% 75%,9% 61%,0 50%,9% 39%,5% 25%,18% 18%,25% 5%,39% 9%);
-  background: linear-gradient(135deg, #ffd65b 5%, #f8b12d 50%, #f28a19 100%);
-  color: #151515;
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1;
-  vertical-align: middle;
-}
+/* Profile names and post bylines reuse the global /verified-badge-v2.svg:
+   gold-to-orange seal with WHITE check. The prior scoped polygon/CSS gradient
+   exposed the literal black ✓ and looked inconsistent with other pages.
+   Preserve the existing profile-name (22px) and feed (18px) sizing rules. */
 .wyn-profile-beta1 .profile-feed-list .golden-drop-card {
   grid-template-columns: 44px minmax(0, 1fr) !important;
   column-gap: 11px !important;
