@@ -18,6 +18,7 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicato
 import { FeedSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { authorLabel, type HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
 import { shareOrCopyLink } from "@/lib/share";
@@ -944,35 +945,12 @@ export function HomeScreen({ session }: { session: Session }) {
 
       {selected && sheet === "redrop" ? (
         <ActionSheet key="redrop" label="รีโพสต์" onClose={() => { setSheet(null); setSelected(null); }}>
-          <div className="wyn-redrop-sheet-options">
-            <button className="wyn-redrop-sheet-option is-primary" type="button" onClick={() => void redrop(selected)}>
-              <span className="wyn-redrop-sheet-icon" aria-hidden="true"><WynosIcon name="repost" size={28} strokeWidth={2} /></span>
-              <span className="wyn-redrop-sheet-copy">
-                <strong>{viewer?.redroppedDropIds.has(selected.id) ? "ยกเลิกรีโพสต์" : "รีโพสต์"}</strong>
-                <small>
-                  {viewer?.redroppedDropIds.has(selected.id)
-                    ? "นำโพสต์นี้ออกจากโปรไฟล์ของคุณ"
-                    : "แชร์โพสต์นี้ไปยังโปรไฟล์ของคุณ"}
-                </small>
-              </span>
-              <WynosIcon name="chevronRight" className="wyn-redrop-sheet-chevron" size={22} strokeWidth={2} aria-hidden="true" />
-            </button>
-            <button className="wyn-redrop-sheet-option is-quote" type="button" onClick={() => setSheet("quote")}>
-              <span className="wyn-redrop-sheet-icon" aria-hidden="true"><WynosIcon name="quote" size={28} strokeWidth={2} /></span>
-              <span className="wyn-redrop-sheet-copy">
-                <strong>รีโพสต์พร้อมความคิดเห็น</strong>
-                <small>แชร์โพสต์นี้พร้อมเพิ่มความคิดเห็นของคุณ</small>
-              </span>
-              <WynosIcon name="chevronRight" className="wyn-redrop-sheet-chevron" size={22} strokeWidth={2} aria-hidden="true" />
-            </button>
-            <button
-              className="wyn-redrop-sheet-cancel"
-              type="button"
-              onClick={() => { setSheet(null); setSelected(null); }}
-            >
-              ยกเลิก
-            </button>
-          </div>
+          <RepostSheetChoices
+            reposted={Boolean(viewer?.redroppedDropIds.has(selected.id))}
+            busy={busy}
+            onRepost={() => void redrop(selected)}
+            onQuote={() => setSheet("quote")}
+          />
         </ActionSheet>
       ) : null}
 

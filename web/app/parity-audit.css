@@ -21,111 +21,58 @@
 .audit-report-list label:last-child { border-bottom: 0; }
 .audit-report-list input { accent-color: var(--sapphire); }
 
-/* Founder-approved ReDrop sheet: premium, Thai-first, large friendly targets. */
-.audit-action-sheet[aria-label="รีโพสต์"] {
-  padding: 8px 0 calc(14px + env(safe-area-inset-bottom));
-  border-radius: 28px 28px 0 0;
+/* Approved single Repost menu for both Home and Profile.
+   Flat white action sheet, circular-arrow repost icon, pencil for quote,
+   Thai-only choice labels, no dividers, cards, subtitles or chevrons. */
+.audit-action-sheet[aria-label="รีโพสต์"],
+.golden-drop-sheet[aria-label="รีโพสต์"] {
+  padding: 9px 0 calc(16px + env(safe-area-inset-bottom, 0px));
+  border-radius: 26px 26px 0 0;
+  background: var(--paper);
 }
-
-.audit-action-sheet[aria-label="รีโพสต์"] .audit-sheet-grip {
-  width: 42px;
-  height: 5px;
-  margin: 3px auto 12px;
+.audit-action-sheet[aria-label="รีโพสต์"] .audit-sheet-grip,
+.golden-drop-sheet[aria-label="รีโพสต์"] .golden-drop-sheet-grip {
+  width: 40px;
+  height: 4px;
+  margin: 3px auto 13px;
+  border-radius: 999px;
   background: #d9dce2;
 }
-
-.wyn-redrop-sheet-options {
+.wyn-repost-sheet-options {
   display: grid;
-  gap: 10px;
-  padding: 0 16px;
+  gap: 2px;
+  padding: 0 18px;
 }
-
-.wyn-redrop-sheet-option {
-  width: 100%;
-  min-height: 78px;
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 24px;
+.wyn-repost-sheet-choice {
+  display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 13px 16px;
+  gap: 18px;
+  width: 100%;
+  min-height: 61px;
+  padding: 10px 14px;
   border: 0;
-  border-radius: 18px;
-  font: inherit;
-  text-align: left;
+  border-radius: 14px;
+  background: transparent;
   color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 560;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-
-.wyn-redrop-sheet-option.is-primary {
-  background: linear-gradient(135deg, #f4f8ff 0%, #edf5ff 100%);
+.wyn-repost-sheet-choice > svg {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
 }
-
-.wyn-redrop-sheet-option.is-quote {
-  background: linear-gradient(135deg, #f8f5ff 0%, #f1edff 100%);
-}
-
-.wyn-redrop-sheet-icon {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-}
-
-.wyn-redrop-sheet-option.is-primary .wyn-redrop-sheet-icon {
-  color: #0a84ff;
-  background: rgb(10 132 255 / 9%);
-}
-
-.wyn-redrop-sheet-option.is-quote .wyn-redrop-sheet-icon {
-  color: #6f2cff;
-  background: rgb(111 44 255 / 9%);
-}
-
-.wyn-redrop-sheet-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.wyn-redrop-sheet-copy strong {
-  font-size: 17px;
-  line-height: 1.25;
-  font-weight: 750;
-  letter-spacing: -0.1px;
-}
-
-.wyn-redrop-sheet-copy small {
-  color: var(--graphite);
-  font-size: 13px;
-  line-height: 1.35;
-  font-weight: 400;
-}
-
-.wyn-redrop-sheet-chevron {
-  color: #7b8088;
-}
-
-.wyn-redrop-sheet-cancel {
-  width: 100%;
-  min-height: 54px;
-  margin-top: 2px;
-  border: 0;
-  border-radius: 18px;
-  background: #f3f3f4;
-  color: var(--ink);
-  font: inherit;
-  font-size: 17px;
-  line-height: 1.2;
-  font-weight: 700;
-  text-align: center;
-}
-
-.wyn-redrop-sheet-option:active,
-.wyn-redrop-sheet-cancel:active {
-  transform: scale(0.992);
-  filter: brightness(0.985);
+.wyn-repost-sheet-choice:active { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.wyn-repost-sheet-choice:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.wyn-repost-sheet-choice:disabled { opacity: .55; cursor: wait; }
+.wyn-repost-sheet-error { margin: 6px 14px 0; }
+@media (prefers-reduced-motion: reduce) {
+  .wyn-repost-sheet-choice { transition: none; }
 }
 
 .audit-undo-toast { position: fixed; z-index: 150; left: 50%; bottom: calc(var(--wyn-bottom-nav-height) + env(safe-area-inset-bottom) + 14px); width: min(calc(100% - 28px), 620px); min-height: 48px; transform: translateX(-50%); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 10px 8px 16px; border-radius: 14px; background: var(--ink); color: var(--paper); box-shadow: 0 10px 28px rgb(18 18 15 / 22%); font-size: 13px; }

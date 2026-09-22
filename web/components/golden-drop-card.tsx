@@ -9,6 +9,7 @@ import { AnimatedHeart } from "@/components/ui/animated-heart";
 import { CommentIcon, RepostIcon, SaveIcon } from "@/components/ui/post-action-icons";
 import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 
@@ -291,7 +292,17 @@ export function GoldenDropCard({
     </div>
 
     {sheet === "more" ? <SheetFrame label="ตัวเลือกโพสต์" onClose={() => setSheet(null)}><button className="golden-drop-sheet-row" type="button" onClick={() => { setSheet(null); void share(); }}><WynosIcon name="share" size={20} strokeWidth={2} />แชร์</button><button className="golden-drop-sheet-row" type="button" onClick={() => void save()}><WynosIcon name="bookmark" size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} />{saved ? "เอาออกจากบันทึก" : "บันทึก"}</button>{!own ? <button className="golden-drop-sheet-row" type="button" onClick={() => setSheet("report")}><WynosIcon name="flag" size={20} strokeWidth={2} />รายงานโพสต์</button> : null}</SheetFrame> : null}
-    {sheet === "redrop" ? <SheetFrame label="รีโพสต์" onClose={() => setSheet(null)}><button className="golden-drop-sheet-row" type="button" disabled={busy} onClick={() => void redrop()}><WynosIcon name="repost" size={20} strokeWidth={2} />{redropped ? "ยกเลิก ReDrop" : "ReDrop"}</button><button className="golden-drop-sheet-row" type="button" disabled={busy} onClick={() => setSheet("quote")}><WynosIcon name="quote" size={20} strokeWidth={2} />Quote ReDrop</button>{error ? <p className="route-error" role="alert">{error}</p> : null}</SheetFrame> : null}
+    {sheet === "redrop" ? (
+      <SheetFrame label="รีโพสต์" onClose={() => setSheet(null)}>
+        <RepostSheetChoices
+          reposted={redropped}
+          busy={busy}
+          error={error}
+          onRepost={() => void redrop()}
+          onQuote={() => setSheet("quote")}
+        />
+      </SheetFrame>
+    ) : null}
     {sheet === "quote" ? <SheetFrame label="Quote ReDrop" onClose={() => { setSheet(null); setQuote(""); }}><div className="golden-drop-sheet-form"><strong>Quote ReDrop</strong><textarea autoFocus maxLength={500} value={quote} onChange={(event) => setQuote(event.target.value)} placeholder="เขียนความคิดเห็นของคุณ…" />{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy || !quote.trim()} onClick={() => void quoteRedrop()}>รีโพสต์พร้อมความคิดเห็น</button></div></SheetFrame> : null}
     {sheet === "report" ? <SheetFrame label="รายงานโพสต์" onClose={() => { setSheet(null); setReportDetail(""); }}><div className="golden-drop-sheet-form"><strong>รายงานโพสต์</strong><div className="golden-drop-report-list">{reportCategories.map((item) => <label key={item.value}><input type="radio" name={`drop-report-${row.id}`} checked={reportCategory === item.value} onChange={() => setReportCategory(item.value)} />{item.label}</label>)}</div>{reportCategory === "other" ? <textarea maxLength={1000} value={reportDetail} onChange={(event) => setReportDetail(event.target.value)} placeholder="รายละเอียดเพิ่มเติม" /> : null}{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy} onClick={() => void report()}>ส่งรายงาน</button></div></SheetFrame> : null}
     <Toast message={toastMessage} />
