@@ -42,3 +42,26 @@ test("successful repost and quote updates refresh own profile and invalidate its
   expect(card).toContain("disabled={busy} onClick={() => setSheet(\"quote\")}");
   expect(card).toContain('role="alert"');
 });
+
+test("profile repost action sheet is portaled out of the transformed swipe feed", async () => {
+  const root = process.cwd();
+  const [card, profile, css] = await Promise.all([
+    readFile(path.join(root, "components/golden-drop-card.tsx"), "utf8"),
+    readFile(path.join(root, "components/profile-route.tsx"), "utf8"),
+    readFile(path.join(root, "app/golden-drop-card.css"), "utf8"),
+  ]);
+  // Without the portal, the 0px transform below creates a containing block
+  // for position:fixed, hiding the bottom sheet below the scrolled profile.
+  expect(profile).toContain('transform: "translateX(0px)"');
+  expect(card).toContain('import { createPortal } from "react-dom"');
+  expect(card).toContain("return createPortal(");
+  expect(card).toContain("document.body,");
+  expect(card).toContain('onTouchMove={(event) => event.stopPropagation()}');
+  expect(card).toContain('document.body.style.overflow = "hidden"');
+  expect(card).toContain('event.key === "Escape"');
+  for (const name of ["redrop", "quote", "more", "report"]) {
+    expect(card).toContain('sheet === "' + name + '" ? <SheetFrame');
+  }
+  expect(css).toContain(".golden-drop-sheet-backdrop { position: fixed; inset: 0;");
+  expect(css).toContain("z-index: 180;");
+});
