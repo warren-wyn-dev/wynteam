@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
 import { CommentIcon, RepostIcon, SaveIcon } from "@/components/ui/post-action-icons";
@@ -43,7 +44,51 @@ function Avatar({ src, label }: { src?: string | null; label: string }) {
 }
 
 function SheetFrame({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
-  return <div className="route-modal-backdrop golden-drop-sheet-backdrop" role="presentation" onClick={onClose}><section className="golden-drop-sheet" role="dialog" aria-modal="true" aria-label={label} onClick={(event) => event.stopPropagation()}><div className="golden-drop-sheet-grip" />{children}</section></div>;
+  // The profile feed is always inside a swipe wrapper with transform:
+  // translateX(0px). A fixed modal rendered inside that transformed parent
+  // becomes relative to the tall feed instead of the iPhone viewport. Its
+  // backdrop appeared only below the tabs while the action sheet itself was
+  // placed far below the visible screen. Portal every post action sheet to
+  // document.body so Repost, Quote, More and Report all share viewport bounds.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("keydown", dismissOnEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      className="route-modal-backdrop golden-drop-sheet-backdrop"
+      role="presentation"
+      onClick={onClose}
+      // React portal events still bubble to the logical profile swipe parent.
+      // Do not let interacting with an open sheet swipe the profile tabs.
+      onTouchStart={(event) => event.stopPropagation()}
+      onTouchMove={(event) => event.stopPropagation()}
+      onTouchEnd={(event) => event.stopPropagation()}
+      onTouchCancel={(event) => event.stopPropagation()}
+    >
+      <section
+        className="golden-drop-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="golden-drop-sheet-grip" />
+        {children}
+      </section>
+    </div>,
+    document.body,
+  );
 }
 
 async function fetchImages(client: SupabaseClient, row: HomeFeedRow): Promise<string[]> {
