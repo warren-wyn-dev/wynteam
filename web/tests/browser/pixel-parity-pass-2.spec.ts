@@ -75,9 +75,12 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(flutterDetail).toContain("Icons.repeat_rounded");
   expect(flutterDetail).toContain("Icons.ios_share_outlined");
   expect(flutterDetail).toContain("Icons.bookmark_border_rounded");
-  expect(css).toContain('button[aria-label="ความคิดเห็น"]::before');
-  expect(css).toContain('button[aria-label="แชร์โพสต์"]::before');
-  expect(css).toContain('button[aria-label="บันทึกโพสต์"]::before');
+  // 2026-09-22: these used to hide the real <svg> and draw a hardcoded
+  // Flutter-icon-shaped CSS mask instead -- removed (see post-actions.tsx
+  // and post-detail-route.tsx: the real icon now always shows).
+  expect(css).not.toContain('button[aria-label="ความคิดเห็น"]::before');
+  expect(css).not.toContain('button[aria-label="แชร์โพสต์"]::before');
+  expect(css).not.toContain('button[aria-label="บันทึกโพสต์"]::before');
   expect(css).toContain("color: var(--wyn-accent)");
   expect(css).toContain("color: var(--wyn-text-secondary)");
 });

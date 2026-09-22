@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
-import { WynosIcon } from "@/components/ui/wynos-icon";
+import { CommentIcon, RepostIcon, SaveIcon } from "@/components/ui/post-action-icons";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 
 /**
@@ -59,7 +59,7 @@ export function PostActions({
         href={commentHref}
         aria-label="ความคิดเห็น"
       >
-        <WynosIcon name="comment" size={22} strokeWidth={2} />
+        <CommentIcon size={22} strokeWidth={2} />
         {count(commentCount)}
       </Link>
       {canRedrop ? (
@@ -72,7 +72,7 @@ export function PostActions({
         >
           {/* WYN-185 item 13: was 24 -- every other icon in this row is 22,
               so this stood out slightly larger for no reason. */}
-          <WynosIcon name="repost" size={22} strokeWidth={2} />
+          <RepostIcon size={22} strokeWidth={2} />
           {count(redropCount)}
         </button>
       ) : null}
@@ -92,7 +92,7 @@ export function PostActions({
           aria-pressed={saved}
           onClick={onSave}
         >
-          <WynosIcon name="bookmark" size={22} strokeWidth={2} fill={saved ? "currentColor" : "none"} />
+          <SaveIcon size={22} strokeWidth={2} saved={saved} />
         </button>
       ) : null}
     </div>
