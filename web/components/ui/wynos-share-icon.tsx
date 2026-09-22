@@ -1,3 +1,4 @@
+// Founder-supplied icon set (wynos-post-icons.zip, 2026-09-22).
 export function WynosShareIcon({ size = 24 }: { size?: number }) {
   return (
     <svg
@@ -9,16 +10,9 @@ export function WynosShareIcon({ size = 24 }: { size?: number }) {
       aria-hidden="true"
     >
       <path
-        d="M4.5 18.25C6.1 13.3 9.45 10.8 14.85 10.8H19"
+        d="M14 9V5a1 1 0 0 1 1.7-.7l7 7a1 1 0 0 1 0 1.4l-7 7A1 1 0 0 1 14 19v-4.1C7.6 14.9 4.5 16.8 2 21c.6-6.6 3.9-11 12-12Z"
         stroke="currentColor"
-        strokeWidth="2.15"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M15.25 6.75L19.5 10.8L15.25 14.85"
-        stroke="currentColor"
-        strokeWidth="2.15"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

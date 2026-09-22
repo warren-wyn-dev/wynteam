@@ -176,7 +176,13 @@ test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hi
   expect(flutterCard).toContain("Icons.send_outlined");
   expect(postActions).toContain("wyn-action-share");
   expect(postActions).toContain("wyn-action-save");
-  expect(postActions).toContain('name="bookmark"');
+  // 2026-09-22: comment/repost/save icons moved off the shared WynosIcon
+  // iconMap onto dedicated components carrying the Founder-supplied
+  // wynos-post-icons set (see components/ui/post-action-icons.tsx) --
+  // WynosIcon's "comment"/"repost"/"bookmark" entries are still used
+  // elsewhere (notifications, the home drawer, redrop sheets) and weren't
+  // meant to change.
+  expect(postActions).toContain("<SaveIcon");
   expect(postActions).toContain("value > 0 ?");
   expect(postActions).toContain("{count(likeCount)}");
   expect(postActions).not.toContain("Eye");

@@ -1,6 +1,5 @@
 "use client";
 
-import { Heart } from "lucide-react";
 import { motion, useAnimationControls } from "framer-motion";
 import { useEffect, useRef } from "react";
 
@@ -35,7 +34,11 @@ export function AnimatedHeart({
 
   return (
     <motion.span style={{ display: "inline-flex" }} animate={controls}>
-      <Heart size={size} strokeWidth={strokeWidth} fill={liked ? "currentColor" : "none"} />
+      {/* Founder-supplied icon set (wynos-post-icons.zip, 2026-09-22) --
+          swapped from lucide-react's Heart to this exact path. */}
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+      </svg>
     </motion.span>
   );
 }

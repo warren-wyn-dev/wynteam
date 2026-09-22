@@ -2062,3 +2062,34 @@ Founder ส่งภาพหน้าจอ composer ที่ว่างเ�
 ไม่เกี่ยวกับที่แก้เลย) รันซ้ำสะอาดหลังแก้เสร็จ: 267/267 PASS
 
 PR: claude/composer-remove-save-draft-button → main
+
+## [2026-09-22] Post action icons — เปลี่ยนตาม mockup "wynos-post-icons.zip"
+
+Founder ส่ง zip ไฟล์ 5 SVG (like/comment/repost/share/bookmark) พร้อมข้อความ "เปลี่ยนปุ่มให้หน่อย" — ตาม
+มาด้วยไฟล์ mockup เต็มหน้า "โพสต์ (รายละเอียด)" (Post.dc.html) ที่มีไอคอนชุดเดียวกันปรากฏอยู่ พร้อมข้อความ
+"หน้านี้ด้วย" — ถามยืนยันขอบเขตผ่าน AskUserQuestion เพราะไฟล์ Post.dc.html มีรายละเอียดหน้าจออื่นเพิ่มด้วย
+(หัวข้อไม่มีปุ่มเพิ่มเติม, ไอคอน "ดูกิจกรรม" ใหม่, อวาตาร์คอมเมนต์สี่เหลี่ยมมุมมนแทนวงกลม, ไม่มีแถวผู้เขียน/
+ปุ่มติดตาม) — Founder ยืนยัน **"แค่ยืนยันไอคอน"** ไม่ต้องแก้ layout ส่วนอื่น
+
+สิ่งที่ทำจริง:
+- **สร้าง `web/components/ui/post-action-icons.tsx`** ใหม่ (CommentIcon, RepostIcon, SaveIcon) แยกจาก
+  `WynosIcon` shared iconMap โดยตั้งใจ — เพราะ `comment`/`repost`/`bookmark` ใน iconMap เดิมถูกใช้ที่อื่นด้วย
+  (notification badge, เมนู home drawer, redrop sheet) ที่ไม่ได้อยู่ในขอบเขตของการแก้รอบนี้
+- **อัปเดต `AnimatedHeart`** (like) และ **`WynosShareIcon`** (share) ให้ใช้ path ใหม่ตรงๆ เพราะทั้งสองเป็น
+  component เฉพาะของแถว action อยู่แล้ว
+- **เชื่อมเข้ากับทุกจุดที่แสดงแถว action หลัก**: `post-actions.tsx` (ใช้โดย Home feed + Profile ผ่าน
+  `golden-drop-card.tsx`'s `homeParity` branch), `post-detail-route.tsx`'s แถว action ของตัวเอง, และ
+  `golden-drop-card.tsx`'s `homeParity=false` fallback (ใช้โดยหน้า Search และ บันทึกไว้/Bookmarks) — **ไม่แตะ**
+  `club-detail-golden.tsx`'s แถว action ของตัวเอง (คนละ implementation แยกออกไป ไม่ใช่ shared component)
+- **เจอบั๊กจริงระหว่างแก้**: Post Detail's `.flutter-detail-actions` มี `display: none` บน `<svg>` จริง แล้วใช้
+  CSS mask (`pixel-parity-final.css`) วาดไอคอน Flutter Material เดิมทับแทน (comment/repost/share/bookmark —
+  ไม่ใช่ like) เป็นบั๊กแพทเทิร์นเดียวกับ `.flutter-chat-header-action` back-arrow ที่เจอก่อนหน้านี้ในเซสชันนี้
+  — ลบทิ้ง ให้ svg จริงแสดงเหมือนปุ่ม like ที่ไม่เคยมีปัญหานี้
+
+ตรวจสอบ: `npm run check` PASS (0 error, 2 warning เดิม), throwaway visual fixture ยืนยันด้วย screenshot จริง —
+ไอคอนทั้ง 5 ตรงกับ mockup, สถานะ liked/saved แสดงทึบสีถูกต้อง, ยืนยันด้วย computed style ว่า Post Detail's
+svg เปลี่ยนจาก `display: none` เป็น `display: block` แล้วจริง (บั๊ก mask แก้ได้จริง) รัน full
+`npx playwright test` ครบ 3 CI browser projects — รอบแรกเจอ fail 3 ตัว (test เดียวกันทั้ง 3 browser: share icon
+path count เปลี่ยนจาก 2 เป็น 1 เพราะ path ใหม่เป็น closed path เดียว) แก้ assertion แล้วรันซ้ำสะอาด: 267/267 PASS
+
+PR: claude/post-action-icons → main

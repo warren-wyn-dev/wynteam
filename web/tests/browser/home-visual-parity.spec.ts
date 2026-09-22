@@ -67,7 +67,10 @@ test("first post matches compact avatar author caption and action geometry", asy
   const shareIcon = actions.getByRole("button", { name: "แชร์" }).locator(".wyn-share-icon");
   await expect(shareIcon).toHaveCSS("width", "22px");
   await expect(shareIcon).toHaveCSS("height", "22px");
-  await expect(shareIcon.locator("path")).toHaveCount(2);
+  // 2026-09-22: WynosShareIcon switched from a 2-stroke curved-arrow shape
+  // to the Founder-supplied wynos-post-icons.zip share glyph, a single
+  // closed path.
+  await expect(shareIcon.locator("path")).toHaveCount(1);
   await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(115, 119, 127)");
   await expect(moreText).toBeVisible();
   await expect(tags).toContainText("#WYNOS");

@@ -53,7 +53,12 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   expect(card).toContain("… ดูเพิ่มเติม");
   expect(card).toContain("รีโพสต์โดย {row.redropper_username");
   expect(card).toContain('<WynosIcon name="repost" size={16} strokeWidth={2} />');
-  expect(actions).toContain('<WynosIcon name="bookmark"');
+  // 2026-09-22: post-actions.tsx's save icon moved to a dedicated component
+  // (see components/ui/post-action-icons.tsx), carrying the Founder-supplied
+  // wynos-post-icons set -- unrelated to home-post-card.tsx's own "repost"
+  // WynosIcon usage above, which is a "reposted by" attribution badge, not
+  // part of this row, and still unchanged.
+  expect(actions).toContain('<SaveIcon');
 });
 
 test("post detail keeps the Founder activity and text contract", () => {
