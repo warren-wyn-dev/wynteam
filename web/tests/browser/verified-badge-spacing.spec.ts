@@ -102,3 +102,31 @@ test("profile badge keeps existing 5px combined spacing", async ({ page }) => {
   expect(result.gap).toBeLessThanOrEqual(5.5);
   expect(result.size).toBe(21);
 });
+
+test("Beta1 profile and post badges both show the shared white-check SVG", async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "wyn-profile-beta1";
+    wrapper.innerHTML = `
+      <div class="wyn-profile-name"><span>Wynos.online</span><span class="route-verified" aria-label="ยืนยันแล้ว">✓</span></div>
+      <div class="profile-feed-list"><div class="golden-drop-head"><strong><span>Wynos.online</span><span class="route-verified" aria-label="ยืนยันแล้ว">✓</span></strong></div></div>
+    `;
+    document.body.appendChild(wrapper);
+    const [profileBadge, feedBadge] = Array.from(wrapper.querySelectorAll<HTMLElement>(".route-verified"));
+    const value = (badge: HTMLElement) => ({
+      background: getComputedStyle(badge).backgroundImage,
+      fontSize: getComputedStyle(badge).fontSize,
+      color: getComputedStyle(badge).color,
+      width: badge.getBoundingClientRect().width,
+    });
+    const output = { profile: value(profileBadge), feed: value(feedBadge) };
+    wrapper.remove();
+    return output;
+  });
+  expect(result.profile.background).toContain("verified-badge-v2.svg");
+  expect(result.feed.background).toContain("verified-badge-v2.svg");
+  expect(result.profile.fontSize).toBe("0px");
+  expect(result.feed.fontSize).toBe("0px");
+  expect(result.profile.width).toBe(22);
+  expect(result.feed.width).toBe(18);
+});
