@@ -55,7 +55,15 @@ async function fetchImages(client: SupabaseClient, row: HomeFeedRow): Promise<st
   return urls.length ? [...new Set(urls)] : fallback;
 }
 
-export function GoldenDropCard({ row, homeParity = false }: { row: HomeFeedRow; homeParity?: boolean }) {
+export function GoldenDropCard({
+  row,
+  homeParity = false,
+  onRepostChanged,
+}: {
+  row: HomeFeedRow;
+  homeParity?: boolean;
+  onRepostChanged?: (actorId: string, dropId: string, removedStandard: boolean) => void;
+}) {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
   const [userId, setUserId] = useState("");
@@ -157,19 +165,39 @@ export function GoldenDropCard({ row, homeParity = false }: { row: HomeFeedRow; 
 
   const redrop = async () => {
     if (!client || !viewer || !userId || busy || !canRedrop) return;
+    setBusy(true);
+    setError("");
     patchViewer("redroppedDropIds", !redropped);
     setRedropCount((count) => Math.max(0, count + (redropped ? -1 : 1)));
-    try { await toggleDropRedrop(client, userId, row.id, redropped); setSheet(null); }
-    catch { setRedropCount(row.redrop_count ?? 0); void reloadViewer(userId); }
+    try {
+      await toggleDropRedrop(client, userId, row.id, redropped);
+      setSheet(null);
+      onRepostChanged?.(userId, row.id, redropped);
+    } catch {
+      setRedropCount(row.redrop_count ?? 0);
+      setError("รีโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+      void reloadViewer(userId);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const quoteRedrop = async () => {
     if (!client || !userId || !quote.trim() || busy || !canRedrop) return;
-    setBusy(true); setError("");
-    const result = await client.from("redrops").insert({ drop_id: row.id, redropper_id: userId, quote_text: quote.trim() });
-    if (result.error) setError(result.error.message || "Quote ReDrop ไม่สำเร็จ");
-    else { setQuote(""); setRedropCount((count) => count + 1); setSheet(null); }
-    setBusy(false);
+    setBusy(true);
+    setError("");
+    try {
+      const result = await client.from("redrops").insert({ drop_id: row.id, redropper_id: userId, quote_text: quote.trim() });
+      if (result.error) throw result.error;
+      setQuote("");
+      setRedropCount((count) => count + 1);
+      setSheet(null);
+      onRepostChanged?.(userId, row.id, false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Quote ReDrop ไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const { toastMessage, showToast } = useToast();
@@ -218,7 +246,7 @@ export function GoldenDropCard({ row, homeParity = false }: { row: HomeFeedRow; 
     </div>
 
     {sheet === "more" ? <SheetFrame label="ตัวเลือกโพสต์" onClose={() => setSheet(null)}><button className="golden-drop-sheet-row" type="button" onClick={() => { setSheet(null); void share(); }}><WynosIcon name="share" size={20} strokeWidth={2} />แชร์</button><button className="golden-drop-sheet-row" type="button" onClick={() => void save()}><WynosIcon name="bookmark" size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} />{saved ? "เอาออกจากบันทึก" : "บันทึก"}</button>{!own ? <button className="golden-drop-sheet-row" type="button" onClick={() => setSheet("report")}><WynosIcon name="flag" size={20} strokeWidth={2} />รายงานโพสต์</button> : null}</SheetFrame> : null}
-    {sheet === "redrop" ? <SheetFrame label="รีโพสต์" onClose={() => setSheet(null)}><button className="golden-drop-sheet-row" type="button" onClick={() => void redrop()}><WynosIcon name="repost" size={20} strokeWidth={2} />{redropped ? "ยกเลิก ReDrop" : "ReDrop"}</button><button className="golden-drop-sheet-row" type="button" onClick={() => setSheet("quote")}><WynosIcon name="quote" size={20} strokeWidth={2} />Quote ReDrop</button></SheetFrame> : null}
+    {sheet === "redrop" ? <SheetFrame label="รีโพสต์" onClose={() => setSheet(null)}><button className="golden-drop-sheet-row" type="button" disabled={busy} onClick={() => void redrop()}><WynosIcon name="repost" size={20} strokeWidth={2} />{redropped ? "ยกเลิก ReDrop" : "ReDrop"}</button><button className="golden-drop-sheet-row" type="button" disabled={busy} onClick={() => setSheet("quote")}><WynosIcon name="quote" size={20} strokeWidth={2} />Quote ReDrop</button>{error ? <p className="route-error" role="alert">{error}</p> : null}</SheetFrame> : null}
     {sheet === "quote" ? <SheetFrame label="Quote ReDrop" onClose={() => { setSheet(null); setQuote(""); }}><div className="golden-drop-sheet-form"><strong>Quote ReDrop</strong><textarea autoFocus maxLength={500} value={quote} onChange={(event) => setQuote(event.target.value)} placeholder="เขียนความคิดเห็นของคุณ…" />{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy || !quote.trim()} onClick={() => void quoteRedrop()}>รีโพสต์พร้อมความคิดเห็น</button></div></SheetFrame> : null}
     {sheet === "report" ? <SheetFrame label="รายงานโพสต์" onClose={() => { setSheet(null); setReportDetail(""); }}><div className="golden-drop-sheet-form"><strong>รายงานโพสต์</strong><div className="golden-drop-report-list">{reportCategories.map((item) => <label key={item.value}><input type="radio" name={`drop-report-${row.id}`} checked={reportCategory === item.value} onChange={() => setReportCategory(item.value)} />{item.label}</label>)}</div>{reportCategory === "other" ? <textarea maxLength={1000} value={reportDetail} onChange={(event) => setReportDetail(event.target.value)} placeholder="รายละเอียดเพิ่มเติม" /> : null}{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy} onClick={() => void report()}>ส่งรายงาน</button></div></SheetFrame> : null}
     <Toast message={toastMessage} />
