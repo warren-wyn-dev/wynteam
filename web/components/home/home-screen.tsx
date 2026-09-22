@@ -11,6 +11,7 @@ import { useInView } from "react-intersection-observer";
 import { ClubFeedPost } from "@/components/home/club-feed-post";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomePostCard } from "@/components/home/home-post-card";
+import { QuoteFeedCard } from "@/components/quote-feed-card";
 import { HOME_FEED_MODES, HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
 import { AppChrome } from "@/components/phase3-ui";
 import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
@@ -19,8 +20,9 @@ import { FeedSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
-import { authorLabel, type HomeFeedRow } from "@/lib/feed";
+import { authorLabel, isQuotePost, type HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
+import { deleteMountCache } from "@/lib/mount-cache";
 import { shareOrCopyLink } from "@/lib/share";
 import {
   loadHomeViewerState,
@@ -622,6 +624,7 @@ export function HomeScreen({ session }: { session: Session }) {
         quote_text: quote.trim(),
       });
       if (result.error) throw result.error;
+      deleteMountCache(`profile-feed:${userId}:posts`);
       setQuote("");
       setSheet(null);
       setSelected(null);
@@ -864,7 +867,17 @@ export function HomeScreen({ session }: { session: Session }) {
           )
         ) : rows.length && viewer ? (
           <>
-            {visibleRows.map((row, index) => (
+            {visibleRows.map((row, index) => isQuotePost(row) ? (
+              <QuoteFeedCard
+                row={row}
+                viewerId={userId}
+                onDeleted={(actorId) => {
+                  deleteMountCache(`profile-feed:${actorId}:posts`);
+                  void load();
+                }}
+                key={`${row.id}:${row.redrop_id ?? "plain"}`}
+              />
+            ) : (
               <HomePostCard
                 row={row}
                 viewer={viewer}
