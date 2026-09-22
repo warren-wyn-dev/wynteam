@@ -7,8 +7,9 @@ import { useEffect, useState } from "react";
 
 import { usePublishBottomNav } from "@/components/app-bottom-nav-runtime";
 import { GoldenDropCard } from "@/components/golden-drop-card";
+import { QuoteFeedCard } from "@/components/quote-feed-card";
 import { WynosIcon } from "@/components/ui/wynos-icon";
-import type { HomeFeedRow } from "@/lib/feed";
+import { isQuotePost, type HomeFeedRow } from "@/lib/feed";
 import { useUnreadNotificationCount } from "@/lib/notification-count";
 import type { ProfileRow } from "@/lib/phase3-data";
 import { usePresenceTracking } from "@/lib/presence";
@@ -107,13 +108,22 @@ export function ProfileRowView({ profile, trailing }: { profile: ProfileRow; tra
 export function DropPreviewCard({
   row,
   homeParity = false,
+  viewerId = "",
   onRepostChanged,
+  onQuoteCreated,
+  onQuoteDeleted,
 }: {
   row: HomeFeedRow;
   homeParity?: boolean;
+  viewerId?: string;
   onRepostChanged?: (actorId: string, dropId: string, removedStandard: boolean) => void;
+  onQuoteCreated?: (actorId: string) => void;
+  onQuoteDeleted?: (actorId: string, quoteId: string) => void;
 }) {
-  return <GoldenDropCard row={row} homeParity={homeParity} onRepostChanged={onRepostChanged} />;
+  if (isQuotePost(row)) {
+    return <QuoteFeedCard row={row} viewerId={viewerId} onDeleted={onQuoteDeleted} />;
+  }
+  return <GoldenDropCard row={row} homeParity={homeParity} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} />;
 }
 
 export function SettingsLink() {
