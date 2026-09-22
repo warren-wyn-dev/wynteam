@@ -1,0 +1,84 @@
+name: WYN-187 -- clean up legacy social_links keys blocking profile saves
+
+# Follow-up to the WYN-187 external-link-validation trigger
+# (supabase/migrations_wyn187_profile_external_link_validation.sql,
+# applied to production 2026-09-21). That trigger validates the FULL
+# resulting row on every UPDATE to public.profiles, not just the columns
+# actually being changed -- so a profile whose social_links already
+# contained a key outside the website/instagram/twitter/youtube allowlist
+# (from before the trigger existed) now fails on every save to that row,
+# not just ones touching social_links. Confirmed live: a profile with a
+# stray "__wynos_note" key got "social_links has an unrecognized key:
+# __wynos_note" while saving an unrelated Privacy setting.
+#
+# This workflow is a one-time DATA cleanup, not a trigger/logic change --
+# the trigger's strict validation on new writes is correct and untouched.
+# Same statement as supabase/migrations_wyn187_cleanup_legacy_social_links_keys.sql
+# -- if the two ever drift, that file is wrong, not this workflow (this is
+# what actually ran against production).
+#
+# SAFETY: only ever removes keys that were already rejected by the
+# existing trigger for any future write (nothing that could be written
+# today is touched). Idempotent -- a second run finds nothing left to
+# strip. Step 1 is read-only and lists exactly which profiles are
+# affected before anything is changed.
+on:
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          echo "=== 0. Diagnose: which profiles have a non-conforming social_links key? ==="
+          run_sql "select id, username, social_links
+                    from public.profiles
+                    where exists (
+                      select 1 from jsonb_object_keys(social_links) k(key)
+                      where k.key <> all (array['website', 'instagram', 'twitter', 'youtube'])
+                    );" | jq .
+
+          echo "=== 1. Strip non-conforming keys from social_links (idempotent) ==="
+          run_sql "update public.profiles
+                    set social_links = (
+                      select coalesce(jsonb_object_agg(key, value), '{}'::jsonb)
+                      from jsonb_each(social_links) as entries(key, value)
+                      where key = any (array['website', 'instagram', 'twitter', 'youtube'])
+                    )
+                    where exists (
+                      select 1 from jsonb_object_keys(social_links) k(key)
+                      where k.key <> all (array['website', 'instagram', 'twitter', 'youtube'])
+                    );" >/dev/null
+          echo "Done."
+
+          echo "=== 2. Verify: no profile has a non-conforming key left ==="
+          run_sql "select count(*) as still_affected
+                    from public.profiles
+                    where exists (
+                      select 1 from jsonb_object_keys(social_links) k(key)
+                      where k.key <> all (array['website', 'instagram', 'twitter', 'youtube'])
+                    );" | jq .
