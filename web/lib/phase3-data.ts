@@ -605,9 +605,9 @@ export async function uploadProfileImage(
   return url;
 }
 
-export async function removeProfileImage(client: SupabaseClient, userId: string): Promise<void> {
-  const update = await client.from("profiles").update({ avatar_url: null }).eq("id", userId);
-  fail(update.error, "ลบรูปโปรไฟล์ไม่สำเร็จ");
+export async function removeProfileImage(client: SupabaseClient, userId: string, kind: "avatar" | "cover" = "avatar"): Promise<void> {
+  const update = await client.from("profiles").update({ [`${kind}_url`]: null }).eq("id", userId);
+  fail(update.error, kind === "avatar" ? "ลบรูปโปรไฟล์ไม่สำเร็จ" : "ลบรูปหน้าปกไม่สำเร็จ");
 }
 
 export async function fetchNotifications(client: SupabaseClient, page = 0): Promise<NotificationRow[]> {
