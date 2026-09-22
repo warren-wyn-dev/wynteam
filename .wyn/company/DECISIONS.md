@@ -2111,3 +2111,25 @@ visual balance มาก่อนแล้วจากอีก pass หนึ�
 browser projects 267/267 PASS
 
 PR: claude/comment-icon-size → main
+
+## [2026-09-22] บั๊ก social_links block ทุกการบันทึกโปรไฟล์ — แก้ด้วย data cleanup
+
+Founder ส่งภาพหน้าจอ Privacy settings ในแอป Flutter ที่ขึ้น banner สีแดง
+"social_links has an unrecognized key: __wynos_note" ตอนพยายามบันทึก — ไม่ได้ขอ redesign แต่เป็นการแจ้งบั๊กจริง
+
+**Root cause**: `migrations_wyn187_profile_external_link_validation.sql` (deploy ไปวันนี้ก่อนหน้านี้ใน PR #586)
+เพิ่ม trigger ตรวจสอบว่า `social_links` มีเฉพาะ key ที่อนุญาต (website/instagram/twitter/youtube) เท่านั้น — แต่
+Postgres จะ validate **ทั้งแถว** ทุกครั้งที่ UPDATE ไม่ว่าจะแก้ column ไหน บัญชีที่ได้รับผลกระทบมี key แปลกปลอม
+`__wynos_note` ติดอยู่ใน `social_links` มาตั้งแต่ก่อน trigger นี้จะมีอยู่ ทำให้ **ทุกการบันทึกของบัญชีนี้ (ไม่ใช่
+แค่หน้า Privacy)** ถูกบล็อกไปหมดตั้งแต่ trigger นี้ deploy
+
+**วิธีแก้**: เขียน data cleanup migration (`migrations_wyn187_cleanup_legacy_social_links_keys.sql`) ลบ key ที่
+ไม่อยู่ใน allowlist ออกจาก `social_links` ที่มีอยู่แล้วทั้งหมด **ไม่แตะ trigger เดิมเลย** (validation logic ยัง
+เข้มงวดเหมือนเดิมสำหรับการเขียนใหม่ ถูกต้องแล้ว) — พร้อมสร้าง GitHub Actions workflow
+(`wyn187-cleanup-legacy-social-links.yml`) ตาม convention เดิมของโปรเจกต์ (ทุก `WYN-*-apply-*-schema.yml` ก่อน
+หน้านี้) ให้ Founder กด "Run workflow" ได้เลยแทนที่จะ copy SQL ไปรันเองใน Supabase Dashboard — workflow แสดง
+บัญชีที่ได้รับผลกระทบก่อน (read-only) แล้วค่อยลบ แล้ว verify ว่าไม่เหลือ ไม่มี AI ตัวไหนแตะ credential จริงเลย
+(ใช้ secrets ของ repo เอง รันผ่าน GitHub Actions ที่ Founder สั่งรันเองเท่านั้น)
+
+PR: claude/wyn187-cleanup-legacy-social-links → main (merged) — รอ Founder กดรัน workflow เพื่อ apply กับ
+production จริง
