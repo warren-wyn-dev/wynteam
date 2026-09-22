@@ -75,7 +75,7 @@ Use a physical iPhone with Safari and open `https://wynos.online` directly.
 - Search starts with the search field rather than a duplicate title header.
 - Trending/suggested content spacing matches the original structure.
 - Profile cover/header overlay, avatar, identity, actions and tabs align correctly.
-- Profile tabs are `สื่อ / รีโพสต์ / ถูกใจ`.
+- Profile tabs are `โพสต์ / รีโพสต์ / ถูกใจ` (no separate media tab; the Posts feed already includes text and media posts).
 - Other-user profiles can show `แนะนำสำหรับคุณ` without breaking scroll/header behavior.
 
 ### 4. Notifications, Chat and Settings

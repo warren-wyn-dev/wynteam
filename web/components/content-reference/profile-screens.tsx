@@ -102,7 +102,7 @@ export function ProfileHeader({
 }
 
 function ProfileTabs() {
-  return <div className="profile-tabs"><span className="active">สื่อ</span><span>รีโพสต์</span><span>ถูกใจ</span></div>;
+  return <div className="profile-tabs"><span className="active">โพสต์</span><span>รีโพสต์</span><span>ถูกใจ</span></div>;
 }
 
 function ProfilePost({ authorName, timeLabel, text, onOpen, likeCount }: { authorName: string; timeLabel: string; text: string; onOpen?: () => void; likeCount?: number }) {
