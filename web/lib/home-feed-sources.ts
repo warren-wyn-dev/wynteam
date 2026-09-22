@@ -135,14 +135,15 @@ export async function fetchFollowingDropRows(
   const followingIds = (follows.data ?? []).map((row) => String(row.following_id));
   if (!followingIds.length) return [];
 
-  // Mirrors HomeRepository.fetchFollowingFeed(): a followed user's Standard/
-  // Quote Repost belongs in Following even when the original Drop author is
-  // not followed, so both author_id and redropper_id are matched.
+  // Like X's Following surface: original Drops belong to followed authors,
+  // while standard reposts and authored Quotes belong to the REPOSTER, not
+  // the quoted Drop's original author. Without the redrop_id null guard,
+  // following Alice would also surface every stranger quoting Alice's Drop.
   const list = followingIds.join(",");
   const result = await client
     .from("home_feed")
     .select("*")
-    .or(`author_id.in.(${list}),redropper_id.in.(${list})`)
+    .or(`and(author_id.in.(${list}),redrop_id.is.null),redropper_id.in.(${list})`)
     .neq("content_type", "pop")
     .order("created_at", { ascending: false })
     .range(0, followingLimit - 1);
