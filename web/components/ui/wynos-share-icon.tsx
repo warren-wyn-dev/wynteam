@@ -1,4 +1,5 @@
-// Founder-supplied icon set (wynos-post-icons.zip, 2026-09-22).
+// Square-with-up-arrow share glyph; consistent across WYNOS profile and posts.
+// Uses the same 24px viewBox as other post actions. Interaction stays in callers.
 export function WynosShareIcon({ size = 24 }: { size?: number }) {
   return (
     <svg
@@ -10,7 +11,7 @@ export function WynosShareIcon({ size = 24 }: { size?: number }) {
       aria-hidden="true"
     >
       <path
-        d="M14 9V5a1 1 0 0 1 1.7-.7l7 7a1 1 0 0 1 0 1.4l-7 7A1 1 0 0 1 14 19v-4.1C7.6 14.9 4.5 16.8 2 21c.6-6.6 3.9-11 12-12Z"
+        d="M12 15V3m0 0L8 7m4-4 4 4M8 8H5.75A2.75 2.75 0 0 0 3 10.75v8.5A2.75 2.75 0 0 0 5.75 22h12.5A2.75 2.75 0 0 0 21 19.25v-8.5A2.75 2.75 0 0 0 18.25 8H16"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
