@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="34 34 445 445" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="wynos-verified-v2" x1="0%" y1="30%" x2="100%" y2="65%">
+      <stop offset="0%" stop-color="#FFE82A"/>
+      <stop offset="35%" stop-color="#FFCF26"/>
+      <stop offset="65%" stop-color="#FFA12E"/>
+      <stop offset="100%" stop-color="#FF7045"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#wynos-verified-v2)" d="M256 37 C268 37 278 54 312 86 L369 76 C386 73 393 82 395 99 L402 150 L455 176 C470 183 469 194 460 211 L436 254 L464 306 C473 325 465 332 456 335 L402 360 L394 419 C393 433 383 438 369 435 L312 425 L269 469 C261 477 251 478 244 470 L201 425 L143 435 C130 436 122 433 119 418 L112 360 L57 334 C44 327 43 318 50 305 L77 255 L48 203 C41 190 44 184 57 177 L110 151 L119 95 C121 79 129 74 143 76 L201 86 L237 49 C244 41 249 37 256 37 Z"/>
+  <path d="M150 267 L214 326 L337 204" fill="none" stroke="#FFFFFF" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

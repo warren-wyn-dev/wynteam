@@ -161,17 +161,43 @@
 /* WYNOS verified seal: vector-traced from the approved brand reference.
    Use a dedicated SVG rather than masking a generic Material verified icon;
    keeping the white check inside the asset preserves the approved shape. */
+/* Shared verified badge: cropped-to-shape SVG stays sharp at mobile sizes.
+   Versioned URL prevents iOS Safari/PWA from retaining the previous badge. */
 .route-verified {
   display: inline-block;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   margin-left: 4px;
   flex: 0 0 auto;
-  background: url("/verified-badge.svg") center / contain no-repeat;
+  background: url("/verified-badge-v2.svg") center / contain no-repeat;
   color: transparent;
   font-size: 0;
   line-height: 0;
   vertical-align: -3px;
+}
+
+/* Profile name has larger type; keep the verified mark proportional. */
+.wyn-profile-name .route-verified {
+  width: 21px;
+  height: 21px;
+  margin-left: 1px;
+}
+
+/* Compact post/author rows align the badge with the display name. */
+.wyn-post-author-link .route-verified,
+.golden-drop-head .route-verified,
+.detail-author-primary .route-verified {
+  width: 18px;
+  height: 18px;
+  vertical-align: -3px;
+}
+
+/* Follow/search lists have smaller author names. */
+.route-person-row .route-verified,
+.follow-list-person .route-verified {
+  width: 16px;
+  height: 16px;
+  vertical-align: -2px;
 }
 
 .route-list { width: 100%; }
