@@ -197,10 +197,10 @@
   margin-left: 0;
 }
 
-/* Inline author names have no flex gap, so use a compact optical spacing. */
+/* GoldenDrop and detail names already have a 4px internal flex gap. */
 .golden-drop-head .route-verified,
 .detail-author-primary .route-verified {
-  margin-left: 2px;
+  margin-left: 0;
 }
 
 /* Follow/search lists have smaller author names. */
