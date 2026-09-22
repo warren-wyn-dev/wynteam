@@ -59,9 +59,12 @@ test("profile repost action sheet is portaled out of the transformed swipe feed"
   expect(card).toContain('onTouchMove={(event) => event.stopPropagation()}');
   expect(card).toContain('document.body.style.overflow = "hidden"');
   expect(card).toContain('event.key === "Escape"');
-  for (const name of ["redrop", "quote", "more", "report"]) {
+  for (const name of ["redrop", "more", "report"]) {
     expect(card).toContain('sheet === "' + name + '" ? <SheetFrame');
   }
+  expect(card).toContain('sheet === "quote" ? (');
+  expect(card).toContain("<QuoteRedropComposer");
+  expect(card).toContain("viewerId={userId}");
   expect(css).toContain(".golden-drop-sheet-backdrop { position: fixed; inset: 0;");
   expect(css).toContain("z-index: 180;");
 });
