@@ -2093,3 +2093,21 @@ svg เปลี่ยนจาก `display: none` เป็น `display: block`
 path count เปลี่ยนจาก 2 เป็น 1 เพราะ path ใหม่เป็น closed path เดียว) แก้ assertion แล้วรันซ้ำสะอาด: 267/267 PASS
 
 PR: claude/post-action-icons → main
+
+## [2026-09-22] Post action icons — ขยายไอคอนคอมเมนต์ให้เท่าไอคอนอื่น
+
+Founder feedback หลัง PR #594 deploy: "ขยายปุ่มคอมเม้น ขึ้น นิดหน่อยได้ไหม มันดูเล็กสุดเลย ... ทุกปุ่ม ต้องดูมี
+ขนาดเท่ากัน" — ไอคอนคอมเมนต์ (รูปบับเบิลข้อความ) แม้ขนาด nominal เท่ากับตัวอื่น (22px) แต่ดูเล็กกว่าเพราะรูปทรง
+เป็นเส้น outline วงกลมที่มีพื้นที่ว่างข้างในเยอะกว่าไอคอนอื่น (หัวใจ/รีโพสต์/แชร์/บันทึก)
+
+สิ่งที่ทำจริง: ขยาย `CommentIcon` จาก `size={22}` เป็น `size={24}` ใน 2 จุดที่ยังใช้ 22px (`post-actions.tsx`
+[Home feed/Profile] และ `golden-drop-card.tsx`'s `homeParity=false` fallback [Search/บันทึกไว้]) — **ไม่แตะ**
+Post Detail's CommentIcon เพราะแถว action ของหน้านั้นมี CSS บังคับขนาดต่อไอคอนแยกอยู่แล้ว
+(`system-parity-final.css`: like=26, comment=25, repost=27, share=24, save=26px) ซึ่งเป็นการ tune เพื่อ
+visual balance มาก่อนแล้วจากอีก pass หนึ่ง ไม่เกี่ยวกับ prop ที่ส่งเข้าไปเลย
+
+ตรวจสอบ: `npm run check` PASS (0 error, 2 warning เดิม), visual fixture ยืนยัน bounding box จริงของแต่ละไอคอน
+(คอมเมนต์ 24×24 vs อื่นๆ 22×22) และ screenshot เทียบดูแล้วสมดุลกันดี รัน full `npx playwright test` ครบ 3 CI
+browser projects 267/267 PASS
+
+PR: claude/comment-icon-size → main
