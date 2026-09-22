@@ -716,6 +716,19 @@ class _AccountManagementScreenState extends State<_AccountManagementScreen> {
   }
 }
 
+/// `WynColors.graphite` (`ColorScheme.onSurfaceVariant`, the default
+/// `ListTile`/`SwitchListTile` subtitle color) is ~3.55:1 on white --
+/// fails WCAG AA's 4.5:1 minimum for normal-weight body text
+/// (`.wyn/docs/design/design-principles.md` mandates AA). `graphite` is
+/// correct for its documented small-metadata/icon role elsewhere
+/// (`design-reference/SPEC.md` Section 1), so it isn't changed globally
+/// here -- every row on this screen instead uses it as a full-sentence
+/// subtitle at 15px (`bodyMedium`), which needs a darker, still-secondary
+/// tone. Reported by the Founder as "สีตัวหนังสือจาง จัง" (text color too
+/// pale) on 2026-09-22. ~5.5:1 on white, same warm-gray family as
+/// `graphite` (R>G>B), just darker.
+const Color _privacySubtitleColor = Color(0xFF6B6960);
+
 /// The real destination behind the "ความเป็นส่วนตัว" row -- WYN-039's
 /// Private Account toggle plus WYN-045's 3 DM/Mention/Comment
 /// Interaction Privacy Controls. See this file's top doc comment for the
@@ -916,7 +929,9 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
             secondary: const Icon(Icons.lock_outline),
             title: const BrowserSystemText('บัญชีส่วนตัว (Private Account)'),
             subtitle: const BrowserSystemText(
-                'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็นโพสต์ของคุณได้'),
+              'เฉพาะผู้ติดตามที่คุณอนุมัติเท่านั้นที่จะเห็นโพสต์ของคุณได้',
+              style: TextStyle(color: _privacySubtitleColor),
+            ),
             value: _isPrivate,
             onChanged: _isTogglingPrivate ? null : _setIsPrivate,
           ),
@@ -927,8 +942,10 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
           ListTile(
             leading: const Icon(Icons.star_outline),
             title: const BrowserSystemText('เพื่อนที่สนิท'),
-            subtitle:
-                const BrowserSystemText('จัดการรายชื่อเพื่อนที่สนิทของคุณ'),
+            subtitle: const BrowserSystemText(
+              'จัดการรายชื่อเพื่อนที่สนิทของคุณ',
+              style: TextStyle(color: _privacySubtitleColor),
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -974,7 +991,9 @@ class _PrivacyScreenState extends State<_PrivacyScreen> {
             title:
                 const BrowserSystemText('แสดงสถานะออนไลน์และเข้าใช้งานล่าสุด'),
             subtitle: const BrowserSystemText(
-                'ถ้าปิด คุณจะไม่เห็นสถานะออนไลน์และเข้าใช้งานล่าสุดของคนอื่นด้วยเช่นกัน'),
+              'ถ้าปิด คุณจะไม่เห็นสถานะออนไลน์และเข้าใช้งานล่าสุดของคนอื่นด้วยเช่นกัน',
+              style: TextStyle(color: _privacySubtitleColor),
+            ),
             value: _showOnline ?? true,
             onChanged: (_showOnline == null || _isTogglingShowOnline)
                 ? null
@@ -1114,7 +1133,10 @@ class _PermissionSettingTile extends StatelessWidget {
     return ListTile(
       leading: Icon(icon),
       title: BrowserSystemText(title),
-      subtitle: BrowserSystemText(subtitle),
+      subtitle: BrowserSystemText(
+        subtitle,
+        style: const TextStyle(color: _privacySubtitleColor),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1207,7 +1229,10 @@ Future<InteractionPermission?> _showPermissionPicker(
                         : null,
                   ),
                   title: BrowserSystemText(_permissionLabel(option)),
-                  subtitle: BrowserSystemText(_permissionDescription(option)),
+                  subtitle: BrowserSystemText(
+                    _permissionDescription(option),
+                    style: const TextStyle(color: _privacySubtitleColor),
+                  ),
                   onTap: () => Navigator.of(sheetContext).pop(option),
                 ),
               ),
@@ -1253,8 +1278,10 @@ class _LikesVisibilitySettingTile extends StatelessWidget {
     return ListTile(
       leading: const Icon(Icons.favorite_border),
       title: const BrowserSystemText('ใครเห็นสิ่งที่คุณถูกใจได้'),
-      subtitle:
-          const BrowserSystemText('ควบคุมว่าใครเห็นแท็บถูกใจบนโปรไฟล์ของคุณ'),
+      subtitle: const BrowserSystemText(
+        'ควบคุมว่าใครเห็นแท็บถูกใจบนโปรไฟล์ของคุณ',
+        style: TextStyle(color: _privacySubtitleColor),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1342,8 +1369,10 @@ Future<LikesVisibility?> _showLikesVisibilityPicker(
                         : null,
                   ),
                   title: BrowserSystemText(_likesVisibilityLabel(option)),
-                  subtitle:
-                      BrowserSystemText(_likesVisibilityDescription(option)),
+                  subtitle: BrowserSystemText(
+                    _likesVisibilityDescription(option),
+                    style: const TextStyle(color: _privacySubtitleColor),
+                  ),
                   trailing: Icon(
                     option == currentValue
                         ? Icons.radio_button_checked
