@@ -957,6 +957,8 @@ export function HomeScreen({ session }: { session: Session }) {
       {selected && sheet === "quote" ? (
         <QuoteRedropComposer
           row={selected}
+          viewerId={userId}
+          viewer={identity}
           value={quote}
           busy={busy}
           error={error}
