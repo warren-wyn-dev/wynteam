@@ -1,64 +1,81 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Verified badge spacing: the flex Home row already supplies a 4px gap,
- * while inline post names need an explicit 2px margin. The profile header
- * keeps its approved 4px flex gap + 1px badge margin.
+ * Verification badge spacing: adjacent flex gap is 4px in all post-name
+ * contexts. A second margin must not double the gap. The approved
+ * profile header remains at 4px flex gap + 1px badge margin.
  *
- * Runs on iPhone WebKit, Android Chromium and desktop Chromium.
+ * Runs on iPhone WebKit, Android Chromium, and desktop Chromium.
  */
 test.beforeEach(async ({ page }) => {
-  await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
+  await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
 });
 
 test("Home author badge keeps exactly the 4px flex gap", async ({ page }) => {
-  const author = page.locator(".wyn-post-author-link").first();
-  await expect(author).toBeVisible();
-  await author.evaluate((link) => {
-    const name = link.querySelector(".wyn-post-author-name");
-    if (!name) throw new Error("Home author name was not rendered");
-    link.querySelector(".route-verified")?.remove();
-    const badge = document.createElement("span");
-    badge.className = "route-verified wyn-post-verified";
-    badge.textContent = "✓";
-    name.insertAdjacentElement("afterend", badge);
-  });
-
-  const name = author.locator(".wyn-post-author-name");
-  const badge = author.locator(".route-verified");
-  await expect(author).toHaveCSS("gap", "4px");
-  await expect(badge).toHaveCSS("margin-left", "0px");
-  await expect(badge).toHaveCSS("width", "18px");
-  await expect(badge).toHaveCSS("background-image", /verified-badge-v2\.svg/);
-  const [nameBox, badgeBox] = await Promise.all([name.boundingBox(), badge.boundingBox()]);
-  expect(nameBox).not.toBeNull();
-  expect(badgeBox).not.toBeNull();
-  const actualGap = badgeBox!.x - (nameBox!.x + nameBox!.width);
-  expect(actualGap).toBeGreaterThanOrEqual(3.5);
-  expect(actualGap).toBeLessThanOrEqual(4.5);
-});
-
-test("inline post/detail badges use 2px rather than the old 4px gap", async ({ page }) => {
-  const inlineGap = await page.evaluate(() => {
-    const fixture = document.createElement("div");
-    fixture.className = "golden-drop-head";
-    fixture.innerHTML = '<a href="#"><strong><span class="qa-name">Wynos.online</span><span class="route-verified">✓</span></strong></a>';
+  // Isolate a CSS fixture outside React: mutating a hydrated feed risks
+  // React replacing injected nodes (notably in iPhone WebKit).
+  const result = await page.evaluate(() => {
+    const fixture = document.createElement("a");
+    fixture.href = "#";
+    fixture.className = "wyn-post-author-link";
+    fixture.innerHTML =
+      '<strong class="wyn-post-author-name">Wynos.online</strong>' +
+      '<span class="route-verified wyn-post-verified" aria-label="ยืนยันแล้ว">✓</span>';
     document.body.appendChild(fixture);
-    const name = fixture.querySelector(".qa-name")!;
+    const name = fixture.querySelector(".wyn-post-author-name")!;
     const badge = fixture.querySelector(".route-verified")!;
-    const bounds = name.getBoundingClientRect();
-    const badgeBounds = badge.getBoundingClientRect();
+    const nameBox = name.getBoundingClientRect();
+    const badgeBox = badge.getBoundingClientRect();
     const result = {
+      flexGap: getComputedStyle(fixture).gap,
       margin: getComputedStyle(badge).marginLeft,
-      gap: badgeBounds.left - bounds.right,
+      background: getComputedStyle(badge).backgroundImage,
+      width: badgeBox.width,
+      gap: badgeBox.left - nameBox.right,
     };
     fixture.remove();
     return result;
   });
-  expect(inlineGap.margin).toBe("2px");
-  expect(inlineGap.gap).toBeGreaterThanOrEqual(1.5);
-  expect(inlineGap.gap).toBeLessThanOrEqual(2.5);
+
+  expect(result.flexGap).toBe("4px");
+  expect(result.margin).toBe("0px");
+  expect(result.width).toBe(18);
+  expect(result.background).toContain("verified-badge-v2.svg");
+  expect(result.gap).toBeGreaterThanOrEqual(3.5);
+  expect(result.gap).toBeLessThanOrEqual(4.5);
 });
+
+for (const className of ["golden-drop-head", "detail-author-primary"]) {
+  test(`${className} badge does not double the existing 4px flex gap`, async ({ page }) => {
+    const result = await page.evaluate((className) => {
+      const fixture = document.createElement("div");
+      fixture.className = className;
+      fixture.innerHTML = className === "golden-drop-head"
+        ? '<a href="#"><strong><span class="qa-name">Wynos.online</span><span class="route-verified">✓</span></strong></a>'
+        : '<strong><span class="qa-name">Wynos.online</span><span class="route-verified">✓</span></strong>';
+      document.body.appendChild(fixture);
+      const name = fixture.querySelector(".qa-name")!;
+      const badge = fixture.querySelector(".route-verified")!;
+      const nameBox = name.getBoundingClientRect();
+      const badgeBox = badge.getBoundingClientRect();
+      const strong = fixture.querySelector("strong")!;
+      const result = {
+        flexGap: getComputedStyle(strong).gap,
+        margin: getComputedStyle(badge).marginLeft,
+        gap: badgeBox.left - nameBox.right,
+        width: badgeBox.width,
+      };
+      fixture.remove();
+      return result;
+    }, className);
+
+    expect(result.flexGap).toBe("4px");
+    expect(result.margin).toBe("0px");
+    expect(result.width).toBe(18);
+    expect(result.gap).toBeGreaterThanOrEqual(3.5);
+    expect(result.gap).toBeLessThanOrEqual(4.5);
+  });
+}
 
 test("profile badge keeps existing 5px combined spacing", async ({ page }) => {
   const result = await page.evaluate(() => {
