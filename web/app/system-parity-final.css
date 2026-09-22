@@ -382,3 +382,267 @@
     transition: none;
   }
 }
+
+
+/* X-inspired WYNOS quote composer, shared by Home and profile. Only affects
+   Quote (อ้างอิง), not the existing standard post composer, media tools,
+   top-level navigation, or the profile's approved typography. */
+.wyn-quote-backdrop {
+  position: fixed !important;
+  inset: 0;
+  z-index: 230;
+  overflow: hidden;
+  align-items: stretch !important;
+  padding: 0 !important;
+  background: var(--wyn-bg, #fff);
+}
+.wyn-quote-composer {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 680px);
+  min-width: 0;
+  min-height: 0;
+  margin: 0 auto;
+  border-radius: 0;
+  overflow: hidden;
+  background: var(--wyn-bg, #fff);
+}
+.wyn-quote-composer .wyn-quote-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  height: calc(58px + env(safe-area-inset-top, 0px));
+  min-height: calc(58px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 17px 0;
+  border-bottom: 1px solid var(--wyn-border, #ebebee);
+  background: var(--wyn-bg, #fff);
+}
+.wyn-quote-composer .wyn-quote-header .beta4-composer-header-title {
+  position: absolute;
+  top: calc(50% + env(safe-area-inset-top, 0px) / 2);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 720;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.wyn-quote-composer .wyn-quote-header .beta4-cancel {
+  min-width: 64px;
+  font-size: 15px;
+  font-weight: 550;
+}
+.wyn-quote-composer .wyn-quote-header .beta4-post {
+  position: relative;
+  z-index: 1;
+  min-width: 70px;
+  height: 40px;
+  padding: 0 17px;
+  font-size: 15px;
+  border-radius: 999px;
+}
+.wyn-quote-composer .wyn-quote-error {
+  flex: 0 0 auto;
+  margin: 9px 18px 0;
+}
+.wyn-quote-composer .wyn-quote-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding: 18px 16px max(28px, env(safe-area-inset-bottom, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-top: 14px;
+  scroll-padding-bottom: 22px;
+  background: var(--wyn-bg, #fff);
+}
+.wyn-quote-composer .wyn-quote-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  width: 100%;
+}
+.wyn-quote-composer .wyn-quote-avatar {
+  width: 44px;
+  height: 44px;
+  min-width: 0;
+}
+.wyn-quote-composer .wyn-quote-avatar .route-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.wyn-quote-composer .wyn-quote-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+}
+.wyn-quote-composer .wyn-quote-author {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 5px;
+  min-height: 24px;
+  margin: 1px 0 0;
+}
+.wyn-quote-composer .wyn-quote-author strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wyn-text, #111);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.wyn-quote-composer .wyn-quote-author .route-verified {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+.wyn-quote-composer .wyn-quote-text {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 50px;
+  max-height: 220px;
+  margin: 9px 0 7px;
+  padding: 0;
+  resize: none;
+  overflow-y: hidden;
+  border: 0;
+  outline: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--wyn-text, #111);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.wyn-quote-composer .wyn-quote-text::placeholder {
+  color: var(--wyn-text-muted, #92969c);
+}
+.wyn-quote-composer .wyn-quote-original {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--wyn-border, #e2e4e8);
+  border-radius: 17px;
+  background: var(--wyn-bg, #fff);
+  color: var(--wyn-text, #111);
+}
+.wyn-quote-composer .wyn-quote-original-author {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px 13px 7px;
+}
+.wyn-quote-composer .wyn-quote-original-author .route-avatar {
+  flex: 0 0 32px;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.wyn-quote-composer .wyn-quote-original-byline {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.wyn-quote-composer .wyn-quote-original-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.24;
+}
+.wyn-quote-composer .wyn-quote-original-name strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
+}
+.wyn-quote-composer .wyn-quote-original-name .route-verified {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+}
+.wyn-quote-composer .wyn-quote-original-byline small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wyn-text-secondary, #777c86);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.wyn-quote-composer .wyn-quote-original-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 3px 13px 11px;
+  color: var(--wyn-text, #111);
+  font-size: 14px;
+  line-height: 1.42;
+  white-space: pre-wrap;
+}
+.wyn-quote-composer .wyn-quote-original-media {
+  width: 100%;
+  height: clamp(92px, 26vw, 156px);
+  max-height: 156px;
+  overflow: hidden;
+  border-top: 1px solid var(--wyn-border, #e2e4e8);
+  background: var(--wyn-surface, #f4f5f6);
+}
+.wyn-quote-composer .wyn-quote-original-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.wyn-quote-composer .wyn-quote-original-link {
+  display: block;
+  width: fit-content;
+  padding: 10px 13px;
+  color: #1780e9;
+  font-size: 12px;
+  font-weight: 560;
+  text-decoration: none;
+}
+.wyn-quote-composer .wyn-quote-original-link:focus-visible {
+  outline: 2px solid #1780e9;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+.wyn-quote-composer .beta4-character-count {
+  margin: 11px 0 0 56px;
+  text-align: right;
+}
+.wyn-quote-discard-backdrop {
+  position: fixed;
+  z-index: 320 !important;
+  inset: 0;
+}
+@media (max-width: 359px) {
+  .wyn-quote-composer .wyn-quote-scroll { padding-inline: 12px; }
+  .wyn-quote-composer .wyn-quote-row { grid-template-columns: 40px minmax(0,1fr); gap: 10px; }
+  .wyn-quote-composer .wyn-quote-avatar,
+  .wyn-quote-composer .wyn-quote-avatar .route-avatar { width: 40px !important; height: 40px !important; }
+}

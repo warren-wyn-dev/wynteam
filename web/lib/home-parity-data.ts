@@ -5,6 +5,7 @@ export type HomeIdentity = {
   username: string;
   display_name?: string | null;
   avatar_url?: string | null;
+  is_verified?: boolean | null;
   follower_count: number;
   following_count: number;
 };
@@ -59,7 +60,7 @@ export async function fetchHomeIdentity(
   userId: string,
 ): Promise<HomeIdentity | null> {
   const [profile, followers, following] = await Promise.all([
-    client.from("profiles").select("id,username,display_name,avatar_url").eq("id", userId).maybeSingle(),
+    client.from("profiles").select("id,username,display_name,avatar_url,is_verified").eq("id", userId).maybeSingle(),
     client.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", userId),
     client.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", userId),
   ]);
@@ -72,6 +73,7 @@ export async function fetchHomeIdentity(
     username: String(profile.data.username ?? ""),
     display_name: profile.data.display_name ? String(profile.data.display_name) : null,
     avatar_url: profile.data.avatar_url ? String(profile.data.avatar_url) : null,
+    is_verified: Boolean(profile.data.is_verified),
     follower_count: followers.count ?? 0,
     following_count: following.count ?? 0,
   };

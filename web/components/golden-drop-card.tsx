@@ -2,6 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 
@@ -20,6 +21,11 @@ import { loadHomeViewerState, toggleDropLike, toggleDropRedrop, toggleDropSave, 
 import { haptic } from "@/lib/haptics";
 import { shareOrCopyLink } from "@/lib/share";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+// Use the same keyboard-safe, full-screen Quote composer as the Home feed.
+const QuoteRedropComposer = dynamic(
+  () => import("@/components/quote-redrop-composer").then((module) => module.QuoteRedropComposer),
+);
 
 type Sheet = "more" | "redrop" | "quote" | "report" | null;
 type ReportCategory = "spam" | "scam" | "harassment" | "hate" | "sexual_content" | "violence" | "privacy" | "illegal_content" | "copyright" | "other";
@@ -303,7 +309,18 @@ export function GoldenDropCard({
         />
       </SheetFrame>
     ) : null}
-    {sheet === "quote" ? <SheetFrame label="Quote ReDrop" onClose={() => { setSheet(null); setQuote(""); }}><div className="golden-drop-sheet-form"><strong>Quote ReDrop</strong><textarea autoFocus maxLength={500} value={quote} onChange={(event) => setQuote(event.target.value)} placeholder="เขียนความคิดเห็นของคุณ…" />{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy || !quote.trim()} onClick={() => void quoteRedrop()}>รีโพสต์พร้อมความคิดเห็น</button></div></SheetFrame> : null}
+    {sheet === "quote" ? (
+      <QuoteRedropComposer
+        row={row}
+        viewerId={userId}
+        value={quote}
+        busy={busy}
+        error={error}
+        onChange={setQuote}
+        onClose={() => { setSheet(null); setQuote(""); setError(""); }}
+        onSubmit={() => void quoteRedrop()}
+      />
+    ) : null}
     {sheet === "report" ? <SheetFrame label="รายงานโพสต์" onClose={() => { setSheet(null); setReportDetail(""); }}><div className="golden-drop-sheet-form"><strong>รายงานโพสต์</strong><div className="golden-drop-report-list">{reportCategories.map((item) => <label key={item.value}><input type="radio" name={`drop-report-${row.id}`} checked={reportCategory === item.value} onChange={() => setReportCategory(item.value)} />{item.label}</label>)}</div>{reportCategory === "other" ? <textarea maxLength={1000} value={reportDetail} onChange={(event) => setReportDetail(event.target.value)} placeholder="รายละเอียดเพิ่มเติม" /> : null}{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy} onClick={() => void report()}>ส่งรายงาน</button></div></SheetFrame> : null}
     <Toast message={toastMessage} />
   </article>;
