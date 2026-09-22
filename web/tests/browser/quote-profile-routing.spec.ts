@@ -47,12 +47,13 @@ test("Quotes appear with original posts newest-first without duplicate or missin
 
 test("The profile data queries never mix Quote and Standard Reposts", async () => {
   const root = process.cwd();
-  const [timeline, profile, preview, home, card] = await Promise.all([
+  const [timeline, profile, preview, home, card, following] = await Promise.all([
     readFile(path.join(root, "lib/profile-post-feed.ts"), "utf8"),
     readFile(path.join(root, "components/profile-route.tsx"), "utf8"),
     readFile(path.join(root, "components/phase3-ui.tsx"), "utf8"),
     readFile(path.join(root, "components/home/home-screen.tsx"), "utf8"),
     readFile(path.join(root, "components/quote-feed-card.tsx"), "utf8"),
+    readFile(path.join(root, "lib/home-feed-sources.ts"), "utf8"),
   ]);
   expect(timeline).toContain("fetchProfileDrops(client, userId, 0, limit)");
   expect(timeline).toContain('not("quote_text", "is", null)');
@@ -72,6 +73,11 @@ test("The profile data queries never mix Quote and Standard Reposts", async () =
   expect(card).not.toContain("<PostActions");
   expect(card).toContain('.from("redrops").delete()');
   expect(card).toContain('p_target_type: "redrop"');
+  // No stranger's quote/repost sneaks into Following merely because its
+  // embedded original was written by someone the viewer follows.
+  expect(following).toContain("redrop_id.is.null");
+  expect(following).toContain("redropper_id.in.");
+
 });
 
 test("Quotes show quoted author, an embedded original, and no wrongly attributed engagement UI", async ({ page }) => {
