@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type TouchEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type TouchEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -179,7 +179,7 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
     } catch (e) { setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
-  const pickerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const pickerChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     void uploadImage(file);
