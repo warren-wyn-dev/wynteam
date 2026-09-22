@@ -63,9 +63,16 @@ function SettingRow({
   danger?: boolean;
 }) {
   const Tag = onClick ? "button" : "div";
+  // A row with no onClick but a `trailing` control (Toggle, PermissionSelect)
+  // is still interactive -- the switch/select itself handles it, the row
+  // just isn't a button. Treating it as "disabled" here (as onClick-only
+  // used to) applied --wyn-text-muted (#9a9a9a, ~2.8:1 on white -- fails
+  // WCAG AA) to every toggle-based settings row's title, e.g. the whole
+  // Notifications category list. Founder-reported: pale/faded row labels.
+  const isInteractive = Boolean(onClick || trailing);
   return (
     <Tag
-      className={`settings-row ${onClick ? "enabled" : "disabled"} ${danger ? "danger" : ""}`}
+      className={`settings-row ${isInteractive ? "enabled" : "disabled"} ${danger ? "danger" : ""}`}
       {...(onClick ? { type: "button" as const, onClick } : {})}
     >
       {leading ? <span className="settings-leading-icon">{leading}</span> : null}
