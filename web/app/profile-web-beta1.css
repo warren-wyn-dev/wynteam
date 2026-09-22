@@ -1,0 +1,365 @@
+/* WYNOS V.Web Beta1 — profile-only layout from the approved mobile reference.
+ * Keep existing data, accessibility, gestures, follow/chat and feed actions.
+ * Imported LAST so previous parity rules remain untouched outside Profile.
+ */
+.wyn-profile-beta1 {
+  width: 100%;
+  background: var(--wyn-bg, #fff);
+  color: var(--wyn-text, #111);
+}
+.wyn-profile-beta1 .wyn-profile-hero {
+  position: relative;
+  width: 100%;
+  isolation: isolate;
+}
+.wyn-profile-beta1 .wyn-profile-cover {
+  position: relative;
+  width: 100%;
+  height: clamp(150px, 38vw, 210px);
+  overflow: hidden;
+  background: radial-gradient(ellipse at 59% 110%, #54565b 0, #202124 23%, #0c0d0f 45%, #050505 70%);
+}
+.wyn-profile-beta1 .wyn-profile-cover > img {
+  object-fit: cover;
+  object-position: center 48%;
+}
+.wyn-profile-beta1 .wyn-profile-cover-planet {
+  position: absolute;
+  width: 125%;
+  aspect-ratio: 1;
+  left: -43%;
+  top: -145%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 62% 70%, #36373a, #161719 54%, #060606 75%);
+  box-shadow: 12px 10px 16px rgba(255,255,255,.72), 34px 14px 36px rgba(255,255,255,.22);
+  transform: rotate(-22deg);
+}
+.wyn-profile-beta1 .wyn-profile-cover-wordmark {
+  position: absolute;
+  right: 7%;
+  top: 53%;
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  color: white;
+  text-align: center;
+  text-shadow: 0 2px 12px rgba(0,0,0,.5);
+}
+.wyn-profile-beta1 .wyn-profile-cover-wordmark strong {
+  font-size: 14px;
+  letter-spacing: 3px;
+  font-weight: 400;
+}
+.wyn-profile-beta1 .wyn-profile-cover-wordmark small {
+  font-size: 6px;
+  line-height: 2.2;
+  letter-spacing: 3px;
+  font-weight: 600;
+}
+.wyn-profile-beta1 .wyn-profile-topbar {
+  position: absolute;
+  z-index: 3;
+  inset: 0 0 auto;
+  height: calc(58px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+}
+.wyn-profile-beta1 .wyn-profile-topbar button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(0,0,0,.44);
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(8px);
+}
+.wyn-profile-beta1 .wyn-profile-topbar button:active {
+  transform: scale(.96);
+}
+.wyn-profile-beta1 .wyn-profile-header {
+  position: relative;
+  padding: 0 16px 18px;
+  background: var(--wyn-bg, #fff);
+}
+.wyn-profile-beta1 .wyn-profile-intro {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-height: 62px;
+}
+.wyn-profile-beta1 .wyn-profile-hero-avatar {
+  box-sizing: content-box;
+  display: block;
+  width: 90px;
+  height: 90px;
+  flex: 0 0 90px;
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  margin-top: -34px;
+  border: 3px solid var(--wyn-bg, #fff);
+  border-radius: 50%;
+  background: #111;
+}
+.wyn-profile-beta1 .wyn-profile-hero-avatar .route-avatar {
+  width: 90px !important;
+  height: 90px !important;
+  border: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  font-size: 32px;
+}
+.wyn-profile-beta1 .wyn-profile-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 15px;
+}
+.wyn-profile-beta1 .wyn-profile-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--wyn-text, #101015);
+  font-size: 17px;
+  font-weight: 760;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wyn-profile-beta1 .wyn-profile-name .route-verified {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+}
+.wyn-profile-beta1 .wyn-profile-handle {
+  margin-top: 3px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #697081;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 400;
+}
+.wyn-profile-beta1 .wyn-profile-actions.is-own {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 16px 0 0;
+}
+.wyn-profile-beta1 .wyn-profile-actions.is-own .wyn-profile-action-primary,
+.wyn-profile-beta1 .wyn-profile-actions.is-own .wyn-profile-action-secondary {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d4dbe7;
+  border-radius: 50%;
+  background: var(--wyn-bg, #fff);
+  color: var(--wyn-text, #101015);
+  font-size: 0;
+}
+.wyn-profile-beta1 .wyn-profile-details {
+  margin-top: 13px;
+}
+.wyn-profile-beta1 .wyn-profile-bio {
+  margin: 0;
+  color: var(--wyn-text, #101015);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wyn-profile-beta1 .wyn-profile-website {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: #1677e7;
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 500;
+  text-decoration: none;
+}
+.wyn-profile-beta1 .wyn-profile-website svg { flex: 0 0 auto; }
+.wyn-profile-beta1 .wyn-profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin: 15px 0 0;
+}
+.wyn-profile-beta1 .wyn-profile-stats button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #6f7480;
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.wyn-profile-beta1 .wyn-profile-stats b {
+  color: var(--wyn-text, #101015);
+  font-size: 17px;
+  font-weight: 750;
+}
+.wyn-profile-beta1 .wyn-profile-actions.is-visitor {
+  display: flex;
+  margin-top: 14px;
+}
+.wyn-profile-beta1 .wyn-profile-tabs {
+  height: 51px;
+  min-height: 51px;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 0;
+  border-bottom: 1px solid #e3e6ed;
+  background: var(--wyn-bg, #fff);
+}
+.wyn-profile-beta1 .wyn-profile-tabs button {
+  height: 50px;
+  padding: 0 5px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #72798a;
+}
+.wyn-profile-beta1 .wyn-profile-tabs button.active {
+  color: var(--wyn-text, #111);
+  font-weight: 760;
+}
+.wyn-profile-beta1 .wyn-profile-tabs button.active::after {
+  width: 46px;
+  height: 2px;
+  background: var(--wyn-text, #111);
+}
+/* Soft-edged golden verification seal; shared by the account title and
+   post bylines on this screen, without changing non-profile surfaces. */
+.wyn-profile-beta1 .route-verified {
+  box-sizing: border-box;
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-left: 1px;
+  place-items: center;
+  clip-path: polygon(50% 0,61% 9%,75% 5%,82% 18%,95% 25%,91% 39%,100% 50%,91% 61%,95% 75%,82% 82%,75% 95%,61% 91%,50% 100%,39% 91%,25% 95%,18% 82%,5% 75%,9% 61%,0 50%,9% 39%,5% 25%,18% 18%,25% 5%,39% 9%);
+  background: linear-gradient(135deg, #ffd65b 5%, #f8b12d 50%, #f28a19 100%);
+  color: #151515;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  vertical-align: middle;
+}
+.wyn-profile-beta1 .profile-feed-list .golden-drop-card {
+  grid-template-columns: 44px minmax(0, 1fr) !important;
+  column-gap: 11px !important;
+  padding: 13px 16px 8px !important;
+}
+.wyn-profile-beta1 .profile-feed-list .golden-drop-card + .golden-drop-card {
+  border-top: 1px solid #e3e6ed;
+}
+.wyn-profile-beta1 .profile-feed-list .golden-drop-author-avatar,
+.wyn-profile-beta1 .profile-feed-list .golden-drop-avatar {
+  width: 44px !important;
+  height: 44px !important;
+}
+.wyn-profile-beta1 .profile-feed-list .golden-drop-head strong {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+.wyn-profile-beta1 .profile-feed-list .golden-drop-body > .rich-post-text {
+  margin-top: 4px !important;
+  font-size: 15.5px !important;
+  line-height: 1.4 !important;
+}
+.wyn-profile-beta1 .profile-feed-list .wyn-post-actions.wyn-threads-actions {
+  gap: 21px !important;
+  margin: 7px 0 4px !important;
+}
+.wyn-profile-beta1 .profile-feed-list .golden-drop-actions {
+  gap: 21px;
+  margin: 7px 0 4px;
+}
+.wyn-profile-beta1 .profile-feed-list .golden-drop-save-inline { margin-left: auto; }
+/* Cover editing was supported by the data layer; expose it again now that
+   the profile actually renders cover photos. */
+.wyn-profile-edit-cover {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  width: 100%;
+  height: 150px;
+  padding: 12px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #111, #35363b);
+}
+.wyn-profile-edit-cover > img { object-fit: cover; z-index: -1; }
+.wyn-profile-edit-cover-button {
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.72);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+@media (max-width: 380px) {
+  .wyn-profile-beta1 .wyn-profile-header { padding-inline: 12px; }
+  .wyn-profile-beta1 .wyn-profile-intro { gap: 8px; }
+  .wyn-profile-beta1 .wyn-profile-hero-avatar {
+    width: 76px; height: 76px; flex-basis: 76px;
+    margin-top: -29px;
+  }
+  .wyn-profile-beta1 .wyn-profile-hero-avatar .route-avatar {
+    width: 76px !important; height: 76px !important;
+  }
+  .wyn-profile-beta1 .wyn-profile-name { font-size: 15px; }
+  .wyn-profile-beta1 .wyn-profile-handle { font-size: 12.5px; }
+  .wyn-profile-beta1 .wyn-profile-actions.is-own { gap: 6px; }
+  .wyn-profile-beta1 .wyn-profile-actions.is-own .wyn-profile-action-primary,
+  .wyn-profile-beta1 .wyn-profile-actions.is-own .wyn-profile-action-secondary {
+    width: 36px; height: 36px; flex-basis: 36px; min-width: 36px; min-height: 36px;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .wyn-profile-beta1 .wyn-profile-handle,
+  .wyn-profile-beta1 .wyn-profile-stats button,
+  .wyn-profile-beta1 .wyn-profile-tabs button:not(.active) { color: #aaaeb9; }
+  .wyn-profile-beta1 .wyn-profile-hero-avatar { border-color: #000; }
+  .wyn-profile-beta1 .wyn-profile-actions.is-own button { border-color: #444; }
+  .wyn-profile-beta1 .wyn-profile-tabs,
+  .wyn-profile-beta1 .profile-feed-list .golden-drop-card + .golden-drop-card { border-color: #272727; }
+}
