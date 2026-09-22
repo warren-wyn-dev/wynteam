@@ -26,7 +26,7 @@ import {
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { haptic } from "@/lib/haptics";
-import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { deleteMountCache, getMountCache, setMountCache } from "@/lib/mount-cache";
 import { normalizeExternalUrl } from "@/lib/external-link";
 import { shareOrCopyLink } from "@/lib/share";
 import { triggerRouteRefresh, useRouteRefreshListener } from "@/components/route-refresh-runtime";
@@ -68,15 +68,25 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
   const [loading, setLoading] = useState(!cached);
   const [allowed, setAllowed] = useState(cached?.allowed ?? true);
   const allowedRef = useRef(allowed);
+  const requestId = useRef(0);
   useEffect(() => { allowedRef.current = allowed; }, [allowed]);
   const load = useCallback(async (nextPage: number, append: boolean) => {
+    const request = ++requestId.current;
     setLoading(true);
     try {
       let next: HomeFeedRow[];
       if (kind === "posts") next = await fetchProfileDrops(client, profileId, nextPage);
       else if (kind === "redrops") next = await fetchRedrops(client, profileId, nextPage);
       else next = await fetchProfileLikedDrops(client, profileId, nextPage);
-      if (kind === "likes" && nextPage === 0 && !next.length) { allowedRef.current = await canViewProfileLikes(client, profileId); setAllowed(allowedRef.current); }
+      if (kind === "likes" && nextPage === 0 && !next.length) {
+        const canView = await canViewProfileLikes(client, profileId);
+        if (request !== requestId.current) return;
+        allowedRef.current = canView;
+        setAllowed(canView);
+      }
+      // Switching tabs or refreshing after a repost invalidates older results,
+      // so a slow previous response cannot restore an already-removed row.
+      if (request !== requestId.current) return;
       const nextHasMore = next.length === (kind === "redrops" ? 10 : 21);
       setRows((current) => {
         const combined = append ? [...current, ...next] : next;
@@ -85,20 +95,42 @@ function ProfileFeed({ client, profileId, kind }: { client: SupabaseClient; prof
       });
       setPage(nextPage);
       setHasMore(nextHasMore);
-    } catch { setRows([]); }
-    finally { setLoading(false); }
+    } catch {
+      if (request === requestId.current) setRows([]);
+    } finally {
+      if (request === requestId.current) setLoading(false);
+    }
   }, [client, kind, profileId, cacheKey]);
-  useEffect(() => { setAllowed(true); void load(0, false); }, [load]);
+  useEffect(() => {
+    setAllowed(true);
+    void load(0, false);
+    return () => { requestId.current += 1; };
+  }, [load]);
   // Also the pull-to-refresh trigger now (see ProfileInner): that gesture's
   // touch handlers moved up to cover the whole page, not just this feed, so
   // it reaches ProfileFeed the same way the bottom-nav tap-refresh already
   // does — through this existing pub/sub instead of a local hook instance.
   useRouteRefreshListener(useCallback(() => { void load(0, false); }, [load]));
 
+  const onRepostChanged = useCallback((actorId: string, dropId: string, removedStandard: boolean) => {
+    // The action can come from the Posts tab or from someone else's profile:
+    // invalidate the repost list belonging to the account that clicked it.
+    deleteMountCache(`profile-feed:${actorId}:redrops`);
+    if (kind !== "redrops" || profileId !== actorId) return;
+    if (removedStandard) {
+      // Remove just the standard repost immediately; any Quote Reposts of
+      // the same original post remain visible until the fresh list arrives.
+      setRows((current) => current.filter((item) =>
+        !(item.id === dropId && item.redrop_id && item.quote_text == null)
+      ));
+    }
+    void load(0, false);
+  }, [kind, profileId, load]);
+
   return loading && !rows.length ? <FeedSkeleton items={2} />
     : !allowed ? <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>
     : !rows.length ? <EmptyState>{kind === "posts" ? "ยังไม่มีโพสต์" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>
-    : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
+    : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity onRepostChanged={onRepostChanged} key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
 function formatWebsiteLabel(url: string): string {
@@ -460,7 +492,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
       {error ? <p className="route-error">{error}</p> : null}
     </section>
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
-    {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}>โพสต์</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}>รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}>ถูกใจ</button></div><div style={slideStyle} onTouchStart={onTabSwipeStart} onTouchMove={onTabSwipeMove} onTouchEnd={onTabSwipeEnd} onTouchCancel={onTabSwipeCancel}><ProfileFeed client={client} profileId={profileId} kind={tab} /></div></> : null}
+    {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}>โพสต์</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}>รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}>ถูกใจ</button></div><div style={slideStyle} onTouchStart={onTabSwipeStart} onTouchMove={onTabSwipeMove} onTouchEnd={onTabSwipeEnd} onTouchCancel={onTabSwipeCancel}><ProfileFeed key={`${profileId}:${tab}`} client={client} profileId={profileId} kind={tab} /></div></> : null}
     </div>
     {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <WynosIcon name="checkCircle" size={21} strokeWidth={2} /> : managingAccounts ? <button className="profile-account-remove" type="button" onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
     {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header>{own ? <><button type="button" onClick={() => { setMoreOpen(false); openAccountSwitcher(); }}>สลับบัญชี</button><button type="button" onClick={() => { setMoreOpen(false); router.push("/settings"); }}>ตั้งค่า</button></> : null}<button type="button" onClick={() => { setMoreOpen(false); void share(); }}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
