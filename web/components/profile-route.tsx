@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type TouchEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type TouchEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -120,24 +120,48 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
   const [error, setError] = useState("");
   const [avatar, setAvatar] = useState(profile.avatar_url);
   const [cover, setCover] = useState(profile.cover_url);
-  const image = async (file?: File) => {
-    if (!file) return;
+  const [photoMenu, setPhotoMenu] = useState<"avatar" | "cover" | null>(null);
+  const selectedKind = useRef<"avatar" | "cover">("avatar");
+  const libraryInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const filesInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!photoMenu) return;
+    const dismiss = (e: KeyboardEvent) => { if (e.key === "Escape") setPhotoMenu(null); };
+    document.addEventListener("keydown", dismiss);
+    return () => document.removeEventListener("keydown", dismiss);
+  }, [photoMenu]);
+
+  const chooseSource = (source: "library" | "camera" | "files") => {
+    if (!photoMenu || saving) return;
+    selectedKind.current = photoMenu;
+    setPhotoMenu(null);
+    // Keep click synchronous with the user gesture for the iOS image picker.
+    (source === "library" ? libraryInput : source === "camera" ? cameraInput : filesInput).current?.click();
+  };
+  const uploadImage = async (file?: File) => {
+    if (!file || saving) return;
+    if (file.size > 10 * 1024 * 1024) { setError("รูปภาพต้องมีขนาดไม่เกิน 10MB"); return; }
+    if (file.type && !file.type.startsWith("image/")) { setError("กรุณาเลือกไฟล์รูปภาพ"); return; }
+    const kind = selectedKind.current;
     setSaving(true); setError("");
-    try { setAvatar(await uploadProfileImage(client, userId, "avatar", file)); }
-    catch (e) { setError(e instanceof Error ? e.message : "อัปโหลดรูปไม่สำเร็จ"); }
+    try {
+      const url = await uploadProfileImage(client, userId, kind, file);
+      if (kind === "avatar") setAvatar(url);
+      else setCover(url);
+    } catch (e) { setError(e instanceof Error ? e.message : "อัปโหลดรูปไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
-  const coverImage = async (file?: File) => {
-    if (!file) return;
+  const removeImage = async (kind: "avatar" | "cover") => {
+    setPhotoMenu(null);
+    if (saving || !window.confirm(kind === "avatar" ? "ลบรูปโปรไฟล์?" : "ลบรูปหน้าปก?")) return;
     setSaving(true); setError("");
-    try { setCover(await uploadProfileImage(client, userId, "cover", file)); }
-    catch (e) { setError(e instanceof Error ? e.message : "อัปโหลดรูปหน้าปกไม่สำเร็จ"); }
-    finally { setSaving(false); }
-  };
-  const removeImage = async () => {
-    setSaving(true); setError("");
-    try { await removeProfileImage(client, userId); setAvatar(null); }
-    catch (e) { setError(e instanceof Error ? e.message : "ลบรูปโปรไฟล์ไม่สำเร็จ"); }
+    try {
+      await removeProfileImage(client, userId, kind);
+      if (kind === "avatar") setAvatar(null);
+      else setCover(null);
+    } catch (e) { setError(e instanceof Error ? e.message : "ลบรูปไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
   const save = async () => {
@@ -152,29 +176,53 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
       else delete nextSocialLinks.website;
       await updateProfileBasics(client, userId, { displayName, bio, socialLinks: nextSocialLinks });
       onDone();
-    }
-    catch (e) { setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
+    } catch (e) { setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
+  const pickerChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    void uploadImage(file);
+  };
+
   return (
-    <div className="wyn-profile-edit">
+    <div className="wyn-profile-edit wyn-profile-edit-v2">
       <div className="wyn-profile-edit-cover">
         {cover ? <Image src={cover} alt="รูปหน้าปก" fill sizes="(max-width: 680px) 100vw, 680px" unoptimized /> : null}
-        <label className="wyn-profile-edit-cover-button"><WynosIcon name="camera" size={18} strokeWidth={2} /> เปลี่ยนรูปหน้าปก<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void coverImage(e.target.files?.[0])} /></label>
+        <button type="button" className="wyn-profile-edit-cover-camera" aria-label="เปลี่ยนรูปหน้าปก" title="จัดการรูปหน้าปก" disabled={saving} onClick={() => setPhotoMenu("cover")}><WynosIcon name="camera" size={21} strokeWidth={2} /></button>
       </div>
       <div className="wyn-profile-edit-avatar">
-        <Avatar src={avatar} label={username} size={84} />
-        <div className="wyn-profile-edit-avatar-actions">
-          <label><WynosIcon name="camera" size={16} strokeWidth={2} /> รูปโปรไฟล์<input type="file" accept="image/*" hidden disabled={saving} onChange={(e) => void image(e.target.files?.[0])} /></label>
-          {avatar ? <button type="button" className="wyn-profile-edit-avatar-remove" disabled={saving} onClick={() => void removeImage()}>ลบรูปโปรไฟล์</button> : null}
+        <div className="wyn-profile-edit-avatar-frame">
+          <Avatar src={avatar} label={username} size={96} />
+          <button type="button" className="wyn-profile-edit-avatar-camera" aria-label="เปลี่ยนรูปโปรไฟล์" title="จัดการรูปโปรไฟล์" disabled={saving} onClick={() => setPhotoMenu("avatar")}><WynosIcon name="camera" size={18} strokeWidth={2} /></button>
         </div>
+        <div className="wyn-profile-edit-avatar-copy"><strong>รูปโปรไฟล์</strong><small>รองรับไฟล์ JPG, PNG, HEIC ขนาดไม่เกิน 10MB</small></div>
       </div>
-      <label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label>
-      <label className="route-field"><span>ชื่อผู้ใช้</span><input value={`@${username}`} autoCapitalize="none" maxLength={31} onChange={(e) => setUsername(e.target.value.replace(/^@+/, "").replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
-      <label className="route-field"><span>คำอธิบายตัวเอง</span><textarea value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} /></label>
-      <label className="route-field"><span>เว็บไซต์ภายนอก</span><input type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" value={website} maxLength={300} placeholder="example.com" onChange={(e) => setWebsite(e.target.value)} /></label>
-      {error ? <p className="route-error">{error}</p> : null}
-      <div className="route-action-row"><button className="route-secondary" type="button" disabled={saving} onClick={onDone}>ยกเลิก</button><button className="route-primary" type="button" disabled={saving} onClick={() => void save()}>{saving ? "กำลังบันทึก…" : "บันทึก"}</button></div>
+      <input ref={libraryInput} type="file" accept="image/*" aria-label="คลังรูปภาพ" hidden disabled={saving} onChange={pickerChange} />
+      <input ref={cameraInput} type="file" accept="image/*" capture="environment" aria-label="ถ่ายภาพ" hidden disabled={saving} onChange={pickerChange} />
+      <input ref={filesInput} type="file" accept="image/*,.heic,.heif" aria-label="ไฟล์ภาพ" hidden disabled={saving} onChange={pickerChange} />
+      <section className="wyn-profile-edit-fields" aria-label="ข้อมูลโปรไฟล์">
+        <h2>ข้อมูลโปรไฟล์</h2>
+        <label className="route-field"><span>ชื่อที่แสดง</span><input value={displayName} maxLength={50} onChange={(e) => setDisplayName(e.target.value)} /></label>
+        <label className="route-field"><span>ชื่อผู้ใช้</span><input value={"@" + username} autoCapitalize="none" maxLength={31} onChange={(e) => setUsername(e.target.value.replace(/^@+/, "").replace(/[^a-zA-Z0-9_.]/g, ""))} /></label>
+        <label className="route-field wyn-profile-edit-bio"><span>คำอธิบายตัวเอง</span><textarea value={bio} maxLength={300} aria-describedby="wyn-profile-bio-counter" onChange={(e) => setBio(e.target.value)} /><small id="wyn-profile-bio-counter">{bio.length}/300</small></label>
+        <label className="route-field"><span>เว็บไซต์ภายนอก</span><input type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" value={website} maxLength={300} placeholder="example.com" onChange={(e) => setWebsite(e.target.value)} /></label>
+      </section>
+      {error ? <p className="route-error wyn-profile-edit-error" role="alert">{error}</p> : null}
+      <div className="route-action-row wyn-profile-edit-footer">
+        <button className="route-secondary" type="button" disabled={saving} onClick={onDone}>ยกเลิก</button>
+        <button className="route-primary" type="button" disabled={saving} onClick={() => void save()}>{saving ? "กำลังบันทึก…" : "บันทึก"}</button>
+      </div>
+      {photoMenu ? <div className="route-modal-backdrop wyn-profile-photo-backdrop" role="presentation" onClick={() => setPhotoMenu(null)}>
+        <section className="route-modal wyn-profile-photo-sheet" role="dialog" aria-modal="true" aria-label={photoMenu === "avatar" ? "จัดการรูปโปรไฟล์" : "จัดการรูปหน้าปก"} onClick={(event) => event.stopPropagation()}>
+          <header><strong>{photoMenu === "avatar" ? "รูปโปรไฟล์" : "รูปหน้าปก"}</strong><button className="wyn-photo-sheet-close" type="button" aria-label="ปิด" onClick={() => setPhotoMenu(null)}><WynosIcon name="close" size={20} /></button></header>
+          <button type="button" onClick={() => chooseSource("library")}><WynosIcon name="image" size={22} />คลังรูปภาพ</button>
+          <button type="button" onClick={() => chooseSource("camera")}><WynosIcon name="camera" size={22} />ถ่ายภาพ</button>
+          <button type="button" onClick={() => chooseSource("files")}><WynosIcon name="fileText" size={22} />ไฟล์ภาพ</button>
+          {(photoMenu === "avatar" ? avatar : cover) ? <button type="button" className="wyn-photo-sheet-danger" onClick={() => void removeImage(photoMenu)}><WynosIcon name="trash" size={22} />{photoMenu === "avatar" ? "ลบรูปโปรไฟล์" : "ลบรูปหน้าปก"}</button> : null}
+          <button type="button" className="wyn-photo-sheet-cancel" onClick={() => setPhotoMenu(null)}>ยกเลิก</button>
+        </section>
+      </div> : null}
     </div>
   );
 }

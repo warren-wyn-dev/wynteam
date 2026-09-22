@@ -442,3 +442,252 @@
     gap: 14px !important;
   }
 }
+
+
+/* WYNOS edit-profile V.Web Beta1 — the approved camera-only editor. */
+.wyn-profile-edit-v2 {
+  padding: 0 0 16px;
+  color: var(--wyn-text, #111);
+  background: var(--wyn-bg, #fff);
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-cover {
+  display: block;
+  position: relative;
+  isolation: isolate;
+  width: calc(100% - 24px);
+  height: clamp(155px, 39vw, 190px);
+  margin: 0 12px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #171819, #303136);
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-cover > img {
+  z-index: 0;
+  object-fit: cover;
+  object-position: center;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-cover-camera {
+  position: absolute;
+  z-index: 2;
+  right: 14px;
+  bottom: 14px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(16, 17, 20, .88);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-avatar {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 16px;
+  margin: 20px 16px 27px;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-avatar-frame {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  flex: 0 0 100px;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-avatar .route-avatar {
+  width: 100px !important;
+  height: 100px !important;
+  border: 2px solid var(--wyn-bg, #fff);
+  border-radius: 50%;
+  object-fit: cover;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-avatar-camera {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 37px;
+  height: 37px;
+  padding: 0;
+  border: 2px solid var(--wyn-bg, #fff);
+  border-radius: 50%;
+  color: #fff;
+  background: #202125;
+  cursor: pointer;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-avatar-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-avatar-copy strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--wyn-text, #111);
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-avatar-copy small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--wyn-text-secondary, #777c87);
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-fields {
+  display: grid;
+  gap: 8px;
+  padding: 0 16px;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-fields h2 {
+  margin: 0 0 6px;
+  color: var(--wyn-text, #111);
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 750;
+}
+.wyn-profile-edit-v2 .route-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 0;
+}
+.wyn-profile-edit-v2 .route-field > span {
+  color: var(--wyn-text-secondary, #777c87);
+  font-size: 13px;
+  font-weight: 500;
+}
+.wyn-profile-edit-v2 .route-field input,
+.wyn-profile-edit-v2 .route-field textarea {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid #e1e3e8;
+  border-radius: 17px;
+  outline: 0;
+  background: var(--wyn-bg, #fff);
+  color: var(--wyn-text, #111);
+  font-size: 16px;
+  line-height: 1.35;
+}
+.wyn-profile-edit-v2 .route-field textarea {
+  min-height: 116px;
+  padding-bottom: 29px;
+  resize: vertical;
+}
+.wyn-profile-edit-v2 .route-field input:focus-visible,
+.wyn-profile-edit-v2 .route-field textarea:focus-visible {
+  border-color: var(--wyn-text, #111);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wyn-text, #111) 8%, transparent);
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-bio { position: relative; }
+.wyn-profile-edit-v2 .wyn-profile-edit-bio > small {
+  position: absolute;
+  right: 14px;
+  bottom: 17px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--wyn-text-secondary, #8b919a);
+  pointer-events: none;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-error { margin: 9px 16px 0; }
+.wyn-profile-edit-v2 .wyn-profile-edit-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 18;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  background: var(--wyn-bg, #fff);
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-footer > button {
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-footer .route-secondary {
+  border: 1px solid #dfe2e7;
+  background: var(--wyn-bg, #fff);
+  color: var(--wyn-text, #111);
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-footer .route-primary {
+  border: 1px solid var(--wyn-text, #111);
+  background: var(--wyn-text, #111);
+  color: var(--wyn-bg, #fff);
+}
+.wyn-profile-edit-v2 .wyn-profile-edit-footer button:disabled,
+.wyn-profile-edit-v2 .wyn-profile-edit-cover-camera:disabled,
+.wyn-profile-edit-v2 .wyn-profile-edit-avatar-camera:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+/* Both camera badges open the same accessible, source-aware action sheet. */
+.wyn-profile-photo-backdrop { z-index: 160; }
+.wyn-profile-photo-sheet {
+  width: min(100%, 520px);
+  border-radius: 24px 24px 0 0;
+  padding: 0 0 calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--wyn-bg, #fff);
+  color: var(--wyn-text, #111);
+}
+.wyn-profile-photo-sheet > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 58px;
+  padding: 0 16px 0 20px;
+  border-bottom: 1px solid var(--wyn-border, #ebecf0);
+}
+.wyn-profile-photo-sheet > header strong { font-size: 16px; font-weight: 750; }
+.wyn-profile-photo-sheet .wyn-photo-sheet-close {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--wyn-text, #111);
+  background: var(--wyn-surface, #f4f5f7);
+}
+.wyn-profile-photo-sheet > button:not(.wyn-photo-sheet-close) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 54px;
+  gap: 14px;
+  padding: 12px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--wyn-border, #ebecf0);
+  background: transparent;
+  color: var(--wyn-text, #111);
+  text-align: left;
+  font-size: 15px;
+  font-weight: 550;
+  cursor: pointer;
+}
+.wyn-profile-photo-sheet > button.wyn-photo-sheet-danger { color: #df3546; }
+.wyn-profile-photo-sheet > button.wyn-photo-sheet-cancel {
+  justify-content: center;
+  margin-top: 6px;
+  border-bottom: 0;
+  font-weight: 650;
+}
+@media (max-width: 359px) {
+  .wyn-profile-edit-v2 .wyn-profile-edit-avatar { gap: 12px; }
+  .wyn-profile-edit-v2 .wyn-profile-edit-avatar-frame,
+  .wyn-profile-edit-v2 .wyn-profile-edit-avatar .route-avatar { width: 86px !important; height: 86px !important; }
+  .wyn-profile-edit-v2 .wyn-profile-edit-avatar-frame { flex-basis: 86px; }
+  .wyn-profile-edit-v2 .wyn-profile-edit-avatar-copy small { font-size: 11px; }
+  .wyn-profile-edit-v2 .wyn-profile-edit-fields,
+  .wyn-profile-edit-v2 .wyn-profile-edit-footer { padding-inline: 12px; }
+}
+@media (prefers-color-scheme: dark) {
+  .wyn-profile-edit-v2 .route-field input,
+  .wyn-profile-edit-v2 .route-field textarea,
+  .wyn-profile-edit-v2 .wyn-profile-edit-footer .route-secondary { border-color: #36383f; }
+}
