@@ -59,7 +59,9 @@ export function PostActions({
         href={commentHref}
         aria-label="ความคิดเห็น"
       >
-        <CommentIcon size={22} strokeWidth={2} />
+        {/* 2026-09-22: nudged up from 22 -- the comment bubble's shape reads
+            visually smaller than the other icons at the same nominal size. */}
+        <CommentIcon size={24} strokeWidth={2} />
         {count(commentCount)}
       </Link>
       {canRedrop ? (
