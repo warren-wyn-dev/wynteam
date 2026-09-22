@@ -87,7 +87,7 @@
 }
 .wyn-profile-beta1 .wyn-profile-header {
   position: relative;
-  padding: 0 16px 14px;
+  padding: 0 16px 4px;
   background: var(--wyn-bg, #fff);
 }
 .wyn-profile-beta1 .wyn-profile-intro {
@@ -382,26 +382,47 @@
 .wyn-profile-beta1 .profile-feed-list .golden-drop-save-inline {
   margin-left: auto !important;
 }
-/* iOS home-screen mode only: extend the existing user-supplied cover into
-   the top safe inset rather than showing a second blank strip. Safari
-   retains its own browser-controlled status bar and normal layout. */
+/* The iOS installed app must use black-translucent status chrome in
+   layout.tsx to expose the actual viewport behind the system status bar.
+   Do NOT pull the cover upward with negative margins: on a translucent
+   viewport that crops the image and offsets the avatar. Extend the cover
+   itself instead. User-selected covers remain untouched. */
 @media (display-mode: standalone) {
+  /* On other screens, retain a dark, legible status strip without shifting
+     their own safe-area-aware headers. Home alone needs a full inset because
+     its compact header intentionally caps its own safe-area padding. */
+  body:not(:has(.wyn-profile-beta1))::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: env(safe-area-inset-top, 0px);
+    z-index: 105;
+    pointer-events: none;
+    background: #101114;
+  }
+  .wyn-home {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
   html:has(.wyn-profile-beta1),
   body:has(.wyn-profile-beta1) {
     background-color: #0c0d0f;
   }
-  .route-app:has(.wyn-profile-beta1),
-  .route-main:has(.wyn-profile-beta1) {
-    background-color: #0c0d0f;
-  }
   .wyn-profile-beta1 .wyn-profile-hero {
-    margin-top: calc(-1 * env(safe-area-inset-top, 0px));
-    padding-top: env(safe-area-inset-top, 0px);
-    background-color: #0c0d0f;
+    margin: 0;
+    padding: 0;
   }
   .wyn-profile-beta1 .wyn-profile-cover {
     height: calc(clamp(150px, 38vw, 210px) + env(safe-area-inset-top, 0px));
-    margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+    margin: 0;
+  }
+  .wyn-profile-beta1 .wyn-profile-cover::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    inset: 0 0 auto;
+    height: calc(env(safe-area-inset-top, 0px) + 26px);
+    background: linear-gradient(to bottom, rgb(0 0 0 / 44%), transparent);
   }
   .wyn-profile-beta1 .wyn-profile-topbar {
     top: env(safe-area-inset-top, 0px);

@@ -13,8 +13,9 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
     "components/ui/wynos-share-icon.tsx",
     "app/profile-web-beta1.css",
     "components/golden-drop-card.tsx",
+    "app/layout.tsx",
   ].map((file) => readFile(path.join(root, file), "utf8")));
-  const [profile, iconMap, shareIcon, css, post] = files;
+  const [profile, iconMap, shareIcon, css, post, layout] = files;
 
   // New iOS-style icon in both routes; no alternate arrow in the post row.
   expect(iconMap).toContain("share:Share,");
@@ -39,4 +40,12 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   expect(css).toContain("@media (display-mode: standalone)");
   expect(css).toContain("env(safe-area-inset-top, 0px)");
   expect(css).toContain("margin-left: auto !important;");
+
+  // No changes to the user-supplied cover or the approved text sizes.
+  expect(css).toContain("padding: 0 16px 4px;");
+  expect(layout).toContain('statusBarStyle:"black-translucent"');
+  expect(css).toContain("body:not(:has(.wyn-profile-beta1))::before");
+  expect(css).toContain(".wyn-profile-cover::after");
+  expect(css).not.toContain("margin-top: calc(-1 * env(safe-area-inset-top");
+  expect(profile).toContain('<Image src={normalizeExternalUrl(profile.cover_url) ?? ""}');
 });

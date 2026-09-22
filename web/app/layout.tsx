@@ -93,7 +93,12 @@ const APPLE_STARTUP_IMAGES: { url: string; media: string }[] = [
 // own browser chrome. Added back explicitly via `other`. `startupImage`,
 // unlike `capable`, IS emitted correctly by this version (verified against
 // node_modules/next/dist/lib/metadata/metadata.js) — no workaround needed.
-export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
+// `black-translucent` is required for installed iOS PWA pages to draw
+// profile cover images behind the system status bar. Other routes retain
+// an opaque status backdrop using profile-web-beta1.css; Safari unaffected.
+// iOS may cache this at installation time, so existing home-screen shortcuts
+// may require removal/reinstallation to adopt the new status-bar mode.
+export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"black-translucent",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
 // maximumScale/userScalable: 1 disables pinch-zoom. Native apps (and the
 // Flutter build this web app mirrors) never let a user pinch-zoom the UI —
 // only a standalone-launched web app, still carrying a plain browser
