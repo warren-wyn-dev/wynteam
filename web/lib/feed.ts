@@ -17,7 +17,11 @@ export type HomeFeedRow = {
   comment_count?: number | null;
   redrop_count?: number | null;
   redrop_id?: string | null;
+  redropper_id?: string | null;
   redropper_username?: string | null;
+  redropper_display_name?: string | null;
+  redropper_avatar_url?: string | null;
+  redropper_is_verified?: boolean | null;
   quote_text?: string | null;
   location?: string | null;
   audience?: string | null;
@@ -85,4 +89,9 @@ export function relativeTimeTh(iso: string): string {
     day: "numeric",
     month: "short",
   }).format(new Date(iso));
+}
+
+/** Quotes are authored posts in the Posts tab, not standard Reposts. */
+export function isQuotePost(row: HomeFeedRow): boolean {
+  return Boolean(row.redrop_id && row.redropper_id && row.quote_text?.trim());
 }
