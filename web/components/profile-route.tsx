@@ -12,6 +12,7 @@ import { ProfileRecommendations } from "@/components/profile-recommendations";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 import { FeedSkeleton, ProfileSkeleton } from "@/components/ui/skeleton";
 import { Toast, useToast } from "@/components/ui/toast";
 import {
@@ -365,7 +366,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   }
 
   return <AppChrome title="" userId={userId} headerMode="hidden">
-    <PullToRefreshIndicator pull={pull} topOffset="52px" refreshingLabel="กำลังรีเฟรชโปรไฟล์" />
+    <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังรีเฟรชโปรไฟล์" />
     <div className="wyn-profile-beta1" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
     <div className="wyn-profile-hero">
       <div className="wyn-profile-cover">
@@ -382,12 +383,12 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
       <div className="wyn-profile-intro">
         <span className="wyn-profile-hero-avatar"><Avatar src={profile.avatar_url} label={profile.username} size={90} /></span>
         <div className="wyn-profile-copy">
-          <div className="wyn-profile-name">{name}{profile.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}</div>
+          <div className="wyn-profile-name"><span className="wyn-profile-display-name">{name}</span>{profile.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}</div>
           <div className="wyn-profile-handle">@{profile.username}</div>
         </div>
         {own ? <div className="wyn-profile-actions is-own">
           <button className="wyn-profile-action-primary" type="button" aria-label="แก้ไขโปรไฟล์" title="แก้ไขโปรไฟล์" onClick={() => setEditing(true)}><WynosIcon name="pencil" size={21} strokeWidth={1.9} /></button>
-          <button className="wyn-profile-action-secondary" type="button" aria-label="แชร์โปรไฟล์" title="แชร์โปรไฟล์" onClick={() => void share()}><WynosIcon name="share" size={22} strokeWidth={1.9} /></button>
+          <button className="wyn-profile-action-secondary" type="button" aria-label="แชร์โปรไฟล์" title="แชร์โปรไฟล์" onClick={() => void share()}><WynosShareIcon size={22} /></button>
         </div> : null}
       </div>
       <div className="wyn-profile-details">
