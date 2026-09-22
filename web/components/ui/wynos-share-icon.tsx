@@ -1,19 +1,33 @@
-// Square-with-up-arrow share glyph; consistent across WYNOS profile and posts.
-// Uses the same 24px viewBox as other post actions. Interaction stays in callers.
-export function WynosShareIcon({ size = 24 }: { size?: number }) {
+import type { SVGProps } from "react";
+
+// Approved Beta1 reference: a separate up-arrow rising from an OPEN, rounded
+// U-shaped tray. The previous square outline had shoulders connected to the
+// arrow, creating the house-like shape seen in the live iPhone screenshot.
+// Shared by profile actions, post rows, sheets and install instructions.
+type WynosShareIconProps = SVGProps<SVGSVGElement> & {
+  size?: number | string;
+};
+
+export function WynosShareIcon({
+  size = 24,
+  strokeWidth = 2,
+  className,
+  ...props
+}: WynosShareIconProps) {
   return (
     <svg
-      className="wyn-share-icon"
+      className={["wyn-share-icon", className].filter(Boolean).join(" ")}
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
+      {...props}
     >
       <path
-        d="M12 15V3m0 0L8 7m4-4 4 4M8 8H5.75A2.75 2.75 0 0 0 3 10.75v8.5A2.75 2.75 0 0 0 5.75 22h12.5A2.75 2.75 0 0 0 21 19.25v-8.5A2.75 2.75 0 0 0 18.25 8H16"
+        d="M12 15.5V3.5m0 0L7.75 7.75M12 3.5l4.25 4.25M4.75 11.75v7.1a2.4 2.4 0 0 0 2.4 2.4h9.7a2.4 2.4 0 0 0 2.4-2.4v-7.1"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
