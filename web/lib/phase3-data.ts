@@ -524,15 +524,16 @@ export async function fetchProfileDrops(
   client: SupabaseClient,
   userId: string,
   page = 0,
+  pageSize = 21,
 ): Promise<HomeFeedRow[]> {
-  const from = page * 21;
+  const from = page * pageSize;
   const result = await client
     .from("drops")
     .select(dropCardSelect)
     .eq("author_id", userId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
-    .range(from, from + 20);
+    .range(from, from + pageSize - 1);
   fail(result.error, "โหลดโพสต์ไม่สำเร็จ");
   return (result.data ?? []).map((row) => asDrop(row as Record<string, unknown>));
 }
