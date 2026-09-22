@@ -87,7 +87,7 @@
 }
 .wyn-profile-beta1 .wyn-profile-header {
   position: relative;
-  padding: 0 16px 18px;
+  padding: 0 16px 14px;
   background: var(--wyn-bg, #fff);
 }
 .wyn-profile-beta1 .wyn-profile-intro {
@@ -134,6 +134,11 @@
   font-size: 17px;
   font-weight: 760;
   line-height: 1.25;
+  white-space: nowrap;
+}
+.wyn-profile-beta1 .wyn-profile-display-name {
+  min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -178,7 +183,7 @@
   font-size: 0;
 }
 .wyn-profile-beta1 .wyn-profile-details {
-  margin-top: 13px;
+  margin-top: 10px;
 }
 .wyn-profile-beta1 .wyn-profile-bio {
   margin: 0;
@@ -194,7 +199,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: #1677e7;
   font-size: 15px;
   line-height: 1.25;
@@ -206,14 +211,14 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
-  margin: 15px 0 0;
+  gap: 16px;
+  margin: 11px 0 0;
 }
 .wyn-profile-beta1 .wyn-profile-stats button {
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
-  min-height: 30px;
+  min-height: 28px;
   padding: 0;
   border: 0;
   background: none;
@@ -281,7 +286,7 @@
 .wyn-profile-beta1 .profile-feed-list .golden-drop-card {
   grid-template-columns: 44px minmax(0, 1fr) !important;
   column-gap: 11px !important;
-  padding: 13px 16px 8px !important;
+  padding: 11px 16px 7px !important;
 }
 .wyn-profile-beta1 .profile-feed-list .golden-drop-card + .golden-drop-card {
   border-top: 1px solid #e3e6ed;
@@ -302,11 +307,11 @@
 }
 .wyn-profile-beta1 .profile-feed-list .wyn-post-actions.wyn-threads-actions {
   gap: 21px !important;
-  margin: 7px 0 4px !important;
+  margin: 5px 0 4px !important;
 }
 .wyn-profile-beta1 .profile-feed-list .golden-drop-actions {
   gap: 21px;
-  margin: 7px 0 4px;
+  margin: 5px 0 4px;
 }
 .wyn-profile-beta1 .profile-feed-list .golden-drop-save-inline { margin-left: auto; }
 /* Cover editing was supported by the data layer; expose it again now that
@@ -362,4 +367,57 @@
   .wyn-profile-beta1 .wyn-profile-actions.is-own button { border-color: #444; }
   .wyn-profile-beta1 .wyn-profile-tabs,
   .wyn-profile-beta1 .profile-feed-list .golden-drop-card + .golden-drop-card { border-color: #272727; }
+}
+/* Profile controls remain visually compact while retaining a larger hit target. */
+.wyn-profile-beta1 .wyn-profile-actions.is-own button {
+  position: relative;
+}
+.wyn-profile-beta1 .wyn-profile-actions.is-own button::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+/* Keep the bookmark pinned to the right even on narrow screens. */
+.wyn-profile-beta1 .profile-feed-list .wyn-action-save,
+.wyn-profile-beta1 .profile-feed-list .golden-drop-save-inline {
+  margin-left: auto !important;
+}
+/* iOS home-screen mode only: extend the existing user-supplied cover into
+   the top safe inset rather than showing a second blank strip. Safari
+   retains its own browser-controlled status bar and normal layout. */
+@media (display-mode: standalone) {
+  html:has(.wyn-profile-beta1),
+  body:has(.wyn-profile-beta1) {
+    background-color: #0c0d0f;
+  }
+  .route-app:has(.wyn-profile-beta1),
+  .route-main:has(.wyn-profile-beta1) {
+    background-color: #0c0d0f;
+  }
+  .wyn-profile-beta1 .wyn-profile-hero {
+    margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    background-color: #0c0d0f;
+  }
+  .wyn-profile-beta1 .wyn-profile-cover {
+    height: calc(clamp(150px, 38vw, 210px) + env(safe-area-inset-top, 0px));
+    margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  }
+  .wyn-profile-beta1 .wyn-profile-topbar {
+    top: env(safe-area-inset-top, 0px);
+    height: 58px;
+    padding-top: 0;
+  }
+}
+@media (max-width: 359px) {
+  .wyn-profile-beta1 .wyn-profile-intro {
+    gap: 8px;
+  }
+  .wyn-profile-beta1 .wyn-profile-actions.is-own {
+    gap: 6px;
+  }
+  .wyn-profile-beta1 .profile-feed-list .wyn-post-actions.wyn-threads-actions,
+  .wyn-profile-beta1 .profile-feed-list .golden-drop-actions {
+    gap: 14px !important;
+  }
 }

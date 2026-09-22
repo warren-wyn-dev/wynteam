@@ -157,7 +157,9 @@ test("source contracts cannot regress to staged migration UI", async () => {
   for (const label of ["User", "โพสต์", "Club"]) expect(search).toContain(label);
 
   for (const label of ["โพสต์", "รีโพสต์", "ถูกใจ", "แก้ไขโปรไฟล์", "ส่งข้อความ"]) expect(profile).toContain(label);
-  expect(profile).toContain('<WynosIcon name="fileText" size={20} strokeWidth={2} />โพสต์');
+  expect(profile).toContain('onClick={() => setTab("posts")}>โพสต์</button>');
+  expect(profile).toContain('onClick={() => setTab("redrops")}>รีโพสต์</button>');
+  expect(profile).toContain('onClick={() => setTab("likes")}>ถูกใจ</button>');
   expect(profile).not.toContain('>สื่อ</button>');
   expect(profile).toContain("ProfileRecommendations");
   expect(profile).toContain('headerMode="hidden"');
