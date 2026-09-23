@@ -168,10 +168,6 @@ export function GoldenDropCard({
   }, [client, row]);
 
   useEffect(() => {
-    if (initialViewer) setViewer(initialViewer);
-  }, [initialViewer]);
-
-  useEffect(() => {
     if (!client) return;
     let live = true;
     void (async () => {
