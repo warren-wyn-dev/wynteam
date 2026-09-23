@@ -229,8 +229,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  /* A 32px menu button made the quote name sit lower than other bylines. */
-  min-height: 26px;
+  min-height: 22px;
 }
 .wyn-quote-feed-byline {
   display: flex;
@@ -256,10 +255,13 @@
   width: 18px;
   height: 18px;
 }
-.wyn-quote-feed-byline small {
+ .wyn-quote-feed-byline small {
   flex: 0 0 auto;
-  color: #797a80;
-  font-size: 13px;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #78787d;
+  font-size: 14px;
   font-weight: 400;
   white-space: nowrap;
 }
@@ -276,12 +278,12 @@
   background: transparent;
   color: #73767e;
 }
-.wyn-quote-feed-comment {
+ .wyn-quote-feed-comment {
   display: block;
-  margin: 4px 0 10px;
+  margin: 3px 0 10px;
   color: var(--wyn-text, #111);
   font-size: 16px;
-  line-height: 1.36;
+  line-height: 1.31;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -400,25 +402,18 @@
   .wyn-quote-feed-more-action { margin-left: 3px; }
 }
 
-/* Beta1 mobile profile actually uses 44px avatars, an 11px gutter and 11px
-   card top inset (profile-web-beta1.css). Quote was still rendering the
-   generic Home 40px/10px/8px geometry, which made its circled avatar and
-   author line jump relative to the immediately following standard post. */
+/* Quotes remain distinct authored posts, but their outer row uses Home's
+   40px avatar / 10px gutter / 8px top inset on Home AND Profile.
+   Keep the embedded original's compact 30px avatar unchanged. */
 .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-card {
-  grid-template-columns: 44px minmax(0, 1fr);
-  column-gap: 11px;
-  padding: 11px 16px 7px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  column-gap: 10px;
+  padding: 8px 16px 12px;
 }
 .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar,
-.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar > .wyn-quote-feed-avatar {
-  width: 44px !important;
-  height: 44px !important;
-}
-.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-byline strong {
-  font-weight: 700;
-}
-.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-byline small {
-  font-size: 14px;
+.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar > .wyn-quote-feed-avatar:not(.fallback) {
+  width: 40px !important;
+  height: 40px !important;
 }
 
 .wyn-quote-feed-notice { margin: 8px 0 0; font-size: 12px; color: var(--wyn-text-secondary, #777); }
