@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { SettingsChangePassword } from "@/components/settings-change-password";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
@@ -121,7 +122,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [loading, setLoading] = useState(!cached);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [section, setSection] = useState<"root" | "privacy" | "notifications" | "account" | "legal">("root");
+  const [section, setSection] = useState<"root" | "privacy" | "notifications" | "account" | "password" | "legal">("root");
   const [document, setDocument] = useState<LegalDocument | null>(null);
   const [pushAvailable, setPushAvailable] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -223,7 +224,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   if (loading && !profile) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><LoadingState /></AppChrome>;
   if (!profile || !notifications) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EmptyState>{error || "ไม่พบการตั้งค่า"}</EmptyState></AppChrome>;
 
-  const title = section === "root" ? "ตั้งค่า" : section === "privacy" ? "ความเป็นส่วนตัว" : section === "notifications" ? "การแจ้งเตือน" : section === "account" ? "บัญชี" : "ข้อกำหนดและความเป็นส่วนตัว";
+  const title = section === "root" ? "ตั้งค่า" : section === "privacy" ? "ความเป็นส่วนตัว" : section === "notifications" ? "การแจ้งเตือน" : section === "account" ? "บัญชี" : section === "password" ? "เปลี่ยนรหัสผ่าน" : "ข้อกำหนดและความเป็นส่วนตัว";
   const back = section === "root" ? `/profile/${userId}` : undefined;
 
   return (
@@ -232,7 +233,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       userId={userId}
       backHref={back}
       showBottomNav={false}
-      actions={section !== "root" ? <button className="route-icon-button" type="button" aria-label="กลับ" onClick={() => setSection("root")}><WynosIcon name="back" size={26} strokeWidth={2} /></button> : null}
+      actions={section !== "root" ? <button className="route-icon-button" type="button" aria-label="กลับ" onClick={() => setSection(section === "password" ? "account" : "root")}><WynosIcon name="back" size={26} strokeWidth={2} /></button> : null}
     >
       {error ? <p className="route-error route-pad">{error}</p> : null}
       {section === "root" ? (
@@ -260,7 +261,8 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       ) : null}
       {section === "privacy" ? <div className="settings-page"><h2>บัญชี</h2><div className="settings-group"><SettingRow title="บัญชีส่วนตัว" description="อนุมัติผู้ติดตามก่อนเห็นโพสต์" trailing={<Toggle checked={profile.is_private} disabled={busy} onChange={(value) => void privacy("is_private", value)} />} /></div><h2>การโต้ตอบ</h2><div className="settings-group"><SettingRow title="ใครส่งข้อความได้" trailing={<PermissionSelect value={profile.dm_permission} onChange={(value) => void privacy("dm_permission", value)} />} /><SettingRow title="ใครกล่าวถึงคุณได้" trailing={<PermissionSelect value={profile.mention_permission} onChange={(value) => void privacy("mention_permission", value)} />} /><SettingRow title="ใครแสดงความคิดเห็นได้" trailing={<PermissionSelect value={profile.comment_permission} onChange={(value) => void privacy("comment_permission", value)} />} /><SettingRow title="ใครเห็นสิ่งที่คุณถูกใจ" trailing={<PermissionSelect kind="likes" value={profile.likes_visibility} onChange={(value) => void privacy("likes_visibility", value)} />} /></div><h2>สถานะ</h2><div className="settings-group"><SettingRow title="แสดงสถานะออนไลน์" trailing={<Toggle checked={online} disabled={busy} onChange={(value) => void onlineToggle(value)} />} /></div></div> : null}
       {section === "notifications" ? <div className="settings-page">{pushAvailable ? <><h2>อุปกรณ์นี้</h2><div className="settings-group"><SettingRow title="การแจ้งเตือนแบบพุช" description="รับการแจ้งเตือนแม้ปิดแท็บนี้อยู่" trailing={<Toggle checked={pushEnabled} disabled={pushBusy} onChange={(value) => void pushToggle(value)} />} /></div></> : null}<h2>แจ้งเตือนเมื่อ</h2><div className="settings-group">{notificationLabels.map(([key, label]) => <SettingRow title={label} key={key} trailing={<Toggle checked={notifications[key]} disabled={busy} onChange={(value) => void notification(key, value)} />} />)}</div></div> : null}
-      {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<WynosIcon name="download" size={19} strokeWidth={2} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<WynosIcon name="trash" size={19} strokeWidth={2} />} /></div><p className="settings-safety"><WynosIcon name="shieldCheck" size={16} strokeWidth={2} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
+      {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><SettingRow title="เปลี่ยนรหัสผ่าน" description="ยืนยันรหัสผ่านเดิมก่อนตั้งรหัสผ่านใหม่" leading={<WynosIcon name="lockKeyhole" size={19} strokeWidth={2} />} onClick={() => setSection("password")} /><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<WynosIcon name="download" size={19} strokeWidth={2} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<WynosIcon name="trash" size={19} strokeWidth={2} />} /></div><p className="settings-safety"><WynosIcon name="shieldCheck" size={16} strokeWidth={2} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
+      {section === "password" ? <SettingsChangePassword client={client} userId={userId} onBack={() => setSection("account")} /> : null}
       {section === "legal" ? <div className="settings-page"><div className="settings-group">{legalTypes.map(([type, label]) => <SettingRow title={label} key={type} onClick={() => void openDoc(type)} />)}</div></div> : null}
       {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><WynosIcon name="close" size={24} strokeWidth={2} /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small><p>{document.content}</p></div></section></div> : null}
     </AppChrome>
