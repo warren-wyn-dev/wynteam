@@ -93,7 +93,7 @@ export async function signInWithEmail(client: SupabaseClient, email: string, pas
 
 export async function resetPasswordForEmail(client: SupabaseClient, email: string): Promise<void> {
   const result = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: typeof window !== "undefined" ? `${window.location.origin}/login` : undefined,
+    redirectTo: typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined,
   });
   if (result.error) throw result.error;
 }
