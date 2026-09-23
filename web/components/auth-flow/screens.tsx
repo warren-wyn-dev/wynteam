@@ -791,17 +791,15 @@ export function ResetPasswordScreen() {
     // history, analytics, or subsequent navigation URLs.
     window.history.replaceState(window.history.state, "", "/reset-password");
 
-    if (link.kind === "invalid") {
-      setPhase("invalid");
-      return;
-    }
-    const client = createPasswordRecoveryClient();
-    if (!client) {
-      setPhase("invalid");
-      return;
-    }
+    const client = link.kind === "invalid" ? null : createPasswordRecoveryClient();
 
     void (async () => {
+      // An async boundary avoids setState during the mount effect itself.
+      await Promise.resolve();
+      if (link.kind === "invalid" || !client) {
+        setPhase("invalid");
+        return;
+      }
       try {
         let session;
         if (link.kind === "code") {
