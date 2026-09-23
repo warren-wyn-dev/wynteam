@@ -8,8 +8,10 @@ import { Avatar, Button, Input, WynosIcon } from "@/components/ui";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import {
   EmailAlreadyRegisteredError,
+  SignupPasswordTooShortError,
   UsernameReservedError,
   UsernameTakenError,
   completeOnboarding,
@@ -487,7 +489,11 @@ export function SignupStep2Screen() {
   const { draft, setDraft } = useSignupDraft();
   const supabase = getSupabaseBrowserClient();
   const [error, setError] = useState("");
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Keep all signup fields non-interactive until React hydration completes.
+  // Otherwise the first keystrokes can be lost on mobile Safari or Chromium.
+  const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
   const update = (key: keyof SignupDraft) => (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setDraft((current) => ({ ...current, [key]: value }));
@@ -501,8 +507,8 @@ export function SignupStep2Screen() {
       setError("กรุณากรอกอีเมลให้ถูกต้อง");
       return;
     }
-    if (draft.password.length < 6) {
-      setError("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+    if (draft.password.length < MIN_SIGNUP_PASSWORD_LENGTH) {
+      setError(`รหัสผ่านต้องมีอย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`);
       return;
     }
     if (draft.password !== draft.confirmPassword) {
@@ -522,11 +528,16 @@ export function SignupStep2Screen() {
     setLoading(true);
     try {
       const result = await signUpWithEmail(supabase, email, draft.password);
-      const userId = result.user?.id;
-      if (!userId) {
-        setError(`ส่งอีเมลยืนยันไปที่ ${email} แล้ว กรุณากดลิงก์ในอีเมลก่อนเข้าสู่ระบบ`);
+      if (!result.session) {
+        // Email confirmation is enabled. There is no authenticated session yet,
+        // so RLS correctly rejects profile writes until the user confirms.
+        // Step-1 fields are already persisted (passwords never are).
+        setDraft((current) => ({ ...current, password: "", confirmPassword: "" }));
+        setAwaitingConfirmation(email);
         return;
       }
+      const userId = result.session.user.id;
+      setDraft((current) => ({ ...current, password: "", confirmPassword: "" }));
       await setUsername(supabase, userId, draft.username);
       await setDisplayName(supabase, userId, draft.displayName);
       await setDateOfBirth(supabase, userId, isoBirthDate);
@@ -542,7 +553,9 @@ export function SignupStep2Screen() {
       }
       router.push("/onboarding/profile");
     } catch (err) {
-      if (err instanceof EmailAlreadyRegisteredError) {
+      if (err instanceof SignupPasswordTooShortError) {
+        setError(`รหัสผ่านต้องมีอย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`);
+      } else if (err instanceof EmailAlreadyRegisteredError) {
         setError("อีเมลนี้มีบัญชีอยู่แล้ว ลองเข้าสู่ระบบแทน");
       } else if (err instanceof UsernameTakenError || err instanceof UsernameReservedError) {
         setError("ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาย้อนกลับไปเปลี่ยนชื่อผู้ใช้");
@@ -554,16 +567,32 @@ export function SignupStep2Screen() {
     }
   }
 
+  if (awaitingConfirmation) {
+    return (
+      <AuthPhone>
+        <BackTopbar href="/login" />
+        <div style={{ padding: "32px 20px", flex: 1 }} role="status">
+          <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>ตรวจสอบอีเมลของคุณ</h1>
+          <p style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
+            หากสมัครสำเร็จ เราได้ส่งลิงก์ยืนยันไปที่ {awaitingConfirmation} แล้ว
+            กรุณากดลิงก์บนอุปกรณ์นี้เพื่อกลับมาตั้งค่าโปรไฟล์ให้เสร็จ
+          </p>
+          <Button className="btn-primary" onClick={() => router.push("/login")} style={{ marginTop: 20 }}>ไปหน้าเข้าสู่ระบบ</Button>
+        </div>
+      </AuthPhone>
+    );
+  }
+
   return (
     <AuthPhone>
       <BackTopbar href="/signup/step-1" step="2/2" />
       <div style={{ padding: "16px 20px", flex: 1 }}>
         <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ตั้งรหัสผ่าน</div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
-        <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} />
-        <Field label="รหัสผ่าน" name="password" placeholder="อย่างน้อย 6 ตัวอักษร" type="password" value={draft.password} onChange={update("password")} />
-        <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} />
-        <Button className="btn-primary" disabled={loading} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
+        <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} disabled={!mounted} />
+        <Field label="รหัสผ่าน" name="password" placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} type="password" value={draft.password} onChange={update("password")} disabled={!mounted} />
+        <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} disabled={!mounted} />
+        <Button className="btn-primary" disabled={loading || !mounted} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
         <ErrorText>{error}</ErrorText>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
           มีบัญชีอยู่แล้ว? <b onClick={() => router.push("/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>

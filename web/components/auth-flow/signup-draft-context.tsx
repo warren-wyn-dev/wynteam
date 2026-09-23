@@ -12,6 +12,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { usePathname } from "next/navigation";
 
 export type SignupDraft = {
   username: string;
@@ -73,6 +74,7 @@ function persistStep1Draft(draft: SignupDraft) {
 }
 
 export function SignupDraftProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [draft, setDraftState] = useState<SignupDraft>(initialDraft);
   const draftRef = useRef<SignupDraft>(initialDraft);
 
@@ -83,6 +85,16 @@ export function SignupDraftProvider({ children }: { children: ReactNode }) {
     draftRef.current = next;
     setDraftState(next);
   }, []);
+
+  // Passwords live only in React memory; erase them as soon as signup
+  // step 2 is left, including cancellation, callback and successful signup.
+  useEffect(() => {
+    if (pathname === "/signup/step-2") return;
+    if (!draftRef.current.password && !draftRef.current.confirmPassword) return;
+    const next = { ...draftRef.current, password: "", confirmPassword: "" };
+    draftRef.current = next;
+    setDraftState(next);
+  }, [pathname]);
 
   const setDraft = useCallback<Dispatch<SetStateAction<SignupDraft>>>((nextValue) => {
     const next = typeof nextValue === "function" ? nextValue(draftRef.current) : nextValue;

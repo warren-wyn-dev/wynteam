@@ -4,6 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getEmailConfirmationRedirectUrl } from "@/lib/auth-repository";
+import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 
 export function ParityEmailAuth({ onBack }: { onBack: () => void }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -13,7 +15,7 @@ export function ParityEmailAuth({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const validEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
-  const canSubmit = Boolean(supabase && validEmail && password.length >= 6 && !loading);
+  const canSubmit = Boolean(supabase && validEmail && (signUp ? password.length >= MIN_SIGNUP_PASSWORD_LENGTH : password.length > 0) && !loading);
 
   async function submit() {
     if (!supabase || !canSubmit) return;
@@ -21,7 +23,7 @@ export function ParityEmailAuth({ onBack }: { onBack: () => void }) {
     setMessage("");
     try {
       if (signUp) {
-        const result = await supabase.auth.signUp({ email: email.trim(), password });
+        const result = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: getEmailConfirmationRedirectUrl() } });
         if (result.error) {
           const exists = result.error.code === "user_already_exists" || result.error.message.toLowerCase().includes("already registered");
           if (exists) {
@@ -55,7 +57,7 @@ export function ParityEmailAuth({ onBack }: { onBack: () => void }) {
       </header>
       <section className="parity-auth-content parity-email-content">
         <label className="parity-field"><span>อีเมล</span><input type="email" inputMode="email" autoCapitalize="none" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-        <label className="parity-field"><span>รหัสผ่าน</span><input type="password" autoComplete={signUp ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} /><small>อย่างน้อย 6 ตัวอักษร</small></label>
+        <label className="parity-field"><span>รหัสผ่าน</span><input type="password" autoComplete={signUp ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} />{signUp ? <small>อย่างน้อย {MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร</small> : null}</label>
         <button className="parity-primary" type="button" disabled={!canSubmit} onClick={() => void submit()}>{loading ? "กำลังดำเนินการ…" : signUp ? "สมัครสมาชิก" : "เข้าสู่ระบบ"}</button>
         <button className="parity-text-button" type="button" disabled={loading} onClick={() => { setSignUp((value) => !value); setMessage(""); }}>{signUp ? "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" : "ยังไม่มีบัญชี? สมัครสมาชิก"}</button>
         {message ? <p className="parity-auth-error" role="alert">{message}</p> : null}
