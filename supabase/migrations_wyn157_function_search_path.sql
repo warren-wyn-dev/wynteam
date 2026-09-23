@@ -31,7 +31,8 @@ begin
       ('public', 'calculate_trend_score'),
       ('public', 'get_trending_candidates'),
       ('public', 'calculate_top100_score'),
-      ('public', 'get_top100_candidates')
+      ('public', 'get_top100_candidates'),
+      ('public', 'profiles_validate_social_links')
     )
   loop
     execute format(
