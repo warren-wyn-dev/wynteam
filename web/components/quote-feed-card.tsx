@@ -113,8 +113,14 @@ export function QuoteFeedCard({
     if (!client || !quoteId) return;
     try {
       const latest = await fetchQuoteEngagement(client, [quoteId]);
-      setEngagement(latest.get(quoteId) ?? null);
-    } catch { showToast("อัปเดตสถานะโพสต์อ้างอิงไม่สำเร็จ"); }
+      const state = latest.get(quoteId);
+      if (!state) { setEngagementError("ไม่พบกิจกรรมของโพสต์อ้างอิงนี้"); return; }
+      setEngagement(state);
+      setEngagementError("");
+    } catch {
+      setEngagementError("โหลดกิจกรรมโพสต์อ้างอิงไม่สำเร็จ");
+      showToast("อัปเดตสถานะโพสต์อ้างอิงไม่สำเร็จ");
+    }
   };
   const likeQuote = async () => {
     if (!client || !viewerId || !quoteId || !engagement || busy) return;
