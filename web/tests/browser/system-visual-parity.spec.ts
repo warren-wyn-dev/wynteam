@@ -198,29 +198,24 @@ test("Profile feed reuses the exact Home action component and post metrics", () 
 
   expect(profile).toContain("<DropPreviewCard row={row} homeParity");
   expect(preview).toContain("homeParity?: boolean");
-  expect(preview).toContain("<GoldenDropCard row={row} homeParity={homeParity} />");
+  expect(preview).toContain("<GoldenDropCard row={row} homeParity={homeParity} initialViewer={viewerSnapshot}");
   expect(golden).toContain('import { HomePostCard } from "@/components/home/home-post-card";');
   expect(golden).toContain("homeParity ? (");
   expect(golden).toContain("<HomePostCard");
   expect(golden).toContain("onFollow={() => void followAuthor()}");
   expect(golden).toContain("onSave={() => void save()}");
 
-  for (const contract of [
-    "grid-template-columns: 40px minmax(0, 1fr)",
-    "column-gap: 10px",
-    "padding: 8px 16px 0",
-    "width: 40px",
-    "height: 40px",
-    "min-height: 22px",
-    "font-size: 15px",
-    "font-weight: 600",
-    "font-size: 14px",
-    "font-size: 16px",
-    "line-height: 1.31",
-    "border-radius: 14px",
-    "min-height: 30px",
-    "gap: 18px",
-  ]) expect(profileFeed).toContain(contract);
+  // Normal Profile posts inherit HomePostCard and its canonical CSS.
+  // profile-home-feed.css now contains Quote-only rules and mixed-feed lines.
+  expect(profile).toContain("viewerSnapshot={viewerSnapshot}");
+  expect(profile).toContain("loadHomeViewerState(client, viewerId, combined)");
+  expect(profileFeed).not.toContain(".profile-feed-list .golden-drop-card {");
+  expect(profileFeed).toContain(":is(.wyn-home-feed, .profile-feed-list)");
+  expect(profileFeed).toContain("border-top: 1px solid var(--wyn-border)");
+  expect(profileFeed).toContain(".wyn-quote-feed-card");
+  expect(profileFeed).toContain("font-size: 15px");
+  expect(profileFeed).toContain("font-size: 16px");
+  expect(profileFeed).toContain("line-height: 1.31");
 
   for (const contract of [
     "grid-template-columns: 40px minmax(0, 1fr)",
@@ -232,8 +227,7 @@ test("Profile feed reuses the exact Home action component and post metrics", () 
     "border-radius: 14px",
   ]) expect(home).toContain(contract);
 
-  expect(profileFeed).toContain('[aria-label="บันทึก"]::after');
-  expect(profileFeed).toContain("content: none !important");
+  expect(profileFeed).toContain(".wyn-quote-feed-actions .wyn-post-actions.wyn-threads-actions { gap: 16px; }");
 });
 
 test("Creation surface matches Beta4 composer metrics while keeping the no Check-in product rule", () => {
