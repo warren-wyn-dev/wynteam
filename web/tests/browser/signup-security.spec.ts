@@ -16,6 +16,12 @@ test.describe("Web Beta1 email signup security", () => {
     await expect(page.locator('input[name="email"]')).toHaveValue("policy@example.invalid");
     await page.locator('input[name="password"]').fill("12345678901");
     await page.locator('input[name="confirmPassword"]').fill("12345678901");
+    // The keyed 220ms exit/entry animation used to remount the auth layout
+    // after inputs were already interactive, silently clearing the form.
+    await page.waitForTimeout(600);
+    await expect(page.locator('input[name="email"]')).toHaveValue("policy@example.invalid");
+    await expect(page.locator('input[name="password"]')).toHaveValue("12345678901");
+    await expect(page.locator('input[name="confirmPassword"]')).toHaveValue("12345678901");
     await page.getByRole("button", { name: "สร้างบัญชี", exact: true }).click();
 
     await expect(page.locator("#phone p[role=alert]")).toHaveText("รหัสผ่านต้องมีอย่างน้อย 12 ตัวอักษร");
