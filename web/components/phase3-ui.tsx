@@ -114,6 +114,7 @@ export function DropPreviewCard({
   onRepostChanged,
   onQuoteCreated,
   onQuoteDeleted,
+  onQuoteRepostChanged,
 }: {
   row: HomeFeedRow;
   homeParity?: boolean;
@@ -122,9 +123,10 @@ export function DropPreviewCard({
   onRepostChanged?: (actorId: string, dropId: string, removedStandard: boolean) => void;
   onQuoteCreated?: (actorId: string) => void;
   onQuoteDeleted?: (actorId: string, quoteId: string) => void;
+  onQuoteRepostChanged?: (actorId: string, quoteId: string, removed: boolean) => void;
 }) {
   if (isQuotePost(row)) {
-    return <QuoteFeedCard row={row} viewerId={viewerId} initialViewer={viewerSnapshot} onDeleted={onQuoteDeleted} />;
+    return <QuoteFeedCard row={row} viewerId={viewerId} initialQuoteState={viewerSnapshot?.quoteEngagementById?.get(row.redrop_id || "")} onQuoteRepostChanged={onQuoteRepostChanged} onDeleted={onQuoteDeleted} />;
   }
   return <GoldenDropCard row={row} homeParity={homeParity} initialViewer={viewerSnapshot} profileViewerId={viewerId} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} />;
 }
