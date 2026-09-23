@@ -80,20 +80,13 @@ export function QuoteFeedCard({
   const mediaRatio = postMediaAspectRatio(row, availableMedia.length > 1);
 
   useEffect(() => {
-    setLikeCount(row.like_count ?? 0);
-    setRedropCount(row.redrop_count ?? 0);
-    setFailedMedia(new Set());
-    setMedia(row.image_url ? [row.image_url] : []);
-  }, [row.id, row.image_url, row.like_count, row.redrop_count]);
-
-  useEffect(() => {
     if (!client || !viewerId) return;
     let live = true;
     void loadHomeViewerState(client, viewerId, [row]).then((state) => {
       if (live) setViewer(state);
     }).catch(() => { if (live) showToast("โหลดสถานะโพสต์ไม่สำเร็จ"); });
     return () => { live = false; };
-  }, [client, viewerId, row.id]);
+  }, [client, viewerId, row, showToast]);
 
   // home_feed may have an incomplete/old image_url. Read the source image
   // rows (also supports multi-image posts) instead of displaying a blank box.
