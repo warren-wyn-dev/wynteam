@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Web Beta1 password recovery", () => {
+  // Installed PWA service workers can claim the page midway through recovery;
+  // Playwright page.route does not intercept requests from service workers.
+  // Block them in this isolated Auth API mock suite, not in production.
+  test.use({ serviceWorkers: "block" });
   test("opening the reset page without a recovery link never exposes password inputs", async ({ page }) => {
     await page.goto("/reset-password");
     await expect(page.getByRole("heading", { name: "ตั้งรหัสผ่านใหม่" })).toBeVisible();
@@ -50,7 +54,7 @@ test.describe("Web Beta1 password recovery", () => {
     };
     let verifyCount = 0;
     const passwordUpdates: string[] = [];
-    await page.route(origin + "/auth/v1/**", async (route) => {
+    await page.context().route(origin + "/auth/v1/**", async (route) => {
       const req = route.request();
       const url = new URL(req.url());
       if (url.pathname.endsWith("/verify") && req.method() === "POST") {
