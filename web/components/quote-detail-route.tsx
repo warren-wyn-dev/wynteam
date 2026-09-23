@@ -90,7 +90,7 @@ function QuoteComments({
         <EmptyState>ยังไม่มีความคิดเห็นของโพสต์อ้างอิงนี้</EmptyState>
       ) : rows.map((comment) => (
         <div className="detail-comment" key={comment.id}>
-          <Link href={\`/profile/\${comment.authorId}\`} className="detail-comment-avatar">
+          <Link href={`/profile/${comment.authorId}`} className="detail-comment-avatar">
             <Avatar src={comment.authorAvatarUrl} label={comment.authorUsername} size={36} />
           </Link>
           <div className="detail-comment-copy">
@@ -155,12 +155,12 @@ export function QuoteDetailRoute({ quoteId }: { quoteId: string }) {
       showBottomNav={false}
       onBack={() => {
         if (window.history.length > 1) router.back();
-        else router.push(row?.redropper_id ? \`/profile/\${row.redropper_id}\` : "/");
+        else router.push(row?.redropper_id ? `/profile/${row.redropper_id}` : "/");
       }}
     >
       {!client || !quoteId ? <EmptyState>ไม่สามารถเปิดโพสต์นี้ได้</EmptyState> : loading ? <LoadingState /> : row ? (
         <>
-          <QuoteFeedCard row={row} viewerId={viewerId} commentCountDelta={commentCountDelta} onDeleted={(actorId) => router.replace(\`/profile/\${actorId}\`)} />
+          <QuoteFeedCard row={row} viewerId={viewerId} commentCountDelta={commentCountDelta} onDeleted={(actorId) => router.replace(`/profile/${actorId}`)} />
           <QuoteComments client={client} quoteId={quoteId} viewerId={viewerId} onCountChange={(delta) => setCommentCountDelta((current) => current + delta)} />
         </>
       ) : <EmptyState>{error || "ไม่พบโพสต์นี้"}</EmptyState>}
