@@ -7,7 +7,8 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent, ty
 import { Avatar, Button, Input, WynosIcon } from "@/components/ui";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import {
   EmailAlreadyRegisteredError,
@@ -761,6 +762,151 @@ export function ForgotPasswordScreen() {
             <ErrorText>{error}</ErrorText>
           </>
         )}
+      </div>
+    </AuthPhone>
+  );
+}
+
+/**
+ * Recovery is a separate, one-time authenticated flow. Visiting this page
+ * while already signed in never grants reset access without a valid link.
+ * Credentials are consumed immediately and removed from browser history.
+ */
+export function ResetPasswordScreen() {
+  const router = useRouter();
+  const recoveryClient = useRef<ReturnType<typeof createPasswordRecoveryClient>>(null);
+  const started = useRef(false);
+  const [phase, setPhase] = useState<"checking" | "ready" | "invalid" | "saved">("checking");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    const link = parsePasswordRecoveryLink(window.location.href);
+    // Never leave an access token, verifier code or recovery hash in browser
+    // history, analytics, or subsequent navigation URLs.
+    window.history.replaceState(window.history.state, "", "/reset-password");
+
+    if (link.kind === "invalid") {
+      setPhase("invalid");
+      return;
+    }
+    const client = createPasswordRecoveryClient();
+    if (!client) {
+      setPhase("invalid");
+      return;
+    }
+
+    void (async () => {
+      try {
+        let session;
+        if (link.kind === "code") {
+          const result = await client.auth.exchangeCodeForSession(link.code);
+          if (result.error) throw result.error;
+          session = result.data.session;
+        } else if (link.kind === "token_hash") {
+          const result = await client.auth.verifyOtp({ token_hash: link.tokenHash, type: "recovery" });
+          if (result.error) throw result.error;
+          session = result.data.session;
+        } else {
+          const result = await client.auth.setSession({
+            access_token: link.accessToken,
+            refresh_token: link.refreshToken,
+          });
+          if (result.error) throw result.error;
+          session = result.data.session;
+        }
+
+        if (!session) throw new Error("No session for recovery");
+        // Verify against Supabase Auth instead of trusting browser storage.
+        const userResult = await client.auth.getUser();
+        if (userResult.error || !userResult.data.user) throw userResult.error ?? new Error("Invalid recovery user");
+        recoveryClient.current = client;
+        setAccountEmail(userResult.data.user.email ?? "");
+        setPhase("ready");
+      } catch {
+        setPhase("invalid");
+      }
+    })();
+  }, []);
+
+  async function submit() {
+    if (loading || phase !== "ready" || !recoveryClient.current) return;
+    setError("");
+    if (password.length < MIN_SIGNUP_PASSWORD_LENGTH) {
+      setError(`รหัสผ่านใหม่ต้องมีอย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("รหัสผ่านทั้งสองช่องไม่ตรงกัน");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const client = recoveryClient.current;
+      const result = await client.auth.updateUser({ password });
+      if (result.error) throw result.error;
+      setPassword("");
+      setConfirmPassword("");
+      // The one-time recovery session must not remain logged in after reset.
+      // A failed local sign-out must not hide a successfully saved password.
+      await client.auth.signOut({ scope: "local" }).catch(() => undefined);
+      recoveryClient.current = null;
+      setPhase("saved");
+    } catch {
+      setError("เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่หรือขอลิงก์รีเซ็ตอีกครั้ง");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <AuthPhone>
+      <BackTopbar href="/login" />
+      <div style={{ padding: "16px 20px", flex: 1 }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <Image src="/wynos_logo_mark.png" alt="Wynos" width={99} height={64}
+            style={{ height: 64, width: "auto", margin: "0 auto 14px", display: "block" }} priority />
+          <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em" }}>ตั้งรหัสผ่านใหม่</h1>
+        </div>
+
+        {phase === "checking" ? <p role="status">กำลังตรวจสอบลิงก์รีเซ็ตรหัสผ่าน…</p> : null}
+        {phase === "invalid" ? (
+          <>
+            <p role="alert" style={{ fontSize: 14, lineHeight: 1.6 }}>ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่</p>
+            <Button className="btn-primary" onClick={() => router.replace("/forgot-password")}>ขอลิงก์ใหม่</Button>
+          </>
+        ) : null}
+        {phase === "ready" ? (
+          <>
+            {accountEmail ? (
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
+                บัญชี: {accountEmail}
+              </p>
+            ) : null}
+            <Field label="รหัสผ่านใหม่" name="newPassword"
+              placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`}
+              type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            <Field label="ยืนยันรหัสผ่านใหม่" name="confirmNewPassword"
+              placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง"
+              type="password" value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)} />
+            <Button className="btn-primary" disabled={loading} onClick={() => void submit()}
+              style={{ marginTop: 10 }}>{loading ? "กำลังบันทึก…" : "บันทึกรหัสผ่านใหม่"}</Button>
+            <ErrorText>{error}</ErrorText>
+          </>
+        ) : null}
+        {phase === "saved" ? (
+          <>
+            <p role="status" style={{ fontSize: 14, marginBottom: 20 }}>เปลี่ยนรหัสผ่านสำเร็จแล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่</p>
+            <Button className="btn-primary" onClick={() => router.replace("/login")}>ไปหน้าเข้าสู่ระบบ</Button>
+          </>
+        ) : null}
       </div>
     </AuthPhone>
   );
