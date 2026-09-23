@@ -301,7 +301,8 @@
   /* Match Home's compact tab typography and indicator at the 320px breakpoint. */
   .wyn-profile-beta1 .wyn-profile-tabs button { font-size: 14px; }
   .wyn-profile-beta1 .wyn-profile-tabs button.active::after {
-    width: calc(100% - 18px);
+    /* Home's indicator is 100%-18px within a tab with 5px padding per side. */
+    width: calc(100% - 28px);
   }
 }
 @media (max-width: 380px) {
