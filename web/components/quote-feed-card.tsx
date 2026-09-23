@@ -226,7 +226,7 @@ export function QuoteFeedCard({
             {row.redropper_is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
             <small>· {relativeTimeTh(row.created_at)}</small>
           </Link>
-          {quoteId && viewerId ? <button type="button" aria-label="ตัวเลือกอ้างอิง" onClick={() => { setError(""); setMenuOpen(true); }}><WynosIcon name="more" size={20} /></button> : null}
+          {quoteId ? <button type="button" aria-label="ตัวเลือกอ้างอิง" onClick={() => { setError(""); setMenuOpen(true); }}><WynosIcon name="more" size={20} /></button> : null}
         </header>
         <RichPostText className="wyn-quote-feed-comment" value={row.quote_text || ""} />
         <Link className="wyn-quote-feed-original" href={`/drop/${row.id}`} aria-label={`ดูโพสต์ต้นฉบับของ ${originalName}`}>
@@ -258,7 +258,6 @@ export function QuoteFeedCard({
             onSave={() => void saveOriginal()}
             modernFeed
           />
-          <button className="wyn-quote-feed-more-action" type="button" aria-label="เพิ่มเติมเกี่ยวกับโพสต์อ้างอิง" onClick={() => { setError(""); setMenuOpen(true); }}><WynosIcon name="more" size={22} /></button>
         </div>
         {reported ? <p className="wyn-quote-feed-notice" role="status">ส่งรายงานแล้ว</p> : null}
       </div>
