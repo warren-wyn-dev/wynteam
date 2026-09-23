@@ -283,15 +283,12 @@ test("Post Detail closes the exact current Flutter geometry and interaction gaps
   expect(flutter).toContain("radius: isReply ? 16 : 18");
 });
 
-test("Profile own action matches the Founder-supplied reference: plain text, no cover photo", () => {
+test("Profile own actions retain the current icon-only Beta1 cover-aware design", () => {
   const profile = read("components/profile-route.tsx");
   const profileGoldenCss = read("app/profile-golden-final.css");
-  // Cut to match the reference exactly: no cover photo, no icon inside the
-  // edit/share buttons, no separate recommendations/bookmarks icon buttons.
-  expect(profile).not.toContain("<Pencil");
-  expect(profile).not.toContain("flutter-profile-cover");
-  expect(profile).toContain('onClick={() => setEditing(true)}>แก้ไขโปรไฟล์');
-  expect(profile).toContain('onClick={() => void share()}>แชร์โปรไฟล์');
+  expect(profile).toContain('aria-label="แก้ไขโปรไฟล์" title="แก้ไขโปรไฟล์"');
+  expect(profile).toContain('aria-label="แชร์โปรไฟล์" title="แชร์โปรไฟล์"');
+  expect(profile).toContain('profile.cover_url');
+  expect(profile).toContain('<WynosShareIcon size={22} />');
   expect(profileGoldenCss).toContain(".wyn-profile-action-primary");
-  expect(profileGoldenCss).not.toContain("flutter-profile-cover");
 });
