@@ -200,7 +200,7 @@
 /* ---------- Post card ---------- */
 
 .wyn-post + .wyn-post {
-  border-top: 1px solid #ececef;
+  border-top: 1px solid var(--wyn-border);
 }
 
 .wyn-post {
