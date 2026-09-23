@@ -70,7 +70,11 @@ test("The profile data queries never mix Quote and Standard Reposts", async () =
   expect(card).toContain("row.redropper_avatar_url");
   expect(card).toContain("row.author_avatar_url");
   expect(card).toContain('href={`/drop/${row.id}`}');
-  expect(card).not.toContain("<PostActions");
+  expect(card).toContain("<PostActions");
+  expect(card).toContain("โต้ตอบกับโพสต์ต้นฉบับ");
+  expect(card).toContain("shareQuote");
+  expect(card).toContain('from("drop_images")');
+  expect(card).toContain("setFailedMedia");
   expect(card).toContain('.from("redrops").delete()');
   expect(card).toContain('p_target_type: "redrop"');
   // No stranger's quote/repost sneaks into Following merely because its
@@ -80,12 +84,14 @@ test("The profile data queries never mix Quote and Standard Reposts", async () =
 
 });
 
-test("Quotes show quoted author, an embedded original, and no wrongly attributed engagement UI", async ({ page }) => {
+test("Quotes show the complete embedded original and explicitly attributed working actions", async ({ page }) => {
   const root = process.cwd();
   const css = await readFile(path.join(root, "app/profile-home-feed.css"), "utf8");
   expect(css).toContain(".wyn-quote-feed-card");
   expect(css).toContain(".wyn-quote-feed-original");
-  expect(css).toContain("-webkit-line-clamp: 4");
+  expect(css).not.toContain("-webkit-line-clamp: 4");
+  expect(css).toContain(".wyn-quote-feed-engagement-label");
+  expect(css).toContain(".wyn-quote-feed-actions");
   expect(css).toContain(".wyn-quote-feed-original-image");
   expect(css).toContain(".wyn-quote-feed-sheet-backdrop");
 
