@@ -36,8 +36,8 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   expect(profile).toContain('<ProfileFeed key={`${profileId}:${tab}`} client={client} profileId={profileId} kind={tab} />');
   expect(profile).toContain("wyn-profile-display-name");
 
-  // Fonts are intentionally unchanged from the prior Beta1 release.
-  for (const value of ["font-size: 17px;", "font-size: 14px;", "font-size: 16px;", "font-size: 15.5px !important;"]) {
+  // Profile header typography is unchanged; feed typography now inherits Home.
+  for (const value of ["font-size: 17px;", "font-size: 14px;", "font-size: 16px;"]) {
     expect(css).toContain(value);
   }
   expect(css).toContain(".wyn-profile-display-name");
