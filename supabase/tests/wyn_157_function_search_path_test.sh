@@ -67,7 +67,8 @@ begin
     ('public','calculate_trend_score'),
     ('public','get_trending_candidates'),
     ('public','calculate_top100_score'),
-    ('public','get_top100_candidates')
+    ('public','get_top100_candidates'),
+    ('public','profiles_validate_social_links')
   ) and p.proconfig is null;
 
   if missing_count <> 0 then
@@ -93,7 +94,8 @@ begin
     ('public','calculate_trend_score'),
     ('public','get_trending_candidates'),
     ('public','calculate_top100_score'),
-    ('public','get_top100_candidates')
+    ('public','get_top100_candidates'),
+    ('public','profiles_validate_social_links')
   ) and not exists (
     select 1 from unnest(p.proconfig) cfg
     where cfg = 'search_path=pg_catalog, public, internal, auth, pg_temp'
