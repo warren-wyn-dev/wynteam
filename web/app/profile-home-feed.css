@@ -297,8 +297,9 @@
   }
   .wyn-quote-feed-author-avatar,
   .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar {
-    width: 34px;
-    height: 34px;
+    /* The 40px Profile rule above has !important: the 320px rule must win. */
+    width: 34px !important;
+    height: 34px !important;
   }
   .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar > .wyn-quote-feed-avatar {
     width: 34px !important;
