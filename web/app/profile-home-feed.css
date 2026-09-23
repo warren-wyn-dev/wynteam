@@ -12,13 +12,15 @@
   column-gap: 10px;
   width: 100%;
   /* Same initial row offset as Home and the existing profile post cards. */
-  padding: 8px 16px 12px;
+  padding: 8px 16px 0;
   border-bottom: 0;
   background: var(--wyn-bg, #fff);
   color: var(--wyn-text, #111);
 }
 
-/* Use one theme-aware divider for every combination of normal and Quote posts.
+/* Align the Quote action bar with HomePostCard: extra bottom padding delayed
+   the full-width separator by 12px below Quote actions on iPhone.
+   Use one theme-aware divider for every combination of normal and Quote posts.
    In particular, Quote -> Quote no longer draws both a top and bottom border. */
 :is(.wyn-home-feed, .profile-feed-list)
   > :is(.wyn-post, .wyn-quote-feed-card)
@@ -219,7 +221,7 @@
 .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-card {
   grid-template-columns: 40px minmax(0, 1fr);
   column-gap: 10px;
-  padding: 8px 16px 12px;
+  padding: 8px 16px 0;
 }
 .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar,
 .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar > .wyn-quote-feed-avatar:not(.fallback) {
