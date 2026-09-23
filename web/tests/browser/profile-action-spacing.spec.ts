@@ -63,7 +63,7 @@ test("390px and 320px Home/Profile rows have equal action geometry and a right-a
         '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="wyn-post" style="width:100%"><div class="wyn-post-body">' +
         row +
         "</div></article></div></div>" +
-        '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="wyn-quote-feed-card"><div class="wyn-quote-feed-body"><div class="wyn-quote-feed-actions">' +
+        '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="wyn-quote-feed-card"><a class="wyn-quote-feed-author-avatar"></a><div class="wyn-quote-feed-body"><div class="wyn-quote-feed-actions">' +
         row +
         '</div></div></article></div></div>';
       document.body.append(host);
