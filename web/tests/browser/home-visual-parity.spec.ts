@@ -72,7 +72,9 @@ test("first post matches compact avatar author caption and action geometry", asy
   await expect(shareIcon.locator("path")).toHaveCount(1);
   await expect(shareIcon.locator("path")).toHaveAttribute("d", /M4\.75 11\.75v7\.1/);
   await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(115, 119, 127)");
-  await expect(moreText).toBeVisible();
+  // This Thai fixture is shorter than 190 displayed graphemes. The updated
+  // truncation rule must not show a redundant "ดูเพิ่มเติม" control.
+  await expect(moreText).toHaveCount(0);
   await expect(tags).toContainText("#WYNOS");
   await expect(tags).not.toContainText("◌");
   await expect(tags).toHaveCSS("display", "inline");
