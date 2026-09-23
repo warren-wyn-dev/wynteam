@@ -51,6 +51,77 @@ test("mixed Home/Profile rows have exactly one theme-aware separator", async ({ 
   }
 });
 
+test("real Quote footer and full-width separator match normal posts on Home and Profile", async ({ page }) => {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [320, 359, 390, 430, 681, 768]) {
+      await page.setViewportSize({ width, height: 820 });
+      await page.goto("/dev/quote-fixture", { waitUntil: "domcontentloaded" });
+      const result = await page.evaluate(() => {
+        const actualQuote = document.querySelector<HTMLElement>('[data-testid="quote-fixture"] > .wyn-quote-feed-card')!;
+        const normal = document.createElement("article");
+        normal.className = "wyn-post";
+        normal.innerHTML = '<span class="wyn-post-avatar"></span><div class="wyn-post-body">' +
+          '<div class="wyn-post-author-row">WYNOS</div><div class="wyn-post-caption-wrap">โพสต์ปกติ</div>' +
+          '<div class="wyn-post-actions wyn-threads-actions"><button class="wyn-action-button">♡</button>' +
+          '<button class="wyn-action-button">◯</button><button class="wyn-action-button">↻</button>' +
+          '<button class="wyn-action-button">↑</button><button class="wyn-action-button wyn-action-save">♧</button></div></div>';
+        const containers = ["wyn-home-feed", "profile-feed-list"].map((name) => {
+          const host = document.createElement("div");
+          host.className = name === "profile-feed-list" ? "wyn-profile-beta1" : "wyn-divider-test-host";
+          host.style.cssText = "position:absolute;left:0;top:0;visibility:hidden;width:min(100%,680px)";
+          const feed = document.createElement("div");
+          feed.className = name;
+          host.appendChild(feed);
+          feed.append(actualQuote.cloneNode(true),normal.cloneNode(true),actualQuote.cloneNode(true),actualQuote.cloneNode(true),normal.cloneNode(true));
+          document.body.append(host);
+          const feedRect = feed.getBoundingClientRect();
+          const posts = Array.from(feed.children) as HTMLElement[];
+          const result = posts.map((post) => {
+            const rect = post.getBoundingClientRect();
+            const actionRect = post.querySelector<HTMLElement>(".wyn-post-actions")!.getBoundingClientRect();
+            const css = getComputedStyle(post);
+            return {
+              left: rect.left,
+              right: rect.right,
+              top: rect.top,
+              bottom: rect.bottom,
+              borderTop: css.borderTopWidth,
+              borderBottom: css.borderBottomWidth,
+              borderColor: css.borderTopColor,
+              paddingBottom: css.paddingBottom,
+              footerGap: rect.bottom - actionRect.bottom,
+            };
+          });
+          const expectedColor = getComputedStyle(document.documentElement).getPropertyValue("--wyn-border").trim();
+          host.remove();
+          return { name, feedLeft: feedRect.left, feedRight: feedRect.right, posts: result, expectedColor };
+        });
+        return containers;
+      });
+      for (const { feedLeft, feedRight, posts } of result) {
+        for (const post of posts) {
+          // The separator is on the NEXT full-width card, not only on its
+          // inner content/actions column (which ends before the bookmark).
+          expect(Math.abs(post.left - feedLeft)).toBeLessThanOrEqual(1);
+          expect(Math.abs(post.right - feedRight)).toBeLessThanOrEqual(1);
+          expect(post.borderBottom).toBe("0px");
+          expect(post.paddingBottom).toBe("0px");
+        }
+        expect(posts[0].borderTop).toBe("0px");
+        for (let i = 1; i < posts.length; i += 1) {
+          expect(posts[i].borderTop).toBe("1px");
+          expect(Math.abs(posts[i].top - posts[i - 1].bottom)).toBeLessThanOrEqual(1);
+        }
+        // Normal HomePostCard and QuoteFeedCard action bars now finish the
+        // same distance above the next divider, without Quote's old 12px gap.
+        expect(Math.abs(posts[0].footerGap - posts[1].footerGap)).toBeLessThanOrEqual(1);
+        expect(Math.abs(posts[2].footerGap - posts[1].footerGap)).toBeLessThanOrEqual(1);
+      }
+    }
+  }
+});
+
 test("normal and Quote cards share avatar/content insets at mobile and wide breakpoints", async ({ page }) => {
   for (const width of [320, 359, 360, 390, 680, 681, 768]) {
     await page.setViewportSize({ width, height: 820 });
