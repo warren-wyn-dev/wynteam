@@ -1,8 +1,10 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 
 export class UsernameTakenError extends Error {}
 export class UsernameReservedError extends Error {}
 export class EmailAlreadyRegisteredError extends Error {}
+export class SignupPasswordTooShortError extends Error {}
 
 export type OnboardingStep = "signup" | "profileOptional";
 
@@ -62,8 +64,17 @@ export async function redeemReferralCode(client: SupabaseClient, code: string): 
   if (result.error) throw result.error;
 }
 
+export function getEmailConfirmationRedirectUrl(): string | undefined {
+  return typeof window === "undefined" ? undefined : `${window.location.origin}/auth/callback`;
+}
+
 export async function signUpWithEmail(client: SupabaseClient, email: string, password: string) {
-  const result = await client.auth.signUp({ email, password });
+  if (password.length < MIN_SIGNUP_PASSWORD_LENGTH) throw new SignupPasswordTooShortError();
+  const result = await client.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: getEmailConfirmationRedirectUrl() },
+  });
   if (result.error) {
     const message = result.error.message.toLowerCase();
     if (message.includes("already registered") || message.includes("already exists")) {
