@@ -165,7 +165,10 @@
     gap: 16px;
   }
 
-  .profile-feed-list .golden-drop-actions,
+  .profile-feed-list .golden-drop-actions {
+    gap: 16px;
+  }
+
   .club-detail-post footer {
     gap: 15px;
   }
