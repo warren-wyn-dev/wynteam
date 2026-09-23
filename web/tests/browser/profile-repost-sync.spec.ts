@@ -20,7 +20,7 @@ test("profile tabs keep independent rows and re-fetch reposts after changing tab
   expect(timeline).toContain('.eq("redropper_id", userId)');
   expect(timeline).toContain('.is("quote_text", null)');
   expect(timeline).toContain('.not("quote_text", "is", null)');
-  expect(profile).toContain('key={`${row.id}:${row.redrop_id ?? "plain"}`}');
+  expect(profile).toContain('key={`${row.id}:${row.redrop_id ?? "plain"}:${row.quote_reposter_id ?? ""}`}');
   expect(profile).toContain("request !== requestId.current");
   expect(profile).toContain("requestId.current += 1");
   expect(cache).toContain("export function deleteMountCache(key: string)");
