@@ -32,9 +32,11 @@ jobs:
           cache-dependency-path: web/package.json
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Test account password authorization
+        run: npm run test:account-password
       - name: Install test browsers
         run: npx playwright install --with-deps chromium webkit
-      - name: Run focused signup security regressions
+      - name: Run focused authentication security regressions
         run: npx playwright test tests/browser/signup-security.spec.ts tests/browser/password-recovery.spec.ts
       - name: Upload focused test artifacts
         if: failure()
