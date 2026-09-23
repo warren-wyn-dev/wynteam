@@ -19,7 +19,7 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
 
   // New iOS-style icon in both routes; no alternate arrow in the post row.
   expect(iconMap).toContain("share:Share,");
-  expect(shareIcon).toContain('className="wyn-share-icon"');
+  expect(shareIcon).toContain('className={["wyn-share-icon", className].filter(Boolean).join(" ")}');
   expect(shareIcon).toContain("M12 15.5V3.5");
   expect(shareIcon).toContain("M4.75 11.75v7.1");
   expect(shareIcon).not.toContain("M8 8H5.75");
