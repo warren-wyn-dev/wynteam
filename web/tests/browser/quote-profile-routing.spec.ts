@@ -71,7 +71,10 @@ test("The profile data queries never mix Quote and Standard Reposts", async () =
   expect(card).toContain("row.author_avatar_url");
   expect(card).toContain('href={`/drop/${row.id}`}');
   expect(card).toContain("<PostActions");
-  expect(card).toContain("โต้ตอบกับโพสต์ต้นฉบับ");
+  expect(card).toContain("กิจกรรมโพสต์อ้างอิง");
+  expect(card).toContain("toggleQuoteLike");
+  expect(card).toContain("toggleQuoteRepost");
+  expect(card).toContain("toggleQuoteSave");
   expect(card).toContain("shareQuote");
   expect(card).toContain('from("drop_images")');
   expect(card).toContain("setFailedMedia");
@@ -84,13 +87,13 @@ test("The profile data queries never mix Quote and Standard Reposts", async () =
 
 });
 
-test("Quotes show the complete embedded original and explicitly attributed working actions", async ({ page }) => {
+test("Quotes show the embedded original and their own independent actions", async ({ page }) => {
   const root = process.cwd();
   const css = await readFile(path.join(root, "app/profile-home-feed.css"), "utf8");
   expect(css).toContain(".wyn-quote-feed-card");
   expect(css).toContain(".wyn-quote-feed-original");
   expect(css).not.toContain("-webkit-line-clamp: 4");
-  expect(css).toContain(".wyn-quote-feed-engagement-label");
+  expect(css).toContain(".wyn-quote-feed-state");
   expect(css).toContain(".wyn-quote-feed-actions");
   expect(css).toContain(".wyn-quote-feed-original-image");
   expect(css).toContain(".wyn-quote-feed-sheet-backdrop");
@@ -120,7 +123,7 @@ test("Shared Quote URLs resolve to their authored quote rather than the original
   expect(card).toContain('href={`/drop/${row.id}`}');
 });
 
-test("Quote card keeps multiline text and original actions inside 320px", async ({ page }) => {
+test("Quote card keeps multiline text and Quote actions inside 320px", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
   const size = await page.evaluate(() => {
