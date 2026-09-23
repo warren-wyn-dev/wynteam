@@ -13,6 +13,9 @@ on:
       - '.github/scripts/test-auth-email-readiness.sh'
       - '.github/workflows/web-beta1-email-readiness.yml'
   workflow_dispatch:
+  workflow_run:
+    workflows: ['WYN-158 Production Deploy']
+    types: [completed]
 
 permissions:
   contents: read
@@ -30,7 +33,13 @@ jobs:
 
   audit:
     needs: validate
-    if: github.event_name != 'pull_request'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
