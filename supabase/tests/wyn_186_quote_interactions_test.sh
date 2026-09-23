@@ -155,7 +155,7 @@ insert into public.quote_saves(quote_id,user_id)
 insert into public.quote_comments(quote_id,author_id,text_content)
   values ('a1000000-0000-0000-0000-000000000001','33333333-3333-3333-3333-333333333333','ถูกใจโพสต์อ้างอิง');
 
-do $
+do $$
 declare e record;
         rejected boolean := false;
 begin
