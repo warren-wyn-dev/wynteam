@@ -25,7 +25,7 @@ import {
 } from "@/lib/account-registry";
 import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
-import { fetchProfilePostTimeline, fetchProfileStandardReposts, PROFILE_POST_PAGE_SIZE, PROFILE_REPOST_PAGE_SIZE } from "@/lib/profile-post-feed";
+import { fetchProfileLikedContent, fetchProfilePostTimeline, fetchProfileStandardReposts, PROFILE_POST_PAGE_SIZE, PROFILE_REPOST_PAGE_SIZE } from "@/lib/profile-post-feed";
 import { haptic } from "@/lib/haptics";
 import { deleteMountCache, getMountCache, setMountCache } from "@/lib/mount-cache";
 import { normalizeExternalUrl } from "@/lib/external-link";
@@ -35,7 +35,6 @@ import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   canViewProfileLikes,
   chatAllowed,
-  fetchProfileLikedDrops,
   fetchProfileSummary,
   profileLabel,
   removeProfileImage,
@@ -73,7 +72,7 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
       let next: HomeFeedRow[];
       if (kind === "posts") next = await fetchProfilePostTimeline(client, profileId, nextPage);
       else if (kind === "redrops") next = await fetchProfileStandardReposts(client, profileId, nextPage);
-      else next = await fetchProfileLikedDrops(client, profileId, nextPage);
+      else next = await fetchProfileLikedContent(client, profileId, nextPage);
       if (kind === "likes" && nextPage === 0 && !next.length) {
         const canView = await canViewProfileLikes(client, profileId);
         if (request !== requestId.current) return;
@@ -138,6 +137,19 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
     void load(0, false);
   }, [kind, profileId, load]);
 
+  const onQuoteRepostChanged = useCallback((actorId: string, quoteId: string, removed: boolean) => {
+    deleteMountCache(`profile-feed:${actorId}:redrops`);
+    if (kind !== "redrops" || profileId !== actorId) return;
+    if (removed) {
+      setRows((current) => {
+        const remaining = current.filter((row) => !(row.redrop_id === quoteId && row.quote_reposter_id === actorId));
+        rowsRef.current = remaining;
+        return remaining;
+      });
+    }
+    void load(0, false);
+  }, [kind, profileId, load]);
+
   const onQuoteCreated = useCallback((actorId: string) => {
     // Quote Reposts are authored content, so only the author's Posts cache
     // changes. The Reposts tab contains standard (unannotated) shares only.
@@ -159,7 +171,7 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
   return (loading && !rows.length) || (viewerId && rows.length > 0 && !viewerReady) ? <FeedSkeleton items={2} />
     : !allowed ? <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>
     : !rows.length ? <EmptyState>{kind === "posts" ? "ยังไม่มีโพสต์" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>
-    : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity viewerId={viewerId} viewerSnapshot={viewerSnapshot} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} onQuoteDeleted={onQuoteDeleted} key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
+    : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity viewerId={viewerId} viewerSnapshot={viewerSnapshot} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} onQuoteDeleted={onQuoteDeleted} onQuoteRepostChanged={onQuoteRepostChanged} key={`${row.id}:${row.redrop_id ?? "plain"}:${row.quote_reposter_id ?? ""}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
 function formatWebsiteLabel(url: string): string {

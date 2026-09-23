@@ -21,6 +21,7 @@ import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { authorLabel, isQuotePost, type HomeFeedRow } from "@/lib/feed";
+import { feedIdentity } from "@/lib/quote-feed-data";
 import { haptic } from "@/lib/haptics";
 import { deleteMountCache } from "@/lib/mount-cache";
 import { shareOrCopyLink } from "@/lib/share";
@@ -871,11 +872,12 @@ export function HomeScreen({ session }: { session: Session }) {
               <QuoteFeedCard
                 row={row}
                 viewerId={userId}
+                initialQuoteState={viewer.quoteEngagementById?.get(row.redrop_id || "")}
                 onDeleted={(actorId) => {
                   deleteMountCache(`profile-feed:${actorId}:posts`);
                   void load();
                 }}
-                key={`${row.id}:${row.redrop_id ?? "plain"}`}
+                key={feedIdentity(row)}
               />
             ) : (
               <HomePostCard
@@ -896,7 +898,7 @@ export function HomeScreen({ session }: { session: Session }) {
                 onShare={() => void share(row)}
                 onSave={() => void save(row)}
                 priority={index < 2}
-                key={`${row.id}:${row.redrop_id ?? "plain"}`}
+                key={feedIdentity(row)}
               />
             ))}
             {hasMoreRows ? <div ref={loadMoreRef} style={{ height: 1 }} aria-hidden="true" /> : null}

@@ -7,6 +7,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, DropPreviewCard, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import type { HomeFeedRow } from "@/lib/feed";
+import { fetchSavedQuoteRows, feedIdentity } from "@/lib/quote-feed-data";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
@@ -28,17 +29,24 @@ function BookmarksInner({ client, userId }: { client: SupabaseClient; userId: st
   const load = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true); setError("");
     try {
-      const from = nextPage * 21;
-      const result = await client.from("saved_feed").select("*").neq("content_type", "pop").order("saved_at", { ascending: false }).range(from, from + 20);
+      const limit = (nextPage + 1) * 21;
+      const [result, savedQuotes] = await Promise.all([
+        client.from("saved_feed").select("*").neq("content_type","pop")
+          .order("saved_at",{ascending:false}).range(0,limit-1),
+        fetchSavedQuoteRows(client,userId,limit),
+      ]);
       if (result.error) throw result.error;
-      const next = (result.data ?? []) as HomeFeedRow[];
+      const originals = (result.data ?? []) as (HomeFeedRow & { saved_at?: string })[];
+      const next = [...originals,...savedQuotes]
+        .sort((a,b) => Date.parse(b.saved_at ?? b.created_at)-Date.parse(a.saved_at ?? a.created_at))
+        .slice(nextPage*21,(nextPage+1)*21);
       setRows((current) => append ? [...current, ...next] : next);
       setPage(nextPage);
       setHasMore(next.length === 21);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดรายการที่บันทึกไว้ไม่สำเร็จ");
     } finally { setLoading(false); }
-  }, [client]);
+  }, [client,userId]);
 
   useEffect(() => { void load(0, false); }, [load]);
 
@@ -50,7 +58,7 @@ function BookmarksInner({ client, userId }: { client: SupabaseClient; userId: st
   return <AppChrome title="บันทึกไว้" userId={userId} backHref="/" showBottomNav={false}>
     <PullToRefreshIndicator pull={pull} topOffset="60px" refreshingLabel="กำลังรีเฟรชรายการที่บันทึกไว้" />
     <div onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
-      {error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load(0, false)}>ลองใหม่</button></div> : loading && !rows.length ? <LoadingState /> : !rows.length ? <EmptyState>ยังไม่มีโพสต์ที่บันทึกไว้</EmptyState> : <div className="bookmarks-list">{rows.map((row) => <DropPreviewCard row={row} key={row.id} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>}
+      {error ? <div className="route-empty"><p>{error}</p><button className="route-secondary" type="button" onClick={() => void load(0, false)}>ลองใหม่</button></div> : loading && !rows.length ? <LoadingState /> : !rows.length ? <EmptyState>ยังไม่มีโพสต์ที่บันทึกไว้</EmptyState> : <div className="bookmarks-list">{rows.map((row) => <DropPreviewCard row={row} viewerId={userId} key={feedIdentity(row)} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>}
     </div>
   </AppChrome>;
 }

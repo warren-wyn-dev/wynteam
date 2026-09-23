@@ -23,6 +23,10 @@ export type HomeFeedRow = {
   redropper_avatar_url?: string | null;
   redropper_is_verified?: boolean | null;
   quote_text?: string | null;
+  /** A standard repost of this Quote (not a repost of its original Drop). */
+  quote_reposter_id?: string | null;
+  quote_reposter_username?: string | null;
+  quote_reposted_at?: string | null;
   location?: string | null;
   audience?: string | null;
 };

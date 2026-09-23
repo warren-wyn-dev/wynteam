@@ -9,7 +9,8 @@ import { PostActions } from "@/components/home/post-actions";
 import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { Toast, useToast } from "@/components/ui/toast";
 import { postMediaAspectRatio } from "@/lib/feed";
-import { loadHomeViewerState, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
+import { fetchQuoteEngagement, toggleQuoteLike, toggleQuoteRepost, toggleQuoteSave, type QuoteEngagement } from "@/lib/quote-actions";
+import { deleteMountCache } from "@/lib/mount-cache";
 import { shareOrCopyLink } from "@/lib/share";
 import { createPortal } from "react-dom";
 
@@ -36,20 +37,20 @@ function QuoteAvatar({ src, label, small = false }: { src?: string | null; label
   return <Image className="wyn-quote-feed-avatar" src={src} alt="" width={size} height={size} sizes={small ? "30px" : "40px"} onError={() => setFailed(true)} />;
 }
 
-/**
- * Quotes are separate authored posts. Until quote-specific reactions exist in
- * the backend, label the action strip explicitly as actions on the ORIGINAL
- * Drop; never present original engagement counts as counts for the quote.
- */
+/** All actions below target redrops.id (this Quote), not the embedded original Drop. */
 export function QuoteFeedCard({
   row,
   viewerId,
-  initialViewer,
+  initialQuoteState,
+  commentCountDelta = 0,
+  onQuoteRepostChanged,
   onDeleted,
 }: {
   row: HomeFeedRow;
   viewerId: string;
-  initialViewer?: HomeViewerState | null;
+  initialQuoteState?: QuoteEngagement | null;
+  commentCountDelta?: number;
+  onQuoteRepostChanged?: (actorId: string, quoteId: string, removed: boolean) => void;
   onDeleted?: (actorId: string, quoteId: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -60,9 +61,9 @@ export function QuoteFeedCard({
   const [error, setError] = useState("");
   const [reported, setReported] = useState(false);
   const client = useMemo(() => getSupabaseBrowserClient(), []);
-  const [viewer, setViewer] = useState<HomeViewerState | null>(initialViewer ?? null);
-  const [likeCount, setLikeCount] = useState(row.like_count ?? 0);
-  const [redropCount, setRedropCount] = useState(row.redrop_count ?? 0);
+  // Never copy row.like_count: home_feed's row is the ORIGINAL Drop.
+  const [engagement, setEngagement] = useState<QuoteEngagement | null>(initialQuoteState ?? null);
+  const [engagementError, setEngagementError] = useState("");
   const [actionSheet, setActionSheet] = useState<"redrop" | "quote" | null>(null);
   const [quote, setQuote] = useState("");
   const [media, setMedia] = useState<string[]>(row.image_url ? [row.image_url] : []);
@@ -73,24 +74,25 @@ export function QuoteFeedCard({
   const own = Boolean(actorId && viewerId === actorId);
   const quoteName = row.redropper_display_name?.trim() || row.redropper_username || "WYNOS";
   const originalName = authorLabel(row);
-  const liked = viewer?.likedDropIds.has(row.id) ?? false;
-  const redropped = viewer?.redroppedDropIds.has(row.id) ?? false;
-  const saved = viewer?.savedDropIds.has(row.id) ?? false;
-  const canRedrop = row.audience == null || row.audience === "everyone";
+  const liked = engagement?.liked ?? false;
+  const redropped = engagement?.redropped ?? false;
+  const saved = engagement?.saved ?? false;
+  const canRedropOriginal = row.audience == null || row.audience === "everyone";
   const availableMedia = media.filter((url) => !failedMedia.has(url));
   const firstImage = availableMedia[0];
   const mediaRatio = postMediaAspectRatio(row, availableMedia.length > 1);
 
   useEffect(() => {
-    // Initial Profile snapshot prevents a false first paint. A background
-    // revalidation keeps Quote actions current after a same-tab refresh.
-    if (!client || !viewerId) return;
+    if (!client || !quoteId || initialQuoteState) return;
     let live = true;
-    void loadHomeViewerState(client, viewerId, [row]).then((state) => {
-      if (live) setViewer(state);
-    }).catch(() => { if (live) showToast("โหลดสถานะโพสต์ไม่สำเร็จ"); });
+    void fetchQuoteEngagement(client, [quoteId]).then((states) => {
+      if (!live) return;
+      const next = states.get(quoteId);
+      if (next) { setEngagement(next); setEngagementError(""); }
+      else setEngagementError("ไม่สามารถโหลดกิจกรรมโพสต์อ้างอิงได้");
+    }).catch(() => { if (live) setEngagementError("โหลดกิจกรรมโพสต์อ้างอิงไม่สำเร็จ"); });
     return () => { live = false; };
-  }, [client, viewerId, row, showToast, initialViewer]);
+  }, [client, quoteId, initialQuoteState]);
 
   // home_feed may have an incomplete/old image_url. Read the source image
   // rows (also supports multi-image posts) instead of displaying a blank box.
@@ -107,54 +109,68 @@ export function QuoteFeedCard({
     return () => { live = false; };
   }, [client, row.id, row.image_url, row.image_count]);
 
-  const reloadViewer = async () => {
-    if (!client || !viewerId) return;
-    try { setViewer(await loadHomeViewerState(client, viewerId, [row])); }
-    catch { showToast("อัปเดตสถานะไม่สำเร็จ"); }
+  const reloadEngagement = async () => {
+    if (!client || !quoteId) return;
+    try {
+      const latest = await fetchQuoteEngagement(client, [quoteId]);
+      const state = latest.get(quoteId);
+      if (!state) { setEngagementError("ไม่พบกิจกรรมของโพสต์อ้างอิงนี้"); return; }
+      setEngagement(state);
+      setEngagementError("");
+    } catch {
+      setEngagementError("โหลดกิจกรรมโพสต์อ้างอิงไม่สำเร็จ");
+      showToast("อัปเดตสถานะโพสต์อ้างอิงไม่สำเร็จ");
+    }
   };
-  const patchViewer = (key: "likedDropIds" | "redroppedDropIds" | "savedDropIds", value: boolean) => {
-    setViewer((current) => {
-      if (!current) return current;
-      const next = new Set(current[key]);
-      if (value) next.add(row.id); else next.delete(row.id);
-      return { ...current, [key]: next };
-    });
+  const likeQuote = async () => {
+    if (!client || !viewerId || !quoteId || !engagement || busy) return;
+    const before = engagement;
+    setBusy(true);
+    setEngagement({ ...before, liked: !liked, likeCount: Math.max(0, before.likeCount + (liked ? -1 : 1)) });
+    try { await toggleQuoteLike(client, viewerId, quoteId, liked); }
+    catch {
+      setEngagement(before);
+      await reloadEngagement();
+      showToast("กดถูกใจโพสต์อ้างอิงไม่สำเร็จ");
+    } finally { setBusy(false); }
   };
-  const likeOriginal = async () => {
-    if (!client || !viewerId || !viewer || busy) { showToast("กรุณาเข้าสู่ระบบ"); return; }
-    patchViewer("likedDropIds", !liked);
-    setLikeCount((count) => Math.max(0, count + (liked ? -1 : 1)));
-    try { await toggleDropLike(client, viewerId, row.id, liked); }
-    catch { setLikeCount(row.like_count ?? 0); await reloadViewer(); showToast("กดถูกใจไม่สำเร็จ"); }
+  const saveQuote = async () => {
+    if (!client || !viewerId || !quoteId || !engagement || busy) return;
+    const before = engagement;
+    setBusy(true);
+    setEngagement({ ...before, saved: !saved });
+    try {
+      await toggleQuoteSave(client, viewerId, quoteId, saved);
+      deleteMountCache(`bookmarks:${viewerId}`);
+    } catch {
+      setEngagement(before);
+      await reloadEngagement();
+      showToast("บันทึกโพสต์อ้างอิงไม่สำเร็จ");
+    } finally { setBusy(false); }
   };
-  const saveOriginal = async () => {
-    if (!client || !viewerId || !viewer || busy) { showToast("กรุณาเข้าสู่ระบบ"); return; }
-    patchViewer("savedDropIds", !saved);
-    try { await toggleDropSave(client, viewerId, row.id, saved); }
-    catch { await reloadViewer(); showToast("บันทึกโพสต์ไม่สำเร็จ"); }
-  };
-  const redropOriginal = async () => {
-    if (!client || !viewerId || !viewer || busy || !canRedrop) return;
+  const repostQuote = async () => {
+    if (!client || !viewerId || !quoteId || !engagement || busy) return;
+    const before = engagement;
     setBusy(true);
     setError("");
-    patchViewer("redroppedDropIds", !redropped);
-    setRedropCount((count) => Math.max(0, count + (redropped ? -1 : 1)));
+    setEngagement({ ...before, redropped: !redropped, redropCount: Math.max(0, before.redropCount + (redropped ? -1 : 1)) });
     try {
-      await toggleDropRedrop(client, viewerId, row.id, redropped);
+      await toggleQuoteRepost(client, viewerId, quoteId, redropped);
+      deleteMountCache(`profile-feed:${viewerId}:redrops`);
+      onQuoteRepostChanged?.(viewerId, quoteId, redropped);
       setActionSheet(null);
     } catch {
-      setRedropCount(row.redrop_count ?? 0);
-      await reloadViewer();
-      setError("รีโพสต์ต้นฉบับไม่สำเร็จ");
+      setEngagement(before);
+      await reloadEngagement();
+      setError("รีโพสต์อ้างอิงไม่สำเร็จ");
     } finally { setBusy(false); }
   };
   const quoteOriginal = async () => {
-    if (!client || !viewerId || !quote.trim() || busy || !canRedrop) return;
+    if (!client || !viewerId || !quote.trim() || busy || !canRedropOriginal) return;
     setBusy(true); setError("");
     try {
       const result = await client.from("redrops").insert({ drop_id: row.id, redropper_id: viewerId, quote_text: quote.trim() });
       if (result.error) throw result.error;
-      setRedropCount((count) => count + 1);
       setQuote(""); setActionSheet(null);
       showToast("โพสต์อ้างอิงแล้ว");
     } catch { setError("อ้างอิงโพสต์ต้นฉบับไม่สำเร็จ"); }
@@ -224,6 +240,7 @@ export function QuoteFeedCard({
         <QuoteAvatar src={row.redropper_avatar_url} label={quoteName} />
       </Link>
       <div className="wyn-quote-feed-body">
+        {row.quote_reposter_id ? <div className="wyn-post-redrop-line"><WynosIcon name="repost" size={16} strokeWidth={2} /> รีโพสต์โดย {row.quote_reposter_username || "ผู้ใช้ WYNOS"} · {row.quote_reposted_at ? relativeTimeTh(row.quote_reposted_at) : ""}</div> : null}
         <header className="wyn-quote-feed-head">
           <Link href={`/profile/${actorId}`} className="wyn-quote-feed-byline">
             <strong>{quoteName}</strong>
@@ -245,31 +262,32 @@ export function QuoteFeedCard({
           {row.caption ? <span className="wyn-quote-feed-original-text">{row.caption.split(/(#[\p{L}\p{N}_]+)/gu).map((part, index) => part.startsWith("#") ? <span className="wyn-quote-feed-tag" key={index}>{part}</span> : part)}</span> : null}
           {firstImage ? <span className="wyn-quote-feed-original-image" style={{ aspectRatio: String(mediaRatio) }}><Image src={firstImage} alt="รูปจากโพสต์ต้นฉบับ" width={800} height={Math.round(800 / (mediaRatio || 1))} sizes="(max-width: 680px) calc(100vw - 98px), 510px" onError={() => setFailedMedia((current) => new Set([...current, firstImage]))} />{availableMedia.length > 1 ? <span className="wyn-quote-feed-image-count">1/{availableMedia.length}</span> : null}</span> : null}
         </Link>
-        <div className="wyn-quote-feed-engagement-label">โต้ตอบกับโพสต์ต้นฉบับ</div>
-        <div className="wyn-quote-feed-actions">
-          <PostActions
+        <div className="wyn-quote-feed-actions" aria-label="กิจกรรมโพสต์อ้างอิง">
+          {engagement ? <PostActions
             liked={liked}
-            likeCount={likeCount}
-            commentCount={row.comment_count ?? 0}
-            canRedrop={canRedrop}
+            likeCount={engagement.likeCount}
+            commentCount={Math.max(0, engagement.commentCount + commentCountDelta)}
+            canRedrop
             redropped={redropped}
-            redropCount={redropCount}
+            redropCount={engagement.redropCount}
             saved={saved}
-            onLike={() => void likeOriginal()}
-            commentHref={`/drop/${row.id}#comments`}
+            onLike={() => void likeQuote()}
+            commentHref={`/quote/${quoteId}#comments`}
             onRedrop={() => { if (!viewerId) { showToast("กรุณาเข้าสู่ระบบ"); return; } setActionSheet("redrop"); }}
             onShare={() => void shareQuote()}
-            onSave={() => void saveOriginal()}
+            onSave={() => void saveQuote()}
             modernFeed
-          />
+          /> : <div className="wyn-quote-feed-state" role="status">
+            {engagementError ? <button type="button" onClick={() => { setEngagementError(""); void reloadEngagement(); }}>โหลดกิจกรรมไม่สำเร็จ · ลองใหม่</button> : "กำลังโหลดกิจกรรมโพสต์อ้างอิง…"}
+          </div>}
         </div>
         {reported ? <p className="wyn-quote-feed-notice" role="status">ส่งรายงานแล้ว</p> : null}
       </div>
       {actionSheet === "redrop" && typeof document !== "undefined" ? createPortal(
         <div className="route-modal-backdrop wyn-quote-feed-sheet-backdrop" role="presentation" onClick={() => setActionSheet(null)} onTouchStart={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()} onTouchEnd={(event) => event.stopPropagation()}>
-          <section className="wyn-quote-feed-sheet" role="dialog" aria-modal="true" aria-label="โต้ตอบกับโพสต์ต้นฉบับ" onClick={(event) => event.stopPropagation()}>
+          <section className="wyn-quote-feed-sheet" role="dialog" aria-modal="true" aria-label="รีโพสต์อ้างอิง" onClick={(event) => event.stopPropagation()}>
             <div className="wyn-quote-feed-sheet-grip" aria-hidden="true" />
-            <RepostSheetChoices reposted={redropped} busy={busy} error={error} onRepost={() => void redropOriginal()} onQuote={() => { setError(""); setActionSheet("quote"); }} />
+            <RepostSheetChoices reposted={redropped} busy={busy} error={error} onRepost={() => void repostQuote()} onQuote={() => { setError(""); setActionSheet("quote"); }} quoteLabel="อ้างอิงโพสต์ต้นฉบับ" />
             <button type="button" className="wyn-quote-feed-sheet-cancel" onClick={() => setActionSheet(null)}>ยกเลิก</button>
           </section>
         </div>, document.body,
