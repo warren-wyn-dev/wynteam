@@ -19,7 +19,7 @@ drop policy if exists "Like visible quotes as self" on public.quote_likes;
 create policy "Like visible quotes as self" on public.quote_likes
   for insert to authenticated with check (
     auth.uid()=user_id
-    and coalesce((auth.jwt()->>'is_anonymous')::boolean,false)=false
+    and coalesce((nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'is_anonymous')::boolean,false)=false
     and exists (select 1 from public.redrops q where q.id=quote_id
       and q.quote_text is not null and not internal.is_blocked_either_way(auth.uid(),q.redropper_id))
   );
@@ -48,7 +48,7 @@ drop policy if exists "Comment on visible quotes as self" on public.quote_commen
 create policy "Comment on visible quotes as self" on public.quote_comments
   for insert to authenticated with check (
     auth.uid()=author_id
-    and coalesce((auth.jwt()->>'is_anonymous')::boolean,false)=false
+    and coalesce((nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'is_anonymous')::boolean,false)=false
     and not internal.is_posting_blocked(auth.uid())
     and exists (select 1 from public.redrops q where q.id=quote_id and q.quote_text is not null
       and not internal.is_blocked_either_way(auth.uid(),q.redropper_id)
@@ -78,7 +78,7 @@ drop policy if exists "Repost visible quotes as self" on public.quote_reposts;
 create policy "Repost visible quotes as self" on public.quote_reposts
   for insert to authenticated with check (
     auth.uid()=user_id
-    and coalesce((auth.jwt()->>'is_anonymous')::boolean,false)=false
+    and coalesce((nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'is_anonymous')::boolean,false)=false
     and not internal.is_posting_blocked(auth.uid())
     and exists (select 1 from public.redrops q where q.id=quote_id and q.quote_text is not null
       and not internal.is_blocked_either_way(auth.uid(),q.redropper_id))
@@ -103,7 +103,7 @@ drop policy if exists "Save visible quotes as self" on public.quote_saves;
 create policy "Save visible quotes as self" on public.quote_saves
   for insert to authenticated with check (
     auth.uid()=user_id
-    and coalesce((auth.jwt()->>'is_anonymous')::boolean,false)=false
+    and coalesce((nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'is_anonymous')::boolean,false)=false
     and exists (select 1 from public.redrops q where q.id=quote_id and q.quote_text is not null)
   );
 drop policy if exists "Remove own quote saves" on public.quote_saves;
