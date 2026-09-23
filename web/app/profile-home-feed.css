@@ -98,6 +98,13 @@
   border-radius: 50%;
   background: transparent;
   color: #73767e;
+  position: relative;
+}
+/* Extend the Quote menu touch area to 44x44 without changing byline geometry. */
+.wyn-quote-feed-head > button::before {
+  content: "";
+  position: absolute;
+  inset: -9px -10px -9px -6px;
 }
  .wyn-quote-feed-comment {
   display: block;
@@ -201,6 +208,11 @@
   margin: 4px 0 6px;
 }
 .wyn-quote-feed-actions .wyn-action-save { margin-left: auto; }
+@media (max-width: 359px) {
+  /* Quote now keeps its only More control in the header. The five shared
+     actions therefore use Home's full 22/24px icons and 16px mobile gap. */
+  .wyn-quote-feed-actions .wyn-post-actions.wyn-threads-actions { gap: 16px; }
+}
 /* Quotes remain distinct authored posts, but their outer row uses Home's
    40px avatar / 10px gutter / 8px top inset on Home AND Profile.
    Keep the embedded original's compact 30px avatar unchanged. */
