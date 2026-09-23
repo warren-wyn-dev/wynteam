@@ -93,7 +93,8 @@ test("Home and Profile share approved Thai two-option Repost sheet without separ
   expect(choices).toContain('<RepostIcon size={28} strokeWidth={2} />');
   expect(choices).toContain('<WynosIcon name="pencil" size={27} strokeWidth={2} />');
   expect(choices).toContain('<span>{reposted ? "ยกเลิกรีโพสต์" : "รีโพสต์"}</span>');
-  expect(choices).toContain('<span>อ้างอิง</span>');
+  expect(choices).toContain('quoteLabel = "อ้างอิง"');
+  expect(choices).toContain("<span>{quoteLabel}</span>");
   expect(choices).toContain('disabled={busy}');
   expect(choices).not.toContain("chevronRight");
   expect(choices).not.toContain("border-bottom");
