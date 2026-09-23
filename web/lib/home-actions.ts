@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { HomeFeedRow } from "@/lib/feed";
+import { fetchQuoteEngagement, type QuoteEngagement } from "@/lib/quote-actions";
 
 export type HomeViewerState = {
   likedDropIds: Set<string>;
@@ -9,6 +10,7 @@ export type HomeViewerState = {
   followedAuthorIds: Set<string>;
   pendingFollowAuthorIds: Set<string>;
   privateAuthorIds: Set<string>;
+  quoteEngagementById?: Map<string, QuoteEngagement>;
 };
 
 export type DropCommentRow = {
@@ -56,6 +58,7 @@ export async function loadHomeViewerState(
 ): Promise<HomeViewerState> {
   const dropIds = unique(rows.map((row) => row.id));
   const authorIds = unique(rows.map((row) => row.author_id));
+  const quoteIds = unique(rows.map((row) => row.quote_text?.trim() ? row.redrop_id || "" : ""));
 
   const empty: HomeViewerState = {
     likedDropIds: new Set(),
@@ -64,6 +67,7 @@ export async function loadHomeViewerState(
     followedAuthorIds: new Set(),
     pendingFollowAuthorIds: new Set(),
     privateAuthorIds: new Set(),
+    quoteEngagementById: new Map(),
   };
   if (!dropIds.length && !authorIds.length) return empty;
 
@@ -104,13 +108,17 @@ export async function loadHomeViewerState(
     ? client.from("profiles").select("id,is_private").in("id", authorIds)
     : Promise.resolve({ data: [], error: null });
 
-  const [likes, saves, redrops, follows, requests, profiles] = await Promise.all([
+  // Quote engagement is a separate domain; a temporarily unavailable new
+  // migration must not break the existing Home feed or its Drop actions.
+  const quotesPromise = fetchQuoteEngagement(client, quoteIds).catch(() => new Map<string, QuoteEngagement>());
+  const [likes, saves, redrops, follows, requests, profiles, quotes] = await Promise.all([
     likesPromise,
     savesPromise,
     redropsPromise,
     followsPromise,
     requestsPromise,
     profilesPromise,
+    quotesPromise,
   ]);
 
   for (const result of [likes, saves, redrops, follows, requests, profiles]) {
@@ -123,6 +131,7 @@ export async function loadHomeViewerState(
     redroppedDropIds: new Set((redrops.data ?? []).map((row) => String(row.drop_id))),
     followedAuthorIds: new Set((follows.data ?? []).map((row) => String(row.following_id))),
     pendingFollowAuthorIds: new Set((requests.data ?? []).map((row) => String(row.target_id))),
+    quoteEngagementById: quotes,
     privateAuthorIds: new Set(
       (profiles.data ?? [])
         .filter((row) => row.is_private === true)
