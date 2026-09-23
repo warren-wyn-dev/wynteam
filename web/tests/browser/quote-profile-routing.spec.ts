@@ -134,6 +134,7 @@ test("Quote card keeps multiline text and original actions inside 320px", async 
           <div class="wyn-quote-feed-body">
             <header class="wyn-quote-feed-head">
               <a class="wyn-quote-feed-byline"><strong>WYNOS ONLINE</strong><small> · 3 ชม.</small></a>
+              <button type="button" aria-label="ตัวเลือกอ้างอิง">···</button>
             </header>
             <a class="wyn-quote-feed-original">
               <span class="wyn-quote-feed-original-text">นี่คือ WYNOS
@@ -145,14 +146,13 @@ test("Quote card keeps multiline text and original actions inside 320px", async 
             </a>
             <div class="wyn-quote-feed-engagement-label">โต้ตอบกับโพสต์ต้นฉบับ</div>
             <div class="wyn-quote-feed-actions">
-              <div class="wyn-post-actions">
+              <div class="wyn-post-actions wyn-threads-actions">
                 <button class="wyn-action-button">♡<span>4</span></button>
                 <button class="wyn-action-button">◯</button>
                 <button class="wyn-action-button">↻<span>1</span></button>
                 <button class="wyn-action-button">⇧</button>
                 <button class="wyn-action-button wyn-action-save">♧</button>
               </div>
-              <button class="wyn-quote-feed-more-action">···</button>
             </div>
           </div>
         </article>
