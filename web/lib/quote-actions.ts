@@ -109,7 +109,7 @@ export async function fetchQuoteComments(
   const result = await client.from("quote_comments")
     .select("id,quote_id,author_id,text_content,created_at,author:profiles!quote_comments_author_id_fkey(username,display_name,avatar_url,is_verified)")
     .eq("quote_id", quoteId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .range(page * pageSize, (page + 1) * pageSize - 1);
   fail(result.error);
   return (result.data ?? []).map((row) => {
