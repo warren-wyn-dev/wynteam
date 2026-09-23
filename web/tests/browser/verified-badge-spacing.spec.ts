@@ -103,7 +103,7 @@ test("profile badge keeps existing 5px combined spacing", async ({ page }) => {
   expect(result.size).toBe(21);
 });
 
-test("Beta1 profile and post badges both show the shared white-check SVG", async ({ page }) => {
+test("Beta1 profile and post badges both show the shared black-check SVG", async ({ page }) => {
   const result = await page.evaluate(() => {
     const wrapper = document.createElement("div");
     wrapper.className = "wyn-profile-beta1";
