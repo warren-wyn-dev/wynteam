@@ -871,6 +871,7 @@ export function HomeScreen({ session }: { session: Session }) {
               <QuoteFeedCard
                 row={row}
                 viewerId={userId}
+                initialQuoteState={viewer.quoteEngagementById?.get(row.redrop_id || "")}
                 onDeleted={(actorId) => {
                   deleteMountCache(`profile-feed:${actorId}:posts`);
                   void load();
