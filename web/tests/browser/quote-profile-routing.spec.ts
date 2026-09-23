@@ -184,12 +184,12 @@ test("Beta1 Quote avatar and byline use the exact same row alignment as ordinary
     host.style.position = "relative";
     host.innerHTML = `
       <div class="profile-feed-list">
-        <article class="golden-drop-card">
-          <a class="golden-drop-author-avatar"><span class="route-avatar fallback">W</span></a>
-          <div class="golden-drop-body">
-            <header class="golden-drop-head">
-              <a><strong>WYNOS ONLINE</strong><small>· 1 ชม.</small></a>
-              <button type="button">•••</button>
+        <article class="wyn-post" style="padding-top:8px">
+          <a class="wyn-post-avatar"><span class="route-avatar fallback" style="width:40px;height:40px">W</span></a>
+          <div class="wyn-post-body">
+            <header class="wyn-post-author-row">
+              <a class="wyn-post-author-link"><strong class="wyn-post-author-name">WYNOS ONLINE</strong><small class="wyn-post-timestamp">· 1 ชม.</small></a>
+              <button class="wyn-post-more" type="button">•••</button>
             </header>
           </div>
         </article>
@@ -205,7 +205,7 @@ test("Beta1 Quote avatar and byline use the exact same row alignment as ordinary
       </div>
     `;
     document.body.appendChild(host);
-    const ordinary = host.querySelector<HTMLElement>(".golden-drop-card")!;
+    const ordinary = host.querySelector<HTMLElement>(".wyn-post")!;
     const quote = host.querySelector<HTMLElement>(".wyn-quote-feed-card")!;
     const measure = (card: HTMLElement, avatarClass: string, nameClass: string) => {
       const outer = card.getBoundingClientRect();
@@ -225,7 +225,7 @@ test("Beta1 Quote avatar and byline use the exact same row alignment as ordinary
         menuHeight: menu.height,
       };
     };
-    const ordinaryGeometry = measure(ordinary, ".golden-drop-author-avatar", ".golden-drop-head strong");
+    const ordinaryGeometry = measure(ordinary, ".wyn-post-avatar", ".wyn-post-author-name");
     const quoteGeometry = measure(quote, ".wyn-quote-feed-author-avatar", ".wyn-quote-feed-head strong");
     host.remove();
     return { ordinaryGeometry, quoteGeometry };
