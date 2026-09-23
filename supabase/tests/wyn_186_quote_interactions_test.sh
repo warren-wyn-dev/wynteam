@@ -97,6 +97,8 @@ end
 $$;
 
 grant usage on schema public to authenticated, anon;
+-- Match Supabase's actual permissions: authenticated users can call auth.uid().
+grant usage on schema auth to authenticated, anon;
 grant usage on schema storage to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
 grant select, insert on storage.objects to authenticated;
@@ -106,6 +108,9 @@ EOF
 cat > "$WORK_DIR/10_seed_and_assert.sql" <<'EOF'
 \pset pager off
 \set ON_ERROR_STOP on
+-- Canonical production grants USAGE on internal to authenticated; the local
+-- Supabase test stub must mirror that grant before evaluating RLS policies.
+grant usage on schema internal to authenticated;
 insert into auth.users (id,email) values
   ('11111111-1111-1111-1111-111111111111','alice@fixture.test'),
   ('22222222-2222-2222-2222-222222222222','bob@fixture.test'),
