@@ -17,6 +17,9 @@ permissions:
 jobs:
   signup-security:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://recovery-test.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_test_for_mocked_auth_only
     defaults:
       run:
         working-directory: web
@@ -32,7 +35,7 @@ jobs:
       - name: Install test browsers
         run: npx playwright install --with-deps chromium webkit
       - name: Run focused signup security regressions
-        run: npx playwright test tests/browser/signup-security.spec.ts
+        run: npx playwright test tests/browser/signup-security.spec.ts tests/browser/password-recovery.spec.ts
       - name: Upload focused test artifacts
         if: failure()
         uses: actions/upload-artifact@v4
