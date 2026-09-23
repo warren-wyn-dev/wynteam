@@ -98,3 +98,71 @@ test("Quotes show quoted author, an embedded original, and no wrongly attributed
   }));
   expect(result.body).toBeLessThanOrEqual(result.viewport + 2);
 });
+
+
+test("Beta1 Quote avatar and byline use the exact same row alignment as ordinary profile posts", async ({ page }) => {
+  await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
+  const measured = await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.className = "wyn-profile-beta1";
+    host.style.width = "min(390px, 100%)";
+    host.style.position = "relative";
+    host.innerHTML = `
+      <div class="profile-feed-list">
+        <article class="golden-drop-card">
+          <a class="golden-drop-author-avatar"><span class="route-avatar fallback">W</span></a>
+          <div class="golden-drop-body">
+            <header class="golden-drop-head">
+              <a><strong>WYNOS ONLINE</strong><small>· 1 ชม.</small></a>
+              <button type="button">•••</button>
+            </header>
+          </div>
+        </article>
+        <article class="wyn-quote-feed-card">
+          <a class="wyn-quote-feed-author-avatar"><span class="wyn-quote-feed-avatar fallback">W</span></a>
+          <div class="wyn-quote-feed-body">
+            <header class="wyn-quote-feed-head">
+              <a class="wyn-quote-feed-byline"><strong>WYNOS ONLINE</strong><small>· 1 ชม.</small></a>
+              <button type="button">•••</button>
+            </header>
+          </div>
+        </article>
+      </div>
+    `;
+    document.body.appendChild(host);
+    const ordinary = host.querySelector<HTMLElement>(".golden-drop-card")!;
+    const quote = host.querySelector<HTMLElement>(".wyn-quote-feed-card")!;
+    const measure = (card: HTMLElement, avatarClass: string, nameClass: string) => {
+      const outer = card.getBoundingClientRect();
+      const avatar = card.querySelector<HTMLElement>(avatarClass)!.getBoundingClientRect();
+      const nameEl = card.querySelector<HTMLElement>(nameClass)!;
+      const name = nameEl.getBoundingClientRect();
+      const menu = card.querySelector<HTMLElement>("header > button")!.getBoundingClientRect();
+      return {
+        avatarX: avatar.x - outer.x,
+        avatarY: avatar.y - outer.y,
+        avatarWidth: avatar.width,
+        avatarHeight: avatar.height,
+        nameX: name.x - outer.x,
+        nameY: name.y - outer.y,
+        fontSize: getComputedStyle(nameEl).fontSize,
+        fontWeight: getComputedStyle(nameEl).fontWeight,
+        menuHeight: menu.height,
+      };
+    };
+    const ordinaryGeometry = measure(ordinary, ".golden-drop-author-avatar", ".golden-drop-head strong");
+    const quoteGeometry = measure(quote, ".wyn-quote-feed-author-avatar", ".wyn-quote-feed-head strong");
+    host.remove();
+    return { ordinaryGeometry, quoteGeometry };
+  });
+  const { ordinaryGeometry: normal, quoteGeometry: quote } = measured;
+  expect(quote.avatarWidth).toBe(normal.avatarWidth);
+  expect(quote.avatarHeight).toBe(normal.avatarHeight);
+  expect(Math.abs(quote.avatarX - normal.avatarX)).toBeLessThanOrEqual(1);
+  expect(Math.abs(quote.avatarY - normal.avatarY)).toBeLessThanOrEqual(1);
+  expect(Math.abs(quote.nameX - normal.nameX)).toBeLessThanOrEqual(1);
+  expect(Math.abs(quote.nameY - normal.nameY)).toBeLessThanOrEqual(2);
+  expect(quote.fontSize).toBe(normal.fontSize);
+  expect(quote.fontWeight).toBe(normal.fontWeight);
+  expect(quote.menuHeight).toBe(normal.menuHeight);
+});
