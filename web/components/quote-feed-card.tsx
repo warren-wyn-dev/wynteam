@@ -245,7 +245,7 @@ export function QuoteFeedCard({
               {row.author_username ? <small>@{row.author_username}</small> : null}
             </span>
           </span>
-          {row.caption ? <span className="wyn-quote-feed-original-text">{row.caption.split(/(#[\\p{L}\\p{N}_]+)/gu).map((part, index) => part.startsWith("#") ? <span className="wyn-quote-feed-tag" key={index}>{part}</span> : part)}</span> : null}
+          {row.caption ? <span className="wyn-quote-feed-original-text">{row.caption.split(/(#[\p{L}\p{N}_]+)/gu).map((part, index) => part.startsWith("#") ? <span className="wyn-quote-feed-tag" key={index}>{part}</span> : part)}</span> : null}
           {firstImage ? <span className="wyn-quote-feed-original-image" style={{ aspectRatio: String(mediaRatio) }}><Image src={firstImage} alt="รูปจากโพสต์ต้นฉบับ" width={800} height={Math.round(800 / (mediaRatio || 1))} sizes="(max-width: 680px) calc(100vw - 98px), 510px" onError={() => setFailedMedia((current) => new Set([...current, firstImage]))} />{availableMedia.length > 1 ? <span className="wyn-quote-feed-image-count">1/{availableMedia.length}</span> : null}</span> : null}
         </Link>
         <div className="wyn-quote-feed-engagement-label">โต้ตอบกับโพสต์ต้นฉบับ</div>
