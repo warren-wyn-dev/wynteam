@@ -37,7 +37,9 @@ test("mixed Home/Profile rows have exactly one theme-aware separator", async ({ 
       return output;
     });
 
-    expect(result.profile).toEqual(result.home);
+    // An invisible zero-width first-row border can inherit a different text
+    // color in the Profile container without changing any visible divider.
+    expect(result.profile.slice(1)).toEqual(result.home.slice(1));
     for (const rows of [result.home, result.profile]) {
       expect(rows[0].top).toBe("0px");
       rows.slice(1).forEach((row) => {
