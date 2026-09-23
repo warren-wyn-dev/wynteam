@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { rankedDropRows, type HomeFeedRow } from "@/lib/feed";
+import { fetchQuoteRepostRows } from "@/lib/quote-feed-data";
 
 export type HomeSurface =
   | { kind: "ranked" }
@@ -140,15 +141,19 @@ export async function fetchFollowingDropRows(
   // the quoted Drop's original author. Without the redrop_id null guard,
   // following Alice would also surface every stranger quoting Alice's Drop.
   const list = followingIds.join(",");
-  const result = await client
-    .from("home_feed")
-    .select("*")
-    .or(`and(author_id.in.(${list}),redrop_id.is.null),redropper_id.in.(${list})`)
-    .neq("content_type", "pop")
-    .order("created_at", { ascending: false })
-    .range(0, followingLimit - 1);
+  const [result, quoteShares] = await Promise.all([
+    client.from("home_feed").select("*")
+      .or(`and(author_id.in.(${list}),redrop_id.is.null),redropper_id.in.(${list})`)
+      .neq("content_type", "pop")
+      .order("created_at", { ascending: false })
+      .range(0, followingLimit - 1),
+    fetchQuoteRepostRows(client, followingIds, followingLimit),
+  ]);
   throwIfError(result.error);
-  return hydrateImageAspectRatios(client, rankedDropRows(result.data, followingLimit));
+  const combined = [...rankedDropRows(result.data, followingLimit), ...quoteShares]
+    .sort((a,b) => Date.parse(b.quote_reposted_at ?? b.created_at) - Date.parse(a.quote_reposted_at ?? a.created_at))
+    .slice(0,followingLimit);
+  return hydrateImageAspectRatios(client, combined);
 }
 
 export async function fetchTrendingDropRows(
