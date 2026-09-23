@@ -35,7 +35,7 @@ function fixture({
       },
     },
   };
-  const module = { exports: {} };
+  const compiledModule = { exports: {} };
   const dependency = (name) => {
     if (name === "@supabase/supabase-js") {
       return {
@@ -55,8 +55,8 @@ function fixture({
     if (name === "@/lib/signup-password-policy") return { MIN_SIGNUP_PASSWORD_LENGTH: 12 };
     throw new Error(`Unexpected dependency ${name}`);
   };
-  new Function("require", "module", "exports", compiled)(dependency, module, module.exports);
-  return { ...module.exports, mainClient, attempts, updates, verifierOptions, get reads() { return reads; } };
+  new Function("require", "module", "exports", compiled)(dependency, compiledModule, compiledModule.exports);
+  return { ...compiledModule.exports, mainClient, attempts, updates, verifierOptions, get reads() { return reads; } };
 }
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://mocked-auth.supabase.co";
