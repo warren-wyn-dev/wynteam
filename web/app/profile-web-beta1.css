@@ -262,7 +262,6 @@
 }
 .wyn-profile-beta1 .wyn-profile-tabs button.active::after {
   width: 120px;
-  max-width: calc(100% - 8px);
   height: 2px;
   background: var(--wyn-text, #111);
 }
@@ -303,7 +302,6 @@
   .wyn-profile-beta1 .wyn-profile-tabs button { font-size: 14px; }
   .wyn-profile-beta1 .wyn-profile-tabs button.active::after {
     width: calc(100% - 18px);
-    max-width: none;
   }
 }
 @media (max-width: 380px) {
