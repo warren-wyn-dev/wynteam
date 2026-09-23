@@ -330,11 +330,7 @@
   font-size: 12px;
 }
 .wyn-quote-feed-original-text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
-  overflow: hidden;
+  display: block;
   overflow-wrap: anywhere;
   padding: 2px 12px 11px;
   font-size: 14px;
@@ -344,8 +340,7 @@
 .wyn-quote-feed-original-image {
   display: block;
   width: 100%;
-  height: clamp(98px, 27vw, 158px);
-  max-height: 158px;
+  max-height: 300px;
   overflow: hidden;
   border-top: 1px solid var(--wyn-border, #e3e4e9);
   background: var(--wyn-surface, #f1f2f4);
@@ -354,7 +349,50 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  max-height: 300px;
+  object-fit: contain;
+}
+.wyn-quote-feed-tag { color: #1683da; }
+.wyn-quote-feed-image-count {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 65%);
+  color: #fff;
+  font-size: 12px;
+}
+.wyn-quote-feed-original-image { position: relative; }
+.wyn-quote-feed-engagement-label {
+  margin: 10px 0 3px;
+  color: var(--wyn-text-secondary, #777);
+  font-size: 11px;
+}
+.wyn-quote-feed-actions { display: flex; align-items: center; min-width: 0; }
+.wyn-quote-feed-actions .wyn-post-actions {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: clamp(10px, 2.8vw, 20px);
+  margin: 5px 0;
+}
+.wyn-quote-feed-actions .wyn-action-button { flex-shrink: 1; }
+.wyn-quote-feed-actions .wyn-action-save { margin-left: auto; }
+.wyn-quote-feed-more-action {
+  flex: 0 0 25px;
+  width: 25px;
+  height: 38px;
+  padding: 0;
+  margin-left: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--wyn-text-secondary, #73767e);
+}
+@media (max-width: 359px) {
+  .wyn-quote-feed-actions .wyn-post-actions { gap: 9px; }
+  .wyn-quote-feed-actions .wyn-action-button { min-width: 22px; }
+  .wyn-quote-feed-actions .wyn-action-button svg { width: 20px; height: 20px; }
+  .wyn-quote-feed-more-action { margin-left: 3px; }
 }
 
 /* Beta1 mobile profile actually uses 44px avatars, an 11px gutter and 11px

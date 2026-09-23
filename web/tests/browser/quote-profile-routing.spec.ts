@@ -70,7 +70,11 @@ test("The profile data queries never mix Quote and Standard Reposts", async () =
   expect(card).toContain("row.redropper_avatar_url");
   expect(card).toContain("row.author_avatar_url");
   expect(card).toContain('href={`/drop/${row.id}`}');
-  expect(card).not.toContain("<PostActions");
+  expect(card).toContain("<PostActions");
+  expect(card).toContain("โต้ตอบกับโพสต์ต้นฉบับ");
+  expect(card).toContain("shareQuote");
+  expect(card).toContain('from("drop_images")');
+  expect(card).toContain("setFailedMedia");
   expect(card).toContain('.from("redrops").delete()');
   expect(card).toContain('p_target_type: "redrop"');
   // No stranger's quote/repost sneaks into Following merely because its
@@ -80,12 +84,14 @@ test("The profile data queries never mix Quote and Standard Reposts", async () =
 
 });
 
-test("Quotes show quoted author, an embedded original, and no wrongly attributed engagement UI", async ({ page }) => {
+test("Quotes show the complete embedded original and explicitly attributed working actions", async ({ page }) => {
   const root = process.cwd();
   const css = await readFile(path.join(root, "app/profile-home-feed.css"), "utf8");
   expect(css).toContain(".wyn-quote-feed-card");
   expect(css).toContain(".wyn-quote-feed-original");
-  expect(css).toContain("-webkit-line-clamp: 4");
+  expect(css).not.toContain("-webkit-line-clamp: 4");
+  expect(css).toContain(".wyn-quote-feed-engagement-label");
+  expect(css).toContain(".wyn-quote-feed-actions");
   expect(css).toContain(".wyn-quote-feed-original-image");
   expect(css).toContain(".wyn-quote-feed-sheet-backdrop");
 
@@ -99,6 +105,75 @@ test("Quotes show quoted author, an embedded original, and no wrongly attributed
   expect(result.body).toBeLessThanOrEqual(result.viewport + 2);
 });
 
+
+test("Shared Quote URLs resolve to their authored quote rather than the original post", async () => {
+  const root = process.cwd();
+  const [route, page, card] = await Promise.all([
+    readFile(path.join(root, "components/quote-detail-route.tsx"), "utf8"),
+    readFile(path.join(root, "app/quote/[id]/page.tsx"), "utf8"),
+    readFile(path.join(root, "components/quote-feed-card.tsx"), "utf8"),
+  ]);
+  expect(page).toContain("<QuoteDetailRoute quoteId={id} />");
+  expect(route).toContain('.eq("redrop_id", quoteId)');
+  expect(card).toContain('/quote/${quoteId}');
+  expect(card).toContain('id={quoteId ?');
+  expect(card).toContain('href={`/drop/${row.id}`}');
+});
+
+test("Quote card keeps multiline text and original actions inside 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
+  const size = await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.className = "wyn-profile-beta1";
+    host.style.width = "320px";
+    host.innerHTML = `
+      <div class="profile-feed-list">
+        <article class="wyn-quote-feed-card">
+          <a class="wyn-quote-feed-author-avatar"><span class="wyn-quote-feed-avatar fallback">W</span></a>
+          <div class="wyn-quote-feed-body">
+            <header class="wyn-quote-feed-head">
+              <a class="wyn-quote-feed-byline"><strong>WYNOS ONLINE</strong><small> · 3 ชม.</small></a>
+            </header>
+            <a class="wyn-quote-feed-original">
+              <span class="wyn-quote-feed-original-text">นี่คือ WYNOS
+พื้นที่ของคุณ เรื่องราวของคุณ
+และผู้คนที่คุณอยากเชื่อมต่อ
+นี่เป็นเพียงจุดเริ่มต้น
+ยินดีต้อนรับสู่ WYNOS
+#WYNOS #wynosonline</span>
+            </a>
+            <div class="wyn-quote-feed-engagement-label">โต้ตอบกับโพสต์ต้นฉบับ</div>
+            <div class="wyn-quote-feed-actions">
+              <div class="wyn-post-actions">
+                <button class="wyn-action-button">♡<span>4</span></button>
+                <button class="wyn-action-button">◯</button>
+                <button class="wyn-action-button">↻<span>1</span></button>
+                <button class="wyn-action-button">⇧</button>
+                <button class="wyn-action-button wyn-action-save">♧</button>
+              </div>
+              <button class="wyn-quote-feed-more-action">···</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    `;
+    document.body.appendChild(host);
+    const card = host.querySelector<HTMLElement>(".wyn-quote-feed-card")!;
+    const content = host.querySelector<HTMLElement>(".wyn-quote-feed-original-text")!;
+    const dimensions = {
+      cardWidth: card.clientWidth,
+      cardScrollWidth: card.scrollWidth,
+      contentHeight: content.getBoundingClientRect().height,
+      lineClamp: getComputedStyle(content).webkitLineClamp,
+    };
+    host.remove();
+    return dimensions;
+  });
+  expect(size.cardScrollWidth).toBeLessThanOrEqual(size.cardWidth + 2);
+  expect(size.contentHeight).toBeGreaterThan(100);
+  expect(size.lineClamp).not.toBe("4");
+});
 
 test("Beta1 Quote avatar and byline use the exact same row alignment as ordinary profile posts", async ({ page }) => {
   await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
