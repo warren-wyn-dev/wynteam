@@ -537,6 +537,7 @@ export function SignupStep2Screen() {
         return;
       }
       const userId = result.session.user.id;
+      setDraft((current) => ({ ...current, password: "", confirmPassword: "" }));
       await setUsername(supabase, userId, draft.username);
       await setDisplayName(supabase, userId, draft.displayName);
       await setDateOfBirth(supabase, userId, isoBirthDate);
