@@ -155,8 +155,9 @@ insert into public.quote_saves(quote_id,user_id)
 insert into public.quote_comments(quote_id,author_id,text_content)
   values ('a1000000-0000-0000-0000-000000000001','33333333-3333-3333-3333-333333333333','ถูกใจโพสต์อ้างอิง');
 
-do $$
+do $
 declare e record;
+        rejected boolean := false;
 begin
   select * into strict e from public.get_quote_engagement(array['a1000000-0000-0000-0000-000000000001'::uuid]);
   if (e.like_count,e.comment_count,e.redrop_count) <> (1::bigint,1::bigint,1::bigint)
@@ -168,15 +169,13 @@ begin
     raise exception 'Quote action unexpectedly touched source Drop activity';
   end if;
   -- RLS must not allow writing a reaction as another account.
-  declare_rejected: declare rejected boolean := false;
   begin
-    begin
-      insert into public.quote_likes(quote_id,user_id)
-      values ('a1000000-0000-0000-0000-000000000001','44444444-4444-4444-4444-444444444444');
-    exception when others then rejected := true;
-    end;
-    if not rejected then raise exception 'Quote reaction spoof was accepted'; end if;
-  end declare_rejected;
+    insert into public.quote_likes(quote_id,user_id)
+    values ('a1000000-0000-0000-0000-000000000001','44444444-4444-4444-4444-444444444444');
+  exception when others then
+    rejected := true;
+  end;
+  if not rejected then raise exception 'Quote reaction spoof was accepted'; end if;
 end $$;
 
 reset role;
