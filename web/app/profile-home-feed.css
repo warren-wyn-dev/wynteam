@@ -199,12 +199,19 @@
   grid-template-columns: 40px minmax(0, 1fr);
   column-gap: 10px;
   width: 100%;
-  padding: 10px 16px 12px;
+  /* Same initial row offset as Home and the existing profile post cards. */
+  padding: 8px 16px 12px;
   border-bottom: 1px solid #ececef;
   background: var(--wyn-bg, #fff);
   color: var(--wyn-text, #111);
 }
-.wyn-quote-feed-author-avatar { width: 40px; height: 40px; }
+.wyn-quote-feed-author-avatar {
+  grid-column: 1;
+  align-self: start;
+  width: 40px;
+  height: 40px;
+  margin-top: 1px;
+}
 .wyn-quote-feed-avatar {
   display: grid;
   place-items: center;
@@ -222,7 +229,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  min-height: 28px;
+  /* A 32px menu button made the quote name sit lower than other bylines. */
+  min-height: 26px;
 }
 .wyn-quote-feed-byline {
   display: flex;
@@ -240,7 +248,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
 }
 .wyn-quote-feed-byline .route-verified {
@@ -256,11 +264,12 @@
   white-space: nowrap;
 }
 .wyn-quote-feed-head > button {
-  flex: 0 0 34px;
+  flex: 0 0 28px;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 32px;
+  width: 28px;
+  height: 26px;
+  margin: 0 -2px 0 0;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -347,6 +356,28 @@
   height: 100%;
   object-fit: cover;
 }
+
+/* Beta1 mobile profile actually uses 44px avatars, an 11px gutter and 11px
+   card top inset (profile-web-beta1.css). Quote was still rendering the
+   generic Home 40px/10px/8px geometry, which made its circled avatar and
+   author line jump relative to the immediately following standard post. */
+.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-card {
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 11px;
+  padding: 11px 16px 7px;
+}
+.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar,
+.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar > .wyn-quote-feed-avatar {
+  width: 44px !important;
+  height: 44px !important;
+}
+.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-byline strong {
+  font-weight: 700;
+}
+.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-byline small {
+  font-size: 14px;
+}
+
 .wyn-quote-feed-notice { margin: 8px 0 0; font-size: 12px; color: var(--wyn-text-secondary, #777); }
 .profile-feed-list .golden-drop-card + .wyn-quote-feed-card,
 .profile-feed-list .wyn-quote-feed-card + .golden-drop-card,
