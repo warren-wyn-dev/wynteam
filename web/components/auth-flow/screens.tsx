@@ -491,6 +491,9 @@ export function SignupStep2Screen() {
   const [error, setError] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Keep all signup fields non-interactive until React hydration completes.
+  // Otherwise the first keystrokes can be lost on mobile Safari or Chromium.
+  const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
   const update = (key: keyof SignupDraft) => (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setDraft((current) => ({ ...current, [key]: value }));
@@ -585,10 +588,10 @@ export function SignupStep2Screen() {
       <div style={{ padding: "16px 20px", flex: 1 }}>
         <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ตั้งรหัสผ่าน</div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
-        <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} />
-        <Field label="รหัสผ่าน" name="password" placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร` } type="password" value={draft.password} onChange={update("password")} />
-        <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} />
-        <Button className="btn-primary" disabled={loading} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
+        <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} disabled={!mounted} />
+        <Field label="รหัสผ่าน" name="password" placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} type="password" value={draft.password} onChange={update("password")} disabled={!mounted} />
+        <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} disabled={!mounted} />
+        <Button className="btn-primary" disabled={loading || !mounted} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
         <ErrorText>{error}</ErrorText>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
           มีบัญชีอยู่แล้ว? <b onClick={() => router.push("/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>
