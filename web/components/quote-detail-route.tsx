@@ -18,11 +18,7 @@ export function QuoteDetailRoute({ quoteId }: { quoteId: string }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!client || !quoteId) {
-      setError("ไม่สามารถเปิดโพสต์นี้ได้");
-      setLoading(false);
-      return;
-    }
+    if (!client || !quoteId) return;
     let live = true;
     void Promise.all([
       client.auth.getUser(),
@@ -49,7 +45,7 @@ export function QuoteDetailRoute({ quoteId }: { quoteId: string }) {
         else router.push(row?.redropper_id ? `/profile/${row.redropper_id}` : "/");
       }}
     >
-      {loading ? <LoadingState /> : row ? (
+      {!client || !quoteId ? <EmptyState>ไม่สามารถเปิดโพสต์นี้ได้</EmptyState> : loading ? <LoadingState /> : row ? (
         <QuoteFeedCard row={row} viewerId={viewerId} onDeleted={(actorId) => router.replace(`/profile/${actorId}`)} />
       ) : <EmptyState>{error || "ไม่พบโพสต์นี้"}</EmptyState>}
     </AppChrome>
