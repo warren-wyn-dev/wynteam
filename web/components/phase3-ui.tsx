@@ -10,6 +10,7 @@ import { GoldenDropCard } from "@/components/golden-drop-card";
 import { QuoteFeedCard } from "@/components/quote-feed-card";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { isQuotePost, type HomeFeedRow } from "@/lib/feed";
+import type { HomeViewerState } from "@/lib/home-actions";
 import { useUnreadNotificationCount } from "@/lib/notification-count";
 import type { ProfileRow } from "@/lib/phase3-data";
 import { usePresenceTracking } from "@/lib/presence";
@@ -109,6 +110,7 @@ export function DropPreviewCard({
   row,
   homeParity = false,
   viewerId = "",
+  viewerSnapshot,
   onRepostChanged,
   onQuoteCreated,
   onQuoteDeleted,
@@ -116,14 +118,15 @@ export function DropPreviewCard({
   row: HomeFeedRow;
   homeParity?: boolean;
   viewerId?: string;
+  viewerSnapshot?: HomeViewerState | null;
   onRepostChanged?: (actorId: string, dropId: string, removedStandard: boolean) => void;
   onQuoteCreated?: (actorId: string) => void;
   onQuoteDeleted?: (actorId: string, quoteId: string) => void;
 }) {
   if (isQuotePost(row)) {
-    return <QuoteFeedCard row={row} viewerId={viewerId} onDeleted={onQuoteDeleted} />;
+    return <QuoteFeedCard row={row} viewerId={viewerId} initialViewer={viewerSnapshot} onDeleted={onQuoteDeleted} />;
   }
-  return <GoldenDropCard row={row} homeParity={homeParity} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} />;
+  return <GoldenDropCard row={row} homeParity={homeParity} initialViewer={viewerSnapshot} profileViewerId={viewerId} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} />;
 }
 
 export function SettingsLink() {
