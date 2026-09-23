@@ -77,7 +77,9 @@ test("first post matches compact avatar author caption and action geometry", asy
   await expect(moreText).toHaveCount(0);
   await expect(tags).toContainText("#WYNOS");
   await expect(tags).not.toContainText("◌");
-  await expect(tags).toHaveCSS("display", "inline");
+  // The fixture is untruncated under grapheme-aware counting, so its final
+  // hashtag block stays on its own line rather than inline after an ellipsis.
+  await expect(tags).toHaveCSS("display", "block");
 
   const [postBox, avatarBox, bodyBox, redropBox, actionsBox] = await Promise.all([
     post.boundingBox(),
