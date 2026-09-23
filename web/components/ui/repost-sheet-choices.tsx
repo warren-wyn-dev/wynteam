@@ -17,12 +17,14 @@ export function RepostSheetChoices({
   error,
   onRepost,
   onQuote,
+  quoteLabel = "อ้างอิง",
 }: {
   reposted: boolean;
   busy?: boolean;
   error?: string;
   onRepost: () => void;
   onQuote: () => void;
+  quoteLabel?: string;
 }) {
   return (
     <div className="wyn-repost-sheet-options">
@@ -43,7 +45,7 @@ export function RepostSheetChoices({
         onClick={onQuote}
       >
         <WynosIcon name="pencil" size={27} strokeWidth={2} />
-        <span>อ้างอิง</span>
+        <span>{quoteLabel}</span>
       </button>
       {error ? <p className="route-error wyn-repost-sheet-error" role="alert">{error}</p> : null}
     </div>
