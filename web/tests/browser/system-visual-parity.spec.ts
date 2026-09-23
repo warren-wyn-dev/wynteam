@@ -199,10 +199,11 @@ test("Profile feed reuses the exact Home action component and post metrics", () 
   expect(profile).toContain("<DropPreviewCard row={row} homeParity");
   expect(preview).toContain("homeParity?: boolean");
   expect(preview).toContain("<GoldenDropCard row={row} homeParity={homeParity} />");
-  expect(golden).toContain("import { PostActions }");
+  expect(golden).toContain('import { HomePostCard } from "@/components/home/home-post-card";');
   expect(golden).toContain("homeParity ? (");
-  expect(golden).toContain("<PostActions");
-  expect(golden).toContain("modernFeed");
+  expect(golden).toContain("<HomePostCard");
+  expect(golden).toContain("onFollow={() => void followAuthor()}");
+  expect(golden).toContain("onSave={() => void save()}");
 
   for (const contract of [
     "grid-template-columns: 40px minmax(0, 1fr)",

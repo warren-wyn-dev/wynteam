@@ -15,9 +15,10 @@ import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 
 import { PostActions } from "@/components/home/post-actions";
+import { HomePostCard } from "@/components/home/home-post-card";
 import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
-import { loadHomeViewerState, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
+import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
 import { shareOrCopyLink } from "@/lib/share";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -28,6 +29,17 @@ const QuoteRedropComposer = dynamic(
 );
 
 type Sheet = "more" | "redrop" | "quote" | "report" | null;
+
+// Profile posts use exactly Home's DOM and components. This is only a stable
+// initial state for the period before the viewer has been loaded.
+const EMPTY_VIEWER: HomeViewerState = {
+  likedDropIds: new Set(),
+  savedDropIds: new Set(),
+  redroppedDropIds: new Set(),
+  followedAuthorIds: new Set(),
+  pendingFollowAuthorIds: new Set(),
+  privateAuthorIds: new Set(),
+};
 type ReportCategory = "spam" | "scam" | "harassment" | "hate" | "sexual_content" | "violence" | "privacy" | "illegal_content" | "copyright" | "other";
 
 const reportCategories: { value: ReportCategory; label: string }[] = [
@@ -187,6 +199,35 @@ export function GoldenDropCard({
     });
   };
 
+  const followAuthor = async () => {
+    if (!client || !viewer || !userId || own) return;
+    const currentlyFollowing = viewer.followedAuthorIds.has(row.author_id);
+    const pendingRequest = viewer.pendingFollowAuthorIds.has(row.author_id);
+    const isPrivate = viewer.privateAuthorIds.has(row.author_id);
+    const options = { currentlyFollowing, pendingRequest, isPrivate };
+    const optimisticNext = predictFollowState(options);
+    const apply = (state: "following" | "requested" | "none") => {
+      setViewer((current) => {
+        if (!current) return current;
+        const followedAuthorIds = new Set(current.followedAuthorIds);
+        const pendingFollowAuthorIds = new Set(current.pendingFollowAuthorIds);
+        followedAuthorIds.delete(row.author_id);
+        pendingFollowAuthorIds.delete(row.author_id);
+        if (state === "following") followedAuthorIds.add(row.author_id);
+        if (state === "requested") pendingFollowAuthorIds.add(row.author_id);
+        return { ...current, followedAuthorIds, pendingFollowAuthorIds };
+      });
+    };
+    if (!currentlyFollowing) haptic();
+    apply(optimisticNext);
+    try {
+      await toggleAuthorFollow(client, userId, row.author_id, options);
+    } catch {
+      apply(currentlyFollowing ? "following" : pendingRequest ? "requested" : "none");
+      showToast("ติดตามไม่สำเร็จ ลองใหม่อีกครั้ง");
+    }
+  };
+
   const like = async () => {
     if (!client || !viewer || !userId || busy) return;
     if (!liked) haptic();
@@ -270,7 +311,22 @@ export function GoldenDropCard({
     setBusy(false);
   };
 
-  return <article className="golden-drop-card">
+  return <>
+    {homeParity ? (
+      <HomePostCard
+        row={{ ...row, like_count: likeCount, redrop_count: redropCount }}
+        viewer={viewer ?? EMPTY_VIEWER}
+        images={images}
+        userId={userId || row.author_id}
+        onLike={() => void like()}
+        onMore={() => setSheet("more")}
+        onRedrop={() => setSheet("redrop")}
+        onFollow={() => void followAuthor()}
+        onShare={() => void share()}
+        onSave={() => void save()}
+      />
+    ) : (
+      <article className="golden-drop-card">
     {row.redrop_id ? <div className="golden-drop-redrop"><WynosIcon name="repost" size={homeParity ? 16 : 13} strokeWidth={2} />รีโพสต์โดย {homeParity ? "" : "@"}{row.redropper_username || "wynos"} · {relativeTimeTh(row.created_at)}</div> : null}
     {row.quote_text ? <RichPostText className="golden-drop-quote" value={row.quote_text} /> : null}
     <Link className="golden-drop-author-avatar" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} /></Link>
@@ -298,6 +354,8 @@ export function GoldenDropCard({
         <div className="golden-drop-actions"><button className={liked ? "liked" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} aria-pressed={liked} onClick={() => void like()}><AnimatedHeart size={22} strokeWidth={2} liked={liked} />{likeCount > 0 ? <span>{likeCount}</span> : null}</button><Link href={`/drop/${row.id}#comments`} aria-label="ความคิดเห็น"><CommentIcon size={24} strokeWidth={2} />{(row.comment_count ?? 0) > 0 ? <span>{row.comment_count}</span> : null}</Link>{canRedrop ? <button className={redropped ? "active" : ""} type="button" aria-label="รีโพสต์" aria-pressed={redropped} onClick={() => setSheet("redrop")}><RepostIcon size={22} strokeWidth={2} />{redropCount > 0 ? <span>{redropCount}</span> : null}</button> : null}<button className="golden-drop-share" type="button" aria-label="แชร์" onClick={() => void share()}><WynosShareIcon size={22} /></button><button className={`golden-drop-save-inline ${saved ? "active" : ""}`} type="button" aria-label={saved ? "ยกเลิกบันทึก" : "บันทึก"} aria-pressed={saved} onClick={() => void save()}><SaveIcon size={22} strokeWidth={2} saved={saved} /></button>{viewCount != null ? <span className="golden-drop-view"><WynosIcon name="eye" size={22} strokeWidth={2} />{viewCount > 0 ? <span>{viewCount}</span> : null}</span> : null}</div>
       )}
     </div>
+      </article>
+    )}
 
     {sheet === "more" ? <SheetFrame label="ตัวเลือกโพสต์" onClose={() => setSheet(null)}><button className="golden-drop-sheet-row" type="button" onClick={() => { setSheet(null); void share(); }}><WynosIcon name="share" size={20} strokeWidth={2} />แชร์</button><button className="golden-drop-sheet-row" type="button" onClick={() => void save()}><WynosIcon name="bookmark" size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} />{saved ? "เอาออกจากบันทึก" : "บันทึก"}</button>{!own ? <button className="golden-drop-sheet-row" type="button" onClick={() => setSheet("report")}><WynosIcon name="flag" size={20} strokeWidth={2} />รายงานโพสต์</button> : null}</SheetFrame> : null}
     {sheet === "redrop" ? (
@@ -325,5 +383,5 @@ export function GoldenDropCard({
     ) : null}
     {sheet === "report" ? <SheetFrame label="รายงานโพสต์" onClose={() => { setSheet(null); setReportDetail(""); }}><div className="golden-drop-sheet-form"><strong>รายงานโพสต์</strong><div className="golden-drop-report-list">{reportCategories.map((item) => <label key={item.value}><input type="radio" name={`drop-report-${row.id}`} checked={reportCategory === item.value} onChange={() => setReportCategory(item.value)} />{item.label}</label>)}</div>{reportCategory === "other" ? <textarea maxLength={1000} value={reportDetail} onChange={(event) => setReportDetail(event.target.value)} placeholder="รายละเอียดเพิ่มเติม" /> : null}{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy} onClick={() => void report()}>ส่งรายงาน</button></div></SheetFrame> : null}
     <Toast message={toastMessage} />
-  </article>;
+  </>;
 }

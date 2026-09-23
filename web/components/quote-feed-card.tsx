@@ -31,7 +31,7 @@ function QuoteAvatar({ src, label, small = false }: { src?: string | null; label
   const size = small ? 30 : 40;
   const [failed, setFailed] = useState(false);
   if (!src || failed) {
-    return <span className="wyn-quote-feed-avatar fallback" style={{ width: size, height: size }}>{label.trim().slice(0, 1).toUpperCase() || "W"}</span>;
+    return <span className="wyn-quote-feed-avatar fallback" style={small ? { width: size, height: size } : undefined}>{label.trim().slice(0, 1).toUpperCase() || "W"}</span>;
   }
   return <Image className="wyn-quote-feed-avatar" src={src} alt="" width={size} height={size} sizes={small ? "30px" : "40px"} onError={() => setFailed(true)} />;
 }
