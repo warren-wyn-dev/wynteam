@@ -252,16 +252,17 @@
 .wyn-profile-beta1 .wyn-profile-tabs button {
   height: 50px;
   padding: 0 5px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #72798a;
 }
 .wyn-profile-beta1 .wyn-profile-tabs button.active {
   color: var(--wyn-text, #111);
-  font-weight: 760;
+  font-weight: 700;
 }
 .wyn-profile-beta1 .wyn-profile-tabs button.active::after {
-  width: 46px;
+  width: 120px;
+  max-width: calc(100% - 8px);
   height: 2px;
   background: var(--wyn-text, #111);
 }
@@ -296,6 +297,14 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+@media (max-width: 359px) {
+  /* Match Home's compact tab typography and indicator at the 320px breakpoint. */
+  .wyn-profile-beta1 .wyn-profile-tabs button { font-size: 14px; }
+  .wyn-profile-beta1 .wyn-profile-tabs button.active::after {
+    width: calc(100% - 18px);
+    max-width: none;
+  }
 }
 @media (max-width: 380px) {
   .wyn-profile-beta1 .wyn-profile-header { padding-inline: 12px; }
