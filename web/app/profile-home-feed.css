@@ -319,3 +319,14 @@
     padding-right: 20px;
   }
 }
+
+/* Quote engagement belongs to the authored quote, not the embedded original. */
+.wyn-quote-feed-state {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  color: var(--wyn-text-secondary);
+  font-size: 13px;
+}
+.wyn-quote-feed-state button { color: var(--wyn-accent); border: 0; background: none; padding: 0; }
+.wyn-quote-comments { scroll-margin-top: 68px; }
