@@ -58,6 +58,7 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
   const [rows, setRows] = useState<HomeFeedRow[]>(cached?.rows ?? []);
   const rowsRef = useRef<HomeFeedRow[]>(cached?.rows ?? []);
   const [viewerSnapshot, setViewerSnapshot] = useState<HomeViewerState | null>(null);
+  const [viewerReady, setViewerReady] = useState(false);
   const [page, setPage] = useState(cached?.page ?? 0);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(!cached);
@@ -83,13 +84,18 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
       // Keep cached rows hidden until their real viewer state is available to
       // avoid briefly showing false Like/Save/Follow controls on Profile.
       const combined = append ? [...rowsRef.current, ...next] : next;
-      const snapshot = viewerId ? await loadHomeViewerState(client, viewerId, combined) : null;
+      // A viewer-state request failure must not trap Profile behind a skeleton:
+      // individual cards can still hydrate themselves as a fallback.
+      const snapshot = viewerId
+        ? await loadHomeViewerState(client, viewerId, combined).catch(() => null)
+        : null;
       // Switching tabs or refreshing after a repost invalidates older results.
       if (request !== requestId.current) return;
       const nextHasMore = next.length === (kind === "redrops" ? PROFILE_REPOST_PAGE_SIZE : PROFILE_POST_PAGE_SIZE);
       rowsRef.current = combined;
       setRows(combined);
       setViewerSnapshot(snapshot);
+      setViewerReady(true);
       setMountCache(cacheKey, { rows: combined, page: nextPage, hasMore: nextHasMore, allowed: allowedRef.current });
       setPage(nextPage);
       setHasMore(nextHasMore);
@@ -98,6 +104,7 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
         rowsRef.current = [];
         setRows([]);
         setViewerSnapshot(null);
+        setViewerReady(true);
       }
     } finally {
       if (request === requestId.current) setLoading(false);
@@ -149,7 +156,7 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
     void load(0, false);
   }, [kind, profileId, load]);
 
-  return (loading && !rows.length) || (viewerId && rows.length > 0 && !viewerSnapshot) ? <FeedSkeleton items={2} />
+  return (loading && !rows.length) || (viewerId && rows.length > 0 && !viewerReady) ? <FeedSkeleton items={2} />
     : !allowed ? <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>
     : !rows.length ? <EmptyState>{kind === "posts" ? "ยังไม่มีโพสต์" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>
     : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity viewerId={viewerId} viewerSnapshot={viewerSnapshot} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} onQuoteDeleted={onQuoteDeleted} key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
