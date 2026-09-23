@@ -30,9 +30,12 @@ function splitHomeCaption(value: string) {
 
   const prose = lines.slice(0, tagStart).join("\n").trimEnd().replace(/\n{3,}/g, "\n\n");
   const tags = lines.slice(tagStart).join("\n").trim();
-  const chars = Array.from(prose);
+  // Count displayed graphemes rather than splitting Thai combining marks or emoji.
+  const chars = typeof Intl.Segmenter === "function"
+    ? Array.from(new Intl.Segmenter("th", { granularity: "grapheme" }).segment(prose), ({ segment }) => segment)
+    : Array.from(prose);
   const truncated = chars.length > 190;
-  const visibleProse = truncated ? chars.slice(0, 220).join("").trimEnd() : prose;
+  const visibleProse = truncated ? chars.slice(0, 190).join("").trimEnd() : prose;
   return { visibleProse, tags, truncated };
 }
 
