@@ -478,8 +478,8 @@
   .wyn-quote-feed-author-avatar .wyn-quote-feed-avatar { width: 34px !important; height: 34px !important; }
 }
 
-// Home's 320px post geometry is 34px avatar, 8px gutter, 12px
-// horizontal inset; quoting a post should not grow its outer byline.
+/* Home's 320px post geometry is 34px avatar, 8px gutter, 12px
+   horizontal inset; quoting a post should not grow its outer byline. */
 @media (max-width: 359px) {
   .wyn-quote-feed-card,
   .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-card {
