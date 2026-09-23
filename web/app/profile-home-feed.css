@@ -373,8 +373,9 @@
 .wyn-quote-feed-actions .wyn-post-actions {
   flex: 1 1 auto;
   min-width: 0;
-  gap: clamp(10px, 2.8vw, 20px);
-  margin: 5px 0;
+  /* Quote cards share the Home 18px action rhythm on ordinary phones. */
+  gap: 18px;
+  margin: 4px 0 6px;
 }
 .wyn-quote-feed-actions .wyn-action-button { flex-shrink: 1; }
 .wyn-quote-feed-actions .wyn-action-save { margin-left: auto; }
@@ -389,7 +390,11 @@
   color: var(--wyn-text-secondary, #73767e);
 }
 @media (max-width: 359px) {
+  /* A Quote adds a separate More button beside five post actions; compress
+     only this six-control row so it fits at 320px. Normal Profile posts
+     continue to use Home's 16px gap. */
   .wyn-quote-feed-actions .wyn-post-actions { gap: 9px; }
+  .profile-feed-list .wyn-quote-feed-actions .wyn-post-actions.wyn-threads-actions { gap: 9px !important; }
   .wyn-quote-feed-actions .wyn-action-button { min-width: 22px; }
   .wyn-quote-feed-actions .wyn-action-button svg { width: 20px; height: 20px; }
   .wyn-quote-feed-more-action { margin-left: 3px; }
