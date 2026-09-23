@@ -35,3 +35,29 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
     : createBrowserClient(url, publishableKey);
   return client;
 }
+
+/**
+ * A separate recovery client prevents an existing signed-in account (or the
+ * SDK's implicit URL detection) from being mistaken for proof of recovery.
+ * It shares the normal PKCE/cookie storage, but only an explicit successful
+ * exchange of the one-time link unlocks the new-password form.
+ */
+export function createPasswordRecoveryClient(): SupabaseClient | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return null;
+  const accountStorageKey = getActiveAccountStorageKey();
+  return accountStorageKey
+    ? createClient(url, key, {
+        auth: {
+          storageKey: accountStorageKey,
+          persistSession: true,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      })
+    : createBrowserClient(url, key, {
+        isSingleton: false,
+        auth: { detectSessionInUrl: false, autoRefreshToken: false },
+      });
+}

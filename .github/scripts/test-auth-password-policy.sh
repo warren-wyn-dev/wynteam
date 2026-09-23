@@ -52,7 +52,7 @@ cat > "$FAKE_AUTH_STATE" <<'JSON'
 JSON
 bash "$root/.github/scripts/sync-auth-password-policy.sh"
 jq -e '(.password_min_length == 12) and (.mailer_autoconfirm == true) and
-       (.uri_allow_list == "https://wynos.online/welcome,https://wynos.online/login,https://wynos.online/auth/callback")' "$FAKE_AUTH_STATE" >/dev/null
+       (.uri_allow_list == "https://wynos.online/welcome,https://wynos.online/login,https://wynos.online/auth/callback,https://wynos.online/reset-password")' "$FAKE_AUTH_STATE" >/dev/null
 test "$(wc -l < "$FAKE_PATCH_LOG")" -eq 1
 
 # Repeated production workflow must not repeatedly change Auth config.
@@ -65,7 +65,8 @@ cat > "$FAKE_AUTH_STATE" <<'JSON'
 JSON
 bash "$root/.github/scripts/sync-auth-password-policy.sh"
 jq -e '.password_min_length == 14 and
-       (.uri_allow_list | contains("https://wynos.online/auth/callback"))' "$FAKE_AUTH_STATE" >/dev/null
+       (.uri_allow_list | contains("https://wynos.online/auth/callback")) and
+       (.uri_allow_list | contains("https://wynos.online/reset-password"))' "$FAKE_AUTH_STATE" >/dev/null
 test "$(wc -l < "$FAKE_PATCH_LOG")" -eq 2
 
 # Expired/underprivileged management token must cause an explicit failure.

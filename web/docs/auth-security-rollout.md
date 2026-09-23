@@ -56,3 +56,18 @@ and its redirect is allowlisted.
 
 Reference: https://supabase.com/docs/guides/auth/password-security
 Reference: https://supabase.com/docs/guides/auth/server-side/advanced-guide
+
+## Password recovery callback (2026-09-23)
+
+- Password-reset messages must now target `https://wynos.online/reset-password`, not `/login`.
+- The new screen exchanges only the one-time recovery credentials (PKCE code,
+  recovery token_hash, or implicit recovery tokens), verifies the user with
+  Supabase Auth, removes sensitive URL fragments and shows a Thai form.
+- The same twelve-character minimum applies to new passwords. Existing
+  passwords remain usable for login until the account owner changes them.
+- The Auth policy workflow allowlists `/reset-password` **only after** a
+  successful production deployment, avoiding a live redirect to a missing route.
+- Old emails containing the former `/login` destination do not gain a new
+  destination retroactively. Request a **fresh** reset email after deployment.
+- Retest on real iPhone Safari and Android Chrome (email-link handoff can have
+  different cookie/PKCE storage from the browser that requested the reset).
