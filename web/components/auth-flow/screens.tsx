@@ -775,8 +775,9 @@ export function ForgotPasswordScreen() {
 export function ResetPasswordScreen() {
   const router = useRouter();
   const recoveryClient = useRef<ReturnType<typeof createPasswordRecoveryClient>>(null);
+  const pendingRecoveryHash = useRef<string | null>(null);
   const started = useRef(false);
-  const [phase, setPhase] = useState<"checking" | "ready" | "invalid" | "saved">("checking");
+  const [phase, setPhase] = useState<"checking" | "confirm" | "ready" | "invalid" | "saved">("checking");
   const [accountEmail, setAccountEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -791,6 +792,14 @@ export function ResetPasswordScreen() {
     // history, analytics, or subsequent navigation URLs.
     window.history.replaceState(window.history.state, "", "/reset-password");
 
+    if (link.kind === "token_hash") {
+      // Mail clients and preview bots can GET this page harmlessly. Only a
+      // real user clicking the button below consumes the one-time token.
+      pendingRecoveryHash.current = link.tokenHash;
+      void Promise.resolve().then(() => setPhase("confirm"));
+      return;
+    }
+
     const client = link.kind === "invalid" ? null : createPasswordRecoveryClient();
 
     void (async () => {
@@ -804,10 +813,6 @@ export function ResetPasswordScreen() {
         let session;
         if (link.kind === "code") {
           const result = await client.auth.exchangeCodeForSession(link.code);
-          if (result.error) throw result.error;
-          session = result.data.session;
-        } else if (link.kind === "token_hash") {
-          const result = await client.auth.verifyOtp({ token_hash: link.tokenHash, type: "recovery" });
           if (result.error) throw result.error;
           session = result.data.session;
         } else {
@@ -831,6 +836,28 @@ export function ResetPasswordScreen() {
       }
     })();
   }, []);
+
+  async function continueFromEmail() {
+    if (phase !== "confirm" || loading || !pendingRecoveryHash.current) return;
+    const tokenHash = pendingRecoveryHash.current;
+    pendingRecoveryHash.current = null;
+    setLoading(true);
+    try {
+      const client = createPasswordRecoveryClient();
+      if (!client) throw new Error("Recovery client unavailable");
+      const result = await client.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+      if (result.error || !result.data.session) throw result.error ?? new Error("No recovery session");
+      const userResult = await client.auth.getUser();
+      if (userResult.error || !userResult.data.user) throw userResult.error ?? new Error("Invalid recovery user");
+      recoveryClient.current = client;
+      setAccountEmail(userResult.data.user.email ?? "");
+      setPhase("ready");
+    } catch {
+      setPhase("invalid");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function submit() {
     if (loading || phase !== "ready" || !recoveryClient.current) return;
@@ -874,6 +901,14 @@ export function ResetPasswordScreen() {
         </div>
 
         {phase === "checking" ? <p role="status">กำลังตรวจสอบลิงก์รีเซ็ตรหัสผ่าน…</p> : null}
+        {phase === "confirm" ? (
+          <>
+            <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>กดปุ่มด้านล่างเพื่อยืนยันลิงก์และตั้งรหัสผ่านใหม่</p>
+            <Button className="btn-primary" disabled={loading} onClick={() => void continueFromEmail()}>
+              {loading ? "กำลังยืนยัน…" : "ยืนยันและตั้งรหัสผ่านใหม่"}
+            </Button>
+          </>
+        ) : null}
         {phase === "invalid" ? (
           <>
             <p role="alert" style={{ fontSize: 14, lineHeight: 1.6 }}>ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่</p>
