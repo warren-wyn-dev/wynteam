@@ -142,6 +142,7 @@ test("caption truncation and Profile hydration use the shared source contract", 
   expect(profile).toContain("viewerSnapshot={viewerSnapshot}");
   expect(preview).toContain("initialViewer={viewerSnapshot}");
   expect(golden).toContain("initialViewer ? Promise.resolve(initialViewer)");
-  expect(quote).toContain("initialViewer ?? null");
+  expect(quote).toContain("initialQuoteState ?? null");
+  expect(quote).toContain("fetchQuoteEngagement(client, [quoteId])");
   expect(quote).not.toContain('className="wyn-quote-feed-more-action"');
 });
