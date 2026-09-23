@@ -38,7 +38,7 @@ test("Quote interactions have separate database IDs, RLS and no original mutatio
   expect(card).not.toContain('toggleDropLike(');
   expect(card).not.toContain('toggleDropRedrop(');
   expect(card).not.toContain('toggleDropSave(');
-  expect(card).toContain("commentHref={\`/quote/\${quoteId}#comments\`}");
+  expect(card).toContain("commentHref={`/quote/${quoteId}#comments`}");
   expect(card).toContain("likeCount={engagement.likeCount}");
   expect(card).toContain("redropCount={engagement.redropCount}");
   expect(detail).toContain("fetchQuoteComments(client, quoteId)");
