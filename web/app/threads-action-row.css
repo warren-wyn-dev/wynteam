@@ -47,6 +47,12 @@
   color: var(--wyn-text, #111111);
 }
 
+/* Founder-approved Home feed polish: soften idle icons and counts only;
+   preserve liked, reposted and saved colors and other feed surfaces. */
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button:not(.is-liked):not(.is-active) {
+  color: #8b919b;
+}
+
 .wyn-post-actions.wyn-threads-actions .wyn-action-share {
   min-width: 24px;
   padding: 5px 0;

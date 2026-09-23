@@ -34,6 +34,10 @@ test("Home top chrome matches the compact 36 + 32 reference geometry", async ({ 
   await expect(header).toHaveCSS("height", "36px");
   await expect(tabs).toHaveCSS("height", "32px");
   await expect(activeTab).toHaveAttribute("aria-selected", "true");
+  await expect(activeTab).toHaveCSS("font-size", "16px");
+  await expect(page.locator(".wyn-home-logo")).toHaveCSS("width", "24px");
+  await expect(page.locator(".wyn-home-logo")).toHaveCSS("height", "24px");
+  await expect(page.getByRole("tab", { name: "กำลังติดตาม" })).toHaveCSS("color", "rgb(117, 122, 132)");
 
   const [homeBox, indicatorBox] = await Promise.all([home.boundingBox(), indicator.boundingBox()]);
   expect(homeBox).not.toBeNull();
@@ -71,7 +75,7 @@ test("first post matches compact avatar author caption and action geometry", asy
   // and an open-top U-shaped tray rather than the previous house-like box.
   await expect(shareIcon.locator("path")).toHaveCount(1);
   await expect(shareIcon.locator("path")).toHaveAttribute("d", /M4\.75 11\.75v7\.1/);
-  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(115, 119, 127)");
+  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(139, 145, 155)");
   // This Thai fixture is shorter than 190 displayed graphemes. The updated
   // truncation rule must not show a redundant "ดูเพิ่มเติม" control.
   await expect(moreText).toHaveCount(0);

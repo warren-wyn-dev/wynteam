@@ -160,7 +160,7 @@ test("normal and Quote cards share avatar/content insets at mobile and wide brea
   }
 });
 
-test("Home and Profile tabs share active typography and indicator width", async ({ page }) => {
+test("Home tab labels use the approved larger type while Profile retains its layout", async ({ page }) => {
   for (const width of [320, 359, 360, 390]) {
     await page.setViewportSize({ width, height: 820 });
     await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
@@ -192,8 +192,10 @@ test("Home and Profile tabs share active typography and indicator width", async 
       host.remove();
       return result;
     }, width);
-    expect(result.homeFont).toBe(width <= 359 ? "14px" : "15px");
-    expect(result.profileFont).toBe(result.homeFont);
+    // Beta1 Home header text is intentionally one pixel larger after the
+    // Founder-approved polish; Profile typography remains unchanged.
+    expect(result.homeFont).toBe(width <= 359 ? "15px" : "16px");
+    expect(result.profileFont).toBe(width <= 359 ? "14px" : "15px");
     expect(result.homeWeight).toBe("700");
     expect(result.profileWeight).toBe(result.homeWeight);
     expect(Math.abs(result.profileIndicator - result.homeIndicator)).toBeLessThanOrEqual(1);

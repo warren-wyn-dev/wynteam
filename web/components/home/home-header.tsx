@@ -37,8 +37,8 @@ export function HomeHeader({
           className="wyn-home-logo"
           src="/wynos_logo_mark.png"
           alt=""
-          width={18}
-          height={18}
+          width={24}
+          height={24}
           priority
         />
         <strong className="wyn-home-title">WYNOS</strong>
