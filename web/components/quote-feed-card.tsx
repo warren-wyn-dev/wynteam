@@ -44,10 +44,12 @@ function QuoteAvatar({ src, label, small = false }: { src?: string | null; label
 export function QuoteFeedCard({
   row,
   viewerId,
+  initialViewer,
   onDeleted,
 }: {
   row: HomeFeedRow;
   viewerId: string;
+  initialViewer?: HomeViewerState | null;
   onDeleted?: (actorId: string, quoteId: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,7 +60,7 @@ export function QuoteFeedCard({
   const [error, setError] = useState("");
   const [reported, setReported] = useState(false);
   const client = useMemo(() => getSupabaseBrowserClient(), []);
-  const [viewer, setViewer] = useState<HomeViewerState | null>(null);
+  const [viewer, setViewer] = useState<HomeViewerState | null>(initialViewer ?? null);
   const [likeCount, setLikeCount] = useState(row.like_count ?? 0);
   const [redropCount, setRedropCount] = useState(row.redrop_count ?? 0);
   const [actionSheet, setActionSheet] = useState<"redrop" | "quote" | null>(null);
@@ -80,13 +82,15 @@ export function QuoteFeedCard({
   const mediaRatio = postMediaAspectRatio(row, availableMedia.length > 1);
 
   useEffect(() => {
+    // Initial Profile snapshot prevents a false first paint. A background
+    // revalidation keeps Quote actions current after a same-tab refresh.
     if (!client || !viewerId) return;
     let live = true;
     void loadHomeViewerState(client, viewerId, [row]).then((state) => {
       if (live) setViewer(state);
     }).catch(() => { if (live) showToast("โหลดสถานะโพสต์ไม่สำเร็จ"); });
     return () => { live = false; };
-  }, [client, viewerId, row, showToast]);
+  }, [client, viewerId, row, showToast, initialViewer]);
 
   // home_feed may have an incomplete/old image_url. Read the source image
   // rows (also supports multi-image posts) instead of displaying a blank box.
@@ -226,7 +230,7 @@ export function QuoteFeedCard({
             {row.redropper_is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
             <small>· {relativeTimeTh(row.created_at)}</small>
           </Link>
-          {quoteId && viewerId ? <button type="button" aria-label="ตัวเลือกอ้างอิง" onClick={() => { setError(""); setMenuOpen(true); }}><WynosIcon name="more" size={20} /></button> : null}
+          {quoteId ? <button type="button" aria-label="ตัวเลือกอ้างอิง" onClick={() => { setError(""); setMenuOpen(true); }}><WynosIcon name="more" size={20} /></button> : null}
         </header>
         <RichPostText className="wyn-quote-feed-comment" value={row.quote_text || ""} />
         <Link className="wyn-quote-feed-original" href={`/drop/${row.id}`} aria-label={`ดูโพสต์ต้นฉบับของ ${originalName}`}>
@@ -258,7 +262,6 @@ export function QuoteFeedCard({
             onSave={() => void saveOriginal()}
             modernFeed
           />
-          <button className="wyn-quote-feed-more-action" type="button" aria-label="เพิ่มเติมเกี่ยวกับโพสต์อ้างอิง" onClick={() => { setError(""); setMenuOpen(true); }}><WynosIcon name="more" size={22} /></button>
         </div>
         {reported ? <p className="wyn-quote-feed-notice" role="status">ส่งรายงานแล้ว</p> : null}
       </div>

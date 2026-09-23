@@ -70,12 +70,16 @@ test("first post matches compact avatar author caption and action geometry", asy
   // Beta1 approved reference: one continuous SVG path, separate up arrow
   // and an open-top U-shaped tray rather than the previous house-like box.
   await expect(shareIcon.locator("path")).toHaveCount(1);
-  await expect(shareIcon.locator("path")).toHaveAttribute("d", /M4\\.75 11\\.75v7\\.1/);
+  await expect(shareIcon.locator("path")).toHaveAttribute("d", /M4\.75 11\.75v7\.1/);
   await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(115, 119, 127)");
-  await expect(moreText).toBeVisible();
+  // This Thai fixture is shorter than 190 displayed graphemes. The updated
+  // truncation rule must not show a redundant "ดูเพิ่มเติม" control.
+  await expect(moreText).toHaveCount(0);
   await expect(tags).toContainText("#WYNOS");
   await expect(tags).not.toContainText("◌");
-  await expect(tags).toHaveCSS("display", "inline");
+  // The fixture is untruncated under grapheme-aware counting, so its final
+  // hashtag block stays on its own line rather than inline after an ellipsis.
+  await expect(tags).toHaveCSS("display", "block");
 
   const [postBox, avatarBox, bodyBox, redropBox, actionsBox] = await Promise.all([
     post.boundingBox(),

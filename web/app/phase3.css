@@ -160,16 +160,16 @@
 }
 /* WYNOS verified seal: vector-traced from the approved brand reference.
    Use a dedicated SVG rather than masking a generic Material verified icon;
-   keeping the white check inside the asset preserves the approved shape. */
+   keeping the black check inside the asset preserves the approved shape. */
 /* Shared verified badge: cropped-to-shape SVG stays sharp at mobile sizes.
-   Versioned URL prevents iOS Safari/PWA from retaining the previous badge. */
+   The v=3 URL prevents Safari/PWA from retaining the previous white-check asset. */
 .route-verified {
   display: inline-block;
   width: 18px;
   height: 18px;
   margin-left: 4px;
   flex: 0 0 auto;
-  background: url("/verified-badge-v2.svg") center / contain no-repeat;
+  background: url("/verified-badge-v2.svg?v=3") center / contain no-repeat;
   color: transparent;
   font-size: 0;
   line-height: 0;

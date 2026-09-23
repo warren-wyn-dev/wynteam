@@ -1,193 +1,5 @@
-/* Profile feed post parity with Home.
-   Keep the Profile header/tabs unique, but render each post with the exact
-   Home card geometry, typography, media rhythm and action component metrics. */
-
-.profile-feed-list .golden-drop-card {
-  display: grid !important;
-  grid-template-columns: 40px minmax(0, 1fr) !important;
-  column-gap: 10px !important;
-  row-gap: 0;
-  width: 100%;
-  padding: 8px 16px 0 !important;
-  border-bottom: 0 !important;
-  background: var(--wyn-bg);
-  box-sizing: border-box;
-}
-
-.profile-feed-list .golden-drop-card + .golden-drop-card {
-  border-top: 1px solid #ececef;
-}
-
-.profile-feed-list .golden-drop-redrop,
-.profile-feed-list .golden-drop-quote {
-  grid-column: 1 / -1;
-}
-
-.profile-feed-list .golden-drop-redrop {
-  min-height: 20px;
-  margin: 0 0 1px 21px !important;
-  padding: 0 !important;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: #737378;
-  font-size: 14px;
-  line-height: 1.3;
-  font-weight: 500;
-}
-
-.profile-feed-list .golden-drop-quote {
-  margin: 0 0 8px 54px !important;
-  padding: 0 !important;
-}
-
-.profile-feed-list .golden-drop-author-avatar {
-  grid-column: 1;
-  width: 40px;
-  height: 40px;
-  margin-top: 1px !important;
-  align-self: start;
-}
-
-.profile-feed-list .golden-drop-avatar {
-  width: 40px;
-  height: 40px;
-}
-
-.profile-feed-list .golden-drop-body {
-  grid-column: 2;
-  min-width: 0;
-}
-
-.profile-feed-list .golden-drop-head {
-  min-width: 0;
-  min-height: 22px;
-  margin-right: 0 !important;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.profile-feed-list .golden-drop-head > a {
-  min-width: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 4px !important;
-  overflow: hidden;
-}
-
-.profile-feed-list .golden-drop-head strong {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 15px !important;
-  line-height: 1.25 !important;
-  font-weight: 600 !important;
-}
-
-.profile-feed-list .golden-drop-head small {
-  flex: 0 0 auto;
-  max-width: 96px !important;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: #78787d;
-  font-size: 14px !important;
-  line-height: 1.2 !important;
-  font-weight: 400;
-}
-
-.profile-feed-list .golden-drop-head > button {
-  flex: 0 0 28px;
-  width: 28px;
-  min-width: 28px;
-  height: 26px;
-  min-height: 26px;
-  margin: 0 -2px 0 0;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  color: var(--wyn-text-secondary);
-}
-
-.profile-feed-list .golden-drop-head > button svg {
-  width: 16px;
-  height: 16px;
-}
-
-.profile-feed-list .golden-drop-body > .rich-post-text {
-  margin: 3px 0 0 !important;
-  transform: none !important;
-  color: var(--wyn-text);
-  font-size: 16px !important;
-  line-height: 1.31 !important;
-  font-weight: 400 !important;
-  white-space: pre-wrap;
-}
-
-.profile-feed-list .golden-drop-media-wrap {
-  margin-top: 8px !important;
-}
-
-.profile-feed-list .golden-drop-media {
-  gap: 8px;
-}
-
-.profile-feed-list .golden-drop-media.single {
-  margin-right: 0 !important;
-}
-
-.profile-feed-list .golden-drop-media img {
-  border-radius: 14px !important;
-  max-height: 75dvh;
-}
-
-.profile-feed-list .golden-drop-media-wrap + .wyn-post-actions.wyn-threads-actions {
-  margin-top: 6px;
-}
-
-/* Home action component is reused directly on Profile, so these are only
-   defensive locks against older GoldenDropCard zero-count rules. */
-.profile-feed-list .wyn-post-actions.wyn-threads-actions {
-  min-height: 30px !important;
-  margin: 4px 0 6px !important;
-  gap: 18px !important;
-}
-
-.profile-feed-list .wyn-post-actions .wyn-action-save::after,
-.profile-feed-list .wyn-post-actions [aria-label="บันทึก"]::after,
-.profile-feed-list .wyn-post-actions [aria-label="ยกเลิกบันทึก"]::after {
-  content: none !important;
-}
-
-@media (max-width: 359px) {
-  .profile-feed-list .golden-drop-card {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    grid-template-columns: 34px minmax(0, 1fr) !important;
-    column-gap: 8px !important;
-  }
-
-  .profile-feed-list .golden-drop-author-avatar,
-  .profile-feed-list .golden-drop-avatar {
-    width: 34px;
-    height: 34px;
-  }
-
-  .profile-feed-list .golden-drop-head small {
-    max-width: 72px !important;
-    font-size: 13.5px !important;
-  }
-
-  .profile-feed-list .wyn-post-actions.wyn-threads-actions {
-    gap: 16px !important;
-  }
-}
-
+/* Normal Profile posts render HomePostCard and inherit home.css + threads-action-row.css.
+   This stylesheet now owns only Quote-specific presentation and mixed-feed separators. */
 
 /* X-style Quote: the QUOTING account owns the card and the original Drop is
    linked inside. Shared by Home and Profile Posts; no nested old Drop actions
@@ -201,9 +13,17 @@
   width: 100%;
   /* Same initial row offset as Home and the existing profile post cards. */
   padding: 8px 16px 12px;
-  border-bottom: 1px solid #ececef;
+  border-bottom: 0;
   background: var(--wyn-bg, #fff);
   color: var(--wyn-text, #111);
+}
+
+/* Use one theme-aware divider for every combination of normal and Quote posts.
+   In particular, Quote -> Quote no longer draws both a top and bottom border. */
+:is(.wyn-home-feed, .profile-feed-list)
+  > :is(.wyn-post, .wyn-quote-feed-card)
+  + :is(.wyn-post, .wyn-quote-feed-card) {
+  border-top: 1px solid var(--wyn-border);
 }
 .wyn-quote-feed-author-avatar {
   grid-column: 1;
@@ -278,6 +98,13 @@
   border-radius: 50%;
   background: transparent;
   color: #73767e;
+  position: relative;
+}
+/* Extend the Quote menu touch area to 44x44 without changing byline geometry. */
+.wyn-quote-feed-head > button::before {
+  content: "";
+  position: absolute;
+  inset: -9px -10px -9px -6px;
 }
  .wyn-quote-feed-comment {
   display: block;
@@ -380,29 +207,12 @@
   gap: 18px;
   margin: 4px 0 6px;
 }
-.wyn-quote-feed-actions .wyn-action-button { flex-shrink: 1; }
 .wyn-quote-feed-actions .wyn-action-save { margin-left: auto; }
-.wyn-quote-feed-more-action {
-  flex: 0 0 25px;
-  width: 25px;
-  height: 38px;
-  padding: 0;
-  margin-left: 6px;
-  border: 0;
-  background: transparent;
-  color: var(--wyn-text-secondary, #73767e);
-}
 @media (max-width: 359px) {
-  /* A Quote adds a separate More button beside five post actions; compress
-     only this six-control row so it fits at 320px. Normal Profile posts
-     continue to use Home's 16px gap. */
-  .wyn-quote-feed-actions .wyn-post-actions { gap: 9px; }
-  .profile-feed-list .wyn-quote-feed-actions .wyn-post-actions.wyn-threads-actions { gap: 9px !important; }
-  .wyn-quote-feed-actions .wyn-action-button { min-width: 22px; }
-  .wyn-quote-feed-actions .wyn-action-button svg { width: 20px; height: 20px; }
-  .wyn-quote-feed-more-action { margin-left: 3px; }
+  /* Quote now keeps its only More control in the header. The five shared
+     actions therefore use Home's full 22/24px icons and 16px mobile gap. */
+  .wyn-quote-feed-actions .wyn-post-actions.wyn-threads-actions { gap: 16px; }
 }
-
 /* Quotes remain distinct authored posts, but their outer row uses Home's
    40px avatar / 10px gutter / 8px top inset on Home AND Profile.
    Keep the embedded original's compact 30px avatar unchanged. */
@@ -418,9 +228,6 @@
 }
 
 .wyn-quote-feed-notice { margin: 8px 0 0; font-size: 12px; color: var(--wyn-text-secondary, #777); }
-.profile-feed-list .golden-drop-card + .wyn-quote-feed-card,
-.profile-feed-list .wyn-quote-feed-card + .golden-drop-card,
-.profile-feed-list .wyn-quote-feed-card + .wyn-quote-feed-card { border-top: 1px solid #ececef; }
 .wyn-quote-feed-sheet-backdrop {
   position: fixed;
   inset: 0;
@@ -490,8 +297,9 @@
   }
   .wyn-quote-feed-author-avatar,
   .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar {
-    width: 34px;
-    height: 34px;
+    /* The 40px Profile rule above has !important: the 320px rule must win. */
+    width: 34px !important;
+    height: 34px !important;
   }
   .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-author-avatar > .wyn-quote-feed-avatar {
     width: 34px !important;
@@ -500,5 +308,14 @@
   .wyn-quote-feed-byline small {
     max-width: 72px;
     font-size: 13.5px;
+  }
+}
+
+/* Wide Profile and Home Quote cards share Home's 20px post inset. */
+@media (min-width: 681px) {
+  .wyn-quote-feed-card,
+  .wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-card {
+    padding-left: 20px;
+    padding-right: 20px;
   }
 }

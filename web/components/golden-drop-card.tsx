@@ -122,17 +122,21 @@ async function fetchImages(client: SupabaseClient, row: HomeFeedRow): Promise<st
 export function GoldenDropCard({
   row,
   homeParity = false,
+  initialViewer,
+  profileViewerId = "",
   onRepostChanged,
   onQuoteCreated,
 }: {
   row: HomeFeedRow;
   homeParity?: boolean;
+  initialViewer?: HomeViewerState | null;
+  profileViewerId?: string;
   onRepostChanged?: (actorId: string, dropId: string, removedStandard: boolean) => void;
   onQuoteCreated?: (actorId: string) => void;
 }) {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
-  const [viewer, setViewer] = useState<HomeViewerState | null>(null);
-  const [userId, setUserId] = useState("");
+  const [viewer, setViewer] = useState<HomeViewerState | null>(initialViewer ?? null);
+  const [userId, setUserId] = useState(profileViewerId);
   const [images, setImages] = useState<string[]>(row.image_url ? [row.image_url] : []);
   const [likeCount, setLikeCount] = useState(row.like_count ?? 0);
   const [redropCount, setRedropCount] = useState(row.redrop_count ?? 0);
@@ -167,11 +171,10 @@ export function GoldenDropCard({
     if (!client) return;
     let live = true;
     void (async () => {
-      const auth = await client.auth.getUser();
-      const uid = auth.data.user?.id ?? "";
+      const uid = profileViewerId || (await client.auth.getUser()).data.user?.id || "";
       if (!uid || !live) return;
       const [state, media, views] = await Promise.all([
-        loadHomeViewerState(client, uid, [row]),
+        initialViewer ? Promise.resolve(initialViewer) : loadHomeViewerState(client, uid, [row]),
         fetchImages(client, row),
         client.rpc("drop_view_count", { p_drop_id: row.id }),
       ]);
@@ -182,7 +185,7 @@ export function GoldenDropCard({
       if (!views.error) setViewCount(Number(views.data ?? 0) || 0);
     })().catch(() => undefined);
     return () => { live = false; };
-  }, [client, row]);
+  }, [client, row, initialViewer, profileViewerId]);
 
   const liked = viewer?.likedDropIds.has(row.id) ?? false;
   const saved = viewer?.savedDropIds.has(row.id) ?? false;

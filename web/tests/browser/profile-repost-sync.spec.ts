@@ -66,9 +66,13 @@ test("profile repost action sheet is portaled out of the transformed swipe feed"
   expect(card).toContain('onTouchMove={(event) => event.stopPropagation()}');
   expect(card).toContain('document.body.style.overflow = "hidden"');
   expect(card).toContain('event.key === "Escape"');
-  for (const name of ["redrop", "more", "report"]) {
+  // More/Report remain inline SheetFrame; Repost now formats the sheet
+  // across lines, but every sheet is still portaled by SheetFrame.
+  for (const name of ["more", "report"]) {
     expect(card).toContain('sheet === "' + name + '" ? <SheetFrame');
   }
+  expect(card).toContain('sheet === "redrop" ? (');
+  expect(card).toContain('<SheetFrame label="รีโพสต์"');
   expect(card).toContain('sheet === "quote" ? (');
   expect(card).toContain("<QuoteRedropComposer");
   expect(card).toContain("viewerId={userId}");

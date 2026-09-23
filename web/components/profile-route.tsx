@@ -23,7 +23,7 @@ import {
   removeSavedAccount,
   type SavedAccount,
 } from "@/lib/account-registry";
-import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
+import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { fetchProfilePostTimeline, fetchProfileStandardReposts, PROFILE_POST_PAGE_SIZE, PROFILE_REPOST_PAGE_SIZE } from "@/lib/profile-post-feed";
 import { haptic } from "@/lib/haptics";
@@ -56,6 +56,9 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
   const cacheKey = `profile-feed:${profileId}:${kind}`;
   const cached = getMountCache<ProfileFeedSnapshot>(cacheKey);
   const [rows, setRows] = useState<HomeFeedRow[]>(cached?.rows ?? []);
+  const rowsRef = useRef<HomeFeedRow[]>(cached?.rows ?? []);
+  const [viewerSnapshot, setViewerSnapshot] = useState<HomeViewerState | null>(null);
+  const [viewerReady, setViewerReady] = useState(false);
   const [page, setPage] = useState(cached?.page ?? 0);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(!cached);
@@ -77,23 +80,36 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
         allowedRef.current = canView;
         setAllowed(canView);
       }
-      // Switching tabs or refreshing after a repost invalidates older results,
-      // so a slow previous response cannot restore an already-removed row.
+      // Fetch interaction state once for the whole page, not once per card.
+      // Keep cached rows hidden until their real viewer state is available to
+      // avoid briefly showing false Like/Save/Follow controls on Profile.
+      const combined = append ? [...rowsRef.current, ...next] : next;
+      // A viewer-state request failure must not trap Profile behind a skeleton:
+      // individual cards can still hydrate themselves as a fallback.
+      const snapshot = viewerId
+        ? await loadHomeViewerState(client, viewerId, combined).catch(() => null)
+        : null;
+      // Switching tabs or refreshing after a repost invalidates older results.
       if (request !== requestId.current) return;
       const nextHasMore = next.length === (kind === "redrops" ? PROFILE_REPOST_PAGE_SIZE : PROFILE_POST_PAGE_SIZE);
-      setRows((current) => {
-        const combined = append ? [...current, ...next] : next;
-        setMountCache(cacheKey, { rows: combined, page: nextPage, hasMore: nextHasMore, allowed: allowedRef.current });
-        return combined;
-      });
+      rowsRef.current = combined;
+      setRows(combined);
+      setViewerSnapshot(snapshot);
+      setViewerReady(true);
+      setMountCache(cacheKey, { rows: combined, page: nextPage, hasMore: nextHasMore, allowed: allowedRef.current });
       setPage(nextPage);
       setHasMore(nextHasMore);
     } catch {
-      if (request === requestId.current) setRows([]);
+      if (request === requestId.current) {
+        rowsRef.current = [];
+        setRows([]);
+        setViewerSnapshot(null);
+        setViewerReady(true);
+      }
     } finally {
       if (request === requestId.current) setLoading(false);
     }
-  }, [client, kind, profileId, cacheKey]);
+  }, [client, kind, profileId, cacheKey, viewerId]);
   useEffect(() => {
     setAllowed(true);
     void load(0, false);
@@ -113,9 +129,11 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
     if (removedStandard) {
       // Remove just the standard repost immediately; any Quote Reposts of
       // the same original post remain visible until the fresh list arrives.
-      setRows((current) => current.filter((item) =>
-        !(item.id === dropId && item.redrop_id && item.quote_text == null)
-      ));
+      setRows((current) => {
+        const remaining = current.filter((item) => !(item.id === dropId && item.redrop_id && item.quote_text == null));
+        rowsRef.current = remaining;
+        return remaining;
+      });
     }
     void load(0, false);
   }, [kind, profileId, load]);
@@ -130,14 +148,18 @@ function ProfileFeed({ client, profileId, viewerId, kind }: { client: SupabaseCl
   const onQuoteDeleted = useCallback((actorId: string, quoteId: string) => {
     deleteMountCache(`profile-feed:${actorId}:posts`);
     if (kind !== "posts" || profileId !== actorId) return;
-    setRows((current) => current.filter((row) => row.redrop_id !== quoteId));
+    setRows((current) => {
+      const remaining = current.filter((row) => row.redrop_id !== quoteId);
+      rowsRef.current = remaining;
+      return remaining;
+    });
     void load(0, false);
   }, [kind, profileId, load]);
 
-  return loading && !rows.length ? <FeedSkeleton items={2} />
+  return (loading && !rows.length) || (viewerId && rows.length > 0 && !viewerReady) ? <FeedSkeleton items={2} />
     : !allowed ? <EmptyState>เจ้าของบัญชีจำกัดผู้ที่เห็นรายการที่ถูกใจ</EmptyState>
     : !rows.length ? <EmptyState>{kind === "posts" ? "ยังไม่มีโพสต์" : kind === "redrops" ? "ยังไม่มีรีโพสต์" : "ยังไม่มีสิ่งที่ถูกใจ"}</EmptyState>
-    : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity viewerId={viewerId} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} onQuoteDeleted={onQuoteDeleted} key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
+    : <div className="profile-feed-list">{rows.map((row) => <DropPreviewCard row={row} homeParity viewerId={viewerId} viewerSnapshot={viewerSnapshot} onRepostChanged={onRepostChanged} onQuoteCreated={onQuoteCreated} onQuoteDeleted={onQuoteDeleted} key={`${row.id}:${row.redrop_id ?? "plain"}`} />)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
 function formatWebsiteLabel(url: string): string {

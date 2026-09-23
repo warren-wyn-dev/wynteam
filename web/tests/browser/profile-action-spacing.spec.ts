@@ -28,8 +28,10 @@ test("Profile actions inherit Home's shared icons and spacing without a Beta1 ov
   expect(shared).toContain(".wyn-post-actions.wyn-threads-actions");
   expect(shared).toContain("gap: 18px;");
   expect(shared).toContain("gap: 16px;");
-  expect(profile).toContain("gap: 18px !important;");
-  expect(profile).toContain("gap: 16px !important;");
+  // Profile normal posts use the canonical Home CSS; no legacy Golden overrides.
+  expect(profile).not.toContain(".profile-feed-list .golden-drop-card {");
+  expect(profile).not.toContain(".profile-feed-list .wyn-post-actions.wyn-threads-actions {");
+  expect(profile).toContain(".wyn-quote-feed-actions .wyn-post-actions.wyn-threads-actions { gap: 16px; }");
   expect(beta1).not.toMatch(/\.wyn-profile-beta1 \.profile-feed-list \.wyn-post-actions\.wyn-threads-actions\s*\{/);
   expect(beta1).not.toContain("gap: 21px !important;");
   expect(beta1).not.toContain("gap: 14px !important;");
@@ -61,9 +63,9 @@ test("390px and 320px Home/Profile rows have equal action geometry and a right-a
         '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="wyn-post" style="width:100%"><div class="wyn-post-body">' +
         row +
         "</div></article></div></div>" +
-        '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="wyn-quote-feed-card"><div class="wyn-quote-feed-body"><div class="wyn-quote-feed-actions">' +
+        '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="wyn-quote-feed-card"><a class="wyn-quote-feed-author-avatar"></a><div class="wyn-quote-feed-body"><div class="wyn-quote-feed-actions">' +
         row +
-        '<button class="wyn-quote-feed-more-action" aria-label="อื่นๆ">···</button></div></div></article></div></div>';
+        '</div></div></article></div></div>';
       document.body.append(host);
 
       const measure = (selector: string) => {
@@ -105,9 +107,11 @@ test("390px and 320px Home/Profile rows have equal action geometry and a right-a
     expect(Math.abs(result.home.bookmarkRightGap)).toBeLessThan(1);
     expect(Math.abs(result.profile.bookmarkRightGap)).toBeLessThan(1);
 
-    // A Quote adds a separate More button, so only the six-control 320px
-    // variant needs a smaller gap; other cards follow Home precisely.
-    expect(result.quote.gap).toBe(width === 320 ? "9px" : "18px");
+    // The Quote's More control now lives in its header, so all five action
+    // icons use Home's uncompressed sizing and spacing even at 320px.
+    expect(result.quote.gap).toBe(expectedGap);
+    expect(result.quote.iconSizes).toEqual(result.home.iconSizes);
+    expect(Math.abs(result.quote.bookmarkRightGap)).toBeLessThan(1);
     expect(result.quoteOverflow).toBeLessThanOrEqual(2);
   }
 });
