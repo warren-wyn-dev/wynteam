@@ -268,11 +268,8 @@
 /* The profile header retains its own typography; post cards are now
    rendered by HomePostCard itself. Do not resize or reposition their avatars,
    bylines, captions, media or action bar in Beta1: Home is the reference. */
-.wyn-profile-beta1 .profile-feed-list .wyn-post + .wyn-post,
-.wyn-profile-beta1 .profile-feed-list .wyn-post + .wyn-quote-feed-card,
-.wyn-profile-beta1 .profile-feed-list .wyn-quote-feed-card + .wyn-post {
-  border-top: 1px solid #e3e6ed;
-}
+/* Home already defines .wyn-post + .wyn-post dividers. Quote cards have
+   their own bottom border, so avoid doubling borders in Profile. */
 /* Cover editing was supported by the data layer; expose it again now that
    the profile actually renders cover photos. */
 .wyn-profile-edit-cover {
