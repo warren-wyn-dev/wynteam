@@ -19,8 +19,11 @@ test("Profile actions inherit Home's shared icons and spacing without a Beta1 ov
   expect(homeActions).toContain("<RepostIcon");
   expect(homeActions).toContain("<WynosShareIcon");
   expect(homeActions).toContain("<SaveIcon");
-  expect(profileCard).toContain("<PostActions");
-  expect(profileCard).toContain("modernFeed");
+  expect(profileCard).toContain("<HomePostCard");
+  expect(profileCard).toContain("viewer={viewer ?? EMPTY_VIEWER}");
+  expect(profileCard).toContain("onLike={() => void like()}");
+  expect(profileCard).toContain("onFollow={() => void followAuthor()}");
+  expect(profileCard).toContain("onSave={() => void save()}");
 
   expect(shared).toContain(".wyn-post-actions.wyn-threads-actions");
   expect(shared).toContain("gap: 18px;");
@@ -55,7 +58,7 @@ test("390px and 320px Home/Profile rows have equal action geometry and a right-a
         '<div class="wyn-home-fixture"><article class="wyn-post" style="width:100%"><div class="wyn-post-body">' +
         row +
         '</div></article></div>' +
-        '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="golden-drop-card" style="width:100%"><div class="golden-drop-body">' +
+        '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="wyn-post" style="width:100%"><div class="wyn-post-body">' +
         row +
         "</div></article></div></div>" +
         '<div class="wyn-profile-beta1"><div class="profile-feed-list"><article class="wyn-quote-feed-card"><div class="wyn-quote-feed-body"><div class="wyn-quote-feed-actions">' +
@@ -81,7 +84,7 @@ test("390px and 320px Home/Profile rows have equal action geometry and a right-a
         };
       };
       const home = measure(".wyn-home-fixture .wyn-post-actions");
-      const profile = measure(".wyn-profile-beta1 .golden-drop-card .wyn-post-actions");
+      const profile = measure(".wyn-profile-beta1 .wyn-post .wyn-post-actions");
       const quote = measure(".wyn-quote-feed-card .wyn-post-actions");
       const quoteContainer = host.querySelector<HTMLElement>(".wyn-quote-feed-card")!;
       const quoteOverflow = quoteContainer.scrollWidth - quoteContainer.clientWidth;
