@@ -1,0 +1,40 @@
+name: Web Beta1 Email Readiness Audit
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/audit-auth-email-readiness.sh'
+      - '.github/scripts/test-auth-email-readiness.sh'
+      - '.github/workflows/web-beta1-email-readiness.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/audit-auth-email-readiness.sh'
+      - '.github/scripts/test-auth-email-readiness.sh'
+      - '.github/workflows/web-beta1-email-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only email readiness audit and privacy regressions
+        run: |
+          bash -n .github/scripts/audit-auth-email-readiness.sh
+          bash -n .github/scripts/test-auth-email-readiness.sh
+          bash .github/scripts/test-auth-email-readiness.sh
+
+  audit:
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live Supabase Auth email settings without exposing secrets
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bash .github/scripts/audit-auth-email-readiness.sh
