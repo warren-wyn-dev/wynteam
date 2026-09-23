@@ -82,10 +82,8 @@ export function QuoteFeedCard({
   const mediaRatio = postMediaAspectRatio(row, availableMedia.length > 1);
 
   useEffect(() => {
-    if (initialViewer) {
-      setViewer(initialViewer);
-      return;
-    }
+    // Initial Profile snapshot prevents a false first paint. A background
+    // revalidation keeps Quote actions current after a same-tab refresh.
     if (!client || !viewerId) return;
     let live = true;
     void loadHomeViewerState(client, viewerId, [row]).then((state) => {
