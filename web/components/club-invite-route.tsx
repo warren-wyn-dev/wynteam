@@ -58,6 +58,11 @@ function InviteInner({ client, userId, code }: { client: SupabaseClient; userId:
   if (!preview || preview.status === "not_found") return <AppChrome title="คำเชิญ Club" userId={userId} backHref="/"><EmptyState>ไม่พบลิงก์เชิญนี้</EmptyState></AppChrome>;
   const valid = preview.status === "valid";
   const statusLabel: Record<string, string> = { expired: "หมดอายุ", revoked: "ถูกยกเลิก", exhausted: "ถูกใช้ครบแล้ว" };
+  if (!valid) {
+    return <AppChrome title="คำเชิญ Club" userId={userId} backHref="/">
+      <section className="invite-card"><p>ลิงก์เชิญนี้{statusLabel[preview.status] || "ไม่สามารถใช้งานได้"}</p></section>
+    </AppChrome>;
+  }
   const targetId = joinedId || preview.club_id || "";
   return (
     <AppChrome title="คำเชิญ Club" userId={userId} backHref="/">
@@ -66,7 +71,6 @@ function InviteInner({ client, userId, code }: { client: SupabaseClient; userId:
         <h2>{preview.club_name || "Club"}</h2>
         <small>{preview.club_privacy === "private" ? "Club ส่วนตัว" : "Club สาธารณะ"}</small>
         {valid && !joinedId ? <button className="route-primary" type="button" disabled={busy} onClick={() => void redeem()}>{busy ? "กำลังเข้าร่วม…" : "เข้าร่วม Club"}</button> : null}
-        {!valid ? <p>ลิงก์เชิญนี้{statusLabel[preview.status] || "ไม่สามารถใช้งานได้"}</p> : null}
         {message ? <p className="route-notice">{message}</p> : null}
         {targetId ? <Link className="route-secondary inline" href={`/club/${targetId}`}>เปิด Club</Link> : null}
       </section>

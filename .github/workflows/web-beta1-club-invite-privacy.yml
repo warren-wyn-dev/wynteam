@@ -1,0 +1,45 @@
+name: Web Beta1 Club Invite Privacy
+
+on:
+  pull_request:
+    paths:
+      - "supabase/schema.sql"
+      - "supabase/migrations_web_beta1_club_invite_preview_privacy.sql"
+      - "supabase/tests/web_beta1_club_invite_preview_privacy_test.sh"
+      - "web/components/club-invite-route.tsx"
+      - ".github/workflows/web-beta1-club-invite-privacy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  invite-preview-privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Test public club invite privacy through true anon/authenticated roles
+        run: bash supabase/tests/web_beta1_club_invite_preview_privacy_test.sh
