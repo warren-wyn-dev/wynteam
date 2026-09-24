@@ -15904,7 +15904,7 @@ language sql
 stable
 security definer
 set search_path = public
-as $
+as $$
   with matched as (
     select
       case
@@ -15930,7 +15930,7 @@ as $
     case when m.invite_status = 'valid' then m.target_club_privacy end,
     case when m.invite_status = 'valid' then m.target_club_icon_url end
   from matched m;
-$;
+$$;
 
 
 grant execute on function public.preview_club_invite_link(text) to authenticated;
