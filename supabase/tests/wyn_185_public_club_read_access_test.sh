@@ -104,10 +104,10 @@ language sql stable as $$
 $$;
 
 create or replace function auth.jwt() returns jsonb
-language sql stable as $
+language sql stable as $$
   select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb,
     '{"is_anonymous":false}'::jsonb)
-$;
+$$;
 
 create schema if not exists storage;
 create table if not exists storage.buckets (
@@ -384,7 +384,7 @@ insert into storage.objects(bucket_id,name) values
   ('drop-images','98000000-0000-0000-0000-000000000002/drafts/bob.jpeg'),
   ('drop-images','98000000-0000-0000-0000-000000000005/publications/image.jpeg');
 
-do $
+do $$
 declare v_post int; v_chat int; v_private int;
 begin
   set role authenticated;
@@ -402,12 +402,12 @@ begin
     ('CHECK11_public_club_chat_image_hidden',v_chat::text,'0'),
     ('CHECK12_private_club_image_hidden',v_private::text,'0');
 end
-$;
+$$;
 
 -- Author block must still hide public-club text AND its image.
 insert into public.blocks(blocker_id,blocked_id) values
  ('98000000-0000-0000-0000-000000000005','98000000-0000-0000-0000-000000000001');
-do $
+do $$
 declare v_post int; v_image int; v_member int;
 begin
   set role authenticated;
@@ -429,10 +429,10 @@ begin
     ('CHECK14_blocked_public_image_hidden',v_image::text,'0'),
     ('CHECK15_unblocked_member_still_sees_post',v_member::text,'1');
 end
-$;
+$$;
 
 -- Draft UPDATE is permitted only within the current account's drafts folder.
-do $
+do $$
 declare own_rows int; other_rows int; publication_rows int; cross_user_denied int := 0;
 begin
   set role authenticated;
@@ -459,7 +459,7 @@ begin
     ('CHECK18_published_image_overwrite_denied',publication_rows::text,'0'),
     ('CHECK19_draft_move_to_other_user_denied',cross_user_denied::text,'1');
 end
-$;
+$$;
 
 select check_name, actual, expected from results order by check_name;
 EOF
