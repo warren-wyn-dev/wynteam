@@ -130,3 +130,48 @@ test("Beta1 profile and post badges both show the shared black-check SVG", async
   expect(result.profile.width).toBe(22);
   expect(result.feed.width).toBe(18);
 });
+
+for (const width of [320, 390, 432]) {
+  test(`search user Verified stays directly beside the name at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 768 });
+    const results = await page.evaluate(() => {
+      return ["WYNOS", "WYNOS officials", "An unusually long WYNOS display name that must truncate inside a narrow search row"].map((name) => {
+        const row = document.createElement("div");
+        row.className = "route-person-row";
+        row.innerHTML = '<a class="route-person-main" href="#">' +
+          '<span class="route-avatar fallback" style="width:42px;height:42px">W</span>' +
+          '<span class="route-person-copy"><strong><span class="route-person-display-name"></span>' +
+          '<span class="route-verified" aria-label="ยืนยันแล้ว">✓</span></strong><small>@wynos_s</small></span></a>';
+        row.querySelector<HTMLElement>(".route-person-display-name")!.textContent = name;
+        document.body.appendChild(row);
+        const nameBox = row.querySelector(".route-person-display-name")!.getBoundingClientRect();
+        const badgeBox = row.querySelector(".route-verified")!.getBoundingClientRect();
+        const handleBox = row.querySelector("small")!.getBoundingClientRect();
+        const rowBox = row.getBoundingClientRect();
+        const result = {
+          badgeWidth: badgeBox.width,
+          badgeHeight: badgeBox.height,
+          badgeMargin: getComputedStyle(row.querySelector(".route-verified")!).marginLeft,
+          gap: badgeBox.left - nameBox.right,
+          centerDelta: Math.abs((badgeBox.top + badgeBox.bottom - nameBox.top - nameBox.bottom) / 2),
+          handleBelowName: handleBox.top >= nameBox.bottom - 1,
+          badgeInRow: badgeBox.right <= rowBox.right + 1,
+          rowOverflow: row.scrollWidth - row.clientWidth,
+        };
+        row.remove();
+        return result;
+      });
+    });
+    for (const result of results) {
+      expect(result.badgeWidth).toBe(13);
+      expect(result.badgeHeight).toBe(13);
+      expect(result.badgeMargin).toBe("0px");
+      expect(result.gap).toBeGreaterThanOrEqual(3.5);
+      expect(result.gap).toBeLessThanOrEqual(4.5);
+      expect(result.centerDelta).toBeLessThanOrEqual(2);
+      expect(result.handleBelowName).toBe(true);
+      expect(result.badgeInRow).toBe(true);
+      expect(result.rowOverflow).toBeLessThanOrEqual(1);
+    }
+  });
+}
