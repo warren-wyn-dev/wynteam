@@ -23,6 +23,9 @@ test("edit profile keeps one bottom save and camera-only photo controls", async 
   // No duplicate Save in the header and no separate avatar edit/delete row.
   expect(edit).toContain("wyn-profile-edit-footer");
   expect(edit).toContain("wyn-profile-edit-cover-camera");
+  expect(edit).toContain("setAvatarToCrop(file)");
+  expect(edit).toContain("<ProfilePhotoCropper");
+  expect(edit).toContain('uploadProfileImage(client, userId, "avatar", file)');
   expect(edit).toContain("wyn-profile-edit-avatar-camera");
   expect(edit).not.toContain("wyn-profile-edit-avatar-actions");
   expect(edit).not.toContain("wyn-profile-edit-cover-button");

@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { ProfilePhotoCropper } from "@/components/ui/profile-photo-cropper";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type TouchEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -195,6 +196,7 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
   const [avatar, setAvatar] = useState(profile.avatar_url);
   const [cover, setCover] = useState(profile.cover_url);
   const [photoMenu, setPhotoMenu] = useState<"avatar" | "cover" | null>(null);
+  const [avatarToCrop, setAvatarToCrop] = useState<File | null>(null);
   const selectedKind = useRef<"avatar" | "cover">("avatar");
   const libraryInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
@@ -256,7 +258,15 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
   const pickerChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
-    void uploadImage(file);
+    if (!file) return;
+    if (selectedKind.current === "avatar") {
+      if (file.size > 10 * 1024 * 1024 || file.size === 0) { setError("รูปภาพต้องมีขนาดไม่เกิน 10MB"); return; }
+      if (!file.type.startsWith("image/") && !/\.(heic|heif)$/i.test(file.name)) { setError("กรุณาเลือกไฟล์รูปภาพ"); return; }
+      setError("");
+      setAvatarToCrop(file);
+      return;
+    }
+    void uploadImage(file); // Preserve existing cover upload behavior.
   };
 
   return (
@@ -287,6 +297,17 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
         <button className="route-secondary" type="button" disabled={saving} onClick={onDone}>ยกเลิก</button>
         <button className="route-primary" type="button" disabled={saving} onClick={() => void save()}>{saving ? "กำลังบันทึก…" : "บันทึก"}</button>
       </div>
+      {avatarToCrop ? <ProfilePhotoCropper file={avatarToCrop} onCancel={() => setAvatarToCrop(null)} onConfirm={async (file) => {
+        setSaving(true);
+        setError("");
+        try {
+          const url = await uploadProfileImage(client, userId, "avatar", file);
+          setAvatar(url);
+          setAvatarToCrop(null);
+        } finally {
+          setSaving(false);
+        }
+      }} /> : null}
       {photoMenu ? <div className="route-modal-backdrop wyn-profile-photo-backdrop" role="presentation" onClick={() => setPhotoMenu(null)}>
         <section className="route-modal wyn-profile-photo-sheet" role="dialog" aria-modal="true" aria-label={photoMenu === "avatar" ? "จัดการรูปโปรไฟล์" : "จัดการรูปหน้าปก"} onClick={(event) => event.stopPropagation()}>
           <header><strong>{photoMenu === "avatar" ? "รูปโปรไฟล์" : "รูปหน้าปก"}</strong><button className="wyn-photo-sheet-close" type="button" aria-label="ปิด" onClick={() => setPhotoMenu(null)}><WynosIcon name="close" size={20} /></button></header>
