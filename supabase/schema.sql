@@ -15894,7 +15894,7 @@ grant execute on function public.revoke_club_invite_link(uuid) to authenticated;
 -- RPC 3: preview_club_invite_link() -- ทุกคนเรียกได้ รวม guest/anonymous
 create or replace function public.preview_club_invite_link(p_code text)
 returns table (
-  status text, -- 'valid' | 'expired' | 'revoked' | 'exhausted' | 'not_found'
+  status text,
   club_id uuid,
   club_name text,
   club_privacy text,
@@ -15904,22 +15904,34 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $
+  with matched as (
+    select
+      case
+        when l.id is null then 'not_found'
+        when l.revoked_at is not null then 'revoked'
+        when l.expires_at is not null and l.expires_at < now() then 'expired'
+        when l.max_uses is not null and l.use_count >= l.max_uses then 'exhausted'
+        else 'valid'
+      end as invite_status,
+      c.id as target_club_id,
+      c.name as target_club_name,
+      c.privacy as target_club_privacy,
+      c.icon_url as target_club_icon_url
+    from (select p_code as code) req
+    left join public.club_invite_links l on l.code = req.code
+    left join public.clubs c on c.id = l.club_id
+    limit 1
+  )
   select
-    case
-      when l.id is null then 'not_found'
-      when l.revoked_at is not null then 'revoked'
-      when l.expires_at is not null and l.expires_at < now() then 'expired'
-      when l.max_uses is not null and l.use_count >= l.max_uses then 'exhausted'
-      else 'valid'
-    end,
-    c.id, c.name, c.privacy, c.icon_url
-  from public.club_invite_links l
-  right join (select p_code as code) req on true
-  left join public.clubs c on c.id = l.club_id
-  where l.code = req.code or l.code is null
-  limit 1;
-$$;
+    m.invite_status,
+    case when m.invite_status = 'valid' then m.target_club_id end,
+    case when m.invite_status = 'valid' then m.target_club_name end,
+    case when m.invite_status = 'valid' then m.target_club_privacy end,
+    case when m.invite_status = 'valid' then m.target_club_icon_url end
+  from matched m;
+$;
+
 
 grant execute on function public.preview_club_invite_link(text) to authenticated;
 
