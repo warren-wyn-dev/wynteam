@@ -17,8 +17,8 @@ test("image composer keeps the empty caption to one line and expands with typing
   expect(component).toContain("[caption, hasAttachedMedia, mode]");
   expect(component).toContain("hasAttachedMedia ? styles.attachedCaption");
   expect(component).toContain("rows={1}");
-  expect(css).toMatch(/\.attachedCaption\s*\{[^}]*min-height:\s*32px\s*!important/s);
-  expect(css).toMatch(/\.composeText\s*\{[^}]*overflow-y:\s*hidden\s*!important/s);
+  expect(css).toMatch(/\.attachedCaption\s*\{[^}]*min-height:\s*32px\s*!important/);
+  expect(css).toMatch(/\.composeText\s*\{[^}]*overflow-y:\s*hidden\s*!important/);
 
   // Browser geometry smoke: the one-line attached-media rule does not reserve
   // 86px above a photo and a longer caption can grow without overlap.
