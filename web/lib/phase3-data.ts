@@ -368,6 +368,7 @@ async function mapClub(client: SupabaseClient, row: Record<string, unknown>): Pr
     signClubMedia(client, row.icon_url),
     client.rpc("club_member_count", { p_club_id: String(row.id ?? "") }),
   ]);
+  fail(members.error, "โหลดจำนวนสมาชิกคลับไม่สำเร็จ");
   return {
     id: String(row.id ?? ""),
     name: String(row.name ?? ""),
@@ -405,6 +406,7 @@ async function mapClubs(client: SupabaseClient, rows: Record<string, unknown>[])
   // club_members count -- see mapClub()'s comment for why the raw query
   // undercounts (0) for a Public club the caller hasn't joined yet.
   const memberships = await client.rpc("club_member_counts", { p_club_ids: ids });
+  fail(memberships.error, "โหลดจำนวนสมาชิกคลับไม่สำเร็จ");
   const countByClubId = new Map<string, number>();
   for (const row of (memberships.data ?? []) as { club_id: string; member_count: number }[]) {
     countByClubId.set(String(row.club_id), Number(row.member_count) || 0);
