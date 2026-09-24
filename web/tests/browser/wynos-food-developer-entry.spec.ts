@@ -6,8 +6,10 @@ const source = (path: string) => readFileSync(join(process.cwd(), path), "utf8")
 
 test("Food shortcut is rendered only on a confirmed developer's For You feed", () => {
   const home = source("components/home/home-screen.tsx");
-  expect(home).toContain("useIsDeveloperAccount(client)");
+  expect(home).toContain("useIsDeveloperAccount(client, userId)");
   expect(home).toContain('isDeveloper && visibleMode === "for-you" ? <WynosFoodEntry /> : null');
+  const gate = source("lib/use-is-developer-account.ts");
+  expect(gate).toContain("result?.userId === userId");
   expect(home).not.toContain("window.location.assign(\"https://food.wynos.online");
 });
 

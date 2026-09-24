@@ -204,10 +204,10 @@ function ActionSheet({
 
 export function HomeScreen({ session }: { session: Session }) {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
-  const isDeveloper = useIsDeveloperAccount(client);
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = session.user.id;
+  const isDeveloper = useIsDeveloperAccount(client, userId);
   const { toastMessage, showToast } = useToast();
 
   // Deliberately not wrapped in useMemo/useRef: `store`'s fields (mode,
