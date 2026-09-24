@@ -332,3 +332,22 @@
 }
 .wyn-quote-feed-state button { color: var(--wyn-accent); border: 0; background: none; padding: 0; }
 .wyn-quote-comments { scroll-margin-top: 68px; }
+
+/* Compact quote removal menu: the old native confirm disconnected the
+   destructive action from its context and left the sheet unexplained. */
+.wyn-quote-feed-menu-sheet {
+  max-height: min(70dvh, 420px);
+  padding-top: 6px;
+  padding-bottom: max(9px, env(safe-area-inset-bottom, 0px));
+}
+.wyn-quote-feed-menu-sheet .wyn-quote-feed-sheet-grip { margin-bottom: 5px; }
+.wyn-quote-feed-menu-sheet > button { min-height: 48px; }
+.wyn-quote-feed-menu-sheet .wyn-quote-feed-sheet-cancel { border-top: 1px solid var(--wyn-border, var(--hairline)); }
+.wyn-quote-feed-sheet-hint { margin: 0 20px 10px; color: var(--wyn-text-secondary, var(--graphite)); font-size: 12px; line-height: 1.45; }
+.wyn-quote-feed-delete-confirm { display: grid; gap: 12px; padding: 9px 20px 4px; }
+.wyn-quote-feed-delete-confirm strong { font-size: 17px; font-weight: 700; }
+.wyn-quote-feed-delete-confirm p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--wyn-text-secondary, var(--graphite)); }
+.wyn-quote-feed-delete-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wyn-quote-feed-delete-actions button { min-height: 46px; padding: 9px; border: 1px solid var(--wyn-border, var(--hairline)); border-radius: 12px; background: var(--wyn-surface, var(--surface)); color: var(--wyn-text, var(--ink)); font-size: 14px; font-weight: 650; }
+.wyn-quote-feed-delete-actions button.danger { border-color: #d64c55; background: #c92838; color: #fff; }
+.wyn-quote-feed-delete-actions button:disabled { opacity: .55; }

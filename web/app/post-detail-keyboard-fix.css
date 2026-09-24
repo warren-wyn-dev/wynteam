@@ -1,0 +1,37 @@
+/* Post detail's composer is portaled under <body>, outside the transformed
+   PageTransition ancestor. Do not animate behind iOS's continuously moving
+   keyboard: follow visualViewport exactly rather than trailing behind it. */
+.detail-composer-shell { transition: none; }
+/* phase3.css gives the legacy standalone .detail-comment-form its own fixed
+   position/translate/bottom. Nested inside our already-fixed shell that
+   becomes a second fixed layer and floats above the composer when iOS pans.
+   Reset it to ordinary grid flow inside the one viewport-fixed shell. */
+.detail-composer-shell .detail-comment-form.flutter-detail-composer {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  z-index: auto;
+  width: 100%;
+  min-height: 48px;
+  height: auto;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  background: transparent;
+}
+.detail-composer-shell .flutter-detail-composer-field input { font-size: 16px; }
+.detail-composer-shell:focus-within { padding-bottom: 9px; }
+/* When layout viewport actually shrinks, --wyn-kb-inset stays 0. The focus
+   selector still removes the home-indicator gap above the real keyboard. */
+:root:has(.detail-composer-shell:focus-within) {
+  scroll-padding-top: calc(57px + env(safe-area-inset-top));
+  scroll-padding-bottom: calc(84px + var(--wyn-kb-inset, 0px));
+}
+/* Keep the inline comment empty state readable between the activity row and
+   the fixed composer, rather than making it a full-page loading block. */
+.detail-comments .route-empty {
+  min-height: 0;
+  padding: 18px 16px 26px;
+  line-height: 1.5;
+}

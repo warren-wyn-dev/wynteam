@@ -54,6 +54,7 @@ export function QuoteFeedCard({
   onDeleted?: (actorId: string, quoteId: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reason, setReason] = useState<(typeof reportReasons)[number]["value"]>("spam");
   const [detail, setDetail] = useState("");
@@ -197,7 +198,6 @@ export function QuoteFeedCard({
 
   const remove = async () => {
     if (!own || !quoteId || busy) return;
-    if (!window.confirm("ลบโพสต์อ้างอิงนี้?")) return;
     const client = getSupabaseBrowserClient();
     if (!client) { setError("กรุณาเข้าสู่ระบบ"); return; }
     setBusy(true);
@@ -206,6 +206,7 @@ export function QuoteFeedCard({
       const result = await client.from("redrops").delete().eq("id", quoteId).eq("redropper_id", viewerId).not("quote_text", "is", null);
       if (result.error) throw result.error;
       setMenuOpen(false);
+      setDeleteConfirm(false);
       onDeleted?.(viewerId, quoteId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "ลบอ้างอิงไม่สำเร็จ");
@@ -247,7 +248,7 @@ export function QuoteFeedCard({
             {row.redropper_is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
             <small>· {relativeTimeTh(row.created_at)}</small>
           </Link>
-          {quoteId ? <button type="button" aria-label="ตัวเลือกอ้างอิง" onClick={() => { setError(""); setMenuOpen(true); }}><WynosIcon name="more" size={20} /></button> : null}
+          {quoteId ? <button type="button" aria-label="ตัวเลือกอ้างอิง" onClick={() => { setError(""); setDeleteConfirm(false); setMenuOpen(true); }}><WynosIcon name="more" size={20} /></button> : null}
         </header>
         <RichPostText className="wyn-quote-feed-comment" value={row.quote_text || ""} />
         <Link className="wyn-quote-feed-original" href={`/drop/${row.id}`} aria-label={`ดูโพสต์ต้นฉบับของ ${originalName}`}>
@@ -294,12 +295,24 @@ export function QuoteFeedCard({
       ) : null}
       {actionSheet === "quote" ? <QuoteRedropComposer row={row} viewerId={viewerId} value={quote} busy={busy} error={error} onChange={setQuote} onClose={() => { setActionSheet(null); setQuote(""); setError(""); }} onSubmit={() => void quoteOriginal()} /> : null}
       {menuOpen && typeof document !== "undefined" ? createPortal(
-        <div className="route-modal-backdrop wyn-quote-feed-sheet-backdrop" role="presentation" onClick={() => !busy && setMenuOpen(false)} onTouchStart={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()} onTouchEnd={(event) => event.stopPropagation()}>
-          <section className="wyn-quote-feed-sheet" role="dialog" aria-modal="true" aria-label={own ? "จัดการอ้างอิง" : "รายงานอ้างอิง"} onClick={(event) => event.stopPropagation()}>
+        <div className="route-modal-backdrop wyn-quote-feed-sheet-backdrop" role="presentation" onClick={() => { if (!busy) { setMenuOpen(false); setDeleteConfirm(false); } }} onTouchStart={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()} onTouchEnd={(event) => event.stopPropagation()}>
+          <section className="wyn-quote-feed-sheet wyn-quote-feed-menu-sheet" role="dialog" aria-modal="true" aria-label={own ? "จัดการอ้างอิง" : "รายงานอ้างอิง"} onClick={(event) => event.stopPropagation()}>
             <div className="wyn-quote-feed-sheet-grip" aria-hidden="true" />
-            {own ? (
-              <button type="button" className="danger" disabled={busy} onClick={() => void remove()}><WynosIcon name="trash" size={21} />ลบอ้างอิง</button>
-            ) : reportOpen ? (
+            {own ? (deleteConfirm ? (
+              <div className="wyn-quote-feed-delete-confirm">
+                <strong>ลบโพสต์อ้างอิงนี้?</strong>
+                <p>ลบเฉพาะโพสต์อ้างอิงของคุณ โพสต์ต้นฉบับยังอยู่</p>
+                <div className="wyn-quote-feed-delete-actions">
+                  <button type="button" disabled={busy} onClick={() => setDeleteConfirm(false)}>กลับ</button>
+                  <button type="button" className="danger" disabled={busy} onClick={() => void remove()}>ยืนยันการลบ</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <button type="button" className="danger" disabled={busy} onClick={() => setDeleteConfirm(true)}><WynosIcon name="trash" size={21} />ลบอ้างอิง</button>
+                <p className="wyn-quote-feed-sheet-hint">ลบเฉพาะโพสต์อ้างอิงของคุณ ไม่กระทบโพสต์ต้นฉบับ</p>
+              </>
+            )) : reportOpen ? (
               <form className="wyn-quote-feed-report" onSubmit={(event) => { event.preventDefault(); void report(); }}>
                 <strong>รายงานอ้างอิง</strong>
                 {reportReasons.map((item) => <label key={item.value}><input type="radio" name={`quote-report-${quoteId}`} value={item.value} checked={reason === item.value} onChange={() => setReason(item.value)} />{item.label}</label>)}
@@ -310,7 +323,7 @@ export function QuoteFeedCard({
               <button type="button" onClick={() => setReportOpen(true)}><WynosIcon name="flag" size={21} />รายงานอ้างอิง</button>
             )}
             {error ? <p className="route-error" role="alert">{error}</p> : null}
-            <button type="button" className="wyn-quote-feed-sheet-cancel" disabled={busy} onClick={() => setMenuOpen(false)}>ยกเลิก</button>
+            <button type="button" className="wyn-quote-feed-sheet-cancel" disabled={busy} onClick={() => { setMenuOpen(false); setDeleteConfirm(false); }}>ยกเลิก</button>
           </section>
         </div>, document.body,
       ) : null}
