@@ -83,6 +83,7 @@ as $$
 $$;
 
 revoke all on function public.club_member_count(uuid) from public;
+revoke all on function public.club_member_count(uuid) from anon;
 grant execute on function public.club_member_count(uuid) to authenticated;
 
 -- 4) Batched sibling of club_member_count() for club *lists* (Explore
@@ -110,4 +111,5 @@ as $$
 $$;
 
 revoke all on function public.club_member_counts(uuid[]) from public;
+revoke all on function public.club_member_counts(uuid[]) from anon;
 grant execute on function public.club_member_counts(uuid[]) to authenticated;

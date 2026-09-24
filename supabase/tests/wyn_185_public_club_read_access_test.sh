@@ -143,6 +143,8 @@ $$;
 grant usage on schema public to authenticated, anon;
 grant usage on schema storage to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
+-- Match Supabase production's direct anon EXECUTE defaults to catch ACL leaks.
+alter default privileges in schema public grant execute on functions to anon;
 grant select, insert, update on storage.objects to authenticated;
 grant select on storage.buckets to authenticated;
 EOF
@@ -460,6 +462,13 @@ begin
     ('CHECK19_draft_move_to_other_user_denied',cross_user_denied::text,'1');
 end
 $$;
+
+-- Assert direct anon default function grants are explicitly removed.
+insert into results values
+ ('CHECK20_anon_single_rpc_denied',has_function_privilege('anon','public.club_member_count(uuid)','EXECUTE')::int::text,'0'),
+ ('CHECK21_anon_batched_rpc_denied',has_function_privilege('anon','public.club_member_counts(uuid[])','EXECUTE')::int::text,'0'),
+ ('CHECK22_auth_single_rpc_allowed',has_function_privilege('authenticated','public.club_member_count(uuid)','EXECUTE')::int::text,'1'),
+ ('CHECK23_auth_batched_rpc_allowed',has_function_privilege('authenticated','public.club_member_counts(uuid[])','EXECUTE')::int::text,'1');
 
 select check_name, actual, expected from results order by check_name;
 EOF
