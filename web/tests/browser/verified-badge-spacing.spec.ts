@@ -39,7 +39,7 @@ test("Home author badge keeps exactly the 4px flex gap", async ({ page }) => {
 
   expect(result.flexGap).toBe("4px");
   expect(result.margin).toBe("0px");
-  expect(result.width).toBe(18);
+  expect(result.width).toBe(14);
   expect(result.background).toContain("verified-badge-v2.svg");
   expect(result.gap).toBeGreaterThanOrEqual(3.5);
   expect(result.gap).toBeLessThanOrEqual(4.5);
@@ -71,7 +71,7 @@ for (const className of ["golden-drop-head", "detail-author-primary"]) {
 
     expect(result.flexGap).toBe("4px");
     expect(result.margin).toBe("0px");
-    expect(result.width).toBe(18);
+    expect(result.width).toBe(14);
     expect(result.gap).toBeGreaterThanOrEqual(3.5);
     expect(result.gap).toBeLessThanOrEqual(4.5);
   });
@@ -100,7 +100,7 @@ test("profile badge keeps existing 5px combined spacing", async ({ page }) => {
   expect(result.margin).toBe("1px");
   expect(result.gap).toBeGreaterThanOrEqual(4.5);
   expect(result.gap).toBeLessThanOrEqual(5.5);
-  expect(result.size).toBe(21);
+  expect(result.size).toBe(16);
 });
 
 test("Beta1 profile and post badges both show the shared white-check SVG", async ({ page }) => {
@@ -127,8 +127,8 @@ test("Beta1 profile and post badges both show the shared white-check SVG", async
   expect(result.feed.background).toContain("verified-badge-v2.svg");
   expect(result.profile.fontSize).toBe("0px");
   expect(result.feed.fontSize).toBe("0px");
-  expect(result.profile.width).toBe(22);
-  expect(result.feed.width).toBe(18);
+  expect(result.profile.width).toBe(16);
+  expect(result.feed.width).toBe(14);
 });
 
 test("search result Verified badge is smaller and centered directly after the name", async ({ page }) => {
@@ -172,4 +172,23 @@ test("search result Verified badge is smaller and centered directly after the na
   expect(result.horizontalGap).toBeGreaterThanOrEqual(3.5);
   expect(result.horizontalGap).toBeLessThanOrEqual(4.5);
   expect(result.centerOffset).toBeLessThanOrEqual(1);
+});
+
+test("follow-list and drawer Verified badges use 14px", async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = `
+      <a class="follow-list-person"><strong>WYNOS <span class="route-verified">✓</span></strong></a>
+      <aside class="wynos-drawer-v2"><span class="wynos-drawer-name"><strong>WYNOS</strong><span class="route-verified">✓</span></span></aside>
+    `;
+    document.body.appendChild(wrapper);
+    const [list, drawer] = [...wrapper.querySelectorAll<HTMLElement>(".route-verified")];
+    const sizes = [list, drawer].map(badge => ({
+      width: badge.getBoundingClientRect().width,
+      height: badge.getBoundingClientRect().height,
+    }));
+    wrapper.remove();
+    return sizes;
+  });
+  for (const badge of result) expect(badge).toEqual({ width: 14, height: 14 });
 });
