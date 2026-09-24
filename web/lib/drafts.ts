@@ -46,17 +46,20 @@ export async function saveDraft(
     pollDurationDays?: number | null;
   },
 ): Promise<string> {
+  const id = input.draftId ?? crypto.randomUUID();
   let imageUrl = input.existingImageUrl ?? null;
   if (input.file) {
     const ext = input.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-    const path = `${userId}/drafts/${input.draftId ?? crypto.randomUUID()}.${ext}`;
+    const path = `${userId}/drafts/${id}.${ext}`;
     const uploaded = await client.storage.from("drop-images").upload(path, input.file, {
-      cacheControl: "31536000",
+      cacheControl: "60",
       contentType: input.file.type || undefined,
       upsert: true,
     });
     if (uploaded.error) throw uploaded.error;
-    imageUrl = client.storage.from("drop-images").getPublicUrl(path).data.publicUrl;
+    const url = new URL(client.storage.from("drop-images").getPublicUrl(path).data.publicUrl);
+    url.searchParams.set("v", crypto.randomUUID());
+    imageUrl = url.toString();
   }
 
   const row = {
@@ -69,13 +72,41 @@ export async function saveDraft(
   };
 
   if (input.draftId) {
-    const result = await client.from("drop_drafts").update(row).eq("id", input.draftId).select("id").single();
+    const result = await client.from("drop_drafts").update(row).eq("id", id).select("id").single();
     if (result.error) throw result.error;
     return String(result.data.id);
   }
-  const result = await client.from("drop_drafts").insert(row).select("id").single();
+  const result = await client.from("drop_drafts").insert({ id, ...row }).select("id").single();
   if (result.error) throw result.error;
   return String(result.data.id);
+}
+
+/** Restore a saved draft image for publishing without fetching arbitrary URLs. */
+export async function loadDraftImageFile(
+  client: SupabaseClient,
+  userId: string,
+  imageUrl: string,
+): Promise<File> {
+  const bucket = client.storage.from("drop-images");
+  const folder = `${userId}/drafts/`;
+  const base = new URL(bucket.getPublicUrl(folder).data.publicUrl);
+  const candidate = new URL(imageUrl);
+  if (candidate.origin !== base.origin || !candidate.pathname.startsWith(base.pathname)) {
+    throw new Error("รูปภาพฉบับร่างไม่อยู่ในพื้นที่จัดเก็บของบัญชีนี้");
+  }
+  const name = decodeURIComponent(candidate.pathname.slice(base.pathname.length));
+  if (!/^[A-Za-z0-9_-]+\.(?:jpe?g|png|webp|gif|heic|heif)$/i.test(name)) {
+    throw new Error("พาธรูปภาพฉบับร่างไม่ถูกต้อง");
+  }
+  const downloaded = await bucket.download(`${folder}${name}`);
+  if (downloaded.error || !downloaded.data) {
+    throw downloaded.error ?? new Error("โหลดรูปภาพจากฉบับร่างไม่สำเร็จ");
+  }
+  const ext = name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const contentType = downloaded.data.type && downloaded.data.type !== "application/octet-stream"
+    ? downloaded.data.type
+    : ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : ext === "heic" ? "image/heic" : "image/jpeg";
+  return new File([downloaded.data], name, { type: contentType });
 }
 
 export async function deleteDraft(client: SupabaseClient, draftId: string): Promise<void> {

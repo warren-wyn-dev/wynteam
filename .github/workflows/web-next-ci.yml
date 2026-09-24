@@ -36,6 +36,8 @@ jobs:
         run: npm run typecheck
       - name: Follow recovery regression
         run: npm run test:follow
+      - name: Web Beta1 club and draft regression
+        run: node --test tests/draft-hotfix.test.mjs tests/club-rpc-error.test.mjs
       - name: Production build
         run: npm run build
       - name: License/font guard

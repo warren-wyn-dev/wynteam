@@ -1,3 +1,6 @@
+-- SECURITY HOTFIX: public post permissions honor author blocks; public club
+-- photos must be referenced by visible posts (never club chat images).
+-- Previous unsafe nested-path policy is superseded by this migration.
 -- WYN-185 (WYNOS Web Beta1, item 2): Public Clubs must be readable
 -- (details, member count, posts) by any authenticated user WITHOUT an
 -- approved membership. Today "WYNOS Feedback" (a public club) shows 0
@@ -29,8 +32,9 @@ create policy "Public club posts are viewable by any authenticated user"
   using (
     exists (
       select 1 from public.clubs c
-      where c.id = club_id and c.privacy = 'public'
+      where c.id = club_posts.club_id and c.privacy = 'public'
     )
+    and not internal.is_blocked_either_way((select auth.uid()), club_posts.author_id)
   );
 
 -- 2) Club post images: same widening for the storage bucket, mirroring
@@ -44,10 +48,13 @@ create policy "Public club post images are visible to any authenticated user"
   to authenticated
   using (
     bucket_id = 'club-media'
-    and array_length(storage.foldername(name), 1) > 1
     and exists (
-      select 1 from public.clubs c
-      where c.id = ((storage.foldername(name))[1])::uuid and c.privacy = 'public'
+      select 1 from public.club_posts cp
+      join public.clubs c on c.id = cp.club_id
+      where cp.club_id::text = (storage.foldername(storage.objects.name))[1]
+        and c.privacy = 'public'
+        and cp.image_urls @> array[storage.objects.name]::text[]
+        and not internal.is_blocked_either_way((select auth.uid()), cp.author_id)
     )
   );
 
@@ -63,7 +70,7 @@ returns integer
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select count(*)::integer
   from public.club_members cm
@@ -76,6 +83,7 @@ as $$
 $$;
 
 revoke all on function public.club_member_count(uuid) from public;
+revoke all on function public.club_member_count(uuid) from anon;
 grant execute on function public.club_member_count(uuid) to authenticated;
 
 -- 4) Batched sibling of club_member_count() for club *lists* (Explore
@@ -87,7 +95,7 @@ returns table (club_id uuid, member_count integer)
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select c.id, count(cm.user_id)::integer
   from public.clubs c
@@ -103,4 +111,5 @@ as $$
 $$;
 
 revoke all on function public.club_member_counts(uuid[]) from public;
+revoke all on function public.club_member_counts(uuid[]) from anon;
 grant execute on function public.club_member_counts(uuid[]) to authenticated;

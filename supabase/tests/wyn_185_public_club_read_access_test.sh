@@ -37,6 +37,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA_FILE="$SCRIPT_DIR/../schema.sql"
 MIGRATION_FILE="$SCRIPT_DIR/../migrations_wyn185_public_club_read_access.sql"
+DRAFT_MIGRATION_FILE="$SCRIPT_DIR/../migrations_web_beta1_draft_image_upsert.sql"
 DB_NAME="wyn185_public_club_read_access_regression_test"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -102,6 +103,12 @@ language sql stable as $$
   select nullif(current_setting('request.jwt.claim.role', true), '')
 $$;
 
+create or replace function auth.jwt() returns jsonb
+language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+    '{"is_anonymous":false}'::jsonb)
+$$;
+
 create schema if not exists storage;
 create table if not exists storage.buckets (
   id text primary key,
@@ -136,7 +143,9 @@ $$;
 grant usage on schema public to authenticated, anon;
 grant usage on schema storage to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
-grant select, insert on storage.objects to authenticated;
+-- Match Supabase production's direct anon EXECUTE defaults to catch ACL leaks.
+alter default privileges in schema public grant execute on functions to anon;
+grant select, insert, update on storage.objects to authenticated;
 grant select on storage.buckets to authenticated;
 EOF
 
@@ -364,6 +373,103 @@ begin
 end
 $$;
 
+
+-- Security regression: public post attachments must never expose Club Chat media.
+update public.club_posts set image_urls = array[
+  '98000000-0000-0000-0000-0000000000c1/posts/image.png'
+] where id='98000000-0000-0000-0000-0000000000a1';
+insert into storage.objects(bucket_id,name) values
+  ('club-media','98000000-0000-0000-0000-0000000000c1/posts/image.png'),
+  ('club-media','98000000-0000-0000-0000-0000000000c1/chat/channel/image.png'),
+  ('club-media','98000000-0000-0000-0000-0000000000c2/posts/private.png'),
+  ('drop-images','98000000-0000-0000-0000-000000000005/drafts/erin.jpeg'),
+  ('drop-images','98000000-0000-0000-0000-000000000002/drafts/bob.jpeg'),
+  ('drop-images','98000000-0000-0000-0000-000000000005/publications/image.jpeg');
+
+do $$
+declare v_post int; v_chat int; v_private int;
+begin
+  set role authenticated;
+  set request.jwt.claim.sub='98000000-0000-0000-0000-000000000005';
+  set request.jwt.claim.role='authenticated';
+  select count(*) into v_post from storage.objects
+    where bucket_id='club-media' and name='98000000-0000-0000-0000-0000000000c1/posts/image.png';
+  select count(*) into v_chat from storage.objects
+    where bucket_id='club-media' and name='98000000-0000-0000-0000-0000000000c1/chat/channel/image.png';
+  select count(*) into v_private from storage.objects
+    where bucket_id='club-media' and name='98000000-0000-0000-0000-0000000000c2/posts/private.png';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  insert into results values
+    ('CHECK10_public_post_image_readable_to_nonmember',v_post::text,'1'),
+    ('CHECK11_public_club_chat_image_hidden',v_chat::text,'0'),
+    ('CHECK12_private_club_image_hidden',v_private::text,'0');
+end
+$$;
+
+-- Author block must still hide public-club text AND its image.
+insert into public.blocks(blocker_id,blocked_id) values
+ ('98000000-0000-0000-0000-000000000005','98000000-0000-0000-0000-000000000001');
+do $$
+declare v_post int; v_image int; v_member int;
+begin
+  set role authenticated;
+  set request.jwt.claim.sub='98000000-0000-0000-0000-000000000005';
+  set request.jwt.claim.role='authenticated';
+  select count(*) into v_post from public.club_posts
+   where id='98000000-0000-0000-0000-0000000000a1';
+  select count(*) into v_image from storage.objects
+   where bucket_id='club-media' and name='98000000-0000-0000-0000-0000000000c1/posts/image.png';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  set role authenticated;
+  set request.jwt.claim.sub='98000000-0000-0000-0000-000000000002';
+  set request.jwt.claim.role='authenticated';
+  select count(*) into v_member from public.club_posts
+   where id='98000000-0000-0000-0000-0000000000a1';
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  insert into results values
+    ('CHECK13_blocked_public_post_hidden',v_post::text,'0'),
+    ('CHECK14_blocked_public_image_hidden',v_image::text,'0'),
+    ('CHECK15_unblocked_member_still_sees_post',v_member::text,'1');
+end
+$$;
+
+-- Draft UPDATE is permitted only within the current account's drafts folder.
+do $$
+declare own_rows int; other_rows int; publication_rows int; cross_user_denied int := 0;
+begin
+  set role authenticated;
+  set request.jwt.claim.sub='98000000-0000-0000-0000-000000000005';
+  set request.jwt.claim.role='authenticated';
+  update storage.objects set owner=owner
+    where name='98000000-0000-0000-0000-000000000005/drafts/erin.jpeg';
+  get diagnostics own_rows = row_count;
+  update storage.objects set owner=owner
+    where name='98000000-0000-0000-0000-000000000002/drafts/bob.jpeg';
+  get diagnostics other_rows = row_count;
+  update storage.objects set owner=owner
+    where name='98000000-0000-0000-0000-000000000005/publications/image.jpeg';
+  get diagnostics publication_rows = row_count;
+  begin
+    update storage.objects set name='98000000-0000-0000-0000-000000000002/drafts/overwrite.jpeg'
+      where name='98000000-0000-0000-0000-000000000005/drafts/erin.jpeg';
+  exception when sqlstate '42501' then cross_user_denied := 1;
+  end;
+  reset role; reset request.jwt.claim.sub; reset request.jwt.claim.role;
+  insert into results values
+    ('CHECK16_own_draft_overwrite_allowed',own_rows::text,'1'),
+    ('CHECK17_other_user_draft_overwrite_denied',other_rows::text,'0'),
+    ('CHECK18_published_image_overwrite_denied',publication_rows::text,'0'),
+    ('CHECK19_draft_move_to_other_user_denied',cross_user_denied::text,'1');
+end
+$$;
+
+-- Assert direct anon default function grants are explicitly removed.
+insert into results values
+ ('CHECK20_anon_single_rpc_denied',has_function_privilege('anon','public.club_member_count(uuid)','EXECUTE')::int::text,'0'),
+ ('CHECK21_anon_batched_rpc_denied',has_function_privilege('anon','public.club_member_counts(uuid[])','EXECUTE')::int::text,'0'),
+ ('CHECK22_auth_single_rpc_allowed',has_function_privilege('authenticated','public.club_member_count(uuid)','EXECUTE')::int::text,'1'),
+ ('CHECK23_auth_batched_rpc_allowed',has_function_privilege('authenticated','public.club_member_counts(uuid[])','EXECUTE')::int::text,'1');
+
 select check_name, actual, expected from results order by check_name;
 EOF
 
@@ -388,6 +494,13 @@ fi
 
 if ! run_psql "$DB_NAME" "$MIGRATION_FILE"; then
   echo "FAIL: migrations_wyn185_public_club_read_access.sql errored while loading" >&2
+  cat "$WORK_DIR/psql.out" >&2
+  dropdb_any "$DB_NAME"
+  exit 1
+fi
+
+if ! run_psql "$DB_NAME" "$DRAFT_MIGRATION_FILE"; then
+  echo "FAIL: draft upsert migration errored" >&2
   cat "$WORK_DIR/psql.out" >&2
   dropdb_any "$DB_NAME"
   exit 1
