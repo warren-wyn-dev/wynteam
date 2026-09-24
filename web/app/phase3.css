@@ -203,8 +203,20 @@
   margin-left: 0;
 }
 
-/* Follow/search lists have smaller author names. */
-.route-person-row .route-verified,
+/* Follow/search lists: keep Verified aligned directly after the display name and slightly smaller. */
+.route-person-row .route-person-copy strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+}
+.route-person-row .route-verified {
+  width: 14px;
+  height: 14px;
+  margin-left: 0;
+  vertical-align: 0;
+}
 .follow-list-person .route-verified {
   width: 16px;
   height: 16px;
