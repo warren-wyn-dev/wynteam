@@ -20,7 +20,9 @@ test("Food preview checks the developer RPC again and fails closed", () => {
   expect(preview).toContain('if (live) setAccess("denied")');
   expect(preview).toContain('if (access === "denied") router.replace("/")');
   expect(preview).toContain('if (access !== "allowed")');
-  expect(preview).toContain("ยังไม่เปิดให้สั่งอาหารหรือชำระเงินจริง");
+  expect(preview).toContain("<FoodDemoApp />");
+  const demo = source("components/food/food-demo-app.tsx");
+  expect(demo).toContain("ยังไม่รับออเดอร์จริง");
 });
 
 test("Food shortcut does not change the five existing bottom nav destinations", () => {
