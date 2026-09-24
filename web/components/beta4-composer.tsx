@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Avatar } from "@/components/phase3-ui";
-import { deleteDraft, fetchDraft, saveDraft } from "@/lib/drafts";
+import { deleteDraft, fetchDraft, loadDraftImageFile, saveDraft } from "@/lib/drafts";
 import { publishDropSafely } from "@/lib/drop-publication";
 import { MAX_POST_IMAGES } from "@/lib/post-limits";
 import { fetchHomeIdentity, type HomeIdentity } from "@/lib/home-parity-data";
@@ -92,6 +92,7 @@ export function Beta4Composer({
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const router = useRouter();
   const draftRecordIdRef = useRef<string | null>(null);
+  const persistDraftQueueRef = useRef<Promise<string> | null>(null);
   const pendingNavRef = useRef<string | null>(null); // set when the close-prompt was opened via "ฉบับร่าง" (go to /drafts after resolving) instead of Cancel
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosaveRef = useRef(true); // true until the user actually edits something post-mount/post-draft-load
@@ -136,7 +137,7 @@ export function Beta4Composer({
   const SelectedAudienceIcon = selectedAudience.icon;
   const pollValid = caption.trim().length > 0 && pollOptions.length >= 2 && pollOptions.every((value) => value.trim().length > 0 && value.trim().length <= 80) && new Set(pollOptions.map((value) => value.trim().toLowerCase())).size === pollOptions.length;
   const canPublish = !busy && (mode === "poll" ? pollValid : caption.trim().length > 0 || files.length > 0 || Boolean(existingImageUrl));
-  const hasContent = caption.trim().length > 0 || files.length > 0 || Boolean(existingImageUrl) || pollOptions.some((value) => value.trim().length > 0);
+  const hasContent = caption.trim().length > 0 || (mode === "poll" ? pollOptions.some((value) => value.trim().length > 0) : files.length > 0 || Boolean(existingImageUrl));
 
   const requestClose = () => {
     if (busy) return;
@@ -167,17 +168,29 @@ export function Beta4Composer({
   // when no draft row exists yet, update in place otherwise (mirrors
   // lib/drafts.ts saveDraft's own upsert doc).
   const persistDraft = useCallback(async (): Promise<string> => {
-    const id = await saveDraft(client, userId, {
-      draftId: draftRecordIdRef.current,
-      file: files[0] ?? null,
-      existingImageUrl,
-      caption,
-      pollOptions: mode === "poll" ? pollOptions : null,
-      pollDurationDays: mode === "poll" ? POLL_DURATION_DAYS : null,
-    });
-    draftRecordIdRef.current = id;
-    setDraftRecordId(id);
-    return id;
+    // Serialize autosaves/explicit saves: no duplicate first drafts or stale write races.
+    const run = async (): Promise<string> => {
+      const id = await saveDraft(client, userId, {
+        draftId: draftRecordIdRef.current,
+        file: mode === "image" ? (files[0] ?? null) : null,
+        existingImageUrl: mode === "image" ? existingImageUrl : null,
+        caption,
+        pollOptions: mode === "poll" ? pollOptions : null,
+        pollDurationDays: mode === "poll" ? POLL_DURATION_DAYS : null,
+      });
+      draftRecordIdRef.current = id;
+      setDraftRecordId(id);
+      return id;
+    };
+    const previous = persistDraftQueueRef.current;
+    const next: Promise<string> = previous
+      ? previous.catch(() => undefined).then(run)
+      : run();
+    persistDraftQueueRef.current = next;
+    try { return await next; }
+    finally {
+      if (persistDraftQueueRef.current === next) persistDraftQueueRef.current = null;
+    }
   }, [client, userId, files, existingImageUrl, caption, mode, pollOptions]);
 
   const saveDraftNow = async () => {
@@ -226,22 +239,28 @@ export function Beta4Composer({
 
   const submit = async () => {
     if (!canPublish) return;
-    // A pending autosave debounce firing after publish deletes the draft
-    // row would silently re-create it with now-stale content.
     if (autosaveTimerRef.current) { clearTimeout(autosaveTimerRef.current); autosaveTimerRef.current = null; }
     setBusy(true); setError(""); setUploadProgress(null);
     try {
+      // Wait for pending autosave before publication and draft deletion.
+      if (persistDraftQueueRef.current) await persistDraftQueueRef.current.catch(() => undefined);
       if (mode === "poll") await publishPoll();
-      else await publishDropSafely(client, userId, {
-        caption,
-        files,
-        audience,
-        excludedFriendIds: [],
-        mentionedUserIds: [],
-        imageAspectRatio: aspectRatio,
-        onImageUploaded: (uploaded, total) => setUploadProgress(total > 0 ? { uploaded, total } : null),
-      });
-      if (draftRecordId) void deleteDraft(client, draftRecordId).catch(() => undefined);
+      else {
+        // A reopened image draft may have no newly selected File.
+        const publishFiles = files.length ? files
+          : existingImageUrl ? [await loadDraftImageFile(client, userId, existingImageUrl)] : [];
+        await publishDropSafely(client, userId, {
+          caption,
+          files: publishFiles,
+          audience,
+          excludedFriendIds: [],
+          mentionedUserIds: [],
+          imageAspectRatio: aspectRatio,
+          onImageUploaded: (uploaded, total) => setUploadProgress(total > 0 ? { uploaded, total } : null),
+        });
+      }
+      const savedDraftId = draftRecordIdRef.current;
+      if (savedDraftId) void deleteDraft(client, savedDraftId).catch(() => undefined);
       onPublished();
       onClose();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง"); }
