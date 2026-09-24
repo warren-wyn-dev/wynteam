@@ -1,0 +1,71 @@
+/* Neutral grey/black comment controls approved for WYNOS.
+   The legacy --surface token is warm beige (#f1efe9); don't use it for
+   text entry. Scope overrides to Post Detail and Quote Detail only so other
+   forms, navigation, profile and the existing baseline stay unchanged. */
+.wyn-quote-comments .detail-comment-form,
+.detail-composer-shell {
+  background: #ffffff;
+  border-top-color: #e5e7eb;
+}
+
+.wyn-quote-comments .detail-comment-form input,
+.detail-composer-shell .flutter-detail-composer-field input {
+  background: #f2f3f5;
+  border: 1px solid #e5e7eb;
+  color: #111111;
+  caret-color: #111111;
+  font-size: 16px; /* iOS won't zoom the form on focus. */
+}
+
+.wyn-quote-comments .detail-comment-form input::placeholder,
+.detail-composer-shell .flutter-detail-composer-field input::placeholder {
+  color: #8e8e93;
+  opacity: 1;
+}
+
+.wyn-quote-comments .detail-comment-form button[type="submit"],
+.detail-composer-shell .flutter-detail-composer-field button[type="submit"] {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: #111111;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+}
+.wyn-quote-comments .detail-comment-form button[type="submit"]:disabled,
+.detail-composer-shell .flutter-detail-composer-field button[type="submit"]:disabled {
+  cursor: default;
+  /* Keep the black button, but distinguish its inactive white send icon. */
+  color: #bfc2c8;
+}
+
+/* Preserve a neutral (not brown/olive) surface in dark mode too. */
+@media (prefers-color-scheme: dark) {
+  .wyn-quote-comments .detail-comment-form,
+  .detail-composer-shell {
+    background: #000000;
+    border-top-color: #34363b;
+  }
+  .wyn-quote-comments .detail-comment-form input,
+  .detail-composer-shell .flutter-detail-composer-field input {
+    background: #1f2023;
+    border-color: #34363b;
+    color: #f7f7f8;
+    caret-color: #f7f7f8;
+  }
+  .wyn-quote-comments .detail-comment-form input::placeholder,
+  .detail-composer-shell .flutter-detail-composer-field input::placeholder {
+    color: #a0a4ab;
+  }
+  .wyn-quote-comments .detail-comment-form button[type="submit"],
+  .detail-composer-shell .flutter-detail-composer-field button[type="submit"] {
+    background: #f7f7f8;
+    color: #111111;
+  }
+  .wyn-quote-comments .detail-comment-form button[type="submit"]:disabled,
+  .detail-composer-shell .flutter-detail-composer-field button[type="submit"]:disabled {
+    color: #72757b;
+  }
+}
