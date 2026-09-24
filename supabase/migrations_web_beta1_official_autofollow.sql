@@ -1,5 +1,6 @@
 -- Web Beta1: first-time official follow for newly registered permanent users.
--- Additive and forward-only. Ship on the verified production DB before the web disclosure.
+-- Additive and forward-only. Install while DISABLED; show the signup disclosure in production
+-- before enabling the follow gate by an explicitly approved, separate DB operation.
 -- Existing accounts are not backfilled. A persisted marker survives profile deletion
 -- so re-creating a profile, logging in, or unfollowing can NEVER auto-follow again.
 begin;
@@ -15,8 +16,13 @@ $$;
 
 create table if not exists internal.official_autofollow_settings (
   singleton boolean primary key default true check (singleton),
-  enabled_at timestamptz not null default clock_timestamp()
+  enabled_at timestamptz not null default 'infinity'::timestamptz
 );
+-- Correct the column default on databases where the table was pre-staged.
+-- Do not overwrite any existing enabled_at value; the live project already
+-- has this infrastructure with enabled_at = infinity and must stay disabled.
+alter table internal.official_autofollow_settings
+  alter column enabled_at set default 'infinity'::timestamptz;
 insert into internal.official_autofollow_settings(singleton) values(true)
 on conflict (singleton) do nothing;
 
