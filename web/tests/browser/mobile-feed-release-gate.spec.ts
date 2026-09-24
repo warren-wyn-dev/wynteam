@@ -66,7 +66,7 @@ test("Home verified badge has an accessible label and uses the shared approved a
   const css = read("app/phase3.css");
   const post = read("components/home/home-post-card.tsx");
   expect(author).toContain('className="route-verified wyn-post-verified" aria-label="ยืนยันแล้ว"');
-  expect(css).toContain('verified-badge-v2.svg?v=3');
+  expect(css).toContain('verified-badge-v2.svg?v=4');
   expect(post).toContain("new Intl.Segmenter");
   expect(post).toContain("chars.length > 190");
   expect(post).toContain("… ดูเพิ่มเติม");
