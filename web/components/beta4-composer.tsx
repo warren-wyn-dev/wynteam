@@ -120,6 +120,15 @@ export function Beta4Composer({
     return () => { live = false; };
   }, [client, draftId]);
 
+  // Recalculate after both typing and restoring a saved draft. onInput alone
+  // misses the latter and would leave a multi-line saved caption one line tall.
+  useEffect(() => {
+    const field = captionRef.current;
+    if (!field) return;
+    field.style.height = "28px";
+    field.style.height = `${Math.min(field.scrollHeight, 168)}px`;
+  }, [caption]);
+
   const previews = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
   useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
 
