@@ -34,6 +34,8 @@ jobs:
         run: npm run lint
       - name: TypeScript
         run: npm run typecheck
+      - name: Follow recovery regression
+        run: npm run test:follow
       - name: Production build
         run: npm run build
       - name: License/font guard

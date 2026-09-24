@@ -39,6 +39,7 @@ export function ProfileRecommendations({
   const [profiles, setProfiles] = useState<ProfileRow[] | null>(null);
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [followError, setFollowError] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -72,6 +73,7 @@ export function ProfileRecommendations({
     if (wasRequested && isPrivate && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
     if (!wasFollowing) haptic();
     setPending((current) => new Set(current).add(profile.id));
+    setFollowError("");
     try {
       const state = await toggleAuthorFollow(client, userId, profile.id, { currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate });
       setViewer((current) => {
@@ -82,6 +84,8 @@ export function ProfileRecommendations({
         if (state === "requested") requested.add(profile.id); else requested.delete(profile.id);
         return { ...current, followedAuthorIds: followed, pendingFollowAuthorIds: requested };
       });
+    } catch {
+      setFollowError("อัปเดตการติดตามไม่สำเร็จ กรุณาลองอีกครั้ง");
     } finally {
       setPending((current) => { const next = new Set(current); next.delete(profile.id); return next; });
     }
@@ -106,6 +110,7 @@ export function ProfileRecommendations({
           </article>;
         })}
       </div>
+      {followError ? <p className="route-error" role="alert">{followError}</p> : null}
     </section>
   );
 }

@@ -101,6 +101,8 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
         if (state === "requested") requested.add(profile.id); else requested.delete(profile.id);
         return { ...current, followedAuthorIds: followed, pendingFollowAuthorIds: requested };
       });
+    } catch {
+      setError("อัปเดตการติดตามไม่สำเร็จ กรุณาลองอีกครั้ง");
     } finally {
       setPending((current) => { const next = new Set(current); next.delete(profile.id); return next; });
     }
@@ -126,6 +128,7 @@ function UserResults({ client, userId, query }: { client: SupabaseClient; userId
           />
         );
       })}
+      {error ? <p className="route-error" role="alert">{error}</p> : null}
       {hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}
     </div>
   );
@@ -205,6 +208,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   const [viewer, setViewer] = useState<HomeViewerState | null>(null);
   const [loading, setLoading] = useState(!cached);
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [followError, setFollowError] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -234,6 +238,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
     if (wasRequested && isPrivate && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
     if (!wasFollowing) haptic();
     setPending((current) => new Set(current).add(profile.id));
+    setFollowError("");
     try {
       const state = await toggleAuthorFollow(client, userId, profile.id, {
         currentlyFollowing: wasFollowing,
@@ -248,6 +253,8 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
         if (state === "requested") requested.add(profile.id); else requested.delete(profile.id);
         return { ...current, followedAuthorIds: followed, pendingFollowAuthorIds: requested };
       });
+    } catch {
+      setFollowError("อัปเดตการติดตามไม่สำเร็จ กรุณาลองอีกครั้ง");
     } finally {
       setPending((current) => { const next = new Set(current); next.delete(profile.id); return next; });
     }
@@ -295,6 +302,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
             })}
           </div>
         ) : <EmptyState>ยังไม่มีบัญชีแนะนำให้ติดตามตอนนี้</EmptyState>}
+        {followError ? <p className="route-error" role="alert">{followError}</p> : null}
       </section>
     </div>
   );
@@ -440,11 +448,11 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
     <AppChrome title="" userId={userId} headerMode="hidden">
       <div className="flutter-search-header">
         <button className="search-back-button" type="button" aria-label="ออกจากหน้าค้นหา" onClick={closeSearch}><WynosIcon name="back" size={28} strokeWidth={2} /></button>
-        <form className="search-route-form" onSubmit={(event) => { event.preventDefault(); submitNow(); }}>
-          <button type="submit" aria-label="ค้นหา"><WynosIcon name="search" size={20} strokeWidth={2} /></button>
-          <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="ค้นหา username, โพสต์, Club" inputMode="search" />
+        <div className="search-route-form" role="search">
+          <button type="button" aria-label="ค้นหา" onClick={submitNow}><WynosIcon name="search" size={20} strokeWidth={2} /></button>
+          <input type="search" name="search_query" aria-label="ค้นหาผู้ใช้ โพสต์ และ Club" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitNow(); } }} placeholder="ค้นหา username, โพสต์, Club" inputMode="search" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
           {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={clear}><WynosIcon name="close" size={18} strokeWidth={2} /></button> : null}
-        </form>
+        </div>
       </div>
       {!submitted ? <Discovery client={client} userId={userId} /> : (
         <>
