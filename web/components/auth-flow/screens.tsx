@@ -15,11 +15,13 @@ import {
   SignupPasswordTooShortError,
   UsernameReservedError,
   UsernameTakenError,
+  checkSignupUsernameAvailability,
   completeOnboarding,
   hasProfileRow,
   isInviteGateEnabled,
   isUsernameFormatValid,
   redeemReferralCode,
+  reservedUsernames,
   resetPasswordForEmail,
   saveOptionalProfile,
   setDateOfBirth,
@@ -327,6 +329,7 @@ export function SignupStep1Screen() {
   const supabase = getSupabaseBrowserClient();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [availability, setAvailability] = useState<{ username: string; state: "checking" | "available" | "taken" | "error" } | null>(null);
   // These fields are SSR'd with an empty controlled value (the signup draft
   // is client-only state). If a keystroke lands in the gap between the
   // static HTML becoming interactive and React finishing hydration, React
@@ -348,6 +351,32 @@ export function SignupStep1Screen() {
   // means they stay correct after a route remount (e.g. the "ย้อนกลับ" flow
   // from step 2) and after signup-draft-context's own sessionStorage-resume
   // effect runs, the same way the plain username/displayName inputs already do.
+  const normalizedUsername = draft.username.trim().toLowerCase();
+  const validUsername = isUsernameFormatValid(normalizedUsername);
+  const reservedUsername = reservedUsernames.has(normalizedUsername);
+  // Never display an old result for a different username while a request is pending.
+  const usernameState = !normalizedUsername ? "idle"
+    : !validUsername ? "invalid"
+    : reservedUsername ? "taken"
+    : !supabase ? "idle"
+    : availability?.username === normalizedUsername ? availability.state : "checking";
+
+  useEffect(() => {
+    if (!mounted || !supabase || !validUsername || reservedUsername) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setAvailability({ username: normalizedUsername, state: "checking" });
+      void checkSignupUsernameAvailability(supabase, normalizedUsername)
+        .then((available) => {
+          if (active) setAvailability({ username: normalizedUsername, state: available ? "available" : "taken" });
+        })
+        .catch(() => {
+          if (active) setAvailability({ username: normalizedUsername, state: "error" });
+        });
+    }, 400);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [mounted, normalizedUsername, reservedUsername, supabase, validUsername]);
+
   const [birthYear, birthMonth, birthDay] = draft.birthDate.split("-");
   const updateBirthDatePart = (part: "year" | "month" | "day") => (event: ChangeEvent<HTMLSelectElement>) => {
     const [y, m, d] = draft.birthDate.split("-");
@@ -370,6 +399,10 @@ export function SignupStep1Screen() {
       setError("ชื่อผู้ใช้ต้องมี 3-20 ตัว เป็นตัวพิมพ์เล็ก a-z, 0-9 หรือ _ เท่านั้น");
       return;
     }
+    if (reservedUsernames.has(username)) {
+      setError("ชื่อผู้ใช้นี้ไม่สามารถใช้ได้ กรุณาเลือกชื่ออื่น");
+      return;
+    }
     if (!displayName) {
       setError("กรุณากรอกชื่อที่แสดง");
       return;
@@ -387,6 +420,18 @@ export function SignupStep1Screen() {
 
     setLoading(true);
     try {
+      let available: boolean;
+      try {
+        available = await checkSignupUsernameAvailability(supabase, username);
+      } catch {
+        setError("ตรวจสอบชื่อผู้ใช้ไม่ได้ กรุณาลองอีกครั้ง");
+        return;
+      }
+      setAvailability({ username, state: available ? "available" : "taken" });
+      if (!available) {
+        setError("ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาเลือกชื่ออื่น");
+        return;
+      }
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         // No session yet (fresh email sign-up path) — collect email/password next.
@@ -430,8 +475,15 @@ export function SignupStep1Screen() {
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 56, border: "1px solid var(--border-strong)", borderRadius: 18, padding: "0 18px" }}>
             <span style={{ color: "var(--text-muted)" }}>@</span>
-            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} style={{ border: "none", outline: "none", background: "transparent", height: "100%", padding: 0, borderRadius: 0, flex: 1, fontSize: 16 }} />
+            <Input bare autoCapitalize="none" autoComplete="username" autoCorrect="off" name="username" placeholder="username" value={draft.username} onChange={update("username")} disabled={!mounted} aria-describedby="signup-username-status" style={{ border: "none", outline: "none", background: "transparent", height: "100%", padding: 0, borderRadius: 0, flex: 1, fontSize: 16 }} />
           </div>
+          <p id="signup-username-status" role="status" aria-live="polite" style={{ fontSize: 12, lineHeight: 1.5, minHeight: 18, margin: "6px 2px 0", color: usernameState === "available" ? "#15803d" : usernameState === "taken" || usernameState === "invalid" || usernameState === "error" ? "#dc2626" : "var(--text-secondary)" }}>
+            {usernameState === "invalid" ? "ใช้ a-z, 0-9 หรือ _ จำนวน 3–20 ตัวอักษร"
+              : usernameState === "taken" ? "ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาเลือกชื่ออื่น"
+              : usernameState === "available" ? "ชื่อผู้ใช้นี้ใช้ได้"
+              : usernameState === "error" ? "ตรวจสอบชื่อผู้ใช้ไม่ได้ กรุณาลองอีกครั้ง"
+              : usernameState === "checking" ? "กำลังตรวจสอบชื่อผู้ใช้…" : ""}
+          </p>
         </div>
         <Field label="ชื่อที่แสดง" name="displayName" placeholder="ชื่อของคุณ" value={draft.displayName} onChange={update("displayName")} disabled={!mounted} />
         <div className="field">
@@ -528,6 +580,20 @@ export function SignupStep2Screen() {
 
     setLoading(true);
     try {
+      // Recheck immediately before Auth creates an account: another person may
+      // have claimed the name since step 1. The database UNIQUE constraint
+      // remains authoritative for the final race with the profile write.
+      let usernameAvailable: boolean;
+      try {
+        usernameAvailable = await checkSignupUsernameAvailability(supabase, draft.username);
+      } catch {
+        setError("ตรวจสอบชื่อผู้ใช้ไม่ได้ กรุณาลองอีกครั้ง");
+        return;
+      }
+      if (!usernameAvailable) {
+        setError("ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาย้อนกลับไปเปลี่ยนชื่อผู้ใช้");
+        return;
+      }
       const result = await signUpWithEmail(supabase, email, draft.password);
       if (!result.session) {
         // Email confirmation is enabled. There is no authenticated session yet,

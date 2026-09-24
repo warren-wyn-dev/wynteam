@@ -112,6 +112,16 @@ export async function hasProfileRow(client: SupabaseClient, userId: string): Pro
   return result.data !== null;
 }
 
+/** Narrow, boolean-only pre-signup check: anon never gains SELECT on profiles. */
+export async function checkSignupUsernameAvailability(client: SupabaseClient, username: string): Promise<boolean> {
+  const normalized = username.trim().toLowerCase();
+  if (!isUsernameFormatValid(normalized) || reservedUsernames.has(normalized)) return false;
+  const result = await client.rpc("is_signup_username_available", { p_username: normalized });
+  if (result.error) throw result.error; // A failed lookup must never be interpreted as "available".
+  if (typeof result.data !== "boolean") throw new Error("Unexpected username availability response");
+  return result.data;
+}
+
 export async function isUsernameAvailable(client: SupabaseClient, username: string): Promise<boolean> {
   if (reservedUsernames.has(username.toLowerCase())) return false;
   const result = await client.from("profiles").select("id").eq("username", username).maybeSingle();
