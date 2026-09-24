@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Web Beta1 email signup security", () => {
+  // The mocked public username RPC must not be claimed by an installed PWA service worker on WebKit.
+  test.use({ serviceWorkers: "block" });
   test("signup rejects a password shorter than twelve characters before calling Auth", async ({ page }) => {
     // The prior password-only regression runs with a fake Supabase origin.
     // Stub the new availability gate so it can reach the password step.
