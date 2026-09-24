@@ -3,15 +3,10 @@
 import { useEffect } from "react";
 
 /**
- * Tracks how much the on-screen keyboard overlaps the bottom of the layout
- * viewport and publishes it as `--wyn-kb-inset` on <html>, plus a
- * `data-keyboard-open` attribute while the keyboard is open.
- *
- * Most of the time `interactiveWidget: "resizes-content"` (see
- * app/layout.tsx) already shrinks the layout viewport for us, so this comes
- * out to 0 and is a no-op. It only does real work as a fallback where that
- * isn't honored (older iOS, in-app webviews, some standalone-PWA cases),
- * where the visual viewport shrinks but the layout viewport does not.
+ * Fallback for browsers that shrink only visualViewport on keyboard open.
+ * On recent iOS/Android interactiveWidget:resizes-content already shrinks
+ * the layout viewport: the extra inset must stay zero (no double shift).
+ * Ignore viewport changes from URL bars unless the comment input is focused.
  */
 export function useKeyboardInset() {
   useEffect(() => {
@@ -21,24 +16,29 @@ export function useKeyboardInset() {
     let raf = 0;
     const update = () => {
       raf = 0;
-      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      // Ignore sub-pixel noise so we don't flip data-keyboard-open off by a
-      // rounding error while the keyboard is fully open.
-      const rounded = Math.round(inset);
+      const focus = document.activeElement;
+      const composerFocused = focus instanceof HTMLElement && Boolean(focus.closest(".detail-composer-shell"));
+      const overlap = composerFocused ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+      const rounded = Math.round(overlap);
       root.style.setProperty("--wyn-kb-inset", `${rounded}px`);
-      if (rounded > 40) root.setAttribute("data-keyboard-open", "true");
+      if (composerFocused && rounded > 40) root.setAttribute("data-keyboard-open", "true");
       else root.removeAttribute("data-keyboard-open");
     };
     const schedule = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(update);
+      if (!raf) raf = requestAnimationFrame(update);
     };
     schedule();
     vv.addEventListener("resize", schedule);
     vv.addEventListener("scroll", schedule);
+    window.addEventListener("resize", schedule);
+    document.addEventListener("focusin", schedule);
+    document.addEventListener("focusout", schedule);
     return () => {
       vv.removeEventListener("resize", schedule);
       vv.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      document.removeEventListener("focusin", schedule);
+      document.removeEventListener("focusout", schedule);
       if (raf) cancelAnimationFrame(raf);
       root.style.removeProperty("--wyn-kb-inset");
       root.removeAttribute("data-keyboard-open");

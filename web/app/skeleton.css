@@ -185,3 +185,12 @@
   box-shadow: 0 10px 28px rgb(18 18 15 / 22%);
   font-size: 13px;
 }
+
+/* Post Detail: same header/author/caption/action geometry as the loaded page. */
+.wyn-skeleton-detail { background: var(--wyn-bg, var(--paper)); }
+.wyn-skeleton-detail-author { display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 12px 16px 6px; }
+.wyn-skeleton-detail-author-copy { display: grid; flex: 1 1 auto; gap: 8px; min-width: 0; }
+.wyn-skeleton-detail-caption { display: grid; gap: 9px; padding: 10px 16px 14px; }
+.wyn-skeleton-detail-actions { min-height: 55px; padding: 7px 16px; display: flex; align-items: center; justify-content: space-between; }
+.wyn-skeleton-detail-activity { padding: 4px 16px 12px; }
+.wyn-skeleton-detail-comment { padding: 20px 16px; display: flex; justify-content: center; border-top: 1px solid var(--wyn-border, var(--hairline)); }

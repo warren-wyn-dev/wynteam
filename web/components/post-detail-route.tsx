@@ -8,6 +8,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
+import { PostDetailSkeleton } from "@/components/ui/skeleton";
+import { ViewportPortal } from "@/components/ui/viewport-portal";
 import { RichPostText } from "@/components/rich-post-text";
 import { AnimatedHeart } from "@/components/ui/animated-heart";
 import { followButtonLabel } from "@/components/ui/follow-button-label";
@@ -240,6 +242,14 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     const onScroll = () => {
       const y = window.scrollY;
       const previous = scrollYRef.current;
+      // iOS scrolls the document automatically when its keyboard opens.
+      // That viewport pan is not an intentional user scroll and must not
+      // hide the sticky Post header while someone is commenting.
+      if (document.activeElement === composerRef.current || document.documentElement.hasAttribute("data-keyboard-open")) {
+        setHeaderHidden(false);
+        scrollYRef.current = y;
+        return;
+      }
       if (y <= 8 || y < previous - 2) setHeaderHidden(false);
       else if (y > 80 && y > previous + 2) setHeaderHidden(true);
       scrollYRef.current = y;
@@ -259,7 +269,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     return { top, replies };
   }, [comments]);
 
-  if (loading && !row) return <AppChrome title="โพสต์" userId={userId} backHref="/" showBottomNav={false}><LoadingState /></AppChrome>;
+  if (loading && !row) return <AppChrome title="" userId={userId} headerMode="hidden" showBottomNav={false}><header className="detail-floating-header"><button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><WynosIcon name="back" size={22} strokeWidth={2} /></button><strong>โพสต์</strong><span /></header><PostDetailSkeleton /></AppChrome>;
   if (!row || !viewer) return <AppChrome title="โพสต์" userId={userId} backHref="/" showBottomNav={false}><EmptyState>{error || "ไม่พบโพสต์นี้"}</EmptyState></AppChrome>;
 
   const liked = viewer.likedDropIds.has(row.id);
@@ -398,7 +408,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
         {hasMoreComments ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? "กำลังโหลด…" : "ดูคอมเมนต์เพิ่มเติม"}</button> : comments.length ? <p className="detail-comments-end">ไม่มีความคิดเห็นเพิ่มเติมแล้ว</p> : null}
       </section>
 
-      <div className="detail-composer-shell">{replyTo ? <div className="detail-reply-banner"><span>ตอบกลับ {replyTo.author_display_name?.trim() || replyTo.author_username}</span><button type="button" aria-label="ยกเลิกการตอบกลับ" onClick={() => setReplyTo(null)}><WynosIcon name="close" size={16} strokeWidth={2} /></button></div> : null}<form className="detail-comment-form flutter-detail-composer" onSubmit={(event) => { event.preventDefault(); void submit(); }}><Avatar src={viewerProfile?.avatar_url} label={viewerProfile?.username || userId} size={36} /><div className="flutter-detail-composer-field"><input ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={500} placeholder="แสดงความคิดเห็น..." /><button type="submit" aria-label="ส่งความคิดเห็น" disabled={sending || !draft.trim()}><WynosIcon name="send" size={25} strokeWidth={2} /></button></div></form></div>
+      <ViewportPortal><div className="detail-composer-shell">{replyTo ? <div className="detail-reply-banner"><span>ตอบกลับ {replyTo.author_display_name?.trim() || replyTo.author_username}</span><button type="button" aria-label="ยกเลิกการตอบกลับ" onClick={() => setReplyTo(null)}><WynosIcon name="close" size={16} strokeWidth={2} /></button></div> : null}<form className="detail-comment-form flutter-detail-composer" onSubmit={(event) => { event.preventDefault(); void submit(); }}><Avatar src={viewerProfile?.avatar_url} label={viewerProfile?.username || userId} size={36} /><div className="flutter-detail-composer-field"><input ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={500} placeholder="แสดงความคิดเห็น..." onFocus={() => setHeaderHidden(false)} /><button type="submit" aria-label="ส่งความคิดเห็น" disabled={sending || !draft.trim()}><WynosIcon name="send" size={25} strokeWidth={2} /></button></div></form></div></ViewportPortal>
 
       {activityOpen ? <ActivitySheet client={client} dropId={row.id} onClose={() => setActivityOpen(false)} /> : null}
       {editOpen ? <TextDialog title="แก้ไขโพสต์" value={editCaption} confirmLabel="บันทึก" onChange={setEditCaption} onCancel={() => setEditOpen(false)} onConfirm={() => void editDrop()} /> : null}

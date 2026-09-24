@@ -83,3 +83,66 @@ test("post context stays reachable behind the fixed composer (single scroll cont
   expect(after).not.toBeNull();
   expect(after!.y).toBeLessThan(before!.y);
 });
+
+// The fixture is already wrapped by PageTransition in the app layout.
+// Its zero-distance motion transform used to become the fixed input's
+// containing block, so document scroll hid/dragged the keyboard composer.
+test("composer is portaled straight to body, outside transformed PageTransition", async ({ page }) => {
+  const host = await page.locator("#composer-shell").evaluate((node) => node.parentElement === document.body);
+  expect(host).toBe(true);
+  const transforms = await page.locator("#composer-shell").evaluate((node) => {
+    const chain: string[] = [];
+    for (let el = node.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+      chain.push(getComputedStyle(el).transform);
+    }
+    return chain;
+  });
+  expect(transforms.every((transform) => transform === "none")).toBe(true);
+});
+
+test("Thai draft remains editable and composer stays visible through three keyboard cycles", async ({ page }) => {
+  const input = page.locator("#composer-input");
+  const shell = page.locator("#composer-shell");
+  await input.fill("ทดสอบความคิดเห็นภาษาไทย");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--wyn-kb-inset", "316px");
+      document.documentElement.setAttribute("data-keyboard-open", "true");
+    });
+    await expect(shell).toBeVisible();
+    const lifted = await shell.boundingBox();
+    expect(lifted).not.toBeNull();
+    expect(lifted!.y).toBeGreaterThanOrEqual(0);
+    expect(lifted!.y + lifted!.height).toBeLessThanOrEqual(844 - 316 + 2);
+    await expect(input).toHaveValue("ทดสอบความคิดเห็นภาษาไทย");
+    await page.evaluate(() => {
+      document.documentElement.style.removeProperty("--wyn-kb-inset");
+      document.documentElement.removeAttribute("data-keyboard-open");
+    });
+    const bottom = await shell.boundingBox();
+    expect(bottom).not.toBeNull();
+    expect(bottom!.y + bottom!.height).toBeGreaterThanOrEqual(842);
+  }
+});
+
+test("layout-resized viewport does not apply the keyboard inset twice", async ({ page }) => {
+  await page.locator("#composer-input").focus();
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty("--wyn-kb-inset", "0px");
+    document.documentElement.removeAttribute("data-keyboard-open");
+  });
+  const shell = await page.locator("#composer-shell").boundingBox();
+  expect(shell).not.toBeNull();
+  expect(shell!.y + shell!.height).toBeGreaterThanOrEqual(498);
+  expect(shell!.y + shell!.height).toBeLessThanOrEqual(502);
+  const fontSize = await page.locator("#composer-input").evaluate((el) => getComputedStyle(el).fontSize);
+  expect(fontSize).toBe("16px");
+});
+
+test("cold post load uses content-shaped skeleton rather than a blank spinner", async ({ page }) => {
+  await page.goto("/dev/post-detail-keyboard-fixture?loading=1");
+  await expect(page.locator(".wyn-skeleton-detail")).toBeVisible();
+  await expect(page.locator(".wyn-skeleton-detail-author")).toBeVisible();
+  await expect(page.locator(".wyn-skeleton-detail-actions")).toBeVisible();
+});
