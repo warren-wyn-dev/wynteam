@@ -1,0 +1,70 @@
+/* Shared, client-side avatar framing for onboarding and profile editing. */
+.wyn-photo-crop-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: rgba(0, 0, 0, .64);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", sans-serif;
+}
+.wyn-photo-crop-dialog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: min(100%, 440px);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 22px 18px 18px;
+  border-radius: 24px;
+  background: var(--wyn-bg, #fff);
+  color: var(--wyn-text, #171717);
+  box-shadow: 0 16px 64px rgba(0, 0, 0, .18);
+}
+.wyn-photo-crop-dialog h2 { margin: 0; font-size: 22px; font-weight: 750; }
+.wyn-photo-crop-hint { margin: 8px 0 20px; font-size: 13px; line-height: 1.5; text-align: center; color: var(--wyn-text-secondary, #737373); }
+.wyn-photo-crop-viewport {
+  position: relative;
+  width: min(75vw, 310px);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid var(--wyn-border-strong, #e5e5e5);
+  background: #dedede;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.wyn-photo-crop-viewport:active { cursor: grabbing; }
+.wyn-photo-crop-image {
+  position: absolute;
+  max-width: none !important;
+  max-height: none !important;
+  display: block;
+  object-fit: fill;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+}
+.wyn-photo-crop-loading { display: grid; place-items: center; position: absolute; inset: 0; text-align: center; padding: 20px; font-size: 13px; color: #555; }
+.wyn-photo-crop-zoom { width: 100%; margin: 24px 0 18px; }
+.wyn-photo-crop-zoom label { font-size: 14px; font-weight: 650; display: block; margin-bottom: 9px; }
+.wyn-photo-crop-slider-row { display: flex; align-items: center; gap: 12px; }
+.wyn-photo-crop-slider-row > span { font-size: 20px; color: var(--wyn-text-secondary, #737373); }
+.wyn-photo-crop-slider-row input { flex: 1; min-width: 0; accent-color: var(--wyn-text, #171717); height: 32px; }
+.wyn-photo-crop-reset { font-size: 13px; border: 0; background: none; color: var(--wyn-text, #171717); padding: 9px 0 9px 5px; }
+.wyn-photo-crop-error { width: 100%; color: #dc2626; font-size: 13px; margin: 0 0 12px; }
+.wyn-photo-crop-actions { display: flex; gap: 12px; width: 100%; }
+.wyn-photo-crop-actions button { height: 52px; border-radius: 16px; flex: 1; font-size: 15px; font-weight: 700; }
+.wyn-photo-crop-cancel { border: 1px solid var(--wyn-border-strong, #e5e5e5); background: var(--wyn-surface, #f5f5f5); color: var(--wyn-text, #171717); }
+.wyn-photo-crop-confirm { border: 0; background: var(--wyn-text, #171717); color: var(--wyn-bg, #fff); }
+.wyn-photo-crop-actions button:disabled { opacity: .55; cursor: wait; }
+.wyn-onboarding-avatar-button { position: relative; display: block; width: 96px; height: 96px; border: 0; padding: 0; border-radius: 50%; background: none; cursor: pointer; }
+.wyn-onboarding-avatar-button .wyn-avatar { display: block; width: 96px; height: 96px; }
+.wyn-onboarding-camera-badge { position: absolute; bottom: -4px; right: -4px; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 3px solid var(--bg, #fff); background: var(--text-primary, #171717); color: var(--bg, #fff); }
+@media (max-height: 650px) { .wyn-photo-crop-dialog { padding: 16px; } .wyn-photo-crop-hint { margin-bottom: 10px; } .wyn-photo-crop-viewport { width: min(48dvh, 260px); } .wyn-photo-crop-zoom { margin: 12px 0; } }
+@media (prefers-reduced-motion: reduce) { .wyn-photo-crop-dialog * { scroll-behavior: auto; } }

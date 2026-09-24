@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent, type ReactNode } from "react";
 
 import { Avatar, Button, Input, WynosIcon } from "@/components/ui";
+import { ProfilePhotoCropper } from "@/components/ui/profile-photo-cropper";
+import { uploadProfileImage } from "@/lib/phase3-data";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -675,22 +677,46 @@ export function OnboardingProfileScreen() {
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [avatarToCrop, setAvatarToCrop] = useState<File | null>(null);
+  const [croppedAvatar, setCroppedAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const previewRef = useRef<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  async function finish() {
+  useEffect(() => () => {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+  }, []);
+
+  const selectAvatar = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = ""; // Allow re-selecting the same photo.
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024 || file.size === 0) {
+      setError("รูปภาพต้องมีขนาดไม่เกิน 10MB");
+      return;
+    }
+    if (!file.type.startsWith("image/") && !/\\.(heic|heif)$/i.test(file.name)) {
+      setError("กรุณาเลือกไฟล์รูปภาพ");
+      return;
+    }
+    setError("");
+    setAvatarToCrop(file);
+  };
+
+  async function finish(skipAvatar = false) {
     if (loading) return;
     setLoading(true);
     setError("");
     try {
-      if (supabase) {
-        const { data } = await supabase.auth.getUser();
-        if (data.user) {
-          if (bio.trim()) await saveOptionalProfile(supabase, data.user.id, { bio: bio.trim() });
-          await completeOnboarding(supabase, data.user.id);
-        }
-      }
+      if (!supabase) throw new Error("Supabase is not configured");
+      const { data, error: authError } = await supabase.auth.getUser();
+      if (authError || !data.user) throw new Error("Session unavailable");
+      if (!skipAvatar && croppedAvatar) await uploadProfileImage(supabase, data.user.id, "avatar", croppedAvatar);
+      if (bio.trim()) await saveOptionalProfile(supabase, data.user.id, { bio: bio.trim() });
+      await completeOnboarding(supabase, data.user.id);
       router.push("/");
     } catch {
-      setError("เกิดข้อผิดพลาด ลองใหม่อีกครั้ง");
+      setError("บันทึกโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setLoading(false);
     }
@@ -699,7 +725,7 @@ export function OnboardingProfileScreen() {
   return (
     <AuthPhone>
       <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 20px 0" }}>
-        <span onClick={() => void finish()} style={{ fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>ข้าม</span>
+        <button type="button" disabled={loading} onClick={() => void finish(true)} style={{ fontSize: 13, color: "var(--text-secondary)", cursor: "pointer", border: 0, background: "transparent", padding: 0 }}>ข้าม</button>
       </div>
       <div style={{ padding: "0 20px", flex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -707,22 +733,29 @@ export function OnboardingProfileScreen() {
           <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0" }}>ให้คนอื่นรู้จักคุณมากขึ้น</p>
         </div>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-          <div style={{ position: "relative" }}>
-            <Avatar as="div" alt="รูปโปรไฟล์" className="avatar" size={96} />
-            <div style={{ position: "absolute", bottom: -4, right: -4, width: 32, height: 32, borderRadius: "50%", background: "var(--text-primary)", border: "3px solid var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <WynosIcon name="camera" size={15} color="var(--bg)" />
-            </div>
-          </div>
+          <button className="wyn-onboarding-avatar-button" type="button" aria-label="เลือกรูปโปรไฟล์" disabled={loading} onClick={() => fileInput.current?.click()}>
+            <Avatar as="div" src={avatarPreview} alt="รูปโปรไฟล์" className="avatar" size={96} />
+            <span className="wyn-onboarding-camera-badge" aria-hidden="true"><WynosIcon name="camera" size={15} color="var(--bg)" /></span>
+          </button>
+          <input ref={fileInput} type="file" accept="image/*,.heic,.heif" aria-label="อัปโหลดรูปโปรไฟล์" hidden onChange={selectAvatar} disabled={loading} />
         </div>
         <div className="field">
-          <label>แนะนำตัวสั้นๆ (ไม่บังคับ)</label>
-          <textarea placeholder="ชอบเที่ยว ชอบถ่ายรูป..." value={bio} onChange={(event) => setBio(event.target.value)} />
+          <label htmlFor="onboarding-bio">แนะนำตัวสั้นๆ (ไม่บังคับ)</label>
+          <textarea id="onboarding-bio" placeholder="ชอบเที่ยว ชอบถ่ายรูป..." value={bio} onChange={(event) => setBio(event.target.value)} />
         </div>
         <ErrorText>{error}</ErrorText>
       </div>
       <div style={{ padding: "16px 20px" }}>
-        <Button className="btn-primary" disabled={loading} onClick={() => void finish()}>{loading ? "กำลังบันทึก…" : "เริ่มใช้งาน Wynos"}</Button>
+        <Button className="btn-primary" disabled={loading || Boolean(avatarToCrop)} onClick={() => void finish()}>{loading ? "กำลังบันทึก…" : "เริ่มใช้งาน Wynos"}</Button>
       </div>
+      {avatarToCrop ? <ProfilePhotoCropper file={avatarToCrop} onCancel={() => setAvatarToCrop(null)} onConfirm={(file) => {
+        if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+        const url = URL.createObjectURL(file);
+        previewRef.current = url;
+        setAvatarPreview(url);
+        setCroppedAvatar(file);
+        setAvatarToCrop(null);
+      }} /> : null}
     </AuthPhone>
   );
 }
