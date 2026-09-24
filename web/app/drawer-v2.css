@@ -47,16 +47,22 @@
   align-items: center;
   min-width: 0;
   gap: 3px;
+  line-height: 1.2;
+  color: var(--ink);
 }
 .wynos-drawer-v2 .wynos-drawer-name strong {
   min-width: 0;
   font-size: 15.5px;
+  line-height: 1.2;
   font-weight: 750;
+  color: var(--ink);
 }
 .wynos-drawer-v2 .wynos-drawer-name .route-verified {
   width: 17px;
   height: 17px;
   margin-left: 0;
+  align-self: center;
+  vertical-align: middle;
 }
 .wynos-drawer-v2 .drawer-identity-copy small {
   font-size: 12.5px;
@@ -87,9 +93,9 @@
   background: var(--paper);
 }
 .wynos-drawer-v2 .drawer-menu-row {
-  grid-template-columns: 40px minmax(0, 1fr) 20px;
-  gap: 12px;
-  height: 64px;
+  grid-template-columns: 36px minmax(0, 1fr) 20px;
+  gap: 11px;
+  height: 58px;
   padding: 0 3px;
   border-radius: 0;
   font-size: 15px;
@@ -97,11 +103,12 @@
 }
 .wynos-drawer-v2 .drawer-menu-row + .drawer-menu-row {
   border-top: 1px solid var(--hairline);
+  border-top-color: color-mix(in srgb, var(--hairline) 62%, transparent);
 }
 .wynos-drawer-v2 .drawer-menu-row .drawer-menu-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 13px;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
   background: var(--surface);
 }
 .wynos-drawer-v2 .drawer-menu-row > svg:last-child {
