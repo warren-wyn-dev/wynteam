@@ -10,6 +10,7 @@ import { AnimatedHeart } from "@/components/ui/animated-heart";
 import { CommentIcon, RepostIcon, SaveIcon } from "@/components/ui/post-action-icons";
 import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { DefaultProfileAvatar } from "@/components/ui/default-profile-avatar";
 import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
@@ -56,10 +57,9 @@ const reportCategories: { value: ReportCategory; label: string }[] = [
 ];
 
 function Avatar({ src, label }: { src?: string | null; label: string }) {
-  const [failed, setFailed] = useState(false);
-  const letter = label.trim().replace(/^@/, "").slice(0, 1).toUpperCase() || "W";
-  if (!src || failed) return <span className="golden-drop-avatar fallback">{letter}</span>;
-  return <Image className="golden-drop-avatar" src={src} alt="" width={44} height={44} sizes="44px" onError={() => setFailed(true)} />;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (!src || failedSrc === src) return <DefaultProfileAvatar className="golden-drop-avatar fallback" size={44} label={`รูปโปรไฟล์ของ ${label}`} />;
+  return <Image className="golden-drop-avatar" src={src} alt="" width={44} height={44} sizes="44px" onError={() => setFailedSrc(src)} />;
 }
 
 function SheetFrame({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
