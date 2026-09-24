@@ -54,6 +54,28 @@ begin
   end if;
 end $$;
 
+-- Simulate the already-staged production table, which still has a legacy
+-- clock_timestamp() DEFAULT even though the existing rollout row is disabled.
+-- Replaying the migration IN THIS ISOLATED FIXTURE must correct the default
+-- without enabling the existing gate.
+alter table internal.official_autofollow_settings
+  alter column enabled_at set default clock_timestamp();
+\ir ../migrations_web_beta1_official_autofollow.sql
+do $
+begin
+  if (select enabled_at from internal.official_autofollow_settings where singleton)
+     is distinct from 'infinity'::timestamptz
+     or not exists (
+       select 1 from information_schema.columns
+       where table_schema='internal'
+         and table_name='official_autofollow_settings'
+         and column_name='enabled_at'
+         and column_default like '%infinity%'
+     ) then
+    raise exception 'pre-staged migration must repair column default without activating';
+  end if;
+end $;
+
 -- Mimic real permanent user profile insert through authenticated RLS.
 grant usage on schema public to authenticated,anon;
 grant select,insert,update,delete on public.profiles,public.follows to authenticated;

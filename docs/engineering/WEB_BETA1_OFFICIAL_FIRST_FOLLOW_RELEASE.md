@@ -4,13 +4,27 @@ Scope: [PR #648](https://github.com/warren-wyn-dev/wynteam/pull/648). WYNOS Web 
 
 ## Current production fact
 
-The active Supabase project already has the settings and marker tables, profile trigger and notification isolation function installed. Its `internal.official_autofollow_settings.enabled_at` is `infinity` (disabled); do **not** run the migration a second time just to activate it. The PR migration installs newly provisioned environments with an `infinity` default and preserves any pre-existing setting.
+The active Supabase project already has the settings and marker tables, profile trigger and notification isolation function installed. Its `internal.official_autofollow_settings.enabled_at` row is `infinity` (disabled); do **not** run the migration a second time just to activate it. The original staged column default is still `clock_timestamp()` (observed in the live read-only audit). The PR migration sets the default to `infinity` on new and upgraded environments without changing an existing row.
 
 ## Before release (no production writes)
 
 - All required CI, PostgreSQL first-follow tests, focused Auth tests, browser QA and security review must pass on the PR's **latest** head. Review the diff and obtain merge approval separately.
 - Inspect the actual production `@wynos_s` public profile and verify exactly one row. Confirm `enabled_at='infinity'` and that the processed-marker table remains inaccessible to `anon` and `authenticated`.
-- For any new environment, install the migration first and confirm it left `enabled_at='infinity'` (disabled). If already installed, **do not replay** migration DDL.
+- For any new environment, install the migration first and confirm it left both the row **and column default** as `infinity` (disabled). If already installed, **do not replay** all migration DDL.
+- For the already-staged active production project, with separate Founder approval for this production schema change, apply **only** the default-only SQL below while leaving its existing `enabled_at='infinity'` row untouched. Verify the resulting default and existing row before deploying the web disclosure:
+
+```sql
+-- Existing staged production installation only; explicit Founder approval required.
+alter table internal.official_autofollow_settings
+  alter column enabled_at set default 'infinity'::timestamptz;
+
+select column_default
+from information_schema.columns
+where table_schema='internal'
+  and table_name='official_autofollow_settings'
+  and column_name='enabled_at';
+select enabled_at from internal.official_autofollow_settings where singleton is true;
+```
 - Deploy the signup disclosure **before** activating the database feature. Verify the exact Thai disclosure is visible on the live signup page on desktop and iPhone Safari. Run the login, signup and recovery release checks.
 
 ## Founder-approved, separate activation
