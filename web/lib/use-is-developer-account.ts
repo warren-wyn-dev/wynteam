@@ -14,17 +14,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * and stays false on any error. A feature gated by this only ever turns on
  * for confirmed developer accounts, never as a fallback default.
  */
-export function useIsDeveloperAccount(client: SupabaseClient | null | undefined): boolean {
-  const [isDeveloper, setIsDeveloper] = useState(false);
+export function useIsDeveloperAccount(client: SupabaseClient | null | undefined, userId?: string): boolean {
+  // Key the result to both client and account so an in-app account switch
+  // cannot momentarily show a previous developer's gated UI to a new user.
+  const [result, setResult] = useState<{
+    client: SupabaseClient;
+    userId: string | undefined;
+    allowed: boolean;
+  } | null>(null);
   useEffect(() => {
     if (!client) return;
     let live = true;
     void client.rpc("is_developer_account").then(({ data, error }) => {
-      if (live && !error && data === true) setIsDeveloper(true);
+      if (live) setResult({ client, userId, allowed: !error && data === true });
     });
     return () => {
       live = false;
     };
-  }, [client]);
-  return isDeveloper;
+  }, [client, userId]);
+  return Boolean(client) && result?.client === client && result?.userId === userId && result?.allowed === true;
 }
