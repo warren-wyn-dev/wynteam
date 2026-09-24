@@ -61,7 +61,7 @@ end $$;
 alter table internal.official_autofollow_settings
   alter column enabled_at set default clock_timestamp();
 \ir ../migrations_web_beta1_official_autofollow.sql
-do $
+do $$
 begin
   if (select enabled_at from internal.official_autofollow_settings where singleton)
      is distinct from 'infinity'::timestamptz
@@ -74,7 +74,7 @@ begin
      ) then
     raise exception 'pre-staged migration must repair column default without activating';
   end if;
-end $;
+end $$;
 
 -- Mimic real permanent user profile insert through authenticated RLS.
 grant usage on schema public to authenticated,anon;
