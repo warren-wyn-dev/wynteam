@@ -4,7 +4,7 @@
 .golden-drop-redrop { min-height: 18px; padding-left: 54px; display: flex; align-items: center; gap: 4px; color: var(--graphite); font-size: 12px; }
 .golden-drop-quote { padding: 0 0 2px 54px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.4; }
 .golden-drop-author-avatar { align-self: start; width: 42px; height: 42px; }
-.golden-drop-avatar { width: 42px; height: 42px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; object-fit: cover; background: var(--surface-tint,#f1efe9); color: var(--ink); font-size: 15px; font-weight: 700; }
+.golden-drop-avatar { width: 42px; height: 42px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; object-fit: cover; background: var(--surface-tint,#f5f5f5); color: var(--ink); font-size: 15px; font-weight: 700; }
 .golden-drop-avatar.fallback { border: 1px solid var(--hairline); }
 .golden-drop-body { min-width: 0; }
 .golden-drop-head { min-height: 24px; display: flex; align-items: center; gap: 4px; }
@@ -17,7 +17,7 @@
 .golden-drop-media-wrap { position: relative; }
 .golden-drop-media { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x mandatory; color: inherit; text-decoration: none; }
 .golden-drop-media::-webkit-scrollbar { display: none; }
-.golden-drop-media img { flex: 0 0 82%; width: 82%; max-height: min(75dvh, 620px); object-fit: cover; border-radius: 18px; scroll-snap-align: start; background: var(--surface-tint,#f1efe9); }
+.golden-drop-media img { flex: 0 0 82%; width: 82%; max-height: min(75dvh, 620px); object-fit: cover; border-radius: 18px; scroll-snap-align: start; background: var(--surface-tint,#f5f5f5); }
 .golden-drop-media.single img { flex-basis: 100%; width: 100%; }
 .golden-drop-burst { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%,-50%); color: #fff; filter: drop-shadow(0 2px 9px rgb(0 0 0 / 22%)); animation: golden-drop-heart .65s ease-out both; pointer-events: none; }
 @keyframes golden-drop-heart { 0% { opacity:0; transform:translate(-50%,-50%) scale(.55); } 28% { opacity:1; transform:translate(-50%,-50%) scale(1.08); } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.32); } }

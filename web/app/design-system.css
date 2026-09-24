@@ -1,11 +1,11 @@
 :root {
   --wyn-bg: #ffffff;
-  --wyn-surface: #fafafa;
-  --wyn-text: #0a0a0a;
-  --wyn-text-secondary: #6b6b6b;
+  --wyn-surface: #f5f5f5;
+  --wyn-text: #171717;
+  --wyn-text-secondary: #737373;
   --wyn-text-muted: #9a9a9a;
-  --wyn-border: #e7e7e7;
-  --wyn-border-strong: #d0d0d0;
+  --wyn-border: #e5e5e5;
+  --wyn-border-strong: #d4d4d4;
   --wyn-accent: #e0203d;
   --wyn-control-height: 50px;
   --wyn-control-height-compact: 44px;
@@ -54,7 +54,7 @@
     --wyn-bg: #000000;
     --wyn-surface: #111111;
     --wyn-text: #ffffff;
-    --wyn-text-secondary: #8a8880;
+    --wyn-text-secondary: #a3a3a3;
     --wyn-text-muted: #666666;
     --wyn-border: #222222;
     --wyn-border-strong: #666666;

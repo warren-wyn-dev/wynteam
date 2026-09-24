@@ -5,7 +5,7 @@
 .wyn-skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--surface, #f1efe9);
+  background: var(--surface, #f5f5f5);
   border-radius: var(--wyn-radius-sm);
 }
 
@@ -39,7 +39,7 @@
   display: flex;
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--hairline, #e8e6e0);
+  border-bottom: 1px solid var(--hairline, #e5e5e5);
 }
 
 .wyn-skeleton-feed-item-body {
@@ -99,7 +99,7 @@
   gap: 11px;
   min-height: 64px;
   padding: 9px 16px;
-  border-bottom: 1px solid var(--hairline, #e8e6e0);
+  border-bottom: 1px solid var(--hairline, #e5e5e5);
 }
 
 .wyn-skeleton-search-club-row {
@@ -108,7 +108,7 @@
   gap: 11px;
   min-height: 68px;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--hairline, #e8e6e0);
+  border-bottom: 1px solid var(--hairline, #e5e5e5);
 }
 
 .wyn-skeleton-search-person-copy {
@@ -131,7 +131,7 @@
   gap: 10px;
   min-height: 62px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--hairline, #e8e6e0);
+  border-bottom: 1px solid var(--hairline, #e5e5e5);
 }
 
 /* WYN-175 bug fix (2026-09-19): app/pixel-parity-audit-closure.css
@@ -147,7 +147,7 @@
   gap: 12px;
   min-height: 62px;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--hairline, #e8e6e0);
+  border-bottom: 1px solid var(--hairline, #e5e5e5);
 }
 
 .wyn-skeleton-notification-copy {
@@ -180,9 +180,9 @@
   align-items: center;
   padding: 10px 16px;
   border-radius: 14px;
-  background: var(--ink, #12120f);
+  background: var(--ink, #171717);
   color: var(--paper, #fff);
-  box-shadow: 0 10px 28px rgb(18 18 15 / 22%);
+  box-shadow: 0 10px 28px rgb(23 23 23 / 22%);
   font-size: 13px;
 }
 

@@ -8,7 +8,7 @@ test("quote and regular post inputs use neutral grey and black, never beige", as
   await page.emulateMedia({ colorScheme: "light" });
   const css = await readFile(PALETTE_PATH, "utf8");
   await page.setContent(
-    '<style>:root{--paper:#fff;--surface:#f1efe9;--wyn-bg:#fff;--wyn-surface:#f1efe9;--ink:#12120f}' +
+    '<style>:root{--paper:#fff;--surface:#f5f5f5;--wyn-bg:#fff;--wyn-surface:#f5f5f5;--ink:#171717}' +
     '.detail-comment-form input,.flutter-detail-composer-field input{background:var(--surface)}' +
     '.detail-comment-form button,.flutter-detail-composer-field button{background:var(--ink)}' +
     '.detail-comment-form,.detail-composer-shell{background:var(--paper)}' +
