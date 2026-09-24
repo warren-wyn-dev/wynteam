@@ -203,8 +203,13 @@
   margin-left: 0;
 }
 
-/* Follow/search lists have smaller author names. */
-.route-person-row .route-verified,
+/* Search / suggested-user rows: keep a compact badge on the name baseline. */
+.route-person-row .route-verified {
+  width: 13px;
+  height: 13px;
+  margin-left: 0;
+  vertical-align: middle;
+}
 .follow-list-person .route-verified {
   width: 16px;
   height: 16px;
@@ -230,10 +235,22 @@
   text-decoration: none;
 }
 .route-person-copy { min-width: 0; display: grid; gap: 1px; }
-.route-person-copy strong,
-.route-person-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.route-person-copy strong { font-size: 14px; }
-.route-person-copy small { color: var(--graphite); font-size: 12px; }
+.route-person-copy strong {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.route-person-display-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.route-person-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--graphite); font-size: 12px; }
 
 .route-drop-card,
 .detail-post {
