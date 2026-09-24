@@ -39,7 +39,7 @@
 
 .rich-post-link.mention,
 .rich-post-link.mention:visited {
-  color: var(--sapphire);
+  color: #1d9bf0;
   font-weight: 600;
 }
 
@@ -225,7 +225,7 @@
 }
 
 .flutter-detail-post .detail-caption .rich-post-link.mention {
-  color: var(--sapphire);
+  color: #1d9bf0;
   font-weight: 600;
 }
 

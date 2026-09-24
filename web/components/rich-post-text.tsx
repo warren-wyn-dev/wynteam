@@ -35,7 +35,7 @@ function renderTokens(value: string, postHref?: string) {
       return (
         <Link
           className="rich-post-link mention"
-          href={`/search?q=${encodeURIComponent(part)}`}
+          href={`/@${encodeURIComponent(part.slice(1))}`}
           key={`mention:${index}`}
         >
           {part}

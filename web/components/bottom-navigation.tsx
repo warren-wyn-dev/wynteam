@@ -75,6 +75,8 @@ export function BottomNavigation({
 }) {
   const homeActive = isActive("/");
   const profileActive = isActive(profileHref);
+  // A bottom-dock visit is the root profile; content links keep back navigation.
+  const profileTabHref = `${profileHref}?from=tab`;
 
   const handleActiveTabTap = (active: boolean, path: string) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (!active) return;
@@ -84,7 +86,14 @@ export function BottomNavigation({
     else window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const handleHomeClick = handleActiveTabTap(homeActive, "/");
-  const handleProfileClick = handleActiveTabTap(profileActive, profileHref);
+  const handleProfileClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    // From a post/search, first switch to root Profile; re-taps refresh there.
+    if (!profileActive || window.location.pathname !== profileHref ||
+        window.location.search !== "?from=tab" || window.location.hash) return;
+    event.preventDefault();
+    if (window.scrollY <= 2) triggerRouteRefresh();
+    else window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <nav className="route-bottom-nav" aria-label="เมนูหลัก">
@@ -109,7 +118,7 @@ export function BottomNavigation({
         <MaterialNavGlyph kind="chat" selected={isActive("/chat")} />
         <span>แชท</span>
       </Link>
-      <Link className={`route-nav-link ${profileActive ? "active" : ""}`} href={profileHref} aria-label="โปรไฟล์" onClick={handleProfileClick}>
+      <Link className={`route-nav-link ${profileActive ? "active" : ""}`} href={profileTabHref} aria-label="โปรไฟล์" onClick={handleProfileClick}>
         <MaterialNavGlyph kind="profile" selected={profileActive} />
         <span>โปรไฟล์</span>
       </Link>
