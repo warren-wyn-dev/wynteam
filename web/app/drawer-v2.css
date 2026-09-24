@@ -1,0 +1,219 @@
+/* Founder-approved compact left drawer: profile + four grouped destinations +
+   two footer actions. Scoped so no other sheet, route or navigation changes. */
+.home-drawer-backdrop.wynos-drawer-backdrop {
+  background: rgb(18 18 15 / 38%);
+}
+
+.home-drawer.wynos-drawer-v2 {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(84vw, 380px);
+  max-width: calc(100vw - 48px);
+  height: 100dvh;
+  padding: calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 14px);
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.wynos-drawer-v2 .wynos-drawer-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+.wynos-drawer-v2 .wynos-drawer-main::-webkit-scrollbar { display: none; }
+
+.wynos-drawer-v2 .drawer-identity {
+  width: 100%;
+  min-height: 104px;
+  margin: 0;
+  padding: 13px 12px;
+  grid-template-columns: 58px minmax(0, 1fr) 18px;
+  gap: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 19px;
+  background: var(--paper);
+}
+.wynos-drawer-v2 .drawer-identity .route-avatar {
+  object-fit: cover;
+  border-radius: 50%;
+}
+.wynos-drawer-v2 .drawer-identity-copy { gap: 3px; }
+.wynos-drawer-v2 .wynos-drawer-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 3px;
+}
+.wynos-drawer-v2 .wynos-drawer-name strong {
+  min-width: 0;
+  font-size: 15.5px;
+  font-weight: 750;
+}
+.wynos-drawer-v2 .wynos-drawer-name .route-verified {
+  width: 17px;
+  height: 17px;
+  margin-left: 0;
+}
+.wynos-drawer-v2 .drawer-identity-copy small {
+  font-size: 12.5px;
+  color: var(--graphite);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wynos-drawer-v2 .drawer-identity-copy .wynos-drawer-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--graphite);
+  white-space: nowrap;
+}
+.wynos-drawer-v2 .wynos-drawer-stats b { color: var(--ink); font-weight: 700; }
+
+.wynos-drawer-v2 .drawer-menu-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+  padding: 3px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 19px;
+  background: var(--paper);
+}
+.wynos-drawer-v2 .drawer-menu-row {
+  grid-template-columns: 40px minmax(0, 1fr) 20px;
+  gap: 12px;
+  height: 64px;
+  padding: 0 3px;
+  border-radius: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.wynos-drawer-v2 .drawer-menu-row + .drawer-menu-row {
+  border-top: 1px solid var(--hairline);
+}
+.wynos-drawer-v2 .drawer-menu-row .drawer-menu-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--surface);
+}
+.wynos-drawer-v2 .drawer-menu-row > svg:last-child {
+  color: var(--graphite);
+}
+.wynos-drawer-v2 .drawer-menu-row:active {
+  transform: scale(0.98);
+}
+
+.wynos-drawer-v2 .wynos-drawer-footer {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 14px 2px 0;
+  border-top: 1px solid var(--hairline);
+}
+.wynos-drawer-v2 .wynos-drawer-footer-button {
+  min-width: 0;
+  min-height: 45px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.wynos-drawer-v2 .wynos-drawer-footer-button:active { transform: scale(0.96); }
+.wynos-drawer-v2 .wynos-drawer-footer-button > svg { flex: 0 0 auto; }
+
+.wynos-drawer-v2 .wynos-drawer-panel {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 18px);
+  overflow-y: auto;
+  background: var(--paper);
+}
+.wynos-drawer-v2 .wynos-drawer-panel-header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 17px;
+}
+.wynos-drawer-v2 .wynos-drawer-panel-header button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+}
+.wynos-drawer-v2 .wynos-drawer-panel-content { display: grid; gap: 14px; padding-top: 18px; }
+.wynos-drawer-v2 .wynos-drawer-panel-content h2 { margin: 0; font-size: 19px; }
+.wynos-drawer-v2 .wynos-drawer-panel-content p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--graphite); }
+.wynos-drawer-v2 .wynos-drawer-panel-content label { font-size: 13px; font-weight: 650; }
+.wynos-drawer-v2 .wynos-drawer-panel-content textarea {
+  display: block;
+  width: 100%;
+  min-height: 130px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 13px;
+  outline-offset: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 16px;
+}
+.wynos-drawer-v2 .wynos-drawer-feedback-actions { display: grid; grid-template-columns: 1fr 1.35fr; gap: 10px; }
+.wynos-drawer-v2 .wynos-drawer-feedback-actions button,
+.wynos-drawer-v2 .wynos-drawer-help-item button {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.wynos-drawer-v2 .wynos-drawer-feedback-actions button:disabled { opacity: .45; }
+.wynos-drawer-v2 .wynos-drawer-feedback-status { color: var(--ink) !important; }
+.wynos-drawer-v2 .wynos-drawer-help-item { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--hairline); border-radius: 13px; }
+.wynos-drawer-v2 .wynos-drawer-help-item strong { font-size: 13.5px; }
+.wynos-drawer-v2 .wynos-drawer-help-item button { justify-self: start; }
+
+@media (max-width: 359px) {
+  .home-drawer.wynos-drawer-v2 { width: min(88vw, 380px); padding-inline: 10px; }
+  .wynos-drawer-v2 .drawer-identity { grid-template-columns: 48px minmax(0, 1fr) 16px; gap: 7px; padding-inline: 9px; }
+  .wynos-drawer-v2 .drawer-identity .route-avatar { width: 48px !important; height: 48px !important; }
+  .wynos-drawer-v2 .drawer-identity-copy .wynos-drawer-stats { font-size: 11px; gap: 3px; }
+  .wynos-drawer-v2 .drawer-menu-list { padding-inline: 9px; }
+  .wynos-drawer-v2 .drawer-menu-row { gap: 9px; font-size: 14px; }
+  .wynos-drawer-v2 .wynos-drawer-footer { gap: 7px; }
+  .wynos-drawer-v2 .wynos-drawer-footer-button { gap: 4px; font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wynos-drawer-v2 .wynos-drawer-footer-button { transition: none; }
+}

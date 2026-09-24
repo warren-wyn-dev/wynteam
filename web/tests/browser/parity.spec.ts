@@ -107,7 +107,7 @@ test("source contracts cannot regress to staged migration UI", async () => {
   const homeHeader = await readFile(path.join(root, "components/home/home-header.tsx"), "utf8");
   expect(homeHeader).toContain('/wynos_logo_mark.png');
   const homeDrawer = await readFile(path.join(root, "components/home/home-drawer.tsx"), "utf8");
-  for (const label of ["สำรวจ Club", "สร้าง Club", "Club ของฉัน", "บันทึกไว้", "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก"]) expect(homeDrawer).toContain(label);
+  for (const label of ["สำรวจ Club", "สร้าง Club", "Club ของฉัน", "บันทึกไว้", "ข้อเสนอแนะ", "การช่วยเหลือ"]) expect(homeDrawer).toContain(label);
   for (const contract of [
     "Quote ReDrop", "ไม่สนใจโพสต์นี้", "เลิกทำ", "submit_report", 'from("feed_signals")',
     // WYN-185 item 5: every "แชร์" call site was centralized onto the shared
