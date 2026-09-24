@@ -35,7 +35,7 @@ export function PostAuthorRow({
         <strong className="wyn-post-author-name">
           {name}
         </strong>
-        {verified ? <span className="route-verified wyn-post-verified">✓</span> : null}
+        {verified ? <span className="route-verified wyn-post-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
         <small className="wyn-post-timestamp">
           · {timeLabel}
         </small>
