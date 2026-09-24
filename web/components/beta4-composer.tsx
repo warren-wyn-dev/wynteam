@@ -120,6 +120,15 @@ export function Beta4Composer({
     return () => { live = false; };
   }, [client, draftId]);
 
+  // Recalculate after both typing and restoring a saved draft. onInput alone
+  // misses the latter and would leave a multi-line saved caption one line tall.
+  useEffect(() => {
+    const field = captionRef.current;
+    if (!field) return;
+    field.style.height = "28px";
+    field.style.height = `${Math.min(field.scrollHeight, 168)}px`;
+  }, [caption]);
+
   const previews = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
   useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
 
@@ -259,7 +268,22 @@ export function Beta4Composer({
             </div>
             <div className={styles.composerBody}>
               <strong className={styles.authorName}>{identity?.display_name?.trim() || identity?.username || "WYNOS"}</strong>
-              <textarea ref={captionRef} autoFocus className={`beta4-compose-text ${styles.composeText}`} maxLength={500} value={caption} disabled={busy} onChange={(event) => setCaption(event.target.value)} placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"} />
+              <textarea
+                ref={captionRef}
+                autoFocus
+                className={`beta4-compose-text ${styles.composeText}`}
+                maxLength={500}
+                rows={1}
+                value={caption}
+                disabled={busy}
+                onInput={(event) => {
+                  const field = event.currentTarget;
+                  field.style.height = "28px";
+                  field.style.height = `${Math.min(field.scrollHeight, 168)}px`;
+                }}
+                onChange={(event) => setCaption(event.target.value)}
+                placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"}
+              />
 
               {uploadProgress && uploadProgress.total > 0 ? <div className="beta4-upload-progress"><span>กำลังอัปโหลด {uploadProgress.uploaded}/{uploadProgress.total} รูป... {Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%</span><progress max={uploadProgress.total} value={uploadProgress.uploaded} /></div> : null}
 

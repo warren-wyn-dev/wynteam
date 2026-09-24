@@ -87,9 +87,13 @@
 
 .composeText {
   width: 100% !important;
-  min-height: 86px !important;
+  min-height: 28px !important;
+  height: 28px;
+  max-height: 168px;
   margin: 2px 0 0 !important;
   padding: 0 !important;
+  overflow-y: auto !important;
+  field-sizing: content;
   font-size: 16px !important;
   line-height: 1.4 !important;
 }
