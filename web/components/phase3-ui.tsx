@@ -9,6 +9,7 @@ import { usePublishBottomNav } from "@/components/app-bottom-nav-runtime";
 import { GoldenDropCard } from "@/components/golden-drop-card";
 import { QuoteFeedCard } from "@/components/quote-feed-card";
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { DefaultProfileAvatar } from "@/components/ui/default-profile-avatar";
 import { isQuotePost, type HomeFeedRow } from "@/lib/feed";
 import type { HomeViewerState } from "@/lib/home-actions";
 import { useUnreadNotificationCount } from "@/lib/notification-count";
@@ -17,9 +18,8 @@ import { usePresenceTracking } from "@/lib/presence";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function Avatar({ src, label, size = 42 }: { src?: string | null; label: string; size?: number }) {
-  const [failed, setFailed] = useState(false);
-  const text = label.trim().replace(/^@/, "").slice(0, 1).toUpperCase() || "W";
-  if (!src || failed) return <span className="route-avatar fallback" style={{ width: size, height: size }}>{text}</span>;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (!src || failedSrc === src) return <DefaultProfileAvatar className="route-avatar fallback" size={size} label={`รูปโปรไฟล์ของ ${label}`} />;
   return (
     <Image
       className="route-avatar"
@@ -28,7 +28,7 @@ export function Avatar({ src, label, size = 42 }: { src?: string | null; label: 
       width={size}
       height={size}
       sizes={`${size}px`}
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
     />
   );
 }
