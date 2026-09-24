@@ -18,13 +18,14 @@ function FoodDeveloperPreview({ client, userId }: { client: SupabaseClient; user
   useEffect(() => {
     let live = true;
     // Check again on this route; hiding the Home shortcut alone is not access control.
-    void client.rpc("is_developer_account")
-      .then(({ data, error }) => {
+    void (async () => {
+      try {
+        const { data, error } = await client.rpc("is_developer_account");
         if (live) setAccess(!error && data === true ? "allowed" : "denied");
-      })
-      .catch(() => {
+      } catch {
         if (live) setAccess("denied");
-      });
+      }
+    })();
     return () => { live = false; };
   }, [client, userId]);
 
