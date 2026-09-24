@@ -23,12 +23,18 @@ run_psql() {
   local file="$2"
   if psql -d "$db" -v ON_ERROR_STOP=1 -f "$file" >"$WORK_DIR/psql.out" 2>&1; then
     return 0
-  elif command -v sudo >/dev/null 2>&1 && sudo -u postgres psql -d "$db" -v ON_ERROR_STOP=1 -f "$file" >"$WORK_DIR/psql.out" 2>&1; then
-    return 0
-  else
+  fi
+  # In CI, PostgreSQL is a service container. sudo resets PGHOST and masks
+  # the original SQL failure with a misleading local socket error.
+  if [[ -n "${PGHOST:-}" ]]; then
     cat "$WORK_DIR/psql.out" >&2
     return 1
   fi
+  if command -v sudo >/dev/null 2>&1 && sudo -u postgres psql -d "$db" -v ON_ERROR_STOP=1 -f "$file" >"$WORK_DIR/psql.out" 2>&1; then
+    return 0
+  fi
+  cat "$WORK_DIR/psql.out" >&2
+  return 1
 }
 
 createdb_any() {
