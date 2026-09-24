@@ -197,6 +197,66 @@
   text-align: center;
 }
 
+
+/* WYNOS Food: compact developer-only entry, outside the five-tab navigation.
+   Only HomeScreen's confirmed developer branch renders the component. */
+.wyn-food-entry-wrap {
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid var(--wyn-border);
+}
+
+.wyn-food-entry {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 68px;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, #e8293d 18%, var(--wyn-border));
+  border-radius: 16px;
+  background: color-mix(in srgb, #e8293d 4%, var(--wyn-bg));
+  color: var(--wyn-text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wyn-food-entry:focus-visible {
+  outline: 2px solid #e8293d;
+  outline-offset: 3px;
+}
+
+.wyn-food-entry:active { transform: scale(0.99); }
+
+.wyn-food-entry-icon {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: #e8293d;
+  color: white;
+}
+
+.wyn-food-entry-copy { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
+.wyn-food-entry-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.wyn-food-entry-heading strong { font-size: 15px; line-height: 1.2; font-weight: 750; }
+.wyn-food-entry-badge {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #e8293d 12%, var(--wyn-bg));
+  color: #e8293d;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.wyn-food-entry-description { font-size: 12.5px; line-height: 1.4; color: var(--wyn-text-secondary); }
+.wyn-food-entry-chevron { flex: 0 0 auto; color: #e8293d; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wyn-food-entry { transition: none; }
+}
+
 /* ---------- Post card ---------- */
 
 .wyn-post + .wyn-post {
