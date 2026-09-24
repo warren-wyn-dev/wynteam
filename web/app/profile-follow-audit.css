@@ -2,10 +2,13 @@
 .follow-tabs button { flex: 1 1 0; border: 0; background: transparent; color: var(--wyn-text-secondary); font: inherit; font-size: 14px; font-weight: 500; }
 .follow-tabs button.active { color: var(--wyn-text); font-weight: 700; box-shadow: inset 0 -2px 0 var(--wyn-text); }
 .follow-list-route { background: var(--wyn-bg); }
-.follow-list-row { min-height: 68px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--wyn-border); }
+.follow-list-row { min-height: 68px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 0; }
 .follow-list-person { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; color: var(--wyn-text); text-decoration: none; }
 .follow-list-person > span { min-width: 0; display: flex; flex-direction: column; }
 .follow-list-person strong { font-size: 14.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.follow-list-person-name { display: inline-flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; }
+.follow-list-display-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.follow-list-person-name .route-verified { flex: 0 0 14px; margin-left: 0; vertical-align: 0; }
 .follow-list-person small { margin-top: 2px; color: var(--wyn-text-secondary); font-size: 12px; }
 .follow-list-error { margin: 12px 16px; }
 .follow-pill { flex: 0 0 auto; min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--wyn-text); color: var(--wyn-bg); font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; }

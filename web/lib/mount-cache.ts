@@ -26,3 +26,9 @@ export function setMountCache<T>(key: string, value: T): void {
 export function deleteMountCache(key: string): void {
   store.delete(key);
 }
+
+export function deleteMountCacheByPrefix(prefix: string): void {
+  for (const key of store.keys()) {
+    if (key.startsWith(prefix)) store.delete(key);
+  }
+}

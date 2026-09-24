@@ -3,7 +3,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { subscribeFollowChange } from "@/lib/follow-state";
 
 const PERSIST_KEY = "wynos-query-cache";
 // One day: long enough that reopening the app later the same day still shows
@@ -38,6 +39,11 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       ? null
       : createSyncStoragePersister({ storage: window.localStorage, key: PERSIST_KEY }),
   );
+
+  useEffect(() => subscribeFollowChange(() => {
+    // Counts and relationship state are shared across Search and Profile.
+    void client.invalidateQueries({ queryKey: ["profile-summary"] });
+  }), [client]);
 
   // window.localStorage doesn't exist during SSR — fall back to a plain,
   // unpersisted provider so nested useQuery calls still have a QueryClient

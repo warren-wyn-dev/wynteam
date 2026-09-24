@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { HomeFeedRow } from "@/lib/feed";
 import { fetchQuoteEngagement, type QuoteEngagement } from "@/lib/quote-actions";
+import { publishFollowChange, type FollowState } from "@/lib/follow-state";
 
 export type HomeViewerState = {
   likedDropIds: Set<string>;
@@ -221,45 +222,63 @@ export async function toggleAuthorFollow(
   client: SupabaseClient,
   userId: string,
   authorId: string,
-  options: {
-    currentlyFollowing: boolean;
-    pendingRequest: boolean;
-    isPrivate: boolean;
-  },
-): Promise<"following" | "requested" | "none"> {
+  options: { currentlyFollowing: boolean; pendingRequest: boolean; isPrivate: boolean },
+): Promise<FollowState> {
   if (authorId === userId) return "none";
 
-  if (options.currentlyFollowing) {
-    const { error } = await client
-      .from("follows")
-      .delete()
-      .eq("follower_id", userId)
-      .eq("following_id", authorId);
+  // Profile, Search and the follow lists may show different cached snapshots.
+  // Reconcile the real row BEFORE treating a tap as a toggle.
+  const existing = await client.from("follows").select("following_id")
+    .eq("follower_id", userId).eq("following_id", authorId).maybeSingle();
+  throwIfError(existing.error);
+  const actuallyFollowing = Boolean(existing.data);
+  if (actuallyFollowing !== options.currentlyFollowing) {
+    const state: FollowState = actuallyFollowing ? "following" : "none";
+    publishFollowChange({ actorId: userId, targetId: authorId, state });
+    return state;
+  }
+
+  if (actuallyFollowing) {
+    const { error } = await client.from("follows").delete()
+      .eq("follower_id", userId).eq("following_id", authorId);
     throwIfError(error);
+    publishFollowChange({ actorId: userId, targetId: authorId, state: "none" });
     return "none";
   }
 
   if (options.isPrivate) {
-    if (options.pendingRequest) {
-      const { error } = await client
-        .from("follow_requests")
-        .delete()
-        .eq("requester_id", userId)
-        .eq("target_id", authorId);
+    const pending = await client.from("follow_requests").select("target_id")
+      .eq("requester_id", userId).eq("target_id", authorId).maybeSingle();
+    throwIfError(pending.error);
+    if (Boolean(pending.data) !== options.pendingRequest) {
+      const state: FollowState = pending.data ? "requested" : "none";
+      publishFollowChange({ actorId: userId, targetId: authorId, state });
+      return state;
+    }
+    if (pending.data) {
+      const { error } = await client.from("follow_requests").delete()
+        .eq("requester_id", userId).eq("target_id", authorId);
       throwIfError(error);
+      publishFollowChange({ actorId: userId, targetId: authorId, state: "none" });
       return "none";
     }
-    const { error } = await client
-      .from("follow_requests")
-      .insert({ requester_id: userId, target_id: authorId });
+    const { error } = await client.from("follow_requests").upsert(
+      { requester_id: userId, target_id: authorId },
+      { onConflict: "requester_id,target_id", ignoreDuplicates: true },
+    );
     throwIfError(error);
+    publishFollowChange({ actorId: userId, targetId: authorId, state: "requested" });
     return "requested";
   }
 
-  const { error } = await client
-    .from("follows")
-    .insert({ follower_id: userId, following_id: authorId });
+  // A second tab can insert after the read. ON CONFLICT DO NOTHING keeps
+  // the button idempotent and prevents follows_pkey leaking into the UI.
+  const { error } = await client.from("follows").upsert(
+    { follower_id: userId, following_id: authorId },
+    { onConflict: "follower_id,following_id", ignoreDuplicates: true },
+  );
   throwIfError(error);
+  publishFollowChange({ actorId: userId, targetId: authorId, state: "following" });
   return "following";
 }
 

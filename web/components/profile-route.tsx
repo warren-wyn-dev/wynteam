@@ -329,6 +329,8 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
   const { data: summary, isLoading: loading, error: loadError, refetch } = useQuery({
     queryKey: profileQueryKey,
     queryFn: () => fetchProfileSummary(client, userId, profileId),
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
   const [action, setAction] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -364,6 +366,7 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
   const showBack = !own || !fromTab;
   const { toastMessage, showToast } = useToast();
   const load = useCallback(async () => { await refetch(); }, [refetch]);
+  useRouteRefreshListener(useCallback(() => { void refetch(); }, [refetch]));
   if (loading) return <AppChrome title="โปรไฟล์" userId={userId} backHref={showBack ? "/" : undefined}><ProfileSkeleton /></AppChrome>;
   if (!summary) return <AppChrome title="โปรไฟล์" userId={userId} backHref={showBack ? "/" : undefined}><EmptyState>{loadError instanceof Error ? loadError.message : "ไม่พบโปรไฟล์"}</EmptyState></AppChrome>;
   const profile = summary.profile;
@@ -387,13 +390,16 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
       requested: optimisticNext === "requested",
       followerCount: Math.max(0, current.followerCount + (optimisticNext === "following" ? 1 : 0) - (wasFollowing ? 1 : 0)),
     }));
-    try { await toggleAuthorFollow(client, userId, profile.id, { currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private }); }
-    catch (e) {
+    try {
+      const next = await toggleAuthorFollow(client, userId, profile.id, { currentlyFollowing: wasFollowing, pendingRequest: wasRequested, isPrivate: profile.is_private });
+      patchSummary((current) => ({ ...current, following: next === "following", requested: next === "requested" }));
+      await refetch(); // server-count reconciliation, including signup auto-follow
+    } catch {
       // Full rollback -- the previous version only restored
       // following/requested and left followerCount at its already-mutated
       // (wrong) value on failure.
       patchSummary((current) => ({ ...current, following: wasFollowing, requested: wasRequested, followerCount: wasFollowerCount }));
-      setError(e instanceof Error ? e.message : "ติดตามไม่สำเร็จ");
+      setError("อัปเดตการติดตามไม่สำเร็จ กรุณาลองอีกครั้ง");
       showToast("ติดตามไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
     finally { setAction(false); }

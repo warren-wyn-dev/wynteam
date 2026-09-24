@@ -122,7 +122,8 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
     setBusy(person.id); setError("");
     try {
       const next = await toggleAuthorFollow(client, viewerId, person.id, { currentlyFollowing: person.following, pendingRequest: person.requested, isPrivate: person.is_private });
-      setPeople((current) => current.map((item) => item.id === person.id ? { ...item, following: next === "following", requested: next === "requested" } : item));
+      setPeople((current) => current.filter((item) => !(profileId === viewerId && kind === "following" && item.id === person.id && next === "none")).map((item) => item.id === person.id ? { ...item, following: next === "following", requested: next === "requested" } : item));
+      await load(); // refresh list membership, not just the button label
     } catch { setError("อัปเดตการติดตามไม่สำเร็จ"); }
     finally { setBusy(null); }
   };
@@ -146,7 +147,7 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
                 <div className="follow-list-row" key={person.id}>
                   <Link className="follow-list-person" href={`/profile/${person.id}`}>
                     <Avatar src={person.avatar_url} label={person.username} size={44} />
-                    <span><strong>{person.display_name?.trim() || person.username}{person.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{person.username}</small></span>
+                    <span className="follow-list-person-copy"><strong className="follow-list-person-name"><span className="follow-list-display-name">{person.display_name?.trim() || person.username}</span>{person.is_verified ? <b className="route-verified" aria-label="ยืนยันแล้ว">✓</b> : null}</strong><small>@{person.username}</small></span>
                   </Link>
                   {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{followButtonLabel({ busy: busy === person.id, following: person.following, requested: person.requested })}</button> : null}
                 </div>
