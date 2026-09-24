@@ -63,6 +63,6 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   expect(badgeSvg).toContain('stop-color="#FFE82A"');
   expect(badgeSvg).toContain('stop-color="#FF7045"');
   expect(css).not.toContain(".wyn-profile-beta1 .route-verified {");
-  expect(css).toContain(".wyn-profile-beta1 .wyn-profile-name .route-verified");
+  expect(css).toContain(".wyn-profile-beta1 .wyn-profile-name .route-verified {\n  flex: 0 0 16px;\n  width: 16px;\n  height: 16px;");
 
 });
