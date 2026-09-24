@@ -163,7 +163,9 @@ test("search result Verified badge is smaller and centered directly after the na
     return result;
   });
 
-  expect(result.display).toBe("inline-flex");
+  // A grid item with inline-flex styling is blockified to computed "flex";
+  // preserve the actual alignment/size assertions below across all engines.
+  expect(["inline-flex", "flex"]).toContain(result.display);
   expect(result.align).toBe("center");
   expect(result.gap).toBe("4px");
   expect(result.margin).toBe("0px");
