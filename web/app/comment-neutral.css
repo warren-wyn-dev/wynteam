@@ -1,5 +1,5 @@
 /* Neutral grey/black comment controls approved for WYNOS.
-   The legacy --surface token is warm beige (#f1efe9); don't use it for
+   The global --surface token is now neutral grey (#f5f5f5); keep explicit high-contrast styling for
    text entry. Scope overrides to Post Detail and Quote Detail only so other
    forms, navigation, profile and the existing baseline stay unchanged. */
 .wyn-quote-comments .detail-comment-form,

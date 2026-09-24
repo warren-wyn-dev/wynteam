@@ -89,7 +89,7 @@
 .notification-group-label {
   margin: 0;
   padding: 20px 16px 4px;
-  color: var(--muted-neutral, #b7b4ac);
+  color: var(--muted-neutral, #9a9a9a);
   font-size: 13px;
   line-height: 1.2;
   font-weight: 600;

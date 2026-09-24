@@ -41,7 +41,7 @@ test("drawer polish keeps a dark profile name, centered badge and smaller access
   const css = await readFile(path.join(root, "app/drawer-v2.css"), "utf8");
   expect(css).toContain("border-top-color: color-mix(in srgb, var(--hairline) 62%, transparent)");
   await page.setContent(
-    '<style>:root{--paper:#fff;--ink:#12120f;--graphite:#8a8880;--hairline:#e8e6e0;--surface:#f1efe9}*{box-sizing:border-box}.drawer-identity-copy>span{color:var(--graphite)}button{border:0}</style>' +
+    '<style>:root{--paper:#fff;--ink:#171717;--graphite:#737373;--hairline:#e5e5e5;--surface:#f5f5f5}*{box-sizing:border-box}.drawer-identity-copy>span{color:var(--graphite)}button{border:0}</style>' +
       "<style>" + css + "</style>" +
       '<aside class="home-drawer wynos-drawer-v2">' +
       '<button class="drawer-identity"><span class="drawer-identity-copy">' +
@@ -67,11 +67,11 @@ test("drawer polish keeps a dark profile name, centered badge and smaller access
       separator: getComputedStyle(nextRow).borderTopColor,
     };
   });
-  expect(actual.nameColor).toBe("rgb(18, 18, 15)");
-  expect(actual.strongColor).toBe("rgb(18, 18, 15)");
+  expect(actual.nameColor).toBe("rgb(23, 23, 23)");
+  expect(actual.strongColor).toBe("rgb(23, 23, 23)");
   expect(actual.badgeAlign).toBe("center");
   expect(actual.rowHeight).toBe("58px");
   expect(actual.iconWidth).toBe("36px");
   expect(actual.iconHeight).toBe("36px");
-  expect(actual.separator).not.toBe("rgb(232, 230, 224)");
+  expect(actual.separator).not.toBe("rgb(229, 229, 229)");
 });

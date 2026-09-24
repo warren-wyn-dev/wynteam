@@ -1,16 +1,17 @@
 :root {
-  --ink: #12120f;
+  --ink: #171717;
   --paper: #ffffff;
-  --graphite: #8a8880;
-  --faint: #c7c4bc;
-  --muted: #b7b4ac;
-  --hairline: #e8e6e0;
-  --surface: #f1efe9;
+  --graphite: #737373;
+  --faint: #a3a3a3;
+  --muted: #9a9a9a;
+  --muted-neutral: #9a9a9a;
+  --hairline: #e5e5e5;
+  --surface: #f5f5f5;
   /* Alias of --surface — several components already referenced
-     var(--surface-tint, #f1efe9) expecting this name to exist; it never
+     var(--surface-tint, #f5f5f5) expecting this name to exist; it never
      did, so they were silently running on the literal fallback. Naming it
      for real closes that gap and lets dark mode reach those call sites. */
-  --surface-tint: #f1efe9;
+  --surface-tint: #f5f5f5;
   --sapphire: #1b3a6b;
   --like: #f44336;
   /* Matches app/lib/core/typography/browser_system_text_web.dart's own
@@ -54,6 +55,8 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --ink: #ffffff;
+    --graphite: #a3a3a3;
+    --muted-neutral: #666666;
     --paper: #000000;
     --faint: #666666;
     --muted: #666666;
