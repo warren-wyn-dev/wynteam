@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { DefaultProfileAvatar } from "@/components/ui/default-profile-avatar";
 
 export type AvatarVariant = "person" | "club" | "clubBanner";
 export type AvatarElement = "span" | "div";
@@ -38,6 +39,9 @@ export function Avatar({
     .join(" ");
 
   const Element = as;
+  if (variant === "person" && !src) {
+    return <DefaultProfileAvatar as={as} size={size} className={classes} label={alt} />;
+  }
 
   return (
     <Element aria-label={alt} className={classes} role="img" style={style}>
