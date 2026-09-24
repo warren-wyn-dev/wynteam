@@ -18,12 +18,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA_FILE="$SCRIPT_DIR/../schema.sql"
 MIGRATION_FILE="$SCRIPT_DIR/../migrations_wyn155_security_definer_privileges.sql"
+PRIVACY_MIGRATION_FILE="$SCRIPT_DIR/../migrations_web_beta1_club_invite_preview_privacy.sql"
+PRIVACY_TEST_FILE="$SCRIPT_DIR/web_beta1_invite_preview_privacy.sql"
 DB_NAME="wyn155_security_definer_privileges_test"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 chmod 755 "$WORK_DIR"
 
-for required in "$SCHEMA_FILE" "$MIGRATION_FILE"; do
+for required in "$SCHEMA_FILE" "$MIGRATION_FILE" "$PRIVACY_MIGRATION_FILE" "$PRIVACY_TEST_FILE"; do
   if [ ! -f "$required" ]; then
     echo "FAIL: required file not found: $required" >&2
     exit 1
@@ -195,6 +197,17 @@ if ! run_psql "$DB_NAME" "$MIGRATION_FILE"; then
   exit 1
 fi
 
+if ! run_psql "$DB_NAME" "$PRIVACY_MIGRATION_FILE"; then
+  echo "FAIL: Web Beta1 privacy migration failed to apply" >&2
+  dropdb_any "$DB_NAME"
+  exit 1
+fi
+if ! run_psql "$DB_NAME" "$PRIVACY_TEST_FILE"; then
+  echo "FAIL: anonymous invite preview leaked inactive Club metadata or broke public preview" >&2
+  dropdb_any "$DB_NAME"
+  exit 1
+fi
+echo "PASS: Web Beta1 anonymous invite preview privacy checks"
 if ! run_psql "$DB_NAME" "$WORK_DIR/10_assert.sql"; then
   echo "FAIL: privilege assertions errored" >&2
   dropdb_any "$DB_NAME"
