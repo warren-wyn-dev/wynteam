@@ -261,7 +261,7 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
     if (!file) return;
     if (selectedKind.current === "avatar") {
       if (file.size > 10 * 1024 * 1024 || file.size === 0) { setError("รูปภาพต้องมีขนาดไม่เกิน 10MB"); return; }
-      if (!file.type.startsWith("image/") && !/\\.(heic|heif)$/i.test(file.name)) { setError("กรุณาเลือกไฟล์รูปภาพ"); return; }
+      if (!file.type.startsWith("image/") && !/\.(heic|heif)$/i.test(file.name)) { setError("กรุณาเลือกไฟล์รูปภาพ"); return; }
       setError("");
       setAvatarToCrop(file);
       return;

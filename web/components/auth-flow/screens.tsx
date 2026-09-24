@@ -695,7 +695,7 @@ export function OnboardingProfileScreen() {
       setError("รูปภาพต้องมีขนาดไม่เกิน 10MB");
       return;
     }
-    if (!file.type.startsWith("image/") && !/\\.(heic|heif)$/i.test(file.name)) {
+    if (!file.type.startsWith("image/") && !/\.(heic|heif)$/i.test(file.name)) {
       setError("กรุณาเลือกไฟล์รูปภาพ");
       return;
     }
