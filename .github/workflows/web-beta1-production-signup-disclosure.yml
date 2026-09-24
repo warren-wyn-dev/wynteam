@@ -1,0 +1,36 @@
+name: Web Beta1 Production Signup Disclosure Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/web-beta1-production-signup-disclosure.yml'
+  workflow_run:
+    workflows: ['WYN-158 Production Deploy']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-disclosure:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify published signup disclosure and Next.js assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='เมื่อสมัครบัญชีใหม่ คุณจะติดตามบัญชี Official @wynos_s โดยอัตโนมัติ และสามารถเลิกติดตามได้ทุกเมื่อ'
+          url="https://wynos.online/signup/step-1?_wyn_disclosure_smoke=${GITHUB_RUN_ID}"
+          html=$(curl --silent --show-error --fail --location --retry 5 --retry-delay 3 --max-time 30 \
+            --header 'Cache-Control: no-cache' "$url")
+          test -n "$html"
+          grep -Fq "$expected" <<< "$html"
+          grep -q '/_next/' <<< "$html"
+          ! grep -q 'flutter_bootstrap.js' <<< "$html"
+          echo 'Production signup disclosure is visible in the published Next.js HTML.' >> "$GITHUB_STEP_SUMMARY"
