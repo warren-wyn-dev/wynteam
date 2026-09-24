@@ -165,8 +165,8 @@
    The v=4 URL prevents Safari/PWA from retaining the previous black-check asset. */
 .route-verified {
   display: inline-block;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   margin-left: 4px;
   flex: 0 0 auto;
   background: url("/verified-badge-v2.svg?v=4") center / contain no-repeat;
@@ -178,8 +178,8 @@
 
 /* Profile name has larger type; keep the verified mark proportional. */
 .wyn-profile-name .route-verified {
-  width: 21px;
-  height: 21px;
+  width: 16px;
+  height: 16px;
   margin-left: 1px;
 }
 
@@ -187,9 +187,9 @@
 .wyn-post-author-link .route-verified,
 .golden-drop-head .route-verified,
 .detail-author-primary .route-verified {
-  width: 18px;
-  height: 18px;
-  vertical-align: -3px;
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
 }
 
 /* Home's flex gap is already 4px: a second badge margin doubled the space. */
@@ -218,8 +218,8 @@
   vertical-align: 0;
 }
 .follow-list-person .route-verified {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   vertical-align: -2px;
 }
 
