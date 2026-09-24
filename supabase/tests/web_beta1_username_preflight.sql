@@ -12,7 +12,12 @@ do $$ begin
   if has_table_privilege('anon', 'public.profiles', 'SELECT') then
     raise exception 'anon must not gain profile SELECT';
   end if;
-  if has_function_privilege('public','public.is_signup_username_available(text)','EXECUTE') then
+  if exists (
+    select 1 from pg_proc p
+    cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+    where p.oid = 'public.is_signup_username_available(text)'::regprocedure
+      and acl.grantee = 0 and acl.privilege_type = 'EXECUTE'
+  ) then
     raise exception 'PUBLIC must not execute username lookup';
   end if;
 end $$;
