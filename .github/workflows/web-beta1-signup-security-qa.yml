@@ -37,7 +37,7 @@ jobs:
       - name: Install test browsers
         run: npx playwright install --with-deps chromium webkit
       - name: Run focused authentication security regressions
-        run: npx playwright test tests/browser/signup-security.spec.ts tests/browser/password-recovery.spec.ts tests/browser/signup-username-preflight.spec.ts
+        run: npx playwright test tests/browser/signup-security.spec.ts tests/browser/password-recovery.spec.ts tests/browser/signup-username-preflight.spec.ts tests/browser/official-first-follow-disclosure.spec.ts
       - name: Upload focused test artifacts
         if: failure()
         uses: actions/upload-artifact@v4
