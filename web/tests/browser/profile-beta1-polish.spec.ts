@@ -53,12 +53,12 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   expect(css).toContain(".wyn-profile-cover::after");
   expect(css).not.toContain("margin-top: calc(-1 * env(safe-area-inset-top");
   expect(profile).toContain('<Image src={normalizeExternalUrl(profile.cover_url) ?? ""}');
-  // The shared SVG uses the approved yellow/orange seal and black check.
+  // The shared SVG uses the approved yellow/orange seal and white check.
   // Both Home and Profile use one cache-busted SVG through the global class.
   const globalBadgeCss = await readFile(path.join(root, "app/phase3.css"), "utf8");
   const badgeSvg = await readFile(path.join(root, "public/verified-badge-v2.svg"), "utf8");
-  expect(globalBadgeCss).toContain('url("/verified-badge-v2.svg?v=3")');
-  expect(badgeSvg).toContain('stroke="#111111"');
+  expect(globalBadgeCss).toContain('url("/verified-badge-v2.svg?v=4")');
+  expect(badgeSvg).toContain('stroke="#FFFFFF"');
   expect(badgeSvg).toContain('stop-color="#FFE82A"');
   expect(badgeSvg).toContain('stop-color="#FF7045"');
   expect(css).not.toContain(".wyn-profile-beta1 .route-verified {");
