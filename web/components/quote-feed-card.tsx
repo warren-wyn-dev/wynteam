@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 
 import { RichPostText } from "@/components/rich-post-text";
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { DefaultProfileAvatar } from "@/components/ui/default-profile-avatar";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -30,11 +31,11 @@ const reportReasons = [
 
 function QuoteAvatar({ src, label, small = false }: { src?: string | null; label: string; small?: boolean }) {
   const size = small ? 30 : 40;
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
-    return <span className="wyn-quote-feed-avatar fallback" style={small ? { width: size, height: size } : undefined}>{label.trim().slice(0, 1).toUpperCase() || "W"}</span>;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (!src || failedSrc === src) {
+    return <DefaultProfileAvatar className="wyn-quote-feed-avatar fallback" size={size} label={`รูปโปรไฟล์ของ ${label}`} />;
   }
-  return <Image className="wyn-quote-feed-avatar" src={src} alt="" width={size} height={size} sizes={small ? "30px" : "40px"} onError={() => setFailed(true)} />;
+  return <Image className="wyn-quote-feed-avatar" src={src} alt="" width={size} height={size} sizes={small ? "30px" : "40px"} onError={() => setFailedSrc(src)} />;
 }
 
 /** All actions below target redrops.id (this Quote), not the embedded original Drop. */
