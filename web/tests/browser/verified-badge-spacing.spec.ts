@@ -103,7 +103,7 @@ test("profile badge keeps existing 5px combined spacing", async ({ page }) => {
   expect(result.size).toBe(21);
 });
 
-test("Beta1 profile and post badges both show the shared black-check SVG", async ({ page }) => {
+test("Beta1 profile and post badges both show the shared white-check SVG", async ({ page }) => {
   const result = await page.evaluate(() => {
     const wrapper = document.createElement("div");
     wrapper.className = "wyn-profile-beta1";
@@ -129,4 +129,47 @@ test("Beta1 profile and post badges both show the shared black-check SVG", async
   expect(result.feed.fontSize).toBe("0px");
   expect(result.profile.width).toBe(22);
   expect(result.feed.width).toBe(18);
+});
+
+test("search result Verified badge is smaller and centered directly after the name", async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const fixture = document.createElement("div");
+    fixture.className = "route-person-row";
+    fixture.innerHTML = `
+      <a class="route-person-main" href="#">
+        <span class="route-person-copy">
+          <strong><span class="qa-search-name">WYNOS</span><span class="route-verified" aria-label="ยืนยันแล้ว">✓</span></strong>
+          <small>@wynos_s</small>
+        </span>
+      </a>
+    `;
+    document.body.appendChild(fixture);
+    const line = fixture.querySelector<HTMLElement>("strong")!;
+    const name = fixture.querySelector<HTMLElement>(".qa-search-name")!;
+    const badge = fixture.querySelector<HTMLElement>(".route-verified")!;
+    const nameRect = name.getBoundingClientRect();
+    const badgeRect = badge.getBoundingClientRect();
+    const result = {
+      display: getComputedStyle(line).display,
+      align: getComputedStyle(line).alignItems,
+      gap: getComputedStyle(line).gap,
+      margin: getComputedStyle(badge).marginLeft,
+      size: badgeRect.width,
+      height: badgeRect.height,
+      horizontalGap: badgeRect.left - nameRect.right,
+      centerOffset: Math.abs((nameRect.top + nameRect.bottom) / 2 - (badgeRect.top + badgeRect.bottom) / 2),
+    };
+    fixture.remove();
+    return result;
+  });
+
+  expect(result.display).toBe("inline-flex");
+  expect(result.align).toBe("center");
+  expect(result.gap).toBe("4px");
+  expect(result.margin).toBe("0px");
+  expect(result.size).toBe(14);
+  expect(result.height).toBe(14);
+  expect(result.horizontalGap).toBeGreaterThanOrEqual(3.5);
+  expect(result.horizontalGap).toBeLessThanOrEqual(4.5);
+  expect(result.centerOffset).toBeLessThanOrEqual(1);
 });
