@@ -46,13 +46,13 @@ insert into public.profiles(id,username) values
 
 -- A new deployment must never start auto-following before the web disclosure
 -- has been deployed and Founder has approved the separate activation.
-do $
+do $$
 begin
   if (select enabled_at from internal.official_autofollow_settings where singleton)
      is distinct from 'infinity'::timestamptz then
     raise exception 'first-follow must default to disabled until explicit activation';
   end if;
-end $;
+end $$;
 
 -- Mimic real permanent user profile insert through authenticated RLS.
 grant usage on schema public to authenticated,anon;
@@ -73,14 +73,14 @@ select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000007'
 insert into public.profiles(id,username)
 values('00000000-0000-4000-8000-000000000007','before_activation');
 reset role;
-do $
+do $$
 begin
   if exists(select 1 from public.follows where follower_id='00000000-0000-4000-8000-000000000007')
      or exists(select 1 from internal.official_autofollow_processed
                where user_id='00000000-0000-4000-8000-000000000007') then
     raise exception 'disabled follow gate modified a genuine signup';
   end if;
-end $;
+end $$;
 
 -- Test-only activation, performed explicitly after the disclosure check.
 -- Production remains disabled; this isolated fixture has no production access.
@@ -88,12 +88,12 @@ update internal.official_autofollow_settings set enabled_at=clock_timestamp()
 where singleton is true;
 update public.profiles set username='before_activation_renamed'
 where id='00000000-0000-4000-8000-000000000007';
-do $
+do $$
 begin
   if exists(select 1 from public.follows where follower_id='00000000-0000-4000-8000-000000000007') then
     raise exception 'a user who joined before activation must not be backfilled';
   end if;
-end $;
+end $$;
 
 -- Record a new user with Auth creation after feature activation.
 insert into auth.users(id,created_at) values
