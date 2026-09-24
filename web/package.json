@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "qa:browser": "playwright test",
     "test:account-password": "node --test tests/account-password.test.mjs",
+    "test:follow": "node --test tests/follow-mutation.test.mjs",
     "check": "npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
