@@ -59,6 +59,7 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   const badgeSvg = await readFile(path.join(root, "public/verified-badge-v2.svg"), "utf8");
   expect(globalBadgeCss).toContain('url("/verified-badge-v2.svg?v=4")');
   expect(badgeSvg).toContain('stroke="#FFFFFF"');
+  expect(badgeSvg).not.toContain('stroke="#111111"');
   expect(badgeSvg).toContain('stop-color="#FFE82A"');
   expect(badgeSvg).toContain('stop-color="#FF7045"');
   expect(css).not.toContain(".wyn-profile-beta1 .route-verified {");
