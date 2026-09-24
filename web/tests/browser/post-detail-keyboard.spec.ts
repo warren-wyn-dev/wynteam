@@ -25,6 +25,21 @@ test("composer and send button meet the 44x44 minimum hit area", async ({ page }
   expect(send?.height).toBeGreaterThanOrEqual(44);
 });
 
+test("form is in normal flow inside the single viewport-fixed shell", async ({ page }) => {
+  const shell = page.locator("#composer-shell");
+  const form = shell.locator("form");
+  const position = await form.evaluate((node) => getComputedStyle(node).position);
+  expect(position).toBe("static");
+  const outer = await shell.boundingBox();
+  const inner = await form.boundingBox();
+  expect(outer).not.toBeNull();
+  expect(inner).not.toBeNull();
+  expect(inner!.y).toBeGreaterThanOrEqual(outer!.y);
+  expect(inner!.y + inner!.height).toBeLessThanOrEqual(outer!.y + outer!.height + 2);
+  expect(inner!.x).toBeGreaterThanOrEqual(outer!.x);
+  expect(inner!.x + inner!.width).toBeLessThanOrEqual(outer!.x + outer!.width + 2);
+});
+
 test("composer sits flush at the viewport bottom with no keyboard", async ({ page }) => {
   const shell = await page.locator("#composer-shell").boundingBox();
   const viewport = page.viewportSize();
@@ -43,10 +58,8 @@ test("composer tracks the keyboard inset instead of leaving a gap or jumping off
     document.documentElement.style.setProperty("--wyn-kb-inset", `${inset}px`);
     document.documentElement.setAttribute("data-keyboard-open", "true");
   }, kbInset);
-  // The shell has a short transform transition (see system-parity-final.css)
-  // so the on-screen move isn't a jump; wait for it to settle before reading
-  // the final position.
-  await page.waitForTimeout(250);
+  // The viewport-fixed shell now follows keyboard geometry without a
+  // trailing transform animation that could leave it midair on iOS.
 
   const after = await page.locator("#composer-shell").boundingBox();
   expect(before).not.toBeNull();
