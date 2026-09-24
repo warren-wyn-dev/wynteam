@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, DropPreviewCard, EmptyState } from "@/components/phase3-ui";
 import { ProfileRecommendations } from "@/components/profile-recommendations";
+import { RichPostText } from "@/components/rich-post-text";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -300,7 +301,7 @@ function EditProfile({ client, userId, summary, onDone }: { client: SupabaseClie
   );
 }
 
-function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; userId: string; profileId: string }) {
+function ProfileInner({ client, userId, profileId, fromTab }: { client: SupabaseClient; userId: string; profileId: string; fromTab: boolean }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const profileQueryKey = ["profile-summary", profileId, userId] as const;
@@ -339,10 +340,11 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   const [managingAccounts, setManagingAccounts] = useState(false);
   const [accountSwitcherError, setAccountSwitcherError] = useState("");
   const own = profileId === userId;
+  const showBack = !own || !fromTab;
   const { toastMessage, showToast } = useToast();
   const load = useCallback(async () => { await refetch(); }, [refetch]);
-  if (loading) return <AppChrome title="โปรไฟล์" userId={userId} backHref="/"><ProfileSkeleton /></AppChrome>;
-  if (!summary) return <AppChrome title="โปรไฟล์" userId={userId} backHref="/"><EmptyState>{loadError instanceof Error ? loadError.message : "ไม่พบโปรไฟล์"}</EmptyState></AppChrome>;
+  if (loading) return <AppChrome title="โปรไฟล์" userId={userId} backHref={showBack ? "/" : undefined}><ProfileSkeleton /></AppChrome>;
+  if (!summary) return <AppChrome title="โปรไฟล์" userId={userId} backHref={showBack ? "/" : undefined}><EmptyState>{loadError instanceof Error ? loadError.message : "ไม่พบโปรไฟล์"}</EmptyState></AppChrome>;
   const profile = summary.profile;
   const name = profileLabel(profile);
   const patchSummary = (updater: (current: ProfileSummary) => ProfileSummary) => queryClient.setQueryData<ProfileSummary | null>(
@@ -496,7 +498,9 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
           : <><div className="wyn-profile-cover-planet" aria-hidden="true" /><div className="wyn-profile-cover-wordmark" aria-hidden="true"><strong>W Y N O S</strong><small>A BETTER<br />TOMORROW TOGETHER</small></div></>}
       </div>
       <header className="wyn-profile-topbar">
-        <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><WynosIcon name="back" size={25} strokeWidth={2.4} /></button>
+        {showBack
+          ? <button type="button" aria-label="ย้อนกลับ" onClick={() => router.back()}><WynosIcon name="back" size={25} strokeWidth={2.4} /></button>
+          : <span className="wyn-profile-topbar-back-spacer" aria-hidden="true" />}
         <button type="button" aria-label={own ? "ตัวเลือกของฉัน" : "เพิ่มเติม"} onClick={() => setMoreOpen(true)}><WynosIcon name="more" size={26} strokeWidth={2.2} /></button>
       </header>
     </div>
@@ -513,7 +517,7 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
         </div> : null}
       </div>
       <div className="wyn-profile-details">
-        {profile.bio ? <p className="wyn-profile-bio">{profile.bio}</p> : null}
+        {profile.bio ? <RichPostText className="wyn-profile-bio" value={profile.bio} /> : null}
         {(() => {
           const safeWebsite = profile.social_links?.website ? normalizeExternalUrl(profile.social_links.website) : null;
           return safeWebsite ? <a className="wyn-profile-website" href={safeWebsite} target="_blank" rel="noopener noreferrer nofollow ugc"><WynosIcon name="link" size={19} strokeWidth={2.1} />{formatWebsiteLabel(safeWebsite)}</a> : null;
@@ -541,4 +545,4 @@ function ProfileInner({ client, userId, profileId }: { client: SupabaseClient; u
   </AppChrome>;
 }
 
-export function ProfileRoute({ profileId }: { profileId: string }) { return <DeveloperRouteGate>{({ client, userId }) => <ProfileInner client={client} userId={userId} profileId={profileId} />}</DeveloperRouteGate>; }
+export function ProfileRoute({ profileId, fromTab = false }: { profileId: string; fromTab?: boolean }) { return <DeveloperRouteGate>{({ client, userId }) => <ProfileInner client={client} userId={userId} profileId={profileId} fromTab={fromTab} />}</DeveloperRouteGate>; }

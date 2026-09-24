@@ -6,9 +6,9 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; from?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (query.tab === "saved") return <BookmarksRoute />;
-  return <ProfileParityRoute profileId={id} />;
+  return <ProfileParityRoute profileId={id} fromTab={query.from === "tab"} />;
 }

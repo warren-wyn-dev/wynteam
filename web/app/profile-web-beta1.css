@@ -85,6 +85,12 @@
 .wyn-profile-beta1 .wyn-profile-topbar button:active {
   transform: scale(.96);
 }
+/* Preserve the More button alignment with no back button on root Profile. */
+.wyn-profile-beta1 .wyn-profile-topbar-back-spacer {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+}
 .wyn-profile-beta1 .wyn-profile-header {
   position: relative;
   padding: 0 16px 4px;
