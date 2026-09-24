@@ -13,7 +13,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -122,6 +122,17 @@ export function Beta4Composer({
 
   const previews = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
   useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
+
+  // When media is attached, the caption begins as a compact single line rather
+  // than holding an empty ~86px text box above the photo. Grow naturally as the
+  // user types; reset the height when a draft loads or media is removed.
+  const hasAttachedMedia = mode === "image" && (files.length > 0 || Boolean(existingImageUrl));
+  useLayoutEffect(() => {
+    const textarea = captionRef.current;
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.max(hasAttachedMedia ? 32 : 86, textarea.scrollHeight)}px`;
+  }, [caption, hasAttachedMedia, mode]);
 
   const selectedAudience = AUDIENCE_OPTIONS.find((option) => option.value === audience) ?? AUDIENCE_OPTIONS[0];
   const SelectedAudienceIcon = selectedAudience.icon;
@@ -259,7 +270,7 @@ export function Beta4Composer({
             </div>
             <div className={styles.composerBody}>
               <strong className={styles.authorName}>{identity?.display_name?.trim() || identity?.username || "WYNOS"}</strong>
-              <textarea ref={captionRef} autoFocus className={`beta4-compose-text ${styles.composeText}`} maxLength={500} value={caption} disabled={busy} onChange={(event) => setCaption(event.target.value)} placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"} />
+              <textarea ref={captionRef} autoFocus rows={1} className={`beta4-compose-text ${styles.composeText} ${hasAttachedMedia ? styles.attachedCaption : ""}`} maxLength={500} value={caption} disabled={busy} onChange={(event) => setCaption(event.target.value)} placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"} />
 
               {uploadProgress && uploadProgress.total > 0 ? <div className="beta4-upload-progress"><span>กำลังอัปโหลด {uploadProgress.uploaded}/{uploadProgress.total} รูป... {Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%</span><progress max={uploadProgress.total} value={uploadProgress.uploaded} /></div> : null}
 
