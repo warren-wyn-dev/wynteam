@@ -20,7 +20,8 @@ test("real post detail uses viewport portal, stable header and cold-load skeleto
   expect(inset).toContain('document.addEventListener("focusin", schedule)');
   expect(css).toContain('.detail-composer-shell:focus-within { padding-bottom: 9px; }');
   expect(portal).toContain('createPortal(children, host)');
-  expect(portal).toContain('setHost(document.body)');
+  expect(portal).toContain('useSyncExternalStore<HTMLElement | null>');
+  expect(portal).toContain('const getBrowserHost = () => document.body');
 });
 
 test("quote delete menu is compact, explains scope and has in-sheet confirmation", async ({ page }) => {

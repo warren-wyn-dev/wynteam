@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /**
- * Render viewport-fixed controls outside PageTransition's transformed
- * motion.div. Fixed descendants of a transformed ancestor are relative to
- * that ancestor and scroll away when iOS auto-pans for its keyboard.
- * Keeping the portal within the React tree retains contexts and events.
+ * Fixed controls must live under body, outside PageTransition's transformed
+ * motion.div, or iOS keyboard auto-panning moves them with the document.
+ * useSyncExternalStore returns null during SSR/hydration and body afterwards,
+ * avoiding both a hydration mismatch and synchronous setState in an effect.
  */
+const subscribe = () => () => undefined;
+const getBrowserHost = () => document.body;
+const getServerHost = () => null;
+
 export function ViewportPortal({ children }: { children: ReactNode }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setHost(document.body);
-  }, []);
+  const host = useSyncExternalStore<HTMLElement | null>(subscribe, getBrowserHost, getServerHost);
   return host ? createPortal(children, host) : null;
 }
