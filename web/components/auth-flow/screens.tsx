@@ -532,6 +532,7 @@ export function SignupStep1Screen() {
             </select>
           </div>
         </div>
+        <p className="wyn-official-autofollow-disclosure" style={{ fontSize: 12, lineHeight: 1.6, color: "var(--text-secondary)", margin: "8px 2px 12px" }}>เมื่อสมัครบัญชีใหม่ คุณจะติดตามบัญชี Official @wynos_s โดยอัตโนมัติ และสามารถเลิกติดตามได้ทุกเมื่อ</p>
         <Button className="btn-primary" disabled={loading} onClick={() => void goNext()} style={{ marginTop: 10 }}>{loading ? "กำลังดำเนินการ…" : "หน้าถัดไป"}</Button>
         <ErrorText>{error}</ErrorText>
       </div>
