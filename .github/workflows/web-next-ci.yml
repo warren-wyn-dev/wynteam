@@ -34,14 +34,18 @@ jobs:
         run: npm run lint
       - name: TypeScript
         run: npm run typecheck
+      - name: Offline Push logout fallback regression
+        run: npm run test:push-offline-logout
       - name: Follow recovery regression
         run: npm run test:follow
       - name: Feed non-blocking impression regression
         run: npm run test:feed-latency
       - name: Cross-account persisted query cache isolation
         run: npm run test:account-cache-isolation
-      - name: Offline Push logout fallback regression
-        run: npm run test:push-offline-logout
+      - name: Chat draft isolation and recovery
+        run: npm run test:chat-draft-recovery
+      - name: Plus entitlement read-only and fail-closed regression
+        run: npm run test:plus-entitlements
       - name: Web Beta1 club and draft regression
         run: node --test tests/draft-hotfix.test.mjs tests/club-rpc-error.test.mjs
       - name: Production build

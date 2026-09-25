@@ -149,3 +149,11 @@ composer validation remains an independent release gate.
   release until the privacy acceptance is demonstrably safe on supported devices.
 - The existing strict account-switch gate still blocks switching whenever
   server-side Push detach fails. Never weaken it to make test coverage green.
+
+
+## Integrated QA note (not a production release)
+
+This branch combines Phase 1's pending offline-signout Push revocation from
+PR #687 with staged Phase 2 Chat recovery (#697) and Phase 3 Plus read-only
+preview (#698). It runs the combined suite but does not establish physical
+Push delivery or authorize payment collection or a production schema change.
