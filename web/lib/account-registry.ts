@@ -1,4 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { PERSIST_QUERY_CACHE_KEY } from "@/lib/query-persist-key";
 
 export const MAX_SAVED_ACCOUNTS = 9;
 
@@ -93,7 +94,7 @@ export function activateSavedAccount(userId: string): boolean {
   const accounts = readRegistry();
   const target = accounts.find((item) => item.userId === userId);
   if (!target) return false;
-  writeRegistry([{ ...target, lastUsedAt: Date.now() }, ...accounts.filter((item) => item.userId !== userId)]);
+  // Do not carry account A\u0027s persisted Feed/Profile/Chat cache into account B.\n  window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);\n  writeRegistry([{ ...target, lastUsedAt: Date.now() }, ...accounts.filter((item) => item.userId !== userId)]);
   if (target.storageKey) window.localStorage.setItem(ACTIVE_STORAGE_KEY, target.storageKey);
   else window.localStorage.removeItem(ACTIVE_STORAGE_KEY);
   return true;
@@ -116,5 +117,8 @@ export function removeSavedAccount(userId: string): void {
 
 export function markAccountStorageActive(storageKey: string): void {
   if (!available()) return;
+  if (getActiveAccountStorageKey() !== storageKey) {
+    window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
+  }
   window.localStorage.setItem(ACTIVE_STORAGE_KEY, storageKey);
 }

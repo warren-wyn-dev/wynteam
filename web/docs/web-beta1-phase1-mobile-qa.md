@@ -97,3 +97,13 @@ table above have dated evidence, cross-account Push isolation passes, and
 the founder authorizes the production web rollout. If the rollout fails,
 revert the web merge or roll back the deployment to the previously green
 `main` SHA; investigate production function v9 independently.
+
+### Cross-account privacy regression
+
+The React Query localStorage cache is shared by the browser, so switching or
+adding saved accounts must discard the previous account's persisted query
+snapshot. The auth gate also clears in-memory queries when the user ID changes
+(including a sign-out in another browser tab). Run
+`npm run test:account-cache-isolation` and verify account A→B does not
+surface private cached content. This is separate from checking that Push tokens
+are detached before changing accounts.
