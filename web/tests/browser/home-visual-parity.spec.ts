@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
   }
 });
 
-test("Home top chrome preserves the header and uses the enlarged 38px feed tabs", async ({ page }) => {
+test("Home top chrome preserves the header and uses the enlarged 42px feed tabs", async ({ page }) => {
   const home = page.locator(".wyn-home");
   const header = page.locator(".wyn-home-header");
   const tabs = page.locator(".wyn-home-tabs");
@@ -32,9 +32,10 @@ test("Home top chrome preserves the header and uses the enlarged 38px feed tabs"
   const indicator = activeTab.locator(".wyn-home-tab-indicator");
 
   await expect(header).toHaveCSS("height", "36px");
-  await expect(tabs).toHaveCSS("height", "38px");
+  await expect(tabs).toHaveCSS("height", "42px");
+  await expect(activeTab).toHaveCSS("height", "42px");
   await expect(activeTab).toHaveAttribute("aria-selected", "true");
-  await expect(activeTab).toHaveCSS("font-size", "18px");
+  await expect(activeTab).toHaveCSS("font-size", "19px");
   await expect(page.locator(".wyn-home-logo")).toHaveCSS("width", "24px");
   await expect(page.locator(".wyn-home-logo")).toHaveCSS("height", "24px");
   await expect(page.getByRole("tab", { name: "กำลังติดตาม" })).toHaveCSS("color", "rgb(117, 122, 132)");
@@ -42,7 +43,7 @@ test("Home top chrome preserves the header and uses the enlarged 38px feed tabs"
   const [homeBox, indicatorBox] = await Promise.all([home.boundingBox(), indicator.boundingBox()]);
   expect(homeBox).not.toBeNull();
   expect(indicatorBox).not.toBeNull();
-  expect(Math.abs((homeBox?.height ?? 0) - 74)).toBeLessThanOrEqual(1);
+  expect(Math.abs((homeBox?.height ?? 0) - 78)).toBeLessThanOrEqual(1);
   expect(Math.abs((indicatorBox?.width ?? 0) - 120)).toBeLessThanOrEqual(1);
   expect(Math.abs((indicatorBox?.height ?? 0) - 2)).toBeLessThanOrEqual(0.5);
 });
