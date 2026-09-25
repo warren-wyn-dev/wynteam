@@ -249,7 +249,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     });
     setMeta(nextMeta);
     setHasMore(nextMessages.length === 30);
-    await markConversationRead(client, conversationId);
+    // Transient read-receipt failure must not discard the loaded thread.
+    await markConversationRead(client, conversationId).catch(() => undefined);
   }, [client, conversationId, userId]);
 
   useEffect(() => {
@@ -355,7 +356,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
         const withoutTemp = current.filter((item) => item.id !== tempId);
         return withoutTemp.some((item) => item.id === created.id) ? withoutTemp : [created, ...withoutTemp];
       });
-      await markConversationRead(client, realConversationId);
+      // Delivery is confirmed: read receipt is best-effort, not a send error.
+      void markConversationRead(client, realConversationId).catch(() => undefined);
     } catch (e) {
       setMessages((current) => current.filter((item) => item.id !== tempId));
       setDraft(text); setFile(attachedFile);
