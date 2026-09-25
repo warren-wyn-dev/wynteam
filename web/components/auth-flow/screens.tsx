@@ -10,6 +10,7 @@ import { uploadProfileImage } from "@/lib/phase3-data";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import {
@@ -189,6 +190,7 @@ export function WelcomeScreen() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const googlePwaPending = useRef(false);
   const supabase = getSupabaseBrowserClient();
 
   useEffect(() => {
@@ -233,6 +235,61 @@ export function WelcomeScreen() {
     };
   }, [supabase, router, checkAttempt]);
 
+  useEffect(() => {
+    if (!supabase || !isInstalledIosWebApp()) return;
+    let mounted = true;
+    let checking = false;
+    const resume = async () => {
+      if (!mounted || !googlePwaPending.current || checking) return;
+      checking = true;
+      try {
+        // The popup's callback only broadcasts after the Supabase session has
+        // been verified. Retry briefly to allow iOS to flush shared cookies.
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const { data, error: authError } = await supabase.auth.getSession();
+          if (!mounted) return;
+          if (!authError && data.session) {
+            googlePwaPending.current = false;
+            router.replace(await resolvePostAuthPath(supabase));
+            return;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 350));
+        }
+        if (mounted) {
+          setError("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณากลับมาที่แอปแล้วลองใหม่");
+          setGoogleLoading(false);
+        }
+      } catch {
+        if (mounted) {
+          setError("ตรวจสอบการเข้าสู่ระบบ Google ไม่สำเร็จ กรุณาลองใหม่");
+          setGoogleLoading(false);
+        }
+      } finally {
+        checking = false;
+      }
+    };
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin === window.location.origin && event.data?.type === "google-oauth-verified") void resume();
+    };
+    const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(GOOGLE_PWA_COMPLETED_CHANNEL) : null;
+    if (channel) channel.onmessage = (event) => {
+      if (event.data?.type === "google-oauth-verified") void resume();
+    };
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void resume();
+    };
+    window.addEventListener("message", onMessage);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      mounted = false;
+      channel?.close();
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [supabase, router]);
+
   async function submitInviteCode() {
     const value = inviteCode.trim();
     if (!value) {
@@ -268,12 +325,17 @@ export function WelcomeScreen() {
     }
     setGoogleLoading(true);
     setError("");
-    const result = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/welcome`, queryParams: { prompt: "select_account" } },
-    });
-    if (result.error) {
-      setError("เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง");
+    try {
+      const result = await startGoogleOAuth(supabase, `${window.location.origin}/welcome`);
+      if (!result.started) {
+        setError(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
+        setGoogleLoading(false);
+      } else if (isInstalledIosWebApp()) {
+        googlePwaPending.current = true;
+        setGoogleLoading(false);
+      }
+    } catch {
+      setError("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
       setGoogleLoading(false);
     }
   }
