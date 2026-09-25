@@ -153,6 +153,25 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
   }
 }
 
+/**
+ * Best-effort local last resort before sign-out. A network failure may prevent
+ * deleting the old owner's DB token; retiring the browser PushSubscription
+ * reduces the chance of receiving that owner's messages after reconnect.
+ * Never treat this as proof of backend deletion or use it to bypass the
+ * strict account-switch Push-detach gate.
+ */
+export async function revokeLocalPushSubscription(): Promise<boolean> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration || !("pushManager" in registration)) return false;
+    const subscription = await registration.pushManager.getSubscription();
+    return subscription ? await subscription.unsubscribe() : true;
+  } catch {
+    return false;
+  }
+}
+
 /** Whether THIS device's Firebase token is registered for THIS user.
  * Browser permission alone is not enough: the user may have switched
  * accounts or explicitly unsubscribed without revoking OS permission.
