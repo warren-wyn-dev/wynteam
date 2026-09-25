@@ -1,0 +1,14 @@
+.page{max-width:540px;margin:0 auto;padding:28px 20px 112px;color:var(--wyn-text)}
+.hero{position:relative;overflow:hidden;border:1px solid var(--wyn-border);border-radius:26px;padding:34px 28px;background:linear-gradient(145deg,var(--wyn-surface) 0%,var(--wyn-bg) 77%);box-shadow:0 10px 42px rgba(0,0,0,.035)}
+.emblem{display:inline-grid;place-items:center;width:48px;height:48px;border-radius:16px;background:linear-gradient(125deg,#ffd36d,#ff9a3c);color:#151515;font-size:32px;font-weight:800}
+.eyebrow{font-size:11px;letter-spacing:.16em;font-weight:750;color:var(--wyn-text-secondary);margin:22px 0 12px}
+.hero h1{font-size:clamp(25px,6vw,34px);line-height:1.23;letter-spacing:-.035em;margin:0 0 14px}
+.hero p:last-child{font-size:14px;line-height:1.7;color:var(--wyn-text-secondary);margin:0}
+.notice{border:1px solid var(--wyn-border);border-radius:20px;padding:21px 23px;margin:17px 0}
+.notice strong{font-size:16px}.notice p{margin:8px 0 0;font-size:13px;line-height:1.55;color:var(--wyn-text-secondary)}
+.return{min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:17px;background:var(--wyn-text);color:var(--wyn-bg);text-decoration:none;font-size:14px;font-weight:650}
+.unavailable{min-height:70dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;gap:12px;color:var(--wyn-text)}
+.unavailable h1{font-size:25px;margin:0}.unavailable p{font-size:14px;line-height:1.55;color:var(--wyn-text-secondary);margin:0}.unavailable a{font-weight:650;color:inherit}
+
+.price{display:flex;align-items:baseline;gap:6px;margin:22px 0 16px}.price strong{font-size:36px;letter-spacing:-.05em}.price span{font-size:14px;color:var(--wyn-text-secondary)}
+.previewBadge{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700}.previewBadge>span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#ffd16d,#ff9d46);color:#171717;font-size:13px}.previewBadge small{font-size:11px;font-weight:500;color:var(--wyn-text-secondary)}

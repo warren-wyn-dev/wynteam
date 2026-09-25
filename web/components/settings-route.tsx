@@ -270,6 +270,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
             <SettingRow leading={<WynosIcon name="profile" size={19} strokeWidth={2} />} title="บัญชี" onClick={() => setSection("account")} />
             <SettingRow leading={<WynosIcon name="lockKeyhole" size={19} strokeWidth={2} />} title="ความเป็นส่วนตัว" onClick={() => setSection("privacy")} />
           </div>
+          {process.env.NEXT_PUBLIC_WYNOS_PLUS_PREVIEW === "1" ? <><h2>สมาชิก</h2><div className="settings-group"><SettingRow title="WYNOS Plus" description="ดูตัวอย่างระบบสมาชิก (ยังไม่เปิดรับสมัคร)" onClick={() => router.push("/plus")} /></div></> : null}
           <h2>การตั้งค่าแอป</h2>
           <div className="settings-group">
             {showInstallShortcut ? <SettingRow leading={<WynosIcon name="smartphone" size={19} strokeWidth={2} />} title="ติดตั้ง WYNOS" description="เพิ่มลงหน้าจอหลักและเปิดแบบแอป" onClick={() => window.dispatchEvent(new Event("wynos:open-install"))} /> : null}
