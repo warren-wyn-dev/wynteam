@@ -19,29 +19,40 @@
 
 /* ---------- Header ---------- */
 
+/* Equal side tracks keep the WYNOS wordmark centered on the screen,
+   regardless of the one menu action versus two actions on the right. */
 .wyn-home-header {
-  height: 36px;
-  padding: 0 8px;
+  height: 56px;
+  padding: 0 12px;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 80px;
+  grid-template-columns: 88px minmax(0, 1fr) 88px;
   align-items: center;
+  --wyn-home-icon-color: #737780;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wyn-home-header {
+    --wyn-home-icon-color: #a3a6ad;
+  }
 }
 
 .wyn-home-header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 0;
 }
 
 .wyn-home-header-action {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: var(--wyn-text);
+  color: var(--wyn-home-icon-color);
   padding: 0;
   -webkit-tap-highlight-color: transparent;
   transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -51,30 +62,10 @@
   transform: scale(0.96);
 }
 
-/* Invisible larger tap target without growing the visible 40px chip or the
-   header grid it sits in. Menu has open space on every side and grows to a
-   full 44x44. Search and the notifications bell sit only 3px apart (measured),
-   so each grows freely away from its neighbor but stops flush at the shared
-   edge to avoid a click on one triggering the other. */
-.wyn-home-header-action::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-}
-
-.wyn-home-header-actions .wyn-home-header-action:not(.wyn-home-chat-action)::before {
-  /* search: open space to the left, notifications bell 3px to the right */
-  inset: -2px 0 -2px -8px;
-}
-
-.wyn-home-header-actions .wyn-home-chat-action::before {
-  /* notifications: search icon 3px to the left, open space to the right */
-  inset: -2px -8px -2px 0;
-}
-
+/* Each action has its own non-overlapping 44 × 44px touch target. */
 .wyn-home-header-action svg {
-  width: 22px;
-  height: 22px;
+  width: 23px;
+  height: 23px;
 }
 
 .wyn-home-wordmark {
@@ -86,16 +77,16 @@
 }
 
 .wyn-home-logo {
-  width: 24px;
-  height: 24px;
+  width: 27px;
+  height: 27px;
   object-fit: contain;
 }
 
 .wyn-home-title {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
   font-weight: 700;
-  letter-spacing: 1.4px;
+  letter-spacing: 1.2px;
   color: var(--wyn-text);
 }
 
@@ -105,8 +96,8 @@
 
 .wyn-home-chat-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 7px;
+  right: 8px;
   width: 7px;
   height: 7px;
   min-width: 7px;

@@ -21,7 +21,7 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
 
   // Founder-approved web Home direction intentionally supersedes the old
   // Flutter Home card/header visual parity while preserving the same actions.
-  expect(home).toContain("height: 36px");
+  expect(home).toContain(".wyn-home-header {\n  height: 56px;");
   expect(home).toContain("padding-top: min(env(safe-area-inset-top), 20px);");
   expect(home).toContain(".wyn-home-chat-badge");
   expect(home).toContain("width: 7px");
