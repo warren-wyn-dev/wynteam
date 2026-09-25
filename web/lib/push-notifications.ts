@@ -101,6 +101,9 @@ export async function subscribeToPushNotifications(
       .upsert({ user_id: userId, token, platform: "web", updated_at: new Date().toISOString() }, { onConflict: "token" });
     if (error) return { ok: false, reason: "error" };
 
+    // The root listener may have mounted before permission was granted.
+    // Start foreground delivery now without requiring an app reload.
+    void listenForForegroundPush();
     return { ok: true };
   } catch {
     return { ok: false, reason: "error" };
@@ -125,6 +128,9 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
   }
 }
 
+// Deduplicate the root-mount and Settings-toggle setup attempts.
+let foregroundListenerPromise: Promise<void> | null = null;
+
 /**
  * Foreground pushes (tab open and focused) are not shown automatically by
  * Firebase the way background ones are — this renders the same OS
@@ -134,23 +140,39 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
  */
 export async function listenForForegroundPush(): Promise<void> {
   if (typeof window === "undefined" || typeof Notification === "undefined") return;
-  if (Notification.permission !== "granted") return;
-  if (!(await pushSupported())) return;
-  const config = await fetchPushConfig();
-  if (!config?.configured) return;
-  try {
+  if (Notification.permission !== "granted" || !("serviceWorker" in navigator)) return;
+  if (foregroundListenerPromise) return foregroundListenerPromise;
+
+  foregroundListenerPromise = (async () => {
+    if (!(await pushSupported())) return;
+    const config = await fetchPushConfig();
+    if (!config?.configured) return;
     const fb = await loadFirebase();
     const messaging = fb.getMessaging(firebaseApp(fb, config));
     fb.onMessage(messaging, (payload) => {
-      if (payload.notification) return;
+      // FCM's onMessage runs while the app is in the foreground; it does
+      // NOT render the notification payload automatically in this case.
+      // A registered worker displays it consistently on installed iOS
+      // PWAs and Android, where the window Notification constructor differs.
       const data = payload.data ?? {};
-      new Notification(data.push_title || "WYNOS", {
-        body: data.push_body || "",
-        icon: "/icons/icon-192.png",
-        tag: data.notification_id,
-      });
+      if (!payload.notification && !data.push_title && !data.push_body) return;
+      const title = payload.notification?.title || data.push_title || "WYNOS";
+      const body = payload.notification?.body || data.push_body || "";
+      void navigator.serviceWorker.ready.then((registration) =>
+        registration.showNotification(title, {
+          body,
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
+          tag: data.notification_id,
+          data,
+        }),
+      ).catch(() => undefined);
     });
-  } catch {
-    // Foreground display is best-effort polish, never worth surfacing.
-  }
+  })().catch(() => {
+    // Configuration, browser support and intermittent connectivity may
+    // change; allow a later explicit opt-in to retry initialization.
+    foregroundListenerPromise = null;
+  });
+
+  return foregroundListenerPromise;
 }
