@@ -72,3 +72,13 @@ test("collection page never renders stale IDs not verified by saved_feed", async
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], "saved_feed");
 });
+
+import { readFileSync as readPreviewSource } from "node:fs";
+
+test("Plus preview honors the chosen 29 THB direction without charging or granting entitlements", () => {
+  const ui = readPreviewSource(new URL("../components/plus-preview-route.tsx", import.meta.url), "utf8");
+  assert.match(ui, /29 บาท/);
+  assert.match(ui, /ตัวอย่างดาวสำหรับสมาชิก Plus/);
+  assert.match(ui, /ยังไม่เปิดรับสมัคร/);
+  assert.doesNotMatch(ui, /stripe\.checkout|createSubscription|subscribeToPlus/);
+});

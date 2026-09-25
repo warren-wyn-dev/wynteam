@@ -21,7 +21,9 @@ export function PlusPreviewRoute() {
           <span className={styles.emblem} aria-hidden="true">✦</span>
           <p className={styles.eyebrow}>WYNOS PLUS · PREVIEW</p>
           <h1>พื้นที่สำหรับประสบการณ์ที่มากขึ้น</h1>
-          <p>ตัวอย่างหน้าสมาชิกแบบชำระเงิน ฟีเจอร์ สิทธิประโยชน์และราคาจะประกาศเมื่อระบบพร้อม</p>
+          <p>แนวทางสมาชิก Plus ราคาประหยัด พร้อมดาวข้างชื่อสมาชิก โดยไม่แทนที่เครื่องหมายยืนยันตัวตน</p>
+          <div className={styles.price}><strong>29 บาท</strong><span>/ เดือน</span></div>
+          <div className={styles.previewBadge} aria-label="ตัวอย่างดาวสำหรับสมาชิก Plus">ชื่อสมาชิก <span aria-hidden="true">✦</span> <small>ตัวอย่างเท่านั้น</small></div>
         </div>
         <div className={styles.notice}>
           <strong>ยังไม่เปิดรับสมัคร</strong>

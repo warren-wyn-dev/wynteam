@@ -1,6 +1,6 @@
 # WYNOS Web Beta 1 — Phase 3 developer-gated release plan
 
-Phase 3 retains existing published Post/Quote and Poll functionality. The incremental scope is private Bookmark Collections and a non-billing WYNOS Plus interface preview. **No subscription prices, benefits, entitlements or payment processor have been approved.** Do not infer or implement them from a visual preview.
+Phase 3 retains existing published Post/Quote and Poll functionality. The incremental scope is private Bookmark Collections and a non-billing WYNOS Plus interface preview. **The Founder previously chose an affordable target price of 29 THB/month and a distinct star after Plus subscribers’ names (2026-09-15); a payment provider, full benefit set, entitlement rules and launch terms remain unapproved.** Do not infer or implement them from a visual preview.
 
 ## Bookmark Collections
 
@@ -10,7 +10,7 @@ Staged migration: `supabase/migrations_wyn191_bookmark_collections.sql`; matchin
 
 ## WYNOS Plus
 
-`NEXT_PUBLIC_WYNOS_PLUS_PREVIEW=1` exposes an informational membership preview in Settings. The default is off. **No checkout, pricing, paid entitlements, fake subscription status or automatic billing**. Payment provider, prices, feature tiers, refunds, receipts, country eligibility and launch require separate Founder product and legal decisions; the UI explicitly says membership is not open.
+`NEXT_PUBLIC_WYNOS_PLUS_PREVIEW=1` exposes an informational membership preview in Settings. The default is off. **No checkout, payment collection, paid entitlements, fake subscription status or automatic billing**. The preview shows the previously chosen **29 THB/month** direction and an illustrative Plus star (separate from Verified). Payment provider, final entitlement rules, full benefits, taxes, refunds, receipts, country eligibility and launch still require separate Founder product/legal decisions. The UI explicitly says membership is not open.
 
 ## Required QA
 
