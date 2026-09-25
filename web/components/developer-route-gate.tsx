@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
-import { unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { revokeLocalPushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { clearSessionChatDrafts } from "@/lib/chat-draft-storage";
 import { cacheBrowserSession, getCachedBrowserSession } from "@/lib/supabase/session-cache";
 
@@ -127,7 +127,9 @@ export function DeveloperRouteGate({
     if (!client) return;
     // Delete the device token while RLS still recognizes the current
     // owner. Never block a requested logout on a push/network failure.
-    await unsubscribeFromPushNotifications(client);
+    const serverDetached = await unsubscribeFromPushNotifications(client);
+    // If offline, also revoke the local Push subscription before discarding auth.
+    if (!serverDetached) await revokeLocalPushSubscription();
     await client.auth.signOut();
     clearSessionChatDrafts();
     cacheBrowserSession(null);
