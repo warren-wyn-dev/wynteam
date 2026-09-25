@@ -128,8 +128,8 @@ export function DeveloperRouteGate({
     // owner. Never block a requested logout on a push/network failure.
     const serverDetached = await unsubscribeFromPushNotifications(client);
     if (!serverDetached) await revokeLocalPushSubscription();
-    await client.auth.signOut();
     const oldUserId = getCachedBrowserSession()?.user.id;
+    await client.auth.signOut();
     if (oldUserId) clearChatTextDraftsForUser(oldUserId);
     cacheBrowserSession(null);
     // Clears both the in-memory cache and the persisted localStorage copy
