@@ -15,6 +15,7 @@ import { WyniiConversationHeader } from "@/components/wynii-chat";
 import { relativeTimeTh } from "@/lib/feed";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
+import { chatDraftKey, readChatDraft, writeChatDraft, clearChatDraft } from "@/lib/chat-draft-storage";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { useOnlineUserIds } from "@/lib/presence";
 import {
@@ -180,7 +181,10 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
-  const [draft, setDraft] = useState("");
+  const draftKey = chatDraftKey(userId, conversationId, userFromUrl);
+  const [draftState, setDraftState] = useState({ key: "", value: "" });
+  const draft = draftState.key === draftKey ? draftState.value : "";
+  const setDraft = useCallback((value: string) => setDraftState({ key: draftKey, value }), [draftKey]);
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
@@ -191,6 +195,17 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const composerRef = useRef<HTMLFormElement | null>(null);
   const [composerHeight, setComposerHeight] = useState(58);
   const { toastMessage, showToast } = useToast();
+
+  // Loading this only after mount keeps server/client hydration deterministic.
+  // The key includes the account and recipient, so an unsent message for A
+  // can never be shown in B's composer.
+  useEffect(() => {
+    setDraftState({ key: draftKey, value: readChatDraft(draftKey) });
+  }, [draftKey]);
+  useEffect(() => {
+    if (draftState.key !== draftKey || sending) return;
+    writeChatDraft(draftKey, draftState.value);
+  }, [draftKey, draftState, sending]);
 
   useEffect(() => {
     setMountCache(cacheKey, { other, messages, meta, hasMore });
@@ -219,12 +234,19 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     return id;
   }, [client, conversationId, otherId]);
 
+  const refreshGenerationRef = useRef(0);
   const refresh = useCallback(async () => {
+    const requestId = ++refreshGenerationRef.current;
     const [nextMessages, nextMeta] = await Promise.all([
       fetchMessages(client, conversationId),
       fetchConversationMeta(client, userId, conversationId),
     ]);
-    setMessages(nextMessages);
+    if (requestId !== refreshGenerationRef.current) return;
+    setMessages((current) => {
+      // Retain optimistic sends while reconciling with the latest server list.
+      const pending = current.filter((item) => item.pending);
+      return [...pending, ...nextMessages.filter((item) => !pending.some((own) => own.id === item.id))];
+    });
     setMeta(nextMeta);
     setHasMore(nextMessages.length === 30);
     await markConversationRead(client, conversationId);
@@ -262,10 +284,25 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       finally { if (live) setLoading(false); }
     })();
     if (isComposeMode) return () => { live = false; };
-    const channel = subscribeConversationMessages(client, conversationId, () => { void refresh(); });
+    const channel = subscribeConversationMessages(client, conversationId, () => { void refresh().catch(() => undefined); });
     channelRef.current = channel;
     return () => { live = false; if (channelRef.current) void client.removeChannel(channelRef.current); };
   }, [client, conversationId, isComposeMode, refresh, resolveOther, router, userId]);
+
+  // Reconcile missed realtime events when a PWA wakes after being backgrounded
+  // or the browser reconnects after an offline period.
+  useEffect(() => {
+    if (isComposeMode) return;
+    const onResume = () => {
+      if (!document.hidden && navigator.onLine) void refresh().catch(() => undefined);
+    };
+    window.addEventListener("online", onResume);
+    document.addEventListener("visibilitychange", onResume);
+    return () => {
+      window.removeEventListener("online", onResume);
+      document.removeEventListener("visibilitychange", onResume);
+    };
+  }, [isComposeMode, refresh]);
 
   const loadOlder = async () => {
     const oldest = messages[messages.length - 1];
@@ -305,6 +342,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       // just from opening the composer.
       const realConversationId = isComposeMode ? await getOrCreateConversation(client, otherId) : conversationId;
       const created = await sendMessage(client, userId, realConversationId, { text, file: attachedFile });
+      clearChatDraft(draftKey); // Only clear after the server confirms delivery.
       if (isComposeMode) {
         // A full navigation (not just a state update) so the destination
         // mounts fresh against the real conversation id -- realtime

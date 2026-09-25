@@ -78,6 +78,21 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
     return () => { void client.removeChannel(channel); };
   }, [client, userId, allowed, refetch]);
 
+  // Browser PWA may miss realtime while suspended/offline. Refresh the inbox
+  // and unread state on reconnect and each return to the foreground.
+  useEffect(() => {
+    if (allowed !== true) return;
+    const onResume = () => {
+      if (!document.hidden && navigator.onLine) void refetch();
+    };
+    window.addEventListener("online", onResume);
+    document.addEventListener("visibilitychange", onResume);
+    return () => {
+      window.removeEventListener("online", onResume);
+      document.removeEventListener("visibilitychange", onResume);
+    };
+  }, [allowed, refetch]);
+
   const [activeTab, setActiveTab] = useState<"inbox" | "requests">("inbox");
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
