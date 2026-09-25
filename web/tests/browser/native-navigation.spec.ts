@@ -20,6 +20,11 @@ test("Club and Chat root tabs handle repeat-tap refresh without reloading", () =
   expect(file("bottom-navigation.tsx")).toContain('onClick={handleActiveTabTap(clubActive, "/clubs")}');
   expect(file("bottom-navigation.tsx")).toContain('onClick={handleActiveTabTap(chatActive, "/chat")}');
   expect(file("clubs-routes.tsx")).toContain("useRouteRefreshListener(pull.refresh)");
-  expect(file("chat-routes.tsx")).toContain("useRouteRefreshListener(refreshInbox)");
-  expect(file("chat-routes.tsx")).toContain('const cacheKey = `chat-inbox:${userId}`');
+  // /chat/page.tsx renders ChatInboxParityRoute, which already uses
+  // React Query's user-keyed cache rather than the legacy ChatInboxInner.
+  const root = readFileSync(path.join(process.cwd(), "app/chat/page.tsx"), "utf8");
+  expect(root).toContain("ChatInboxParityRoute");
+  expect(file("chat-inbox-parity.tsx")).toContain("useRouteRefreshListener(refreshInbox)");
+  expect(file("chat-inbox-parity.tsx")).toContain('refetchOnMount: "always"');
+  expect(file("chat-inbox-parity.tsx")).toContain("queryKey: [\"chat-inbox\", userId]");
 });
