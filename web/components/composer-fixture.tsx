@@ -43,5 +43,5 @@ export function ComposerFixture() {
   const [open, setOpen] = useState(true);
   return open
     ? <Beta4Composer client={fakeClient} userId="00000000-0000-4000-8000-000000000001" onClose={() => setOpen(false)} onPublished={() => {}} />
-    : <div data-testid="composer-closed" />;
+    : <div data-testid="composer-closed">ปิดหน้าสร้างโพสต์แล้ว</div>;
 }

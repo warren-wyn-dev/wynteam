@@ -13,7 +13,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -85,6 +85,9 @@ export function Beta4Composer({
   const [error, setError] = useState("");
   const [closePrompt, setClosePrompt] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [dragTouched, setDragTouched] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragDistance, setDragDistance] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<{ uploaded: number; total: number } | null>(null);
   const [draftRecordId, setDraftRecordId] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
@@ -97,6 +100,11 @@ export function Beta4Composer({
   const pendingNavRef = useRef<string | null>(null); // set when the close-prompt was opened via "ฉบับร่าง" (go to /drafts after resolving) instead of Cancel
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
+  const pointerStartYRef = useRef(0);
+  const pointerStartTimeRef = useRef(0);
+  const dragDistanceRef = useRef(0);
+  const suppressHandleClickRef = useRef(false);
   const skipNextAutosaveRef = useRef(true); // true until the user actually edits something post-mount/post-draft-load
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
@@ -148,6 +156,8 @@ export function Beta4Composer({
     if (exiting || exitTimerRef.current !== null) return;
     const destination = pendingNavRef.current;
     setClosePrompt(false);
+    // Collapse the software keyboard before the sheet exits on mobile.
+    captionRef.current?.blur();
     setExiting(true);
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     exitTimerRef.current = setTimeout(() => {
@@ -167,6 +177,47 @@ export function Beta4Composer({
     if (!hasContent) { closeWithSlide(); return; }
     setDraftError("");
     setClosePrompt(true);
+  };
+
+  // The grab handle is an actual gesture surface, not just a decoration.
+  // Scope pointer capture to this strip so scrolling the composer stays native.
+  const startHandleDrag = (pointerId: number, clientY: number) => {
+    if (busy || exiting || closePrompt || audienceOpen) return;
+    pointerIdRef.current = pointerId;
+    pointerStartYRef.current = clientY;
+    pointerStartTimeRef.current = performance.now();
+    dragDistanceRef.current = 0;
+    suppressHandleClickRef.current = false;
+    setDragDistance(0);
+    setDragTouched(true);
+    setDragging(true);
+  };
+
+  const moveHandleDrag = (pointerId: number, clientY: number) => {
+    if (pointerIdRef.current !== pointerId) return;
+    const next = Math.max(0, clientY - pointerStartYRef.current);
+    dragDistanceRef.current = next;
+    setDragDistance(next);
+  };
+
+  const finishHandleDrag = (pointerId: number, cancelled = false) => {
+    if (pointerIdRef.current !== pointerId) return;
+    pointerIdRef.current = null;
+    setDragging(false);
+    const distance = dragDistanceRef.current;
+    const elapsed = Math.max(1, performance.now() - pointerStartTimeRef.current);
+    suppressHandleClickRef.current = distance > 8;
+    if (!cancelled && (distance >= 105 || (distance >= 48 && distance / elapsed > 0.55))) {
+      if (hasContent) {
+        // Restore the normal 92% sheet behind the existing draft prompt.
+        dragDistanceRef.current = 0;
+        setDragDistance(0);
+      }
+      requestClose();
+    } else {
+      dragDistanceRef.current = 0;
+      setDragDistance(0);
+    }
   };
 
   // "ฉบับร่าง" header title -- tapping it goes to the saved-drafts list. With
@@ -291,9 +342,36 @@ export function Beta4Composer({
   const removePollOption = (index: number) => setPollOptions((current) => current.length <= 2 ? current : current.filter((_, itemIndex) => itemIndex !== index));
 
   return (
-    <div className={`route-modal-backdrop beta4-composer-backdrop ${exiting ? "is-closing" : ""}`} role="presentation" onClick={requestClose}>
+    <div
+      className={`route-modal-backdrop beta4-composer-backdrop ${exiting ? "is-closing" : ""} ${dragTouched ? "has-dragged" : ""} ${dragging ? "is-dragging" : ""}`}
+      role="presentation"
+      style={{ "--wyn-composer-drag": `${dragDistance}px` } as CSSProperties}
+      onClick={requestClose}
+    >
       <section className="beta4-composer" role="dialog" aria-modal="true" aria-label="สร้างโพสต์" onClick={(event) => event.stopPropagation()}>
-        <div className="beta4-composer-sheet-handle" aria-hidden="true" />
+        <button
+          className="beta4-composer-drag-region"
+          type="button"
+          aria-label="ดึงลงหรือแตะเพื่อปิดหน้าสร้างโพสต์"
+          onPointerDown={(event) => {
+            if (event.pointerType === "mouse" && event.button !== 0) return;
+            if (busy || exiting || closePrompt || audienceOpen) return;
+            startHandleDrag(event.pointerId, event.clientY);
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => moveHandleDrag(event.pointerId, event.clientY)}
+          onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+            finishHandleDrag(event.pointerId);
+          }}
+          onPointerCancel={(event) => finishHandleDrag(event.pointerId, true)}
+          onClick={() => {
+            if (suppressHandleClickRef.current) { suppressHandleClickRef.current = false; return; }
+            requestClose();
+          }}
+        >
+          <span className="beta4-composer-sheet-handle" aria-hidden="true" />
+        </button>
         <header className={`beta4-composer-header ${styles.header}`}>
           <button className="beta4-cancel" type="button" onClick={requestClose}>ยกเลิก</button>
           <button className={styles.draftTitle} type="button" onClick={goToDrafts}>ฉบับร่าง</button>
