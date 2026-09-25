@@ -28,6 +28,8 @@ export function ParityAuthEntry() {
   const knownSession = getCachedBrowserSession();
   const [session, setSession] = useState<Session | null>(() => knownSession ?? null);
   const [booting, setBooting] = useState(() => Boolean(supabase && knownSession === undefined));
+  const [checkError, setCheckError] = useState(false);
+  const [checkAttempt, setCheckAttempt] = useState(0);
 
   useEffect(() => {
     if (!supabase) {
@@ -35,25 +37,68 @@ export function ParityAuthEntry() {
       return;
     }
     let mounted = true;
+    // INITIAL_SESSION can be null during a failed startup check. Wait for
+    // getSession() to finish before deciding that this device signed out.
+    // An explicit SIGNED_OUT or subsequent auth change still takes priority.
+    let newerAuthEvent = false;
 
     function route(nextSession: Session | null) {
-      cacheBrowserSession(nextSession);
       if (!mounted) return;
+      cacheBrowserSession(nextSession);
       setSession(nextSession);
       setBooting(false);
+      setCheckError(false);
       if (!nextSession) router.replace("/welcome");
     }
 
-    // If another consumer route already resolved Auth, keep Home painted and
-    // verify the session in the background rather than showing a fresh loader.
-    void supabase.auth.getSession().then(({ data }) => route(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => route(nextSession));
+    function onCheckError() {
+      if (!mounted || newerAuthEvent) return;
+      // Network/refresh errors are not proof of sign-out. Keep an already
+      // painted Home session and offer retry on an actual cold launch.
+      if (getCachedBrowserSession()) {
+        setBooting(false);
+        return;
+      }
+      setCheckError(true);
+      setBooting(false);
+    }
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "INITIAL_SESSION") return;
+      newerAuthEvent = true;
+      route(nextSession);
+    });
+
+    // Unlike a successful null session, an error must never silently send
+    // an already-signed-in iPhone user back to the login form.
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted || newerAuthEvent) return;
+      if (error) {
+        onCheckError();
+        return;
+      }
+      route(data.session);
+    }).catch(onCheckError);
+
     return () => {
       mounted = false;
-      data.subscription.unsubscribe();
+      subscription.subscription.unsubscribe();
     };
-  }, [supabase, router]);
+  }, [supabase, router, checkAttempt]);
 
+  if (checkError && !session) {
+    return (
+      <main className="route-state">
+        <h1>WYNOS</h1>
+        <p role="alert">ตรวจสอบการเข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</p>
+        <button className="route-primary" type="button" onClick={() => {
+          setBooting(true);
+          setCheckError(false);
+          setCheckAttempt((attempt) => attempt + 1);
+        }}>ลองใหม่</button>
+      </main>
+    );
+  }
   if (booting || !session) return <main className="parity-auth parity-auth-loading"><LoaderCircle className="parity-spinner" /></main>;
   return <HomeScreen session={session} />;
 }
