@@ -94,7 +94,9 @@ export function PostMediaCarousel({
             width={intrinsicWidth}
             height={intrinsicHeight}
             style={{ width: "100%", height: "auto" }}
-            sizes="(max-width: 640px) 100vw, 640px"
+            sizes={urls.length > 1
+              ? "(max-width: 680px) calc((100vw - 72px) * 0.82), 492px"
+              : "(max-width: 680px) calc(100vw - 72px), 600px"}
             priority={priority && i === 0}
             loading={priority && i === 0 ? undefined : "lazy"}
             key={`${postKey}:${i}`}
