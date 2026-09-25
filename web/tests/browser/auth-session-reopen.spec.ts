@@ -4,13 +4,13 @@ import { expect, test } from "@playwright/test";
 
 test("cold-start INITIAL_SESSION null plus a transient auth error must offer retry, not redirect", async ({ page }) => {
   await page.goto("/dev/auth-reopen-fixture", { waitUntil: "networkidle" });
-  await expect(page.getByRole("alert")).toContainText("ตรวจสอบการเข้าสู่ระบบไม่สำเร็จ");
+  await expect(page.locator('main p[role="alert"]')).toContainText("ตรวจสอบการเข้าสู่ระบบไม่สำเร็จ");
   await expect(page).toHaveURL(/\/dev\/auth-reopen-fixture/);
   await expect(page.getByRole("button", { name: "ลองใหม่" })).toBeVisible();
   await page.getByRole("button", { name: "Read session-check count" }).click();
   const before = Number(await page.getByLabel("session checks").textContent());
   await page.getByRole("button", { name: "ลองใหม่" }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator('main p[role="alert"]')).toBeVisible();
   await page.getByRole("button", { name: "Read session-check count" }).click();
   const after = Number(await page.getByLabel("session checks").textContent());
   expect(after).toBeGreaterThan(before);
@@ -19,7 +19,7 @@ test("cold-start INITIAL_SESSION null plus a transient auth error must offer ret
 
 test("an actual SIGNED_OUT event still immediately navigates to Welcome", async ({ page }) => {
   await page.goto("/dev/auth-reopen-fixture", { waitUntil: "networkidle" });
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator('main p[role="alert"]')).toBeVisible();
   await page.getByRole("button", { name: "Simulate explicit sign out" }).click();
   await expect(page).toHaveURL(/\/welcome/);
 });
