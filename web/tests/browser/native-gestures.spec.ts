@@ -14,10 +14,24 @@ test("an edge swipe inside a dialog cannot navigate away", async ({ page }, info
     dialog.setAttribute("role", "dialog");
     dialog.style.cssText = "position:fixed;inset:0;z-index:9999";
     document.body.appendChild(dialog);
-    const start = new Touch({ identifier: 1, target: dialog, clientX: 8, clientY: 180 });
-    const end = new Touch({ identifier: 1, target: dialog, clientX: 115, clientY: 182 });
-    dialog.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [start], changedTouches: [start], targetTouches: [start] }));
-    dialog.dispatchEvent(new TouchEvent("touchend", { bubbles: true, touches: [], changedTouches: [end], targetTouches: [] }));
+    // WebKit on CI exposes Touch but refuses direct construction.
+    // Dispatch events with the same touch-list shape our gesture handler
+    // actually consumes; this tests the dialog exclusion on every engine.
+    const dispatchTouch = (
+      type: string,
+      touches: Array<{ identifier: number; clientX: number; clientY: number }>,
+      changedTouches = touches,
+    ) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        touches: { value: touches },
+        changedTouches: { value: changedTouches },
+        targetTouches: { value: touches },
+      });
+      dialog.dispatchEvent(event);
+    };
+    dispatchTouch("touchstart", [{ identifier: 1, clientX: 8, clientY: 180 }]);
+    dispatchTouch("touchend", [], [{ identifier: 1, clientX: 115, clientY: 182 }]);
     dialog.remove();
   });
   await page.waitForTimeout(200);
