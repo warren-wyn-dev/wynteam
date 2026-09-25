@@ -1,6 +1,7 @@
 // Only immutable Next.js build assets use cache-first. Brand icons keep a
 // cached offline fallback but revalidate on each request, so installing a new
-// WYNOS icon doesn't leave returning home-screen users with the old artwork.
+// WYNOS icon doesn't leave subsequent icon requests pinned to old artwork.
+// An OS-cached Home Screen icon may still require removing/re-adding the app.
 // Navigation, user data and Supabase API calls are never intercepted.
 const CACHE_NAME = "wynos-static-v2";
 const IMMUTABLE_ASSET_PATTERNS = [/^\/_next\/static\//];
