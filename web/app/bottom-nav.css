@@ -46,6 +46,16 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   overflow: hidden;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease-out, visibility 220ms;
+}
+
+/* Bottom nav is a sibling of Home in app/layout.tsx. Only the Home
+   scroll controller applies this root class; other routes retain the dock. */
+:root.wyn-home-scroll-hidden .route-bottom-nav {
+  transform: translate(-50%, calc(100% + 24px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .route-nav-link {
@@ -74,6 +84,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .route-bottom-nav,
   .route-nav-link {
     transition: none;
   }
