@@ -270,7 +270,7 @@ export function WelcomeScreen() {
     setError("");
     const result = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?flow=google`, queryParams: { prompt: "select_account" } },
+      options: { redirectTo: `${window.location.origin}/welcome`, queryParams: { prompt: "select_account" } },
     });
     if (result.error) {
       setError("เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง");
