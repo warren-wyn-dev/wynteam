@@ -823,15 +823,26 @@ export function subscribeConversationMessages(
   client: SupabaseClient,
   conversationId: string,
   onChange: () => void,
+  onReadReceipt?: () => void,
 ): RealtimeChannel {
-  return client
+  const channel = client
     .channel(`web-conversation-${conversationId}`)
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
       onChange,
-    )
-    .subscribe();
+    );
+  // Read markers live in conversations, not messages. Only refresh metadata
+  // for this event: re-running markConversationRead() on every UPDATE would
+  // update its own timestamp and create a realtime feedback loop.
+  if (onReadReceipt) {
+    channel.on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "conversations", filter: `id=eq.${conversationId}` },
+      onReadReceipt,
+    );
+  }
+  return channel.subscribe();
 }
 
 /** Mirrors Flutter's `ChatRepository.subscribeToMyMessages()`: no

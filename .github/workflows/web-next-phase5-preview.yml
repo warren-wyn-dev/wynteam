@@ -21,6 +21,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.head_ref == 'release/web-beta1-phase1-combined-qa-20260926' ||
+      github.head_ref == 'feat/web-beta1-phase2-chat-continuity-20260926' ||
+      github.head_ref == 'feat/web-beta1-phase3-bookmark-collections-20260926' ||
       startsWith(github.head_ref, 'feat/wyn-158-phase5-') ||
       github.head_ref == 'fix/web-beta1-ios-status-strip-20260925' ||
       github.head_ref == 'fix/web-beta1-ios-shadow-without-fixed-fill-20260925' ||

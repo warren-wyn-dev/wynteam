@@ -278,7 +278,16 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       finally { if (live) setLoading(false); }
     })();
     if (isComposeMode) return () => { live = false; };
-    const channel = subscribeConversationMessages(client, conversationId, () => { void refresh(); });
+    const channel = subscribeConversationMessages(
+      client, conversationId,
+      () => { void refresh(); },
+      () => {
+        // Read receipt event: refresh metadata only, never mark as read again.
+        void fetchConversationMeta(client, userId, conversationId).then((next) => {
+          if (live) setMeta(next);
+        }).catch(() => undefined);
+      },
+    );
     channelRef.current = channel;
     return () => { live = false; if (channelRef.current) void client.removeChannel(channelRef.current); };
   }, [client, conversationId, isComposeMode, refresh, resolveOther, router, userId]);
