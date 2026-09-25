@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Beta4Composer } from "@/components/beta4-composer";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -39,5 +40,8 @@ const fakeClient = {
 } as unknown as SupabaseClient;
 
 export function ComposerFixture() {
-  return <Beta4Composer client={fakeClient} userId="00000000-0000-4000-8000-000000000001" onClose={() => {}} onPublished={() => {}} />;
+  const [open, setOpen] = useState(true);
+  return open
+    ? <Beta4Composer client={fakeClient} userId="00000000-0000-4000-8000-000000000001" onClose={() => setOpen(false)} onPublished={() => {}} />
+    : <div data-testid="composer-closed" />;
 }
