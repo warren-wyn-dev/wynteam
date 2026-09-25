@@ -7,7 +7,8 @@ const ID = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
 
 function fakeWorker(openClients: Array<{ url: string; navigate?: (url: string) => Promise<unknown>; focus?: () => Promise<unknown> }> = []) {
-  const listeners = new Map<string, (event: any) => void>();
+  type PushClick = { notification: { close: () => void; data: unknown }; waitUntil: (promise: Promise<unknown>) => void };
+  const listeners = new Map<string, (event: PushClick) => void>();
   const opened: string[] = [];
   const clients = {
     matchAll: async () => openClients,
@@ -15,7 +16,7 @@ function fakeWorker(openClients: Array<{ url: string; navigate?: (url: string) =
   };
   const self = {
     location: { origin: "https://wynos.online" },
-    addEventListener: (name: string, callback: (event: any) => void) => listeners.set(name, callback),
+    addEventListener: (name: string, callback: (event: PushClick) => void) => listeners.set(name, callback),
     skipWaiting: () => {},
     clients,
   };
