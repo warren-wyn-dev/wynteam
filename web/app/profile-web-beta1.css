@@ -363,7 +363,7 @@
   height: env(safe-area-inset-top, 0px);
   z-index: 1000;
   pointer-events: none;
-  background: #101114;
+  background: #64748b;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   isolation: isolate;
@@ -378,7 +378,7 @@
 :root.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
 :root.wyn-ios-standalone:not(.wyn-status-cover-route)
   body:not(:has(.wyn-profile-beta1)) {
-  background-color: #101114;
+  background-color: #64748b;
 }
 :root.wyn-pwa-standalone .wyn-home {
   padding-top: env(safe-area-inset-top, 0px);
@@ -396,16 +396,17 @@
   -webkit-backdrop-filter: none !important;
 }
 
-/* On iOS, black-translucent can produce an OS-composited shadow below the
-   clock. CSS cannot disable that native effect. Preserve the full-bleed
-   Profile cover; non-profile screens instead use a compact 20px buffer
-   below the safe-area inset. The former 44px clearance caused a visibly
-   oversized empty black band on a physical iPhone. Keep the separate
-   fixed fill disabled to avoid
-   the contrasting-top-element case described in WebKit 305546. */
+/* Installed iPhone, non-profile pages: remove the oversized black
+   status-band treatment. Keep the native clock legible in Apple's
+   black-translucent mode (white symbols) using a medium slate backdrop
+   ONLY inside the actual system safe area. The 20px shadow buffer below
+   it is plain app white rather than a dark extension. Never draw a
+   separate fixed layer. Full-bleed Profile cover is not affected. */
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) {
+  --wyn-ios-status-surface: #64748b;
   --wyn-ios-shadow-clearance: 20px;
-  --wyn-ios-shadow-end: calc(env(safe-area-inset-top, 0px) + var(--wyn-ios-shadow-clearance));
+  --wyn-ios-shadow-end: env(safe-area-inset-top, 0px);
+  --wyn-ios-header-offset: calc(var(--wyn-ios-shadow-end) + var(--wyn-ios-shadow-clearance));
 }
 :root.wyn-ios-standalone:not(.wyn-status-cover-route)
   body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
@@ -418,8 +419,8 @@
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
   background-image: linear-gradient(
     to bottom,
-    #101114 0,
-    #101114 var(--wyn-ios-shadow-end),
+    var(--wyn-ios-status-surface) 0,
+    var(--wyn-ios-status-surface) var(--wyn-ios-shadow-end),
     var(--wyn-bg, #fff) var(--wyn-ios-shadow-end),
     var(--wyn-bg, #fff) 100%
   );
@@ -427,18 +428,18 @@
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
-  padding-top: var(--wyn-ios-shadow-end);
+  padding-top: var(--wyn-ios-header-offset);
 }
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
-  min-height: calc(57px + var(--wyn-ios-shadow-end));
+  min-height: calc(57px + var(--wyn-ios-header-offset));
 }
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header {
-  height: calc(68px + var(--wyn-ios-shadow-end)) !important;
-  padding-top: calc(var(--wyn-ios-shadow-end) + 6px) !important;
+  height: calc(68px + var(--wyn-ios-header-offset)) !important;
+  padding-top: calc(var(--wyn-ios-header-offset) + 6px) !important;
 }
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .conversation-modern-header {
-  min-height: calc(72px + var(--wyn-ios-shadow-end));
-  padding-top: calc(var(--wyn-ios-shadow-end) + 8px);
+  min-height: calc(72px + var(--wyn-ios-header-offset));
+  padding-top: calc(var(--wyn-ios-header-offset) + 8px);
 }
 
 @media (display-mode: standalone) {
@@ -449,10 +450,10 @@
   }
   html.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
   html.wyn-ios-standalone:not(.wyn-status-cover-route) body:not(:has(.wyn-profile-beta1)) {
-    background-color: #101114;
+    background-color: #64748b;
   }
   html:has(.wyn-home) {
-    background-color: #101114;
+    background-color: var(--wyn-ios-status-surface, #64748b);
   }
   .wyn-home {
     padding-top: env(safe-area-inset-top, 0px);
