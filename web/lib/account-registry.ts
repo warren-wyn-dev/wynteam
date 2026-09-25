@@ -94,7 +94,9 @@ export function activateSavedAccount(userId: string): boolean {
   const accounts = readRegistry();
   const target = accounts.find((item) => item.userId === userId);
   if (!target) return false;
-  // Do not carry account A\u0027s persisted Feed/Profile/Chat cache into account B.\n  window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);\n  writeRegistry([{ ...target, lastUsedAt: Date.now() }, ...accounts.filter((item) => item.userId !== userId)]);
+  // Do not carry account A's persisted Feed/Profile/Chat cache into account B.
+  window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
+  writeRegistry([{ ...target, lastUsedAt: Date.now() }, ...accounts.filter((item) => item.userId !== userId)]);
   if (target.storageKey) window.localStorage.setItem(ACTIVE_STORAGE_KEY, target.storageKey);
   else window.localStorage.removeItem(ACTIVE_STORAGE_KEY);
   return true;
