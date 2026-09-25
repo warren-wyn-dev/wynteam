@@ -124,3 +124,23 @@
 - Changed code/docs: [PR #648](https://github.com/warren-wyn-dev/wynteam/pull/648), [PR #649](https://github.com/warren-wyn-dev/wynteam/pull/649), `docs/engineering/WEB_BETA1_OFFICIAL_FIRST_FOLLOW_RELEASE.md`.
 - สถานะ: Production เปิดใช้งานแล้ว; **การยืนยันย้อนหลังด้านกติกาอนุมัติและ QA บนอุปกรณ์จริงยังค้างอยู่**
 - วันที่ดำเนินการ: 2026-09-24
+ 
+### APPROVAL_REQUIRED — [2026-09-26] WYN-191 Bookmark Collections
+- Proposed change: Deploy ตาราง `public.bookmark_collections`, `public.bookmark_collection_items` และ RLS owner-only พร้อม Trigger ลบ membership อัตโนมัติเมื่อผู้ใช้ยกเลิกบันทึกโพสต์ตาม Migration `supabase/migrations_wyn191_bookmark_collections.sql`; เปิด `NEXT_PUBLIC_WYNOS_BOOKMARK_COLLECTIONS=1` หลัง Staging QA เท่านั้น
+- Reason: เฟส 3 ต้องจัดหมวดหมู่ Bookmark ที่มีอยู่ โดยไม่เปลี่ยนหน้า Feed หรือปุ่ม Bookmark เดิม และไม่เปิดให้บัญชีอื่นเห็นคอลเลกชันส่วนตัว
+- Benefits: คอลเลกชัน sync ข้ามอุปกรณ์ผ่าน Backend เดิม, Owner-only RLS, ไม่สามารถจัดโพสต์ที่ตัวเองไม่ได้บันทึกเข้าคอลเลกชันโดยเรียก API ตรง
+- Risks: เพิ่มตารางและ Trigger ใน Production; ต้องทดสอบ RLS, Foreign Key, การลบ Saved Drop/Quote, ชื่อซ้ำ, การเปลี่ยนชื่อ และข้อมูลข้ามบัญชี; UI flag ต้องปิดระหว่างรอ Migration
+- Files affected: `supabase/schema.sql`, `supabase/migrations_wyn191_bookmark_collections.sql`, `supabase/tests/wyn_191_bookmark_collections_test.sh`, `web/lib/bookmark-collections.ts`, `web/components/bookmarks-route.tsx`
+- Recommendation: อนุมัติหลังผ่าน Combined CI และ Staging Role QA โดย Apply Migration แบบแยกจาก Web Release แล้วเปิด Flag บน Preview ก่อนเปิดผู้ใช้ทั่วไป; ห้ามลบข้อมูล/เปลี่ยนสิทธิ์ตาราง `saves` เดิมหรือ Force-merge เพื่อให้ผ่านคำเตือน
+- สถานะ: **รออนุมัติสำหรับ Production**
+- วันที่ตัดสินใจ: -
+
+### APPROVAL_REQUIRED — [2026-09-26] WYNOS Plus Paid Membership Terms
+- Proposed change: กำหนดราคา สกุลเงิน สิทธิประโยชน์ ระยะเวลาสมาชิก ผู้ให้บริการรับชำระเงิน นโยบายคืนเงิน และข้อมูลที่ต้องใช้สำหรับใบเสร็จ ก่อนเพิ่ม Checkout หรือ Entitlement จริง
+- Reason: ผู้ใช้สั่งพัฒนาเฟส 3 และ WYNOS Plus แต่ยังไม่มีการยืนยันราคา/Provider หรือรายละเอียดข้อผูกพันทางการเงิน
+- Benefits: ป้องกันเรียกเก็บเงินผิดพลาด และแยก Preview UI ออกจาก Production Billing จนกว่าจะพร้อมตามข้อตกลงจริง
+- Risks: มีผลต่อกฎหมายผู้บริโภค ข้อมูลการชำระเงิน และความเชื่อมั่น; ห้ามแสดง Paid Badge/สิทธิประโยชน์ว่าเปิดใช้งานหากไม่มี Backend ยืนยัน
+- Files affected: `web/components/plus-preview-route.tsx`, `web/app/plus/page.tsx`, `web/docs/web-beta1-phase3-release.md` และระบบ Billing ในเฟสที่ได้รับอนุมัติ
+- Recommendation: ใช้ Preview แยก `NEXT_PUBLIC_WYNOS_PLUS_PREVIEW` เฉพาะทดสอบ ไม่สร้าง Checkout จริงก่อนอนุมัติ Product Scope/Terms/Provider
+- สถานะ: **รอข้อมูล/อนุมัติ; ระบบชำระเงินยังไม่สร้างและยังไม่เปิดใช้งาน**
+- วันที่ตัดสินใจ: -
