@@ -37,15 +37,30 @@ export function AppNavigationRuntime() {
     const mode = window.matchMedia("(display-mode: standalone)");
     const sync = () => {
       const iosInstalled = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
       document.documentElement.classList.toggle("wyn-pwa-standalone", mode.matches || iosInstalled);
+      document.documentElement.classList.toggle("wyn-ios-standalone", isIos && (mode.matches || iosInstalled));
     };
     sync();
     mode.addEventListener("change", sync);
     return () => {
       mode.removeEventListener("change", sync);
       document.documentElement.classList.remove("wyn-pwa-standalone");
+      document.documentElement.classList.remove("wyn-ios-standalone");
     };
   }, []);
+
+  useEffect(() => {
+    // Keep the user-selected profile cover behind iOS's translucent clock.
+    // The opaque status-area backing belongs ONLY on non-cover routes. Use
+    // the route, not just :has(), so an outgoing page transition cannot
+    // accidentally reintroduce a solid strip over a profile.
+    const coverRoute = /^\/profile\/(?!me(?:\/|$)|edit(?:\/|$))[^/]+\/?$/.test(pathname)
+      && new URLSearchParams(window.location.search).get("tab") !== "saved";
+    document.documentElement.classList.toggle("wyn-status-cover-route", coverRoute);
+    return () => document.documentElement.classList.remove("wyn-status-cover-route");
+  }, [pathname]);
 
   useEffect(() => {
     for (const href of PREFETCH_ROUTES) router.prefetch(href);
