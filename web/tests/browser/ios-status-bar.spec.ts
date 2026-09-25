@@ -34,7 +34,8 @@ test("installed iOS Home paints status backing in the header rather than a fixed
   expect(homePadding).toBeCloseTo(safeInset + 20, 0);
   const gradient = await page.locator(".wyn-home").evaluate((el) => getComputedStyle(el).backgroundImage);
   expect(gradient).toContain("linear-gradient(");
-  expect(gradient).toContain("rgb(16, 17, 20)");
+  expect(gradient).toContain("rgb(100, 116, 139)");
+  expect(gradient).not.toContain("rgb(16, 17, 20)");
 
   // The selected cover remains behind black-translucent iOS system chrome.
   await page.evaluate(() => {
@@ -142,6 +143,8 @@ test("Profile's black-translucent cover metadata and existing cover geometry sur
   expect(css).toContain("display: none !important;");
   expect(css).toContain("background-image: linear-gradient(");
   expect(css).toContain("--wyn-ios-shadow-clearance: 20px");
-  expect(css).toContain("padding-top: var(--wyn-ios-shadow-end)");
+  expect(css).toContain("padding-top: var(--wyn-ios-header-offset)");
+  expect(css).toContain("--wyn-ios-status-surface: #64748b");
+  expect(css).toContain("--wyn-ios-shadow-end: env(safe-area-inset-top, 0px)");
   expect(runtime).toContain('classList.toggle("wyn-status-cover-route", coverRoute)');
 });
