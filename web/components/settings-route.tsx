@@ -136,11 +136,12 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       setShowInstallShortcut(!standalone.matches && !iosInstalled);
     };
     refresh();
+    const onInstalled = () => setShowInstallShortcut(false);
     standalone.addEventListener("change", refresh);
-    window.addEventListener("appinstalled", refresh);
+    window.addEventListener("appinstalled", onInstalled);
     return () => {
       standalone.removeEventListener("change", refresh);
-      window.removeEventListener("appinstalled", refresh);
+      window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
