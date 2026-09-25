@@ -66,6 +66,25 @@ test("an auto-displayed FCM push opens its post; unsafe payloads stay same-origi
   expect(unsafeWorker.opened).toEqual(["https://wynos.online/notifications"]);
 });
 
+test("offline PWA worker still registers static caching when Firebase CDN is blocked", () => {
+  const source = readFileSync(path.join(process.cwd(), "public/sw.js"), "utf8");
+  const events: string[] = [];
+  const fake = {
+    location: { origin: "https://wynos.online" },
+    addEventListener: (name: string) => { events.push(name); },
+    skipWaiting: () => {},
+  };
+  expect(() => runInNewContext(source, {
+    self: fake,
+    clients: {},
+    URL,
+    importScripts: () => { throw new Error("Firebase CDN unavailable"); },
+  })).not.toThrow();
+  expect(events).toContain("fetch");
+  expect(events).toContain("install");
+  expect(events).toContain("activate");
+});
+
 test("foreground push uses the registered worker and server icon case matches public assets", () => {
   const source = (name: string) => readFileSync(path.join(process.cwd(), name), "utf8");
   const client = source("lib/push-notifications.ts");
