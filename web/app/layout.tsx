@@ -98,12 +98,14 @@ const APPLE_STARTUP_IMAGES: { url: string; media: string }[] = [
 // own browser chrome. Added back explicitly via `other`. `startupImage`,
 // unlike `capable`, IS emitted correctly by this version (verified against
 // node_modules/next/dist/lib/metadata/metadata.js) — no workaround needed.
-// `black-translucent` is required for installed iOS PWA pages to draw
-// profile cover images behind the system status bar. Other routes retain
-// an opaque status backdrop using profile-web-beta1.css; Safari unaffected.
-// iOS may cache this at installation time, so existing home-screen shortcuts
-// may require removal/reinstallation to adopt the new status-bar mode.
-export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"black-translucent",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
+// `default` gives the installed iOS app an OS-managed opaque status bar
+// (with dark system text in light mode) and renders web content BELOW it.
+// The previous `black-translucent` mode caused the observed gray/frosted
+// native status area on iPhone; a fixed CSS fill could not reliably remove
+// that OS-level effect. The cover now starts below the native status bar.
+// iOS may retain the installed app's old status-bar style until the Home
+// Screen shortcut is reinstalled; do not imply a live CSS update overrides it.
+export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
 // maximumScale/userScalable: 1 disables pinch-zoom. Native apps (and the
 // Flutter build this web app mirrors) never let a user pinch-zoom the UI —
 // only a standalone-launched web app, still carrying a plain browser
@@ -134,5 +136,5 @@ const supabaseOrigin = (() => {
 
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){
   if (supabaseOrigin) preconnect(supabaseOrigin, { crossOrigin: "anonymous" });
-  return <html lang="th"><body><div className="wyn-ios-status-fill" aria-hidden="true" /><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
+  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
 }
