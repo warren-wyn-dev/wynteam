@@ -1,11 +1,10 @@
-// Minimal PWA service worker: caches the app's static build assets and icons
-// so repeat visits (and the standalone/home-screen app) load instantly from
-// cache, while every navigation and data request always goes to the network.
-// Nothing that can go stale in a way that hides real content (HTML pages,
-// Supabase API calls) is ever cached — only immutable, hashed `/_next/static`
-// assets and the small set of local icon/manifest files.
-const CACHE_NAME = "wynos-static-v1";
-const STATIC_CACHE_PATTERNS = [/^\/_next\/static\//, /^\/icons\//, /^\/wynos_logo_mark\.png$/];
+// Only immutable Next.js build assets use cache-first. Brand icons keep a
+// cached offline fallback but revalidate on each request, so installing a new
+// WYNOS icon doesn't leave returning home-screen users with the old artwork.
+// Navigation, user data and Supabase API calls are never intercepted.
+const CACHE_NAME = "wynos-static-v2";
+const IMMUTABLE_ASSET_PATTERNS = [/^\/_next\/static\//];
+const MUTABLE_BRAND_ASSET_PATTERNS = [/^\/icons\//, /^\/wynos_logo_mark\.png$/];
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -15,15 +14,14 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const names = await caches.keys();
-      await Promise.all(names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name)));
+      await Promise.all(names.filter((name) => name.startsWith("wynos-static-") && name !== CACHE_NAME).map((name) => caches.delete(name)));
       await self.clients.claim();
     })(),
   );
 });
 
-function isCacheableStaticAsset(url) {
-  if (url.origin !== self.location.origin) return false;
-  return STATIC_CACHE_PATTERNS.some((pattern) => pattern.test(url.pathname));
+function matchesAsset(patterns, url) {
+  return url.origin === self.location.origin && patterns.some((pattern) => pattern.test(url.pathname));
 }
 
 self.addEventListener("fetch", (event) => {
@@ -31,15 +29,32 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (!isCacheableStaticAsset(url)) return;
+  const immutable = matchesAsset(IMMUTABLE_ASSET_PATTERNS, url);
+  const mutableBrandAsset = matchesAsset(MUTABLE_BRAND_ASSET_PATTERNS, url);
+  if (!immutable && !mutableBrandAsset) return;
 
   event.respondWith(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
+      if (mutableBrandAsset) {
+        // Unversioned filenames can change across releases. Try the network
+        // first and use the last successful copy only when offline.
+        try {
+          const response = await fetch(request);
+          if (response.ok) await cache.put(request, response.clone());
+          return response;
+        } catch (error) {
+          const cached = await cache.match(request);
+          if (cached) return cached;
+          throw error;
+        }
+      }
+
+      // Fingerprinted Next.js assets do not change at a given URL.
       const cached = await cache.match(request);
       if (cached) return cached;
       const response = await fetch(request);
-      if (response.ok) cache.put(request, response.clone());
+      if (response.ok) await cache.put(request, response.clone());
       return response;
     })(),
   );
