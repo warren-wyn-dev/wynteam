@@ -8,9 +8,21 @@ export default defineConfig({
   // Hosted Preview is wired to production Supabase rather than local
   // reference fixtures. Food's dev fixture redirects on production builds
   // by design; do NOT loosen that gate merely to satisfy remote Browser QA.
-  // All three fixture-only suites remain mandatory in local CI.
+  // Production builds intentionally do not expose the fake-client
+  // /dev/composer-fixture. Its four interaction suites MUST still run in the
+  // local Phase 4 QA job; hosted QA exercises real public routes separately.
+  // A hosted 404 is not a composer UI regression, and testIgnore must never
+  // remove these tests from the local (non-remoteBaseURL) job.
   testIgnore: remoteBaseURL
-    ? ["**/content-reference-flow.spec.ts", "**/composer-caption-spacing.spec.ts", "**/wynos-food-customer-demo.spec.ts"]
+    ? [
+        "**/content-reference-flow.spec.ts",
+        "**/composer-caption-spacing.spec.ts",
+        "**/wynos-food-customer-demo.spec.ts",
+        "**/composer-handle-drag.spec.ts",
+        "**/composer-middle-swipe.spec.ts",
+        "**/composer-popup-height.spec.ts",
+        "**/composer-slide-dismiss.spec.ts",
+      ]
     : [],
   timeout: 45_000,
   expect: { timeout: 8_000 },

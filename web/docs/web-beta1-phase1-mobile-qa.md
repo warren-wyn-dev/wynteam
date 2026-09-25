@@ -118,3 +118,21 @@ failure. This gate must never change the production alias. Confirm the preview
 job passes and inspect cleanup before the founder authorizes a web production
 release; the existing deployment quota is shared, so do not repeatedly rerun
 without a diagnosed failure.
+
+### Hosted composer-fixture separation (2026-09-26)
+
+Vercel Preview's production build intentionally omits the fake-client
+`/dev/composer-fixture`. The first hosted Browser QA run (36175379135)
+completed deployment, bypass setup and public-route smoke successfully but
+failed **84/708** tests across the four local-only composer interaction suites
+(three browser projects). The source-only `/dev/composer-fixture` returned no
+composer dialog on hosted production builds. This is an environmental test
+misconfiguration, not evidence that authenticated real composer behavior works.
+
+Remote Browser QA now excludes exactly these four fixture-dependent suites,
+which stay mandatory in local Playwright CI (717 tests passed, 27 environment-
+gated skips on run 36175379144). Regression test
+`npm run test:playwright-gates` asserts local/hosted suite separation. Hosted
+QA still runs all eligible public-route and non-fixture UI tests; it must pass
+on the updated PR head before production rollout. Real-device authenticated
+composer validation remains an independent release gate.
