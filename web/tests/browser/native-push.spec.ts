@@ -70,3 +70,16 @@ test("foreground push uses the registered worker and server icon case matches pu
   expect(server).toContain('icon: "/icons/icon-192.png"');
   expect(server).not.toContain('"/icons/Icon-192.png"');
 });
+
+test("logging out unregisters the push device before auth is cleared", () => {
+  const source = (name: string) => readFileSync(path.join(process.cwd(), name), "utf8");
+  const gate = source("components/developer-route-gate.tsx");
+  const push = source("lib/push-notifications.ts");
+  const settings = source("components/settings-route.tsx");
+  expect(gate.indexOf("await unsubscribeFromPushNotifications(client)"))
+    .toBeLessThan(gate.indexOf("await client.auth.signOut()"));
+  expect(push).toContain("serviceWorkerRegistration: registration");
+  expect(push).toContain("return !error && revoked");
+  expect(settings).toContain("const removed = await unsubscribeFromPushNotifications(client)");
+});
+
