@@ -12,7 +12,8 @@
     "test:account-password": "node --test tests/account-password.test.mjs",
     "test:google-pwa-oauth": "node --test tests/google-pwa-oauth.test.mjs",
     "test:follow": "node --test tests/follow-mutation.test.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run build",
+    "test:feed-latency": "node --test tests/home-feed-latency.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
