@@ -352,44 +352,59 @@
 .wyn-profile-beta1 .profile-feed-list .golden-drop-save-inline {
   margin-left: auto !important;
 }
-/* The iOS installed app must use black-translucent status chrome in
-   layout.tsx to expose the actual viewport behind the system status bar.
-   Do NOT pull the cover upward with negative margins: on a translucent
-   viewport that crops the image and offsets the avatar. Extend the cover
-   itself instead. User-selected covers remain untouched. */
-/* A real fixed element, rather than body::before, gives WebKit an
-   opaque layer behind the iOS home-screen status bar. Keep the existing
-   black-translucent metadata so profile covers still draw edge-to-edge. */
+/* Keep black-translucent at app level: Profile's selected cover MUST reach
+   behind the iPhone clock. Other routes instead paint a solid dark surface
+   beneath the system status icons, with fully opaque, unblurred app headers.
+   Route state plus :has() cover both client navigation and initial hydration. */
 .wyn-ios-status-fill {
   display: none;
   position: fixed;
   inset: 0 0 auto;
   height: env(safe-area-inset-top, 0px);
-  z-index: 105;
+  z-index: 1000;
   pointer-events: none;
-  background-color: #101114;
+  background: #101114;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  isolation: isolate;
 }
 
-/* iOS also exposes navigator.standalone; some releases disagree with the
-   CSS display-mode query. AppNavigationRuntime sets this fallback class. */
-:root.wyn-pwa-standalone body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
+/* AppNavigationRuntime provides this fallback on iOS releases where
+   navigator.standalone and the CSS display-mode query disagree. */
+:root.wyn-pwa-standalone:not(.wyn-status-cover-route)
+  body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
   display: block;
 }
-:root.wyn-pwa-standalone:has(.wyn-home) {
+:root.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
+:root.wyn-ios-standalone:not(.wyn-status-cover-route)
+  body:not(:has(.wyn-profile-beta1)) {
   background-color: #101114;
 }
 :root.wyn-pwa-standalone .wyn-home {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Clear the web-layer blur on root screens. This does not pretend to control
+   iOS's native status chrome: final acceptance requires a physical iPhone. */
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .conversation-modern-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
+  background-color: var(--wyn-bg, #fff);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 @media (display-mode: standalone) {
-  /* Preserve iOS's white status icons on an even, fully opaque dark strip.
-     Profile is intentionally excluded: its cover paints behind the status
-     bar instead. No extra space is added to other safe-area-aware screens. */
-  body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
+  /* Only non-profile screens get a dark opaque backing for white iOS icons. */
+  html:not(.wyn-status-cover-route)
+    body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
     display: block;
+  }
+  html.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
+  html.wyn-ios-standalone:not(.wyn-status-cover-route) body:not(:has(.wyn-profile-beta1)) {
+    background-color: #101114;
   }
   html:has(.wyn-home) {
     background-color: #101114;
@@ -397,6 +412,9 @@
   .wyn-home {
     padding-top: env(safe-area-inset-top, 0px);
   }
+
+  /* Never mask or resize the user's cover beyond its existing full-bleed
+     geometry. This remains identical to the approved Profile layout. */
   html:has(.wyn-profile-beta1),
   body:has(.wyn-profile-beta1) {
     background-color: #0c0d0f;
