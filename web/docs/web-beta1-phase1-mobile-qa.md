@@ -136,3 +136,16 @@ gated skips on run 36175379144). Regression test
 QA still runs all eligible public-route and non-fixture UI tests; it must pass
 on the updated PR head before production rollout. Real-device authenticated
 composer validation remains an independent release gate.
+
+### Offline Push sign-out regression (Phase 1)
+
+- Exercise the new `revokeLocalPushSubscription` fallback when deleting the
+  account's server FCM token fails due to a lost network connection. The
+  fallback must execute before the authenticated session is removed and must
+  **never** be treated as proof of backend deletion.
+- Physically test A enables Push → offline sign-out → reconnect → B signs in →
+  A triggers a test notification. If the browser rejects local unsubscribe,
+  account A's server token may remain active; record and block production
+  release until the privacy acceptance is demonstrably safe on supported devices.
+- The existing strict account-switch gate still blocks switching whenever
+  server-side Push detach fails. Never weaken it to make test coverage green.
