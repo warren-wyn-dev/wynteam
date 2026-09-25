@@ -105,6 +105,14 @@ export function Beta4Composer({
   const pointerStartTimeRef = useRef(0);
   const dragDistanceRef = useRef(0);
   const suppressHandleClickRef = useRef(false);
+  const middleSwipeSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const middleSwipeRef = useRef<{ identifier: number; startX: number; startY: number; active: boolean } | null>(null);
+  const middleSwipeHandlersRef = useRef<{
+    canStart: () => boolean;
+    start: (pointerId: number, clientY: number) => void;
+    move: (pointerId: number, clientY: number) => void;
+    finish: (pointerId: number, cancelled?: boolean) => void;
+  } | null>(null);
   const skipNextAutosaveRef = useRef(true); // true until the user actually edits something post-mount/post-draft-load
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
@@ -219,6 +227,89 @@ export function Beta4Composer({
       setDragDistance(0);
     }
   };
+
+  // A downward swipe from the empty middle of the composer should dismiss
+  // just like swiping the grab handle. Keep native scrolling for long drafts:
+  // only take over a downward gesture when the central scroll area is already
+  // at its top. Native non-passive touch listeners let iOS Safari cancel its
+  // overscroll before WebKit takes ownership of the gesture; React's delegated
+  // touch handlers may be passive and cannot reliably do that.
+  middleSwipeHandlersRef.current = {
+    canStart: () => !busy && !exiting && !closePrompt && !audienceOpen,
+    start: startHandleDrag,
+    move: moveHandleDrag,
+    finish: finishHandleDrag,
+  };
+
+  useEffect(() => {
+    const surface = middleSwipeSurfaceRef.current;
+    if (!surface) return;
+    const gesturePointerId = (identifier: number) => -identifier - 1000;
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1 || surface.scrollTop > 1 || !middleSwipeHandlersRef.current?.canStart()) return;
+      const target = event.target;
+      // Editing, image gestures, polls and interactive controls always win.
+      if (!(target instanceof Element) || target.closest(
+        "textarea, input, select, button, a, [role='button'], [contenteditable='true'], .beta4-image-strip, .beta4-ratio-chips, .beta4-poll-composer",
+      )) return;
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      middleSwipeRef.current = {
+        identifier: touch.identifier,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        active: false,
+      };
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      const swipe = middleSwipeRef.current;
+      if (!swipe) return;
+      if (event.touches.length !== 1 || !middleSwipeHandlersRef.current?.canStart()) {
+        if (swipe.active) middleSwipeHandlersRef.current?.finish(gesturePointerId(swipe.identifier), true);
+        middleSwipeRef.current = null;
+        return;
+      }
+      const touch = Array.from(event.changedTouches).find((item) => item.identifier === swipe.identifier);
+      if (!touch) return;
+      const dy = touch.clientY - swipe.startY;
+      const dx = Math.abs(touch.clientX - swipe.startX);
+      if (!swipe.active) {
+        // Upward or horizontal gestures belong to native scrolling/carousels.
+        if (dy < -8 || (dx > 12 && dx > Math.abs(dy)) || surface.scrollTop > 1) {
+          middleSwipeRef.current = null;
+          return;
+        }
+        if (dy < 4 || dy <= dx * 1.2) return;
+        middleSwipeHandlersRef.current?.start(gesturePointerId(swipe.identifier), swipe.startY);
+        swipe.active = true;
+      }
+      if (event.cancelable) event.preventDefault();
+      middleSwipeHandlersRef.current?.move(gesturePointerId(swipe.identifier), touch.clientY);
+    };
+
+    const finishTouch = (event: TouchEvent, cancelled: boolean) => {
+      const swipe = middleSwipeRef.current;
+      if (!swipe || !Array.from(event.changedTouches).some((item) => item.identifier === swipe.identifier)) return;
+      middleSwipeRef.current = null;
+      if (swipe.active) middleSwipeHandlersRef.current?.finish(gesturePointerId(swipe.identifier), cancelled);
+    };
+    const onTouchEnd = (event: TouchEvent) => finishTouch(event, false);
+    const onTouchCancel = (event: TouchEvent) => finishTouch(event, true);
+
+    surface.addEventListener("touchstart", onTouchStart, { passive: true });
+    surface.addEventListener("touchmove", onTouchMove, { passive: false });
+    surface.addEventListener("touchend", onTouchEnd, { passive: true });
+    surface.addEventListener("touchcancel", onTouchCancel, { passive: true });
+    return () => {
+      surface.removeEventListener("touchstart", onTouchStart);
+      surface.removeEventListener("touchmove", onTouchMove);
+      surface.removeEventListener("touchend", onTouchEnd);
+      surface.removeEventListener("touchcancel", onTouchCancel);
+      middleSwipeRef.current = null;
+    };
+  }, []);
 
   // "ฉบับร่าง" header title -- tapping it goes to the saved-drafts list. With
   // nothing worth keeping, just navigate; with in-progress content, reuse
@@ -378,7 +469,7 @@ export function Beta4Composer({
           <button className={`beta4-post ${styles.headerPost}`} type="button" disabled={!canPublish} onClick={() => void submit()}>{busy ? <span className="route-system-spinner tiny" /> : "โพสต์"}</button>
         </header>
 
-        <div className={`beta4-composer-scroll ${styles.scroll}`}>
+        <div ref={middleSwipeSurfaceRef} className={`beta4-composer-scroll ${styles.scroll}`}>
           <div className={styles.composerRow}>
             <div className={styles.avatarSlot}>
               <Avatar src={identity?.avatar_url} label={identity?.username || "WYNOS"} size={44} />
