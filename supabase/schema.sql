@@ -8842,10 +8842,6 @@ where internal.current_platform_role() <> 'user';
 
 grant select on public.admin_user_moderation_history to authenticated;
 
--- WYN-188: this projection is backed by the staff-only SELECT RLS policy on
--- moderation_actions and authenticated profile visibility. Keep invoker rights
--- on fresh installs; the deployable delta lives in migrations_wyn188_*.
-alter view public.admin_user_moderation_history set (security_invoker = true);
 
 -- ============================================================
 -- WYN-054: Audit Log (Admin/Moderator read screen)
