@@ -47,7 +47,7 @@ and the rule that authenticated pages/API calls never enter the static cache.
 | Android installed PWA | Opt in to Push, verify notification click destination and sign-out token cleanup | Pending |
 | Both | Simulate weak/offline network; app icon loads from last successful cache, auth/content errors stay explicit rather than showing stale private data | Pending |
 
-Capture the device model, OS/browser version, preview commit and pass/fail for
+Service-worker revalidation updates icon requests, not the OS-managed Home Screen\nshortcut snapshot. If an existing installed icon remains old, remove the shortcut\nand install it again, then repeat the standalone launch check.\n\nCapture the device model, OS/browser version, preview commit and pass/fail for
 each row, without sharing personal messages or FCM tokens.
 
 ## Feed performance review
