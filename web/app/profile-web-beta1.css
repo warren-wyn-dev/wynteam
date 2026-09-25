@@ -375,8 +375,8 @@
   body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
   display: block;
 }
-:root.wyn-pwa-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
-:root.wyn-pwa-standalone:not(.wyn-status-cover-route)
+:root.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
+:root.wyn-ios-standalone:not(.wyn-status-cover-route)
   body:not(:has(.wyn-profile-beta1)) {
   background-color: #101114;
 }
@@ -386,9 +386,9 @@
 
 /* Clear the web-layer blur on root screens. This does not pretend to control
    iOS's native status chrome: final acceptance requires a physical iPhone. */
-:root.wyn-pwa-standalone:not(.wyn-status-cover-route) .wyn-home,
-:root.wyn-pwa-standalone:not(.wyn-status-cover-route) .route-header,
-:root.wyn-pwa-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header {
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header {
   background-color: var(--wyn-bg, #fff);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -400,8 +400,8 @@
     body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
     display: block;
   }
-  html:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
-  html:not(.wyn-status-cover-route) body:not(:has(.wyn-profile-beta1)) {
+  html.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
+  html.wyn-ios-standalone:not(.wyn-status-cover-route) body:not(:has(.wyn-profile-beta1)) {
     background-color: #101114;
   }
   html:has(.wyn-home) {
