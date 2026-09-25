@@ -1,6 +1,6 @@
 "use client";
 
-import type { Session } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -22,8 +22,10 @@ import { cacheBrowserSession, getCachedBrowserSession } from "@/lib/supabase/ses
 /// real, working account away from its own Home feed. Any signed-in
 /// session lands on Home, full stop; only a *missing* session goes to
 /// /welcome.
-export function ParityAuthEntry() {
-  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+export function ParityAuthEntry({ clientOverride }: { clientOverride?: SupabaseClient } = {}) {
+  // Injected only by the /dev auth regression fixture; real routes always
+  // use the same persisted singleton from getSupabaseBrowserClient().
+  const supabase = useMemo(() => clientOverride ?? getSupabaseBrowserClient(), [clientOverride]);
   const router = useRouter();
   const knownSession = getCachedBrowserSession();
   const [session, setSession] = useState<Session | null>(() => knownSession ?? null);
