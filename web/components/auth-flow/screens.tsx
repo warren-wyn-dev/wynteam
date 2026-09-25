@@ -10,6 +10,7 @@ import { uploadProfileImage } from "@/lib/phase3-data";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import {
@@ -181,12 +182,15 @@ function Field({
 export function WelcomeScreen() {
   const router = useRouter();
   const [booting, setBooting] = useState(true);
+  const [sessionCheckFailed, setSessionCheckFailed] = useState(false);
+  const [checkAttempt, setCheckAttempt] = useState(0);
   const [gate, setGate] = useState<"checking" | "blocked" | "open">("checking");
   const [inviteCode, setInviteCode] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const googlePwaPending = useRef(false);
   const supabase = getSupabaseBrowserClient();
 
   useEffect(() => {
@@ -199,9 +203,20 @@ export function WelcomeScreen() {
         }
         return;
       }
-      const { data } = await supabase.auth.getSession();
+      let result: Awaited<ReturnType<typeof supabase.auth.getSession>>;
+      try {
+        result = await supabase.auth.getSession();
+      } catch {
+        if (mounted) { setBooting(false); setSessionCheckFailed(true); }
+        return;
+      }
       if (!mounted) return;
-      if (data.session) {
+      if (result.error) {
+        setBooting(false);
+        setSessionCheckFailed(true);
+        return;
+      }
+      if (result.data.session) {
         const path = await resolvePostAuthPath(supabase);
         if (mounted) router.replace(path);
         return;
@@ -217,6 +232,63 @@ export function WelcomeScreen() {
     })();
     return () => {
       mounted = false;
+    };
+  }, [supabase, router, checkAttempt]);
+
+  useEffect(() => {
+    if (!supabase || !isInstalledIosWebApp()) return;
+    let mounted = true;
+    let checking = false;
+    const resume = async () => {
+      if (!mounted || !googlePwaPending.current || checking) return;
+      checking = true;
+      try {
+        // The popup's callback only broadcasts after the Supabase session has
+        // been verified. Retry briefly to allow iOS to flush shared cookies.
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const { data, error: authError } = await supabase.auth.getSession();
+          if (!mounted) return;
+          if (!authError && data.session) {
+            googlePwaPending.current = false;
+            router.replace(await resolvePostAuthPath(supabase));
+            return;
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 350));
+        }
+        if (mounted) {
+          googlePwaPending.current = false;
+          setError("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณากลับมาที่แอปแล้วลองใหม่");
+          setGoogleLoading(false);
+        }
+      } catch {
+        if (mounted) {
+          googlePwaPending.current = false;
+          setError("ตรวจสอบการเข้าสู่ระบบ Google ไม่สำเร็จ กรุณาลองใหม่");
+          setGoogleLoading(false);
+        }
+      } finally {
+        checking = false;
+      }
+    };
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin === window.location.origin && event.data?.type === "google-oauth-verified") void resume();
+    };
+    const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(GOOGLE_PWA_COMPLETED_CHANNEL) : null;
+    if (channel) channel.onmessage = (event) => {
+      if (event.data?.type === "google-oauth-verified") void resume();
+    };
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void resume();
+    };
+    window.addEventListener("message", onMessage);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      mounted = false;
+      channel?.close();
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
     };
   }, [supabase, router]);
 
@@ -255,17 +327,35 @@ export function WelcomeScreen() {
     }
     setGoogleLoading(true);
     setError("");
-    const result = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/welcome`, queryParams: { prompt: "select_account" } },
-    });
-    if (result.error) {
-      setError("เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง");
+    try {
+      const result = await startGoogleOAuth(supabase, `${window.location.origin}/welcome`);
+      if (!result.started) {
+        setError(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
+        setGoogleLoading(false);
+      } else if (isInstalledIosWebApp()) {
+        // Keep the button disabled while the popup owns the PKCE flow:
+        // a second tap would overwrite the verifier and break the first
+        // callback. Focus/visibility resumes the parent or shows retry.
+        googlePwaPending.current = true;
+      }
+    } catch {
+      setError("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
       setGoogleLoading(false);
     }
   }
 
   if (booting) return <AuthPhone><div style={{ flex: 1 }} /></AuthPhone>;
+  if (sessionCheckFailed) {
+    return <AuthPhone><div className="route-state" style={{ flex: 1 }}>
+      <h1>WYNOS</h1>
+      <p role="alert">ตรวจสอบการเข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</p>
+      <Button className="btn-primary" onClick={() => {
+        setSessionCheckFailed(false);
+        setBooting(true);
+        setCheckAttempt((value) => value + 1);
+      }}>ลองใหม่</Button>
+    </div></AuthPhone>;
+  }
 
   return (
     <AuthPhone>

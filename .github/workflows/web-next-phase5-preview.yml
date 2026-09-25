@@ -21,7 +21,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.head_ref, 'feat/wyn-158-phase5-') ||
-      github.head_ref == 'fix/web-beta1-ios-status-strip-20260925'
+      github.head_ref == 'fix/web-beta1-ios-status-strip-20260925' ||
+      github.head_ref == 'fix/web-beta1-ios-auth-session-reopen-20260925'
     runs-on: ubuntu-latest
     defaults:
       run:
