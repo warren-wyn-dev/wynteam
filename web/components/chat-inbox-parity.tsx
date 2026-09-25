@@ -11,6 +11,7 @@ import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
 import { ChatListSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
+import { attachChatResume } from "@/lib/chat-resume";
 import { useOnlineUserIds } from "@/lib/presence";
 import {
   acceptMessageRequest,
@@ -75,7 +76,8 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   useEffect(() => {
     if (allowed !== true) return;
     const channel: RealtimeChannel = subscribeMyMessages(client, userId, () => void refetch());
-    return () => { void client.removeChannel(channel); };
+    const stopResume = attachChatResume(() => { void refetch(); });
+    return () => { stopResume(); void client.removeChannel(channel); };
   }, [client, userId, allowed, refetch]);
 
   const [activeTab, setActiveTab] = useState<"inbox" | "requests">("inbox");

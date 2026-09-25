@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 import { unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { clearAllChatComposerDrafts } from "@/lib/chat-composer-cache";
 import { cacheBrowserSession, getCachedBrowserSession } from "@/lib/supabase/session-cache";
 
 type GateState = "loading" | "missing-config" | "signed-out" | "ready" | "error";
@@ -49,6 +50,8 @@ export function DeveloperRouteGate({
   const [message, setMessage] = useState("");
 
   const acceptSession = useCallback((nextSession: Session | null) => {
+    const previous = getCachedBrowserSession();
+    if (previous?.user.id && previous.user.id !== nextSession?.user.id) clearAllChatComposerDrafts();
     cacheBrowserSession(nextSession);
     setSession(nextSession);
     setMessage("");
@@ -122,6 +125,7 @@ export function DeveloperRouteGate({
     // owner. Never block a requested logout on a push/network failure.
     await unsubscribeFromPushNotifications(client);
     await client.auth.signOut();
+    clearAllChatComposerDrafts();
     cacheBrowserSession(null);
     // Clears both the in-memory cache and the persisted localStorage copy
     // (see QueryProvider) so a shared device never shows the previous

@@ -13,6 +13,8 @@ import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WyniiConversationHeader } from "@/components/wynii-chat";
 import { relativeTimeTh } from "@/lib/feed";
+import { attachChatResume } from "@/lib/chat-resume";
+import { clearChatComposerDraft, readChatComposerDraft, writeChatComposerDraft } from "@/lib/chat-composer-cache";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
@@ -171,6 +173,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   // composer.
   const isComposeMode = conversationId === "new";
   const cacheKey = `conversation:${userId}:${conversationId}`;
+  const composerKey = isComposeMode ? `new:${userFromUrl}` : conversationId;
   const cached = getMountCache<ConversationSnapshot>(cacheKey);
   const [otherId, setOtherId] = useState(userFromUrl);
   const [other, setOther] = useState<ProfileRow | null>(cached?.other ?? null);
@@ -180,7 +183,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => readChatComposerDraft(userId, composerKey));
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
@@ -191,6 +194,11 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const composerRef = useRef<HTMLFormElement | null>(null);
   const [composerHeight, setComposerHeight] = useState(58);
   const { toastMessage, showToast } = useToast();
+
+  useEffect(() => {
+    setDraft(readChatComposerDraft(userId, composerKey));
+    setFile(null);
+  }, [userId, composerKey]);
 
   useEffect(() => {
     setMountCache(cacheKey, { other, messages, meta, hasMore });
@@ -264,7 +272,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     if (isComposeMode) return () => { live = false; };
     const channel = subscribeConversationMessages(client, conversationId, () => { void refresh(); });
     channelRef.current = channel;
-    return () => { live = false; if (channelRef.current) void client.removeChannel(channelRef.current); };
+    const stopResume = attachChatResume(() => { void refresh(); });
+    return () => { live = false; stopResume(); if (channelRef.current) void client.removeChannel(channelRef.current); };
   }, [client, conversationId, isComposeMode, refresh, resolveOther, router, userId]);
 
   const loadOlder = async () => {
@@ -296,7 +305,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       localPreviewUrl,
     };
     setMessages((current) => [optimisticMessage, ...current]);
-    setDraft(""); setFile(null); setSending(true); setError("");
+    setSending(true); setError("");
     haptic();
     try {
       // WYN-185 item 10: the conversation (and, if the recipient doesn't
@@ -305,6 +314,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       // just from opening the composer.
       const realConversationId = isComposeMode ? await getOrCreateConversation(client, otherId) : conversationId;
       const created = await sendMessage(client, userId, realConversationId, { text, file: attachedFile });
+      clearChatComposerDraft(userId, composerKey);
+      setDraft(""); setFile(null);
       if (isComposeMode) {
         // A full navigation (not just a state update) so the destination
         // mounts fresh against the real conversation id -- realtime
@@ -317,7 +328,9 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
         const withoutTemp = current.filter((item) => item.id !== tempId);
         return withoutTemp.some((item) => item.id === created.id) ? withoutTemp : [created, ...withoutTemp];
       });
-      await markConversationRead(client, realConversationId);
+      // A read-receipt failure must not mark an already-sent message as failed
+      // or restore its composer, which could make a user resend it twice.
+      void markConversationRead(client, realConversationId).catch(() => {});
     } catch (e) {
       setMessages((current) => current.filter((item) => item.id !== tempId));
       setDraft(text); setFile(attachedFile);
@@ -461,7 +474,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
-            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker" aria-label="แนบรูปภาพ"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
+            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker" aria-label="แนบรูปภาพ"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => { setDraft(e.target.value); writeChatComposerDraft(userId, composerKey, e.target.value); }} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
           )}
         </div>
       )}
