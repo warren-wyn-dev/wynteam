@@ -498,7 +498,7 @@ export function HomeScreen({ session }: { session: Session }) {
       }
     };
 
-    if ("requestIdleCallback" in window) {
+    if (typeof window.requestIdleCallback === "function") {
       const handle = window.requestIdleCallback(warmOtherTabs, { timeout: 2500 });
       return () => window.cancelIdleCallback(handle);
     }
