@@ -1,0 +1,24 @@
+name: Web Beta1 Phase1 Public Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-phase1-public-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-smoke:
+    name: Public production PWA and Push readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run read-only production PWA and Push smoke
+        run: node web/tools/phase1-public-smoke.mjs
