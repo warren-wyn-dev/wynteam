@@ -835,6 +835,7 @@ export function HomeScreen({ session }: { session: Session }) {
       <div className="wyn-home">
         <HomeHeader
           notificationBadgeCount={notificationBadge}
+          suspendScrollChrome={drawerOpen || sheet !== null || composerOpen || pull.refreshing || pull.pullDistance > 0}
           onOpenMenu={() => setDrawerOpen(true)}
           onOpenSearch={() => router.push("/search")}
           onOpenNotifications={() => router.push("/notifications")}
