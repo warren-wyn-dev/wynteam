@@ -396,6 +396,31 @@
   -webkit-backdrop-filter: none !important;
 }
 
+/* iOS 26 may render an OS-owned soft shadow below a contrasting FIXED top
+   element on client navigation (WebKit 305546). The old fixed dark fill
+   matches that trigger: it sits above a white page. On installed iOS only,
+   hide that separate layer and paint the SAME solid dark status backdrop
+   into the top safe-area of the actual header surface. This keeps controls
+   on the white portion with no added spacing and avoids a contrasting
+   fixed overlay. Do not apply to the full-bleed Profile cover. */
+:root.wyn-ios-standalone:not(.wyn-status-cover-route)
+  body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
+  display: none !important;
+}
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .conversation-modern-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
+  background-image: linear-gradient(
+    to bottom,
+    #101114 0,
+    #101114 env(safe-area-inset-top, 0px),
+    var(--wyn-bg, #fff) env(safe-area-inset-top, 0px),
+    var(--wyn-bg, #fff) 100%
+  );
+}
+
 @media (display-mode: standalone) {
   /* Only non-profile screens get a dark opaque backing for white iOS icons. */
   html:not(.wyn-status-cover-route)
