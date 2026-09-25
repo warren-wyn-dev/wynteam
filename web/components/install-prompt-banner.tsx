@@ -60,11 +60,12 @@ export function InstallPromptBanner() {
     const mayAutoShow = !dismissedAt || Date.now() - dismissedAt >= DISMISS_COOLDOWN_MS;
     const ios = isIos();
     let showTimer: number | null = null;
+    let installedThisSession = false;
 
     // The settings shortcut always works, even during the automatic
     // banner's seven-day dismissal cooldown.
     function openInstall() {
-      if (isStandalone()) return;
+      if (isStandalone() || installedThisSession) return;
       if (showTimer !== null) window.clearTimeout(showTimer);
       showTimer = null;
       setPlatform(ios ? "ios" : "android");
@@ -72,6 +73,7 @@ export function InstallPromptBanner() {
     }
 
     function onAppInstalled() {
+      installedThisSession = true;
       if (showTimer !== null) window.clearTimeout(showTimer);
       showTimer = null;
       writeDismissedAt();
