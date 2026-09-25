@@ -45,3 +45,14 @@ test("installed app does not show install instructions", async ({ page }, testIn
   await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
   await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toHaveCount(0);
 });
+
+test("appinstalled hides install UI for the rest of the current browser session", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-android", "Android install event");
+  await page.goto("/");
+  await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
+  await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
+  await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toHaveCount(0);
+  await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
+  await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toHaveCount(0);
+});
