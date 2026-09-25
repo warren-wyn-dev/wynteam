@@ -145,6 +145,8 @@ test("Profile's black-translucent cover metadata and existing cover geometry sur
   expect(css).toContain("--wyn-ios-shadow-clearance: 20px");
   expect(css).toContain("padding-top: var(--wyn-ios-header-offset)");
   expect(css).toContain("--wyn-ios-status-surface: #64748b");
+  expect(css).toContain("background-color: var(--wyn-ios-status-surface, #64748b)");
+  expect(css).not.toContain("background-color: var(--wyn-ios-status-surface, #101114)");
   expect(css).toContain("--wyn-ios-shadow-end: env(safe-area-inset-top, 0px)");
   expect(runtime).toContain('classList.toggle("wyn-status-cover-route", coverRoute)');
 });
