@@ -181,7 +181,11 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
         }
         setPushEnabled(true);
       } else {
-        await unsubscribeFromPushNotifications(client);
+        const removed = await unsubscribeFromPushNotifications(client);
+        if (!removed) {
+          setError("ปิดการแจ้งเตือนไม่สำเร็จ กรุณาลองอีกครั้ง");
+          return;
+        }
         setPushEnabled(false);
       }
     } finally {
