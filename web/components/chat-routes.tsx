@@ -488,7 +488,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
 }
 
 export function ChatRoute() {
-  return <DeveloperRouteGate>{({ client, userId }) => <ChatInboxInner client={client} userId={userId} />}</DeveloperRouteGate>;
+  return <DeveloperRouteGate>{({ client, userId }) => <ChatInboxInner key={userId} client={client} userId={userId} />}</DeveloperRouteGate>;
 }
 
 export function ConversationRoute({ conversationId }: { conversationId: string }) {
