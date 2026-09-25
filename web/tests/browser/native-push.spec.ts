@@ -7,9 +7,11 @@ const ID = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
 
 function fakeWorker(openClients: Array<{ url: string; navigate?: (url: string) => Promise<unknown>; focus?: () => Promise<unknown> }> = []) {
-  type PushClick = { notification: { close: () => void; data: unknown }; waitUntil: (promise: Promise<unknown>) => void };
+  type PushClick = { notification: { close: () => void; data: unknown }; waitUntil: (promise: Promise<unknown>) => void; stopImmediatePropagation?: () => void };
   const listeners = new Map<string, (event: PushClick) => void>();
   const opened: string[] = [];
+  let clickIntercepted = false;
+  let notificationClosed = false;
   const clients = {
     matchAll: async () => openClients,
     openWindow: async (url: string) => { opened.push(url); return { url }; },
@@ -27,11 +29,13 @@ function fakeWorker(openClients: Array<{ url: string; navigate?: (url: string) =
     const listener = listeners.get("notificationclick");
     if (!listener) throw new Error("No notificationclick listener");
     listener({
-      notification: { close: () => {}, data },
+      notification: { close: () => { notificationClosed = true; }, data },
+      stopImmediatePropagation: () => { clickIntercepted = true; },
       waitUntil: (promise: Promise<unknown>) => { settled = promise; },
     });
     if (!settled) throw new Error("Notification click did not call waitUntil");
     await settled;
+    return { clickIntercepted, notificationClosed };
   };
   return { click, opened };
 }
@@ -45,7 +49,8 @@ test("a background DM push opens the conversation in an existing WYNOS window", 
     focus: async () => { focused = true; return client; },
   };
   const worker = fakeWorker([client]);
-  await worker.click({ conversation_id: ID, actor_id: OTHER });
+  const clickResult = await worker.click({ conversation_id: ID, actor_id: OTHER });
+  expect(clickResult).toEqual({ clickIntercepted: true, notificationClosed: true });
   expect(navigations).toEqual([`https://wynos.online/chat/${ID}?user=${OTHER}`]);
   expect(focused).toBe(true);
   expect(worker.opened).toEqual([]);
