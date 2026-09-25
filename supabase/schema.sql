@@ -17792,12 +17792,12 @@ create policy "Owner adds only their saved items"
     owner_id=auth.uid() and (
       (content_type='drop' and exists(
         select 1 from public.saves s
-        where s.user_id=auth.uid() and s.content_type='drop' and s.content_id=content_id
+        where s.user_id=auth.uid() and s.content_type='drop' and s.content_id=bookmark_collection_items.content_id
       ))
       or
       (content_type='quote' and exists(
         select 1 from public.quote_saves q
-        where q.user_id=auth.uid() and q.quote_id=content_id
+        where q.user_id=auth.uid() and q.quote_id=bookmark_collection_items.content_id
       ))
     )
   );
