@@ -192,9 +192,9 @@ test("Home tab labels use the approved larger type while Profile retains its lay
       host.remove();
       return result;
     }, width);
-    // Home feed tabs are deliberately larger for legibility, while narrow
+    // Home feed tabs are slightly larger for legibility, while narrow
     // screens retain a 16px fallback and Profile typography stays unchanged.
-    expect(result.homeFont).toBe(width <= 359 ? "16px" : "18px");
+    expect(result.homeFont).toBe(width <= 359 ? "16px" : "19px");
     expect(result.profileFont).toBe(width <= 359 ? "14px" : "15px");
     expect(result.homeWeight).toBe("700");
     expect(result.profileWeight).toBe(result.homeWeight);
