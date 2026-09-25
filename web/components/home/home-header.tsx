@@ -18,18 +18,14 @@ export function HomeHeader({
   onOpenNotifications: () => void;
 }) {
   return (
-    <header
-      className="wyn-home-header"
-      style={{ gridTemplateColumns: "80px minmax(0, 1fr) 80px" }}
-    >
+    <header className="wyn-home-header">
       <button
         className="wyn-home-header-action wyn-home-menu-action"
-        style={{ marginLeft: 4 }}
         type="button"
         aria-label="เมนู"
         onClick={onOpenMenu}
       >
-        <WynosIcon name="menu" size={22} strokeWidth={2.05} />
+        <WynosIcon name="menu" size={23} strokeWidth={1.8} />
       </button>
 
       <div className="wyn-home-wordmark">
@@ -37,24 +33,21 @@ export function HomeHeader({
           className="wyn-home-logo"
           src="/wynos_logo_mark.png"
           alt=""
-          width={24}
-          height={24}
+          width={27}
+          height={27}
           priority
         />
         <strong className="wyn-home-title">WYNOS</strong>
       </div>
 
-      <div
-        className="wyn-home-header-actions"
-        style={{ justifyContent: "flex-end", gap: 3, transform: "translateX(-6px)" }}
-      >
+      <div className="wyn-home-header-actions">
         <button
           className="wyn-home-header-action"
           type="button"
           aria-label="ค้นหา"
           onClick={onOpenSearch}
         >
-          <WynosIcon name="search" size={22} strokeWidth={2.05} />
+          <WynosIcon name="search" size={23} strokeWidth={1.8} />
         </button>
         <button
           className="wyn-home-header-action wyn-home-chat-action"
@@ -62,7 +55,7 @@ export function HomeHeader({
           aria-label={notificationBadgeCount > 0 ? `การแจ้งเตือน ${notificationBadgeCount} รายการที่ยังไม่ได้อ่าน` : "การแจ้งเตือน"}
           onClick={onOpenNotifications}
         >
-          <WynosIcon name="notifications" size={22} strokeWidth={2.05} />
+          <WynosIcon name="notifications" size={23} strokeWidth={1.8} />
           {notificationBadgeCount > 0 ? <span className="wyn-home-chat-badge" aria-hidden="true" /> : null}
         </button>
       </div>
