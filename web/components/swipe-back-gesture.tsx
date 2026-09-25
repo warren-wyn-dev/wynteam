@@ -44,7 +44,9 @@ export function SwipeBackGesture() {
   useEffect(() => {
     const onTouchStart = (event: TouchEvent) => {
       gesture.current = null;
-      if (ROOT_ROUTES.has(pathnameRef.current) || event.touches.length !== 1 || blocksEdgeSwipe(event.target)) return;
+      const rootProfileTab = pathnameRef.current.startsWith("/profile/")
+        && new URLSearchParams(window.location.search).get("from") === "tab";
+      if (ROOT_ROUTES.has(pathnameRef.current) || rootProfileTab || event.touches.length !== 1 || blocksEdgeSwipe(event.target)) return;
       const touch = event.touches[0];
       if (!touch || touch.clientX > EDGE_WIDTH) return;
       gesture.current = { id: touch.identifier, x: touch.clientX, y: touch.clientY, tracking: true };
