@@ -93,7 +93,11 @@ export async function startGoogleOAuth(
     if (error || !data?.url) throw new Error("OAuth URL unavailable");
     const oauth = new URL(data.url);
     const configured = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? window.location.origin);
-    if (oauth.protocol !== "https:" || oauth.origin !== configured.origin) {
+    // The project's exact configured Auth origin is mandatory. The only
+    // plaintext exception is a loopback Supabase mock in local browser QA.
+    const loopback = ["localhost", "127.0.0.1"].includes(configured.hostname)
+      && configured.protocol === "http:" && oauth.protocol === "http:";
+    if ((!loopback && oauth.protocol !== "https:") || oauth.origin !== configured.origin) {
       throw new Error("Unexpected OAuth URL origin");
     }
     popup.location.replace(oauth.href);
