@@ -40,6 +40,8 @@ jobs:
         run: npm run test:feed-latency
       - name: Cross-account persisted query cache isolation
         run: npm run test:account-cache-isolation
+      - name: Offline Push logout fallback regression
+        run: npm run test:push-offline-logout
       - name: Web Beta1 club and draft regression
         run: node --test tests/draft-hotfix.test.mjs tests/club-rpc-error.test.mjs
       - name: Production build
