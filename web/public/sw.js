@@ -99,10 +99,20 @@ self.addEventListener("notificationclick", (event) => {
 // (public-by-design values, same as the ones already shipped in the Flutter
 // web build — see app/web/firebase-messaging-sw.js) is fetched once here at
 // activate time from /api/push-config instead of being baked in.
-importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
+// Static asset caching must still work offline or when a network filter
+// blocks Google CDN. Push becomes available on the next successful worker
+// update instead of making this PWA's entire service worker fail to install.
+let firebaseScriptsLoaded = false;
+try {
+  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
+  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
+  firebaseScriptsLoaded = true;
+} catch {
+  // Push is optional; cached application assets keep working offline.
+}
 
 async function initFirebaseMessaging() {
+  if (!firebaseScriptsLoaded) return;
   try {
     const response = await fetch("/api/push-config");
     const config = await response.json();
