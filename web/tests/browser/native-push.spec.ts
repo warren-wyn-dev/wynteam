@@ -65,6 +65,11 @@ test("foreground push uses the registered worker and server icon case matches pu
   const source = (name: string) => readFileSync(path.join(process.cwd(), name), "utf8");
   const client = source("lib/push-notifications.ts");
   const server = source("../supabase/functions/send-push-notification/index.ts");
+  const worker = source("public/sw.js");
+  // Firebase documents that custom click handlers must be registered
+  // before its scripts; otherwise the SDK may claim the event first.
+  expect(worker.indexOf('self.addEventListener("notificationclick"')).toBeLessThan(worker.indexOf("importScripts("));
+  expect(worker).toContain("event.stopImmediatePropagation?.()");
   expect(client).toContain("registration.showNotification(title");
   expect(client).toContain("void listenForForegroundPush()");
   expect(server).toContain('icon: "/icons/icon-192.png"');
