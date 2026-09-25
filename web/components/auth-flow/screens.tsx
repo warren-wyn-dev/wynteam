@@ -256,11 +256,13 @@ export function WelcomeScreen() {
           await new Promise((resolve) => window.setTimeout(resolve, 350));
         }
         if (mounted) {
+          googlePwaPending.current = false;
           setError("Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณากลับมาที่แอปแล้วลองใหม่");
           setGoogleLoading(false);
         }
       } catch {
         if (mounted) {
+          googlePwaPending.current = false;
           setError("ตรวจสอบการเข้าสู่ระบบ Google ไม่สำเร็จ กรุณาลองใหม่");
           setGoogleLoading(false);
         }
