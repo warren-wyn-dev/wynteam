@@ -66,5 +66,6 @@ test("immersive Home chrome uses no sliding animation with reduced motion", asyn
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
   await expect(page.locator(".wyn-home")).toHaveCSS("transition-duration", "0s");
+  await expect(page.locator(".wyn-home-post-fab")).toHaveCSS("transition-duration", "0s");
   await expect(page.locator(".route-bottom-nav")).toHaveCSS("transition-duration", "0s");
 });
