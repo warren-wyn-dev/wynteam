@@ -274,6 +274,7 @@ export function Beta4Composer({
   return (
     <div className="route-modal-backdrop beta4-composer-backdrop" role="presentation" onClick={requestClose}>
       <section className="beta4-composer" role="dialog" aria-modal="true" aria-label="สร้างโพสต์" onClick={(event) => event.stopPropagation()}>
+        <div className="beta4-composer-sheet-handle" aria-hidden="true" />
         <header className={`beta4-composer-header ${styles.header}`}>
           <button className="beta4-cancel" type="button" onClick={requestClose}>ยกเลิก</button>
           <button className={styles.draftTitle} type="button" onClick={goToDrafts}>ฉบับร่าง</button>

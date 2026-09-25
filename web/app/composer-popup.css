@@ -1,0 +1,68 @@
+/*
+ * WYNOS create-post popup. Scoped to the original Beta4 Composer only:
+ * quote/repost composer shares the legacy base classes but must keep its
+ * existing geometry and all its current interactions.
+ */
+.beta4-composer-backdrop:not(.wyn-quote-backdrop) {
+  align-items: flex-end !important;
+  justify-content: center;
+  padding: 0 !important;
+  background: rgb(0 0 0 / 42%);
+}
+
+.beta4-composer-backdrop:not(.wyn-quote-backdrop) > .beta4-composer {
+  box-sizing: border-box;
+  width: min(100%, 680px);
+  height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 8px));
+  max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 8px));
+  margin: 0 auto;
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -12px 42px rgb(0 0 0 / 15%);
+  overflow: hidden;
+}
+
+/* The modal now begins below the status bar, so the composer header must
+   not add the full-screen layout's safe-area top inset a second time. */
+.beta4-composer-backdrop:not(.wyn-quote-backdrop) > .beta4-composer > .beta4-composer-header {
+  height: 70px !important;
+  min-height: 70px !important;
+  padding-top: 0 !important;
+}
+
+.beta4-composer-sheet-handle {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 38px;
+  height: 5px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background: var(--wyn-border-strong, #c7c9ce);
+}
+
+/* Keep the original composer actions fixed inside the sheet while captions,
+   image previews, polls and long drafts scroll in the central region. */
+.beta4-composer-backdrop:not(.wyn-quote-backdrop) .beta4-composer-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 681px) {
+  .beta4-composer-backdrop:not(.wyn-quote-backdrop) {
+    align-items: center !important;
+    padding: 20px !important;
+  }
+
+  .beta4-composer-backdrop:not(.wyn-quote-backdrop) > .beta4-composer {
+    width: min(100%, 620px);
+    height: min(88dvh, 860px);
+    max-height: min(88dvh, 860px);
+    border-radius: 26px;
+    box-shadow: 0 20px 65px rgb(0 0 0 / 20%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beta4-composer-backdrop:not(.wyn-quote-backdrop) > .beta4-composer {
+    scroll-behavior: auto;
+  }
+}
