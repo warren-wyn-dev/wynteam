@@ -21,6 +21,8 @@ test("installed iOS Home paints status backing in the header rather than a fixed
   const strip = page.locator(".wyn-ios-status-fill");
   await expect(strip).toHaveCSS("display", "none");
   await expect(page.locator(".wyn-home")).toHaveCSS("backdrop-filter", "none");
+  const homePadding = await page.locator(".wyn-home").evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
+  expect(homePadding).toBeGreaterThanOrEqual(44);
   const gradient = await page.locator(".wyn-home").evaluate((el) => getComputedStyle(el).backgroundImage);
   expect(gradient).toContain("linear-gradient(");
   expect(gradient).toContain("rgb(16, 17, 20)");
@@ -86,6 +88,13 @@ test("installed iOS keeps non-profile headers crisp but leaves the profile cover
   await expect(page.locator(".wyn-chat-inbox .flutter-chat-header")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(page.locator(".conversation-modern-header")).toHaveCSS("backdrop-filter", "none");
   await expect(page.locator(".detail-floating-header")).toHaveCSS("backdrop-filter", "none");
+  // Ensure native shadow clearance applies to all top-bar controls.
+  for (const selector of [".route-header", ".wyn-chat-inbox .flutter-chat-header", ".conversation-modern-header", ".detail-floating-header"]) {
+    const padding = await page.locator(selector).evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
+    expect(padding).toBeGreaterThanOrEqual(44);
+  }
+  const inboxHeight = await page.locator(".wyn-chat-inbox .flutter-chat-header").evaluate((el) => parseFloat(getComputedStyle(el).height));
+  expect(inboxHeight).toBeGreaterThanOrEqual(112);
 
   await page.evaluate(() => document.documentElement.classList.add("wyn-status-cover-route"));
   await expect(strip).toHaveCSS("display", "none");
@@ -104,5 +113,7 @@ test("Profile's black-translucent cover metadata and existing cover geometry sur
   expect(css).toContain("html:not(.wyn-status-cover-route)");
   expect(css).toContain("display: none !important;");
   expect(css).toContain("background-image: linear-gradient(");
+  expect(css).toContain("--wyn-ios-shadow-clearance: 44px");
+  expect(css).toContain("padding-top: var(--wyn-ios-shadow-end)");
   expect(runtime).toContain('classList.toggle("wyn-status-cover-route", coverRoute)');
 });
