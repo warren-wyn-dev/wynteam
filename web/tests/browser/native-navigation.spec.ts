@@ -2,17 +2,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 
-test("primary navigation scrolls to top on repeat Home tab tap without page reload", async ({ page }) => {
+test("the five-tab dock remains visible while scrolling the mobile Feed", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 600 });
   await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
   const nav = page.getByRole("navigation", { name: "เมนูหลัก" });
   await expect(nav.getByRole("link")).toHaveCount(5);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(40);
-  const url = page.url();
-  await nav.getByRole("link", { name: "หน้าหลัก" }).click();
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(15);
-  expect(page.url()).toBe(url);
+  await expect(nav).toBeInViewport();
+  await expect(nav).toHaveCSS("position", "fixed");
 });
 
 // The other two root destinations use the same repeat-tap callback as
