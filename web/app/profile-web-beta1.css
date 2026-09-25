@@ -396,13 +396,15 @@
   -webkit-backdrop-filter: none !important;
 }
 
-/* iOS 26 may render an OS-owned soft shadow below a contrasting FIXED top
-   element on client navigation (WebKit 305546). The old fixed dark fill
-   matches that trigger: it sits above a white page. On installed iOS only,
-   hide that separate layer and paint the SAME solid dark status backdrop
-   into the top safe-area of the actual header surface. This keeps controls
-   on the white portion with no added spacing and avoids a contrasting
-   fixed overlay. Do not apply to the full-bleed Profile cover. */
+/* On iOS, black-translucent can produce an OS-composited shadow below the
+   clock. CSS cannot disable that native effect. Preserve the full-bleed
+   Profile cover, but keep non-profile controls BELOW a 44px dark clearance
+   after the safe-area inset. Removing the separate fixed fill also avoids
+   the contrasting-top-element case described in WebKit 305546. */
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) {
+  --wyn-ios-shadow-clearance: 44px;
+  --wyn-ios-shadow-end: calc(env(safe-area-inset-top, 0px) + var(--wyn-ios-shadow-clearance));
+}
 :root.wyn-ios-standalone:not(.wyn-status-cover-route)
   body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
   display: none !important;
@@ -415,10 +417,26 @@
   background-image: linear-gradient(
     to bottom,
     #101114 0,
-    #101114 env(safe-area-inset-top, 0px),
-    var(--wyn-bg, #fff) env(safe-area-inset-top, 0px),
+    #101114 var(--wyn-ios-shadow-end),
+    var(--wyn-bg, #fff) var(--wyn-ios-shadow-end),
     var(--wyn-bg, #fff) 100%
   );
+}
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
+  padding-top: var(--wyn-ios-shadow-end);
+}
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
+  min-height: calc(57px + var(--wyn-ios-shadow-end));
+}
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header {
+  height: calc(68px + var(--wyn-ios-shadow-end)) !important;
+  padding-top: calc(var(--wyn-ios-shadow-end) + 6px) !important;
+}
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .conversation-modern-header {
+  min-height: calc(72px + var(--wyn-ios-shadow-end));
+  padding-top: calc(var(--wyn-ios-shadow-end) + 8px);
 }
 
 @media (display-mode: standalone) {
