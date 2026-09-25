@@ -352,64 +352,38 @@
 .wyn-profile-beta1 .profile-feed-list .golden-drop-save-inline {
   margin-left: auto !important;
 }
-/* The iOS installed app must use black-translucent status chrome in
-   layout.tsx to expose the actual viewport behind the system status bar.
-   Do NOT pull the cover upward with negative margins: on a translucent
-   viewport that crops the image and offsets the avatar. Extend the cover
-   itself instead. User-selected covers remain untouched. */
-/* A real fixed element, rather than body::before, gives WebKit an
-   opaque layer behind the iOS home-screen status bar. Keep the existing
-   black-translucent metadata so profile covers still draw edge-to-edge. */
-.wyn-ios-status-fill {
-  display: none;
-  position: fixed;
-  inset: 0 0 auto;
-  height: env(safe-area-inset-top, 0px);
-  z-index: 105;
-  pointer-events: none;
-  background-color: #101114;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+/* Native opaque iOS status bar: Apple's "default" status-bar-style keeps
+   webpage content BELOW system chrome. The previous fixed dark overlay
+   could not mask iOS's own gray/frosted translucent status bar; remove it.
+   Safari in a browser tab and Android retain their existing layouts. */
+:root.wyn-ios-pwa .wyn-home {
+  /* With an opaque status bar, adding the safe-area inset again creates
+     the same kind of unwanted gray/empty strip beneath the clock. */
+  padding-top: 0;
 }
-
-/* iOS also exposes navigator.standalone; some releases disagree with the
-   CSS display-mode query. AppNavigationRuntime sets this fallback class. */
-:root.wyn-pwa-standalone body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
-  display: block;
+:root.wyn-ios-pwa .wyn-profile-beta1 .wyn-profile-topbar {
+  top: 0;
+  height: 58px;
+  padding-top: 0;
 }
-:root.wyn-pwa-standalone:has(.wyn-home) {
-  background-color: #101114;
-}
-:root.wyn-pwa-standalone .wyn-home {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
 @media (display-mode: standalone) {
-  /* Preserve iOS's white status icons on an even, fully opaque dark strip.
-     Profile is intentionally excluded: its cover paints behind the status
-     bar instead. No extra space is added to other safe-area-aware screens. */
-  body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
-    display: block;
-  }
-  html:has(.wyn-home) {
+  /* Keep Android's preexisting edge-to-edge cover and safe-area geometry;
+     these extensions must NOT run on iOS with native "default" chrome. */
+  html:not(.wyn-ios-pwa):has(.wyn-home) {
     background-color: #101114;
   }
-  .wyn-home {
+  :root:not(.wyn-ios-pwa) .wyn-home {
     padding-top: env(safe-area-inset-top, 0px);
   }
-  html:has(.wyn-profile-beta1),
-  body:has(.wyn-profile-beta1) {
-    background-color: #0c0d0f;
-  }
-  .wyn-profile-beta1 .wyn-profile-hero {
+  :root:not(.wyn-ios-pwa) .wyn-profile-beta1 .wyn-profile-hero {
     margin: 0;
     padding: 0;
   }
-  .wyn-profile-beta1 .wyn-profile-cover {
+  :root:not(.wyn-ios-pwa) .wyn-profile-beta1 .wyn-profile-cover {
     height: calc(clamp(150px, 38vw, 210px) + env(safe-area-inset-top, 0px));
     margin: 0;
   }
-  .wyn-profile-beta1 .wyn-profile-cover::after {
+  :root:not(.wyn-ios-pwa) .wyn-profile-beta1 .wyn-profile-cover::after {
     content: "";
     position: absolute;
     z-index: 1;
@@ -418,7 +392,7 @@
     height: calc(env(safe-area-inset-top, 0px) + 26px);
     background: linear-gradient(to bottom, rgb(0 0 0 / 44%), transparent);
   }
-  .wyn-profile-beta1 .wyn-profile-topbar {
+  :root:not(.wyn-ios-pwa) .wyn-profile-beta1 .wyn-profile-topbar {
     top: env(safe-area-inset-top, 0px);
     height: 58px;
     padding-top: 0;
