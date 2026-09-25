@@ -71,6 +71,9 @@ test("foreground push uses the registered worker and server icon case matches pu
   expect(worker.indexOf('self.addEventListener("notificationclick"')).toBeLessThan(worker.indexOf("importScripts("));
   expect(worker).toContain("event.stopImmediatePropagation?.()");
   expect(client).toContain("registration.showNotification(title");
+  const subscription = client.slice(client.indexOf("export async function subscribeToPushNotifications"), client.indexOf("export async function unsubscribeFromPushNotifications"));
+  expect(subscription).toContain("Notification.requestPermission()");
+  expect(subscription.indexOf("Notification.requestPermission()")).toBeLessThan(subscription.indexOf("await pushSupported()"));
   expect(client).toContain("void listenForForegroundPush()");
   expect(server).toContain('icon: "/icons/icon-192.png"');
   expect(server).not.toContain('"/icons/Icon-192.png"');
