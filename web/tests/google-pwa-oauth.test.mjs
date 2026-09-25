@@ -7,9 +7,9 @@ const source = readFileSync(new URL("../lib/google-pwa-oauth.ts", import.meta.ur
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const module = { exports: {} };
-new Function("module", "exports", "process", compiled)(module, module.exports, process);
-const { isInstalledIosWebApp, startGoogleOAuth, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, GOOGLE_PWA_POPUP_MARKER } = module.exports;
+const compiledModule = { exports: {} };
+new Function("module", "exports", "process", compiled)(compiledModule, compiledModule.exports, process);
+const { isInstalledIosWebApp, startGoogleOAuth, consumeGooglePwaPopupMarker, announceGooglePwaCompletion, GOOGLE_PWA_POPUP_MARKER } = compiledModule.exports;
 const AUTH_URL = "https://test.supabase.co/auth/v1/authorize?provider=google";
 
 function setup({ installed = true, blocked = false } = {}) {
@@ -55,6 +55,7 @@ function setup({ installed = true, blocked = false } = {}) {
 
 test("installed iOS opens SAME-app window synchronously before asynchronous OAuth and stays on allowed callback",async()=>{
   const f=setup();try{
+    assert.equal(isInstalledIosWebApp(),true);
     const client={auth:{signInWithOAuth:async({provider,options})=>{
       f.calls.push(["sign-in",provider,options]);
       return {data:{url:AUTH_URL},error:null};
