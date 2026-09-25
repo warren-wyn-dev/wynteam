@@ -104,3 +104,53 @@
     scroll-behavior: auto;
   }
 }
+
+/* Real iOS/Android swipe-to-dismiss surface. The entire 26px strip is the
+   touch target; the 38x5px visual handle stays identical to the mockup. */
+.beta4-composer-backdrop:not(.wyn-quote-backdrop) .beta4-composer-drag-region {
+  display: flex;
+  flex: 0 0 26px;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 28px 28px 0 0;
+  background: transparent;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+.beta4-composer-backdrop.is-dragging:not(.wyn-quote-backdrop) .beta4-composer-drag-region {
+  cursor: grabbing;
+}
+
+/* Once the handle is used, switch from the entrance keyframes to a
+   transform that follows the finger and springs back on a short swipe. */
+.beta4-composer-backdrop.has-dragged:not(.wyn-quote-backdrop) > .beta4-composer {
+  animation: none;
+  transform: translate3d(0, var(--wyn-composer-drag, 0px), 0);
+  transition: transform 270ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.beta4-composer-backdrop.is-dragging:not(.wyn-quote-backdrop) > .beta4-composer {
+  transition: none;
+}
+
+/* A successful swipe continues below the viewport from the release point.
+   Cancel/backdrop still use the original keyframe exit when not dragged. */
+.beta4-composer-backdrop.is-closing.has-dragged:not(.wyn-quote-backdrop) > .beta4-composer {
+  animation: none;
+  transform: translate3d(0, 105dvh, 0);
+  transition: transform 260ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beta4-composer-backdrop.has-dragged:not(.wyn-quote-backdrop) > .beta4-composer {
+    transition: none !important;
+  }
+}
