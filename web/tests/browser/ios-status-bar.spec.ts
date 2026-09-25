@@ -22,7 +22,16 @@ test("installed iOS Home paints status backing in the header rather than a fixed
   await expect(strip).toHaveCSS("display", "none");
   await expect(page.locator(".wyn-home")).toHaveCSS("backdrop-filter", "none");
   const homePadding = await page.locator(".wyn-home").evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
-  expect(homePadding).toBe(20);
+  // Derive the simulated device safe-area instead of assuming it is 0px.
+  const safeInset = await page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.paddingTop = "env(safe-area-inset-top, 0px)";
+    document.body.append(probe);
+    const inset = parseFloat(getComputedStyle(probe).paddingTop);
+    probe.remove();
+    return inset;
+  });
+  expect(homePadding).toBeCloseTo(safeInset + 20, 0);
   const gradient = await page.locator(".wyn-home").evaluate((el) => getComputedStyle(el).backgroundImage);
   expect(gradient).toContain("linear-gradient(");
   expect(gradient).toContain("rgb(16, 17, 20)");
@@ -91,12 +100,29 @@ test("installed iOS keeps non-profile headers crisp but leaves the profile cover
   // Ensure native shadow clearance applies to all top-bar controls.
   for (const selector of [".route-header", ".wyn-chat-inbox .flutter-chat-header", ".conversation-modern-header", ".detail-floating-header"]) {
     const padding = await page.locator(selector).evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
-    expect(padding).toBeGreaterThanOrEqual(20);
-    expect(padding).toBeLessThan(40);
+    // Chat and conversation intentionally add 6px or 8px to the shared inset.
+    const safeInset = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.paddingTop = "env(safe-area-inset-top, 0px)";
+      document.body.append(probe);
+      const inset = parseFloat(getComputedStyle(probe).paddingTop);
+      probe.remove();
+      return inset;
+    });
+    expect(padding).toBeGreaterThanOrEqual(safeInset + 20);
+    expect(padding).toBeLessThanOrEqual(safeInset + 32);
   }
   const inboxHeight = await page.locator(".wyn-chat-inbox .flutter-chat-header").evaluate((el) => parseFloat(getComputedStyle(el).height));
-  expect(inboxHeight).toBeGreaterThanOrEqual(88);
-  expect(inboxHeight).toBeLessThan(110);
+  const inset = await page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.paddingTop = "env(safe-area-inset-top, 0px)";
+    document.body.append(probe);
+    const value = parseFloat(getComputedStyle(probe).paddingTop);
+    probe.remove();
+    return value;
+  });
+  expect(inboxHeight).toBeGreaterThanOrEqual(inset + 88);
+  expect(inboxHeight).toBeLessThanOrEqual(inset + 100);
 
   await page.evaluate(() => document.documentElement.classList.add("wyn-status-cover-route"));
   await expect(strip).toHaveCSS("display", "none");
