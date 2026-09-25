@@ -7,30 +7,29 @@ test.use({ serviceWorkers: "block" });
 async function swipe(page: Page, selector: string, distanceY: number, distanceX = 0) {
   await page.locator(selector).evaluate((element, { dy, dx }) => {
     const target = element;
-    const makeTouch = (x: number, y: number) => new Touch({
-      identifier: 9,
-      target,
-      clientX: x,
-      clientY: y,
-      pageX: x,
-      pageY: y,
-      screenX: x,
-      screenY: y,
+    // WebKit's automation runtime exposes Touch but throws "Illegal
+    // constructor" on new Touch(...). A cancelable native Event with
+    // TouchEvent-shaped properties delivers the identical handler payload
+    // on Chromium and WebKit, without that test-only platform failure.
+    const point = (x: number, y: number) => ({
+      identifier: 9, target, clientX: x, clientY: y,
     });
-    const start = makeTouch(180, 360);
-    target.dispatchEvent(new TouchEvent("touchstart", {
-      bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start],
-    }));
+    const dispatch = (name: string, touches: ReturnType<typeof point>[], changed: ReturnType<typeof point>[]) => {
+      const event = new Event(name, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        touches: { value: touches },
+        targetTouches: { value: touches },
+        changedTouches: { value: changed },
+      });
+      target.dispatchEvent(event);
+    };
+    const start = point(180, 360);
+    dispatch("touchstart", [start], [start]);
     for (let i = 1; i <= 8; i += 1) {
-      const point = makeTouch(180 + dx * i / 8, 360 + dy * i / 8);
-      target.dispatchEvent(new TouchEvent("touchmove", {
-        bubbles: true, cancelable: true, touches: [point], targetTouches: [point], changedTouches: [point],
-      }));
+      const current = point(180 + dx * i / 8, 360 + dy * i / 8);
+      dispatch("touchmove", [current], [current]);
     }
-    const end = makeTouch(180 + dx, 360 + dy);
-    target.dispatchEvent(new TouchEvent("touchend", {
-      bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [end],
-    }));
+    dispatch("touchend", [], [point(180 + dx, 360 + dy)]);
   }, { dy: distanceY, dx: distanceX });
 }
 
