@@ -107,3 +107,14 @@ snapshot. The auth gate also clears in-memory queries when the user ID changes
 `npm run test:account-cache-isolation` and verify account A→B does not
 surface private cached content. This is separate from checking that Push tokens
 are detached before changing accounts.
+
+### Hosted Vercel Preview gate for combined Phase 1
+
+The existing Phase 5 Vercel Preview workflow is additionally allowlisted for the
+single `release/web-beta1-phase1-combined-qa-20260926` PR head. It performs the
+repo's normal preflight, deploys a Vercel **preview**, runs public-route smoke
+and hosted browser QA, and revokes its temporary automation bypass even on
+failure. This gate must never change the production alias. Confirm the preview
+job passes and inspect cleanup before the founder authorizes a web production
+release; the existing deployment quota is shared, so do not repeatedly rerun
+without a diagnosed failure.
