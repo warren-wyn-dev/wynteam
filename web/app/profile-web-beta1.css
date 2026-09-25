@@ -398,11 +398,13 @@
 
 /* On iOS, black-translucent can produce an OS-composited shadow below the
    clock. CSS cannot disable that native effect. Preserve the full-bleed
-   Profile cover, but keep non-profile controls BELOW a 44px dark clearance
-   after the safe-area inset. Removing the separate fixed fill also avoids
+   Profile cover; non-profile screens instead use a compact 20px buffer
+   below the safe-area inset. The former 44px clearance caused a visibly
+   oversized empty black band on a physical iPhone. Keep the separate
+   fixed fill disabled to avoid
    the contrasting-top-element case described in WebKit 305546. */
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) {
-  --wyn-ios-shadow-clearance: 44px;
+  --wyn-ios-shadow-clearance: 20px;
   --wyn-ios-shadow-end: calc(env(safe-area-inset-top, 0px) + var(--wyn-ios-shadow-clearance));
 }
 :root.wyn-ios-standalone:not(.wyn-status-cover-route)
