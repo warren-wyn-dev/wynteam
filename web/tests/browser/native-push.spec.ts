@@ -76,6 +76,13 @@ test("foreground push uses the registered worker and server icon case matches pu
   expect(worker.indexOf('self.addEventListener("notificationclick"')).toBeLessThan(worker.indexOf("importScripts("));
   expect(worker).toContain("event.stopImmediatePropagation?.()");
   expect(client).toContain("registration.showNotification(title");
+  expect(client).toContain("export async function isCurrentDevicePushEnabled");
+  const settings = source("components/settings-route.tsx");
+  expect(settings).toContain("isCurrentDevicePushEnabled(client, userId)");
+  const profile = source("components/profile-route.tsx");
+  expect(profile.indexOf("detachPushBeforeAccountChange()")).toBeLessThan(profile.indexOf("activateSavedAccount(account.userId)"));
+  const accountAdd = source("components/account-add-route.tsx");
+  expect(accountAdd.indexOf("unsubscribeFromPushNotifications(prior)")).toBeLessThan(accountAdd.indexOf("markAccountStorageActive(storageKey)"));
   expect(client).toContain("void listenForForegroundPush()");
   expect(server).toContain('icon: "/icons/icon-192.png"');
   expect(server).not.toContain('"/icons/Icon-192.png"');

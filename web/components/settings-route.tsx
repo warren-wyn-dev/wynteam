@@ -9,7 +9,7 @@ import { SettingsChangePassword } from "@/components/settings-change-password";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { pushSupported, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { isCurrentDevicePushEnabled, pushSupported, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
   exportMyData,
@@ -146,11 +146,17 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   }, []);
 
   useEffect(() => {
-    void pushSupported().then((supported) => {
+    let active = true;
+    void pushSupported().then(async (supported) => {
+      if (!active) return;
       setPushAvailable(supported);
-      if (supported) setPushEnabled(typeof Notification !== "undefined" && Notification.permission === "granted");
+      if (supported) {
+        const enabled = await isCurrentDevicePushEnabled(client, userId);
+        if (active) setPushEnabled(enabled);
+      }
     });
-  }, []);
+    return () => { active = false; };
+  }, [client, userId]);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");

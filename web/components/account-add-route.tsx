@@ -9,10 +9,13 @@ import { GoogleGlyph } from "@/components/auth-flow/screens";
 import {
   MAX_SAVED_ACCOUNTS,
   createAccountStorageKey,
+  getActiveAccountStorageKey,
   listSavedAccounts,
   markAccountStorageActive,
   registerSessionAccount,
 } from "@/lib/account-registry";
+import { unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function AccountAddRoute() {
   const router = useRouter();
@@ -40,6 +43,24 @@ export function AccountAddRoute() {
 
   const finish = useCallback(async (session: Session) => {
     if (!client) return;
+    // Covers direct /account/add and OAuth returns as well as entry from
+    // Profile: revoke old user's Push token BEFORE activating a new slot.
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      const prior = getSupabaseBrowserClient();
+      const activeStorageKey = getActiveAccountStorageKey();
+      const savedCurrent = listSavedAccounts().find((item) => item.storageKey === activeStorageKey);
+      const priorSession = prior ? await prior.auth.getSession() : null;
+      const priorId = priorSession?.data.session?.user.id;
+      const differentAccount = Boolean(
+        (priorId && priorId !== session.user.id) ||
+        (savedCurrent && savedCurrent.userId !== session.user.id),
+      );
+      if (differentAccount && (!prior || !priorId || (savedCurrent && savedCurrent.userId !== priorId) ||
+          !(await unsubscribeFromPushNotifications(prior)))) {
+        setMessage("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณากลับไปที่บัญชีเดิมแล้วลองอีกครั้ง");
+        return;
+      }
+    }
     const saved = await registerSessionAccount(client, session, storageKey);
     if (!saved) {
       setMessage(`บันทึกบัญชีได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชี`);

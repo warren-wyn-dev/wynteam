@@ -142,6 +142,33 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
   }
 }
 
+/** Whether THIS device's Firebase token is registered for THIS user.
+ * Browser permission alone is not enough: the user may have switched
+ * accounts or explicitly unsubscribed without revoking OS permission.
+ */
+export async function isCurrentDevicePushEnabled(client: SupabaseClient, userId: string): Promise<boolean> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
+  try {
+    const config = await fetchPushConfig();
+    if (!config?.configured) return false;
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration) return false;
+    const fb = await loadFirebase();
+    const messaging = fb.getMessaging(firebaseApp(fb, config));
+    const token = await fb.getToken(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: registration });
+    if (!token) return false;
+    const { data, error } = await client.from("push_tokens")
+      .select("token")
+      .eq("user_id", userId)
+      .eq("token", token)
+      .maybeSingle();
+    return !error && Boolean(data);
+  } catch {
+    return false;
+  }
+}
+
 // Deduplicate the root-mount and Settings-toggle setup attempts.
 let foregroundListenerPromise: Promise<void> | null = null;
 
