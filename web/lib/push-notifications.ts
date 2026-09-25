@@ -80,13 +80,24 @@ export async function subscribeToPushNotifications(
   client: SupabaseClient,
   userId: string,
 ): Promise<PushSubscribeResult> {
-  if (!(await pushSupported())) return { ok: false, reason: "unsupported" };
+  if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) {
+    return { ok: false, reason: "unsupported" };
+  }
 
+  // iOS installed web apps and other browsers require this call to begin
+  // inside the Settings toggle's user gesture. Do not await Firebase config
+  // or feature detection before requesting the permission.
+  let permission: NotificationPermission;
+  try {
+    permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+  if (permission !== "granted") return { ok: false, reason: "denied" };
+
+  if (!(await pushSupported())) return { ok: false, reason: "unsupported" };
   const config = await fetchPushConfig();
   if (!config?.configured) return { ok: false, reason: "not-configured" };
-
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return { ok: false, reason: "denied" };
 
   try {
     const fb = await loadFirebase();
