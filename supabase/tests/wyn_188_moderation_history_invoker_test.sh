@@ -44,6 +44,20 @@ grant usage on schema public, storage to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated, anon;
 SQL
 
+cat > "$WORK_DIR/schema_check.sql" <<'SQL'
+DO $verify_schema$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class
+    WHERE oid='public.admin_user_moderation_history'::regclass
+      AND 'security_invoker=true' = ANY(reloptions)
+  ) THEN
+    RAISE EXCEPTION 'Canonical schema.sql omitted WYN-188 invoker setting';
+  END IF;
+END
+$verify_schema$;
+SQL
+
 cat > "$WORK_DIR/assert.sql" <<'SQL'
 \set ON_ERROR_STOP on
 create table results (label text primary key, actual int, expected int);
@@ -119,6 +133,7 @@ createdb_any "$DB_NAME"
 trap 'dropdb_any "$DB_NAME"; rm -rf "$WORK_DIR"' EXIT
 psql_file "$DB_NAME" "$WORK_DIR/stub.sql"
 psql_file "$DB_NAME" "$SCRIPT_DIR/../schema.sql"
+psql_file "$DB_NAME" "$WORK_DIR/schema_check.sql"
 psql_file "$DB_NAME" "$SCRIPT_DIR/../migrations_wyn156_view_privileges.sql"
 psql_file "$DB_NAME" "$SCRIPT_DIR/../migrations_wyn188_moderation_history_invoker.sql"
 psql_file "$DB_NAME" "$WORK_DIR/assert.sql"
