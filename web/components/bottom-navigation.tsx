@@ -74,6 +74,8 @@ export function BottomNavigation({
   isActive: (href: string) => boolean;
 }) {
   const homeActive = isActive("/");
+  const clubActive = isActive("/clubs");
+  const chatActive = isActive("/chat");
   const profileActive = isActive(profileHref);
   // A bottom-dock visit is the root profile; content links keep back navigation.
   const profileTabHref = `${profileHref}?from=tab`;
@@ -101,8 +103,8 @@ export function BottomNavigation({
         <MaterialNavGlyph kind="home" selected={homeActive} />
         <span>หน้าหลัก</span>
       </Link>
-      <Link className={`route-nav-link ${isActive("/clubs") ? "active" : ""}`} href="/clubs" aria-label="คลับ">
-        <MaterialNavGlyph kind="club" selected={isActive("/clubs")} />
+      <Link className={`route-nav-link ${clubActive ? "active" : ""}`} href="/clubs" aria-label="คลับ" onClick={handleActiveTabTap(clubActive, "/clubs")}>
+        <MaterialNavGlyph kind="club" selected={clubActive} />
         <span>คลับ</span>
       </Link>
       <Link
@@ -114,8 +116,8 @@ export function BottomNavigation({
         <MaterialNavGlyph kind="add" />
         <span>โพสต์</span>
       </Link>
-      <Link className={`route-nav-link ${isActive("/chat") ? "active" : ""}`} href="/chat" aria-label="แชท">
-        <MaterialNavGlyph kind="chat" selected={isActive("/chat")} />
+      <Link className={`route-nav-link ${chatActive ? "active" : ""}`} href="/chat" aria-label="แชท" onClick={handleActiveTabTap(chatActive, "/chat")}>
+        <MaterialNavGlyph kind="chat" selected={chatActive} />
         <span>แชท</span>
       </Link>
       <Link className={`route-nav-link ${profileActive ? "active" : ""}`} href={profileTabHref} aria-label="โปรไฟล์" onClick={handleProfileClick}>
