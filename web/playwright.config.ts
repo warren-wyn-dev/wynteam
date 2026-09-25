@@ -5,12 +5,12 @@ const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
 
 export default defineConfig({
   testDir: "./tests/browser",
-  // Hosted Preview is wired to production Supabase, not local reference
-  // fixtures. These two suites require the local fixture routes/seeded
-  // reference accounts and remain mandatory in the Phase 4 local CI job.
-  // All other Browser QA still runs against the real deployed preview.
+  // Hosted Preview is wired to production Supabase rather than local
+  // reference fixtures. Food's dev fixture redirects on production builds
+  // by design; do NOT loosen that gate merely to satisfy remote Browser QA.
+  // All three fixture-only suites remain mandatory in local CI.
   testIgnore: remoteBaseURL
-    ? ["**/content-reference-flow.spec.ts", "**/composer-caption-spacing.spec.ts"]
+    ? ["**/content-reference-flow.spec.ts", "**/composer-caption-spacing.spec.ts", "**/wynos-food-customer-demo.spec.ts"]
     : [],
   timeout: 45_000,
   expect: { timeout: 8_000 },
