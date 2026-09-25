@@ -15,6 +15,14 @@
   /* Reference screenshot uses a compact iPhone top inset; cap Dynamic Island spacing to that visual target. */
   padding-top: min(env(safe-area-inset-top), 20px);
   background: var(--wyn-bg);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Home-only immersive feed: hide the entire wordmark/header and all three
+   tabs together without changing their layout or the native safe-area. */
+:root.wyn-home-scroll-hidden .wyn-home {
+  transform: translateY(-100%);
+  pointer-events: none;
 }
 
 /* ---------- Header ---------- */
@@ -671,6 +679,7 @@
    (heart-burst like animation, etc.) was gated behind this before now either
    — consolidating the fallback here for the 3 new transitions this task adds. */
 @media (prefers-reduced-motion: reduce) {
+  .wyn-home,
   .wyn-home-header-action,
   .wyn-post-follow-pill,
   .wyn-home-tab-indicator {
