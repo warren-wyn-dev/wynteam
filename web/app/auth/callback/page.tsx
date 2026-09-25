@@ -4,8 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { hasProfileRow } from "@/lib/auth-repository";
+import { announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 
 /**
+ * Email confirmation and installed-iOS Google popup both exchange their
+ * one-time PKCE code in the SAME browser storage partition that started
+ * authentication. A Google popup announces success to the waiting PWA.
  * Email confirmation finishes authentication before onboarding writes.
  * This browser callback works with the project's SSR cookie client and its
  * multi-account local-storage client (whose PKCE verifier is browser-only).
@@ -47,13 +52,34 @@ export default function EmailConfirmationCallbackPage() {
           throw confirmed.error ?? new Error("Unable to confirm session");
         }
 
-        // Step-1 fields (not credentials) survive in sessionStorage. The
-        // signed-in step-1 path now has permission to write profile + DOB.
+        // Remove the one-time code from the address bar before navigating,
+        // messaging the opener, or recording any subsequent app interaction.
         window.history.replaceState(null, "", "/auth/callback");
+        if (consumeGooglePwaPopupMarker()) {
+          let destination = "/";
+          try {
+            const existingProfile = await hasProfileRow(client, confirmed.data.user.id);
+            destination = existingProfile ? "/" : "/signup/step-1";
+          } catch {
+            // Google authentication already succeeded; an unrelated profile
+            // lookup outage must not send the user back through OAuth again.
+          }
+          announceGooglePwaCompletion();
+          // A script-opened window may close itself; if iOS declines, the
+          // authenticated popup still offers a working Home/onboarding path.
+          if (window.opener && !window.opener.closed) {
+            window.setTimeout(() => window.close(), 600);
+          }
+          router.replace(destination);
+          return;
+        }
+
+        // The email-confirmation callback's original onboarding flow remains
+        // unchanged. Signup draft fields survive in sessionStorage.
         router.replace("/signup/step-1");
       } catch {
         window.history.replaceState(null, "", "/auth/callback");
-        setError("ยืนยันอีเมลไม่สำเร็จหรือลิงก์หมดอายุ กรุณาเข้าสู่ระบบหรือสมัครใหม่อีกครั้ง");
+        setError("เข้าสู่ระบบหรือยืนยันอีเมลไม่สำเร็จ กรุณาลองใหม่");
       }
     })();
   }, [router]);
@@ -63,12 +89,12 @@ export default function EmailConfirmationCallbackPage() {
       <section style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
         {error ? (
           <>
-            <h1 style={{ fontSize: 24, fontWeight: 700 }}>ยืนยันอีเมลไม่สำเร็จ</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 700 }}>ยืนยันตัวตนไม่สำเร็จ</h1>
             <p role="alert" style={{ margin: "16px 0", lineHeight: 1.6 }}>{error}</p>
             <button type="button" onClick={() => router.replace("/login")}>ไปหน้าเข้าสู่ระบบ</button>
           </>
         ) : (
-          <p role="status">กำลังยืนยันอีเมลและนำคุณกลับไปตั้งค่าโปรไฟล์…</p>
+          <p role="status">กำลังยืนยันตัวตนและนำคุณกลับไปยัง WYNOS…</p>
         )}
       </section>
     </main>
