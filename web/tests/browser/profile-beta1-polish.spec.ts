@@ -48,8 +48,9 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
 
   // No changes to the user-supplied cover or the approved text sizes.
   expect(css).toContain("padding: 0 16px 4px;");
-  expect(layout).toContain('statusBarStyle:"black-translucent"');
-  expect(css).toContain("body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill");
+  expect(layout).toContain('statusBarStyle:"default"');
+  expect(css).not.toContain(".wyn-ios-status-fill");
+  expect(css).toContain(":root.wyn-ios-pwa .wyn-profile-beta1 .wyn-profile-topbar");
   expect(css).toContain(".wyn-profile-cover::after");
   expect(css).not.toContain("margin-top: calc(-1 * env(safe-area-inset-top");
   expect(profile).toContain('<Image src={normalizeExternalUrl(profile.cover_url) ?? ""}');
