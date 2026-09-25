@@ -45,3 +45,17 @@ export function clearSessionChatDrafts(): void {
     }
   } catch { /* Never block sign-out because browser storage is unavailable. */ }
 }
+
+/** Purge only this removed account's unsent text. */
+export function clearChatDraftsForUser(userId: string): void {
+  if (!userId) return;
+  try {
+    const store = storage();
+    if (!store) return;
+    const prefix = CHAT_DRAFT_PREFIX + encodeURIComponent(userId) + ":";
+    for (let index = store.length - 1; index >= 0; index -= 1) {
+      const key = store.key(index);
+      if (key?.startsWith(prefix)) store.removeItem(key);
+    }
+  } catch { /* Never block removing a saved account. */ }
+}

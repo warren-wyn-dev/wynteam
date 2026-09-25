@@ -77,3 +77,13 @@ test("read-receipt failure cannot trigger a false successful-send failure", () =
   assert.match(thread, /void markConversationRead\(client, realConversationId\)\.catch\(/);
   assert.match(thread, /await markConversationRead\(client, conversationId\)\.catch\(/);
 });
+
+
+test("removing a saved account purges only its chat drafts", () => {
+  const { api } = harness();
+  const a = api.chatDraftKey("A", "room"), b = api.chatDraftKey("B", "room");
+  api.writeChatDraft(a, "A private"); api.writeChatDraft(b, "B private");
+  api.clearChatDraftsForUser("B");
+  assert.equal(api.readChatDraft(a), "A private");
+  assert.equal(api.readChatDraft(b), "");
+});

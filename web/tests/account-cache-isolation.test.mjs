@@ -21,16 +21,21 @@ function harness() {
     removeItem: (key) => cache.delete(key),
   };
   const exports = {};
+  const draftOperations = { clears: 0, removedUsers: [] };
   runInNewContext(outputText, {
     exports,
     require: (path) => {
       if (path === "@/lib/query-persist-key") return { PERSIST_QUERY_CACHE_KEY: PERSIST_KEY };
+      if (path === "@/lib/chat-draft-storage") return {
+        clearSessionChatDrafts: () => { draftOperations.clears++; },
+        clearChatDraftsForUser: (id) => { draftOperations.removedUsers.push(id); },
+      };
       throw new Error("Unexpected import: " + path);
     },
     window: { localStorage },
     Date,
   }, { filename: "account-registry.compiled.js" });
-  return { registry: exports, localStorage };
+  return { registry: exports, localStorage, draftOperations };
 }
 
 test("switching saved accounts discards the previous user's persisted queries", () => {
@@ -73,4 +78,22 @@ test("query provider and auth gate reuse shared cache key and clear on account i
   assert.match(provider, /key: PERSIST_QUERY_CACHE_KEY/);
   assert.match(gate, /previousSession\.user\.id !== nextSession\?\.user\.id/);
   assert.match(gate, /queryClient\.clear\(\)/);
+});
+
+
+test("saved-account switches and removals erase private unsent chat text", () => {
+  const { registry, localStorage, draftOperations } = harness();
+  localStorage.setItem(REGISTRY_KEY, JSON.stringify([
+    { userId: "A", storageKey: "wynos.account.A", lastUsedAt: 1 },
+    { userId: "B", storageKey: "wynos.account.B", lastUsedAt: 2 },
+  ]));
+  localStorage.setItem(ACTIVE_KEY, "wynos.account.A");
+  assert.equal(registry.activateSavedAccount("B"), true);
+  assert.equal(draftOperations.clears, 1);
+  registry.markAccountStorageActive("wynos.account.C");
+  assert.equal(draftOperations.clears, 2);
+  registry.markAccountStorageActive("wynos.account.C");
+  assert.equal(draftOperations.clears, 2, "reopening same slot preserves its own text");
+  registry.removeSavedAccount("B");
+  assert.deepEqual(draftOperations.removedUsers, ["B"]);
 });
