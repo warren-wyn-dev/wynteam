@@ -11,6 +11,7 @@ import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
 import { ChatListSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
+import { attachChatResume } from "@/lib/chat-resume";
 import { useOnlineUserIds } from "@/lib/presence";
 import {
   acceptMessageRequest,
@@ -71,6 +72,10 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
 
   const refreshInbox = useCallback(() => { void refetch(); }, [refetch]);
   useRouteRefreshListener(refreshInbox);
+  useEffect(() => {
+    if (allowed !== true) return;
+    return attachChatResume(refreshInbox);
+  }, [allowed, refreshInbox]);
 
   useEffect(() => {
     if (allowed !== true) return;

@@ -13,6 +13,8 @@ import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WyniiConversationHeader } from "@/components/wynii-chat";
 import { relativeTimeTh } from "@/lib/feed";
+import { attachChatResume } from "@/lib/chat-resume";
+import { clearChatTextDraft, readChatTextDraft, writeChatTextDraft } from "@/lib/chat-text-drafts";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
@@ -171,6 +173,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   // composer.
   const isComposeMode = conversationId === "new";
   const cacheKey = `conversation:${userId}:${conversationId}`;
+  const textDraftScope = isComposeMode ? (userFromUrl ? `new:${userFromUrl}` : "") : conversationId;
+  const textDraftIdentity = `${userId}:${textDraftScope}`;
   const cached = getMountCache<ConversationSnapshot>(cacheKey);
   const [otherId, setOtherId] = useState(userFromUrl);
   const [other, setOther] = useState<ProfileRow | null>(cached?.other ?? null);
@@ -180,7 +184,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => readChatTextDraft(userId, textDraftScope));
+  const textDraftIdentityRef = useRef(textDraftIdentity);
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
@@ -195,6 +200,17 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   useEffect(() => {
     setMountCache(cacheKey, { other, messages, meta, hasMore });
   }, [cacheKey, other, messages, meta, hasMore]);
+
+  // Restore only this account + conversation; never persist attachment files.
+  // Keep the text on disk while a send is pending, deleting it only on success.
+  useEffect(() => {
+    if (textDraftIdentityRef.current !== textDraftIdentity) {
+      textDraftIdentityRef.current = textDraftIdentity;
+      setDraft(readChatTextDraft(userId, textDraftScope));
+      return;
+    }
+    if (!sending) writeChatTextDraft(userId, textDraftScope, draft);
+  }, [draft, sending, textDraftIdentity, textDraftScope, userId]);
 
   // The composer is a multi-line textarea (WYN-031's spec: minLines 1,
   // maxLines ~6, capped by CSS max-height + overflow-y after that) instead
@@ -262,10 +278,24 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       finally { if (live) setLoading(false); }
     })();
     if (isComposeMode) return () => { live = false; };
-    const channel = subscribeConversationMessages(client, conversationId, () => { void refresh(); });
+    const channel = subscribeConversationMessages(
+      client, conversationId,
+      () => { void refresh(); },
+      () => {
+        // Read receipt event: refresh metadata only, never mark as read again.
+        void fetchConversationMeta(client, userId, conversationId).then((next) => {
+          if (live) setMeta(next);
+        }).catch(() => undefined);
+      },
+    );
     channelRef.current = channel;
     return () => { live = false; if (channelRef.current) void client.removeChannel(channelRef.current); };
   }, [client, conversationId, isComposeMode, refresh, resolveOther, router, userId]);
+
+  useEffect(() => {
+    if (isComposeMode) return;
+    return attachChatResume(() => refresh().catch(() => setError("เชื่อมต่ออีกครั้งไม่สำเร็จ กรุณาลองใหม่")));
+  }, [isComposeMode, refresh]);
 
   const loadOlder = async () => {
     const oldest = messages[messages.length - 1];
@@ -305,6 +335,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       // just from opening the composer.
       const realConversationId = isComposeMode ? await getOrCreateConversation(client, otherId) : conversationId;
       const created = await sendMessage(client, userId, realConversationId, { text, file: attachedFile });
+      clearChatTextDraft(userId, textDraftScope);
       if (isComposeMode) {
         // A full navigation (not just a state update) so the destination
         // mounts fresh against the real conversation id -- realtime
