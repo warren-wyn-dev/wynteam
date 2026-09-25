@@ -48,6 +48,50 @@ test("Home header is balanced while keeping the approved feed tabs", async ({ pa
   expect(Math.abs((indicatorBox?.height ?? 0) - 2)).toBeLessThanOrEqual(0.5);
 });
 
+test("Home header keeps WYNOS centered with separate 44px touch targets at mobile widths", async ({ page }) => {
+  for (const width of [320, 390, 432]) {
+    await page.setViewportSize({ width, height: 768 });
+    await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
+    const header = page.locator(".wyn-home-header");
+    const wordmark = page.locator(".wyn-home-wordmark");
+    const menu = page.getByRole("button", { name: "เมนู" });
+    const search = page.getByRole("button", { name: "ค้นหา" });
+    const notification = page.getByRole("button", { name: /การแจ้งเตือน/ });
+    const [headerBox, wordmarkBox, menuBox, searchBox, notificationBox] = await Promise.all([
+      header.boundingBox(), wordmark.boundingBox(), menu.boundingBox(),
+      search.boundingBox(), notification.boundingBox(),
+    ]);
+    for (const box of [headerBox, wordmarkBox, menuBox, searchBox, notificationBox]) {
+      expect(box).not.toBeNull();
+    }
+    expect(Math.abs(wordmarkBox!.x + wordmarkBox!.width / 2 - (headerBox!.x + headerBox!.width / 2))).toBeLessThanOrEqual(1);
+    for (const button of [menuBox!, searchBox!, notificationBox!]) {
+      expect(button.width).toBeGreaterThanOrEqual(44);
+      expect(button.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(searchBox!.x).toBeGreaterThanOrEqual(menuBox!.x + menuBox!.width);
+    expect(notificationBox!.x).toBeGreaterThanOrEqual(searchBox!.x + searchBox!.width - 0.5);
+    expect(notificationBox!.x + notificationBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width);
+    await expect(menu.locator("svg")).toHaveCSS("width", "23px");
+    await expect(search.locator("svg")).toHaveCSS("width", "23px");
+    await expect(notification.locator("svg")).toHaveCSS("width", "23px");
+    await expect(menu).toHaveCSS("color", "rgb(115, 119, 128)");
+    await expect(search).toHaveCSS("color", "rgb(115, 119, 128)");
+    await expect(notification).toHaveCSS("color", "rgb(115, 119, 128)");
+    await expect(page.locator(".wyn-home-tab")).toHaveCount(3);
+    await expect(page.locator(".wyn-home-tabs")).toHaveCSS("height", "38px");
+  }
+});
+
+test("Home header icons remain legible but subdued in dark mode", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
+  for (const label of ["เมนู", "ค้นหา"]) {
+    await expect(page.getByRole("button", { name: label })).toHaveCSS("color", "rgb(163, 166, 173)");
+  }
+  await expect(page.getByRole("button", { name: /การแจ้งเตือน/ })).toHaveCSS("color", "rgb(163, 166, 173)");
+});
+
 test("first post matches compact avatar author caption and action geometry", async ({ page }) => {
   const post = page.locator(".wyn-post").first();
   const avatar = post.locator(".wyn-post-avatar");
