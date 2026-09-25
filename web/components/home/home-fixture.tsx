@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { HomeHeader } from "@/components/home/home-header";
+import { HomeComposeFab } from "@/components/home/home-compose-fab";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
 import type { HomeFeedRow } from "@/lib/feed";
@@ -153,6 +154,7 @@ export function HomeFixture() {
               />
             ))}
           </div>
+          <HomeComposeFab />
         </main>
       </div>
       {/* Sibling of .route-with-bottom-nav, matching AppBottomNavHost's
