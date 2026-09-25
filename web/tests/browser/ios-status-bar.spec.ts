@@ -86,10 +86,20 @@ test("installed iOS keeps non-profile headers crisp but leaves the profile cover
   await expect(page.locator(".wyn-chat-inbox .flutter-chat-header")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(page.locator(".conversation-modern-header")).toHaveCSS("backdrop-filter", "none");
   await expect(page.locator(".detail-floating-header")).toHaveCSS("backdrop-filter", "none");
-  // The compact fix must not inject a second artificial status-bar spacer.
+  // The compact fix must not inject a second artificial 44px spacer.
+  // Compare with the *actual* browser safe area; iPhone 13's native inset
+  // can itself exceed 44px, so a fixed upper bound would be incorrect.
+  const safeTop = await page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;visibility:hidden;padding-top:env(safe-area-inset-top, 0px)";
+    document.body.append(probe);
+    const value = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+    probe.remove();
+    return value;
+  });
   for (const selector of [".route-header", ".conversation-modern-header", ".detail-floating-header"]) {
     const padding = await page.locator(selector).evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
-    expect(padding).toBeLessThan(44);
+    expect(padding).toBeLessThanOrEqual(safeTop + 9);
   }
 
   await page.evaluate(() => document.documentElement.classList.add("wyn-status-cover-route"));
