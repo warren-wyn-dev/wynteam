@@ -7,7 +7,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
 import { followButtonLabel } from "@/components/ui/follow-button-label";
@@ -66,17 +65,12 @@ function chatTimeLabel(value: string): string {
   return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
 }
 
-type ChatInboxSnapshot = { allowed: boolean; rows: ConversationRow[]; requests: ConversationRow[] };
-
 function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: string }) {
   const router = useRouter();
-  const cacheKey = `chat-inbox:${userId}`;
-  const cached = getMountCache<ChatInboxSnapshot>(cacheKey);
-  const hadCache = useRef(cached !== undefined);
-  const [allowed, setAllowed] = useState<boolean | null>(cached?.allowed ?? null);
-  const [rows, setRows] = useState<ConversationRow[]>(cached?.rows ?? []);
-  const [requests, setRequests] = useState<ConversationRow[]>(cached?.requests ?? []);
-  const [loading, setLoading] = useState(!cached);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [rows, setRows] = useState<ConversationRow[]>([]);
+  const [requests, setRequests] = useState<ConversationRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
@@ -85,30 +79,19 @@ function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: st
   const [finding, setFinding] = useState(false);
   const [error, setError] = useState("");
 
-  // Restore the last inbox instantly on tab revisit; revalidate it silently
-  // so message previews and unread indicators never stay stale.
-  const load = useCallback(async (showLoading = true) => {
-    if (showLoading) setLoading(true);
-    setError("");
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
     try {
       const canChat = await chatAllowed(client);
       setAllowed(canChat);
-      if (!canChat) {
-        setRows([]); setRequests([]);
-        setMountCache<ChatInboxSnapshot>(cacheKey, { allowed: false, rows: [], requests: [] });
-        return;
-      }
+      if (!canChat) { setRows([]); setRequests([]); return; }
       const [inbox, pending] = await Promise.all([fetchInbox(client, 0), fetchMessageRequests(client, 0)]);
-      const nextRequests = pending as ConversationRow[];
       setRows(inbox);
-      setRequests(nextRequests);
-      setMountCache<ChatInboxSnapshot>(cacheKey, { allowed: true, rows: inbox, requests: nextRequests });
+      setRequests(pending as ConversationRow[]);
     } catch (e) { setError(e instanceof Error ? e.message : "โหลด Chat ไม่สำเร็จ"); }
     finally { setLoading(false); }
-  }, [client, cacheKey]);
-  useEffect(() => { void load(!hadCache.current); }, [load]);
-  const refreshInbox = useCallback(() => { void load(false); }, [load]);
-  useRouteRefreshListener(refreshInbox);
+  }, [client]);
+  useEffect(() => { void load(); }, [load]);
 
   const findPeople = async () => {
     const value = query.trim();
@@ -488,7 +471,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
 }
 
 export function ChatRoute() {
-  return <DeveloperRouteGate>{({ client, userId }) => <ChatInboxInner key={userId} client={client} userId={userId} />}</DeveloperRouteGate>;
+  return <DeveloperRouteGate>{({ client, userId }) => <ChatInboxInner client={client} userId={userId} />}</DeveloperRouteGate>;
 }
 
 export function ConversationRoute({ conversationId }: { conversationId: string }) {
