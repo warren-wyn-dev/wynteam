@@ -20,7 +20,8 @@ test("manual install shortcut bypasses the automatic prompt cooldown", async ({ 
   await page.addInitScript(() => {
     localStorage.setItem("wyn-install-prompt-dismissed-at", String(Date.now()));
   });
-  await page.goto("/");
+  await page.goto("/welcome", { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.documentElement.dataset.wynosInstallReady === "true");
   await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
   await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toBeVisible();
   await expect(page.getByText("เปิด WYNOS ใน Safari")).toBeVisible();
@@ -30,7 +31,8 @@ test("manual install shortcut bypasses the automatic prompt cooldown", async ({ 
 
 test("manual Android install shows menu guidance without a Chrome prompt", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-android", "Android install instructions");
-  await page.goto("/");
+  await page.goto("/welcome", { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.documentElement.dataset.wynosInstallReady === "true");
   await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
   await expect(page.getByText("เปิด WYNOS ใน Chrome แล้วแตะเมนู")).toBeVisible();
   await expect(page.getByRole("button", { name: "ติดตั้ง", exact: true })).toHaveCount(0);
@@ -41,14 +43,16 @@ test("installed app does not show install instructions", async ({ page }, testIn
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "standalone", { configurable: true, value: true });
   });
-  await page.goto("/");
+  await page.goto("/welcome", { waitUntil: "networkidle" });
+  // Installed mode intentionally does not install the manual shortcut.
   await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
   await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toHaveCount(0);
 });
 
 test("appinstalled hides install UI for the rest of the current browser session", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-android", "Android install event");
-  await page.goto("/");
+  await page.goto("/welcome", { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.documentElement.dataset.wynosInstallReady === "true");
   await page.evaluate(() => window.dispatchEvent(new Event("wynos:open-install")));
   await expect(page.getByRole("dialog", { name: "เพิ่ม WYNOS ไว้ที่หน้าจอหลัก" })).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
