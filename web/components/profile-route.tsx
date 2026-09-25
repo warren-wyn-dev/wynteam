@@ -29,6 +29,7 @@ import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, type HomeV
 import type { HomeFeedRow } from "@/lib/feed";
 import { fetchProfileLikedContent, fetchProfilePostTimeline, fetchProfileStandardReposts, PROFILE_POST_PAGE_SIZE, PROFILE_REPOST_PAGE_SIZE } from "@/lib/profile-post-feed";
 import { haptic } from "@/lib/haptics";
+import { unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { deleteMountCache, getMountCache, setMountCache } from "@/lib/mount-cache";
 import { normalizeExternalUrl } from "@/lib/external-link";
 import { shareOrCopyLink } from "@/lib/share";
@@ -437,10 +438,22 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
     setAccountSwitcherOpen(true);
     void registerCurrentAccount(client).then(() => setSavedAccounts(listSavedAccounts()));
   };
-  const switchToAccount = (account: SavedAccount) => {
+  // Never let the same FCM device token keep delivering account A's
+  // private notifications after account B becomes active. Detach while A's
+  // Supabase session and its RLS permissions are still available.
+  const detachPushBeforeAccountChange = async () => {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return true;
+    return unsubscribeFromPushNotifications(client);
+  };
+  const switchToAccount = async (account: SavedAccount) => {
     if (action || account.userId === userId) { setAccountSwitcherOpen(false); return; }
     setAction(true);
     setAccountSwitcherError("");
+    if (!(await detachPushBeforeAccountChange())) {
+      setAction(false);
+      setAccountSwitcherError("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณาต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
+      return;
+    }
     if (!activateSavedAccount(account.userId)) {
       setAction(false);
       setAccountSwitcherError("สลับบัญชีไม่สำเร็จ");
@@ -456,6 +469,12 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
     setSavedAccounts(accounts);
     if (accounts.length >= MAX_SAVED_ACCOUNTS) {
       setAccountSwitcherError(`บันทึกได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชีบนอุปกรณ์นี้`);
+      return;
+    }
+    setAction(true);
+    if (!(await detachPushBeforeAccountChange())) {
+      setAction(false);
+      setAccountSwitcherError("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณาต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
       return;
     }
     setAccountSwitcherOpen(false);

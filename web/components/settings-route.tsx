@@ -9,7 +9,7 @@ import { SettingsChangePassword } from "@/components/settings-change-password";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { pushSupported, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { isCurrentDevicePushEnabled, pushSupported, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
   exportMyData,
@@ -127,13 +127,36 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [pushAvailable, setPushAvailable] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [showInstallShortcut, setShowInstallShortcut] = useState(false);
 
   useEffect(() => {
-    void pushSupported().then((supported) => {
-      setPushAvailable(supported);
-      if (supported) setPushEnabled(typeof Notification !== "undefined" && Notification.permission === "granted");
-    });
+    const standalone = window.matchMedia("(display-mode: standalone)");
+    const refresh = () => {
+      const iosInstalled = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      setShowInstallShortcut(!standalone.matches && !iosInstalled);
+    };
+    refresh();
+    const onInstalled = () => setShowInstallShortcut(false);
+    standalone.addEventListener("change", refresh);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      standalone.removeEventListener("change", refresh);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void pushSupported().then(async (supported) => {
+      if (!active) return;
+      setPushAvailable(supported);
+      if (supported) {
+        const enabled = await isCurrentDevicePushEnabled(client, userId);
+        if (active) setPushEnabled(enabled);
+      }
+    });
+    return () => { active = false; };
+  }, [client, userId]);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -181,7 +204,11 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
         }
         setPushEnabled(true);
       } else {
-        await unsubscribeFromPushNotifications(client);
+        const removed = await unsubscribeFromPushNotifications(client);
+        if (!removed) {
+          setError("ปิดการแจ้งเตือนไม่สำเร็จ กรุณาลองอีกครั้ง");
+          return;
+        }
         setPushEnabled(false);
       }
     } finally {
@@ -245,6 +272,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
           </div>
           <h2>การตั้งค่าแอป</h2>
           <div className="settings-group">
+            {showInstallShortcut ? <SettingRow leading={<WynosIcon name="smartphone" size={19} strokeWidth={2} />} title="ติดตั้ง WYNOS" description="เพิ่มลงหน้าจอหลักและเปิดแบบแอป" onClick={() => window.dispatchEvent(new Event("wynos:open-install"))} /> : null}
             <SettingRow leading={<WynosIcon name="notifications" size={19} strokeWidth={2} />} title="การแจ้งเตือน" onClick={() => setSection("notifications")} />
             <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีมเข้ม" />
           </div>

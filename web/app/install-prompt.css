@@ -143,3 +143,9 @@
     transition: none;
   }
 }
+
+/* The Settings route has no bottom navigation. Keep the manual install
+   sheet anchored to the safe area rather than leaving a phantom nav gap. */
+body:not(:has(.route-bottom-nav)) .install-prompt-banner {
+  bottom: calc(12px + env(safe-area-inset-bottom));
+}

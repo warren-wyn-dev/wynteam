@@ -11,7 +11,7 @@ const MAX_PULL_DISTANCE = 88;
 const PULL_DAMPING = 0.48;
 const REFRESH_THRESHOLD = 54;
 
-type TouchGesture = { x: number; y: number; canPull: boolean };
+type TouchGesture = { id: number; x: number; y: number; canPull: boolean };
 
 export type UsePullToRefreshOptions = {
   /**
@@ -73,6 +73,10 @@ export function usePullToRefresh({ enabled, onRefresh }: UsePullToRefreshOptions
     setPullDistance(0);
     void Promise.resolve()
       .then(() => onRefresh())
+      .catch(() => {
+        // Route owners already render their own fetch errors. Keep the
+        // spinner from leaving an unhandled rejection at the app root.
+      })
       .finally(() => {
         refreshingRef.current = false;
         setRefreshing(false);
@@ -80,10 +84,15 @@ export function usePullToRefresh({ enabled, onRefresh }: UsePullToRefreshOptions
   }, [onRefresh]);
 
   const onTouchStart = useCallback((event: TouchEvent<HTMLElement>) => {
-    const touch = event.changedTouches[0];
+    touchGesture.current = null;
+    if (event.touches.length !== 1) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], .route-modal-backdrop, .wyn-post-media-track')) return;
+    const touch = event.touches[0];
     if (!touch) return;
     const isEnabled = typeof enabled === "function" ? enabled() : enabled;
     touchGesture.current = {
+      id: touch.identifier,
       x: touch.clientX,
       y: touch.clientY,
       canPull: isEnabled && window.scrollY <= 2 && !refreshingRef.current,
@@ -92,8 +101,14 @@ export function usePullToRefresh({ enabled, onRefresh }: UsePullToRefreshOptions
 
   const onTouchMove = useCallback((event: TouchEvent<HTMLElement>) => {
     const start = touchGesture.current;
-    const touch = event.changedTouches[0];
-    if (!start || !touch) return;
+    if (!start) return;
+    if (event.touches.length !== 1) {
+      touchGesture.current = null;
+      setPullDistance(0);
+      return;
+    }
+    const touch = event.touches[0];
+    if (!touch || touch.identifier !== start.id) return;
     if (!start.canPull || refreshingRef.current) return;
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
@@ -108,9 +123,9 @@ export function usePullToRefresh({ enabled, onRefresh }: UsePullToRefreshOptions
 
   const onTouchEnd = useCallback((event: TouchEvent<HTMLElement>) => {
     const start = touchGesture.current;
-    const touch = event.changedTouches[0];
+    const touch = start && Array.from(event.changedTouches).find((item) => item.identifier === start.id);
     touchGesture.current = null;
-    if (!start || !touch) {
+    if (!start || !touch || event.touches.length !== 0) {
       setPullDistance(0);
       return;
     }

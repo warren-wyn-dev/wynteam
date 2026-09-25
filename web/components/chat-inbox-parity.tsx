@@ -2,10 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { AppChrome, Avatar, EmptyState } from "@/components/phase3-ui";
 import { ChatListSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -59,11 +60,17 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
   const { data, isLoading: loading, error: loadError, refetch } = useQuery({
     queryKey: ["chat-inbox", userId] as const,
     queryFn: () => fetchChatInboxData(client),
+    // React Query paints cached inbox immediately on tab revisit, then
+    // revalidates messages/unread indicators missed while this route was offscreen.
+    refetchOnMount: "always",
   });
 
   const allowed = data?.allowed ?? null;
   const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
   const requests = data?.requests ?? [];
+
+  const refreshInbox = useCallback(() => { void refetch(); }, [refetch]);
+  useRouteRefreshListener(refreshInbox);
 
   useEffect(() => {
     if (allowed !== true) return;
@@ -265,7 +272,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
 export function ChatInboxParityRoute() {
   return (
     <DeveloperRouteGate>
-      {({ client, userId }) => <ChatInboxParityInner client={client} userId={userId} />}
+      {({ client, userId }) => <ChatInboxParityInner key={userId} client={client} userId={userId} />}
     </DeveloperRouteGate>
   );
 }

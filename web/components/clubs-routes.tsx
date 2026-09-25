@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { useRouteRefreshListener } from "@/components/route-refresh-runtime";
 import { AppChrome, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -67,6 +68,7 @@ function ExploreClubs({ client, userId }: { client: SupabaseClient; userId: stri
   }, [client, userId, cacheKey]);
   useEffect(() => { void load(!hadCache.current); }, [load]);
   const pull = usePullToRefresh({ enabled: true, onRefresh: () => load() });
+  useRouteRefreshListener(pull.refresh);
   const join = async (club: ClubRow) => {
     if (joining) return;
     setJoining(club.id); setError("");
