@@ -234,12 +234,14 @@ export function Beta4Composer({
   // at its top. Native non-passive touch listeners let iOS Safari cancel its
   // overscroll before WebKit takes ownership of the gesture; React's delegated
   // touch handlers may be passive and cannot reliably do that.
-  middleSwipeHandlersRef.current = {
-    canStart: () => !busy && !exiting && !closePrompt && !audienceOpen,
-    start: startHandleDrag,
-    move: moveHandleDrag,
-    finish: finishHandleDrag,
-  };
+  useEffect(() => {
+    middleSwipeHandlersRef.current = {
+      canStart: () => !busy && !exiting && !closePrompt && !audienceOpen,
+      start: startHandleDrag,
+      move: moveHandleDrag,
+      finish: finishHandleDrag,
+    };
+  });
 
   useEffect(() => {
     const surface = middleSwipeSurfaceRef.current;
