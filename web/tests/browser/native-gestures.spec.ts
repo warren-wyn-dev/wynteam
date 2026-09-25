@@ -30,6 +30,7 @@ test("multi-touch and media drags cannot trigger the global back gesture", () =>
   expect(swipe).toContain('event.touches.length !== 1');
   expect(swipe).toContain(".wyn-post-media-track");
   expect(swipe).toContain("blocksEdgeSwipe(event.target)");
+  expect(swipe).toContain('new URLSearchParams(window.location.search).get("from") === "tab"');
   expect(pull).toContain("touch.identifier !== start.id");
   expect(pull).toContain(".catch(() =>");
 });
