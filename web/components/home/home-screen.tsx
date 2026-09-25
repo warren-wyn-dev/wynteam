@@ -1036,6 +1036,15 @@ export function HomeScreen({ session }: { session: Session }) {
       ) : null}
       </AnimatePresence>
 
+      <button
+        className="wyn-home-post-fab"
+        type="button"
+        aria-label="สร้างโพสต์"
+        onClick={() => router.push("/?compose=1")}
+      >
+        <WynosIcon name="post" size={30} strokeWidth={2} />
+      </button>
+
       {hidden ? (
         <div className="audit-undo-toast">
           <span>ไม่สนใจโพสต์นี้แล้ว</span>
