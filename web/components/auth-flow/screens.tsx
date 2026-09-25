@@ -181,6 +181,8 @@ function Field({
 export function WelcomeScreen() {
   const router = useRouter();
   const [booting, setBooting] = useState(true);
+  const [sessionCheckFailed, setSessionCheckFailed] = useState(false);
+  const [checkAttempt, setCheckAttempt] = useState(0);
   const [gate, setGate] = useState<"checking" | "blocked" | "open">("checking");
   const [inviteCode, setInviteCode] = useState("");
   const [inviteError, setInviteError] = useState("");
@@ -199,9 +201,20 @@ export function WelcomeScreen() {
         }
         return;
       }
-      const { data } = await supabase.auth.getSession();
+      let result: Awaited<ReturnType<typeof supabase.auth.getSession>>;
+      try {
+        result = await supabase.auth.getSession();
+      } catch {
+        if (mounted) { setBooting(false); setSessionCheckFailed(true); }
+        return;
+      }
       if (!mounted) return;
-      if (data.session) {
+      if (result.error) {
+        setBooting(false);
+        setSessionCheckFailed(true);
+        return;
+      }
+      if (result.data.session) {
         const path = await resolvePostAuthPath(supabase);
         if (mounted) router.replace(path);
         return;
@@ -218,7 +231,7 @@ export function WelcomeScreen() {
     return () => {
       mounted = false;
     };
-  }, [supabase, router]);
+  }, [supabase, router, checkAttempt]);
 
   async function submitInviteCode() {
     const value = inviteCode.trim();
@@ -266,6 +279,17 @@ export function WelcomeScreen() {
   }
 
   if (booting) return <AuthPhone><div style={{ flex: 1 }} /></AuthPhone>;
+  if (sessionCheckFailed) {
+    return <AuthPhone><div className="route-state" style={{ flex: 1 }}>
+      <h1>WYNOS</h1>
+      <p role="alert">ตรวจสอบการเข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</p>
+      <Button className="btn-primary" onClick={() => {
+        setSessionCheckFailed(false);
+        setBooting(true);
+        setCheckAttempt((value) => value + 1);
+      }}>ลองใหม่</Button>
+    </div></AuthPhone>;
+  }
 
   return (
     <AuthPhone>
