@@ -30,11 +30,12 @@ jobs:
           SUPABASE_URL: https://aaaaaaaaaaaaaaaaaaaa.supabase.co
           SUPABASE_ACCESS_TOKEN: synthetic-test-only
         run: |
-          if bash .github/scripts/apply-wynos-security-views.sh > "$RUNNER_TEMP/refusal.log" 2>&1; then
+          # The GitHub runner owns GITHUB_REF; set it on the child process only.
+          if GITHUB_REF=refs/heads/main bash .github/scripts/apply-wynos-security-views.sh > "$RUNNER_TEMP/refusal.log" 2>&1; then
             echo "::error::Live migration script accepted missing confirmation"
             exit 1
           fi
-          grep -q "Exact stage confirmation phrase missing" "$RUNNER_TEMP/refusal.log"
+          grep -q "Exact stage confirmation phrase missing" "$RUNNER_TEMP/refusal.log" || { cat "$RUNNER_TEMP/refusal.log"; exit 1; }
           echo "Live migration refusal PASS; zero network requests."
       - name: Reject project mismatch before any network call
         env:
@@ -46,11 +47,12 @@ jobs:
           SUPABASE_URL: https://aaaaaaaaaaaaaaaaaaaa.supabase.co
           SUPABASE_ACCESS_TOKEN: synthetic-test-only
         run: |
-          if bash .github/scripts/apply-wynos-security-views.sh > "$RUNNER_TEMP/mismatch.log" 2>&1; then
+          # The GitHub runner owns GITHUB_REF; set it on the child process only.
+          if GITHUB_REF=refs/heads/main bash .github/scripts/apply-wynos-security-views.sh > "$RUNNER_TEMP/mismatch.log" 2>&1; then
             echo "::error::Migration script accepted mismatched Supabase project"
             exit 1
           fi
-          grep -q "project ref does not match" "$RUNNER_TEMP/mismatch.log"
+          grep -q "project ref does not match" "$RUNNER_TEMP/mismatch.log" || { cat "$RUNNER_TEMP/mismatch.log"; exit 1; }
           echo "Project mismatch refusal PASS; zero network requests."
       - name: Manual-only workflow and safe dry-run default
         run: |
