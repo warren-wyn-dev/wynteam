@@ -65,7 +65,9 @@ function pushTarget(data) {
 // FCM auto-displayed notifications wrap data in FCM_MSG; data-only messages
 // displayed by this worker store data directly. Handle both shapes.
 self.addEventListener("notificationclick", (event) => {
-  // Run before the FCM SDK click handler, so only one navigation occurs.\n  event.stopImmediatePropagation?.();\n  event.notification.close();
+  // Run before the FCM SDK click handler, so only one navigation occurs.
+  event.stopImmediatePropagation?.();
+  event.notification.close();
   const raw = event.notification.data || {};
   const data = raw.FCM_MSG?.data || raw.data || raw;
   const targetUrl = new URL(pushTarget(data), self.location.origin).href;
