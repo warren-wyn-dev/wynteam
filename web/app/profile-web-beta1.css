@@ -357,18 +357,42 @@
    Do NOT pull the cover upward with negative margins: on a translucent
    viewport that crops the image and offsets the avatar. Extend the cover
    itself instead. User-selected covers remain untouched. */
+/* A real fixed element, rather than body::before, gives WebKit an
+   opaque layer behind the iOS home-screen status bar. Keep the existing
+   black-translucent metadata so profile covers still draw edge-to-edge. */
+.wyn-ios-status-fill {
+  display: none;
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  z-index: 105;
+  pointer-events: none;
+  background-color: #101114;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* iOS also exposes navigator.standalone; some releases disagree with the
+   CSS display-mode query. AppNavigationRuntime sets this fallback class. */
+:root.wyn-pwa-standalone body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
+  display: block;
+}
+:root.wyn-pwa-standalone:has(.wyn-home) {
+  background-color: #101114;
+}
+:root.wyn-pwa-standalone .wyn-home {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 @media (display-mode: standalone) {
-  /* On other screens, retain a dark, legible status strip without shifting
-     their own safe-area-aware headers. Home alone needs a full inset because
-     its compact header intentionally caps its own safe-area padding. */
-  body:not(:has(.wyn-profile-beta1))::before {
-    content: "";
-    position: fixed;
-    inset: 0 0 auto;
-    height: env(safe-area-inset-top, 0px);
-    z-index: 105;
-    pointer-events: none;
-    background: #101114;
+  /* Preserve iOS's white status icons on an even, fully opaque dark strip.
+     Profile is intentionally excluded: its cover paints behind the status
+     bar instead. No extra space is added to other safe-area-aware screens. */
+  body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
+    display: block;
+  }
+  html:has(.wyn-home) {
+    background-color: #101114;
   }
   .wyn-home {
     padding-top: env(safe-area-inset-top, 0px);

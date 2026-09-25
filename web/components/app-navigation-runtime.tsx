@@ -31,6 +31,23 @@ export function AppNavigationRuntime() {
   const router = useRouter();
 
   useEffect(() => {
+    // Older iOS standalone WebKit can report navigator.standalone=true while
+    // the CSS display-mode query returns false. Keep the opaque status-area
+    // background active in either installed-app signal.
+    const mode = window.matchMedia("(display-mode: standalone)");
+    const sync = () => {
+      const iosInstalled = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      document.documentElement.classList.toggle("wyn-pwa-standalone", mode.matches || iosInstalled);
+    };
+    sync();
+    mode.addEventListener("change", sync);
+    return () => {
+      mode.removeEventListener("change", sync);
+      document.documentElement.classList.remove("wyn-pwa-standalone");
+    };
+  }, []);
+
+  useEffect(() => {
     for (const href of PREFETCH_ROUTES) router.prefetch(href);
   }, [router]);
 

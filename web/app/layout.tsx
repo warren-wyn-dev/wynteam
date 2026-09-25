@@ -134,5 +134,5 @@ const supabaseOrigin = (() => {
 
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){
   if (supabaseOrigin) preconnect(supabaseOrigin, { crossOrigin: "anonymous" });
-  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
+  return <html lang="th"><body><div className="wyn-ios-status-fill" aria-hidden="true" /><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
 }
