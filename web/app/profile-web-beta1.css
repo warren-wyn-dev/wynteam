@@ -388,7 +388,9 @@
    iOS's native status chrome: final acceptance requires a physical iPhone. */
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header {
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .conversation-modern-header,
+:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
   background-color: var(--wyn-bg, #fff);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
