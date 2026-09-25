@@ -23,6 +23,7 @@ jobs:
       startsWith(github.head_ref, 'feat/wyn-158-phase5-') ||
       github.head_ref == 'fix/web-beta1-ios-status-strip-20260925' ||
       github.head_ref == 'fix/web-beta1-ios-shadow-without-fixed-fill-20260925' ||
+      github.head_ref == 'fix/web-beta1-ios-compact-header-20260925' ||
       github.head_ref == 'fix/web-beta1-ios-cover-and-clean-headers-20260925' ||
       github.head_ref == 'fix/web-beta1-ios-auth-session-reopen-20260925'
     runs-on: ubuntu-latest
