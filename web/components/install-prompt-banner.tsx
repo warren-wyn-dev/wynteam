@@ -94,6 +94,9 @@ export function InstallPromptBanner() {
 
     window.addEventListener(OPEN_INSTALL_EVENT, openInstall);
     window.addEventListener("appinstalled", onAppInstalled);
+    // Tests must not dispatch the install event before hydration installs
+    // this listener (especially when the root route redirects).
+    document.documentElement.dataset.wynosInstallReady = "true";
     if (!ios) window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     if (ios && mayAutoShow) {
       showTimer = window.setTimeout(() => {
@@ -105,6 +108,7 @@ export function InstallPromptBanner() {
     return () => {
       window.removeEventListener(OPEN_INSTALL_EVENT, openInstall);
       window.removeEventListener("appinstalled", onAppInstalled);
+      delete document.documentElement.dataset.wynosInstallReady;
       if (!ios) window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
       if (showTimer !== null) window.clearTimeout(showTimer);
     };
