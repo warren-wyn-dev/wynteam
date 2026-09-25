@@ -110,21 +110,35 @@ export async function subscribeToPushNotifications(
   }
 }
 
-/** Removes this device's token so it stops receiving push — does not revoke the browser's own notification permission, which only the user can do. */
-export async function unsubscribeFromPushNotifications(client: SupabaseClient): Promise<void> {
+/** Remove the current device token while the owning user is still signed in.
+ * Returns false on failure so Settings never claims push is disabled when
+ * the server may still have this token. Sign-out remains best-effort.
+ */
+export async function unsubscribeFromPushNotifications(client: SupabaseClient): Promise<boolean> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return true;
   try {
     const config = await fetchPushConfig();
-    if (!config?.configured) return;
+    if (!config?.configured) return false;
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration) return false;
     const fb = await loadFirebase();
     const messaging = fb.getMessaging(firebaseApp(fb, config));
-    const token = await fb.getToken(messaging, { vapidKey: config.vapidKey }).catch(() => null);
-    if (token) {
-      await client.from("push_tokens").delete().eq("token", token);
-      await fb.deleteToken(messaging);
-    }
+    // getToken() without the same service worker registration tries the
+    // Firebase default worker, which this PWA intentionally does not ship.
+    const token = await fb.getToken(messaging, {
+      vapidKey: config.vapidKey,
+      serviceWorkerRegistration: registration,
+    }).catch(() => null);
+    if (!token) return false;
+
+    const { error } = await client.from("push_tokens").delete().eq("token", token);
+    // Even if the DB delete failed (e.g. a stale account-owned row), try to
+    // invalidate this browser's FCM token to stop further delivery.
+    const revoked = await fb.deleteToken(messaging);
+    return !error && revoked;
   } catch {
-    // Best-effort: if the token can't be re-derived, there is nothing more
-    // to clean up client-side.
+    return false;
   }
 }
 
