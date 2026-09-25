@@ -32,8 +32,8 @@ export function AppNavigationRuntime() {
 
   useEffect(() => {
     // Older iOS standalone WebKit can report navigator.standalone=true while
-    // the CSS display-mode query returns false. Keep the opaque status-area
-    // background active in either installed-app signal.
+    // the CSS display-mode query returns false. Use either installed-app
+    // signal for standard (non-overlapping) top-bar/header geometry.
     const mode = window.matchMedia("(display-mode: standalone)");
     const sync = () => {
       const iosInstalled = (navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -50,17 +50,6 @@ export function AppNavigationRuntime() {
       document.documentElement.classList.remove("wyn-ios-standalone");
     };
   }, []);
-
-  useEffect(() => {
-    // Keep the user-selected profile cover behind iOS's translucent clock.
-    // The opaque status-area backing belongs ONLY on non-cover routes. Use
-    // the route, not just :has(), so an outgoing page transition cannot
-    // accidentally reintroduce a solid strip over a profile.
-    const coverRoute = /^\/profile\/(?!me(?:\/|$)|edit(?:\/|$))[^/]+\/?$/.test(pathname)
-      && new URLSearchParams(window.location.search).get("tab") !== "saved";
-    document.documentElement.classList.toggle("wyn-status-cover-route", coverRoute);
-    return () => document.documentElement.classList.remove("wyn-status-cover-route");
-  }, [pathname]);
 
   useEffect(() => {
     for (const href of PREFETCH_ROUTES) router.prefetch(href);
