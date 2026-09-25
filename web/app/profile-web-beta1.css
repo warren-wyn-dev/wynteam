@@ -352,146 +352,52 @@
 .wyn-profile-beta1 .profile-feed-list .golden-drop-save-inline {
   margin-left: auto !important;
 }
-/* Keep black-translucent at app level: Profile's selected cover MUST reach
-   behind the iPhone clock. Other routes instead paint a solid dark surface
-   beneath the system status icons, with fully opaque, unblurred app headers.
-   Route state plus :has() cover both client navigation and initial hydration. */
-.wyn-ios-status-fill {
-  display: none;
-  position: fixed;
-  inset: 0 0 auto;
-  height: env(safe-area-inset-top, 0px);
-  z-index: 1000;
-  pointer-events: none;
-  background: #8f9bad;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  isolation: isolate;
+/* Installed iPhone Home Screen app uses the native `default` white
+   status bar with dark clock/icons. Web content begins BELOW that bar:
+   never add a colored status layer, gradient, shadow clearance or another
+   notch-sized top inset. Keep other platforms' spacing unchanged. */
+:root.wyn-ios-standalone {
+  background-color: #fff;
 }
-
-/* AppNavigationRuntime provides this fallback on iOS releases where
-   navigator.standalone and the CSS display-mode query disagree. */
-:root.wyn-pwa-standalone:not(.wyn-status-cover-route)
-  body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
-  display: block;
-}
-:root.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
-:root.wyn-ios-standalone:not(.wyn-status-cover-route)
-  body:not(:has(.wyn-profile-beta1)) {
-  background-color: #8f9bad;
-}
-:root.wyn-pwa-standalone .wyn-home {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-/* Clear the web-layer blur on root screens. This does not pretend to control
-   iOS's native status chrome: final acceptance requires a physical iPhone. */
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .conversation-modern-header,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
+:root.wyn-ios-standalone .wyn-home,
+:root.wyn-ios-standalone .route-header,
+:root.wyn-ios-standalone .wyn-chat-inbox .flutter-chat-header,
+:root.wyn-ios-standalone .conversation-modern-header,
+:root.wyn-ios-standalone .detail-floating-header {
+  background-image: none !important;
   background-color: var(--wyn-bg, #fff);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-
-/* Installed iPhone, non-profile pages: make the system safe area and the
-   white app header read as one seamless surface. Keep black-translucent so
-   Profile can still extend its selected cover behind the iPhone clock.
-   No web blur or fixed overlay is used; the short blend only softens the
-   color transition beneath the OS-owned status area. */
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) {
-  --wyn-ios-status-surface: #8f9bad;
-  --wyn-ios-header-bg: #ffffff;
-  --wyn-ios-safe-top: env(safe-area-inset-top, 0px);
-  --wyn-ios-header-blend: 12px;
-  --wyn-ios-header-offset: calc(var(--wyn-ios-safe-top) + var(--wyn-ios-header-blend));
+:root.wyn-ios-standalone .wyn-home,
+:root.wyn-ios-standalone .route-header,
+:root.wyn-ios-standalone .detail-floating-header {
+  padding-top: 0;
 }
-:root.wyn-ios-standalone:not(.wyn-status-cover-route)
-  body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
-  display: none !important;
+:root.wyn-ios-standalone .detail-floating-header {
+  min-height: 57px;
 }
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .conversation-modern-header,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
-  background-image: linear-gradient(
-    to bottom,
-    var(--wyn-ios-status-surface) 0,
-    var(--wyn-ios-status-surface) var(--wyn-ios-safe-top),
-    #d9e0e8 calc(var(--wyn-ios-safe-top) + 6px),
-    var(--wyn-ios-header-bg) calc(var(--wyn-ios-safe-top) + 14px),
-    var(--wyn-ios-header-bg) 100%
-  );
-  background-color: var(--wyn-ios-header-bg);
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+:root.wyn-ios-standalone .wyn-chat-inbox .flutter-chat-header {
+  height: 68px !important;
+  padding-top: 6px !important;
 }
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
-  padding-top: var(--wyn-ios-header-offset);
-}
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .detail-floating-header {
-  min-height: calc(57px + var(--wyn-ios-header-offset));
-}
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-chat-inbox .flutter-chat-header {
-  height: calc(68px + var(--wyn-ios-header-offset)) !important;
-  padding-top: calc(var(--wyn-ios-header-offset) + 6px) !important;
-}
-:root.wyn-ios-standalone:not(.wyn-status-cover-route) .conversation-modern-header {
-  min-height: calc(72px + var(--wyn-ios-header-offset));
-  padding-top: calc(var(--wyn-ios-header-offset) + 8px);
+:root.wyn-ios-standalone .conversation-modern-header {
+  min-height: 72px;
+  padding-top: 8px;
 }
 
-@media (display-mode: standalone) {
-  /* Only non-profile screens get a dark opaque backing for white iOS icons. */
-  html:not(.wyn-status-cover-route)
-    body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
-    display: block;
-  }
-  html.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
-  html.wyn-ios-standalone:not(.wyn-status-cover-route) body:not(:has(.wyn-profile-beta1)) {
-    background-color: #8f9bad;
-  }
-  html:has(.wyn-home) {
-    background-color: var(--wyn-ios-status-surface, #8f9bad);
-  }
-  .wyn-home {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
-
-  /* Never mask or resize the user's cover beyond its existing full-bleed
-     geometry. This remains identical to the approved Profile layout. */
-  html:has(.wyn-profile-beta1),
-  body:has(.wyn-profile-beta1) {
-    background-color: #0c0d0f;
-  }
-  .wyn-profile-beta1 .wyn-profile-hero {
-    margin: 0;
-    padding: 0;
-  }
-  .wyn-profile-beta1 .wyn-profile-cover {
-    height: calc(clamp(150px, 38vw, 210px) + env(safe-area-inset-top, 0px));
-    margin: 0;
-  }
-  .wyn-profile-beta1 .wyn-profile-cover::after {
-    content: "";
-    position: absolute;
-    z-index: 1;
-    pointer-events: none;
-    inset: 0 0 auto;
-    height: calc(env(safe-area-inset-top, 0px) + 26px);
-    background: linear-gradient(to bottom, rgb(0 0 0 / 44%), transparent);
-  }
-  .wyn-profile-beta1 .wyn-profile-topbar {
-    top: env(safe-area-inset-top, 0px);
-    height: 58px;
-    padding-top: 0;
-  }
+/* Selected Profile cover now starts BELOW the native status bar.
+   Remove the old additional safe-area height; user-uploaded cover content
+   and the Profile top-bar controls remain otherwise unchanged. */
+:root.wyn-ios-standalone .wyn-profile-beta1 .wyn-profile-cover {
+  height: clamp(150px, 38vw, 210px);
 }
+:root.wyn-ios-standalone .wyn-profile-beta1 .wyn-profile-topbar {
+  top: 0;
+  height: 58px;
+  padding-top: 0;
+}
+
 @media (max-width: 359px) {
   .wyn-profile-beta1 .wyn-profile-intro {
     gap: 8px;

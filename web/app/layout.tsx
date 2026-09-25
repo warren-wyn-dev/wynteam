@@ -98,12 +98,12 @@ const APPLE_STARTUP_IMAGES: { url: string; media: string }[] = [
 // own browser chrome. Added back explicitly via `other`. `startupImage`,
 // unlike `capable`, IS emitted correctly by this version (verified against
 // node_modules/next/dist/lib/metadata/metadata.js) — no workaround needed.
-// `black-translucent` is required for installed iOS PWA pages to draw
-// profile cover images behind the system status bar. Other routes retain
-// an opaque status backdrop using profile-web-beta1.css; Safari unaffected.
-// iOS may cache this at installation time, so existing home-screen shortcuts
-// may require removal/reinstallation to adopt the new status-bar mode.
-export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"black-translucent",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
+// Founder-approved native iOS status bar: "default" reserves its own white
+// status area with dark clock/icons, so every screen (including Profile)
+// starts BELOW the system chrome. Do not recreate an in-page status overlay.
+// iOS may cache this metadata when the Home Screen app is installed:
+// an existing shortcut may need to be removed and added again.
+export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
 // maximumScale/userScalable: 1 disables pinch-zoom. Native apps (and the
 // Flutter build this web app mirrors) never let a user pinch-zoom the UI —
 // only a standalone-launched web app, still carrying a plain browser
@@ -134,5 +134,5 @@ const supabaseOrigin = (() => {
 
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){
   if (supabaseOrigin) preconnect(supabaseOrigin, { crossOrigin: "anonymous" });
-  return <html lang="th"><body><div className="wyn-ios-status-fill" aria-hidden="true" /><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
+  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
 }

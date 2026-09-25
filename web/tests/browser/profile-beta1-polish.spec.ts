@@ -42,15 +42,16 @@ test("Beta1 profile polish retains typography, cover data and core actions", asy
   }
   expect(css).toContain(".wyn-profile-display-name");
   expect(css).toContain("text-overflow: ellipsis;");
-  expect(css).toContain("@media (display-mode: standalone)");
-  expect(css).toContain("env(safe-area-inset-top, 0px)");
+  expect(css).toContain(":root.wyn-ios-standalone .wyn-profile-beta1 .wyn-profile-cover");
+  expect(css).toContain("height: clamp(150px, 38vw, 210px);");
   expect(css).toContain("margin-left: auto !important;");
 
   // No changes to the user-supplied cover or the approved text sizes.
   expect(css).toContain("padding: 0 16px 4px;");
-  expect(layout).toContain('statusBarStyle:"black-translucent"');
-  expect(css).toContain("body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill");
-  expect(css).toContain(".wyn-profile-cover::after");
+  expect(layout).toContain('statusBarStyle:"default"');
+  expect(layout).not.toContain('className="wyn-ios-status-fill"');
+  expect(css).toContain("height: 58px;");
+  expect(css).not.toContain(".wyn-profile-cover::after");
   expect(css).not.toContain("margin-top: calc(-1 * env(safe-area-inset-top");
   expect(profile).toContain('<Image src={normalizeExternalUrl(profile.cover_url) ?? ""}');
   // The shared SVG uses the approved yellow/orange seal and white check.
