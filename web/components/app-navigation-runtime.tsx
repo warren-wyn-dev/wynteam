@@ -36,14 +36,20 @@ export function AppNavigationRuntime() {
     // background active in either installed-app signal.
     const mode = window.matchMedia("(display-mode: standalone)");
     const sync = () => {
-      const iosInstalled = (navigator as Navigator & { standalone?: boolean }).standalone === true;
-      document.documentElement.classList.toggle("wyn-pwa-standalone", mode.matches || iosInstalled);
+      const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+      document.documentElement.classList.toggle("wyn-pwa-standalone", mode.matches || standalone);
+      // Installed iOS draws the page BELOW its native opaque status bar.
+      // Android standalone keeps its existing edge-to-edge safe-area layout.
+      document.documentElement.classList.toggle("wyn-ios-pwa", isIos && (mode.matches || standalone));
     };
     sync();
     mode.addEventListener("change", sync);
     return () => {
       mode.removeEventListener("change", sync);
       document.documentElement.classList.remove("wyn-pwa-standalone");
+      document.documentElement.classList.remove("wyn-ios-pwa");
     };
   }, []);
 
