@@ -12,11 +12,12 @@
     "test:account-password": "node --test tests/account-password.test.mjs",
     "test:google-pwa-oauth": "node --test tests/google-pwa-oauth.test.mjs",
     "test:follow": "node --test tests/follow-mutation.test.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:playwright-gates && npm run test:push-offline-logout && npm run test:chat-draft-recovery && npm run build",
+    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:playwright-gates && npm run test:push-offline-logout && npm run test:chat-draft-recovery && npm run test:plus-entitlements && npm run build",
     "test:feed-latency": "node --test tests/home-feed-latency.test.mjs",
     "test:account-cache-isolation": "node --test tests/account-cache-isolation.test.mjs",
     "test:playwright-gates": "node --test tests/playwright-gates.test.mjs",
     "test:chat-draft-recovery": "node --test tests/chat-draft-recovery.test.mjs",
+    "test:plus-entitlements": "node --test tests/plus-entitlements.test.mjs",
     "test:push-offline-logout": "node --test tests/push-offline-logout.test.mjs"
   },
   "dependencies": {

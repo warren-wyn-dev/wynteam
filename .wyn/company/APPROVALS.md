@@ -124,3 +124,14 @@
 - Changed code/docs: [PR #648](https://github.com/warren-wyn-dev/wynteam/pull/648), [PR #649](https://github.com/warren-wyn-dev/wynteam/pull/649), `docs/engineering/WEB_BETA1_OFFICIAL_FIRST_FOLLOW_RELEASE.md`.
 - สถานะ: Production เปิดใช้งานแล้ว; **การยืนยันย้อนหลังด้านกติกาอนุมัติและ QA บนอุปกรณ์จริงยังค้างอยู่**
 - วันที่ดำเนินการ: 2026-09-24
+
+
+### APPROVAL_REQUIRED — [2026-09-26] WYN-191 WYNOS Plus billing and production schema
+- Proposed change: เพิ่มตารางสถานะสมาชิก `public.wynos_plus_memberships` แบบ RLS อ่านเฉพาะบัญชีตนเอง และตารางอ้างอิงการชำระเงินที่ไม่เปิดต่อ Data API (`internal.wynos_plus_billing_refs`) พร้อมหน้า `/plus` ที่ยังปิดการรับเงินจริง
+- Reason: เตรียม WYNOS Plus โดยไม่ให้เบราว์เซอร์แก้สถานะสมาชิกเอง และไม่เผยข้อมูลอ้างอิงผู้ให้บริการชำระเงิน
+- Benefits: สามารถทดสอบสถานะสมาชิก, สิทธิ์ RLS และหน้า Plus ได้บน Staging โดยไม่กระทบผู้ใช้เดิม
+- Risks: การเปิดรับเงินจริงต้องมีผู้ให้บริการชำระเงิน, ราคา/สกุลเงิน/รอบบิล, นโยบายยกเลิก/คืนเงิน, Checkout ฝั่ง Server, การตรวจ Webhook Signature และ Idempotency และตรวจสิทธิ์ Server-side ก่อนเปิดฟีเจอร์ Plus ทุกชนิด; ห้ามสร้างสถานะ Active จากฝั่ง Client
+- Files affected: `supabase/migrations_wyn191_plus_memberships.sql`, `supabase/schema.sql`, `supabase/tests/wyn_191_plus_memberships_test.sh`, `web/app/plus/page.tsx`, `web/components/plus-route.tsx`, `web/lib/plus-membership.ts`
+- Recommendation: ใช้ PR เฟส 3 ทดสอบบน Staging ก่อน; ขอ Founder เลือกผู้ให้บริการ, ราคา, สิทธิประโยชน์ และอนุมัติ Migration/Payment Production แยกต่างหาก
+- สถานะ: **รออนุมัติ — ยังไม่เรียกเก็บเงินหรือเปลี่ยนฐานข้อมูล Production**
+- วันที่ตัดสินใจ: -
