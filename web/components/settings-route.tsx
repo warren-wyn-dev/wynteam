@@ -127,6 +127,22 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [pushAvailable, setPushAvailable] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [showInstallShortcut, setShowInstallShortcut] = useState(false);
+
+  useEffect(() => {
+    const standalone = window.matchMedia("(display-mode: standalone)");
+    const refresh = () => {
+      const iosInstalled = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      setShowInstallShortcut(!standalone.matches && !iosInstalled);
+    };
+    refresh();
+    standalone.addEventListener("change", refresh);
+    window.addEventListener("appinstalled", refresh);
+    return () => {
+      standalone.removeEventListener("change", refresh);
+      window.removeEventListener("appinstalled", refresh);
+    };
+  }, []);
 
   useEffect(() => {
     void pushSupported().then((supported) => {
@@ -245,6 +261,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
           </div>
           <h2>การตั้งค่าแอป</h2>
           <div className="settings-group">
+            {showInstallShortcut ? <SettingRow leading={<WynosIcon name="smartphone" size={19} strokeWidth={2} />} title="ติดตั้ง WYNOS" description="เพิ่มลงหน้าจอหลักและเปิดแบบแอป" onClick={() => window.dispatchEvent(new Event("wynos:open-install"))} /> : null}
             <SettingRow leading={<WynosIcon name="notifications" size={19} strokeWidth={2} />} title="การแจ้งเตือน" onClick={() => setSection("notifications")} />
             <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีมเข้ม" />
           </div>
