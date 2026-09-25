@@ -78,21 +78,28 @@ export function DeveloperRouteGate({
     if (!client) return;
     let mounted = true;
 
-    const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
-      if (mounted) acceptSession(nextSession);
+    // The initial SDK event is not an explicit logout. Let the persisted
+    // session check settle first, especially on iOS standalone reopens.
+    let newerAuthEvent = false;
+    const { data } = client.auth.onAuthStateChange((event, nextSession) => {
+      if (!mounted || event === "INITIAL_SESSION") return;
+      newerAuthEvent = true;
+      acceptSession(nextSession);
     });
 
+    const onCheckError = () => {
+      if (!mounted || newerAuthEvent || getCachedBrowserSession()) return;
+      setMessage("ตรวจสอบการเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
+      setGate("error");
+    };
     void client.auth.getSession().then(({ data: sessionData, error }) => {
-      if (!mounted) return;
+      if (!mounted || newerAuthEvent) return;
       if (error) {
-        if (!getCachedBrowserSession()) {
-          setMessage("เปิด WYNOS ไม่สำเร็จ กรุณาลองใหม่");
-          setGate("error");
-        }
+        onCheckError();
         return;
       }
       acceptSession(sessionData.session);
-    });
+    }).catch(onCheckError);
 
     return () => {
       mounted = false;
