@@ -10,6 +10,7 @@ import { useInView } from "react-intersection-observer";
 
 import { ClubFeedPost } from "@/components/home/club-feed-post";
 import { HomeHeader } from "@/components/home/home-header";
+import { HomeQuickCompose } from "@/components/home/home-quick-compose";
 import { WynosFoodEntry } from "@/components/home/wynos-food-entry";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { QuoteFeedCard } from "@/components/quote-feed-card";
@@ -866,6 +867,9 @@ export function HomeScreen({ session }: { session: Session }) {
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchCancel}
       >
+        {visibleMode !== "clubs" ? (
+          <HomeQuickCompose avatarUrl={identity?.avatar_url} username={identity?.username} />
+        ) : null}
         {isDeveloper && visibleMode === "for-you" ? <WynosFoodEntry /> : null}
         {loading && !rows.length && !clubRows.length ? (
           <FeedSkeleton />
