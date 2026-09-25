@@ -6,6 +6,7 @@ import { BottomNavigation } from "@/components/bottom-navigation";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
+import { WynosIcon } from "@/components/ui/wynos-icon";
 import type { HomeFeedRow } from "@/lib/feed";
 import type { HomeViewerState } from "@/lib/home-actions";
 
@@ -155,6 +156,9 @@ export function HomeFixture() {
           </div>
         </main>
       </div>
+      <button className="wyn-home-post-fab" type="button" aria-label="สร้างโพสต์">
+        <WynosIcon name="post" size={30} strokeWidth={2} />
+      </button>
       {/* Sibling of .route-with-bottom-nav, matching AppBottomNavHost's
           placement in app/layout.tsx — not nested inside it, so this
           fixture actually exercises the same custom-property scoping the
