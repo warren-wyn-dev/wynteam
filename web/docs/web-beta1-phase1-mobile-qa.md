@@ -67,3 +67,33 @@ Keep fixes on a separate branch and in a draft PR until CI, preview QA,
 real-device checks and explicit Founder approval are complete.
 Do not merge or manually deploy the Push Edge function based on emulated
 browser tests alone.
+
+## Integrated Phase 1 release candidate — 2026-09-26
+
+The integrated release branch combines the isolated, individually tested
+changes in PR #684 (PWA icon refresh), #685 (non-blocking Feed impressions),
+and #686 (read-only production smoke), plus accessible viewport zoom.
+
+- Run `npm run test:feed-latency` to verify the ranked Feed does not await
+  impression telemetry that may be slow or permanently stalled.
+- Run `npx playwright test tests/browser/viewport-accessibility.spec.ts`
+  to verify the mobile viewport preserves browser zoom and safe-area metadata.
+- The `Web Beta1 Phase1 Public Smoke` workflow verifies the **current live**
+  `wynos.online` manifest, declared icons, service worker and the
+  `configured` boolean of the public Web Push endpoint. A green result does
+  **not** prove that the pending release candidate is deployed or that a
+  physical phone received a Push notification.
+- The production Supabase `send-push-notification` function was updated to
+  version 9 from the exact `main` source at `5fdcfd1`; `verify_jwt` remained
+  enabled. The previous active function version was 8. Verify live delivery
+  on owned test devices before certifying the end-to-end Push acceptance test.
+- The Vercel project must be authorized on the connected account for
+  independent protected-deployment inspection; a Netlify preview URL alone
+  is not proof that the Vercel production release is ready.
+
+Do not mark this release candidate complete until **all** CI and browser
+jobs on the combined branch pass, the physical iPhone/Android tests in the
+table above have dated evidence, cross-account Push isolation passes, and
+the founder authorizes the production web rollout. If the rollout fails,
+revert the web merge or roll back the deployment to the previously green
+`main` SHA; investigate production function v9 independently.
