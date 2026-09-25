@@ -84,6 +84,7 @@ export function Beta4Composer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [closePrompt, setClosePrompt] = useState(false);
+  const [exiting, setExiting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ uploaded: number; total: number } | null>(null);
   const [draftRecordId, setDraftRecordId] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
@@ -95,6 +96,7 @@ export function Beta4Composer({
   const persistDraftQueueRef = useRef<Promise<string> | null>(null);
   const pendingNavRef = useRef<string | null>(null); // set when the close-prompt was opened via "ฉบับร่าง" (go to /drafts after resolving) instead of Cancel
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosaveRef = useRef(true); // true until the user actually edits something post-mount/post-draft-load
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
@@ -139,10 +141,30 @@ export function Beta4Composer({
   const canPublish = !busy && (mode === "poll" ? pollValid : caption.trim().length > 0 || files.length > 0 || Boolean(existingImageUrl));
   const hasContent = caption.trim().length > 0 || (mode === "poll" ? pollOptions.some((value) => value.trim().length > 0) : files.length > 0 || Boolean(existingImageUrl));
 
+  // Leave the mounted sheet on screen long enough for its exit animation.
+  // This is shared by Cancel, backdrop tap and the existing draft choices;
+  // no content is discarded before the original confirmation has resolved.
+  const closeWithSlide = () => {
+    if (exiting || exitTimerRef.current !== null) return;
+    const destination = pendingNavRef.current;
+    setClosePrompt(false);
+    setExiting(true);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    exitTimerRef.current = setTimeout(() => {
+      exitTimerRef.current = null;
+      onClose();
+      if (destination) router.push(destination);
+    }, reduceMotion ? 0 : 260);
+  };
+
+  useEffect(() => () => {
+    if (exitTimerRef.current !== null) clearTimeout(exitTimerRef.current);
+  }, []);
+
   const requestClose = () => {
-    if (busy) return;
+    if (busy || exiting) return;
     pendingNavRef.current = null;
-    if (!hasContent) { onClose(); return; }
+    if (!hasContent) { closeWithSlide(); return; }
     setDraftError("");
     setClosePrompt(true);
   };
@@ -152,17 +174,14 @@ export function Beta4Composer({
   // the same close-prompt as Cancel so it's never silently discarded, then
   // continue to /drafts once that resolves (see pendingNavRef below).
   const goToDrafts = () => {
-    if (busy) return;
-    if (!hasContent) { onClose(); router.push("/drafts"); return; }
+    if (busy || exiting) return;
     pendingNavRef.current = "/drafts";
+    if (!hasContent) { closeWithSlide(); return; }
     setDraftError("");
     setClosePrompt(true);
   };
 
-  const closeAndNavigate = () => {
-    onClose();
-    if (pendingNavRef.current) router.push(pendingNavRef.current);
-  };
+  const closeAndNavigate = () => closeWithSlide();
 
   // Shared by the close-prompt's "บันทึกร่าง" and autosave below -- insert
   // when no draft row exists yet, update in place otherwise (mirrors
@@ -272,7 +291,7 @@ export function Beta4Composer({
   const removePollOption = (index: number) => setPollOptions((current) => current.length <= 2 ? current : current.filter((_, itemIndex) => itemIndex !== index));
 
   return (
-    <div className="route-modal-backdrop beta4-composer-backdrop" role="presentation" onClick={requestClose}>
+    <div className={`route-modal-backdrop beta4-composer-backdrop ${exiting ? "is-closing" : ""}`} role="presentation" onClick={requestClose}>
       <section className="beta4-composer" role="dialog" aria-modal="true" aria-label="สร้างโพสต์" onClick={(event) => event.stopPropagation()}>
         <div className="beta4-composer-sheet-handle" aria-hidden="true" />
         <header className={`beta4-composer-header ${styles.header}`}>
