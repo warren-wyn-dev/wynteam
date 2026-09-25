@@ -120,7 +120,7 @@
 /* ---------- Tabs: text + underline, no segmented pill ---------- */
 
 .wyn-home-tabs {
-  height: 38px;
+  height: 42px;
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--wyn-border);
@@ -130,7 +130,7 @@
 .wyn-home-tab {
   flex: 1 1 0;
   min-width: 0;
-  height: 38px;
+  height: 42px;
   padding: 0 8px;
   border: 0;
   border-radius: 0;
@@ -141,7 +141,7 @@
   justify-content: center;
   color: #757a84;
   font: inherit;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 1.2;
   font-weight: 600;
   -webkit-tap-highlight-color: transparent;
