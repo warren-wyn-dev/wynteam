@@ -42,6 +42,8 @@ jobs:
         run: npm run test:account-cache-isolation
       - name: Chat draft isolation and recovery
         run: npm run test:chat-draft-recovery
+      - name: Plus entitlement read-only and fail-closed regression
+        run: npm run test:plus-entitlements
       - name: Web Beta1 club and draft regression
         run: node --test tests/draft-hotfix.test.mjs tests/club-rpc-error.test.mjs
       - name: Production build
