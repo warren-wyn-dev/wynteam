@@ -104,7 +104,7 @@ export function BottomNavigation({
         <span>หน้าหลัก</span>
       </Link>
       <Link className={`route-nav-link ${clubActive ? "active" : ""}`} href="/clubs" aria-label="คลับ" onClick={handleActiveTabTap(clubActive, "/clubs")}>
-        <MaterialNavGlyph kind="club" selected={clubActive} />
+        <MaterialNavGlyph kind="club" selected={isActive("/clubs")} />
         <span>คลับ</span>
       </Link>
       <Link
@@ -117,7 +117,7 @@ export function BottomNavigation({
         <span>โพสต์</span>
       </Link>
       <Link className={`route-nav-link ${chatActive ? "active" : ""}`} href="/chat" aria-label="แชท" onClick={handleActiveTabTap(chatActive, "/chat")}>
-        <MaterialNavGlyph kind="chat" selected={chatActive} />
+        <MaterialNavGlyph kind="chat" selected={isActive("/chat")} />
         <span>แชท</span>
       </Link>
       <Link className={`route-nav-link ${profileActive ? "active" : ""}`} href={profileTabHref} aria-label="โปรไฟล์" onClick={handleProfileClick}>
