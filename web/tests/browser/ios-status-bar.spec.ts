@@ -31,10 +31,11 @@ test("installed iOS Home paints status backing in the header rather than a fixed
     probe.remove();
     return inset;
   });
-  expect(homePadding).toBeCloseTo(safeInset + 20, 0);
+  expect(homePadding).toBeCloseTo(safeInset + 12, 0);
   const gradient = await page.locator(".wyn-home").evaluate((el) => getComputedStyle(el).backgroundImage);
   expect(gradient).toContain("linear-gradient(");
-  expect(gradient).toContain("rgb(100, 116, 139)");
+  expect(gradient).toContain("rgb(143, 155, 173)");
+  expect(gradient).toContain("rgb(217, 224, 232)");
   expect(gradient).not.toContain("rgb(16, 17, 20)");
 
   // The selected cover remains behind black-translucent iOS system chrome.
@@ -110,8 +111,8 @@ test("installed iOS keeps non-profile headers crisp but leaves the profile cover
       probe.remove();
       return inset;
     });
-    expect(padding).toBeGreaterThanOrEqual(safeInset + 20);
-    expect(padding).toBeLessThanOrEqual(safeInset + 32);
+    expect(padding).toBeGreaterThanOrEqual(safeInset + 12);
+    expect(padding).toBeLessThanOrEqual(safeInset + 24);
   }
   const inboxHeight = await page.locator(".wyn-chat-inbox .flutter-chat-header").evaluate((el) => parseFloat(getComputedStyle(el).height));
   const inset = await page.evaluate(() => {
@@ -122,8 +123,8 @@ test("installed iOS keeps non-profile headers crisp but leaves the profile cover
     probe.remove();
     return value;
   });
-  expect(inboxHeight).toBeGreaterThanOrEqual(inset + 88);
-  expect(inboxHeight).toBeLessThanOrEqual(inset + 100);
+  expect(inboxHeight).toBeGreaterThanOrEqual(inset + 80);
+  expect(inboxHeight).toBeLessThanOrEqual(inset + 92);
 
   await page.evaluate(() => document.documentElement.classList.add("wyn-status-cover-route"));
   await expect(strip).toHaveCSS("display", "none");
@@ -142,11 +143,11 @@ test("Profile's black-translucent cover metadata and existing cover geometry sur
   expect(css).toContain("html:not(.wyn-status-cover-route)");
   expect(css).toContain("display: none !important;");
   expect(css).toContain("background-image: linear-gradient(");
-  expect(css).toContain("--wyn-ios-shadow-clearance: 20px");
+  expect(css).toContain("--wyn-ios-header-blend: 12px");
   expect(css).toContain("padding-top: var(--wyn-ios-header-offset)");
-  expect(css).toContain("--wyn-ios-status-surface: #64748b");
-  expect(css).toContain("background-color: var(--wyn-ios-status-surface, #64748b)");
-  expect(css).not.toContain("background-color: var(--wyn-ios-status-surface, #101114)");
-  expect(css).toContain("--wyn-ios-shadow-end: env(safe-area-inset-top, 0px)");
+  expect(css).toContain("--wyn-ios-status-surface: #8f9bad");
+  expect(css).toContain("background-color: var(--wyn-ios-status-surface, #8f9bad)");
+  expect(css).not.toContain("--wyn-ios-shadow-clearance: 20px");
+  expect(css).toContain("--wyn-ios-safe-top: env(safe-area-inset-top, 0px)");
   expect(runtime).toContain('classList.toggle("wyn-status-cover-route", coverRoute)');
 });

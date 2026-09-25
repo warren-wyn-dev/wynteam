@@ -363,7 +363,7 @@
   height: env(safe-area-inset-top, 0px);
   z-index: 1000;
   pointer-events: none;
-  background: #64748b;
+  background: #8f9bad;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   isolation: isolate;
@@ -378,7 +378,7 @@
 :root.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
 :root.wyn-ios-standalone:not(.wyn-status-cover-route)
   body:not(:has(.wyn-profile-beta1)) {
-  background-color: #64748b;
+  background-color: #8f9bad;
 }
 :root.wyn-pwa-standalone .wyn-home {
   padding-top: env(safe-area-inset-top, 0px);
@@ -396,17 +396,17 @@
   -webkit-backdrop-filter: none !important;
 }
 
-/* Installed iPhone, non-profile pages: remove the oversized black
-   status-band treatment. Keep the native clock legible in Apple's
-   black-translucent mode (white symbols) using a medium slate backdrop
-   ONLY inside the actual system safe area. The 20px shadow buffer below
-   it is plain app white rather than a dark extension. Never draw a
-   separate fixed layer. Full-bleed Profile cover is not affected. */
+/* Installed iPhone, non-profile pages: make the system safe area and the
+   white app header read as one seamless surface. Keep black-translucent so
+   Profile can still extend its selected cover behind the iPhone clock.
+   No web blur or fixed overlay is used; the short blend only softens the
+   color transition beneath the OS-owned status area. */
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) {
-  --wyn-ios-status-surface: #64748b;
-  --wyn-ios-shadow-clearance: 20px;
-  --wyn-ios-shadow-end: env(safe-area-inset-top, 0px);
-  --wyn-ios-header-offset: calc(var(--wyn-ios-shadow-end) + var(--wyn-ios-shadow-clearance));
+  --wyn-ios-status-surface: #8f9bad;
+  --wyn-ios-header-bg: #ffffff;
+  --wyn-ios-safe-top: env(safe-area-inset-top, 0px);
+  --wyn-ios-header-blend: 12px;
+  --wyn-ios-header-offset: calc(var(--wyn-ios-safe-top) + var(--wyn-ios-header-blend));
 }
 :root.wyn-ios-standalone:not(.wyn-status-cover-route)
   body:not(:has(.wyn-profile-beta1)) > .wyn-ios-status-fill {
@@ -420,10 +420,14 @@
   background-image: linear-gradient(
     to bottom,
     var(--wyn-ios-status-surface) 0,
-    var(--wyn-ios-status-surface) var(--wyn-ios-shadow-end),
-    var(--wyn-bg, #fff) var(--wyn-ios-shadow-end),
-    var(--wyn-bg, #fff) 100%
+    var(--wyn-ios-status-surface) var(--wyn-ios-safe-top),
+    #d9e0e8 calc(var(--wyn-ios-safe-top) + 6px),
+    var(--wyn-ios-header-bg) calc(var(--wyn-ios-safe-top) + 14px),
+    var(--wyn-ios-header-bg) 100%
   );
+  background-color: var(--wyn-ios-header-bg);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .wyn-home,
 :root.wyn-ios-standalone:not(.wyn-status-cover-route) .route-header,
@@ -450,10 +454,10 @@
   }
   html.wyn-ios-standalone:not(.wyn-status-cover-route):not(:has(.wyn-profile-beta1)),
   html.wyn-ios-standalone:not(.wyn-status-cover-route) body:not(:has(.wyn-profile-beta1)) {
-    background-color: #64748b;
+    background-color: #8f9bad;
   }
   html:has(.wyn-home) {
-    background-color: var(--wyn-ios-status-surface, #64748b);
+    background-color: var(--wyn-ios-status-surface, #8f9bad);
   }
   .wyn-home {
     padding-top: env(safe-area-inset-top, 0px);
