@@ -12,7 +12,8 @@
     "test:account-password": "node --test tests/account-password.test.mjs",
     "test:google-pwa-oauth": "node --test tests/google-pwa-oauth.test.mjs",
     "test:follow": "node --test tests/follow-mutation.test.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:phase2 && npm run build",
+    "test:phase2": "node --test tests/phase2-chat-recovery.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
