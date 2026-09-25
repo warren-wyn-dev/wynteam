@@ -124,3 +124,27 @@
 - Changed code/docs: [PR #648](https://github.com/warren-wyn-dev/wynteam/pull/648), [PR #649](https://github.com/warren-wyn-dev/wynteam/pull/649), `docs/engineering/WEB_BETA1_OFFICIAL_FIRST_FOLLOW_RELEASE.md`.
 - สถานะ: Production เปิดใช้งานแล้ว; **การยืนยันย้อนหลังด้านกติกาอนุมัติและ QA บนอุปกรณ์จริงยังค้างอยู่**
 - วันที่ดำเนินการ: 2026-09-24
+
+
+### APPROVAL_REQUIRED — [2026-09-26] WYN-188 Security-invoker moderator history
+- Proposed change: เปลี่ยน `public.admin_user_moderation_history` เพียง View เดียวให้ใช้ `security_invoker = true` ด้วย Migration `supabase/migrations_wyn188_moderation_history_invoker.sql` และอัปเดต `supabase/schema.sql` ให้ตรงกัน โดย **ไม่เพิ่มสิทธิ์อ่านข้อมูลดิบ** และไม่แตะอีก 3 View ที่ยังมีคำเตือน (ดู Issue #688)
+- Reason: Supabase Security Advisor แจ้งเตือน `security_definer_view` สำหรับ View นี้ แม้มี staff-role filter อยู่แล้ว จึงต้องการให้การตรวจสิทธิ์อาศัยสิทธิ์ผู้เรียกและ RLS ของ `moderation_actions` โดยตรง
+- Benefits: ลดหนึ่งคำเตือน Security Advisor; รักษาการเข้าถึงของ Moderator/Admin ตาม RLS เดิม และจำกัดการเข้าถึงของผู้ใช้ทั่วไป
+- Risks: อาจทำให้หน้า Admin/Moderator ไม่เห็นประวัติ หาก Schema/Grant ของ Production ต่างจากที่ทดสอบ; การปรับ Security Architecture ต้องได้รับ Founder อนุมัติ การเปิด SELECT ข้อมูลดิบหรือเปลี่ยน View อื่นโดยอัตโนมัติ **ไม่ได้รับอนุญาต**; การ Rollback ต้องรอ Owner สั่งชัดเจน
+- Files affected: `supabase/migrations_wyn188_moderation_history_invoker.sql`, `supabase/schema.sql`, `supabase/tests/wyn_188_moderation_history_invoker_test.sh`
+- QA: PR #689; CI บน `f0e73372f2aa3b8dbc62f092ea69f0bcc00af06d` ผ่านทั้ง Maintained PostgreSQL/RLS Suite และ CI ทั้งโครงการ
+- Proposed production rollout: หลัง Founder อนุมัติและตรวจสิทธิ์จริงแบบอ่านอย่างเดียว ให้ Apply Migration แบบแยกจาก Web Release แล้วตรวจ Advisor และหน้า Admin; หากมีปัญหาต้องหยุดและขอ Owner อนุมัติ Rollback
+- Recommendation: รอ Founder ตรวจสอบขอบเขตแคบนี้ก่อนเปลี่ยน Production; คำเตือนอีก 3 ตัวให้ทำ Threat Model/ออกแบบ Secure Projection และทดสอบแยกตาม Issue #688
+- สถานะ: **รออนุมัติ (ยังไม่เปลี่ยนฐานข้อมูล Production)**
+- วันที่ตัดสินใจ: -
+
+### APPROVAL_REQUIRED — [2026-09-26] WYN-189/190 Secure projections สำหรับ View ที่ยังมีคำเตือน
+- Proposed change: ให้ `public.admin_audit_log`, `public.moderation_queue`, และ `public.my_effective_affinities` เปลี่ยนเป็น View แบบ `security_invoker=true` โดยใช้ helper function `SECURITY DEFINER` ที่จำกัดสิทธิ์เฉพาะข้อมูลปลอดภัยใน schema `internal` ตาม PR #690 และ #691 (ร่วมกับ #689 จะครอบคลุม 4 View)
+- Reason: ปลดคำเตือน `security_definer_view` โดยไม่เพิ่มสิทธิ์อ่าน `audit_log`, ข้อมูล `reporter_id` และ `user_affinities` ให้ Client และคงสิทธิ์ Moderator/Admin เดิม
+- Benefits: ลดขอบเขตข้อมูลที่เปิดเผยผ่าน View และยังคงหน้าจอ Admin/Moderation และการจัดอันดับ Feed ที่พึ่งพา `my_effective_affinities`
+- Risks: เปลี่ยน Security Architecture ของฐานข้อมูล, อาจเกิด performance/permission regression และมี SECURITY DEFINER helper ใหม่ที่ต้อง audit เพิ่ม; Migration #689/#690/#691 ต้องนำขึ้นตามลำดับและทดสอบร่วมกันก่อนใช้งานจริง ห้ามข้ามการอนุมัติ Owner หรือเปลี่ยนสิทธิ์ raw table
+- Files affected: `supabase/schema.sql`, `supabase/migrations_wyn189_staff_audit_projection.sql`, `supabase/migrations_wyn190_private_views.sql`, `supabase/tests/wyn_189_staff_audit_projection_test.sh`, `supabase/tests/wyn_190_private_views_test.sh` (พร้อม #689)
+- QA: ทดสอบด้วย Branch รวม `security/wyn188-190-integrated-qa-20260926` แยกต่างหากจาก Web Release และตรวจผู้ใช้ธรรมดา, ไม่มี Profile, Moderator, Admin, Anonymous, cross-user affinity และ raw report anonymity
+- Recommendation: รอ Founder อนุมัติการเปลี่ยนแปลง Production โดยเฉพาะหลังผ่าน Combined CI, Code Review และ Preview/Role QA; ใช้ Rollback เฉพาะเมื่อ Owner สั่งเท่านั้น
+- สถานะ: **รออนุมัติ — ยังไม่ได้ Apply ลงฐานข้อมูล Production**
+- วันที่ตัดสินใจ: -
