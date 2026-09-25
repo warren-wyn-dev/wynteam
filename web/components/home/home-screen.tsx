@@ -10,6 +10,7 @@ import { useInView } from "react-intersection-observer";
 
 import { ClubFeedPost } from "@/components/home/club-feed-post";
 import { HomeHeader } from "@/components/home/home-header";
+import { HomeComposeFab } from "@/components/home/home-compose-fab";
 import { WynosFoodEntry } from "@/components/home/wynos-food-entry";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { QuoteFeedCard } from "@/components/quote-feed-card";
@@ -929,6 +930,8 @@ export function HomeScreen({ session }: { session: Session }) {
           </div>
         )}
       </div>
+
+      <HomeComposeFab />
 
       <AnimatePresence>
         {drawerOpen ? <HomeDrawer identity={identity} onClose={() => setDrawerOpen(false)} /> : null}
