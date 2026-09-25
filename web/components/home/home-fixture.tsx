@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { HomeHeader } from "@/components/home/home-header";
+import { HomeQuickCompose } from "@/components/home/home-quick-compose";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -133,6 +134,7 @@ export function HomeFixture() {
             <HomeTabs mode={mode} onSelect={setMode} />
           </div>
           <div className="wyn-home-feed">
+            {mode !== "clubs" ? <HomeQuickCompose username="fixture" /> : null}
             {rows.map((row) => (
               <HomePostCard
                 row={row}
