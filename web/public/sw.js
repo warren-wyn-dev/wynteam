@@ -90,16 +90,44 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(initFirebaseMessaging());
 });
 
-// Tapping a background push focuses an already-open WYNOS tab where
-// possible, same behavior as the Flutter web build's own handler.
+// The server sends UUID target columns (not arbitrary URLs). Build the same
+// in-app destinations the notification center uses, ignoring untrusted
+// external links or malformed IDs from the notification's data field.
+const PUSH_UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+function pushTarget(data) {
+  const id = (key) => typeof data?.[key] === "string" && PUSH_UUID.test(data[key]) ? data[key] : null;
+  const conversation = id("conversation_id");
+  const actor = id("actor_id");
+  if (conversation) return `/chat/${conversation}${actor ? `?user=${actor}` : ""}`;
+  if (id("drop_id")) return `/drop/${id("drop_id")}`;
+  if (id("pop_id")) return `/pop/${id("pop_id")}`;
+  if (id("club_post_id")) return `/club-post/${id("club_post_id")}`;
+  if (id("club_id")) return `/club/${id("club_id")}`;
+  if (actor) return `/profile/${actor}`;
+  return "/notifications";
+}
+
+// FCM auto-displayed notifications wrap data in FCM_MSG; data-only messages
+// displayed by this worker store data directly. Handle both shapes.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if ("focus" in client) return client.focus();
+  const raw = event.notification.data || {};
+  const data = raw.FCM_MSG?.data || raw.data || raw;
+  const targetUrl = new URL(pushTarget(data), self.location.origin).href;
+
+  event.waitUntil((async () => {
+    const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of windows) {
+      if (new URL(client.url).origin !== self.location.origin || !("focus" in client)) continue;
+      try {
+        const destination = client.url !== targetUrl && "navigate" in client
+          ? await client.navigate(targetUrl)
+          : client;
+        return await (destination || client).focus();
+      } catch {
+        // A stale window might have closed between matchAll and navigate.
       }
-      return clients.openWindow ? clients.openWindow("/") : undefined;
-    }),
-  );
+    }
+    return clients.openWindow ? clients.openWindow(targetUrl) : undefined;
+  })());
 });

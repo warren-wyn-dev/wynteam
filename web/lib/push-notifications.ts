@@ -101,29 +101,49 @@ export async function subscribeToPushNotifications(
       .upsert({ user_id: userId, token, platform: "web", updated_at: new Date().toISOString() }, { onConflict: "token" });
     if (error) return { ok: false, reason: "error" };
 
+    // The root listener may have mounted before permission was granted.
+    // Start foreground delivery now without requiring an app reload.
+    void listenForForegroundPush();
     return { ok: true };
   } catch {
     return { ok: false, reason: "error" };
   }
 }
 
-/** Removes this device's token so it stops receiving push — does not revoke the browser's own notification permission, which only the user can do. */
-export async function unsubscribeFromPushNotifications(client: SupabaseClient): Promise<void> {
+/** Remove the current device token while the owning user is still signed in.
+ * Returns false on failure so Settings never claims push is disabled when
+ * the server may still have this token. Sign-out remains best-effort.
+ */
+export async function unsubscribeFromPushNotifications(client: SupabaseClient): Promise<boolean> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return true;
   try {
     const config = await fetchPushConfig();
-    if (!config?.configured) return;
+    if (!config?.configured) return false;
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration) return false;
     const fb = await loadFirebase();
     const messaging = fb.getMessaging(firebaseApp(fb, config));
-    const token = await fb.getToken(messaging, { vapidKey: config.vapidKey }).catch(() => null);
-    if (token) {
-      await client.from("push_tokens").delete().eq("token", token);
-      await fb.deleteToken(messaging);
-    }
+    // getToken() without the same service worker registration tries the
+    // Firebase default worker, which this PWA intentionally does not ship.
+    const token = await fb.getToken(messaging, {
+      vapidKey: config.vapidKey,
+      serviceWorkerRegistration: registration,
+    }).catch(() => null);
+    if (!token) return false;
+
+    const { error } = await client.from("push_tokens").delete().eq("token", token);
+    // Even if the DB delete failed (e.g. a stale account-owned row), try to
+    // invalidate this browser's FCM token to stop further delivery.
+    const revoked = await fb.deleteToken(messaging);
+    return !error && revoked;
   } catch {
-    // Best-effort: if the token can't be re-derived, there is nothing more
-    // to clean up client-side.
+    return false;
   }
 }
+
+// Deduplicate the root-mount and Settings-toggle setup attempts.
+let foregroundListenerPromise: Promise<void> | null = null;
 
 /**
  * Foreground pushes (tab open and focused) are not shown automatically by
@@ -134,23 +154,39 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
  */
 export async function listenForForegroundPush(): Promise<void> {
   if (typeof window === "undefined" || typeof Notification === "undefined") return;
-  if (Notification.permission !== "granted") return;
-  if (!(await pushSupported())) return;
-  const config = await fetchPushConfig();
-  if (!config?.configured) return;
-  try {
+  if (Notification.permission !== "granted" || !("serviceWorker" in navigator)) return;
+  if (foregroundListenerPromise) return foregroundListenerPromise;
+
+  foregroundListenerPromise = (async () => {
+    if (!(await pushSupported())) throw new Error("Push support is unavailable");
+    const config = await fetchPushConfig();
+    if (!config?.configured) throw new Error("Push is not configured");
     const fb = await loadFirebase();
     const messaging = fb.getMessaging(firebaseApp(fb, config));
     fb.onMessage(messaging, (payload) => {
-      if (payload.notification) return;
+      // FCM's onMessage runs while the app is in the foreground; it does
+      // NOT render the notification payload automatically in this case.
+      // A registered worker displays it consistently on installed iOS
+      // PWAs and Android, where the window Notification constructor differs.
       const data = payload.data ?? {};
-      new Notification(data.push_title || "WYNOS", {
-        body: data.push_body || "",
-        icon: "/icons/icon-192.png",
-        tag: data.notification_id,
-      });
+      if (!payload.notification && !data.push_title && !data.push_body) return;
+      const title = payload.notification?.title || data.push_title || "WYNOS";
+      const body = payload.notification?.body || data.push_body || "";
+      void navigator.serviceWorker.ready.then((registration) =>
+        registration.showNotification(title, {
+          body,
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
+          tag: data.notification_id,
+          data,
+        }),
+      ).catch(() => undefined);
     });
-  } catch {
-    // Foreground display is best-effort polish, never worth surfacing.
-  }
+  })().catch(() => {
+    // Configuration, browser support and intermittent connectivity may
+    // change; allow a later explicit opt-in to retry initialization.
+    foregroundListenerPromise = null;
+  });
+
+  return foregroundListenerPromise;
 }

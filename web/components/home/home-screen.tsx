@@ -483,12 +483,26 @@ export function HomeScreen({ session }: { session: Session }) {
   }, [applySnapshot, loadMode, mode]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    // Background tabs should never compete with the visible feed's first
+    // paint, especially on metered or poor mobile connections. Prefetch on
+    // idle for normal connections; users can still open any tab immediately.
+    type NetworkHints = { saveData?: boolean; effectiveType?: string };
+    const hints = (navigator as Navigator & { connection?: NetworkHints }).connection;
+    if (!navigator.onLine || hints?.saveData || hints?.effectiveType === "2g" || hints?.effectiveType === "slow-2g") return;
+
+    const warmOtherTabs = () => {
+      if (document.visibilityState !== "visible") return;
       for (const item of HOME_FEED_MODES) {
         if (item.key === "for-you" || feedCache.current[item.key]) continue;
         void loadMode(item.key, { showLoading: false, apply: false });
       }
-    }, 250);
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(warmOtherTabs, { timeout: 2500 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(warmOtherTabs, 1000);
     return () => window.clearTimeout(timer);
   }, [loadMode]);
 
