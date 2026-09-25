@@ -144,9 +144,9 @@ export async function listenForForegroundPush(): Promise<void> {
   if (foregroundListenerPromise) return foregroundListenerPromise;
 
   foregroundListenerPromise = (async () => {
-    if (!(await pushSupported())) return;
+    if (!(await pushSupported())) throw new Error("Push support is unavailable");
     const config = await fetchPushConfig();
-    if (!config?.configured) return;
+    if (!config?.configured) throw new Error("Push is not configured");
     const fb = await loadFirebase();
     const messaging = fb.getMessaging(firebaseApp(fb, config));
     fb.onMessage(messaging, (payload) => {
