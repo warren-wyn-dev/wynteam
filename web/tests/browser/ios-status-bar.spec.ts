@@ -18,14 +18,19 @@ async function simulateInstalledIphone(page: import("@playwright/test").Page) {
   )).toBe(true);
 }
 
-test("installed iPhone Home has a plain white header with no web status overlay or extra inset", async ({ page }) => {
+test("installed iPhone Home reserves the native safe area without a colored overlay", async ({ page }) => {
   // Emulation tests CSS, not the real iOS clock or installation metadata cache.
   await simulateInstalledIphone(page);
   await expect(page.locator(".wyn-ios-status-fill")).toHaveCount(0);
+  // Playwright does not emulate iOS's physical status bar. Override the
+  // shared safe-area token to regression-test a real 54px iPhone notch.
+  await page.evaluate(() => document.documentElement.style.setProperty("--wyn-ios-top-inset", "54px"));
   await expect(page.locator(".wyn-home")).toHaveCSS("background-image", "none");
   await expect(page.locator(".wyn-home")).toHaveCSS("backdrop-filter", "none");
-  await expect(page.locator(".wyn-home")).toHaveCSS("padding-top", "0px");
+  await expect(page.locator(".wyn-home")).toHaveCSS("padding-top", "54px");
   await expect(page.locator(".wyn-home")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  const headerTop = await page.locator(".wyn-home-header").evaluate(el => el.getBoundingClientRect().top);
+  expect(headerTop).toBeGreaterThanOrEqual(54);
   const rootBackground = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
   expect(rootBackground).toBe("rgb(255, 255, 255)");
 });
@@ -33,6 +38,7 @@ test("installed iPhone Home has a plain white header with no web status overlay 
 test("installed iPhone route and Chat headers use compact non-overlapping geometry", async ({ page }) => {
   await simulateInstalledIphone(page);
   await page.evaluate(() => {
+    document.documentElement.style.setProperty("--wyn-ios-top-inset", "54px");
     const route = document.createElement("header");
     route.className = "route-header";
     document.body.append(route);
@@ -52,21 +58,28 @@ test("installed iPhone route and Chat headers use compact non-overlapping geomet
     await expect(page.locator(selector)).toHaveCSS("backdrop-filter", "none");
     await expect(page.locator(selector)).toHaveCSS("background-color", "rgb(255, 255, 255)");
   }
-  await expect(page.locator(".route-header")).toHaveCSS("padding-top", "0px");
-  await expect(page.locator(".detail-floating-header")).toHaveCSS("padding-top", "0px");
-  await expect(page.locator(".wyn-chat-inbox .flutter-chat-header")).toHaveCSS("height", "68px");
-  await expect(page.locator(".wyn-chat-inbox .flutter-chat-header")).toHaveCSS("padding-top", "6px");
-  await expect(page.locator(".conversation-modern-header")).toHaveCSS("padding-top", "8px");
+  await expect(page.locator(".route-header")).toHaveCSS("padding-top", "54px");
+  await expect(page.locator(".detail-floating-header")).toHaveCSS("padding-top", "54px");
+  await expect(page.locator(".detail-floating-header")).toHaveCSS("min-height", "111px");
+  await expect(page.locator(".wyn-chat-inbox .flutter-chat-header")).toHaveCSS("height", "122px");
+  await expect(page.locator(".wyn-chat-inbox .flutter-chat-header")).toHaveCSS("padding-top", "60px");
+  await expect(page.locator(".conversation-modern-header")).toHaveCSS("padding-top", "62px");
+  await expect(page.locator(".conversation-modern-header")).toHaveCSS("min-height", "126px");
 });
 
 test("installed iPhone Profile starts its user-selected cover beneath the native status bar", async ({ page }) => {
   await simulateInstalledIphone(page);
   await page.evaluate(() => {
+    document.documentElement.style.setProperty("--wyn-ios-top-inset", "54px");
     const profile = document.createElement("section");
     profile.className = "wyn-profile-beta1";
     profile.innerHTML = '<div class="wyn-profile-hero"><div class="wyn-profile-cover"></div><div class="wyn-profile-topbar"></div></div>';
     document.body.append(profile);
   });
+  await expect(page.locator(".wyn-profile-beta1")).toHaveCSS("padding-top", "54px");
+  const profileTop = await page.locator(".wyn-profile-beta1").evaluate(el => el.getBoundingClientRect().top);
+  const coverTop = await page.locator(".wyn-profile-beta1 .wyn-profile-cover").evaluate(el => el.getBoundingClientRect().top);
+  expect(coverTop - profileTop).toBeCloseTo(54, 0);
   const width = await page.locator(".wyn-profile-beta1 .wyn-profile-cover").evaluate(el => el.getBoundingClientRect().width);
   const expectedHeight = Math.max(150, Math.min(width * .38, 210));
   const actualHeight = await page.locator(".wyn-profile-beta1 .wyn-profile-cover").evaluate(el => el.getBoundingClientRect().height);
@@ -89,6 +102,8 @@ test("metadata and CSS use Apple's default white status mode without old translu
   expect(css).not.toContain("#8f9bad");
   expect(css).not.toContain("--wyn-ios-header-blend");
   expect(css).not.toContain("wyn-status-cover-route");
+  expect(css).toContain("--wyn-ios-top-inset: env(safe-area-inset-top, 0px)");
+  expect(css).toContain("padding-top: var(--wyn-ios-top-inset)");
   expect(css).toContain("height: clamp(150px, 38vw, 210px);");
   expect(runtime).toContain('classList.toggle("wyn-ios-standalone"');
   expect(runtime).not.toContain("wyn-status-cover-route");

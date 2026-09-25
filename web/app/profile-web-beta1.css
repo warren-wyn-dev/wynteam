@@ -352,11 +352,14 @@
 .wyn-profile-beta1 .profile-feed-list .golden-drop-save-inline {
   margin-left: auto !important;
 }
-/* Installed iPhone Home Screen app uses the native `default` white
-   status bar with dark clock/icons. Web content begins BELOW that bar:
-   never add a colored status layer, gradient, shadow clearance or another
-   notch-sized top inset. Keep other platforms' spacing unchanged. */
+/* Apple's default white status style gives dark clock/icons, but on an
+   installed iPhone with viewport-fit=cover WebKit can STILL position sticky
+   page headers under the OS-owned status region. Reserve exactly the native
+   safe-area inset INSIDE each header so its contents remain visible at rest
+   and while scrolling. Keep the status/header backing white: no overlay,
+   gradient or speculative extra 12/20/44px spacer. */
 :root.wyn-ios-standalone {
+  --wyn-ios-top-inset: env(safe-area-inset-top, 0px);
   background-color: #fff;
 }
 :root.wyn-ios-standalone .wyn-home,
@@ -372,23 +375,26 @@
 :root.wyn-ios-standalone .wyn-home,
 :root.wyn-ios-standalone .route-header,
 :root.wyn-ios-standalone .detail-floating-header {
-  padding-top: 0;
+  padding-top: var(--wyn-ios-top-inset);
 }
 :root.wyn-ios-standalone .detail-floating-header {
-  min-height: 57px;
+  min-height: calc(57px + var(--wyn-ios-top-inset));
 }
 :root.wyn-ios-standalone .wyn-chat-inbox .flutter-chat-header {
-  height: 68px !important;
-  padding-top: 6px !important;
+  height: calc(68px + var(--wyn-ios-top-inset)) !important;
+  padding-top: calc(6px + var(--wyn-ios-top-inset)) !important;
 }
 :root.wyn-ios-standalone .conversation-modern-header {
-  min-height: 72px;
-  padding-top: 8px;
+  min-height: calc(72px + var(--wyn-ios-top-inset));
+  padding-top: calc(8px + var(--wyn-ios-top-inset));
 }
 
-/* Selected Profile cover now starts BELOW the native status bar.
-   Remove the old additional safe-area height; user-uploaded cover content
-   and the Profile top-bar controls remain otherwise unchanged. */
+/* Profile cover begins BELOW the system clock instead of hiding under it.
+   Pad the entire profile once, without stretching the user's cover or
+   reintroducing the old translucent status overlay. */
+:root.wyn-ios-standalone .wyn-profile-beta1 {
+  padding-top: var(--wyn-ios-top-inset);
+}
 :root.wyn-ios-standalone .wyn-profile-beta1 .wyn-profile-cover {
   height: clamp(150px, 38vw, 210px);
 }
