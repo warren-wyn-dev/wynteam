@@ -67,11 +67,19 @@ test("installed iOS keeps non-profile headers crisp but leaves the profile cover
     chat.className = "wyn-chat-inbox";
     chat.innerHTML = '<header class="flutter-chat-header"></header>';
     document.body.append(chat);
+    const conversation = document.createElement("header");
+    conversation.className = "conversation-modern-header";
+    document.body.append(conversation);
+    const detail = document.createElement("header");
+    detail.className = "detail-floating-header";
+    document.body.append(detail);
   });
   await expect(page.locator(".route-header")).toHaveCSS("backdrop-filter", "none");
   await expect(page.locator(".route-header")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(page.locator(".wyn-chat-inbox .flutter-chat-header")).toHaveCSS("backdrop-filter", "none");
   await expect(page.locator(".wyn-chat-inbox .flutter-chat-header")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(page.locator(".conversation-modern-header")).toHaveCSS("backdrop-filter", "none");
+  await expect(page.locator(".detail-floating-header")).toHaveCSS("backdrop-filter", "none");
 
   await page.evaluate(() => document.documentElement.classList.add("wyn-status-cover-route"));
   await expect(strip).toHaveCSS("display", "none");
