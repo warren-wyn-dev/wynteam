@@ -363,7 +363,7 @@
   height: env(safe-area-inset-top, 0px);
   z-index: 1000;
   pointer-events: none;
-  background: #101114;
+  background: #64748b;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   isolation: isolate;
@@ -453,7 +453,7 @@
     background-color: #64748b;
   }
   html:has(.wyn-home) {
-    background-color: var(--wyn-ios-status-surface, #101114);
+    background-color: var(--wyn-ios-status-surface, #64748b);
   }
   .wyn-home {
     padding-top: env(safe-area-inset-top, 0px);
