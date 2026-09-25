@@ -70,3 +70,10 @@ test("storage permission failures never block composing, navigation or sign-out"
   assert.equal(api.readChatDraft(key), "");
   assert.doesNotThrow(() => api.clearSessionChatDrafts());
 });
+
+
+test("read-receipt failure cannot trigger a false successful-send failure", () => {
+  const thread = readFileSync(new URL("../components/chat-routes.tsx", import.meta.url), "utf8");
+  assert.match(thread, /void markConversationRead\(client, realConversationId\)\.catch\(/);
+  assert.match(thread, /await markConversationRead\(client, conversationId\)\.catch\(/);
+});
