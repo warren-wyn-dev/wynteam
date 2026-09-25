@@ -331,8 +331,10 @@ export function WelcomeScreen() {
         setError(result.error ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่");
         setGoogleLoading(false);
       } else if (isInstalledIosWebApp()) {
+        // Keep the button disabled while the popup owns the PKCE flow:
+        // a second tap would overwrite the verifier and break the first
+        // callback. Focus/visibility resumes the parent or shows retry.
         googlePwaPending.current = true;
-        setGoogleLoading(false);
       }
     } catch {
       setError("เปิด Google ไม่สำเร็จ กรุณาลองใหม่");
