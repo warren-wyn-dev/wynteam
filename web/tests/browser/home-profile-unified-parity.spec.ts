@@ -192,9 +192,9 @@ test("Home tab labels use the approved larger type while Profile retains its lay
       host.remove();
       return result;
     }, width);
-    // Beta1 Home header text is intentionally one pixel larger after the
-    // Founder-approved polish; Profile typography remains unchanged.
-    expect(result.homeFont).toBe(width <= 359 ? "15px" : "16px");
+    // Home feed tabs are deliberately larger for legibility, while narrow
+    // screens retain a 16px fallback and Profile typography stays unchanged.
+    expect(result.homeFont).toBe(width <= 359 ? "16px" : "18px");
     expect(result.profileFont).toBe(width <= 359 ? "14px" : "15px");
     expect(result.homeWeight).toBe("700");
     expect(result.profileWeight).toBe(result.homeWeight);

@@ -20,7 +20,8 @@ test("approved Founder Home mockup geometry cannot drift", () => {
     layout.lastIndexOf('import "./founder-parity-lock.css";'),
   );
 
-  expect(home).toContain("height: 32px");
+  // The Founder-requested larger Home feed tabs are 38px tall; other Home geometry is unchanged.
+  expect(home).toContain(".wyn-home-tabs {\n  height: 38px;");
   expect(home).toContain("grid-template-columns: 40px minmax(0, 1fr)");
   expect(home).toContain("column-gap: 10px");
   expect(home).toContain("padding: 10px 16px 0");

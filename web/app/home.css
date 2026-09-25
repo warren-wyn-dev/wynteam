@@ -120,7 +120,7 @@
 /* ---------- Tabs: text + underline, no segmented pill ---------- */
 
 .wyn-home-tabs {
-  height: 32px;
+  height: 38px;
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--wyn-border);
@@ -130,7 +130,7 @@
 .wyn-home-tab {
   flex: 1 1 0;
   min-width: 0;
-  height: 32px;
+  height: 38px;
   padding: 0 8px;
   border: 0;
   border-radius: 0;
@@ -141,7 +141,7 @@
   justify-content: center;
   color: #757a84;
   font: inherit;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.2;
   font-weight: 600;
   -webkit-tap-highlight-color: transparent;
@@ -617,7 +617,7 @@
 
   .wyn-home-tab {
     padding-inline: 5px;
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .wyn-home-tab-indicator {
