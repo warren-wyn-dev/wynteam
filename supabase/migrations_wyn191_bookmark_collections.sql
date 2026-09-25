@@ -76,7 +76,7 @@ create policy "Owner removes bookmark items"
 revoke all on public.bookmark_collections,public.bookmark_collection_items from public,anon,authenticated;
 grant select,delete on public.bookmark_collections,public.bookmark_collection_items to authenticated;
 grant insert (owner_id,name) on public.bookmark_collections to authenticated;
-grant update (name) on public.bookmark_collections to authenticated;
+grant update (name,updated_at) on public.bookmark_collections to authenticated;
 grant insert (collection_id,owner_id,content_type,content_id)
   on public.bookmark_collection_items to authenticated;
 
