@@ -712,6 +712,9 @@ export function HomeScreen({ session }: { session: Session }) {
   // Legacy product contract name: Quote ReDrop.
   const quoteRedrop = async () => {
     if (!client || !selected || !quote.trim() || busy) return;
+    if (definitelyOffline()) { setError(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, selected.id, "quote");
+    if (!releaseMutation) return;
     setBusy(true);
     setError("");
     try {
@@ -730,6 +733,7 @@ export function HomeScreen({ session }: { session: Session }) {
       setError(e instanceof Error ? e.message : "รีโพสต์พร้อมความคิดเห็นไม่สำเร็จ");
     } finally {
       setBusy(false);
+      releaseMutation();
     }
   };
 
