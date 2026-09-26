@@ -23,6 +23,7 @@ import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
+import { reportClientFailure } from "@/lib/client-health";
 import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { shareOrCopyLink } from "@/lib/share";
 import { getRecentDropEngagement, listenDropEngagement, patchDropViewer, publishDropEngagement } from "@/lib/drop-engagement-sync";
@@ -265,6 +266,7 @@ export function GoldenDropCard({
       publishDropEngagement({ userId, dropId: row.id, kind: "like", active: liked, count: likeCount, source });
       setLikeCount(likeCount);
       void reloadViewer(userId);
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
     } finally { releaseMutation(); }
@@ -311,6 +313,7 @@ export function GoldenDropCard({
     } catch {
       publishDropEngagement({ userId, dropId: row.id, kind: "save", active: saved, source });
       void reloadViewer(userId);
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
     } finally { releaseMutation(); }
