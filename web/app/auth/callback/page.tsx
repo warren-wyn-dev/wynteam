@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { getPendingAddAccountSlot } from "@/lib/pending-account-add";
+import { getPendingAddAccountClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getPendingAddAccountSlot, validAddAccountSlot } from "@/lib/pending-account-add";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 
@@ -21,6 +21,7 @@ export default function EmailConfirmationCallbackPage() {
   const started = useRef(false);
   const [error, setError] = useState("");
   const [popupComplete, setPopupComplete] = useState(false);
+  const [externalConfirmation, setExternalConfirmation] = useState(false);
 
   useEffect(() => {
     // Avoid exchanging a one-time PKCE code twice under React Strict Mode.
@@ -36,8 +37,19 @@ export default function EmailConfirmationCallbackPage() {
 
       try {
         if (params.has("error")) throw new Error("Email confirmation failed");
+        if (addSlot && !validAddAccountSlot(addSlot)) throw new Error("Invalid account slot");
+        if (addSlot && !pendingSlot) {
+          // iOS Mail opens a different Safari storage partition from an
+          // installed WYNOS PWA. We cannot exchange the original PKCE verifier
+          // here. Supabase may already have confirmed the email server-side:
+          // tell the user to return to the *installed app* and sign in there.
+          // Never open this link using A's active session in Safari.
+          window.history.replaceState(null, "", "/auth/callback");
+          setExternalConfirmation(true);
+          return;
+        }
         if (addSlot && addSlot !== pendingSlot) throw new Error("Invalid add-account callback slot");
-        const client = getSupabaseBrowserClient();
+        const client = addSlot ? getPendingAddAccountClient(addSlot) : getSupabaseBrowserClient();
         if (!client) throw new Error("Supabase browser client unavailable");
 
         // For Add Account, the isolated client deliberately disables automatic
@@ -119,7 +131,16 @@ export default function EmailConfirmationCallbackPage() {
   return (
     <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 24 }}>
       <section style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
-        {error ? (
+        {externalConfirmation ? (
+          <>
+            <h1 style={{ fontSize: 24, fontWeight: 700 }}>กลับไปที่แอป WYNOS</h1>
+            <p role="status" style={{ margin: "16px 0", lineHeight: 1.6 }}>
+              หากคุณเปิดอีเมลจากนอกแอป กรุณากลับไปที่ WYNOS ที่ติดตั้งไว้
+              แล้วเลือก “เพิ่มบัญชี” → “เข้าสู่ระบบ” ด้วยอีเมลที่เพิ่งยืนยัน
+              โดยบัญชีเดิมจะยังอยู่ หากยังเข้าสู่ระบบไม่ได้ให้ขอลิงก์ยืนยันใหม่
+            </p>
+          </>
+        ) : error ? (
           <>
             <h1 style={{ fontSize: 24, fontWeight: 700 }}>ยืนยันตัวตนไม่สำเร็จ</h1>
             <p role="alert" style={{ margin: "16px 0", lineHeight: 1.6 }}>{error}</p>
