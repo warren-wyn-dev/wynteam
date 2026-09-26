@@ -24,11 +24,17 @@ Fix (proposed):
 1. Flutter: pass `contentType` derived from the validated image type on every upload.
 2. After Flutter builds with (1) are the only ones in use: drop `application/octet-stream` from
    `allowed_mime_types` (Founder-applied migration).
-3. Optional, stronger: a storage upload hook / Edge Function that checks magic bytes before the
-   object becomes public.
+3. **Required:** trusted server-side content validation, for example a storage upload hook or
+   Edge Function that checks magic bytes or decodes the image before the object is accepted or
+   made public. Steps 1–2 alone do not satisfy "Expected": a direct Storage API call can still
+   send non-image bytes labelled `image/jpeg`.
+Closure condition: this finding closes only when step 3 is live and a spoofed allowed MIME type
+(non-image bytes sent as `image/jpeg`/`image/png`) is rejected on staging or production. Rejecting
+`application/octet-stream` alone is not enough.
 Files Changed: —
-Tests: extend `supabase/tests/web_beta1_qa_hardening_test.sh` to assert octet-stream is rejected
-after step 2; Flutter upload unit test for `contentType`.
+Tests: (a) spoofed-MIME upload (non-image bytes as `image/jpeg`) is rejected; (b) octet-stream is
+rejected after step 2; (c) a real JPEG/PNG/HEIC still uploads; (d) Flutter upload unit test for
+`contentType`.
 Regression Risk: Medium for step 2, because older Flutter builds' uploads would fail. Gate on
 Flutter adoption.
 Handoff to QA: attempt the octet-stream upload on staging after step 2.

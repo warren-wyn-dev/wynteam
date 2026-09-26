@@ -116,9 +116,13 @@ own phones and reported all of it passing: "ไม่มี เรียบร�
 | Bell and Chat unread badges count up and clear | Pass |
 | Account switch: Push reaches only the active account | Pass |
 | Signup → onboarding → first post with image | Pass |
+| Official first-follow (`docs/engineering/WEB_BETA1_OFFICIAL_FIRST_FOLLOW_RELEASE.md` outstanding real-device evidence): a new account follows @wynos_s once automatically → unfollow → logout/login and profile edit → stays unfollowed, no repeat follow | Pass |
 | Password-reset email is delivered | Pass |
 | Shared link tapped in LINE opens in Safari (PR #729) | Pass |
 | Pinch/double-tap zoom disabled (PR #729, Founder decision) | Pass |
+
+The first-follow row was confirmed by the Founder in a separate answer ("ทดสอบแล้ว ผ่านหมด",
+2026-09-26), after Codex review of this PR pointed out that the checklist above did not cover it.
 
 Post-QA fixes shipped the same day and included in this sign-off:
 - PR #727: `/@username` and @mention links no longer 404; a shared link survives login and
@@ -147,6 +151,18 @@ The evidence for the released commit is:
 | Local full Playwright on Chromium (chromium-android + chromium-desktop), code of #729 | `706dd4a` | 555 passed, 19 skipped, 2 failed. Both failures are unrelated to #729: the Food demo flake (see below), and `signup-security.spec.ts:6`, which failed only under full-suite load and passed 6/6 on re-run |
 | Production checks (HTTP): LINE UA 307 → `?openExternalBrowser=1`; Safari/preview bot 200; zoom-off viewport; security headers | `d0ed2dc` | pass |
 | Founder real-device checks (table above) | `d0ed2dc` | pass |
+
+### Staging gate — Founder-approved exception
+
+AGENTS.md Release Gate 5 (Staging) was **not** run as a separate step. Every merge to `main` deploys
+straight to production through `wyn-158-production-deploy.yml` (Vercel `--prod`), and the
+preview workflow (`web-next-phase5-preview.yml`) runs only for allow-listed branches, which did not
+include this release's branch. The Founder accepted this as an **explicit exception for Web Beta1**
+on 2026-09-26 (AskUserQuestion: "ยอมรับเป็นข้อยกเว้นของ Web Beta1"), recorded in
+`.wyn/company/APPROVALS.md`. Mitigations in place:
+- **Rollback:** Vercel Instant Rollback to the previous production deployment (#276 `e340a53`, #275 `19f2f58`); the code can also be reverted with `git revert` of the merge commit. There are no DB changes in #727/#729.
+- **Monitoring:** Vercel Analytics and Speed Insights, the client error monitor (`components/client-error-monitor.tsx`), and the post-deploy route/config checks in the WYN-158 workflow.
+- A real staging environment is planned for Web Beta2. This exception is not a precedent for other releases.
 
 ### Open findings at sign-off
 

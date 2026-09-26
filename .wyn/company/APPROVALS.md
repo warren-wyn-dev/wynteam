@@ -145,3 +145,10 @@
 - Risk accepted by Founder: low-vision users cannot pinch-zoom; OS-level zoom and text-size settings still apply.
 - Rollback: revert the viewport fields, the `touch-action` line and `<ZoomLock />`.
 - สถานะ: **อนุมัติแล้ว** — วันที่ 2026-09-26
+
+### DECISION — [2026-09-26] Web Beta1: staging gate exception (auto-deploy to production)
+- Context: AGENTS.md Release Gate 5 requires staging verification. `wyn-158-production-deploy.yml` deploys every merge to `main` directly to production, and the preview workflow does not cover the release branch, so Web Beta1 releases (#721–#729) skipped staging. This came up in the Codex review of PR #731 (QA sign-off).
+- Founder decision (AskUserQuestion): **"ยอมรับเป็นข้อยกเว้นของ Web Beta1"**, an explicit exception for Web Beta1 only.
+- Mitigations: Vercel Instant Rollback to the previous production deployment; Vercel Analytics/Speed Insights and the client error monitor; WYN-158 post-deploy route/config checks.
+- Follow-up: set up a real staging environment for Web Beta2. This exception is **not** a precedent for other versions or releases.
+- สถานะ: **อนุมัติแล้ว (ข้อยกเว้น)**. วันที่ 2026-09-26

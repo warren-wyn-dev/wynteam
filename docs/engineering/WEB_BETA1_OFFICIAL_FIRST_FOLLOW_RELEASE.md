@@ -10,6 +10,8 @@ Post-activation read-only checks confirmed one public `@wynos_s` profile, the en
 
 **Outstanding real-device evidence:** no production registrations had occurred since activation at the first post-release read, so real-account first-follow, notification isolation and durable opt-out have not yet been observed in production. Run a Founder-authorized genuine new-account test on physical iPhone Safari; test follow, unfollow, re-login and profile edit before marking real-device QA complete. Isolated PostgreSQL regression and automated browser/WebKit suites were green, but are not proof of physical-device behavior.
 
+**Update 2026-09-26:** the Founder reported the real-device fresh-account test as passing: one automatic follow of @wynos_s, and an unfollow that persists across logout/login and profile edit. It is recorded in the Web Beta1 full-system QA sign-off (`.wyn/docs/qa/wynos-web-beta1-full-system-qa-2026-09-26.md`). Notification isolation and the OAuth-delayed username path were not itemised separately in that report.
+
 **Governance:** the broad instruction to finish was used for this release, but an earlier Founder decision in `.wyn/company/APPROVALS.md` says production migrations are normally Founder-operated even after a general "finish" request. This rollout must not be treated as precedent for future AI-initiated production DB changes; the retrospective authority reconciliation remains open. No automatic disable/rollback is authorized.
 
 The instructions below are retained for historical auditing and any future **separately approved** rollout/recovery. Do **not** reapply the original migration or the activation SQL to this currently enabled database.
