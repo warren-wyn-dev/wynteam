@@ -665,6 +665,15 @@ export function SignupStep2Screen() {
   // Keep all signup fields non-interactive until React hydration completes.
   // Otherwise the first keystrokes can be lost on mobile Safari or Chromium.
   const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
+  // PageTransition waits 90ms to remove step 1, then animates step 2 in
+  // for 220ms. Mobile WebKit can accept input mid-transition and reset it
+  // when AnimatePresence settles. Keep fields non-interactive through the
+  // entry animation (Playwright and real taps wait until they are enabled).
+  const [transitionReady, setTransitionReady] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setTransitionReady(true), 280);
+    return () => window.clearTimeout(timer);
+  }, []);
   // WebKit can expose the incoming page before Framer Motion finishes its
   // 220ms entry. Rapid typing during that interval may land on the outgoing
   // DOM instance and then disappear on its final replacement. Enable this
