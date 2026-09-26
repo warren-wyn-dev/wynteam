@@ -14,6 +14,7 @@ import {
   getActiveAccountStorageKey,
   listSavedAccounts,
   markAccountStorageActive,
+  preflightAccountActivation,
   registerCurrentAccount,
   registerSessionAccount,
 } from "@/lib/account-registry";
@@ -864,25 +865,39 @@ export function OnboardingProfileScreen() {
         const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
         const session = sessionResult.session;
         if (sessionError || !session || session.user.id !== data.user.id) throw new Error("Invalid pending session");
+        // Save B and verify writable storage while A's Push is still intact.
+        // If another tab filled the account registry, do not revoke A first.
+        const saved = await registerSessionAccount(supabase, session, pendingSlot);
+        if (!saved) {
+          setError("บันทึกบัญชีได้สูงสุด 9 บัญชี กรุณาจัดการบัญชีที่บันทึกไว้ก่อน");
+          return;
+        }
+        if (!preflightAccountActivation(pendingSlot)) {
+          setError("บันทึกบัญชีใหม่แล้ว แต่พื้นที่จัดเก็บไม่พร้อมสำหรับสลับบัญชี กรุณาลองใหม่");
+          return;
+        }
         if (typeof Notification !== "undefined" && Notification.permission === "granted") {
           const prior = createAccountSwitchPriorClient();
           const activeStorageKey = getActiveAccountStorageKey();
           const savedCurrent = listSavedAccounts().find((item) => item.storageKey === activeStorageKey);
           const priorSession = prior ? await prior.auth.getSession() : null;
           const priorId = priorSession?.data.session?.user.id;
-          if (priorId && savedCurrent && savedCurrent.userId !== priorId) throw new Error("Previous account mismatch");
+          if (priorId && savedCurrent && savedCurrent.userId !== priorId) {
+            setError("บัญชีใหม่ถูกบันทึกแล้ว แต่บัญชีเดิมไม่ตรงกับเซสชัน กรุณาเปิด WYNOS ใหม่");
+            return;
+          }
           const differentAccount = Boolean(
             (priorId && priorId !== session.user.id) || (savedCurrent && savedCurrent.userId !== session.user.id),
           );
           if (differentAccount && priorId && (!prior || !(await unsubscribeFromPushNotifications(prior)))) {
-            throw new Error("Previous account Push could not be detached");
+            setError("บัญชีใหม่ถูกบันทึกแล้ว แต่ยังสลับไม่ได้เพราะปิด Push ของบัญชีเดิมไม่สำเร็จ");
+            return;
           }
           if (!priorId && (await hasActivePushSubscription()) !== false) {
-            throw new Error("Previous account has an orphaned Push subscription");
+            setError("บัญชีใหม่ถูกบันทึกแล้ว แต่ยังมี Push ของบัญชีเดิมอยู่ กรุณาปิดการแจ้งเตือนก่อน");
+            return;
           }
         }
-        const saved = await registerSessionAccount(supabase, session, pendingSlot);
-        if (!saved) throw new Error("Account storage full");
         markAccountStorageActive(pendingSlot);
         clearPendingAddAccount(pendingSlot);
         window.location.replace(`/profile/${encodeURIComponent(session.user.id)}?from=tab`);
