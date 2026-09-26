@@ -17,6 +17,7 @@ import {
   getActiveAccountStorageKey,
   listSavedAccounts,
   markAccountStorageActive,
+  preflightAccountActivation,
   registerSessionAccount,
 } from "@/lib/account-registry";
 import { hasActivePushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
@@ -81,9 +82,20 @@ export function AccountAddRoute() {
         navigating = true;
         return;
       }
-      // Keep the old account active until the new account is authenticated
-      // and its registration succeeds. Detach the old Push token exactly
-      // once, immediately before activating the new slot.
+      // Persist B *before* removing A's Push registration. A concurrent tab
+      // may fill the nine-account registry or storage may become unavailable;
+      // neither condition is allowed to silently disable notifications on A.
+      const saved = await registerSessionAccount(client, session, storageKey);
+      if (!saved) {
+        setMessage(`บันทึกบัญชีได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชี`);
+        return;
+      }
+      if (!preflightAccountActivation(storageKey)) {
+        setMessage("บันทึกบัญชีใหม่แล้ว แต่พื้นที่จัดเก็บไม่พร้อมสำหรับสลับบัญชี กรุณาลองอีกครั้ง");
+        return;
+      }
+      // A remains active until Push detachment succeeds and B's active marker
+      // can safely be written. B is already saved if detachment fails.
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         const prior = createAccountSwitchPriorClient();
         const activeStorageKey = getActiveAccountStorageKey();
@@ -95,25 +107,20 @@ export function AccountAddRoute() {
           (savedCurrent && savedCurrent.userId !== session.user.id),
         );
         if (priorId && savedCurrent && savedCurrent.userId !== priorId) {
-          setMessage("บัญชีเดิมไม่ตรงกับเซสชันบนอุปกรณ์ กรุณาเปิด WYNOS ใหม่");
+          setMessage("บันทึกบัญชีใหม่แล้ว แต่บัญชีเดิมไม่ตรงกับเซสชัน กรุณาเปิด WYNOS ใหม่");
           return;
         }
         if (differentAccount && priorId && (!prior || !(await unsubscribeFromPushNotifications(prior)))) {
-          setMessage("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณากลับไปที่บัญชีเดิมแล้วลองอีกครั้ง");
+          setMessage("บันทึกบัญชีใหม่แล้ว แต่ยังสลับไม่ได้เพราะปิด Push ของบัญชีเดิมไม่สำเร็จ");
           return;
         }
         if (!priorId && (await hasActivePushSubscription()) !== false) {
           // A stale worker subscription could still receive private messages
           // for an account whose login has expired or was removed offline.
           // Without that account's session we cannot delete its server token.
-          setMessage("ยังมี Push ของบัญชีเดิมอยู่ กรุณาเข้าสู่ระบบบัญชีเดิมเพื่อปิดการแจ้งเตือนก่อน");
+          setMessage("บันทึกบัญชีใหม่แล้ว แต่ยังมี Push ของบัญชีเดิมอยู่ กรุณาปิดการแจ้งเตือนของบัญชีเดิมก่อน");
           return;
         }
-      }
-      const saved = await registerSessionAccount(client, session, storageKey);
-      if (!saved) {
-        setMessage(`บันทึกบัญชีได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชี`);
-        return;
       }
       markAccountStorageActive(storageKey);
       clearPendingAddAccount(storageKey);
