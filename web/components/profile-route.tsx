@@ -459,9 +459,22 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
     accounts.filter((item) => item.userId !== userId).slice(0, 3)
       .forEach((item) => { void prewarmSavedAccountSession(item); });
     prewarmAccountSwitchPush();
-    void registerCurrentAccount(client)
-      .then(() => setSavedAccounts(listSavedAccounts()))
-      .catch(() => setAccountSwitcherError("โหลดบัญชีปัจจุบันไม่สำเร็จ กรุณาลองใหม่"));
+    // Opening a menu should not re-fetch A's session AND profile every time:
+    // it competes with the destination's warm-up on mobile connections.
+    // Only sync when the current saved entry is missing or profile details
+    // actually changed since its last registration.
+    const current = accounts.find((item) =>
+      item.userId === userId && item.storageKey === getActiveAccountStorageKey(),
+    );
+    const needsSync = !current ||
+      current.username !== profile.username ||
+      current.displayName !== (profile.display_name ?? null) ||
+      current.avatarUrl !== (profile.avatar_url ?? null);
+    if (needsSync) {
+      void registerCurrentAccount(client)
+        .then(() => setSavedAccounts(listSavedAccounts()))
+        .catch(() => setAccountSwitcherError("โหลดบัญชีปัจจุบันไม่สำเร็จ กรุณาลองใหม่"));
+    }
   };
   // Never let the same FCM device token keep delivering account A's
   // private notifications after account B becomes active. Detach while A's
