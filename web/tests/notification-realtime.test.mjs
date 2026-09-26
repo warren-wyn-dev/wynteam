@@ -257,6 +257,6 @@ test("notification page shows cache instantly, reconciles missed events and guar
   assert.match(route, /markAllNotificationsRead\(client, userId, next\[0\]\.created_at\)/);
   assert.match(route, /settleNotificationsRead\(client, userId\)/);
   assert.match(data, /request\.lte\("created_at", newestVisibleCreatedAt\)/);
-  assert.match(fg, /window\.dispatchEvent\(new CustomEvent\("wynos:notification-push"/);
+  assert.doesNotMatch(fg, /onMessage\(/);
   assert.match(worker, /kind: "wynos:notification-push"/);
 });

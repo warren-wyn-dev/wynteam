@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-import { listenForForegroundPush } from "@/lib/push-notifications";
 
 const scrollMemory = new Map<string, number>();
 
@@ -47,18 +46,6 @@ export function AppNavigationRuntime() {
       document.documentElement.classList.remove("wyn-pwa-standalone");
       document.documentElement.classList.remove("wyn-ios-standalone");
     };
-  }, []);
-
-  useEffect(() => {
-    // Firebase downloads/config should not compete with the first app paint.
-    // Do not prompt: initialize only an existing permission after idle.
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(() => { void listenForForegroundPush(); }, { timeout: 1400 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = window.setTimeout(() => { void listenForForegroundPush(); }, 400);
-    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {

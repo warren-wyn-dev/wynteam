@@ -94,7 +94,9 @@ test("foreground push uses the registered worker and server icon case matches pu
   expect(worker).not.toContain("importScripts(");
   expect(worker).not.toContain("onBackgroundMessage");
   expect(worker).toContain("event.stopImmediatePropagation?.()");
-  expect(client).toContain("registration.showNotification(title");
+  // The service worker is the single Push display path (no page onMessage).
+  expect(client).not.toContain("onMessage(");
+  expect(client).not.toContain("listenForForegroundPush");
   const subscription = client.slice(client.indexOf("export async function subscribeToPushNotifications"), client.indexOf("export async function unsubscribeFromPushNotifications"));
   expect(subscription).toContain("Notification.requestPermission()");
   expect(subscription.indexOf("Notification.requestPermission()")).toBeLessThan(subscription.indexOf("await getPushAvailability()"));
@@ -105,7 +107,6 @@ test("foreground push uses the registered worker and server icon case matches pu
   expect(profile.indexOf("detachPushBeforeAccountChange()")).toBeLessThan(profile.indexOf("activateSavedAccount(account.userId)"));
   const accountAdd = source("components/account-add-route.tsx");
   expect(accountAdd.indexOf("unsubscribeFromPushNotifications(prior)")).toBeLessThan(accountAdd.indexOf("markAccountStorageActive(storageKey)"));
-  expect(client).toContain("void listenForForegroundPush()");
   expect(server).toContain('icon: "/icons/icon-192.png"');
   expect(server).not.toContain('"/icons/Icon-192.png"');
 });

@@ -156,7 +156,8 @@ test("source: app startup only warms route manifests after authentication; entry
   const motion = readFileSync(new URL("../components/ui/page-transition.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(root, /for \(const href of PREFETCH_ROUTES\) router\.prefetch/);
   assert.match(root, /requestIdleCallback\(register/);
-  assert.match(root, /requestIdleCallback\(\(\) => \{ void listenForForegroundPush\(\)/);
+  // Push display/wake-up lives in the service worker; startup never loads Firebase.
+  assert.doesNotMatch(root, /listenForForegroundPush/);
   assert.match(chrome, /scheduleAppRoutePrefetch\(\(href\) => router\.prefetch\(href\), userId, pathname\)/);
   assert.match(motion, /<AnimatePresence mode="wait"/);
   assert.match(motion, /const DURATION = 0\.22;/);
