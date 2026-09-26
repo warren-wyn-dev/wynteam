@@ -15,40 +15,48 @@ export function hasSupabaseBrowserConfig(): boolean {
   );
 }
 
+/**
+ * Add Account maintains its own Supabase session while A remains active.
+ * Explicitly selecting this client on signup screens avoids a soft-navigation
+ * race: window.location.pathname can still reflect the preceding page while
+ * React mounts the next route.
+ */
+export function getPendingAddAccountClient(expectedSlot?: string | null): SupabaseClient | null {
+  const pending = getPendingAddAccountSlot();
+  if (!pending || (expectedSlot && pending !== expectedSlot)) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return null;
+  if (!pendingClient || pendingClientSlot !== pending) {
+    pendingClient = createClient(url, key, {
+      auth: {
+        storageKey: pending,
+        persistSession: true,
+        autoRefreshToken: true,
+        // /auth/callback explicitly exchanges the PKCE code once.
+        detectSessionInUrl: false,
+      },
+    });
+    pendingClientSlot = pending;
+  }
+  return pendingClient;
+}
+
+export function getSignupAuthClient(): SupabaseClient | null {
+  return getPendingAddAccountClient() ?? getSupabaseBrowserClient();
+}
+
 export function getSupabaseBrowserClient(): SupabaseClient | null {
-  // Signup and email confirmation launched by Add Account must never mutate
-  // the signed-in account's Supabase singleton or activate the new slot early.
+  // The root app mounts persistent listeners before the page is hydrated.
+  // During these two isolated OAuth redirects, they must not consume B's
+  // one-time PKCE code in the *active* account A's browser singleton.
   if (typeof window !== "undefined") {
     const pathname = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
     const pending = getPendingAddAccountSlot();
-    const signupRoute = pathname.startsWith("/signup/") || pathname === "/onboarding/profile";
-    // During the Add Account Google return, only the isolated route client
-    // should exchange the OAuth code; the app singleton must never consume
-    // that code into A's active session before the route mounts.
-    const addAccountOAuth = pathname === "/account/add"
-      && new URLSearchParams(window.location.search).get("oauth") === "1";
-    const callbackSlot = pathname === "/auth/callback"
-      ? new URLSearchParams(window.location.search).get("slot")
-      : null;
-    if (pending && (signupRoute || callbackSlot === pending
-      || (addAccountOAuth && new URLSearchParams(window.location.search).get("slot") === pending))) {
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-      if (!url || !key) return null;
-      if (!pendingClient || pendingClientSlot !== pending) {
-        pendingClient = createClient(url, key, {
-          auth: {
-            storageKey: pending,
-            persistSession: true,
-            autoRefreshToken: true,
-            // /auth/callback exchanges its one-time code explicitly.
-            detectSessionInUrl: false,
-          },
-        });
-        pendingClientSlot = pending;
-      }
-      return pendingClient;
-    }
+    const pendingRedirect = (pathname === "/account/add" && params.get("oauth") === "1"
+        || pathname === "/auth/callback") && params.get("slot") === pending;
+    if (pending && pendingRedirect) return getPendingAddAccountClient(pending);
   }
   if (client !== undefined) return client;
 
