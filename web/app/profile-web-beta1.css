@@ -329,15 +329,24 @@
     width: 36px; height: 36px; flex-basis: 36px; min-width: 36px; min-height: 36px;
   }
 }
+/* WYN-188: "System" follows the phone unless Light is chosen; Dark applies
+   whenever it is chosen. See lib/theme-preference.ts. */
 @media (prefers-color-scheme: dark) {
-  .wyn-profile-beta1 .wyn-profile-handle,
-  .wyn-profile-beta1 .wyn-profile-stats button,
-  .wyn-profile-beta1 .wyn-profile-tabs button:not(.active) { color: #aaaeb9; }
-  .wyn-profile-beta1 .wyn-profile-hero-avatar { border-color: #000; }
-  .wyn-profile-beta1 .wyn-profile-actions.is-own button { border-color: #444; }
-  .wyn-profile-beta1 .wyn-profile-tabs,
-  .wyn-profile-beta1 .profile-feed-list .golden-drop-card + .golden-drop-card { border-color: #272727; }
+  :where(:root:not([data-theme="light"])) .wyn-profile-beta1 .wyn-profile-handle,
+  :where(:root:not([data-theme="light"])) .wyn-profile-beta1 .wyn-profile-stats button,
+  :where(:root:not([data-theme="light"])) .wyn-profile-beta1 .wyn-profile-tabs button:not(.active) { color: #aaaeb9; }
+  :where(:root:not([data-theme="light"])) .wyn-profile-beta1 .wyn-profile-hero-avatar { border-color: #000; }
+  :where(:root:not([data-theme="light"])) .wyn-profile-beta1 .wyn-profile-actions.is-own button { border-color: #444; }
+  :where(:root:not([data-theme="light"])) .wyn-profile-beta1 .wyn-profile-tabs,
+  :where(:root:not([data-theme="light"])) .wyn-profile-beta1 .profile-feed-list .golden-drop-card + .golden-drop-card { border-color: #272727; }
 }
+:where(:root[data-theme="dark"]) .wyn-profile-beta1 .wyn-profile-handle,
+:where(:root[data-theme="dark"]) .wyn-profile-beta1 .wyn-profile-stats button,
+:where(:root[data-theme="dark"]) .wyn-profile-beta1 .wyn-profile-tabs button:not(.active) { color: #aaaeb9; }
+:where(:root[data-theme="dark"]) .wyn-profile-beta1 .wyn-profile-hero-avatar { border-color: #000; }
+:where(:root[data-theme="dark"]) .wyn-profile-beta1 .wyn-profile-actions.is-own button { border-color: #444; }
+:where(:root[data-theme="dark"]) .wyn-profile-beta1 .wyn-profile-tabs,
+:where(:root[data-theme="dark"]) .wyn-profile-beta1 .profile-feed-list .golden-drop-card + .golden-drop-card { border-color: #272727; }
 /* Profile controls remain visually compact while retaining a larger hit target. */
 .wyn-profile-beta1 .wyn-profile-actions.is-own button {
   position: relative;
@@ -657,8 +666,13 @@
   .wyn-profile-edit-v2 .wyn-profile-edit-fields,
   .wyn-profile-edit-v2 .wyn-profile-edit-footer { padding-inline: 12px; }
 }
+/* WYN-188: "System" follows the phone unless Light is chosen; Dark applies
+   whenever it is chosen. See lib/theme-preference.ts. */
 @media (prefers-color-scheme: dark) {
-  .wyn-profile-edit-v2 .route-field input,
-  .wyn-profile-edit-v2 .route-field textarea,
-  .wyn-profile-edit-v2 .wyn-profile-edit-footer .route-secondary { border-color: #36383f; }
+  :where(:root:not([data-theme="light"])) .wyn-profile-edit-v2 .route-field input,
+  :where(:root:not([data-theme="light"])) .wyn-profile-edit-v2 .route-field textarea,
+  :where(:root:not([data-theme="light"])) .wyn-profile-edit-v2 .wyn-profile-edit-footer .route-secondary { border-color: #36383f; }
 }
+:where(:root[data-theme="dark"]) .wyn-profile-edit-v2 .route-field input,
+:where(:root[data-theme="dark"]) .wyn-profile-edit-v2 .route-field textarea,
+:where(:root[data-theme="dark"]) .wyn-profile-edit-v2 .wyn-profile-edit-footer .route-secondary { border-color: #36383f; }

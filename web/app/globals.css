@@ -53,8 +53,10 @@
    values Flutter keeps unchanged across its own light/dark ColorSchemes.
    Reverses WYN-071's "light-only" scope for the web surface only — see
    DECISIONS.md, 2026-09-16. */
+/* WYN-188: "System" follows the phone unless Light is chosen; Dark applies
+   whenever it is chosen. See lib/theme-preference.ts. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --ink: #ffffff;
     --graphite: #a3a3a3;
     --muted-neutral: #666666;
@@ -67,6 +69,18 @@
     --wyn-skeleton-shine: rgba(255, 255, 255, 0.08);
   }
 }
+:root[data-theme="dark"] {
+    --ink: #ffffff;
+    --graphite: #a3a3a3;
+    --muted-neutral: #666666;
+    --paper: #000000;
+    --faint: #666666;
+    --muted: #666666;
+    --hairline: #222222;
+    --surface: #111111;
+    --surface-tint: #111111;
+    --wyn-skeleton-shine: rgba(255, 255, 255, 0.08);
+  }
 
 * {
   box-sizing: border-box;
