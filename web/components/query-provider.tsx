@@ -5,6 +5,7 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useEffect, useState } from "react";
 import { subscribeFollowChange } from "@/lib/follow-state";
+import { ACTIVE_ACCOUNT_STORAGE_KEY, getActiveAccountStorageKey } from "@/lib/account-registry";
 import { PERSIST_QUERY_CACHE_KEY } from "@/lib/query-persist-key";
 
 // One day: long enough that reopening the app later the same day still shows
@@ -44,6 +45,24 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
     // Counts and relationship state are shared across Search and Profile.
     void client.invalidateQueries({ queryKey: ["profile-summary"] });
   }), [client]);
+
+  useEffect(() => {
+    // Each tab has its own Supabase singleton and in-memory QueryClient.
+    // A switch in another tab changes the shared active slot but cannot
+    // replace this tab's already-created client. Reload promptly rather
+    // than continuing to show account A while B is selected globally.
+    const initialAccount = getActiveAccountStorageKey();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.storageArea !== window.localStorage) return;
+      if (event.key !== ACTIVE_ACCOUNT_STORAGE_KEY && event.key !== null) return;
+      if (getActiveAccountStorageKey() === initialAccount) return;
+      void client.cancelQueries();
+      client.clear();
+      window.location.reload();
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [client]);
 
   // window.localStorage doesn't exist during SSR — fall back to a plain,
   // unpersisted provider so nested useQuery calls still have a QueryClient

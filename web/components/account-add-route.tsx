@@ -2,7 +2,7 @@
 
 import { createClient, type Session } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, Input, WynosIcon } from "@/components/ui";
 import { GoogleGlyph } from "@/components/auth-flow/screens";
@@ -14,13 +14,18 @@ import {
   markAccountStorageActive,
   registerSessionAccount,
 } from "@/lib/account-registry";
-import { unsubscribeFromPushNotifications } from "@/lib/push-notifications";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { hasActivePushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { createAccountSwitchPriorClient } from "@/lib/supabase/browser";
 
 export function AccountAddRoute() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [storageKey] = useState(() => searchParams.get("slot") || createAccountStorageKey());
+  const [storageKey] = useState(() => {
+    const slot = searchParams.get("slot");
+    // Only WYNOS-generated account slots may be used on OAuth return.
+    return slot && /^wynos\.account\.[a-zA-Z0-9-]{8,90}$/.test(slot) ? slot : createAccountStorageKey();
+  });
+  const finishInFlight = useRef(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,32 +47,55 @@ export function AccountAddRoute() {
   }, [storageKey]);
 
   const finish = useCallback(async (session: Session) => {
-    if (!client) return;
-    // Covers direct /account/add and OAuth returns as well as entry from
-    // Profile: revoke old user's Push token BEFORE activating a new slot.
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      const prior = getSupabaseBrowserClient();
-      const activeStorageKey = getActiveAccountStorageKey();
-      const savedCurrent = listSavedAccounts().find((item) => item.storageKey === activeStorageKey);
-      const priorSession = prior ? await prior.auth.getSession() : null;
-      const priorId = priorSession?.data.session?.user.id;
-      const differentAccount = Boolean(
-        (priorId && priorId !== session.user.id) ||
-        (savedCurrent && savedCurrent.userId !== session.user.id),
-      );
-      if (differentAccount && (!prior || !priorId || (savedCurrent && savedCurrent.userId !== priorId) ||
-          !(await unsubscribeFromPushNotifications(prior)))) {
-        setMessage("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณากลับไปที่บัญชีเดิมแล้วลองอีกครั้ง");
+    if (!client || finishInFlight.current) return;
+    // getSession() and SIGNED_IN can both resolve on an OAuth callback.
+    // Serialize the entire operation so neither path double-rotates tokens,
+    // detaches Push twice, nor overwrites a newly activated account slot.
+    finishInFlight.current = true;
+    let navigating = false;
+    try {
+      // Keep the old account active until the new account is authenticated
+      // and its registration succeeds. Detach the old Push token exactly
+      // once, immediately before activating the new slot.
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        const prior = createAccountSwitchPriorClient();
+        const activeStorageKey = getActiveAccountStorageKey();
+        const savedCurrent = listSavedAccounts().find((item) => item.storageKey === activeStorageKey);
+        const priorSession = prior ? await prior.auth.getSession() : null;
+        const priorId = priorSession?.data.session?.user.id;
+        const differentAccount = Boolean(
+          (priorId && priorId !== session.user.id) ||
+          (savedCurrent && savedCurrent.userId !== session.user.id),
+        );
+        if (priorId && savedCurrent && savedCurrent.userId !== priorId) {
+          setMessage("บัญชีเดิมไม่ตรงกับเซสชันบนอุปกรณ์ กรุณาเปิด WYNOS ใหม่");
+          return;
+        }
+        if (differentAccount && priorId && (!prior || !(await unsubscribeFromPushNotifications(prior)))) {
+          setMessage("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณากลับไปที่บัญชีเดิมแล้วลองอีกครั้ง");
+          return;
+        }
+        if (!priorId && (await hasActivePushSubscription()) !== false) {
+          // A stale worker subscription could still receive private messages
+          // for an account whose login has expired or was removed offline.
+          // Without that account's session we cannot delete its server token.
+          setMessage("ยังมี Push ของบัญชีเดิมอยู่ กรุณาเข้าสู่ระบบบัญชีเดิมเพื่อปิดการแจ้งเตือนก่อน");
+          return;
+        }
+      }
+      const saved = await registerSessionAccount(client, session, storageKey);
+      if (!saved) {
+        setMessage(`บันทึกบัญชีได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชี`);
         return;
       }
+      markAccountStorageActive(storageKey);
+      window.location.replace("/");
+      navigating = true;
+    } catch {
+      setMessage("เพิ่มบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      if (!navigating) finishInFlight.current = false;
     }
-    const saved = await registerSessionAccount(client, session, storageKey);
-    if (!saved) {
-      setMessage(`บันทึกบัญชีได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชี`);
-      return;
-    }
-    markAccountStorageActive(storageKey);
-    window.location.replace("/");
   }, [client, storageKey]);
 
   useEffect(() => {

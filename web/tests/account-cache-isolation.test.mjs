@@ -74,3 +74,74 @@ test("query provider and auth gate reuse shared cache key and clear on account i
   assert.match(gate, /previousSession\.user\.id !== nextSession\?\.user\.id/);
   assert.match(gate, /queryClient\.clear\(\)/);
 });
+
+function profileClient(userId, username = "new-account") {
+  return {
+    from: (table) => {
+      assert.equal(table, "profiles");
+      return {
+        select: () => ({
+          eq: (_field, id) => {
+            assert.equal(id, userId);
+            return { maybeSingle: async () => ({ data: { username, display_name: null, avatar_url: null }, error: null }) };
+          },
+        }),
+      };
+    },
+  };
+}
+
+test("reusing an old signed-out slot replaces its stale identity, never duplicating it", async () => {
+  const { registry, localStorage } = harness();
+  const slot = "wynos.account.reused-slot";
+  localStorage.setItem(REGISTRY_KEY, JSON.stringify([
+    { userId: "A", storageKey: slot, lastUsedAt: 1 },
+    { userId: "D", storageKey: "wynos.account.other-slot", lastUsedAt: 2 },
+  ]));
+  localStorage.setItem(ACTIVE_KEY, slot);
+  localStorage.setItem(PERSIST_KEY, '{"private":"A-only"}');
+  const session = { user: { id: "C", email: "c@example.test", user_metadata: {} } };
+  assert.equal(await registry.registerSessionAccount(profileClient("C"), session, slot), true);
+  const accounts = JSON.parse(localStorage.getItem(REGISTRY_KEY));
+  assert.deepEqual(accounts.map((item) => item.userId), ["C", "D"]);
+  assert.equal(accounts.filter((item) => item.storageKey === slot).length, 1);
+  assert.equal(localStorage.getItem(PERSIST_KEY), null);
+});
+
+test("explicit logout removes only the old active slot, including stale aliases", () => {
+  const { registry, localStorage } = harness();
+  const old = "wynos.account.old-slot";
+  const other = "wynos.account.other-slot";
+  localStorage.setItem(REGISTRY_KEY, JSON.stringify([
+    { userId: "A", storageKey: old, lastUsedAt: 1 },
+    { userId: "C", storageKey: old, lastUsedAt: 2 },
+    { userId: "D", storageKey: other, lastUsedAt: 3 },
+  ]));
+  localStorage.setItem(ACTIVE_KEY, old);
+  localStorage.setItem(old, "old-session");
+  localStorage.setItem(other, "another-account-session");
+  localStorage.setItem(PERSIST_KEY, '{"private":"A-only"}');
+  registry.forgetSignedOutAccount("C", old);
+  assert.deepEqual(JSON.parse(localStorage.getItem(REGISTRY_KEY)).map((item) => item.userId), ["D"]);
+  assert.match(localStorage.getItem(ACTIVE_KEY), /^wynos\.account\./);
+  assert.notEqual(localStorage.getItem(ACTIVE_KEY), old);
+  assert.equal(localStorage.getItem(old), null);
+  assert.equal(localStorage.getItem(other), "another-account-session");
+  assert.equal(localStorage.getItem(PERSIST_KEY), null);
+});
+
+test("a logout finishing in an old tab does not reset another tab's newer active account", () => {
+  const { registry, localStorage } = harness();
+  const old = "wynos.account.old-slot";
+  const other = "wynos.account.other-slot";
+  localStorage.setItem(REGISTRY_KEY, JSON.stringify([
+    { userId: "A", storageKey: old, lastUsedAt: 1 },
+    { userId: "B", storageKey: other, lastUsedAt: 2 },
+  ]));
+  localStorage.setItem(ACTIVE_KEY, other);
+  localStorage.setItem(other, "B-still-signed-in");
+  registry.forgetSignedOutAccount("A", old);
+  assert.equal(localStorage.getItem(ACTIVE_KEY), other);
+  assert.equal(localStorage.getItem(other), "B-still-signed-in");
+  assert.deepEqual(JSON.parse(localStorage.getItem(REGISTRY_KEY)).map((item) => item.userId), ["B"]);
+});

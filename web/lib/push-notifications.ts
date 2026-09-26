@@ -126,17 +126,23 @@ export async function subscribeToPushNotifications(
  * the server may still have this token. Sign-out remains best-effort.
  */
 export async function unsubscribeFromPushNotifications(client: SupabaseClient): Promise<boolean> {
-  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return true;
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return true;
   try {
+    // Notification permission can remain granted after the user disables
+    // WYNOS Push. No worker/subscription means nothing on this device can
+    // receive the old account's notifications; do not block account switching.
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration || !("pushManager" in registration)) return true;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return true;
+
+    // An ACTIVE subscription is different: never bypass the detach gate
+    // because a config request, Firebase lookup or server delete has failed.
     const config = await fetchPushConfig();
     if (!config?.configured) return false;
-    const registration = await navigator.serviceWorker.getRegistration("/");
-    if (!registration) return false;
     const fb = await loadFirebase();
     const messaging = fb.getMessaging(firebaseApp(fb, config));
-    // getToken() without the same service worker registration tries the
-    // Firebase default worker, which this PWA intentionally does not ship.
     const token = await fb.getToken(messaging, {
       vapidKey: config.vapidKey,
       serviceWorkerRegistration: registration,
@@ -150,6 +156,23 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
     return !error && revoked;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Distinguish a granted browser permission from an ACTIVE Push subscription.
+ * null means the worker state could not be checked, so callers must not
+ * assume the previous account's notifications have stopped.
+ */
+export async function hasActivePushSubscription(): Promise<boolean | null> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration || !("pushManager" in registration)) return false;
+    return Boolean(await registration.pushManager.getSubscription());
+  } catch {
+    return null;
   }
 }
 

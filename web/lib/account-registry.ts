@@ -4,7 +4,7 @@ import { PERSIST_QUERY_CACHE_KEY } from "@/lib/query-persist-key";
 export const MAX_SAVED_ACCOUNTS = 9;
 
 const REGISTRY_KEY = "wynos.saved-accounts.v1";
-const ACTIVE_STORAGE_KEY = "wynos.active-account-storage.v1";
+export const ACTIVE_ACCOUNT_STORAGE_KEY = "wynos.active-account-storage.v1";
 const SLOT_PREFIX = "wynos.account.";
 
 export type SavedAccount = {
@@ -40,7 +40,7 @@ function writeRegistry(accounts: SavedAccount[]): void {
 
 export function getActiveAccountStorageKey(): string | null {
   if (!available()) return null;
-  return window.localStorage.getItem(ACTIVE_STORAGE_KEY);
+  return window.localStorage.getItem(ACTIVE_ACCOUNT_STORAGE_KEY);
 }
 
 export function createAccountStorageKey(): string {
@@ -62,7 +62,7 @@ export async function registerSessionAccount(
   if (!available()) return false;
   const accounts = readRegistry();
   const existing = accounts.find((item) => item.userId === session.user.id);
-  if (!existing && accounts.length >= MAX_SAVED_ACCOUNTS) return false;
+  if (!existing && !accounts.some((item) => item.storageKey === storageKey) && accounts.length >= MAX_SAVED_ACCOUNTS) return false;
 
   const profileResult = await client
     .from("profiles")
@@ -79,7 +79,31 @@ export async function registerSessionAccount(
     storageKey,
     lastUsedAt: Date.now(),
   };
-  writeRegistry([next, ...accounts.filter((item) => item.userId !== next.userId)]);
+  // Profile fetching is async: another tab may add/remove an account while
+  // we wait. Re-read before writing or the older snapshot can silently drop
+  // an account that was just saved in another tab.
+  const latest = readRegistry();
+  if (!latest.some((item) => item.userId === next.userId || item.storageKey === storageKey)
+      && latest.length >= MAX_SAVED_ACCOUNTS) return false;
+  // Only one identity can own a storage slot. Older Login flows could reuse
+  // an old account's empty slot and leave two registry rows pointing at it.
+  const staleAliases = latest.filter((item) =>
+    item.userId === next.userId || item.storageKey === storageKey,
+  );
+  writeRegistry([next, ...latest.filter((item) =>
+    item.userId !== next.userId && item.storageKey !== storageKey,
+  )]);
+  if (staleAliases.some((item) => item.userId !== next.userId)) {
+    // A legacy login could overwrite A's slot with B's session. Never
+    // hydrate B's first Feed/Profile/Chat from A's persisted query snapshot.
+    window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
+  }
+  for (const old of staleAliases) {
+    if (old.storageKey && old.storageKey !== storageKey && old.storageKey !== getActiveAccountStorageKey()) {
+      window.localStorage.removeItem(old.storageKey);
+      window.localStorage.removeItem(`${old.storageKey}-code-verifier`);
+    }
+  }
   return true;
 }
 
@@ -97,8 +121,8 @@ export function activateSavedAccount(userId: string): boolean {
   // Do not carry account A's persisted Feed/Profile/Chat cache into account B.
   window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
   writeRegistry([{ ...target, lastUsedAt: Date.now() }, ...accounts.filter((item) => item.userId !== userId)]);
-  if (target.storageKey) window.localStorage.setItem(ACTIVE_STORAGE_KEY, target.storageKey);
-  else window.localStorage.removeItem(ACTIVE_STORAGE_KEY);
+  if (target.storageKey) window.localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, target.storageKey);
+  else window.localStorage.removeItem(ACTIVE_ACCOUNT_STORAGE_KEY);
   return true;
 }
 
@@ -111,10 +135,43 @@ export function removeSavedAccount(userId: string): void {
   if (target.storageKey) {
     window.localStorage.removeItem(target.storageKey);
     window.localStorage.removeItem(`${target.storageKey}-code-verifier`);
-    if (window.localStorage.getItem(ACTIVE_STORAGE_KEY) === target.storageKey) {
-      window.localStorage.removeItem(ACTIVE_STORAGE_KEY);
+    if (window.localStorage.getItem(ACTIVE_ACCOUNT_STORAGE_KEY) === target.storageKey) {
+      window.localStorage.removeItem(ACTIVE_ACCOUNT_STORAGE_KEY);
     }
   }
+}
+
+/**
+ * Sign-out removes only the current account's saved credentials. In older
+ * builds a normal Login could reuse a different user's custom storage slot;
+ * forget those stale aliases too, without deleting other saved accounts.
+ * expectedStorageKey guards against another tab selecting a new active slot.
+ */
+export function forgetSignedOutAccount(userId: string, expectedStorageKey: string | null): void {
+  if (!available()) return;
+  const accounts = readRegistry();
+  const removed = accounts.filter((item) =>
+    item.userId === userId || item.storageKey === expectedStorageKey,
+  );
+  writeRegistry(accounts.filter((item) => !removed.includes(item)));
+  for (const account of removed) {
+    if (account.storageKey) {
+      window.localStorage.removeItem(account.storageKey);
+      window.localStorage.removeItem(`${account.storageKey}-code-verifier`);
+    }
+  }
+  if (expectedStorageKey) {
+    window.localStorage.removeItem(expectedStorageKey);
+    window.localStorage.removeItem(`${expectedStorageKey}-code-verifier`);
+  }
+  if (getActiveAccountStorageKey() === expectedStorageKey) {
+    // A different saved account may still have a live default-cookie session.
+    // Never expose it automatically after this explicit logout: point the
+    // browser at a fresh, EMPTY slot until the user chooses a new login or
+    // explicitly selects another saved account.
+    window.localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, createAccountStorageKey());
+  }
+  window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
 }
 
 export function markAccountStorageActive(storageKey: string): void {
@@ -122,5 +179,5 @@ export function markAccountStorageActive(storageKey: string): void {
   if (getActiveAccountStorageKey() !== storageKey) {
     window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
   }
-  window.localStorage.setItem(ACTIVE_STORAGE_KEY, storageKey);
+  window.localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, storageKey);
 }
