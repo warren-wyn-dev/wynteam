@@ -9,8 +9,17 @@ import { ProfilePhotoCropper } from "@/components/ui/profile-photo-cropper";
 import { uploadProfileImage } from "@/lib/phase3-data";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
-import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { registerCurrentAccount } from "@/lib/account-registry";
+import { createAccountSwitchPriorClient, createPasswordRecoveryClient, getSignupAuthClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  getActiveAccountStorageKey,
+  listSavedAccounts,
+  markAccountStorageActive,
+  preflightAccountActivation,
+  registerCurrentAccount,
+  registerSessionAccount,
+} from "@/lib/account-registry";
+import { clearPendingAddAccount, getPendingAddAccountSlotForTab, hasAddAccountIntent } from "@/lib/pending-account-add";
+import { hasActivePushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
@@ -432,7 +441,7 @@ export function SignupStep1Screen() {
   const router = useRouter();
   const { draft, setDraft } = useSignupDraft();
   const fieldsRef = useRef<HTMLDivElement>(null);
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSignupAuthClient();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [availability, setAvailability] = useState<{ username: string; state: "checking" | "available" | "taken" | "error" } | null>(null);
@@ -520,6 +529,10 @@ export function SignupStep1Screen() {
     }
 
     if (!supabase) {
+      if (hasAddAccountIntent()) {
+        setError("การเพิ่มบัญชีหมดอายุ กรุณาย้อนกลับไปเพิ่มบัญชีอีกครั้ง");
+        return;
+      }
       router.push("/signup/step-2");
       return;
     }
@@ -573,10 +586,17 @@ export function SignupStep1Screen() {
 
   return (
     <AuthPhone>
-      <BackTopbar href="/welcome" step="1/2" />
+      <BackTopbar href="/welcome" step="1/2" onBack={() => {
+        const pending = getPendingAddAccountSlotForTab();
+        router.push(pending ? `/account/add?slot=${encodeURIComponent(pending)}` : "/welcome");
+      }} />
       <div ref={fieldsRef} style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>สร้างบัญชี</div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>มาทำความรู้จักคุณกันก่อน</p>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <Image src="/wynos_logo_mark.png" alt="WYNOS" width={84} height={54}
+            style={{ height: 54, width: "auto", display: "block", margin: "0 auto 10px" }} priority />
+          <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>สร้างบัญชี</h1>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>มาทำความรู้จักคุณกันก่อน</p>
+        </div>
         <div className="field">
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 56, border: "1px solid var(--border-strong)", borderRadius: 18, padding: "0 18px" }}>
@@ -647,20 +667,30 @@ export function SignupStep1Screen() {
 export function SignupStep2Screen() {
   const router = useRouter();
   const { draft, setDraft } = useSignupDraft();
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSignupAuthClient();
   const [error, setError] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // Keep all signup fields non-interactive until React hydration completes.
   // Otherwise the first keystrokes can be lost on mobile Safari or Chromium.
   const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
+  // WebKit can expose the incoming page before Framer Motion finishes its
+  // 220ms entry. Rapid typing during that interval may land on the outgoing
+  // DOM instance and then disappear on its final replacement. Enable this
+  // controlled form only after the incoming page has settled.
+  const [formReady, setFormReady] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setFormReady(true), 350);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const canInput = mounted && formReady;
   const update = (key: keyof SignupDraft) => (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
   async function createAccount() {
-    if (loading) return;
+    if (loading || !canInput) return;
     setError("");
     const email = draft.email.trim();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -681,7 +711,9 @@ export function SignupStep2Screen() {
       return;
     }
     if (!supabase) {
-      setError("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับเว็บ");
+      setError(hasAddAccountIntent()
+        ? "การเพิ่มบัญชีหมดอายุ กรุณากลับไปที่หน้าเพิ่มบัญชีแล้วลองใหม่"
+        : "ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับเว็บ");
       return;
     }
 
@@ -701,7 +733,11 @@ export function SignupStep2Screen() {
         setError("ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาย้อนกลับไปเปลี่ยนชื่อผู้ใช้");
         return;
       }
-      const result = await signUpWithEmail(supabase, email, draft.password);
+      const pendingSlot = getPendingAddAccountSlotForTab();
+      const confirmationUrl = pendingSlot
+        ? `${window.location.origin}/auth/callback?slot=${encodeURIComponent(pendingSlot)}`
+        : undefined;
+      const result = await signUpWithEmail(supabase, email, draft.password, confirmationUrl);
       if (!result.session) {
         // Email confirmation is enabled. There is no authenticated session yet,
         // so RLS correctly rejects profile writes until the user confirms.
@@ -744,14 +780,16 @@ export function SignupStep2Screen() {
   if (awaitingConfirmation) {
     return (
       <AuthPhone>
-        <BackTopbar href="/login" />
+        <BackTopbar href="/login" onBack={() => {
+          router.push(getPendingAddAccountSlotForTab() ? "/account/add?stage=login" : "/login");
+        }} />
         <div style={{ padding: "32px 20px", flex: 1 }} role="status">
           <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>ตรวจสอบอีเมลของคุณ</h1>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
             หากสมัครสำเร็จ เราได้ส่งลิงก์ยืนยันไปที่ {awaitingConfirmation} แล้ว
             กรุณากดลิงก์บนอุปกรณ์นี้เพื่อกลับมาตั้งค่าโปรไฟล์ให้เสร็จ
           </p>
-          <Button className="btn-primary" onClick={() => router.push("/login")} style={{ marginTop: 20 }}>ไปหน้าเข้าสู่ระบบ</Button>
+          <Button className="btn-primary" onClick={() => router.push(getPendingAddAccountSlotForTab() ? "/account/add?stage=login" : "/login")} style={{ marginTop: 20 }}>ไปหน้าเข้าสู่ระบบ</Button>
         </div>
       </AuthPhone>
     );
@@ -761,15 +799,19 @@ export function SignupStep2Screen() {
     <AuthPhone>
       <BackTopbar href="/signup/step-1" step="2/2" />
       <div style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ตั้งรหัสผ่าน</div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
-        <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} disabled={!mounted} />
-        <Field label="รหัสผ่าน" name="password" placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} type="password" value={draft.password} onChange={update("password")} disabled={!mounted} />
-        <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} disabled={!mounted} />
-        <Button className="btn-primary" disabled={loading || !mounted} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <Image src="/wynos_logo_mark.png" alt="WYNOS" width={84} height={54}
+            style={{ height: 54, width: "auto", display: "block", margin: "0 auto 10px" }} priority />
+          <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>ตั้งรหัสผ่าน</h1>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
+        </div>
+        <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} disabled={!canInput} />
+        <Field label="รหัสผ่าน" name="password" placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} type="password" value={draft.password} onChange={update("password")} disabled={!canInput} />
+        <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} disabled={!canInput} />
+        <Button className="btn-primary" disabled={loading || !canInput} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
         <ErrorText>{error}</ErrorText>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
-          มีบัญชีอยู่แล้ว? <b onClick={() => router.push("/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>
+          มีบัญชีอยู่แล้ว? <b onClick={() => router.push(getPendingAddAccountSlotForTab() ? "/account/add?stage=login" : "/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>
         </p>
       </div>
     </AuthPhone>
@@ -778,7 +820,7 @@ export function SignupStep2Screen() {
 
 export function OnboardingProfileScreen() {
   const router = useRouter();
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSignupAuthClient();
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -813,12 +855,62 @@ export function OnboardingProfileScreen() {
     setLoading(true);
     setError("");
     try {
-      if (!supabase) throw new Error("Supabase is not configured");
+      if (!supabase) {
+        setError(hasAddAccountIntent()
+          ? "การเพิ่มบัญชีหมดอายุ กรุณากลับไปที่หน้าเพิ่มบัญชีแล้วลองใหม่"
+          : "ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับเว็บ");
+        return;
+      }
       const { data, error: authError } = await supabase.auth.getUser();
       if (authError || !data.user) throw new Error("Session unavailable");
       if (!skipAvatar && croppedAvatar) await uploadProfileImage(supabase, data.user.id, "avatar", croppedAvatar);
       if (bio.trim()) await saveOptionalProfile(supabase, data.user.id, { bio: bio.trim() });
       await completeOnboarding(supabase, data.user.id);
+      const pendingSlot = getPendingAddAccountSlotForTab();
+      if (pendingSlot) {
+        // Complete a newly created secondary account without replacing the
+        // original account's session or Push registration until this succeeds.
+        const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
+        const session = sessionResult.session;
+        if (sessionError || !session || session.user.id !== data.user.id) throw new Error("Invalid pending session");
+        // Save B and verify writable storage while A's Push is still intact.
+        // If another tab filled the account registry, do not revoke A first.
+        const saved = await registerSessionAccount(supabase, session, pendingSlot);
+        if (!saved) {
+          setError("บันทึกบัญชีได้สูงสุด 9 บัญชี กรุณาจัดการบัญชีที่บันทึกไว้ก่อน");
+          return;
+        }
+        if (!preflightAccountActivation(pendingSlot)) {
+          setError("บันทึกบัญชีใหม่แล้ว แต่พื้นที่จัดเก็บไม่พร้อมสำหรับสลับบัญชี กรุณาลองใหม่");
+          return;
+        }
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          const prior = createAccountSwitchPriorClient();
+          const activeStorageKey = getActiveAccountStorageKey();
+          const savedCurrent = listSavedAccounts().find((item) => item.storageKey === activeStorageKey);
+          const priorSession = prior ? await prior.auth.getSession() : null;
+          const priorId = priorSession?.data.session?.user.id;
+          if (priorId && savedCurrent && savedCurrent.userId !== priorId) {
+            setError("บัญชีใหม่ถูกบันทึกแล้ว แต่บัญชีเดิมไม่ตรงกับเซสชัน กรุณาเปิด WYNOS ใหม่");
+            return;
+          }
+          const differentAccount = Boolean(
+            (priorId && priorId !== session.user.id) || (savedCurrent && savedCurrent.userId !== session.user.id),
+          );
+          if (differentAccount && priorId && (!prior || !(await unsubscribeFromPushNotifications(prior)))) {
+            setError("บัญชีใหม่ถูกบันทึกแล้ว แต่ยังสลับไม่ได้เพราะปิด Push ของบัญชีเดิมไม่สำเร็จ");
+            return;
+          }
+          if (!priorId && (await hasActivePushSubscription()) !== false) {
+            setError("บัญชีใหม่ถูกบันทึกแล้ว แต่ยังมี Push ของบัญชีเดิมอยู่ กรุณาปิดการแจ้งเตือนก่อน");
+            return;
+          }
+        }
+        markAccountStorageActive(pendingSlot);
+        clearPendingAddAccount(pendingSlot);
+        window.location.replace(`/profile/${encodeURIComponent(session.user.id)}?from=tab`);
+        return;
+      }
       router.push(consumeReturnPath() ?? "/");
     } catch {
       setError("บันทึกโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
@@ -834,6 +926,8 @@ export function OnboardingProfileScreen() {
       </div>
       <div style={{ padding: "0 20px", flex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <Image src="/wynos_logo_mark.png" alt="WYNOS" width={84} height={54}
+            style={{ height: 54, width: "auto", display: "block", margin: "0 auto 10px" }} priority />
           <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em" }}>เพิ่มรูปโปรไฟล์</div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0" }}>ให้คนอื่นรู้จักคุณมากขึ้น</p>
         </div>

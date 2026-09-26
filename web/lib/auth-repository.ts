@@ -68,12 +68,12 @@ export function getEmailConfirmationRedirectUrl(): string | undefined {
   return typeof window === "undefined" ? undefined : `${window.location.origin}/auth/callback`;
 }
 
-export async function signUpWithEmail(client: SupabaseClient, email: string, password: string) {
+export async function signUpWithEmail(client: SupabaseClient, email: string, password: string, emailRedirectTo?: string) {
   if (password.length < MIN_SIGNUP_PASSWORD_LENGTH) throw new SignupPasswordTooShortError();
   const result = await client.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: getEmailConfirmationRedirectUrl() },
+    options: { emailRedirectTo: emailRedirectTo ?? getEmailConfirmationRedirectUrl() },
   });
   if (result.error) {
     const message = result.error.message.toLowerCase();

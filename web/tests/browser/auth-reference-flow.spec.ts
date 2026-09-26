@@ -155,19 +155,30 @@ test.describe("HTML-reference auth flow", () => {
     expect(box?.height ?? 0).toBeLessThan(55);
   });
 
-  test("account/add matches the shared squircle button treatment and has a Google icon", async ({ page }) => {
+  test("Add Account reuses the branded welcome and login UI without bottom navigation", async ({ page }) => {
     await page.goto("/account/add");
-    const primaryStyles = await page.getByRole("button", { name: "เข้าสู่ระบบและเพิ่มบัญชี" }).evaluate((element) => {
+    await expect(page.getByRole("img", { name: "WYNOS" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "ทุกเรื่องราว มีจุดเริ่มต้น" })).toBeVisible();
+    await expect(page.locator(".route-bottom-nav")).toHaveCount(0);
+
+    const primaryStyles = await page.getByRole("button", { name: "สร้างบัญชีใหม่" }).first().evaluate((element) => {
       const style = getComputedStyle(element);
       return { height: style.height, borderRadius: style.borderRadius };
     });
     expect(primaryStyles).toEqual({ height: "58px", borderRadius: "24px" });
+    await expect(page.getByRole("button", { name: "เข้าสู่ระบบด้วย Google" }).locator("svg")).toBeVisible();
 
-    const googleButton = page.getByRole("button", { name: "เข้าสู่ระบบด้วย Google" });
-    await expect(googleButton.locator("svg")).toBeVisible();
+    await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ", exact: true })).toBeVisible();
+    await expect(page.getByRole("img", { name: "WYNOS" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "เข้าสู่ระบบและเพิ่มบัญชี" })).toBeDisabled();
+    await page.getByRole("button", { name: "ย้อนกลับ" }).click();
+    await expect(page.getByRole("heading", { name: "ทุกเรื่องราว มีจุดเริ่มต้น" })).toBeVisible();
 
-    const headlineFontSize = await page.getByText("เพิ่มบัญชี", { exact: true }).evaluate((element) => getComputedStyle(element).fontSize);
-    expect(headlineFontSize).toBe("32px");
+    await page.getByRole("button", { name: "สร้างบัญชีใหม่" }).click();
+    await expect(page).toHaveURL(/\/signup\/step-1$/);
+    const pending = await page.evaluate(() => JSON.parse(localStorage.getItem("wynos.pending-add-account.v1") ?? "null"));
+    expect(pending?.slot).toMatch(/^wynos\.account\./);
   });
 
   // WYN-165 (2026-09-19): the username field on signup step 1 wraps its

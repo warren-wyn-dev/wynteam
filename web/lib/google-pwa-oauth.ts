@@ -52,6 +52,7 @@ export function announceGooglePwaCompletion(): void {
 export async function startGoogleOAuth(
   client: SupabaseClient,
   browserRedirect: string,
+  popupRedirectTo?: string,
 ): Promise<{ started: boolean; error?: string }> {
   const options = {
     redirectTo: browserRedirect,
@@ -86,7 +87,15 @@ export async function startGoogleOAuth(
         ...options,
         // Existing allowlisted callback; the OAuth verifier is stored in
         // THIS installed app, and the popup shares this app's cookie jar.
-        redirectTo: new URL("/auth/callback", window.location.origin).href,
+        redirectTo: popupRedirectTo
+          ? (() => {
+              const callback = new URL(popupRedirectTo, window.location.origin);
+              if (callback.origin !== window.location.origin || callback.pathname !== "/auth/callback") {
+                throw new Error("Untrusted Google callback");
+              }
+              return callback.href;
+            })()
+          : new URL("/auth/callback", window.location.origin).href,
         skipBrowserRedirect: true,
       },
     });

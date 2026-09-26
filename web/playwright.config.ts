@@ -32,11 +32,13 @@ export default defineConfig({
   use: {
     baseURL: remoteBaseURL || "http://127.0.0.1:3000",
     trace: "retain-on-failure",
+    // The bypass header authorizes every Playwright request, including API
+    // requests with maxRedirects: 0. Requesting a bypass cookie on *every*
+    // request makes Vercel serve its own cookie-setting 307 instead of the
+    // app response (dropping security headers and adding a query parameter
+    // to shared-link redirects). Only use the header for hosted QA.
     extraHTTPHeaders: vercelBypassSecret
-      ? {
-          "x-vercel-protection-bypass": vercelBypassSecret,
-          "x-vercel-set-bypass-cookie": "true",
-        }
+      ? { "x-vercel-protection-bypass": vercelBypassSecret }
       : undefined,
   },
   webServer: remoteBaseURL

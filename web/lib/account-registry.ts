@@ -174,6 +174,25 @@ export function forgetSignedOutAccount(userId: string, expectedStorageKey: strin
   window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
 }
 
+/** Confirm the next tiny active-slot write can succeed BEFORE detaching
+ * Push from the prior account. Registering B proves the registry is writable,
+ * while this probe also catches restricted or nearly full browser storage.
+ * The current active account marker is not changed during the preflight.
+ */
+export function preflightAccountActivation(storageKey: string): boolean {
+  if (!available()) return false;
+  const key = `${ACTIVE_ACCOUNT_STORAGE_KEY}.probe.${storageKey}`;
+  try {
+    window.localStorage.setItem(key, storageKey);
+    const wrote = window.localStorage.getItem(key) === storageKey;
+    window.localStorage.removeItem(key);
+    return wrote;
+  } catch {
+    try { window.localStorage.removeItem(key); } catch { /* Storage blocked. */ }
+    return false;
+  }
+}
+
 export function markAccountStorageActive(storageKey: string): void {
   if (!available()) return;
   if (getActiveAccountStorageKey() !== storageKey) {

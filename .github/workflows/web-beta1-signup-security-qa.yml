@@ -40,6 +40,8 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Run focused authentication security regressions
         run: npx playwright test tests/browser/signup-security.spec.ts tests/browser/password-recovery.spec.ts tests/browser/signup-username-preflight.spec.ts tests/browser/official-first-follow-disclosure.spec.ts tests/browser/google-pwa-oauth.spec.ts tests/browser/auth-session-reopen.spec.ts
+      - name: Verify branded Add Account and normal Welcome regression in all three browsers
+        run: npx playwright test tests/browser/parity.spec.ts tests/browser/auth-reference-flow.spec.ts --grep "Welcome continues|Add Account reuses"
       - name: Upload focused test artifacts
         if: failure()
         uses: actions/upload-artifact@v4

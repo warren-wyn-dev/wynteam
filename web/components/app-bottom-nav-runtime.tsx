@@ -55,9 +55,12 @@ export function usePublishBottomNav(visible: boolean, userId: string, notificati
 export function AppBottomNavHost() {
   const navState = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const pathname = usePathname();
-  const userId = navState?.userId ?? "";
+  // The nav persists outside PageTransition; a previously published profile
+  // nav must never leak into Add Account or other full-screen auth routes.
+  const authRoute = /^\/(?:account\/add|welcome|login|signup|onboarding|forgot-password|reset-password|auth\/callback)(?:\/|$)/.test(pathname);
+  const userId = authRoute ? "" : navState?.userId ?? "";
   const chatUnreadCount = useUnreadChatCount(userId ? getSupabaseBrowserClient() : null, userId, pathname);
-  if (!navState?.visible || !navState.userId) return null;
+  if (authRoute || !navState?.visible || !navState.userId) return null;
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
 
