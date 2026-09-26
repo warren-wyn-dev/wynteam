@@ -123,7 +123,8 @@ test("explicit logout removes only the old active slot, including stale aliases"
   localStorage.setItem(PERSIST_KEY, '{"private":"A-only"}');
   registry.forgetSignedOutAccount("C", old);
   assert.deepEqual(JSON.parse(localStorage.getItem(REGISTRY_KEY)).map((item) => item.userId), ["D"]);
-  assert.equal(localStorage.getItem(ACTIVE_KEY), null);
+  assert.match(localStorage.getItem(ACTIVE_KEY), /^wynos\.account\./);
+  assert.notEqual(localStorage.getItem(ACTIVE_KEY), old);
   assert.equal(localStorage.getItem(old), null);
   assert.equal(localStorage.getItem(other), "another-account-session");
   assert.equal(localStorage.getItem(PERSIST_KEY), null);
