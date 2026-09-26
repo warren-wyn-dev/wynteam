@@ -118,7 +118,14 @@ const images = new Map<string, string[]>([["drop-4", [rows[3].image_url as strin
 export function HomeFixture() {
   const [mode, setMode] = useState<HomeFeedMode>("for-you");
   const [savedDropIds, setSavedDropIds] = useState<Set<string>>(new Set());
-  const fixtureViewer = { ...viewer, savedDropIds };
+  // Test-only state: exercise real PostActions motion without touching Supabase.
+  const [likeOverrides, setLikeOverrides] = useState<Record<string, { liked: boolean; count: number }>>({});
+  const likedDropIds = new Set(viewer.likedDropIds);
+  for (const [id, state] of Object.entries(likeOverrides)) {
+    if (state.liked) likedDropIds.add(id);
+    else likedDropIds.delete(id);
+  }
+  const fixtureViewer = { ...viewer, likedDropIds, savedDropIds };
 
   return (
     <>
@@ -137,11 +144,19 @@ export function HomeFixture() {
             {mode !== "clubs" ? <HomeQuickCompose username="fixture" /> : null}
             {rows.map((row) => (
               <HomePostCard
-                row={row}
+                row={{ ...row, like_count: likeOverrides[row.id]?.count ?? row.like_count }}
                 viewer={fixtureViewer}
                 images={images.get(row.id) ?? []}
                 userId={VIEWER_ID}
-                onLike={() => {}}
+                onLike={() => setLikeOverrides((current) => {
+                  const state = current[row.id];
+                  const liked = state?.liked ?? viewer.likedDropIds.has(row.id);
+                  const count = state?.count ?? row.like_count ?? 0;
+                  return {
+                    ...current,
+                    [row.id]: { liked: !liked, count: Math.max(0, count + (liked ? -1 : 1)) },
+                  };
+                })}
                 onMore={() => {}}
                 onRedrop={() => {}}
                 onFollow={() => {}}
