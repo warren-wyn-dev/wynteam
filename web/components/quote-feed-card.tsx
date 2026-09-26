@@ -131,7 +131,10 @@ export function QuoteFeedCard({
     if (!liked) haptic();
     setBusy(true);
     setEngagement({ ...before, liked: !liked, likeCount: Math.max(0, before.likeCount + (liked ? -1 : 1)) });
-    try { await toggleQuoteLike(client, viewerId, quoteId, liked); }
+    try {
+      await toggleQuoteLike(client, viewerId, quoteId, liked);
+      if (!liked) showToast("ถูกใจโพสต์แล้ว");
+    }
     catch {
       setEngagement(before);
       await reloadEngagement();
@@ -147,6 +150,7 @@ export function QuoteFeedCard({
     try {
       await toggleQuoteSave(client, viewerId, quoteId, saved);
       deleteMountCache(`bookmarks:${viewerId}`);
+      showToast(saved ? "นำออกจากรายการที่บันทึกแล้ว" : "บันทึกโพสต์แล้ว");
     } catch {
       setEngagement(before);
       await reloadEngagement();
