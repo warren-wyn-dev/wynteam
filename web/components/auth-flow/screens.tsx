@@ -9,7 +9,7 @@ import { ProfilePhotoCropper } from "@/components/ui/profile-photo-cropper";
 import { uploadProfileImage } from "@/lib/phase3-data";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
-import { createAccountSwitchPriorClient, createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createAccountSwitchPriorClient, createPasswordRecoveryClient, getSignupAuthClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   getActiveAccountStorageKey,
   listSavedAccounts,
@@ -432,7 +432,7 @@ export function SignupStep1Screen() {
   const router = useRouter();
   const { draft, setDraft } = useSignupDraft();
   const fieldsRef = useRef<HTMLDivElement>(null);
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSignupAuthClient();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [availability, setAvailability] = useState<{ username: string; state: "checking" | "available" | "taken" | "error" } | null>(null);
@@ -654,7 +654,7 @@ export function SignupStep1Screen() {
 export function SignupStep2Screen() {
   const router = useRouter();
   const { draft, setDraft } = useSignupDraft();
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSignupAuthClient();
   const [error, setError] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -795,7 +795,7 @@ export function SignupStep2Screen() {
 
 export function OnboardingProfileScreen() {
   const router = useRouter();
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSignupAuthClient();
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
