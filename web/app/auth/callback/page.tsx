@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { getPendingAddAccountClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { getPendingAddAccountSlot, validAddAccountSlot } from "@/lib/pending-account-add";
+import { claimPendingAddAccountSlot, getPendingAddAccountSlot, validAddAccountSlot } from "@/lib/pending-account-add";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 
@@ -77,6 +77,12 @@ export default function EmailConfirmationCallbackPage() {
         const confirmed = await client.auth.getUser();
         if (confirmed.error || !confirmed.data.user) {
           throw confirmed.error ?? new Error("Unable to confirm session");
+        }
+        // The email may open in a new tab with the same localStorage but a
+        // separate sessionStorage. Only the verified callback can let that tab
+        // continue signup with the pending account's isolated session.
+        if (addSlot && !claimPendingAddAccountSlot(addSlot)) {
+          throw new Error("Unable to claim confirmed account slot");
         }
 
         // Remove the one-time code from the address bar before navigating,
