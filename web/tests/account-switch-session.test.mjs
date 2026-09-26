@@ -63,7 +63,8 @@ function fixture({ slot, user = B, error = null, offline = false } = {}) {
       },
     },
   }, { filename: "account-switch-session.compiled.js" });
-  return { check: exports.checkSavedAccountSession, calls, storage };
+  // Normalize VM-returned records into this realm for strict assertions.
+  return { check: async (item) => JSON.parse(JSON.stringify(await exports.checkSavedAccountSession(item))), calls, storage };
 }
 
 test("a saved slot is server-verified without background refresh or OAuth URL detection", async () => {
