@@ -27,9 +27,10 @@
 .wyn-toast {
   position: fixed;
   z-index: 250;
-  left: 50%;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
   bottom: calc(80px + env(safe-area-inset-bottom));
-  translate: -50% 0;
   width: min(calc(100vw - 32px), 440px);
   min-height: 48px;
   display: flex;
