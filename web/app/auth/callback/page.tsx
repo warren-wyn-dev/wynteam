@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getPendingAddAccountSlot } from "@/lib/pending-account-add";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { announceGooglePwaCompletion, consumeGooglePwaPopupMarker } from "@/lib/google-pwa-oauth";
 
@@ -19,6 +20,7 @@ export default function EmailConfirmationCallbackPage() {
   const router = useRouter();
   const started = useRef(false);
   const [error, setError] = useState("");
+  const [popupComplete, setPopupComplete] = useState(false);
 
   useEffect(() => {
     // Avoid exchanging a one-time PKCE code twice under React Strict Mode.
@@ -28,9 +30,13 @@ export default function EmailConfirmationCallbackPage() {
     void (async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
+      const addSlot = params.get("slot");
+      // A forged/stale link must never fall through to A's active client.
+      const pendingSlot = getPendingAddAccountSlot();
 
       try {
         if (params.has("error")) throw new Error("Email confirmation failed");
+        if (addSlot && addSlot !== pendingSlot) throw new Error("Invalid add-account callback slot");
         const client = getSupabaseBrowserClient();
         if (!client) throw new Error("Supabase browser client unavailable");
 
@@ -55,7 +61,19 @@ export default function EmailConfirmationCallbackPage() {
         // Remove the one-time code from the address bar before navigating,
         // messaging the opener, or recording any subsequent app interaction.
         window.history.replaceState(null, "", "/auth/callback");
+        const isAddAccountPopup = Boolean(addSlot && addSlot === pendingSlot && params.get("popupAdd") === "1");
         if (consumeGooglePwaPopupMarker()) {
+          if (isAddAccountPopup) {
+            // The waiting Add Account screen finalizes the slot, not the popup.
+            announceGooglePwaCompletion();
+            setPopupComplete(true);
+            // If the opener was severed by iOS/COOP, BroadcastChannel (or
+            // returning focus to WYNOS) still lets the parent finish safely.
+            window.setTimeout(() => {
+              try { window.close(); } catch { /* Browser can decline. */ }
+            }, 600);
+            return;
+          }
           let destination = "/";
           try {
             const existingProfile = await hasProfileRow(client, confirmed.data.user.id);
@@ -71,6 +89,11 @@ export default function EmailConfirmationCallbackPage() {
             window.setTimeout(() => window.close(), 600);
           }
           router.replace(destination);
+          return;
+        }
+
+        if (isAddAccountPopup) {
+          router.replace(`/account/add?slot=${encodeURIComponent(addSlot!)}&oauth=1`);
           return;
         }
 
@@ -94,7 +117,7 @@ export default function EmailConfirmationCallbackPage() {
             <button type="button" onClick={() => router.replace("/login")}>ไปหน้าเข้าสู่ระบบ</button>
           </>
         ) : (
-          <p role="status">กำลังยืนยันตัวตนและนำคุณกลับไปยัง WYNOS…</p>
+          <p role="status">{popupComplete ? "เข้าสู่ระบบ Google สำเร็จ กลับไปที่ WYNOS ได้เลย" : "กำลังยืนยันตัวตนและนำคุณกลับไปยัง WYNOS…"}</p>
         )}
       </section>
     </main>

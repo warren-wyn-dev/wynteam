@@ -9,8 +9,16 @@ import { ProfilePhotoCropper } from "@/components/ui/profile-photo-cropper";
 import { uploadProfileImage } from "@/lib/phase3-data";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
-import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { registerCurrentAccount } from "@/lib/account-registry";
+import { createAccountSwitchPriorClient, createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  getActiveAccountStorageKey,
+  listSavedAccounts,
+  markAccountStorageActive,
+  registerCurrentAccount,
+  registerSessionAccount,
+} from "@/lib/account-registry";
+import { clearPendingAddAccount, getPendingAddAccountSlot } from "@/lib/pending-account-add";
+import { hasActivePushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
@@ -565,10 +573,17 @@ export function SignupStep1Screen() {
 
   return (
     <AuthPhone>
-      <BackTopbar href="/welcome" step="1/2" />
+      <BackTopbar href="/welcome" step="1/2" onBack={() => {
+        const pending = getPendingAddAccountSlot();
+        router.push(pending ? `/account/add?slot=${encodeURIComponent(pending)}` : "/welcome");
+      }} />
       <div ref={fieldsRef} style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>สร้างบัญชี</div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>มาทำความรู้จักคุณกันก่อน</p>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <Image src="/wynos_logo_mark.png" alt="WYNOS" width={84} height={54}
+            style={{ height: 54, width: "auto", display: "block", margin: "0 auto 10px" }} priority />
+          <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>สร้างบัญชี</h1>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>มาทำความรู้จักคุณกันก่อน</p>
+        </div>
         <div className="field">
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 56, border: "1px solid var(--border-strong)", borderRadius: 18, padding: "0 18px" }}>
@@ -693,7 +708,11 @@ export function SignupStep2Screen() {
         setError("ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาย้อนกลับไปเปลี่ยนชื่อผู้ใช้");
         return;
       }
-      const result = await signUpWithEmail(supabase, email, draft.password);
+      const pendingSlot = getPendingAddAccountSlot();
+      const confirmationUrl = pendingSlot
+        ? `${window.location.origin}/auth/callback?slot=${encodeURIComponent(pendingSlot)}`
+        : undefined;
+      const result = await signUpWithEmail(supabase, email, draft.password, confirmationUrl);
       if (!result.session) {
         // Email confirmation is enabled. There is no authenticated session yet,
         // so RLS correctly rejects profile writes until the user confirms.
@@ -736,14 +755,16 @@ export function SignupStep2Screen() {
   if (awaitingConfirmation) {
     return (
       <AuthPhone>
-        <BackTopbar href="/login" />
+        <BackTopbar href="/login" onBack={() => {
+          router.push(getPendingAddAccountSlot() ? "/account/add?stage=login" : "/login");
+        }} />
         <div style={{ padding: "32px 20px", flex: 1 }} role="status">
           <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>ตรวจสอบอีเมลของคุณ</h1>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
             หากสมัครสำเร็จ เราได้ส่งลิงก์ยืนยันไปที่ {awaitingConfirmation} แล้ว
             กรุณากดลิงก์บนอุปกรณ์นี้เพื่อกลับมาตั้งค่าโปรไฟล์ให้เสร็จ
           </p>
-          <Button className="btn-primary" onClick={() => router.push("/login")} style={{ marginTop: 20 }}>ไปหน้าเข้าสู่ระบบ</Button>
+          <Button className="btn-primary" onClick={() => router.push(getPendingAddAccountSlot() ? "/account/add?stage=login" : "/login")} style={{ marginTop: 20 }}>ไปหน้าเข้าสู่ระบบ</Button>
         </div>
       </AuthPhone>
     );
@@ -753,15 +774,19 @@ export function SignupStep2Screen() {
     <AuthPhone>
       <BackTopbar href="/signup/step-1" step="2/2" />
       <div style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ตั้งรหัสผ่าน</div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <Image src="/wynos_logo_mark.png" alt="WYNOS" width={84} height={54}
+            style={{ height: 54, width: "auto", display: "block", margin: "0 auto 10px" }} priority />
+          <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>ตั้งรหัสผ่าน</h1>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
+        </div>
         <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} disabled={!mounted} />
         <Field label="รหัสผ่าน" name="password" placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} type="password" value={draft.password} onChange={update("password")} disabled={!mounted} />
         <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} disabled={!mounted} />
         <Button className="btn-primary" disabled={loading || !mounted} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
         <ErrorText>{error}</ErrorText>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
-          มีบัญชีอยู่แล้ว? <b onClick={() => router.push("/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>
+          มีบัญชีอยู่แล้ว? <b onClick={() => router.push(getPendingAddAccountSlot() ? "/account/add?stage=login" : "/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>
         </p>
       </div>
     </AuthPhone>
@@ -811,6 +836,37 @@ export function OnboardingProfileScreen() {
       if (!skipAvatar && croppedAvatar) await uploadProfileImage(supabase, data.user.id, "avatar", croppedAvatar);
       if (bio.trim()) await saveOptionalProfile(supabase, data.user.id, { bio: bio.trim() });
       await completeOnboarding(supabase, data.user.id);
+      const pendingSlot = getPendingAddAccountSlot();
+      if (pendingSlot) {
+        // Complete a newly created secondary account without replacing the
+        // original account's session or Push registration until this succeeds.
+        const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
+        const session = sessionResult.session;
+        if (sessionError || !session || session.user.id !== data.user.id) throw new Error("Invalid pending session");
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          const prior = createAccountSwitchPriorClient();
+          const activeStorageKey = getActiveAccountStorageKey();
+          const savedCurrent = listSavedAccounts().find((item) => item.storageKey === activeStorageKey);
+          const priorSession = prior ? await prior.auth.getSession() : null;
+          const priorId = priorSession?.data.session?.user.id;
+          if (priorId && savedCurrent && savedCurrent.userId !== priorId) throw new Error("Previous account mismatch");
+          const differentAccount = Boolean(
+            (priorId && priorId !== session.user.id) || (savedCurrent && savedCurrent.userId !== session.user.id),
+          );
+          if (differentAccount && priorId && (!prior || !(await unsubscribeFromPushNotifications(prior)))) {
+            throw new Error("Previous account Push could not be detached");
+          }
+          if (!priorId && (await hasActivePushSubscription()) !== false) {
+            throw new Error("Previous account has an orphaned Push subscription");
+          }
+        }
+        const saved = await registerSessionAccount(supabase, session, pendingSlot);
+        if (!saved) throw new Error("Account storage full");
+        markAccountStorageActive(pendingSlot);
+        clearPendingAddAccount(pendingSlot);
+        window.location.replace(`/profile/${encodeURIComponent(session.user.id)}?from=tab`);
+        return;
+      }
       router.push(consumeReturnPath() ?? "/");
     } catch {
       setError("บันทึกโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");

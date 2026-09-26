@@ -116,3 +116,28 @@ test("success signal contains no tokens and the popup marker expires",()=>{
    assert.deepEqual(f.calls.find(x=>x[0]==="opener")[1],{type:"google-oauth-verified"});
  }finally{f.restore();}
 });
+
+
+test("Add Account iOS popup targets the isolated same-origin auth callback",async()=>{
+  const f=setup();try{
+    const client={auth:{signInWithOAuth:async({options})=>{
+      f.calls.push(["oauth",options]);
+      return {data:{url:AUTH_URL},error:null};
+    }}};
+    const target="https://wynos.online/auth/callback?slot=wynos.account.12345678&popupAdd=1";
+    const result=await startGoogleOAuth(client,"https://wynos.online/account/add",target);
+    assert.equal(result.started,true);
+    assert.equal(f.calls.find(x=>x[0]==="oauth")[1].redirectTo,target);
+    assert.equal(f.calls.find(x=>x[0]==="oauth")[1].skipBrowserRedirect,true);
+  }finally{f.restore();}
+});
+
+test("Add Account popup rejects a callback outside WYNOS before sending OAuth",async()=>{
+  const f=setup();try{
+    const client={auth:{signInWithOAuth:async()=>{throw Error("OAuth must not be called");}}};
+    const result=await startGoogleOAuth(client,"https://wynos.online/account/add","https://malicious.example/auth/callback");
+    assert.equal(result.started,false);
+    assert.equal(f.calls.some(x=>x[0]==="close-popup"),true);
+    assert.equal(f.calls.some(x=>x[0]==="navigate-popup"),false);
+  }finally{f.restore();}
+});
