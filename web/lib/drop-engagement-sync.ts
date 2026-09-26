@@ -5,7 +5,7 @@ import { deleteMountCache } from "@/lib/mount-cache";
 export type DropEngagementChange = {
   userId: string;
   dropId: string;
-  kind: "like" | "save" | "redrop";
+  kind: "like" | "save" | "redrop" | "comment";
   active: boolean;
   count?: number;
   source: string;
@@ -41,7 +41,7 @@ export function listenDropEngagement(listener: (change: DropEngagementChange) =>
 export function getRecentDropEngagement(userId: string, dropId: string): DropEngagementChange[] {
   const now = Date.now();
   const events: DropEngagementChange[] = [];
-  for (const kind of ["like", "save", "redrop"] as const) {
+  for (const kind of ["like", "save", "redrop", "comment"] as const) {
     const id = key({ userId, dropId, kind });
     const entry = recent.get(id);
     if (!entry) continue;
@@ -52,6 +52,7 @@ export function getRecentDropEngagement(userId: string, dropId: string): DropEng
 }
 
 export function patchDropViewer(viewer: HomeViewerState, change: DropEngagementChange): HomeViewerState {
+  if (change.kind === "comment") return viewer;
   const field = change.kind === "like" ? "likedDropIds"
     : change.kind === "save" ? "savedDropIds" : "redroppedDropIds";
   const values = new Set(viewer[field]);
@@ -64,6 +65,7 @@ export function patchDropRow(row: HomeFeedRow, change: DropEngagementChange): Ho
   if (row.id !== change.dropId || change.count === undefined) return row;
   if (change.kind === "like") return { ...row, like_count: change.count };
   if (change.kind === "redrop") return { ...row, redrop_count: change.count };
+  if (change.kind === "comment") return { ...row, comment_count: change.count };
   return row;
 }
 
