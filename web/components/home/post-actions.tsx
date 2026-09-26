@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
+import { AnimatedCount } from "@/components/ui/animated-count";
 import { CommentIcon, RepostIcon, SaveIcon } from "@/components/ui/post-action-icons";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 
@@ -39,7 +40,7 @@ export function PostActions({
   modernFeed?: boolean;
 }) {
   const count = (value: number) => (
-    value > 0 ? <span className="wyn-action-button-count">{value}</span> : null
+    <AnimatedCount className="wyn-action-button-count" value={value} hideZero />
   );
 
   return (

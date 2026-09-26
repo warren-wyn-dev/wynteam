@@ -140,7 +140,7 @@
   color: var(--paper);
 }
 
-.notification-type-icon.like { background: #f44336; }
+.notification-type-icon.like { background: var(--wyn-like); }
 .notification-type-icon.comment { background: #3a5a40; }
 .notification-type-icon.repost { background: #8a6d3a; }
 .notification-type-icon.follow { background: var(--sapphire); }

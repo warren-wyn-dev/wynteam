@@ -53,7 +53,7 @@
 .golden-club-link span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
 .golden-club-actions { margin-top: 8px; display: flex; align-items: center; gap: 20px; }
 .golden-club-actions button, .golden-club-actions a { min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--wyn-text-secondary); text-decoration: none; font: inherit; font-size: 13px; }
-.golden-club-actions button.liked { color: var(--wyn-accent); }
+.golden-club-actions button.liked { color: var(--wyn-like); }
 
 .golden-club-poll { margin: 8px 0 0; padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; }
 .golden-club-poll > button { position: relative; height: 44px; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; border: 1px solid var(--wyn-border); border-radius: 12px; background: var(--wyn-bg); color: var(--wyn-text); font: inherit; text-align: left; }

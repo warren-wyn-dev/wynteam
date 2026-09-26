@@ -13,7 +13,8 @@
      for real closes that gap and lets dark mode reach those call sites. */
   --surface-tint: #f5f5f5;
   --sapphire: #1b3a6b;
-  --like: #f44336;
+  --wyn-like: #ff3b30; /* One vivid red for every liked heart. */
+  --like: var(--wyn-like);
   /* Matches app/lib/core/typography/browser_system_text_web.dart's own
      `_systemFontStack` verbatim — the Flutter Beta4 app's real iOS Safari
      font contract (Thonburi/Noto Sans Thai for Thai text, Apple Color

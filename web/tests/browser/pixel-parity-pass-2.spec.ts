@@ -83,6 +83,6 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(css).not.toContain('button[aria-label="ความคิดเห็น"]::before');
   expect(css).not.toContain('button[aria-label="แชร์โพสต์"]::before');
   expect(css).not.toContain('button[aria-label="บันทึกโพสต์"]::before');
-  expect(css).toContain("color: var(--wyn-accent)");
+  expect(css).toContain("color: var(--wyn-like)");
   expect(css).toContain("color: var(--wyn-text-secondary)");
 });

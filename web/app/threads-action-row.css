@@ -40,7 +40,7 @@
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-button.is-liked {
-  color: #ff3b30;
+  color: var(--wyn-like);
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-button.is-active {
@@ -113,7 +113,7 @@
 }
 
 .profile-feed-list .golden-drop-actions > button.liked {
-  color: #ff3b30;
+  color: var(--wyn-like);
 }
 
 .profile-feed-list .golden-drop-actions > button.active {

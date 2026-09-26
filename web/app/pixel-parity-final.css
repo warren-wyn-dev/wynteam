@@ -164,7 +164,7 @@
 }
 
 .flutter-detail-actions button.like.active > svg {
-  color: var(--wyn-accent);
+  color: var(--wyn-like);
 }
 
 /* 2026-09-22: comment/repost/share/bookmark used to render as hardcoded
