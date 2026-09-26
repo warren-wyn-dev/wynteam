@@ -122,6 +122,35 @@ export function removeSavedAccount(userId: string): void {
   }
 }
 
+/**
+ * Sign-out removes only the current account's saved credentials. In older
+ * builds a normal Login could reuse a different user's custom storage slot;
+ * forget those stale aliases too, without deleting other saved accounts.
+ * expectedStorageKey guards against another tab selecting a new active slot.
+ */
+export function forgetSignedOutAccount(userId: string, expectedStorageKey: string | null): void {
+  if (!available()) return;
+  const accounts = readRegistry();
+  const removed = accounts.filter((item) =>
+    item.userId === userId || (expectedStorageKey !== null && item.storageKey === expectedStorageKey),
+  );
+  writeRegistry(accounts.filter((item) => !removed.includes(item)));
+  for (const account of removed) {
+    if (account.storageKey) {
+      window.localStorage.removeItem(account.storageKey);
+      window.localStorage.removeItem(`${account.storageKey}-code-verifier`);
+    }
+  }
+  if (expectedStorageKey) {
+    window.localStorage.removeItem(expectedStorageKey);
+    window.localStorage.removeItem(`${expectedStorageKey}-code-verifier`);
+  }
+  if (getActiveAccountStorageKey() === expectedStorageKey) {
+    window.localStorage.removeItem(ACTIVE_ACCOUNT_STORAGE_KEY);
+  }
+  window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
+}
+
 export function markAccountStorageActive(storageKey: string): void {
   if (!available()) return;
   if (getActiveAccountStorageKey() !== storageKey) {
