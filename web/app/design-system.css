@@ -13,6 +13,24 @@
   --wyn-radius-control: 12px;
   --wyn-radius-input: 10px;
   --wyn-focus-ring: rgba(10, 10, 10, 0.18);
+  /* DS-001 foundation: declarations only; no active UI rules change here. */
+  --wyn-color-link: #0969da;
+  --wyn-color-link-vivid: #1d9bf0;
+  --wyn-color-like: var(--wyn-like, #ff3b30);
+  --wyn-color-danger: var(--wyn-accent);
+  --wyn-color-background: var(--wyn-bg);
+  --wyn-color-surface: var(--wyn-surface);
+  --wyn-color-foreground: var(--wyn-text);
+  --wyn-color-subtle: var(--wyn-text-secondary);
+  --wyn-color-divider: var(--wyn-border);
+  --wyn-touch-target-min: 44px;
+  --wyn-size-icon-default: 20px;
+  --wyn-size-icon-action: 22px;
+  --wyn-size-icon-comment: 24px;
+  --wyn-size-icon-nav: 28px;
+  --wyn-stroke-icon-default: 1.8;
+  --wyn-stroke-icon-action: 2;
+  --wyn-stroke-icon-nav: 1.7;
 
   /* WYN-160: consolidated type/radius scale — declared here so every
      surface can adopt it as it's rolled out; existing rules keep their
@@ -59,6 +77,8 @@
     --wyn-border: #222222;
     --wyn-border-strong: #666666;
     --wyn-focus-ring: rgba(255, 255, 255, 0.22);
+    --wyn-color-link: #5eb1ff;
+    --wyn-color-link-vivid: #5eb1ff;
   }
 }
 
