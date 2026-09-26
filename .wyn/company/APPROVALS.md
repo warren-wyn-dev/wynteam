@@ -161,3 +161,11 @@
 - Risks accepted: staging writes to production data (developer accounts only, no migration rehearsal); no Push on staging; production is still deployed on merge, so staging must be green **before** merge.
 - Rollback: restore the previous `if:` allow-list in the workflow.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-26
+
+### DECISION — [2026-09-26] WEB-B1-QA-04: post-upload image content validation
+- Founder request: "ทำข้อ A แก้ WEB-B1-QA-04 ก่อน".
+- Founder decisions (AskUserQuestion): **validate after upload and delete the file if it is not an image** ("ตรวจหลังอัปโหลด แล้วลบทิ้งถ้าไม่ใช่รูป"), and **the AI may deploy the Edge Function and install the Database Webhook on production after CI passes** ("ทำแทนได้เลยหลัง CI ผ่าน"). This approval covers this change only.
+- Change: new Edge Function `validate-upload`, plus two triggers on `storage.objects` (image buckets only) created by `.github/workflows/storage-upload-validator.yml`. There is no schema change to application tables. It deletes only newly uploaded objects whose bytes are not an image.
+- Risks: a non-image is readable for a few seconds before deletion; one extra function call per image upload; if the function is down, uploads still succeed and are not checked (fail-open).
+- Rollback: `storage-upload-validator.yml` action `remove`, which drops both triggers.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-26

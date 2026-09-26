@@ -1,0 +1,165 @@
+name: Storage upload validator (WEB-B1-QA-04)
+
+# Installs, verifies and end-to-end tests the Database Webhook that sends
+# every new or replaced object in the image buckets (avatars, drop-images,
+# chat-media, club-media) to the `validate-upload` Edge Function. That
+# function reads the first bytes and deletes objects that are not images.
+# Founder-approved 2026-09-26 (.wyn/company/APPROVALS.md). Deploy the function
+# first with deploy-edge-functions.yml (function: validate-upload).
+#
+# Actions:
+#   verify  - show the two triggers (default; changes nothing)
+#   create  - install or replace both triggers
+#   test    - end-to-end: upload a spoofed "image/jpeg" text file and a real
+#             1x1 PNG under drop-images/qa-validator/, expect the spoof to be
+#             removed and the PNG kept, then delete both
+#   remove  - drop both triggers (rollback)
+#
+# Why not in schema.sql: supabase_functions.http_request() does not exist in
+# plain Postgres (same reasoning as setup-database-webhook.yml).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "verify · create · test · remove"
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - create
+          - test
+          - remove
+
+permissions:
+  contents: read
+
+jobs:
+  validator:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            [ -n "$(eval echo \"\$$name\")" ] || { echo "::error::$name is empty"; exit 1; }
+          done
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          BUCKETS="'avatars','drop-images','chat-media','club-media'"
+          INSERT_TRIGGER=storage_objects_validate_upload_insert
+          UPDATE_TRIGGER=storage_objects_validate_upload_update
+
+          sqlq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/''/g")"; }
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          show() {
+            run_sql "select tgname as trigger_name, tgenabled as enabled,
+                            regexp_replace(pg_get_triggerdef(oid),
+                                           'sb_publishable_[A-Za-z0-9_-]+', 'sb_publishable_***', 'g') as definition
+                     from pg_trigger
+                     where tgrelid = 'storage.objects'::regclass and not tgisinternal
+                       and tgname in ('$INSERT_TRIGGER', '$UPDATE_TRIGGER')
+                     order by tgname;" | jq .
+          }
+
+          case "${{ inputs.action }}" in
+            verify)
+              show
+              ;;
+
+            create)
+              FN_URL="$SUPABASE_URL/functions/v1/validate-upload"
+              status=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS "$FN_URL" || true)
+              if [ "$status" = "404" ]; then
+                echo "::error::validate-upload is not deployed. Run deploy-edge-functions.yml (function: validate-upload) first."
+                exit 1
+              fi
+              HEADERS=$(jq -nc --arg auth "Bearer $SUPABASE_PUBLISHABLE_KEY" \
+                        '{"Content-type":"application/json", "Authorization":$auth}')
+              run_sql "drop trigger if exists $INSERT_TRIGGER on storage.objects;
+                       drop trigger if exists $UPDATE_TRIGGER on storage.objects;
+                       create trigger $INSERT_TRIGGER
+                         after insert on storage.objects
+                         for each row
+                         when (new.bucket_id in ($BUCKETS))
+                         execute function supabase_functions.http_request(
+                           $(sqlq "$FN_URL"), 'POST', $(sqlq "$HEADERS"), '{}', '5000');
+                       create trigger $UPDATE_TRIGGER
+                         after update on storage.objects
+                         for each row
+                         when (new.bucket_id in ($BUCKETS) and new.metadata is distinct from old.metadata)
+                         execute function supabase_functions.http_request(
+                           $(sqlq "$FN_URL"), 'POST', $(sqlq "$HEADERS"), '{}', '5000');" >/dev/null
+              echo "Created."
+              show
+              count=$(run_sql "select count(*) as n from pg_trigger
+                               where tgrelid = 'storage.objects'::regclass
+                                 and tgname in ('$INSERT_TRIGGER', '$UPDATE_TRIGGER');" | jq -r '.[0].n')
+              [ "$count" = "2" ] || { echo "::error::Expected 2 triggers, found $count"; exit 1; }
+              ;;
+
+            test)
+              # The service role key is fetched at run time and masked; it is
+              # only used to upload and clean up the two test objects.
+              SERVICE_ROLE_KEY=$(curl -fsS "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys?reveal=true" \
+                -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -r '[.[] | select(.name == "service_role") | .api_key][0] // empty')
+              [ -n "$SERVICE_ROLE_KEY" ] && [ "$SERVICE_ROLE_KEY" != "null" ] || { echo "::error::Could not read the service_role key"; exit 1; }
+              echo "::add-mask::$SERVICE_ROLE_KEY"
+
+              BASE="$SUPABASE_URL/storage/v1/object/drop-images/qa-validator"
+              SPOOF="$BASE/$GITHUB_RUN_ID-spoof.jpg"
+              REAL="$BASE/$GITHUB_RUN_ID-real.png"
+              auth=(-H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY")
+              cleanup() {
+                curl -s -o /dev/null -X DELETE "${auth[@]}" "$SPOOF" || true
+                curl -s -o /dev/null -X DELETE "${auth[@]}" "$REAL" || true
+              }
+              trap cleanup EXIT
+              exists() { [ "$(curl -s -o /dev/null -w '%{http_code}' "${auth[@]}" "$1")" = "200" ]; }
+
+              printf '<html><script>alert(1)</script></html>' > spoof.jpg
+              printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' | base64 -d > real.png
+
+              curl -fsS -o /dev/null -X POST "${auth[@]}" -H "Content-Type: image/jpeg" --data-binary @spoof.jpg "$SPOOF"
+              curl -fsS -o /dev/null -X POST "${auth[@]}" -H "Content-Type: image/png" --data-binary @real.png "$REAL"
+              echo "Uploaded a spoofed image/jpeg (HTML bytes) and a real PNG."
+
+              removed=no
+              for _ in $(seq 1 20); do
+                sleep 3
+                if ! exists "$SPOOF"; then removed=yes; break; fi
+              done
+              exists "$REAL" && kept=yes || kept=no
+              echo "spoofed image removed: $removed"
+              echo "real image kept:       $kept"
+              [ "$removed" = "yes" ] || { echo "::error::The spoofed upload was not removed within 60s"; exit 1; }
+              [ "$kept" = "yes" ] || { echo "::error::The real PNG was removed"; exit 1; }
+              echo "PASS: spoofed MIME rejected, real image kept."
+              ;;
+
+            remove)
+              run_sql "drop trigger if exists $INSERT_TRIGGER on storage.objects;
+                       drop trigger if exists $UPDATE_TRIGGER on storage.objects;" >/dev/null
+              echo "Dropped (if they existed)."
+              show
+              ;;
+          esac
