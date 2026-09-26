@@ -1,6 +1,6 @@
 # Bug Report — WEB-B1-QA-01 (MEDIUM) No clickjacking / content-sniffing protection headers
 
-Status: review — fixed on branch claude/wynos-web-beta1-notifications-cf4fe4
+Status: resolved — live in production 2026-09-26 (PR #725, deploy #275, DB apply run 36250193842)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — WYNOS Web Beta1 full-system QA, 2026-09-26
 Bug: Production `https://wynos.online/` responses carry only `strict-transport-security`.

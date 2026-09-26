@@ -133,4 +133,7 @@
 - Risks: headers — anything that legitimately frames the app breaks (none known; OAuth uses a popup). Flood guard — identical toggle events from the same actor within 10 minutes produce one notification (intended). Upload limits — an uncommon image type outside the allow-list is rejected (Thai message on web).
 - Files affected: `web/next.config.ts`, `web/lib/upload-image.ts`, 5 upload call sites, `supabase/migrations_web_beta1_{notification_flood_guard,storage_upload_limits,referral_code_guard}.sql`, `supabase/tests/web_beta1_qa_hardening_test.sh`, the apply workflow.
 - Recommendation: approve. Web part ships with the PR merge (WYN-158 auto-deploy). **DB part is applied only when the Founder presses "Run workflow"** — per the 2026-09-07 record and the 2026-09-24 reconciliation note, a broad "finish" instruction is not treated as authority for AI to apply production SQL.
-- สถานะ: web code อนุมัติโดยคำสั่ง Founder ข้างต้น; DB migration **รอ Founder กด Run workflow เอง**
+- สถานะ: **อนุมัติและดำเนินการแล้ว**
+- วันที่ตัดสินใจ: 2026-09-26 — Founder: "แก้ปัญหา และทำแทนทุกอย่าง แล้วพร้อมเปิดใช้ Web Beta1" และตอบ AskUserQuestion แยกเฉพาะเรื่องนี้ว่า **"ให้รันแทนได้"** (ยืนยันชัดเจนว่า AI trigger production DB workflow แทนได้ ครั้งนี้ — ไม่ได้เปลี่ยน policy ทั่วไปตามบันทึก 2026-09-07)
+- ผลการดำเนินการ: PR #725 merge (`19f2f58`) หลัง CI เขียวทั้งหมด; WYN-158 Production Deploy #275 success; headers ตรวจบน https://wynos.online แล้ว; AI dispatch `web-beta1-apply-qa-hardening.yml` run `36250193842` — success, verify: flood_guard_trigger=1, referral_guard_trigger=1, limited_buckets=4
+- Email confirmation: Founder เลือก **ยังไม่เปิด** — ทดสอบการส่งอีเมลจริงก่อน แล้วค่อยตัดสินใจ (ยังคงเป็นความเสี่ยงบัญชีบอทที่ยอมรับชั่วคราว)

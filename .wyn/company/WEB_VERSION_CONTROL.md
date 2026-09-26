@@ -30,7 +30,15 @@ WYNOS Web Beta1 เป็น version track ของ **Web App** แยกจา
 
 | Version | สถานะ | Baseline |
 |---|---|---|
-| WYNOS Web Beta1 | **Current** | `854d571b7548f45b1d12cdd2143580dc4e46312d`, Production Deploy #51 |
+| WYNOS Web Beta1 | **Current — ผู้ใช้ทั่วไป (Public)** | Launch baseline `19f2f5830740ba1cc3d3a23c16ac94bc9185388c` (PR #725), WYN-158 Production Deploy **#275** (`36250184330`) — success, 2026-09-26. เดิม: `854d571b7548f45b1d12cdd2143580dc4e46312d`, Production Deploy #51 |
+| WYNOS Web Beta2 | **In development — เฉพาะบัญชีนักพัฒนา (Developer-only)** | ต่อยอดจาก Web Beta1 launch baseline ข้างบน; ยังไม่มี production release |
+
+## Web Beta1 Launch / Web Beta2 (Owner decision, 2026-09-26)
+
+- Owner ตัดสินใจ (AskUserQuestion, 2026-09-26): **WYNOS Web Beta1 = เวอร์ชันผู้ใช้**, **WYNOS Web Beta2 = เฉพาะนักพัฒนา** — รูปแบบเดียวกับ Beta4 (ผู้ใช้) / Beta5 (นักพัฒนา) ของแอปใน `VERSION_CONTROL.md`
+- Launch baseline ของ Web Beta1 รวม: Push ตอนปิดแอป (#721), `recipient_id` ใน Push (#722, Edge Function deployed), ตัดโค้ด foreground Push (#723), ตัวเลข unread บนกระดิ่ง/แชท (#724), QA hardening (#725) และ production DB migration `web-beta1-apply-qa-hardening.yml` run `36250193842` (verified)
+- งานใหม่ทั้งหมดของ Web Beta2 ต้องอยู่หลัง developer gate (เช่น `is_developer_account`) จนกว่า Owner จะสั่ง release; ห้ามเปลี่ยนพฤติกรรมของ Web Beta1 ที่ผู้ใช้เห็นโดยไม่ได้รับอนุมัติ
+- Rollback/version change ยังเป็นอำนาจ Owner เท่านั้น
 
 ## Owner Authority
 

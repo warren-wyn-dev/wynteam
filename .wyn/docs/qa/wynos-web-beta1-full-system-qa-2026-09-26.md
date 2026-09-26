@@ -84,3 +84,18 @@ accept them — but QA cannot mark the release PASS until item 1 above is verifi
   listener removal (#723), bell/Chat unread counts + out-of-order guard (#724).
 - One WebKit-only CI flake seen today (`composer-handle-drag.spec.ts:52`, passed on re-run and on
   #723/#724) — test hydration timing, not a product bug; proposed test fix is in PR #723's comment.
+
+## Addendum — findings resolved and live (2026-09-26)
+
+| Finding | Resolution | Evidence |
+|---|---|---|
+| WEB-B1-QA-01 | Security headers on every route (PR #725) | `curl -sSI https://wynos.online/welcome` → `x-frame-options: DENY`, `content-security-policy: frame-ancestors 'none'`, `x-content-type-options: nosniff`, `referrer-policy: strict-origin-when-cross-origin`; `tests/browser/security-headers.spec.ts` |
+| WEB-B1-QA-02 | Notification flood guard trigger (production) | apply run `36250193842` verify `flood_guard_trigger=1`; `supabase/tests/web_beta1_qa_hardening_test.sh` in CI |
+| WEB-B1-QA-03 | Bucket MIME/size limits (production) + web upload validator | apply run verify `limited_buckets=4`; `tests/upload-image.test.mjs` |
+| LOW referral_code | Guard trigger (production) | apply run verify `referral_guard_trigger=1` |
+| WebKit composer flake | Test waits for React state | PR #725 CI browser-qa green |
+
+Security status: **CRITICAL 0 · HIGH 0 · MEDIUM 0 open · LOW 0 open.**
+Remaining before PASS: real-device smoke test by the Founder (Push on installed iPhone/Android PWA,
+badges, account switch, signup → first image post) and a real email-delivery test. Email confirmation
+stays off by Founder decision (accepted, temporary bot-signup risk).

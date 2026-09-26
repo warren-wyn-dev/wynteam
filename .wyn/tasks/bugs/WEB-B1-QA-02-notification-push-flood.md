@@ -1,6 +1,6 @@
 # Bug Report — WEB-B1-QA-02 (MEDIUM) Unthrottled follow/like toggling floods a user with notifications and Push
 
-Status: review — fixed on branch claude/wynos-web-beta1-notifications-cf4fe4
+Status: resolved — live in production 2026-09-26 (PR #725, deploy #275, DB apply run 36250193842)
 Owner: AI Debug Engineer
 Found by: AI QA & Security — WYNOS Web Beta1 full-system QA, 2026-09-26
 Bug: `public.notify_follow()` (latest definition in `supabase/migrations_web_beta1_official_autofollow.sql`
