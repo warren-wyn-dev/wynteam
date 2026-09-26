@@ -31,7 +31,7 @@ const KEY = "wynos.pending-add-account.v1";
 
 test("add-account signup keeps a validated temporary slot without touching the active slot", () => {
   const { api, stored, session } = fixture();
-  api.beginPendingAddAccount(A);
+  assert.equal(api.beginPendingAddAccount(A), true);
   assert.equal(api.hasAddAccountIntent(), true);
   assert.equal(session.get("wynos.add-account-intent.v1"), A);
   assert.equal(api.getPendingAddAccountSlotForTab(), A);
@@ -85,4 +85,24 @@ test("a normal signup tab cannot inherit another tab's provisional B identity", 
   assert.equal(secondTab.api.getPendingAddAccountSlotForTab(), null);
   secondTab.api.clearPendingAddAccount();
   assert.equal(firstTab.api.getPendingAddAccountSlotForTab(), B);
+});
+
+test("blocked sessionStorage cannot create a new account or mutate shared auth storage", () => {
+  const api = {};
+  const stored = new Map();
+  const localStorage = {
+    getItem: (key) => stored.get(key) ?? null,
+    setItem: (key, value) => stored.set(key, value),
+    removeItem: (key) => stored.delete(key),
+  };
+  const sessionStorage = {
+    getItem: () => null,
+    setItem: () => { throw new Error("Storage blocked"); },
+    removeItem: () => { throw new Error("Storage blocked"); },
+  };
+  new Function("exports", "window", compiled)(api, { localStorage, sessionStorage });
+  assert.equal(api.beginPendingAddAccount(A), false);
+  assert.equal(api.getPendingAddAccountSlot(), null);
+  assert.equal(api.getPendingAddAccountSlotForTab(), null);
+  assert.equal(stored.size, 0);
 });
