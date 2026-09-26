@@ -882,6 +882,8 @@ export function OnboardingProfileScreen() {
       </div>
       <div style={{ padding: "0 20px", flex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <Image src="/wynos_logo_mark.png" alt="WYNOS" width={84} height={54}
+            style={{ height: 54, width: "auto", display: "block", margin: "0 auto 10px" }} priority />
           <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em" }}>เพิ่มรูปโปรไฟล์</div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0" }}>ให้คนอื่นรู้จักคุณมากขึ้น</p>
         </div>
