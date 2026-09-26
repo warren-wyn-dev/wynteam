@@ -133,7 +133,6 @@ export function QuoteFeedCard({
     setEngagement({ ...before, liked: !liked, likeCount: Math.max(0, before.likeCount + (liked ? -1 : 1)) });
     try {
       await toggleQuoteLike(client, viewerId, quoteId, liked);
-      if (!liked) showToast("ถูกใจโพสต์แล้ว");
     }
     catch {
       setEngagement(before);
