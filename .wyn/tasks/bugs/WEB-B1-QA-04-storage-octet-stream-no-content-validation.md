@@ -1,6 +1,6 @@
 # Bug Report — WEB-B1-QA-04 (LOW) Upload buckets accept application/octet-stream with no content validation
 
-Status: open (non-blocking, LOW)
+Status: open (non-blocking, LOW). Fix implemented (step 3) and awaiting production install and the spoof test
 Owner: AI Debug Engineer
 Found by: Codex review of PR #731 (Web Beta1 QA sign-off), verified by AI QA & Security 2026-09-26
 Bug: `supabase/migrations_web_beta1_storage_upload_limits.sql` limits `avatars`, `drop-images`,
@@ -38,3 +38,27 @@ rejected after step 2; (c) a real JPEG/PNG/HEIC still uploads; (d) Flutter uploa
 Regression Risk: Medium for step 2, because older Flutter builds' uploads would fail. Gate on
 Flutter adoption.
 Handoff to QA: attempt the octet-stream upload on staging after step 2.
+
+## Fix — step 3 implemented (2026-09-26, Web Beta2)
+
+Founder decisions (AskUserQuestion): **validate after upload and delete non-images** (not an
+upload proxy); the AI may deploy the function and install the webhook after CI passes.
+
+- `supabase/functions/validate-upload/`: an Edge Function that receives the storage.objects
+  webhook, reads the first 64 bytes of the object (service role, `Range`), and recognises
+  JPEG/PNG/GIF/WebP/HEIC/HEIF/AVIF by magic bytes. It **deletes** the object if the bytes are not an
+  image. The claimed MIME type is ignored, so spoofed `image/jpeg` and `application/octet-stream`
+  are both covered. It fails open on read errors and logs bucket, object id and outcome, never the
+  path. Only the four image buckets are inspected. `pop-videos` and `appeal-evidence` are untouched.
+  Tests: `supabase/functions/validate-upload/_lib.test.ts` (runs in CI with `deno test`).
+- `.github/workflows/storage-upload-validator.yml`: `create` installs an AFTER INSERT trigger and an
+  AFTER UPDATE trigger (fires only when `metadata` changes, i.e. a new upsert, not on reads) on
+  `storage.objects` for those buckets. `test` is the end-to-end closure test: a text file uploaded
+  as `image/jpeg` must disappear within 60 s and a real PNG must stay. `remove` is the rollback.
+- `deploy-edge-functions.yml`: adds the `validate-upload` option.
+
+Known limit: a non-image can be readable for a few seconds before it is deleted (accepted with the
+design choice). Existing objects are not rescanned.
+
+Closure: this finding closes when the function is deployed, the triggers are created, and the
+`test` action passes on production.

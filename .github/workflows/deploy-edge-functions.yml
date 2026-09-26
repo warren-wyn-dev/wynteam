@@ -29,6 +29,7 @@ on:
         options:
           - send-push-notification
           - location-search
+          - validate-upload
 
 jobs:
   deploy:

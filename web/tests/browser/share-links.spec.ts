@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./raw-request";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 
@@ -49,8 +49,8 @@ test("routes without their own metadata never claim the home page URL", async ({
 // the page to Safari/Chrome.
 const LINE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Safari Line/14.16.0";
 
-test("a link opened inside LINE is sent on to Safari/Chrome, once", async ({ request }) => {
-  const get = (path: string) => request.get(path, { headers: { "user-agent": LINE_UA }, maxRedirects: 0 });
+test("a link opened inside LINE is sent on to Safari/Chrome, once", async ({ rawRequest }) => {
+  const get = (path: string) => rawRequest.get(path, { headers: { "user-agent": LINE_UA }, maxRedirects: 0 });
   for (const [path, target] of [
     ["/@warren", "/@warren?openExternalBrowser=1"],
     [`/drop/${ID}?ref=share`, `/drop/${ID}?ref=share&openExternalBrowser=1`],
@@ -69,12 +69,12 @@ test("a link opened inside LINE is sent on to Safari/Chrome, once", async ({ req
   }
 });
 
-test("other browsers and link-preview bots are never redirected", async ({ request }) => {
+test("other browsers and link-preview bots are never redirected", async ({ rawRequest }) => {
   for (const ua of [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",
     "facebookexternalhit/1.1;line-poker/1.0",
   ]) {
-    expect((await request.get("/@warren", { headers: { "user-agent": ua }, maxRedirects: 0 })).status(), ua).toBe(200);
+    expect((await rawRequest.get("/@warren", { headers: { "user-agent": ua }, maxRedirects: 0 })).status(), ua).toBe(200);
   }
 });
 

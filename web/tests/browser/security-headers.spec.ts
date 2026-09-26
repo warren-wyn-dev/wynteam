@@ -1,9 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./raw-request";
 
 // WEB-B1-QA-01: no third-party page may frame a WYNOS session.
 for (const path of ["/", "/welcome", "/notifications"]) {
-  test(`${path} is served with anti-framing and nosniff headers`, async ({ request }) => {
-    const response = await request.get(path, { maxRedirects: 0 });
+  test(`${path} is served with anti-framing and nosniff headers`, async ({ rawRequest }) => {
+    const response = await rawRequest.get(path, { maxRedirects: 0 });
     const headers = response.headers();
     expect(headers["x-frame-options"]).toBe("DENY");
     expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");

@@ -152,3 +152,20 @@
 - Mitigations: Vercel Instant Rollback to the previous production deployment; Vercel Analytics/Speed Insights and the client error monitor; WYN-158 post-deploy route/config checks.
 - Follow-up: set up a real staging environment for Web Beta2. This exception is **not** a precedent for other versions or releases.
 - สถานะ: **อนุมัติแล้ว (ข้อยกเว้น)**. วันที่ 2026-09-26
+
+### DECISION — [2026-09-26] WYNOS Web staging (Web Beta2 start)
+- Founder request: "เริ่มจากข้อ 1 ตั้ง staging ก่อน". The follow-up to the Web Beta1 staging-gate exception.
+- Founder decisions (AskUserQuestion): **use the same database as production** ("ใช้ฐานข้อมูลเดียวกับเว็บจริง"), and **per-PR staging, with merge still deploying production immediately** ("มี staging ต่อ PR แต่ merge แล้วขึ้นเว็บจริงทันทีเหมือนเดิม").
+- Change: `web-next-phase5-preview.yml` no longer uses a branch allow-list. Every same-repository PR touching `web/` gets a protected Vercel preview, route smoke checks, full Playwright QA against the deployed URL, and a PR comment with the staging URL. See `docs/engineering/WEB_STAGING.md`.
+- Cost: no new service. Uses existing Vercel preview deployments and more GitHub Actions minutes per web PR.
+- Risks accepted: staging writes to production data (developer accounts only, no migration rehearsal); no Push on staging; production is still deployed on merge, so staging must be green **before** merge.
+- Rollback: restore the previous `if:` allow-list in the workflow.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-26
+
+### DECISION — [2026-09-26] WEB-B1-QA-04: post-upload image content validation
+- Founder request: "ทำข้อ A แก้ WEB-B1-QA-04 ก่อน".
+- Founder decisions (AskUserQuestion): **validate after upload and delete the file if it is not an image** ("ตรวจหลังอัปโหลด แล้วลบทิ้งถ้าไม่ใช่รูป"), and **the AI may deploy the Edge Function and install the Database Webhook on production after CI passes** ("ทำแทนได้เลยหลัง CI ผ่าน"). This approval covers this change only.
+- Change: new Edge Function `validate-upload`, plus two triggers on `storage.objects` (image buckets only) created by `.github/workflows/storage-upload-validator.yml`. There is no schema change to application tables. It deletes only newly uploaded objects whose bytes are not an image.
+- Risks: a non-image is readable for a few seconds before deletion; one extra function call per image upload; if the function is down, uploads still succeed and are not checked (fail-open).
+- Rollback: `storage-upload-validator.yml` action `remove`, which drops both triggers.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-26
