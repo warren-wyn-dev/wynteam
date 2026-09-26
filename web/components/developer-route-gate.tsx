@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { forgetSignedOutAccount, getActiveAccountStorageKey } from "@/lib/account-registry";
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 import { revokeLocalPushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { cacheBrowserSession, getCachedBrowserSession } from "@/lib/supabase/session-cache";
@@ -123,18 +124,25 @@ export function DeveloperRouteGate({
 
   const signOut = useCallback(async () => {
     if (!client) return;
-    // Delete the device token while RLS still recognizes the current
-    // owner. Never block a requested logout on a push/network failure.
+    const signingOutUserId = session?.user.id;
+    const signingOutStorageKey = getActiveAccountStorageKey();
+    // Detach A's token while A's auth/RLS are still present. Keep the
+    // existing best-effort local revoke if network deletion fails.
     const serverDetached = await unsubscribeFromPushNotifications(client);
     if (!serverDetached) await revokeLocalPushSubscription();
     await client.auth.signOut();
+    if (signingOutUserId) {
+      // A normal Login after logout must not reuse A's stale custom slot
+      // or leave an invalid saved entry pretending it still belongs to A.
+      forgetSignedOutAccount(signingOutUserId, signingOutStorageKey);
+    }
     cacheBrowserSession(null);
-    // Clears both the in-memory cache and the persisted localStorage copy
-    // (see QueryProvider) so a shared device never shows the previous
-    // account's feed/profile/chat data to the next person who signs in.
     queryClient.clear();
-    router.replace("/welcome");
-  }, [client, queryClient, router]);
+    // A soft Next router transition preserves the module-level Supabase
+    // singleton, which is still bound to the old account's storage key.
+    // Rebuild it from the now-cleared active pointer before the next login.
+    window.location.replace("/welcome");
+  }, [client, queryClient, session]);
 
   if (gate === "loading" || gate === "signed-out") {
     return <main className="route-state"><div className="route-system-spinner" aria-label="กำลังโหลด" /></main>;
