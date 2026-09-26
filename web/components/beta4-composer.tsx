@@ -19,7 +19,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { Avatar } from "@/components/phase3-ui";
 import { deleteDraft, fetchDraft, loadDraftImageFile, saveDraft } from "@/lib/drafts";
-import { publishDropSafely } from "@/lib/drop-publication";
+import { DropPublicationStateUnknownError, publishDropSafely } from "@/lib/drop-publication";
+import { definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { MAX_POST_IMAGES } from "@/lib/post-limits";
 import { fetchHomeIdentity, type HomeIdentity } from "@/lib/home-parity-data";
 import styles from "./beta4-composer-refresh.module.css";
@@ -82,6 +83,8 @@ export function Beta4Composer({
   const [audience, setAudience] = useState<AudienceChoice>("everyone");
   const [audienceOpen, setAudienceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [offline, setOffline] = useState(false);
+  const [onlineEpoch, setOnlineEpoch] = useState(0);
   const [error, setError] = useState("");
   const [closePrompt, setClosePrompt] = useState(false);
   const [exiting, setExiting] = useState(false);
@@ -96,6 +99,9 @@ export function Beta4Composer({
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const router = useRouter();
   const draftRecordIdRef = useRef<string | null>(null);
+  const publishingRef = useRef(false);
+  const publishOperationRef = useRef<string | null>(null);
+  const publishFingerprintRef = useRef<string | null>(null);
   const persistDraftQueueRef = useRef<Promise<string> | null>(null);
   const pendingNavRef = useRef<string | null>(null); // set when the close-prompt was opened via "ฉบับร่าง" (go to /drafts after resolving) instead of Cancel
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,6 +123,15 @@ export function Beta4Composer({
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const captionRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const check = () => setOffline(definitelyOffline());
+    const recovered = () => { setOffline(false); setOnlineEpoch((value) => value + 1); };
+    check();
+    window.addEventListener("offline", check);
+    window.addEventListener("online", recovered);
+    return () => { window.removeEventListener("offline", check); window.removeEventListener("online", recovered); };
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -357,11 +372,22 @@ export function Beta4Composer({
   }, [client, userId, files, existingImageUrl, caption, mode, pollOptions]);
 
   const saveDraftNow = async () => {
+    if (definitelyOffline()) { setDraftError("ยังออฟไลน์อยู่ เนื้อหาจะอยู่ในหน้านี้จนกว่าจะกลับมาเชื่อมต่อ"); return; }
     setSavingDraft(true); setDraftError("");
     try { await persistDraft(); closeAndNavigate(); }
     catch (reason) { setDraftError(reason instanceof Error ? reason.message : "บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง"); }
     finally { setSavingDraft(false); }
   };
+
+  // Retry the most recent draft when the connection comes back; the existing
+  // serialized draft queue prevents an older autosave from overwriting it.
+  useEffect(() => {
+    if (onlineEpoch === 0 || !hasContent || busy) return;
+    setAutosaveStatus("saving");
+    void persistDraft().then(() => setAutosaveStatus("saved")).catch(() => setAutosaveStatus("error"));
+    // An online event is the only trigger; never retry endlessly on server errors.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlineEpoch]);
 
   // Autosave every ~800ms of no further edits (WYN-185 item 4). Skips the
   // very first run after mount/after a draft finishes loading into the form,
@@ -371,6 +397,7 @@ export function Beta4Composer({
     if (!hasContent || busy) return;
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = setTimeout(() => {
+      if (definitelyOffline()) { setAutosaveStatus("error"); return; }
       setAutosaveStatus("saving");
       void persistDraft().then(() => setAutosaveStatus("saved")).catch(() => setAutosaveStatus("error"));
     }, 800);
@@ -401,7 +428,20 @@ export function Beta4Composer({
   };
 
   const submit = async () => {
-    if (!canPublish) return;
+    if (!canPublish || publishingRef.current) return;
+    if (definitelyOffline()) { setError(OFFLINE_ACTION_MESSAGE + " เนื้อหายังอยู่ในหน้านี้"); return; }
+    // A timed-out publication may already exist. Reuse its operation id only
+    // for identical input, never silently publish edited content as the old post.
+    const fingerprint = JSON.stringify([mode, caption, audience, aspectRatio, files.map((file) => [file.name, file.size, file.lastModified]), existingImageUrl, pollOptions]);
+    if (mode === "image" && publishOperationRef.current && publishFingerprintRef.current !== fingerprint) {
+      setError("สถานะโพสต์ก่อนหน้ายังไม่แน่ชัด กรุณาตรวจสอบฟีดก่อนแก้ข้อความหรือเผยแพร่อีกครั้ง");
+      return;
+    }
+    publishingRef.current = true;
+    if (mode === "image" && !publishOperationRef.current) {
+      publishOperationRef.current = crypto.randomUUID();
+      publishFingerprintRef.current = fingerprint;
+    }
     if (autosaveTimerRef.current) { clearTimeout(autosaveTimerRef.current); autosaveTimerRef.current = null; }
     setBusy(true); setError(""); setUploadProgress(null);
     try {
@@ -415,6 +455,7 @@ export function Beta4Composer({
         await publishDropSafely(client, userId, {
           caption,
           files: publishFiles,
+          operationId: publishOperationRef.current,
           audience,
           excludedFriendIds: [],
           mentionedUserIds: [],
@@ -422,12 +463,24 @@ export function Beta4Composer({
           onImageUploaded: (uploaded, total) => setUploadProgress(total > 0 ? { uploaded, total } : null),
         });
       }
+      publishOperationRef.current = null;
+      publishFingerprintRef.current = null;
       const savedDraftId = draftRecordIdRef.current;
       if (savedDraftId) void deleteDraft(client, savedDraftId).catch(() => undefined);
       onPublished();
       onClose();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง"); }
-    finally { setBusy(false); setUploadProgress(null); }
+    } catch (reason) {
+      // Preserve the operation ID only when the server might already have
+      // committed. A deliberate retry will reconcile instead of duplicating.
+      if (!(reason instanceof DropPublicationStateUnknownError)) {
+        publishOperationRef.current = null;
+        publishFingerprintRef.current = null;
+      }
+      setError(reason instanceof DropPublicationStateUnknownError
+        ? "สถานะการเผยแพร่ยังไม่แน่ชัด ตรวจสอบฟีดก่อนลองส่งอีกครั้งด้วยเนื้อหาเดิม"
+        : definitelyOffline() ? OFFLINE_ACTION_MESSAGE + " เนื้อหายังอยู่ในหน้านี้"
+        : reason instanceof Error ? reason.message : "แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally { publishingRef.current = false; setBusy(false); setUploadProgress(null); }
   };
 
   const addPollOption = () => setPollOptions((current) => current.length >= 4 ? current : [...current, ""]);
@@ -509,7 +562,8 @@ export function Beta4Composer({
                 </div>
               )}
 
-              {error ? <p className="route-error beta4-composer-error">{error}</p> : null}
+              {offline ? <p className="route-error beta4-composer-error" role="alert">ออฟไลน์อยู่ กรุณาเชื่อมต่ออินเทอร์เน็ตก่อนโพสต์ เนื้อหาจะยังอยู่ในหน้านี้</p> : null}
+              {error && !offline ? <p className="route-error beta4-composer-error" role="alert">{error}</p> : null}
               {autosaveStatus === "saving" ? <p className="beta4-draft-status" role="status">กำลังบันทึกร่าง…</p>
                 : autosaveStatus === "saved" ? <p className="beta4-draft-status" role="status">บันทึกร่างแล้ว</p>
                 : autosaveStatus === "error" ? <p className="beta4-draft-status error" role="alert">บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง</p>
