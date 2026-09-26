@@ -133,7 +133,7 @@ test("background Push wakes open WYNOS tabs without exposing content or duplicat
   const handlers = new Map<string, Array<(event: { waitUntil: (promise: Promise<unknown>) => void }) => void>>();
   const wakeMessages: unknown[] = [];
   const banners: Array<{ title: string; data: unknown }> = [];
-  let receiver: ((payload: PushPayload) => Promise<unknown> | void) | null = null;
+  const receiverRef: { current?: (payload: PushPayload) => Promise<unknown> | void } = {};
   const self = {
     location: { origin: "https://wynos.online" },
     addEventListener: (name: string, callback: (event: { waitUntil: (promise: Promise<unknown>) => void }) => void) => {
@@ -163,7 +163,7 @@ test("background Push wakes open WYNOS tabs without exposing content or duplicat
       initializeApp: () => undefined,
       messaging: () => ({
         onBackgroundMessage: (callback: (payload: PushPayload) => Promise<unknown> | void) => {
-          receiver = callback;
+          receiverRef.current = callback;
         },
       }),
     },
@@ -173,7 +173,7 @@ test("background Push wakes open WYNOS tabs without exposing content or duplicat
     callback({ waitUntil: (promise) => { activation.push(promise); } });
   }
   await Promise.all(activation);
-  expect(receiver).not.toBeNull();
+  if (!receiverRef.current) throw new Error("Firebase background receiver not installed");
 
   const data = {
     type: "like_drop",
@@ -181,7 +181,7 @@ test("background Push wakes open WYNOS tabs without exposing content or duplicat
     notification_id: OTHER,
     push_body: "PRIVATE CONTENT MUST NOT ENTER WAKE MESSAGES",
   };
-  await (receiver as (payload: PushPayload) => Promise<unknown>)({
+  await receiverRef.current({
     notification: { title: "FCM displays this automatically" },
     data,
   });
@@ -194,7 +194,7 @@ test("background Push wakes open WYNOS tabs without exposing content or duplicat
   expect(JSON.stringify(wakeMessages)).not.toContain(data.push_body);
   expect(banners).toHaveLength(0);
 
-  await (receiver as (payload: PushPayload) => Promise<unknown>)({ data });
+  await receiverRef.current({ data });
   expect(wakeMessages).toHaveLength(2);
   expect(banners).toHaveLength(1);
   expect(banners[0].data).toEqual(data);
