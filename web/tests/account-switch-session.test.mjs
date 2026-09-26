@@ -146,3 +146,43 @@ test("source: other tabs reload their singleton and clear stale queries on activ
   assert.match(provider, /window\.addEventListener\("storage", handleStorage\)/);
   assert.match(provider, /client\.clear\(\);\s*window\.location\.reload\(\)/);
 });
+
+const pushSource = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
+const pushCompiled = ts.transpileModule(pushSource, {
+  fileName: "push-notifications.ts",
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+
+async function pushDetachWith(subscription, registrationAvailable = true) {
+  const exports = {};
+  let configRequests = 0;
+  runInNewContext(pushCompiled, {
+    exports,
+    navigator: {
+      serviceWorker: {
+        getRegistration: async () => registrationAvailable
+          ? { pushManager: { getSubscription: async () => subscription } }
+          : null,
+      },
+    },
+    Notification: { permission: "granted" },
+    fetch: async () => { configRequests += 1; throw new Error("Offline"); },
+  });
+  const detached = await exports.unsubscribeFromPushNotifications({});
+  return { detached, configRequests };
+}
+
+test("granted OS permission with no WYNOS worker or subscription does not block switching", async () => {
+  const noWorker = await pushDetachWith(null, false);
+  assert.equal(noWorker.detached, true);
+  assert.equal(noWorker.configRequests, 0);
+  const noSubscription = await pushDetachWith(null);
+  assert.equal(noSubscription.detached, true);
+  assert.equal(noSubscription.configRequests, 0);
+});
+
+test("an active Push subscription with failed config still blocks cross-account switching", async () => {
+  const active = await pushDetachWith({ endpoint: "https://push.invalid/example" });
+  assert.equal(active.detached, false);
+  assert.equal(active.configRequests, 1);
+});
