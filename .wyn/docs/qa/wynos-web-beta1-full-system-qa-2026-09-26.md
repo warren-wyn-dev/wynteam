@@ -117,12 +117,15 @@ own phones and reported all of it passing: "ไม่มี เรียบร�
 | Account switch: Push reaches only the active account | Pass |
 | Signup → onboarding → first post with image | Pass |
 | Official first-follow (`docs/engineering/WEB_BETA1_OFFICIAL_FIRST_FOLLOW_RELEASE.md` outstanding real-device evidence): a new account follows @wynos_s once automatically → unfollow → logout/login and profile edit → stays unfollowed, no repeat follow | Pass |
+| Official first-follow notification isolation: @wynos_s gets no "new follower" notification from the automatic follow | Pass |
+| Official first-follow via Google OAuth with the username set later: still auto-followed once | Pass |
 | Password-reset email is delivered | Pass |
 | Shared link tapped in LINE opens in Safari (PR #729) | Pass |
 | Pinch/double-tap zoom disabled (PR #729, Founder decision) | Pass |
 
-The first-follow row was confirmed by the Founder in a separate answer ("ทดสอบแล้ว ผ่านหมด",
-2026-09-26), after Codex review of this PR pointed out that the checklist above did not cover it.
+The first-follow rows were confirmed by the Founder in separate answers on 2026-09-26, after Codex review of
+this PR pointed out that the checklist above did not cover them: "ทดสอบแล้ว ผ่านหมด" for follow, unfollow and
+persistence, and "เช็คแล้ว ผ่านทั้ง 2 ข้อ" for notification isolation and the OAuth-delayed username.
 
 Post-QA fixes shipped the same day and included in this sign-off:
 - PR #727: `/@username` and @mention links no longer 404; a shared link survives login and
