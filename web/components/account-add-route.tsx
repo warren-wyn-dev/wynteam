@@ -32,7 +32,9 @@ export function AccountAddRoute() {
     // Only the initiating tab may reuse its provisional session. A verified
     // OAuth callback with its exact slot can also resume the same flow.
     if (slot && validAddAccountSlot(slot) && slot === pending) return slot;
-    return searchParams.get("stage") === "login" && pending ? pending : createAccountStorageKey();
+    // Reopening Add Account within this tab must resume its one unfinished
+    // provisional slot, not orphan B and silently start a second C slot.
+    return pending ?? createAccountStorageKey();
   });
   const [screen, setScreen] = useState<"welcome" | "login">(
     searchParams.get("stage") === "login" ? "login" : "welcome",
