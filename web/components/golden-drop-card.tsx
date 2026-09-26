@@ -23,6 +23,7 @@ import { RichPostText } from "@/components/rich-post-text";
 import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
 import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
+import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { shareOrCopyLink } from "@/lib/share";
 import { getRecentDropEngagement, listenDropEngagement, patchDropViewer, publishDropEngagement } from "@/lib/drop-engagement-sync";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -250,6 +251,10 @@ export function GoldenDropCard({
 
   const like = async () => {
     if (!client || !viewer || !userId || busy) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "like");
+    if (!releaseMutation) return;
+    try {
     if (!liked) haptic();
     patchViewer("likedDropIds", !liked);
     setLikeCount((count) => Math.max(0, count + (liked ? -1 : 1)));
@@ -262,8 +267,8 @@ export function GoldenDropCard({
       void reloadViewer(userId);
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
+    } finally { releaseMutation(); }
   };
-
   const doubleLike = () => {
     if (!liked) void like();
     setBurst(false);
@@ -279,14 +284,22 @@ export function GoldenDropCard({
 
   const undoSave = async () => {
     if (!client || !userId || !getRecentDropEngagement(userId, row.id).some((item) => item.kind === "save" && item.active)) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "save");
+    if (!releaseMutation) return;
+    try {
     patchViewer("savedDropIds", false);
     publishDropEngagement({ userId, dropId: row.id, kind: "save", active: false, source });
     try { await toggleDropSave(client, userId, row.id, true); }
     catch { publishDropEngagement({ userId, dropId: row.id, kind: "save", active: true, source }); void reloadViewer(userId); showToast("เลิกทำไม่สำเร็จ"); }
+    } finally { releaseMutation(); }
   };
-
   const save = async () => {
     if (!client || !viewer || !userId || busy) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "save");
+    if (!releaseMutation) return;
+    try {
     if (!saved) haptic();
     patchViewer("savedDropIds", !saved);
     publishDropEngagement({ userId, dropId: row.id, kind: "save", active: !saved, source });
@@ -300,10 +313,14 @@ export function GoldenDropCard({
       void reloadViewer(userId);
       showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
+    } finally { releaseMutation(); }
   };
-
   const redrop = async () => {
     if (!client || !viewer || !userId || busy || !canRedrop) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "redrop");
+    if (!releaseMutation) return;
+    try {
     setBusy(true);
     setError("");
     patchViewer("redroppedDropIds", !redropped);
@@ -321,8 +338,8 @@ export function GoldenDropCard({
     } finally {
       setBusy(false);
     }
+    } finally { releaseMutation(); }
   };
-
   const quoteRedrop = async () => {
     if (!client || !userId || !quote.trim() || busy || !canRedrop) return;
     setBusy(true);
