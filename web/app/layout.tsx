@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import { preconnect } from "react-dom";
 import { AppBottomNavHost } from "@/components/app-bottom-nav-runtime";
 import { AppNavigationRuntime } from "@/components/app-navigation-runtime";
+import { ClientErrorMonitor } from "@/components/client-error-monitor";
 import { SignupDraftProvider } from "@/components/auth-flow/signup-draft-context";
 import { InstallPromptBanner } from "@/components/install-prompt-banner";
 import { QueryProvider } from "@/components/query-provider";
@@ -133,5 +134,5 @@ const supabaseOrigin = (() => {
 
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){
   if (supabaseOrigin) preconnect(supabaseOrigin, { crossOrigin: "anonymous" });
-  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
+  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><ClientErrorMonitor /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
 }
