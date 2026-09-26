@@ -3,6 +3,7 @@
  * intentional: email confirmation may open in a new tab on the same device.
  */
 const KEY = "wynos.pending-add-account.v1";
+const INTENT_KEY = "wynos.add-account-intent.v1";
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const SLOT_PATTERN = /^wynos\.account\.[a-zA-Z0-9-]{8,90}$/;
 
@@ -30,12 +31,28 @@ export function getPendingAddAccountSlot(): string | null {
   }
 }
 
+/** A tab that started Add Account must never fall back to A's active
+ * Supabase client after its temporary slot expires. */
+export function hasAddAccountIntent(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(INTENT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function beginPendingAddAccount(slot: string): void {
   if (typeof window === "undefined" || !validAddAccountSlot(slot)) return;
   window.localStorage.setItem(KEY, JSON.stringify({ slot, startedAt: Date.now() }));
+  try { window.sessionStorage.setItem(INTENT_KEY, "1"); } catch { /* Optional storage. */ }
 }
 
 export function clearPendingAddAccount(slot?: string): void {
   if (typeof window === "undefined") return;
-  if (!slot || getPendingAddAccountSlot() === slot) window.localStorage.removeItem(KEY);
+  const pending = getPendingAddAccountSlot();
+  if (!slot || pending === slot) {
+    window.localStorage.removeItem(KEY);
+    try { window.sessionStorage.removeItem(INTENT_KEY); } catch { /* Optional storage. */ }
+  }
 }
