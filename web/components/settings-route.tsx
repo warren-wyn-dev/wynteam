@@ -8,7 +8,7 @@ import { SettingsChangePassword } from "@/components/settings-change-password";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { isCurrentDevicePushEnabled, pushSupported, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { getPushAvailability, isCurrentDevicePushEnabled, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability, type PushBlockReason } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
   exportMyData,
@@ -37,6 +37,20 @@ const notificationLabels: Array<[keyof NotificationSettings, string]> = [
   ["trending", "กำลังนิยม"],
   ["system", "ระบบ"],
 ];
+
+function pushReasonDescription(reason: PushBlockReason): string {
+  switch (reason) {
+    case "install-required": return "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮม แล้วเปิดผ่านไอคอนแอปก่อน";
+    case "not-configured": return "ระบบ Push ยังไม่ได้ตั้งค่า Firebase ครบ กรุณาแจ้งผู้ดูแล WYNOS";
+    case "denied": return "อุปกรณ์ปิดสิทธิ์แจ้งเตือนอยู่ ต้องอนุญาต WYNOS จากการตั้งค่าโทรศัพท์หรือเบราว์เซอร์ก่อน";
+    case "dismissed": return "ยังไม่ได้อนุญาตการแจ้งเตือน แตะเปิดอีกครั้งและเลือกอนุญาต";
+    case "worker-failed": return "เริ่มระบบแจ้งเตือนของแอปไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+    case "no-token": return "ลงทะเบียนอุปกรณ์กับ Firebase ไม่สำเร็จ ลองเปิดใหม่อีกครั้ง";
+    case "server-failed": return "บันทึกอุปกรณ์กับ WYNOS ไม่สำเร็จ กรุณาลองอีกครั้ง";
+    case "unsupported": return "เบราว์เซอร์นี้ไม่รองรับ Push ลอง Chrome บน Android หรือ WYNOS ที่ติดตั้งบนหน้าจอโฮมของ iPhone";
+    case "temporary": return "ตรวจสอบความพร้อมของ Push ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+  }
+}
 
 const legalTypes: Array<[string, string]> = [
   ["terms_of_service", "ข้อกำหนดการให้บริการ"],
@@ -85,8 +99,8 @@ function SettingRow({
   );
 }
 
-function Toggle({ checked, disabled, onChange }: { checked: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
-  return <label className="switch"><input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} /><span /></label>;
+function Toggle({ checked, disabled, onChange, label }: { checked: boolean; disabled?: boolean; label?: string; onChange: (value: boolean) => void }) {
+  return <label className="switch"><input type="checkbox" aria-label={label} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} /><span /></label>;
 }
 
 function PermissionSelect({ value, onChange, kind = "interaction" }: { value: string; onChange: (value: string) => void; kind?: "interaction" | "likes" }) {
@@ -122,9 +136,10 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [error, setError] = useState("");
   const [section, setSection] = useState<"root" | "privacy" | "notifications" | "account" | "password" | "legal">("root");
   const [document, setDocument] = useState<LegalDocument | null>(null);
-  const [pushAvailable, setPushAvailable] = useState(false);
+  const [pushAvailability, setPushAvailability] = useState<PushAvailability | null>(null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState("");
   const [showInstallShortcut, setShowInstallShortcut] = useState(false);
 
   useEffect(() => {
@@ -144,22 +159,35 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   }, []);
 
   useEffect(() => {
-    // The Settings root, privacy and account screens need none of Firebase's
-    // JS, Push config or FCM token. Probe only when the notification settings
-    // screen is actually opened, so Settings paints alongside its own data.
+    // Only inspect Firebase/browser availability when opening Notifications.
+    // Keep the row visible with a helpful reason instead of hiding the
+    // switch when OS permissions or production config prevent subscribing.
     if (section !== "notifications") return;
     let active = true;
-    void pushSupported().then(async (supported) => {
+    setPushAvailability(null);
+    setPushError("");
+    const probe = async () => {
+      const availability = await getPushAvailability();
       if (!active) return;
-      setPushAvailable(supported);
-      if (supported) {
-        const enabled = await isCurrentDevicePushEnabled(client, userId);
-        if (active) setPushEnabled(enabled);
+      setPushAvailability(availability);
+      if (!availability.available) {
+        setPushEnabled(false);
+        return;
       }
-    }).catch(() => {
-      if (active) setPushAvailable(false);
+      const enabled = await isCurrentDevicePushEnabled(client, userId);
+      if (active) setPushEnabled(enabled);
+    };
+    void probe().catch(() => {
+      if (active) setPushAvailability({ available: false, reason: "temporary" });
     });
-    return () => { active = false; };
+    // A user may have returned from the phone's Settings after unblocking
+    // notifications; re-check without ever prompting from an effect.
+    const onFocus = () => { void probe().catch(() => undefined); };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", onFocus);
+    };
   }, [client, userId, section]);
 
   const load = useCallback(async () => {
@@ -193,28 +221,33 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
 
   const pushToggle = async (value: boolean) => {
     if (pushBusy) return;
-    setPushBusy(true); setError("");
+    setPushBusy(true);
+    setPushError("");
+    setError("");
     try {
       if (value) {
         const result = await subscribeToPushNotifications(client, userId);
         if (!result.ok) {
-          setError(
-            result.reason === "denied"
-              ? "ต้องอนุญาตการแจ้งเตือนในเบราว์เซอร์ก่อน"
-              : "เปิดการแจ้งเตือนไม่สำเร็จ ลองใหม่อีกครั้ง",
-          );
+          setPushError(pushReasonDescription(result.reason));
+          if (result.reason === "install-required" || result.reason === "denied" ||
+              result.reason === "not-configured" || result.reason === "unsupported") {
+            setPushAvailability({ available: false, reason: result.reason });
+          }
           setPushEnabled(false);
           return;
         }
         setPushEnabled(true);
+        setPushAvailability({ available: true });
       } else {
         const removed = await unsubscribeFromPushNotifications(client);
         if (!removed) {
-          setError("ปิดการแจ้งเตือนไม่สำเร็จ กรุณาลองอีกครั้ง");
+          setPushError("ยังยกเลิกการลงทะเบียน Push บนอุปกรณ์นี้ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
           return;
         }
         setPushEnabled(false);
       }
+    } catch {
+      setPushError("เกิดข้อผิดพลาดขณะเปลี่ยนการแจ้งเตือน กรุณาลองใหม่");
     } finally {
       setPushBusy(false);
     }
@@ -292,7 +325,41 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
         </div>
       ) : null}
       {section === "privacy" ? <div className="settings-page"><h2>บัญชี</h2><div className="settings-group"><SettingRow title="บัญชีส่วนตัว" description="อนุมัติผู้ติดตามก่อนเห็นโพสต์" trailing={<Toggle checked={profile.is_private} disabled={busy} onChange={(value) => void privacy("is_private", value)} />} /></div><h2>การโต้ตอบ</h2><div className="settings-group"><SettingRow title="ใครส่งข้อความได้" trailing={<PermissionSelect value={profile.dm_permission} onChange={(value) => void privacy("dm_permission", value)} />} /><SettingRow title="ใครกล่าวถึงคุณได้" trailing={<PermissionSelect value={profile.mention_permission} onChange={(value) => void privacy("mention_permission", value)} />} /><SettingRow title="ใครแสดงความคิดเห็นได้" trailing={<PermissionSelect value={profile.comment_permission} onChange={(value) => void privacy("comment_permission", value)} />} /><SettingRow title="ใครเห็นสิ่งที่คุณถูกใจ" trailing={<PermissionSelect kind="likes" value={profile.likes_visibility} onChange={(value) => void privacy("likes_visibility", value)} />} /></div><h2>สถานะ</h2><div className="settings-group"><SettingRow title="แสดงสถานะออนไลน์" trailing={<Toggle checked={online} disabled={busy} onChange={(value) => void onlineToggle(value)} />} /></div></div> : null}
-      {section === "notifications" ? <div className="settings-page">{pushAvailable ? <><h2>อุปกรณ์นี้</h2><div className="settings-group"><SettingRow title="การแจ้งเตือนแบบพุช" description="รับการแจ้งเตือนแม้ปิดแท็บนี้อยู่" trailing={<Toggle checked={pushEnabled} disabled={pushBusy} onChange={(value) => void pushToggle(value)} />} /></div></> : null}<h2>แจ้งเตือนเมื่อ</h2><div className="settings-group">{notificationLabels.map(([key, label]) => <SettingRow title={label} key={key} trailing={<Toggle checked={notifications[key]} disabled={busy} onChange={(value) => void notification(key, value)} />} />)}</div></div> : null}
+      {section === "notifications" ? (
+        <div className="settings-page">
+          <h2>อุปกรณ์นี้</h2>
+          <div className="settings-group">
+            <SettingRow
+              title="การแจ้งเตือนแบบพุช"
+              description={pushAvailability === null ? "กำลังตรวจสอบอุปกรณ์…" :
+                pushAvailability.available ? "รับการแจ้งเตือนแม้ปิดแท็บนี้อยู่" :
+                pushReasonDescription(pushAvailability.reason)}
+              trailing={<Toggle label="การแจ้งเตือนแบบพุช" checked={pushEnabled}
+                disabled={pushBusy || !pushAvailability?.available}
+                onChange={(value) => void pushToggle(value)} />}
+            />
+          </div>
+          {pushError ? <p className="route-error route-pad" role="alert">{pushError}</p> : null}
+          {pushAvailability?.available === false && pushAvailability.reason === "install-required" ?
+            <button className="route-pill soft" type="button"
+              onClick={() => window.dispatchEvent(new Event("wynos:open-install"))}>
+              วิธีติดตั้ง WYNOS บนหน้าจอโฮม
+            </button> : null}
+          {pushAvailability?.available === false && pushAvailability.reason === "temporary" ?
+            <button className="route-pill soft" type="button"
+              onClick={() => {
+                setPushAvailability(null);
+                void getPushAvailability().then(setPushAvailability);
+              }}>ตรวจสอบอีกครั้ง</button> : null}
+          <h2>แจ้งเตือนเมื่อ</h2>
+          <div className="settings-group">
+            {notificationLabels.map(([key, label]) =>
+              <SettingRow title={label} key={key}
+                trailing={<Toggle label={label} checked={notifications[key]} disabled={busy}
+                  onChange={(value) => void notification(key, value)} />} />)}
+          </div>
+        </div>
+      ) : null}
       {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><SettingRow title="เปลี่ยนรหัสผ่าน" description="ยืนยันรหัสผ่านเดิมก่อนตั้งรหัสผ่านใหม่" leading={<WynosIcon name="lockKeyhole" size={19} strokeWidth={2} />} onClick={() => setSection("password")} /><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<WynosIcon name="download" size={19} strokeWidth={2} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<WynosIcon name="trash" size={19} strokeWidth={2} />} /></div><p className="settings-safety"><WynosIcon name="shieldCheck" size={16} strokeWidth={2} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
       {section === "password" ? <SettingsChangePassword client={client} userId={userId} onBack={() => setSection("account")} /> : null}
       {section === "legal" ? <div className="settings-page"><div className="settings-group">{legalTypes.map(([type, label]) => <SettingRow title={label} key={type} onClick={() => void openDoc(type)} />)}</div></div> : null}
