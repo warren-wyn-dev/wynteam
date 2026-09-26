@@ -170,6 +170,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       const availability = await getPushAvailability();
       if (!active) return;
       setPushAvailability(availability);
+      setPushError(""); // Returning from OS Settings clears the last failed attempt.
       if (!availability.available) {
         setPushEnabled(false);
         return;
