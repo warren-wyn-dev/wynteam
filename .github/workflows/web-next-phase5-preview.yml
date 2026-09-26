@@ -27,10 +27,12 @@ concurrency:
 
 jobs:
   preview:
-    # Fork PRs get no secrets; only same-repository PRs deploy a staging preview.
+    # Fork and Dependabot PRs get no secrets (GitHub runs Dependabot like a
+    # fork, with a read-only token), so only other same-repository PRs deploy.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.actor != 'dependabot[bot]')
     runs-on: ubuntu-latest
     defaults:
       run:

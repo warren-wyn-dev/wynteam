@@ -23,7 +23,7 @@ For each push to such a PR the workflow:
 
 - **Shared database.** Staging uses the production Supabase project. Test with developer accounts only. Never rehearse database migrations or destructive actions on staging; those still go through the Founder-approved migration process.
 - **No Push on staging.** Firebase config is not injected into preview builds, so Push cannot be enabled there. This avoids registering extra device tokens against real accounts. Test Push after release.
-- **Fork PRs** get no secrets, so they get no staging deployment.
+- **Fork and Dependabot PRs** get no secrets, so they get no staging deployment.
 
 ## Rollback
 
