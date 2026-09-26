@@ -12,13 +12,14 @@
     "test:account-password": "node --test tests/account-password.test.mjs",
     "test:google-pwa-oauth": "node --test tests/google-pwa-oauth.test.mjs",
     "test:follow": "node --test tests/follow-mutation.test.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:account-switch && npm run test:app-performance && npm run test:playwright-gates && npm run test:push-offline-logout && npm run build",
+    "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:account-switch && npm run test:app-performance && npm run test:notifications && npm run test:playwright-gates && npm run test:push-offline-logout && npm run build",
     "test:feed-latency": "node --test tests/home-feed-latency.test.mjs",
     "test:account-cache-isolation": "node --test tests/account-cache-isolation.test.mjs",
     "test:playwright-gates": "node --test tests/playwright-gates.test.mjs",
     "test:push-offline-logout": "node --test tests/push-offline-logout.test.mjs",
     "test:account-switch": "node --test tests/account-switch-session.test.mjs tests/account-switch-preflight.test.mjs tests/account-switch-push-parallel.test.mjs",
-    "test:app-performance": "node --test tests/app-wide-performance.test.mjs"
+    "test:app-performance": "node --test tests/app-wide-performance.test.mjs",
+    "test:notifications": "node --test tests/notification-realtime.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
