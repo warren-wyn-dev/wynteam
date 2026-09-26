@@ -79,7 +79,12 @@ export async function registerSessionAccount(
     storageKey,
     lastUsedAt: Date.now(),
   };
-  writeRegistry([next, ...accounts.filter((item) => item.userId !== next.userId)]);
+  // Profile fetching is async: another tab may add/remove an account while
+  // we wait. Re-read before writing or the older snapshot can silently drop
+  // an account that was just saved in another tab.
+  const latest = readRegistry();
+  if (!latest.some((item) => item.userId === next.userId) && latest.length >= MAX_SAVED_ACCOUNTS) return false;
+  writeRegistry([next, ...latest.filter((item) => item.userId !== next.userId)]);
   return true;
 }
 
