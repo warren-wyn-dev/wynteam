@@ -16,6 +16,7 @@ function fixture() {
   let pathname = "/profile/me";
   let search = "";
   let pending = null;
+  let intent = false;
   const exports = {};
   const create = (kind) => (url, key, options) => {
     const result = { kind, options };
@@ -42,7 +43,7 @@ function fixture() {
       if (name === "@supabase/ssr") return { createBrowserClient: create("cookie") };
       if (name === "@supabase/supabase-js") return { createClient: create("slot") };
       if (name === "@/lib/account-registry") return { getActiveAccountStorageKey: () => A };
-      if (name === "@/lib/pending-account-add") return { getPendingAddAccountSlot: () => pending };
+      if (name === "@/lib/pending-account-add") return { getPendingAddAccountSlot: () => pending, hasAddAccountIntent: () => intent };
       throw new Error("Unexpected dependency " + name);
     },
   });
@@ -50,6 +51,7 @@ function fixture() {
     api: exports, calls,
     path: (p, q = "") => { pathname = p; search = q; },
     setPending: (slot) => { pending = slot; },
+    setIntent: (value) => { intent = value; },
   };
 }
 
@@ -80,4 +82,14 @@ test("Google and email confirmation callbacks never exchange B's code in A's cli
   f.path("/profile/me");
   assert.equal(f.api.getSupabaseBrowserClient(), original);
   assert.equal(f.calls.length, 2);
+});
+
+test("an expired B signup refuses to fall back to A's already signed-in credentials", () => {
+  const f = fixture();
+  const active = f.api.getSupabaseBrowserClient();
+  f.setIntent(true);
+  assert.equal(f.api.getSignupAuthClient(), null);
+  assert.equal(f.api.getSupabaseBrowserClient(), active);
+  f.setPending(B);
+  assert.equal(f.api.getSignupAuthClient().options.auth.storageKey, B);
 });
