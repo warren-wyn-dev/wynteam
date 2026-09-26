@@ -10,7 +10,7 @@ import { GoogleGlyph } from "@/components/auth-flow/screens";
 import { useSignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
-import { beginPendingAddAccount, clearPendingAddAccount, getAddAccountIntentSlot, getPendingAddAccountSlot, getPendingAddAccountSlotForTab, validAddAccountSlot } from "@/lib/pending-account-add";
+import { beginPendingAddAccount, clearPendingAddAccount, getAddAccountIntentSlot, getPendingAddAccountSlotForTab, validAddAccountSlot } from "@/lib/pending-account-add";
 import {
   MAX_SAVED_ACCOUNTS,
   createAccountStorageKey,
