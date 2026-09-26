@@ -62,7 +62,7 @@ export async function registerSessionAccount(
   if (!available()) return false;
   const accounts = readRegistry();
   const existing = accounts.find((item) => item.userId === session.user.id);
-  if (!existing && accounts.length >= MAX_SAVED_ACCOUNTS) return false;
+  if (!existing && !accounts.some((item) => item.storageKey === storageKey) && accounts.length >= MAX_SAVED_ACCOUNTS) return false;
 
   const profileResult = await client
     .from("profiles")
@@ -83,8 +83,22 @@ export async function registerSessionAccount(
   // we wait. Re-read before writing or the older snapshot can silently drop
   // an account that was just saved in another tab.
   const latest = readRegistry();
-  if (!latest.some((item) => item.userId === next.userId) && latest.length >= MAX_SAVED_ACCOUNTS) return false;
-  writeRegistry([next, ...latest.filter((item) => item.userId !== next.userId)]);
+  if (!latest.some((item) => item.userId === next.userId || item.storageKey === storageKey)
+      && latest.length >= MAX_SAVED_ACCOUNTS) return false;
+  // Only one identity can own a storage slot. Older Login flows could reuse
+  // an old account's empty slot and leave two registry rows pointing at it.
+  const staleAliases = latest.filter((item) =>
+    item.userId === next.userId || item.storageKey === storageKey,
+  );
+  writeRegistry([next, ...latest.filter((item) =>
+    item.userId !== next.userId && item.storageKey !== storageKey,
+  )]);
+  for (const old of staleAliases) {
+    if (old.storageKey && old.storageKey !== storageKey && old.storageKey !== getActiveAccountStorageKey()) {
+      window.localStorage.removeItem(old.storageKey);
+      window.localStorage.removeItem(`${old.storageKey}-code-verifier`);
+    }
+  }
   return true;
 }
 
