@@ -106,74 +106,69 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 // ---------------------------------------------------------------------
-// Web Push (Firebase Cloud Messaging)
+// Web Push (Firebase Cloud Messaging transport)
 // ---------------------------------------------------------------------
-// This worker doubles as WYNOS Web's push receiver instead of registering a
-// second service worker at /firebase-messaging-sw.js: two workers both
-// claiming scope "/" would fight over which one actually controls the page.
-// A plain static file can't read `process.env`, so the Firebase Web config
-// (public-by-design values, same as the ones already shipped in the Flutter
-// web build — see app/web/firebase-messaging-sw.js) is fetched once here at
-// activate time from /api/push-config instead of being baked in.
-// Static asset caching must still work offline or when a network filter
-// blocks Google CDN. Push becomes available on the next successful worker
-// update instead of making this PWA's entire service worker fail to install.
-let firebaseScriptsLoaded = false;
-try {
-  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
-  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
-  firebaseScriptsLoaded = true;
-} catch {
-  // Push is optional; cached application assets keep working offline.
-}
-
-async function initFirebaseMessaging() {
-  if (!firebaseScriptsLoaded) return;
+// The page obtains the FCM token (Firebase JS + VAPID key) against THIS
+// worker's registration; delivery is a standard Web Push `push` event whose
+// body is FCM's JSON envelope: { notification: {...}, data: {...}, ... }.
+//
+// The `push` listener MUST be registered during the script's initial
+// evaluation. Browsers terminate idle workers and re-run this file for each
+// incoming push WITHOUT firing `activate` again, so a listener installed
+// later (e.g. Firebase messaging initialised from an async activate step)
+// is missing for every push after the first restart: no banner is shown,
+// and Safari revokes subscriptions that repeatedly receive silent pushes.
+// Handling the event natively also removes the Google CDN importScripts
+// dependency from the worker's startup path.
+function readPushPayload(event) {
+  if (!event.data) return {};
   try {
-    const response = await fetch("/api/push-config");
-    const config = await response.json();
-    if (!config.configured) return;
-    firebase.initializeApp(config);
-    const messaging = firebase.messaging();
-
-    // Background delivery only (tab closed, or another tab focused): a
-    // "notification" payload is already rendered automatically by the SDK,
-    // so re-showing it here for a data-only payload avoids a duplicate banner.
-    messaging.onBackgroundMessage((payload) => {
-      const data = payload.data || {};
-      // Wake any open WYNOS tabs with a content-free invalidation hint.
-      // A tab always reads its OWN user's rows via Auth/RLS. A late A push
-      // after switching to B never includes A's text or profile here.
-      const wakeTabs = self.clients.matchAll({ type: "window", includeUncontrolled: true })
-        .then((windows) => {
-          for (const client of windows) {
-            if (typeof client.postMessage !== "function") continue;
-            client.postMessage({
-              kind: "wynos:notification-push",
-              recipientId: data.recipient_id,
-              notificationId: data.notification_id,
-              notificationType: data.type,
-            });
-          }
-        }).catch(() => undefined);
-      // FCM renders notification payloads by itself in the background.
-      // Only data-only pushes need a manual banner; never show two.
-      if (payload.notification) return wakeTabs;
-      const banner = self.registration.showNotification(data.push_title || "WYNOS", {
-        body: data.push_body || "",
-        icon: "/icons/icon-192.png",
-        badge: "/icons/icon-192.png",
-        tag: data.notification_id || undefined,
-        data,
-      });
-      return Promise.all([wakeTabs, banner]);
-    });
+    const payload = event.data.json();
+    return payload && typeof payload === "object" ? payload : {};
   } catch {
-    // No config, offline, or the fetch failed — push simply stays unavailable
-    // for this session rather than breaking the worker's caching duties above.
+    return {};
   }
 }
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(initFirebaseMessaging());
+function pushString(value) {
+  return typeof value === "string" ? value : undefined;
+}
+
+self.addEventListener("push", (event) => {
+  const payload = readPushPayload(event);
+  const data = payload.data && typeof payload.data === "object" ? payload.data : {};
+  const notification = payload.notification && typeof payload.notification === "object"
+    ? payload.notification
+    : {};
+
+  // Wake any open WYNOS tabs with a content-free invalidation hint.
+  // A tab always reads its OWN user's rows via Auth/RLS. A late A push
+  // after switching to B never includes A's text or profile here.
+  const wakeTabs = self.clients.matchAll({ type: "window", includeUncontrolled: true })
+    .then((windows) => {
+      for (const client of windows) {
+        if (typeof client.postMessage !== "function") continue;
+        client.postMessage({
+          kind: "wynos:notification-push",
+          recipientId: pushString(data.recipient_id),
+          notificationId: pushString(data.notification_id),
+          notificationType: pushString(data.type),
+        });
+      }
+    }).catch(() => undefined);
+
+  // Every push shows exactly one banner (userVisibleOnly). The same tag as
+  // the server's collapse key replaces a retried delivery instead of stacking.
+  const banner = self.registration.showNotification(
+    pushString(notification.title) || pushString(data.push_title) || "WYNOS",
+    {
+      body: pushString(notification.body) || pushString(data.push_body) || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: pushString(notification.tag) || pushString(data.notification_id) || undefined,
+      data,
+    },
+  ).catch(() => undefined);
+
+  event.waitUntil(Promise.all([wakeTabs, banner]));
 });

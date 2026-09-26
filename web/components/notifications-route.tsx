@@ -12,6 +12,7 @@ import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { markNotificationsRead, settleNotificationsRead } from "@/lib/notification-count";
+import { mergeNewestNotificationPage, NOTIFICATION_PAGE_SIZE } from "@/lib/notification-list-merge";
 import { subscribeNotificationChanges } from "@/lib/notification-events";
 import { fetchNotifications, markAllNotificationsRead, type NotificationRow } from "@/lib/phase3-data";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
@@ -142,6 +143,8 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"all" | "mentions">("all");
   const requestId = useRef(0);
+  const pageRef = useRef(page);
+  useEffect(() => { pageRef.current = page; }, [page]);
 
   useEffect(() => {
     setMountCache(cacheKey, { rows, unreadSnapshot, page, hasMore });
@@ -155,14 +158,22 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
       const next = await fetchNotifications(client, nextPage);
       if (request !== requestId.current) return; // An incoming Push superseded this request.
       const nextUnread = next.filter((row) => !row.is_read).map((row) => row.id);
-      setUnreadSnapshot((current) => append ? new Set([...current, ...nextUnread]) : new Set(nextUnread));
+      // A background refresh (Push/Realtime hint, focus, visibility) only
+      // re-reads the newest page. It must not discard older pages the user
+      // already loaded with "ดูเพิ่มเติม", nor clear the unread highlight
+      // captured when the screen opened (those rows are now read in the DB).
+      const merge = !append && !markExisting && nextPage === 0 && pageRef.current > 0;
+      setUnreadSnapshot((current) => append || !markExisting ? new Set([...current, ...nextUnread]) : new Set(nextUnread));
       setRows((current) => {
+        if (merge) return mergeNewestNotificationPage(current, next);
         if (!append) return next;
         const existing = new Set(current.map((row) => row.id));
         return [...current, ...next.filter((row) => !existing.has(row.id))];
       });
-      setPage(nextPage);
-      setHasMore(next.length === 30);
+      if (!merge || next.length < NOTIFICATION_PAGE_SIZE) {
+        setPage(nextPage);
+        setHasMore(next.length === NOTIFICATION_PAGE_SIZE);
+      }
 
       if (!append && markExisting && next.length > 0) {
         // Only the snapshot's newest row and everything older was actually

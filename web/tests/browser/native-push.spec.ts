@@ -90,9 +90,9 @@ test("foreground push uses the registered worker and server icon case matches pu
   const client = source("lib/push-notifications.ts");
   const server = source("../supabase/functions/send-push-notification/index.ts");
   const worker = source("public/sw.js");
-  // Firebase documents that custom click handlers must be registered
-  // before its scripts; otherwise the SDK may claim the event first.
-  expect(worker.indexOf('self.addEventListener("notificationclick"')).toBeLessThan(worker.indexOf("importScripts("));
+  // Push delivery must not depend on a CDN script or an async activate step.
+  expect(worker).not.toContain("importScripts(");
+  expect(worker).not.toContain("onBackgroundMessage");
   expect(worker).toContain("event.stopImmediatePropagation?.()");
   expect(client).toContain("registration.showNotification(title");
   const subscription = client.slice(client.indexOf("export async function subscribeToPushNotifications"), client.indexOf("export async function unsubscribeFromPushNotifications"));
@@ -127,75 +127,78 @@ test("logging out unregisters the push device before auth is cleared", () => {
 });
 
 
-test("background Push wakes open WYNOS tabs without exposing content or duplicating FCM banners", async () => {
-  type PushPayload = { notification?: { title: string }; data?: Record<string, string> };
+function pushWorker() {
+  type PushEvent = { data: { json: () => unknown } | null; waitUntil: (promise: Promise<unknown>) => void };
   const workerSource = readFileSync(path.join(process.cwd(), "public/sw.js"), "utf8");
-  const handlers = new Map<string, Array<(event: { waitUntil: (promise: Promise<unknown>) => void }) => void>>();
   const wakeMessages: unknown[] = [];
-  const banners: Array<{ title: string; data: unknown }> = [];
-  const receiverRef: { current?: (payload: PushPayload) => Promise<unknown> | void } = {};
+  const banners: Array<{ title: string; options: { body?: string; tag?: string; data?: unknown } }> = [];
+  const listeners = new Map<string, (event: PushEvent) => void>();
   const self = {
     location: { origin: "https://wynos.online" },
-    addEventListener: (name: string, callback: (event: { waitUntil: (promise: Promise<unknown>) => void }) => void) => {
-      const callbacks = handlers.get(name) ?? [];
-      callbacks.push(callback);
-      handlers.set(name, callbacks);
-    },
+    addEventListener: (name: string, callback: (event: PushEvent) => void) => listeners.set(name, callback),
     skipWaiting: () => undefined,
     clients: {
       claim: async () => undefined,
       matchAll: async () => [{ postMessage: (data: unknown) => { wakeMessages.push(data); } }],
     },
     registration: {
-      showNotification: async (title: string, options: { data?: unknown }) => {
-        banners.push({ title, data: options.data });
+      showNotification: async (title: string, options: { body?: string; tag?: string; data?: unknown }) => {
+        banners.push({ title, options });
       },
     },
   };
+  // A fresh evaluation with NO activate event models the browser restarting
+  // an idle worker to deliver a push — the common background case.
   runInNewContext(workerSource, {
     self,
     URL,
     clients: self.clients,
-    caches: { keys: async () => [], delete: async () => true },
-    fetch: async () => ({ ok: true, json: async () => ({ configured: true }) }),
-    importScripts: () => undefined,
-    firebase: {
-      initializeApp: () => undefined,
-      messaging: () => ({
-        onBackgroundMessage: (callback: (payload: PushPayload) => Promise<unknown> | void) => {
-          receiverRef.current = callback;
-        },
-      }),
-    },
+    importScripts: () => { throw new Error("worker must not load remote scripts"); },
   });
-  const activation: Promise<unknown>[] = [];
-  for (const callback of handlers.get("activate") ?? []) {
-    callback({ waitUntil: (promise) => { activation.push(promise); } });
-  }
-  await Promise.all(activation);
-  if (!receiverRef.current) throw new Error("Firebase background receiver not installed");
-
-  const data = {
-    type: "like_drop",
-    recipient_id: ID,
-    notification_id: OTHER,
-    push_body: "PRIVATE CONTENT MUST NOT ENTER WAKE MESSAGES",
+  const push = async (payload: unknown) => {
+    const listener = listeners.get("push");
+    if (!listener) throw new Error("push listener not registered at initial evaluation");
+    let settled: Promise<unknown> | undefined;
+    listener({
+      data: payload === undefined ? null : { json: () => payload },
+      waitUntil: (promise) => { settled = promise; },
+    });
+    if (!settled) throw new Error("push handler did not call waitUntil");
+    await settled;
   };
-  await receiverRef.current({
-    notification: { title: "FCM displays this automatically" },
+  return { push, wakeMessages, banners };
+}
+
+test("a restarted worker shows the FCM banner and wakes tabs without exposing content", async () => {
+  const worker = pushWorker();
+  const data = { type: "like_drop", recipient_id: ID, notification_id: OTHER, drop_id: ID };
+  await worker.push({
+    notification: { title: "Alice", body: "PRIVATE CONTENT MUST NOT ENTER WAKE MESSAGES", tag: "collapse-1" },
     data,
+    fcmMessageId: "m1",
   });
-  expect(wakeMessages).toEqual([{
+  expect(worker.wakeMessages).toEqual([{
     kind: "wynos:notification-push",
     recipientId: ID,
     notificationId: OTHER,
     notificationType: "like_drop",
   }]);
-  expect(JSON.stringify(wakeMessages)).not.toContain(data.push_body);
-  expect(banners).toHaveLength(0);
+  expect(JSON.stringify(worker.wakeMessages)).not.toContain("PRIVATE CONTENT");
+  expect(worker.banners).toHaveLength(1);
+  expect(worker.banners[0].title).toBe("Alice");
+  expect(worker.banners[0].options.body).toBe("PRIVATE CONTENT MUST NOT ENTER WAKE MESSAGES");
+  expect(worker.banners[0].options.tag).toBe("collapse-1");
+  // Click routing reads the same data object the banner stores.
+  expect(worker.banners[0].options.data).toEqual(data);
+});
 
-  await receiverRef.current({ data });
-  expect(wakeMessages).toHaveLength(2);
-  expect(banners).toHaveLength(1);
-  expect(banners[0].data).toEqual(data);
+test("data-only, empty and malformed pushes still show exactly one banner", async () => {
+  const worker = pushWorker();
+  await worker.push({ data: { push_title: "WYNOS", push_body: "hello", notification_id: OTHER } });
+  await worker.push(undefined);
+  await worker.push("not an object");
+  expect(worker.banners.map((banner) => banner.title)).toEqual(["WYNOS", "WYNOS", "WYNOS"]);
+  expect(worker.banners[0].options.body).toBe("hello");
+  expect(worker.banners[0].options.tag).toBe(OTHER);
+  expect(worker.wakeMessages).toHaveLength(3);
 });
