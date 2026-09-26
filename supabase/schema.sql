@@ -8842,6 +8842,7 @@ where internal.current_platform_role() <> 'user';
 
 grant select on public.admin_user_moderation_history to authenticated;
 
+
 -- ============================================================
 -- WYN-054: Audit Log (Admin/Moderator read screen)
 -- ============================================================
@@ -17729,6 +17730,12 @@ as $$
 $$;
 revoke all on function public.get_quote_engagement(uuid[]) from public,anon;
 grant execute on function public.get_quote_engagement(uuid[]) to authenticated;
+
+-- WYN-188: moderator-history invoker authorization.
+-- The moderation_actions staff-only SELECT RLS plus authenticated profiles
+-- SELECT support this view without any new raw report or affinity grants.
+-- See the separate preflighted migration for updates to an existing database.
+alter view public.admin_user_moderation_history set (security_invoker = true);
 
 commit;
 
