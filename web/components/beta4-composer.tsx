@@ -384,7 +384,8 @@ export function Beta4Composer({
   // serialized draft queue prevents an older autosave from overwriting it.
   useEffect(() => {
     if (onlineEpoch === 0 || !hasContent || busy) return;
-    setAutosaveStatus("saving");
+    // Completion updates state asynchronously; do not synchronously set
+    // React state from inside an effect (React 19 lint release gate).
     void persistDraft().then(() => setAutosaveStatus("saved")).catch(() => setAutosaveStatus("error"));
     // An online event is the only trigger; never retry endlessly on server errors.
     // eslint-disable-next-line react-hooks/exhaustive-deps
