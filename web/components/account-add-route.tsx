@@ -89,7 +89,9 @@ export function AccountAddRoute() {
         return;
       }
       markAccountStorageActive(storageKey);
-      window.location.replace("/");
+      // Email and Google add-account flows follow the same landing rule:
+      // load the newly active session, then show its own Profile first.
+      window.location.replace("/profile/me");
       navigating = true;
     } catch {
       setMessage("เพิ่มบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
