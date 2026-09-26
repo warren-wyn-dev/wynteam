@@ -268,45 +268,86 @@ export function AccountAddRoute() {
     <main className="auth-ref-viewport">
       <div className="phone" id="phone">
         <div className="topbar">
-          <button className="ic-btn" type="button" onClick={() => router.back()} aria-label="ย้อนกลับ">
+          <button
+            className="ic-btn"
+            type="button"
+            onClick={() => screen === "login" ? setScreen("welcome") : cancel()}
+            aria-label="ย้อนกลับ"
+          >
             <WynosIcon name="back" size={16} />
           </button>
-          <span />
+          <span className="t">เพิ่มบัญชี</span>
+          <span style={{ width: 20 }} />
         </div>
-        <div style={{ padding: "16px 20px", flex: 1 }}>
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <svg height="36" style={{ margin: "0 auto 14px" }} viewBox="0 0 26 26" width="36" aria-label="Wynos">
-              <path d="M2 4 L8 22 L13 9 L18 22 L24 4" fill="none" stroke="#0A0A0A" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-            </svg>
-            <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em" }}>เพิ่มบัญชี</div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0" }}>เข้าสู่ระบบเพื่อบันทึกบัญชีนี้ไว้สำหรับสลับภายหลัง</p>
+        {screen === "welcome" ? (
+          <div style={{
+            flex: 1, display: "flex", flexDirection: "column",
+            justifyContent: "space-between", padding: "32px 24px 32px",
+          }}>
+            <div />
+            <div style={{ textAlign: "center" }}>
+              <Image src="/wynos_logo_mark.png" alt="WYNOS" width={170} height={110}
+                style={{ height: 110, width: "auto", margin: "0 auto 18px", display: "block" }} priority />
+              <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>
+                ทุกเรื่องราว มีจุดเริ่มต้น
+              </h1>
+              <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>Welcome to WYNOS.</p>
+            </div>
+            <div>
+              <Button className="btn-primary" disabled={googleLoading} onClick={createAccount}
+                style={{ marginBottom: 10 }}>สร้างบัญชีใหม่</Button>
+              <Button className="btn-outline" variant="outline" disabled={googleLoading}
+                onClick={() => { setMessage(""); setScreen("login"); }}
+                style={{ marginBottom: 10 }}>เข้าสู่ระบบ</Button>
+              <Button className="btn-outline" variant="outline" disabled={googleLoading}
+                onClick={() => void google()} leadingIcon={googleLoading ? undefined : <GoogleGlyph />}
+                style={{ marginBottom: 16 }}>
+                {googleLoading ? "กำลังเชื่อมต่อ Google…" : "เข้าสู่ระบบด้วย Google"}
+              </Button>
+              {message ? <p style={{ color: "var(--red)", fontSize: 12, textAlign: "center", margin: "0 0 14px" }} role="alert">{message}</p> : null}
+              <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.5, margin: 0 }}>
+                การสร้างบัญชีถือว่ายอมรับ<br />
+                <b style={{ color: "var(--text-primary)" }}>ข้อกำหนดการใช้งาน</b> และ{" "}
+                <b style={{ color: "var(--text-primary)" }}>นโยบายความเป็นส่วนตัว</b>
+              </p>
+            </div>
           </div>
-          <div className="field">
-            <label>อีเมล</label>
-            <Input bare type="email" inputMode="email" autoCapitalize="none" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
+        ) : (
+          <div style={{ padding: "16px 20px", flex: 1 }}>
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <Image src="/wynos_logo_mark.png" alt="WYNOS" width={99} height={64}
+                style={{ height: 64, width: "auto", margin: "0 auto 14px", display: "block" }} priority />
+              <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>เข้าสู่ระบบ</h1>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "6px 0 0" }}>
+                เข้าสู่ระบบบัญชีอื่นเพื่อเพิ่มลงใน WYNOS
+              </p>
+            </div>
+            <div className="field">
+              <label htmlFor="add-account-email">อีเมล</label>
+              <Input id="add-account-email" bare type="email" inputMode="email" autoCapitalize="none"
+                autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com" />
+            </div>
+            <div className="field">
+              <label htmlFor="add-account-password">รหัสผ่าน</label>
+              <Input id="add-account-password" bare type="password" autoComplete="current-password"
+                value={password} onChange={(event) => setPassword(event.target.value)}
+                placeholder="รหัสผ่านของคุณ" />
+            </div>
+            <Button className="btn-primary" disabled={loading || googleLoading || !email.trim() || !password}
+              onClick={() => void signIn()}>
+              {loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบและเพิ่มบัญชี"}
+            </Button>
+            {message ? <p style={{ color: "var(--red)", fontSize: 12, margin: "10px 0 0" }} role="alert">{message}</p> : null}
+            <p style={{ color: "var(--text-secondary)", fontSize: 13, textAlign: "center", marginTop: 18 }}>
+              ยังไม่มีบัญชี?{" "}
+              <button type="button" disabled={loading} onClick={createAccount}
+                style={{ border: "none", background: "none", padding: 0, font: "inherit", fontWeight: 700, color: "var(--text-primary)", cursor: "pointer" }}>
+                สร้างบัญชีใหม่
+              </button>
+            </p>
           </div>
-          <div className="field">
-            <label>รหัสผ่าน</label>
-            <Input bare type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" />
-          </div>
-          <Button className="btn-primary" disabled={loading || googleLoading} onClick={() => void signIn()}>
-            {loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบและเพิ่มบัญชี"}
-          </Button>
-          <Button
-            className="btn-outline"
-            variant="outline"
-            disabled={loading || googleLoading}
-            onClick={() => void google()}
-            leadingIcon={googleLoading ? undefined : <GoogleGlyph />}
-            style={{ marginTop: 10 }}
-          >
-            {googleLoading ? "กำลังเชื่อมต่อ Google…" : "เข้าสู่ระบบด้วย Google"}
-          </Button>
-          {message ? <p style={{ color: "var(--red)", fontSize: 12, margin: "10px 0 0" }} role="alert">{message}</p> : null}
-          <p style={{ color: "var(--text-muted)", fontSize: 11, lineHeight: 1.5, textAlign: "center", margin: "18px 12px 0" }}>
-            WYNOS ไม่บันทึกรหัสผ่าน บัญชีที่เพิ่มจะใช้ session ของ Supabase แยกจากกันบนอุปกรณ์นี้
-          </p>
-        </div>
+        )}
       </div>
     </main>
   );
