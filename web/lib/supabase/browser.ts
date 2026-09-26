@@ -22,10 +22,16 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
     const pathname = window.location.pathname;
     const pending = getPendingAddAccountSlot();
     const signupRoute = pathname.startsWith("/signup/") || pathname === "/onboarding/profile";
+    // During the Add Account Google return, only the isolated route client
+    // should exchange the OAuth code; the app singleton must never consume
+    // that code into A's active session before the route mounts.
+    const addAccountOAuth = pathname === "/account/add"
+      && new URLSearchParams(window.location.search).get("oauth") === "1";
     const callbackSlot = pathname === "/auth/callback"
       ? new URLSearchParams(window.location.search).get("slot")
       : null;
-    if (pending && (signupRoute || callbackSlot === pending)) {
+    if (pending && (signupRoute || callbackSlot === pending
+      || (addAccountOAuth && new URLSearchParams(window.location.search).get("slot") === pending))) {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
       if (!url || !key) return null;
