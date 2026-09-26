@@ -18,7 +18,7 @@ test("Welcome continues into the real email sign-up and login flows", async ({ p
   await page.goto("/welcome", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "สร้างบัญชีใหม่" }).click();
   await expect(page).toHaveURL(/\/signup\/step-1$/);
-  await expect(page.getByText("สร้างบัญชี", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "สร้างบัญชี", exact: true })).toBeVisible();
 
   await page.goto("/welcome", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
