@@ -26,3 +26,22 @@ test("background feed tabs wait for idle and respect mobile data saving", () => 
   expect(home).toContain('document.visibilityState !== "visible"');
   expect(home).toContain("window.cancelIdleCallback(handle)");
 });
+
+test("production web has field performance capture, privacy-safe failure tags and a retry screen", () => {
+  const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
+  const layout = read("app/layout.tsx");
+  const monitor = read("components/client-error-monitor.tsx");
+  const health = read("lib/client-health.ts");
+  const fallback = read("app/error.tsx");
+  expect(layout).toContain("<Analytics />");
+  expect(layout).toContain("<SpeedInsights />");
+  expect(layout).toContain("<ClientErrorMonitor />");
+  expect(monitor).toContain('window.addEventListener("error"');
+  expect(monitor).toContain('window.addEventListener("unhandledrejection"');
+  expect(health).toContain('track("beta1_client_failure", { kind, area })');
+  expect(health).not.toContain("error.message");
+  expect(health).not.toContain("error.stack");
+  expect(health).not.toContain("userId");
+  expect(fallback).toContain("reset");
+  expect(fallback).toContain('role="alert"');
+});
