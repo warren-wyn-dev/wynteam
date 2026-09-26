@@ -55,3 +55,19 @@ test("reduced-motion users dismiss without any exit animation delay", async ({ p
   await page.getByRole("button", { name: "ยกเลิก" }).click();
   await expect(page.getByTestId("composer-closed")).toBeVisible();
 });
+
+test("composer keeps the caption and blocks publication while offline", async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/dev/composer-fixture", { waitUntil: "networkidle" });
+  const composer = page.getByRole("dialog", { name: "สร้างโพสต์" });
+  const caption = composer.locator("textarea.beta4-compose-text");
+  await caption.fill("ข้อความสำคัญ อย่าลบแม้เน็ตหลุด");
+  await context.setOffline(true);
+  await expect(composer.getByRole("alert").filter({ hasText: "ออฟไลน์อยู่" })).toBeVisible();
+  await composer.getByRole("button", { name: "โพสต์", exact: true }).click();
+  await expect(caption).toHaveValue("ข้อความสำคัญ อย่าลบแม้เน็ตหลุด");
+  await expect(composer.getByRole("alert").filter({ hasText: "ออฟไลน์อยู่" })).toBeVisible();
+  await context.setOffline(false);
+  await expect(composer.getByRole("alert").filter({ hasText: "ออฟไลน์อยู่" })).toHaveCount(0);
+  await expect(caption).toHaveValue("ข้อความสำคัญ อย่าลบแม้เน็ตหลุด");
+});
