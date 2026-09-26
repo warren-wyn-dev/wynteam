@@ -132,7 +132,7 @@ export function forgetSignedOutAccount(userId: string, expectedStorageKey: strin
   if (!available()) return;
   const accounts = readRegistry();
   const removed = accounts.filter((item) =>
-    item.userId === userId || (expectedStorageKey !== null && item.storageKey === expectedStorageKey),
+    item.userId === userId || item.storageKey === expectedStorageKey,
   );
   writeRegistry(accounts.filter((item) => !removed.includes(item)));
   for (const account of removed) {
