@@ -19,3 +19,30 @@ test("Chat tab badge uses the shared auth.uid()-scoped RPC and never crosses acc
   assert.match(host, /useUnreadChatCount\(userId \? getSupabaseBrowserClient\(\) : null, userId, pathname\)/);
   assert.match(nav, /chatUnreadCount > 9 \? "9\+" : chatUnreadCount/);
 });
+
+test("an older count response that resolves last never overwrites the newest one", async () => {
+  const ts = (await import("typescript")).default;
+  const { runInNewContext } = await import("node:vm");
+  const source = read("../lib/chat-unread-count.ts");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const mod = { exports: {} };
+  const fakeReact = { useEffect: () => undefined, useSyncExternalStore: (_s, get) => get() };
+  runInNewContext(compiled, {
+    module: mod,
+    exports: mod.exports,
+    require: (name) => name === "react" ? fakeReact : { getActiveAccountStorageKey: () => "slot-a" },
+  });
+  const { refreshUnreadChatCount, useUnreadChatCount } = mod.exports;
+
+  const pending = [];
+  const client = { rpc: () => new Promise((resolve) => pending.push(resolve)) };
+  const older = refreshUnreadChatCount(client, "u1"); // read before mark-read: 1
+  const newer = refreshUnreadChatCount(client, "u1"); // read after mark-read: 0
+  pending[1]({ data: 0, error: null });
+  await newer;
+  pending[0]({ data: 1, error: null });
+  await older;
+  assert.equal(useUnreadChatCount(client, "u1", "/chat"), 0);
+});

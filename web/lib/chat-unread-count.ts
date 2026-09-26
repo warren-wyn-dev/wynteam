@@ -11,6 +11,10 @@ const HINT_DEBOUNCE_MS = 150;
 const PUSH_HINT_EVENT = "wynos:notification-push";
 
 const counts = new Map<string, number>();
+// Latest request per account. Focus, Push, route changes and polling can
+// overlap; only the newest response may set the badge, so an older read
+// (taken before a message arrived or before mark-read) can't overwrite it.
+const latestRequest = new Map<string, number>();
 const listeners = new Set<() => void>();
 
 function subscribe(listener: () => void): () => void {
@@ -25,13 +29,16 @@ function setCount(userId: string, count: number): void {
   listeners.forEach((listener) => listener());
 }
 
-async function refresh(client: SupabaseClient, userId: string): Promise<void> {
+export async function refreshUnreadChatCount(client: SupabaseClient, userId: string): Promise<void> {
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
   // A request started before an account switch must not land on the new
   // account's badge (or on the old account's cached value).
   const accountKey = getActiveAccountStorageKey();
+  const request = (latestRequest.get(userId) ?? 0) + 1;
+  latestRequest.set(userId, request);
   try {
     const { data, error } = await client.rpc("count_unread_conversations");
+    if (latestRequest.get(userId) !== request) return;
     if (error || getActiveAccountStorageKey() !== accountKey) return;
     setCount(userId, typeof data === "number" ? data : Number(data) || 0);
   } catch {
@@ -57,7 +64,7 @@ export function useUnreadChatCount(
     let timer: number | null = null;
     const schedule = (delay = HINT_DEBOUNCE_MS) => {
       if (timer != null) window.clearTimeout(timer);
-      timer = window.setTimeout(() => { timer = null; void refresh(client, userId); }, delay);
+      timer = window.setTimeout(() => { timer = null; void refreshUnreadChatCount(client, userId); }, delay);
     };
     const onVisible = () => { if (document.visibilityState === "visible") schedule(0); };
     const onPush = (event: Event) => {
@@ -66,7 +73,7 @@ export function useUnreadChatCount(
       if (!detail?.type || detail.type === "new_message" || detail.type === "message_request") schedule();
     };
     const poll = window.setInterval(() => {
-      if (document.visibilityState === "visible") void refresh(client, userId);
+      if (document.visibilityState === "visible") void refreshUnreadChatCount(client, userId);
     }, VISIBLE_POLL_MS);
     window.addEventListener("focus", onVisible);
     document.addEventListener("visibilitychange", onVisible);
