@@ -491,7 +491,9 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
         setAccountSwitcherError("สลับบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง");
         return;
       }
-      window.location.assign("/");
+      // Recreate the Supabase client for the newly active account and open
+      // that account's own profile first, not the Home feed.
+      window.location.assign("/profile/me");
       navigating = true;
     } catch {
       setAccountSwitcherError("สลับบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง");
