@@ -7,8 +7,9 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
+import { AnimatedBookmark } from "@/components/ui/animated-bookmark";
 import { AnimatedCount } from "@/components/ui/animated-count";
-import { CommentIcon, RepostIcon, SaveIcon } from "@/components/ui/post-action-icons";
+import { CommentIcon, RepostIcon } from "@/components/ui/post-action-icons";
 import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { DefaultProfileAvatar } from "@/components/ui/default-profile-avatar";
@@ -355,7 +356,7 @@ export function GoldenDropCard({
           modernFeed
         />
       ) : (
-        <div className="golden-drop-actions"><button className={liked ? "liked" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} aria-pressed={liked} onClick={() => void like()}><AnimatedHeart size={22} strokeWidth={2} liked={liked} />{likeCount > 0 ? <AnimatedCount value={likeCount} /> : null}</button><Link href={`/drop/${row.id}#comments`} aria-label="ความคิดเห็น"><CommentIcon size={24} strokeWidth={2} />{(row.comment_count ?? 0) > 0 ? <AnimatedCount value={row.comment_count ?? 0} /> : null}</Link>{canRedrop ? <button className={redropped ? "active" : ""} type="button" aria-label="รีโพสต์" aria-pressed={redropped} onClick={() => setSheet("redrop")}><RepostIcon size={22} strokeWidth={2} />{redropCount > 0 ? <AnimatedCount value={redropCount} /> : null}</button> : null}<button className="golden-drop-share" type="button" aria-label="แชร์" onClick={() => void share()}><WynosShareIcon size={22} /></button><button className={`golden-drop-save-inline ${saved ? "active" : ""}`} type="button" aria-label={saved ? "ยกเลิกบันทึก" : "บันทึก"} aria-pressed={saved} onClick={() => void save()}><SaveIcon size={22} strokeWidth={2} saved={saved} /></button>{viewCount != null ? <span className="golden-drop-view"><WynosIcon name="eye" size={22} strokeWidth={2} />{viewCount > 0 ? <span>{viewCount}</span> : null}</span> : null}</div>
+        <div className="golden-drop-actions"><button className={liked ? "liked" : ""} type="button" aria-label={liked ? "เลิกถูกใจ" : "ถูกใจ"} aria-pressed={liked} onClick={() => void like()}><AnimatedHeart size={22} strokeWidth={2} liked={liked} />{likeCount > 0 ? <AnimatedCount value={likeCount} /> : null}</button><Link href={`/drop/${row.id}#comments`} aria-label="ความคิดเห็น"><CommentIcon size={24} strokeWidth={2} />{(row.comment_count ?? 0) > 0 ? <AnimatedCount value={row.comment_count ?? 0} /> : null}</Link>{canRedrop ? <button className={redropped ? "active" : ""} type="button" aria-label="รีโพสต์" aria-pressed={redropped} onClick={() => setSheet("redrop")}><RepostIcon size={22} strokeWidth={2} />{redropCount > 0 ? <AnimatedCount value={redropCount} /> : null}</button> : null}<button className="golden-drop-share" type="button" aria-label="แชร์" onClick={() => void share()}><WynosShareIcon size={22} /></button><button className={`golden-drop-save-inline ${saved ? "active" : ""}`} type="button" aria-label={saved ? "ยกเลิกบันทึก" : "บันทึก"} aria-pressed={saved} onClick={() => void save()}><AnimatedBookmark size={22} strokeWidth={2} saved={saved} /></button>{viewCount != null ? <span className="golden-drop-view"><WynosIcon name="eye" size={22} strokeWidth={2} />{viewCount > 0 ? <span>{viewCount}</span> : null}</span> : null}</div>
       )}
     </div>
       </article>
