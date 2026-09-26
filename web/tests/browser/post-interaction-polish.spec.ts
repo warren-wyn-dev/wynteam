@@ -48,3 +48,26 @@ test("home, detail and profile publish and receive session-local engagement chan
   expect(sync).toContain("post-detail:");
   expect(read("lib/haptics.ts")).toContain("navigator.vibrate");
 });
+
+test("like actions stay quiet while failure feedback and save Undo remain", () => {
+  const likeSurfaces = [
+    "components/home/home-screen.tsx",
+    "components/golden-drop-card.tsx",
+    "components/post-detail-route.tsx",
+    "components/club-detail-golden.tsx",
+    "components/quote-feed-card.tsx",
+  ];
+
+  for (const file of likeSurfaces) {
+    const source = read(file);
+    expect(source, file).not.toContain('showToast("ถูกใจโพสต์แล้ว"');
+    expect(source, file).not.toContain("const undoLike =");
+  }
+
+  const home = read("components/home/home-screen.tsx");
+  expect(home).toContain('showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง")');
+  expect(home).toContain('showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ"');
+  const detail = read("components/post-detail-route.tsx");
+  expect(detail).toContain('showToast("อัปเดตกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง")');
+  expect(detail).toContain('showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ"');
+});
