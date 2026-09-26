@@ -63,6 +63,27 @@ export function AppNavigationRuntime() {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+    const onMessage = (event: MessageEvent) => {
+      const hint = event.data as {
+        kind?: string; recipientId?: string; notificationId?: string; notificationType?: string;
+      } | null;
+      if (hint?.kind !== "wynos:notification-push") return;
+      // Only an invalidation hint crosses from the service worker to the app.
+      // The active user-scoped notification store fetches private data via RLS.
+      window.dispatchEvent(new CustomEvent("wynos:notification-push", {
+        detail: {
+          recipientId: hint.recipientId,
+          notificationId: hint.notificationId,
+          type: hint.notificationType,
+        },
+      }));
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, []);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
     // Offline support is important, but registration can wait until the
     // visible page has started painting. Reuse a root effect so it runs once.
     const register = () => {
