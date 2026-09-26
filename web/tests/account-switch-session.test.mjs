@@ -204,3 +204,26 @@ test("source: direct Login cannot overwrite a live account, OAuth and password b
   const resolver = auth.slice(auth.indexOf("async function resolvePostAuthPath("), auth.indexOf("const THAI_MONTHS ="));
   assert.match(resolver, /registerCurrentAccount\(client\)/);
 });
+
+test("source: saved-account switching lands on the newly authenticated profile, never Home", () => {
+  const profile = readFileSync(new URL("../components/profile-route.tsx", import.meta.url), "utf8");
+  const switcher = profile.slice(profile.indexOf("const switchToAccount ="), profile.indexOf("const addAnotherAccount ="));
+  const activateAt = switcher.indexOf("activateSavedAccount(account.userId)");
+  const profileAt = switcher.indexOf('window.location.assign("/profile/me")');
+  assert.ok(activateAt >= 0 && profileAt > activateAt);
+  assert.doesNotMatch(switcher, /window\.location\.assign\("\/"\)/);
+});
+
+test("source: both password and Google add-account flows land on the selected profile", () => {
+  const add = readFileSync(new URL("../components/account-add-route.tsx", import.meta.url), "utf8");
+  const finish = add.slice(add.indexOf("const finish = useCallback"), add.indexOf("useEffect(() =>"));
+  const activateAt = finish.indexOf("markAccountStorageActive(storageKey)");
+  const profileAt = finish.indexOf('window.location.replace("/profile/me")');
+  assert.ok(activateAt >= 0 && profileAt > activateAt);
+  const ownProfile = readFileSync(new URL("../components/me-profile-redirect.tsx", import.meta.url), "utf8");
+  assert.match(ownProfile, /router\.replace\(`\/profile\/\$\{userId\}`\)/);
+  // Do not change the root auth flow; this landing rule belongs only to
+  // explicit switching and adding a second account.
+  const home = readFileSync(new URL("../components/parity-auth-entry.tsx", import.meta.url), "utf8");
+  assert.match(home, /HomeScreen session=\{session\}/);
+});
