@@ -172,5 +172,5 @@ test("source: Club discovery and membership load concurrently; Settings defers F
   const settings = readFileSync(new URL("../components/settings-route.tsx", import.meta.url), "utf8");
   assert.match(settings, /if \(section !== "notifications"\) return;/);
   assert.match(settings, /\}, \[client, userId, section\]\);/);
-  assert.ok(settings.indexOf('if (section !== "notifications") return;') < settings.indexOf("void pushSupported()"));
+  assert.ok(settings.indexOf('if (section !== "notifications") return;') < settings.indexOf("const availability = await getPushAvailability()"));
 });

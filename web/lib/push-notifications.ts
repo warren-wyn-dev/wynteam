@@ -11,7 +11,33 @@ type PushConfig = {
   vapidKey?: string;
 };
 
-export type PushSubscribeResult = { ok: true } | { ok: false; reason: "unsupported" | "not-configured" | "denied" | "no-token" | "error" };
+export type PushBlockReason = "unsupported" | "install-required" | "not-configured" | "denied" | "dismissed" | "no-token" | "worker-failed" | "server-failed" | "temporary";
+export type PushAvailability = { available: true } | { available: false; reason: PushBlockReason };
+export type PushSubscribeResult = { ok: true } | { ok: false; reason: PushBlockReason };
+
+/** iOS/iPadOS Web Push requires a Home Screen PWA, not a Safari tab.
+ * All checks are read-only; only the explicit toggle click prompts OS permission.
+ */
+export function isIosWebPushInstallRequired(
+  userAgent: string,
+  touchPoints: number,
+  standalone: boolean,
+): boolean {
+  const ios = /iPhone|iPad|iPod/i.test(userAgent) ||
+    (/Macintosh/i.test(userAgent) && touchPoints > 1);
+  return ios && !standalone;
+}
+
+function iosNeedsInstallation(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const mode = typeof window.matchMedia === "function" &&
+    window.matchMedia("(display-mode: standalone)").matches;
+  return isIosWebPushInstallRequired(
+    navigator.userAgent,
+    navigator.maxTouchPoints ?? 0,
+    mode || (navigator as Navigator & { standalone?: boolean }).standalone === true,
+  );
+}
 
 // `firebase/app` + `firebase/messaging` are only ever needed by the handful
 // of visitors who actually use push (or already granted it in a past
@@ -72,17 +98,35 @@ function firebaseApp(fb: Awaited<ReturnType<typeof loadFirebase>>, config: PushC
  * without this check the toggle would show as available and then always
  * fail with a confusing error on tap).
  */
-export async function pushSupported(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  if (!("Notification" in window) || !("serviceWorker" in navigator)) return false;
+export async function getPushAvailability(): Promise<PushAvailability> {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return { available: false, reason: "unsupported" };
+  }
+  // Safari tabs on iOS may not expose the Push API at all. Detect the
+  // install requirement BEFORE feature detection so the UI can show the
+  // correct action instead of falsely reporting the phone is unsupported.
+  if (iosNeedsInstallation()) return { available: false, reason: "install-required" };
+  if (!("Notification" in window) || !("serviceWorker" in navigator) ||
+      !("PushManager" in window)) {
+    return { available: false, reason: "unsupported" };
+  }
+  if (Notification.permission === "denied") return { available: false, reason: "denied" };
   const config = await fetchPushConfig();
-  if (!config?.configured) return false;
+  if (!config?.configured || !config.vapidKey) {
+    return { available: false, reason: "not-configured" };
+  }
   try {
     const fb = await loadFirebase();
-    return await fb.isSupported();
+    return (await fb.isSupported())
+      ? { available: true }
+      : { available: false, reason: "unsupported" };
   } catch {
-    return false;
+    return { available: false, reason: "temporary" };
   }
+}
+
+export async function pushSupported(): Promise<boolean> {
+  return (await getPushAvailability()).available;
 }
 
 /**
@@ -96,44 +140,75 @@ export async function subscribeToPushNotifications(
   client: SupabaseClient,
   userId: string,
 ): Promise<PushSubscribeResult> {
-  if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
     return { ok: false, reason: "unsupported" };
   }
+  if (iosNeedsInstallation()) return { ok: false, reason: "install-required" };
+  if (!("Notification" in window) || !("serviceWorker" in navigator) ||
+      !("PushManager" in window)) {
+    return { ok: false, reason: "unsupported" };
+  }
+  if (Notification.permission === "denied") return { ok: false, reason: "denied" };
 
-  // iOS installed web apps and other browsers require this call to begin
-  // inside the Settings toggle's user gesture. Do not await Firebase config
-  // or feature detection before requesting the permission.
+  // IMPORTANT: requestPermission must be the first awaited browser API
+  // after the Settings switch's real click/tap. iOS installed PWAs require
+  // a live user gesture; never await config/Firebase before this point.
   let permission: NotificationPermission;
   try {
     permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
   } catch {
-    return { ok: false, reason: "error" };
+    return { ok: false, reason: "temporary" };
   }
-  if (permission !== "granted") return { ok: false, reason: "denied" };
+  if (permission !== "granted") {
+    return { ok: false, reason: permission === "denied" ? "denied" : "dismissed" };
+  }
 
-  if (!(await pushSupported())) return { ok: false, reason: "unsupported" };
+  const availability = await getPushAvailability();
+  if (!availability.available) return { ok: false, reason: availability.reason };
   const config = await fetchPushConfig();
-  if (!config?.configured) return { ok: false, reason: "not-configured" };
+  if (!config?.configured || !config.vapidKey) return { ok: false, reason: "not-configured" };
 
+  let registration: ServiceWorkerRegistration;
+  try {
+    registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    // Do not silently spin forever when a stale/broken worker never becomes
+    // active; users should see a retryable error instead of a stuck switch.
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error("worker-not-ready")), 10_000);
+      }),
+    ]);
+  } catch {
+    return { ok: false, reason: "worker-failed" };
+  }
+
+  let token: string;
   try {
     const fb = await loadFirebase();
-    const registration = await navigator.serviceWorker.register("/sw.js");
-    await navigator.serviceWorker.ready;
     const messaging = fb.getMessaging(firebaseApp(fb, config));
-    const token = await fb.getToken(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: registration });
-    if (!token) return { ok: false, reason: "no-token" };
+    token = await fb.getToken(messaging, {
+      vapidKey: config.vapidKey,
+      serviceWorkerRegistration: registration,
+    });
+  } catch {
+    return { ok: false, reason: "no-token" };
+  }
+  if (!token) return { ok: false, reason: "no-token" };
 
-    const { error } = await client
-      .from("push_tokens")
-      .upsert({ user_id: userId, token, platform: "web", updated_at: new Date().toISOString() }, { onConflict: "token" });
-    if (error) return { ok: false, reason: "error" };
-
-    // The root listener may have mounted before permission was granted.
-    // Start foreground delivery now without requiring an app reload.
+  try {
+    const { error } = await client.from("push_tokens")
+      .upsert(
+        { user_id: userId, token, platform: "web", updated_at: new Date().toISOString() },
+        { onConflict: "token" },
+      );
+    if (error) return { ok: false, reason: "server-failed" };
+    // On this exact device/account, confirmation is a successful server write,
+    // not merely a granted OS notification permission.
     void listenForForegroundPush();
     return { ok: true };
   } catch {
-    return { ok: false, reason: "error" };
+    return { ok: false, reason: "server-failed" };
   }
 }
 
@@ -242,6 +317,10 @@ export async function isCurrentDevicePushEnabled(client: SupabaseClient, userId:
     if (!config?.configured) return false;
     const registration = await navigator.serviceWorker.getRegistration("/");
     if (!registration) return false;
+    // An off switch must not create a new FCM subscription merely because
+    // Settings checked the current device's state.
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return false;
     const fb = await loadFirebase();
     const messaging = fb.getMessaging(firebaseApp(fb, config));
     const token = await fb.getToken(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: registration });
