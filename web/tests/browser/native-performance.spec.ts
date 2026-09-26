@@ -33,6 +33,7 @@ test("production web has field performance capture, privacy-safe failure tags an
   const monitor = read("components/client-error-monitor.tsx");
   const health = read("lib/client-health.ts");
   const fallback = read("app/error.tsx");
+  const globalFallback = read("app/global-error.tsx");
   expect(layout).toContain("<Analytics />");
   expect(layout).toContain("<SpeedInsights />");
   expect(layout).toContain("<ClientErrorMonitor />");
@@ -44,4 +45,7 @@ test("production web has field performance capture, privacy-safe failure tags an
   expect(health).not.toContain("userId");
   expect(fallback).toContain("reset");
   expect(fallback).toContain('role="alert"');
+  expect(globalFallback).toContain("<html");
+  expect(globalFallback).toContain("reset");
+  expect(globalFallback).toContain('role="alert"');
 });
