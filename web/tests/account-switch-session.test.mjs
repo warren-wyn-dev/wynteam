@@ -137,6 +137,8 @@ test("source: add-account OAuth completion is serialized and only detaches on su
   const add = readFileSync(new URL("../components/account-add-route.tsx", import.meta.url), "utf8");
   assert.match(add, /finishInFlight\.current = true/);
   assert.match(add, /if \(!client \|\| finishInFlight\.current\) return/);
+  assert.ok(add.indexOf("registerSessionAccount(client, session, storageKey)") < add.indexOf("preflightAccountActivation(storageKey)"));
+  assert.ok(add.indexOf("preflightAccountActivation(storageKey)") < add.indexOf("unsubscribeFromPushNotifications(prior)"));
   assert.ok(add.indexOf("unsubscribeFromPushNotifications(prior)") < add.indexOf("markAccountStorageActive(storageKey)"));
 });
 
@@ -241,4 +243,49 @@ test("source: warm likely destinations before taps without skipping Push isolati
   const push = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
   const warm = push.slice(push.indexOf("export function prewarmAccountSwitchPush"), push.indexOf("export async function revokeLocalPushSubscription"));
   assert.doesNotMatch(warm, /getToken|deleteToken|push_tokens|unsubscribeFromPushNotifications/);
+});
+
+test("source: onboarding also persists and preflights B before revoking A's Push", () => {
+  const all = readFileSync(new URL("../components/auth-flow/screens.tsx", import.meta.url), "utf8");
+  const signup = all.slice(all.indexOf("export function OnboardingProfileScreen()"));
+  const saved = signup.indexOf("registerSessionAccount(supabase, session, pendingSlot)");
+  const preflight = signup.indexOf("preflightAccountActivation(pendingSlot)");
+  const revoke = signup.indexOf("unsubscribeFromPushNotifications(prior)");
+  const activate = signup.indexOf("markAccountStorageActive(pendingSlot)");
+  assert.ok(saved >= 0 && saved < preflight);
+  assert.ok(preflight < revoke && revoke < activate);
+});
+
+test("activation storage preflight never changes A's active account and fails closed on storage errors", () => {
+  const registry = readFileSync(new URL("../lib/account-registry.ts", import.meta.url), "utf8");
+  const compiledRegistry = ts.transpileModule(registry, {
+    fileName: "account-registry.ts",
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const activeKey = "wynos.active-account-storage.v1";
+  const storage = new Map([[activeKey, "wynos.account.account-a"]]);
+  let blocked = false;
+  const localStorage = {
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => {
+      if (blocked && key.includes(".probe.")) throw new Error("Storage full");
+      storage.set(key, value);
+    },
+    removeItem: (key) => storage.delete(key),
+  };
+  const exports = {};
+  runInNewContext(compiledRegistry, {
+    exports,
+    window: { localStorage },
+    require: (name) => {
+      if (name === "@/lib/query-persist-key") return { PERSIST_QUERY_CACHE_KEY: "wynos-cache" };
+      throw new Error("Unexpected module " + name);
+    },
+  });
+  assert.equal(exports.preflightAccountActivation(SLOT), true);
+  assert.equal(storage.get(activeKey), "wynos.account.account-a");
+  assert.equal([...storage.keys()].some((key) => key.includes(".probe.")), false);
+  blocked = true;
+  assert.equal(exports.preflightAccountActivation(SLOT), false);
+  assert.equal(storage.get(activeKey), "wynos.account.account-a");
 });
