@@ -126,3 +126,76 @@ test("logging out unregisters the push device before auth is cleared", () => {
   expect(settings).toContain("const removed = await unsubscribeFromPushNotifications(client)");
 });
 
+
+test("background Push wakes open WYNOS tabs without exposing content or duplicating FCM banners", async () => {
+  type PushPayload = { notification?: { title: string }; data?: Record<string, string> };
+  const workerSource = readFileSync(path.join(process.cwd(), "public/sw.js"), "utf8");
+  const handlers = new Map<string, Array<(event: { waitUntil: (promise: Promise<unknown>) => void }) => void>>();
+  const wakeMessages: unknown[] = [];
+  const banners: Array<{ title: string; data: unknown }> = [];
+  let receiver: ((payload: PushPayload) => Promise<unknown> | void) | null = null;
+  const self = {
+    location: { origin: "https://wynos.online" },
+    addEventListener: (name: string, callback: (event: { waitUntil: (promise: Promise<unknown>) => void }) => void) => {
+      const callbacks = handlers.get(name) ?? [];
+      callbacks.push(callback);
+      handlers.set(name, callbacks);
+    },
+    skipWaiting: () => undefined,
+    clients: {
+      claim: async () => undefined,
+      matchAll: async () => [{ postMessage: (data: unknown) => { wakeMessages.push(data); } }],
+    },
+    registration: {
+      showNotification: async (title: string, options: { data?: unknown }) => {
+        banners.push({ title, data: options.data });
+      },
+    },
+  };
+  runInNewContext(workerSource, {
+    self,
+    URL,
+    clients: self.clients,
+    caches: { keys: async () => [], delete: async () => true },
+    fetch: async () => ({ ok: true, json: async () => ({ configured: true }) }),
+    importScripts: () => undefined,
+    firebase: {
+      initializeApp: () => undefined,
+      messaging: () => ({
+        onBackgroundMessage: (callback: (payload: PushPayload) => Promise<unknown> | void) => {
+          receiver = callback;
+        },
+      }),
+    },
+  });
+  const activation: Promise<unknown>[] = [];
+  for (const callback of handlers.get("activate") ?? []) {
+    callback({ waitUntil: (promise) => { activation.push(promise); } });
+  }
+  await Promise.all(activation);
+  expect(receiver).not.toBeNull();
+
+  const data = {
+    type: "like_drop",
+    recipient_id: ID,
+    notification_id: OTHER,
+    push_body: "PRIVATE CONTENT MUST NOT ENTER WAKE MESSAGES",
+  };
+  await (receiver as (payload: PushPayload) => Promise<unknown>)({
+    notification: { title: "FCM displays this automatically" },
+    data,
+  });
+  expect(wakeMessages).toEqual([{
+    kind: "wynos:notification-push",
+    recipientId: ID,
+    notificationId: OTHER,
+    notificationType: "like_drop",
+  }]);
+  expect(JSON.stringify(wakeMessages)).not.toContain(data.push_body);
+  expect(banners).toHaveLength(0);
+
+  await (receiver as (payload: PushPayload) => Promise<unknown>)({ data });
+  expect(wakeMessages).toHaveLength(2);
+  expect(banners).toHaveLength(1);
+  expect(banners[0].data).toEqual(data);
+});
