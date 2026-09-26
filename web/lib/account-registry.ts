@@ -4,7 +4,7 @@ import { PERSIST_QUERY_CACHE_KEY } from "@/lib/query-persist-key";
 export const MAX_SAVED_ACCOUNTS = 9;
 
 const REGISTRY_KEY = "wynos.saved-accounts.v1";
-const ACTIVE_STORAGE_KEY = "wynos.active-account-storage.v1";
+export const ACTIVE_ACCOUNT_STORAGE_KEY = "wynos.active-account-storage.v1";
 const SLOT_PREFIX = "wynos.account.";
 
 export type SavedAccount = {
@@ -40,7 +40,7 @@ function writeRegistry(accounts: SavedAccount[]): void {
 
 export function getActiveAccountStorageKey(): string | null {
   if (!available()) return null;
-  return window.localStorage.getItem(ACTIVE_STORAGE_KEY);
+  return window.localStorage.getItem(ACTIVE_ACCOUNT_STORAGE_KEY);
 }
 
 export function createAccountStorageKey(): string {
@@ -97,8 +97,8 @@ export function activateSavedAccount(userId: string): boolean {
   // Do not carry account A's persisted Feed/Profile/Chat cache into account B.
   window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
   writeRegistry([{ ...target, lastUsedAt: Date.now() }, ...accounts.filter((item) => item.userId !== userId)]);
-  if (target.storageKey) window.localStorage.setItem(ACTIVE_STORAGE_KEY, target.storageKey);
-  else window.localStorage.removeItem(ACTIVE_STORAGE_KEY);
+  if (target.storageKey) window.localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, target.storageKey);
+  else window.localStorage.removeItem(ACTIVE_ACCOUNT_STORAGE_KEY);
   return true;
 }
 
@@ -111,8 +111,8 @@ export function removeSavedAccount(userId: string): void {
   if (target.storageKey) {
     window.localStorage.removeItem(target.storageKey);
     window.localStorage.removeItem(`${target.storageKey}-code-verifier`);
-    if (window.localStorage.getItem(ACTIVE_STORAGE_KEY) === target.storageKey) {
-      window.localStorage.removeItem(ACTIVE_STORAGE_KEY);
+    if (window.localStorage.getItem(ACTIVE_ACCOUNT_STORAGE_KEY) === target.storageKey) {
+      window.localStorage.removeItem(ACTIVE_ACCOUNT_STORAGE_KEY);
     }
   }
 }
@@ -122,5 +122,5 @@ export function markAccountStorageActive(storageKey: string): void {
   if (getActiveAccountStorageKey() !== storageKey) {
     window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
   }
-  window.localStorage.setItem(ACTIVE_STORAGE_KEY, storageKey);
+  window.localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, storageKey);
 }
