@@ -12,6 +12,10 @@ fi
 PROJECT_REF="kqokpocajhfbidcxpvhh"
 CALLBACK="https://wynos.online/auth/callback"
 RESET_CALLBACK="https://wynos.online/reset-password"
+# Narrow query patterns: only WYNOS' generated second-account slots may
+# return to these two existing production routes.
+ADD_GOOGLE="https://wynos.online/account/add?slot=wynos.account.**"
+ADD_CONFIRM="https://wynos.online/auth/callback?slot=wynos.account.**"
 API="https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth"
 
 before=$(mktemp)
@@ -36,7 +40,7 @@ if (( old_min > target_min )); then target_min=$old_min; fi
 # especially those used for Google OAuth and password recovery.
 existing=$(jq -r '.uri_allow_list // ""' "$before")
 updated="$existing"
-for required in "$CALLBACK" "$RESET_CALLBACK"; do
+for required in "$CALLBACK" "$RESET_CALLBACK" "$ADD_GOOGLE" "$ADD_CONFIRM"; do
   if ! printf '%s' "$updated" | tr ',' '\n' | grep -Fxq "$required"; then
     if [ -n "$updated" ]; then updated="$updated,$required"; else updated="$required"; fi
   fi
@@ -65,10 +69,12 @@ curl --fail --silent --show-error --retry 2 --max-time 30 \
   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   -o "$after" "$API"
 
-jq -e --arg cb "$CALLBACK" --arg reset "$RESET_CALLBACK" \
+jq -e --arg cb "$CALLBACK" --arg reset "$RESET_CALLBACK" --arg google "$ADD_GOOGLE" --arg confirm "$ADD_CONFIRM" \
   '(.password_min_length >= 12) and
    ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($cb)) != null) and
-   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($reset)) != null)' \
+   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($reset)) != null) and
+   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($google)) != null) and
+   ((.uri_allow_list // "" | split(",") | map(gsub("^\\s+|\\s+$"; "")) | index($confirm)) != null)' \
   "$after" >/dev/null || {
     echo "::error::Supabase Auth config failed post-update verification"
     exit 1
