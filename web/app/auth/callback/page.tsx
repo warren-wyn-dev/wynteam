@@ -40,16 +40,25 @@ export default function EmailConfirmationCallbackPage() {
         const client = getSupabaseBrowserClient();
         if (!client) throw new Error("Supabase browser client unavailable");
 
-        // Await the SDK's own URL/session initialization first. Some clients
-        // consume the code automatically; other storage configurations need
-        // an explicit exchange. Never exchange a successfully consumed code.
-        const existing = await client.auth.getSession();
-        if (existing.error) throw existing.error;
-        let session = existing.data.session;
-        if (!session && code) {
+        // For Add Account, the isolated client deliberately disables automatic
+        // callback detection. Always exchange this link's one-time code first:
+        // getSession() could otherwise return a previous *pending* identity and
+        // incorrectly confirm the wrong account. Normal auth retains its SDK
+        // initialization/possible auto-exchange behavior.
+        let session;
+        if (addSlot && code) {
           const exchanged = await client.auth.exchangeCodeForSession(code);
           if (exchanged.error) throw exchanged.error;
           session = exchanged.data.session;
+        } else {
+          const existing = await client.auth.getSession();
+          if (existing.error) throw existing.error;
+          session = existing.data.session;
+          if (!session && code) {
+            const exchanged = await client.auth.exchangeCodeForSession(code);
+            if (exchanged.error) throw exchanged.error;
+            session = exchanged.data.session;
+          }
         }
         if (!session) throw new Error("No authenticated session after callback");
 
