@@ -578,8 +578,12 @@ export function SignupStep1Screen() {
         router.push(pending ? `/account/add?slot=${encodeURIComponent(pending)}` : "/welcome");
       }} />
       <div ref={fieldsRef} style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>สร้างบัญชี</div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>มาทำความรู้จักคุณกันก่อน</p>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <Image src="/wynos_logo_mark.png" alt="WYNOS" width={84} height={54}
+            style={{ height: 54, width: "auto", display: "block", margin: "0 auto 10px" }} priority />
+          <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>สร้างบัญชี</h1>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>มาทำความรู้จักคุณกันก่อน</p>
+        </div>
         <div className="field">
           <label>ชื่อผู้ใช้</label>
           <div style={{ display: "flex", alignItems: "center", height: 56, border: "1px solid var(--border-strong)", borderRadius: 18, padding: "0 18px" }}>
@@ -770,8 +774,12 @@ export function SignupStep2Screen() {
     <AuthPhone>
       <BackTopbar href="/signup/step-1" step="2/2" />
       <div style={{ padding: "16px 20px", flex: 1 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6 }}>ตั้งรหัสผ่าน</div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 20px" }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <Image src="/wynos_logo_mark.png" alt="WYNOS" width={84} height={54}
+            style={{ height: 54, width: "auto", display: "block", margin: "0 auto 10px" }} priority />
+          <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 6px" }}>ตั้งรหัสผ่าน</h1>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</p>
+        </div>
         <Field label="อีเมล" name="email" placeholder="you@example.com" value={draft.email} onChange={update("email")} disabled={!mounted} />
         <Field label="รหัสผ่าน" name="password" placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} type="password" value={draft.password} onChange={update("password")} disabled={!mounted} />
         <Field label="ยืนยันรหัสผ่าน" name="confirmPassword" placeholder="พิมพ์รหัสผ่านอีกครั้ง" type="password" value={draft.confirmPassword} onChange={update("confirmPassword")} disabled={!mounted} />
