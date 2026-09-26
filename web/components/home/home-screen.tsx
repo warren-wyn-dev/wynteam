@@ -26,6 +26,7 @@ import { authorLabel, isQuotePost, type HomeFeedRow } from "@/lib/feed";
 import { feedIdentity } from "@/lib/quote-feed-data";
 import { haptic } from "@/lib/haptics";
 import { deleteMountCache } from "@/lib/mount-cache";
+import { getRecentDropEngagement, listenDropEngagement, patchDropRow, patchDropViewer, publishDropEngagement, reconcileRecentDropEngagement } from "@/lib/drop-engagement-sync";
 import { shareOrCopyLink } from "@/lib/share";
 import {
   loadHomeViewerState,
@@ -209,7 +210,7 @@ export function HomeScreen({ session }: { session: Session }) {
   const searchParams = useSearchParams();
   const userId = session.user.id;
   const isDeveloper = useIsDeveloperAccount(client, userId);
-  const { toastMessage, showToast } = useToast();
+  const { toastMessage, toastAction, showToast, dismissToast } = useToast();
 
   // Deliberately not wrapped in useMemo/useRef: `store`'s fields (mode,
   // visibleMode) are mutated directly outside of render, which the stricter
@@ -219,7 +220,10 @@ export function HomeScreen({ session }: { session: Session }) {
   // outside both rules while still returning the same object reference on
   // every render.
   const store = getHomeScreenStore(userId);
-  const initialSnapshot = store.feedCache[store.visibleMode];
+  const rawInitialSnapshot = store.feedCache[store.visibleMode];
+  const initialSnapshot = rawInitialSnapshot?.kind === "drops"
+    ? { ...rawInitialSnapshot, ...reconcileRecentDropEngagement(userId, rawInitialSnapshot.rows, rawInitialSnapshot.viewer) }
+    : rawInitialSnapshot;
 
   const [mode, setMode] = useState<HomeFeedMode>(store.mode);
   const [visibleMode, setVisibleMode] = useState<HomeFeedMode>(store.visibleMode);
@@ -264,6 +268,21 @@ export function HomeScreen({ session }: { session: Session }) {
   const inFlightLoads = useRef<Partial<Record<HomeFeedMode, Promise<HomeFeedSnapshot>>>>({});
   const scrollPositions = useRef(store.scrollPositions);
   const visibleCounts = useRef(store.visibleCounts);
+
+  useEffect(() => listenDropEngagement((change) => {
+    if (change.userId !== userId) return;
+    for (const modeKey of HOME_FEED_MODES) {
+      const snapshot = feedCache.current[modeKey.key];
+      if (snapshot?.kind !== "drops") continue;
+      feedCache.current[modeKey.key] = {
+        ...snapshot,
+        ...reconcileRecentDropEngagement(userId, snapshot.rows, snapshot.viewer),
+      };
+    }
+    if (change.source === "home") return;
+    setViewer((current) => current ? patchDropViewer(current, change) : current);
+    setRows((current) => current.map((item) => patchDropRow(item, change)));
+  }), [userId]);
 
   useEffect(() => {
     return () => {
@@ -328,8 +347,9 @@ export function HomeScreen({ session }: { session: Session }) {
       setViewer(null);
       setImages(new Map());
     } else {
-      setRows(snapshot.rows);
-      setViewer(snapshot.viewer);
+      const synced = reconcileRecentDropEngagement(userId, snapshot.rows, snapshot.viewer);
+      setRows(synced.rows);
+      setViewer(synced.viewer);
       setImages(snapshot.images);
       setClubRows([]);
     }
@@ -529,6 +549,15 @@ export function HomeScreen({ session }: { session: Session }) {
     return { ...current, [key]: next };
   });
 
+  const undoLike = async (row: HomeFeedRow) => {
+    if (!client || !getRecentDropEngagement(userId, row.id).some((item) => item.kind === "like" && item.active)) return;
+    patchSet("likedDropIds", row.id, false);
+    setRows((current) => current.map((item) => item.id === row.id ? { ...item, like_count: Math.max(0, (item.like_count ?? 0) - 1) } : item));
+    publishDropEngagement({ userId, dropId: row.id, kind: "like", active: false, count: row.like_count ?? 0, source: "home" });
+    try { await toggleDropLike(client, userId, row.id, true); }
+    catch { publishDropEngagement({ userId, dropId: row.id, kind: "like", active: true, count: (row.like_count ?? 0) + 1, source: "home" }); void load(); showToast("เลิกทำไม่สำเร็จ"); }
+  };
+
   const like = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
     const liked = viewer.likedDropIds.has(row.id);
@@ -539,9 +568,12 @@ export function HomeScreen({ session }: { session: Session }) {
         ? { ...item, like_count: Math.max(0, (item.like_count ?? 0) + (liked ? -1 : 1)) }
         : item,
     ));
+    publishDropEngagement({ userId, dropId: row.id, kind: "like", active: !liked, count: Math.max(0, (row.like_count ?? 0) + (liked ? -1 : 1)), source: "home" });
     try {
       await toggleDropLike(client, userId, row.id, liked);
+      if (!liked) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoLike(row) });
     } catch {
+      publishDropEngagement({ userId, dropId: row.id, kind: "like", active: liked, count: row.like_count ?? 0, source: "home" });
       void load();
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
@@ -567,14 +599,26 @@ export function HomeScreen({ session }: { session: Session }) {
     }
   };
 
+  const undoSave = async (row: HomeFeedRow) => {
+    if (!client || !getRecentDropEngagement(userId, row.id).some((item) => item.kind === "save" && item.active)) return;
+    patchSet("savedDropIds", row.id, false);
+    publishDropEngagement({ userId, dropId: row.id, kind: "save", active: false, source: "home" });
+    try { await toggleDropSave(client, userId, row.id, true); }
+    catch { publishDropEngagement({ userId, dropId: row.id, kind: "save", active: true, source: "home" }); void load(); showToast("เลิกทำไม่สำเร็จ"); }
+  };
+
   const save = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
     const saved = viewer.savedDropIds.has(row.id);
     if (!saved) haptic();
     patchSet("savedDropIds", row.id, !saved);
+    publishDropEngagement({ userId, dropId: row.id, kind: "save", active: !saved, source: "home" });
     try {
       await toggleDropSave(client, userId, row.id, saved);
+      if (!saved) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoSave(row) });
+      else showToast("นำออกจากรายการที่บันทึกแล้ว");
     } catch {
+      publishDropEngagement({ userId, dropId: row.id, kind: "save", active: saved, source: "home" });
       void load();
       showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
@@ -621,12 +665,14 @@ export function HomeScreen({ session }: { session: Session }) {
         ? { ...item, redrop_count: Math.max(0, (item.redrop_count ?? 0) + (active ? -1 : 1)) }
         : item,
     ));
+    publishDropEngagement({ userId, dropId: row.id, kind: "redrop", active: !active, count: Math.max(0, (row.redrop_count ?? 0) + (active ? -1 : 1)), source: "home" });
     try {
       await toggleDropRedrop(client, userId, row.id, active);
       setSheet(null);
       setSelected(null);
     } catch {
       void load();
+      publishDropEngagement({ userId, dropId: row.id, kind: "redrop", active, count: row.redrop_count ?? 0, source: "home" });
       showToast("รีโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
   };
@@ -1055,7 +1101,7 @@ export function HomeScreen({ session }: { session: Session }) {
           <button type="button" onClick={() => void undoHide()}>เลิกทำ</button>
         </div>
       ) : null}
-      <Toast message={toastMessage} />
+      <Toast message={toastMessage} action={toastAction} onDismiss={dismissToast} />
 
       {composerOpen ? (
         <Beta4Composer
