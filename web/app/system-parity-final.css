@@ -198,7 +198,7 @@
 .flutter-detail-actions button[aria-label="รีโพสต์"] svg, .flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] svg { width: 27px; height: 27px; }
 .flutter-detail-actions button[aria-label="แชร์โพสต์"] svg { width: 24px; height: 24px; }
 .flutter-detail-actions button[aria-label="บันทึกโพสต์"] svg, .flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] svg { width: 26px; height: 26px; }
-.flutter-detail-actions button.like.active { color: var(--wyn-accent); }
+.flutter-detail-actions button.like.active { color: var(--wyn-like); }
 .flutter-detail-actions button.active:not(.like) { color: var(--wyn-text); }
 .detail-activity-row { width: calc(100% - 32px); height: 54px; margin: 2px 16px 10px; padding: 0 12px 0 14px; border: 0; border-radius: 18px; background: var(--wyn-surface); color: var(--wyn-text); display: grid; grid-template-columns: 42px minmax(0,1fr) 27px; align-items: center; text-align: left; }
 .detail-activity-icon { width: 42px; height: 54px; display: grid; place-items: center; justify-content: start; color: var(--wyn-text-secondary); }
@@ -233,7 +233,7 @@
 .detail-comment-delete { color: var(--wyn-text-secondary); }
 .detail-comment-like { font-size: 13px; }
 .detail-comment-like svg { width: 16px; height: 16px; }
-.detail-comment-like.active.like { color: var(--wyn-accent); }
+.detail-comment-like.active.like { color: var(--wyn-like); }
 .detail-comments-end { margin: 0; padding: 24px 16px 28px; color: var(--wyn-text-muted); font-size: 13px; text-align: center; }
 
 /* Fixed composer: 14/9/9/9 shell, 36px viewer avatar, 46px tinted field.
@@ -323,7 +323,7 @@
 .flutter-detail-actions button { color: var(--wyn-text-secondary); }
 .flutter-detail-actions button svg { color: var(--wyn-text); }
 .flutter-detail-actions button.like.active { color: var(--wyn-text-secondary); }
-.flutter-detail-actions button.like.active svg { color: var(--wyn-accent); }
+.flutter-detail-actions button.like.active svg { color: var(--wyn-like); }
 .flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] { color: var(--wyn-text-secondary); }
 .flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] svg { color: var(--wyn-text); }
 .flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] { color: var(--wyn-text-secondary); }
