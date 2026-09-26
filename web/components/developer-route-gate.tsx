@@ -9,6 +9,7 @@ import { forgetSignedOutAccount, getActiveAccountStorageKey } from "@/lib/accoun
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
 import { revokeLocalPushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { cacheBrowserSession, getCachedBrowserSession } from "@/lib/supabase/session-cache";
+import { clearReturnPath, rememberReturnPath } from "@/lib/return-to";
 
 type GateState = "loading" | "missing-config" | "signed-out" | "ready" | "error";
 
@@ -119,7 +120,11 @@ export function DeveloperRouteGate({
     // session check lands — a wasted extra hop, and one more chance for that
     // second replace to race a navigation the user already started in the
     // meantime.
-    if (gate === "signed-out") router.replace("/welcome");
+    if (gate === "signed-out") {
+      // Keep a shared link (post, profile, club) to reopen after sign-in.
+      rememberReturnPath(`${window.location.pathname}${window.location.search}`);
+      router.replace("/welcome");
+    }
   }, [gate, router]);
 
   const signOut = useCallback(async () => {
@@ -141,6 +146,8 @@ export function DeveloperRouteGate({
     // A soft Next router transition preserves the module-level Supabase
     // singleton, which is still bound to the old account's storage key.
     // Rebuild it from the now-cleared active pointer before the next login.
+    // A signing-out account's page must not reopen for the next login.
+    clearReturnPath();
     window.location.replace("/welcome");
   }, [client, queryClient, session]);
 
