@@ -33,7 +33,8 @@ export function AnimatedCount({
   }
   const reduceMotion = useReducedMotion();
 
-  const visible = !hideZero || value > 0;
+  // Preserve the existing hidden-zero DOM contract (not merely display:none).
+  if (hideZero && value <= 0) return null;
 
   return (
     <span
@@ -41,7 +42,7 @@ export function AnimatedCount({
       data-direction={direction > 0 ? "up" : "down"}
       aria-hidden="true"
       style={{
-        display: visible ? "inline-grid" : "none",
+        display: "inline-grid",
         position: "relative",
         alignItems: "center",
         overflow: "hidden",
@@ -50,8 +51,7 @@ export function AnimatedCount({
       }}
     >
       <AnimatePresence initial={false} custom={direction}>
-        {visible ? (
-          <motion.span
+        <motion.span
             key={value}
             custom={direction}
             variants={countVariants}
@@ -63,7 +63,6 @@ export function AnimatedCount({
           >
             {value}
           </motion.span>
-        ) : null}
       </AnimatePresence>
     </span>
   );
