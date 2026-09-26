@@ -183,7 +183,7 @@ test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hi
   // elsewhere (notifications, the home drawer, redrop sheets) and weren't
   // meant to change.
   expect(postActions).toContain("<SaveIcon");
-  expect(postActions).toContain("value > 0 ?");
+  expect(postActions).toContain("value={value} hideZero");
   expect(postActions).toContain("{count(likeCount)}");
   expect(postActions).not.toContain("Eye");
   expect(postActions).not.toContain("visibility");
@@ -275,7 +275,7 @@ test("Post Detail closes the exact current Flutter geometry and interaction gaps
   expect(detail).not.toContain("window.confirm");
   expect(interaction).toContain(".detail-dialog-backdrop");
   expect(finalLock).toContain("margin: 7px 10px 0");
-  expect(finalLock).toContain("color: var(--wyn-accent)");
+  expect(finalLock).toContain("color: var(--wyn-like)");
   expect(finalLock).toContain("height: 46px");
   expect(flutter).toContain("floating: true");
   expect(flutter).toContain("snap: true");
