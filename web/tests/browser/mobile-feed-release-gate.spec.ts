@@ -39,6 +39,34 @@ for (const width of [320, 390, 432]) {
     expect(result.pageOverflow).toBeLessThanOrEqual(1);
   });
 
+  test("immersive compose shortcut never covers the last post actions at " + width + "px", async ({ page }) => {
+    await page.setViewportSize({ width, height: 600 });
+    await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(page.locator("html")).toHaveClass(/wyn-home-scroll-hidden/);
+    const fab = page.getByRole("button", { name: "สร้างโพสต์" });
+    await expect(fab).toBeVisible();
+    // The extra clearance is activated by the immersive scroll class, so
+    // scroll again once its conditional padding has increased page height.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+
+    const placement = await page.evaluate(() => {
+      const fab = document.querySelector<HTMLElement>(".wyn-home-post-fab")!;
+      const actions = [...document.querySelectorAll<HTMLElement>(".wyn-post-actions")].at(-1)!;
+      const route = document.querySelector<HTMLElement>(".route-with-bottom-nav")!;
+      const fabBox = fab.getBoundingClientRect();
+      const actionBox = actions.getBoundingClientRect();
+      return {
+        clearance: fabBox.top - actionBox.bottom,
+        padding: parseFloat(getComputedStyle(route).paddingBottom),
+        required: fabBox.height + window.innerHeight - fabBox.bottom + 12,
+      };
+    });
+    expect(placement.padding).toBeGreaterThanOrEqual(placement.required - 1);
+    expect(placement.clearance).toBeGreaterThanOrEqual(8);
+  });
+
   test("single-photo Feed keeps the approved inset image layout at " + width + "px", async ({ page }) => {
     await page.setViewportSize({ width, height: 768 });
     await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
