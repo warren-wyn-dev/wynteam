@@ -93,6 +93,11 @@ export async function registerSessionAccount(
   writeRegistry([next, ...latest.filter((item) =>
     item.userId !== next.userId && item.storageKey !== storageKey,
   )]);
+  if (staleAliases.some((item) => item.userId !== next.userId)) {
+    // A legacy login could overwrite A's slot with B's session. Never
+    // hydrate B's first Feed/Profile/Chat from A's persisted query snapshot.
+    window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
+  }
   for (const old of staleAliases) {
     if (old.storageKey && old.storageKey !== storageKey && old.storageKey !== getActiveAccountStorageKey()) {
       window.localStorage.removeItem(old.storageKey);
