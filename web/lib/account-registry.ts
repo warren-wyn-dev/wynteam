@@ -165,7 +165,11 @@ export function forgetSignedOutAccount(userId: string, expectedStorageKey: strin
     window.localStorage.removeItem(`${expectedStorageKey}-code-verifier`);
   }
   if (getActiveAccountStorageKey() === expectedStorageKey) {
-    window.localStorage.removeItem(ACTIVE_ACCOUNT_STORAGE_KEY);
+    // A different saved account may still have a live default-cookie session.
+    // Never expose it automatically after this explicit logout: point the
+    // browser at a fresh, EMPTY slot until the user chooses a new login or
+    // explicitly selects another saved account.
+    window.localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, createAccountStorageKey());
   }
   window.localStorage.removeItem(PERSIST_QUERY_CACHE_KEY);
 }
