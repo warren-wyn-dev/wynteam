@@ -27,6 +27,7 @@ import { feedIdentity } from "@/lib/quote-feed-data";
 import { haptic } from "@/lib/haptics";
 import { deleteMountCache } from "@/lib/mount-cache";
 import { getRecentDropEngagement, listenDropEngagement, patchDropRow, patchDropViewer, publishDropEngagement, reconcileRecentDropEngagement } from "@/lib/drop-engagement-sync";
+import { getRecentClubLike, listenClubLike, publishClubLike } from "@/lib/club-engagement-sync";
 import { shareOrCopyLink } from "@/lib/share";
 import {
   loadHomeViewerState,
@@ -223,7 +224,12 @@ export function HomeScreen({ session }: { session: Session }) {
   const rawInitialSnapshot = store.feedCache[store.visibleMode];
   const initialSnapshot = rawInitialSnapshot?.kind === "drops"
     ? { ...rawInitialSnapshot, ...reconcileRecentDropEngagement(userId, rawInitialSnapshot.rows, rawInitialSnapshot.viewer) }
-    : rawInitialSnapshot;
+    : rawInitialSnapshot?.kind === "clubs"
+      ? { ...rawInitialSnapshot, clubRows: rawInitialSnapshot.clubRows.map((post) => {
+        const update = getRecentClubLike(userId, post.id);
+        return update ? { ...post, liked_by_me: update.liked, like_count: update.count } : post;
+      }) }
+      : rawInitialSnapshot;
 
   const [mode, setMode] = useState<HomeFeedMode>(store.mode);
   const [visibleMode, setVisibleMode] = useState<HomeFeedMode>(store.visibleMode);
@@ -284,6 +290,16 @@ export function HomeScreen({ session }: { session: Session }) {
     setRows((current) => current.map((item) => patchDropRow(item, change)));
   }), [userId]);
 
+  useEffect(() => listenClubLike((change) => {
+    if (change.userId !== userId) return;
+    const snapshot = feedCache.current.clubs;
+    if (snapshot?.kind === "clubs") feedCache.current.clubs = {
+      ...snapshot,
+      clubRows: snapshot.clubRows.map((post) => post.id === change.postId ? { ...post, liked_by_me: change.liked, like_count: change.count } : post),
+    };
+    if (change.source !== "home-club") setClubRows((current) => current.map((post) => post.id === change.postId ? { ...post, liked_by_me: change.liked, like_count: change.count } : post));
+  }), [userId]);
+
   useEffect(() => {
     return () => {
       scrollPositions.current[visibleModeRef.current] = window.scrollY;
@@ -342,7 +358,10 @@ export function HomeScreen({ session }: { session: Session }) {
     getHomeScreenStore(userId).visibleMode = targetMode;
     setVisibleMode(targetMode);
     if (snapshot.kind === "clubs") {
-      setClubRows(snapshot.clubRows);
+      setClubRows(snapshot.clubRows.map((post) => {
+        const update = getRecentClubLike(userId, post.id);
+        return update ? { ...post, liked_by_me: update.liked, like_count: update.count } : post;
+      }));
       setRows([]);
       setViewer(null);
       setImages(new Map());
@@ -579,6 +598,16 @@ export function HomeScreen({ session }: { session: Session }) {
     }
   };
 
+  const undoClubLike = async (post: ClubHomePost) => {
+    if (!client) return;
+    const last = getRecentClubLike(userId, post.id);
+    if (!last?.liked) return;
+    setClubRows((current) => current.map((item) => item.id === post.id ? { ...item, liked_by_me: false, like_count: Math.max(0, item.like_count - 1) } : item));
+    publishClubLike({ userId, postId: post.id, liked: false, count: Math.max(0, last.count - 1), source: "home-club" });
+    try { await toggleClubPostLike(client, userId, post.id, true); }
+    catch { publishClubLike(last); void load(); showToast("เลิกทำไม่สำเร็จ"); }
+  };
+
   const likeClub = async (post: ClubHomePost) => {
     if (!client) return;
     if (!post.liked_by_me) haptic();
@@ -591,9 +620,12 @@ export function HomeScreen({ session }: { session: Session }) {
           }
         : item,
     ));
+    publishClubLike({ userId, postId: post.id, liked: !post.liked_by_me, count: Math.max(0, post.like_count + (post.liked_by_me ? -1 : 1)), source: "home-club" });
     try {
       await toggleClubPostLike(client, userId, post.id, post.liked_by_me);
+      if (!post.liked_by_me) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoClubLike(post) });
     } catch {
+      publishClubLike({ userId, postId: post.id, liked: post.liked_by_me, count: post.like_count, source: "home-club" });
       void load();
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
