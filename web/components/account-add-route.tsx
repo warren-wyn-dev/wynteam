@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, Input, WynosIcon } from "@/components/ui";
 import { GoogleGlyph } from "@/components/auth-flow/screens";
+import { useSignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { beginPendingAddAccount, clearPendingAddAccount, getPendingAddAccountSlot, validAddAccountSlot } from "@/lib/pending-account-add";
@@ -24,6 +25,7 @@ import { createAccountSwitchPriorClient } from "@/lib/supabase/browser";
 export function AccountAddRoute() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setDraft } = useSignupDraft();
   const [storageKey] = useState(() => {
     const slot = searchParams.get("slot");
     const pending = getPendingAddAccountSlot();
@@ -195,7 +197,10 @@ export function AccountAddRoute() {
   }, [client, finish]);
 
   function cancel() {
-    clearPendingAddAccount(storageKey);
+    if (getPendingAddAccountSlot() === storageKey) {
+      setDraft({ username: "", displayName: "", birthDate: "", email: "", password: "", confirmPassword: "" });
+      clearPendingAddAccount(storageKey);
+    }
     if (getActiveAccountStorageKey() !== storageKey
         && !listSavedAccounts().some((item) => item.storageKey === storageKey)) {
       window.localStorage.removeItem(storageKey);
@@ -208,6 +213,10 @@ export function AccountAddRoute() {
     if (listSavedAccounts().length >= MAX_SAVED_ACCOUNTS) {
       setMessage(`บันทึกบัญชีได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชี`);
       return;
+    }
+    if (getPendingAddAccountSlot() !== storageKey) {
+      // Never prefill a second person's signup with an abandoned draft.
+      setDraft({ username: "", displayName: "", birthDate: "", email: "", password: "", confirmPassword: "" });
     }
     beginPendingAddAccount(storageKey);
     router.push("/signup/step-1");
