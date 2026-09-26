@@ -20,6 +20,7 @@ export default function EmailConfirmationCallbackPage() {
   const router = useRouter();
   const started = useRef(false);
   const [error, setError] = useState("");
+  const [popupComplete, setPopupComplete] = useState(false);
 
   useEffect(() => {
     // Avoid exchanging a one-time PKCE code twice under React Strict Mode.
@@ -65,11 +66,12 @@ export default function EmailConfirmationCallbackPage() {
           if (isAddAccountPopup) {
             // The waiting Add Account screen finalizes the slot, not the popup.
             announceGooglePwaCompletion();
-            if (window.opener && !window.opener.closed) {
-              window.setTimeout(() => window.close(), 600);
-            } else {
-              router.replace(`/account/add?slot=${encodeURIComponent(addSlot!)}&oauth=1`);
-            }
+            setPopupComplete(true);
+            // If the opener was severed by iOS/COOP, BroadcastChannel (or
+            // returning focus to WYNOS) still lets the parent finish safely.
+            window.setTimeout(() => {
+              try { window.close(); } catch { /* Browser can decline. */ }
+            }, 600);
             return;
           }
           let destination = "/";
@@ -115,7 +117,7 @@ export default function EmailConfirmationCallbackPage() {
             <button type="button" onClick={() => router.replace("/login")}>ไปหน้าเข้าสู่ระบบ</button>
           </>
         ) : (
-          <p role="status">กำลังยืนยันตัวตนและนำคุณกลับไปยัง WYNOS…</p>
+          <p role="status">{popupComplete ? "เข้าสู่ระบบ Google สำเร็จ กลับไปที่ WYNOS ได้เลย" : "กำลังยืนยันตัวตนและนำคุณกลับไปยัง WYNOS…"}</p>
         )}
       </section>
     </main>
