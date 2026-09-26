@@ -169,3 +169,10 @@
 - Risks: a non-image is readable for a few seconds before deletion; one extra function call per image upload; if the function is down, uploads still succeed and are not checked (fail-open).
 - Rollback: `storage-upload-validator.yml` action `remove`, which drops both triggers.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-26
+
+### DECISION — [2026-09-27] WYN-188: apply user_preferences to production
+- Founder answers: "ต่อเลย" (proceed with PR #733), then an explicit, separate AskUserQuestion for the production migration: **"ติดตั้งได้เลย"**.
+- Change: PR #733 merged (theme is developer-only). `web-beta2-apply-user-preferences.yml` applies `supabase/migrations_web_beta2_user_preferences.sql`, which is additive: one new owner-only table plus an updated_at trigger. It is validated in CI by `supabase/tests/web_beta2_user_preferences_test.sh`.
+- Rollback: `drop table if exists public.user_preferences; drop function if exists internal.touch_user_preferences();`
+- This approval covers this migration only. The general policy on AI-applied production SQL is unchanged.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
