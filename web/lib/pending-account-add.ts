@@ -16,14 +16,15 @@ export function getPendingAddAccountSlot(): string | null {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const item = JSON.parse(raw) as { slot?: unknown; startedAt?: unknown };
-    if (!validAddAccountSlot(typeof item.slot === "string" ? item.slot : null)
+    const slot = typeof item.slot === "string" ? item.slot : null;
+    if (!validAddAccountSlot(slot)
         || typeof item.startedAt !== "number"
         || item.startedAt > Date.now()
         || Date.now() - item.startedAt > MAX_AGE_MS) {
       window.localStorage.removeItem(KEY);
       return null;
     }
-    return item.slot;
+    return slot;
   } catch {
     return null;
   }
