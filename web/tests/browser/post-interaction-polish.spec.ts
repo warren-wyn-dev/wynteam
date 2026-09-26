@@ -42,6 +42,9 @@ test("home, detail and profile publish and receive session-local engagement chan
     expect(code).toContain("getRecentDropEngagement(");
   }
   expect(sync).toContain('if (change.kind === "save") deleteMountCache');
+  expect(read("lib/club-engagement-sync.ts")).toContain("publishClubLike");
+  expect(read("components/home/home-screen.tsx")).toContain("listenClubLike(");
+  expect(read("components/club-detail-golden.tsx")).toContain("listenClubLike(");
   expect(sync).toContain("post-detail:");
   expect(read("lib/haptics.ts")).toContain("navigator.vibrate");
 });
