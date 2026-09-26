@@ -198,6 +198,7 @@ Deno.test("buildDataPayload includes only the id columns that are actually set, 
   assertEquals(buildDataPayload(row), {
     type: "like_drop",
     notification_id: "n1",
+    recipient_id: "r1",
     actor_id: "a1",
     drop_id: "d1",
   });
@@ -217,6 +218,7 @@ Deno.test("buildDataPayload omits actor_id when null", () => {
   assertEquals(buildDataPayload(row), {
     type: "moderation_warning",
     notification_id: "n3",
+    recipient_id: "r1",
     moderation_action_id: "ma1",
   });
 });
@@ -231,6 +233,7 @@ Deno.test("buildDataPayload includes conversation_id when set (message_request)"
   assertEquals(buildDataPayload(row), {
     type: "message_request",
     notification_id: "n4",
+    recipient_id: "r1",
     actor_id: "a1",
     conversation_id: "c1",
   });
@@ -246,6 +249,7 @@ Deno.test("buildDataPayload includes conversation_id when set (new_message, WYN-
   assertEquals(buildDataPayload(row), {
     type: "new_message",
     notification_id: "n5",
+    recipient_id: "r1",
     actor_id: "a1",
     conversation_id: "c1",
   });
