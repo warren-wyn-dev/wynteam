@@ -2,7 +2,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { getActiveAccountStorageKey } from "@/lib/account-registry";
-import { getPendingAddAccountSlot } from "@/lib/pending-account-add";
+import { getPendingAddAccountSlot, hasAddAccountIntent } from "@/lib/pending-account-add";
 
 let client: SupabaseClient | null | undefined;
 let pendingClient: SupabaseClient | null = null;
@@ -43,7 +43,12 @@ export function getPendingAddAccountClient(expectedSlot?: string | null): Supaba
 }
 
 export function getSignupAuthClient(): SupabaseClient | null {
-  return getPendingAddAccountClient() ?? getSupabaseBrowserClient();
+  const pending = getPendingAddAccountClient();
+  if (pending) return pending;
+  // A tab whose temporary B slot expired must not silently reuse A's
+  // existing credentials when the person resumes B's registration.
+  if (hasAddAccountIntent()) return null;
+  return getSupabaseBrowserClient();
 }
 
 export function getSupabaseBrowserClient(): SupabaseClient | null {
