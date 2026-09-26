@@ -143,16 +143,22 @@
 
 .wyn-home-chat-badge {
   position: absolute;
-  top: 7px;
-  right: 8px;
-  width: 7px;
-  height: 7px;
-  min-width: 7px;
-  min-height: 7px;
-  padding: 0;
+  top: 3px;
+  left: 22px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  box-sizing: border-box;
   border: 2px solid var(--wyn-bg);
-  border-radius: 50%;
+  border-radius: 999px;
   background: #ff453a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 /* ---------- Tabs: text + underline, no segmented pill ---------- */

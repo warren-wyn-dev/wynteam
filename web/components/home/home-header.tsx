@@ -116,7 +116,7 @@ export function HomeHeader({
           onClick={onOpenNotifications}
         >
           <WynosIcon name="notifications" size={23} strokeWidth={1.8} />
-          {notificationBadgeCount > 0 ? <span className="wyn-home-chat-badge" aria-hidden="true" /> : null}
+          {notificationBadgeCount > 0 ? <span className="wyn-home-chat-badge" aria-hidden="true">{notificationBadgeCount > 9 ? "9+" : notificationBadgeCount}</span> : null}
         </button>
       </div>
     </header>

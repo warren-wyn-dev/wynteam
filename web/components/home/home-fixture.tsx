@@ -194,6 +194,7 @@ export function HomeFixture() {
       <BottomNavigation
         profileHref={`/profile/${VIEWER_ID}`}
         isActive={(href) => href === "/"}
+        chatUnreadCount={2}
       />
       <Toast message={toastMessage} action={toastAction} onDismiss={dismissToast} />
     </>

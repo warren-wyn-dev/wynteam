@@ -24,7 +24,9 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(home).toContain(".wyn-home-header {\n  height: 56px;");
   expect(home).toContain("padding-top: min(env(safe-area-inset-top), 20px);");
   expect(home).toContain(".wyn-home-chat-badge");
-  expect(home).toContain("width: 7px");
+  // Founder 2026-09-26: the bell shows the unread count, not a bare dot.
+  expect(home).toContain("min-width: 17px");
+  expect(homeHeader).toContain('notificationBadgeCount > 9 ? "9+" : notificationBadgeCount');
   expect(homeHeader).toContain("notificationBadgeCount > 0");
   expect(homeHeader).toContain("aria-hidden=\"true\"");
   expect(homeTabs).toContain("wyn-home-tab-indicator");

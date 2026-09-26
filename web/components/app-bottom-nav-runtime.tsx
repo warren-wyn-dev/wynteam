@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import { useLayoutEffect, useSyncExternalStore } from "react";
 
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { useUnreadChatCount } from "@/lib/chat-unread-count";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type BottomNavState = {
   visible: boolean;
@@ -53,6 +55,8 @@ export function usePublishBottomNav(visible: boolean, userId: string, notificati
 export function AppBottomNavHost() {
   const navState = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const pathname = usePathname();
+  const userId = navState?.userId ?? "";
+  const chatUnreadCount = useUnreadChatCount(userId ? getSupabaseBrowserClient() : null, userId, pathname);
   if (!navState?.visible || !navState.userId) return null;
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
@@ -61,6 +65,7 @@ export function AppBottomNavHost() {
     <BottomNavigation
       profileHref={`/profile/${navState.userId}`}
       isActive={isActive}
+      chatUnreadCount={chatUnreadCount}
     />
   );
 }
