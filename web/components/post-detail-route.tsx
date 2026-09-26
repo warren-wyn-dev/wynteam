@@ -34,6 +34,7 @@ import {
   type HomeViewerState,
 } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
+import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchDropById } from "@/lib/phase3-data";
 import { shareOrCopyLink } from "@/lib/share";
@@ -306,13 +307,21 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
 
   const undoSave = async () => {
     if (!getRecentDropEngagement(userId, row.id).some((change) => change.kind === "save" && change.active)) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "save");
+    if (!releaseMutation) return;
+    try {
     patchSet("savedDropIds", false);
     publishDropEngagement({ userId, dropId: row.id, kind: "save", active: false, source });
     try { await toggleDropSave(client, userId, row.id, true); }
     catch { publishDropEngagement({ userId, dropId: row.id, kind: "save", active: true, source }); showToast("เลิกทำไม่สำเร็จ"); void load(); }
+    } finally { releaseMutation(); }
   };
-
   const interact = async (kind: "like" | "save" | "redrop") => {
+        if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, kind);
+    if (!releaseMutation) return;
+    try {
     const previouslyActive = kind === "like" ? liked : kind === "save" ? saved : redropped;
     const previousCount = kind === "like" ? (row.like_count ?? 0) : kind === "redrop" ? (row.redrop_count ?? 0) : undefined;
     const nextCount = previousCount === undefined ? undefined : Math.max(0, previousCount + (previouslyActive ? -1 : 1));
@@ -335,8 +344,8 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       showToast("อัปเดตกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง");
       void load();
     }
+    } finally { releaseMutation(); }
   };
-
   const share = async () => {
     const url = `${window.location.origin}/drop/${row.id}`;
     await shareOrCopyLink({ title: `โพสต์โดย ${authorLabel(row)}`, text: row.caption ?? "WYNOS", url }, showToast);
