@@ -1,0 +1,53 @@
+name: WYNOS Security Views -- Founder manual release
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "One reviewed migration at a time, in listed order"
+        required: true
+        type: choice
+        options:
+          - WYN188
+          - WYN189
+          - WYN190
+      dry_run:
+        description: "True = read-only preflight; false = apply production DDL"
+        required: true
+        default: true
+        type: boolean
+      project_ref:
+        description: "Type the exact Supabase project ref shown in your Dashboard"
+        required: true
+        type: string
+      confirmation:
+        description: "For live apply, type APPLY-WYN188 / APPLY-WYN189 / APPLY-WYN190"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wynos-production-security-view-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      STAGE: ${{ inputs.stage }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      PROJECT_REF_CONFIRM: ${{ inputs.project_ref }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate rollout script syntax
+        run: bash -n .github/scripts/apply-wynos-security-views.sh
+      - name: Confirm target and check/apply only selected stage
+        run: bash .github/scripts/apply-wynos-security-views.sh

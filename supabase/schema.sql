@@ -17730,5 +17730,181 @@ $$;
 revoke all on function public.get_quote_engagement(uuid[]) from public,anon;
 grant execute on function public.get_quote_engagement(uuid[]) to authenticated;
 
+-- BEGIN combined WYN-188/189/190 security-view hardening; each independently gated.
+-- === Staged migration WYN-188 ===
+-- WYN-188: moderator-history invoker authorization.
+-- The moderation_actions staff-only SELECT RLS plus authenticated profiles
+-- SELECT support this view without any new raw report or affinity grants.
+-- See the separate preflighted migration for updates to an existing database.
+alter view public.admin_user_moderation_history set (security_invoker = true);
+
+-- === Staged migration WYN-189 ===
+-- WYN-189: Preserve admin audit visibility while moving its API-facing view
+-- to invoker permissions. Raw audit_log deliberately retains zero client-side
+-- SELECT policies, so even staff cannot query it directly through Data API.
+-- Instead, only this projection uses a narrowly authorized SECURITY DEFINER
+-- function in the non-exposed internal schema, returning exactly the existing
+-- seven public.admin_audit_log columns. Production rollout requires approval.
+--
+-- Rollback, preserving raw audit_log privacy:
+--   ALTER VIEW public.admin_audit_log SET (security_invoker=false);
+--   CREATE OR REPLACE VIEW public.admin_audit_log AS SELECT id,actor_id,
+--     actor_username_snapshot,event_type,target_id,detail,created_at
+--     FROM public.audit_log
+--     WHERE internal.current_platform_role() <> 'user';
+--   DROP FUNCTION internal.wyn189_staff_audit_rows();
+--
+DO $preflight$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class
+    WHERE oid='public.audit_log'::regclass AND relrowsecurity
+  ) OR EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='audit_log'
+      AND cmd IN ('SELECT','ALL')
+  ) OR NOT has_schema_privilege('authenticated','internal','USAGE')
+  THEN
+    RAISE EXCEPTION 'WYN-189: protected audit_log / internal usage precondition changed';
+  END IF;
+END
+$preflight$;
+
+CREATE OR REPLACE FUNCTION internal.wyn189_staff_audit_rows()
+RETURNS TABLE (
+  id uuid,
+  actor_id uuid,
+  actor_username_snapshot text,
+  event_type text,
+  target_id uuid,
+  detail jsonb,
+  created_at timestamptz
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $projection$
+  SELECT a.id,a.actor_id,a.actor_username_snapshot,a.event_type,
+    a.target_id,a.detail,a.created_at
+  FROM public.audit_log AS a
+  WHERE internal.current_platform_role() IN ('moderator','admin')
+$projection$;
+
+REVOKE ALL ON FUNCTION internal.wyn189_staff_audit_rows()
+  FROM public,anon,authenticated;
+GRANT EXECUTE ON FUNCTION internal.wyn189_staff_audit_rows() TO authenticated;
+
+CREATE OR REPLACE VIEW public.admin_audit_log
+WITH (security_invoker=true)
+AS
+SELECT id,actor_id,actor_username_snapshot,event_type,target_id,detail,created_at
+FROM internal.wyn189_staff_audit_rows();
+
+REVOKE ALL ON TABLE public.admin_audit_log FROM public,anon,authenticated;
+GRANT SELECT ON TABLE public.admin_audit_log TO authenticated;
+
+-- === Staged migration WYN-190 ===
+-- WYN-190 staged hardening of the two remaining privileged API views.
+-- Do not broaden client SELECT on raw reports or user_affinities: those
+-- existing barriers protect reporter anonymity and private learning signals.
+-- Keep a scoped, audited SECURITY DEFINER read helper in the internal schema;
+-- its output is the original view's exact safe column projection, checked
+-- against auth.uid() or a trusted, non-user platform role.
+-- Only the OUTER public API views switch to security_invoker=true.
+--
+-- Rollback (after independent incident review):
+--   CREATE OR REPLACE VIEW public.moderation_queue
+--     WITH (security_invoker=false) AS
+--     SELECT id,target_type,target_id,category,detail,status,created_at
+--     FROM public.reports
+--     WHERE internal.current_platform_role() <> 'user';
+--   CREATE OR REPLACE VIEW public.my_effective_affinities
+--     WITH (security_invoker=false,security_barrier=true) AS
+--     SELECT dimension_type,dimension_key,
+--       tanh((0.65*recent_score*power(0.5,extract(epoch FROM
+--         (now()-updated_at))/3600.0/168.0)
+--       +0.35*long_term_score*power(0.5,extract(epoch FROM
+--         (now()-updated_at))/3600.0/2160.0))/10.0) AS effective_score,
+--       personalization_version,updated_at
+--     FROM public.user_affinities WHERE user_id=auth.uid();
+--   DROP FUNCTION internal.wyn190_staff_report_rows();
+--   DROP FUNCTION internal.wyn190_my_affinity_rows();
+DO $preflight$
+BEGIN
+  IF NOT has_schema_privilege('authenticated','internal','USAGE')
+     OR NOT EXISTS (
+       SELECT 1 FROM pg_class
+       WHERE oid='public.reports'::regclass AND relrowsecurity
+     )
+     OR NOT EXISTS (
+       SELECT 1 FROM pg_policies
+       WHERE schemaname='public' AND tablename='reports'
+         AND cmd='SELECT' AND position('reporter_id' IN qual)>0
+     )
+     OR NOT EXISTS (
+       SELECT 1 FROM pg_class
+       WHERE oid='public.user_affinities'::regclass AND relrowsecurity
+     )
+     OR has_table_privilege('authenticated','public.user_affinities','SELECT')
+  THEN
+    RAISE EXCEPTION 'WYN-190: raw-data privacy preconditions changed; refusing migration';
+  END IF;
+END
+$preflight$;
+
+CREATE OR REPLACE FUNCTION internal.wyn190_staff_report_rows()
+RETURNS TABLE (
+  id uuid,target_type text,target_id uuid,category text,
+  detail text,status text,created_at timestamptz
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $reports$
+  SELECT r.id,r.target_type,r.target_id,r.category,
+         r.detail,r.status,r.created_at
+  FROM public.reports AS r
+  WHERE internal.current_platform_role() <> 'user'
+$reports$;
+REVOKE ALL ON FUNCTION internal.wyn190_staff_report_rows()
+  FROM public,anon,authenticated;
+GRANT EXECUTE ON FUNCTION internal.wyn190_staff_report_rows() TO authenticated;
+
+CREATE OR REPLACE FUNCTION internal.wyn190_my_affinity_rows()
+RETURNS TABLE (
+  dimension_type text,dimension_key text,effective_score double precision,
+  personalization_version integer,updated_at timestamptz
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $affinities$
+  SELECT a.dimension_type,a.dimension_key,
+    tanh((
+      0.65*a.recent_score*power(0.5,
+        extract(epoch FROM (now()-a.updated_at))/3600.0/168.0)
+      +0.35*a.long_term_score*power(0.5,
+        extract(epoch FROM (now()-a.updated_at))/3600.0/2160.0)
+    )/10.0)::double precision AS effective_score,
+    a.personalization_version,a.updated_at
+  FROM public.user_affinities AS a
+  WHERE a.user_id=auth.uid()
+$affinities$;
+REVOKE ALL ON FUNCTION internal.wyn190_my_affinity_rows()
+  FROM public,anon,authenticated;
+GRANT EXECUTE ON FUNCTION internal.wyn190_my_affinity_rows() TO authenticated;
+
+CREATE OR REPLACE VIEW public.moderation_queue
+WITH (security_invoker=true)
+AS SELECT id,target_type,target_id,category,detail,status,created_at
+FROM internal.wyn190_staff_report_rows();
+
+CREATE OR REPLACE VIEW public.my_effective_affinities
+WITH (security_barrier=true,security_invoker=true)
+AS SELECT dimension_type,dimension_key,effective_score,
+          personalization_version,updated_at
+FROM internal.wyn190_my_affinity_rows();
+
+REVOKE ALL ON TABLE public.moderation_queue,public.my_effective_affinities
+  FROM public,anon,authenticated;
+GRANT SELECT ON TABLE public.moderation_queue,public.my_effective_affinities
+  TO authenticated;
+
+-- END combined view hardening
+
 commit;
 
