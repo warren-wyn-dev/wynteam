@@ -308,14 +308,6 @@ function ClubPostCard({
     const url = `${window.location.origin}/club-post/${post.id}`;
     await shareOrCopyLink({ title: author, text: post.content || "WYNOS Club", url }, showToast);
   };
-  const undoLike = async () => {
-    const last = getRecentClubLike(userId, post.id);
-    if (!last?.liked) return;
-    setPost((current) => ({ ...current, liked_by_me: false, like_count: Math.max(0, current.like_count - 1) }));
-    publishClubLike({ userId, postId: post.id, liked: false, count: Math.max(0, last.count - 1), source });
-    try { await toggleClubPostLike(client, userId, post.id, true); }
-    catch { publishClubLike(last); setPost((current) => ({ ...current, liked_by_me: true, like_count: last.count })); showToast("เลิกทำไม่สำเร็จ"); }
-  };
   const like = async () => {
     if (busy) return;
     if (!post.liked_by_me) haptic();
@@ -325,7 +317,6 @@ function ClubPostCard({
     publishClubLike({ userId, postId: post.id, liked: !post.liked_by_me, count, source });
     try {
       await toggleClubPostLike(client, userId, post.id, post.liked_by_me);
-      if (!post.liked_by_me) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoLike() });
     } catch {
       publishClubLike({ userId, postId: post.id, liked: previous.liked_by_me, count: previous.like_count, source });
       setPost(previous);

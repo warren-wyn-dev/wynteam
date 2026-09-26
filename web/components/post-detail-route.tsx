@@ -304,16 +304,6 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     return { ...current, [key]: next };
   });
 
-  const undoLike = async () => {
-    const last = getRecentDropEngagement(userId, row.id).find((change) => change.kind === "like");
-    if (!last?.active) return;
-    patchSet("likedDropIds", false);
-    setRow((current) => current ? { ...current, like_count: Math.max(0, (current.like_count ?? 0) - 1) } : current);
-    publishDropEngagement({ userId, dropId: row.id, kind: "like", active: false, count: Math.max(0, (last.count ?? row.like_count ?? 0) - 1), source });
-    try { await toggleDropLike(client, userId, row.id, true); }
-    catch { publishDropEngagement(last); showToast("เลิกทำไม่สำเร็จ"); void load(); }
-  };
-
   const undoSave = async () => {
     if (!getRecentDropEngagement(userId, row.id).some((change) => change.kind === "save" && change.active)) return;
     patchSet("savedDropIds", false);
@@ -336,7 +326,6 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       if (kind === "like") await toggleDropLike(client, userId, row.id, previouslyActive);
       if (kind === "save") await toggleDropSave(client, userId, row.id, previouslyActive);
       if (kind === "redrop") await toggleDropRedrop(client, userId, row.id, previouslyActive);
-      if (kind === "like" && !previouslyActive) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoLike() });
       if (kind === "save") {
         if (!previouslyActive) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoSave() });
         else showToast("นำออกจากรายการที่บันทึกแล้ว");

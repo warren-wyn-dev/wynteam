@@ -248,17 +248,6 @@ export function GoldenDropCard({
     }
   };
 
-  const undoLike = async () => {
-    if (!client || !userId) return;
-    const current = getRecentDropEngagement(userId, row.id).find((item) => item.kind === "like");
-    if (!current?.active) return;
-    patchViewer("likedDropIds", false);
-    setLikeCount((count) => Math.max(0, count - 1));
-    publishDropEngagement({ userId, dropId: row.id, kind: "like", active: false, count: Math.max(0, (current.count ?? likeCount) - 1), source });
-    try { await toggleDropLike(client, userId, row.id, true); }
-    catch { publishDropEngagement(current); void reloadViewer(userId); showToast("เลิกทำไม่สำเร็จ"); }
-  };
-
   const like = async () => {
     if (!client || !viewer || !userId || busy) return;
     if (!liked) haptic();
@@ -267,7 +256,6 @@ export function GoldenDropCard({
     publishDropEngagement({ userId, dropId: row.id, kind: "like", active: !liked, count: Math.max(0, likeCount + (liked ? -1 : 1)), source });
     try {
       await toggleDropLike(client, userId, row.id, liked);
-      if (!liked) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoLike() });
     } catch {
       publishDropEngagement({ userId, dropId: row.id, kind: "like", active: liked, count: likeCount, source });
       setLikeCount(likeCount);
