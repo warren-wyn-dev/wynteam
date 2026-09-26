@@ -10,7 +10,7 @@ import { GoogleGlyph } from "@/components/auth-flow/screens";
 import { useSignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
-import { beginPendingAddAccount, clearPendingAddAccount, getPendingAddAccountSlot, validAddAccountSlot } from "@/lib/pending-account-add";
+import { beginPendingAddAccount, clearPendingAddAccount, getPendingAddAccountSlot, hasAddAccountIntent, validAddAccountSlot } from "@/lib/pending-account-add";
 import {
   MAX_SAVED_ACCOUNTS,
   createAccountStorageKey,
@@ -196,10 +196,24 @@ export function AccountAddRoute() {
     };
   }, [client, finish]);
 
+  useEffect(() => {
+    // Safari can restore an interrupted Google redirect from the back/forward
+    // cache without remounting React. Do not leave the original "Connecting
+    // Google" button disabled forever after the user cancels at Google.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      googlePwaPending.current = false;
+      setGoogleLoading(false);
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   function cancel() {
-    if (getPendingAddAccountSlot() === storageKey) {
+    const activePending = getPendingAddAccountSlot();
+    if (activePending === storageKey || (!activePending && hasAddAccountIntent())) {
       setDraft({ username: "", displayName: "", birthDate: "", email: "", password: "", confirmPassword: "" });
-      clearPendingAddAccount(storageKey);
+      clearPendingAddAccount();
     }
     if (getActiveAccountStorageKey() !== storageKey
         && !listSavedAccounts().some((item) => item.storageKey === storageKey)) {
