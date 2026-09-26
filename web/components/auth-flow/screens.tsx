@@ -223,7 +223,7 @@ export function WelcomeScreen() {
       }
       if (result.data.session) {
         const path = await resolvePostAuthPath(supabase);
-        if (mounted) router.replace(path);
+        if (mounted) window.location.replace(path);
         return;
       }
       setBooting(false);
@@ -255,7 +255,7 @@ export function WelcomeScreen() {
           if (!mounted) return;
           if (!authError && data.session) {
             googlePwaPending.current = false;
-            router.replace(await resolvePostAuthPath(supabase));
+            window.location.replace(await resolvePostAuthPath(supabase));
             return;
           }
           await new Promise((resolve) => window.setTimeout(resolve, 350));
@@ -892,7 +892,9 @@ export function LoginScreen() {
       }
       await signInWithEmail(supabase, email, password);
       const path = await resolvePostAuthPath(supabase);
-      router.push(path);
+      // Recreate the QueryClient and auth singleton after this new login;
+      // soft navigation could revive a previous user's in-memory snapshot.
+      window.location.replace(path);
     } catch (err) {
       const code = (err as { code?: string })?.code;
       setError(code === "email_not_confirmed" ? "บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณากดลิงก์ยืนยันในอีเมลก่อนเข้าสู่ระบบ" : "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
