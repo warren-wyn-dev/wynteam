@@ -23,6 +23,7 @@ import {
   type ClubHomePost,
 } from "@/lib/home-parity-data";
 import { haptic } from "@/lib/haptics";
+import { reportClientFailure } from "@/lib/client-health";
 import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { getRecentClubLike, listenClubLike, publishClubLike } from "@/lib/club-engagement-sync";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
@@ -325,6 +326,7 @@ function ClubPostCard({
     } catch {
       publishClubLike({ userId, postId: post.id, liked: previous.liked_by_me, count: previous.like_count, source });
       setPost(previous);
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
     } finally { releaseMutation(); }
@@ -354,7 +356,8 @@ function ClubPostCard({
       await toggleClubPostSave(client, userId, post.id, post.saved_by_me);
       if (!post.saved_by_me) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoSave() });
       else showToast("นำออกจากรายการที่บันทึกแล้ว");
-    } catch { setPost(previous); showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); }
+    } catch { setPost(previous); if (!definitelyOffline()) reportClientFailure("social_write");
+      showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); }
     setMenu(false);
     } finally { releaseMutation(); }
   };
