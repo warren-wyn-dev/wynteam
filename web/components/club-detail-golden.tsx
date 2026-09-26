@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { AnimatedCount } from "@/components/ui/animated-count";
 import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
@@ -345,8 +346,8 @@ function ClubPostCard({
         {post.poll_id ? <ClubPoll post={post} onVote={vote} /> : null}
         {post.link_url ? <a className="golden-club-link" href={post.link_url} target="_blank" rel="noreferrer"><WynosIcon name="link" size={16} strokeWidth={2} /><span>{post.link_url}</span></a> : null}
         <div className="golden-club-actions">
-          <button className={post.liked_by_me ? "liked" : ""} type="button" onClick={() => void like()}><WynosIcon name="like" size={17} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} />{post.like_count > 0 ? <span>{post.like_count}</span> : null}</button>
-          <Link href={`/club-post/${post.id}`}><WynosIcon name="comment" size={17} strokeWidth={2} />{post.comment_count > 0 ? <span>{post.comment_count}</span> : null}</Link>
+          <button className={post.liked_by_me ? "liked" : ""} type="button" onClick={() => void like()}><WynosIcon name="like" size={17} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} />{post.like_count > 0 ? <AnimatedCount value={post.like_count} /> : null}</button>
+          <Link href={`/club-post/${post.id}`}><WynosIcon name="comment" size={17} strokeWidth={2} />{post.comment_count > 0 ? <AnimatedCount value={post.comment_count} /> : null}</Link>
         </div>
       </div>
       {menu ? (
