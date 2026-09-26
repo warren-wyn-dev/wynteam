@@ -17,7 +17,7 @@ import {
   registerCurrentAccount,
   registerSessionAccount,
 } from "@/lib/account-registry";
-import { clearPendingAddAccount, getPendingAddAccountSlot, hasAddAccountIntent } from "@/lib/pending-account-add";
+import { clearPendingAddAccount, getPendingAddAccountSlotForTab, hasAddAccountIntent } from "@/lib/pending-account-add";
 import { hasActivePushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
@@ -578,7 +578,7 @@ export function SignupStep1Screen() {
   return (
     <AuthPhone>
       <BackTopbar href="/welcome" step="1/2" onBack={() => {
-        const pending = getPendingAddAccountSlot();
+        const pending = getPendingAddAccountSlotForTab();
         router.push(pending ? `/account/add?slot=${encodeURIComponent(pending)}` : "/welcome");
       }} />
       <div ref={fieldsRef} style={{ padding: "16px 20px", flex: 1 }}>
@@ -724,7 +724,7 @@ export function SignupStep2Screen() {
         setError("ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาย้อนกลับไปเปลี่ยนชื่อผู้ใช้");
         return;
       }
-      const pendingSlot = getPendingAddAccountSlot();
+      const pendingSlot = getPendingAddAccountSlotForTab();
       const confirmationUrl = pendingSlot
         ? `${window.location.origin}/auth/callback?slot=${encodeURIComponent(pendingSlot)}`
         : undefined;
@@ -772,7 +772,7 @@ export function SignupStep2Screen() {
     return (
       <AuthPhone>
         <BackTopbar href="/login" onBack={() => {
-          router.push(getPendingAddAccountSlot() ? "/account/add?stage=login" : "/login");
+          router.push(getPendingAddAccountSlotForTab() ? "/account/add?stage=login" : "/login");
         }} />
         <div style={{ padding: "32px 20px", flex: 1 }} role="status">
           <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>ตรวจสอบอีเมลของคุณ</h1>
@@ -780,7 +780,7 @@ export function SignupStep2Screen() {
             หากสมัครสำเร็จ เราได้ส่งลิงก์ยืนยันไปที่ {awaitingConfirmation} แล้ว
             กรุณากดลิงก์บนอุปกรณ์นี้เพื่อกลับมาตั้งค่าโปรไฟล์ให้เสร็จ
           </p>
-          <Button className="btn-primary" onClick={() => router.push(getPendingAddAccountSlot() ? "/account/add?stage=login" : "/login")} style={{ marginTop: 20 }}>ไปหน้าเข้าสู่ระบบ</Button>
+          <Button className="btn-primary" onClick={() => router.push(getPendingAddAccountSlotForTab() ? "/account/add?stage=login" : "/login")} style={{ marginTop: 20 }}>ไปหน้าเข้าสู่ระบบ</Button>
         </div>
       </AuthPhone>
     );
@@ -802,7 +802,7 @@ export function SignupStep2Screen() {
         <Button className="btn-primary" disabled={loading || !canInput} onClick={() => void createAccount()} style={{ marginTop: 10 }}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี"}</Button>
         <ErrorText>{error}</ErrorText>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
-          มีบัญชีอยู่แล้ว? <b onClick={() => router.push(getPendingAddAccountSlot() ? "/account/add?stage=login" : "/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>
+          มีบัญชีอยู่แล้ว? <b onClick={() => router.push(getPendingAddAccountSlotForTab() ? "/account/add?stage=login" : "/login")} style={{ color: "var(--text-primary)", cursor: "pointer" }}>เข้าสู่ระบบ</b>
         </p>
       </div>
     </AuthPhone>
@@ -857,7 +857,7 @@ export function OnboardingProfileScreen() {
       if (!skipAvatar && croppedAvatar) await uploadProfileImage(supabase, data.user.id, "avatar", croppedAvatar);
       if (bio.trim()) await saveOptionalProfile(supabase, data.user.id, { bio: bio.trim() });
       await completeOnboarding(supabase, data.user.id);
-      const pendingSlot = getPendingAddAccountSlot();
+      const pendingSlot = getPendingAddAccountSlotForTab();
       if (pendingSlot) {
         // Complete a newly created secondary account without replacing the
         // original account's session or Push registration until this succeeds.
