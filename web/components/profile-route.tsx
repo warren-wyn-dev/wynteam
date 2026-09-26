@@ -20,11 +20,13 @@ import { Toast, useToast } from "@/components/ui/toast";
 import {
   MAX_SAVED_ACCOUNTS,
   activateSavedAccount,
+  getActiveAccountStorageKey,
   listSavedAccounts,
   registerCurrentAccount,
   removeSavedAccount,
   type SavedAccount,
 } from "@/lib/account-registry";
+import { checkSavedAccountSession } from "@/lib/account-switch-session";
 import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
 import type { HomeFeedRow } from "@/lib/feed";
 import { fetchProfileLikedContent, fetchProfilePostTimeline, fetchProfileStandardReposts, PROFILE_POST_PAGE_SIZE, PROFILE_REPOST_PAGE_SIZE } from "@/lib/profile-post-feed";
@@ -363,6 +365,7 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [managingAccounts, setManagingAccounts] = useState(false);
   const [accountSwitcherError, setAccountSwitcherError] = useState("");
+  const accountOperationInFlight = useRef(false);
   const own = profileId === userId;
   const showBack = !own || !fromTab;
   const { toastMessage, showToast } = useToast();
@@ -436,7 +439,9 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
     setAccountSwitcherError("");
     setSavedAccounts(listSavedAccounts());
     setAccountSwitcherOpen(true);
-    void registerCurrentAccount(client).then(() => setSavedAccounts(listSavedAccounts()));
+    void registerCurrentAccount(client)
+      .then(() => setSavedAccounts(listSavedAccounts()))
+      .catch(() => setAccountSwitcherError("โหลดบัญชีปัจจุบันไม่สำเร็จ กรุณาลองใหม่"));
   };
   // Never let the same FCM device token keep delivering account A's
   // private notifications after account B becomes active. Detach while A's
@@ -446,42 +451,84 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
     return unsubscribeFromPushNotifications(client);
   };
   const switchToAccount = async (account: SavedAccount) => {
-    if (action || account.userId === userId) { setAccountSwitcherOpen(false); return; }
+    if (account.userId === userId) { setAccountSwitcherOpen(false); return; }
+    if (action || accountOperationInFlight.current) return;
+    accountOperationInFlight.current = true;
     setAction(true);
     setAccountSwitcherError("");
-    if (!(await detachPushBeforeAccountChange())) {
-      setAction(false);
-      setAccountSwitcherError("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณาต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
-      return;
+    let navigating = false;
+    try {
+      const previousStorageKey = getActiveAccountStorageKey();
+      // A stale registry entry must never replace the working account with
+      // an invalid or another user's persisted session.
+      const check = await checkSavedAccountSession(account);
+      if (!check.ok) {
+        const messages = {
+          missing: "ไม่พบเซสชันบัญชีนี้ กรุณานำออกแล้วเพิ่มบัญชีอีกครั้ง",
+          mismatch: "เซสชันไม่ตรงกับบัญชีที่เลือก กรุณานำออกแล้วเพิ่มบัญชีใหม่",
+          expired: "เซสชันบัญชีนี้หมดอายุ กรุณานำออกแล้วเข้าสู่ระบบใหม่",
+          network: "ตรวจสอบบัญชีไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง",
+          unavailable: "ไม่สามารถตรวจสอบบัญชีได้ กรุณาลองใหม่",
+        };
+        setAccountSwitcherError(messages[check.reason]);
+        return;
+      }
+      if (getActiveAccountStorageKey() !== previousStorageKey) {
+        setAccountSwitcherError("บัญชีถูกเปลี่ยนในแท็บอื่นแล้ว กรุณาเปิดหน้านี้ใหม่");
+        return;
+      }
+      // Keep the strict privacy gate: never activate B while A can still
+      // receive A's Push notifications on the same browser subscription.
+      if (!(await detachPushBeforeAccountChange())) {
+        setAccountSwitcherError("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณาต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
+        return;
+      }
+      if (getActiveAccountStorageKey() !== previousStorageKey) {
+        setAccountSwitcherError("บัญชีถูกเปลี่ยนในแท็บอื่นแล้ว กรุณาเปิดหน้านี้ใหม่");
+        return;
+      }
+      if (!activateSavedAccount(account.userId)) {
+        setAccountSwitcherError("สลับบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง");
+        return;
+      }
+      window.location.assign("/");
+      navigating = true;
+    } catch {
+      setAccountSwitcherError("สลับบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง");
+    } finally {
+      if (!navigating) {
+        accountOperationInFlight.current = false;
+        setAction(false);
+      }
     }
-    if (!activateSavedAccount(account.userId)) {
-      setAction(false);
-      setAccountSwitcherError("สลับบัญชีไม่สำเร็จ");
-      return;
-    }
-    window.location.assign("/");
   };
   const addAnotherAccount = async () => {
-    if (action) return;
-    setAccountSwitcherError("");
-    await registerCurrentAccount(client);
-    const accounts = listSavedAccounts();
-    setSavedAccounts(accounts);
-    if (accounts.length >= MAX_SAVED_ACCOUNTS) {
-      setAccountSwitcherError(`บันทึกได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชีบนอุปกรณ์นี้`);
-      return;
-    }
+    if (action || accountOperationInFlight.current) return;
+    accountOperationInFlight.current = true;
     setAction(true);
-    if (!(await detachPushBeforeAccountChange())) {
+    setAccountSwitcherError("");
+    try {
+      await registerCurrentAccount(client);
+      const accounts = listSavedAccounts();
+      setSavedAccounts(accounts);
+      if (accounts.length >= MAX_SAVED_ACCOUNTS) {
+        setAccountSwitcherError(`บันทึกได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชีบนอุปกรณ์นี้`);
+        return;
+      }
+      // Do NOT detach A's Push merely to visit Add Account. If the user
+      // cancels, A is still active. AccountAddRoute detaches once, after B
+      // authenticates and immediately before its storage slot is activated.
+      setAccountSwitcherOpen(false);
+      router.push("/account/add");
+    } catch {
+      setAccountSwitcherError("เปิดหน้าเพิ่มบัญชีไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      accountOperationInFlight.current = false;
       setAction(false);
-      setAccountSwitcherError("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณาต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
-      return;
     }
-    setAccountSwitcherOpen(false);
-    router.push("/account/add");
   };
   const removeAccountFromSwitcher = (account: SavedAccount) => {
-    if (account.userId === userId) return;
+    if (account.userId === userId || accountOperationInFlight.current) return;
     removeSavedAccount(account.userId);
     setSavedAccounts(listSavedAccounts());
   };
@@ -585,7 +632,7 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
     {!own && !summary.blockedBy ? <ProfileRecommendations client={client} userId={userId} viewedProfileId={profileId} /> : null}
     {!summary.blockedBy ? <><div className="route-tabs wyn-profile-tabs"><button type="button" className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}>โพสต์</button><button type="button" className={tab === "redrops" ? "active" : ""} onClick={() => setTab("redrops")}>รีโพสต์</button><button type="button" className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}>ถูกใจ</button></div><div style={slideStyle} onTouchStart={onTabSwipeStart} onTouchMove={onTabSwipeMove} onTouchEnd={onTabSwipeEnd} onTouchCancel={onTabSwipeCancel}><ProfileFeed key={`${profileId}:${tab}`} client={client} profileId={profileId} viewerId={userId} kind={tab} /></div></> : null}
     </div>
-    {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <WynosIcon name="checkCircle" size={21} strokeWidth={2} /> : managingAccounts ? <button className="profile-account-remove" type="button" onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
+    {accountSwitcherOpen ? <div className="route-modal-backdrop profile-account-switcher-backdrop" role="presentation" onClick={() => setAccountSwitcherOpen(false)}><section className="route-modal profile-account-switcher-sheet" role="dialog" aria-modal="true" aria-label="สลับบัญชี" onClick={(e) => e.stopPropagation()}><header><div><strong>สลับบัญชี</strong><small>{savedAccounts.length}/{MAX_SAVED_ACCOUNTS} บัญชี</small></div><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setAccountSwitcherOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header><div className="profile-account-list">{savedAccounts.map((account) => <div className={`profile-account-row ${account.userId === userId ? "is-current" : ""}`} key={account.userId}><button className="profile-account-select" type="button" disabled={action || managingAccounts} onClick={() => switchToAccount(account)}><Avatar src={account.avatarUrl} label={account.username} size={44} /><span><strong>{account.displayName?.trim() || account.username}</strong><small>@{account.username}</small></span></button>{account.userId === userId ? <WynosIcon name="checkCircle" size={21} strokeWidth={2} /> : managingAccounts ? <button className="profile-account-remove" type="button" disabled={action} onClick={() => removeAccountFromSwitcher(account)}>นำออก</button> : null}</div>)}</div>{accountSwitcherError ? <p className="profile-account-error">{accountSwitcherError}</p> : null}<div className="profile-account-switcher-actions"><button className="profile-account-use-other" type="button" disabled={action} onClick={() => void addAnotherAccount()}>เข้าสู่ระบบบัญชีอื่น</button><button className="profile-account-manage" type="button" disabled={action || savedAccounts.length <= 1} onClick={() => setManagingAccounts((value) => !value)}>{managingAccounts ? "เสร็จ" : "จัดการบัญชี"}</button></div></section></div> : null}
     {moreOpen ? <div className="route-modal-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal profile-more-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>ตัวเลือกโปรไฟล์</strong><button className="route-icon-button" type="button" aria-label="ปิด" onClick={() => setMoreOpen(false)}><WynosIcon name="close" size={20} strokeWidth={2} /></button></header>{own ? <><button type="button" onClick={() => { setMoreOpen(false); openAccountSwitcher(); }}>สลับบัญชี</button><button type="button" onClick={() => { setMoreOpen(false); router.push("/settings"); }}>ตั้งค่า</button></> : null}<button type="button" onClick={() => { setMoreOpen(false); void share(); }}>แชร์โปรไฟล์</button>{!summary.blocked && !summary.blockedBy ? <button type="button" disabled={action} onClick={() => void toggleMute()}>{summary.muted ? "เปิดเสียง" : "ปิดเสียง"}</button> : null}{summary.blocked ? <button type="button" disabled={action} onClick={() => void unblock()}>ปลดบล็อก</button> : !summary.blockedBy ? <button className="danger" type="button" disabled={action} onClick={() => void block()}>บล็อก</button> : null}</section></div> : null}
     <Toast message={toastMessage} />
   </AppChrome>;
