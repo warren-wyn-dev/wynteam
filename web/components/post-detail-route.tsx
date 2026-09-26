@@ -34,6 +34,7 @@ import {
   type HomeViewerState,
 } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
+import { reportClientFailure } from "@/lib/client-health";
 import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchDropById } from "@/lib/phase3-data";
@@ -341,6 +342,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       }
     } catch {
       publishDropEngagement({ userId, dropId: row.id, kind, active: previouslyActive, count: previousCount, source });
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("อัปเดตกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง");
       void load();
     }
