@@ -1,6 +1,6 @@
 # Bug Report — WEB-B1-QA-04 (LOW) Upload buckets accept application/octet-stream with no content validation
 
-Status: open (non-blocking, LOW). Fix implemented (step 3) and awaiting production install and the spoof test
+Status: **resolved**. Live in production 2026-09-26 (PR #732, spoof test passed)
 Owner: AI Debug Engineer
 Found by: Codex review of PR #731 (Web Beta1 QA sign-off), verified by AI QA & Security 2026-09-26
 Bug: `supabase/migrations_web_beta1_storage_upload_limits.sql` limits `avatars`, `drop-images`,
@@ -62,3 +62,11 @@ design choice). Existing objects are not rescanned.
 
 Closure: this finding closes when the function is deployed, the triggers are created, and the
 `test` action passes on production.
+
+## Resolution (2026-09-26)
+- PR #732 merged at `e9d35e5`.
+- `deploy-edge-functions.yml` (validate-upload), run `36266920543`: success.
+- `storage-upload-validator.yml` `create`, run `36266962485`: both triggers installed on `storage.objects`.
+- `storage-upload-validator.yml` `test`, run `36266985757`: **PASS** on production. A text file uploaded to
+  `drop-images` as `image/jpeg` was removed, and a real PNG was kept. Both test objects were cleaned up.
+- Closure condition met: a spoofed allowed MIME type is rejected server-side.
