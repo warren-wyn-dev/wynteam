@@ -172,3 +172,15 @@ test("Settings always shows the Push row with a clear cause and keeps category t
   ]) assert.ok(source.includes(required), "Missing Push UX contract: " + required);
   assert.doesNotMatch(source, /\{pushAvailable \? <>/);
 });
+
+test("production deploy forwards PUBLIC Firebase config to build/runtime and checks Push readiness", () => {
+  const source = readFileSync(new URL("../../.github/workflows/wyn-158-production-deploy.yml", import.meta.url), "utf8");
+  for (const key of [
+    "NEXT_PUBLIC_FIREBASE_API_KEY", "NEXT_PUBLIC_FIREBASE_APP_ID",
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID", "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+    "NEXT_PUBLIC_FIREBASE_VAPID_KEY",
+  ]) assert.ok(source.includes(key), "Missing deployed public Firebase config: " + key);
+  assert.match(source, /firebase_args\[@\]/);
+  assert.match(source, /\/api\/push-config/);
+  assert.doesNotMatch(source, /FCM_SERVICE_ACCOUNT|FIREBASE_PRIVATE_KEY/);
+});
