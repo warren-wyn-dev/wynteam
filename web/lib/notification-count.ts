@@ -173,7 +173,16 @@ function start(client: SupabaseClient, userId: string): Runtime {
     }>).detail;
     if (detail?.recipientId && detail.recipientId !== userId) return;
     if (detail?.type === "new_message") return; // Chat owns DM unread
-    processHint(runtime, detail?.notificationId ? "new" : "sync", detail?.notificationId);
+    // A previously deployed Edge version did not include recipient_id in
+    // FCM data. A delayed Push for A must NEVER optimistically increment B
+    // after a switch. Without an explicit matching recipient, use it only
+    // as an RLS-protected refresh hint for the currently active account.
+    const recipientVerified = detail?.recipientId === userId;
+    processHint(
+      runtime,
+      recipientVerified && detail?.notificationId ? "new" : "sync",
+      recipientVerified ? detail?.notificationId : undefined,
+    );
   };
   window.addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onVisibility);
