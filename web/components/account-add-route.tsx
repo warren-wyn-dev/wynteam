@@ -89,9 +89,9 @@ export function AccountAddRoute() {
         return;
       }
       markAccountStorageActive(storageKey);
-      // Email and Google add-account flows follow the same landing rule:
-      // load the newly active session, then show its own Profile first.
-      window.location.replace("/profile/me");
+      // Skip the /profile/me client redirect after a successful email or
+      // Google add-account flow. The newly authenticated user is known here.
+      window.location.replace(`/profile/${encodeURIComponent(session.user.id)}?from=tab`);
       navigating = true;
     } catch {
       setMessage("เพิ่มบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");

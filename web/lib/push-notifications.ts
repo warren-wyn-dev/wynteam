@@ -26,14 +26,30 @@ async function loadFirebase() {
   return { getApps, initializeApp, ...messaging };
 }
 
-async function fetchPushConfig(): Promise<PushConfig | null> {
-  try {
-    const response = await fetch("/api/push-config");
-    if (!response.ok) return null;
-    return (await response.json()) as PushConfig;
-  } catch {
-    return null;
+// Reuse only a successful PUBLIC Firebase configuration briefly. Account
+// switching must still await the real server token deletion and FCM revoke;
+// caching config never treats an uncertain detach as successful.
+let cachedPushConfig: { until: number; promise: Promise<PushConfig | null> } | null = null;
+function fetchPushConfig(): Promise<PushConfig | null> {
+  if (cachedPushConfig && Date.now() < cachedPushConfig.until) {
+    return cachedPushConfig.promise;
   }
+  const promise = (async (): Promise<PushConfig | null> => {
+    try {
+      const response = await fetch("/api/push-config");
+      if (!response.ok) return null;
+      return (await response.json()) as PushConfig;
+    } catch {
+      return null;
+    }
+  })();
+  cachedPushConfig = { until: Date.now() + 60_000, promise };
+  void promise.then((config) => {
+    if (!config?.configured && cachedPushConfig?.promise === promise) {
+      cachedPushConfig = null; // Failure must never be cached past reconnect.
+    }
+  });
+  return promise;
 }
 
 function firebaseApp(fb: Awaited<ReturnType<typeof loadFirebase>>, config: PushConfig) {
@@ -149,11 +165,15 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
     }).catch(() => null);
     if (!token) return false;
 
-    const { error } = await client.from("push_tokens").delete().eq("token", token);
-    // Even if the DB delete failed (e.g. a stale account-owned row), try to
-    // invalidate this browser's FCM token to stop further delivery.
-    const revoked = await fb.deleteToken(messaging);
-    return !error && revoked;
+    // These revocations are independent once the token is known. Run them
+    // together instead of paying two serial network round trips, but wait
+    // for BOTH before allowing any account change (fail closed).
+    const [db, firebase] = await Promise.allSettled([
+      client.from("push_tokens").delete().eq("token", token),
+      fb.deleteToken(messaging),
+    ]);
+    return db.status === "fulfilled" && !db.value.error &&
+      firebase.status === "fulfilled" && firebase.value === true;
   } catch {
     return false;
   }
@@ -174,6 +194,21 @@ export async function hasActivePushSubscription(): Promise<boolean | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Warm the read-only Push configuration and Firebase JS while the switcher
+ * is visible. Never get/create a token, unsubscribe, or delete a DB record
+ * until the user selects a successfully verified destination.
+ */
+export function prewarmAccountSwitchPush(): void {
+  if (typeof navigator === "undefined" || typeof Notification === "undefined" ||
+      Notification.permission !== "granted") return;
+  void hasActivePushSubscription().then((active) => {
+    if (active !== true) return;
+    void fetchPushConfig();
+    void loadFirebase().catch(() => undefined);
+  }).catch(() => undefined);
 }
 
 /**
