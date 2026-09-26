@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { Avatar } from "@/components/phase3-ui";
+import { AnimatedCount } from "@/components/ui/animated-count";
 import { RichPostText } from "@/components/rich-post-text";
 import { relativeTimeTh } from "@/lib/feed";
 import type { ClubHomePost } from "@/lib/home-parity-data";
@@ -88,11 +89,11 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
             onClick={onLike}
           >
             <Heart size={20} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} />
-            {post.like_count > 0 ? <span className="wyn-action-button-count">{post.like_count}</span> : null}
+            <AnimatedCount className="wyn-action-button-count" value={post.like_count} hideZero />
           </button>
           <Link className="wyn-action-button" href={`/club-post/${post.id}`} aria-label="ความคิดเห็น">
             <MessageCircle size={20} strokeWidth={2} />
-            {post.comment_count > 0 ? <span className="wyn-action-button-count">{post.comment_count}</span> : null}
+            <AnimatedCount className="wyn-action-button-count" value={post.comment_count} hideZero />
           </Link>
         </div>
       </div>
