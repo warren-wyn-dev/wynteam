@@ -244,6 +244,9 @@ export function safeErrorMessage(err: unknown): string {
 export function buildDataPayload(row: NotificationRow): Record<string, string> {
   const data: Record<string, string> = { type: row.type };
   data.notification_id = row.id;
+  // The web badge only applies an optimistic +1 when the Push names the
+  // signed-in account; without it every Push is a slower refresh hint.
+  data.recipient_id = row.recipient_id;
   if (row.actor_id) data.actor_id = row.actor_id;
   if (row.drop_id) data.drop_id = row.drop_id;
   if (row.pop_id) data.pop_id = row.pop_id;
