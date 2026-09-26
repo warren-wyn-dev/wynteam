@@ -15,6 +15,7 @@ import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } 
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
 import { consumeReturnPath } from "@/lib/return-to";
+import { detectInAppBrowser, type InAppBrowser } from "@/lib/in-app-browser";
 import {
   EmailAlreadyRegisteredError,
   SignupPasswordTooShortError,
@@ -197,6 +198,8 @@ export function WelcomeScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const googlePwaPending = useRef(false);
+  // The server render has no user agent to match, so it reports none.
+  const inAppBrowser = useSyncExternalStore<InAppBrowser | null>(subscribeNever, () => detectInAppBrowser(navigator.userAgent), () => null);
   const supabase = getSupabaseBrowserClient();
 
   useEffect(() => {
@@ -395,6 +398,11 @@ export function WelcomeScreen() {
             </>
           ) : (
             <>
+              {inAppBrowser ? (
+                <p role="note" data-testid="in-app-browser-notice" style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-secondary)", background: "var(--surface-tint)", borderRadius: 12, padding: "10px 12px", margin: "0 0 12px", textAlign: "center" }}>
+                  กำลังเปิดในเบราว์เซอร์ของ {inAppBrowser} แตะเมนู ⋯ แล้วเลือก “เปิดในเบราว์เซอร์” (Safari/Chrome) เพื่อใช้บัญชีที่ล็อกอินไว้และเข้าสู่ระบบด้วย Google ได้
+                </p>
+              ) : null}
               <Button className="btn-primary" disabled={gate === "checking"} onClick={() => router.push("/signup/step-1")} style={{ marginBottom: 10 }}>สร้างบัญชีใหม่</Button>
               <Button className="btn-outline" variant="outline" onClick={() => router.push("/login")} style={{ marginBottom: 10 }}>เข้าสู่ระบบ</Button>
               <Button

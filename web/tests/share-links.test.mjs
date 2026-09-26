@@ -52,3 +52,36 @@ test("login wall, sign-in, onboarding and sign-out are wired to the return path"
   assert.match(auth, /hasProfile \? consumeReturnPath\(\) \?\? "\/" : "\/signup\/step-1"/);
   assert.match(auth, /router\.push\(consumeReturnPath\(\) \?\? "\/"\)/);
 });
+
+function loadInApp() {
+  const out = ts.transpileModule(read("../lib/in-app-browser.ts"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const mod = { exports: {} };
+  runInNewContext(out, { module: mod, exports: mod.exports });
+  return mod.exports;
+}
+
+test("in-app browsers of chat/social apps are recognised, real browsers and link-preview bots are not", () => {
+  const { detectInAppBrowser } = loadInApp();
+  const cases = {
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Safari Line/14.16.0": "LINE",
+    "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 Line/14.16.0/IAB": "LINE",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 [FBAN/FBIOS;FBAV/480.0]": "Facebook",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Instagram 350.0": "Instagram",
+    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36 musical_ly_2023 BytedanceWebview/d8a21c6": "TikTok",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1": null,
+    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36": null,
+    "facebookexternalhit/1.1;line-poker/1.0": null,
+  };
+  for (const [ua, expected] of Object.entries(cases)) assert.equal(detectInAppBrowser(ua), expected, ua);
+});
+
+test("LINE's browser is bounced to Safari/Chrome once, never on API, assets or the OAuth return", () => {
+  const config = read("../next.config.ts");
+  assert.match(config, /source: "\/:path\(\(\?!api\(\?:\/\|\$\)\|_next\/\|auth\(\?:\/\|\$\)\)\[\^\.\]\*\)"/);
+  assert.match(config, /value: "\.\* Line\/\.\*"/);
+  assert.match(config, /\{ type: "query", key: "openExternalBrowser" \}/);
+  assert.match(config, /\{ type: "query", key: "code" \}/);
+  assert.match(config, /destination: "\/:path\?openExternalBrowser=1",\n\s+permanent: false/);
+});

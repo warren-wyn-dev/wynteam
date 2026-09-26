@@ -43,3 +43,51 @@ test("routes without their own metadata never claim the home page URL", async ({
     expect(html, path).not.toContain('rel="canonical" href="https://wynos.online"');
   }
 });
+
+// LINE opens links in its own browser, which is never signed in to WYNOS and
+// where Google sign-in is refused. `openExternalBrowser=1` makes LINE hand
+// the page to Safari/Chrome.
+const LINE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Safari Line/14.16.0";
+
+test("a link opened inside LINE is sent on to Safari/Chrome, once", async ({ request }) => {
+  const get = (path: string) => request.get(path, { headers: { "user-agent": LINE_UA }, maxRedirects: 0 });
+  for (const [path, target] of [
+    ["/@warren", "/@warren?openExternalBrowser=1"],
+    [`/drop/${ID}?ref=share`, `/drop/${ID}?ref=share&openExternalBrowser=1`],
+    ["/", "/?openExternalBrowser=1"],
+  ] as const) {
+    const response = await get(path);
+    expect(response.status(), path).toBe(307);
+    const location = new URL(response.headers().location, "https://wynos.online");
+    const expected = new URL(target, "https://wynos.online");
+    expect(location.pathname, path).toBe(expected.pathname);
+    expect(Object.fromEntries(location.searchParams), path).toEqual(Object.fromEntries(expected.searchParams));
+  }
+  // Already flagged, OAuth return, OAuth callback, API and static files are left alone.
+  for (const path of ["/@warren?openExternalBrowser=1", "/welcome?code=abc", "/auth/callback?code=abc", "/api/push-config", "/sw.js", "/icons/icon-512.png"]) {
+    expect((await get(path)).status(), path).not.toBe(307);
+  }
+});
+
+test("other browsers and link-preview bots are never redirected", async ({ request }) => {
+  for (const ua of [
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",
+    "facebookexternalhit/1.1;line-poker/1.0",
+  ]) {
+    expect((await request.get("/@warren", { headers: { "user-agent": ua }, maxRedirects: 0 })).status(), ua).toBe(200);
+  }
+});
+
+test.describe("inside an app browser without an external-browser switch", () => {
+  test.use({ userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Instagram 350.0" });
+  test("the welcome screen tells the visitor to open WYNOS in their browser", async ({ page }) => {
+    await page.goto("/welcome");
+    await expect(page.getByTestId("in-app-browser-notice")).toContainText("เปิดในเบราว์เซอร์ของ Instagram");
+  });
+});
+
+test("a normal browser sees no in-app browser notice", async ({ page }) => {
+  await page.goto("/welcome");
+  await expect(page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true })).toBeVisible();
+  await expect(page.getByTestId("in-app-browser-notice")).toHaveCount(0);
+});

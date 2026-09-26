@@ -137,3 +137,11 @@
 - วันที่ตัดสินใจ: 2026-09-26 — Founder: "แก้ปัญหา และทำแทนทุกอย่าง แล้วพร้อมเปิดใช้ Web Beta1" และตอบ AskUserQuestion แยกเฉพาะเรื่องนี้ว่า **"ให้รันแทนได้"** (ยืนยันชัดเจนว่า AI trigger production DB workflow แทนได้ ครั้งนี้ — ไม่ได้เปลี่ยน policy ทั่วไปตามบันทึก 2026-09-07)
 - ผลการดำเนินการ: PR #725 merge (`19f2f58`) หลัง CI เขียวทั้งหมด; WYN-158 Production Deploy #275 success; headers ตรวจบน https://wynos.online แล้ว; AI dispatch `web-beta1-apply-qa-hardening.yml` run `36250193842` — success, verify: flood_guard_trigger=1, referral_guard_trigger=1, limited_buckets=4
 - Email confirmation: Founder เลือก **ยังไม่เปิด** — ทดสอบการส่งอีเมลจริงก่อน แล้วค่อยตัดสินใจ (ยังคงเป็นความเสี่ยงบัญชีบอทที่ยอมรับชั่วคราว)
+
+### DECISION — [2026-09-26] Web Beta1: zoom disabled (reconfirmed)
+- Founder request: "ทำไม wynos.online web beta1 มันซูมได้" → chose **"ปิดการซูมทั้งหมด"** via AskUserQuestion, after being told the accessibility tradeoff (users cannot enlarge text; Safari may still allow pinch).
+- History: zoom was disabled 2026-09-16 at the Founder's request (PR #479). PR #687 (Web Beta 1 Phase 1 release) re-enabled it for accessibility and added a test forbidding `maximum-scale=1`/`user-scalable=no`, without a recorded Founder decision.
+- Change: `maximumScale: 1, userScalable: false` in the viewport, `touch-action: manipulation` on `html` (no double-tap zoom), `ZoomLock` cancels iOS Safari `gesture*` events (iOS ignores `user-scalable=no`). In-app pinch (profile photo cropper) uses pointer events and keeps working. `tests/browser/viewport-accessibility.spec.ts` now pins the Founder decision.
+- Risk accepted by Founder: low-vision users cannot pinch-zoom; OS-level zoom and text-size settings still apply.
+- Rollback: revert the viewport fields, the `touch-action` line and `<ZoomLock />`.
+- สถานะ: **อนุมัติแล้ว** — วันที่ 2026-09-26

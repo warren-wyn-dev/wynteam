@@ -38,6 +38,28 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // A wynos.online link tapped in LINE opens in LINE's own browser, which is
+  // never signed in to WYNOS and where Google sign-in is refused. LINE opens
+  // any URL carrying `openExternalBrowser=1` in Safari/Chrome instead, so
+  // page navigations from LINE's browser are bounced once with that flag
+  // (the flag is then present, so this cannot loop). Other query values and
+  // the #fragment are kept. Skipped: API/asset/file requests, the OAuth
+  // callback and any `?code=` return (the PKCE verifier lives in this
+  // browser's storage, so the exchange must finish here).
+  async redirects() {
+    return [
+      {
+        source: "/:path((?!api(?:/|$)|_next/|auth(?:/|$))[^.]*)",
+        has: [{ type: "header", key: "user-agent", value: ".* Line/.*" }],
+        missing: [
+          { type: "query", key: "openExternalBrowser" },
+          { type: "query", key: "code" },
+        ],
+        destination: "/:path?openExternalBrowser=1",
+        permanent: false,
+      },
+    ];
+  },
   // The dev-mode indicator badge is fixed-positioned and, in the narrow
   // mobile reference-phone viewport used by tests/browser/content-reference-flow.spec.ts,
   // sits directly over the compose toolbar and intercepts every click there
