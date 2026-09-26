@@ -5,6 +5,7 @@ import { preconnect } from "react-dom";
 import { AppBottomNavHost } from "@/components/app-bottom-nav-runtime";
 import { AppNavigationRuntime } from "@/components/app-navigation-runtime";
 import { ClientErrorMonitor } from "@/components/client-error-monitor";
+import { ZoomLock } from "@/components/zoom-lock";
 import { SignupDraftProvider } from "@/components/auth-flow/signup-draft-context";
 import { InstallPromptBanner } from "@/components/install-prompt-banner";
 import { QueryProvider } from "@/components/query-provider";
@@ -108,8 +109,11 @@ const APPLE_STARTUP_IMAGES: { url: string; media: string }[] = [
 // iOS may cache this metadata when the Home Screen app is installed:
 // an existing shortcut may need to be removed and added again.
 export const metadata:Metadata={metadataBase:new URL(SITE_URL),...shareMetadata("WYNOS","WYNOS social web"),appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
-// Preserve browser zoom for accessibility. Native-like gestures and image viewing
-// should not disable the operating system's ability to enlarge web content.
+// Zoom is off, like a native app: Founder decision 2026-09-16 (#479),
+// reconfirmed 2026-09-26 after #687 had re-enabled it ("ปิดการซูมทั้งหมด").
+// maximumScale 1 also stops iOS zooming into text fields under 16px on focus.
+// iOS Safari ignores userScalable for pinch, so <ZoomLock /> cancels its
+// gesture events too.
 // interactiveWidget "resizes-content" (iOS 16.4+/Chrome): without it, Safari's
 // default is "resizes-visual" — the visual viewport shrinks for the keyboard
 // but the layout viewport (what dvh units and position:fixed compute against)
@@ -120,7 +124,7 @@ export const metadata:Metadata={metadataBase:new URL(SITE_URL),...shareMetadata(
 // "resizes-content" makes the layout viewport itself shrink for the keyboard,
 // same as a native app's safe area shrinking, so dvh-based sizing and fixed
 // bottom bars stay flush with no separate compatibility jump.
-export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",interactiveWidget:"resizes-content",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
+export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",maximumScale:1,userScalable:false,interactiveWidget:"resizes-content",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
 // Every route mounts DeveloperRouteGate on first paint, which immediately
 // calls Supabase auth.getSession() — a cross-origin request that otherwise
 // pays DNS + TCP + TLS from a cold start. Warming that connection while the
@@ -135,5 +139,5 @@ const supabaseOrigin = (() => {
 
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){
   if (supabaseOrigin) preconnect(supabaseOrigin, { crossOrigin: "anonymous" });
-  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><ClientErrorMonitor /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
+  return <html lang="th"><body><QueryProvider><AppNavigationRuntime /><ClientErrorMonitor /><ZoomLock /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
 }
