@@ -2,8 +2,11 @@ import { createBrowserClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { getActiveAccountStorageKey } from "@/lib/account-registry";
+import { getPendingAddAccountSlot } from "@/lib/pending-account-add";
 
 let client: SupabaseClient | null | undefined;
+let pendingClient: SupabaseClient | null = null;
+let pendingClientSlot: string | null = null;
 
 export function hasSupabaseBrowserConfig(): boolean {
   return Boolean(
@@ -13,6 +16,34 @@ export function hasSupabaseBrowserConfig(): boolean {
 }
 
 export function getSupabaseBrowserClient(): SupabaseClient | null {
+  // Signup and email confirmation launched by Add Account must never mutate
+  // the signed-in account's Supabase singleton or activate the new slot early.
+  if (typeof window !== "undefined") {
+    const pathname = window.location.pathname;
+    const pending = getPendingAddAccountSlot();
+    const signupRoute = pathname.startsWith("/signup/") || pathname === "/onboarding/profile";
+    const callbackSlot = pathname === "/auth/callback"
+      ? new URLSearchParams(window.location.search).get("slot")
+      : null;
+    if (pending && (signupRoute || callbackSlot === pending)) {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      if (!url || !key) return null;
+      if (!pendingClient || pendingClientSlot !== pending) {
+        pendingClient = createClient(url, key, {
+          auth: {
+            storageKey: pending,
+            persistSession: true,
+            autoRefreshToken: true,
+            // /auth/callback exchanges its one-time code explicitly.
+            detectSessionInUrl: false,
+          },
+        });
+        pendingClientSlot = pending;
+      }
+      return pendingClient;
+    }
+  }
   if (client !== undefined) return client;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
