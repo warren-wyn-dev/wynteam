@@ -9,7 +9,12 @@ function compile(path) {
   }, reportDiagnostics: true });
   assert.equal(result.diagnostics?.length ?? 0, 0);
   const mod = { exports: {} };
-  new Function("module", "exports", result.outputText)(mod, mod.exports);
+  // Resolve the app's own "@/lib/*" runtime imports (e.g. upload-image).
+  const require = (name) => {
+    if (!name.startsWith("@/lib/")) throw new Error("Unexpected import " + name);
+    return compile("../lib/" + name.slice("@/lib/".length) + ".ts");
+  };
+  new Function("module", "exports", "require", result.outputText)(mod, mod.exports, require);
   return mod.exports;
 }
 const { saveDraft, loadDraftImageFile } = compile("../lib/drafts.ts");

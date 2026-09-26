@@ -30,5 +30,9 @@ export function imageUploadType(file: File, maxBytes = IMAGE_MAX_BYTES): ImageUp
   if (file.size > maxBytes) {
     throw new Error(`ไฟล์รูปใหญ่เกินไป (สูงสุด ${Math.round(maxBytes / 1024 / 1024)} MB)`);
   }
-  return { contentType, extension: EXTENSION_BY_TYPE[contentType] };
+  // Keep a name extension that agrees with the validated type (".jpeg" stays
+  // ".jpeg", so deterministic paths such as re-saved drafts don't change);
+  // a mismatched or unknown one is replaced by the canonical extension.
+  const extension = TYPE_BY_EXTENSION[nameExtension] === contentType ? nameExtension : EXTENSION_BY_TYPE[contentType];
+  return { contentType, extension };
 }

@@ -16,7 +16,8 @@ const file = (name, type, size = 1000) => ({ name, type, size });
 test("the stored type/extension come from a validated MIME, never the file name", () => {
   assert.deepEqual({ ...imageUploadType(file("photo.html", "image/png")) }, { contentType: "image/png", extension: "png" });
   assert.deepEqual({ ...imageUploadType(file("IMG_1.HEIC", "")) }, { contentType: "image/heic", extension: "heic" });
-  assert.deepEqual({ ...imageUploadType(file("a.jpeg", "image/jpeg")) }, { contentType: "image/jpeg", extension: "jpg" });
+  assert.deepEqual({ ...imageUploadType(file("a.jpeg", "image/jpeg")) }, { contentType: "image/jpeg", extension: "jpeg" });
+  assert.deepEqual({ ...imageUploadType(file("a.png", "image/jpeg")) }, { contentType: "image/jpeg", extension: "jpg" });
 });
 
 test("script-capable and non-image files are rejected before upload", () => {
