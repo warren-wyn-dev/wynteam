@@ -8,6 +8,7 @@ import { HomeQuickCompose } from "@/components/home/home-quick-compose";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
 import { WynosIcon } from "@/components/ui/wynos-icon";
+import { Toast, useToast } from "@/components/ui/toast";
 import type { HomeFeedRow } from "@/lib/feed";
 import type { HomeViewerState } from "@/lib/home-actions";
 
@@ -118,6 +119,7 @@ const images = new Map<string, string[]>([["drop-4", [rows[3].image_url as strin
 export function HomeFixture() {
   const [mode, setMode] = useState<HomeFeedMode>("for-you");
   const [savedDropIds, setSavedDropIds] = useState<Set<string>>(new Set());
+  const { toastMessage, toastAction, showToast, dismissToast } = useToast();
   // Test-only state: exercise real PostActions motion without touching Supabase.
   const [likeOverrides, setLikeOverrides] = useState<Record<string, { liked: boolean; count: number }>>({});
   const likedDropIds = new Set(viewer.likedDropIds);
@@ -161,12 +163,21 @@ export function HomeFixture() {
                 onRedrop={() => {}}
                 onFollow={() => {}}
                 onShare={() => {}}
-                onSave={() => setSavedDropIds((current) => {
-                  const next = new Set(current);
-                  if (next.has(row.id)) next.delete(row.id);
-                  else next.add(row.id);
-                  return next;
-                })}
+                onSave={() => {
+                  const wasSaved = savedDropIds.has(row.id);
+                  setSavedDropIds((current) => {
+                    const next = new Set(current);
+                    if (next.has(row.id)) next.delete(row.id);
+                    else next.add(row.id);
+                    return next;
+                  });
+                  if (!wasSaved) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => setSavedDropIds((current) => {
+                    const next = new Set(current);
+                    next.delete(row.id);
+                    return next;
+                  }) });
+                  else showToast("นำออกจากรายการที่บันทึกแล้ว");
+                }}
                 key={row.id}
               />
             ))}
@@ -184,6 +195,7 @@ export function HomeFixture() {
         profileHref={`/profile/${VIEWER_ID}`}
         isActive={(href) => href === "/"}
       />
+      <Toast message={toastMessage} action={toastAction} onDismiss={dismissToast} />
     </>
   );
 }

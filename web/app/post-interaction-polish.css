@@ -1,0 +1,70 @@
+/* WYNOS Web Beta 1: small tactile response on existing post controls. */
+.wyn-post-actions .wyn-action-button,
+.golden-drop-actions > button,
+.flutter-detail-actions > button,
+.golden-club-actions > button {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--wyn-motion-duration, 160ms) ease-out,
+              color var(--wyn-motion-duration, 160ms) ease-out;
+  transform-origin: center;
+}
+
+.wyn-post-actions .wyn-action-button:active:not(:disabled),
+.golden-drop-actions > button:active:not(:disabled),
+.flutter-detail-actions > button:active:not(:disabled),
+.golden-club-actions > button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+/* Selected bookmark remains solid black in both light and dark themes. */
+.wyn-post-actions .wyn-action-save.is-active,
+.golden-drop-actions .golden-drop-save-inline.active,
+.flutter-detail-actions > button[aria-label="นำออกจากที่บันทึก"] {
+  color: var(--wyn-text);
+}
+
+/* Reuse the existing toast component without changing its callers. */
+.wyn-toast {
+  position: fixed;
+  z-index: 250;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  width: min(calc(100vw - 32px), 440px);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: #242426;
+  color: #fff;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.wyn-toast-action {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: #5eb1ff;
+  padding: 0 4px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wyn-post-actions .wyn-action-button,
+  .golden-drop-actions > button,
+  .flutter-detail-actions > button,
+  .golden-club-actions > button { transition: none; }
+  .wyn-post-actions .wyn-action-button:active:not(:disabled),
+  .golden-drop-actions > button:active:not(:disabled),
+  .flutter-detail-actions > button:active:not(:disabled),
+  .golden-club-actions > button:active:not(:disabled) { transform: none; }
+}

@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
@@ -23,6 +23,7 @@ import {
   type ClubHomePost,
 } from "@/lib/home-parity-data";
 import { haptic } from "@/lib/haptics";
+import { getRecentClubLike, listenClubLike, publishClubLike } from "@/lib/club-engagement-sync";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
 import { shareOrCopyLink } from "@/lib/share";
@@ -278,34 +279,72 @@ function ClubPostCard({
   initial: ClubHomePost;
   onChanged: () => void;
 }) {
-  const [post, setPost] = useState(initial);
+  const source = useId();
+  const [post, setPost] = useState(() => {
+    const update = getRecentClubLike(userId, initial.id);
+    return update ? { ...initial, liked_by_me: update.liked, like_count: update.count } : initial;
+  });
   const [menu, setMenu] = useState(false);
   const [report, setReport] = useState(false);
   const [busy, setBusy] = useState(false);
-  useEffect(() => setPost(initial), [initial]);
+  useEffect(() => {
+    const update = getRecentClubLike(userId, initial.id);
+    setPost(update ? { ...initial, liked_by_me: update.liked, like_count: update.count } : initial);
+  }, [initial, userId]);
+  useEffect(() => {
+    const apply = (change: Parameters<typeof publishClubLike>[0]) => {
+      if (change.userId !== userId || change.postId !== initial.id || change.source === source) return;
+      setPost((current) => ({ ...current, liked_by_me: change.liked, like_count: change.count }));
+    };
+    const latest = getRecentClubLike(userId, initial.id);
+    if (latest) apply(latest);
+    return listenClubLike(apply);
+  }, [userId, initial.id, source]);
   const own = post.author_id === userId;
   const canModerate = ["owner", "admin", "moderator"].includes(post.my_role ?? "");
   const author = post.author_display_name?.trim() || post.author_username || "WYNOS";
-  const { toastMessage, showToast } = useToast();
+  const { toastMessage, toastAction, showToast, dismissToast } = useToast();
   const share = async () => {
     const url = `${window.location.origin}/club-post/${post.id}`;
     await shareOrCopyLink({ title: author, text: post.content || "WYNOS Club", url }, showToast);
+  };
+  const undoLike = async () => {
+    const last = getRecentClubLike(userId, post.id);
+    if (!last?.liked) return;
+    setPost((current) => ({ ...current, liked_by_me: false, like_count: Math.max(0, current.like_count - 1) }));
+    publishClubLike({ userId, postId: post.id, liked: false, count: Math.max(0, last.count - 1), source });
+    try { await toggleClubPostLike(client, userId, post.id, true); }
+    catch { publishClubLike(last); setPost((current) => ({ ...current, liked_by_me: true, like_count: last.count })); showToast("เลิกทำไม่สำเร็จ"); }
   };
   const like = async () => {
     if (busy) return;
     if (!post.liked_by_me) haptic();
     const previous = post;
-    setPost({ ...post, liked_by_me: !post.liked_by_me, like_count: Math.max(0, post.like_count + (post.liked_by_me ? -1 : 1)) });
-    try { await toggleClubPostLike(client, userId, post.id, post.liked_by_me); }
-    catch { setPost(previous); }
+    const count = Math.max(0, post.like_count + (post.liked_by_me ? -1 : 1));
+    setPost({ ...post, liked_by_me: !post.liked_by_me, like_count: count });
+    publishClubLike({ userId, postId: post.id, liked: !post.liked_by_me, count, source });
+    try {
+      await toggleClubPostLike(client, userId, post.id, post.liked_by_me);
+      if (!post.liked_by_me) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoLike() });
+    } catch {
+      publishClubLike({ userId, postId: post.id, liked: previous.liked_by_me, count: previous.like_count, source });
+      setPost(previous);
+      showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
+    }
   };
   const save = async () => {
     if (busy) return;
     if (!post.saved_by_me) haptic();
     const previous = post;
     setPost({ ...post, saved_by_me: !post.saved_by_me });
-    try { await toggleClubPostSave(client, userId, post.id, post.saved_by_me); }
-    catch { setPost(previous); }
+    try {
+      await toggleClubPostSave(client, userId, post.id, post.saved_by_me);
+      if (!post.saved_by_me) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => {
+        setPost((current) => ({ ...current, saved_by_me: false }));
+        void toggleClubPostSave(client, userId, post.id, true).catch(() => { setPost((current) => ({ ...current, saved_by_me: true })); showToast("เลิกทำไม่สำเร็จ"); });
+      } });
+      else showToast("นำออกจากรายการที่บันทึกแล้ว");
+    } catch { setPost(previous); showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); }
     setMenu(false);
   };
   const pin = async () => {
@@ -360,7 +399,7 @@ function ClubPostCard({
         </BottomSheet>
       ) : null}
       {report ? <ReportSheet client={client} target={{ type: "club_post", id: post.id, label: `รายงานโพสต์ของ ${author}` }} onClose={() => setReport(false)} /> : null}
-      <Toast message={toastMessage} />
+      <Toast message={toastMessage} action={toastAction} onDismiss={dismissToast} />
     </article>
   );
 }

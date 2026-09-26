@@ -1,8 +1,9 @@
 import Link from "next/link";
 
 import { AnimatedHeart } from "@/components/ui/animated-heart";
+import { AnimatedBookmark } from "@/components/ui/animated-bookmark";
 import { AnimatedCount } from "@/components/ui/animated-count";
-import { CommentIcon, RepostIcon, SaveIcon } from "@/components/ui/post-action-icons";
+import { CommentIcon, RepostIcon } from "@/components/ui/post-action-icons";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 
 /**
@@ -95,7 +96,7 @@ export function PostActions({
           aria-pressed={saved}
           onClick={onSave}
         >
-          <SaveIcon size={22} strokeWidth={2} saved={saved} />
+          <AnimatedBookmark size={22} strokeWidth={2} saved={saved} />
         </button>
       ) : null}
     </div>

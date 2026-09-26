@@ -59,7 +59,7 @@ test("approved Founder Home mockup geometry cannot drift", () => {
   // wynos-post-icons set -- unrelated to home-post-card.tsx's own "repost"
   // WynosIcon usage above, which is a "reposted by" attribution badge, not
   // part of this row, and still unchanged.
-  expect(actions).toContain('<SaveIcon');
+  expect(actions).toContain('<AnimatedBookmark');
 });
 
 test("post detail keeps the Founder activity and text contract", () => {

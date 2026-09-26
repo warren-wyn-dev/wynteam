@@ -182,7 +182,7 @@ test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hi
   // WynosIcon's "comment"/"repost"/"bookmark" entries are still used
   // elsewhere (notifications, the home drawer, redrop sheets) and weren't
   // meant to change.
-  expect(postActions).toContain("<SaveIcon");
+  expect(postActions).toContain("<AnimatedBookmark");
   expect(postActions).toContain("value={value} hideZero");
   expect(postActions).toContain("{count(likeCount)}");
   expect(postActions).not.toContain("Eye");

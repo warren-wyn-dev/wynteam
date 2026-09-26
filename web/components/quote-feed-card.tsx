@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 
 import { PostActions } from "@/components/home/post-actions";
+import { haptic } from "@/lib/haptics";
 import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { Toast, useToast } from "@/components/ui/toast";
 import { postMediaAspectRatio } from "@/lib/feed";
@@ -127,9 +128,13 @@ export function QuoteFeedCard({
   const likeQuote = async () => {
     if (!client || !viewerId || !quoteId || !engagement || busy) return;
     const before = engagement;
+    if (!liked) haptic();
     setBusy(true);
     setEngagement({ ...before, liked: !liked, likeCount: Math.max(0, before.likeCount + (liked ? -1 : 1)) });
-    try { await toggleQuoteLike(client, viewerId, quoteId, liked); }
+    try {
+      await toggleQuoteLike(client, viewerId, quoteId, liked);
+      if (!liked) showToast("ถูกใจโพสต์แล้ว");
+    }
     catch {
       setEngagement(before);
       await reloadEngagement();
@@ -139,11 +144,13 @@ export function QuoteFeedCard({
   const saveQuote = async () => {
     if (!client || !viewerId || !quoteId || !engagement || busy) return;
     const before = engagement;
+    if (!saved) haptic();
     setBusy(true);
     setEngagement({ ...before, saved: !saved });
     try {
       await toggleQuoteSave(client, viewerId, quoteId, saved);
       deleteMountCache(`bookmarks:${viewerId}`);
+      showToast(saved ? "นำออกจากรายการที่บันทึกแล้ว" : "บันทึกโพสต์แล้ว");
     } catch {
       setEngagement(before);
       await reloadEngagement();

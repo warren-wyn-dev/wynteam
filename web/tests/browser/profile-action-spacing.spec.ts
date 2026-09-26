@@ -18,7 +18,7 @@ test("Profile actions inherit Home's shared icons and spacing without a Beta1 ov
   expect(homeActions).toContain("<CommentIcon");
   expect(homeActions).toContain("<RepostIcon");
   expect(homeActions).toContain("<WynosShareIcon");
-  expect(homeActions).toContain("<SaveIcon");
+  expect(homeActions).toContain("<AnimatedBookmark");
   expect(profileCard).toContain("<HomePostCard");
   expect(profileCard).toContain("viewer={viewer ?? EMPTY_VIEWER}");
   expect(profileCard).toContain("onLike={() => void like()}");
