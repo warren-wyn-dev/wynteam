@@ -16,7 +16,7 @@ function fixture() {
   let pathname = "/profile/me";
   let search = "";
   let pending = null;
-  let intent = false;
+  let intent = null;
   const exports = {};
   const create = (kind) => (url, key, options) => {
     const result = { kind, options };
@@ -43,7 +43,7 @@ function fixture() {
       if (name === "@supabase/ssr") return { createBrowserClient: create("cookie") };
       if (name === "@supabase/supabase-js") return { createClient: create("slot") };
       if (name === "@/lib/account-registry") return { getActiveAccountStorageKey: () => A };
-      if (name === "@/lib/pending-account-add") return { getPendingAddAccountSlot: () => pending, hasAddAccountIntent: () => intent };
+      if (name === "@/lib/pending-account-add") return { getPendingAddAccountSlot: () => pending, getAddAccountIntentSlot: () => intent };
       throw new Error("Unexpected dependency " + name);
     },
   });
@@ -51,7 +51,7 @@ function fixture() {
     api: exports, calls,
     path: (p, q = "") => { pathname = p; search = q; },
     setPending: (slot) => { pending = slot; },
-    setIntent: (value) => { intent = value; },
+    setIntent: (slot) => { intent = slot; },
   };
 }
 
@@ -61,6 +61,7 @@ test("signup explicitly selects B even if Next soft navigation still reports A's
   assert.equal(original.options.auth.storageKey, A);
   f.path("/account/add");
   f.setPending(B);
+  f.setIntent(B);
   const newAccount = f.api.getSignupAuthClient();
   assert.equal(newAccount.options.auth.storageKey, B);
   assert.equal(newAccount.options.auth.detectSessionInUrl, false);
@@ -87,9 +88,20 @@ test("Google and email confirmation callbacks never exchange B's code in A's cli
 test("an expired B signup refuses to fall back to A's already signed-in credentials", () => {
   const f = fixture();
   const active = f.api.getSupabaseBrowserClient();
-  f.setIntent(true);
+  f.setIntent(B);
   assert.equal(f.api.getSignupAuthClient(), null);
   assert.equal(f.api.getSupabaseBrowserClient(), active);
   f.setPending(B);
+  assert.equal(f.api.getSignupAuthClient().options.auth.storageKey, B);
+});
+
+test("normal signup in another tab does not read a second account's global pending slot", () => {
+  const f = fixture();
+  const active = f.api.getSupabaseBrowserClient();
+  f.setPending(B);
+  assert.equal(f.api.getSignupAuthClient(), active);
+  f.setIntent(A);
+  assert.equal(f.api.getSignupAuthClient(), null);
+  f.setIntent(B);
   assert.equal(f.api.getSignupAuthClient().options.auth.storageKey, B);
 });
