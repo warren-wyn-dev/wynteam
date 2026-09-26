@@ -15,7 +15,7 @@ import { WynosIcon } from "@/components/ui/wynos-icon";
 import { DefaultProfileAvatar } from "@/components/ui/default-profile-avatar";
 import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 
 import { PostActions } from "@/components/home/post-actions";
 import { HomePostCard } from "@/components/home/home-post-card";
@@ -24,6 +24,7 @@ import { authorLabel, postMediaAspectRatio, relativeTimeTh, type HomeFeedRow } f
 import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, toggleDropLike, toggleDropRedrop, toggleDropSave, type HomeViewerState } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
 import { shareOrCopyLink } from "@/lib/share";
+import { getRecentDropEngagement, listenDropEngagement, patchDropViewer, publishDropEngagement } from "@/lib/drop-engagement-sync";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 // Use the same keyboard-safe, full-screen Quote composer as the Home feed.
@@ -137,6 +138,7 @@ export function GoldenDropCard({
   onQuoteCreated?: (actorId: string) => void;
 }) {
   const client = useMemo(() => getSupabaseBrowserClient(), []);
+  const source = useId();
   const [viewer, setViewer] = useState<HomeViewerState | null>(initialViewer ?? null);
   const [userId, setUserId] = useState(profileViewerId);
   const [images, setImages] = useState<string[]>(row.image_url ? [row.image_url] : []);
@@ -166,7 +168,8 @@ export function GoldenDropCard({
 
   const reloadViewer = useCallback(async (uid: string) => {
     if (!client) return;
-    setViewer(await loadHomeViewerState(client, uid, [row]));
+    const latest = await loadHomeViewerState(client, uid, [row]);
+    setViewer(getRecentDropEngagement(uid, row.id).reduce(patchDropViewer, latest));
   }, [client, row]);
 
   useEffect(() => {
@@ -182,12 +185,24 @@ export function GoldenDropCard({
       ]);
       if (!live) return;
       setUserId(uid);
-      setViewer(state);
+      setViewer(getRecentDropEngagement(uid, row.id).reduce(patchDropViewer, state));
       setImages(media);
       if (!views.error) setViewCount(Number(views.data ?? 0) || 0);
     })().catch(() => undefined);
     return () => { live = false; };
   }, [client, row, initialViewer, profileViewerId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const apply = (change: Parameters<typeof patchDropViewer>[1]) => {
+      if (change.userId !== userId || change.dropId !== row.id || change.source === source) return;
+      setViewer((current) => current ? patchDropViewer(current, change) : current);
+      if (change.kind === "like" && change.count !== undefined) setLikeCount(change.count);
+      if (change.kind === "redrop" && change.count !== undefined) setRedropCount(change.count);
+    };
+    for (const change of getRecentDropEngagement(userId, row.id)) apply(change);
+    return listenDropEngagement(apply);
+  }, [userId, row.id, source]);
 
   const liked = viewer?.likedDropIds.has(row.id) ?? false;
   const saved = viewer?.savedDropIds.has(row.id) ?? false;
@@ -233,13 +248,32 @@ export function GoldenDropCard({
     }
   };
 
+  const undoLike = async () => {
+    if (!client || !userId) return;
+    const current = getRecentDropEngagement(userId, row.id).find((item) => item.kind === "like");
+    if (!current?.active) return;
+    patchViewer("likedDropIds", false);
+    setLikeCount((count) => Math.max(0, count - 1));
+    publishDropEngagement({ userId, dropId: row.id, kind: "like", active: false, count: Math.max(0, (current.count ?? likeCount) - 1), source });
+    try { await toggleDropLike(client, userId, row.id, true); }
+    catch { publishDropEngagement(current); void reloadViewer(userId); showToast("เลิกทำไม่สำเร็จ"); }
+  };
+
   const like = async () => {
     if (!client || !viewer || !userId || busy) return;
     if (!liked) haptic();
     patchViewer("likedDropIds", !liked);
     setLikeCount((count) => Math.max(0, count + (liked ? -1 : 1)));
-    try { await toggleDropLike(client, userId, row.id, liked); }
-    catch { setLikeCount(row.like_count ?? 0); void reloadViewer(userId); }
+    publishDropEngagement({ userId, dropId: row.id, kind: "like", active: !liked, count: Math.max(0, likeCount + (liked ? -1 : 1)), source });
+    try {
+      await toggleDropLike(client, userId, row.id, liked);
+      if (!liked) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoLike() });
+    } catch {
+      publishDropEngagement({ userId, dropId: row.id, kind: "like", active: liked, count: likeCount, source });
+      setLikeCount(likeCount);
+      void reloadViewer(userId);
+      showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
+    }
   };
 
   const doubleLike = () => {
@@ -255,12 +289,29 @@ export function GoldenDropCard({
     else lastTap.current = now;
   };
 
+  const undoSave = async () => {
+    if (!client || !userId || !getRecentDropEngagement(userId, row.id).some((item) => item.kind === "save" && item.active)) return;
+    patchViewer("savedDropIds", false);
+    publishDropEngagement({ userId, dropId: row.id, kind: "save", active: false, source });
+    try { await toggleDropSave(client, userId, row.id, true); }
+    catch { publishDropEngagement({ userId, dropId: row.id, kind: "save", active: true, source }); void reloadViewer(userId); showToast("เลิกทำไม่สำเร็จ"); }
+  };
+
   const save = async () => {
     if (!client || !viewer || !userId || busy) return;
     if (!saved) haptic();
     patchViewer("savedDropIds", !saved);
-    try { await toggleDropSave(client, userId, row.id, saved); setSheet(null); }
-    catch { void reloadViewer(userId); }
+    publishDropEngagement({ userId, dropId: row.id, kind: "save", active: !saved, source });
+    try {
+      await toggleDropSave(client, userId, row.id, saved);
+      setSheet(null);
+      if (!saved) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoSave() });
+      else showToast("นำออกจากรายการที่บันทึกแล้ว");
+    } catch {
+      publishDropEngagement({ userId, dropId: row.id, kind: "save", active: saved, source });
+      void reloadViewer(userId);
+      showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    }
   };
 
   const redrop = async () => {
@@ -269,12 +320,14 @@ export function GoldenDropCard({
     setError("");
     patchViewer("redroppedDropIds", !redropped);
     setRedropCount((count) => Math.max(0, count + (redropped ? -1 : 1)));
+    publishDropEngagement({ userId, dropId: row.id, kind: "redrop", active: !redropped, count: Math.max(0, redropCount + (redropped ? -1 : 1)), source });
     try {
       await toggleDropRedrop(client, userId, row.id, redropped);
       setSheet(null);
       onRepostChanged?.(userId, row.id, redropped);
     } catch {
       setRedropCount(row.redrop_count ?? 0);
+      publishDropEngagement({ userId, dropId: row.id, kind: "redrop", active: redropped, count: redropCount, source });
       setError("รีโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง");
       void reloadViewer(userId);
     } finally {
@@ -300,7 +353,7 @@ export function GoldenDropCard({
     }
   };
 
-  const { toastMessage, showToast } = useToast();
+  const { toastMessage, toastAction, showToast, dismissToast } = useToast();
   const share = async () => {
     const url = `${window.location.origin}/drop/${row.id}`;
     await shareOrCopyLink({ title: authorLabel(row), text: row.caption || "WYNOS", url }, showToast);
@@ -387,6 +440,6 @@ export function GoldenDropCard({
       />
     ) : null}
     {sheet === "report" ? <SheetFrame label="รายงานโพสต์" onClose={() => { setSheet(null); setReportDetail(""); }}><div className="golden-drop-sheet-form"><strong>รายงานโพสต์</strong><div className="golden-drop-report-list">{reportCategories.map((item) => <label key={item.value}><input type="radio" name={`drop-report-${row.id}`} checked={reportCategory === item.value} onChange={() => setReportCategory(item.value)} />{item.label}</label>)}</div>{reportCategory === "other" ? <textarea maxLength={1000} value={reportDetail} onChange={(event) => setReportDetail(event.target.value)} placeholder="รายละเอียดเพิ่มเติม" /> : null}{error ? <p className="route-error">{error}</p> : null}<button className="route-primary" type="button" disabled={busy} onClick={() => void report()}>ส่งรายงาน</button></div></SheetFrame> : null}
-    <Toast message={toastMessage} />
+    <Toast message={toastMessage} action={toastAction} onDismiss={dismissToast} />
   </>;
 }
