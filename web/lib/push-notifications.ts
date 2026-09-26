@@ -204,8 +204,8 @@ export async function subscribeToPushNotifications(
       );
     if (error) return { ok: false, reason: "server-failed" };
     // On this exact device/account, confirmation is a successful server write,
-    // not merely a granted OS notification permission.
-    void listenForForegroundPush();
+    // not merely a granted OS notification permission. Display and in-app
+    // wake-ups for every Push (foreground or not) happen in public/sw.js.
     return { ok: true };
   } catch {
     return { ok: false, reason: "server-failed" };
@@ -334,63 +334,4 @@ export async function isCurrentDevicePushEnabled(client: SupabaseClient, userId:
   } catch {
     return false;
   }
-}
-
-// Deduplicate the root-mount and Settings-toggle setup attempts.
-let foregroundListenerPromise: Promise<void> | null = null;
-
-/**
- * Foreground pushes (tab open and focused) are not shown automatically by
- * Firebase the way background ones are — this renders the same OS
- * notification manually so a push looks identical whether or not the app
- * happens to be focused. Safe to call unconditionally; it's a no-op when
- * push was never subscribed or isn't supported.
- */
-export async function listenForForegroundPush(): Promise<void> {
-  if (typeof window === "undefined" || typeof Notification === "undefined") return;
-  if (Notification.permission !== "granted" || !("serviceWorker" in navigator)) return;
-  if (foregroundListenerPromise) return foregroundListenerPromise;
-
-  foregroundListenerPromise = (async () => {
-    if (!(await pushSupported())) throw new Error("Push support is unavailable");
-    const config = await fetchPushConfig();
-    if (!config?.configured) throw new Error("Push is not configured");
-    const fb = await loadFirebase();
-    const messaging = fb.getMessaging(firebaseApp(fb, config));
-    fb.onMessage(messaging, (payload) => {
-      // FCM's onMessage runs while the app is in the foreground; it does
-      // NOT render the notification payload automatically in this case.
-      // A registered worker displays it consistently on installed iOS
-      // PWAs and Android, where the window Notification constructor differs.
-      const data = payload.data ?? {};
-      // Fast path: wake the authenticated in-app notification store before
-      // showing the optional foreground system banner. The event contains
-      // IDs only; the current account loads authoritative rows through RLS.
-      window.dispatchEvent(new CustomEvent("wynos:notification-push", {
-        detail: {
-          recipientId: data.recipient_id,
-          notificationId: data.notification_id,
-          type: data.type,
-        },
-      }));
-      if (!payload.notification && !data.push_title && !data.push_body) return;
-      const title = payload.notification?.title || data.push_title || "WYNOS";
-      const body = payload.notification?.body || data.push_body || "";
-      void navigator.serviceWorker.ready.then((registration) =>
-        registration.showNotification(title, {
-          body,
-          icon: "/icons/icon-192.png",
-          badge: "/icons/icon-192.png",
-          tag: data.notification_id,
-          data,
-        }),
-      ).catch(() => undefined);
-    });
-  })().catch(() => {
-    // Configuration, browser support and intermittent connectivity may
-    // change; allow a later explicit opt-in to retry initialization.
-    foregroundListenerPromise = null;
-  });
-
-  return foregroundListenerPromise;
 }
