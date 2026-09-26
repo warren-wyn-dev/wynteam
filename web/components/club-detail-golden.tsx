@@ -23,6 +23,8 @@ import {
   type ClubHomePost,
 } from "@/lib/home-parity-data";
 import { haptic } from "@/lib/haptics";
+import { reportClientFailure } from "@/lib/client-health";
+import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { getRecentClubLike, listenClubLike, publishClubLike } from "@/lib/club-engagement-sync";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
@@ -310,6 +312,10 @@ function ClubPostCard({
   };
   const like = async () => {
     if (busy) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("club", userId, post.id, "like");
+    if (!releaseMutation) return;
+    try {
     if (!post.liked_by_me) haptic();
     const previous = post;
     const count = Math.max(0, post.like_count + (post.liked_by_me ? -1 : 1));
@@ -320,23 +326,40 @@ function ClubPostCard({
     } catch {
       publishClubLike({ userId, postId: post.id, liked: previous.liked_by_me, count: previous.like_count, source });
       setPost(previous);
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
+    } finally { releaseMutation(); }
+  };
+  const undoSave = async () => {
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("club", userId, post.id, "save");
+    if (!releaseMutation) return;
+    setPost((current) => ({ ...current, saved_by_me: false }));
+    try {
+      await toggleClubPostSave(client, userId, post.id, true);
+    } catch {
+      setPost((current) => ({ ...current, saved_by_me: true }));
+      showToast("เลิกทำไม่สำเร็จ");
+    } finally { releaseMutation(); }
   };
   const save = async () => {
     if (busy) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("club", userId, post.id, "save");
+    if (!releaseMutation) return;
+    try {
     if (!post.saved_by_me) haptic();
     const previous = post;
     setPost({ ...post, saved_by_me: !post.saved_by_me });
     try {
       await toggleClubPostSave(client, userId, post.id, post.saved_by_me);
-      if (!post.saved_by_me) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => {
-        setPost((current) => ({ ...current, saved_by_me: false }));
-        void toggleClubPostSave(client, userId, post.id, true).catch(() => { setPost((current) => ({ ...current, saved_by_me: true })); showToast("เลิกทำไม่สำเร็จ"); });
-      } });
+      if (!post.saved_by_me) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoSave() });
       else showToast("นำออกจากรายการที่บันทึกแล้ว");
-    } catch { setPost(previous); showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); }
+    } catch { setPost(previous); if (!definitelyOffline()) reportClientFailure("social_write");
+      showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); }
     setMenu(false);
+    } finally { releaseMutation(); }
   };
   const pin = async () => {
     if (busy) return;

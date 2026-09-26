@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { beginSocialMutation, socialMutationPending } from "../../lib/social-mutation-guard";
 
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
 
@@ -70,4 +71,48 @@ test("like actions stay quiet while failure feedback and save Undo remain", () =
   const detail = read("components/post-detail-route.tsx");
   expect(detail).toContain('showToast("อัปเดตกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง")');
   expect(detail).toContain('showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ"');
+});
+
+test("fast double taps or simultaneous Feed and Detail mutations cannot race", async () => {
+  const user = "reliability-test-user";
+  const id = "post-1";
+  const finish = beginSocialMutation("drop", user, id, "like");
+  expect(finish).not.toBeNull();
+  expect(socialMutationPending("drop", user, id, "like")).toBe(true);
+  expect(beginSocialMutation("drop", user, id, "like")).toBeNull();
+  expect(beginSocialMutation("drop", user, id, "like")).toBeNull();
+
+  // Each action and user has an independent lock; one slow like cannot
+  // prevent a separate Save or another account's action.
+  const saveFinish = beginSocialMutation("drop", user, id, "save");
+  const otherUserFinish = beginSocialMutation("drop", "another-user", id, "like");
+  const clubFinish = beginSocialMutation("club", user, id, "like");
+  expect(saveFinish).not.toBeNull();
+  expect(otherUserFinish).not.toBeNull();
+  expect(clubFinish).not.toBeNull();
+
+  finish!();
+  finish!(); // release is intentionally idempotent
+  expect(socialMutationPending("drop", user, id, "like")).toBe(false);
+  const next = beginSocialMutation("drop", user, id, "like");
+  expect(next).not.toBeNull();
+  next!();
+  saveFinish!();
+  otherUserFinish!();
+  clubFinish!();
+});
+
+test("mutation guard is used on all public Drop and Club action surfaces", () => {
+  for (const file of [
+    "components/home/home-screen.tsx",
+    "components/post-detail-route.tsx",
+    "components/golden-drop-card.tsx",
+    "components/club-detail-golden.tsx",
+    "components/quote-feed-card.tsx",
+  ]) {
+    const source = read(file);
+    expect(source, file).toContain('beginSocialMutation(');
+    expect(source, file).toContain('definitelyOffline()');
+    expect(source, file).toContain('releaseMutation()');
+  }
 });

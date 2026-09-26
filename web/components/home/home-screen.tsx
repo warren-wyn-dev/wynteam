@@ -25,6 +25,8 @@ import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { authorLabel, isQuotePost, type HomeFeedRow } from "@/lib/feed";
 import { feedIdentity } from "@/lib/quote-feed-data";
 import { haptic } from "@/lib/haptics";
+import { reportClientFailure } from "@/lib/client-health";
+import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { deleteMountCache } from "@/lib/mount-cache";
 import { getRecentDropEngagement, listenDropEngagement, patchDropRow, patchDropViewer, publishDropEngagement, reconcileRecentDropEngagement } from "@/lib/drop-engagement-sync";
 import { getRecentClubLike, listenClubLike, publishClubLike } from "@/lib/club-engagement-sync";
@@ -570,6 +572,10 @@ export function HomeScreen({ session }: { session: Session }) {
 
   const like = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "like");
+    if (!releaseMutation) return;
+    try {
     const liked = viewer.likedDropIds.has(row.id);
     if (!liked) haptic();
     patchSet("likedDropIds", row.id, !liked);
@@ -584,12 +590,17 @@ export function HomeScreen({ session }: { session: Session }) {
     } catch {
       publishDropEngagement({ userId, dropId: row.id, kind: "like", active: liked, count: row.like_count ?? 0, source: "home" });
       void load();
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
+    } finally { releaseMutation(); }
   };
-
   const likeClub = async (post: ClubHomePost) => {
     if (!client) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("club", userId, post.id, "like");
+    if (!releaseMutation) return;
+    try {
     if (!post.liked_by_me) haptic();
     setClubRows((current) => current.map((item) =>
       item.id === post.id
@@ -606,20 +617,29 @@ export function HomeScreen({ session }: { session: Session }) {
     } catch {
       publishClubLike({ userId, postId: post.id, liked: post.liked_by_me, count: post.like_count, source: "home-club" });
       void load();
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
+    } finally { releaseMutation(); }
   };
-
   const undoSave = async (row: HomeFeedRow) => {
     if (!client || !getRecentDropEngagement(userId, row.id).some((item) => item.kind === "save" && item.active)) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "save");
+    if (!releaseMutation) return;
+    try {
     patchSet("savedDropIds", row.id, false);
     publishDropEngagement({ userId, dropId: row.id, kind: "save", active: false, source: "home" });
     try { await toggleDropSave(client, userId, row.id, true); }
     catch { publishDropEngagement({ userId, dropId: row.id, kind: "save", active: true, source: "home" }); void load(); showToast("เลิกทำไม่สำเร็จ"); }
+    } finally { releaseMutation(); }
   };
-
   const save = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "save");
+    if (!releaseMutation) return;
+    try {
     const saved = viewer.savedDropIds.has(row.id);
     if (!saved) haptic();
     patchSet("savedDropIds", row.id, !saved);
@@ -631,10 +651,11 @@ export function HomeScreen({ session }: { session: Session }) {
     } catch {
       publishDropEngagement({ userId, dropId: row.id, kind: "save", active: saved, source: "home" });
       void load();
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
+    } finally { releaseMutation(); }
   };
-
   const applyFollowState = (authorId: string, state: "following" | "requested" | "none") => setViewer((current) => {
     if (!current) return current;
     const followedAuthorIds = new Set(current.followedAuthorIds);
@@ -668,6 +689,10 @@ export function HomeScreen({ session }: { session: Session }) {
 
   const redrop = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "redrop");
+    if (!releaseMutation) return;
+    try {
     const active = viewer.redroppedDropIds.has(row.id);
     if (!active) haptic();
     patchSet("redroppedDropIds", row.id, !active);
@@ -684,13 +709,17 @@ export function HomeScreen({ session }: { session: Session }) {
     } catch {
       void load();
       publishDropEngagement({ userId, dropId: row.id, kind: "redrop", active, count: row.redrop_count ?? 0, source: "home" });
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("รีโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
+    } finally { releaseMutation(); }
   };
-
   // Legacy product contract name: Quote ReDrop.
   const quoteRedrop = async () => {
     if (!client || !selected || !quote.trim() || busy) return;
+    if (definitelyOffline()) { setError(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, selected.id, "quote");
+    if (!releaseMutation) return;
     setBusy(true);
     setError("");
     try {
@@ -709,6 +738,7 @@ export function HomeScreen({ session }: { session: Session }) {
       setError(e instanceof Error ? e.message : "รีโพสต์พร้อมความคิดเห็นไม่สำเร็จ");
     } finally {
       setBusy(false);
+      releaseMutation();
     }
   };
 
