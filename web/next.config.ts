@@ -22,8 +22,22 @@ const supabaseRemotePattern = (() => {
   }
 })();
 
+// WEB-B1-QA-01: baseline response hardening for every route. Clickjacking:
+// no third-party page may frame a signed-in WYNOS session (one-tap follow,
+// like, repost, accept message request). A full script CSP is a separate,
+// larger change (Firebase, Supabase, Vercel analytics origins).
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
   // The dev-mode indicator badge is fixed-positioned and, in the narrow
   // mobile reference-phone viewport used by tests/browser/content-reference-flow.spec.ts,
   // sits directly over the compose toolbar and intercepts every click there

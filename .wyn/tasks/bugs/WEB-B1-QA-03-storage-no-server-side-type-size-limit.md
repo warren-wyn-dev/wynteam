@@ -1,6 +1,6 @@
 # Bug Report — WEB-B1-QA-03 (MEDIUM, pre-existing) Storage buckets have no server-side MIME/size limit
 
-Status: bugs
+Status: review — fixed on branch claude/wynos-web-beta1-notifications-cf4fe4
 Owner: AI Debug Engineer
 Found by: AI QA & Security — WYNOS Web Beta1 full-system QA, 2026-09-26 (first noted as LOW in WYN-004 QA)
 Bug: Buckets `avatars`, `drop-images` (public) and `club-media`, `chat-media` (private) are created
@@ -26,3 +26,5 @@ Tests: PostgreSQL/storage integration test or manual staging check with a text/h
 Regression Risk: Low–Medium: confirm every client (web + Flutter) only uploads the allowed types
 and that HEIC from iOS is included.
 Handoff to QA: attempt the non-image upload on staging after the change.
+
+Resolution (2026-09-26): `supabase/migrations_web_beta1_storage_upload_limits.sql` (image allow-list + octet-stream for Flutter, no SVG/HTML; 10 MB avatars / 20 MB others) and `web/lib/upload-image.ts` on every web upload (type/extension from validated MIME, Thai errors) + `tests/upload-image.test.mjs`. Bucket limits are live only after the Founder runs `.github/workflows/web-beta1-apply-qa-hardening.yml`.

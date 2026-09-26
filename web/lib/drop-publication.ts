@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { MAX_POST_IMAGES } from "@/lib/post-limits";
+import { imageUploadType } from "@/lib/upload-image";
 
 export class DropPublicationStateUnknownError extends Error {
   constructor(public readonly operationId: string) {
@@ -31,15 +32,6 @@ export type PublishDropResult = {
   dropId: string;
   operationId: string;
 };
-
-function extensionFor(file: File): string {
-  const fromName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
-  if (fromName) return fromName;
-  if (file.type === "image/png") return "png";
-  if (file.type === "image/webp") return "webp";
-  if (file.type === "image/heic" || file.type === "image/heif") return "heic";
-  return "jpg";
-}
 
 function errorMessage(error: unknown): string {
   if (typeof error === "string") return error;
@@ -133,11 +125,12 @@ export async function publishDropSafely(
   try {
     for (let index = 0; index < files.length; index += 1) {
       const file = files[index];
-      const path = `${userId}/publications/${operationId}/${index}.${extensionFor(file)}`;
+      const { contentType, extension } = imageUploadType(file);
+      const path = `${userId}/publications/${operationId}/${index}.${extension}`;
       const dimensions = await imageDimensions(file);
       const uploaded = await client.storage.from("drop-images").upload(path, file, {
         cacheControl: "31536000",
-        contentType: file.type || undefined,
+        contentType,
         upsert: false,
       });
       if (uploaded.error && !isConflict(uploaded.error)) throw uploaded.error;

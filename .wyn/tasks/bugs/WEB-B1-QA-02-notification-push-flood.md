@@ -1,6 +1,6 @@
 # Bug Report — WEB-B1-QA-02 (MEDIUM) Unthrottled follow/like toggling floods a user with notifications and Push
 
-Status: bugs
+Status: review — fixed on branch claude/wynos-web-beta1-notifications-cf4fe4
 Owner: AI Debug Engineer
 Found by: AI QA & Security — WYNOS Web Beta1 full-system QA, 2026-09-26
 Bug: `public.notify_follow()` (latest definition in `supabase/migrations_web_beta1_official_autofollow.sql`
@@ -25,3 +25,5 @@ Files Changed: —
 Tests: SQL integration test in the PostgreSQL CI job: follow/unfollow ×5 → 1 notification.
 Regression Risk: Medium — must not drop legitimate distinct events.
 Handoff to QA: re-run the loop scenario on staging and count notifications/Push.
+
+Resolution (2026-09-26): `supabase/migrations_web_beta1_notification_flood_guard.sql` (BEFORE INSERT dedupe trigger, 10-minute window, toggleable types only) + `supabase/tests/web_beta1_qa_hardening_test.sh` (fails without it: 3 follow notifications). Live only after the Founder runs `.github/workflows/web-beta1-apply-qa-hardening.yml`.
