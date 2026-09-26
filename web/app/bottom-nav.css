@@ -25,6 +25,17 @@
   padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));
 }
 
+/* Immersive Home replaces the dock with a floating 56px composer shortcut.
+   The normal 50px dock inset is not tall enough at the absolute end of the
+   feed: without this scoped padding, the FAB can cover the last post actions.
+   Reserve just enough room while the Home chrome is deliberately hidden. */
+:root.wyn-home-scroll-hidden .route-with-bottom-nav {
+  padding-bottom: max(
+    calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px)),
+    calc(56px + 16px + env(safe-area-inset-bottom) + 12px)
+  );
+}
+
 .route-bottom-nav {
   /* Keep the compact reference spacing above the iOS home indicator. */
   --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);
