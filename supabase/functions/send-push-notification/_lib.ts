@@ -251,8 +251,10 @@ export function createFcmAccessTokenCache(
           validUntil = 0;
           throw error;
         })
-        .finally(() => { if (pending === task) pending = null; });
       pending = task;
+      // This cleanup must not turn a failed OAuth request into an
+      // unhandled rejection in a detached finally() Promise.
+      void task.finally(() => { if (pending === task) pending = null; }).catch(() => undefined);
       return task;
     },
     invalidate(rejected: string): void {
