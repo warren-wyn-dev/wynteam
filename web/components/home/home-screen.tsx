@@ -568,15 +568,6 @@ export function HomeScreen({ session }: { session: Session }) {
     return { ...current, [key]: next };
   });
 
-  const undoLike = async (row: HomeFeedRow) => {
-    if (!client || !getRecentDropEngagement(userId, row.id).some((item) => item.kind === "like" && item.active)) return;
-    patchSet("likedDropIds", row.id, false);
-    setRows((current) => current.map((item) => item.id === row.id ? { ...item, like_count: Math.max(0, (item.like_count ?? 0) - 1) } : item));
-    publishDropEngagement({ userId, dropId: row.id, kind: "like", active: false, count: row.like_count ?? 0, source: "home" });
-    try { await toggleDropLike(client, userId, row.id, true); }
-    catch { publishDropEngagement({ userId, dropId: row.id, kind: "like", active: true, count: (row.like_count ?? 0) + 1, source: "home" }); void load(); showToast("เลิกทำไม่สำเร็จ"); }
-  };
-
   const like = async (row: HomeFeedRow) => {
     if (!client || !viewer) return;
     const liked = viewer.likedDropIds.has(row.id);
@@ -590,22 +581,11 @@ export function HomeScreen({ session }: { session: Session }) {
     publishDropEngagement({ userId, dropId: row.id, kind: "like", active: !liked, count: Math.max(0, (row.like_count ?? 0) + (liked ? -1 : 1)), source: "home" });
     try {
       await toggleDropLike(client, userId, row.id, liked);
-      if (!liked) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoLike(row) });
     } catch {
       publishDropEngagement({ userId, dropId: row.id, kind: "like", active: liked, count: row.like_count ?? 0, source: "home" });
       void load();
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
-  };
-
-  const undoClubLike = async (post: ClubHomePost) => {
-    if (!client) return;
-    const last = getRecentClubLike(userId, post.id);
-    if (!last?.liked) return;
-    setClubRows((current) => current.map((item) => item.id === post.id ? { ...item, liked_by_me: false, like_count: Math.max(0, item.like_count - 1) } : item));
-    publishClubLike({ userId, postId: post.id, liked: false, count: Math.max(0, last.count - 1), source: "home-club" });
-    try { await toggleClubPostLike(client, userId, post.id, true); }
-    catch { publishClubLike(last); void load(); showToast("เลิกทำไม่สำเร็จ"); }
   };
 
   const likeClub = async (post: ClubHomePost) => {
@@ -623,7 +603,6 @@ export function HomeScreen({ session }: { session: Session }) {
     publishClubLike({ userId, postId: post.id, liked: !post.liked_by_me, count: Math.max(0, post.like_count + (post.liked_by_me ? -1 : 1)), source: "home-club" });
     try {
       await toggleClubPostLike(client, userId, post.id, post.liked_by_me);
-      if (!post.liked_by_me) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoClubLike(post) });
     } catch {
       publishClubLike({ userId, postId: post.id, liked: post.liked_by_me, count: post.like_count, source: "home-club" });
       void load();
