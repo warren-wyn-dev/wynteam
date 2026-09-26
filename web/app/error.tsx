@@ -21,7 +21,7 @@ export default function ErrorPage({
     <main style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 24, background: "var(--wyn-bg, #fff)", color: "var(--wyn-text, #171717)" }}>
       <section role="alert" style={{ width: "100%", maxWidth: 420, textAlign: "center", display: "grid", gap: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700 }}>โหลดหน้านี้ไม่สำเร็จ</h1>
-        <p style={{ lineHeight: 1.6 }}>ข้อมูลของคุณยังอยู่ในบัญชี กรุณาลองใหม่อีกครั้งเมื่อการเชื่อมต่อพร้อม</p>
+        <p style={{ lineHeight: 1.6 }}>กรุณาลองใหม่อีกครั้งเมื่อการเชื่อมต่อพร้อม หากกำลังเขียนโพสต์อยู่ โปรดตรวจสอบฉบับร่างก่อนส่งซ้ำ</p>
         <button type="button" onClick={reset} style={{ minHeight: 48, borderRadius: 12, border: 0, background: "#171717", color: "white", fontWeight: 650, cursor: "pointer" }}>ลองอีกครั้ง</button>
         <Link href="/" style={{ minHeight: 44, display: "grid", placeItems: "center", textDecoration: "none" }}>กลับหน้าหลัก</Link>
       </section>
