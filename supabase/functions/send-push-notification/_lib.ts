@@ -188,7 +188,9 @@ export async function buildSignedJwtAssertion(
   return `${signingInput}.${base64Url(new Uint8Array(signature))}`;
 }
 
-export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Promise<string> {
+type OAuthToken = { token: string; expiresInSeconds: number };
+
+async function requestFcmAccessToken(serviceAccount: FcmServiceAccount): Promise<OAuthToken> {
   const assertion = await buildSignedJwtAssertion(serviceAccount, Math.floor(Date.now() / 1000));
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -199,10 +201,86 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
     }),
   });
   if (!response.ok) {
-    throw new Error(`FCM OAuth2 token request failed: ${response.status} ${await response.text()}`);
+    // Never log the assertion or OAuth response body: they may contain
+    // credentials, private keys, or bearer tokens.
+    throw new Error(`FCM OAuth2 token request failed: ${response.status}`);
   }
-  const json = await response.json();
-  return json.access_token as string;
+  const json = await response.json() as { access_token?: unknown; expires_in?: unknown };
+  if (typeof json.access_token !== "string" || !json.access_token) {
+    throw new Error("FCM OAuth2 response did not contain an access token");
+  }
+  const seconds = Number(json.expires_in);
+  return {
+    token: json.access_token,
+    expiresInSeconds: Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 3600) : 300,
+  };
+}
+
+// Retain the original one-shot API for tests and other callers.
+export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Promise<string> {
+  return (await requestFcmAccessToken(serviceAccount)).token;
+}
+
+/**
+ * Edge isolates can receive many database webhooks, but previously fetched
+ * Google OAuth for EVERY notification. Reuse a short-lived access token in
+ * this one isolate; allow 90 seconds of expiry slack. Parallel webhooks
+ * share one in-flight OAuth request, and 401 responses can invalidate just
+ * the rejected token rather than repeatedly refreshing a newer one.
+ */
+export function createFcmAccessTokenCache(
+  request: () => Promise<OAuthToken>,
+  now: () => number = () => Date.now(),
+) {
+  let token: string | null = null;
+  let validUntil = 0;
+  let pending: Promise<string> | null = null;
+  return {
+    get(): Promise<string> {
+      if (token && now() < validUntil) return Promise.resolve(token);
+      if (pending) return pending;
+      const task = request()
+        .then((fresh) => {
+          if (!fresh.token) throw new Error("FCM returned an empty access token");
+          token = fresh.token;
+          validUntil = now() + Math.max(0, fresh.expiresInSeconds - 90) * 1000;
+          return fresh.token;
+        })
+        .catch((error) => {
+          token = null;
+          validUntil = 0;
+          throw error;
+        })
+        .finally(() => { if (pending === task) pending = null; });
+      pending = task;
+      return task;
+    },
+    invalidate(rejected: string): void {
+      if (token === rejected) {
+        token = null;
+        validUntil = 0;
+      }
+    },
+  };
+}
+
+const oauthCaches = new Map<string, ReturnType<typeof createFcmAccessTokenCache>>();
+function cacheFor(serviceAccount: FcmServiceAccount) {
+  const key = `${serviceAccount.project_id}:${serviceAccount.client_email}`;
+  let cache = oauthCaches.get(key);
+  if (!cache) {
+    cache = createFcmAccessTokenCache(() => requestFcmAccessToken(serviceAccount));
+    oauthCaches.set(key, cache);
+  }
+  return cache;
+}
+
+export function getCachedFcmAccessToken(serviceAccount: FcmServiceAccount): Promise<string> {
+  return cacheFor(serviceAccount).get();
+}
+
+export function invalidateCachedFcmAccessToken(serviceAccount: FcmServiceAccount, rejectedToken: string): void {
+  cacheFor(serviceAccount).invalidate(rejectedToken);
 }
 
 export function collapseKeyFor(row: NotificationRow): string {
@@ -244,6 +322,9 @@ export function safeErrorMessage(err: unknown): string {
 export function buildDataPayload(row: NotificationRow): Record<string, string> {
   const data: Record<string, string> = { type: row.type };
   data.notification_id = row.id;
+  // The receiving device may have switched accounts while this webhook was
+  // in flight. The browser can ignore an old recipient's hint before fetching.
+  data.recipient_id = row.recipient_id;
   if (row.actor_id) data.actor_id = row.actor_id;
   if (row.drop_id) data.drop_id = row.drop_id;
   if (row.pop_id) data.pop_id = row.pop_id;
