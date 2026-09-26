@@ -19,9 +19,10 @@ import { usePathname } from "next/navigation";
  * that minimal fade. Duration/easing port `WynMotion.standard` (220ms)
  * from the Flutter interaction system (ds-010-interaction-feedback.md)
  * to CSS-transform/opacity so the two platforms' "screen enters/exits"
- * feel share one timing language. `mode="wait"` still keeps exactly one
- * page's DOM mounted at a time, so exit and enter run sequentially, not
- * together — same structure as before, just a longer, directional motion.
+ * feel share one timing language. Keep `mode="wait"` to preserve the
+ * single-page DOM and fixed-position composer geometry. Shorten only the
+ * outgoing transition, so the next route can mount sooner without altering
+ * the approved 220ms arrival animation.
  *
  * `useReducedMotion()` mirrors iOS Reduce Motion / Android Remove
  * animations / prefers-reduced-motion (same flag Flutter's
@@ -32,6 +33,7 @@ import { usePathname } from "next/navigation";
  */
 const SLIDE_DISTANCE = 24;
 const DURATION = 0.22;
+const EXIT_DURATION = 0.09;
 const EASE: [number, number, number, number] = [0.22, 0.61, 0.36, 1];
 
 export function PageTransition({ children }: { children: React.ReactNode }) {
@@ -44,7 +46,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
         key={pathname}
         initial={{ opacity: 0, x: offset }}
         animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -offset }}
+        exit={{ opacity: 0, x: -offset, transition: { duration: EXIT_DURATION, ease: EASE } }}
         transition={{ duration: DURATION, ease: EASE }}
       >
         {children}
