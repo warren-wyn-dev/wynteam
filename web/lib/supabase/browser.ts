@@ -2,7 +2,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { getActiveAccountStorageKey } from "@/lib/account-registry";
-import { getPendingAddAccountSlot, hasAddAccountIntent } from "@/lib/pending-account-add";
+import { getAddAccountIntentSlot, getPendingAddAccountSlot } from "@/lib/pending-account-add";
 
 let client: SupabaseClient | null | undefined;
 let pendingClient: SupabaseClient | null = null;
@@ -43,11 +43,14 @@ export function getPendingAddAccountClient(expectedSlot?: string | null): Supaba
 }
 
 export function getSignupAuthClient(): SupabaseClient | null {
-  const pending = getPendingAddAccountClient();
-  if (pending) return pending;
-  // A tab whose temporary B slot expired must not silently reuse A's
-  // existing credentials when the person resumes B's registration.
-  if (hasAddAccountIntent()) return null;
+  const ownPendingSlot = getAddAccountIntentSlot();
+  if (ownPendingSlot) {
+    // If this tab's provisional slot expired or another tab started its own
+    // registration, NEVER read that second tab's session or write into A.
+    return getPendingAddAccountClient(ownPendingSlot);
+  }
+  // A completely separate normal signup tab must ignore another tab's
+  // pending Add Account slot even though localStorage is origin-wide.
   return getSupabaseBrowserClient();
 }
 
