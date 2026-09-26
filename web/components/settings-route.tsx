@@ -144,6 +144,10 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   }, []);
 
   useEffect(() => {
+    // The Settings root, privacy and account screens need none of Firebase's
+    // JS, Push config or FCM token. Probe only when the notification settings
+    // screen is actually opened, so Settings paints alongside its own data.
+    if (section !== "notifications") return;
     let active = true;
     void pushSupported().then(async (supported) => {
       if (!active) return;
@@ -152,9 +156,11 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
         const enabled = await isCurrentDevicePushEnabled(client, userId);
         if (active) setPushEnabled(enabled);
       }
+    }).catch(() => {
+      if (active) setPushAvailable(false);
     });
     return () => { active = false; };
-  }, [client, userId]);
+  }, [client, userId, section]);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");

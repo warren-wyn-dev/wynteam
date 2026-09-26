@@ -13,6 +13,7 @@ import { DefaultProfileAvatar } from "@/components/ui/default-profile-avatar";
 import { isQuotePost, type HomeFeedRow } from "@/lib/feed";
 import type { HomeViewerState } from "@/lib/home-actions";
 import { useUnreadNotificationCount } from "@/lib/notification-count";
+import { scheduleAppRoutePrefetch } from "@/lib/app-prefetch";
 import type { ProfileRow } from "@/lib/phase3-data";
 import { usePresenceTracking } from "@/lib/presence";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -63,10 +64,11 @@ export function AppChrome({
   const notificationRouteActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
 
   useEffect(() => {
-    // The static root destinations are prefetched by AppNavigationRuntime.
-    // Profile is user-specific, so warm it as soon as AppChrome knows the id.
-    if (userId) router.prefetch(`/profile/${userId}`);
-  }, [router, userId]);
+    // AppChrome is only rendered after a user passes the route Auth gate:
+    // don't prefetch private pages from signed-out routes, or compete with
+    // this page's first API requests. Next <Link> still warms visible tabs.
+    return scheduleAppRoutePrefetch((href) => router.prefetch(href), userId, pathname);
+  }, [router, userId, pathname]);
 
   usePresenceTracking(getSupabaseBrowserClient(), userId);
   const unreadNotificationCount = useUnreadNotificationCount(getSupabaseBrowserClient(), userId, bottomNavVisible && !notificationRouteActive);

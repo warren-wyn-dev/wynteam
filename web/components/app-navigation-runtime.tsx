@@ -1,12 +1,11 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 import { listenForForegroundPush } from "@/lib/push-notifications";
 
 const scrollMemory = new Map<string, number>();
-const PREFETCH_ROUTES = ["/", "/clubs", "/chat", "/search", "/notifications"] as const;
 
 function shouldRememberScroll(pathname: string): boolean {
   if (pathname === "/" || pathname === "/clubs" || pathname === "/chat" || pathname === "/search" || pathname === "/notifications") return true;
@@ -18,7 +17,7 @@ function shouldRememberScroll(pathname: string): boolean {
  * is not remounted when the user changes screens. It gives the web app two
  * native-app behaviours:
  *
- * - warm the code/data route manifests for the five primary destinations;
+ * - keep scroll positions across the five primary destinations;
  * - remember the scroll position of root tabs/profile screens and restore it
  *   when the user comes back, instead of treating every tab tap as a brand-new
  *   page visit.
@@ -28,7 +27,6 @@ function shouldRememberScroll(pathname: string): boolean {
  */
 export function AppNavigationRuntime() {
   const pathname = usePathname();
-  const router = useRouter();
 
   useEffect(() => {
     // Older iOS standalone WebKit can report navigator.standalone=true while
@@ -52,22 +50,30 @@ export function AppNavigationRuntime() {
   }, []);
 
   useEffect(() => {
-    for (const href of PREFETCH_ROUTES) router.prefetch(href);
-  }, [router]);
-
-  useEffect(() => {
-    // Never prompts — only starts listening if a previous session already
-    // has notification permission granted, so a returning user keeps
-    // getting foreground pushes without this component ever requesting it.
-    void listenForForegroundPush();
+    // Firebase downloads/config should not compete with the first app paint.
+    // Do not prompt: initialize only an existing permission after idle.
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(() => { void listenForForegroundPush(); }, { timeout: 1400 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(() => { void listenForForegroundPush(); }, 400);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    // Registered once for the whole session; the worker itself only caches
-    // immutable static assets (see public/sw.js), so a stale registration
-    // never hides new app code or data.
-    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    // Offline support is important, but registration can wait until the
+    // visible page has started painting. Reuse a root effect so it runs once.
+    const register = () => {
+      void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(register, { timeout: 1800 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(register, 700);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {

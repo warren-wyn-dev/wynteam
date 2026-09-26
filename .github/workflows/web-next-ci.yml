@@ -42,6 +42,8 @@ jobs:
         run: npm run test:account-cache-isolation
       - name: Account switch session and cross-tab regression
         run: npm run test:account-switch
+      - name: App-wide navigation, loading and cache performance regression
+        run: npm run test:app-performance
       - name: Offline Push logout fallback regression
         run: npm run test:push-offline-logout
       - name: Web Beta1 club and draft regression

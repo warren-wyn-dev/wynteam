@@ -22,10 +22,15 @@ function ClubAvatar({ club, size = 44 }: { club: ClubRow; size?: number }) {
 }
 
 async function fetchExplore(client: SupabaseClient, userId: string): Promise<Sections> {
-  const pages = await Promise.all([0, 1, 2].map((page) => searchClubs(client, "", page)));
-  const all = pages.flat();
-  const membership = await client.from("club_members").select("club_id,status").eq("user_id", userId);
+  // Club discovery and this user's membership are independent. Fetch them
+  // together instead of serially adding an extra Supabase round-trip to the
+  // first Club paint (and still await all data before calculating visibility).
+  const [pages, membership] = await Promise.all([
+    Promise.all([0, 1, 2].map((page) => searchClubs(client, "", page))),
+    client.from("club_members").select("club_id,status").eq("user_id", userId),
+  ]);
   if (membership.error) throw membership.error;
+  const all = pages.flat();
   const approved = new Set((membership.data ?? []).filter((row) => row.status === "approved").map((row) => String(row.club_id)));
   const pending = new Set((membership.data ?? []).filter((row) => row.status === "pending").map((row) => String(row.club_id)));
   const discoverable = all.filter((club) => !approved.has(club.id));
