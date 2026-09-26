@@ -125,8 +125,8 @@ test("the legacy default cookie account is checked through a separate non-refres
 test("source: account verification precedes Push detachment and slot activation", () => {
   const profile = readFileSync(new URL("../components/profile-route.tsx", import.meta.url), "utf8");
   const switcher = profile.slice(profile.indexOf("const switchToAccount ="), profile.indexOf("const addAnotherAccount ="));
-  assert.ok(switcher.indexOf("checkSavedAccountSession(account)") >= 0);
-  assert.ok(switcher.indexOf("checkSavedAccountSession(account)") < switcher.indexOf("detachPushBeforeAccountChange()"));
+  assert.ok(switcher.indexOf("getPreparedSavedAccountSession(account)") >= 0);
+  assert.ok(switcher.indexOf("getPreparedSavedAccountSession(account)") < switcher.indexOf("detachPushBeforeAccountChange()"));
   assert.ok(switcher.indexOf("detachPushBeforeAccountChange()") < switcher.indexOf("activateSavedAccount(account.userId)"));
   assert.ok(switcher.includes("accountOperationInFlight.current"));
   const add = profile.slice(profile.indexOf("const addAnotherAccount ="), profile.indexOf("const removeAccountFromSwitcher ="));
@@ -209,7 +209,7 @@ test("source: saved-account switching lands on the newly authenticated profile, 
   const profile = readFileSync(new URL("../components/profile-route.tsx", import.meta.url), "utf8");
   const switcher = profile.slice(profile.indexOf("const switchToAccount ="), profile.indexOf("const addAnotherAccount ="));
   const activateAt = switcher.indexOf("activateSavedAccount(account.userId)");
-  const profileAt = switcher.indexOf('window.location.assign("/profile/me")');
+  const profileAt = switcher.indexOf('window.location.replace(`/profile/${encodeURIComponent(account.userId)}?from=tab`)');
   assert.ok(activateAt >= 0 && profileAt > activateAt);
   assert.doesNotMatch(switcher, /window\.location\.assign\("\/"\)/);
 });
@@ -218,7 +218,7 @@ test("source: both password and Google add-account flows land on the selected pr
   const add = readFileSync(new URL("../components/account-add-route.tsx", import.meta.url), "utf8");
   const finish = add.slice(add.indexOf("const finish = useCallback"), add.indexOf("useEffect(() =>"));
   const activateAt = finish.indexOf("markAccountStorageActive(storageKey)");
-  const profileAt = finish.indexOf('window.location.replace("/profile/me")');
+  const profileAt = finish.indexOf('window.location.replace(`/profile/${encodeURIComponent(session.user.id)}?from=tab`)');
   assert.ok(activateAt >= 0 && profileAt > activateAt);
   const ownProfile = readFileSync(new URL("../components/me-profile-redirect.tsx", import.meta.url), "utf8");
   assert.match(ownProfile, /router\.replace\(`\/profile\/\$\{userId\}`\)/);
@@ -226,4 +226,19 @@ test("source: both password and Google add-account flows land on the selected pr
   // explicit switching and adding a second account.
   const home = readFileSync(new URL("../components/parity-auth-entry.tsx", import.meta.url), "utf8");
   assert.match(home, /HomeScreen session=\{session\}/);
+});
+
+test("source: warm likely destinations before taps without skipping Push isolation", () => {
+  const profile = readFileSync(new URL("../components/profile-route.tsx", import.meta.url), "utf8");
+  const open = profile.slice(profile.indexOf("const openAccountSwitcher ="), profile.indexOf("const detachPushBeforeAccountChange ="));
+  const select = profile.slice(profile.indexOf("const switchToAccount ="), profile.indexOf("const addAnotherAccount ="));
+  assert.match(open, /prewarmSavedAccountSession\(item\)/);
+  assert.match(open, /prewarmAccountSwitchPush\(\)/);
+  assert.ok(select.indexOf("getPreparedSavedAccountSession(account)") < select.indexOf("detachPushBeforeAccountChange()"));
+  assert.ok(select.indexOf("detachPushBeforeAccountChange()") < select.indexOf("activateSavedAccount(account.userId)"));
+  assert.match(select, /setAccountSwitchingTo\(account.userId\)/);
+  assert.match(profile, /กำลังเปิดโปรไฟล์/);
+  const push = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
+  const warm = push.slice(push.indexOf("export function prewarmAccountSwitchPush"), push.indexOf("export async function revokeLocalPushSubscription"));
+  assert.doesNotMatch(warm, /getToken|deleteToken|push_tokens|unsubscribeFromPushNotifications/);
 });
