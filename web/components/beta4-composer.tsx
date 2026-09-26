@@ -21,6 +21,7 @@ import { Avatar } from "@/components/phase3-ui";
 import { deleteDraft, fetchDraft, loadDraftImageFile, saveDraft } from "@/lib/drafts";
 import { DropPublicationStateUnknownError, publishDropSafely } from "@/lib/drop-publication";
 import { definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
+import { reportClientFailure } from "@/lib/client-health";
 import { MAX_POST_IMAGES } from "@/lib/post-limits";
 import { fetchHomeIdentity, type HomeIdentity } from "@/lib/home-parity-data";
 import styles from "./beta4-composer-refresh.module.css";
@@ -375,7 +376,7 @@ export function Beta4Composer({
     if (definitelyOffline()) { setDraftError("ยังออฟไลน์อยู่ เนื้อหาจะอยู่ในหน้านี้จนกว่าจะกลับมาเชื่อมต่อ"); return; }
     setSavingDraft(true); setDraftError("");
     try { await persistDraft(); closeAndNavigate(); }
-    catch (reason) { setDraftError(reason instanceof Error ? reason.message : "บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง"); }
+    catch (reason) { if (!definitelyOffline()) reportClientFailure("composer_draft"); setDraftError(reason instanceof Error ? reason.message : "บันทึกร่างไม่สำเร็จ ลองใหม่อีกครั้ง"); }
     finally { setSavingDraft(false); }
   };
 
@@ -470,6 +471,7 @@ export function Beta4Composer({
       onPublished();
       onClose();
     } catch (reason) {
+      if (!definitelyOffline()) reportClientFailure("composer_publish");
       // Preserve the operation ID only when the server might already have
       // committed. A deliberate retry will reconcile instead of duplicating.
       if (!(reason instanceof DropPublicationStateUnknownError)) {
@@ -479,6 +481,8 @@ export function Beta4Composer({
       setError(reason instanceof DropPublicationStateUnknownError
         ? "สถานะการเผยแพร่ยังไม่แน่ชัด ตรวจสอบฟีดก่อนลองส่งอีกครั้งด้วยเนื้อหาเดิม"
         : definitelyOffline() ? OFFLINE_ACTION_MESSAGE + " เนื้อหายังอยู่ในหน้านี้"
+        : mode === "poll" && (reason instanceof TypeError || (reason instanceof Error && /failed to fetch|networkerror|fetcherror|load failed/i.test(reason.message)))
+          ? "การเชื่อมต่อขาดระหว่างเผยแพร่โพล โปรดตรวจสอบฟีดก่อนกดส่งอีกครั้ง เพื่อป้องกันโพสต์ซ้ำ"
         : reason instanceof Error ? reason.message : "แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง");
     } finally { publishingRef.current = false; setBusy(false); setUploadProgress(null); }
   };
