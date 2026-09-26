@@ -25,7 +25,6 @@ function fixture() {
   const cleanups = [];
   let nextTimer = 1;
 
-  const events = new Map();
   function target() {
     const listeners = new Map();
     return {
