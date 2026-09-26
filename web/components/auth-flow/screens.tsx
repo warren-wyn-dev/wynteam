@@ -10,6 +10,7 @@ import { uploadProfileImage } from "@/lib/phase3-data";
 import { useSignupDraft, type SignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { PENDING_REFERRAL_KEY } from "@/components/parity-invite-code";
 import { createPasswordRecoveryClient, getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { registerCurrentAccount } from "@/lib/account-registry";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
@@ -45,6 +46,10 @@ async function resolvePostAuthPath(client: NonNullable<ReturnType<typeof getSupa
   const { data } = await client.auth.getUser();
   const user = data.user;
   if (!user) return "/welcome";
+  // Bind the verified user to the active slot as soon as normal Login/Google
+  // succeeds. If a prior version left a stale alias for that slot, the
+  // registry now replaces it instead of displaying the wrong saved account.
+  await registerCurrentAccount(client).catch(() => false);
   try {
     const hasProfile = await hasProfileRow(client, user.id);
     return hasProfile ? "/" : "/signup/step-1";
@@ -873,6 +878,18 @@ export function LoginScreen() {
     }
     setLoading(true);
     try {
+      // /login can be opened directly even when account A is already signed
+      // in. Never let a normal Login overwrite A's saved session and bypass
+      // the account switcher's per-user Push-detach check.
+      const { data: active, error: activeError } = await supabase.auth.getSession();
+      if (activeError) {
+        setError("ตรวจสอบบัญชีปัจจุบันไม่สำเร็จ กรุณาลองใหม่");
+        return;
+      }
+      if (active.session) {
+        setError("มีบัญชีเข้าสู่ระบบอยู่แล้ว กรุณาใช้เมนูสลับบัญชีในหน้าโปรไฟล์");
+        return;
+      }
       await signInWithEmail(supabase, email, password);
       const path = await resolvePostAuthPath(supabase);
       router.push(path);
