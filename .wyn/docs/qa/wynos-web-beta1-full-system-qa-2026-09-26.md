@@ -1,0 +1,86 @@
+# WYNOS Web Beta1 — Full-System QA & Security (2026-09-26)
+
+Role: AI QA & Security · Requested by Founder ("ตรวจ QA ทั้งระบบให้หน่อย") · Code under test: `main` @ `0214d9d` (includes #721–#724)
+
+```
+Feature: WYNOS Web Beta1 (web/) — whole system before opening to users:
+         functional, authn/authz, security/privacy, notifications/Push, chat, posts,
+         clubs, profile, signup, uploads, account switching
+Environment: Cloud sandbox (Linux). Next.js dev server + Playwright Chromium
+             (chromium-android, chromium-desktop). No WebKit binary locally (CI covers
+             webkit-iphone). No production Supabase credentials and no physical device.
+             Production reachable read-only for HTTP header checks (https://wynos.online).
+Test Cases:
+  A. Automated — `npm run check` (lint, typecheck, all node test suites, production build)
+  B. Automated — full Playwright suite, 540 cases on Chromium (all browser specs:
+     auth/signup security, password recovery, Google PWA OAuth, account switch
+     cross-tab, composer/drafts/uploads (image limit), post detail, quote/repost,
+     follow, share, search, trending, profile/external link, clubs, chat inbox,
+     notifications, native Push/service worker, PWA install/cache, accessibility)
+  C. CI evidence on the same code — GitHub Actions for #724 head `1bfd1bf`:
+     web, browser-qa (incl. webkit-iphone), signup-security, Supabase PostgreSQL
+     integration (SQL/RLS tests), Edge Functions (Deno), Flutter, Admin — all success
+  D. Secret exposure — tracked files scanned for JWT/sbp_/AIza/private keys/.env
+  E. Authorization — every table/RPC/bucket the web writes to vs. RLS in
+     supabase/schema.sql + migrations_*.sql (RLS enabled, policy per command,
+     owner scoping on push_tokens, notifications, messages, conversations,
+     profile_private, user_presence, storage paths; private-club isolation in
+     migrations_wyn185; is_verified/platform_role guards)
+  F. Client security — XSS sinks (dangerouslySetInnerHTML), link rendering
+     (javascript:/data: rejection, rel=noreferrer), open redirects, SW push
+     click routing (UUID-only targets), image host allow-list (next/image)
+  G. Dependencies — `npm audit --omit=dev`
+  H. Production HTTP security headers — `curl -sSI https://wynos.online/`
+  I. Abuse — rate limits / notification dedupe in DB triggers
+Passed:
+  A ✅ exit 0 (0 lint errors; 3 pre-existing warnings in untouched files)
+  B ✅ 521 passed, 19 skipped (skips are pre-existing conditional specs), 0 failed
+  C ✅ all green
+  D ✅ no real secrets tracked (only test-generated PEM fixtures and .env.example placeholders)
+  E ✅ RLS enabled on all 37 tables the web reads or writes; owner/participant scoping correct;
+       ignoreDuplicates upserts compatible with policies; private clubs not exposed
+  F ✅ no XSS sink; external links http(s)-only; redirects internal-only; SW push
+       targets validated; remote images restricted to the Supabase host
+  G ✅ 0 known vulnerabilities in production dependencies
+Failed:
+  H ❌ WEB-B1-QA-01 — no clickjacking / nosniff / referrer headers on production
+  I ❌ WEB-B1-QA-02 — follow/like toggling floods notifications + Push (no dedupe/rate limit)
+  E ❌ WEB-B1-QA-03 — storage buckets have no server-side MIME/size limit (pre-existing)
+  E ⚠ LOW — profiles.referral_code is user-updatable (vanity/impersonation of codes);
+       no bug file, fold into a later hardening task
+Severity: CRITICAL 0 · HIGH 0 · MEDIUM 3 · LOW 1
+Reproduction Steps: see each bug file in .wyn/tasks/bugs/WEB-B1-QA-0{1,2,3}-*.md
+Expected: security headers present; repeated identical events collapse; buckets
+          reject non-image/oversized uploads server-side.
+Actual: as listed under Failed.
+Security Findings: 3 MEDIUM + 1 LOW above. No CRITICAL/HIGH. No secret exposure,
+  no cross-user data access path found in RLS review, no dependency CVEs.
+Recommendation:
+  1. Founder/device smoke test (NOT done by QA — no device/credentials here):
+     installed-PWA iPhone + Android — enable Push, background Push banner + tap
+     routing, bell and Chat badges count up and clear, account switch then Push
+     goes only to the active account, signup → onboarding → first post with image.
+  2. Fix WEB-B1-QA-01 (small, config-only) before opening broadly.
+  3. Fix or explicitly accept WEB-B1-QA-02 and WEB-B1-QA-03 (DB changes → Founder
+     applies migration).
+  4. Keep the soft-launch plan (small cohort 2–3 days) until 1–3 are done; ship
+     database release #716 (notifications Realtime publication) afterwards.
+Final Status: FAIL
+```
+
+## Why FAIL when there is no CRITICAL/HIGH
+
+Per `.wyn/agents/qa-security.md` QA must not approve anything that was not actually tested.
+The highest-risk user journeys for this release — real Push delivery on an installed iPhone/Android
+PWA, and end-to-end flows against the live Supabase backend — could not be exercised from this
+environment. Three MEDIUM findings are also open. None of them is a release blocker under
+AGENTS.md (only CRITICAL blocks; HIGH needs Founder acceptance), so the Founder may choose to
+accept them — but QA cannot mark the release PASS until item 1 above is verified.
+
+## Scope notes
+
+- Previously fixed today and verified in this run: background Push after service-worker restart
+  (#721), notification list truncation (#721), recipient-scoped Push data (#722), foreground
+  listener removal (#723), bell/Chat unread counts + out-of-order guard (#724).
+- One WebKit-only CI flake seen today (`composer-handle-drag.spec.ts:52`, passed on re-run and on
+  #723/#724) — test hydration timing, not a product bug; proposed test fix is in PR #723's comment.
