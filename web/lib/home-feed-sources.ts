@@ -119,7 +119,9 @@ export async function fetchRankedDropRows(
   const result = await client.rpc("get_wynos_ranked_feed");
   throwIfError(result.error);
   const rows = rankedDropRows(result.data, rankedLimit);
-  await recordRankedImpressions(client, result.data, Date.now() - startedAt);
+  // Telemetry is best-effort. Do not delay the first visible Feed frame while
+  // record_feed_impressions waits for an additional network round-trip.
+  void recordRankedImpressions(client, result.data, Date.now() - startedAt);
   return hydrateImageAspectRatios(client, rows);
 }
 

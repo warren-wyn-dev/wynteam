@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
-import { unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { revokeLocalPushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { cacheBrowserSession, getCachedBrowserSession } from "@/lib/supabase/session-cache";
 
 type GateState = "loading" | "missing-config" | "signed-out" | "ready" | "error";
@@ -49,6 +49,11 @@ export function DeveloperRouteGate({
   const [message, setMessage] = useState("");
 
   const acceptSession = useCallback((nextSession: Session | null) => {
+    const previousSession = getCachedBrowserSession();
+    if (previousSession?.user.id && previousSession.user.id !== nextSession?.user.id) {
+      // Auth can also change in another tab or through OAuth callbacks.
+      queryClient.clear();
+    }
     cacheBrowserSession(nextSession);
     setSession(nextSession);
     setMessage("");
@@ -57,7 +62,7 @@ export function DeveloperRouteGate({
       return;
     }
     setGate(nextSession ? "ready" : "signed-out");
-  }, [client]);
+  }, [client, queryClient]);
 
   const verifySession = useCallback(async () => {
     if (!client) return;
@@ -120,7 +125,8 @@ export function DeveloperRouteGate({
     if (!client) return;
     // Delete the device token while RLS still recognizes the current
     // owner. Never block a requested logout on a push/network failure.
-    await unsubscribeFromPushNotifications(client);
+    const serverDetached = await unsubscribeFromPushNotifications(client);
+    if (!serverDetached) await revokeLocalPushSubscription();
     await client.auth.signOut();
     cacheBrowserSession(null);
     // Clears both the in-memory cache and the persisted localStorage copy

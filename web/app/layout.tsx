@@ -105,11 +105,8 @@ const APPLE_STARTUP_IMAGES: { url: string; media: string }[] = [
 // iOS may cache this metadata when the Home Screen app is installed:
 // an existing shortcut may need to be removed and added again.
 export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
-// maximumScale/userScalable: 1 disables pinch-zoom. Native apps (and the
-// Flutter build this web app mirrors) never let a user pinch-zoom the UI —
-// only a standalone-launched web app, still carrying a plain browser
-// viewport, does. Without this it's the one thing that gives away "this is
-// a website" even from the home-screen icon.
+// Preserve browser zoom for accessibility. Native-like gestures and image viewing
+// should not disable the operating system's ability to enlarge web content.
 // interactiveWidget "resizes-content" (iOS 16.4+/Chrome): without it, Safari's
 // default is "resizes-visual" — the visual viewport shrinks for the keyboard
 // but the layout viewport (what dvh units and position:fixed compute against)
@@ -120,7 +117,7 @@ export const metadata:Metadata={title:"WYNOS",description:"WYNOS social web",app
 // "resizes-content" makes the layout viewport itself shrink for the keyboard,
 // same as a native app's safe area shrinking, so dvh-based sizing and fixed
 // bottom bars stay flush with no separate compatibility jump.
-export const viewport:Viewport={width:"device-width",initialScale:1,maximumScale:1,userScalable:false,viewportFit:"cover",interactiveWidget:"resizes-content",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
+export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",interactiveWidget:"resizes-content",themeColor:[{media:"(prefers-color-scheme: light)",color:"#ffffff"},{media:"(prefers-color-scheme: dark)",color:"#000000"}]};
 // Every route mounts DeveloperRouteGate on first paint, which immediately
 // calls Supabase auth.getSession() — a cross-origin request that otherwise
 // pays DNS + TCP + TLS from a cold start. Warming that connection while the

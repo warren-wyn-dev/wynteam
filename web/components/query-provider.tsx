@@ -5,8 +5,8 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useEffect, useState } from "react";
 import { subscribeFollowChange } from "@/lib/follow-state";
+import { PERSIST_QUERY_CACHE_KEY } from "@/lib/query-persist-key";
 
-const PERSIST_KEY = "wynos-query-cache";
 // One day: long enough that reopening the app later the same day still shows
 // something instantly, short enough that genuinely stale data never lingers
 // past a day of not opening the app before the network refetch replaces it.
@@ -37,7 +37,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [persister] = useState(() =>
     typeof window === "undefined"
       ? null
-      : createSyncStoragePersister({ storage: window.localStorage, key: PERSIST_KEY }),
+      : createSyncStoragePersister({ storage: window.localStorage, key: PERSIST_QUERY_CACHE_KEY }),
   );
 
   useEffect(() => subscribeFollowChange(() => {
