@@ -1,12 +1,13 @@
 // WYN-016: unit tests for the pure logic in _lib.ts -- no network, no
 // Deno.serve, no real Firebase project needed. Run with `deno test`.
-import { assertEquals, assertMatch } from "jsr:@std/assert@1";
+import { assertEquals, assertMatch, assertRejects } from "jsr:@std/assert@1";
 
 import {
   base64Url,
   buildDataPayload,
   collapseKeyFor,
   buildSignedJwtAssertion,
+  createFcmAccessTokenCache,
   displayNameOrUsername,
   type FcmServiceAccount,
   importPrivateKey,
@@ -198,6 +199,7 @@ Deno.test("buildDataPayload includes only the id columns that are actually set, 
   assertEquals(buildDataPayload(row), {
     type: "like_drop",
     notification_id: "n1",
+    recipient_id: "r1",
     actor_id: "a1",
     drop_id: "d1",
   });
@@ -217,6 +219,7 @@ Deno.test("buildDataPayload omits actor_id when null", () => {
   assertEquals(buildDataPayload(row), {
     type: "moderation_warning",
     notification_id: "n3",
+    recipient_id: "r1",
     moderation_action_id: "ma1",
   });
 });
@@ -231,6 +234,7 @@ Deno.test("buildDataPayload includes conversation_id when set (message_request)"
   assertEquals(buildDataPayload(row), {
     type: "message_request",
     notification_id: "n4",
+    recipient_id: "r1",
     actor_id: "a1",
     conversation_id: "c1",
   });
@@ -246,6 +250,7 @@ Deno.test("buildDataPayload includes conversation_id when set (new_message, WYN-
   assertEquals(buildDataPayload(row), {
     type: "new_message",
     notification_id: "n5",
+    recipient_id: "r1",
     actor_id: "a1",
     conversation_id: "c1",
   });
@@ -510,4 +515,38 @@ Deno.test("splitPushMessage requires the whole name, not a prefix of it", () => 
     title: "WYN",
     body: "namfahsuda ถูกใจโพสต์ของคุณ",
   });
+});
+
+Deno.test("FCM OAuth cache deduplicates simultaneous webhook requests and reuses safe TTL", async () => {
+  let now = 0;
+  let calls = 0;
+  const cache = createFcmAccessTokenCache(async () => ({
+    token: `fcm-token-${++calls}`,
+    expiresInSeconds: 200,
+  }), () => now);
+  const values = await Promise.all([cache.get(), cache.get(), cache.get()]);
+  assertEquals(values, ["fcm-token-1", "fcm-token-1", "fcm-token-1"]);
+  assertEquals(calls, 1);
+
+  now = 109_000; // 200s lifetime minus 90s safety margin
+  assertEquals(await cache.get(), "fcm-token-1");
+  assertEquals(calls, 1);
+  now = 111_000;
+  assertEquals(await cache.get(), "fcm-token-2");
+  assertEquals(calls, 2);
+  cache.invalidate("fcm-token-1"); // Old parallel 401 cannot evict a newer token.
+  assertEquals(await cache.get(), "fcm-token-2");
+  cache.invalidate("fcm-token-2");
+  assertEquals(await cache.get(), "fcm-token-3");
+});
+
+Deno.test("FCM OAuth cache retries a failed token request rather than caching the error", async () => {
+  let calls = 0;
+  const cache = createFcmAccessTokenCache(async () => {
+    if (++calls === 1) throw new Error("temporary OAuth outage");
+    return { token: "recovered", expiresInSeconds: 3600 };
+  });
+  await assertRejects(() => cache.get(), Error, "temporary OAuth outage");
+  assertEquals(await cache.get(), "recovered");
+  assertEquals(calls, 2);
 });

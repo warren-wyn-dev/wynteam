@@ -9,7 +9,8 @@ import {
   collapseKeyFor,
   displayNameOrUsername,
   dmMessagePreview,
-  fetchFcmAccessToken,
+  getCachedFcmAccessToken,
+  invalidateCachedFcmAccessToken,
   type FcmServiceAccount,
   messageFor,
   safeErrorMessage,
@@ -155,19 +156,13 @@ async function handleWebhook(req: Request): Promise<Response> {
   const data = buildDataPayload(row);
   const collapseKey = collapseKeyFor(row);
 
-  const accessToken = await fetchFcmAccessToken(serviceAccount);
+  const accessToken = await getCachedFcmAccessToken(serviceAccount);
   const fcmUrl =
     `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
 
   const outcomes = await Promise.all(
     (tokenRows as { token: string }[]).map(async ({ token }) => {
-      const response = await fetch(fcmUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const message = JSON.stringify({
           message: {
             token,
             notification: { title, body: pushBody },
@@ -185,8 +180,22 @@ async function handleWebhook(req: Request): Promise<Response> {
             android: { collapse_key: collapseKey },
             apns: { headers: { "apns-collapse-id": collapseKey } },
           },
-        }),
+        });
+      const send = (oauth: string) => fetch(fcmUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${oauth}`,
+          "Content-Type": "application/json",
+        },
+        body: message,
       });
+      let response = await send(accessToken);
+      if (response.status === 401) {
+        // Google can invalidate an otherwise unexpired token. Retry once
+        // with a fresh, deduplicated OAuth token; never loop indefinitely.
+        invalidateCachedFcmAccessToken(serviceAccount, accessToken);
+        response = await send(await getCachedFcmAccessToken(serviceAccount));
+      }
       if (response.ok) return "sent";
 
       const errorBody = await response.json().catch(() => null);
