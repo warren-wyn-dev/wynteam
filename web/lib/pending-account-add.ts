@@ -51,7 +51,7 @@ export function beginPendingAddAccount(slot: string): void {
 export function clearPendingAddAccount(slot?: string): void {
   if (typeof window === "undefined") return;
   const pending = getPendingAddAccountSlot();
-  if (!slot || pending === slot) {
+  if (!slot || !pending || pending === slot) {
     window.localStorage.removeItem(KEY);
     try { window.sessionStorage.removeItem(INTENT_KEY); } catch { /* Optional storage. */ }
   }
