@@ -99,11 +99,13 @@ test("reusing an old signed-out slot replaces its stale identity, never duplicat
     { userId: "D", storageKey: "wynos.account.other-slot", lastUsedAt: 2 },
   ]));
   localStorage.setItem(ACTIVE_KEY, slot);
+  localStorage.setItem(PERSIST_KEY, '{"private":"A-only"}');
   const session = { user: { id: "C", email: "c@example.test", user_metadata: {} } };
   assert.equal(await registry.registerSessionAccount(profileClient("C"), session, slot), true);
   const accounts = JSON.parse(localStorage.getItem(REGISTRY_KEY));
   assert.deepEqual(accounts.map((item) => item.userId), ["C", "D"]);
   assert.equal(accounts.filter((item) => item.storageKey === slot).length, 1);
+  assert.equal(localStorage.getItem(PERSIST_KEY), null);
 });
 
 test("explicit logout removes only the old active slot, including stale aliases", () => {
