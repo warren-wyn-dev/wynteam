@@ -73,7 +73,10 @@ export function AccountAddRoute() {
       // without activating this isolated session or detaching the old Push.
       const hasProfile = await hasProfileRow(client, session.user.id);
       if (!hasProfile) {
-        beginPendingAddAccount(storageKey);
+        if (!beginPendingAddAccount(storageKey)) {
+          setMessage("อุปกรณ์ไม่อนุญาตให้จัดเก็บบัญชี กรุณาเปิดใช้งานพื้นที่จัดเก็บของเบราว์เซอร์");
+          return;
+        }
         window.location.replace("/signup/step-1");
         navigating = true;
         return;
@@ -235,7 +238,10 @@ export function AccountAddRoute() {
       // Never prefill a second person's signup with an abandoned draft.
       setDraft({ username: "", displayName: "", birthDate: "", email: "", password: "", confirmPassword: "" });
     }
-    beginPendingAddAccount(storageKey);
+    if (!beginPendingAddAccount(storageKey)) {
+      setMessage("อุปกรณ์ไม่อนุญาตให้จัดเก็บบัญชี กรุณาเปิดใช้งานพื้นที่จัดเก็บของเบราว์เซอร์");
+      return;
+    }
     router.push("/signup/step-1");
   }
 
@@ -271,7 +277,10 @@ export function AccountAddRoute() {
       setMessage(`บันทึกบัญชีได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชี`);
       return;
     }
-    beginPendingAddAccount(storageKey);
+    if (!beginPendingAddAccount(storageKey)) {
+      setMessage("อุปกรณ์ไม่อนุญาตให้จัดเก็บบัญชี กรุณาเปิดใช้งานพื้นที่จัดเก็บของเบราว์เซอร์");
+      return;
+    }
     setGoogleLoading(true);
     setMessage("");
     try {
