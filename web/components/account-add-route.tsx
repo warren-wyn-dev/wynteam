@@ -10,7 +10,7 @@ import { GoogleGlyph } from "@/components/auth-flow/screens";
 import { useSignupDraft } from "@/components/auth-flow/signup-draft-context";
 import { hasProfileRow } from "@/lib/auth-repository";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
-import { beginPendingAddAccount, clearPendingAddAccount, getPendingAddAccountSlot, hasAddAccountIntent, validAddAccountSlot } from "@/lib/pending-account-add";
+import { beginPendingAddAccount, clearPendingAddAccount, getAddAccountIntentSlot, getPendingAddAccountSlot, getPendingAddAccountSlotForTab, validAddAccountSlot } from "@/lib/pending-account-add";
 import {
   MAX_SAVED_ACCOUNTS,
   createAccountStorageKey,
@@ -28,8 +28,9 @@ export function AccountAddRoute() {
   const { setDraft } = useSignupDraft();
   const [storageKey] = useState(() => {
     const slot = searchParams.get("slot");
-    const pending = getPendingAddAccountSlot();
-    // A URL parameter may only refer to the WYNOS-generated pending slot.
+    const pending = getPendingAddAccountSlotForTab();
+    // Only the initiating tab may reuse its provisional session. A verified
+    // OAuth callback with its exact slot can also resume the same flow.
     if (slot && validAddAccountSlot(slot) && slot === pending) return slot;
     return searchParams.get("stage") === "login" && pending ? pending : createAccountStorageKey();
   });
@@ -210,8 +211,8 @@ export function AccountAddRoute() {
   }, []);
 
   function cancel() {
-    const activePending = getPendingAddAccountSlot();
-    if (activePending === storageKey || (!activePending && hasAddAccountIntent())) {
+    const ownIntent = getAddAccountIntentSlot();
+    if (ownIntent === storageKey) {
       setDraft({ username: "", displayName: "", birthDate: "", email: "", password: "", confirmPassword: "" });
       clearPendingAddAccount();
     }
@@ -228,7 +229,7 @@ export function AccountAddRoute() {
       setMessage(`บันทึกบัญชีได้สูงสุด ${MAX_SAVED_ACCOUNTS} บัญชี`);
       return;
     }
-    if (getPendingAddAccountSlot() !== storageKey) {
+    if (getPendingAddAccountSlotForTab() !== storageKey) {
       // Never prefill a second person's signup with an abandoned draft.
       setDraft({ username: "", displayName: "", birthDate: "", email: "", password: "", confirmPassword: "" });
     }
