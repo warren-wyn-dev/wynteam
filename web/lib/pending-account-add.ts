@@ -53,10 +53,18 @@ export function getPendingAddAccountSlotForTab(): string | null {
   return intent && getPendingAddAccountSlot() === intent ? intent : null;
 }
 
-export function beginPendingAddAccount(slot: string): void {
-  if (typeof window === "undefined" || !validAddAccountSlot(slot)) return;
-  window.localStorage.setItem(KEY, JSON.stringify({ slot, startedAt: Date.now() }));
-  try { window.sessionStorage.setItem(INTENT_KEY, slot); } catch { /* Optional storage. */ }
+export function beginPendingAddAccount(slot: string): boolean {
+  if (typeof window === "undefined" || !validAddAccountSlot(slot)) return false;
+  // Both stores are mandatory. If Safari blocks either store, fail closed:
+  // routing onward without tab intent could reuse the signed-in account A.
+  try {
+    window.sessionStorage.setItem(INTENT_KEY, slot);
+    window.localStorage.setItem(KEY, JSON.stringify({ slot, startedAt: Date.now() }));
+    return true;
+  } catch {
+    try { window.sessionStorage.removeItem(INTENT_KEY); } catch { /* Blocked. */ }
+    return false;
+  }
 }
 
 /** After a verified email callback opens in a different tab, associate that
