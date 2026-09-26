@@ -141,7 +141,7 @@ jobs:
           done
           test "$ready" -eq 1 || { echo '::error::wynos.online did not serve the deployed Next.js build'; exit 1; }
 
-          for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks; do
+          for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks /welcome /login /signup/step-1 /account/add /wynos_logo_mark.png; do
             echo "Checking https://wynos.online$route"
             curl --fail --location --retry 5 --retry-delay 2 --max-time 30 \
               --header 'Cache-Control: no-cache' \
