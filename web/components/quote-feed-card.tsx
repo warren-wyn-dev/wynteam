@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { PostActions } from "@/components/home/post-actions";
 import { haptic } from "@/lib/haptics";
+import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { Toast, useToast } from "@/components/ui/toast";
 import { postMediaAspectRatio } from "@/lib/feed";
@@ -127,6 +128,9 @@ export function QuoteFeedCard({
   };
   const likeQuote = async () => {
     if (!client || !viewerId || !quoteId || !engagement || busy) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("quote", viewerId, quoteId, "like");
+    if (!releaseMutation) return;
     const before = engagement;
     if (!liked) haptic();
     setBusy(true);
@@ -138,10 +142,13 @@ export function QuoteFeedCard({
       setEngagement(before);
       await reloadEngagement();
       showToast("กดถูกใจโพสต์อ้างอิงไม่สำเร็จ");
-    } finally { setBusy(false); }
+    } finally { setBusy(false); releaseMutation(); }
   };
   const saveQuote = async () => {
     if (!client || !viewerId || !quoteId || !engagement || busy) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("quote", viewerId, quoteId, "save");
+    if (!releaseMutation) return;
     const before = engagement;
     if (!saved) haptic();
     setBusy(true);
@@ -154,10 +161,13 @@ export function QuoteFeedCard({
       setEngagement(before);
       await reloadEngagement();
       showToast("บันทึกโพสต์อ้างอิงไม่สำเร็จ");
-    } finally { setBusy(false); }
+    } finally { setBusy(false); releaseMutation(); }
   };
   const repostQuote = async () => {
     if (!client || !viewerId || !quoteId || !engagement || busy) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("quote", viewerId, quoteId, "redrop");
+    if (!releaseMutation) return;
     const before = engagement;
     setBusy(true);
     setError("");
@@ -171,10 +181,13 @@ export function QuoteFeedCard({
       setEngagement(before);
       await reloadEngagement();
       setError("รีโพสต์อ้างอิงไม่สำเร็จ");
-    } finally { setBusy(false); }
+    } finally { setBusy(false); releaseMutation(); }
   };
   const quoteOriginal = async () => {
     if (!client || !viewerId || !quote.trim() || busy || !canRedropOriginal) return;
+    if (definitelyOffline()) { showToast(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", viewerId, row.id, "quote");
+    if (!releaseMutation) return;
     setBusy(true); setError("");
     try {
       const result = await client.from("redrops").insert({ drop_id: row.id, redropper_id: viewerId, quote_text: quote.trim() });
@@ -182,7 +195,7 @@ export function QuoteFeedCard({
       setQuote(""); setActionSheet(null);
       showToast("โพสต์อ้างอิงแล้ว");
     } catch { setError("อ้างอิงโพสต์ต้นฉบับไม่สำเร็จ"); }
-    finally { setBusy(false); }
+    finally { setBusy(false); releaseMutation(); }
   };
   const shareQuote = async () => {
     const url = quoteId
