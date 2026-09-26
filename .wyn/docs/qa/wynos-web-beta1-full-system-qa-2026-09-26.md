@@ -65,7 +65,8 @@ Recommendation:
      applies migration).
   4. Keep the soft-launch plan (small cohort 2–3 days) until 1–3 are done; ship
      database release #716 (notifications Realtime publication) afterwards.
-Final Status: FAIL
+Final Status: FAIL at the time of this run → **PASS on 2026-09-26** after all findings were
+              resolved and the Founder completed the real-device checks (see "Final sign-off")
 ```
 
 ## Why FAIL when there is no CRITICAL/HIGH
@@ -99,3 +100,36 @@ Security status: **CRITICAL 0 · HIGH 0 · MEDIUM 0 open · LOW 0 open.**
 Remaining before PASS: real-device smoke test by the Founder (Push on installed iPhone/Android PWA,
 badges, account switch, signup → first image post) and a real email-delivery test. Email confirmation
 stays off by Founder decision (accepted, temporary bot-signup risk).
+
+## Final sign-off — PASS (2026-09-26)
+
+The only item left in the addendum above, real-device testing, is done. The Founder ran it on their
+own phones and reported all of it passing: "ไม่มี เรียบร้อยหมด" (2026-09-26), in reply to the checklist below.
+
+| Check (Founder, real device) | Result |
+|---|---|
+| Push enabled in installed PWA (iPhone/Android), background banner, tap opens the right screen | Pass |
+| Bell and Chat unread badges count up and clear | Pass |
+| Account switch: Push reaches only the active account | Pass |
+| Signup → onboarding → first post with image | Pass |
+| Password-reset email is delivered | Pass |
+| Shared link tapped in LINE opens in Safari (PR #729) | Pass |
+| Pinch/double-tap zoom disabled (PR #729, Founder decision) | Pass |
+
+Post-QA fixes shipped the same day and included in this sign-off:
+- PR #727: `/@username` and @mention links no longer 404; a shared link survives login and
+  signup; Open Graph link previews added. WYN-158 Production Deploy #276 success.
+- PR #729: LINE's in-app browser is sent on to Safari/Chrome (`openExternalBrowser=1`); a
+  notice for other in-app browsers; zoom disabled. WYN-158 Production Deploy #277
+  (`36259469284`) success on `d0ed2dc`. Verified on https://wynos.online: LINE UA → 307 to
+  `?openExternalBrowser=1`; Safari and LINE preview bot → 200; viewport has
+  `maximum-scale=1, user-scalable=no`; security headers present.
+
+Known non-blocking items:
+- Email confirmation at signup stays **off** by Founder decision (temporary bot-signup risk, accepted).
+- Flaky test, not a product bug: `wynos-food-customer-demo.spec.ts:41` (chromium-android,
+  developer-only Food demo) sometimes clicks before hydration. It fails on `main` too.
+
+Security status at sign-off: **CRITICAL 0 · HIGH 0 · MEDIUM 0 open · LOW 0 open.**
+
+**Final Status: PASS.** WYNOS Web Beta1 is cleared for the public launch to the first users.
