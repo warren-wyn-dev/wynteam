@@ -8,8 +8,7 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
-function fixture() {
-  const stored = new Map();
+function fixture(stored = new Map()) {
   const session = new Map();
   const exports = {};
   const localStorage = {
@@ -34,7 +33,8 @@ test("add-account signup keeps a validated temporary slot without touching the a
   const { api, stored, session } = fixture();
   api.beginPendingAddAccount(A);
   assert.equal(api.hasAddAccountIntent(), true);
-  assert.equal(session.get("wynos.add-account-intent.v1"), "1");
+  assert.equal(session.get("wynos.add-account-intent.v1"), A);
+  assert.equal(api.getPendingAddAccountSlotForTab(), A);
   assert.equal(api.getPendingAddAccountSlot(), A);
   assert.equal(stored.has("wynos.active-account-storage.v1"), false);
   api.beginPendingAddAccount("supabase.auth.token");
@@ -68,4 +68,21 @@ test("a provisional slot that expires leaves the explicit Add Account intent unt
   assert.equal(api.hasAddAccountIntent(), true);
   api.clearPendingAddAccount();
   assert.equal(api.hasAddAccountIntent(), false);
+});
+
+test("a normal signup tab cannot inherit another tab's provisional B identity", () => {
+  const stored = new Map();
+  const firstTab = fixture(stored);
+  const secondTab = fixture(stored);
+  firstTab.api.beginPendingAddAccount(A);
+  assert.equal(secondTab.api.getPendingAddAccountSlot(), A);
+  assert.equal(secondTab.api.getPendingAddAccountSlotForTab(), null);
+  assert.equal(secondTab.api.hasAddAccountIntent(), false);
+  assert.equal(secondTab.api.claimPendingAddAccountSlot(A), true);
+  assert.equal(secondTab.api.getPendingAddAccountSlotForTab(), A);
+  // A second new signup cannot use the previous tab's slot.
+  firstTab.api.beginPendingAddAccount(B);
+  assert.equal(secondTab.api.getPendingAddAccountSlotForTab(), null);
+  secondTab.api.clearPendingAddAccount();
+  assert.equal(firstTab.api.getPendingAddAccountSlotForTab(), B);
 });
