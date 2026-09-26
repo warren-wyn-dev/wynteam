@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 
 const countVariants = {
   enter: (direction: number) => ({ y: direction > 0 ? "110%" : "-110%", opacity: 0 }),
@@ -23,19 +23,15 @@ export function AnimatedCount({
   hideZero?: boolean;
   className?: string;
 }) {
-  const previous = useRef(value);
-  const lastDirection = useRef(1);
-  const direction = value === previous.current
-    ? lastDirection.current
-    : value > previous.current ? 1 : -1;
+  // React permits a conditional previous-prop adjustment during render;
+  // this avoids reading mutable refs in render and keeps direction current.
+  const [previous, setPrevious] = useState(value);
+  const [direction, setDirection] = useState(1);
+  if (value !== previous) {
+    setDirection(value > previous ? 1 : -1);
+    setPrevious(value);
+  }
   const reduceMotion = useReducedMotion();
-
-  useEffect(() => {
-    if (value !== previous.current) {
-      lastDirection.current = value > previous.current ? 1 : -1;
-      previous.current = value;
-    }
-  }, [value]);
 
   const visible = !hideZero || value > 0;
 
