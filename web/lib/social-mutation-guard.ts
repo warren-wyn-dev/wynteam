@@ -11,8 +11,8 @@
  */
 const inFlight = new Map<string, symbol>();
 
-export type InteractionKind = "like" | "save" | "redrop";
-export type InteractionScope = "drop" | "club";
+export type InteractionKind = "like" | "save" | "redrop" | "quote";
+export type InteractionScope = "drop" | "club" | "quote";
 
 function interactionKey(scope: InteractionScope, userId: string, postId: string, kind: InteractionKind) {
   return JSON.stringify([scope, userId, postId, kind]);
