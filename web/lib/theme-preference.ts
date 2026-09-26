@@ -1,17 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * WYN-188: Light / Dark / System theme (Web Beta2, developer-only until the
- * Founder releases it).
+ * WYN-188: Light / Dark / System theme. Built in Web Beta2 and released to
+ * every account by the Founder on 2026-09-27.
  *
  * How it applies:
- * - No choice stored (every non-developer): no `data-theme` on <html>. The
+ * - No choice stored (an account that never picked one): no `data-theme` on <html>. The
  *   legacy `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) … }`
  *   rules follow the phone, exactly as before WYN-188.
- * - A choice stored (developers): `data-theme` is always set to the applied
+ * - A choice stored: `data-theme` is always set to the applied
  *   theme, "light" or "dark". "system" resolves from the phone and follows it
  *   live. New Beta2 dark-mode fixes are written only under
- *   `:where(:root[data-theme="dark"])`, so they can never reach Web Beta1 users.
+ *   `:where(:root[data-theme="dark"])`, so they only reach people who chose a theme.
  *
  * The choice is cached on the device (read before first paint by
  * THEME_BOOT_SCRIPT, so there is no flash) and saved per account in

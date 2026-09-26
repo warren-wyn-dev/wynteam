@@ -176,3 +176,10 @@
 - Rollback: `drop table if exists public.user_preferences; drop function if exists internal.touch_user_preferences();`
 - This approval covers this migration only. The general policy on AI-applied production SQL is unchanged.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
+
+### DECISION — [2026-09-27] Release WYN-188 theme to all users; finish and release WYN-189 Thai/English
+- Founder: **"จัดการให้เสร็จทั้ง2งานเลย อนุมัติทุกอย่าง พร้อมขึ้นเว็บ"**, meaning finish both tasks, everything approved, ready to go live.
+- WYN-188 theme: the developer gate is removed. Every account gets Settings → Theme, and choices sync through `user_preferences`, which is already live. Accounts that never choose keep the phone-following look they have today.
+- WYN-189 Thai/English: build every page, then release to every account once all pages are translated (Founder's earlier "ภาษาควรทำทุกหน้านะ"). Each part goes through per-PR staging first.
+- Scope of this approval: web code, the merges that follow, and production deploys of these two features. **It does not cover new production SQL**, which still needs its own explicit confirmation. WYN-189 reuses the existing `user_preferences.language_preference` column, so no new SQL is expected.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27

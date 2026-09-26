@@ -1,7 +1,7 @@
 /* WYN-188 — Web Beta2 dark-theme fixes.
-   Every rule here is scoped to :where(:root[data-theme="dark"]). Only accounts
-   that chose a theme (developers until the Founder releases WYN-188) ever get
-   that attribute, so none of this can change what Web Beta1 users see.
+   Every rule here is scoped to :where(:root[data-theme="dark"]), which is set
+   only for people who chose a theme in Settings (released to every account
+   2026-09-27). People who never chose keep the phone-following look as before.
    :where() adds no specificity, so each rule cascades like its unscoped base. */
 
 /* Initial-letter avatar: sapphire (#1b3a6b) text is ~1.7:1 on the dark surface. */
@@ -16,4 +16,24 @@
 :where(:root[data-theme="dark"]) :where(button:not([class])) {
   background-color: var(--wyn-surface);
   color: var(--wyn-text);
+}
+
+/* Hard-coded light-theme colours found by a sweep of every stylesheet for
+   dark text or light surfaces that sit on the page background. */
+:where(:root[data-theme="dark"]) .notification-message {
+  color: var(--wyn-text);
+}
+:where(:root[data-theme="dark"]) .wyn-action-button {
+  color: var(--wyn-text);
+}
+:where(:root[data-theme="dark"]) .wyn-home-post-fab {
+  background: #f7f7f8;
+  color: #111111;
+}
+:where(:root[data-theme="dark"]) .wyn-post-follow-pill.is-following,
+:where(:root[data-theme="dark"]) .wyn-post-follow-pill.is-requested {
+  border-color: #34363b;
+}
+:where(:root[data-theme="dark"]) .wyn-chat-inbox .flutter-chat-search {
+  background: #1f2023 !important;
 }

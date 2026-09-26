@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// WYN-188: Light / Dark / System theme (developer-only until released).
+// WYN-188: Light / Dark / System theme (released to every account 2026-09-27).
 const KEY = "wynos.theme.v1";
 
 async function storeChoice(page: Page, choice: string | null) {
@@ -15,7 +15,7 @@ async function storeChoice(page: Page, choice: string | null) {
 const bodyBackground = (page: Page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 const appliedTheme = (page: Page) => page.evaluate(() => document.documentElement.dataset.theme ?? null);
 
-test.describe("nobody chose a theme (every Web Beta1 user)", () => {
+test.describe("an account that never chose a theme", () => {
   test("no data-theme; the page follows the phone exactly as before", async ({ page }) => {
     await storeChoice(page, null);
     await page.emulateMedia({ colorScheme: "dark" });
@@ -27,7 +27,7 @@ test.describe("nobody chose a theme (every Web Beta1 user)", () => {
   });
 });
 
-test.describe("a developer's choice", () => {
+test.describe("a chosen theme", () => {
   test("Dark applies before first paint even when the phone is light", async ({ page }) => {
     await storeChoice(page, "dark");
     await page.emulateMedia({ colorScheme: "light" });

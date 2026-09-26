@@ -8,7 +8,6 @@ import { SettingsChangePassword } from "@/components/settings-change-password";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import {
   readStoredThemePreference,
   saveAccountThemePreference,
@@ -198,7 +197,6 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [section, setSection] = useState<"root" | "privacy" | "notifications" | "account" | "password" | "legal" | "theme">("root");
-  const isDeveloper = useIsDeveloperAccount(client, userId);
   const themePreference = useThemePreference();
   const [document, setDocument] = useState<LegalDocument | null>(null);
   const [pushAvailability, setPushAvailability] = useState<PushAvailability | null>(null);
@@ -377,9 +375,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
           <div className="settings-group">
             {showInstallShortcut ? <SettingRow leading={<WynosIcon name="smartphone" size={19} strokeWidth={2} />} title="ติดตั้ง WYNOS" description="เพิ่มลงหน้าจอหลักและเปิดแบบแอป" onClick={() => window.dispatchEvent(new Event("wynos:open-install"))} /> : null}
             <SettingRow leading={<WynosIcon name="notifications" size={19} strokeWidth={2} />} title="การแจ้งเตือน" onClick={() => setSection("notifications")} />
-            {isDeveloper
-              ? <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีม" description={themeLabels[themePreference].title} onClick={() => setSection("theme")} />
-              : <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีมเข้ม" />}
+            <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีม" description={themeLabels[themePreference].title} onClick={() => setSection("theme")} />
           </div>
           <h2>ช่วยเหลือ</h2>
           <div className="settings-group">
@@ -430,7 +426,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       ) : null}
       {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><SettingRow title="เปลี่ยนรหัสผ่าน" description="ยืนยันรหัสผ่านเดิมก่อนตั้งรหัสผ่านใหม่" leading={<WynosIcon name="lockKeyhole" size={19} strokeWidth={2} />} onClick={() => setSection("password")} /><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<WynosIcon name="download" size={19} strokeWidth={2} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<WynosIcon name="trash" size={19} strokeWidth={2} />} /></div><p className="settings-safety"><WynosIcon name="shieldCheck" size={16} strokeWidth={2} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
       {section === "password" ? <SettingsChangePassword client={client} userId={userId} onBack={() => setSection("account")} /> : null}
-      {section === "theme" && isDeveloper ? <ThemePicker client={client} userId={userId} /> : null}
+      {section === "theme" ? <ThemePicker client={client} userId={userId} /> : null}
       {section === "legal" ? <div className="settings-page"><div className="settings-group">{legalTypes.map(([type, label]) => <SettingRow title={label} key={type} onClick={() => void openDoc(type)} />)}</div></div> : null}
       {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><WynosIcon name="close" size={24} strokeWidth={2} /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small><p>{document.content}</p></div></section></div> : null}
     </AppChrome>
