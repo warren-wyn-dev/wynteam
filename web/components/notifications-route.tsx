@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -11,7 +11,8 @@ import { NotificationSkeleton } from "@/components/ui/skeleton";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { relativeTimeTh } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { markNotificationsRead } from "@/lib/notification-count";
+import { markNotificationsRead, settleNotificationsRead } from "@/lib/notification-count";
+import { subscribeNotificationChanges } from "@/lib/notification-events";
 import { fetchNotifications, markAllNotificationsRead, type NotificationRow } from "@/lib/phase3-data";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
@@ -137,34 +138,78 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   const [unreadSnapshot, setUnreadSnapshot] = useState<Set<string>>(cached?.unreadSnapshot ?? new Set());
   const [page, setPage] = useState(cached?.page ?? 0);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
+  const [error, setError] = useState("");
   const [tab, setTab] = useState<"all" | "mentions">("all");
+  const requestId = useRef(0);
 
   useEffect(() => {
     setMountCache(cacheKey, { rows, unreadSnapshot, page, hasMore });
   }, [cacheKey, rows, unreadSnapshot, page, hasMore]);
 
-  const load = useCallback(async (nextPage: number, append: boolean) => {
+  const load = useCallback(async (nextPage: number, append: boolean, markExisting = false) => {
+    const request = ++requestId.current;
     setLoading(true);
+    setError("");
     try {
       const next = await fetchNotifications(client, nextPage);
+      if (request !== requestId.current) return; // An incoming Push superseded this request.
       const nextUnread = next.filter((row) => !row.is_read).map((row) => row.id);
       setUnreadSnapshot((current) => append ? new Set([...current, ...nextUnread]) : new Set(nextUnread));
-      setRows((current) => append ? [...current, ...next] : next);
+      setRows((current) => {
+        if (!append) return next;
+        const existing = new Set(current.map((row) => row.id));
+        return [...current, ...next.filter((row) => !existing.has(row.id))];
+      });
       setPage(nextPage);
       setHasMore(next.length === 30);
-      if (!append) {
+
+      if (!append && markExisting && next.length > 0) {
+        // Only the snapshot's newest row and everything older was actually
+        // present when this screen was loaded. A later INSERT stays unread.
         markNotificationsRead(userId);
-        void markAllNotificationsRead(client, userId).catch(() => undefined);
+        try {
+          await markAllNotificationsRead(client, userId, next[0].created_at);
+        } catch {
+          if (request === requestId.current) setError("บันทึกสถานะอ่านแล้วไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
+        } finally {
+          // Even on failure, repair the badge against the authoritative
+          // unread count instead of leaving an optimistic zero forever.
+          settleNotificationsRead(client, userId);
+        }
       }
+    } catch {
+      if (request === requestId.current) setError("โหลดการแจ้งเตือนไม่สำเร็จ กรุณาลองใหม่");
     } finally {
-      setLoading(false);
+      if (request === requestId.current) setLoading(false);
     }
   }, [client, userId]);
 
+  useEffect(() => { void load(0, false, true); }, [load]);
+
   useEffect(() => {
-    void load(0, false);
-  }, [load]);
+    let timer: number | null = null;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      if (timer !== null) window.clearTimeout(timer);
+      // Coalesce a burst of likes / webhook + Realtime + Push hints into
+      // one REST fetch. The cached rows remain visible while it completes.
+      timer = window.setTimeout(() => {
+        timer = null;
+        void load(0, false);
+      }, 140);
+    };
+    const unsubscribe = subscribeNotificationChanges(userId, refresh);
+    const onVisibility = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [load, userId]);
 
   const closeNotifications = () => {
     if (window.history.length > 1) {
@@ -189,7 +234,7 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
   // GA (2026-09-20, Founder decision): was staged-rollout-gated to
   // developer accounts (WYN-125/WYN-182) — Founder asked to widen it to
   // everyone.
-  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load(0, false) });
+  const pull = usePullToRefresh({ enabled: true, onRefresh: () => load(0, false, true) });
 
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
@@ -209,6 +254,7 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
           <button className={tab === "all" ? "active" : ""} type="button" onClick={() => setTab("all")}>ทั้งหมด</button>
           <button className={tab === "mentions" ? "active" : ""} type="button" onClick={() => setTab("mentions")}>การกล่าวถึง</button>
         </div>
+        {error ? <div className="route-error route-pad" role="alert">{error} <button type="button" onClick={() => void load(0, false, true)}>ลองใหม่</button></div> : null}
         {loading && !rows.length ? <NotificationSkeleton /> : !visible.length ? (
           <EmptyState>{tab === "mentions" ? "ยังไม่มีใครกล่าวถึงคุณ" : "ยังไม่มีการแจ้งเตือน"}</EmptyState>
         ) : (

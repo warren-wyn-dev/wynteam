@@ -652,13 +652,26 @@ export async function fetchNotifications(client: SupabaseClient, page = 0): Prom
   });
 }
 
-export async function markAllNotificationsRead(client: SupabaseClient, userId: string): Promise<void> {
-  const result = await client
+/**
+ * Mark only notifications that existed in the snapshot the user actually
+ * opened. A brand-new notification inserted while the list is fetching
+ * must not be silently marked read before it has appeared on-screen.
+ */
+export async function markAllNotificationsRead(
+  client: SupabaseClient,
+  userId: string,
+  newestVisibleCreatedAt?: string,
+): Promise<void> {
+  let request = client
     .from("notifications")
     .update({ is_read: true })
     .eq("recipient_id", userId)
     .eq("is_read", false)
     .neq("type", "new_message");
+  if (newestVisibleCreatedAt) {
+    request = request.lte("created_at", newestVisibleCreatedAt);
+  }
+  const result = await request;
   fail(result.error, "อัปเดตการแจ้งเตือนไม่สำเร็จ");
 }
 

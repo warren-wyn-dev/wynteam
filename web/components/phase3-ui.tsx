@@ -71,7 +71,10 @@ export function AppChrome({
   }, [router, userId, pathname]);
 
   usePresenceTracking(getSupabaseBrowserClient(), userId);
-  const unreadNotificationCount = useUnreadNotificationCount(getSupabaseBrowserClient(), userId, bottomNavVisible && !notificationRouteActive);
+  // Keep the account-scoped live notification connection active even on the
+  // notification screen and nested routes; otherwise updates pause exactly
+  // when the user is reading the centre.
+  const unreadNotificationCount = useUnreadNotificationCount(getSupabaseBrowserClient(), userId, Boolean(userId));
   const visibleUnreadNotificationCount = notificationRouteActive ? 0 : unreadNotificationCount;
   const notificationLabel = visibleUnreadNotificationCount > 0
     ? `การแจ้งเตือน มี ${visibleUnreadNotificationCount} รายการที่ยังไม่อ่าน`

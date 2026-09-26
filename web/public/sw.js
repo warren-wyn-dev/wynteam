@@ -140,15 +140,33 @@ async function initFirebaseMessaging() {
     // "notification" payload is already rendered automatically by the SDK,
     // so re-showing it here for a data-only payload avoids a duplicate banner.
     messaging.onBackgroundMessage((payload) => {
-      if (payload.notification) return;
       const data = payload.data || {};
-      self.registration.showNotification(data.push_title || "WYNOS", {
+      // Wake any open WYNOS tabs with a content-free invalidation hint.
+      // A tab always reads its OWN user's rows via Auth/RLS. A late A push
+      // after switching to B never includes A's text or profile here.
+      const wakeTabs = self.clients.matchAll({ type: "window", includeUncontrolled: true })
+        .then((windows) => {
+          for (const client of windows) {
+            if (typeof client.postMessage !== "function") continue;
+            client.postMessage({
+              kind: "wynos:notification-push",
+              recipientId: data.recipient_id,
+              notificationId: data.notification_id,
+              notificationType: data.type,
+            });
+          }
+        }).catch(() => undefined);
+      // FCM renders notification payloads by itself in the background.
+      // Only data-only pushes need a manual banner; never show two.
+      if (payload.notification) return wakeTabs;
+      const banner = self.registration.showNotification(data.push_title || "WYNOS", {
         body: data.push_body || "",
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
         tag: data.notification_id || undefined,
         data,
       });
+      return Promise.all([wakeTabs, banner]);
     });
   } catch {
     // No config, offline, or the fetch failed — push simply stays unavailable
