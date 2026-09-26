@@ -33,5 +33,8 @@ test("rendered @mentions match #hashtag blue and open profile routes", async () 
   expect(css).toContain(".rich-post-link.mention:visited {\n  color: #1d9bf0;");
   expect(css).toContain(".flutter-detail-post .detail-caption .rich-post-link.mention {\n  color: #1d9bf0;");
   expect(profile).toContain('<RichPostText className="wyn-profile-bio" value={profile.bio} />');
-  expect(resolver).toContain('profileSlug.startsWith("@")');
+  // The raw segment arrives URL-encoded ("%40name"); it must be decoded
+  // before the "@" check or every mention/profile link 404s.
+  expect(resolver).toContain("decodeURIComponent(profileSlug)");
+  expect(resolver).toContain('slug.startsWith("@")');
 });

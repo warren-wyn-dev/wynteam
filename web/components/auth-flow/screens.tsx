@@ -14,6 +14,7 @@ import { registerCurrentAccount } from "@/lib/account-registry";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
 import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
+import { consumeReturnPath } from "@/lib/return-to";
 import {
   EmailAlreadyRegisteredError,
   SignupPasswordTooShortError,
@@ -52,7 +53,7 @@ async function resolvePostAuthPath(client: NonNullable<ReturnType<typeof getSupa
   await registerCurrentAccount(client).catch(() => false);
   try {
     const hasProfile = await hasProfileRow(client, user.id);
-    return hasProfile ? "/" : "/signup/step-1";
+    return hasProfile ? consumeReturnPath() ?? "/" : "/signup/step-1";
   } catch {
     return "/";
   }
@@ -810,7 +811,7 @@ export function OnboardingProfileScreen() {
       if (!skipAvatar && croppedAvatar) await uploadProfileImage(supabase, data.user.id, "avatar", croppedAvatar);
       if (bio.trim()) await saveOptionalProfile(supabase, data.user.id, { bio: bio.trim() });
       await completeOnboarding(supabase, data.user.id);
-      router.push("/");
+      router.push(consumeReturnPath() ?? "/");
     } catch {
       setError("บันทึกโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
