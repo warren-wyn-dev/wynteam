@@ -118,7 +118,11 @@ test("logging out unregisters the push device before auth is cleared", () => {
   expect(gate.indexOf("await unsubscribeFromPushNotifications(client)"))
     .toBeLessThan(gate.indexOf("await client.auth.signOut()"));
   expect(push).toContain("serviceWorkerRegistration: registration");
-  expect(push).toContain("return !error && revoked");
+  // Both independent revocations now run in parallel. The UI may switch
+  // only after BOTH have settled successfully; neither failure is ignored.
+  expect(push).toContain("const [db, firebase] = await Promise.allSettled");
+  expect(push).toContain('db.status === "fulfilled" && !db.value.error');
+  expect(push).toContain('firebase.status === "fulfilled" && firebase.value === true');
   expect(settings).toContain("const removed = await unsubscribeFromPushNotifications(client)");
 });
 
