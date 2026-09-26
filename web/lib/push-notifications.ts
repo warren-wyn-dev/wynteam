@@ -165,11 +165,15 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
     }).catch(() => null);
     if (!token) return false;
 
-    const { error } = await client.from("push_tokens").delete().eq("token", token);
-    // Even if the DB delete failed (e.g. a stale account-owned row), try to
-    // invalidate this browser's FCM token to stop further delivery.
-    const revoked = await fb.deleteToken(messaging);
-    return !error && revoked;
+    // These revocations are independent once the token is known. Run them
+    // together instead of paying two serial network round trips, but wait
+    // for BOTH before allowing any account change (fail closed).
+    const [db, firebase] = await Promise.allSettled([
+      client.from("push_tokens").delete().eq("token", token),
+      fb.deleteToken(messaging),
+    ]);
+    return db.status === "fulfilled" && !db.value.error &&
+      firebase.status === "fulfilled" && firebase.value === true;
   } catch {
     return false;
   }
