@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -20,6 +20,7 @@ import { Toast, useToast } from "@/components/ui/toast";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
 import { authorLabel, relativeTimeTh, type HomeFeedRow } from "@/lib/feed";
+import { getRecentDropEngagement, listenDropEngagement, patchDropRow, patchDropViewer, publishDropEngagement } from "@/lib/drop-engagement-sync";
 import {
   addDropComment,
   fetchDropComments,
@@ -183,6 +184,7 @@ function CommentRow({ comment, isReply, currentUserId, onLike, onReply, onDelete
 
 function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; userId: string; dropId: string }) {
   const router = useRouter();
+  const source = useId();
   const cacheKey = `post-detail:${userId}:${dropId}`;
   const cached = getMountCache<PostDetailSnapshot>(cacheKey);
   const hadCache = useRef(cached !== undefined);
@@ -211,7 +213,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   const [viewerProfile, setViewerProfile] = useState<{ username: string; avatar_url?: string | null } | null>(cached?.viewerProfile ?? null);
   const composerRef = useRef<HTMLInputElement | null>(null);
   const scrollYRef = useRef(0);
-  const { toastMessage, showToast } = useToast();
+  const { toastMessage, toastAction, showToast, dismissToast } = useToast();
 
   useKeyboardInset();
 
@@ -230,16 +232,28 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       const nextViewerProfile = !profileResult.error && profileResult.data
         ? { username: String(profileResult.data.username ?? "WYNOS"), avatar_url: profileResult.data.avatar_url ? String(profileResult.data.avatar_url) : null }
         : null;
-      setRow(drop); setViewer(state); setComments(firstComments); setImages(media);
+      const recent = getRecentDropEngagement(userId, dropId);
+      const latestRow = recent.reduce(patchDropRow, drop);
+      const latestViewer = recent.reduce(patchDropViewer, state);
+      setRow(latestRow); setViewer(latestViewer); setComments(firstComments); setImages(media);
       if (nextViewerProfile) setViewerProfile(nextViewerProfile);
       void client.rpc("record_drop_view", { p_drop_id: dropId }).then(() => undefined, () => undefined);
       setCommentPage(0); setHasMoreComments(firstComments.length === 50);
-      setMountCache(cacheKey, { row: drop, viewer: state, comments: firstComments, images: media, commentPage: 0, hasMoreComments: firstComments.length === 50, viewerProfile: nextViewerProfile });
+      setMountCache(cacheKey, { row: latestRow, viewer: latestViewer, comments: firstComments, images: media, commentPage: 0, hasMoreComments: firstComments.length === 50, viewerProfile: nextViewerProfile });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "โหลดโพสต์ไม่สำเร็จ"); }
     finally { setLoading(false); }
   }, [client, dropId, userId, cacheKey]);
 
   useEffect(() => { void load(!hadCache.current); }, [load]);
+  useEffect(() => {
+    const apply = (change: Parameters<typeof patchDropViewer>[1]) => {
+      if (change.userId !== userId || change.dropId !== dropId || change.source === source) return;
+      setViewer((current) => current ? patchDropViewer(current, change) : current);
+      setRow((current) => current ? patchDropRow(current, change) : current);
+    };
+    for (const change of getRecentDropEngagement(userId, dropId)) apply(change);
+    return listenDropEngagement(apply);
+  }, [userId, dropId, source]);
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
@@ -290,12 +304,48 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
     return { ...current, [key]: next };
   });
 
+  const undoLike = async () => {
+    const last = getRecentDropEngagement(userId, row.id).find((change) => change.kind === "like");
+    if (!last?.active) return;
+    patchSet("likedDropIds", false);
+    setRow((current) => current ? { ...current, like_count: Math.max(0, (current.like_count ?? 0) - 1) } : current);
+    publishDropEngagement({ userId, dropId: row.id, kind: "like", active: false, count: Math.max(0, (last.count ?? row.like_count ?? 0) - 1), source });
+    try { await toggleDropLike(client, userId, row.id, true); }
+    catch { publishDropEngagement(last); showToast("เลิกทำไม่สำเร็จ"); void load(); }
+  };
+
+  const undoSave = async () => {
+    if (!getRecentDropEngagement(userId, row.id).some((change) => change.kind === "save" && change.active)) return;
+    patchSet("savedDropIds", false);
+    publishDropEngagement({ userId, dropId: row.id, kind: "save", active: false, source });
+    try { await toggleDropSave(client, userId, row.id, true); }
+    catch { publishDropEngagement({ userId, dropId: row.id, kind: "save", active: true, source }); showToast("เลิกทำไม่สำเร็จ"); void load(); }
+  };
+
   const interact = async (kind: "like" | "save" | "redrop") => {
+    const previouslyActive = kind === "like" ? liked : kind === "save" ? saved : redropped;
+    const previousCount = kind === "like" ? (row.like_count ?? 0) : kind === "redrop" ? (row.redrop_count ?? 0) : undefined;
+    const nextCount = previousCount === undefined ? undefined : Math.max(0, previousCount + (previouslyActive ? -1 : 1));
+    if (!previouslyActive) haptic();
+    const field = kind === "like" ? "likedDropIds" : kind === "save" ? "savedDropIds" : "redroppedDropIds";
+    patchSet(field, !previouslyActive);
+    if (kind === "like") setRow((current) => current ? { ...current, like_count: nextCount ?? 0 } : current);
+    if (kind === "redrop") setRow((current) => current ? { ...current, redrop_count: nextCount ?? 0 } : current);
+    publishDropEngagement({ userId, dropId: row.id, kind, active: !previouslyActive, count: nextCount, source });
     try {
-      if (kind === "like") { if (!liked) haptic(); patchSet("likedDropIds", !liked); setRow((current) => current ? { ...current, like_count: Math.max(0, (current.like_count ?? 0) + (liked ? -1 : 1)) } : current); await toggleDropLike(client, userId, row.id, liked); }
-      if (kind === "save") { if (!saved) haptic(); patchSet("savedDropIds", !saved); await toggleDropSave(client, userId, row.id, saved); }
-      if (kind === "redrop") { patchSet("redroppedDropIds", !redropped); setRow((current) => current ? { ...current, redrop_count: Math.max(0, (current.redrop_count ?? 0) + (redropped ? -1 : 1)) } : current); await toggleDropRedrop(client, userId, row.id, redropped); }
-    } catch { setError("อัปเดตกิจกรรมไม่สำเร็จ"); void load(); }
+      if (kind === "like") await toggleDropLike(client, userId, row.id, previouslyActive);
+      if (kind === "save") await toggleDropSave(client, userId, row.id, previouslyActive);
+      if (kind === "redrop") await toggleDropRedrop(client, userId, row.id, previouslyActive);
+      if (kind === "like" && !previouslyActive) showToast("ถูกใจโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoLike() });
+      if (kind === "save") {
+        if (!previouslyActive) showToast("บันทึกโพสต์แล้ว", { label: "เลิกทำ", onClick: () => void undoSave() });
+        else showToast("นำออกจากรายการที่บันทึกแล้ว");
+      }
+    } catch {
+      publishDropEngagement({ userId, dropId: row.id, kind, active: previouslyActive, count: previousCount, source });
+      showToast("อัปเดตกิจกรรมไม่สำเร็จ ลองใหม่อีกครั้ง");
+      void load();
+    }
   };
 
   const share = async () => {
@@ -311,6 +361,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       setComments((current) => [...current, created]);
       setDraft(""); setReplyTo(null);
       setRow((current) => current ? { ...current, comment_count: (current.comment_count ?? 0) + 1 } : current);
+      publishDropEngagement({ userId, dropId: row.id, kind: "comment", active: true, count: (row.comment_count ?? 0) + 1, source });
     } catch { setError("ส่งความคิดเห็นไม่สำเร็จ"); }
     finally { setSending(false); }
   };
@@ -332,6 +383,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       const removed = new Set([comment.id, ...comments.filter((item) => item.parent_comment_id === comment.id).map((item) => item.id)]);
       setComments((current) => current.filter((item) => !removed.has(item.id)));
       setRow((current) => current ? { ...current, comment_count: Math.max(0, (current.comment_count ?? 0) - removed.size) } : current);
+      publishDropEngagement({ userId, dropId: row.id, kind: "comment", active: true, count: Math.max(0, (row.comment_count ?? 0) - removed.size), source });
       setDeleteCommentTarget(null);
     } catch { setError("ลบคอมเมนต์ไม่สำเร็จ"); }
   };
@@ -417,7 +469,7 @@ function PostDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
       {deleteDropOpen ? <ConfirmDialog title="ลบโพสต์นี้หรือไม่?" body="โพสต์จะถูกนำออกจาก WYNOS และยังคงใช้ระบบกู้คืนเดิม" dangerLabel="ลบ" onCancel={() => setDeleteDropOpen(false)} onConfirm={() => void deleteDrop()} /> : null}
       {deleteCommentTarget ? <ConfirmDialog title="ลบคอมเมนต์นี้หรือไม่?" dangerLabel="ลบ" onCancel={() => setDeleteCommentTarget(null)} onConfirm={() => void deleteComment(deleteCommentTarget)} /> : null}
       {reportOpen ? <TextDialog title="รายงานโพสต์" value={reportText} placeholder="รายละเอียดที่ต้องการรายงาน" confirmLabel="ส่งรายงาน" onChange={setReportText} onCancel={() => { setReportOpen(false); setReportText(""); }} onConfirm={() => void reportDrop()} /> : null}
-      <Toast message={toastMessage} />
+      <Toast message={toastMessage} action={toastAction} onDismiss={dismissToast} />
       {moreOpen ? <div className="route-modal-backdrop detail-more-backdrop" role="presentation" onClick={() => setMoreOpen(false)}><section className="route-modal detail-more-sheet" role="dialog" aria-modal="true" aria-label="ตัวเลือกโพสต์" onClick={(event) => event.stopPropagation()}>{ownDrop ? <>{Date.now() - new Date(row.created_at).getTime() < 30 * 60 * 1000 ? <button type="button" onClick={() => { setEditCaption(row.caption ?? ""); setMoreOpen(false); setEditOpen(true); }}><WynosIcon name="pencil" size={19} strokeWidth={2} />แก้ไข</button> : null}<button className="danger" type="button" onClick={() => { setMoreOpen(false); setDeleteDropOpen(true); }}><WynosIcon name="trash" size={19} strokeWidth={2} />ลบ</button></> : <button type="button" onClick={() => { setMoreOpen(false); setReportOpen(true); }}><WynosIcon name="flag" size={19} strokeWidth={2} />รายงานโพสต์</button>}</section></div> : null}
     </AppChrome>
   );
