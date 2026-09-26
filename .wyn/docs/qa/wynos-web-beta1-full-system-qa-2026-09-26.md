@@ -65,10 +65,15 @@ Recommendation:
      applies migration).
   4. Keep the soft-launch plan (small cohort 2–3 days) until 1–3 are done; ship
      database release #716 (notifications Realtime publication) afterwards.
-Final Status: FAIL
+Final Status: PASS
 ```
 
-## Why FAIL when there is no CRITICAL/HIGH
+## Status history
+
+- **Initial run (code `0214d9d`): FAIL.** Three MEDIUM findings were open and the real-device checks were not done.
+- **Sign-off (release `d0ed2dc`, 2026-09-26): PASS.** See "Final sign-off" below. The "Final Status" field above is the current result.
+
+## Why the initial run was FAIL when there was no CRITICAL/HIGH
 
 Per `.wyn/agents/qa-security.md` QA must not approve anything that was not actually tested.
 The highest-risk user journeys for this release — real Push delivery on an installed iPhone/Android
@@ -91,11 +96,90 @@ accept them — but QA cannot mark the release PASS until item 1 above is verifi
 |---|---|---|
 | WEB-B1-QA-01 | Security headers on every route (PR #725) | `curl -sSI https://wynos.online/welcome` → `x-frame-options: DENY`, `content-security-policy: frame-ancestors 'none'`, `x-content-type-options: nosniff`, `referrer-policy: strict-origin-when-cross-origin`; `tests/browser/security-headers.spec.ts` |
 | WEB-B1-QA-02 | Notification flood guard trigger (production) | apply run `36250193842` verify `flood_guard_trigger=1`; `supabase/tests/web_beta1_qa_hardening_test.sh` in CI |
-| WEB-B1-QA-03 | Bucket MIME/size limits (production) + web upload validator | apply run verify `limited_buckets=4`; `tests/upload-image.test.mjs` |
+| WEB-B1-QA-03 | Bucket MIME/size limits (production) + web upload validator. Partial: content is not validated and octet-stream stays allowed → WEB-B1-QA-04 (LOW, open) | apply run verify `limited_buckets=4`; `tests/upload-image.test.mjs` |
 | LOW referral_code | Guard trigger (production) | apply run verify `referral_guard_trigger=1` |
 | WebKit composer flake | Test waits for React state | PR #725 CI browser-qa green |
 
-Security status: **CRITICAL 0 · HIGH 0 · MEDIUM 0 open · LOW 0 open.**
+Security status at the time of this addendum: **CRITICAL 0 · HIGH 0 · MEDIUM 0 open · LOW 0 open.** (Superseded at sign-off below: WEB-B1-QA-04, LOW, is open.)
 Remaining before PASS: real-device smoke test by the Founder (Push on installed iPhone/Android PWA,
 badges, account switch, signup → first image post) and a real email-delivery test. Email confirmation
 stays off by Founder decision (accepted, temporary bot-signup risk).
+
+## Final sign-off — PASS (2026-09-26)
+
+The only item left in the addendum above, real-device testing, is done. The Founder ran it on their
+own phones and reported all of it passing: "ไม่มี เรียบร้อยหมด" (2026-09-26), in reply to the checklist below.
+
+| Check (Founder, real device) | Result |
+|---|---|
+| Push enabled in installed PWA (iPhone/Android), background banner, tap opens the right screen | Pass |
+| Bell and Chat unread badges count up and clear | Pass |
+| Account switch: Push reaches only the active account | Pass |
+| Signup → onboarding → first post with image | Pass |
+| Official first-follow (`docs/engineering/WEB_BETA1_OFFICIAL_FIRST_FOLLOW_RELEASE.md` outstanding real-device evidence): a new account follows @wynos_s once automatically → unfollow → logout/login and profile edit → stays unfollowed, no repeat follow | Pass |
+| Official first-follow notification isolation: @wynos_s gets no "new follower" notification from the automatic follow | Pass |
+| Official first-follow via Google OAuth with the username set later: still auto-followed once | Pass |
+| Password-reset email is delivered | Pass |
+| Shared link tapped in LINE opens in Safari (PR #729) | Pass |
+| Pinch/double-tap zoom disabled (PR #729, Founder decision) | Pass |
+
+The first-follow rows were confirmed by the Founder in separate answers on 2026-09-26, after Codex review of
+this PR pointed out that the checklist above did not cover them: "ทดสอบแล้ว ผ่านหมด" for follow, unfollow and
+persistence, and "เช็คแล้ว ผ่านทั้ง 2 ข้อ" for notification isolation and the OAuth-delayed username.
+
+Post-QA fixes shipped the same day and included in this sign-off:
+- PR #727: `/@username` and @mention links no longer 404; a shared link survives login and
+  signup; Open Graph link previews added. WYN-158 Production Deploy #276 success.
+- PR #729: LINE's in-app browser is sent on to Safari/Chrome (`openExternalBrowser=1`); a
+  notice for other in-app browsers; zoom disabled. WYN-158 Production Deploy #277
+  (`36259469284`) success on `d0ed2dc`. Verified on https://wynos.online: LINE UA → 307 to
+  `?openExternalBrowser=1`; Safari and LINE preview bot → 200; viewport has
+  `maximum-scale=1, user-scalable=no`; security headers present.
+
+Known non-blocking items:
+- Email confirmation at signup stays **off** by Founder decision (temporary bot-signup risk, accepted).
+- Flaky test, not a product bug: `wynos-food-customer-demo.spec.ts:41` (chromium-android,
+  developer-only Food demo) sometimes clicks before hydration. It fails on `main` too.
+
+### Release under sign-off and its evidence
+
+PASS applies to **`main` @ `d0ed2dc4d8f5e1403b02e44046e70fca319489ad`**, which is live on https://wynos.online
+(WYN-158 Production Deploy #277, run `36259469284`). The 540-case run above was against `0214d9d`.
+The evidence for the released commit is:
+
+| Evidence | Commit | Result |
+|---|---|---|
+| PR #729 CI: `web` (lint, typecheck, node suites, build), `browser-qa` (full Playwright incl. webkit-iphone, run `36258362960`), `signup-security`, Supabase PostgreSQL SQL/RLS, Edge Functions, Flutter, Admin | `706dd4a` (same tree as `d0ed2dc`: merged with no other change on `main`) | all success |
+| `main` push CI after merge (run `36259469147`) and Web Beta1 Signup Security QA (run `36259469170`) | `d0ed2dc` | success |
+| Local full Playwright on Chromium (chromium-android + chromium-desktop), code of #729 | `706dd4a` | 555 passed, 19 skipped, 2 failed. Both failures are unrelated to #729: the Food demo flake (see below), and `signup-security.spec.ts:6`, which failed only under full-suite load and passed 6/6 on re-run |
+| Production checks (HTTP): LINE UA 307 → `?openExternalBrowser=1`; Safari/preview bot 200; zoom-off viewport; security headers | `d0ed2dc` | pass |
+| Founder real-device checks (table above) | `d0ed2dc` | pass |
+
+### Staging gate — Founder-approved exception
+
+AGENTS.md Release Gate 5 (Staging) was **not** run as a separate step. Every merge to `main` deploys
+straight to production through `wyn-158-production-deploy.yml` (Vercel `--prod`), and the
+preview workflow (`web-next-phase5-preview.yml`) runs only for allow-listed branches, which did not
+include this release's branch. The Founder accepted this as an **explicit exception for Web Beta1**
+on 2026-09-26 (AskUserQuestion: "ยอมรับเป็นข้อยกเว้นของ Web Beta1"), recorded in
+`.wyn/company/APPROVALS.md`. Mitigations in place:
+- **Rollback:** Vercel Instant Rollback to the previous production deployment (#276 `e340a53`, #275 `19f2f58`); the code can also be reverted with `git revert` of the merge commit. There are no DB changes in #727/#729.
+- **Monitoring:** Vercel Analytics and Speed Insights, the client error monitor (`components/client-error-monitor.tsx`), and the post-deploy route/config checks in the WYN-158 workflow.
+- A real staging environment is planned for Web Beta2. This exception is not a precedent for other releases.
+
+### Open findings at sign-off
+
+- **LOW — WEB-B1-QA-04 (open, non-blocking):** the upload bucket allow-list still accepts
+  `application/octet-stream`, the Flutter fallback type. Nothing server-side checks file
+  content, so a signed-in user who calls the Storage API directly can store a non-image file
+  (≤10/20 MB) under their own path. Browsers download that type rather than render it, and
+  `nosniff` is set, so it cannot run script on wynos.online. The residual risk is file hosting
+  or abuse inside WYNOS buckets.
+  WEB-B1-QA-03 is therefore resolved only for script-capable and oversized uploads, not for
+  content validation. See `.wyn/tasks/bugs/WEB-B1-QA-04-storage-octet-stream-no-content-validation.md`.
+
+Security status at sign-off: **CRITICAL 0 · HIGH 0 · MEDIUM 0 open · LOW 1 open (WEB-B1-QA-04).**
+Under AGENTS.md, only CRITICAL blocks a release and HIGH needs Founder acceptance, so the open LOW
+does not block.
+
+Result: WYNOS Web Beta1 at `d0ed2dc` is cleared for the public launch to the first users.
