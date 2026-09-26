@@ -99,12 +99,17 @@ function firebaseApp(fb: Awaited<ReturnType<typeof loadFirebase>>, config: PushC
  * fail with a confusing error on tap).
  */
 export async function getPushAvailability(): Promise<PushAvailability> {
-  if (typeof window === "undefined" || typeof navigator === "undefined" ||
-      !("Notification" in window) || !("serviceWorker" in navigator) ||
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return { available: false, reason: "unsupported" };
+  }
+  // Safari tabs on iOS may not expose the Push API at all. Detect the
+  // install requirement BEFORE feature detection so the UI can show the
+  // correct action instead of falsely reporting the phone is unsupported.
+  if (iosNeedsInstallation()) return { available: false, reason: "install-required" };
+  if (!("Notification" in window) || !("serviceWorker" in navigator) ||
       !("PushManager" in window)) {
     return { available: false, reason: "unsupported" };
   }
-  if (iosNeedsInstallation()) return { available: false, reason: "install-required" };
   if (Notification.permission === "denied") return { available: false, reason: "denied" };
   const config = await fetchPushConfig();
   if (!config?.configured || !config.vapidKey) {
@@ -135,11 +140,14 @@ export async function subscribeToPushNotifications(
   client: SupabaseClient,
   userId: string,
 ): Promise<PushSubscribeResult> {
-  if (typeof window === "undefined" || !("Notification" in window) ||
-      !("serviceWorker" in navigator) || !("PushManager" in window)) {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
     return { ok: false, reason: "unsupported" };
   }
   if (iosNeedsInstallation()) return { ok: false, reason: "install-required" };
+  if (!("Notification" in window) || !("serviceWorker" in navigator) ||
+      !("PushManager" in window)) {
+    return { ok: false, reason: "unsupported" };
+  }
   if (Notification.permission === "denied") return { ok: false, reason: "denied" };
 
   // IMPORTANT: requestPermission must be the first awaited browser API
