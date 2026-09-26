@@ -23,7 +23,7 @@ export function AccountAddRoute() {
   const [storageKey] = useState(() => {
     const slot = searchParams.get("slot");
     // Only WYNOS-generated account slots may be used on OAuth return.
-    return slot && /^wynos\\.account\\.[a-zA-Z0-9-]{8,90}$/.test(slot) ? slot : createAccountStorageKey();
+    return slot && /^wynos\.account\.[a-zA-Z0-9-]{8,90}$/.test(slot) ? slot : createAccountStorageKey();
   });
   const finishInFlight = useRef(false);
   const [email, setEmail] = useState("");
