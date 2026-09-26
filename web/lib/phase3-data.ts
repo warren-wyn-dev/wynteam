@@ -1,6 +1,7 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import type { HomeFeedRow } from "@/lib/feed";
+import { AVATAR_MAX_BYTES, imageUploadType } from "@/lib/upload-image";
 
 export type ProfileRow = {
   id: string;
@@ -597,9 +598,9 @@ export async function uploadProfileImage(
   kind: "avatar" | "cover",
   file: File,
 ): Promise<string> {
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-  const path = `${userId}/${kind}.${ext}`;
-  const upload = await client.storage.from("avatars").upload(path, file, { upsert: true, contentType: file.type || undefined });
+  const { contentType, extension } = imageUploadType(file, AVATAR_MAX_BYTES);
+  const path = `${userId}/${kind}.${extension}`;
+  const upload = await client.storage.from("avatars").upload(path, file, { upsert: true, contentType });
   fail(upload.error, "อัปโหลดรูปไม่สำเร็จ");
   const { data } = client.storage.from("avatars").getPublicUrl(path);
   const url = `${data.publicUrl}?v=${Date.now()}`;
@@ -793,11 +794,11 @@ export async function sendMessage(
 ): Promise<MessageRow> {
   let imagePath: string | null = null;
   if (input.file) {
-    const ext = (input.file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-    imagePath = `${conversationId}/${userId}-${Date.now()}.${ext}`;
+    const { contentType, extension } = imageUploadType(input.file);
+    imagePath = `${conversationId}/${userId}-${Date.now()}.${extension}`;
     const upload = await client.storage.from("chat-media").upload(imagePath, input.file, {
       upsert: false,
-      contentType: input.file.type || undefined,
+      contentType,
       cacheControl: "31536000",
     });
     fail(upload.error, "อัปโหลดรูปไม่สำเร็จ");

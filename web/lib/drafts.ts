@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { imageUploadType } from "@/lib/upload-image";
+
 export type DraftRow = {
   id: string;
   image_url: string | null;
@@ -49,11 +51,11 @@ export async function saveDraft(
   const id = input.draftId ?? crypto.randomUUID();
   let imageUrl = input.existingImageUrl ?? null;
   if (input.file) {
-    const ext = input.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-    const path = `${userId}/drafts/${id}.${ext}`;
+    const { contentType, extension } = imageUploadType(input.file);
+    const path = `${userId}/drafts/${id}.${extension}`;
     const uploaded = await client.storage.from("drop-images").upload(path, input.file, {
       cacheControl: "60",
-      contentType: input.file.type || undefined,
+      contentType,
       upsert: true,
     });
     if (uploaded.error) throw uploaded.error;

@@ -29,6 +29,7 @@ import { getRecentClubLike, listenClubLike, publishClubLike } from "@/lib/club-e
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
 import { shareOrCopyLink } from "@/lib/share";
+import { imageUploadType } from "@/lib/upload-image";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type ClubTab = "posts" | "chat" | "about";
@@ -456,9 +457,9 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
     try {
       let imagePath: string | null = null;
       if (image) {
-        const ext = image.name.split(".").pop()?.toLowerCase() || "jpg";
-        imagePath = `${clubId}/chat/${channelId}/${userId}-${Date.now()}.${ext}`;
-        const upload = await client.storage.from("club-media").upload(imagePath, image, { cacheControl: "31536000", upsert: false });
+        const { contentType, extension } = imageUploadType(image);
+        imagePath = `${clubId}/chat/${channelId}/${userId}-${Date.now()}.${extension}`;
+        const upload = await client.storage.from("club-media").upload(imagePath, image, { cacheControl: "31536000", upsert: false, contentType });
         if (upload.error) throw upload.error;
       }
       const result = await client.from("club_channel_messages").insert({

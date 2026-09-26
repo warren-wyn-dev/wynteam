@@ -124,3 +124,13 @@
 - Changed code/docs: [PR #648](https://github.com/warren-wyn-dev/wynteam/pull/648), [PR #649](https://github.com/warren-wyn-dev/wynteam/pull/649), `docs/engineering/WEB_BETA1_OFFICIAL_FIRST_FOLLOW_RELEASE.md`.
 - สถานะ: Production เปิดใช้งานแล้ว; **การยืนยันย้อนหลังด้านกติกาอนุมัติและ QA บนอุปกรณ์จริงยังค้างอยู่**
 - วันที่ดำเนินการ: 2026-09-24
+
+### APPROVAL_REQUIRED — [2026-09-26] Web Beta1 QA hardening before opening to the first 1,000–10,000 users
+- Founder request: "แก้ทุกปัญหาเลย พร้อมใช้งาน จะได้เปิดตัวให้ผู้ใช้ 1000-10,000 คนแรก ได้ใช้" after the full-system QA (`.wyn/docs/qa/wynos-web-beta1-full-system-qa-2026-09-26.md`).
+- Proposed change: (1) web security headers on every route — `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy` (`web/next.config.ts`); (2) client upload validation (`web/lib/upload-image.ts`); (3) three DB migrations — notification flood guard, storage bucket MIME/size limits, referral_code guard — plus a Founder-run apply workflow `.github/workflows/web-beta1-apply-qa-hardening.yml`.
+- Reason: close WEB-B1-QA-01/02/03 and the LOW referral finding.
+- Benefits: no clickjacking of signed-in sessions; no Push flooding by follow/like toggling; no script-capable or oversized uploads; referral codes cannot be spoofed.
+- Risks: headers — anything that legitimately frames the app breaks (none known; OAuth uses a popup). Flood guard — identical toggle events from the same actor within 10 minutes produce one notification (intended). Upload limits — an uncommon image type outside the allow-list is rejected (Thai message on web).
+- Files affected: `web/next.config.ts`, `web/lib/upload-image.ts`, 5 upload call sites, `supabase/migrations_web_beta1_{notification_flood_guard,storage_upload_limits,referral_code_guard}.sql`, `supabase/tests/web_beta1_qa_hardening_test.sh`, the apply workflow.
+- Recommendation: approve. Web part ships with the PR merge (WYN-158 auto-deploy). **DB part is applied only when the Founder presses "Run workflow"** — per the 2026-09-07 record and the 2026-09-24 reconciliation note, a broad "finish" instruction is not treated as authority for AI to apply production SQL.
+- สถานะ: web code อนุมัติโดยคำสั่ง Founder ข้างต้น; DB migration **รอ Founder กด Run workflow เอง**

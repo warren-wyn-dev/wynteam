@@ -13,6 +13,7 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicato
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { fetchClubsByIds, searchClubs, type ClubRow } from "@/lib/phase3-data";
+import { imageUploadType } from "@/lib/upload-image";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
 type Sections = { popular: ClubRow[]; newest: ClubRow[]; pending: Set<string> };
@@ -151,9 +152,9 @@ function CreateClubInner({ client, userId }: { client: SupabaseClient; userId: s
       if (result.error) throw result.error;
       const clubId = String(result.data.id);
       if (file) {
-        const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const { contentType, extension } = imageUploadType(file);
         const path = `${clubId}/icon.${extension}`;
-        const upload = await client.storage.from("club-media").upload(path, file, { upsert: true });
+        const upload = await client.storage.from("club-media").upload(path, file, { upsert: true, contentType });
         if (upload.error) throw upload.error;
         const update = await client.from("clubs").update({ icon_url: path }).eq("id", clubId);
         if (update.error) throw update.error;

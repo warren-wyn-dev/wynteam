@@ -55,6 +55,10 @@ test("swiping a partially written post must confirm before discarding", async ({
   const sheet = page.getByRole("dialog", { name: "สร้างโพสต์" });
   const caption = sheet.locator("textarea.beta4-compose-text");
   await caption.fill("เก็บข้อความนี้ไว้");
+  // Wait until React state holds the text (Post enables from `caption`);
+  // on slower WebKit a fill that lands before hydration left state empty
+  // and the sheet closed without the draft prompt.
+  await expect(sheet.getByRole("button", { name: "โพสต์", exact: true })).toBeEnabled();
   await dragHandle(page, 160);
   await page.mouse.up();
 

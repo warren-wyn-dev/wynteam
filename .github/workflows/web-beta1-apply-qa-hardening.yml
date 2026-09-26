@@ -1,0 +1,78 @@
+name: Web Beta1 -- apply QA hardening (notification flood guard, upload limits, referral guard)
+
+# Founder-run only (workflow_dispatch). Same pattern as every prior
+# *-apply-*-schema.yml in this repo: AI prepares, the Founder presses
+# "Run workflow"; no AI applies production SQL (AGENTS.md Change Control).
+#
+# Applies, in order, the exact files validated in CI by
+# supabase/tests/web_beta1_qa_hardening_test.sh (each applied twice there
+# to prove idempotency, against a scratch PostgreSQL with full schema.sql):
+#   1. supabase/migrations_web_beta1_notification_flood_guard.sql  (WEB-B1-QA-02)
+#   2. supabase/migrations_web_beta1_storage_upload_limits.sql     (WEB-B1-QA-03)
+#   3. supabase/migrations_web_beta1_referral_code_guard.sql       (LOW, referral_code)
+#
+# SAFETY: additive only. A new BEFORE INSERT trigger + index on
+# notifications, limit columns on four storage buckets, and a new BEFORE
+# UPDATE trigger on profiles. No data is deleted or rewritten.
+# ROLLBACK (Founder, SQL editor), if ever needed:
+#   drop trigger if exists notifications_skip_duplicate_toggle on public.notifications;
+#   update storage.buckets set allowed_mime_types = null, file_size_limit = null
+#     where id in ('avatars','drop-images','chat-media','club-media');
+#   drop trigger if exists profiles_guard_referral_code on public.profiles;
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+
+          for migration in notification_flood_guard storage_upload_limits referral_code_guard; do
+            file="supabase/migrations_web_beta1_${migration}.sql"
+            echo "=== Applying $file ==="
+            run_sql "$(cat "$file")" >/dev/null
+          done
+
+          echo "=== Verify ==="
+          run_sql "select
+              (select count(*) from pg_trigger where tgname = 'notifications_skip_duplicate_toggle' and not tgisinternal) as flood_guard_trigger,
+              (select count(*) from pg_trigger where tgname = 'profiles_guard_referral_code' and not tgisinternal) as referral_guard_trigger,
+              (select count(*) from storage.buckets
+                 where id in ('avatars','drop-images','chat-media','club-media')
+                   and file_size_limit is not null
+                   and not ('image/svg+xml' = any(allowed_mime_types))
+                   and 'image/jpeg' = any(allowed_mime_types)) as limited_buckets;" | tee result.json | jq .
+          jq -e '(.[0].flood_guard_trigger|tonumber) == 1 and (.[0].referral_guard_trigger|tonumber) == 1 and (.[0].limited_buckets|tonumber) == 4' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "All three hardening changes are live."
