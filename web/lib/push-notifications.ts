@@ -160,6 +160,23 @@ export async function unsubscribeFromPushNotifications(client: SupabaseClient): 
 }
 
 /**
+ * Distinguish a granted browser permission from an ACTIVE Push subscription.
+ * null means the worker state could not be checked, so callers must not
+ * assume the previous account's notifications have stopped.
+ */
+export async function hasActivePushSubscription(): Promise<boolean | null> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    if (!registration || !("pushManager" in registration)) return false;
+    return Boolean(await registration.pushManager.getSubscription());
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Best-effort local last resort before sign-out. A network failure may prevent
  * deleting the old owner's DB token; retiring the browser PushSubscription
  * reduces the chance of receiving that owner's messages after reconnect.
