@@ -25,6 +25,7 @@ import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { authorLabel, isQuotePost, type HomeFeedRow } from "@/lib/feed";
 import { feedIdentity } from "@/lib/quote-feed-data";
 import { haptic } from "@/lib/haptics";
+import { reportClientFailure } from "@/lib/client-health";
 import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { deleteMountCache } from "@/lib/mount-cache";
 import { getRecentDropEngagement, listenDropEngagement, patchDropRow, patchDropViewer, publishDropEngagement, reconcileRecentDropEngagement } from "@/lib/drop-engagement-sync";
@@ -589,6 +590,7 @@ export function HomeScreen({ session }: { session: Session }) {
     } catch {
       publishDropEngagement({ userId, dropId: row.id, kind: "like", active: liked, count: row.like_count ?? 0, source: "home" });
       void load();
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
     } finally { releaseMutation(); }
@@ -615,6 +617,7 @@ export function HomeScreen({ session }: { session: Session }) {
     } catch {
       publishClubLike({ userId, postId: post.id, liked: post.liked_by_me, count: post.like_count, source: "home-club" });
       void load();
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("ถูกใจไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
     } finally { releaseMutation(); }
@@ -648,6 +651,7 @@ export function HomeScreen({ session }: { session: Session }) {
     } catch {
       publishDropEngagement({ userId, dropId: row.id, kind: "save", active: saved, source: "home" });
       void load();
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
     } finally { releaseMutation(); }
@@ -705,6 +709,7 @@ export function HomeScreen({ session }: { session: Session }) {
     } catch {
       void load();
       publishDropEngagement({ userId, dropId: row.id, kind: "redrop", active, count: row.redrop_count ?? 0, source: "home" });
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("รีโพสต์ไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
     } finally { releaseMutation(); }
