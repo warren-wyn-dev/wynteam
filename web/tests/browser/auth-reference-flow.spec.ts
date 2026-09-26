@@ -176,9 +176,9 @@ test.describe("HTML-reference auth flow", () => {
     await expect(page.getByRole("heading", { name: "ทุกเรื่องราว มีจุดเริ่มต้น" })).toBeVisible();
 
     await page.getByRole("button", { name: "สร้างบัญชีใหม่" }).click();
-    await expect(page).toHaveURL(/\\/signup\\/step-1$/);
+    await expect(page).toHaveURL(/\/signup\/step-1$/);
     const pending = await page.evaluate(() => JSON.parse(localStorage.getItem("wynos.pending-add-account.v1") ?? "null"));
-    expect(pending?.slot).toMatch(/^wynos\\.account\\./);
+    expect(pending?.slot).toMatch(/^wynos\.account\./);
   });
 
   // WYN-165 (2026-09-19): the username field on signup step 1 wraps its
