@@ -14,8 +14,8 @@ import {
   markAccountStorageActive,
   registerSessionAccount,
 } from "@/lib/account-registry";
-import { unsubscribeFromPushNotifications } from "@/lib/push-notifications";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { hasActivePushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { createAccountSwitchPriorClient } from "@/lib/supabase/browser";
 
 export function AccountAddRoute() {
   const router = useRouter();
@@ -58,7 +58,7 @@ export function AccountAddRoute() {
       // and its registration succeeds. Detach the old Push token exactly
       // once, immediately before activating the new slot.
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        const prior = getSupabaseBrowserClient();
+        const prior = createAccountSwitchPriorClient();
         const activeStorageKey = getActiveAccountStorageKey();
         const savedCurrent = listSavedAccounts().find((item) => item.storageKey === activeStorageKey);
         const priorSession = prior ? await prior.auth.getSession() : null;
@@ -67,9 +67,19 @@ export function AccountAddRoute() {
           (priorId && priorId !== session.user.id) ||
           (savedCurrent && savedCurrent.userId !== session.user.id),
         );
-        if (differentAccount && (!prior || !priorId || (savedCurrent && savedCurrent.userId !== priorId) ||
-            !(await unsubscribeFromPushNotifications(prior)))) {
+        if (priorId && savedCurrent && savedCurrent.userId !== priorId) {
+          setMessage("บัญชีเดิมไม่ตรงกับเซสชันบนอุปกรณ์ กรุณาเปิด WYNOS ใหม่");
+          return;
+        }
+        if (differentAccount && priorId && (!prior || !(await unsubscribeFromPushNotifications(prior)))) {
           setMessage("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณากลับไปที่บัญชีเดิมแล้วลองอีกครั้ง");
+          return;
+        }
+        if (!priorId && (await hasActivePushSubscription()) !== false) {
+          // A stale worker subscription could still receive private messages
+          // for an account whose login has expired or was removed offline.
+          // Without that account's session we cannot delete its server token.
+          setMessage("ยังมี Push ของบัญชีเดิมอยู่ กรุณาเข้าสู่ระบบบัญชีเดิมเพื่อปิดการแจ้งเตือนก่อน");
           return;
         }
       }
