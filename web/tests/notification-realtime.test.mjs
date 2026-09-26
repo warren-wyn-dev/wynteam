@@ -199,9 +199,11 @@ test("Push hints are scoped to the authenticated recipient and recover without a
   f.push({ recipientId: "account-b", notificationId: "not-for-a", type: "like_drop" });
   assert.equal(f.activities.length, 0);
   f.push({ notificationId: "new-from-old-edge", type: "follow" });
-  assert.equal(f.count, 4, "legacy Push without recipient_id still reconciles only A via RLS");
+  assert.equal(f.count, 3, "unscoped legacy Push must not increment the wrong account");
   f.time(); await flush();
-  assert.ok(f.unreadQueries >= 2);
+  assert.ok(f.unreadQueries >= 2, "legacy Push still refreshes the active account through RLS");
+  f.push({ recipientId: "account-a", notificationId: "known-for-a", type: "follow" });
+  assert.equal(f.count, 4, "explicitly matching recipient receives an immediate safe badge increment");
   f.cleanup();
 });
 
@@ -211,7 +213,7 @@ test("mark-read holds the optimistic zero until the bounded server update settle
   f.exports.markNotificationsRead("account-a");
   assert.equal(f.count, 0);
   const before = f.unreadQueries;
-  f.push({ notificationId: "arrived-during-read", type: "comment_drop" });
+  f.push({ recipientId: "account-a", notificationId: "arrived-during-read", type: "comment_drop" });
   assert.equal(f.count, 1);
   f.time(); await flush();
   assert.equal(f.unreadQueries, before, "do not fetch stale unread state during the mutation");
