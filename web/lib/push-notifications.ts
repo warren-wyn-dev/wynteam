@@ -284,6 +284,16 @@ export async function listenForForegroundPush(): Promise<void> {
       // A registered worker displays it consistently on installed iOS
       // PWAs and Android, where the window Notification constructor differs.
       const data = payload.data ?? {};
+      // Fast path: wake the authenticated in-app notification store before
+      // showing the optional foreground system banner. The event contains
+      // IDs only; the current account loads authoritative rows through RLS.
+      window.dispatchEvent(new CustomEvent("wynos:notification-push", {
+        detail: {
+          recipientId: data.recipient_id,
+          notificationId: data.notification_id,
+          type: data.type,
+        },
+      }));
       if (!payload.notification && !data.push_title && !data.push_body) return;
       const title = payload.notification?.title || data.push_title || "WYNOS";
       const body = payload.notification?.body || data.push_body || "";
