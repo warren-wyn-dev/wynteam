@@ -6,7 +6,7 @@
 const KEY = "wynos.pending-add-account.v1";
 const INTENT_KEY = "wynos.add-account-intent.v1";
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const SLOT_PATTERN = /^wynos\\.account\\.[a-zA-Z0-9-]{8,90}$/;
+const SLOT_PATTERN = /^wynos\.account\.[a-zA-Z0-9-]{8,90}$/;
 
 export function validAddAccountSlot(value: string | null): value is string {
   return typeof value === "string" && SLOT_PATTERN.test(value);
