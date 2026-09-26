@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- root-layout error fallback intentionally avoids Next router components */
 "use client";
 
 import { useEffect } from "react";
