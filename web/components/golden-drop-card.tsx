@@ -342,6 +342,9 @@ export function GoldenDropCard({
   };
   const quoteRedrop = async () => {
     if (!client || !userId || !quote.trim() || busy || !canRedrop) return;
+    if (definitelyOffline()) { setError(OFFLINE_ACTION_MESSAGE); return; }
+    const releaseMutation = beginSocialMutation("drop", userId, row.id, "quote");
+    if (!releaseMutation) return;
     setBusy(true);
     setError("");
     try {
@@ -355,6 +358,7 @@ export function GoldenDropCard({
       setError(error instanceof Error ? error.message : "Quote ReDrop ไม่สำเร็จ");
     } finally {
       setBusy(false);
+      releaseMutation();
     }
   };
 
