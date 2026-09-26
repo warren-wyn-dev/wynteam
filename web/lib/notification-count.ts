@@ -173,7 +173,14 @@ function start(client: SupabaseClient, userId: string): Runtime {
     }>).detail;
     if (detail?.recipientId && detail.recipientId !== userId) return;
     if (detail?.type === "new_message") return; // Chat owns DM unread
-    processHint(runtime, detail?.notificationId ? "new" : "sync", detail?.notificationId);
+    // Older Edge deployments do not include recipient_id. A late Push for
+    // account A can arrive after a successful switch to B; never add an
+    // optimistic B badge for an unscoped event. Instead ask B's own RLS
+    // session for the authoritative count immediately. New, recipient-
+    // scoped Push can still optimistically increment with deduplication.
+    const scoped = detail?.recipientId === userId;
+    processHint(runtime, scoped && detail?.notificationId ? "new" : "sync",
+      scoped ? detail.notificationId : undefined);
   };
   window.addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onVisibility);
