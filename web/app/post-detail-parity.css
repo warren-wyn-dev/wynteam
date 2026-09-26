@@ -21,7 +21,7 @@
 .flutter-detail-actions { min-height: 48px; margin: 6px -6px 0; display: grid; grid-template-columns: repeat(5, 1fr); align-items: stretch; }
 .flutter-detail-actions button { min-width: 0; min-height: 48px; padding: 0 2px; border: 0; background: transparent; color: var(--wyn-text); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 13px; }
 .flutter-detail-actions button svg { width: 24px; height: 24px; stroke-width: 1.75; }
-.flutter-detail-actions button.like.active { color: var(--wyn-accent); }
+.flutter-detail-actions button.like.active { color: var(--wyn-like); }
 .flutter-detail-actions button.active:not(.like) { color: var(--wyn-text); }
 
 .detail-activity-row { width: 100%; height: 54px; margin: 2px 0 10px; padding: 0 12px 0 14px; border: 0; border-radius: 18px; background: var(--wyn-surface); color: var(--wyn-text); display: grid; grid-template-columns: 42px minmax(0,1fr) 28px; align-items: center; text-align: left; }
@@ -43,7 +43,7 @@
 .detail-comment-meta small { color: var(--wyn-text-muted); font-size: 11.5px; }
 .detail-comment-meta button { border: 0; padding: 0; background: transparent; color: var(--wyn-text-secondary); font-size: 11.5px; font-weight: 600; }
 .detail-comment-like { width: 38px; min-height: 38px; border: 0; padding: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--wyn-text-secondary); font-size: 10px; }
-.detail-comment-like.active.like { color: var(--wyn-accent); }
+.detail-comment-like.active.like { color: var(--wyn-like); }
 .detail-comments-end { margin: 0; padding: 24px 16px 28px; text-align: center; color: var(--wyn-text-muted); font-size: 13px; }
 
 .detail-composer-shell { position: fixed; z-index: 60; left: 50%; bottom: 0; width: min(100%, 680px); transform: translate3d(-50%, 0, 0); will-change: transform; padding: 0 12px max(8px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--wyn-bg) 96%, transparent); border-top: 1px solid var(--wyn-border); backdrop-filter: blur(18px); }
