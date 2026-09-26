@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { PostActions } from "@/components/home/post-actions";
 import { haptic } from "@/lib/haptics";
+import { reportClientFailure } from "@/lib/client-health";
 import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { RepostSheetChoices } from "@/components/ui/repost-sheet-choices";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -141,6 +142,7 @@ export function QuoteFeedCard({
     catch {
       setEngagement(before);
       await reloadEngagement();
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("กดถูกใจโพสต์อ้างอิงไม่สำเร็จ");
     } finally { setBusy(false); releaseMutation(); }
   };
@@ -160,6 +162,7 @@ export function QuoteFeedCard({
     } catch {
       setEngagement(before);
       await reloadEngagement();
+      if (!definitelyOffline()) reportClientFailure("social_write");
       showToast("บันทึกโพสต์อ้างอิงไม่สำเร็จ");
     } finally { setBusy(false); releaseMutation(); }
   };
