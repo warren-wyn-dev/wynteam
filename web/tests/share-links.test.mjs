@@ -20,7 +20,7 @@ function load(now = () => 1_000_000) {
 
 test("only in-app, non-auth paths are ever remembered (no open redirect)", () => {
   const { isSafeReturnPath } = load();
-  for (const ok of ["/drop/abc", "/@wynos_s", "/club/1?tab=posts", "/club-invite/XYZ", "/quote/1"]) assert.equal(isSafeReturnPath(ok), true, ok);
+  for (const ok of ["/drop/abc", "/@wynos_s", "/club/1?tab=posts", "/club-invite/XYZ", "/quote/1", "/quote/1#comments"]) assert.equal(isSafeReturnPath(ok), true, ok);
   for (const bad of ["https://evil.example/", "//evil.example", "/\\evil.example", "javascript:alert(1)", "/", "/welcome", "/login?x=1",
     "/signup/step-1", "/auth/callback", "drop/abc", "/drop/\nx", "/" + "a".repeat(600)]) assert.equal(isSafeReturnPath(bad), false, bad);
 });
@@ -43,7 +43,11 @@ test("a shared link survives the login wall exactly once and expires", () => {
 test("login wall, sign-in, onboarding and sign-out are wired to the return path", () => {
   const gate = read("../components/developer-route-gate.tsx");
   const auth = read("../components/auth-flow/screens.tsx");
-  assert.match(gate, /rememberReturnPath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\);\n\s+router\.replace\("\/welcome"\)/);
+  // Shared-link visit keeps path, query and #fragment…
+  assert.match(gate, /else rememberReturnPath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}\$\{window\.location\.hash\}`\);\n\s+router\.replace\("\/welcome"\)/);
+  // …but a tab that just lost a session (incl. cross-tab sign-out) clears it.
+  assert.match(gate, /if \(previousSession && !nextSession\) signedOutFromSessionRef\.current = true;/);
+  assert.match(gate, /if \(signedOutFromSessionRef\.current\) clearReturnPath\(\);/);
   assert.match(gate, /clearReturnPath\(\);\n\s+window\.location\.replace\("\/welcome"\)/);
   assert.match(auth, /hasProfile \? consumeReturnPath\(\) \?\? "\/" : "\/signup\/step-1"/);
   assert.match(auth, /router\.push\(consumeReturnPath\(\) \?\? "\/"\)/);

@@ -107,7 +107,7 @@ const APPLE_STARTUP_IMAGES: { url: string; media: string }[] = [
 // starts BELOW the system chrome. Do not recreate an in-page status overlay.
 // iOS may cache this metadata when the Home Screen app is installed:
 // an existing shortcut may need to be removed and added again.
-export const metadata:Metadata={metadataBase:new URL(SITE_URL),...shareMetadata("WYNOS","WYNOS social web","/"),appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
+export const metadata:Metadata={metadataBase:new URL(SITE_URL),...shareMetadata("WYNOS","WYNOS social web"),appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
 // Preserve browser zoom for accessibility. Native-like gestures and image viewing
 // should not disable the operating system's ability to enlarge web content.
 // interactiveWidget "resizes-content" (iOS 16.4+/Chrome): without it, Safari's

@@ -7,16 +7,19 @@ import type { Metadata } from "next";
 export const SITE_URL = "https://wynos.online";
 const PREVIEW_IMAGE = { url: "/icons/icon-512.png", width: 512, height: 512, alt: "WYNOS" };
 
-export function shareMetadata(title: string, description: string, path: string): Metadata {
+/** `path` sets canonical/og:url for that route only. The root layout omits
+ * it: a URL set there is inherited by every route without its own metadata,
+ * which would make all of those links preview as the home page. */
+export function shareMetadata(title: string, description: string, path?: string): Metadata {
   return {
     title,
     description,
-    alternates: { canonical: path },
+    ...(path ? { alternates: { canonical: path } } : {}),
     openGraph: {
       type: "website",
       siteName: "WYNOS",
       locale: "th_TH",
-      url: path,
+      ...(path ? { url: path } : {}),
       title,
       description,
       images: [PREVIEW_IMAGE],

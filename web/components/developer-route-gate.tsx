@@ -2,7 +2,7 @@
 
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { forgetSignedOutAccount, getActiveAccountStorageKey } from "@/lib/account-registry";
@@ -49,9 +49,14 @@ export function DeveloperRouteGate({
   });
   const [session, setSession] = useState<Session | null>(() => knownSession ?? null);
   const [message, setMessage] = useState("");
+  // True once this tab has lost a session (explicit or cross-tab sign-out).
+  // Only a visitor who was never signed in here is following a shared link;
+  // after a sign-out the current page belongs to the previous account.
+  const signedOutFromSessionRef = useRef(false);
 
   const acceptSession = useCallback((nextSession: Session | null) => {
     const previousSession = getCachedBrowserSession();
+    if (previousSession && !nextSession) signedOutFromSessionRef.current = true;
     if (previousSession?.user.id && previousSession.user.id !== nextSession?.user.id) {
       // Auth can also change in another tab or through OAuth callbacks.
       queryClient.clear();
@@ -121,8 +126,10 @@ export function DeveloperRouteGate({
     // second replace to race a navigation the user already started in the
     // meantime.
     if (gate === "signed-out") {
-      // Keep a shared link (post, profile, club) to reopen after sign-in.
-      rememberReturnPath(`${window.location.pathname}${window.location.search}`);
+      // Keep a shared link (post, profile, club) to reopen after sign-in,
+      // including its #fragment (e.g. /quote/<id>#comments).
+      if (signedOutFromSessionRef.current) clearReturnPath();
+      else rememberReturnPath(`${window.location.pathname}${window.location.search}${window.location.hash}`);
       router.replace("/welcome");
     }
   }, [gate, router]);

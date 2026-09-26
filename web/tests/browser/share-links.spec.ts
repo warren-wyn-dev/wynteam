@@ -24,6 +24,7 @@ for (const [path, title] of [
   [`/club-post/${ID}`, "โพสต์ใน Club บน WYNOS"],
   [`/quote/${ID}`, "WYNOS — โพสต์อ้างอิง"],
   ["/club-invite/ABC123", "คำเชิญเข้าร่วม Club บน WYNOS"],
+  [`/pop/${ID}`, "Pop บน WYNOS"],
 ] as const) {
   test(`${path} has a branded link preview for LINE/Facebook/Messenger`, async ({ request }) => {
     const html = await (await request.get(path, { headers: { "user-agent": "facebookexternalhit/1.1" } })).text();
@@ -34,3 +35,11 @@ for (const [path, title] of [
     expect(meta(html, "twitter:card")).toBe("summary");
   });
 }
+
+test("routes without their own metadata never claim the home page URL", async ({ request }) => {
+  for (const path of ["/search", "/trending"]) {
+    const html = await (await request.get(path)).text();
+    expect(meta(html, "og:url"), path).toBeUndefined();
+    expect(html, path).not.toContain('rel="canonical" href="https://wynos.online"');
+  }
+});
