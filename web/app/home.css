@@ -77,11 +77,16 @@
   --wyn-home-icon-color: #737780;
 }
 
+/* WYN-188: "System" follows the phone unless Light is chosen; Dark applies
+   whenever it is chosen. See lib/theme-preference.ts. */
 @media (prefers-color-scheme: dark) {
-  .wyn-home-header {
+  :where(:root:not([data-theme="light"])) .wyn-home-header {
     --wyn-home-icon-color: #a3a6ad;
   }
 }
+:where(:root[data-theme="dark"]) .wyn-home-header {
+    --wyn-home-icon-color: #a3a6ad;
+  }
 
 .wyn-home-header-actions {
   display: flex;

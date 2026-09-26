@@ -183,3 +183,11 @@ Under AGENTS.md, only CRITICAL blocks a release and HIGH needs Founder acceptanc
 does not block.
 
 Result: WYNOS Web Beta1 at `d0ed2dc` is cleared for the public launch to the first users.
+
+## Update — WEB-B1-QA-04 resolved (2026-09-26)
+
+Server-side content validation is live: the `validate-upload` Edge Function plus `storage.objects`
+triggers on the four image buckets (PR #732). The production end-to-end test (run `36266985757`)
+passed: a spoofed `image/jpeg` text upload was deleted and a real PNG kept.
+
+Security status: **CRITICAL 0 · HIGH 0 · MEDIUM 0 open · LOW 0 open.**

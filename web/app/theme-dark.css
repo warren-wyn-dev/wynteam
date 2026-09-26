@@ -1,0 +1,19 @@
+/* WYN-188 — Web Beta2 dark-theme fixes.
+   Every rule here is scoped to :where(:root[data-theme="dark"]). Only accounts
+   that chose a theme (developers until the Founder releases WYN-188) ever get
+   that attribute, so none of this can change what Web Beta1 users see.
+   :where() adds no specificity, so each rule cascades like its unscoped base. */
+
+/* Initial-letter avatar: sapphire (#1b3a6b) text is ~1.7:1 on the dark surface. */
+:where(:root[data-theme="dark"]) .route-avatar.fallback {
+  color: var(--wyn-text-secondary);
+}
+
+/* Choosing Dark also sets color-scheme: dark (dark scrollbars, inputs,
+   pickers). WebKit then paints an unstyled native <button> with white text
+   on its light-grey bezel (~1.8:1). Class-less buttons get dark colours;
+   every styled button keeps its own. */
+:where(:root[data-theme="dark"]) :where(button:not([class])) {
+  background-color: var(--wyn-surface);
+  color: var(--wyn-text);
+}

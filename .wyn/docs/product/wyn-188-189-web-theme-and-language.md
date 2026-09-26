@@ -1,12 +1,13 @@
 # Product Spec — WYN-188 Theme (Light/Dark/System) · WYN-189 Thai/English — WYNOS Web Beta2
 
-Status: **draft for Founder approval** (2026-09-26)
+Status: **approved by the Founder** (2026-09-26: "อนุมัติ เริ่มทำธีมก่อนเลย ส่วนภาษาควรทำทุกหน้านะ")
 Source: Founder request (2026-09-26): "อยากให้ระบบ รองรับ 2ภาษา คือ ไทย กับ อังกฤษ แล้วก็โหมด ธีมเข้ม สว่าง เลือกปรับได้ หรือจะปรับตามระบบโทรศัพท์ก็ได้"
 Founder scope decisions (AskUserQuestion, 2026-09-26):
 - **Web first** (wynos.online, Web Beta2). The Flutter app is a separate, later task.
 - First-time language **follows the phone/browser language** (English device → English, anything else → Thai).
 - Choices are **saved per account** (and cached on the device so the page never flashes the wrong theme or language).
 - Release order: **theme first, then language** in page groups. Everything is **developer-only** (`is_developer_account()`) until the Founder says to release.
+- Language must cover **every page** (Founder, on approval). The 5 page groups are only the build order; English is not released to general users until every page is translated.
 
 Related: WYN-105 (Flutter 3-theme spec, not built). This spec is web-only and does not change WYN-105.
 
@@ -43,7 +44,9 @@ Goal: users choose how WYNOS looks, and every screen looks correct in both theme
 - A non-developer account sees no change.
 
 ### Data
-- `profiles.theme_preference text not null default 'system' check (theme_preference in ('system','light','dark'))`. The owner updates it through the existing profile update path. **This is a production migration and needs separate Founder approval.** It is additive and has a safe default.
+- A new owner-only table, `public.user_preferences (user_id, theme_preference, language_preference, updated_at)`, serves both features. It uses RLS (read and write own row only), gives `anon` no access, and checks values: theme is `system`/`light`/`dark`, language is `th`/`en`, and `NULL` means not chosen. Migration: `supabase/migrations_web_beta2_user_preferences.sql`; test: `supabase/tests/web_beta2_user_preferences_test.sh`.
+- Why not `profiles`: other users can read it. Why not `profile_private`: upserting there creates a row with `onboarding_completed=false`, which the Flutter onboarding reads.
+- **Applying it to production needs separate Founder approval.** Until then, the theme still works and is cached per device; saving to the account fails quietly with a note in Settings.
 
 ---
 
@@ -73,7 +76,7 @@ Goal: English-speaking users can use WYNOS fully in English. Thai stays the prim
 - Automated tests pass in both languages. Layouts do not overflow with longer English text on a 360 px wide phone.
 
 ### Data
-- `profiles.language_preference text null check (language_preference in ('th','en'))`. `null` means "not chosen yet, follow the device". This is a production migration and needs separate Founder approval.
+- `user_preferences.language_preference`, in the same table as the theme (see WYN-188). The Push Edge Function reads it with the service role.
 
 ---
 
@@ -86,7 +89,7 @@ Goal: English-speaking users can use WYNOS fully in English. Thai stays the prim
 ## Dependencies
 - Staging per PR (PR #732) is used to check every group before merge.
 - Developer gate: `web/lib/use-is-developer-account.ts` and `public.is_developer_account()`.
-- Founder approval for the two additive `profiles` migrations.
+- Founder approval to apply the additive `user_preferences` migration.
 - Design (UI/UX): the dark palette for all tokens (from the existing Flutter dark palette), picker UI, and English copy tone.
 
 ## Priority
