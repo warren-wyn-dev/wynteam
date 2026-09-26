@@ -8,3 +8,12 @@
 :where(:root[data-theme="dark"]) .route-avatar.fallback {
   color: var(--wyn-text-secondary);
 }
+
+/* Choosing Dark also sets color-scheme: dark (dark scrollbars, inputs,
+   pickers). WebKit then paints an unstyled native <button> with white text
+   on its light-grey bezel (~1.8:1). Class-less buttons get dark colours;
+   every styled button keeps its own. */
+:where(:root[data-theme="dark"]) :where(button:not([class])) {
+  background-color: var(--wyn-surface);
+  color: var(--wyn-text);
+}

@@ -15,7 +15,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *
  * The choice is cached on the device (read before first paint by
  * THEME_BOOT_SCRIPT, so there is no flash) and saved per account in
- * `profile_private.theme_preference`.
+ * `user_preferences.theme_preference`.
  */
 export type ThemePreference = "system" | "light" | "dark";
 
