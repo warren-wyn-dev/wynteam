@@ -17,7 +17,7 @@ import {
   registerCurrentAccount,
   registerSessionAccount,
 } from "@/lib/account-registry";
-import { clearPendingAddAccount, getPendingAddAccountSlot } from "@/lib/pending-account-add";
+import { clearPendingAddAccount, getPendingAddAccountSlot, hasAddAccountIntent } from "@/lib/pending-account-add";
 import { hasActivePushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { GOOGLE_PWA_COMPLETED_CHANNEL, isInstalledIosWebApp, startGoogleOAuth } from "@/lib/google-pwa-oauth";
 import { parsePasswordRecoveryLink } from "@/lib/password-recovery-link";
@@ -520,6 +520,10 @@ export function SignupStep1Screen() {
     }
 
     if (!supabase) {
+      if (hasAddAccountIntent()) {
+        setError("การเพิ่มบัญชีหมดอายุ กรุณาย้อนกลับไปเพิ่มบัญชีอีกครั้ง");
+        return;
+      }
       router.push("/signup/step-2");
       return;
     }
@@ -688,7 +692,9 @@ export function SignupStep2Screen() {
       return;
     }
     if (!supabase) {
-      setError("ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับเว็บ");
+      setError(hasAddAccountIntent()
+        ? "การเพิ่มบัญชีหมดอายุ กรุณากลับไปที่หน้าเพิ่มบัญชีแล้วลองใหม่"
+        : "ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับเว็บ");
       return;
     }
 
@@ -830,7 +836,12 @@ export function OnboardingProfileScreen() {
     setLoading(true);
     setError("");
     try {
-      if (!supabase) throw new Error("Supabase is not configured");
+      if (!supabase) {
+        setError(hasAddAccountIntent()
+          ? "การเพิ่มบัญชีหมดอายุ กรุณากลับไปที่หน้าเพิ่มบัญชีแล้วลองใหม่"
+          : "ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับเว็บ");
+        return;
+      }
       const { data, error: authError } = await supabase.auth.getUser();
       if (authError || !data.user) throw new Error("Session unavailable");
       if (!skipAvatar && croppedAvatar) await uploadProfileImage(supabase, data.user.id, "avatar", croppedAvatar);
