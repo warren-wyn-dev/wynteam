@@ -61,3 +61,12 @@ export function createPasswordRecoveryClient(): SupabaseClient | null {
         auth: { detectSessionInUrl: false, autoRefreshToken: false },
       });
 }
+
+/**
+ * Read/detach the PREVIOUS account during Add Account without allowing the
+ * default Supabase singleton to consume B's in-flight Google OAuth callback.
+ * Reuse the isolated, no-URL-detection browser client configuration.
+ */
+export function createAccountSwitchPriorClient(): SupabaseClient | null {
+  return createPasswordRecoveryClient();
+}
