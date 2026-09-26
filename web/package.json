@@ -19,7 +19,7 @@
     "test:push-offline-logout": "node --test tests/push-offline-logout.test.mjs",
     "test:account-switch": "node --test tests/account-switch-session.test.mjs tests/account-switch-preflight.test.mjs tests/account-switch-push-parallel.test.mjs",
     "test:app-performance": "node --test tests/app-wide-performance.test.mjs",
-    "test:notifications": "node --test tests/notification-realtime.test.mjs tests/notification-list-merge.test.mjs",
+    "test:notifications": "node --test tests/notification-realtime.test.mjs tests/notification-list-merge.test.mjs tests/chat-unread-count.test.mjs",
     "test:push-toggle": "node --test tests/push-toggle-enable.test.mjs"
   },
   "dependencies": {

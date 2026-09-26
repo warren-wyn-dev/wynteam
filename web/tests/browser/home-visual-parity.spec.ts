@@ -185,6 +185,19 @@ test("bottom navigation stays compact and preserves all five WYNOS destinations"
   await expect(glyph).toHaveCSS("height", "28px");
 });
 
+test("bell and Chat tab show unread counts, not a bare dot", async ({ page }) => {
+  const bell = page.getByRole("button", { name: "การแจ้งเตือน 3 รายการที่ยังไม่ได้อ่าน" });
+  await expect(bell.locator(".wyn-home-chat-badge")).toHaveText("3");
+  const chat = page.getByRole("link", { name: "แชท มี 2 บทสนทนาที่ยังไม่อ่าน" });
+  const chatBadge = chat.locator(".route-nav-badge");
+  await expect(chatBadge).toHaveText("2");
+  // Badge sits on the icon and stays inside its tab and the viewport.
+  const [tabBox, badgeBox] = await Promise.all([chat.boundingBox(), chatBadge.boundingBox()]);
+  expect(tabBox && badgeBox).toBeTruthy();
+  expect(badgeBox!.x + badgeBox!.width).toBeLessThanOrEqual(tabBox!.x + tabBox!.width);
+  expect(badgeBox!.y).toBeGreaterThanOrEqual(tabBox!.y - 1);
+});
+
 test("follow control is absent for authors already followed", async ({ page }) => {
   const followedPost = page.locator(".wyn-post").nth(1);
   await expect(followedPost.getByRole("button", { name: "ติดตาม", exact: true })).toHaveCount(0);

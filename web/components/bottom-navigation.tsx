@@ -69,9 +69,11 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
 export function BottomNavigation({
   profileHref,
   isActive,
+  chatUnreadCount = 0,
 }: {
   profileHref: string;
   isActive: (href: string) => boolean;
+  chatUnreadCount?: number;
 }) {
   const homeActive = isActive("/");
   const clubActive = isActive("/clubs");
@@ -116,8 +118,11 @@ export function BottomNavigation({
         <MaterialNavGlyph kind="add" />
         <span>โพสต์</span>
       </Link>
-      <Link className={`route-nav-link ${chatActive ? "active" : ""}`} href="/chat" aria-label="แชท" onClick={handleActiveTabTap(chatActive, "/chat")}>
-        <MaterialNavGlyph kind="chat" selected={chatActive} />
+      <Link className={`route-nav-link ${chatActive ? "active" : ""}`} href="/chat" aria-label={chatUnreadCount > 0 ? `แชท มี ${chatUnreadCount} บทสนทนาที่ยังไม่อ่าน` : "แชท"} onClick={handleActiveTabTap(chatActive, "/chat")}>
+        <span className="route-nav-icon-wrap">
+          <MaterialNavGlyph kind="chat" selected={chatActive} />
+          {chatUnreadCount > 0 ? <span className="route-nav-badge" aria-hidden="true">{chatUnreadCount > 9 ? "9+" : chatUnreadCount}</span> : null}
+        </span>
         <span>แชท</span>
       </Link>
       <Link className={`route-nav-link ${profileActive ? "active" : ""}`} href={profileTabHref} aria-label="โปรไฟล์" onClick={handleProfileClick}>

@@ -151,6 +151,27 @@
   inset: 0;
 }
 
+/* Unread count on the Chat tab: same red pill as the Home bell badge. */
+.route-nav-badge {
+  position: absolute;
+  top: -3px;
+  left: 17px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border: 2px solid var(--wyn-bg, #fff);
+  border-radius: 999px;
+  background: #ff453a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 @media (max-width: 359px) {
   :root {
     --wyn-bottom-nav-height: 48px;
