@@ -17,7 +17,7 @@
     "test:account-cache-isolation": "node --test tests/account-cache-isolation.test.mjs",
     "test:playwright-gates": "node --test tests/playwright-gates.test.mjs",
     "test:push-offline-logout": "node --test tests/push-offline-logout.test.mjs",
-    "test:account-switch": "node --test tests/account-switch-session.test.mjs tests/account-switch-preflight.test.mjs"
+    "test:account-switch": "node --test tests/account-switch-session.test.mjs tests/account-switch-preflight.test.mjs tests/account-switch-push-parallel.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
