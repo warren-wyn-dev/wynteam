@@ -5,8 +5,9 @@
 -- the approved rollout; all new write/search RPCs are developer-gated.
 --
 -- Search: PostgreSQL full-text, not a leading-wildcard ILIKE table scan.
--- 'simple' indexes literal terms; Thai segmentation still needs real-device
--- linguistic QA (Postgres does not split Thai words automatically).
+-- 'simple' full-text supports tokenized languages; an indexed pg_trgm
+-- substring fallback supports Thai text without spaces. The two GIN indexes
+-- avoid unindexed leading-wildcard ILIKE scans.
 
 alter table public.club_channel_messages
   add column if not exists edited_at timestamptz;
@@ -14,6 +15,25 @@ alter table public.club_channel_messages
   add column if not exists pinned_at timestamptz;
 alter table public.club_channel_messages
   add column if not exists pinned_by uuid references public.profiles(id) on delete set null;
+
+-- pg_trgm may already be installed in a different schema on other projects.
+-- Discover the installed operator class and schema-qualify it when indexing.
+create schema if not exists extensions;
+create extension if not exists pg_trgm with schema extensions;
+do $$
+declare
+  v_schema text;
+begin
+  select n.nspname into v_schema
+  from pg_opclass o join pg_namespace n on n.oid = o.opcnamespace
+  where o.opcname = 'gin_trgm_ops'
+  limit 1;
+  if v_schema is null then raise exception 'pg_trgm GIN operator class unavailable'; end if;
+  execute format(
+    'create index if not exists club_channel_messages_trgm_idx on public.club_channel_messages using gin (content %I.gin_trgm_ops)',
+    v_schema
+  );
+end $$;
 
 create index if not exists club_channel_messages_fts_idx
   on public.club_channel_messages using gin
@@ -125,6 +145,7 @@ declare
   v_club uuid;
   v_term text := btrim(coalesce(p_query, ''));
   v_query tsquery;
+  v_escaped text;
 begin
   if v_me is null then raise exception 'Not authenticated'; end if;
   if not public.is_developer_account() then
@@ -139,11 +160,19 @@ begin
   if char_length(v_term) > 120 then raise exception 'Search is too long'; end if;
   v_query := websearch_to_tsquery('simple'::regconfig, v_term);
   if numnode(v_query) = 0 then return; end if;
+  -- Escape wildcards so the substring fallback is literal, not caller-
+  -- controlled pattern syntax. A 3-character minimum preserves GIN selectivity.
+  v_escaped := replace(replace(replace(v_term, chr(92), chr(92)||chr(92)),
+                        '%', chr(92)||'%'), '_', chr(92)||'_');
   return query
     select m.id, m.content, m.created_at, m.author_id
     from public.club_channel_messages m
     where m.channel_id = p_channel_id
-      and to_tsvector('simple'::regconfig, coalesce(m.content, '')) @@ v_query
+      and (
+        to_tsvector('simple'::regconfig, coalesce(m.content, '')) @@ v_query
+        or (char_length(v_term) >= 3 and
+            m.content ilike '%' || v_escaped || '%' escape chr(92))
+      )
     order by m.created_at desc, m.id desc
     limit least(greatest(coalesce(p_limit, 30), 1), 30);
 end;
