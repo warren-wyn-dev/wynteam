@@ -8,7 +8,6 @@ const CONFIG = new URL("../playwright.config.ts", import.meta.url);
 const fixtureOnly = [
   "content-reference-flow",
   "composer-caption-spacing",
-  "wynos-food-customer-demo",
   "composer-handle-drag",
   "composer-middle-swipe",
   "composer-popup-height",

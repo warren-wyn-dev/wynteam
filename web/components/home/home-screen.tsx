@@ -11,7 +11,6 @@ import { useInView } from "react-intersection-observer";
 import { ClubFeedPost } from "@/components/home/club-feed-post";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomeQuickCompose } from "@/components/home/home-quick-compose";
-import { WynosFoodEntry } from "@/components/home/wynos-food-entry";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { QuoteFeedCard } from "@/components/quote-feed-card";
 import { HOME_FEED_MODES, HomeTabs, type HomeFeedMode } from "@/components/home/home-tabs";
@@ -51,7 +50,6 @@ import {
 import { useUnreadNotificationCount } from "@/lib/notification-count";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 
 // These are heavy, interaction-only overlays (composer with image/poll
 // upload, quote-redrop composer, side drawer) — none of them are needed for
@@ -212,7 +210,6 @@ export function HomeScreen({ session }: { session: Session }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = session.user.id;
-  const isDeveloper = useIsDeveloperAccount(client, userId);
   const { toastMessage, toastAction, showToast, dismissToast } = useToast();
 
   // Deliberately not wrapped in useMemo/useRef: `store`'s fields (mode,
@@ -957,7 +954,6 @@ export function HomeScreen({ session }: { session: Session }) {
         {visibleMode !== "clubs" ? (
           <HomeQuickCompose avatarUrl={identity?.avatar_url} username={identity?.username} />
         ) : null}
-        {isDeveloper && visibleMode === "for-you" ? <WynosFoodEntry /> : null}
         {loading && !rows.length && !clubRows.length ? (
           <FeedSkeleton />
         ) : error && !rows.length && !clubRows.length ? (

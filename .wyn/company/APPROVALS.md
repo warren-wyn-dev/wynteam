@@ -203,3 +203,9 @@
 - Scope: PR #736. It stops Push from turning itself off: server tokens are dropped only on a confirmed dead token, the switch no longer flips off on a failed check, and wanted accounts are re-registered on app open. It also adds a card on the main app screens: Allow opens the OS permission popup, and Not now waits 7 days. People who already allowed or denied are never asked again. On iPhone in a Safari tab, the card points to Add to Home Screen. It covers the merge, the production web deploy and the `send-push-notification` Edge Function deploy, for every account (not Beta2-gated).
 - Not covered: WYN-159 Beta2 chat stays developer-only. No production SQL.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
+
+### DECISION — [2026-09-27] Remove WYNOS Food from the web until launch
+- Founder: **"WYNOS food ตัดออกก่อน ยังไม่ได้เปิดตัวตอนนี้"**, meaning cut WYNOS Food for now, it is not launching yet. Then, in AskUserQuestion: **"ลบออกจากเว็บ"**, remove it from the web.
+- Scope: the `/food` developer preview, the developer-only Food shortcut on Home, the `/dev/food-fixture` page, and their tests, CSS, doc and three English strings are removed from `web/`. There was no Food database, API or payment code. Nothing changes for non-developer accounts, who never saw Food.
+- Rollback / relaunch: restore from git history (the files as of this commit's parent).
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
