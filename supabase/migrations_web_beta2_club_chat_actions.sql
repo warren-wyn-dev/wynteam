@@ -191,6 +191,14 @@ grant execute on function public.set_club_channel_message_pin(uuid, boolean)
 grant execute on function public.search_club_channel_messages(uuid, text, integer)
   to authenticated;
 
+-- Schema readiness is installed LAST. Web Beta2 checks this RPC before
+-- enabling the developer UI, so a merge cannot expose a half-installed API.
+create or replace function public.club_chat_actions_available()
+returns boolean language sql stable security definer set search_path = public
+as $ select public.is_developer_account() $;
+revoke all on function public.club_chat_actions_available() from public, anon;
+grant execute on function public.club_chat_actions_available() to authenticated;
+
 -- Rollback requires the Founder: drop the three functions and new indexes,
 -- then remove only the three columns added above after checking that no
 -- developer's pinned/edited state still needs preservation.
