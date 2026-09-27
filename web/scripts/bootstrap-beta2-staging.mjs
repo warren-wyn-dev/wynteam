@@ -40,7 +40,14 @@ export function buildSyntheticPlan(suffix) {
   return TEST_ROLES.map(([role, developer, clubRole]) => ({
     role, developer, clubRole,
     email: "wynos-beta2-" + suffix + "-" + role + "@staging.example.invalid",
-    username: "qa_" + suffix + "_" + role.replaceAll("_", "").slice(0, 15),
+    // Keep handles unique and <=20 chars (same limit as public signup).
+    // A full role label would exceed that limit and stop fixture creation.
+    username: "qa_" + suffix + "_" + ({
+      developer_owner: "d_owner", developer_admin: "d_admin",
+      developer_moderator: "d_mod", developer_member: "d_member",
+      developer_outsider: "d_out", nondeveloper_member: "n_member",
+      nondeveloper_outsider: "n_out",
+    })[role],
   }));
 }
 
