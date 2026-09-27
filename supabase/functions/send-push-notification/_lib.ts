@@ -119,6 +119,8 @@ export function messageFor(
       return `${actorName} โพสต์ใหม่ใน ${club}`;
     case "club_post_pinned":
       return `${actorName} ปักหมุดโพสต์ใหม่ใน ${club}`;
+    case "club_announcement":
+      return `${actorName} ประกาศใน ${club}`;
     case "club_invite":
       return `${actorName} ชวนคุณเข้าร่วม ${club}`;
     case "mention_drop":
@@ -197,6 +199,8 @@ function messageForEn(
       return `${actorName} posted in ${club}`;
     case "club_post_pinned":
       return `${actorName} pinned a new post in ${club}`;
+    case "club_announcement":
+      return `${actorName} posted an announcement in ${club}`;
     case "club_invite":
       return `${actorName} invited you to join ${club}`;
     case "mention_drop":

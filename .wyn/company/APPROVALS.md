@@ -209,3 +209,10 @@
 - Scope: the `/food` developer preview, the developer-only Food shortcut on Home, the `/dev/food-fixture` page, and their tests, CSS, doc and three English strings are removed from `web/`. There was no Food database, API or payment code. Nothing changes for non-developer accounts, who never saw Food.
 - Rollback / relaunch: restore from git history (the files as of this commit's parent).
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
+
+### DECISION — [2026-09-27] WYN-137 Club announcements: merge developer-only, apply migration
+- Founder, after reviewing the screenshots, in AskUserQuestion: **"ติดตั้งได้เลย"** for `supabase/migrations_web_beta2_club_announcements.sql`, and **"ได้ เฉพาะนักพัฒนา"** to merge PR #738 once CI passes.
+- Scope: the Club "ประกาศ" tab behind the Beta2 gate (`BETA2_RELEASED.clubAnnouncements = false`). The migration is applied via `web-beta2-apply-club-announcements.yml` after merge and after main CI is green.
+- The migration adds one table and three developer-gated RPCs. It changes no existing object: no notification type and no fan-out (see below). Rollback statements are in the file.
+- This approval does **not** release WYN-137 to everyone. That needs a decision on Flutter users (the shared notifications table), a follow-up migration, and a separate "Beta2 release: clubAnnouncements" approval. Founder (2026-09-27): "เราพัฒนา แค่ Wynos Web Beta2", so this change leaves Flutter untouched. Founder (AskUserQuestion, after Codex review): **"ช่วง Beta2 ไม่ส่งแจ้งเตือน"**, so the migration sends no notifications and does not change `notifications_type_check`.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27

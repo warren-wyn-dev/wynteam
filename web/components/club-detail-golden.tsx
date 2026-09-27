@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
+import { ClubAnnouncementsTab } from "@/components/club/club-announcements-tab";
+import { BottomSheet } from "@/components/club/club-sheet";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
@@ -27,12 +29,13 @@ import { reportClientFailure } from "@/lib/client-health";
 import { beginSocialMutation, definitelyOffline, OFFLINE_ACTION_MESSAGE } from "@/lib/social-mutation-guard";
 import { getRecentClubLike, listenClubLike, publishClubLike } from "@/lib/club-engagement-sync";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { useBeta2Feature } from "@/lib/beta2";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
 import { shareOrCopyLink } from "@/lib/share";
 import { imageUploadType } from "@/lib/upload-image";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
-type ClubTab = "posts" | "chat" | "about";
+type ClubTab = "posts" | "announcements" | "chat" | "about";
 type AboutTab = "details" | "members" | "events" | "insights";
 type Membership = { role: string; status: string } | null;
 type ChannelRow = { id: string; name: string };
@@ -86,17 +89,6 @@ const reportCategories = [
 function relation(value: unknown): Record<string, unknown> {
   if (Array.isArray(value)) return (value[0] as Record<string, unknown> | undefined) ?? {};
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
-}
-
-function BottomSheet({ children, label, onClose }: { children: React.ReactNode; label: string; onClose: () => void }) {
-  return (
-    <div className="route-modal-backdrop golden-club-sheet-backdrop" role="presentation" onClick={onClose}>
-      <section className="golden-club-sheet" role="dialog" aria-modal="true" aria-label={label} onClick={(event) => event.stopPropagation()}>
-        <div className="golden-club-sheet-grip" />
-        {children}
-      </section>
-    </div>
-  );
 }
 
 function ReportSheet({ client, target, onClose }: { client: SupabaseClient; target: ReportTarget; onClose: () => void }) {
@@ -567,13 +559,18 @@ function AboutTabView({ client, clubId, club, membership }: { client: SupabaseCl
 
 type ClubDetailSnapshot = { data: ClubData; posts: ClubHomePost[] };
 
-function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseClient; userId: string; clubId: string }) {
+function ClubDetailGoldenInner({ client, userId, clubId, initialTab }: { client: SupabaseClient; userId: string; clubId: string; initialTab?: "announcements" }) {
   const router = useRouter();
   const cacheKey = `club-detail:${userId}:${clubId}`;
   const cached = getMountCache<ClubDetailSnapshot>(cacheKey);
   const [data, setData] = useState<ClubData | null>(cached?.data ?? null);
   const [posts, setPosts] = useState<ClubHomePost[]>(cached?.posts ?? []);
-  const [tab, setTab] = useState<ClubTab>("posts");
+  // From the server (?tab=announcements), so SSR and hydration agree.
+  const [selectedTab, setTab] = useState<ClubTab>(initialTab ?? "posts");
+  const announcementsOn = useBeta2Feature("clubAnnouncements", client, userId);
+  // While the Beta2 gate is closed (or still checking), an announcements
+  // deep link behaves exactly like Posts, highlight included.
+  const tab: ClubTab = selectedTab === "announcements" && !announcementsOn ? "posts" : selectedTab;
   const [loading, setLoading] = useState(!cached);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -726,6 +723,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
 
         <nav className="golden-club-tabs" aria-label="Club">
           <button className={tab === "posts" ? "active" : ""} type="button" onClick={() => setTab("posts")}><WynosIcon name="fileText" size={16} strokeWidth={2} />โพสต์</button>
+          {announcementsOn ? <button className={tab === "announcements" ? "active" : ""} type="button" onClick={() => setTab("announcements")}><WynosIcon name="megaphone" size={16} strokeWidth={2} />ประกาศ</button> : null}
           <button className={tab === "chat" ? "active" : ""} type="button" onClick={() => setTab("chat")}><WynosIcon name="messagesSquare" size={16} strokeWidth={2} />แชท</button>
           <button className={tab === "about" ? "active" : ""} type="button" onClick={() => setTab("about")}><WynosIcon name="info" size={16} strokeWidth={2} />เกี่ยวกับ</button>
         </nav>
@@ -734,6 +732,8 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
           <section className="golden-club-posts">
             {club.privacy === "private" && !approved ? <EmptyState>เข้าร่วม Club เพื่อดูโพสต์</EmptyState> : posts.length ? posts.map((post) => <ClubPostCard client={client} userId={userId} initial={post} onChanged={() => void refresh()} key={post.id} />) : <EmptyState>ยังไม่มีโพสต์ใน Club นี้</EmptyState>}
           </section>
+        ) : tab === "announcements" ? (
+          <ClubAnnouncementsTab client={client} userId={userId} clubId={clubId} role={membership?.role ?? null} approved={approved} onToast={showToast} />
         ) : tab === "chat" ? (
           <ChatTab client={client} userId={userId} clubId={clubId} membership={membership} channels={channels} />
         ) : (
@@ -756,6 +756,6 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
   );
 }
 
-export function ClubDetailGoldenRoute({ clubId }: { clubId: string }) {
-  return <DeveloperRouteGate>{({ client, userId }) => <ClubDetailGoldenInner client={client} userId={userId} clubId={clubId} />}</DeveloperRouteGate>;
+export function ClubDetailGoldenRoute({ clubId, initialTab }: { clubId: string; initialTab?: "announcements" }) {
+  return <DeveloperRouteGate>{({ client, userId }) => <ClubDetailGoldenInner client={client} userId={userId} clubId={clubId} initialTab={initialTab} />}</DeveloperRouteGate>;
 }
