@@ -83,3 +83,34 @@ the production deployment or existing PR workflow in this pilot.
 Production developer-account UAT still follows Issue #748 on `wynos.online`, not
 this protected pilot. Issue #749 stays open until project protection, runtime
 variables and real synthetic-account tests are verified.
+
+### Isolated Beta2 staging security audit (2026-09-28)
+
+**Staging-only** migration `web_beta2_staging_anon_grants_parity` has been
+applied to Supabase ref `yydgdapzlrjmlrjgijkj`, with the reviewed SQL source
+at `docs/engineering/staging-only/WEB_BETA2_ANON_GRANTS.sql`. Read-only
+post-migration verification: 143 public SQL functions on staging; 15 callable
+by `anon`, of which three use SECURITY DEFINER; 138 callable by
+`authenticated` (unchanged); zero staging Auth users and developer identities.
+It removed the 103 excess anonymous function grants identified by comparing
+the staging baseline with the existing production function signatures and
+privileges. The eight Beta2 developer, Club Chat and Club Announcement RPCs
+are **not** anonymously executable, including `is_developer_account()`.
+No production schema, production data or production ACL was changed. The
+production schema currently has additional functions absent from staging:
+matching anonymous EXECUTE grants for the overlapping functions does **not**
+mean full schema parity.
+
+The security advisor still flags four inherited SECURITY DEFINER views in
+both databases; they require independent multi-role UAT tracked in [#688](https://github.com/warren-wyn-dev/wynteam/issues/688).
+Staging also reports other advisor warnings, which must be individually
+triaged; do not claim zero security warnings based on this one migration.
+
+**Outstanding release gates:** Founder reports the three staging GitHub
+repository secrets were added, but the GitHub connector cannot verify their
+names or values. The first authorized manual staging workflow run must pass
+its exact-project, distinct-key and Vercel SSO fail-closed checks. The workflow
+cannot be dispatched before it exists on GitHub's default branch, and merging
+`web/**` auto-deploys public Beta1 even while Beta2 feature flags stay off:
+obtain explicit Founder merge authorization separately. Human synthetic
+staging-account bootstrapping and role-denial browser UAT have not run.
