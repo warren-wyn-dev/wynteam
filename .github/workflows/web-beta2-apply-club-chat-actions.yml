@@ -50,10 +50,10 @@ jobs:
              and column_name in ('edited_at','pinned_at','pinned_by')) as columns,
             (select count(*) from pg_indexes
              where schemaname='public' and indexname in
-              ('club_channel_messages_fts_idx','club_channel_messages_pinned_idx')) as indexes,
+              ('club_channel_messages_fts_idx','club_channel_messages_trgm_idx','club_channel_messages_pinned_idx')) as indexes,
             (select count(*) from pg_proc where pronamespace='public'::regnamespace
              and proname in ('edit_club_channel_message',
               'set_club_channel_message_pin','search_club_channel_messages')) as rpcs;" |
             tee result.json | jq .
-          jq -e '.[0].columns == 3 and .[0].indexes == 2 and .[0].rpcs == 3' result.json >/dev/null ||
+          jq -e '.[0].columns == 3 and .[0].indexes == 3 and .[0].rpcs == 3' result.json >/dev/null ||
             { echo "::error::WYN-135 post-migration checks failed"; exit 1; }
