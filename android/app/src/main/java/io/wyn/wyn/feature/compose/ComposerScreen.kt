@@ -168,7 +168,7 @@ fun ComposerScreen(vm: ComposerViewModel) {
 }
 
 /** A private cache file for the camera, shared only with the camera app for this one capture. */
-private fun newCameraUri(context: Context): Uri {
+internal fun newCameraUri(context: Context): Uri {
     val dir = File(context.cacheDir, "camera").apply { mkdirs() }
     val file = File.createTempFile("capture", ".jpg", dir)
     return FileProvider.getUriForFile(context, "${context.packageName}.files", file)

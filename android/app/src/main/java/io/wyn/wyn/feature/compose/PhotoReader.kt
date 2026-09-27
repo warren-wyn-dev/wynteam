@@ -21,7 +21,7 @@ class PhotoRejected(val reason: Int) : Exception()
  * applied). GPS location is removed from JPEG metadata before upload.
  */
 object PhotoReader {
-    fun read(context: Context, uri: Uri): PickedImage {
+    fun read(context: Context, uri: Uri, maxBytes: Int = IMAGE_MAX_BYTES, tooLarge: Int = R.string.photo_too_large): PickedImage {
         val resolver = context.contentResolver
         var name: String? = null
         var size: Long? = null
@@ -31,11 +31,11 @@ object PhotoReader {
                 if (!cursor.isNull(1)) size = cursor.getLong(1)
             }
         }
-        if (size != null && (size!! <= 0 || size!! > IMAGE_MAX_BYTES)) throw PhotoRejected(R.string.photo_too_large)
+        if (size != null && (size!! <= 0 || size!! > maxBytes)) throw PhotoRejected(tooLarge)
         val (contentType, extension) = ImageRules.uploadType(resolver.getType(uri), name) ?: throw PhotoRejected(R.string.photo_wrong_type)
         val bytes = resolver.openInputStream(uri)?.use { input ->
             val buffer = input.readBytes()
-            if (buffer.size > IMAGE_MAX_BYTES) throw PhotoRejected(R.string.photo_too_large)
+            if (buffer.isEmpty() || buffer.size > maxBytes) throw PhotoRejected(tooLarge)
             buffer
         } ?: throw PhotoRejected(R.string.photo_wrong_type)
         val cleaned = if (contentType == "image/jpeg") stripLocation(context, bytes) else bytes

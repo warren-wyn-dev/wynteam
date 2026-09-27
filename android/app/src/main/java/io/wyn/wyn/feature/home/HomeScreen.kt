@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
@@ -73,7 +74,7 @@ private val TabGrey = Color(0xFF757A84)
 data class HomeNavigation(
     val onCompose: () -> Unit = {},
     val onOpenPost: (FeedRow) -> Unit = {},
-    val onOpenAuthor: (FeedRow) -> Unit = {},
+    val onOpenProfile: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
     val onNotifications: () -> Unit = {},
     val onMenu: () -> Unit = {},
@@ -87,14 +88,7 @@ data class HomeNavigation(
 fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 0) {
     val c = Wyn.colors
     val context = LocalContext.current
-    fun share(row: FeedRow) {
-        val send = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, row.authorLabel)
-            putExtra(Intent.EXTRA_TEXT, vm.shareUrl(row))
-        }
-        context.startActivity(Intent.createChooser(send, null))
-    }
+    fun share(row: FeedRow) = sharePost(context, vm, row)
     Column(Modifier.fillMaxSize().background(c.bg)) {
         HomeHeader(notificationCount, nav)
         HomeTabs(vm.mode, vm::select)
@@ -122,59 +116,77 @@ fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 
                     }
                     else -> {
                         if (vm.error != null) item(key = "stale") { ErrorText(vm.error.text()) }
-                        items(snapshot.rows, key = { it.key }) { row ->
-                            Column {
-                                if (row.key != snapshot.rows.first().key) HorizontalDivider(color = c.border, thickness = 1.dp)
-                                val quote = vm.quote
-                                if (row.isQuote && quote != null) {
-                                    QuoteCard(
-                                        row, quote.engagement[row.redropId], row.redropId in quote.failed,
-                                        snapshot.images[row.id] ?: listOfNotNull(row.imageUrl),
-                                        onRetry = { quote.retry(row) },
-                                        onLike = { quote.toggleLike(row) },
-                                        onComment = { nav.onOpenQuote(row) },
-                                        onRepost = { quote.open(QuoteSheet.Repost(row)) },
-                                        onShare = { share(row) },
-                                        onSave = { quote.toggleSave(row) },
-                                        onMore = { quote.open(QuoteSheet.Menu(row)) },
-                                        onOpenOriginal = { nav.onOpenPost(row) },
-                                        onOpenAuthor = {},
-                                    )
-                                    return@Column
-                                }
-                                PostCard(
-                                    row = row,
-                                    viewer = snapshot.viewer,
-                                    images = snapshot.images[row.id] ?: listOfNotNull(row.imageUrl),
-                                    userId = vm.userId,
-                                    actions = PostCallbacks(
-                                        onLike = { vm.toggleLike(row) },
-                                        onPhotoLike = { vm.likeFromPhoto(row) },
-                                        onComment = { nav.onOpenPost(row) },
-                                        onRepost = { vm.openSheet(PostSheet.Repost(row)) },
-                                        onShare = { share(row) },
-                                        onSave = { vm.toggleSave(row) },
-                                        onFollow = { vm.toggleFollow(row) },
-                                        onMore = { vm.openSheet(PostSheet.More(row)) },
-                                        onOpenPost = { nav.onOpenPost(row) },
-                                        onOpenAuthor = { nav.onOpenAuthor(row) },
-                                    ),
-                                )
-                            }
-                        }
+                        feedRows(vm, snapshot, nav, ::share)
                     }
                 }
             }
         }
     }
-    vm.sheet?.let { PostSheetHost(it, vm, nav, ::share) }
+    FeedOverlays(vm, nav, ::share, vm.identity?.avatarUrl, vm.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: vm.identity?.username)
+}
+
+/** Opens the system share sheet with a post's web link. */
+fun sharePost(context: android.content.Context, vm: FeedViewModel<*>, row: FeedRow) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, if (row.isQuote) row.quoteAuthorLabel else row.authorLabel)
+        putExtra(Intent.EXTRA_TEXT, vm.shareUrl(row))
+    }
+    context.startActivity(Intent.createChooser(send, null))
+}
+
+/** Post and Quote cards for a feed snapshot (Home and Profile). */
+fun LazyListScope.feedRows(vm: FeedViewModel<*>, snapshot: FeedSnapshot, nav: HomeNavigation, share: (FeedRow) -> Unit) {
+    items(snapshot.rows, key = { it.key }) { row ->
+        val c = Wyn.colors
+        Column {
+            if (row.key != snapshot.rows.first().key) HorizontalDivider(color = c.border, thickness = 1.dp)
+            val quote = vm.quote
+            if (row.isQuote && quote != null) {
+                QuoteCard(
+                    row, quote.engagement[row.redropId], row.redropId in quote.failed,
+                    snapshot.images[row.id] ?: listOfNotNull(row.imageUrl),
+                    onRetry = { quote.retry(row) },
+                    onLike = { quote.toggleLike(row) },
+                    onComment = { nav.onOpenQuote(row) },
+                    onRepost = { quote.open(QuoteSheet.Repost(row)) },
+                    onShare = { share(row) },
+                    onSave = { quote.toggleSave(row) },
+                    onMore = { quote.open(QuoteSheet.Menu(row)) },
+                    onOpenOriginal = { nav.onOpenPost(row) },
+                    onOpenAuthor = nav.onOpenProfile,
+                )
+                return@Column
+            }
+            PostCard(
+                row = row,
+                viewer = snapshot.viewer,
+                images = snapshot.images[row.id] ?: listOfNotNull(row.imageUrl),
+                userId = vm.userId,
+                actions = PostCallbacks(
+                    onLike = { vm.toggleLike(row) },
+                    onPhotoLike = { vm.likeFromPhoto(row) },
+                    onComment = { nav.onOpenPost(row) },
+                    onRepost = { vm.openSheet(PostSheet.Repost(row)) },
+                    onShare = { share(row) },
+                    onSave = { vm.toggleSave(row) },
+                    onFollow = { vm.toggleFollow(row) },
+                    onMore = { vm.openSheet(PostSheet.More(row)) },
+                    onOpenPost = { nav.onOpenPost(row) },
+                    onOpenAuthor = { nav.onOpenProfile(row.authorId) },
+                ),
+            )
+        }
+    }
+}
+
+/** Sheets, the Quote composer and snackbars that sit above a feed. */
+@Composable
+fun FeedOverlays(vm: FeedViewModel<*>, nav: HomeNavigation, share: (FeedRow) -> Unit, myAvatar: String?, myName: String?) {
+    vm.sheet?.let { PostSheetHost(it, vm, nav, share) }
     vm.quote?.let { quote ->
         QuoteSheets(quote, vm.userId, onDeleted = vm::removeQuote)
-        QuoteComposer(
-            quote, vm.identity?.avatarUrl,
-            vm.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: vm.identity?.username ?: stringResource(R.string.your_account),
-            onPublished = vm::refresh,
-        )
+        QuoteComposer(quote, myAvatar, myName ?: stringResource(R.string.your_account), onPublished = vm::refresh)
     }
     Snackbars(vm)
 }
@@ -283,7 +295,7 @@ private fun QuickCompose(avatarUrl: String?, onCompose: () -> Unit) {
 }
 
 @Composable
-private fun EmptyState(message: String, action: String?, onAction: () -> Unit) {
+internal fun EmptyState(message: String, action: String?, onAction: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -298,7 +310,7 @@ private fun EmptyState(message: String, action: String?, onAction: () -> Unit) {
 
 /** The web's FeedSkeleton: grey placeholders in the shape of posts. */
 @Composable
-private fun FeedSkeleton() {
+internal fun FeedSkeleton() {
     val shade = Wyn.colors.surface
     Column(Modifier.semantics { contentDescription = "loading" }) {
         repeat(3) {
@@ -319,7 +331,7 @@ private fun FeedSkeleton() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PostSheetHost(sheet: PostSheet, vm: HomeViewModel, nav: HomeNavigation, share: (FeedRow) -> Unit) {
+private fun PostSheetHost(sheet: PostSheet, vm: FeedViewModel<*>, nav: HomeNavigation, share: (FeedRow) -> Unit) {
     val c = Wyn.colors
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -342,7 +354,7 @@ private fun PostSheetHost(sheet: PostSheet, vm: HomeViewModel, nav: HomeNavigati
                     SheetRow(WynIcons.Close, stringResource(R.string.not_interested)) { vm.hide(row) }
                     SheetRow(WynIcons.Flag, stringResource(R.string.report_post)) { vm.openSheet(PostSheet.Report(row)) }
                 }
-                if (row.redropId != null && row.redropperUsername != null && row.redropperUsername == vm.identity?.username) {
+                if (row.redropId != null && !row.isQuote && row.redropperId == vm.userId) {
                     SheetRow(WynIcons.RepostSmall, stringResource(R.string.remove_repost)) { vm.removeMyRepost(row) }
                 }
             }
@@ -391,7 +403,7 @@ private fun RepostChoice(icon: ImageVector, label: String, enabled: Boolean, onC
 }
 
 @Composable
-private fun ReportForm(vm: HomeViewModel) {
+private fun ReportForm(vm: FeedViewModel<*>) {
     val c = Wyn.colors
     val labels = mapOf(
         "spam" to R.string.report_spam, "scam" to R.string.report_scam, "harassment" to R.string.report_harassment,
@@ -431,7 +443,7 @@ private fun ReportForm(vm: HomeViewModel) {
 
 /** The web's Toast and the "not interested" undo bar. */
 @Composable
-private fun Snackbars(vm: HomeViewModel) {
+private fun Snackbars(vm: FeedViewModel<*>) {
     val toast = vm.toast
     val hidden = vm.hidden
     LaunchedEffect(toast) {

@@ -205,15 +205,22 @@ private fun Caption(caption: String, actions: PostCallbacks) {
     }
 }
 
-private val CaptionStyle = TextStyle(fontSize = 16.sp, lineHeight = 21.sp)
+internal val CaptionStyle = TextStyle(fontSize = 16.sp, lineHeight = 21.sp)
 
 /** The web's RichPostText: URLs, #tags and @mentions in link blue; the rest is plain text. */
 @Composable
-fun RichText(value: String, compact: Boolean, onTag: (String) -> Unit, modifier: Modifier = Modifier, onBody: (() -> Unit)? = null) {
+fun RichText(
+    value: String,
+    compact: Boolean,
+    onTag: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    onBody: (() -> Unit)? = null,
+    style: androidx.compose.ui.text.TextStyle = CaptionStyle,
+) {
     val text = if (compact) FeedText.compact(value) else value
     Text(
         richText(text, onTag),
-        style = CaptionStyle.copy(color = Wyn.colors.text),
+        style = style.copy(color = Wyn.colors.text),
         modifier = if (onBody != null) modifier.clickable(onClick = onBody) else modifier,
     )
 }
