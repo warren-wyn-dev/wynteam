@@ -67,7 +67,7 @@ set search_path = public
 as $$
 declare
   v_me uuid := auth.uid();
-  v_body text := btrim(coalesce(p_body, ''));
+  v_body text := regexp_replace(coalesce(p_body, ''), '^[[:space:]\u00a0\u200b]+|[[:space:]\u00a0\u200b]+$', '', 'g');
   v_id uuid;
 begin
   if v_me is null then
@@ -103,7 +103,7 @@ set search_path = public
 as $$
 declare
   v_me uuid := auth.uid();
-  v_body text := btrim(coalesce(p_body, ''));
+  v_body text := regexp_replace(coalesce(p_body, ''), '^[[:space:]\u00a0\u200b]+|[[:space:]\u00a0\u200b]+$', '', 'g');
   v_row public.club_announcements;
 begin
   if v_me is null then
