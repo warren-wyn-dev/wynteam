@@ -100,7 +100,7 @@ test("Settings root preserves exact current seven-row structure", () => {
     'title="ข้อกำหนดและความเป็นส่วนตัว"',
     'title="ออกจากระบบ"',
   ]) expect(settings).toContain(label);
-  expect(settings).toContain('<p className="settings-version-footer">Web Beta1</p>');
+  expect(settings).toContain('<p className="settings-version-footer">Wynos Web Beta 1</p>');
   expect(settings).toContain("settings-leading-icon");
   // WYN-188 (Founder-approved): the theme row shows the current choice.
   expect(settings).toContain('title="ธีม" description={themeLabels[themePreference].title}');

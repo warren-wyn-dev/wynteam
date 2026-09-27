@@ -7,6 +7,13 @@
 > จนกว่าจะมีคำสั่งให้กลับมาทำต่อ งานทั้งหมดตอนนี้ให้โฟกัสที่ `WYNOS Web Beta1` แทน (ดู
 > `.wyn/company/WEB_VERSION_CONTROL.md`) รายละเอียดเต็มที่ `.wyn/company/DECISIONS.md` (2026-09-19)
 
+> **[2026-09-27] ชื่อแต่ละแพลตฟอร์ม**: Founder สั่ง "Wynos Web Beta 1 / Wynos Android v1.0.0 Beta 1 / Wynos iOS v1.0.0 Beta 1
+> จะพัฒนาแต่ละแพลตฟอร์มแบบนี้" — แต่ละแพลตฟอร์มพัฒนาและตั้งชื่อเวอร์ชันแยกกัน:
+> - **Wynos Web Beta 1** — เว็บ wynos.online (ป้ายท้ายหน้าตั้งค่าเว็บ); Beta2 พัฒนาเฉพาะนักพัฒนา
+> - **Wynos Android v1.0.0 Beta 1** — แอป Flutter บน Android
+> - **Wynos iOS v1.0.0 Beta 1** — แอป Flutter บน iOS
+> ป้ายในแอปเลือกตามเครื่อง (`app/lib/core/app_version.dart`) การพักพัฒนาแอปตาม 2026-09-19 ยังมีผล
+
 ## Current Version
 
 **WYNOS v1.0.0 Beta4** คือ Baseline ปัจจุบันที่ผู้ใช้ทั่วไปใช้งานอยู่ (production, deploy จริงตั้งแต่ 2026-09-03 — ดู `.wyn/logs/deployments/2026-09-03-wynos-beta4-real-deploy.md`)

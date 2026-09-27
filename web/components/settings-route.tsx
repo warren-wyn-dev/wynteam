@@ -120,7 +120,7 @@ function VersionFooter() {
   // on "WYNOS Web Beta1" — neither matched that, and showing a different
   // version to different accounts was itself confusing. One label for
   // everyone now; no RPC call needed to decide it.
-  return <p className="settings-version-footer">Web Beta1</p>;
+  return <p className="settings-version-footer">Wynos Web Beta 1</p>;
 }
 
 const themeLabels: Record<ThemePreference, { title: string; description: string }> = {
