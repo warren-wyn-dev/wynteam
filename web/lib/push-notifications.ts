@@ -129,6 +129,56 @@ export async function pushSupported(): Promise<boolean> {
   return (await getPushAvailability()).available;
 }
 
+/** Why Push could not be turned on, in the words shown to people (Settings and the Push prompt). */
+export function pushReasonDescription(reason: PushBlockReason): string {
+  switch (reason) {
+    case "install-required": return "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮม แล้วเปิดผ่านไอคอนแอปก่อน";
+    case "not-configured": return "ระบบ Push ยังไม่ได้ตั้งค่า Firebase ครบ กรุณาแจ้งผู้ดูแล WYNOS";
+    case "denied": return "อุปกรณ์ปิดสิทธิ์แจ้งเตือนอยู่ ต้องอนุญาต WYNOS จากการตั้งค่าโทรศัพท์หรือเบราว์เซอร์ก่อน";
+    case "dismissed": return "ยังไม่ได้อนุญาตการแจ้งเตือน แตะเปิดอีกครั้งและเลือกอนุญาต";
+    case "worker-failed": return "เริ่มระบบแจ้งเตือนของแอปไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+    case "no-token": return "ลงทะเบียนอุปกรณ์กับ Firebase ไม่สำเร็จ ลองเปิดใหม่อีกครั้ง";
+    case "server-failed": return "บันทึกอุปกรณ์กับ WYNOS ไม่สำเร็จ กรุณาลองอีกครั้ง";
+    case "unsupported": return "เบราว์เซอร์นี้ไม่รองรับ Push ลอง Chrome บน Android หรือ WYNOS ที่ติดตั้งบนหน้าจอโฮมของ iPhone";
+    case "temporary": return "ตรวจสอบความพร้อมของ Push ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+  }
+}
+
+export const PUSH_PROMPT_DISMISS_KEY = "wynos.push.prompt.dismissed-at.v1";
+export const PUSH_PROMPT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+// Main app screens only: never over sign-in/sign-up, Settings (it has the switch) or legal pages.
+const PUSH_PROMPT_PATHS = /^\/(home|chat|notifications|clubs?|profile|search|trending|bookmarks|post|drop)(\/|$)/;
+
+export function isPushPromptPath(path: string): boolean {
+  return PUSH_PROMPT_PATHS.test(path);
+}
+
+/**
+ * Founder decision (2026-09-27): everyone who has not answered the
+ * notification question yet is asked once, in the app, after signing in.
+ * The OS permission popup itself only ever opens from the card's button
+ * (browsers and iOS require a tap). Pure so it can be unit tested.
+ *
+ * - "ask": the card with an Allow button.
+ * - "install": iPhone/iPad in a Safari tab — Push needs the Home Screen app first.
+ * - null: nothing to ask (already answered, unsupported, snoozed, wrong screen).
+ */
+export function pushPromptKind(state: {
+  path: string;
+  permission: NotificationPermission | "unsupported";
+  availability: PushAvailability;
+  dismissedAt: number | null;
+  now: number;
+}): "ask" | "install" | null {
+  if (!isPushPromptPath(state.path)) return null;
+  if (state.dismissedAt !== null && state.now - state.dismissedAt < PUSH_PROMPT_COOLDOWN_MS) return null;
+  if (!state.availability.available && state.availability.reason === "install-required") return "install";
+  // "granted" means they already said yes (and may have turned WYNOS Push off
+  // in Settings on purpose); "denied" can only be undone in the phone's settings.
+  if (state.permission !== "default") return null;
+  return state.availability.available ? "ask" : null;
+}
+
 const PUSH_WANTED_KEY = "wynos.push.wanted.v1";
 
 function readPushWanted(): string[] {

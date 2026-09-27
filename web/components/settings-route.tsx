@@ -24,7 +24,7 @@ import {
   saveAccountLanguage,
   setLanguage,
 } from "@/lib/i18n/language";
-import { getPushAvailability, isCurrentDevicePushEnabled, setPushWanted, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability, type PushBlockReason } from "@/lib/push-notifications";
+import { getPushAvailability, isCurrentDevicePushEnabled, pushReasonDescription, setPushWanted, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
   exportMyData,
@@ -53,20 +53,6 @@ const notificationLabels: Array<[keyof NotificationSettings, string]> = [
   ["trending", "กำลังนิยม"],
   ["system", "ระบบ"],
 ];
-
-function pushReasonDescription(reason: PushBlockReason): string {
-  switch (reason) {
-    case "install-required": return "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮม แล้วเปิดผ่านไอคอนแอปก่อน";
-    case "not-configured": return "ระบบ Push ยังไม่ได้ตั้งค่า Firebase ครบ กรุณาแจ้งผู้ดูแล WYNOS";
-    case "denied": return "อุปกรณ์ปิดสิทธิ์แจ้งเตือนอยู่ ต้องอนุญาต WYNOS จากการตั้งค่าโทรศัพท์หรือเบราว์เซอร์ก่อน";
-    case "dismissed": return "ยังไม่ได้อนุญาตการแจ้งเตือน แตะเปิดอีกครั้งและเลือกอนุญาต";
-    case "worker-failed": return "เริ่มระบบแจ้งเตือนของแอปไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
-    case "no-token": return "ลงทะเบียนอุปกรณ์กับ Firebase ไม่สำเร็จ ลองเปิดใหม่อีกครั้ง";
-    case "server-failed": return "บันทึกอุปกรณ์กับ WYNOS ไม่สำเร็จ กรุณาลองอีกครั้ง";
-    case "unsupported": return "เบราว์เซอร์นี้ไม่รองรับ Push ลอง Chrome บน Android หรือ WYNOS ที่ติดตั้งบนหน้าจอโฮมของ iPhone";
-    case "temporary": return "ตรวจสอบความพร้อมของ Push ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
-  }
-}
 
 const legalTypes: Array<[string, string]> = [
   ["terms_of_service", "ข้อกำหนดการให้บริการ"],
