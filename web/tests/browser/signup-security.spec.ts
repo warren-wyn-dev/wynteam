@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForSettledRoute } from "./route-settled";
 
 test.describe("Web Beta1 email signup security", () => {
   // The mocked public username RPC must not be claimed by an installed PWA service worker on WebKit.
@@ -19,13 +20,7 @@ test.describe("Web Beta1 email signup security", () => {
     await expect(page).toHaveURL(/\/signup\/step-2$/);
 
     await expect(page.locator('input[name="password"]')).toHaveAttribute("placeholder", "อย่างน้อย 12 ตัวอักษร");
-    // Type only once the route transition has settled. During the 90ms exit
-    // the outgoing page wrapper can briefly show the new step, and typing
-    // into it is discarded when it unmounts (no person types that fast).
-    await expect.poll(() => page.locator('input[name="email"]').evaluate((input) => {
-      for (let el: Element | null = input; el; el = el.parentElement) if (getComputedStyle(el).opacity !== "1") return false;
-      return document.querySelectorAll('input[name="email"]').length === 1;
-    })).toBe(true);
+    await waitForSettledRoute(page.locator('input[name="email"]'));
     await page.locator('input[name="email"]').fill("policy@example.invalid");
     await expect(page.locator('input[name="email"]')).toHaveValue("policy@example.invalid");
     await page.locator('input[name="password"]').fill("12345678901");

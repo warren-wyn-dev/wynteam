@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForSettledRoute } from "./route-settled";
 
 test.describe("signup username availability before account creation", () => {
   // Mock only the public boolean endpoint. No production accounts are created.
@@ -68,6 +69,7 @@ test.describe("signup username availability before account creation", () => {
     await expect(page.locator("#signup-username-status")).toHaveText("ชื่อผู้ใช้นี้ใช้ได้");
     await page.getByRole("button", { name: "หน้าถัดไป" }).click();
     await expect(page).toHaveURL(/\/signup\/step-2$/);
+    await waitForSettledRoute(page.locator('input[name="email"]'));
     await page.locator('input[name="email"]').fill("race@example.invalid");
     await page.locator('input[name="password"]').fill("strongPassword2026!");
     await page.locator('input[name="confirmPassword"]').fill("strongPassword2026!");
