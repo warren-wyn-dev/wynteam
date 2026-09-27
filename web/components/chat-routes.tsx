@@ -436,7 +436,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
                     >
                       {message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>
                         {message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}
-                        {message.text ? <p>{message.text}</p> : null}
+                        {message.text ? <p data-i18n-skip="">{message.text}</p> : null}
                         {message.localPreviewUrl ? <img className="message-image" src={message.localPreviewUrl} alt="" /> : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}
                       </>}
                     </div>

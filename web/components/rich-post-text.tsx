@@ -75,7 +75,8 @@ export function RichPostText({
     : value;
 
   return (
-    <p className={`rich-post-text ${className}`.trim()} style={style}>
+    // WYN-189: people's own words are never run through the English UI dictionary.
+    <p className={`rich-post-text ${className}`.trim()} style={style} data-i18n-skip="">
       {renderTokens(displayValue, postHref)}
     </p>
   );

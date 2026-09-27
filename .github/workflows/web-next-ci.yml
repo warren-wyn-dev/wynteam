@@ -52,6 +52,8 @@ jobs:
         run: npm run test:push-toggle
       - name: Shared link return-after-login regression
         run: npm run test:share-links
+      - name: Thai / English coverage regression (WYN-189)
+        run: npm run test:i18n
       - name: Web Beta1 club and draft regression
         run: node --test tests/draft-hotfix.test.mjs tests/club-rpc-error.test.mjs
       - name: Production build

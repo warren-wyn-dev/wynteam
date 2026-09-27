@@ -32,6 +32,9 @@ export default defineConfig({
   use: {
     baseURL: remoteBaseURL || "http://127.0.0.1:3000",
     trace: "retain-on-failure",
+    // WYN-189: a first visit follows the browser language; the suite checks
+    // the Thai pages, so browsers report Thai unless a test opts into English.
+    locale: "th-TH",
     extraHTTPHeaders: vercelBypassSecret
       ? {
           "x-vercel-protection-bypass": vercelBypassSecret,
