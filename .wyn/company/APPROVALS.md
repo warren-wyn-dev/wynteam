@@ -217,6 +217,14 @@
 - This approval does **not** release WYN-137 to everyone. That needs a decision on Flutter users (the shared notifications table), a follow-up migration, and a separate "Beta2 release: clubAnnouncements" approval. Founder (2026-09-27): "เราพัฒนา แค่ Wynos Web Beta2", so this change leaves Flutter untouched. Founder (AskUserQuestion, after Codex review): **"ช่วง Beta2 ไม่ส่งแจ้งเตือน"**, so the migration sends no notifications and does not change `notifications_type_check`.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
 
+### DECISION — [2026-09-27] Wynos Android becomes a native app (Kotlin + Jetpack Compose)
+- Founder asked for Android to match the web, then chose the approach in AskUserQuestion: native Android with Kotlin and Jetpack Compose. No TWA, PWA or WebView. Web, Android and iOS share one backend, API and database with synced data and the same core features. UX/UI may differ per platform. **Wynos Web Beta 1 is the reference** for features and data structure, and iOS is planned for later.
+- Platform names: Wynos Web Beta 1, Wynos Android v1.0.0 Beta 1, Wynos iOS v1.0.0 Beta 1.
+- This is a major architecture / framework change that the Founder decided directly. The plan and its open decisions are in `docs/engineering/ANDROID_NATIVE_PLAN.md`. Coding starts after the Founder answers the open decisions: package name, Play Store, minimum Android version, the future of the Flutter app, the iOS approach, and milestone order.
+- Replaces the 2026-09-19 "pause app development" instruction for Android only. The Flutter `app/` stays untouched until the Founder decides its future.
+- Founder answered the open decisions (see "Founder answers" in the plan): package `io.wyn.wyn`, not on Play Store yet, Android 8.0+, Flutter retired on Android but kept for iOS, start M0 + M1 now.
+- สถานะ: **อนุมัติแล้ว**. เริ่ม M0 + M1. วันที่ 2026-09-27
+
 ### APPROVAL_REQUIRED — [2026-09-27] WYN-135 developer-only Club chat production SQL
 - Proposed change: After PR #741 passes SQL QA and staging, run only the manual `web-beta2-apply-club-chat-actions.yml` workflow on `main`. The additive migration adds `edited_at`, `pinned_at`, `pinned_by` to `club_channel_messages`, three developer-gated action/search RPCs plus a final readiness RPC, full-text and trigram GIN indexes, and the `pg_trgm` extension in the `extensions` schema if absent. Do not release `clubChatActions` to non-developers.
 - Reason: The existing Club channel chat cannot edit own messages, pin staff announcements or search old text; indexed substring fallback is needed for unsegmented Thai words.
