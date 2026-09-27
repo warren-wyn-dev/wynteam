@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { assertIsolatedStaging } from "../scripts/assert-isolated-staging.mjs";
 
@@ -42,4 +43,17 @@ test("staging rejects secret keys, shared production keys and shared Vercel proj
   assert.throws(() => assertIsolatedStaging({ ...baseline(), STAGING_SUPABASE_PUBLISHABLE_KEY: baseline().PRODUCTION_SUPABASE_PUBLISHABLE_KEY }), /must differ/);
   assert.throws(() => assertIsolatedStaging({ ...baseline(), STAGING_VERCEL_PROJECT_ID: baseline().PRODUCTION_VERCEL_PROJECT_ID }), /Founder-approved isolated staging project/);
   assert.throws(() => assertIsolatedStaging({ ...baseline(), STAGING_VERCEL_PROJECT_ID: "prj_otherProtectedProject" }), /Founder-approved isolated staging project/);
+});
+
+
+test("staging-only privilege migration requires empty database and preserves the 15 anonymous functions in both schemas", () => {
+  const sql = readFileSync(new URL("../../docs/engineering/staging-only/WEB_BETA2_ANON_GRANTS.sql", import.meta.url), "utf8");
+  assert.match(sql, /STAGING ONLY\. DO NOT APPLY TO PRODUCTION/);
+  assert.match(sql, /count\(\*\) FROM auth\.users\) <> 0/);
+  assert.match(sql, /count\(\*\) FROM public\.profiles\) <> 0/);
+  assert.match(sql, /REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon/);
+  assert.equal((sql.match(/GRANT EXECUTE ON FUNCTION public\./g) ?? []).length, 15);
+  for (const restricted of ["is_developer_account", "edit_club_channel_message", "set_club_channel_message_pin", "search_club_channel_messages", "create_club_announcement", "update_club_announcement", "delete_club_announcement"]) {
+    assert.doesNotMatch(sql, new RegExp("GRANT EXECUTE ON FUNCTION public\\." + restricted + "\\([^\\n]* TO anon"));
+  }
 });
