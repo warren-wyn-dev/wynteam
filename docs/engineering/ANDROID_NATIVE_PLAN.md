@@ -116,7 +116,27 @@ Still open in M1:
   cover (type/size checked, GPS removed) and avatar through an interactive cropper (512×512 JPEG, as the web).
 - **Account switcher** moved to Profile → ⋯ → สลับบัญชี (switch, add, remove; up to 9 accounts, as the web).
 - "ส่งข้อความ" opens a notice until Chat (M5); ตั้งค่า shows the account screen until Settings (M7).
-- **Next: M4 Notifications + push.**
+
+## M4 status
+
+- **Notifications** (`/notifications` on the web): today / yesterday / earlier sections, likes, comments, reposts and
+  follows on the same post grouped per day ("และอีก N คน"), unread dots captured when the screen opens, marking read
+  only what was shown (`created_at <= newest`), "see more", pull to refresh, and each row opens its post / profile.
+  The web hides the All / Mentions tabs; Android does too.
+- **Unread badge** on the Home bell: the server count (DM events excluded), refreshed on open/resume, by pushes and
+  every 12 seconds while open; cleared right away when the list is opened.
+- **Push (FCM)**: tokens in `push_tokens` with `platform = 'android'`, sent by the existing `send-push-notification`
+  function. Same rules as the web: asked once on the main screens (Allow opens Android's question; "not now" waits a
+  week), the old account's token is removed before switching / adding / signing out (a failed removal blocks the
+  switch), Push comes back for accounts that had it on, never for one that turned it off. Taps open the post or
+  profile for the account they were sent to; IDs are checked to be UUIDs.
+- **Notification settings** (Settings → การแจ้งเตือน): this phone's Push switch and the seven categories
+  (`notification_settings`).
+- Firebase is configured from `local.properties` / the environment (not committed): `WYNOS_FIREBASE_ANDROID_APP_ID`,
+  `WYNOS_FIREBASE_ANDROID_API_KEY`, `WYNOS_FIREBASE_PROJECT_ID`, `WYNOS_FIREBASE_SENDER_ID`. Without them Push shows
+  "not configured" and everything else works.
+- The web has no follow-request approval screen in Beta 1, so Android has none either.
+- **Next: M5 Chat.**
 
 ## Risks
 

@@ -32,6 +32,11 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", "\"${config("WYNOS_SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${config("WYNOS_SUPABASE_PUBLISHABLE_KEY")}\"")
+        // Firebase Android app for Push (public client values, still not committed).
+        buildConfigField("String", "FIREBASE_APP_ID", "\"${config("WYNOS_FIREBASE_ANDROID_APP_ID")}\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${config("WYNOS_FIREBASE_ANDROID_API_KEY")}\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${config("WYNOS_FIREBASE_PROJECT_ID")}\"")
+        buildConfigField("String", "FIREBASE_SENDER_ID", "\"${config("WYNOS_FIREBASE_SENDER_ID")}\"")
     }
 
     buildTypes {
@@ -78,6 +83,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.androidx.exifinterface)
     implementation(libs.coil.network.okhttp)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
