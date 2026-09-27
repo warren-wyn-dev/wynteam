@@ -30,7 +30,14 @@ data class FeedRow(
     val redropId: String? = null,
     val redropperId: String? = null,
     val redropperUsername: String? = null,
+    val redropperDisplayName: String? = null,
+    val redropperAvatarUrl: String? = null,
+    val redropperIsVerified: Boolean = false,
     val quoteText: String? = null,
+    /** A standard repost of this Quote (not of its original Drop). */
+    val quoteReposterId: String? = null,
+    val quoteReposterUsername: String? = null,
+    val quoteRepostedAt: String? = null,
     val location: String? = null,
     val audience: String? = null,
 ) {
@@ -43,8 +50,18 @@ data class FeedRow(
     /** Only public posts can be reposted. */
     val canRedrop: Boolean get() = audience == null || audience == "everyone"
 
-    /** The web's feedIdentity(): a Drop and each repost of it are separate rows. */
-    val key: String get() = "$id:${redropId.orEmpty()}"
+    /** The web's feedIdentity(): a Drop, each repost of it, and each repost of a Quote are separate rows. */
+    val key: String get() = "$id:${redropId.orEmpty()}:${quoteReposterId.orEmpty()}"
+
+    /** web isQuotePost(): an authored Quote, shown with its own card and its own likes. */
+    val isQuote: Boolean get() = redropId != null && redropperId != null && !quoteText.isNullOrBlank()
+
+    /** The Quote author's label (web quote-feed-card quoteName). */
+    val quoteAuthorLabel: String
+        get() = redropperDisplayName?.trim()?.takeIf { it.isNotEmpty() } ?: redropperUsername ?: "WYNOS"
+
+    /** When this row entered the timeline (a Quote repost sorts by when it was reposted). */
+    val timelineAt: String get() = quoteRepostedAt ?: createdAt
 
     /** Mirrors web postMediaAspectRatio(). */
     fun mediaAspectRatio(multiple: Boolean): Float {
@@ -90,6 +107,9 @@ data class FeedRow(
                 redropId = row.text("redrop_id"),
                 redropperId = row.text("redropper_id"),
                 redropperUsername = row.text("redropper_username"),
+                redropperDisplayName = row.text("redropper_display_name"),
+                redropperAvatarUrl = row.text("redropper_avatar_url"),
+                redropperIsVerified = row.bool("redropper_is_verified"),
                 quoteText = row.text("quote_text"),
                 location = row.text("location"),
                 audience = row.text("audience"),

@@ -98,12 +98,15 @@ Still open in M1:
 
 - **M2a Home feed** (#742): For You / Following, post cards, like, save, repost, follow, hide, report.
 - **M2b Post detail** (#742): comments and replies, activity, edit (30 min) / delete, report; likes stay in step with Home.
-- **M2c Composer + drafts**: text, up to 9 photos with aspect choice (gallery or camera), poll (2-4 options), audience
+- **M2c Composer + drafts** (#743): text, up to 9 photos with aspect choice (gallery or camera), poll (2-4 options), audience
   (public / friends / only me), 800ms autosave into `drop_drafts`, the drafts list, and publishing through
   `publish_drop` with the web's operation id so a retry after an unclear result never creates a duplicate post.
   Photo rules follow `web/lib/upload-image.ts` (types, 20MB). **Android also removes GPS location from JPEG metadata
   before upload; the web uploads the original file** (recommended follow-up for the web).
-- **M2d (next)**: quote posts (quote card, quote composer, quote reposts in Following).
+- **M2d Quote posts**: Quote card with its own likes/comments/reposts/saves (never the original Drop's),
+  menu (share, report, delete own), Quote composer (public posts only, discard prompt), Quote detail page
+  with its own comments, and Quotes reposted by people you follow in Following.
+- **Next: M3 Profile.**
 
 ## Risks
 
