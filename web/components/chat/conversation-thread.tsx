@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type PointerEvent, type ReactNode } from "react";
+import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 
 import { Avatar } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -26,21 +26,24 @@ export const GROUP_WINDOW_MS = 60_000;
 export const EDIT_WINDOW_MS = 30 * 60_000;
 const LONG_PRESS_MS = 450;
 
-export type MessageAction = "reply" | "edit" | "forward" | "copy" | "unsend";
+export type MessageAction = "reply" | "edit" | "forward" | "copy" | "unsend" | "pin" | "unpin" | "report";
 
-/** What the hold menu offers for this message. */
-export function messageActions(message: MessageRow, userId: string, now = Date.now()): MessageAction[] {
-  if (message.deleted_at || message.pending) return [];
+/** The hold menu for this message: the main list and the "เพิ่มเติม" list. */
+export function messageMenu(message: MessageRow, userId: string, options: { pinned?: boolean; now?: number } = {}): { main: MessageAction[]; more: MessageAction[] } {
+  if (message.deleted_at || message.pending) return { main: [], more: [] };
+  const now = options.now ?? Date.now();
   const mine = message.sender_id === userId;
   const hasText = Boolean(message.text?.trim());
   const plainText = hasText && !message.image_url && !message.shared_content_id;
-  const actions: MessageAction[] = ["reply"];
-  if (mine && plainText && now - new Date(message.created_at).getTime() <= EDIT_WINDOW_MS) actions.push("edit");
+  const main: MessageAction[] = ["reply"];
+  if (mine && plainText && now - new Date(message.created_at).getTime() <= EDIT_WINDOW_MS) main.push("edit");
   // Only text is forwarded: a chat image lives in this conversation's private storage folder.
-  if (plainText) actions.push("forward");
-  if (hasText) actions.push("copy");
-  if (mine) actions.push("unsend");
-  return actions;
+  if (plainText) main.push("forward");
+  if (hasText) main.push("copy");
+  if (mine) main.push("unsend");
+  const more: MessageAction[] = [options.pinned ? "unpin" : "pin"];
+  if (!mine) more.push("report");
+  return { main, more };
 }
 
 export type GroupPosition = "single" | "first" | "middle" | "last";
@@ -76,6 +79,7 @@ type Props = {
   onDelete: (message: MessageRow) => void;
   /** Threads mode: long-press (or right-click) a bubble to open its actions. */
   onOpenActions?: (message: MessageRow, bubble: DOMRect) => void;
+  pinnedIds?: ReadonlySet<string>;
   renderImage: (path: string) => ReactNode;
 };
 
@@ -149,7 +153,7 @@ function Bubble({ tappable, onTap, onLongPress, children, ...rest }: { tappable:
  * - time is hidden until a bubble is tapped (own bubble: time + delete);
  * - the sent/read receipt shows once, under the latest outgoing message.
  */
-export function ConversationThread({ messages, userId, other, otherLastReadAt, threads, revealedMessageId, onToggleReveal, onDelete, onOpenActions, renderImage }: Props) {
+export function ConversationThread({ messages, userId, other, otherLastReadAt, threads, revealedMessageId, onToggleReveal, onDelete, onOpenActions, pinnedIds, renderImage }: Props) {
   const positions = threads ? groupPositions(messages) : null;
   const lastMineId = threads ? [...messages].reverse().find((message) => message.sender_id === userId && !message.pending)?.id : undefined;
   return (
@@ -169,7 +173,7 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
         const showReceipt = mine && !message.pending && (!threads || message.id === lastMineId);
         const tappable = threads ? !message.deleted_at && !message.pending : canDelete;
         const bubbleLabel = threads ? `${mine ? "คุณ" : (other?.display_name?.trim() || other?.username || "")} ${chatTimeLabel(message.created_at)}` : undefined;
-        return <div className="message-entry" key={message.id}>
+        return <div className="message-entry" key={message.id} data-message-id={threads ? message.id : undefined}>
           {showDate ? <div className="conversation-date-separator"><span>{chatDateLabel(message.created_at)}</span></div> : null}
           <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}${position ? ` group-${position}` : ""}`}>
             {showAvatar && other ? <Avatar src={other.avatar_url} label={other.username} size={34} /> : threads && !mine ? <span className="message-avatar-space" aria-hidden="true" /> : null}
@@ -183,6 +187,7 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
               >
                 {message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>
                   {message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}
+                  {threads && pinnedIds?.has(message.id) ? <span className="message-pinned-mark" aria-label="ปักหมุด"><WynosIcon name="pin" size={12} strokeWidth={2.2} /></span> : null}
                   {message.text ? <p data-i18n-skip="">{message.text}</p> : null}
                   {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL for an image still uploading */}
                   {message.localPreviewUrl ? <img className="message-image" src={message.localPreviewUrl} alt="" /> : message.image_url ? renderImage(message.image_url) : null}
@@ -207,12 +212,15 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
   );
 }
 
-const ACTION_LABELS: Record<MessageAction, { label: string; icon: "reply" | "pencil" | "send" | "copy" | "undo" }> = {
+const ACTION_LABELS: Record<MessageAction, { label: string; icon: "reply" | "pencil" | "send" | "copy" | "undo" | "pin" | "flag" }> = {
   reply: { label: "ตอบกลับ", icon: "reply" },
   edit: { label: "แก้ไข", icon: "pencil" },
   forward: { label: "ส่งต่อ", icon: "send" },
   copy: { label: "คัดลอก", icon: "copy" },
   unsend: { label: "ยกเลิกการส่ง", icon: "undo" },
+  pin: { label: "ปักหมุด", icon: "pin" },
+  unpin: { label: "เลิกปักหมุด", icon: "pin" },
+  report: { label: "รายงาน", icon: "flag" },
 };
 
 const MENU_ROW = 52;
@@ -222,18 +230,26 @@ const GAP = 8;
 /**
  * Hold menu for one message (WYN-159 Beta2): the page dims and blurs, the
  * held bubble stays where it was, and the menu opens next to it (below, or
- * above when there is no room), headed by the message time.
+ * above when there is no room), headed by the message time. "เพิ่มเติม"
+ * swaps in the secondary actions (pin, report).
  */
-export function MessageActionMenu({ message, userId, bubble, onChoose, onClose }: { message: MessageRow; userId: string; bubble: DOMRect; onChoose: (action: MessageAction) => void; onClose: () => void }) {
-  const actions = messageActions(message, userId);
+export function MessageActionMenu({ message, userId, bubble, pinned, onChoose, onClose }: { message: MessageRow; userId: string; bubble: DOMRect; pinned?: boolean; onChoose: (action: MessageAction) => void; onClose: () => void }) {
+  const [view, setView] = useState<"main" | "more">("main");
+  const menu = messageMenu(message, userId, { pinned });
+  const rows = view === "main" ? menu.main.length + (menu.more.length ? 1 : 0) : menu.more.length + 1;
   const mine = message.sender_id === userId;
   const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
-  const menuHeight = MENU_HEAD + actions.length * MENU_ROW + 8;
+  const menuHeight = MENU_HEAD + Math.max(rows, menu.main.length + 1) * MENU_ROW + 8;
   // Keep the bubble in view, then open the menu on whichever side has room.
   const bubbleTop = Math.min(Math.max(bubble.top, 16), Math.max(16, viewportHeight - bubble.height - 16));
   const below = bubbleTop + bubble.height + GAP + menuHeight <= viewportHeight - 16;
   const menuTop = below ? bubbleTop + bubble.height + GAP : Math.max(16, bubbleTop - GAP - menuHeight);
   const side = mine ? { right: Math.max(12, (typeof window === "undefined" ? 0 : window.innerWidth) - bubble.right) } : { left: Math.max(12, bubble.left) };
+  const row = (action: MessageAction) => (
+    <button key={action} role="menuitem" className={action === "unsend" || action === "report" ? "danger" : undefined} type="button" onClick={() => onChoose(action)}>
+      <WynosIcon name={ACTION_LABELS[action].icon} size={22} strokeWidth={1.9} />{ACTION_LABELS[action].label}
+    </button>
+  );
   return (
     <div className="message-action-overlay" role="presentation" onClick={onClose}>
       <div className={`message-action-lifted ${mine ? "mine" : "theirs"}`} style={{ top: bubbleTop, left: bubble.left, width: bubble.width }} aria-hidden="true">
@@ -243,11 +259,17 @@ export function MessageActionMenu({ message, userId, bubble, onChoose, onClose }
       </div>
       <section className="message-action-menu" role="menu" aria-label="ตัวเลือกข้อความ" style={{ top: menuTop, ...side }} onClick={(event) => event.stopPropagation()}>
         <time>{chatTimeLabel(message.created_at)}</time>
-        {actions.map((action) => (
-          <button key={action} role="menuitem" className={action === "unsend" ? "danger" : undefined} type="button" onClick={() => onChoose(action)}>
-            <WynosIcon name={ACTION_LABELS[action].icon} size={22} strokeWidth={1.9} />{ACTION_LABELS[action].label}
+        {view === "main" ? <>
+          {menu.main.map(row)}
+          {menu.more.length ? <button role="menuitem" type="button" className="more" onClick={() => setView("more")}>
+            <WynosIcon name="more" size={22} strokeWidth={1.9} />เพิ่มเติม<WynosIcon name="chevronRight" size={20} strokeWidth={1.9} />
+          </button> : null}
+        </> : <>
+          <button role="menuitem" type="button" onClick={() => setView("main")}>
+            <WynosIcon name="back" size={22} strokeWidth={1.9} />กลับ
           </button>
-        ))}
+          {menu.more.map(row)}
+        </>}
       </section>
     </div>
   );

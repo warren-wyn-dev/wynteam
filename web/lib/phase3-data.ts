@@ -831,6 +831,25 @@ export async function editMessage(client: SupabaseClient, messageId: string, tex
   fail(result.error, "แก้ไขข้อความไม่สำเร็จ");
 }
 
+/** Ids of this conversation's pinned messages, newest pin first (at most 3, server-enforced). */
+export async function fetchPinnedMessageIds(client: SupabaseClient, conversationId: string): Promise<string[]> {
+  const result = await client.from("message_pins").select("message_id").eq("conversation_id", conversationId).order("pinned_at", { ascending: false });
+  fail(result.error, "โหลดข้อความที่ปักหมุดไม่สำเร็จ");
+  return ((result.data ?? []) as { message_id: string }[]).map((row) => row.message_id);
+}
+
+export async function setMessagePinned(client: SupabaseClient, messageId: string, pinned: boolean): Promise<void> {
+  const result = await client.rpc(pinned ? "pin_message" : "unpin_message", { p_message_id: messageId });
+  if (result.error && /At most 3 pinned/i.test(result.error.message)) throw new Error("ปักหมุดได้สูงสุด 3 ข้อความต่อแชท");
+  fail(result.error, pinned ? "ปักหมุดไม่สำเร็จ" : "เลิกปักหมุดไม่สำเร็จ");
+}
+
+/** Report someone else's message (server: submit_report, target "message"). */
+export async function reportMessage(client: SupabaseClient, messageId: string, category: string, detail: string): Promise<void> {
+  const result = await client.rpc("submit_report", { p_target_type: "message", p_target_id: messageId, p_category: category, p_detail: detail.trim() || null });
+  fail(result.error, "ส่งรายงานไม่สำเร็จ");
+}
+
 export async function deleteMessage(client: SupabaseClient, message: MessageRow): Promise<void> {
   const result = await client.rpc("delete_message", { p_message_id: message.id });
   fail(result.error, "ลบข้อความไม่สำเร็จ");

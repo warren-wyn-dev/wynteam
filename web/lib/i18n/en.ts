@@ -818,6 +818,13 @@ export const EN_EXACT: Record<string, string> = {
   "คัดลอกแล้ว": "Copied",
   "คัดลอกไม่สำเร็จ": "Couldn't copy",
   "ยกเลิกการส่ง": "Unsend",
+  "ปักหมุดแล้ว": "Pinned",
+  "เลิกปักหมุดแล้ว": "Unpinned",
+  "ปักหมุดไม่สำเร็จ": "Couldn't pin",
+  "เลิกปักหมุดไม่สำเร็จ": "Couldn't unpin",
+  "ปักหมุดได้สูงสุด 3 ข้อความต่อแชท": "You can pin up to 3 messages per chat",
+  "โหลดข้อความที่ปักหมุดไม่สำเร็จ": "Couldn't load pinned messages",
+  "ข้อความที่ปักหมุด": "Pinned message",
   "แก้ไขข้อความไม่สำเร็จ": "Couldn't edit the message",
   "แก้ไขโปรไฟล์": "Edit profile",
   "แก้ไขโพสต์": "Edit post",
@@ -965,6 +972,7 @@ export const EN_EXACT: Record<string, string> = {
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["คุณ {0}", "You {0}"],
+  ["ข้อความที่ปักหมุด {0}/{1}", "Pinned message {0}/{1}"],
   ["@{0} บน WYNOS", "@{0} on WYNOS"],
   ["{0} กล่าวถึงคุณในโพสต์", "{0} mentioned you in a post"],
   ["{0} กล่าวถึงคุณในโพสต์ที่ {1}", "{0} mentioned you in a post in {1}"],

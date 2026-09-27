@@ -29,10 +29,13 @@ import {
   fetchInbox,
   fetchMessageRequests,
   fetchMessages,
+  fetchPinnedMessageIds,
   fetchProfileSummary,
   findExistingConversationId,
   getOrCreateConversation,
   markConversationRead,
+  reportMessage,
+  setMessagePinned,
   searchProfiles,
   sendMessage,
   signedChatImage,
@@ -172,6 +175,66 @@ function ForwardSheet({ client, currentConversationId, onPick, onClose }: { clie
   );
 }
 
+/** WYN-159 (Beta2): the newest pinned message, above the thread. Tap jumps to it; tap again for the next pin. */
+function PinnedBar({ messages, pinnedIds }: { messages: MessageRow[]; pinnedIds: string[] }) {
+  const [index, setIndex] = useState(0);
+  const pinned = pinnedIds.map((id) => messages.find((message) => message.id === id)).filter((message): message is MessageRow => Boolean(message && !message.deleted_at));
+  if (!pinned.length) return null;
+  const current = pinned[index % pinned.length];
+  const jump = () => {
+    document.querySelector(`[data-message-id="${current.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setIndex((value) => value + 1);
+  };
+  return (
+    <button className="message-pinned-bar" type="button" onClick={jump} aria-label="ข้อความที่ปักหมุด">
+      <WynosIcon name="pin" size={16} strokeWidth={2} />
+      <span><strong>ข้อความที่ปักหมุด{pinned.length > 1 ? ` ${(index % pinned.length) + 1}/${pinned.length}` : ""}</strong><small data-i18n-skip="">{current.text || (current.image_url ? "รูปภาพ" : "ข้อความ")}</small></span>
+    </button>
+  );
+}
+
+const MESSAGE_REPORT_CATEGORIES = [
+  ["spam", "สแปม (Spam)"],
+  ["scam", "หลอกลวง (Scam)"],
+  ["harassment", "คุกคาม/กลั่นแกล้ง (Harassment)"],
+  ["hate", "ความเกลียดชัง (Hate)"],
+  ["sexual_content", "เนื้อหาทางเพศ (Sexual Content)"],
+  ["violence", "ความรุนแรง (Violence)"],
+  ["privacy", "ละเมิดความเป็นส่วนตัว (Privacy)"],
+  ["illegal_content", "ผิดกฎหมาย (Illegal Content)"],
+  ["copyright", "ละเมิดลิขสิทธิ์ (Copyright)"],
+  ["other", "อื่น ๆ (Other)"],
+] as const;
+
+/** WYN-159 (Beta2): report someone else's message. */
+function ReportMessageSheet({ onSubmit, onClose }: { onSubmit: (category: string, detail: string) => Promise<void>; onClose: () => void }) {
+  const [category, setCategory] = useState<string>("spam");
+  const [detail, setDetail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const send = async () => {
+    if (category === "other" && !detail.trim()) { setError("กรุณาระบุรายละเอียด"); return; }
+    setBusy(true); setError("");
+    try { await onSubmit(category, detail); }
+    catch (e) { setError(e instanceof Error ? e.message : "ส่งรายงานไม่สำเร็จ"); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="route-modal-backdrop golden-drop-sheet-backdrop" role="presentation" onClick={onClose}>
+      <section className="golden-drop-sheet" role="dialog" aria-modal="true" aria-label="รายงานข้อความ" onClick={(event) => event.stopPropagation()}>
+        <div className="golden-drop-sheet-grip" />
+        <div className="golden-drop-sheet-form">
+          <strong>รายงานข้อความ</strong>
+          <div className="golden-drop-report-list">{MESSAGE_REPORT_CATEGORIES.map(([value, label]) => <label key={value}><input type="radio" name="message-report" checked={category === value} onChange={() => setCategory(value)} />{label}</label>)}</div>
+          {category === "other" ? <textarea maxLength={1000} value={detail} onChange={(event) => setDetail(event.target.value)} placeholder="รายละเอียดเพิ่มเติม" /> : null}
+          {error ? <p className="route-error">{error}</p> : null}
+          <button className="route-primary" type="button" disabled={busy} onClick={() => void send()}>ส่งรายงาน</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 type ConversationSnapshot = { other: ProfileRow | null; messages: MessageRow[]; meta: ConversationMeta | null; hasMore: boolean };
 
 function ConversationInner({ client, userId, conversationId }: { client: SupabaseClient; userId: string; conversationId: string }) {
@@ -205,6 +268,15 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   // WYN-159 (Beta2): long-press actions on a message.
   const [actionMessage, setActionMessage] = useState<{ message: MessageRow; bubble: DOMRect } | null>(null);
   const [forwarding, setForwarding] = useState<MessageRow | null>(null);
+  const [reporting, setReporting] = useState<MessageRow | null>(null);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+  useEffect(() => {
+    if (!chatThreads || isComposeMode) return;
+    let live = true;
+    fetchPinnedMessageIds(client, conversationId).then((ids) => { if (live) setPinnedIds(ids); }, () => undefined);
+    return () => { live = false; };
+  }, [chatThreads, client, conversationId, isComposeMode]);
   const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
   const [editing, setEditing] = useState<MessageRow | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -320,6 +392,15 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     setActionMessage(null);
     if (action === "unsend") { void remove(message); return; }
     if (action === "forward") { setForwarding(message); return; }
+    if (action === "pin" || action === "unpin") {
+      const pin = action === "pin";
+      void setMessagePinned(client, message.id, pin).then(
+        () => { setPinnedIds((current) => pin ? [message.id, ...current.filter((id) => id !== message.id)] : current.filter((id) => id !== message.id)); showToast(pin ? "ปักหมุดแล้ว" : "เลิกปักหมุดแล้ว"); },
+        (e: unknown) => showToast(e instanceof Error ? e.message : "ปักหมุดไม่สำเร็จ"),
+      );
+      return;
+    }
+    if (action === "report") { setReporting(message); return; }
     if (action === "copy") {
       void navigator.clipboard?.writeText(message.text ?? "").then(() => showToast("คัดลอกแล้ว"), () => showToast("คัดลอกไม่สำเร็จ"));
       return;
@@ -483,6 +564,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           </section> : null}
 
           {hasMore ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadOlder()}>{loadingMore ? "กำลังโหลด…" : "ดูข้อความก่อนหน้า"}</button> : null}
+          {chatThreads ? <PinnedBar messages={ordered} pinnedIds={pinnedIds} /> : null}
           <div className="message-list conversation-thread" style={{ paddingBottom: composerHeight + 30 }}>
             <ConversationThread
               messages={ordered}
@@ -494,6 +576,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
               onToggleReveal={(messageId) => setRevealedMessageId((current) => current === messageId ? null : messageId)}
               onDelete={(message) => void remove(message)}
               onOpenActions={(message, bubble) => setActionMessage({ message, bubble })}
+              pinnedIds={pinnedSet}
               renderImage={(path) => <MessageImage client={client} path={path} />}
             />
           </div>
@@ -503,7 +586,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           )}
         </div>
       )}
-      {actionMessage ? <MessageActionMenu message={actionMessage.message} userId={userId} bubble={actionMessage.bubble} onChoose={(action) => chooseAction(actionMessage.message, action)} onClose={() => setActionMessage(null)} /> : null}
+      {actionMessage ? <MessageActionMenu message={actionMessage.message} userId={userId} bubble={actionMessage.bubble} pinned={pinnedSet.has(actionMessage.message.id)} onChoose={(action) => chooseAction(actionMessage.message, action)} onClose={() => setActionMessage(null)} /> : null}
+      {reporting ? <ReportMessageSheet onSubmit={async (category, detail) => { await reportMessage(client, reporting.id, category, detail); setReporting(null); showToast("ส่งรายงานแล้ว"); }} onClose={() => setReporting(null)} /> : null}
       {forwarding ? <ForwardSheet client={client} currentConversationId={conversationId} onPick={(row) => void forwardTo(row)} onClose={() => setForwarding(null)} /> : null}
       <Toast message={toastMessage} />
     </AppChrome>

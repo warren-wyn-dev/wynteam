@@ -25,6 +25,8 @@ const MESSAGES: MessageRow[] = [
   { id: "m7", conversation_id: "c", sender_id: ME, text: "ขอบคุณมากนะ 🙏", created_at: at(9, 20) },
 ];
 
+const PINNED = new Set(["m5"]);
+
 /** Dev-only preview of WYN-159: Web Beta1 thread vs the Beta2 Threads-style thread, same messages. */
 function Fixture() {
   const params = useSearchParams();
@@ -45,11 +47,12 @@ function Fixture() {
             onToggleReveal={(id) => setRevealed((current) => current === id ? null : id)}
             onDelete={() => undefined}
             onOpenActions={(message, bubble) => setActions({ message, bubble })}
+            pinnedIds={PINNED}
             renderImage={() => null}
           />
         </div>
       </div>
-      {actions ? <MessageActionMenu message={actions.message} userId={ME} bubble={actions.bubble} onChoose={() => setActions(null)} onClose={() => setActions(null)} /> : null}
+      {actions ? <MessageActionMenu message={actions.message} userId={ME} bubble={actions.bubble} pinned={actions.message.id === "m5"} onChoose={() => setActions(null)} onClose={() => setActions(null)} /> : null}
     </main>
   );
 }
