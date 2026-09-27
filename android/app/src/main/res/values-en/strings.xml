@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="welcome_headline">Every story has a beginning</string>
+    <string name="welcome_create_account">Create a new account</string>
+    <string name="welcome_sign_in">Sign in</string>
+    <string name="welcome_sign_in_google">Sign in with Google</string>
+    <string name="welcome_terms_prefix">By creating an account you agree to the</string>
+    <string name="welcome_terms">Terms of Use</string>
+    <string name="welcome_and">and</string>
+    <string name="welcome_privacy">Privacy Policy</string>
+    <string name="config_missing">This app is not connected to WYNOS yet</string>
+
+    <string name="back">Back</string>
+    <string name="next">Next page</string>
+    <string name="retry">Try again</string>
+    <string name="skip">Skip</string>
+    <string name="saving">Saving…</string>
+    <string name="loading_generic">Working…</string>
+    <string name="member">Member</string>
+
+    <string name="invite_only">WYNOS is currently open only to people with an invite code from a friend</string>
+    <string name="invite_code">Invite code</string>
+    <string name="invite_continue">Continue</string>
+    <string name="invite_checking">Checking…</string>
+    <string name="google_not_ready">Sign in with Google isn\'t available on Android yet. Please use email and password for now</string>
+
+    <string name="field_email">Email</string>
+    <string name="field_password">Password</string>
+    <string name="field_confirm_password">Confirm password</string>
+    <string name="field_username">Username</string>
+    <string name="field_display_name">Display name</string>
+    <string name="field_birthday">Birthday</string>
+    <string name="birthday_day">Day</string>
+    <string name="birthday_month">Month</string>
+    <string name="birthday_year">Year</string>
+    <string-array name="months">
+        <item>January</item><item>February</item><item>March</item><item>April</item>
+        <item>May</item><item>June</item><item>July</item><item>August</item>
+        <item>September</item><item>October</item><item>November</item><item>December</item>
+    </string-array>
+
+    <string name="login_title">Sign in</string>
+    <string name="login_password_placeholder">Your password</string>
+    <string name="login_forgot">Forgot password?</string>
+    <string name="login_loading">Signing in…</string>
+    <string name="login_no_account">Don\'t have an account?</string>
+    <string name="login_create">Create a new account</string>
+
+    <string name="signup1_title">Create account</string>
+    <string name="signup1_subtitle">Let\'s get to know you</string>
+    <string name="display_name_placeholder">Your name</string>
+    <string name="username_hint_format">Use a-z, 0-9 or _, 3–20 characters</string>
+    <string name="username_available">This username is available</string>
+    <string name="username_checking">Checking username…</string>
+    <string name="signup_autofollow">When you sign up you\'ll automatically follow the Official @wynos_s account, and you can unfollow any time</string>
+
+    <string name="signup2_title">Set password</string>
+    <string name="signup2_subtitle">Used to sign in next time</string>
+    <string name="password_placeholder">At least %1$d characters</string>
+    <string name="confirm_password_placeholder">Type your password again</string>
+    <string name="signup2_submit">Create account</string>
+    <string name="signup2_loading">Creating account…</string>
+    <string name="signup_have_account">Already have an account?</string>
+    <string name="check_email_title">Check your email</string>
+    <string name="check_email_body">If sign-up worked, we sent a confirmation link to %1$s. Tap the link, then come back and sign in to the app to finish your profile</string>
+    <string name="go_to_login">Go to sign in</string>
+
+    <string name="forgot_title">Forgot password?</string>
+    <string name="forgot_subtitle">Enter the email you signed up with and we\'ll send you a link to set a new password</string>
+    <string name="forgot_submit">Send reset link</string>
+    <string name="forgot_loading">Sending…</string>
+    <string name="forgot_sent">Link sent to %1$s. Check your inbox</string>
+
+    <string name="onboarding_title">Add profile photo</string>
+    <string name="onboarding_subtitle">Help others get to know you</string>
+    <string name="onboarding_pick_photo">Choose profile photo</string>
+    <string name="onboarding_bio">A short bio (optional)</string>
+    <string name="onboarding_bio_placeholder">Love travel, love photos...</string>
+    <string name="onboarding_start">Get started with Wynos</string>
+
+    <string name="home_next_milestone">You\'re signed in. Feed and profile arrive in the next Wynos Android update</string>
+    <string name="accounts_switch">Switch account</string>
+    <string name="accounts_add">Add account</string>
+    <string name="accounts_current">Current</string>
+    <string name="account_needs_sign_in">This account needs to sign in again</string>
+    <string name="sign_out">Sign out</string>
+
+    <string name="err_invite_empty">Please enter an invite code</string>
+    <string name="err_invite_invalid">Invalid invite code</string>
+    <string name="err_connection">Couldn\'t connect. Please try again</string>
+    <string name="err_username_format">Usernames need 3-20 characters: lowercase a-z, 0-9 or _ only</string>
+    <string name="err_username_reserved">This username can\'t be used. Please choose another</string>
+    <string name="err_display_name">Please enter a display name</string>
+    <string name="err_birth_date">Please enter a valid birthday (at least %1$d years old)</string>
+    <string name="err_username_check">Couldn\'t check the username. Please try again</string>
+    <string name="err_username_taken">This username is taken. Please choose another</string>
+    <string name="err_username_taken_retry">This username is taken. Try another</string>
+    <string name="err_username_taken_back">This username is taken. Please go back and change it</string>
+    <string name="err_generic">Something went wrong. Please try again</string>
+    <string name="err_email">Please enter a valid email</string>
+    <string name="err_password_short">Passwords need at least %1$d characters</string>
+    <string name="err_password_mismatch">Passwords don\'t match</string>
+    <string name="err_email_registered">This email already has an account. Try signing in</string>
+    <string name="err_signup_failed">Sign-up failed. Please try again</string>
+    <string name="err_login_empty">Please enter your email and password</string>
+    <string name="err_login_unconfirmed">This account\'s email isn\'t confirmed yet. Tap the link in the email before signing in</string>
+    <string name="err_login_failed">Incorrect email or password</string>
+    <string name="err_reset_failed">Couldn\'t send the link. Please try again</string>
+    <string name="err_profile_save">Couldn\'t save your profile. Please try again</string>
+    <string name="err_image_size">Images must be 10MB or smaller</string>
+    <string name="err_image_type">Please choose an image file</string>
+    <string name="err_session_check">Couldn\'t check your sign-in. Check your internet and try again</string>
+</resources>
