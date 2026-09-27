@@ -434,7 +434,9 @@ function ChannelStrip({ channels, value, onChange }: { channels: ChannelRow[]; v
 
 function ChatTab({ client, userId, clubId, membership, channels }: { client: SupabaseClient; userId: string; clubId: string; membership: Membership; channels: ChannelRow[] }) {
   const [channelId, setChannelId] = useState(channels[0]?.id ?? "");
-  const beta2 = useBeta2Feature("clubChatActions", client, userId);
+  const beta2Eligible = useBeta2Feature("clubChatActions", client, userId);
+  const [beta2Ready, setBeta2Ready] = useState(false);
+  const beta2 = beta2Eligible && beta2Ready;
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState("");
   const [image, setImage] = useState<File | null>(null);
@@ -445,6 +447,17 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   const [menuMessage, setMenuMessage] = useState<MessageRow | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  // A merge auto-deploys to production, but the SQL migration is Founder-run.
+  // Fail closed until the final schema-readiness RPC exists and confirms the
+  // caller is a developer; old Web Beta1 chat keeps working in the interim.
+  useEffect(() => {
+    let active = true;
+    if (!beta2Eligible) return () => { active = false; };
+    void client.rpc("club_chat_actions_available").then(({ data, error }) => {
+      if (active) setBeta2Ready(!error && data === true);
+    }).catch(() => { if (active) setBeta2Ready(false); });
+    return () => { active = false; };
+  }, [beta2Eligible, client]);
   const canModerate = membership?.status === "approved" && ["owner", "admin", "moderator"].includes(membership.role);
   const reload = useCallback(async () => {
     if (!channelId) { setMessages([]); return; }
