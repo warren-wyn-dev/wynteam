@@ -472,7 +472,7 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   useEffect(() => {
     if (!channelId || membership?.status !== "approved") return;
     const subscription = client.channel(`club-chat-web:${channelId}`)
-      .on("postgres_changes", { event: beta2 ? "*" : "INSERT", schema: "public", table: "club_channel_messages", filter: `channel_id=eq.${channelId}` }, () => { void reload(); })
+      .on("postgres_changes", { event: beta2 ? "*" : "INSERT", schema: "public", table: "club_channel_messages", filter: `channel_id=eq.${channelId}` }, () => { if (beta2) setRefreshToken((value) => value + 1); void reload(); })
       .subscribe();
     return () => { void client.removeChannel(subscription); };
   }, [channelId, client, membership?.status, reload, beta2]);
