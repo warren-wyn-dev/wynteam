@@ -74,11 +74,17 @@ begin
   if internal.is_posting_blocked(v_me) then
     raise exception 'Posting is restricted for this account';
   end if;
-  if char_length(v_body) not between 1 and 2000 then
+  -- Check server-side: tabs/newlines and common Unicode space characters
+  -- (including NBSP, zero-width space and BOM) must not become blank edits.
+  if char_length(v_body) not between 1 and 2000
+    or regexp_replace(v_body,
+      U&'[[:space:]\00A0\1680\2000-\200B\2028\2029\202F\205F\3000\FEFF]',
+      '', 'g') = '' then
     raise exception 'Message must be 1-2000 characters';
   end if;
+  -- Editing changes staff-approved content; require staff to re-pin it.
   update public.club_channel_messages
-  set content = v_body, edited_at = now()
+  set content = v_body, edited_at = now(), pinned_at = null, pinned_by = null
   where id = p_message_id;
 end;
 $$;
