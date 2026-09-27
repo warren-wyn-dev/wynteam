@@ -36,6 +36,34 @@ test.describe("fixture", () => {
     await expect(page.getByText("ประกาศแล้ว", { exact: true })).toBeVisible();
   });
 
+  test("an old initial request cannot overwrite announcements after a new post", async ({ page }) => {
+    const tab = await open(page, "role=owner&slow=1");
+    await expect.poll(() => page.evaluate(
+      () => Boolean((window as Window & { __wynAnnouncementSlowRead?: boolean }).__wynAnnouncementSlowRead)
+    )).toBe(true);
+    await tab.getByRole("button", { name: "เขียนประกาศถึงสมาชิก" }).click();
+    const sheet = page.getByRole("dialog", { name: "เขียนประกาศ" });
+    await sheet.getByRole("textbox", { name: "ข้อความประกาศ" }).fill("ประกาศใหม่หลังเริ่มโหลด");
+    await sheet.getByRole("button", { name: "ส่งประกาศ", exact: true }).click();
+    await expect(sheet).toBeHidden();
+    await expect(tab.getByText("ประกาศใหม่หลังเริ่มโหลด")).toBeVisible();
+    await page.waitForTimeout(500); // The intentionally delayed first read has now completed.
+    await expect(tab.getByText("ประกาศใหม่หลังเริ่มโหลด")).toBeVisible();
+  });
+
+  test("switching Club while an old read is pending never displays old Club announcements", async ({ page }) => {
+    const tab = await open(page, "role=owner&switch=1");
+    await expect.poll(() => page.evaluate(
+      () => Boolean((window as Window & { __wynAnnouncementSlowRead?: boolean }).__wynAnnouncementSlowRead)
+    )).toBe(true);
+    await page.getByRole("button", { name: "เปลี่ยน Club ทดสอบ" }).click();
+    await expect(tab.getByText("ประกาศจาก Club ใหม่")).toBeVisible();
+    await page.waitForTimeout(500); // The old Club response should be ignored after switching.
+    await expect(tab.getByText("ประกาศจาก Club ใหม่")).toBeVisible();
+    await expect(tab.getByText(/นัดถ่ายรูปเสาร์นี้/)).toHaveCount(0);
+    await expect(tab.getByText(/กติกาใหม่/)).toHaveCount(0);
+  });
+
   test("the author edits their own announcement and it is marked edited", async ({ page }) => {
     const tab = await open(page, "role=owner");
     const mine = tab.locator(".club-announcement-card").filter({ hasText: "นัดถ่ายรูป" });
