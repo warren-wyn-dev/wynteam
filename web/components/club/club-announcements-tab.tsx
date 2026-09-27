@@ -69,11 +69,11 @@ export function ClubAnnouncementsTab({
   }, [approved, client, clubId]);
 
   const loadMore = async () => {
-    const oldest = items?.[items.length - 1]?.created_at;
-    if (!oldest || loadingMore) return;
+    const last = items?.[items.length - 1];
+    if (!last || loadingMore) return;
     setLoadingMore(true);
     try {
-      const rows = await fetchClubAnnouncements(client, clubId, oldest);
+      const rows = await fetchClubAnnouncements(client, clubId, { created_at: last.created_at, id: last.id });
       setItems((current) => [...(current ?? []), ...rows.filter((row) => !current?.some((item) => item.id === row.id))]);
       setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE);
     } catch {

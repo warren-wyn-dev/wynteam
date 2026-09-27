@@ -24,18 +24,27 @@ export type ClubAnnouncement = {
 type AnnouncementRow = Omit<ClubAnnouncement, "author_username" | "author_display_name" | "author_avatar_url">;
 type ProfileRow = { id: string; username: string; display_name: string | null; avatar_url: string | null };
 
+/** Where the next page starts: the last (oldest) announcement already shown. */
+export type AnnouncementCursor = { created_at: string; id: string };
+
 /**
- * One page, newest first; pass the oldest `created_at` already shown to get
- * the next page. Throws on a read error so the tab can show a retry.
+ * One page, newest first, ordered by (created_at, id) so rows sharing a
+ * timestamp are never skipped at a page boundary. Throws on a read error so
+ * the tab can show a retry.
  */
-export async function fetchClubAnnouncements(client: SupabaseClient, clubId: string, before?: string): Promise<ClubAnnouncement[]> {
+export async function fetchClubAnnouncements(client: SupabaseClient, clubId: string, before?: AnnouncementCursor): Promise<ClubAnnouncement[]> {
   let query = client
     .from("club_announcements")
     .select("id, club_id, author_id, body, created_at, edited_at")
     .eq("club_id", clubId);
-  if (before) query = query.lt("created_at", before);
+  if (before) {
+    // Quoted: timestamps contain ":" and "+", which PostgREST's or() would otherwise split on.
+    const at = `"${before.created_at}"`;
+    query = query.or(`created_at.lt.${at},and(created_at.eq.${at},id.lt.${before.id})`);
+  }
   const { data, error } = await query
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(ANNOUNCEMENT_PAGE_SIZE);
   if (error) throw error;
   const rows = (data ?? []) as AnnouncementRow[];
