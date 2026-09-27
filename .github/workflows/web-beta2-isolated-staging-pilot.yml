@@ -22,7 +22,7 @@ jobs:
       # file proposed for main; do not merge the combined Beta2 code yet.
       - uses: actions/checkout@v4
         with:
-          ref: 1525f37764f28413ffebf701c6619141965eceab
+          ref: 0c277a5ae629c41197ac4f27f600c9360756098f
           persist-credentials: false
 
       - uses: actions/setup-node@v4
