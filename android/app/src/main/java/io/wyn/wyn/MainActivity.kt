@@ -23,6 +23,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.wyn.wyn.core.data.EngagementSync
 import io.wyn.wyn.core.data.ComposerRepository
+import io.wyn.wyn.core.data.QuoteRepository
+import io.wyn.wyn.core.data.SupabaseQuoteRepository
+import io.wyn.wyn.feature.quote.QuoteDetailScreen
+import io.wyn.wyn.feature.quote.QuoteDetailViewModel
 import io.wyn.wyn.core.data.FeedRepository
 import io.wyn.wyn.core.data.SupabaseComposerRepository
 import io.wyn.wyn.feature.compose.ComposerExit
@@ -86,6 +90,7 @@ class MainActivity : ComponentActivity() {
                     SupabaseFeedRepository(SupabaseProvider.client),
                     SupabasePostRepository(SupabaseProvider.client),
                     SupabaseComposerRepository(SupabaseProvider.client) { bytes, type -> PhotoReader.describe(bytes, type) },
+                    SupabaseQuoteRepository(SupabaseProvider.client),
                     onExit = ::finish,
                 )
             }
@@ -94,7 +99,14 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostRepository, composerRepo: ComposerRepository, onExit: () -> Unit) {
+fun WynosApp(
+    vm: AccountFlowViewModel,
+    feed: FeedRepository,
+    posts: PostRepository,
+    composerRepo: ComposerRepository,
+    quotes: QuoteRepository,
+    onExit: () -> Unit,
+) {
     val back: () -> Unit = { if (!vm.back()) onExit() }
     BackHandler(enabled = vm.stack.size > 1 || (vm.route as? Route.Login)?.addingAccount == true) { back() }
     when (val route = vm.route) {
@@ -119,8 +131,8 @@ fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostReposito
             val userId = vm.activeUserId ?: return
             // One feed and one engagement channel per account: switching accounts starts fresh.
             val sync = remember(userId) { EngagementSync() }
-            val home: HomeViewModel = viewModel(key = "home:$userId", factory = viewModelFactory { initializer { HomeViewModel(feed, userId, sync) } })
-            var quoteNotice by remember { mutableStateOf(false) }
+            val home: HomeViewModel = viewModel(key = "home:$userId", factory = viewModelFactory { initializer { HomeViewModel(feed, userId, sync, quotes) } })
+            var openQuote by rememberSaveable(userId) { mutableStateOf<String?>(null) }
             var openPost by rememberSaveable(userId) { mutableStateOf<String?>(null) }
             // null: closed; "" : new post; otherwise the draft being continued.
             var composer by rememberSaveable(userId) { mutableStateOf<String?>(null) }
@@ -136,8 +148,8 @@ fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostReposito
                         home,
                         HomeNavigation(
                             onCompose = { openComposer(null) },
-                            onQuote = { quoteNotice = true },
                             onOpenPost = { openPost = it.id },
+                            onOpenQuote = { row -> openQuote = row.redropId },
                         ),
                     )
                 },
@@ -151,6 +163,21 @@ fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostReposito
                     factory = viewModelFactory { initializer { PostDetailViewModel(posts, feed, userId, dropId, sync) } },
                 )
                 PostDetailScreen(detail, onBack = { openPost = null })
+            }
+            openQuote?.let { quoteId ->
+                BackHandler { openQuote = null }
+                val detail: QuoteDetailViewModel = viewModel(
+                    key = "quote:$userId:$quoteId",
+                    factory = viewModelFactory { initializer { QuoteDetailViewModel(quotes, userId, quoteId) } },
+                )
+                val me = home.identity
+                QuoteDetailScreen(
+                    detail,
+                    onBack = { openQuote = null },
+                    onOpenDrop = { dropId -> openQuote = null; openPost = dropId },
+                    myAvatar = me?.avatarUrl,
+                    myName = me?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: me?.username ?: stringResource(R.string.your_account),
+                )
             }
             if (draftsOpen) {
                 BackHandler { draftsOpen = false }
@@ -177,22 +204,6 @@ fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostReposito
                 }
                 ComposerScreen(compose)
             }
-            if (quoteNotice) {
-                LaunchedEffect(Unit) { delay(2500); quoteNotice = false }
-                ComingNotice(R.string.coming_quote)
-            }
         }
-    }
-}
-
-/** A short notice for a feature that arrives in a later milestone. */
-@Composable
-private fun ComingNotice(message: Int) {
-    Box(Modifier.fillMaxSize().padding(bottom = 80.dp, start = 14.dp, end = 14.dp), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
-        Text(
-            stringResource(message),
-            color = Wyn.colors.bg, fontSize = 13.sp,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Wyn.colors.text).padding(16.dp),
-        )
     }
 }

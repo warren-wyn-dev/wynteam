@@ -60,6 +60,10 @@ import io.wyn.wyn.core.design.WynAvatar
 import io.wyn.wyn.core.design.WynIcons
 import io.wyn.wyn.core.design.WynPrimaryButton
 import io.wyn.wyn.feature.auth.text
+import io.wyn.wyn.feature.quote.QuoteCard
+import io.wyn.wyn.feature.quote.QuoteComposer
+import io.wyn.wyn.feature.quote.QuoteSheet
+import io.wyn.wyn.feature.quote.QuoteSheets
 import kotlinx.coroutines.delay
 
 private val HeaderGrey = Color(0xFF737780)
@@ -74,6 +78,7 @@ data class HomeNavigation(
     val onNotifications: () -> Unit = {},
     val onMenu: () -> Unit = {},
     val onQuote: (FeedRow) -> Unit = {},
+    val onOpenQuote: (FeedRow) -> Unit = {},
 )
 
 /** web HomeScreen: header, For You / Following / My Clubs, quick compose and the feed. */
@@ -120,6 +125,23 @@ fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 
                         items(snapshot.rows, key = { it.key }) { row ->
                             Column {
                                 if (row.key != snapshot.rows.first().key) HorizontalDivider(color = c.border, thickness = 1.dp)
+                                val quote = vm.quote
+                                if (row.isQuote && quote != null) {
+                                    QuoteCard(
+                                        row, quote.engagement[row.redropId], row.redropId in quote.failed,
+                                        snapshot.images[row.id] ?: listOfNotNull(row.imageUrl),
+                                        onRetry = { quote.retry(row) },
+                                        onLike = { quote.toggleLike(row) },
+                                        onComment = { nav.onOpenQuote(row) },
+                                        onRepost = { quote.open(QuoteSheet.Repost(row)) },
+                                        onShare = { share(row) },
+                                        onSave = { quote.toggleSave(row) },
+                                        onMore = { quote.open(QuoteSheet.Menu(row)) },
+                                        onOpenOriginal = { nav.onOpenPost(row) },
+                                        onOpenAuthor = {},
+                                    )
+                                    return@Column
+                                }
                                 PostCard(
                                     row = row,
                                     viewer = snapshot.viewer,
@@ -146,6 +168,14 @@ fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 
         }
     }
     vm.sheet?.let { PostSheetHost(it, vm, nav, ::share) }
+    vm.quote?.let { quote ->
+        QuoteSheets(quote, vm.userId, onDeleted = vm::removeQuote)
+        QuoteComposer(
+            quote, vm.identity?.avatarUrl,
+            vm.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: vm.identity?.username ?: stringResource(R.string.your_account),
+            onPublished = vm::refresh,
+        )
+    }
     Snackbars(vm)
 }
 
@@ -319,7 +349,7 @@ private fun PostSheetHost(sheet: PostSheet, vm: HomeViewModel, nav: HomeNavigati
             is PostSheet.Repost -> Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 16.dp)) {
                 val reposted = viewer?.redropped?.contains(row.id) == true
                 RepostChoice(WynIcons.Repost, stringResource(if (reposted) R.string.undo_repost else R.string.repost), !vm.busy) { vm.toggleRepost(row) }
-                RepostChoice(WynIcons.Pencil, stringResource(R.string.quote), !vm.busy) { vm.openSheet(null); nav.onQuote(row) }
+                RepostChoice(WynIcons.Pencil, stringResource(R.string.quote), !vm.busy) { vm.openSheet(null); vm.quote?.startQuote(row) ?: nav.onQuote(row) }
             }
             is PostSheet.Report -> ReportForm(vm)
         }

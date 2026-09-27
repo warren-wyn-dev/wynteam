@@ -38,7 +38,10 @@ private const val FOLLOWING_LIMIT = 200
 private const val IMPRESSION_LIMIT = 10
 private val FEED_SOURCES = listOf("following", "recommended", "trending", "latest", "club", "new_creator", "exploration")
 
-class SupabaseFeedRepository(private val clientOrNull: SupabaseClient?) : FeedRepository {
+class SupabaseFeedRepository(
+    private val clientOrNull: SupabaseClient?,
+    private val quotes: QuoteRepository = SupabaseQuoteRepository(clientOrNull),
+) : FeedRepository {
     private val client: SupabaseClient get() = clientOrNull ?: throw NotConfiguredException()
 
     override suspend fun fetchRanked(): List<FeedRow> {
@@ -138,7 +141,12 @@ class SupabaseFeedRepository(private val clientOrNull: SupabaseClient?) : FeedRe
             order("created_at", Order.DESCENDING)
             range(0L, (FOLLOWING_LIMIT - 1).toLong())
         }.decodeAs<JsonElement>()
-        return hydrateAspectRatios(FeedRow.parseList(raw, FOLLOWING_LIMIT))
+        // Quotes that followed people reposted belong on their timeline too, at the time of the repost.
+        val quoteShares = quotes.repostRows(followingIds, FOLLOWING_LIMIT)
+        val combined = (FeedRow.parseList(raw, FOLLOWING_LIMIT) + quoteShares)
+            .sortedByDescending { io.wyn.wyn.feature.home.FeedText.parseInstant(it.timelineAt) ?: java.time.Instant.EPOCH }
+            .take(FOLLOWING_LIMIT)
+        return hydrateAspectRatios(combined)
     }
 
     override suspend fun fetchImages(rows: List<FeedRow>): Map<String, List<String>> {

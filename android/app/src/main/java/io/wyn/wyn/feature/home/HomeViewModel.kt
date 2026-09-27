@@ -9,6 +9,8 @@ import io.wyn.wyn.R
 import io.wyn.wyn.core.data.EngagementChange
 import io.wyn.wyn.core.data.EngagementSync
 import io.wyn.wyn.core.data.FeedRepository
+import io.wyn.wyn.core.data.QuoteRepository
+import io.wyn.wyn.feature.quote.QuoteController
 import io.wyn.wyn.core.data.patched
 import io.wyn.wyn.core.data.FeedRow
 import io.wyn.wyn.core.data.FollowState
@@ -49,6 +51,7 @@ class HomeViewModel(
     private val repo: FeedRepository,
     val userId: String,
     private val sync: EngagementSync = EngagementSync(),
+    quotes: QuoteRepository? = null,
 ) : ViewModel() {
     var mode by mutableStateOf(FeedMode.ForYou); private set
     private val cache = mutableMapOf<FeedMode, FeedSnapshot>()
@@ -66,6 +69,9 @@ class HomeViewModel(
     var busy by mutableStateOf(false); private set
     private val inFlight = mutableSetOf<String>()
     private var loadJob: Job? = null
+
+    /** Quote cards: their own likes, saves, reposts, menu and the quote composer. */
+    val quote: QuoteController? = quotes?.let { QuoteController(viewModelScope, it, userId, onToast = { text -> toast = Toast(text) }) }
 
     init {
         viewModelScope.launch {
@@ -101,6 +107,8 @@ class HomeViewModel(
         }
         val viewer = repo.loadViewer(userId, rows)
         val images = repo.fetchImages(rows)
+        // A Quote's counts are its own, loaded separately; a failure only affects those cards.
+        quote?.load(rows)
         return FeedSnapshot(rows, viewer, images)
     }
 
@@ -402,6 +410,12 @@ class HomeViewModel(
         toast = null
     }
 
-    /** The web's share link for a post. */
-    fun shareUrl(row: FeedRow) = "https://wynos.online/drop/${row.id}"
+    /** The web's share link for a post; a Quote links to its own page. */
+    fun shareUrl(row: FeedRow) = if (row.isQuote) "https://wynos.online/quote/${row.redropId}" else "https://wynos.online/drop/${row.id}"
+
+    /** Removes a deleted Quote from every tab. */
+    fun removeQuote(row: FeedRow) {
+        for ((key, cached) in cache.toMap()) cache[key] = cached.copy(rows = cached.rows.filterNot { it.redropId == row.redropId })
+        snapshot = cache[mode] ?: snapshot
+    }
 }
