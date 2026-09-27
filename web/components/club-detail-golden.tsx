@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { ClubAnnouncementsTab } from "@/components/club/club-announcements-tab";
+import { ClubChatMessageActions, ClubChatToolbar } from "@/components/club/club-chat-actions";
 import { BottomSheet } from "@/components/club/club-sheet";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
@@ -45,6 +46,8 @@ type MessageRow = {
   content?: string | null;
   image_url?: string | null;
   created_at: string;
+  edited_at?: string | null;
+  pinned_at?: string | null;
   author_username: string;
   author_display_name?: string | null;
   author_avatar_url?: string | null;
@@ -156,16 +159,25 @@ async function fetchClubData(client: SupabaseClient, userId: string, clubId: str
   };
 }
 
-async function fetchMessages(client: SupabaseClient, channelId: string): Promise<MessageRow[]> {
+async function fetchMessages(
+  client: SupabaseClient,
+  channelId: string,
+  beta2 = false,
+  focusId?: string,
+): Promise<MessageRow[]> {
   if (!channelId) return [];
-  const result = await client
-    .from("club_channel_messages")
-    .select("id,channel_id,author_id,content,image_url,created_at,author:profiles!club_channel_messages_author_id_fkey(username,display_name,avatar_url)")
+  const fields = "id,channel_id,author_id,content,image_url,created_at"
+    + (beta2 ? ",edited_at,pinned_at" : "")
+    + ",author:profiles!club_channel_messages_author_id_fkey(username,display_name,avatar_url)";
+  let query = client.from("club_channel_messages")
+    .select(fields)
     .eq("channel_id", channelId)
-    .order("created_at", { ascending: true })
-    .limit(150);
+    .order("created_at", { ascending: !beta2 })
+    .limit(focusId ? 1 : 150);
+  if (focusId) query = query.eq("id", focusId);
+  const result = await query;
   if (result.error) throw result.error;
-  return Promise.all(((result.data ?? []) as unknown as Record<string, unknown>[]).map(async (raw) => {
+  const rows = await Promise.all(((result.data ?? []) as unknown as Record<string, unknown>[]).map(async (raw) => {
     const author = relation(raw.author);
     let imageUrl: string | null = null;
     if (raw.image_url) {
@@ -178,11 +190,16 @@ async function fetchMessages(client: SupabaseClient, channelId: string): Promise
       content: raw.content ? String(raw.content) : null,
       image_url: imageUrl,
       created_at: String(raw.created_at ?? ""),
+      edited_at: raw.edited_at ? String(raw.edited_at) : null,
+      pinned_at: raw.pinned_at ? String(raw.pinned_at) : null,
       author_username: String(author.username ?? ""),
       author_display_name: author.display_name ? String(author.display_name) : null,
       author_avatar_url: author.avatar_url ? String(author.avatar_url) : null,
     };
   }));
+  // Beta1's existing ascending fetch remains untouched. Beta2 loads the
+  // newest 150 and reverses them for chronological rendering.
+  return beta2 && !focusId ? rows.reverse() : rows;
 }
 
 async function fetchMembers(client: SupabaseClient, clubId: string): Promise<MemberRow[]> {
@@ -417,6 +434,7 @@ function ChannelStrip({ channels, value, onChange }: { channels: ChannelRow[]; v
 
 function ChatTab({ client, userId, clubId, membership, channels }: { client: SupabaseClient; userId: string; clubId: string; membership: Membership; channels: ChannelRow[] }) {
   const [channelId, setChannelId] = useState(channels[0]?.id ?? "");
+  const beta2 = useBeta2Feature("clubChatActions", client, userId);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState("");
   const [image, setImage] = useState<File | null>(null);
@@ -424,24 +442,34 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState<ReportTarget | null>(null);
+  const [menuMessage, setMenuMessage] = useState<MessageRow | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const canModerate = membership?.status === "approved" && ["owner", "admin", "moderator"].includes(membership.role);
   const reload = useCallback(async () => {
     if (!channelId) { setMessages([]); return; }
     setLoading(true); setError("");
     try {
-      setMessages(await fetchMessages(client, channelId));
+      setMessages(await fetchMessages(client, channelId, beta2));
       await client.rpc("mark_club_channel_read", { p_channel_id: channelId });
     } catch { setError("โหลดแชทไม่สำเร็จ"); }
     finally { setLoading(false); }
-  }, [channelId, client]);
+  }, [channelId, client, beta2]);
   useEffect(() => { const timer = window.setTimeout(() => { void reload(); }, 0); return () => window.clearTimeout(timer); }, [reload]);
   useEffect(() => {
     if (!channelId || membership?.status !== "approved") return;
     const subscription = client.channel(`club-chat-web:${channelId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "club_channel_messages", filter: `channel_id=eq.${channelId}` }, () => { void reload(); })
+      .on("postgres_changes", { event: beta2 ? "*" : "INSERT", schema: "public", table: "club_channel_messages", filter: `channel_id=eq.${channelId}` }, () => { void reload(); })
       .subscribe();
     return () => { void client.removeChannel(subscription); };
-  }, [channelId, client, membership?.status, reload]);
+  }, [channelId, client, membership?.status, reload, beta2]);
+  useEffect(() => {
+    if (!focusedId) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("club-message-" + focusedId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [focusedId, messages]);
   if (membership?.status !== "approved") return <EmptyState>เข้าร่วม Club เพื่อใช้งานแชท</EmptyState>;
   const send = async () => {
     if ((!draft.trim() && !image) || sending || !channelId) return;
@@ -468,20 +496,43 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   const remove = async (id: string) => {
     if (!window.confirm("ลบข้อความนี้?")) return;
     const result = await client.from("club_channel_messages").delete().eq("id", id);
-    if (result.error) setError("ลบข้อความไม่สำเร็จ"); else await reload();
+    if (result.error) setError("ลบข้อความไม่สำเร็จ");
+    else { setRefreshToken((value) => value + 1); await reload(); }
+  };
+  const onChanged = () => {
+    setRefreshToken((value) => value + 1);
+    void reload();
+  };
+  const jumpToMessage = async (id: string) => {
+    if (messages.some((message) => message.id === id)) {
+      document.getElementById("club-message-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    try {
+      const found = await fetchMessages(client, channelId, true, id);
+      if (!found.length) { setError("ไม่พบข้อความในห้องนี้"); return; }
+      setMessages((current) => [...current.filter((row) => row.id !== id), found[0]]
+        .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)));
+      setFocusedId(id);
+    } catch {
+      setError("เปิดข้อความไม่สำเร็จ");
+    }
   };
   return (
     <section className="golden-club-chat">
-      <ChannelStrip channels={channels} value={channelId} onChange={setChannelId} />
+      <ChannelStrip channels={channels} value={channelId} onChange={(id) => { setChannelId(id); setMenuMessage(null); setFocusedId(null); }} />
+      {beta2 ? <ClubChatToolbar key={channelId} client={client} channelId={channelId} refreshToken={refreshToken} onJump={jumpToMessage} /> : null}
       {loading ? <LoadingState /> : (
         <div className="golden-club-messages">
           {messages.length ? messages.map((message) => (
-            <div className={`golden-club-message ${message.author_id === userId ? "mine" : ""}`} key={message.id}>
+            <div id={"club-message-" + message.id} className={`golden-club-message ${message.author_id === userId ? "mine" : ""}`} key={message.id}>
               {message.author_id !== userId ? <Avatar src={message.author_avatar_url} label={message.author_username} size={30} /> : null}
               <div className="golden-club-bubble">
-                <div className="golden-club-message-head"><strong data-i18n-skip={message.author_id === userId ? undefined : ""}>{message.author_id === userId ? "คุณ" : message.author_display_name?.trim() || message.author_username}</strong><button type="button" aria-label="ตัวเลือกข้อความ" onClick={() => message.author_id === userId || canModerate ? void remove(message.id) : setReport({ type: "club_channel_message", id: message.id, label: "รายงานข้อความ" })}><WynosIcon name="more" size={16} strokeWidth={2} /></button></div>
+                <div className="golden-club-message-head"><strong data-i18n-skip={message.author_id === userId ? undefined : ""}>{message.author_id === userId ? "คุณ" : message.author_display_name?.trim() || message.author_username}</strong><button type="button" aria-label="ตัวเลือกข้อความ" onClick={() => beta2 ? setMenuMessage(message) : message.author_id === userId || canModerate ? void remove(message.id) : setReport({ type: "club_channel_message", id: message.id, label: "รายงานข้อความ" })}><WynosIcon name="more" size={16} strokeWidth={2} /></button></div>
                 {message.content ? <p data-i18n-skip="">{message.content}</p> : null}
                 {message.image_url ? <Image src={message.image_url} alt="" width={280} height={330} sizes="280px" /> : null}
+                {beta2 && message.edited_at ? <span className="golden-club-message-tag">แก้ไขแล้ว</span> : null}
+                {beta2 && message.pinned_at ? <span className="golden-club-message-tag">ปักหมุด</span> : null}
                 <small>{relativeTimeTh(message.created_at)}</small>
               </div>
             </div>
@@ -494,6 +545,12 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
         <button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !image)}><WynosIcon name="send" size={20} strokeWidth={2} /></button>
       </form>
       {error ? <p className="route-error golden-club-chat-error">{error}</p> : null}
+      {beta2 && menuMessage ? <ClubChatMessageActions
+        client={client} message={menuMessage} mine={menuMessage.author_id === userId}
+        canModerate={canModerate} onClose={() => setMenuMessage(null)} onChanged={onChanged}
+        onDelete={() => { setMenuMessage(null); void remove(menuMessage.id); }}
+        onReport={() => { setMenuMessage(null); setReport({ type: "club_channel_message", id: menuMessage.id, label: "รายงานข้อความ" }); }}
+      /> : null}
       {report ? <ReportSheet client={client} target={report} onClose={() => setReport(null)} /> : null}
     </section>
   );
