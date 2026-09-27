@@ -233,3 +233,26 @@
 - Files affected: `supabase/migrations_web_beta2_club_chat_actions.sql`, `supabase/tests/web_beta2_club_chat_actions_test.sh`, `.github/workflows/web-beta2-apply-club-chat-actions.yml`, Beta2-only web files. Rollback: Founder-directed drop of new RPCs/indexes and removal of only the new columns after reviewing developer data; never automatic.
 - Verification: PR #741 `npm run check`, disposable PostgreSQL regression applied twice, protected staging and post-migration developer-only smoke tests. A mere general request to finish development does not replace explicit production SQL authorization under the 2026-09-07 policy.
 - สถานะ: **รออนุมัติแยกสำหรับ Production SQL**; ไม่รัน workflow เอง และไม่เปิด Beta2 ให้ผู้ใช้ทั่วไป
+
+### DECISION — [2026-09-27] WYN-135 developer-only PR merge
+- Approved by: Founder
+- Scope: Merge PR #741 to main and automatically deploy WYN-135 Web Beta 2 code to wynos.online, visible ONLY to confirmed developer accounts. Keep `BETA2_RELEASED.clubChatActions = false`; preserve Web Beta 1 UI and existing behavior for non-developers.
+- Conditions: All current-head CI and protected Preview checks green, outstanding reviews resolved; run production deploy route smoke and post-migration authenticated developer-team UAT. No release of Web Beta 2 to the general public.
+- Founder statement (2026-09-27): "อนุมัติ Merge และ Deploy เฉพาะบัญชีนักพัฒนา ไม่เปิดให้ผู้ใช้ทั่วไป".
+- Status: APPROVED
+
+### DECISION — [2026-09-27] WYN-135 production SQL
+- Status: APPROVED
+- Approved by: Founder
+- Scope: WYN-135 production SQL only
+- Migration SHA-256: fb72787038bb8a43230240b6f725961ae50fcc202573ec8a28d38e4804a562c8
+- Artifact: `supabase/migrations_web_beta2_club_chat_actions.sql` in PR #741; reviewed Git blob `6d4398ccd5b3223d71d44399e947544980a3c38c`. Approve only this exact SQL digest through the manual `web-beta2-apply-club-chat-actions.yml` workflow on main after merge and final main checks. Do not modify the SQL artifact or relax authorization; confirm all 3 columns, 3 indexes and 4 RPCs before developer trial.
+- Founder statement (2026-09-27): "อนุมัติ Production SQL เฉพาะไฟล์ migration SHA-256 ที่ระบุ ผ่าน workflow ที่ตรวจสอบแล้ว".
+- Notes: additive migration and indexed searches can briefly lock Club chat writes; if migration verification fails, halt feature rollout, preserve fail-closed gate and investigate rather than automatic destructive rollback.
+
+### DECISION — [2026-09-27] Web Beta 2 QA team and separate Free staging
+- Approved by: Founder
+- Developer acceptance testing: development team to test WYN-137 and post-migration WYN-135 under issue #748; authenticated manual tests remain pending until real testers provide the results. No user credentials should be recorded in GitHub.
+- Staging: authorized to create a separate Free-tier Supabase project with **no incremental spending**; do not upgrade plans or incur a paid project, and request another explicit Founder approval before any spending. Prefer the existing WYNOS organization's second active Free slot if available; do not reactivate, repurpose or delete the older inactive project. Scope further implementation/isolation in issue #749; never copy production user data or credentials.
+- Founder statement (2026-09-27): "ทีมพัฒนาจะทดสอบ"; "อนุมัติให้ใช้โปรเจกต์ Free แยก หากมีค่าใช้จ่ายต้องขออนุมัติใหม่".
+- Status: APPROVED within these no-spend limits.
