@@ -91,7 +91,7 @@ Still open in M1:
 
 - **Google sign-in** needs an Android OAuth client (package `io.wyn.wyn` + signing SHA-1) in Google Cloud and the
   Supabase Google provider — a Founder/infra step. Until then the button explains it is not available yet.
-- The photo crop is automatic (centre square); the web's interactive cropper comes with M3 (edit profile).
+- Onboarding's photo crop is automatic (centre square); Edit profile has the web's interactive cropper (M3).
 - The signed-in screen is a temporary account screen until the M2 feed.
 
 ## M2 status
@@ -103,10 +103,20 @@ Still open in M1:
   `publish_drop` with the web's operation id so a retry after an unclear result never creates a duplicate post.
   Photo rules follow `web/lib/upload-image.ts` (types, 20MB). **Android also removes GPS location from JPEG metadata
   before upload; the web uploads the original file** (recommended follow-up for the web).
-- **M2d Quote posts**: Quote card with its own likes/comments/reposts/saves (never the original Drop's),
+- **M2d Quote posts** (#744): Quote card with its own likes/comments/reposts/saves (never the original Drop's),
   menu (share, report, delete own), Quote composer (public posts only, discard prompt), Quote detail page
   with its own comments, and Quotes reposted by people you follow in Following.
-- **Next: M3 Profile.**
+
+## M3 status
+
+- **M3 Profile**: own and other profiles (cover, avatar, bio, website, counts), Posts / Reposts / Likes
+  (Likes respect `can_view_likes`), follow / cancel request (asks first) / unfollow, mute, block (asks first),
+  report user, suggestions (follow, hide), share `/@username`, followers / following lists.
+- **Edit profile**: name, username (taken check), bio, website (http(s) only, like `normalizeExternalUrl`),
+  cover (type/size checked, GPS removed) and avatar through an interactive cropper (512×512 JPEG, as the web).
+- **Account switcher** moved to Profile → ⋯ → สลับบัญชี (switch, add, remove; up to 9 accounts, as the web).
+- "ส่งข้อความ" opens a notice until Chat (M5); ตั้งค่า shows the account screen until Settings (M7).
+- **Next: M4 Notifications + push.**
 
 ## Risks
 

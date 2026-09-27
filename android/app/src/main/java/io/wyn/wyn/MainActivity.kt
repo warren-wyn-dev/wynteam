@@ -10,43 +10,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import io.wyn.wyn.core.data.EngagementSync
-import io.wyn.wyn.core.data.ComposerRepository
-import io.wyn.wyn.core.data.QuoteRepository
-import io.wyn.wyn.core.data.SupabaseQuoteRepository
-import io.wyn.wyn.feature.quote.QuoteDetailScreen
-import io.wyn.wyn.feature.quote.QuoteDetailViewModel
-import io.wyn.wyn.core.data.FeedRepository
-import io.wyn.wyn.core.data.SupabaseComposerRepository
-import io.wyn.wyn.feature.compose.ComposerExit
-import io.wyn.wyn.feature.compose.ComposerScreen
-import io.wyn.wyn.feature.compose.ComposerViewModel
-import io.wyn.wyn.feature.compose.DraftsScreen
-import io.wyn.wyn.feature.compose.DraftsViewModel
-import io.wyn.wyn.feature.compose.PhotoReader
-import io.wyn.wyn.core.data.PostRepository
-import io.wyn.wyn.core.data.SupabasePostRepository
-import io.wyn.wyn.feature.post.PostDetailScreen
-import io.wyn.wyn.feature.post.PostDetailViewModel
-import androidx.compose.runtime.saveable.rememberSaveable
 import io.wyn.wyn.core.data.PreferencesAccountStore
-import io.wyn.wyn.core.data.SupabaseFeedRepository
 import io.wyn.wyn.core.data.SupabaseAuthRepository
 import io.wyn.wyn.core.data.SupabaseProvider
 import io.wyn.wyn.core.design.Wyn
 import io.wyn.wyn.core.design.WynosTheme
-import io.wyn.wyn.feature.account.AccountHomeScreen
 import io.wyn.wyn.feature.auth.AccountFlowViewModel
 import io.wyn.wyn.feature.auth.CheckEmailScreen
 import io.wyn.wyn.feature.auth.ForgotPasswordScreen
@@ -58,17 +29,9 @@ import io.wyn.wyn.feature.auth.SignupStep1Screen
 import io.wyn.wyn.feature.auth.SignupStep2Screen
 import io.wyn.wyn.feature.auth.text
 import io.wyn.wyn.feature.welcome.InviteState
-import io.wyn.wyn.feature.home.HomeNavigation
-import io.wyn.wyn.feature.home.HomeScreen
-import io.wyn.wyn.feature.home.HomeViewModel
-import io.wyn.wyn.feature.shell.MainShell
 import io.wyn.wyn.feature.welcome.WelcomeScreen
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
+import io.wyn.wyn.feature.shell.Repositories
+import io.wyn.wyn.feature.shell.SignedInApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,10 +50,7 @@ class MainActivity : ComponentActivity() {
             WynosTheme {
                 WynosApp(
                     viewModel(factory = factory),
-                    SupabaseFeedRepository(SupabaseProvider.client),
-                    SupabasePostRepository(SupabaseProvider.client),
-                    SupabaseComposerRepository(SupabaseProvider.client) { bytes, type -> PhotoReader.describe(bytes, type) },
-                    SupabaseQuoteRepository(SupabaseProvider.client),
+                    Repositories.supabase(SupabaseProvider.client),
                     onExit = ::finish,
                 )
             }
@@ -101,10 +61,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WynosApp(
     vm: AccountFlowViewModel,
-    feed: FeedRepository,
-    posts: PostRepository,
-    composerRepo: ComposerRepository,
-    quotes: QuoteRepository,
+    repos: Repositories,
     onExit: () -> Unit,
 ) {
     val back: () -> Unit = { if (!vm.back()) onExit() }
@@ -129,81 +86,7 @@ fun WynosApp(
         Route.Onboarding -> OnboardingScreen(vm)
         Route.Home -> {
             val userId = vm.activeUserId ?: return
-            // One feed and one engagement channel per account: switching accounts starts fresh.
-            val sync = remember(userId) { EngagementSync() }
-            val home: HomeViewModel = viewModel(key = "home:$userId", factory = viewModelFactory { initializer { HomeViewModel(feed, userId, sync, quotes) } })
-            var openQuote by rememberSaveable(userId) { mutableStateOf<String?>(null) }
-            var openPost by rememberSaveable(userId) { mutableStateOf<String?>(null) }
-            // null: closed; "" : new post; otherwise the draft being continued.
-            var composer by rememberSaveable(userId) { mutableStateOf<String?>(null) }
-            var composerSession by rememberSaveable(userId) { mutableStateOf(0) }
-            var draftsOpen by rememberSaveable(userId) { mutableStateOf(false) }
-            fun openComposer(draftId: String?) {
-                composerSession += 1
-                composer = draftId.orEmpty()
-            }
-            MainShell(
-                home = {
-                    HomeScreen(
-                        home,
-                        HomeNavigation(
-                            onCompose = { openComposer(null) },
-                            onOpenPost = { openPost = it.id },
-                            onOpenQuote = { row -> openQuote = row.redropId },
-                        ),
-                    )
-                },
-                profile = { AccountHomeScreen(vm) },
-                onCompose = { openComposer(null) },
-            )
-            openPost?.let { dropId ->
-                BackHandler { openPost = null }
-                val detail: PostDetailViewModel = viewModel(
-                    key = "post:$userId:$dropId",
-                    factory = viewModelFactory { initializer { PostDetailViewModel(posts, feed, userId, dropId, sync) } },
-                )
-                PostDetailScreen(detail, onBack = { openPost = null })
-            }
-            openQuote?.let { quoteId ->
-                BackHandler { openQuote = null }
-                val detail: QuoteDetailViewModel = viewModel(
-                    key = "quote:$userId:$quoteId",
-                    factory = viewModelFactory { initializer { QuoteDetailViewModel(quotes, userId, quoteId) } },
-                )
-                val me = home.identity
-                QuoteDetailScreen(
-                    detail,
-                    onBack = { openQuote = null },
-                    onOpenDrop = { dropId -> openQuote = null; openPost = dropId },
-                    myAvatar = me?.avatarUrl,
-                    myName = me?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: me?.username ?: stringResource(R.string.your_account),
-                )
-            }
-            if (draftsOpen) {
-                BackHandler { draftsOpen = false }
-                val drafts: DraftsViewModel = viewModel(
-                    key = "drafts:$userId:$composerSession",
-                    factory = viewModelFactory { initializer { DraftsViewModel(composerRepo, userId) } },
-                )
-                DraftsScreen(drafts, onBack = { draftsOpen = false }, onOpen = { id -> draftsOpen = false; openComposer(id) })
-            }
-            composer?.let { draftId ->
-                val compose: ComposerViewModel = viewModel(
-                    key = "composer:$userId:$composerSession",
-                    factory = viewModelFactory {
-                        initializer { ComposerViewModel(composerRepo, feed, userId, draftId.ifEmpty { null }) }
-                    },
-                )
-                LaunchedEffect(compose.exit) {
-                    when (compose.exit) {
-                        null -> Unit
-                        ComposerExit.Published -> { composer = null; home.refresh() }
-                        ComposerExit.Drafts -> { composer = null; composerSession += 1; draftsOpen = true }
-                        ComposerExit.Closed -> composer = null
-                    }
-                }
-                ComposerScreen(compose)
-            }
+            SignedInApp(vm, userId, repos)
         }
     }
 }

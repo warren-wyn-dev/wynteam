@@ -22,11 +22,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
-private const val SOURCE = "home"
-
 enum class FeedMode { ForYou, Following, Clubs }
 
-data class FeedSnapshot(val rows: List<FeedRow>, val viewer: ViewerState, val images: Map<String, List<String>>)
+data class FeedSnapshot(
+    val rows: List<FeedRow>,
+    val viewer: ViewerState,
+    val images: Map<String, List<String>>,
+    val page: Int = 0,
+    val hasMore: Boolean = false,
+)
 
 sealed interface PostSheet {
     val row: FeedRow
@@ -43,24 +47,29 @@ val ReportCategories = listOf(
 )
 
 /**
- * Home feed logic, following web/components/home/home-screen.tsx: one
- * cached snapshot per tab, optimistic like/save/repost/follow with
- * rollback, hide with undo, and report.
+ * A feed of post cards with tabs of type [K], following web
+ * home-screen.tsx and profile-route.tsx: one cached snapshot per tab,
+ * optimistic like/save/repost/follow with rollback, hide with undo, report,
+ * and "see more" paging where the tab has a page size.
  */
-class HomeViewModel(
+open class FeedViewModel<K : Any>(
     private val repo: FeedRepository,
     val userId: String,
-    private val sync: EngagementSync = EngagementSync(),
-    quotes: QuoteRepository? = null,
+    private val sync: EngagementSync,
+    quotes: QuoteRepository?,
+    initial: K,
+    private val source: String,
+    private val fetchRows: suspend (tab: K, page: Int) -> List<FeedRow>,
+    private val pageSize: (K) -> Int? = { null },
 ) : ViewModel() {
-    var mode by mutableStateOf(FeedMode.ForYou); private set
-    private val cache = mutableMapOf<FeedMode, FeedSnapshot>()
+    var mode by mutableStateOf(initial); private set
+    private val cache = mutableMapOf<K, FeedSnapshot>()
     var snapshot by mutableStateOf<FeedSnapshot?>(null); private set
     var loading by mutableStateOf(false); private set
+    var loadingMore by mutableStateOf(false); private set
     var refreshing by mutableStateOf(false); private set
     var error by mutableStateOf<UiText?>(null); private set
-    var identity by mutableStateOf<HomeIdentity?>(null); private set
-    var toast by mutableStateOf<Toast?>(null); private set
+    var toast by mutableStateOf<Toast?>(null); protected set
     var sheet by mutableStateOf<PostSheet?>(null); private set
     var hidden by mutableStateOf<Pair<FeedRow, Int>?>(null); private set
     var reportCategory by mutableStateOf(ReportCategories.first()); private set
@@ -76,18 +85,17 @@ class HomeViewModel(
     init {
         viewModelScope.launch {
             sync.changes.collect { change ->
-                if (change.userId != userId || change.source == SOURCE) return@collect
+                if (change.userId != userId || change.source == source) return@collect
                 for ((key, cached) in cache.toMap()) {
                     cache[key] = cached.copy(viewer = cached.viewer.patched(change), rows = cached.rows.map { it.patched(change) })
                 }
                 snapshot = cache[mode] ?: snapshot
             }
         }
-        viewModelScope.launch { identity = runCatching { repo.fetchIdentity(userId) }.getOrNull() }
-        load(FeedMode.ForYou)
+        load(initial)
     }
 
-    fun select(next: FeedMode) {
+    fun select(next: K) {
         if (next == mode) return
         mode = next
         val cached = cache[next]
@@ -99,20 +107,39 @@ class HomeViewModel(
         }
     }
 
-    private suspend fun fetch(target: FeedMode): FeedSnapshot {
-        val rows = when (target) {
-            FeedMode.ForYou -> repo.fetchRanked()
-            FeedMode.Following -> repo.fetchFollowing(userId)
-            FeedMode.Clubs -> emptyList() // Club posts arrive with the Clubs milestone (M6).
-        }
+    private suspend fun fetch(target: K, page: Int = 0, before: List<FeedRow> = emptyList()): FeedSnapshot {
+        val fresh = fetchRows(target, page)
+        val rows = (before + fresh).distinctBy { it.key }
         val viewer = repo.loadViewer(userId, rows)
         val images = repo.fetchImages(rows)
         // A Quote's counts are its own, loaded separately; a failure only affects those cards.
-        quote?.load(rows)
-        return FeedSnapshot(rows, viewer, images)
+        quote?.load(fresh)
+        val size = pageSize(target)
+        return FeedSnapshot(rows, viewer, images, page, size != null && fresh.size == size)
     }
 
-    fun load(target: FeedMode = mode) {
+    /** web ProfileFeed "ดูเพิ่มเติม": the next page, appended. */
+    fun loadMore() {
+        val current = snapshot ?: return
+        if (!current.hasMore || loadingMore) return
+        val target = mode
+        loadingMore = true
+        viewModelScope.launch {
+            try {
+                val next = fetch(target, current.page + 1, current.rows)
+                cache[target] = next
+                if (mode == target) snapshot = next
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                toast = Toast(UiText(R.string.feed_load_failed))
+            } finally {
+                loadingMore = false
+            }
+        }
+    }
+
+    fun load(target: K = mode) {
         loadJob?.cancel()
         loading = cache[target] == null
         error = null
@@ -209,7 +236,7 @@ class HomeViewModel(
             update { s -> s.copy(viewer = s.viewer.with(liked = s.viewer.liked.toggle(row.id, !liked)), rows = s.rows.map { if (it.id == row.id) it.copy(likeCount = (it.likeCount + delta).coerceAtLeast(0)) else it }) }
             try {
                 repo.setLiked(userId, row.id, !liked)
-                sync.publish(EngagementChange(userId, row.id, liked = !liked, likeCount = (row.likeCount + delta).coerceAtLeast(0), source = SOURCE))
+                sync.publish(EngagementChange(userId, row.id, liked = !liked, likeCount = (row.likeCount + delta).coerceAtLeast(0), source = source))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -231,7 +258,7 @@ class HomeViewModel(
             update { s -> s.copy(viewer = s.viewer.with(saved = s.viewer.saved.toggle(row.id, !saved))) }
             try {
                 repo.setSaved(userId, row.id, !saved)
-                sync.publish(EngagementChange(userId, row.id, saved = !saved, source = SOURCE))
+                sync.publish(EngagementChange(userId, row.id, saved = !saved, source = source))
                 toast = if (!saved) {
                     Toast(UiText(R.string.post_saved), UiText(R.string.undo)) { undoSave(row) }
                 } else {
@@ -252,7 +279,7 @@ class HomeViewModel(
             update { s -> s.copy(viewer = s.viewer.with(saved = s.viewer.saved - row.id)) }
             try {
                 repo.setSaved(userId, row.id, false)
-                sync.publish(EngagementChange(userId, row.id, saved = false, source = SOURCE))
+                sync.publish(EngagementChange(userId, row.id, saved = false, source = source))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -271,7 +298,7 @@ class HomeViewModel(
             update { s -> s.copy(viewer = s.viewer.with(redropped = s.viewer.redropped.toggle(row.id, !active)), rows = s.rows.map { if (it.id == row.id) it.copy(redropCount = (it.redropCount + delta).coerceAtLeast(0)) else it }) }
             try {
                 repo.setRedropped(userId, row.id, !active)
-                sync.publish(EngagementChange(userId, row.id, reposted = !active, repostCount = (row.redropCount + delta).coerceAtLeast(0), source = SOURCE))
+                sync.publish(EngagementChange(userId, row.id, reposted = !active, repostCount = (row.redropCount + delta).coerceAtLeast(0), source = source))
                 sheet = null
             } catch (e: CancellationException) {
                 throw e
@@ -417,5 +444,34 @@ class HomeViewModel(
     fun removeQuote(row: FeedRow) {
         for ((key, cached) in cache.toMap()) cache[key] = cached.copy(rows = cached.rows.filterNot { it.redropId == row.redropId })
         snapshot = cache[mode] ?: snapshot
+    }
+}
+
+/** Home: For You / Following / My Clubs, plus who is signed in for the quick composer. */
+class HomeViewModel(
+    repo: FeedRepository,
+    userId: String,
+    sync: EngagementSync = EngagementSync(),
+    quotes: QuoteRepository? = null,
+) : FeedViewModel<FeedMode>(
+    repo, userId, sync, quotes, FeedMode.ForYou, "home",
+    fetchRows = { mode, _ ->
+        when (mode) {
+            FeedMode.ForYou -> repo.fetchRanked()
+            FeedMode.Following -> repo.fetchFollowing(userId)
+            FeedMode.Clubs -> emptyList() // Club posts arrive with the Clubs milestone (M6).
+        }
+    },
+) {
+    private val identities = repo
+    var identity by mutableStateOf<HomeIdentity?>(null); private set
+
+    init {
+        reloadIdentity()
+    }
+
+    /** After editing the profile, the quick composer shows the new photo and name. */
+    fun reloadIdentity() {
+        viewModelScope.launch { runCatching { identities.fetchIdentity(userId) }.getOrNull()?.let { identity = it } }
     }
 }

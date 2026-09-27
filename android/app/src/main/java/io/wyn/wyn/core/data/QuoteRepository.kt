@@ -52,6 +52,8 @@ interface QuoteRepository {
     suspend fun fetchQuote(quoteId: String): FeedRow?
     /** Quotes that the given people reposted, newest first, for their followers' Following feed. */
     suspend fun repostRows(userIds: List<String>, limit: Int): List<FeedRow>
+    /** Quotes [userId] liked, newest like first, as (row, liked at). Callers check can_view_likes first. */
+    suspend fun likedRows(userId: String, limit: Int): List<Pair<FeedRow, String>>
     suspend fun fetchImages(dropId: String, fallback: String?): List<String>
     suspend fun comments(quoteId: String, page: Int): List<QuoteComment>
     suspend fun addComment(userId: String, quoteId: String, text: String)
@@ -158,6 +160,17 @@ class SupabaseQuoteRepository(private val clientOrNull: SupabaseClient?) : Quote
             val user = share.text("user_id").orEmpty()
             quote.copy(quoteReposterId = user, quoteReposterUsername = usernames[user] ?: "ผู้ใช้ WYNOS", quoteRepostedAt = share.text("created_at"))
         }
+    }
+
+    override suspend fun likedRows(userId: String, limit: Int): List<Pair<FeedRow, String>> {
+        val likes = client.from("quote_likes").select(Columns.list("quote_id", "created_at")) {
+            filter { eq("user_id", userId) }
+            order("created_at", Order.DESCENDING)
+            range(0L, (limit - 1).toLong())
+        }.decodeList<JsonObject>()
+        if (likes.isEmpty()) return emptyList()
+        val quotes = visibleQuotes(likes.mapNotNull { it.text("quote_id") })
+        return likes.mapNotNull { like -> quotes[like.text("quote_id")]?.let { it to like.text("created_at").orEmpty() } }
     }
 
     override suspend fun fetchImages(dropId: String, fallback: String?): List<String> {

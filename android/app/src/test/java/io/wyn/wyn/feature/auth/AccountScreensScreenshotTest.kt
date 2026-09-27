@@ -3,6 +3,7 @@ package io.wyn.wyn.feature.auth
 import android.os.Looper
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
 import io.wyn.wyn.WynosApp
@@ -15,6 +16,8 @@ import io.wyn.wyn.testing.FakeFeedRepository
 import io.wyn.wyn.testing.FakePostRepository
 import io.wyn.wyn.testing.FakeComposerRepository
 import io.wyn.wyn.testing.FakeQuoteRepository
+import io.wyn.wyn.testing.FakeProfileRepository
+import io.wyn.wyn.feature.shell.Repositories
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
 import org.junit.Test
@@ -39,9 +42,15 @@ class AccountScreensScreenshotTest {
         settle()
         setup(vm)
         settle()
-        compose.setContent { WynosTheme(theme) { WynosApp(vm, FakeFeedRepository(), FakePostRepository(), FakeComposerRepository(), FakeQuoteRepository(), onExit = {}) } }
+        compose.setContent { WynosTheme(theme) { WynosApp(vm, Repositories(FakeFeedRepository(), FakePostRepository(), FakeComposerRepository(), FakeQuoteRepository(), profiles), onExit = {}) } }
         compose.waitForIdle()
         return vm
+    }
+
+    private val profiles = FakeProfileRepository().apply {
+        summaries["u1"] = io.wyn.wyn.core.data.ProfileSummary(
+            io.wyn.wyn.core.data.Profile(id = "u1", username = "somchai", displayName = "สมชาย ใจดี"), followerCount = 0, followingCount = 0,
+        )
     }
 
     private fun settle() = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
@@ -141,7 +150,11 @@ class AccountScreensScreenshotTest {
         // Signed in lands on the feed; the account switcher lives under Profile.
         compose.onNodeWithText("สำหรับคุณ").assertExists()
         compose.onNodeWithText("โปรไฟล์").performClick()
-        compose.onNodeWithText("สลับบัญชี").assertExists()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("ตัวเลือกของฉัน").performClick()
+        compose.onNodeWithText("สลับบัญชี").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("มาลี").assertExists()
         shot("accounts-th-light")
     }
 }

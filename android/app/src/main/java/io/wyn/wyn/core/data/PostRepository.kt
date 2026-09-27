@@ -51,8 +51,8 @@ interface PostRepository {
     suspend fun recordView(dropId: String)
 }
 
-private const val DROP_SELECT =
-    "id,author_id,caption,image_url,image_width,image_height,image_aspect_ratio,created_at," +
+internal const val DROP_SELECT =
+    "id,author_id,caption,image_url,image_width,image_height,image_aspect_ratio,created_at,audience," +
         "author:profiles!drops_author_id_fkey(username,display_name,avatar_url,is_verified)," +
         "drop_likes(count),drop_comments(count),redrops(count),drop_images(count)"
 
@@ -68,25 +68,7 @@ class SupabasePostRepository(private val clientOrNull: SupabaseClient?) : PostRe
         val row = client.from("drops").select(Columns.raw(DROP_SELECT)) {
             filter { eq("id", dropId); exact("deleted_at", null) }
         }.decodeList<JsonObject>().firstOrNull() ?: return null
-        val author = relation(row["author"])
-        return FeedRow(
-            id = row.text("id").orEmpty(),
-            authorId = row.text("author_id").orEmpty(),
-            createdAt = row.text("created_at").orEmpty(),
-            authorUsername = author.text("username").orEmpty(),
-            authorDisplayName = author.text("display_name"),
-            authorAvatarUrl = author.text("avatar_url"),
-            authorIsVerified = author.bool("is_verified"),
-            caption = row.text("caption"),
-            imageUrl = row.text("image_url"),
-            imageWidth = row.int("image_width"),
-            imageHeight = row.int("image_height"),
-            imageAspectRatio = row.text("image_aspect_ratio"),
-            imageCount = firstCount(row["drop_images"]),
-            likeCount = firstCount(row["drop_likes"]),
-            commentCount = firstCount(row["drop_comments"]),
-            redropCount = firstCount(row["redrops"]),
-        )
+        return parseDropCard(row)
     }
 
     override suspend fun fetchImages(dropId: String, fallback: String?): List<String> {
@@ -207,3 +189,27 @@ internal fun relation(value: JsonElement?): JsonObject = when (value) {
 }
 
 internal fun firstCount(value: JsonElement?): Int = (value as? JsonArray)?.firstOrNull()?.let { (it as? JsonObject)?.int("count") } ?: 0
+
+/** A drops row selected with [DROP_SELECT] (web asDrop()). */
+internal fun parseDropCard(row: JsonObject): FeedRow {
+    val author = relation(row["author"])
+    return FeedRow(
+        id = row.text("id").orEmpty(),
+        authorId = row.text("author_id").orEmpty(),
+        createdAt = row.text("created_at").orEmpty(),
+        authorUsername = author.text("username").orEmpty(),
+        authorDisplayName = author.text("display_name"),
+        authorAvatarUrl = author.text("avatar_url"),
+        authorIsVerified = author.bool("is_verified"),
+        caption = row.text("caption"),
+        imageUrl = row.text("image_url"),
+        imageWidth = row.int("image_width"),
+        imageHeight = row.int("image_height"),
+        imageAspectRatio = row.text("image_aspect_ratio"),
+        imageCount = firstCount(row["drop_images"]),
+        likeCount = firstCount(row["drop_likes"]),
+        commentCount = firstCount(row["drop_comments"]),
+        redropCount = firstCount(row["redrops"]),
+        audience = row.text("audience"),
+    )
+}

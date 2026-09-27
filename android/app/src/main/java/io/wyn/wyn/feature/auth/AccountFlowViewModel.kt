@@ -39,6 +39,9 @@ sealed interface Route {
 enum class InviteGate { Checking, Open, Blocked }
 enum class UsernameState { Idle, Invalid, Checking, Available, Taken, Error }
 
+/** web MAX_SAVED_ACCOUNTS. */
+const val MAX_SAVED_ACCOUNTS = 9
+
 /**
  * Navigation and logic for the account screens, following the web's
  * auth flow (web/components/auth-flow/screens.tsx) step for step so both
@@ -556,6 +559,12 @@ class AccountFlowViewModel(
     /** Keeps the current account for switching back, then shows Login for another one. */
     fun addAccount() {
         val activeId = repo.currentUserId() ?: return
+        if (homeBusy) return
+        if (accounts.all().size >= MAX_SAVED_ACCOUNTS) {
+            homeMessage = UiText(R.string.accounts_limit, listOf(MAX_SAVED_ACCOUNTS))
+            return
+        }
+        homeMessage = null
         homeBusy = true
         viewModelScope.launch {
             try {
@@ -568,6 +577,16 @@ class AccountFlowViewModel(
                 homeBusy = false
             }
         }
+    }
+
+    /** Forgets another account on this phone, with its saved session (web removeSavedAccount). */
+    fun removeAccount(userId: String) {
+        if (homeBusy || userId == activeUserId) return
+        save(accounts.all().filterNot { it.userId == userId })
+    }
+
+    fun clearHomeMessage() {
+        homeMessage = null
     }
 
     private fun cancelAddAccount(userId: String) {

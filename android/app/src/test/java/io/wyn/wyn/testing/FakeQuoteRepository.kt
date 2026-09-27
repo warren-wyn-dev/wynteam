@@ -30,6 +30,8 @@ class FakeQuoteRepository(
     override suspend fun report(quoteId: String, category: String, detail: String?) = write("report:$quoteId:$category:${detail.orEmpty()}")
     override suspend fun fetchQuote(quoteId: String) = quotes.firstOrNull { it.redropId == quoteId }
     override suspend fun repostRows(userIds: List<String>, limit: Int) = reposts.filter { it.quoteReposterId in userIds }.take(limit)
+    var liked: List<Pair<FeedRow, String>> = emptyList()
+    override suspend fun likedRows(userId: String, limit: Int) = liked.take(limit)
     override suspend fun fetchImages(dropId: String, fallback: String?) = listOfNotNull(fallback)
     override suspend fun comments(quoteId: String, page: Int) =
         commentStore.filter { it.quoteId == quoteId }.drop(page * io.wyn.wyn.core.data.QUOTE_COMMENT_PAGE).take(io.wyn.wyn.core.data.QUOTE_COMMENT_PAGE)
