@@ -24,7 +24,7 @@ import {
   saveAccountLanguage,
   setLanguage,
 } from "@/lib/i18n/language";
-import { getPushAvailability, isCurrentDevicePushEnabled, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability, type PushBlockReason } from "@/lib/push-notifications";
+import { getPushAvailability, isCurrentDevicePushEnabled, setPushWanted, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability, type PushBlockReason } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
   exportMyData,
@@ -298,7 +298,8 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
         return;
       }
       const enabled = await isCurrentDevicePushEnabled(client, userId);
-      if (active) setPushEnabled(enabled);
+      // null: could not check right now; keep the switch as it was.
+      if (active && enabled !== null) setPushEnabled(enabled);
     };
     void probe().catch(() => {
       if (active) setPushAvailability({ available: false, reason: "temporary" });
@@ -367,6 +368,8 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
           setPushError("ยังยกเลิกการลงทะเบียน Push บนอุปกรณ์นี้ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
           return;
         }
+        // Only turning the switch off here stops Push coming back by itself.
+        setPushWanted(userId, false);
         setPushEnabled(false);
       }
     } catch {

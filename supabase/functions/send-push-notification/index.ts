@@ -10,6 +10,7 @@ import {
   displayNameOrUsername,
   dmMessagePreview,
   fetchFcmAccessToken,
+  isDeadTokenError,
   type FcmServiceAccount,
   messageFor,
   pushLanguageFrom,
@@ -205,7 +206,7 @@ async function handleWebhook(req: Request): Promise<Response> {
 
       const errorBody = await response.json().catch(() => null);
       const status = errorBody?.error?.status as string | undefined;
-      if (status === "UNREGISTERED" || status === "NOT_FOUND" || status === "INVALID_ARGUMENT") {
+      if (isDeadTokenError(status, errorBody?.error?.message as string | undefined)) {
         await deletePushToken(token);
       }
       return `${response.status} ${status ?? "unknown"}`;
