@@ -165,9 +165,10 @@ begin
   if v_term = '' then return; end if;
   if char_length(v_term) > 120 then raise exception 'Search is too long'; end if;
   v_query := websearch_to_tsquery('simple'::regconfig, v_term);
-  if numnode(v_query) = 0 then return; end if;
+  -- Empty full-text queries (for punctuation) still use literal substring search.
   -- Escape wildcards so the substring fallback is literal, not caller-
-  -- controlled pattern syntax. A 3-character minimum preserves GIN selectivity.
+  -- controlled pattern syntax. For 1–2 character Thai queries the channel_id
+  -- B-tree limits an ILIKE scan; longer terms can use the pg_trgm GIN index.
   v_escaped := replace(replace(replace(v_term, chr(92), chr(92)||chr(92)),
                         '%', chr(92)||'%'), '_', chr(92)||'_');
   return query
@@ -176,8 +177,7 @@ begin
     where m.channel_id = p_channel_id
       and (
         to_tsvector('simple'::regconfig, coalesce(m.content, '')) @@ v_query
-        or (char_length(v_term) >= 3 and
-            m.content ilike '%' || v_escaped || '%' escape chr(92))
+        or m.content ilike '%' || v_escaped || '%' escape chr(92)
       )
     order by m.created_at desc, m.id desc
     limit least(greatest(coalesce(p_limit, 30), 1), 30);

@@ -80,7 +80,10 @@ insert into public.club_channel_messages(id,channel_id,author_id,content,image_u
   ('dddddddd-0000-0000-0000-000000000007','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003',null,'avatar.png'),
   ('dddddddd-0000-0000-0000-000000000008','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','พรุ่งนี้ประชุมเรื่องสำคัญ',null),
   ('dddddddd-0000-0000-0000-000000000009','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','sample a_b literal',null),
-  ('dddddddd-0000-0000-0000-000000000010','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','sample aXb distractor',null);
+  ('dddddddd-0000-0000-0000-000000000010','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','sample aXb distractor',null),
+  ('dddddddd-0000-0000-0000-000000000011','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','สวัสดีครับ',null),
+  ('dddddddd-0000-0000-0000-000000000012','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','ไปไหนกัน',null),
+  ('dddddddd-0000-0000-0000-000000000013','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','literal 100% coverage',null);
 SQL
 
 cat > "$WORK/assert.sql" <<'SQL'
@@ -137,6 +140,18 @@ do $$ begin
   if (select count(*) from public.search_club_channel_messages(
       'cccccccc-0000-0000-0000-000000000001','ประชุม')) <> 1
   then raise exception 'Thai substring search failed'; end if;
+  if (select count(*) from public.search_club_channel_messages(
+      'cccccccc-0000-0000-0000-000000000001','ดี')) <> 1
+  then raise exception 'Two-character Thai substring search failed'; end if;
+  if (select count(*) from public.search_club_channel_messages(
+      'cccccccc-0000-0000-0000-000000000001','ไป')) <> 1
+  then raise exception 'Two-character Thai verb search failed'; end if;
+  if (select count(*) from public.search_club_channel_messages(
+      'cccccccc-0000-0000-0000-000000000001','ด')) <> 1
+  then raise exception 'One-character Thai substring search failed'; end if;
+  if (select count(*) from public.search_club_channel_messages(
+      'cccccccc-0000-0000-0000-000000000001','%')) <> 1
+  then raise exception 'Literal punctuation search failed'; end if;
   if (select count(*) from public.search_club_channel_messages(
       'cccccccc-0000-0000-0000-000000000001','a_b')) <> 1
   then raise exception 'Wildcard was not escaped in indexed substring search'; end if;

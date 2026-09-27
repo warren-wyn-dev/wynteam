@@ -59,6 +59,18 @@ test.describe("local developer-only fixture", () => {
     await expect(query).toHaveValue("rules");
   });
 
+  test("short Thai searches return only messages in the open channel", async ({ page }) => {
+    await page.goto("/dev/club-chat-actions-fixture?role=member");
+    await page.getByRole("button", { name: "ค้นหาข้อความ", exact: true }).click();
+    const query = page.getByRole("textbox", { name: "ค้นหาข้อความในห้องนี้" });
+    for (const term of ["ดี", "ไป"]) {
+      await query.fill(term);
+      await page.getByRole("button", { name: "ค้นหา", exact: true }).click();
+      await expect(page.getByRole("button", { name: /สวัสดีครับ ไปไหนกัน/ })).toHaveCount(1);
+      await expect(page.getByRole("button", { name: /สวัสดีจากห้องอื่น/ })).toHaveCount(0);
+    }
+  });
+
   test("mobile search and pin controls offer 44px touch targets", async ({ page }) => {
     await page.goto("/dev/club-chat-actions-fixture?role=owner");
     const search = page.getByRole("button", { name: "ค้นหาข้อความ", exact: true });

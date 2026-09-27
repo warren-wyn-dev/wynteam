@@ -48,6 +48,8 @@ function Inner() {
     { id: "m1", channel_id: "channel1", author_id: ME, content: "hello club chat", pinned_at: null, created_at: "2026-09-27T12:00:00Z" },
     { id: "m2", channel_id: "channel1", author_id: OTHER, content: "please read the rules", pinned_at: null, created_at: "2026-09-27T12:01:00Z" },
     { id: "m3", channel_id: "channel2", author_id: OTHER, content: "secret second channel", pinned_at: null, created_at: "2026-09-27T12:02:00Z" },
+    { id: "m4", channel_id: "channel1", author_id: OTHER, content: "สวัสดีครับ ไปไหนกัน", pinned_at: null, created_at: "2026-09-27T12:03:00Z" },
+    { id: "m5", channel_id: "channel2", author_id: OTHER, content: "สวัสดีจากห้องอื่น", pinned_at: null, created_at: "2026-09-27T12:04:00Z" },
   ], []);
   const slow = params.get("slow") === "1";
   const client = useMemo(() => makeClient(rows, slow), [rows, slow]);
