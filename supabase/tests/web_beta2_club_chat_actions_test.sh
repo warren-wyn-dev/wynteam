@@ -168,7 +168,7 @@ do $$ begin
 end $$;
 select public.set_club_channel_message_pin('dddddddd-0000-0000-0000-000000000002', false);
 select public.set_club_channel_message_pin('dddddddd-0000-0000-0000-000000000004', true);
-do $$ begin
+do $pincheck$ begin
   if (select count(*) from public.club_channel_messages
     where channel_id='cccccccc-0000-0000-0000-000000000001' and pinned_at is not null) <> 3
   then raise exception 'Unpin did not free slot'; end if;
