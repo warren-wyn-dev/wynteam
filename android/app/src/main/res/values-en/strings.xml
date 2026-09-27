@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="welcome_headline">Every story has a beginning</string>
+    <string name="welcome_create_account">Create a new account</string>
+    <string name="welcome_sign_in">Sign in</string>
+    <string name="welcome_sign_in_google">Sign in with Google</string>
+    <string name="welcome_terms_prefix">By creating an account you agree to the</string>
+    <string name="welcome_terms">Terms of Use</string>
+    <string name="welcome_and">and</string>
+    <string name="welcome_privacy">Privacy Policy</string>
+    <string name="config_missing">This app is not connected to WYNOS yet</string>
+</resources>

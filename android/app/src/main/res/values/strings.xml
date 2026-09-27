@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thai is the default, as on the web: every phone language except English
+     gets Thai (values-en overrides for English phones). Wording matches
+     web/components and web/lib/i18n/en.ts. -->
+<resources>
+    <string name="app_name" translatable="false">Wynos</string>
+    <string name="welcome_headline">ทุกเรื่องราว มีจุดเริ่มต้น</string>
+    <string name="welcome_subtitle" translatable="false">Welcome to WYNOS.</string>
+    <string name="welcome_create_account">สร้างบัญชีใหม่</string>
+    <string name="welcome_sign_in">เข้าสู่ระบบ</string>
+    <string name="welcome_sign_in_google">เข้าสู่ระบบด้วย Google</string>
+    <string name="welcome_terms_prefix">การสร้างบัญชีถือว่ายอมรับ</string>
+    <string name="welcome_terms">ข้อกำหนดการใช้งาน</string>
+    <string name="welcome_and">และ</string>
+    <string name="welcome_privacy">นโยบายความเป็นส่วนตัว</string>
+    <string name="config_missing">ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับแอปนี้</string>
+    <string name="version_label" translatable="false">Wynos Android v1.0.0 Beta 1</string>
+</resources>
