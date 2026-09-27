@@ -35,18 +35,19 @@ declare
   v_me uuid := auth.uid();
   v_author uuid;
   v_club uuid;
+  v_original text;
   v_body text := btrim(coalesce(p_content, ''));
 begin
   if v_me is null then raise exception 'Not authenticated'; end if;
   if not public.is_developer_account() then
     raise exception 'Club chat actions are not available yet';
   end if;
-  select m.author_id, ch.club_id into v_author, v_club
+  select m.author_id, ch.club_id, m.content into v_author, v_club, v_original
   from public.club_channel_messages m
   join public.club_channels ch on ch.id = m.channel_id
   where m.id = p_message_id
   for update of m;
-  if not found or v_author <> v_me
+  if not found or v_author <> v_me or v_original is null
     or public.club_role(v_club, v_me) is null then
     raise exception 'Message not found or not yours to edit';
   end if;
