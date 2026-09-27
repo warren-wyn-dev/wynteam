@@ -76,7 +76,7 @@ export function ClubChatToolbar({
         <div className="golden-club-pinned-list" aria-label="ข้อความที่ปักหมุด">
           {pins.map((pin) => (
             <button type="button" key={pin.id} onClick={() => void onJump(pin.id)}>
-              <WynosIcon name="pin" size={14} /><span data-i18n-skip="">{pin.content || "รูปภาพ"}</span>
+              <WynosIcon name="pin" size={14} />{pin.content ? <span data-i18n-skip="">{pin.content}</span> : <span>รูปภาพ</span>}
             </button>
           ))}
         </div>
