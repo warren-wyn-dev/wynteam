@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ClubAnnouncementsTab } from "@/components/club/club-announcements-tab";
 import { ClubChatMessageActions, ClubChatToolbar } from "@/components/club/club-chat-actions";
@@ -447,6 +447,12 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   const [menuMessage, setMenuMessage] = useState<MessageRow | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  // Ignore responses started for another channel, gate mode, or newer request.
+  // Keep identity current during render: a stale Beta1 request cannot overwrite
+  // Beta2 metadata before the next effect has had a chance to run.
+  const activeView = useRef({ channelId, beta2 });
+  activeView.current = { channelId, beta2 };
+  const reloadSequence = useRef(0);
   // A merge auto-deploys to production, but the SQL migration is Founder-run.
   // Fail closed until the final schema-readiness RPC exists and confirms the
   // caller is a developer; old Web Beta1 chat keeps working in the interim.
@@ -460,15 +466,24 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   }, [beta2Eligible, client]);
   const canModerate = membership?.status === "approved" && ["owner", "admin", "moderator"].includes(membership.role);
   const reload = useCallback(async () => {
-    if (!channelId) { setMessages([]); return; }
+    const request = ++reloadSequence.current;
+    const isCurrent = () => request === reloadSequence.current
+      && activeView.current.channelId === channelId
+      && activeView.current.beta2 === beta2;
+    if (!channelId) { if (isCurrent()) { setMessages([]); setLoading(false); } return; }
     setLoading(true); setError("");
     try {
-      setMessages(await fetchMessages(client, channelId, beta2));
+      const next = await fetchMessages(client, channelId, beta2);
+      if (!isCurrent()) return;
+      setMessages(next);
       await client.rpc("mark_club_channel_read", { p_channel_id: channelId });
-    } catch { setError("โหลดแชทไม่สำเร็จ"); }
-    finally { setLoading(false); }
+    } catch { if (isCurrent()) setError("โหลดแชทไม่สำเร็จ"); }
+    finally { if (isCurrent()) setLoading(false); }
   }, [channelId, client, beta2]);
-  useEffect(() => { const timer = window.setTimeout(() => { void reload(); }, 0); return () => window.clearTimeout(timer); }, [reload]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void reload(); }, 0);
+    return () => { window.clearTimeout(timer); reloadSequence.current += 1; };
+  }, [reload]);
   useEffect(() => {
     if (!channelId || membership?.status !== "approved") return;
     const subscription = client.channel(`club-chat-web:${channelId}`)
@@ -476,6 +491,25 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
       .subscribe();
     return () => { void client.removeChannel(subscription); };
   }, [channelId, client, membership?.status, reload, beta2]);
+  // Realtime DELETE payloads under RLS expose only the primary key, so the
+  // channel_id filter cannot observe deletions from other clients reliably.
+  // Refresh only the small pinned strip (not all 150 messages) while visible
+  // and immediately on tab return, without subscribing to other Clubs' IDs.
+  useEffect(() => {
+    if (!beta2 || !channelId || membership?.status !== "approved") return;
+    const refreshPins = () => setRefreshToken((value) => value + 1);
+    const onVisibility = () => { if (document.visibilityState === "visible") refreshPins(); };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshPins();
+    }, 15_000);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", refreshPins);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", refreshPins);
+    };
+  }, [beta2, channelId, membership?.status]);
   useEffect(() => {
     if (!focusedId) return;
     const timer = window.setTimeout(() => {
