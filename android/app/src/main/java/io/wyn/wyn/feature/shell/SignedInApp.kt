@@ -50,6 +50,15 @@ import io.wyn.wyn.core.data.SupabaseQuoteRepository
 import io.wyn.wyn.core.design.Wyn
 import io.wyn.wyn.core.design.WynIcons
 import io.wyn.wyn.core.data.NotificationItem
+import io.wyn.wyn.core.data.ChatRepository
+import io.wyn.wyn.core.data.SupabaseChatRepository
+import io.wyn.wyn.feature.chat.ChatInboxScreen
+import io.wyn.wyn.feature.chat.ChatInboxViewModel
+import io.wyn.wyn.feature.chat.ConversationScreen
+import io.wyn.wyn.feature.chat.ConversationViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import io.wyn.wyn.core.data.NotificationRepository
 import io.wyn.wyn.core.data.SupabaseNotificationRepository
 import io.wyn.wyn.core.push.PushController
@@ -97,6 +106,7 @@ data class Repositories(
     val quotes: QuoteRepository,
     val profiles: ProfileRepository,
     val notifications: NotificationRepository,
+    val chat: ChatRepository,
     val push: PushController? = null,
 ) {
     companion object {
@@ -109,6 +119,7 @@ data class Repositories(
                 quotes = quotes,
                 profiles = SupabaseProfileRepository(client, quotes),
                 notifications = SupabaseNotificationRepository(client),
+                chat = SupabaseChatRepository(client),
                 push = push,
             )
         }
@@ -127,6 +138,8 @@ private sealed interface Screen {
     data object NotificationSettings : Screen
     data object Drafts : Screen
     data class Coming(val message: Int) : Screen
+    /** A conversation, or a new one with [user] when [id] is null (web /chat/new?user=). */
+    data class Conversation(val id: String?, val user: String?) : Screen
 
     fun encode(): String = when (this) {
         is Post -> "post:$id"
@@ -139,6 +152,7 @@ private sealed interface Screen {
         NotificationSettings -> "notification-settings"
         Drafts -> "drafts"
         is Coming -> "coming:$message"
+        is Conversation -> "chat:${id ?: "-"}:${user ?: "-"}"
     }
 
     companion object {
@@ -155,6 +169,7 @@ private sealed interface Screen {
                 "notification-settings" -> NotificationSettings
                 "drafts" -> Drafts
                 "coming" -> parts.getOrNull(1)?.toIntOrNull()?.let(::Coming)
+                "chat" -> if (parts.size == 3) Conversation(parts[1].takeIf { it != "-" }, parts[2].takeIf { it != "-" }) else null
                 else -> null
             }
         }
@@ -199,16 +214,30 @@ fun SignedInApp(
         badge.refresh()
         onPauseOrDispose {}
     }
+    val inbox: ChatInboxViewModel = viewModel(key = "chat-inbox:$userId", factory = viewModelFactory { initializer { ChatInboxViewModel(repos.chat, userId) } })
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(userId) {
-        launch { PushEvents.received.collect { recipient -> if (recipient == userId) badge.refresh() } }
-        while (true) {
-            delay(12_000)
-            badge.refresh()
+        launch {
+            PushEvents.received.collect { recipient ->
+                if (recipient == userId) {
+                    badge.refresh()
+                    inbox.load()
+                }
+            }
+        }
+        // Only while the app is on screen, like the web's visible-only polling.
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            var tick = 0
+            while (true) {
+                delay(12_000)
+                badge.refresh()
+                if (++tick % 2 == 0) inbox.load()
+            }
         }
     }
     fun openNotification(item: NotificationTargetLike) {
         when {
-            item.conversationId != null -> push(Screen.Coming(R.string.coming_chat))
+            item.conversationId != null -> push(Screen.Conversation(item.conversationId, item.actorId))
             item.dropId != null -> push(Screen.Post(item.dropId!!))
             item.popId != null -> push(Screen.Coming(R.string.coming_pops))
             item.clubPostId != null || item.clubId != null -> push(Screen.Coming(R.string.coming_clubs))
@@ -240,7 +269,7 @@ fun SignedInApp(
         onBack = back,
         onEdit = { editSession += 1; push(Screen.EditProfile) },
         onFollows = { kind -> push(Screen.Follows(profileId, kind)) },
-        onMessage = { push(Screen.Coming(R.string.coming_chat)) },
+        onMessage = { push(Screen.Conversation(null, profileId)) },
         onSettings = { push(Screen.Settings) },
     )
 
@@ -248,6 +277,14 @@ fun SignedInApp(
         home = { HomeScreen(home, feedNav, notificationCount = badge.count) },
         profile = { ProfileScreen(me, profileNav(userId, back = null), switcher) },
         onCompose = { openComposer(null) },
+        chatUnread = inbox.unreadCount,
+        chat = {
+            LifecycleResumeEffect(inbox) {
+                inbox.load()
+                onPauseOrDispose {}
+            }
+            ChatInboxScreen(inbox, onOpen = { row -> push(Screen.Conversation(row.id, row.otherUserId)) })
+        },
     )
 
     stack.lastOrNull()?.let { screen ->
@@ -336,6 +373,32 @@ fun SignedInApp(
                 DraftsScreen(drafts, onBack = ::pop, onOpen = { id -> pop(); openComposer(id) })
             }
             is Screen.Coming -> BackTitled("", ::pop) { ComingSoon(screen.message) }
+            is Screen.Conversation -> {
+                val conversation: ConversationViewModel = viewModel(
+                    key = "chat:$userId:${screen.id ?: "new:" + screen.user}",
+                    factory = viewModelFactory {
+                        initializer { ConversationViewModel(repos.chat, repos.profiles, repos.feed, userId, screen.id, screen.user) }
+                    },
+                )
+                LifecycleResumeEffect(conversation) {
+                    conversation.onHint()
+                    onPauseOrDispose {}
+                }
+                LaunchedEffect(conversation) {
+                    launch { PushEvents.received.collect { recipient -> if (recipient == userId) conversation.onHint() } }
+                    lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                        while (true) {
+                            delay(5_000)
+                            conversation.onHint()
+                        }
+                    }
+                }
+                ConversationScreen(
+                    conversation, repos.chat,
+                    onBack = { pop(); inbox.load() },
+                    onOpenProfile = ::openProfile,
+                )
+            }
         }
     }
 

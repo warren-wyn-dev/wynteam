@@ -136,7 +136,25 @@ Still open in M1:
   `WYNOS_FIREBASE_ANDROID_API_KEY`, `WYNOS_FIREBASE_PROJECT_ID`, `WYNOS_FIREBASE_SENDER_ID`. Without them Push shows
   "not configured" and everything else works.
 - The web has no follow-request approval screen in Beta 1, so Android has none either.
-- **Next: M5 Chat.**
+
+## M5 status
+
+- **Chat tab** (web chat-inbox-parity): conversations newest first with unread dots and the unread count on the tab,
+  search by name / username / last message, message requests from the ⋯ menu (accept, or delete after confirming),
+  and the "chat closed" state when `chat_lockdown_status` says so.
+- **Conversation** (Web Beta 1 layout, `threads` off): date separators, bubbles, sent / read ticks from the other
+  person's last read, "see earlier messages", sending text and one photo (type/size checked, GPS removed; private
+  `chat-media` bucket, shown through 1-hour signed links; a failed send deletes the uploaded photo and restores the
+  text), tapping your own message to delete it (after confirming), accept / delete for a received request and
+  "waiting" for a sent one, and the profile card with View profile / Follow in an empty conversation.
+- **New conversation** from a profile's "ส่งข้อความ": checks `chat_lockdown_status` for that person, opens the
+  existing conversation when there is one, and creates it (`get_or_create_conversation`) only at the first send.
+  A person you cannot message cannot be sent to.
+- Updates arrive through pushes, when the screen comes back, and a check every 5 s (conversation) / 24 s (inbox)
+  while the app is on screen. Realtime (Supabase channels) and online dots are not in this milestone.
+- Beta 2 chat features (reactions, pins, forward, edit, reply, hide, report message) stay off, as on the web
+  (`BETA2_RELEASED.chatThreads = false`). Wynii (the chat pet) comes with M7.
+- **Next: M6 Clubs.**
 
 ## Risks
 

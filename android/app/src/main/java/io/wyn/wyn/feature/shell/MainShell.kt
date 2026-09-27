@@ -54,6 +54,7 @@ fun MainShell(
     profile: @Composable () -> Unit,
     onCompose: () -> Unit,
     chatUnread: Int = 0,
+    chat: @Composable () -> Unit = { ComingSoon(R.string.coming_chat) },
     initialTab: MainTab = MainTab.Home,
 ) {
     var tab by rememberSaveable { mutableStateOf(initialTab) }
@@ -64,7 +65,7 @@ fun MainShell(
                 MainTab.Home -> home()
                 MainTab.Profile -> profile()
                 MainTab.Clubs -> ComingSoon(R.string.coming_clubs)
-                MainTab.Chat -> ComingSoon(R.string.coming_chat)
+                MainTab.Chat -> chat()
                 MainTab.Post -> Unit // Opens the composer instead of switching tabs.
             }
         }
