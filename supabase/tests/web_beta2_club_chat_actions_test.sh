@@ -87,6 +87,9 @@ cat > "$WORK/assert.sql" <<'SQL'
 \set ON_ERROR_STOP on
 set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000003';
 set role authenticated;
+do $ begin
+  if not public.club_chat_actions_available() then raise exception 'Developer schema readiness missing'; end if;
+end $;
 select public.edit_club_channel_message('dddddddd-0000-0000-0000-000000000001', '  phoenix UPDATED  ');
 do $$ begin
   if (select content from public.club_channel_messages where id='dddddddd-0000-0000-0000-000000000001') <> 'phoenix UPDATED'
@@ -170,7 +173,8 @@ end $$;
 reset role;
 set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
 set role authenticated;
-do $$ begin
+do $ begin
+  if public.club_chat_actions_available() then raise exception 'Beta1 member sees Beta2 readiness'; end if;
   begin
     perform public.search_club_channel_messages('cccccccc-0000-0000-0000-000000000001','phoenix');
     raise exception 'Beta1 member used Beta2 search';
@@ -209,6 +213,7 @@ do $$ begin
   if not exists(select 1 from pg_indexes where schemaname='public'
     and indexname='club_channel_messages_trgm_idx' and lower(indexdef) like '%using gin%')
   then raise exception 'Missing pg_trgm GIN index'; end if;
+  if has_function_privilege('anon', 'public.club_chat_actions_available()', 'EXECUTE') then raise exception 'Anon readiness RPC exposed'; end if;
   if has_function_privilege('anon', 'public.search_club_channel_messages(uuid,text,integer)', 'EXECUTE')
   then raise exception 'Anon search is executable'; end if;
 end $$;
