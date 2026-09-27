@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
 
 import { ClubAnnouncementsTab } from "@/components/club/club-announcements-tab";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -22,12 +22,34 @@ const ago = (ms: number) => new Date(NOW - ms).toISOString();
 type Row = { id: string; club_id: string; author_id: string; body: string; created_at: string; edited_at: string | null };
 
 /** An in-memory stand-in for the Supabase calls the tab makes. */
-function fakeClient(rows: Row[]): SupabaseClient {
+function fakeClient(rows: Row[], delayFirstClubRead = false): SupabaseClient {
   let nextId = 100;
+  let firstReadPending = delayFirstClubRead;
   const query = (table: string) => {
+    let requestedClub: string | null = null;
     const chain = {
-      select: () => chain, eq: () => chain, lt: () => chain, or: () => chain, order: () => chain,
-      limit: async () => ({ data: [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at)), error: null }),
+      select: () => chain,
+      eq: (column: string, value: string) => {
+        if (table === "club_announcements" && column === "club_id") requestedClub = value;
+        return chain;
+      },
+      lt: () => chain, or: () => chain, order: () => chain,
+      limit: async (limit: number) => {
+        // Snapshot before delaying so a newer post cannot appear in an old response.
+        const data = rows.filter((row) => !requestedClub || row.club_id === requestedClub)
+          .sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
+        if (firstReadPending && requestedClub === "club") {
+          firstReadPending = false;
+          const testWindow = window as Window & {
+            __wynAnnouncementSlowRead?: boolean;
+            __wynReleaseAnnouncementSlowRead?: () => void;
+          };
+          testWindow.__wynAnnouncementSlowRead = true;
+          // QA controls the resolution; no timing-dependent race assertions.
+          await new Promise<void>((resolve) => { testWindow.__wynReleaseAnnouncementSlowRead = resolve; });
+        }
+        return { data, error: null };
+      },
       in: async () => ({ data: table === "profiles" ? PEOPLE : [], error: null }),
     };
     return chain;
@@ -47,10 +69,14 @@ function Fixture() {
   const params = useSearchParams();
   const role = params.get("role") ?? "owner";
   const empty = params.get("empty") === "1";
+  const slow = params.get("slow") === "1";
+  const switchable = params.get("switch") === "1";
+  const [activeClub, setActiveClub] = useState("club");
   const client = useMemo(() => fakeClient(empty ? [] : [
     { id: "a1", club_id: "club", author_id: ME, body: "📣 นัดถ่ายรูปเสาร์นี้ 9 โมง ที่สวนลุมฯ ประตู 3\nใครมาได้กดตอบในแชทนะครับ", created_at: ago(2 * 3600_000), edited_at: null },
     { id: "a2", club_id: "club", author_id: MOD, body: "กติกาใหม่: โพสต์รูปต้องใส่เครดิตช่างภาพทุกครั้ง", created_at: ago(3 * 86400_000), edited_at: ago(2 * 86400_000) },
-  ]), [empty]);
+    ...(switchable ? [{ id: "b1", club_id: "club-b", author_id: MOD, body: "ประกาศจาก Club ใหม่", created_at: ago(3600_000), edited_at: null }] : []),
+  ], slow || switchable), [empty, slow, switchable]);
   const { toastMessage, showToast } = useToast();
   return (
     <main className="route-main">
@@ -61,7 +87,8 @@ function Fixture() {
           <button type="button"><WynosIcon name="messagesSquare" size={16} strokeWidth={2} />แชท</button>
           <button type="button"><WynosIcon name="info" size={16} strokeWidth={2} />เกี่ยวกับ</button>
         </nav>
-        <ClubAnnouncementsTab client={client} userId={ME} clubId="club" role={role} approved onToast={showToast} />
+        {switchable ? <button type="button" onClick={() => setActiveClub("club-b")}>เปลี่ยน Club ทดสอบ</button> : null}
+        <ClubAnnouncementsTab client={client} userId={ME} clubId={activeClub} role={role} approved onToast={showToast} />
       </div>
       <Toast message={toastMessage} />
     </main>

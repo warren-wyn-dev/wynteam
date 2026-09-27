@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BottomSheet } from "@/components/club/club-sheet";
 import { Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
@@ -25,21 +25,23 @@ type Composer = { mode: "create" } | { mode: "edit"; announcement: ClubAnnouncem
  * WYN-137 (Beta2): the Club's "ประกาศ" tab. Club-wide, not tied to a
  * channel. Staff post; every approved member reads (notifications come with the release).
  */
-export function ClubAnnouncementsTab({
-  client,
-  userId,
-  clubId,
-  role,
-  approved,
-  onToast,
-}: {
+type ClubAnnouncementsProps = {
   client: SupabaseClient;
   userId: string;
   clubId: string;
   role: string | null;
   approved: boolean;
   onToast: (message: string) => void;
-}) {
+};
+
+/** Remount on Club or account switch so no previous Club's rows flash on screen. */
+export function ClubAnnouncementsTab(props: ClubAnnouncementsProps) {
+  return <ScopedClubAnnouncementsTab key={JSON.stringify([props.clubId, props.userId])} {...props} />;
+}
+
+function ScopedClubAnnouncementsTab({
+  client, userId, clubId, role, approved, onToast,
+}: ClubAnnouncementsProps) {
   const [items, setItems] = useState<ClubAnnouncement[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -47,39 +49,66 @@ export function ClubAnnouncementsTab({
   const [composer, setComposer] = useState<Composer | null>(null);
   const [menuFor, setMenuFor] = useState<ClubAnnouncement | null>(null);
   const staff = approved && canPostAnnouncement(role);
+  const requestSequence = useRef(0);
+  const mounted = useRef(true);
 
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; requestSequence.current += 1; };
+  }, []);
+
+  // Only the newest first-page request may replace the list. A write-triggered
+  // reload must not be overwritten by an older initial request or pagination.
   const load = useCallback(async () => {
+    const request = ++requestSequence.current;
     try {
       const rows = await fetchClubAnnouncements(client, clubId);
+      if (!mounted.current || request !== requestSequence.current) return;
       setItems(rows);
       setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE);
+      setLoadingMore(false);
       setFailed(false);
     } catch {
-      setFailed(true);
+      if (mounted.current && request === requestSequence.current) {
+        setLoadingMore(false);
+        setFailed(true);
+      }
     }
   }, [client, clubId]);
 
   useEffect(() => {
-    if (!approved) return;
+    if (!approved) { requestSequence.current += 1; return; }
+    const request = ++requestSequence.current;
     let live = true;
     void fetchClubAnnouncements(client, clubId)
-      .then((rows) => { if (live) { setItems(rows); setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE); setFailed(false); } })
-      .catch(() => { if (live) setFailed(true); });
-    return () => { live = false; };
+      .then((rows) => {
+        if (!live || !mounted.current || request !== requestSequence.current) return;
+        setItems(rows);
+        setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE);
+        setLoadingMore(false);
+        setFailed(false);
+      })
+      .catch(() => {
+        if (live && mounted.current && request === requestSequence.current) setFailed(true);
+      });
+    return () => { live = false; requestSequence.current += 1; };
   }, [approved, client, clubId]);
 
   const loadMore = async () => {
     const last = items?.[items.length - 1];
     if (!last || loadingMore) return;
+    const request = requestSequence.current;
     setLoadingMore(true);
     try {
       const rows = await fetchClubAnnouncements(client, clubId, { created_at: last.created_at, id: last.id });
+      if (!mounted.current || request !== requestSequence.current) return;
       setItems((current) => [...(current ?? []), ...rows.filter((row) => !current?.some((item) => item.id === row.id))]);
       setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE);
     } catch {
-      onToast("โหลดประกาศเพิ่มไม่สำเร็จ ลองใหม่อีกครั้ง");
+      if (mounted.current && request === requestSequence.current)
+        onToast("โหลดประกาศเพิ่มไม่สำเร็จ ลองใหม่อีกครั้ง");
     } finally {
-      setLoadingMore(false);
+      if (mounted.current && request === requestSequence.current) setLoadingMore(false);
     }
   };
 
@@ -88,6 +117,9 @@ export function ClubAnnouncementsTab({
     if (!window.confirm("ลบประกาศนี้?")) return;
     try {
       await deleteClubAnnouncement(client, announcement.id);
+      if (!mounted.current) return;
+      requestSequence.current += 1; // A slow earlier page must not restore a deleted item.
+      setLoadingMore(false);
       setItems((current) => current?.filter((item) => item.id !== announcement.id) ?? current);
       onToast("ลบประกาศแล้ว");
     } catch {
@@ -184,7 +216,9 @@ export function ClubAnnouncementsTab({
               await updateClubAnnouncement(client, composer.announcement.id, body);
               onToast("บันทึกการแก้ไขแล้ว");
             }
+            if (!mounted.current) return;
             setComposer(null);
+            setLoadingMore(false);
             await load();
           }}
         />
