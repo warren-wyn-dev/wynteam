@@ -216,3 +216,12 @@
 - The migration adds one table and three developer-gated RPCs. It changes no existing object: no notification type and no fan-out (see below). Rollback statements are in the file.
 - This approval does **not** release WYN-137 to everyone. That needs a decision on Flutter users (the shared notifications table), a follow-up migration, and a separate "Beta2 release: clubAnnouncements" approval. Founder (2026-09-27): "เราพัฒนา แค่ Wynos Web Beta2", so this change leaves Flutter untouched. Founder (AskUserQuestion, after Codex review): **"ช่วง Beta2 ไม่ส่งแจ้งเตือน"**, so the migration sends no notifications and does not change `notifications_type_check`.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
+
+### APPROVAL_REQUIRED — [2026-09-27] WYN-135 developer-only Club chat production SQL
+- Proposed change: After PR #741 passes SQL QA and staging, run only the manual `web-beta2-apply-club-chat-actions.yml` workflow on `main`. The additive migration adds `edited_at`, `pinned_at`, `pinned_by` to `club_channel_messages`, three developer-gated RPCs, full-text and trigram GIN indexes, and the `pg_trgm` extension in the `extensions` schema if absent. Do not release `clubChatActions` to non-developers.
+- Reason: The existing Club channel chat cannot edit own messages, pin staff announcements or search old text; indexed substring fallback is needed for unsegmented Thai words.
+- Benefits: Completes WYN-135 for developer accounts without changing Web Beta1 UI, unrelated chat tables, or existing Flutter code.
+- Risks: Index creation briefly locks `club_channel_messages` writes; new SECURITY DEFINER RPCs demand audit of auth, membership, allowed roles and developer gates; preview shares production DB and cannot validate uninstalled RPCs. No destructive SQL or existing RLS relaxation is planned.
+- Files affected: `supabase/migrations_web_beta2_club_chat_actions.sql`, `supabase/tests/web_beta2_club_chat_actions_test.sh`, `.github/workflows/web-beta2-apply-club-chat-actions.yml`, Beta2-only web files. Rollback: Founder-directed drop of new RPCs/indexes and removal of only the new columns after reviewing developer data; never automatic.
+- Verification: PR #741 `npm run check`, disposable PostgreSQL regression applied twice, protected staging and post-migration developer-only smoke tests. A mere general request to finish development does not replace explicit production SQL authorization under the 2026-09-07 policy.
+- สถานะ: **รออนุมัติแยกสำหรับ Production SQL**; ไม่รัน workflow เอง และไม่เปิด Beta2 ให้ผู้ใช้ทั่วไป
