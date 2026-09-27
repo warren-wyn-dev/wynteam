@@ -154,7 +154,30 @@ Still open in M1:
   while the app is on screen. Realtime (Supabase channels) and online dots are not in this milestone.
 - Beta 2 chat features (reactions, pins, forward, edit, reply, hide, report message) stay off, as on the web
   (`BETA2_RELEASED.chatThreads = false`). Wynii (the chat pet) comes with M7.
-- **Next: M6 Clubs.**
+
+## M6 status
+
+- **Clubs tab** (web ExploreClubs): the "find your community" card with "สร้าง Club", a name search, and
+  "กำลังนิยม" (most members) / "ใหม่ล่าสุด" (newest, never repeating a popular Club), without Clubs you have
+  joined; join straight from the list (a private Club shows "รออนุมัติ").
+- **Create Club**: name (50), description (500), category (50), public / private and an optional photo (type/size
+  checked, GPS removed) uploaded to the private `club-media` bucket; the new Club then opens in place of the form.
+- **Club page** (web club-detail-golden): banner, photo, members, category, lock, membership button (join, leave or
+  cancel a request after confirming; optimistic with rollback), share, and the menu (mute notifications, manage →
+  About, leave, cancel request, report). Tabs:
+  - **Posts** (pinned first; hidden in a private Club until approved): like, save with undo, share, delete (own or
+    moderator, after confirming), pin (moderators, not their own), report, poll voting with results, links, photos.
+  - **Chat** (Beta 1, approved members only): channels, the latest 150 messages, text and one photo, delete (own or
+    moderator, after confirming) or report others, read marks; refreshed every 5 s while on screen.
+  - **About**: details and rules, members, events (members) and 30-day Insights (owner / admin).
+- **Home "คลับของฉัน"**: posts from your Clubs, like and open; likes stay in step with the Club page.
+- **Club post** page (web ClubPostRoute), **My Clubs** list and the **invite link** screen are built; My Clubs is
+  reached from the Home menu (M7), and opening `/club-invite/…` links in the app needs Android App Links, which in
+  turn need `assetlinks.json` on wynos.online (a web deploy for the Founder to approve, planned with M8).
+- Notifications and pushes about a Club or Club post now open it.
+- Beta 2 Club features (announcements, chat edit / pin / search) stay off, as on the web. The web has no way to
+  write a Club post in Beta 1, so Android has none either.
+- **Next: M7 Search, Settings, Wynii.**
 
 ## Risks
 

@@ -52,7 +52,23 @@ import io.wyn.wyn.core.design.WynIcons
 import io.wyn.wyn.core.data.NotificationItem
 import io.wyn.wyn.core.data.ChatRepository
 import io.wyn.wyn.core.data.SupabaseChatRepository
+import io.wyn.wyn.core.data.ClubRepository
+import io.wyn.wyn.core.data.SupabaseClubRepository
 import io.wyn.wyn.feature.chat.ChatInboxScreen
+import io.wyn.wyn.feature.clubs.ClubFeedViewModel
+import io.wyn.wyn.feature.clubs.ClubInviteScreen
+import io.wyn.wyn.feature.clubs.ClubInviteViewModel
+import io.wyn.wyn.feature.clubs.ClubPostScreen
+import io.wyn.wyn.feature.clubs.ClubPostViewModel
+import io.wyn.wyn.feature.clubs.ClubScreen
+import io.wyn.wyn.feature.clubs.ClubTab
+import io.wyn.wyn.feature.clubs.ClubViewModel
+import io.wyn.wyn.feature.clubs.CreateClubScreen
+import io.wyn.wyn.feature.clubs.CreateClubViewModel
+import io.wyn.wyn.feature.clubs.ExploreClubsScreen
+import io.wyn.wyn.feature.clubs.ExploreClubsViewModel
+import io.wyn.wyn.feature.clubs.MyClubsScreen
+import io.wyn.wyn.feature.clubs.MyClubsViewModel
 import io.wyn.wyn.feature.chat.ChatInboxViewModel
 import io.wyn.wyn.feature.chat.ConversationScreen
 import io.wyn.wyn.feature.chat.ConversationViewModel
@@ -107,6 +123,7 @@ data class Repositories(
     val profiles: ProfileRepository,
     val notifications: NotificationRepository,
     val chat: ChatRepository,
+    val clubs: ClubRepository,
     val push: PushController? = null,
 ) {
     companion object {
@@ -120,6 +137,7 @@ data class Repositories(
                 profiles = SupabaseProfileRepository(client, quotes),
                 notifications = SupabaseNotificationRepository(client),
                 chat = SupabaseChatRepository(client),
+                clubs = SupabaseClubRepository(client),
                 push = push,
             )
         }
@@ -140,6 +158,11 @@ private sealed interface Screen {
     data class Coming(val message: Int) : Screen
     /** A conversation, or a new one with [user] when [id] is null (web /chat/new?user=). */
     data class Conversation(val id: String?, val user: String?) : Screen
+    data class Club(val id: String) : Screen
+    data class ClubPost(val id: String) : Screen
+    data object CreateClub : Screen
+    data object MyClubs : Screen
+    data class ClubInvite(val code: String) : Screen
 
     fun encode(): String = when (this) {
         is Post -> "post:$id"
@@ -153,6 +176,12 @@ private sealed interface Screen {
         Drafts -> "drafts"
         is Coming -> "coming:$message"
         is Conversation -> "chat:${id ?: "-"}:${user ?: "-"}"
+        is Club -> "club:$id"
+        is ClubPost -> "club-post:$id"
+        CreateClub -> "club-new"
+        MyClubs -> "clubs-mine"
+        // An invite code is free text; keep it on one line and without ':'.
+        is ClubInvite -> "club-invite:" + java.net.URLEncoder.encode(code, "UTF-8")
     }
 
     companion object {
@@ -170,6 +199,11 @@ private sealed interface Screen {
                 "drafts" -> Drafts
                 "coming" -> parts.getOrNull(1)?.toIntOrNull()?.let(::Coming)
                 "chat" -> if (parts.size == 3) Conversation(parts[1].takeIf { it != "-" }, parts[2].takeIf { it != "-" }) else null
+                "club" -> parts.getOrNull(1)?.let(::Club)
+                "club-post" -> parts.getOrNull(1)?.let(::ClubPost)
+                "club-new" -> CreateClub
+                "clubs-mine" -> MyClubs
+                "club-invite" -> parts.getOrNull(1)?.let { ClubInvite(java.net.URLDecoder.decode(it, "UTF-8")) }
                 else -> null
             }
         }
@@ -199,10 +233,12 @@ fun SignedInApp(
     val stack = saved.split('\n').filter { it.isNotEmpty() }.mapNotNull(Screen::decode)
     fun push(screen: Screen) { saved = (stack + screen).joinToString("\n") { it.encode() } }
     fun pop() { saved = stack.dropLast(1).joinToString("\n") { it.encode() } }
+    fun replaceTop(screen: Screen) { saved = (stack.dropLast(1) + screen).joinToString("\n") { it.encode() } }
     // null: closed; "" : new post; otherwise the draft being continued.
     var composer by rememberSaveable(userId) { mutableStateOf<String?>(null) }
     var composerSession by rememberSaveable(userId) { mutableIntStateOf(0) }
     var editSession by rememberSaveable(userId) { mutableIntStateOf(0) }
+    var clubSession by rememberSaveable(userId) { mutableIntStateOf(0) }
     fun openComposer(draftId: String?) {
         composerSession += 1
         composer = draftId.orEmpty()
@@ -240,7 +276,8 @@ fun SignedInApp(
             item.conversationId != null -> push(Screen.Conversation(item.conversationId, item.actorId))
             item.dropId != null -> push(Screen.Post(item.dropId!!))
             item.popId != null -> push(Screen.Coming(R.string.coming_pops))
-            item.clubPostId != null || item.clubId != null -> push(Screen.Coming(R.string.coming_clubs))
+            item.clubPostId != null -> push(Screen.ClubPost(item.clubPostId!!))
+            item.clubId != null -> push(Screen.Club(item.clubId!!))
             item.actorId != null -> push(Screen.Profile(item.actorId!!))
         }
     }
@@ -253,13 +290,19 @@ fun SignedInApp(
         }
         onPushTargetHandled()
     }
+    var shellTab by rememberSaveable(userId) { mutableStateOf(MainTab.Home) }
     val feedNav = HomeNavigation(
         onCompose = { openComposer(null) },
         onNotifications = { push(Screen.Notifications) },
         onOpenPost = { push(Screen.Post(it.id)) },
         onOpenProfile = ::openProfile,
         onOpenQuote = { row -> row.redropId?.let { push(Screen.Quote(it)) } },
+        onOpenClubPost = { push(Screen.ClubPost(it)) },
+        onExploreClubs = { shellTab = MainTab.Clubs },
     )
+    // Club likes made on one screen show on the others (web club-engagement-sync).
+    val clubSync = remember(userId) { EngagementSync() }
+    val clubFeed: ClubFeedViewModel = viewModel(key = "club-feed:$userId", factory = viewModelFactory { initializer { ClubFeedViewModel(repos.clubs, userId, clubSync) } })
     val switcher = AccountSwitcher(
         accounts = vm.savedAccounts, activeId = vm.activeUserId, busy = vm.homeBusy, message = vm.homeMessage,
         switchTo = vm::switchTo, add = vm::addAccount, remove = vm::removeAccount, clearMessage = vm::clearHomeMessage,
@@ -274,7 +317,9 @@ fun SignedInApp(
     )
 
     MainShell(
-        home = { HomeScreen(home, feedNav, notificationCount = badge.count) },
+        tab = shellTab,
+        onTab = { shellTab = it },
+        home = { HomeScreen(home, feedNav, notificationCount = badge.count, clubs = clubFeed) },
         profile = { ProfileScreen(me, profileNav(userId, back = null), switcher) },
         onCompose = { openComposer(null) },
         chatUnread = inbox.unreadCount,
@@ -284,6 +329,10 @@ fun SignedInApp(
                 onPauseOrDispose {}
             }
             ChatInboxScreen(inbox, onOpen = { row -> push(Screen.Conversation(row.id, row.otherUserId)) })
+        },
+        clubs = {
+            val explore: ExploreClubsViewModel = viewModel(key = "clubs-explore:$userId", factory = viewModelFactory { initializer { ExploreClubsViewModel(repos.clubs, userId) } })
+            ExploreClubsScreen(explore, onOpen = { push(Screen.Club(it)) }, onCreate = { clubSession += 1; push(Screen.CreateClub) })
         },
     )
 
@@ -373,6 +422,50 @@ fun SignedInApp(
                 DraftsScreen(drafts, onBack = ::pop, onOpen = { id -> pop(); openComposer(id) })
             }
             is Screen.Coming -> BackTitled("", ::pop) { ComingSoon(screen.message) }
+            is Screen.Club -> {
+                val club: ClubViewModel = viewModel(
+                    key = "club:$userId:${screen.id}",
+                    factory = viewModelFactory { initializer { ClubViewModel(repos.clubs, userId, screen.id, clubSync) } },
+                )
+                // web ChatTab: new messages while the chat is on screen (a realtime insert there).
+                LaunchedEffect(club, club.tab) {
+                    if (club.tab != ClubTab.Chat) return@LaunchedEffect
+                    club.chat.reload()
+                    lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                        while (true) {
+                            delay(5_000)
+                            club.chat.reload()
+                        }
+                    }
+                }
+                ClubScreen(club, onBack = ::pop, onOpenProfile = ::openProfile, onOpenPost = { push(Screen.ClubPost(it)) })
+            }
+            is Screen.ClubPost -> {
+                val post: ClubPostViewModel = viewModel(
+                    key = "club-post:$userId:${screen.id}",
+                    factory = viewModelFactory { initializer { ClubPostViewModel(repos.clubs, screen.id) } },
+                )
+                ClubPostScreen(post, onBack = ::pop)
+            }
+            Screen.CreateClub -> {
+                val create: CreateClubViewModel = viewModel(
+                    key = "club-new:$userId:$clubSession",
+                    factory = viewModelFactory { initializer { CreateClubViewModel(repos.clubs, userId) } },
+                )
+                // web router.replace(`/club/<id>`): the new Club replaces the form.
+                CreateClubScreen(create, onBack = ::pop, onCreated = { id -> replaceTop(Screen.Club(id)) })
+            }
+            Screen.MyClubs -> {
+                val mine: MyClubsViewModel = viewModel(key = "clubs-mine:$userId", factory = viewModelFactory { initializer { MyClubsViewModel(repos.clubs, userId) } })
+                MyClubsScreen(mine, onBack = ::pop, onOpen = { push(Screen.Club(it)) })
+            }
+            is Screen.ClubInvite -> {
+                val invite: ClubInviteViewModel = viewModel(
+                    key = "club-invite:$userId:${screen.code}",
+                    factory = viewModelFactory { initializer { ClubInviteViewModel(repos.clubs, screen.code) } },
+                )
+                ClubInviteScreen(invite, onBack = ::pop, onOpenClub = { push(Screen.Club(it)) })
+            }
             is Screen.Conversation -> {
                 val conversation: ConversationViewModel = viewModel(
                     key = "chat:$userId:${screen.id ?: "new:" + screen.user}",

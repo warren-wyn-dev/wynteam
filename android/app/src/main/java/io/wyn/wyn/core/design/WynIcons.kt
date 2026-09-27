@@ -98,6 +98,37 @@ object WynIcons {
         "M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z",
         "m15 5 4 4",
     )
+    val Pin = stroke(
+        2f,
+        "M12 17v5",
+        "M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z",
+    )
+    val BellOff = stroke(
+        2f,
+        "M10.268 21a2 2 0 0 0 3.464 0",
+        "M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742",
+        "m2 2 20 20",
+        "M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05",
+    )
+    val Info = stroke(2f, circle(12f, 12f, 10f), "M12 16v-4", "M12 8h.01")
+    val LogOut = stroke(2f, "m16 17 5-5-5-5", "M21 12H9", "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4")
+    val CalendarDays = stroke(
+        2f, "M8 2v3", "M16 2v3", rect(3f, 3f, 18f, 18f, 2f), "M3 9h18",
+        "M8 13h.01", "M12 13h.01", "M16 13h.01", "M8 17h.01", "M12 17h.01", "M16 17h.01",
+    )
+    val Lock = stroke(2f, rect(3f, 11f, 18f, 11f, 2f), "M7 11V7a5 5 0 0 1 10 0v4")
+    private const val BOOKMARK =
+        "M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"
+    val Bookmark = stroke(2f, BOOKMARK)
+    val BookmarkFilled = stroke(2f, BOOKMARK, filled = true)
+    private const val LUCIDE_HEART =
+        "M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"
+    val LucideHeart = stroke(2f, LUCIDE_HEART)
+    val LucideHeartFilled = stroke(2f, LUCIDE_HEART, filled = true)
+    val MessageCircle = stroke(
+        2f,
+        "M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719",
+    )
 
     // Post actions (Founder-supplied set, 2026-09-22).
     private const val HEART = "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"
