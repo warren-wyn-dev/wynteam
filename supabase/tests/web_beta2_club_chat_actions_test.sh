@@ -77,7 +77,10 @@ insert into public.club_channel_messages(id,channel_id,author_id,content,image_u
   ('dddddddd-0000-0000-0000-000000000004','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','meeting delta',null),
   ('dddddddd-0000-0000-0000-000000000005','cccccccc-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000001','phoenix other channel',null),
   ('dddddddd-0000-0000-0000-000000000006','cccccccc-0000-0000-0000-000000000003','aaaaaaaa-0000-0000-0000-000000000005','phoenix private',null),
-  ('dddddddd-0000-0000-0000-000000000007','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003',null,'avatar.png');
+  ('dddddddd-0000-0000-0000-000000000007','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003',null,'avatar.png'),
+  ('dddddddd-0000-0000-0000-000000000008','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','พรุ่งนี้ประชุมเรื่องสำคัญ',null),
+  ('dddddddd-0000-0000-0000-000000000009','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','sample a_b literal',null),
+  ('dddddddd-0000-0000-0000-000000000010','cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000003','sample aXb distractor',null);
 SQL
 
 cat > "$WORK/assert.sql" <<'SQL'
@@ -116,6 +119,12 @@ do $$ begin
   if (select count(*) from public.search_club_channel_messages(
       'cccccccc-0000-0000-0000-000000000001','phoenix',100)) <> 2
   then raise exception 'Channel search returned wrong rows'; end if;
+  if (select count(*) from public.search_club_channel_messages(
+      'cccccccc-0000-0000-0000-000000000001','ประชุม')) <> 1
+  then raise exception 'Thai substring search failed'; end if;
+  if (select count(*) from public.search_club_channel_messages(
+      'cccccccc-0000-0000-0000-000000000001','a_b')) <> 1
+  then raise exception 'Wildcard was not escaped in indexed substring search'; end if;
   if (select count(*) from public.search_club_channel_messages(
       'cccccccc-0000-0000-0000-000000000001','  ')) <> 0
   then raise exception 'Empty search returned data'; end if;
@@ -197,6 +206,9 @@ do $$ begin
   if not exists(select 1 from pg_indexes where schemaname='public'
     and indexname='club_channel_messages_fts_idx' and lower(indexdef) like '%using gin%')
   then raise exception 'Missing GIN full-text index'; end if;
+  if not exists(select 1 from pg_indexes where schemaname='public'
+    and indexname='club_channel_messages_trgm_idx' and lower(indexdef) like '%using gin%')
+  then raise exception 'Missing pg_trgm GIN index'; end if;
   if has_function_privilege('anon', 'public.search_club_channel_messages(uuid,text,integer)', 'EXECUTE')
   then raise exception 'Anon search is executable'; end if;
 end $$;
