@@ -24,7 +24,7 @@ import {
   saveAccountLanguage,
   setLanguage,
 } from "@/lib/i18n/language";
-import { getPushAvailability, isCurrentDevicePushEnabled, pushReasonDescription, setPushWanted, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability } from "@/lib/push-notifications";
+import { getPushAvailability, isCurrentDevicePushEnabled, pushReasonDescription, setPushChosen, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
   exportMyData,
@@ -355,7 +355,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
           return;
         }
         // Only turning the switch off here stops Push coming back by itself.
-        setPushWanted(userId, false);
+        setPushChosen(userId, false);
         setPushEnabled(false);
       }
     } catch {

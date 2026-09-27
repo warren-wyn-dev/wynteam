@@ -88,3 +88,37 @@ test("the wanted flag is per account and cleared only by setPushWanted(false)", 
   assert.equal(f.exports.isPushWanted("u1"), false);
   assert.equal(f.exports.isPushWanted("u2"), true);
 });
+
+// Founder report: "มันปิดเองตอนสลับบัญชี" (Push turns off on account switch).
+test("Push that was on carries over to the account switched to, and back", async () => {
+  const f = fixture({ wanted: true });
+  assert.equal(await f.exports.isPushOnBeforeAccountChange("u1"), true);
+  f.exports.keepPushOnAcrossAccountChange("u1", "u2");
+  assert.equal(f.exports.isPushWanted("u2"), true);
+  assert.equal(f.exports.isPushWanted("u1"), true);
+  // After the hard navigation, the new account's page load registers it.
+  await f.exports.resyncPushRegistration(f.client, "u2");
+  assert.deepEqual(f.calls, ["upsert:u2:rotated-token"]);
+});
+
+test("an active subscription counts as on even without the wanted flag (Push turned on before it existed)", async () => {
+  const f = fixture({ wanted: false });
+  assert.equal(await f.exports.isPushOnBeforeAccountChange("u1"), true);
+});
+
+test("a switch never turns Push on for an account that turned it off in Settings", () => {
+  const f = fixture({ wanted: false });
+  f.exports.setPushChosen("u2", false);
+  f.exports.keepPushOnAcrossAccountChange("u1", "u2");
+  assert.equal(f.exports.isPushWanted("u2"), false);
+  f.exports.setPushChosen("u2", true);
+  f.exports.keepPushOnAcrossAccountChange("u1", "u2");
+  assert.equal(f.exports.isPushWanted("u2"), true);
+});
+
+test("resync remembers an account already registered on this device, without re-registering", async () => {
+  const f = fixture({ wanted: false, registered: true });
+  await f.exports.resyncPushRegistration(f.client, "u1");
+  assert.equal(f.exports.isPushWanted("u1"), true);
+  assert.deepEqual(f.calls, []);
+});
