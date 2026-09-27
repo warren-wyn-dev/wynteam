@@ -66,9 +66,13 @@ function ScopedClubAnnouncementsTab({
       if (!mounted.current || request !== requestSequence.current) return;
       setItems(rows);
       setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE);
+      setLoadingMore(false);
       setFailed(false);
     } catch {
-      if (mounted.current && request === requestSequence.current) setFailed(true);
+      if (mounted.current && request === requestSequence.current) {
+        setLoadingMore(false);
+        setFailed(true);
+      }
     }
   }, [client, clubId]);
 

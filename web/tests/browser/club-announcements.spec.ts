@@ -47,7 +47,9 @@ test.describe("fixture", () => {
     await sheet.getByRole("button", { name: "ส่งประกาศ", exact: true }).click();
     await expect(sheet).toBeHidden();
     await expect(tab.getByText("ประกาศใหม่หลังเริ่มโหลด")).toBeVisible();
-    await page.waitForTimeout(500); // The intentionally delayed first read has now completed.
+    await page.evaluate(() => (window as Window & {
+      __wynReleaseAnnouncementSlowRead?: () => void;
+    }).__wynReleaseAnnouncementSlowRead?.());
     await expect(tab.getByText("ประกาศใหม่หลังเริ่มโหลด")).toBeVisible();
   });
 
@@ -58,7 +60,9 @@ test.describe("fixture", () => {
     )).toBe(true);
     await page.getByRole("button", { name: "เปลี่ยน Club ทดสอบ" }).click();
     await expect(tab.getByText("ประกาศจาก Club ใหม่")).toBeVisible();
-    await page.waitForTimeout(500); // The old Club response should be ignored after switching.
+    await page.evaluate(() => (window as Window & {
+      __wynReleaseAnnouncementSlowRead?: () => void;
+    }).__wynReleaseAnnouncementSlowRead?.());
     await expect(tab.getByText("ประกาศจาก Club ใหม่")).toBeVisible();
     await expect(tab.getByText(/นัดถ่ายรูปเสาร์นี้/)).toHaveCount(0);
     await expect(tab.getByText(/กติกาใหม่/)).toHaveCount(0);

@@ -40,8 +40,13 @@ function fakeClient(rows: Row[], delayFirstClubRead = false): SupabaseClient {
           .sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
         if (firstReadPending && requestedClub === "club") {
           firstReadPending = false;
-          (window as Window & { __wynAnnouncementSlowRead?: boolean }).__wynAnnouncementSlowRead = true;
-          await new Promise((resolve) => setTimeout(resolve, 450));
+          const testWindow = window as Window & {
+            __wynAnnouncementSlowRead?: boolean;
+            __wynReleaseAnnouncementSlowRead?: () => void;
+          };
+          testWindow.__wynAnnouncementSlowRead = true;
+          // QA controls the resolution; no timing-dependent race assertions.
+          await new Promise<void>((resolve) => { testWindow.__wynReleaseAnnouncementSlowRead = resolve; });
         }
         return { data, error: null };
       },
