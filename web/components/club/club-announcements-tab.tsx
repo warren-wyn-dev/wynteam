@@ -78,9 +78,21 @@ function ScopedClubAnnouncementsTab({
 
   useEffect(() => {
     if (!approved) { requestSequence.current += 1; return; }
-    void load();
-    return () => { requestSequence.current += 1; };
-  }, [approved, load]);
+    const request = ++requestSequence.current;
+    let live = true;
+    void fetchClubAnnouncements(client, clubId)
+      .then((rows) => {
+        if (!live || !mounted.current || request !== requestSequence.current) return;
+        setItems(rows);
+        setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE);
+        setLoadingMore(false);
+        setFailed(false);
+      })
+      .catch(() => {
+        if (live && mounted.current && request === requestSequence.current) setFailed(true);
+      });
+    return () => { live = false; requestSequence.current += 1; };
+  }, [approved, client, clubId]);
 
   const loadMore = async () => {
     const last = items?.[items.length - 1];
