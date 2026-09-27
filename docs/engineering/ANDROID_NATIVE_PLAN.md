@@ -1,6 +1,6 @@
 # Wynos Android — native app plan (Kotlin + Jetpack Compose)
 
-Status: **approved; M0 + M1 in progress.**
+Status: **approved; M0 done, M1 done except Google sign-in (see M1 status).**
 
 ## Founder decision (2026-09-27)
 
@@ -74,6 +74,25 @@ Each milestone ships to internal testing only after CI is green and the Founder 
 4. **Flutter app:** retired on Android once native Android ships; kept for iOS for now (code not deleted).
 5. **iOS approach:** decided later.
 6. **Order:** start M0 + M1 now, with screenshots to the Founder each milestone.
+
+## M1 status
+
+Done (unit tests + screenshots in `android/app/src/test`):
+
+- Welcome with the invite-code gate, login, sign-up step 1/2, check-your-email, onboarding (photo + bio, skip),
+  forgot password, sign out, add account and account switching. The same validation, error wording and database
+  writes as the web (`AuthRules`, `AccountFlowViewModel`, `SupabaseAuthRepository`).
+- Email links (confirm sign-up, reset password) open the web pages the web already uses (`wynos.online/auth/callback`,
+  `wynos.online/reset-password`); the user then signs in to the app.
+- Inactive accounts keep their own session in app-private storage (`allowBackup="false"`), like the web's account
+  registry; adding an account clears the local session without revoking it.
+
+Still open in M1:
+
+- **Google sign-in** needs an Android OAuth client (package `io.wyn.wyn` + signing SHA-1) in Google Cloud and the
+  Supabase Google provider — a Founder/infra step. Until then the button explains it is not available yet.
+- The photo crop is automatic (centre square); the web's interactive cropper comes with M3 (edit profile).
+- The signed-in screen is a temporary account screen until the M2 feed.
 
 ## Risks
 

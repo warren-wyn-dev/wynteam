@@ -15,4 +15,105 @@
     <string name="welcome_privacy">นโยบายความเป็นส่วนตัว</string>
     <string name="config_missing">ยังไม่ได้ตั้งค่าการเชื่อมต่อ WYNOS สำหรับแอปนี้</string>
     <string name="version_label" translatable="false">Wynos Android v1.0.0 Beta 1</string>
+
+    <string name="back">ย้อนกลับ</string>
+    <string name="next">หน้าถัดไป</string>
+    <string name="retry">ลองใหม่</string>
+    <string name="skip">ข้าม</string>
+    <string name="saving">กำลังบันทึก…</string>
+    <string name="loading_generic">กำลังดำเนินการ…</string>
+    <string name="member">สมาชิก</string>
+
+    <string name="invite_only">ตอนนี้ WYNOS เปิดให้เข้าใช้งานเฉพาะผู้ที่มีโค้ดเชิญจากเพื่อนเท่านั้น</string>
+    <string name="invite_code">โค้ดเชิญ</string>
+    <string name="invite_continue">ดำเนินการต่อ</string>
+    <string name="invite_checking">กำลังตรวจสอบ…</string>
+    <string name="google_not_ready">การเข้าสู่ระบบด้วย Google บน Android ยังไม่เปิดใช้งาน ใช้อีเมลและรหัสผ่านไปก่อน</string>
+
+    <string name="field_email">อีเมล</string>
+    <string name="field_password">รหัสผ่าน</string>
+    <string name="field_confirm_password">ยืนยันรหัสผ่าน</string>
+    <string name="field_username">ชื่อผู้ใช้</string>
+    <string name="field_display_name">ชื่อที่แสดง</string>
+    <string name="field_birthday">วันเกิด</string>
+    <string name="birthday_day">วัน</string>
+    <string name="birthday_month">เดือน</string>
+    <string name="birthday_year">ปี</string>
+    <string-array name="months">
+        <item>มกราคม</item><item>กุมภาพันธ์</item><item>มีนาคม</item><item>เมษายน</item>
+        <item>พฤษภาคม</item><item>มิถุนายน</item><item>กรกฎาคม</item><item>สิงหาคม</item>
+        <item>กันยายน</item><item>ตุลาคม</item><item>พฤศจิกายน</item><item>ธันวาคม</item>
+    </string-array>
+
+    <string name="login_title">เข้าสู่ระบบ</string>
+    <string name="login_password_placeholder">รหัสผ่านของคุณ</string>
+    <string name="login_forgot">ลืมรหัสผ่าน?</string>
+    <string name="login_loading">กำลังเข้าสู่ระบบ…</string>
+    <string name="login_no_account">ยังไม่มีบัญชี?</string>
+    <string name="login_create">สร้างบัญชีใหม่</string>
+
+    <string name="signup1_title">สร้างบัญชี</string>
+    <string name="signup1_subtitle">มาทำความรู้จักคุณกันก่อน</string>
+    <string name="display_name_placeholder">ชื่อของคุณ</string>
+    <string name="username_hint_format">ใช้ a-z, 0-9 หรือ _ จำนวน 3–20 ตัวอักษร</string>
+    <string name="username_available">ชื่อผู้ใช้นี้ใช้ได้</string>
+    <string name="username_checking">กำลังตรวจสอบชื่อผู้ใช้…</string>
+    <string name="signup_autofollow">เมื่อสมัครบัญชีใหม่ คุณจะติดตามบัญชี Official @wynos_s โดยอัตโนมัติ และสามารถเลิกติดตามได้ทุกเมื่อ</string>
+
+    <string name="signup2_title">ตั้งรหัสผ่าน</string>
+    <string name="signup2_subtitle">ใช้สำหรับเข้าสู่ระบบครั้งต่อไป</string>
+    <string name="password_placeholder">อย่างน้อย %1$d ตัวอักษร</string>
+    <string name="confirm_password_placeholder">พิมพ์รหัสผ่านอีกครั้ง</string>
+    <string name="signup2_submit">สร้างบัญชี</string>
+    <string name="signup2_loading">กำลังสร้างบัญชี…</string>
+    <string name="signup_have_account">มีบัญชีอยู่แล้ว?</string>
+    <string name="check_email_title">ตรวจสอบอีเมลของคุณ</string>
+    <string name="check_email_body">หากสมัครสำเร็จ เราได้ส่งลิงก์ยืนยันไปที่ %1$s แล้ว กดลิงก์ยืนยัน แล้วกลับมาเข้าสู่ระบบในแอปเพื่อตั้งค่าโปรไฟล์ให้เสร็จ</string>
+    <string name="go_to_login">ไปหน้าเข้าสู่ระบบ</string>
+
+    <string name="forgot_title">ลืมรหัสผ่าน?</string>
+    <string name="forgot_subtitle">กรอกอีเมลที่ใช้สมัคร เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้</string>
+    <string name="forgot_submit">ส่งลิงก์รีเซ็ตรหัสผ่าน</string>
+    <string name="forgot_loading">กำลังส่ง…</string>
+    <string name="forgot_sent">ส่งลิงก์ไปที่ %1$s แล้ว ตรวจสอบกล่องอีเมลของคุณ</string>
+
+    <string name="onboarding_title">เพิ่มรูปโปรไฟล์</string>
+    <string name="onboarding_subtitle">ให้คนอื่นรู้จักคุณมากขึ้น</string>
+    <string name="onboarding_pick_photo">เลือกรูปโปรไฟล์</string>
+    <string name="onboarding_bio">แนะนำตัวสั้นๆ (ไม่บังคับ)</string>
+    <string name="onboarding_bio_placeholder">ชอบเที่ยว ชอบถ่ายรูป...</string>
+    <string name="onboarding_start">เริ่มใช้งาน Wynos</string>
+
+    <string name="home_next_milestone">เข้าสู่ระบบแล้ว ฟีดและโปรไฟล์จะมาในรุ่นถัดไปของ Wynos Android</string>
+    <string name="accounts_switch">สลับบัญชี</string>
+    <string name="accounts_add">เพิ่มบัญชี</string>
+    <string name="accounts_current">ใช้งานอยู่</string>
+    <string name="account_needs_sign_in">บัญชีนี้ต้องเข้าสู่ระบบใหม่</string>
+    <string name="sign_out">ออกจากระบบ</string>
+
+    <string name="err_invite_empty">กรุณากรอกโค้ดเชิญ</string>
+    <string name="err_invite_invalid">โค้ดเชิญไม่ถูกต้อง</string>
+    <string name="err_connection">เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง</string>
+    <string name="err_username_format">ชื่อผู้ใช้ต้องมี 3-20 ตัว เป็นตัวพิมพ์เล็ก a-z, 0-9 หรือ _ เท่านั้น</string>
+    <string name="err_username_reserved">ชื่อผู้ใช้นี้ไม่สามารถใช้ได้ กรุณาเลือกชื่ออื่น</string>
+    <string name="err_display_name">กรุณากรอกชื่อที่แสดง</string>
+    <string name="err_birth_date">กรุณากรอกวันเกิดให้ถูกต้อง (อายุอย่างน้อย %1$d ปี)</string>
+    <string name="err_username_check">ตรวจสอบชื่อผู้ใช้ไม่ได้ กรุณาลองอีกครั้ง</string>
+    <string name="err_username_taken">ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาเลือกชื่ออื่น</string>
+    <string name="err_username_taken_retry">ชื่อผู้ใช้นี้ถูกใช้แล้ว ลองชื่ออื่น</string>
+    <string name="err_username_taken_back">ชื่อผู้ใช้นี้ถูกใช้แล้ว กรุณาย้อนกลับไปเปลี่ยนชื่อผู้ใช้</string>
+    <string name="err_generic">เกิดข้อผิดพลาด ลองใหม่อีกครั้ง</string>
+    <string name="err_email">กรุณากรอกอีเมลให้ถูกต้อง</string>
+    <string name="err_password_short">รหัสผ่านต้องมีอย่างน้อย %1$d ตัวอักษร</string>
+    <string name="err_password_mismatch">รหัสผ่านไม่ตรงกัน</string>
+    <string name="err_email_registered">อีเมลนี้มีบัญชีอยู่แล้ว ลองเข้าสู่ระบบแทน</string>
+    <string name="err_signup_failed">สมัครสมาชิกไม่สำเร็จ ลองใหม่อีกครั้ง</string>
+    <string name="err_login_empty">กรุณากรอกอีเมลและรหัสผ่าน</string>
+    <string name="err_login_unconfirmed">บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณากดลิงก์ยืนยันในอีเมลก่อนเข้าสู่ระบบ</string>
+    <string name="err_login_failed">อีเมลหรือรหัสผ่านไม่ถูกต้อง</string>
+    <string name="err_reset_failed">ส่งลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง</string>
+    <string name="err_profile_save">บันทึกโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</string>
+    <string name="err_image_size">รูปภาพต้องมีขนาดไม่เกิน 10MB</string>
+    <string name="err_image_type">กรุณาเลือกไฟล์รูปภาพ</string>
+    <string name="err_session_check">ตรวจสอบการเข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</string>
 </resources>

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,6 +32,18 @@ import io.wyn.wyn.core.design.DarkWynColors
 import io.wyn.wyn.core.design.Wyn
 import io.wyn.wyn.core.design.WynOutlineButton
 import io.wyn.wyn.core.design.WynPrimaryButton
+import io.wyn.wyn.core.design.WynTextField
+import io.wyn.wyn.core.design.ErrorText
+import io.wyn.wyn.feature.auth.InviteGate
+
+/** The invite-code form shown while the invite gate is on. */
+data class InviteState(
+    val code: String = "",
+    val onCodeChange: (String) -> Unit = {},
+    val onSubmit: () -> Unit = {},
+    val loading: Boolean = false,
+    val error: String? = null,
+)
 
 /** Mirrors the web's WelcomeScreen (web/components/auth-flow/screens.tsx). */
 @Composable
@@ -39,6 +52,9 @@ fun WelcomeScreen(
     onSignIn: () -> Unit,
     onGoogle: () -> Unit,
     configured: Boolean = SupabaseProvider.isConfigured,
+    gate: InviteGate = InviteGate.Open,
+    error: String? = null,
+    invite: InviteState = InviteState(),
 ) {
     val c = Wyn.colors
     Column(
@@ -70,9 +86,27 @@ fun WelcomeScreen(
                     color = c.accent, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
                 )
             }
-            WynPrimaryButton(stringResource(R.string.welcome_create_account), onCreateAccount, enabled = configured)
+            if (gate == InviteGate.Blocked) {
+                Text(
+                    stringResource(R.string.invite_only), color = c.textSecondary, fontSize = 13.sp,
+                    textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
+                )
+                WynTextField(stringResource(R.string.invite_code), invite.code, invite.onCodeChange, "")
+                WynPrimaryButton(
+                    stringResource(if (invite.loading) R.string.invite_checking else R.string.invite_continue),
+                    invite.onSubmit, enabled = !invite.loading,
+                )
+                ErrorText(invite.error)
+                WynOutlineButton(stringResource(R.string.welcome_sign_in), onSignIn)
+                return@Column
+            }
+            WynPrimaryButton(stringResource(R.string.welcome_create_account), onCreateAccount, enabled = configured && gate == InviteGate.Open)
             WynOutlineButton(stringResource(R.string.welcome_sign_in), onSignIn, enabled = configured)
-            WynOutlineButton(stringResource(R.string.welcome_sign_in_google), onGoogle, enabled = configured)
+            WynOutlineButton(
+                stringResource(R.string.welcome_sign_in_google), onGoogle, enabled = configured,
+                leading = { Image(painterResource(R.drawable.ic_google), contentDescription = null, modifier = Modifier.size(18.dp)) },
+            )
+            ErrorText(error)
             Spacer(Modifier.height(6.dp))
             val terms = stringResource(R.string.welcome_terms)
             val privacy = stringResource(R.string.welcome_privacy)
