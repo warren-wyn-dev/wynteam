@@ -451,9 +451,11 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   // current view. React refs are updated in a layout effect, never in render.
   const activeView = useRef({ channelId, beta2 });
   const reloadSequence = useRef(0);
+  const jumpSequence = useRef(0);
   useLayoutEffect(() => {
     activeView.current = { channelId, beta2 };
     reloadSequence.current += 1;
+    jumpSequence.current += 1;
   }, [channelId, beta2]);
   // A merge auto-deploys to production, but the SQL migration is Founder-run.
   // Fail closed until the final schema-readiness RPC exists and confirms the
@@ -553,23 +555,30 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
     void reload();
   };
   const jumpToMessage = async (id: string) => {
+    const jumpRequest = ++jumpSequence.current;
+    const isCurrentJump = () => jumpRequest === jumpSequence.current
+      && activeView.current.channelId === channelId
+      && activeView.current.beta2 === beta2;
+    if (!beta2 || !channelId) return;
     if (messages.some((message) => message.id === id)) {
       document.getElementById("club-message-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     try {
       const found = await fetchMessages(client, channelId, true, id);
+      // Another jump, a channel switch, or Beta2 gate change invalidates this result.
+      if (!isCurrentJump()) return;
       if (!found.length) { setError("ไม่พบข้อความในห้องนี้"); return; }
       setMessages((current) => [...current.filter((row) => row.id !== id), found[0]]
         .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)));
       setFocusedId(id);
     } catch {
-      setError("เปิดข้อความไม่สำเร็จ");
+      if (isCurrentJump()) setError("เปิดข้อความไม่สำเร็จ");
     }
   };
   return (
     <section className="golden-club-chat">
-      <ChannelStrip channels={channels} value={channelId} onChange={(id) => { setChannelId(id); setMenuMessage(null); setFocusedId(null); }} />
+      <ChannelStrip channels={channels} value={channelId} onChange={(id) => { jumpSequence.current += 1; setChannelId(id); setMenuMessage(null); setFocusedId(null); }} />
       {beta2 ? <ClubChatToolbar key={channelId} client={client} channelId={channelId} refreshToken={refreshToken} onJump={jumpToMessage} /> : null}
       {loading ? <LoadingState /> : (
         <div className="golden-club-messages">

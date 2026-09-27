@@ -8,6 +8,10 @@ test("WYN-135 Club chat uses the developer-only gate; Beta1 actions are unchange
   expect(source).toContain('beta2 ? setMenuMessage(message)');
   expect(source).toContain('beta2 ? ",edited_at,pinned_at" : ""');
   expect(source).toContain("const request = ++reloadSequence.current");
+  expect(source).toContain("const jumpRequest = ++jumpSequence.current");
+  expect(source).toContain("const isCurrentJump = () => jumpRequest === jumpSequence.current");
+  expect(source).toContain("if (!isCurrentJump()) return;");
+  expect(source).toContain("jumpSequence.current += 1; setChannelId(id)");
   expect(source).toContain("activeView.current.beta2 === beta2");
   expect(source).toContain("window.setInterval");
   expect(source).toContain('if (!beta2 || !channelId || membership?.status !== "approved") return');

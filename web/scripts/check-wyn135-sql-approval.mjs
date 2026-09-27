@@ -11,7 +11,13 @@ export function hasFounderSqlApproval(markdown) {
   let section = null;
   let fence = null;
 
-  for (const line of markdown.split(/\r?\n/)) {
+  // An approval inside an HTML comment is not a Founder decision. Remove
+  // complete comments and fail closed for an unterminated opening comment.
+  const visible = markdown
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<!--[\s\S]*$/g, "");
+
+  for (const line of visible.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (/^(\x60{3,}|~{3,})/.test(trimmed)) {
       const marker = trimmed[0];

@@ -21,5 +21,13 @@ test("manual WYN-135 SQL gate requires one standalone, structured Founder decisi
   assert.equal(hasFounderSqlApproval(approved + "\n- Status: DENIED"), false);
   assert.equal(hasFounderSqlApproval(approved + "\n\n" + approved), false);
   assert.equal(hasFounderSqlApproval("~~~markdown\n" + approved + "\n~~~"), false);
+  assert.equal(hasFounderSqlApproval("<!--\n" + approved + "\n-->"), false);
+  assert.equal(hasFounderSqlApproval("<!-- " + approved + " -->"), false);
+  assert.equal(hasFounderSqlApproval("<!--\n" + approved), false);
+  assert.equal(hasFounderSqlApproval(
+    approved.replace("- Status: APPROVED", "<!-- - Status: APPROVED -->")
+  ), false);
+  assert.equal(hasFounderSqlApproval("<!--\n" + approved + "\n-->\n" + approved), true);
+  assert.equal(hasFounderSqlApproval(approved + "\n<!--\n" + approved + "\n-->"), true);
   assert.equal(hasFounderSqlApproval("### REJECTED WYN-135\nNOT APPROVED WYN-135 production SQL"), false);
 });
