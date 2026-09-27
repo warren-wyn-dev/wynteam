@@ -502,7 +502,7 @@ private fun ProfileTabs(selected: ProfileTab, onSelect: (ProfileTab) -> Unit) {
 }
 
 @Composable
-private fun MoreButton(loading: Boolean, onClick: () -> Unit) {
+fun MoreButton(loading: Boolean, onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
         PillButton(stringResource(R.string.see_more), filled = false, enabled = !loading, height = 38.dp, fontSize = 13, onClick = onClick)
     }

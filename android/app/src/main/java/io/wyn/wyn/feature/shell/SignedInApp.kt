@@ -54,6 +54,16 @@ import io.wyn.wyn.core.data.ChatRepository
 import io.wyn.wyn.core.data.SupabaseChatRepository
 import io.wyn.wyn.core.data.ClubRepository
 import io.wyn.wyn.core.data.SupabaseClubRepository
+import io.wyn.wyn.core.data.DiscoveryRepository
+import io.wyn.wyn.core.data.SupabaseDiscoveryRepository
+import io.wyn.wyn.feature.search.BookmarksScreen
+import io.wyn.wyn.feature.search.BookmarksViewModel
+import io.wyn.wyn.feature.search.SearchNavigation
+import io.wyn.wyn.feature.search.SearchPostsViewModel
+import io.wyn.wyn.feature.search.SearchScreen
+import io.wyn.wyn.feature.search.SearchViewModel
+import io.wyn.wyn.feature.search.TrendingScreen
+import io.wyn.wyn.feature.search.TrendingViewModel
 import io.wyn.wyn.feature.chat.ChatInboxScreen
 import io.wyn.wyn.feature.clubs.ClubFeedViewModel
 import io.wyn.wyn.feature.clubs.ClubInviteScreen
@@ -124,20 +134,24 @@ data class Repositories(
     val notifications: NotificationRepository,
     val chat: ChatRepository,
     val clubs: ClubRepository,
+    val discovery: DiscoveryRepository,
     val push: PushController? = null,
 ) {
     companion object {
         fun supabase(client: SupabaseClient?, push: PushController? = null): Repositories {
             val quotes = SupabaseQuoteRepository(client)
+            val profiles = SupabaseProfileRepository(client, quotes)
+            val clubs = SupabaseClubRepository(client)
             return Repositories(
                 feed = SupabaseFeedRepository(client, quotes),
                 posts = SupabasePostRepository(client),
                 composer = SupabaseComposerRepository(client) { bytes, type -> PhotoReader.describe(bytes, type) },
                 quotes = quotes,
-                profiles = SupabaseProfileRepository(client, quotes),
+                profiles = profiles,
                 notifications = SupabaseNotificationRepository(client),
                 chat = SupabaseChatRepository(client),
-                clubs = SupabaseClubRepository(client),
+                clubs = clubs,
+                discovery = SupabaseDiscoveryRepository(client, profiles, clubs, quotes),
                 push = push,
             )
         }
@@ -163,6 +177,9 @@ private sealed interface Screen {
     data object CreateClub : Screen
     data object MyClubs : Screen
     data class ClubInvite(val code: String) : Screen
+    data object Search : Screen
+    data object Trending : Screen
+    data object Bookmarks : Screen
 
     fun encode(): String = when (this) {
         is Post -> "post:$id"
@@ -182,6 +199,9 @@ private sealed interface Screen {
         MyClubs -> "clubs-mine"
         // An invite code is free text; keep it on one line and without ':'.
         is ClubInvite -> "club-invite:" + java.net.URLEncoder.encode(code, "UTF-8")
+        Search -> "search"
+        Trending -> "trending"
+        Bookmarks -> "bookmarks"
     }
 
     companion object {
@@ -204,6 +224,9 @@ private sealed interface Screen {
                 "club-new" -> CreateClub
                 "clubs-mine" -> MyClubs
                 "club-invite" -> parts.getOrNull(1)?.let { ClubInvite(java.net.URLDecoder.decode(it, "UTF-8")) }
+                "search" -> Search
+                "trending" -> Trending
+                "bookmarks" -> Bookmarks
                 else -> null
             }
         }
@@ -291,6 +314,7 @@ fun SignedInApp(
         onPushTargetHandled()
     }
     var shellTab by rememberSaveable(userId) { mutableStateOf(MainTab.Home) }
+    var drawerOpen by rememberSaveable(userId) { mutableStateOf(false) }
     val feedNav = HomeNavigation(
         onCompose = { openComposer(null) },
         onNotifications = { push(Screen.Notifications) },
@@ -299,6 +323,8 @@ fun SignedInApp(
         onOpenQuote = { row -> row.redropId?.let { push(Screen.Quote(it)) } },
         onOpenClubPost = { push(Screen.ClubPost(it)) },
         onExploreClubs = { shellTab = MainTab.Clubs },
+        onSearch = { push(Screen.Search) },
+        onMenu = { drawerOpen = true },
     )
     // Club likes made on one screen show on the others (web club-engagement-sync).
     val clubSync = remember(userId) { EngagementSync() }
@@ -334,6 +360,21 @@ fun SignedInApp(
             val explore: ExploreClubsViewModel = viewModel(key = "clubs-explore:$userId", factory = viewModelFactory { initializer { ExploreClubsViewModel(repos.clubs, userId) } })
             ExploreClubsScreen(explore, onOpen = { push(Screen.Club(it)) }, onCreate = { clubSession += 1; push(Screen.CreateClub) })
         },
+    )
+
+    // web HomeDrawer: only over the tabs.
+    HomeDrawer(
+        open = drawerOpen && stack.isEmpty(),
+        me = me.summary,
+        actions = DrawerActions(
+            onProfile = { openProfile(userId) },
+            onExploreClubs = { shellTab = MainTab.Clubs },
+            onCreateClub = { clubSession += 1; push(Screen.CreateClub) },
+            onMyClubs = { push(Screen.MyClubs) },
+            onBookmarks = { push(Screen.Bookmarks) },
+            onSettings = { push(Screen.Settings) },
+        ),
+        onClose = { drawerOpen = false },
     )
 
     stack.lastOrNull()?.let { screen ->
@@ -458,6 +499,37 @@ fun SignedInApp(
             Screen.MyClubs -> {
                 val mine: MyClubsViewModel = viewModel(key = "clubs-mine:$userId", factory = viewModelFactory { initializer { MyClubsViewModel(repos.clubs, userId) } })
                 MyClubsScreen(mine, onBack = ::pop, onOpen = { push(Screen.Club(it)) })
+            }
+            Screen.Search -> {
+                val search: SearchViewModel = viewModel(key = "search:$userId", factory = viewModelFactory { initializer { SearchViewModel(repos.discovery, repos.feed, userId) } })
+                val posts: SearchPostsViewModel = viewModel(
+                    key = "search-posts:$userId",
+                    factory = viewModelFactory { initializer { SearchPostsViewModel(repos.discovery, repos.feed, userId, sync, repos.quotes) } },
+                )
+                SearchScreen(
+                    search, posts,
+                    SearchNavigation(
+                        feed = feedNav, onBack = ::pop, onOpenProfile = ::openProfile,
+                        onOpenClub = { push(Screen.Club(it)) }, onTrending = { push(Screen.Trending) },
+                    ),
+                    myAvatar = home.identity?.avatarUrl, myName = home.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: home.identity?.username,
+                )
+            }
+            Screen.Trending -> {
+                val trending: TrendingViewModel = viewModel(key = "trending:$userId", factory = viewModelFactory { initializer { TrendingViewModel(repos.discovery) } })
+                TrendingScreen(trending, onBack = ::pop)
+            }
+            Screen.Bookmarks -> {
+                val saved: BookmarksViewModel = viewModel(
+                    key = "bookmarks:$userId",
+                    factory = viewModelFactory { initializer { BookmarksViewModel(repos.discovery, repos.feed, userId, sync, repos.quotes) } },
+                )
+                // web: every visit reloads (quietly when a list is already on screen).
+                LaunchedEffect(saved) { if (saved.snapshot != null) saved.load() }
+                BookmarksScreen(
+                    saved, feedNav, onBack = ::pop,
+                    myAvatar = home.identity?.avatarUrl, myName = home.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: home.identity?.username,
+                )
             }
             is Screen.ClubInvite -> {
                 val invite: ClubInviteViewModel = viewModel(

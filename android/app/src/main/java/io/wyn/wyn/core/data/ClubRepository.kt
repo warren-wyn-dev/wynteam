@@ -143,6 +143,8 @@ const val CLUB_REPORT_DETAIL_MAX = 1000
 /** Clubs, mirroring web Beta1 (phase3-data, home-parity-data, club-detail-golden). */
 interface ClubRepository {
     suspend fun explore(userId: String): ClubSections
+    /** web searchClubs(): names containing [query], newest first, 20 a page. */
+    suspend fun search(query: String, page: Int): List<Club>
     suspend fun myClubs(userId: String): List<Club>
     suspend fun join(userId: String, club: Club)
     suspend fun leave(userId: String, clubId: String)
@@ -209,8 +211,11 @@ class SupabaseClubRepository(private val clientOrNull: SupabaseClient?) : ClubRe
         }
     }
 
-    private suspend fun clubPage(page: Int): List<JsonObject> =
+    override suspend fun search(query: String, page: Int): List<Club> = mapClubs(clubPage(page, query))
+
+    private suspend fun clubPage(page: Int, query: String = ""): List<JsonObject> =
         client.from("clubs").select(Columns.raw(CLUB_COLUMNS)) {
+            filter { ilike("name", "%${query.trim()}%") }
             order("created_at", Order.DESCENDING)
             range((page * CLUB_PAGE).toLong(), (page * CLUB_PAGE + CLUB_PAGE - 1).toLong())
         }.decodeList()

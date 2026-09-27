@@ -85,6 +85,8 @@ interface ProfileRepository {
     suspend fun canViewLikes(profileId: String): Boolean
     suspend fun people(viewerId: String, profileId: String, kind: FollowKind): List<Person>
     suspend fun suggestions(viewerId: String, viewedId: String): List<Person>
+    /** These profiles in this order, with my follow state for each. */
+    suspend fun peopleByIds(viewerId: String, ids: List<String>): List<Person>
     suspend fun dismissSuggestion(viewerId: String, profileId: String)
     suspend fun setMuted(viewerId: String, profileId: String, muted: Boolean)
     suspend fun setBlocked(profileId: String, blocked: Boolean)
@@ -238,6 +240,9 @@ class SupabaseProfileRepository(
         if (ids.isEmpty()) return@coroutineScope emptyList()
         peopleFor(viewerId, ids)
     }
+
+    override suspend fun peopleByIds(viewerId: String, ids: List<String>): List<Person> =
+        if (ids.isEmpty()) emptyList() else peopleFor(viewerId, ids.distinct())
 
     private suspend fun peopleFor(viewerId: String, ids: List<String>): List<Person> = coroutineScope {
         val profiles = async {

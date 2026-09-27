@@ -35,6 +35,7 @@ class FakeProfileRepository(
     override suspend fun canViewLikes(profileId: String) = likesAllowed
     override suspend fun people(viewerId: String, profileId: String, kind: FollowKind) = if (kind == FollowKind.Followers) followers else following
     override suspend fun suggestions(viewerId: String, viewedId: String) = suggested
+    override suspend fun peopleByIds(viewerId: String, ids: List<String>) = (followers + following + suggested).distinctBy { it.id }.filter { it.id in ids }
     override suspend fun dismissSuggestion(viewerId: String, profileId: String) = write("dismiss:$profileId")
     override suspend fun setMuted(viewerId: String, profileId: String, muted: Boolean) = write("mute:$profileId:$muted")
     override suspend fun setBlocked(profileId: String, blocked: Boolean) {
