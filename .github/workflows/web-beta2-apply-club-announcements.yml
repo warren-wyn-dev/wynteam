@@ -1,0 +1,66 @@
+name: Web Beta2 -- apply Club announcements (WYN-137)
+
+# Applies supabase/migrations_web_beta2_club_announcements.sql to production.
+# Runs only by manual dispatch after the Founder approves this migration
+# (AGENTS.md Change Control). Validated in CI by
+# supabase/tests/web_beta2_club_announcements_test.sh (applied twice).
+#
+# SAFETY: additive. One new table (club_announcements), three RPCs
+# (developer-gated while in Beta2) and one internal fan-out function. The only
+# change to an existing object is adding 'club_announcement' to
+# notifications_type_check, rebuilt from the live definition.
+# ROLLBACK (Founder, SQL editor), if ever needed:
+#   drop function if exists public.delete_club_announcement(uuid);
+#   drop function if exists public.update_club_announcement(uuid, text);
+#   drop function if exists public.create_club_announcement(uuid, text);
+#   drop function if exists internal.notify_club_announcement(uuid, uuid);
+#   delete from public.notifications where type = 'club_announcement';
+#   drop table if exists public.club_announcements;
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "$(cat supabase/migrations_web_beta2_club_announcements.sql)" >/dev/null
+          run_sql "select
+              (select relrowsecurity from pg_class where oid = 'public.club_announcements'::regclass) as rls,
+              (select count(*) from pg_policies where schemaname = 'public' and tablename = 'club_announcements') as policies,
+              (select has_table_privilege('authenticated', 'public.club_announcements', 'insert')) as client_can_insert,
+              (select has_table_privilege('anon', 'public.club_announcements', 'select')) as anon_can_select,
+              (select count(*) from pg_proc where proname in ('create_club_announcement', 'update_club_announcement', 'delete_club_announcement') and pronamespace = 'public'::regnamespace) as rpcs,
+              (select pg_get_constraintdef(oid) like '%club_announcement%' from pg_constraint where conname = 'notifications_type_check' and conrelid = 'public.notifications'::regclass) as type_allowed;" | tee result.json | jq .
+          jq -e '.[0].rls == true and (.[0].policies|tonumber) == 1 and .[0].client_can_insert == false and .[0].anon_can_select == false and (.[0].rpcs|tonumber) == 3 and .[0].type_allowed == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "Club announcements are live (developer-only while in Beta2)."

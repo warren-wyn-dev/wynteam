@@ -73,7 +73,7 @@ function pushTarget(data) {
   if (id("drop_id")) return `/drop/${id("drop_id")}`;
   if (id("pop_id")) return `/pop/${id("pop_id")}`;
   if (id("club_post_id")) return `/club-post/${id("club_post_id")}`;
-  if (id("club_id")) return `/club/${id("club_id")}`;
+  if (id("club_id")) return `/club/${id("club_id")}${data?.type === "club_announcement" ? "?tab=announcements" : ""}`;
   if (actor) return `/profile/${actor}`;
   return "/notifications";
 }

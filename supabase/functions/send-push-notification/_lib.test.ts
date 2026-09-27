@@ -84,6 +84,15 @@ Deno.test("messageFor produces the exact same Thai strings as the Dart client, W
   );
 });
 
+// WYN-137 (Beta2): Club announcements, Thai and English.
+Deno.test("messageFor names Club announcements in Thai and English", () => {
+  assertEquals(messageFor("club_announcement", "@owner_user", "ชมรมถ่ายภาพ"), "@owner_user ประกาศใน ชมรมถ่ายภาพ");
+  assertEquals(
+    messageFor("club_announcement", "@owner_user", "Photo Club", null, null, null, "en"),
+    "@owner_user posted an announcement in Photo Club",
+  );
+});
+
 Deno.test("messageFor falls back to a generic message for an unrecognized type", () => {
   assertEquals(messageFor("something_new", "x", null), "คุณมีการแจ้งเตือนใหม่");
 });

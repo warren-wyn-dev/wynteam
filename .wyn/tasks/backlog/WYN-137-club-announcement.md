@@ -39,3 +39,10 @@ Handoff: รอ Founder ยืนยัน priority + ทางเลือก s
 Founder เลือก **"สร้าง Announcement แยกเต็มรูปแบบ"** (ไม่ใช่แค่ filter บน Pinned Post เดิม) — ยืนยัน scope เต็มตาม Requirements ข้างบนทั้งหมด (content type ใหม่/extend `club_posts` ด้วย `type='announcement'`, สิทธิ์ Owner/Admin/Moderator, แท็บแยกระดับ Club ไม่ผูก channel, reuse notification mechanism ของ WYN-116)
 
 Status: เปลี่ยนจาก "รอ Founder ตัดสินใจ scope" → **พร้อมส่งต่อ AI Design** ให้ตัดสินใจแนวทาง schema (content type ใหม่ vs extend `club_posts`) ตามที่ระบุไว้ใน Requirements ว่า "ให้ AI Design ตัดสินใจแนวทาง schema ที่กระทบของเดิมน้อยที่สุด"
+
+## Implementation (2026-09-27, web Beta2, developer-only)
+
+- Schema: new table `club_announcements` (not `club_posts.type`), so existing club_posts readers, policies and triggers are untouched. Migration `supabase/migrations_web_beta2_club_announcements.sql`, tested by `supabase/tests/web_beta2_club_announcements_test.sh`, applied by `web-beta2-apply-club-announcements.yml` after Founder SQL approval.
+- Permissions: Owner/Admin/Moderator post; the author edits while still staff; the author or an Owner/Admin deletes. Writes are RPC-only and developer-gated while in Beta2.
+- Notification: new type `club_announcement`, same fan-out rules as WYN-116 (club preference, per-Club mute), developer members only while in Beta2 (Flutter crash risk, see docs/engineering/WEB_BETA2.md).
+- Web: "ประกาศ" tab behind `useBeta2Feature("clubAnnouncements")`, notification text and deep link `/club/<id>?tab=announcements`, push text in Thai and English. Flutter knows the new type (no UI).

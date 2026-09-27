@@ -42,6 +42,7 @@ function messageFor(row: NotificationRow): string {
     case "club_post_comment": return `${actor} แสดงความคิดเห็นในโพสต์ของคุณใน ${row.club_name || "Club"}`;
     case "club_post_new": return `${actor} โพสต์ใหม่ใน ${row.club_name || "Club"}`;
     case "club_post_pinned": return `${actor} ปักหมุดโพสต์ใหม่ใน ${row.club_name || "Club"}`;
+    case "club_announcement": return `${actor} ประกาศใน ${row.club_name || "Club"}`;
     case "club_invite": return `${actor} ชวนคุณเข้าร่วม ${row.club_name || "Club"}`;
     case "message_request": return `${actor} ส่งคำขอข้อความถึงคุณ`;
     case "new_message": return `${actor} ส่งข้อความถึงคุณ`;
@@ -235,7 +236,7 @@ function NotificationsInner({ client, userId }: { client: SupabaseClient; userId
     if (row.drop_id) { router.push(`/drop/${row.drop_id}`); return; }
     if (row.pop_id) { router.push(`/pop/${row.pop_id}`); return; }
     if (row.club_post_id) { router.push(`/club-post/${row.club_post_id}`); return; }
-    if (row.club_id) { router.push(`/club/${row.club_id}`); return; }
+    if (row.club_id) { router.push(`/club/${row.club_id}${row.type === "club_announcement" ? "?tab=announcements" : ""}`); return; }
     if (row.actor_id) router.push(`/profile/${row.actor_id}`);
   };
 

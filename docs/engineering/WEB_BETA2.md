@@ -26,7 +26,16 @@ Before any release, confirm with the Founder whether it goes to everyone or only
 |---|---|---|
 | `chatThreads` | WYN-159 Threads-style chat: grouping, tap for time, hold menu (reactions, reply, edit ≤30 min, forward, copy, delete for me, unsend, pin, report) | Founder approved design; merged developer-only; reactions migration approved |
 | `clubChatActions` | WYN-135 Club chat edit / pin / search | spec + migration (separate SQL approval) |
-| `clubAnnouncements` | WYN-137 Club announcements | spec + migration (separate SQL approval) |
+| `clubAnnouncements` | WYN-137 Club announcements: "ประกาศ" tab (Club-wide), staff post/edit/delete, members notified | built; migration `migrations_web_beta2_club_announcements.sql` waits for SQL approval; see release notes below |
 
 WYN-188 (theme) and WYN-189 (Thai/English) were released to everyone on 2026-09-27, before this
 process existed. The Founder chose to keep them live.
+
+## WYN-137 release prerequisites
+
+- The installed Flutter app throws on an unknown notification type and loses its whole list (WYN-043).
+  While in Beta2, `club_announcement` notifications go to developer members only. Before releasing to
+  everyone, ship a Flutter build that knows `club_announcement` (added in this change), then remove the
+  developer filter in `internal.notify_club_announcement()` and the `is_developer_account()` checks in
+  the three RPCs with a follow-up migration (its own SQL approval).
+- The Flutter app has no announcements screen yet; its notification tap opens the Club.
