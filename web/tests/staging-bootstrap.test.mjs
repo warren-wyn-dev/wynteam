@@ -24,6 +24,8 @@ test("synthetic plan includes each approved staff/member gate and outsiders", ()
   assert.equal(users.find((user) => user.role === "developer_outsider").clubRole, null);
   assert.ok(users.every((user) => user.email.endsWith("@staging.example.invalid")));
   assert.equal(new Set(users.map((user) => user.username)).size, users.length);
+  assert.ok(users.every((user) => /^[a-z0-9_]{3,20}$/.test(user.username)), "All fixture handles must pass live signup constraints");
+  assert.ok(users.every((user) => user.username.length <= 20));
 });
 
 test("nonhex or user-controlled run IDs cannot become account names", () => {
