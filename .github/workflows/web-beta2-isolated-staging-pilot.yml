@@ -78,6 +78,9 @@ jobs:
 
       - name: Deploy to staging Vercel project, preview only (never production)
         id: deploy
+        # Vercel project Root Directory is already "web". Run CLI at repo
+        # root, otherwise it resolves web/web and fails before deployment.
+        working-directory: .
         env:
           STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
