@@ -116,6 +116,7 @@ fun PersonRow(
     onOpen: (String) -> Unit,
     horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
     minHeight: androidx.compose.ui.unit.Dp = 64.dp,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = Wyn.colors
     Row(Modifier.fillMaxWidth().heightIn(min = minHeight).padding(horizontal = horizontalPadding, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -132,7 +133,9 @@ fun PersonRow(
                 Text("@${person.username}", color = c.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        if (person.id != viewerId && onFollow != null) {
+        if (trailing != null) {
+            Box(Modifier.padding(start = 10.dp)) { trailing() }
+        } else if (person.id != viewerId && onFollow != null) {
             PillButton(
                 followLabel(busy, person.following, person.requested), filled = !(person.following || person.requested),
                 enabled = !busy, height = 34.dp, fontSize = 13, modifier = Modifier.padding(start = 10.dp),

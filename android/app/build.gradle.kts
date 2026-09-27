@@ -23,6 +23,14 @@ android {
     namespace = "io.wyn.wyn"
     compileSdk = 35
 
+    // Settings > Language can show English on a Thai phone (and the reverse),
+    // so every install keeps both string sets instead of only the phone's.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     defaultConfig {
         applicationId = "io.wyn.wyn"
         minSdk = 26

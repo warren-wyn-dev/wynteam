@@ -192,10 +192,10 @@ fun NotificationSettingsScreen(vm: NotificationSettingsViewModel, push: PushCont
             Text(stringResource(R.string.notifications_title), color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
-            SectionTitle(stringResource(R.string.settings_this_device))
-            Group {
+            SettingsSectionTitle(stringResource(R.string.settings_this_device))
+            SettingsGroup {
                 val blocked = vm.pushBlocked
-                SettingRow(
+                SettingsSwitchRow(
                     title = stringResource(R.string.push_title),
                     description = when {
                         vm.pushEnabled == null && blocked == null -> stringResource(R.string.push_checking)
@@ -221,13 +221,13 @@ fun NotificationSettingsScreen(vm: NotificationSettingsViewModel, push: PushCont
                 }
             }
             Spacer(Modifier.height(18.dp))
-            SectionTitle(stringResource(R.string.notify_when))
+            SettingsSectionTitle(stringResource(R.string.notify_when))
             val prefs = vm.prefs
             when {
-                prefs != null -> Group {
+                prefs != null -> SettingsGroup {
                     prefLabels.forEachIndexed { index, (key, label) ->
                         if (index > 0) HorizontalDivider(color = c.border, thickness = 1.dp)
-                        SettingRow(stringResource(label), null, prefs[key], enabled = !vm.busy) { vm.toggle(key, it) }
+                        SettingsSwitchRow(stringResource(label), null, prefs[key], enabled = !vm.busy) { vm.toggle(key, it) }
                     }
                 }
                 vm.loadFailed -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -241,18 +241,18 @@ fun NotificationSettingsScreen(vm: NotificationSettingsViewModel, push: PushCont
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+fun SettingsSectionTitle(text: String) {
     Text(text, color = Wyn.colors.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
 }
 
 @Composable
-private fun Group(content: @Composable () -> Unit) {
+fun SettingsGroup(content: @Composable () -> Unit) {
     val c = Wyn.colors
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, c.border, RoundedCornerShape(14.dp))) { content() }
 }
 
 @Composable
-private fun SettingRow(title: String, description: String?, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+fun SettingsSwitchRow(title: String, description: String?, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
     val c = Wyn.colors
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = enabled, role = Role.Switch) { onChange(!checked) }

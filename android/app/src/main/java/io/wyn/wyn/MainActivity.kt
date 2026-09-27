@@ -20,6 +20,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.wyn.wyn.core.data.PreferencesAccountStore
+import io.wyn.wyn.core.data.DevicePreferences
+import io.wyn.wyn.core.data.ThemePreference
+import io.wyn.wyn.core.design.ThemeChoice
 import io.wyn.wyn.core.data.SupabaseAuthRepository
 import io.wyn.wyn.core.data.SupabaseProvider
 import io.wyn.wyn.core.design.Wyn
@@ -40,6 +43,11 @@ import io.wyn.wyn.feature.shell.Repositories
 import io.wyn.wyn.feature.shell.SignedInApp
 
 class MainActivity : ComponentActivity() {
+    /** The chosen language applies before any screen is built. */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(DevicePreferences.wrap(newBase))
+    }
+
     /** A tapped push waiting to be opened (its data arrives as extras). */
     private var pushTarget by mutableStateOf<PushTarget?>(null)
 
@@ -58,9 +66,10 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        val repos = Repositories.supabase(SupabaseProvider.client, push)
+        val device = DevicePreferences(applicationContext)
+        val repos = Repositories.supabase(SupabaseProvider.client, push, device)
         setContent {
-            WynosTheme {
+            WynosTheme(device.theme.toChoice()) {
                 WynosApp(
                     viewModel(factory = factory),
                     repos,
@@ -76,6 +85,12 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         PushTarget.from(intent.extras)?.let { pushTarget = it }
     }
+}
+
+private fun ThemePreference?.toChoice(): ThemeChoice = when (this) {
+    ThemePreference.Light -> ThemeChoice.Light
+    ThemePreference.Dark -> ThemeChoice.Dark
+    else -> ThemeChoice.System
 }
 
 @Composable
