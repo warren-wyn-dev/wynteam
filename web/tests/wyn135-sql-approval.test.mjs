@@ -32,6 +32,11 @@ test("manual WYN-135 SQL gate requires one standalone, structured Founder decisi
   assert.equal(check(approved.replace("- Approved by: Founder", "- Approved by: CI")), false);
   assert.equal(check(approved.replace("- Scope: WYN-135 production SQL only", "- Scope: WYN-135 web")), false);
   assert.equal(check(approved + "\n- Status: DENIED"), false);
+  const decisionHeading = approved.split("\n")[0];
+  const decisionFields = approved.split("\n").slice(1).join("\n");
+  assert.equal(check(decisionHeading + "\n## Unrelated approval example\n" + decisionFields), false);
+  assert.equal(check(decisionHeading + "\n#### Unrelated approval example\n" + decisionFields), false);
+  assert.equal(check(decisionHeading + "\n# Unrelated approval example\n" + decisionFields), false);
   assert.equal(check(approved + "\n\n" + approved), false);
   assert.equal(check("~~~markdown\n" + approved + "\n~~~"), false);
   assert.equal(check("````markdown\n```\n" + approved + "\n```\n````"), false);

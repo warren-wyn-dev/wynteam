@@ -33,7 +33,9 @@ export function hasFounderSqlApproval(markdown, migrationSha256) {
       fence = { marker: opening[1][0], length: opening[1].length };
       continue;
     }
-    if (line.startsWith("### ")) {
+    // Any Markdown heading ends the previous decision; fields from a later
+    // unrelated section cannot complete an incomplete Founder approval.
+    if (/^#{1,6}[ \t]+/.test(line)) {
       if (section) decisions.push(section);
       section = DECISION.test(line) ? [] : null;
     } else if (section) {
