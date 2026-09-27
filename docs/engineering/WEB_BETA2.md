@@ -25,7 +25,7 @@ Before any release, confirm with the Founder whether it goes to everyone or only
 | Feature key | Task | Status |
 |---|---|---|
 | `chatThreads` | WYN-159 Threads-style chat: grouping, tap for time, hold menu (reactions, reply, edit ≤30 min, forward, copy, delete for me, unsend, pin, report) | Founder approved design; merged developer-only; reactions migration approved |
-| `clubChatActions` | WYN-135 Club chat edit / pin / search | spec + migration (separate SQL approval) |
+| `clubChatActions` | WYN-135 Club chat edit / pin / search | implemented in [draft PR #741](https://github.com/warren-wyn-dev/wynteam/pull/741); developer-only; QA and separate production SQL approval pending |
 | `clubAnnouncements` | WYN-137 Club announcements: "ประกาศ" tab (Club-wide), staff post/edit/delete; no notifications until release | built; migration `migrations_web_beta2_club_announcements.sql` approved by the Founder, applied after merge once main CI is green; see release notes below |
 
 WYN-188 (theme) and WYN-189 (Thai/English) were released to everyone on 2026-09-27, before this
@@ -40,3 +40,11 @@ process existed. The Founder chose to keep them live.
   `/club/<id>?tab=announcements`). Releasing means a follow-up migration that adds the type and the
   member fan-out and drops the developer gates (its own SQL approval), after the Founder decides how
   to handle Flutter users.
+
+## WYN-135 staging / launch requirements
+
+- Club message actions are Web Beta2 developer-only; **never** flip `clubChatActions` without separate Founder approval. Keep Web Beta1 message UI and existing Flutter behavior unchanged.
+- [PR #741](https://github.com/warren-wyn-dev/wynteam/pull/741) adds three developer-gated action/search SQL RPCs plus one developer-only readiness RPC, editable timestamps, per-channel staff-only pin metadata, PostgreSQL full-text GIN search and pg_trgm GIN substring fallback for Thai. The migration installs `pg_trgm` in the dedicated `extensions` schema if absent.
+- Before merge: pass `npm run check`, maintained disposable PostgreSQL tests and protected preview QA. Test on developer accounts with Thai/English, light/dark, editing and cross-channel search, including native mobile browser.
+- The preview **shares production Supabase**, so it cannot test newly added RPCs before the Founder-authorized production migration. The Club chat page fails closed to Beta1 chat until the migration's final `club_chat_actions_available()` RPC returns true for a developer. Do not treat green build alone as live feature verification. The production migration workflow is manual-only and requires a separate documented Founder decision.
+- The gated code may merge after normal Founder production-merge approval and passing PR checks: the new UI remains disabled until the migration's readiness RPC is installed. Then, after separate approval and Founder-run SQL apply, inspect RLS/grants and run authenticated developer smoke tests. Since merging web PRs auto-deploys production, do not merge prematurely. No public Beta2 release is implied.

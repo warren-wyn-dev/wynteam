@@ -225,3 +225,31 @@
 @media (prefers-reduced-motion: reduce) { .club-announcement-compose { transition: none; } }
 .club-announcement-more-list { width: 100%; min-height: 44px; margin-top: 12px; border: 0; border-radius: 999px; background: var(--wyn-surface); color: var(--wyn-text); font: inherit; font-size: 14px; font-weight: 600; }
 .club-announcement-more-list:disabled { opacity: 0.6; }
+
+
+/* WYN-135 Web Beta 2 (developer-only): Club message actions/search. */
+.golden-club-chat-tools { border-bottom: 1px solid var(--wyn-border); padding: 9px 14px; background: var(--wyn-bg); }
+.golden-club-chat-tools-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.golden-club-chat-tools-title > span { color: var(--wyn-text-secondary); font-size: 12px; font-weight: 650; }
+.golden-club-chat-tools-title > button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; background: var(--wyn-surface); color: var(--wyn-text); font: inherit; font-size: 13px; }
+.golden-club-pinned-list { display: flex; gap: 6px; overflow-x: auto; padding: 5px 0; scrollbar-width: none; }
+.golden-club-pinned-list button { display: inline-flex; align-items: center; gap: 6px; max-width: 250px; min-height: 44px; flex: 0 0 auto; padding: 5px 10px; border: 1px solid var(--wyn-border); border-radius: 12px; background: var(--wyn-surface); color: var(--wyn-text); font: inherit; font-size: 12px; }
+.golden-club-pinned-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.golden-club-search { padding: 8px 0 3px; }
+.golden-club-search form { display: flex; gap: 8px; }
+.golden-club-search input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--wyn-border); border-radius: 12px; color: var(--wyn-text); background: var(--wyn-surface); font: inherit; font-size: 14px; }
+.golden-club-search form button { min-width: 68px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 12px; background: var(--wyn-text); color: var(--wyn-bg); font: inherit; font-size: 13px; }
+.golden-club-search form button:disabled { opacity: .5; }
+.golden-club-search-results { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; margin-top: 8px; }
+.golden-club-search-results button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 44px; padding: 10px; border: 0; border-radius: 10px; color: var(--wyn-text); background: var(--wyn-surface); text-align: start; font: inherit; font-size: 13px; overflow-wrap: anywhere; }
+.golden-club-search-results small { color: var(--wyn-text-secondary); font-size: 11px; }
+.golden-club-search-results p { color: var(--wyn-text-secondary); font-size: 13px; }
+.golden-club-message { scroll-margin-top: 100px; }
+.golden-club-message-tag { display: inline-flex; margin: 4px 6px 0 0; color: inherit; opacity: .7; font-size: 11px; }
+.golden-club-chat-menu { padding: 12px 8px 20px; }
+.golden-club-chat-edit { display: flex; flex-direction: column; gap: 12px; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+.golden-club-chat-edit textarea { width: 100%; min-height: 120px; resize: vertical; padding: 12px; border-radius: 12px; border: 1px solid var(--wyn-border); background: var(--wyn-surface); color: var(--wyn-text); font: inherit; }
+.golden-club-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.golden-club-edit-actions button { min-height: 44px; padding: 0 20px; border: 1px solid var(--wyn-border); border-radius: 12px; background: var(--wyn-surface); color: var(--wyn-text); font: inherit; }
+.golden-club-edit-actions button:last-child { border-color: var(--wyn-text); background: var(--wyn-text); color: var(--wyn-bg); }
+.golden-club-edit-actions button:disabled { opacity: .5; }

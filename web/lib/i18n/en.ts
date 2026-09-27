@@ -4,6 +4,17 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ค้นหาข้อความไม่สำเร็จ": "Couldn't search messages",
+  "ค้นหาข้อความในห้องนี้": "Search messages in this channel",
+  "ค้นหาในห้องนี้": "Search this channel",
+  "กำลังค้นหา…": "Searching…",
+  "ผลการค้นหา": "Search results",
+  "ข้อความต้องมี 1–2000 ตัวอักษร": "Message must contain 1–2000 characters",
+  "ปักหมุดไม่สำเร็จ กรุณาตรวจสอบสิทธิ์หรือจำนวนข้อความที่ปักหมุด": "Couldn't pin. Check your permissions or unpin another message",
+  "ข้อความที่แก้ไข": "Edited message",
+  "ปักหมุดข้อความ": "Pin message",
+  "ไม่พบข้อความในห้องนี้": "No matching messages in this channel",
+  "เปิดข้อความไม่สำเร็จ": "Couldn't open the message",
   "#ฝนตกกรุงเทพ": "#BangkokRain",
   "#เชียงใหม่": "#ChiangMai",
   "1 ชม.": "1h",
