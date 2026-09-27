@@ -172,13 +172,13 @@ do $$ begin
   if (select count(*) from public.club_channel_messages
     where channel_id='cccccccc-0000-0000-0000-000000000001' and pinned_at is not null) <> 3
   then raise exception 'Unpin did not free slot'; end if;
-end $;
+end $pincheck$;
 -- An ordinary author editing staff-pinned text must clear BOTH pin fields.
 reset role;
 set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000003';
 set role authenticated;
 select public.edit_club_channel_message('dddddddd-0000-0000-0000-000000000001', 'updated after staff pinned');
-do $ begin
+do $pincheck$ begin
   if exists(select 1 from public.club_channel_messages
     where id='dddddddd-0000-0000-0000-000000000001'
       and (pinned_at is not null or pinned_by is not null))
@@ -186,16 +186,16 @@ do $ begin
   if (select count(*) from public.club_channel_messages
     where channel_id='cccccccc-0000-0000-0000-000000000001' and pinned_at is not null) <> 2
   then raise exception 'Editing did not free one pin slot'; end if;
-end $;
+end $pincheck$;
 reset role;
 set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
 set role authenticated;
 select public.set_club_channel_message_pin('dddddddd-0000-0000-0000-000000000001', true);
-do $ begin
+do $pincheck$ begin
   if (select count(*) from public.club_channel_messages
     where channel_id='cccccccc-0000-0000-0000-000000000001' and pinned_at is not null) <> 3
   then raise exception 'Staff could not re-approve and re-pin edited text'; end if;
-end $;
+end $pincheck$;
 reset role;
 set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000001';
 set role authenticated;
