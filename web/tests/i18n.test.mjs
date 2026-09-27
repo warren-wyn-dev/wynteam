@@ -102,6 +102,8 @@ test("Thai dates become English dates", () => {
   assert.equal(translateToEnglish("26 ก.ย."), "Sep 26");
   assert.equal(translateToEnglish("26 กันยายน 2026"), "September 26, 2026");
   assert.equal(translateToEnglish("1 ม.ค. 2570"), "Jan 1, 2027");
+  assert.equal(translateToEnglish("27/9/2569 12:34:00"), "9/27/2026, 12:34:00");
+  assert.equal(translateToEnglish("9/27/2026"), null);
 });
 
 test("people's own text and non-Thai text are left alone", () => {
@@ -127,4 +129,7 @@ test("the language boot script only hides the page for English", () => {
   assert.deepEqual(run(null, ["en-US"]), { lang: "en", pending: true });
   assert.deepEqual(run("th", ["en-US"]), { lang: "th", pending: false });
   assert.deepEqual(run("en", ["th-TH"]), { lang: "en", pending: true });
+  // Only English phones get English on a first visit; every other language gets Thai (spec).
+  assert.deepEqual(run(null, ["fr-FR"]), { lang: "th", pending: false });
+  assert.deepEqual(run(null, ["en-GB", "th-TH"]), { lang: "en", pending: true });
 });

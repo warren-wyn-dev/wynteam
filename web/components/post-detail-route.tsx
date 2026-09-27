@@ -150,7 +150,7 @@ function ActivitySheet({ client, dropId, onClose }: { client: SupabaseClient; dr
           {loading ? <LoadingState /> : error ? <EmptyState>{error}</EmptyState> : !rows.length ? <EmptyState>{tab === "likes" ? "ยังไม่มีคนถูกใจโพสต์นี้" : "ยังไม่มีคนรีโพสต์โพสต์นี้"}</EmptyState> : rows.map((profile) => (
             <Link className="detail-activity-person" href={`/profile/${profile.id}`} onClick={onClose} key={`${tab}:${profile.id}`}>
               <Avatar src={profile.avatar_url} label={profile.username} />
-              <span><strong>{profile.display_name?.trim() || profile.username}{profile.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{profile.username}</small></span>
+              <span><strong data-i18n-skip="">{profile.display_name?.trim() || profile.username}{profile.is_verified ? <b className="route-verified">✓</b> : null}</strong><small>@{profile.username}</small></span>
             </Link>
           ))}
         </div>
@@ -172,8 +172,8 @@ function CommentRow({ comment, isReply, currentUserId, onLike, onReply, onDelete
     <div className={`detail-comment ${isReply ? "detail-comment-reply" : ""}`}>
       <Link className="detail-comment-avatar" href={`/profile/${comment.author_id}`}><Avatar src={comment.author_avatar_url} label={comment.author_username} size={isReply ? 32 : 36} /></Link>
       <div className="detail-comment-copy">
-        <div className="detail-comment-author-line"><strong>{comment.author_display_name?.trim() || comment.author_username}</strong><small>{relativeTimeTh(comment.created_at)}</small></div>
-        <p>{comment.text_content}</p>
+        <div className="detail-comment-author-line"><strong data-i18n-skip="">{comment.author_display_name?.trim() || comment.author_username}</strong><small>{relativeTimeTh(comment.created_at)}</small></div>
+        <p data-i18n-skip="">{comment.text_content}</p>
         {!isReply ? <button className="detail-comment-reply-action" type="button" onClick={() => onReply(comment)}>ตอบกลับ</button> : null}
       </div>
       <div className="detail-comment-actions">

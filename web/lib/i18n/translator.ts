@@ -16,7 +16,7 @@ import type { AppLanguage } from "@/lib/i18n/language";
 
 const THAI = /[฀-๿]/;
 const ATTRIBUTES = ["placeholder", "aria-label", "title", "alt"] as const;
-const SKIP_SELECTOR = "[data-i18n-skip],script,style,noscript,textarea,[contenteditable='true']";
+const SKIP_SELECTOR = "[data-i18n-skip],script,style,noscript,[contenteditable='true']";
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -35,7 +35,15 @@ const monthAlternatives = [...THAI_MONTHS_LONG, ...THAI_MONTHS_SHORT].map(escape
 /** "26 ก.ย.", "26 กันยายน 2026", "26 ก.ย. 2569" (Intl th-TH output). */
 const THAI_DATE = new RegExp(`^(\\d{1,2}) (${monthAlternatives})(?: (\\d{4}))?$`);
 
+/** `toLocaleString("th-TH")`: "27/9/2569 12:34:00". Buddhist-era years only, so other numeric dates are never touched. */
+const THAI_NUMERIC_DATETIME = /^(\d{1,2})\/(\d{1,2})\/(2[5-9]\d{2})(?: (\d{1,2}:\d{2}(?::\d{2})?))?$/;
+
 function translateDate(text: string): string | null {
+  const numeric = THAI_NUMERIC_DATETIME.exec(text);
+  if (numeric) {
+    const year = Number(numeric[3]) - 543;
+    return `${numeric[2]}/${numeric[1]}/${year}${numeric[4] ? `, ${numeric[4]}` : ""}`;
+  }
   const match = THAI_DATE.exec(text);
   if (!match) return null;
   const longIndex = THAI_MONTHS_LONG.indexOf(match[2]);
@@ -63,7 +71,7 @@ const cache = new Map<string, string | null>();
 
 /** English for one piece of Thai UI text, or null when it is not a known UI string. */
 export function translateToEnglish(text: string): string | null {
-  if (!THAI.test(text)) return null;
+  if (!THAI.test(text) && !THAI_NUMERIC_DATETIME.test(text.trim())) return null;
   const leading = text.match(/^\s*/)?.[0] ?? "";
   const trailing = text.match(/\s*$/)?.[0] ?? "";
   const core = text.trim();
@@ -105,6 +113,8 @@ function skipped(node: Node): boolean {
 }
 
 function applyText(node: Text) {
+  // A textarea's text is what the person typed; its placeholder is still translated.
+  if (node.parentElement?.tagName === "TEXTAREA") return;
   const current = node.data;
   const record = textRecords.get(node);
   // React (or anyone) wrote new text since we last translated: that is the new Thai original.

@@ -79,7 +79,7 @@ export function SinglePostReferenceScreen({ postId }: { postId: string }) {
           <p className="single-post-text">{post.detailText}</p>
           <div className="post-actions single-actions"><span className={`action${post.liked ? " liked" : ""}`}><WynosIcon name="like" size={18} />{post.likeCount}</span><span className="action"><WynosIcon name="comment" size={18} />{post.commentCount}</span><span className="action"><WynosIcon name="repost" size={18} />{post.repostCount}</span></div>
         </div>
-        {post.comments.map((comment) => <div className="single-comment" key={`${post.id}-${comment.authorName}`}><Avatar as="div" alt={`รูปโปรไฟล์ของ ${comment.authorName}`} className="avatar" size={32} /><div><div className="comment-meta"><b>{comment.authorName}</b> <span>· {comment.timeLabel}</span></div><p>{comment.text}</p></div></div>)}
+        {post.comments.map((comment) => <div className="single-comment" key={`${post.id}-${comment.authorName}`}><Avatar as="div" alt={`รูปโปรไฟล์ของ ${comment.authorName}`} className="avatar" size={32} /><div><div className="comment-meta"><b>{comment.authorName}</b> <span>· {comment.timeLabel}</span></div><p data-i18n-skip="">{comment.text}</p></div></div>)}
       </div>
       <div className="comment-composer"><Avatar as="div" alt="รูปโปรไฟล์ของคุณ" className="avatar" size={30} /><div>แสดงความคิดเห็น...</div></div>
     </ReferencePhone>

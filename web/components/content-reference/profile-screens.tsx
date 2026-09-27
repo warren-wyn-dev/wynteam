@@ -59,7 +59,7 @@ export function ProfileHeader({
         <Avatar as="div" alt={`รูปโปรไฟล์ของ ${profile.displayName}`} className="avatar" size={64} />
         <div className="profile-copy">
           <div className="profile-name">{profile.displayName}</div>
-          <p className="profile-bio">{profile.bio}</p>
+          <p className="profile-bio" data-i18n-skip="">{profile.bio}</p>
           {profile.website ? (
             <div className="profile-link-row">
               <WynosIcon name="link" size={14} />

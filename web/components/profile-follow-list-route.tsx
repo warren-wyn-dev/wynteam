@@ -147,7 +147,7 @@ function FollowListInner({ client, viewerId, profileId, kind }: { client: Supaba
                 <div className="follow-list-row" key={person.id}>
                   <Link className="follow-list-person" href={`/profile/${person.id}`}>
                     <Avatar src={person.avatar_url} label={person.username} size={44} />
-                    <span className="follow-list-person-copy"><strong className="follow-list-person-name"><span className="follow-list-display-name">{person.display_name?.trim() || person.username}</span>{person.is_verified ? <b className="route-verified" aria-label="ยืนยันแล้ว">✓</b> : null}</strong><small>@{person.username}</small></span>
+                    <span className="follow-list-person-copy"><strong className="follow-list-person-name"><span className="follow-list-display-name" data-i18n-skip="">{person.display_name?.trim() || person.username}</span>{person.is_verified ? <b className="route-verified" aria-label="ยืนยันแล้ว">✓</b> : null}</strong><small>@{person.username}</small></span>
                   </Link>
                   {person.id !== viewerId ? <button className={`follow-pill ${person.following || person.requested ? "requested" : ""}`} type="button" disabled={busy === person.id} onClick={() => void follow(person)}>{followButtonLabel({ busy: busy === person.id, following: person.following, requested: person.requested })}</button> : null}
                 </div>

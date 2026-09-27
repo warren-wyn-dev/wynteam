@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * (2026-09-27).
  *
  * - First visit (nothing chosen on this device or account): follows the
- *   phone/browser language — English when it is not Thai.
+ *   phone/browser language — English for `en-*`, otherwise Thai.
  * - A choice is cached on the device (`wynos.lang.v1`, read before first
  *   paint by LANGUAGE_BOOT_SCRIPT) and saved per account in
  *   `user_preferences.language_preference`.
@@ -23,11 +23,11 @@ export function isAppLanguage(value: unknown): value is AppLanguage {
   return value === "th" || value === "en";
 }
 
-/** The phone/browser language: Thai when any preferred language is Thai-first, otherwise English. */
+/** The phone/browser language: English for `en-*`, Thai for every other language (spec). */
 export function deviceLanguage(languages: readonly string[] | undefined = typeof navigator === "undefined" ? undefined : navigator.languages): AppLanguage {
   const first = languages?.[0] ?? (typeof navigator === "undefined" ? "th" : navigator.language);
   if (!first) return "th";
-  return /^th\b/i.test(first) ? "th" : "en";
+  return /^en\b/i.test(first) ? "en" : "th";
 }
 
 export function readStoredLanguage(): AppLanguage | null {
@@ -39,9 +39,12 @@ export function readStoredLanguage(): AppLanguage | null {
   }
 }
 
-/** The language this page should show: the device's saved choice, else the phone's language. */
+// This page's choice, kept in memory too so it applies when storage is blocked.
+let chosenThisPage: AppLanguage | null | undefined;
+
+/** The language this page should show: the choice, else the phone's language. */
 export function currentLanguage(): AppLanguage {
-  return readStoredLanguage() ?? deviceLanguage();
+  return readStoredLanguage() ?? chosenThisPage ?? deviceLanguage();
 }
 
 /**
@@ -49,6 +52,7 @@ export function currentLanguage(): AppLanguage {
  * tell listeners (the translator, Settings).
  */
 export function setLanguage(language: AppLanguage | null) {
+  chosenThisPage = language;
   try {
     if (language) window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     else window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
@@ -67,7 +71,7 @@ export function setLanguage(language: AppLanguage | null) {
  */
 export const LANGUAGE_BOOT_SCRIPT = `(function(){try{var l=null;try{l=localStorage.getItem(${JSON.stringify(
   LANGUAGE_STORAGE_KEY,
-)})}catch(e){}if(l!=="th"&&l!=="en"){var n=(navigator.languages&&navigator.languages[0])||navigator.language||"th";l=/^th\\b/i.test(n)?"th":"en"}if(l==="en"){var r=document.documentElement;r.lang="en";r.setAttribute("data-i18n-pending","");setTimeout(function(){r.removeAttribute("data-i18n-pending")},2500)}}catch(e){}})();`;
+)})}catch(e){}if(l!=="th"&&l!=="en"){var n=(navigator.languages&&navigator.languages[0])||navigator.language||"th";l=/^en\\b/i.test(n)?"en":"th"}if(l==="en"){var r=document.documentElement;r.lang="en";r.setAttribute("data-i18n-pending","");setTimeout(function(){r.removeAttribute("data-i18n-pending")},2500)}}catch(e){}})();`;
 
 /**
  * The account's saved choice: the language, `null` when the account has

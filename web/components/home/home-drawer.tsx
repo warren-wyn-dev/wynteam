@@ -114,7 +114,7 @@ export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | nul
             <Avatar src={identity?.avatar_url} label={identity?.username || "W"} size={58} />
             <span className="drawer-identity-copy">
               <span className="wynos-drawer-name">
-                <strong>{displayName}</strong>
+                <strong data-i18n-skip="">{displayName}</strong>
                 {identity?.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
               </span>
               {identity ? <small>@{identity.username}</small> : null}

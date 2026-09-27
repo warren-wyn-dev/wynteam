@@ -489,7 +489,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       {section === "theme" ? <ThemePicker client={client} userId={userId} /> : null}
       {section === "language" ? <LanguagePicker client={client} userId={userId} /> : null}
       {section === "legal" ? <div className="settings-page"><div className="settings-group">{legalTypes.map(([type, label]) => <SettingRow title={label} key={type} onClick={() => void openDoc(type)} />)}</div></div> : null}
-      {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><WynosIcon name="close" size={24} strokeWidth={2} /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small><p>{document.content}</p></div></section></div> : null}
+      {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><WynosIcon name="close" size={24} strokeWidth={2} /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small>{appLanguage === "en" ? <p className="settings-safety" data-i18n-skip="">This document is currently available in Thai only.</p> : null}<p data-i18n-skip="" lang="th">{document.content}</p></div></section></div> : null}
     </AppChrome>
   );
 }
