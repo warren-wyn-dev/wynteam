@@ -7,6 +7,10 @@ test("WYN-135 Club chat uses the developer-only gate; Beta1 actions are unchange
   expect(source).toContain('useBeta2Feature("clubChatActions", client, userId)');
   expect(source).toContain('beta2 ? setMenuMessage(message)');
   expect(source).toContain('beta2 ? ",edited_at,pinned_at" : ""');
+  expect(source).toContain("const request = ++reloadSequence.current");
+  expect(source).toContain("activeView.current.beta2 === beta2");
+  expect(source).toContain("window.setInterval");
+  expect(source).toContain('if (!beta2 || !channelId || membership?.status !== "approved") return');
 });
 
 test.describe("local developer-only fixture", () => {
@@ -35,6 +39,30 @@ test.describe("local developer-only fixture", () => {
     await page.getByRole("button", { name: "ค้นหา", exact: true }).click();
     await page.getByRole("button", { name: /new club update/ }).click();
     await expect(page.getByTestId("jumped")).toHaveText("m1");
+  });
+
+  test("search results from an old input cannot replace the newer query", async ({ page }) => {
+    await page.goto("/dev/club-chat-actions-fixture?role=owner&slow=1");
+    await page.getByRole("button", { name: "ค้นหาข้อความ", exact: true }).click();
+    const query = page.getByRole("textbox", { name: "ค้นหาข้อความในห้องนี้" });
+    await query.fill("hello");
+    await page.getByRole("button", { name: "ค้นหา", exact: true }).click();
+    await query.fill("rules");
+    await page.getByRole("button", { name: "ค้นหา", exact: true }).click();
+    await expect(page.getByRole("button", { name: /please read the rules/ })).toBeVisible();
+    await page.waitForTimeout(650); // Let the older "hello" request arrive last.
+    await expect(page.getByRole("button", { name: /hello club chat/ })).toHaveCount(0);
+    await expect(query).toHaveValue("rules");
+  });
+
+  test("mobile search and pin controls offer 44px touch targets", async ({ page }) => {
+    await page.goto("/dev/club-chat-actions-fixture?role=owner");
+    const search = page.getByRole("button", { name: "ค้นหาข้อความ", exact: true });
+    await expect.poll(async () => (await search.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await page.getByRole("button", { name: "ตัวเลือกข้อความตัวอย่าง" }).click();
+    await page.getByRole("button", { name: "ปักหมุดข้อความ" }).click();
+    const pin = page.getByRole("button", { name: /hello club chat/ });
+    await expect.poll(async () => (await pin.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
   });
 
   test("ordinary member cannot manage another author's messages", async ({ page }) => {
