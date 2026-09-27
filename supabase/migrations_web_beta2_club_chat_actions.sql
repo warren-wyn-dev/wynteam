@@ -195,7 +195,7 @@ grant execute on function public.search_club_channel_messages(uuid, text, intege
 -- enabling the developer UI, so a merge cannot expose a half-installed API.
 create or replace function public.club_chat_actions_available()
 returns boolean language sql stable security definer set search_path = public
-as $ select public.is_developer_account() $;
+as $wynready$ select public.is_developer_account() $wynready$;
 revoke all on function public.club_chat_actions_available() from public, anon;
 grant execute on function public.club_chat_actions_available() to authenticated;
 
