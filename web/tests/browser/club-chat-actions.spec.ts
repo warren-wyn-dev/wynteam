@@ -83,6 +83,9 @@ test.describe("local developer-only fixture", () => {
     await expect(pinError).toBeVisible();
 
     await pinError.getByRole("button", { name: "ลองอีกครั้ง" }).click();
+    // The error is cleared synchronously on click, so prove the retry
+    // actually completed by waiting for a known pinned message to load.
+    await expect(page.locator(".golden-club-pinned-list").getByRole("button", { name: /retry pin loaded/ })).toBeVisible();
     await expect(pinError).toHaveCount(0);
     await expect(page.getByRole("button", { name: /please read the rules/ })).toBeVisible();
   });
