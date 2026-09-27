@@ -444,3 +444,45 @@
     transition: none;
   }
 }
+
+/* WYN-159 (Beta2, developer-only until released): Threads-style grouping.
+   Rows carry group-single/first/middle/last only when the feature is on
+   (components/chat/conversation-thread.tsx), so Web Beta1 is unchanged.
+   One sender's messages within 60s sit 4px apart with rounded inner
+   corners; only the group's last bubble keeps the flat "tail" corner. */
+.conversation-modern .message-row.group-first,
+.conversation-modern .message-row.group-middle {
+  margin-bottom: 4px;
+}
+
+.conversation-modern .message-row.group-last,
+.conversation-modern .message-row.group-single {
+  margin-bottom: 18px;
+}
+
+.conversation-modern .message-avatar-space {
+  flex: 0 0 34px;
+  width: 34px;
+}
+
+.conversation-modern .message-row.theirs.group-middle .message-bubble,
+.conversation-modern .message-row.theirs.group-last .message-bubble {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.conversation-modern .message-row.mine.group-middle .message-bubble,
+.conversation-modern .message-row.mine.group-last .message-bubble {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.conversation-modern .message-row[class*="group-"] .message-meta {
+  min-height: 16px;
+  margin-top: 4px;
+}
+
+.conversation-modern .message-row[class*="group-"] .message-bubble[role="button"] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}

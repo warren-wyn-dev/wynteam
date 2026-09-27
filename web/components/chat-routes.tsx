@@ -6,12 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
+import { ConversationThread } from "@/components/chat/conversation-thread";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
 import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WyniiConversationHeader } from "@/components/wynii-chat";
+import { useBeta2Feature } from "@/lib/beta2";
 import { relativeTimeTh } from "@/lib/feed";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
@@ -50,19 +52,6 @@ function conversationPreview(row: ConversationRow): string {
 
 function isUnread(row: ConversationRow, userId: string): boolean {
   return Boolean(row.last_message_sender_id !== userId && row.last_message_at && (!row.my_last_read_at || new Date(row.last_message_at) > new Date(row.my_last_read_at)));
-}
-
-function chatDayKey(value: string): string {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
-
-function chatDateLabel(value: string): string {
-  return new Intl.DateTimeFormat("th-TH-u-ca-gregory", { day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
-}
-
-function chatTimeLabel(value: string): string {
-  return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
 }
 
 function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: string }) {
@@ -186,6 +175,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [followBusy, setFollowBusy] = useState(false);
   const [error, setError] = useState("");
   const [revealedMessageId, setRevealedMessageId] = useState<string | null>(null);
+  const chatThreads = useBeta2Feature("chatThreads", client, userId);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const composerRef = useRef<HTMLFormElement | null>(null);
@@ -416,48 +406,17 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
 
           {hasMore ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadOlder()}>{loadingMore ? "กำลังโหลด…" : "ดูข้อความก่อนหน้า"}</button> : null}
           <div className="message-list conversation-thread" style={{ paddingBottom: composerHeight + 30 }}>
-            {ordered.map((message, index) => {
-              const mine = message.sender_id === userId;
-              const canDelete = mine && !message.deleted_at && !message.pending;
-              const revealed = canDelete && revealedMessageId === message.id;
-              const previous = index > 0 ? ordered[index - 1] : null;
-              const showDate = !previous || chatDayKey(previous.created_at) !== chatDayKey(message.created_at);
-              const read = mine && Boolean(meta?.other_user_last_read_at && new Date(message.created_at) <= new Date(meta.other_user_last_read_at));
-              return <div className="message-entry" key={message.id}>
-                {showDate ? <div className="conversation-date-separator"><span>{chatDateLabel(message.created_at)}</span></div> : null}
-                <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}`}>
-                  {!mine && other ? <Avatar src={other.avatar_url} label={other.username} size={34} /> : null}
-                  <div className="message-stack">
-                    <div
-                      className="message-bubble"
-                      role={canDelete ? "button" : undefined}
-                      tabIndex={canDelete ? 0 : undefined}
-                      onClick={canDelete ? () => setRevealedMessageId((current) => current === message.id ? null : message.id) : undefined}
-                    >
-                      {message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>
-                        {message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}
-                        {message.text ? <p data-i18n-skip="">{message.text}</p> : null}
-                        {message.localPreviewUrl ? <img className="message-image" src={message.localPreviewUrl} alt="" /> : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}
-                      </>}
-                    </div>
-                    <div className="message-meta">
-                      <time>{message.pending ? "กำลังส่ง…" : chatTimeLabel(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time>
-                      {mine && !message.pending ? (
-                        // WhatsApp/LINE-style receipt: single check = sent,
-                        // double check in the accent color = read. The
-                        // previous version rendered the identical glyph
-                        // ("✓" either way) so sent vs read never actually
-                        // differed on screen, only in the aria-label.
-                        <span className={`message-read-status ${read ? "read" : ""}`} aria-label={read ? "อ่านแล้ว" : "ส่งแล้ว"}>
-                          <WynosIcon name={read ? "checkCheck" : "check"} size={14} strokeWidth={2.4} />
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                  {revealed ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><WynosIcon name="trash" size={13} strokeWidth={2} /></button> : null}
-                </div>
-              </div>;
-            })}
+            <ConversationThread
+              messages={ordered}
+              userId={userId}
+              other={other}
+              otherLastReadAt={meta?.other_user_last_read_at}
+              threads={chatThreads}
+              revealedMessageId={revealedMessageId}
+              onToggleReveal={(messageId) => setRevealedMessageId((current) => current === messageId ? null : messageId)}
+              onDelete={(message) => void remove(message)}
+              renderImage={(path) => <MessageImage client={client} path={path} />}
+            />
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
