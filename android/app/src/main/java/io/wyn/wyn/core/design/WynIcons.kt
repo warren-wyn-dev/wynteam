@@ -79,6 +79,14 @@ object WynIcons {
         circle(12f, 12f, 3f),
     )
     val UserPlus = stroke(2f, "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", circle(9f, 7f, 4f), "M19 8v6", "M22 11h-6")
+    val CheckCheck = stroke(2.4f, "M18 6 7 17l-5-5", "m22 10-7.5 7.5L13 16")
+    val MessagesSquare = stroke(
+        1.9f,
+        "M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z",
+        "M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1",
+    )
+    val CirclePlus = stroke(1.8f, circle(12f, 12f, 10f), "M8 12h8", "M12 8v8")
+    val UserRound = stroke(1.8f, circle(12f, 8f, 5f), "M20 21a8 8 0 0 0-16 0")
     val CheckCircle = stroke(2f, circle(12f, 12f, 10f), "m16 9-5.5 5.5L8 12")
     val FileText = stroke(
         2f,
