@@ -10,7 +10,8 @@ type Row = { id: string; channel_id: string; author_id: string; content: string;
 const ME = "00000000-0000-0000-0000-000000000001";
 const OTHER = "00000000-0000-0000-0000-000000000002";
 
-function makeClient(rows: Row[], delayFirstSearch = false): SupabaseClient {
+function makeClient(rows: Row[], delayFirstSearch = false, failFirstPinRead = false): SupabaseClient {
+  let pinReadShouldFail = failFirstPinRead;
   const query = () => {
     let channel = "";
     const chain = {
@@ -18,7 +19,13 @@ function makeClient(rows: Row[], delayFirstSearch = false): SupabaseClient {
       eq: (key: string, value: string) => { if (key === "channel_id") channel = value; return chain; },
       not: () => chain,
       order: () => chain,
-      limit: async () => ({ data: rows.filter((row) => row.channel_id === channel && row.pinned_at), error: null }),
+      limit: async () => {
+        if (pinReadShouldFail) {
+          pinReadShouldFail = false;
+          return { data: null, error: { message: "Simulated one-time pin fetch failure" } };
+        }
+        return { data: rows.filter((row) => row.channel_id === channel && row.pinned_at), error: null };
+      },
     };
     return chain;
   };
@@ -52,7 +59,8 @@ function Inner() {
     { id: "m5", channel_id: "channel2", author_id: OTHER, content: "สวัสดีจากห้องอื่น", pinned_at: null, created_at: "2026-09-27T12:04:00Z" },
   ], []);
   const slow = params.get("slow") === "1";
-  const client = useMemo(() => makeClient(rows, slow), [rows, slow]);
+  const failFirstPinRead = params.get("pin-error") === "1";
+  const client = useMemo(() => makeClient(rows, slow, failFirstPinRead), [rows, slow, failFirstPinRead]);
   const [tick, setTick] = useState(0);
   const [chosen, setChosen] = useState<Row | null>(null);
   const [jumped, setJumped] = useState("");
