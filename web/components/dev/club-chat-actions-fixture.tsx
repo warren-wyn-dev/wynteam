@@ -10,7 +10,9 @@ type Row = { id: string; channel_id: string; author_id: string; content: string;
 const ME = "00000000-0000-0000-0000-000000000001";
 const OTHER = "00000000-0000-0000-0000-000000000002";
 
-function makeClient(rows: Row[], delayFirstSearch = false, failFirstPinRead = false): SupabaseClient {
+type FixtureClient = SupabaseClient & { allowPinReadAfterRetry: () => void };
+
+function makeClient(rows: Row[], delayFirstSearch = false, failFirstPinRead = false): FixtureClient {
   let pinReadShouldFail = failFirstPinRead;
   const query = () => {
     let channel = "";
@@ -21,8 +23,9 @@ function makeClient(rows: Row[], delayFirstSearch = false, failFirstPinRead = fa
       order: () => chain,
       limit: async () => {
         if (pinReadShouldFail) {
-          pinReadShouldFail = false;
-          return { data: null, error: { message: "Simulated one-time pin fetch failure" } };
+          // Keep failing across Strict Mode's mount/effect replay. Only an explicit
+          // retry can clear this injected failure, so the browser test is stable.
+          return { data: null, error: { message: "Simulated pin fetch failure until retry" } };
         }
         return { data: rows.filter((row) => row.channel_id === channel && row.pinned_at), error: null };
       },
@@ -31,6 +34,7 @@ function makeClient(rows: Row[], delayFirstSearch = false, failFirstPinRead = fa
   };
   return {
     from: query,
+    allowPinReadAfterRetry: () => { pinReadShouldFail = false; },
     rpc: async (name: string, args: Record<string, unknown>) => {
       // Deterministic out-of-order replies for the stale-search browser test.
       if (name === "search_club_channel_messages" && delayFirstSearch && args.p_query === "hello")
@@ -44,7 +48,7 @@ function makeClient(rows: Row[], delayFirstSearch = false, failFirstPinRead = fa
           && item.content.toLowerCase().includes(String(args.p_query).toLowerCase())), error: null };
       return { data: null, error: null };
     },
-  } as unknown as SupabaseClient;
+  } as unknown as FixtureClient;
 }
 
 function Inner() {
@@ -74,7 +78,8 @@ function Inner() {
     <main className="route-main">
       <section className="golden-club-chat" aria-label="Club chat Beta2 fixture">
         <ClubChatToolbar client={client} channelId="channel1" refreshToken={tick}
-          onJump={async (id) => { setJumped(id); }} />
+          onJump={async (id) => { setJumped(id); }}
+          onPinRetry={client.allowPinReadAfterRetry} />
         <div className="golden-club-messages">
           <p data-testid="content">{rows[0].content}</p>
           <p data-testid="jumped">{jumped}</p>
