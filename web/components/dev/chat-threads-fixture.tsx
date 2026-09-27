@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { ConversationThread, MessageActionSheet } from "@/components/chat/conversation-thread";
+import { ConversationThread, MessageActionMenu } from "@/components/chat/conversation-thread";
 import type { MessageRow, ProfileRow } from "@/lib/phase3-data";
 
 const ME = "00000000-0000-4000-8000-000000000001";
@@ -30,7 +30,7 @@ function Fixture() {
   const params = useSearchParams();
   const threads = params.get("threads") === "1";
   const [revealed, setRevealed] = useState<string | null>(null);
-  const [actions, setActions] = useState<MessageRow | null>(null);
+  const [actions, setActions] = useState<{ message: MessageRow; bubble: DOMRect } | null>(null);
   return (
     <main className="route-main">
       <div className="conversation-page conversation-modern">
@@ -44,12 +44,12 @@ function Fixture() {
             revealedMessageId={revealed}
             onToggleReveal={(id) => setRevealed((current) => current === id ? null : id)}
             onDelete={() => undefined}
-            onOpenActions={setActions}
+            onOpenActions={(message, bubble) => setActions({ message, bubble })}
             renderImage={() => null}
           />
         </div>
       </div>
-      {actions ? <MessageActionSheet message={actions} userId={ME} onChoose={() => setActions(null)} onClose={() => setActions(null)} /> : null}
+      {actions ? <MessageActionMenu message={actions.message} userId={ME} bubble={actions.bubble} onChoose={() => setActions(null)} onClose={() => setActions(null)} /> : null}
     </main>
   );
 }

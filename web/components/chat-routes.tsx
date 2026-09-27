@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
-import { ConversationThread, MessageActionSheet, type MessageAction } from "@/components/chat/conversation-thread";
+import { ConversationThread, MessageActionMenu, type MessageAction } from "@/components/chat/conversation-thread";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -147,6 +147,31 @@ function MessageImage({ client, path }: { client: SupabaseClient; path: string }
   return <Image className="message-image" src={url} alt="" width={280} height={330} sizes="280px" />;
 }
 
+/** WYN-159 (Beta2): pick another conversation to forward a text message to. */
+function ForwardSheet({ client, currentConversationId, onPick, onClose }: { client: SupabaseClient; currentConversationId: string; onPick: (row: ConversationRow) => void; onClose: () => void }) {
+  const [rows, setRows] = useState<ConversationRow[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetchInbox(client).then((all) => { if (live) setRows(all.filter((row) => row.conversation_id !== currentConversationId && row.status !== "pending")); }, () => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [client, currentConversationId]);
+  return (
+    <div className="route-modal-backdrop golden-drop-sheet-backdrop" role="presentation" onClick={onClose}>
+      <section className="golden-drop-sheet message-forward-sheet" role="dialog" aria-modal="true" aria-label="ส่งต่อ" onClick={(event) => event.stopPropagation()}>
+        <div className="golden-drop-sheet-grip" />
+        <strong className="message-forward-title">ส่งต่อ</strong>
+        {failed ? <p className="route-error route-pad">โหลดแชทไม่สำเร็จ</p> : rows === null ? <LoadingState /> : rows.length === 0 ? <EmptyState>ยังไม่มีบทสนทนา</EmptyState> : rows.map((row) => (
+          <button key={row.conversation_id} className="golden-drop-sheet-row" type="button" onClick={() => onPick(row)}>
+            <Avatar src={row.other_avatar_url} label={row.other_username} size={36} />
+            <span data-i18n-skip="">{row.other_display_name?.trim() || row.other_username}</span>
+          </button>
+        ))}
+      </section>
+    </div>
+  );
+}
+
 type ConversationSnapshot = { other: ProfileRow | null; messages: MessageRow[]; meta: ConversationMeta | null; hasMore: boolean };
 
 function ConversationInner({ client, userId, conversationId }: { client: SupabaseClient; userId: string; conversationId: string }) {
@@ -178,7 +203,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [revealedMessageId, setRevealedMessageId] = useState<string | null>(null);
   const chatThreads = useBeta2Feature("chatThreads", client, userId);
   // WYN-159 (Beta2): long-press actions on a message.
-  const [actionMessage, setActionMessage] = useState<MessageRow | null>(null);
+  const [actionMessage, setActionMessage] = useState<{ message: MessageRow; bubble: DOMRect } | null>(null);
+  const [forwarding, setForwarding] = useState<MessageRow | null>(null);
   const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
   const [editing, setEditing] = useState<MessageRow | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -292,10 +318,27 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
 
   const chooseAction = (message: MessageRow, action: MessageAction) => {
     setActionMessage(null);
-    if (action === "delete") { void remove(message); return; }
+    if (action === "unsend") { void remove(message); return; }
+    if (action === "forward") { setForwarding(message); return; }
+    if (action === "copy") {
+      void navigator.clipboard?.writeText(message.text ?? "").then(() => showToast("คัดลอกแล้ว"), () => showToast("คัดลอกไม่สำเร็จ"));
+      return;
+    }
     if (action === "reply") { setEditing(null); setReplyTo(message); }
     else { setReplyTo(null); setFile(null); setEditing(message); setDraft(message.text ?? ""); }
     textareaRef.current?.focus();
+  };
+
+  const forwardTo = async (row: ConversationRow) => {
+    const message = forwarding;
+    if (!message?.text) return;
+    setForwarding(null);
+    try {
+      await sendMessage(client, userId, row.conversation_id, { text: message.text });
+      showToast("ส่งต่อแล้ว");
+    } catch {
+      showToast("ส่งต่อไม่สำเร็จ");
+    }
   };
 
   const submit = async () => {
@@ -450,7 +493,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
               revealedMessageId={revealedMessageId}
               onToggleReveal={(messageId) => setRevealedMessageId((current) => current === messageId ? null : messageId)}
               onDelete={(message) => void remove(message)}
-              onOpenActions={(message) => setActionMessage(message)}
+              onOpenActions={(message, bubble) => setActionMessage({ message, bubble })}
               renderImage={(path) => <MessageImage client={client} path={path} />}
             />
           </div>
@@ -460,7 +503,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           )}
         </div>
       )}
-      {actionMessage ? <MessageActionSheet message={actionMessage} userId={userId} onChoose={(action) => chooseAction(actionMessage, action)} onClose={() => setActionMessage(null)} /> : null}
+      {actionMessage ? <MessageActionMenu message={actionMessage.message} userId={userId} bubble={actionMessage.bubble} onChoose={(action) => chooseAction(actionMessage.message, action)} onClose={() => setActionMessage(null)} /> : null}
+      {forwarding ? <ForwardSheet client={client} currentConversationId={conversationId} onPick={(row) => void forwardTo(row)} onClose={() => setForwarding(null)} /> : null}
       <Toast message={toastMessage} />
     </AppChrome>
   );

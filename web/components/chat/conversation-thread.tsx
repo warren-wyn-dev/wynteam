@@ -26,16 +26,20 @@ export const GROUP_WINDOW_MS = 60_000;
 export const EDIT_WINDOW_MS = 30 * 60_000;
 const LONG_PRESS_MS = 450;
 
-export type MessageAction = "reply" | "edit" | "delete";
+export type MessageAction = "reply" | "edit" | "forward" | "copy" | "unsend";
 
-/** What a long-press menu offers for this message. */
+/** What the hold menu offers for this message. */
 export function messageActions(message: MessageRow, userId: string, now = Date.now()): MessageAction[] {
   if (message.deleted_at || message.pending) return [];
   const mine = message.sender_id === userId;
+  const hasText = Boolean(message.text?.trim());
+  const plainText = hasText && !message.image_url && !message.shared_content_id;
   const actions: MessageAction[] = ["reply"];
-  const plainText = Boolean(message.text?.trim()) && !message.image_url && !message.shared_content_id;
   if (mine && plainText && now - new Date(message.created_at).getTime() <= EDIT_WINDOW_MS) actions.push("edit");
-  if (mine) actions.push("delete");
+  // Only text is forwarded: a chat image lives in this conversation's private storage folder.
+  if (plainText) actions.push("forward");
+  if (hasText) actions.push("copy");
+  if (mine) actions.push("unsend");
   return actions;
 }
 
@@ -71,15 +75,16 @@ type Props = {
   onToggleReveal: (messageId: string) => void;
   onDelete: (message: MessageRow) => void;
   /** Threads mode: long-press (or right-click) a bubble to open its actions. */
-  onOpenActions?: (message: MessageRow) => void;
+  onOpenActions?: (message: MessageRow, bubble: DOMRect) => void;
   renderImage: (path: string) => ReactNode;
 };
 
 /** Tap = one handler, hold 450 ms = another; a hold never also counts as a tap. */
-function useLongPress(onLongPress: () => void) {
+function useLongPress(onLongPress: (target: Element) => void) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const start = useRef<{ x: number; y: number } | null>(null);
   const fired = useRef(false);
+  const target = useRef<Element | null>(null);
   const clear = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
@@ -95,10 +100,11 @@ function useLongPress(onLongPress: () => void) {
       onPointerDown: (event: PointerEvent) => {
         fired.current = false;
         start.current = { x: event.clientX, y: event.clientY };
+        target.current = event.currentTarget;
         clear();
         timer.current = setTimeout(() => {
           fired.current = true;
-          onLongPress();
+          if (target.current) onLongPress(target.current);
         }, LONG_PRESS_MS);
       },
       onPointerMove: (event: PointerEvent) => {
@@ -107,18 +113,18 @@ function useLongPress(onLongPress: () => void) {
       onPointerUp: clear,
       onPointerCancel: clear,
       onPointerLeave: clear,
-      onContextMenu: (event: { preventDefault: () => void }) => {
+      onContextMenu: (event: { preventDefault: () => void; currentTarget: Element }) => {
         event.preventDefault();
         clear();
         fired.current = true;
-        onLongPress();
+        onLongPress(event.currentTarget);
       },
     },
   };
 }
 
-function Bubble({ tappable, onTap, onLongPress, children, ...rest }: { tappable: boolean; onTap?: () => void; onLongPress?: () => void; children: ReactNode; "aria-label"?: string; "aria-expanded"?: boolean }) {
-  const press = useLongPress(() => onLongPress?.());
+function Bubble({ tappable, onTap, onLongPress, children, ...rest }: { tappable: boolean; onTap?: () => void; onLongPress?: (bubble: DOMRect) => void; children: ReactNode; "aria-label"?: string; "aria-expanded"?: boolean }) {
+  const press = useLongPress((target) => onLongPress?.(target.getBoundingClientRect()));
   return (
     <div
       className="message-bubble"
@@ -173,7 +179,7 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
                 aria-label={bubbleLabel}
                 aria-expanded={threads && tappable ? tapped : undefined}
                 onTap={() => onToggleReveal(message.id)}
-                onLongPress={threads && onOpenActions && !message.deleted_at && !message.pending ? () => onOpenActions(message) : undefined}
+                onLongPress={threads && onOpenActions && !message.deleted_at && !message.pending ? (bubble) => onOpenActions(message, bubble) : undefined}
               >
                 {message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>
                   {message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}
@@ -201,27 +207,47 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
   );
 }
 
-const ACTION_LABELS: Record<MessageAction, { label: string; icon: "comment" | "pencil" | "trash" }> = {
-  reply: { label: "ตอบกลับ", icon: "comment" },
+const ACTION_LABELS: Record<MessageAction, { label: string; icon: "reply" | "pencil" | "send" | "copy" | "undo" }> = {
+  reply: { label: "ตอบกลับ", icon: "reply" },
   edit: { label: "แก้ไข", icon: "pencil" },
-  delete: { label: "ลบข้อความ", icon: "trash" },
+  forward: { label: "ส่งต่อ", icon: "send" },
+  copy: { label: "คัดลอก", icon: "copy" },
+  unsend: { label: "ยกเลิกการส่ง", icon: "undo" },
 };
 
-/** Long-press menu for one message (WYN-159 Beta2). */
-export function MessageActionSheet({ message, userId, onChoose, onClose }: { message: MessageRow; userId: string; onChoose: (action: MessageAction) => void; onClose: () => void }) {
+const MENU_ROW = 52;
+const MENU_HEAD = 40;
+const GAP = 8;
+
+/**
+ * Hold menu for one message (WYN-159 Beta2): the page dims and blurs, the
+ * held bubble stays where it was, and the menu opens next to it (below, or
+ * above when there is no room), headed by the message time.
+ */
+export function MessageActionMenu({ message, userId, bubble, onChoose, onClose }: { message: MessageRow; userId: string; bubble: DOMRect; onChoose: (action: MessageAction) => void; onClose: () => void }) {
   const actions = messageActions(message, userId);
+  const mine = message.sender_id === userId;
+  const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
+  const menuHeight = MENU_HEAD + actions.length * MENU_ROW + 8;
+  // Keep the bubble in view, then open the menu on whichever side has room.
+  const bubbleTop = Math.min(Math.max(bubble.top, 16), Math.max(16, viewportHeight - bubble.height - 16));
+  const below = bubbleTop + bubble.height + GAP + menuHeight <= viewportHeight - 16;
+  const menuTop = below ? bubbleTop + bubble.height + GAP : Math.max(16, bubbleTop - GAP - menuHeight);
+  const side = mine ? { right: Math.max(12, (typeof window === "undefined" ? 0 : window.innerWidth) - bubble.right) } : { left: Math.max(12, bubble.left) };
   return (
-    <div className="route-modal-backdrop golden-drop-sheet-backdrop" role="presentation" onClick={onClose}>
-      <section className="golden-drop-sheet message-action-sheet" role="dialog" aria-modal="true" aria-label="ตัวเลือกข้อความ" onClick={(event) => event.stopPropagation()}>
-        <div className="golden-drop-sheet-grip" />
+    <div className="message-action-overlay" role="presentation" onClick={onClose}>
+      <div className={`message-action-lifted ${mine ? "mine" : "theirs"}`} style={{ top: bubbleTop, left: bubble.left, width: bubble.width }} aria-hidden="true">
+        <div className="message-action-bubble">
+          {message.text ? <p data-i18n-skip="">{message.text}</p> : <i>{message.image_url ? "รูปภาพ" : "ข้อความ"}</i>}
+        </div>
+      </div>
+      <section className="message-action-menu" role="menu" aria-label="ตัวเลือกข้อความ" style={{ top: menuTop, ...side }} onClick={(event) => event.stopPropagation()}>
+        <time>{chatTimeLabel(message.created_at)}</time>
         {actions.map((action) => (
-          <button key={action} className={`golden-drop-sheet-row${action === "delete" ? " danger" : ""}`} type="button" onClick={() => onChoose(action)}>
-            <WynosIcon name={ACTION_LABELS[action].icon} size={20} strokeWidth={2} />{ACTION_LABELS[action].label}
+          <button key={action} role="menuitem" className={action === "unsend" ? "danger" : undefined} type="button" onClick={() => onChoose(action)}>
+            <WynosIcon name={ACTION_LABELS[action].icon} size={22} strokeWidth={1.9} />{ACTION_LABELS[action].label}
           </button>
         ))}
-        <button className="golden-drop-sheet-row" type="button" onClick={onClose}>
-          <WynosIcon name="close" size={20} strokeWidth={2} />ยกเลิก
-        </button>
       </section>
     </div>
   );
