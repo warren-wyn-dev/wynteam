@@ -60,8 +60,19 @@ key to NEXT_PUBLIC_* or use production accounts, credentials, messages, photos
 or auth exports as staging fixtures.** Check Vercel plan and any provisioning cost
 before creating a project; stop for new Founder approval if spending is required.
 
-Once a protected staging preview exists, create synthetic identities using the
-staging-only Supabase Auth Admin API and a separate, reviewed bootstrap procedure.
+When an authorized operator has the **staging-only server secret** in a secure local
+environment, the reviewed manual `web/scripts/bootstrap-beta2-staging.mjs --apply`
+command can create seven strictly synthetic identities and two private test Clubs.
+It refuses production URLs, publishable keys, missing explicit confirmation and
+CI execution. Set `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_SERVICE_ROLE_KEY`
+and `CONFIRM_WYNOS_STAGING_BOOTSTRAP=YES` through the operator's secure local
+environment (not in shell history, PR comments, CI or client variables). The
+script writes passwords and IDs to a permission-restricted **local temporary
+file**. Never commit or upload that file; securely distribute test credentials
+only to the authorized QA team, retain it for cleanup and remove the seeded
+users/data after testing. Do not run the script twice unintentionally. The
+staging project is currently unseeded; adding this script does not provision
+accounts until an authorized operator actually executes it.
 Cover developer Owner/Admin/Moderator/Member, non-developer Member and outsider;
 do not mark authenticated staging E2E as passed until these actual staging logins
 and cross-role denials have been tested. Keep Push disabled and review Free quotas.
