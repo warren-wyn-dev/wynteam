@@ -49,6 +49,6 @@ Status: เปลี่ยนจาก "blocked" → **พร้อมส่ง�
 
 - Draft PR [#741](https://github.com/warren-wyn-dev/wynteam/pull/741) implements Web Beta2 edit-own-text, channel-specific staff pin/unpin (3 per channel), indexed full-text plus pg_trgm substring search for Thai, and search/pin jump-to-message.
 - Client code behind `clubChatActions: false` developer-account gate. Non-developer Web Beta1 sees the existing message UI unchanged.
-- New SQL migration is additive and separately approval-gated. Do not apply on shared Supabase or merge a PR that auto-deploys production until all review, QA/staging and Founder release gates are cleared.
+- New SQL migration is additive and separately approval-gated. Web will fail closed to the existing Club chat until the last migration RPC reports schema readiness for a developer. Do not apply on shared Supabase or merge a PR that auto-deploys production until all review, QA/staging and Founder release gates are cleared.
 - SQL QA on disposable PostgreSQL tests authorization, cross-club isolation, Thai search and wildcard escaping. A local dev-only Playwright fixture covers edit/pin/search interactions.
 - The original dependency note referring to WYN-128 as not yet deployed is historical; WYN-128 was deployed on 2026-09-07.
