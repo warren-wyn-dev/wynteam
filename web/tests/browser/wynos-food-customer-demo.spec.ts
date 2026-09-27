@@ -24,6 +24,10 @@ test.describe("WYNOS Food mobile customer UX demo", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/dev/food-fixture", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("wynos-food-customer-demo")).toBeVisible();
+    // The server HTML is visible before React attaches click handlers; a tap
+    // in that gap does nothing (seen on slow CI WebKit / first dev compile).
+    await expect.poll(() => page.getByTestId("wynos-food-customer-demo").evaluate((el) =>
+      Object.keys(el).some((key) => key.startsWith("__reactFiber$")))).toBe(true);
   });
 
   test("home, search, multiple stores and restaurant detail are navigable", async ({ page }) => {
