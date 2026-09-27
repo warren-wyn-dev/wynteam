@@ -1,6 +1,6 @@
 # Product Task — WYN-135
 
-Status: backlog
+Status: implementation prepared in PR #741 (developer-only); QA and production SQL approval pending
 Owner: AI Product Manager
 
 Feature: Club Channel Chat Actions — Edit Message + Pin Message + Search Message
@@ -44,3 +44,11 @@ Handoff: รอ (1) Founder สั่ง deploy WYN-128 และ (2) ยืน�
 ยืนยันแล้วว่า **WYN-128 deploy จริงบน production แล้ว** ตั้งแต่ 2026-09-07 (`.wyn/tasks/bugs/WYN-128-group-chat-missing-report-action.md`: "closed — shipped to production, deploy run #96") และตาราง `public.club_channel_messages` มีอยู่จริงใน `supabase/schema.sql` (บรรทัด 14620) — **blocker เดิมของ task นี้หมดไปแล้ว**
 
 Status: เปลี่ยนจาก "blocked" → **พร้อมส่งต่อ AI Design** (spec ข้างบนยังใช้ได้ครบ ไม่ต้องแก้) — เหลือรอ Founder ยืนยัน priority เทียบกับงานอื่นใน queue เท่านั้น
+
+## Implementation update (2026-09-27)
+
+- Draft PR [#741](https://github.com/warren-wyn-dev/wynteam/pull/741) implements Web Beta2 edit-own-text, channel-specific staff pin/unpin (3 per channel), indexed full-text plus pg_trgm substring search for Thai, and search/pin jump-to-message.
+- Client code behind `clubChatActions: false` developer-account gate. Non-developer Web Beta1 sees the existing message UI unchanged.
+- New SQL migration is additive and separately approval-gated. Do not apply on shared Supabase or merge a PR that auto-deploys production until all review, QA/staging and Founder release gates are cleared.
+- SQL QA on disposable PostgreSQL tests authorization, cross-club isolation, Thai search and wildcard escaping. A local dev-only Playwright fixture covers edit/pin/search interactions.
+- The original dependency note referring to WYN-128 as not yet deployed is historical; WYN-128 was deployed on 2026-09-07.
