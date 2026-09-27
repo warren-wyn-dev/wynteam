@@ -109,6 +109,12 @@ do $$ begin
   exception when raise_exception then
     if sqlerrm not like 'Announcement must be%' then raise; end if;
   end;
+  begin
+    perform public.create_club_announcement('97100000-0000-0000-0000-000000000001', E'\u2060\u200d\ufeff');
+    raise exception 'Invisible-only announcement accepted';
+  exception when raise_exception then
+    if sqlerrm not like 'Announcement must be%' then raise; end if;
+  end;
 end $$;
 reset role;
 -- The moderator posts too. Beta2 sends no notification at all.

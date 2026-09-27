@@ -975,6 +975,8 @@ export const EN_EXACT: Record<string, string> = {
   "แก้ไขประกาศ": "Edit announcement",
   "ลบประกาศ": "Delete announcement",
   "ประกาศแล้ว": "Announced",
+  "รายการอาจยังไม่อัปเดต": "This list may be out of date",
+  "โหลดใหม่": "Reload",
   "โหลดประกาศเพิ่มไม่สำเร็จ ลองใหม่อีกครั้ง": "Couldn't load more announcements. Try again",
   "ดูประกาศก่อนหน้า": "See earlier announcements",
   "บันทึกการแก้ไขแล้ว": "Changes saved",

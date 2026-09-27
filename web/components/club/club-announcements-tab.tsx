@@ -106,6 +106,15 @@ export function ClubAnnouncementsTab({
         </button>
       ) : null}
 
+      {/* A reload that fails after a successful post/edit/delete: the list
+          may be stale, so say so and offer a retry instead of hiding it. */}
+      {failed && items ? (
+        <div className="club-announcements-stale" role="alert">
+          <span>รายการอาจยังไม่อัปเดต</span>
+          <button className="club-announcement-retry" type="button" onClick={() => void load()}>โหลดใหม่</button>
+        </div>
+      ) : null}
+
       {failed && !items ? (
         <div className="club-announcements-state">
           <p className="route-error" role="alert">โหลดประกาศไม่สำเร็จ</p>

@@ -83,7 +83,11 @@ begin
   if internal.is_posting_blocked(v_me) then
     raise exception 'Posting is restricted for this account';
   end if;
-  if char_length(v_body) not between 1 and 2000 then
+  -- Must contain something visible: whitespace and invisible format
+  -- characters (zero-width, joiners, direction marks, BOM, fillers) alone
+  -- are refused.
+  if char_length(v_body) not between 1 and 2000
+     or regexp_replace(v_body, '[[:space:]\u00a0\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3000\u3164\ufe00-\ufe0f\ufeff\uffa0]', '', 'g') = '' then
     raise exception 'Announcement must be 1-2000 characters';
   end if;
 
@@ -121,7 +125,11 @@ begin
   if internal.is_posting_blocked(v_me) then
     raise exception 'Posting is restricted for this account';
   end if;
-  if char_length(v_body) not between 1 and 2000 then
+  -- Must contain something visible: whitespace and invisible format
+  -- characters (zero-width, joiners, direction marks, BOM, fillers) alone
+  -- are refused.
+  if char_length(v_body) not between 1 and 2000
+     or regexp_replace(v_body, '[[:space:]\u00a0\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3000\u3164\ufe00-\ufe0f\ufeff\uffa0]', '', 'g') = '' then
     raise exception 'Announcement must be 1-2000 characters';
   end if;
 

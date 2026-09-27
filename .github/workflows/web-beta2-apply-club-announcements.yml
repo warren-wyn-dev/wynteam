@@ -21,6 +21,8 @@ permissions:
 
 jobs:
   apply:
+    # Only merged, CI-checked SQL from main may reach production.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

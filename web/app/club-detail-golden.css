@@ -210,6 +210,7 @@
 .club-announcement-body { margin: 8px 0 12px; color: var(--wyn-text); font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .club-announcement-author { display: flex; align-items: center; gap: 8px; color: var(--wyn-text-secondary); font-size: 12.5px; }
 .club-announcement-author .route-avatar { width: 22px; height: 22px; }
+.club-announcements-stale { margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--wyn-surface); color: var(--wyn-text); font-size: 13px; }
 .club-announcements-state { display: grid; justify-items: center; gap: 10px; padding: 40px 0; }
 .club-announcement-retry, .club-announcement-cancel, .club-announcement-submit { min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; }
 .club-announcement-retry, .club-announcement-cancel { background: var(--wyn-surface); color: var(--wyn-text); }
