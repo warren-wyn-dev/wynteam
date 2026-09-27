@@ -45,4 +45,4 @@ Status: เปลี่ยนจาก "รอ Founder ตัดสินใจ 
 - Schema: new table `club_announcements` (not `club_posts.type`), so existing club_posts readers, policies and triggers are untouched. Migration `supabase/migrations_web_beta2_club_announcements.sql`, tested by `supabase/tests/web_beta2_club_announcements_test.sh`, applied by `web-beta2-apply-club-announcements.yml` after Founder SQL approval.
 - Permissions: Owner/Admin/Moderator post; the author edits while still staff; the author or an Owner/Admin deletes. Writes are RPC-only and developer-gated while in Beta2.
 - Notification: new type `club_announcement`, same fan-out rules as WYN-116 (club preference, per-Club mute), developer members only while in Beta2 (Flutter crash risk, see docs/engineering/WEB_BETA2.md).
-- Web: "ประกาศ" tab behind `useBeta2Feature("clubAnnouncements")`, notification text and deep link `/club/<id>?tab=announcements`, push text in Thai and English. Flutter knows the new type (no UI).
+- Web: "ประกาศ" tab behind `useBeta2Feature("clubAnnouncements")`, notification text and deep link `/club/<id>?tab=announcements`, push text in Thai and English. Flutter is unchanged (Founder: web Beta2 only).

@@ -18,10 +18,6 @@ enum NotificationType {
   // author (see supabase/schema.sql for the exact reasoning).
   clubPostNew,
   clubPostPinned,
-  // WYN-137 (web Beta2): a Club announcement from Owner/Admin/Moderator.
-  // Only club_id is set; the app has no announcements screen yet, so a
-  // tap opens the Club. Known here so the list never throws on it.
-  clubAnnouncement,
   // WYN-124: fired by invite_to_club() -- a club member invites someone
   // who follows them or whom they follow. Deliberately a Notification,
   // not a Chat message (WYN-123's original launch used
@@ -117,8 +113,6 @@ NotificationType _typeFromString(String value) {
       return NotificationType.clubPostNew;
     case 'club_post_pinned':
       return NotificationType.clubPostPinned;
-    case 'club_announcement':
-      return NotificationType.clubAnnouncement;
     case 'club_invite':
       return NotificationType.clubInvite;
     case 'mention_drop':

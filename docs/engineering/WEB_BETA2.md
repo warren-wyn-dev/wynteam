@@ -33,9 +33,9 @@ process existed. The Founder chose to keep them live.
 
 ## WYN-137 release prerequisites
 
-- The installed Flutter app throws on an unknown notification type and loses its whole list (WYN-043).
-  While in Beta2, `club_announcement` notifications go to developer members only. Before releasing to
-  everyone, ship a Flutter build that knows `club_announcement` (added in this change), then remove the
-  developer filter in `internal.notify_club_announcement()` and the `is_developer_account()` checks in
-  the three RPCs with a follow-up migration (its own SQL approval).
-- The Flutter app has no announcements screen yet; its notification tap opens the Club.
+- Web and the Flutter app share one database and one `notifications` table. The installed Flutter app
+  throws on an unknown notification type and loses its whole list (WYN-043). While in Beta2,
+  `club_announcement` notifications go to developer members only, so no Flutter user receives one.
+- Before releasing to everyone, the Founder decides how to handle Flutter users. The options are to
+  ship a Flutter build that knows the type, or to confirm the Flutter app is no longer in use. Then a
+  follow-up migration removes the developer filter (its own SQL approval).

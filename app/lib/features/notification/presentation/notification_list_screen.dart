@@ -228,8 +228,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         // (join button, pending state, etc.) is what decides what
         // happens next, same as tapping a club link/share elsewhere.
         _openClub(notification.clubId!, openToMembers: false);
-      case NotificationType.clubAnnouncement:
-        _openClub(notification.clubId!, openToMembers: false);
       case NotificationType.clubPostLike:
       case NotificationType.clubPostComment:
       case NotificationType.clubPostNew:
@@ -482,8 +480,6 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         return '$name โพสต์ใหม่ใน $club';
       case NotificationType.clubPostPinned:
         return '$name ปักหมุดโพสต์ใหม่ใน $club';
-      case NotificationType.clubAnnouncement:
-        return '$name ประกาศใน $club';
       case NotificationType.clubInvite:
         return '$name ชวนคุณเข้าร่วม $club';
       case NotificationType.mentionDrop:

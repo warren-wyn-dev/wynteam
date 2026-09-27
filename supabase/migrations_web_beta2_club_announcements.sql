@@ -19,9 +19,9 @@
 --
 -- Beta2 gate: while WYN-137 is developer-only, every write RPC refuses
 -- non-developer accounts, and notifications go to developer members only.
--- The installed Flutter app throws on an unknown notification type and
--- would lose its whole notification list (see WYN-043), so releasing to
--- everyone needs a Flutter release that knows 'club_announcement' first.
+-- Web and the Flutter app share the notifications table, and the installed
+-- Flutter app throws on an unknown notification type (see WYN-043), so no
+-- non-developer receives this type until the Founder decides the release.
 -- =====================================================================
 
 create table if not exists public.club_announcements (

@@ -436,7 +436,6 @@ class PushNotificationService {
             openToMembers: true);
       case 'club_join_approved':
       case 'club_invite':
-      case 'club_announcement':
         _openClub(navigator, client, data['club_id'] as String?,
             openToMembers: false);
       case 'club_post_like':

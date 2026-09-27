@@ -4,27 +4,6 @@ import 'package:wyn/features/notification/data/notification.dart';
 
 void main() {
   group('WynNotification.fromMap', () {
-    // WYN-137: an unknown type throws and takes the whole list down
-    // (WYN-043), so every server type must parse.
-    test('parses a club_announcement row', () {
-      final notification = WynNotification.fromMap({
-        'id': 'n-announcement',
-        'type': 'club_announcement',
-        'actor': {'id': 'u1', 'username': 'owner', 'display_name': null, 'avatar_url': null},
-        'drop_id': null,
-        'pop_id': null,
-        'club_id': 'club-1',
-        'club_post_id': null,
-        'order_id': null,
-        'reason': null,
-        'is_read': false,
-        'created_at': '2026-01-01T00:00:00Z',
-      });
-
-      expect(notification.type, NotificationType.clubAnnouncement);
-      expect(notification.clubId, 'club-1');
-    });
-
     test(
         'parses a populated embedded actor (every notification type except '
         'the 2 moderation types)', () {
