@@ -130,7 +130,7 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+          if [ -z "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
             echo "No temporary bypass to revoke."
             exit 0
           fi
