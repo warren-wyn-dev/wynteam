@@ -23,12 +23,14 @@ type ActionMessage = {
 };
 
 export function ClubChatToolbar({
-  client, channelId, refreshToken, onJump,
+  client, channelId, refreshToken, onJump, onPinRetry,
 }: {
   client: SupabaseClient;
   channelId: string;
   refreshToken: number;
   onJump: (messageId: string) => Promise<void>;
+  /** Optional instrumentation for the local-only failure/retry fixture. */
+  onPinRetry?: () => void;
 }) {
   const [pins, setPins] = useState<ClubChatPin[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -92,6 +94,7 @@ export function ClubChatToolbar({
         <div className="golden-club-pin-error" role="alert">
           <span>{pinError}</span>
           <button type="button" disabled={pinLoading} onClick={() => {
+            onPinRetry?.(); // Local fixture can now make retry succeed, regardless of React Strict Mode effect replays.
             setPinLoading(true);
             setPinError("");
             setPinRetry((value) => value + 1);
