@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, type PointerEvent, type ReactNode } from "react";
 
 import { Avatar } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -21,6 +21,23 @@ function chatTimeLabel(value: string): string {
 
 /** Messages from one sender at most this far apart, on the same day, form one group (WYN-031 spec §2). */
 export const GROUP_WINDOW_MS = 60_000;
+
+/** Own plain-text messages can be edited for this long after sending (Founder, 2026-09-27). */
+export const EDIT_WINDOW_MS = 30 * 60_000;
+const LONG_PRESS_MS = 450;
+
+export type MessageAction = "reply" | "edit" | "delete";
+
+/** What a long-press menu offers for this message. */
+export function messageActions(message: MessageRow, userId: string, now = Date.now()): MessageAction[] {
+  if (message.deleted_at || message.pending) return [];
+  const mine = message.sender_id === userId;
+  const actions: MessageAction[] = ["reply"];
+  const plainText = Boolean(message.text?.trim()) && !message.image_url && !message.shared_content_id;
+  if (mine && plainText && now - new Date(message.created_at).getTime() <= EDIT_WINDOW_MS) actions.push("edit");
+  if (mine) actions.push("delete");
+  return actions;
+}
 
 export type GroupPosition = "single" | "first" | "middle" | "last";
 
@@ -53,8 +70,70 @@ type Props = {
   revealedMessageId: string | null;
   onToggleReveal: (messageId: string) => void;
   onDelete: (message: MessageRow) => void;
+  /** Threads mode: long-press (or right-click) a bubble to open its actions. */
+  onOpenActions?: (message: MessageRow) => void;
   renderImage: (path: string) => ReactNode;
 };
+
+/** Tap = one handler, hold 450 ms = another; a hold never also counts as a tap. */
+function useLongPress(onLongPress: () => void) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const fired = useRef(false);
+  const clear = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  return {
+    /** True once if the last press was a hold (so the click that follows is not a tap). */
+    consumeHold: () => {
+      const held = fired.current;
+      fired.current = false;
+      return held;
+    },
+    handlers: {
+      onPointerDown: (event: PointerEvent) => {
+        fired.current = false;
+        start.current = { x: event.clientX, y: event.clientY };
+        clear();
+        timer.current = setTimeout(() => {
+          fired.current = true;
+          onLongPress();
+        }, LONG_PRESS_MS);
+      },
+      onPointerMove: (event: PointerEvent) => {
+        if (start.current && Math.hypot(event.clientX - start.current.x, event.clientY - start.current.y) > 10) clear();
+      },
+      onPointerUp: clear,
+      onPointerCancel: clear,
+      onPointerLeave: clear,
+      onContextMenu: (event: { preventDefault: () => void }) => {
+        event.preventDefault();
+        clear();
+        fired.current = true;
+        onLongPress();
+      },
+    },
+  };
+}
+
+function Bubble({ tappable, onTap, onLongPress, children, ...rest }: { tappable: boolean; onTap?: () => void; onLongPress?: () => void; children: ReactNode; "aria-label"?: string; "aria-expanded"?: boolean }) {
+  const press = useLongPress(() => onLongPress?.());
+  return (
+    <div
+      className="message-bubble"
+      role={tappable ? "button" : undefined}
+      tabIndex={tappable ? 0 : undefined}
+      {...rest}
+      {...(onLongPress ? press.handlers : {})}
+      onClick={tappable ? () => {
+        if (!press.consumeHold()) onTap?.();
+      } : undefined}
+    >
+      {children}
+    </div>
+  );
+}
 
 /**
  * The message list of a 1:1 conversation. Without `threads` it renders
@@ -64,7 +143,7 @@ type Props = {
  * - time is hidden until a bubble is tapped (own bubble: time + delete);
  * - the sent/read receipt shows once, under the latest outgoing message.
  */
-export function ConversationThread({ messages, userId, other, otherLastReadAt, threads, revealedMessageId, onToggleReveal, onDelete, renderImage }: Props) {
+export function ConversationThread({ messages, userId, other, otherLastReadAt, threads, revealedMessageId, onToggleReveal, onDelete, onOpenActions, renderImage }: Props) {
   const positions = threads ? groupPositions(messages) : null;
   const lastMineId = threads ? [...messages].reverse().find((message) => message.sender_id === userId && !message.pending)?.id : undefined;
   return (
@@ -73,7 +152,8 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
         const mine = message.sender_id === userId;
         const canDelete = mine && !message.deleted_at && !message.pending;
         const tapped = revealedMessageId === message.id;
-        const revealed = canDelete && tapped;
+        // Beta1: tapping your own bubble shows delete. Threads: tap only shows the time; actions are on long-press.
+        const revealed = !threads && canDelete && tapped;
         const previous = index > 0 ? messages[index - 1] : null;
         const showDate = !previous || chatDayKey(previous.created_at) !== chatDayKey(message.created_at);
         const read = mine && Boolean(otherLastReadAt && new Date(message.created_at) <= new Date(otherLastReadAt));
@@ -81,20 +161,19 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
         const showAvatar = !mine && other && (!threads || position === "last" || position === "single");
         const showTime = !threads || tapped || message.pending;
         const showReceipt = mine && !message.pending && (!threads || message.id === lastMineId);
-        const tappable = threads ? !message.deleted_at || canDelete : canDelete;
+        const tappable = threads ? !message.deleted_at && !message.pending : canDelete;
         const bubbleLabel = threads ? `${mine ? "คุณ" : (other?.display_name?.trim() || other?.username || "")} ${chatTimeLabel(message.created_at)}` : undefined;
         return <div className="message-entry" key={message.id}>
           {showDate ? <div className="conversation-date-separator"><span>{chatDateLabel(message.created_at)}</span></div> : null}
           <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}${position ? ` group-${position}` : ""}`}>
             {showAvatar && other ? <Avatar src={other.avatar_url} label={other.username} size={34} /> : threads && !mine ? <span className="message-avatar-space" aria-hidden="true" /> : null}
             <div className="message-stack">
-              <div
-                className="message-bubble"
-                role={tappable ? "button" : undefined}
-                tabIndex={tappable ? 0 : undefined}
+              <Bubble
+                tappable={tappable}
                 aria-label={bubbleLabel}
                 aria-expanded={threads && tappable ? tapped : undefined}
-                onClick={tappable ? () => onToggleReveal(message.id) : undefined}
+                onTap={() => onToggleReveal(message.id)}
+                onLongPress={threads && onOpenActions && !message.deleted_at && !message.pending ? () => onOpenActions(message) : undefined}
               >
                 {message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>
                   {message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}
@@ -102,7 +181,7 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
                   {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL for an image still uploading */}
                   {message.localPreviewUrl ? <img className="message-image" src={message.localPreviewUrl} alt="" /> : message.image_url ? renderImage(message.image_url) : null}
                 </>}
-              </div>
+              </Bubble>
               {showTime || showReceipt ? <div className="message-meta">
                 {showTime ? <time>{message.pending ? "กำลังส่ง…" : chatTimeLabel(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time> : null}
                 {showReceipt ? (
@@ -119,5 +198,31 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
         </div>;
       })}
     </>
+  );
+}
+
+const ACTION_LABELS: Record<MessageAction, { label: string; icon: "comment" | "pencil" | "trash" }> = {
+  reply: { label: "ตอบกลับ", icon: "comment" },
+  edit: { label: "แก้ไข", icon: "pencil" },
+  delete: { label: "ลบข้อความ", icon: "trash" },
+};
+
+/** Long-press menu for one message (WYN-159 Beta2). */
+export function MessageActionSheet({ message, userId, onChoose, onClose }: { message: MessageRow; userId: string; onChoose: (action: MessageAction) => void; onClose: () => void }) {
+  const actions = messageActions(message, userId);
+  return (
+    <div className="route-modal-backdrop golden-drop-sheet-backdrop" role="presentation" onClick={onClose}>
+      <section className="golden-drop-sheet message-action-sheet" role="dialog" aria-modal="true" aria-label="ตัวเลือกข้อความ" onClick={(event) => event.stopPropagation()}>
+        <div className="golden-drop-sheet-grip" />
+        {actions.map((action) => (
+          <button key={action} className={`golden-drop-sheet-row${action === "delete" ? " danger" : ""}`} type="button" onClick={() => onChoose(action)}>
+            <WynosIcon name={ACTION_LABELS[action].icon} size={20} strokeWidth={2} />{ACTION_LABELS[action].label}
+          </button>
+        ))}
+        <button className="golden-drop-sheet-row" type="button" onClick={onClose}>
+          <WynosIcon name="close" size={20} strokeWidth={2} />ยกเลิก
+        </button>
+      </section>
+    </div>
   );
 }

@@ -811,6 +811,8 @@ export const EN_EXACT: Record<string, string> = {
   "เห็นข้อความล่าสุดแล้ว": "Seen the latest message",
   "เอาออกจากบันทึก": "Remove from saved",
   "แก้ไข": "Edit",
+  "แก้ไขข้อความ": "Edit message",
+  "แก้ไขข้อความไม่สำเร็จ": "Couldn't edit the message",
   "แก้ไขโปรไฟล์": "Edit profile",
   "แก้ไขโพสต์": "Edit post",
   "แก้ไขโพสต์ไม่สำเร็จ": "Couldn't edit the post",

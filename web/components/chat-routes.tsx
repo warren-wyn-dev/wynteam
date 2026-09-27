@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
-import { ConversationThread } from "@/components/chat/conversation-thread";
+import { ConversationThread, MessageActionSheet, type MessageAction } from "@/components/chat/conversation-thread";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -24,6 +24,7 @@ import {
   chatAllowed,
   deleteMessage,
   deleteMessageRequest,
+  editMessage,
   fetchConversationMeta,
   fetchInbox,
   fetchMessageRequests,
@@ -176,6 +177,10 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [error, setError] = useState("");
   const [revealedMessageId, setRevealedMessageId] = useState<string | null>(null);
   const chatThreads = useBeta2Feature("chatThreads", client, userId);
+  // WYN-159 (Beta2): long-press actions on a message.
+  const [actionMessage, setActionMessage] = useState<MessageRow | null>(null);
+  const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
+  const [editing, setEditing] = useState<MessageRow | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const composerRef = useRef<HTMLFormElement | null>(null);
@@ -268,7 +273,33 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     } finally { setLoadingMore(false); }
   };
 
+  const submitEdit = async (message: MessageRow) => {
+    const text = draft.trim();
+    if (sending || !text) return;
+    if (text === message.text?.trim()) { setEditing(null); setDraft(""); return; }
+    setSending(true); setError("");
+    try {
+      await editMessage(client, message.id, text);
+      const editedAt = new Date().toISOString();
+      setMessages((current) => current.map((item) => item.id === message.id ? { ...item, text, edited_at: editedAt } : item));
+      setEditing(null); setDraft("");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "แก้ไขข้อความไม่สำเร็จ");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const chooseAction = (message: MessageRow, action: MessageAction) => {
+    setActionMessage(null);
+    if (action === "delete") { void remove(message); return; }
+    if (action === "reply") { setEditing(null); setReplyTo(message); }
+    else { setReplyTo(null); setFile(null); setEditing(message); setDraft(message.text ?? ""); }
+    textareaRef.current?.focus();
+  };
+
   const submit = async () => {
+    if (editing) { await submitEdit(editing); return; }
     if (sending || (!draft.trim() && !file)) return;
     if (isComposeMode && !otherId) return;
     const text = draft.trim();
@@ -284,7 +315,11 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       created_at: new Date().toISOString(),
       pending: true,
       localPreviewUrl,
+      reply_to_message_id: replyTo?.id ?? null,
+      reply_to: replyTo ? { text: replyTo.text, image_url: replyTo.image_url, deleted_at: replyTo.deleted_at } : null,
     };
+    const replyToMessageId = replyTo?.id ?? null;
+    setReplyTo(null);
     setMessages((current) => [optimisticMessage, ...current]);
     setDraft(""); setFile(null); setSending(true); setError("");
     haptic();
@@ -294,7 +329,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       // ever created here, at the moment of an actual first send -- never
       // just from opening the composer.
       const realConversationId = isComposeMode ? await getOrCreateConversation(client, otherId) : conversationId;
-      const created = await sendMessage(client, userId, realConversationId, { text, file: attachedFile });
+      const created = await sendMessage(client, userId, realConversationId, { text, file: attachedFile, replyToMessageId });
       if (isComposeMode) {
         // A full navigation (not just a state update) so the destination
         // mounts fresh against the real conversation id -- realtime
@@ -415,15 +450,17 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
               revealedMessageId={revealedMessageId}
               onToggleReveal={(messageId) => setRevealedMessageId((current) => current === messageId ? null : messageId)}
               onDelete={(message) => void remove(message)}
+              onOpenActions={(message) => setActionMessage(message)}
               renderImage={(path) => <MessageImage client={client} path={path} />}
             />
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
-            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker" aria-label="แนบรูปภาพ"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
+            <form className={`message-composer${replyTo || editing ? " has-context" : ""}`} ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}>{replyTo || editing ? <div className="message-composer-context"><span><strong>{editing ? "แก้ไขข้อความ" : "ตอบกลับ"}</strong><small data-i18n-skip="">{(editing ?? replyTo)?.text || ((editing ?? replyTo)?.image_url ? "รูปภาพ" : "ข้อความ")}</small></span><button type="button" aria-label="ยกเลิก" onClick={() => { if (editing) setDraft(""); setEditing(null); setReplyTo(null); }}><WynosIcon name="close" size={16} strokeWidth={2} /></button></div> : null}<label className="message-image-picker" aria-label="แนบรูปภาพ"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending || Boolean(editing)} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
           )}
         </div>
       )}
+      {actionMessage ? <MessageActionSheet message={actionMessage} userId={userId} onChoose={(action) => chooseAction(actionMessage, action)} onClose={() => setActionMessage(null)} /> : null}
       <Toast message={toastMessage} />
     </AppChrome>
   );

@@ -825,6 +825,12 @@ export async function signedChatImage(client: SupabaseClient, path: string): Pro
   return result.error ? null : result.data.signedUrl;
 }
 
+/** Edit the text of your own plain-text message (server: edit_message, sender-only). */
+export async function editMessage(client: SupabaseClient, messageId: string, text: string): Promise<void> {
+  const result = await client.rpc("edit_message", { p_message_id: messageId, p_text: text });
+  fail(result.error, "แก้ไขข้อความไม่สำเร็จ");
+}
+
 export async function deleteMessage(client: SupabaseClient, message: MessageRow): Promise<void> {
   const result = await client.rpc("delete_message", { p_message_id: message.id });
   fail(result.error, "ลบข้อความไม่สำเร็จ");
