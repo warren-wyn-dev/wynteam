@@ -11,6 +11,9 @@ import io.wyn.wyn.core.data.SavedAccount
 import io.wyn.wyn.core.design.ThemeChoice
 import io.wyn.wyn.core.design.WynosTheme
 import io.wyn.wyn.testing.FakeAuthRepository
+import io.wyn.wyn.testing.FakeFeedRepository
+import io.wyn.wyn.testing.FakePostRepository
+import androidx.compose.ui.test.performClick
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,7 +37,7 @@ class AccountScreensScreenshotTest {
         settle()
         setup(vm)
         settle()
-        compose.setContent { WynosTheme(theme) { WynosApp(vm, onExit = {}) } }
+        compose.setContent { WynosTheme(theme) { WynosApp(vm, FakeFeedRepository(), FakePostRepository(), onExit = {}) } }
         compose.waitForIdle()
         return vm
     }
@@ -133,7 +136,10 @@ class AccountScreensScreenshotTest {
         repo.active = "u1"
         store.save(listOf(SavedAccount("u2", "malee", "มาลี", session = "session:u2")))
         app { }
+        // Signed in lands on the feed; the account switcher lives under Profile.
+        compose.onNodeWithText("สำหรับคุณ").assertExists()
+        compose.onNodeWithText("โปรไฟล์").performClick()
         compose.onNodeWithText("สลับบัญชี").assertExists()
-        shot("home-th-light")
+        shot("accounts-th-light")
     }
 }

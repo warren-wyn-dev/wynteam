@@ -1,0 +1,407 @@
+package io.wyn.wyn.feature.home
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import io.wyn.wyn.R
+import io.wyn.wyn.core.data.EngagementChange
+import io.wyn.wyn.core.data.EngagementSync
+import io.wyn.wyn.core.data.FeedRepository
+import io.wyn.wyn.core.data.patched
+import io.wyn.wyn.core.data.FeedRow
+import io.wyn.wyn.core.data.FollowState
+import io.wyn.wyn.core.data.HomeIdentity
+import io.wyn.wyn.core.data.ViewerState
+import io.wyn.wyn.core.data.predictFollowState
+import io.wyn.wyn.feature.auth.UiText
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
+
+private const val SOURCE = "home"
+
+enum class FeedMode { ForYou, Following, Clubs }
+
+data class FeedSnapshot(val rows: List<FeedRow>, val viewer: ViewerState, val images: Map<String, List<String>>)
+
+sealed interface PostSheet {
+    val row: FeedRow
+    data class More(override val row: FeedRow) : PostSheet
+    data class Repost(override val row: FeedRow) : PostSheet
+    data class Report(override val row: FeedRow) : PostSheet
+}
+
+data class Toast(val text: UiText, val actionLabel: UiText? = null, val action: (() -> Unit)? = null)
+
+/** The web's report categories, in the same order. */
+val ReportCategories = listOf(
+    "spam", "scam", "harassment", "hate", "sexual_content", "violence", "privacy", "illegal_content", "copyright", "other",
+)
+
+/**
+ * Home feed logic, following web/components/home/home-screen.tsx: one
+ * cached snapshot per tab, optimistic like/save/repost/follow with
+ * rollback, hide with undo, and report.
+ */
+class HomeViewModel(
+    private val repo: FeedRepository,
+    val userId: String,
+    private val sync: EngagementSync = EngagementSync(),
+) : ViewModel() {
+    var mode by mutableStateOf(FeedMode.ForYou); private set
+    private val cache = mutableMapOf<FeedMode, FeedSnapshot>()
+    var snapshot by mutableStateOf<FeedSnapshot?>(null); private set
+    var loading by mutableStateOf(false); private set
+    var refreshing by mutableStateOf(false); private set
+    var error by mutableStateOf<UiText?>(null); private set
+    var identity by mutableStateOf<HomeIdentity?>(null); private set
+    var toast by mutableStateOf<Toast?>(null); private set
+    var sheet by mutableStateOf<PostSheet?>(null); private set
+    var hidden by mutableStateOf<Pair<FeedRow, Int>?>(null); private set
+    var reportCategory by mutableStateOf(ReportCategories.first()); private set
+    var reportDetail by mutableStateOf(""); private set
+    var reportError by mutableStateOf<UiText?>(null); private set
+    var busy by mutableStateOf(false); private set
+    private val inFlight = mutableSetOf<String>()
+    private var loadJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            sync.changes.collect { change ->
+                if (change.userId != userId || change.source == SOURCE) return@collect
+                for ((key, cached) in cache.toMap()) {
+                    cache[key] = cached.copy(viewer = cached.viewer.patched(change), rows = cached.rows.map { it.patched(change) })
+                }
+                snapshot = cache[mode] ?: snapshot
+            }
+        }
+        viewModelScope.launch { identity = runCatching { repo.fetchIdentity(userId) }.getOrNull() }
+        load(FeedMode.ForYou)
+    }
+
+    fun select(next: FeedMode) {
+        if (next == mode) return
+        mode = next
+        val cached = cache[next]
+        if (cached != null) {
+            snapshot = cached
+            error = null
+        } else {
+            load(next)
+        }
+    }
+
+    private suspend fun fetch(target: FeedMode): FeedSnapshot {
+        val rows = when (target) {
+            FeedMode.ForYou -> repo.fetchRanked()
+            FeedMode.Following -> repo.fetchFollowing(userId)
+            FeedMode.Clubs -> emptyList() // Club posts arrive with the Clubs milestone (M6).
+        }
+        val viewer = repo.loadViewer(userId, rows)
+        val images = repo.fetchImages(rows)
+        return FeedSnapshot(rows, viewer, images)
+    }
+
+    fun load(target: FeedMode = mode) {
+        loadJob?.cancel()
+        loading = cache[target] == null
+        error = null
+        if (cache[target] == null && target == mode) snapshot = null
+        loadJob = viewModelScope.launch {
+            try {
+                val next = fetch(target)
+                cache[target] = next
+                if (mode == target) snapshot = next
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (mode == target) error = UiText(R.string.feed_load_failed)
+            } finally {
+                if (mode == target) loading = false
+            }
+        }
+    }
+
+    fun refresh() {
+        if (refreshing) return
+        val target = mode
+        refreshing = true
+        viewModelScope.launch {
+            try {
+                val next = fetch(target)
+                cache[target] = next
+                if (mode == target) {
+                    snapshot = next
+                    error = null
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (mode == target) error = UiText(R.string.feed_refresh_failed)
+            } finally {
+                refreshing = false
+            }
+        }
+    }
+
+    private fun update(transform: (FeedSnapshot) -> FeedSnapshot) {
+        val current = snapshot ?: return
+        val next = transform(current)
+        snapshot = next
+        cache[mode] = next
+        // Other tabs can show the same post: keep their likes, saves and counts in step.
+        val counts = next.rows.associate { it.id to (it.likeCount to it.redropCount) }
+        for ((key, other) in cache.toMap()) {
+            if (key == mode) continue
+            cache[key] = other.copy(
+                viewer = other.viewer.mergedWith(next),
+                rows = other.rows.map { row -> counts[row.id]?.let { (likes, reposts) -> row.copy(likeCount = likes, redropCount = reposts) } ?: row },
+            )
+        }
+    }
+
+    /** Takes [source]'s answer for the posts and authors it shows; keeps ours for the rest. */
+    private fun ViewerState.mergedWith(source: FeedSnapshot): ViewerState {
+        val posts = source.rows.map { it.id }.toSet()
+        val authors = source.rows.map { it.authorId }.toSet()
+        fun Set<String>.take(from: Set<String>, scope: Set<String>) = (this - scope) + (from intersect scope)
+        val v = source.viewer
+        return copy(
+            liked = liked.take(v.liked, posts),
+            saved = saved.take(v.saved, posts),
+            redropped = redropped.take(v.redropped, posts),
+            following = following.take(v.following, authors),
+            requested = requested.take(v.requested, authors),
+        )
+    }
+
+    private fun ViewerState.with(liked: Set<String> = this.liked, saved: Set<String> = this.saved, redropped: Set<String> = this.redropped) =
+        copy(liked = liked, saved = saved, redropped = redropped)
+
+    private fun Set<String>.toggle(id: String, on: Boolean) = if (on) this + id else this - id
+
+    private fun guarded(key: String, block: suspend () -> Unit) {
+        if (!inFlight.add(key)) return
+        viewModelScope.launch {
+            try {
+                block()
+            } finally {
+                inFlight.remove(key)
+            }
+        }
+    }
+
+    fun toggleLike(row: FeedRow) {
+        val viewer = snapshot?.viewer ?: return
+        val liked = row.id in viewer.liked
+        guarded("like:${row.id}") {
+            val delta = if (liked) -1 else 1
+            update { s -> s.copy(viewer = s.viewer.with(liked = s.viewer.liked.toggle(row.id, !liked)), rows = s.rows.map { if (it.id == row.id) it.copy(likeCount = (it.likeCount + delta).coerceAtLeast(0)) else it }) }
+            try {
+                repo.setLiked(userId, row.id, !liked)
+                sync.publish(EngagementChange(userId, row.id, liked = !liked, likeCount = (row.likeCount + delta).coerceAtLeast(0), source = SOURCE))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                update { s -> s.copy(viewer = s.viewer.with(liked = s.viewer.liked.toggle(row.id, liked)), rows = s.rows.map { if (it.id == row.id) it.copy(likeCount = (it.likeCount - delta).coerceAtLeast(0)) else it }) }
+                toast = Toast(UiText(R.string.like_failed))
+            }
+        }
+    }
+
+    /** Double-tap on a photo only ever likes. */
+    fun likeFromPhoto(row: FeedRow) {
+        if (snapshot?.viewer?.liked?.contains(row.id) == false) toggleLike(row)
+    }
+
+    fun toggleSave(row: FeedRow) {
+        val viewer = snapshot?.viewer ?: return
+        val saved = row.id in viewer.saved
+        guarded("save:${row.id}") {
+            update { s -> s.copy(viewer = s.viewer.with(saved = s.viewer.saved.toggle(row.id, !saved))) }
+            try {
+                repo.setSaved(userId, row.id, !saved)
+                sync.publish(EngagementChange(userId, row.id, saved = !saved, source = SOURCE))
+                toast = if (!saved) {
+                    Toast(UiText(R.string.post_saved), UiText(R.string.undo)) { undoSave(row) }
+                } else {
+                    Toast(UiText(R.string.post_unsaved))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                update { s -> s.copy(viewer = s.viewer.with(saved = s.viewer.saved.toggle(row.id, saved))) }
+                toast = Toast(UiText(R.string.save_failed))
+            }
+        }
+    }
+
+    private fun undoSave(row: FeedRow) {
+        toast = null
+        guarded("save:${row.id}") {
+            update { s -> s.copy(viewer = s.viewer.with(saved = s.viewer.saved - row.id)) }
+            try {
+                repo.setSaved(userId, row.id, false)
+                sync.publish(EngagementChange(userId, row.id, saved = false, source = SOURCE))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                update { s -> s.copy(viewer = s.viewer.with(saved = s.viewer.saved + row.id)) }
+                toast = Toast(UiText(R.string.undo_failed))
+            }
+        }
+    }
+
+    fun toggleRepost(row: FeedRow) {
+        val viewer = snapshot?.viewer ?: return
+        val active = row.id in viewer.redropped
+        guarded("redrop:${row.id}") {
+            busy = true
+            val delta = if (active) -1 else 1
+            update { s -> s.copy(viewer = s.viewer.with(redropped = s.viewer.redropped.toggle(row.id, !active)), rows = s.rows.map { if (it.id == row.id) it.copy(redropCount = (it.redropCount + delta).coerceAtLeast(0)) else it }) }
+            try {
+                repo.setRedropped(userId, row.id, !active)
+                sync.publish(EngagementChange(userId, row.id, reposted = !active, repostCount = (row.redropCount + delta).coerceAtLeast(0), source = SOURCE))
+                sheet = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                update { s -> s.copy(viewer = s.viewer.with(redropped = s.viewer.redropped.toggle(row.id, active)), rows = s.rows.map { if (it.id == row.id) it.copy(redropCount = (it.redropCount - delta).coerceAtLeast(0)) else it }) }
+                toast = Toast(UiText(R.string.repost_failed))
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun removeMyRepost(row: FeedRow) {
+        val redropId = row.redropId ?: return
+        sheet = null
+        viewModelScope.launch {
+            try {
+                repo.deleteRedrop(userId, redropId)
+                refresh()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                toast = Toast(UiText(R.string.err_generic))
+            }
+        }
+    }
+
+    fun toggleFollow(row: FeedRow) {
+        val viewer = snapshot?.viewer ?: return
+        val author = row.authorId
+        if (author == userId) return
+        val following = author in viewer.following
+        val requested = author in viewer.requested
+        val isPrivate = author in viewer.privateAuthors
+        fun apply(state: FollowState) = update { s ->
+            s.copy(
+                viewer = s.viewer.copy(
+                    following = s.viewer.following.toggle(author, state == FollowState.Following),
+                    requested = s.viewer.requested.toggle(author, state == FollowState.Requested),
+                ),
+            )
+        }
+        guarded("follow:$author") {
+            apply(predictFollowState(following, requested, isPrivate))
+            try {
+                apply(repo.toggleFollow(userId, author, following, requested, isPrivate))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                apply(if (following) FollowState.Following else if (requested) FollowState.Requested else FollowState.None)
+                toast = Toast(UiText(R.string.follow_failed))
+            }
+        }
+    }
+
+    fun hide(row: FeedRow) {
+        val current = snapshot ?: return
+        val index = current.rows.indexOfFirst { it.key == row.key }.coerceAtLeast(0)
+        update { s -> s.copy(rows = s.rows.filterNot { it.key == row.key }) }
+        hidden = row to index
+        sheet = null
+        viewModelScope.launch {
+            try {
+                repo.hide(userId, row.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                hidden = null
+                refresh()
+            }
+        }
+    }
+
+    fun undoHide() {
+        val (row, index) = hidden ?: return
+        hidden = null
+        update { s -> s.copy(rows = s.rows.toMutableList().apply { add(index.coerceAtMost(size), row) }) }
+        viewModelScope.launch {
+            try {
+                repo.unhide(userId, row.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                refresh()
+            }
+        }
+    }
+
+    fun dismissHidden() {
+        hidden = null
+    }
+
+    fun openSheet(value: PostSheet?) {
+        sheet = value
+        if (value is PostSheet.Report) {
+            reportCategory = ReportCategories.first()
+            reportDetail = ""
+            reportError = null
+        }
+    }
+
+    fun chooseReportCategory(value: String) {
+        reportCategory = value
+        reportError = null
+    }
+
+    fun updateReportDetail(value: String) {
+        reportDetail = value.take(1000)
+        reportError = null
+    }
+
+    fun submitReport() {
+        val row = (sheet as? PostSheet.Report)?.row ?: return
+        if (busy) return
+        if (reportCategory == "other" && reportDetail.isBlank()) {
+            reportError = UiText(R.string.report_detail_required)
+            return
+        }
+        busy = true
+        viewModelScope.launch {
+            try {
+                repo.report(row.id, reportCategory, if (reportCategory == "other") reportDetail.trim() else null)
+                sheet = null
+                toast = Toast(UiText(R.string.report_sent))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                reportError = UiText(R.string.report_failed)
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun dismissToast() {
+        toast = null
+    }
+
+    /** The web's share link for a post. */
+    fun shareUrl(row: FeedRow) = "https://wynos.online/drop/${row.id}"
+}
