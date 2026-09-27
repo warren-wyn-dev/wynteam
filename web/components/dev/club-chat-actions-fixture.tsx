@@ -10,7 +10,7 @@ type Row = { id: string; channel_id: string; author_id: string; content: string;
 const ME = "00000000-0000-0000-0000-000000000001";
 const OTHER = "00000000-0000-0000-0000-000000000002";
 
-function makeClient(rows: Row[]): SupabaseClient {
+function makeClient(rows: Row[], delayFirstSearch = false): SupabaseClient {
   const query = () => {
     let channel = "";
     const chain = {
@@ -25,6 +25,9 @@ function makeClient(rows: Row[]): SupabaseClient {
   return {
     from: query,
     rpc: async (name: string, args: Record<string, unknown>) => {
+      // Deterministic out-of-order replies for the stale-search browser test.
+      if (name === "search_club_channel_messages" && delayFirstSearch && args.p_query === "hello")
+        await new Promise((done) => setTimeout(done, 550));
       const row = rows.find((item) => item.id === args.p_message_id);
       if (name === "edit_club_channel_message" && row) row.content = String(args.p_content);
       if (name === "set_club_channel_message_pin" && row)
@@ -46,7 +49,8 @@ function Inner() {
     { id: "m2", channel_id: "channel1", author_id: OTHER, content: "please read the rules", pinned_at: null, created_at: "2026-09-27T12:01:00Z" },
     { id: "m3", channel_id: "channel2", author_id: OTHER, content: "secret second channel", pinned_at: null, created_at: "2026-09-27T12:02:00Z" },
   ], []);
-  const client = useMemo(() => makeClient(rows), [rows]);
+  const slow = params.get("slow") === "1";
+  const client = useMemo(() => makeClient(rows, slow), [rows, slow]);
   const [tick, setTick] = useState(0);
   const [chosen, setChosen] = useState<Row | null>(null);
   const [jumped, setJumped] = useState("");
