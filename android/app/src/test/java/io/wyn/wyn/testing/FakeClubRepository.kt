@@ -90,6 +90,9 @@ class FakeClubRepository : ClubRepository {
         return exploreSections(clubs.values.toList(), approved, pending)
     }
 
+    override suspend fun search(query: String, page: Int): List<Club> =
+        clubs.values.filter { it.name.contains(query.trim(), ignoreCase = true) }.sortedByDescending { it.createdAt }.drop(page * 20).take(20).also { check() }
+
     override suspend fun myClubs(userId: String): List<Club> = memberships.filterValues { it.approved }.keys.mapNotNull(clubs::get).also { check() }
 
     override suspend fun join(userId: String, club: Club) {

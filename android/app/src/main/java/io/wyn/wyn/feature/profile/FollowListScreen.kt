@@ -88,7 +88,7 @@ fun FollowListScreen(vm: FollowListViewModel, onBack: () -> Unit, onOpenProfile:
                         ) {}
                     }
                     else -> {
-                        items(people, key = { it.id }) { person -> PersonRow(person, vm, onOpenProfile) }
+                        items(people, key = { it.id }) { person -> PersonRow(person, vm.viewerId, vm.busy == person.id, onFollow = { vm.follow(person) }, onOpen = onOpenProfile) }
                         vm.error?.let { item(key = "error") { Box(Modifier.padding(horizontal = 16.dp)) { ErrorText(it.text()) } } }
                     }
                 }
@@ -106,10 +106,19 @@ fun FollowListScreen(vm: FollowListViewModel, onBack: () -> Unit, onOpenProfile:
     }
 }
 
+/** A person with a follow button (follow lists, search, suggestions). */
 @Composable
-private fun PersonRow(person: Person, vm: FollowListViewModel, onOpen: (String) -> Unit) {
+fun PersonRow(
+    person: Person,
+    viewerId: String,
+    busy: Boolean,
+    onFollow: (() -> Unit)?,
+    onOpen: (String) -> Unit,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
+    minHeight: androidx.compose.ui.unit.Dp = 64.dp,
+) {
     val c = Wyn.colors
-    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = minHeight).padding(horizontal = horizontalPadding, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f).clickable(role = Role.Button) { onOpen(person.id) }, verticalAlignment = Alignment.CenterVertically) {
             WynAvatar(person.avatarUrl, 44)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -123,12 +132,12 @@ private fun PersonRow(person: Person, vm: FollowListViewModel, onOpen: (String) 
                 Text("@${person.username}", color = c.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        if (person.id != vm.viewerId) {
-            val busy = vm.busy == person.id
+        if (person.id != viewerId && onFollow != null) {
             PillButton(
                 followLabel(busy, person.following, person.requested), filled = !(person.following || person.requested),
                 enabled = !busy, height = 34.dp, fontSize = 13, modifier = Modifier.padding(start = 10.dp),
-            ) { vm.follow(person) }
+                onClick = onFollow,
+            )
         }
     }
 }

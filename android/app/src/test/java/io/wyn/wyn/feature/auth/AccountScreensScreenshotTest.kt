@@ -20,6 +20,7 @@ import io.wyn.wyn.testing.FakeProfileRepository
 import io.wyn.wyn.testing.FakeNotificationRepository
 import io.wyn.wyn.testing.FakeChatRepository
 import io.wyn.wyn.testing.FakeClubRepository
+import io.wyn.wyn.testing.FakeDiscoveryRepository
 import io.wyn.wyn.feature.shell.Repositories
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
@@ -45,7 +46,7 @@ class AccountScreensScreenshotTest {
         settle()
         setup(vm)
         settle()
-        compose.setContent { WynosTheme(theme) { WynosApp(vm, Repositories(FakeFeedRepository(), FakePostRepository(), FakeComposerRepository(), FakeQuoteRepository(), profiles, FakeNotificationRepository(), FakeChatRepository(), FakeClubRepository()), onExit = {}) } }
+        compose.setContent { WynosTheme(theme) { WynosApp(vm, Repositories(FakeFeedRepository(), FakePostRepository(), FakeComposerRepository(), FakeQuoteRepository(), profiles, FakeNotificationRepository(), FakeChatRepository(), FakeClubRepository(), FakeDiscoveryRepository()), onExit = {}) } }
         compose.waitForIdle()
         return vm
     }

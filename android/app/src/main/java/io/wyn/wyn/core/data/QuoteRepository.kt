@@ -54,6 +54,8 @@ interface QuoteRepository {
     suspend fun repostRows(userIds: List<String>, limit: Int): List<FeedRow>
     /** Quotes [userId] liked, newest like first, as (row, liked at). Callers check can_view_likes first. */
     suspend fun likedRows(userId: String, limit: Int): List<Pair<FeedRow, String>>
+    /** Quotes I saved, newest save first, as (row, saved at) (web fetchSavedQuoteRows). */
+    suspend fun savedRows(userId: String, limit: Int): List<Pair<FeedRow, String>>
     suspend fun fetchImages(dropId: String, fallback: String?): List<String>
     suspend fun comments(quoteId: String, page: Int): List<QuoteComment>
     suspend fun addComment(userId: String, quoteId: String, text: String)
@@ -171,6 +173,17 @@ class SupabaseQuoteRepository(private val clientOrNull: SupabaseClient?) : Quote
         if (likes.isEmpty()) return emptyList()
         val quotes = visibleQuotes(likes.mapNotNull { it.text("quote_id") })
         return likes.mapNotNull { like -> quotes[like.text("quote_id")]?.let { it to like.text("created_at").orEmpty() } }
+    }
+
+    override suspend fun savedRows(userId: String, limit: Int): List<Pair<FeedRow, String>> {
+        val saves = client.from("quote_saves").select(Columns.list("quote_id", "created_at")) {
+            filter { eq("user_id", userId) }
+            order("created_at", Order.DESCENDING)
+            range(0L, (limit - 1).toLong())
+        }.decodeList<JsonObject>()
+        if (saves.isEmpty()) return emptyList()
+        val quotes = visibleQuotes(saves.mapNotNull { it.text("quote_id") })
+        return saves.mapNotNull { save -> quotes[save.text("quote_id")]?.let { it to save.text("created_at").orEmpty() } }
     }
 
     override suspend fun fetchImages(dropId: String, fallback: String?): List<String> {

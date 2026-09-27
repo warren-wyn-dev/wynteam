@@ -179,6 +179,20 @@ Still open in M1:
   write a Club post in Beta 1, so Android has none either.
 - **Next: M7 Search, Settings, Wynii.**
 
+## M7a status (search, trending, saved, Home menu)
+
+- **Search** (web search-route, from the Home search button): until a query is entered, trending hashtags (top 6,
+  ranked like the web: engagement decayed by age over the last 48 h) with "ดูอันดับทั้งหมด (Top 100)" and people to
+  follow (`suggested_users`) with follow buttons. Typing searches after a 400 ms pause (2+ characters); the search key
+  searches at once. Tabs: All (3 people, 2 posts, 2 Clubs, each with "ดูทั้งหมด"), User (30 a page, follow, asking
+  before cancelling a private request), Posts (Home's cards and actions, 21 a page) and Club (20 a page).
+- **Top 100 hashtags** (web trending-route) and **Saved** (web bookmarks-route: saved Drops and Quotes, newest save
+  first, 21 a page, Home's cards, pull to refresh).
+- **Home menu** (web home-drawer): me (followers / following), Explore Club, Create Club, My Clubs, Saved, and the
+  Feedback (copy or share) and Help panels; swipe left, tap outside or Back to close. The web's "add WYNOS to your
+  home screen" help item is for the web app only and is left out of the installed Android app.
+- **Next: M7b Settings (privacy, notifications, account, password, theme, language, legal) and Wynii.**
+
 ## Risks
 
 - Scope: ~40 web screens and months of web work. Mitigation: milestones, each usable on its own.

@@ -110,6 +110,12 @@ object WynIcons {
         "m2 2 20 20",
         "M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05",
     )
+    val Compass = stroke(
+        1.85f, circle(12f, 12f, 10f),
+        "m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z",
+    )
+    val UsersRound = stroke(1.85f, "M18 21a8 8 0 0 0-16 0", circle(10f, 8f, 5f), "M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3")
+    val CircleHelp = stroke(1.9f, circle(12f, 12f, 10f), "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", "M12 17h.01")
     val Info = stroke(2f, circle(12f, 12f, 10f), "M12 16v-4", "M12 8h.01")
     val LogOut = stroke(2f, "m16 17 5-5-5-5", "M21 12H9", "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4")
     val CalendarDays = stroke(
