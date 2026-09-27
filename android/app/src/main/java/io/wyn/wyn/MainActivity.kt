@@ -1,6 +1,12 @@
 package io.wyn.wyn
 
 import android.os.Bundle
+import android.content.Intent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import io.wyn.wyn.core.push.PushSetup
+import io.wyn.wyn.core.push.PushTarget
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -34,27 +40,41 @@ import io.wyn.wyn.feature.shell.Repositories
 import io.wyn.wyn.feature.shell.SignedInApp
 
 class MainActivity : ComponentActivity() {
+    /** A tapped push waiting to be opened (its data arrives as extras). */
+    private var pushTarget by mutableStateOf<PushTarget?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) pushTarget = PushTarget.from(intent?.extras)
+        val push = PushSetup.controller(applicationContext)
         val factory = viewModelFactory {
             initializer {
                 AccountFlowViewModel(
                     SupabaseAuthRepository(SupabaseProvider.client),
                     PreferencesAccountStore(applicationContext),
                     SupabaseProvider.isConfigured,
+                    push,
                 )
             }
         }
+        val repos = Repositories.supabase(SupabaseProvider.client, push)
         setContent {
             WynosTheme {
                 WynosApp(
                     viewModel(factory = factory),
-                    Repositories.supabase(SupabaseProvider.client),
+                    repos,
                     onExit = ::finish,
+                    pushTarget = pushTarget,
+                    onPushTargetHandled = { pushTarget = null },
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        PushTarget.from(intent.extras)?.let { pushTarget = it }
     }
 }
 
@@ -63,6 +83,8 @@ fun WynosApp(
     vm: AccountFlowViewModel,
     repos: Repositories,
     onExit: () -> Unit,
+    pushTarget: PushTarget? = null,
+    onPushTargetHandled: () -> Unit = {},
 ) {
     val back: () -> Unit = { if (!vm.back()) onExit() }
     BackHandler(enabled = vm.stack.size > 1 || (vm.route as? Route.Login)?.addingAccount == true) { back() }
@@ -86,7 +108,7 @@ fun WynosApp(
         Route.Onboarding -> OnboardingScreen(vm)
         Route.Home -> {
             val userId = vm.activeUserId ?: return
-            SignedInApp(vm, userId, repos)
+            SignedInApp(vm, userId, repos, pushTarget, onPushTargetHandled)
         }
     }
 }

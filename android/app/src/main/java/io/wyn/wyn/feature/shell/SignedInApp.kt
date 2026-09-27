@@ -49,8 +49,24 @@ import io.wyn.wyn.core.data.SupabaseProfileRepository
 import io.wyn.wyn.core.data.SupabaseQuoteRepository
 import io.wyn.wyn.core.design.Wyn
 import io.wyn.wyn.core.design.WynIcons
-import io.wyn.wyn.feature.account.AccountHomeScreen
+import io.wyn.wyn.core.data.NotificationItem
+import io.wyn.wyn.core.data.NotificationRepository
+import io.wyn.wyn.core.data.SupabaseNotificationRepository
+import io.wyn.wyn.core.push.PushController
+import io.wyn.wyn.core.push.PushEvents
+import io.wyn.wyn.core.push.PushTarget
+import io.wyn.wyn.feature.notifications.NotificationSettingsScreen
+import io.wyn.wyn.feature.notifications.NotificationSettingsViewModel
+import io.wyn.wyn.feature.notifications.NotificationsScreen
+import io.wyn.wyn.feature.notifications.NotificationsViewModel
+import io.wyn.wyn.feature.notifications.PushPromptHost
+import io.wyn.wyn.feature.notifications.UnreadBadge
+import androidx.compose.foundation.border
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import io.wyn.wyn.feature.auth.AccountFlowViewModel
+import io.wyn.wyn.feature.auth.text
 import io.wyn.wyn.feature.compose.ComposerExit
 import io.wyn.wyn.feature.compose.ComposerScreen
 import io.wyn.wyn.feature.compose.ComposerViewModel
@@ -80,9 +96,11 @@ data class Repositories(
     val composer: ComposerRepository,
     val quotes: QuoteRepository,
     val profiles: ProfileRepository,
+    val notifications: NotificationRepository,
+    val push: PushController? = null,
 ) {
     companion object {
-        fun supabase(client: SupabaseClient?): Repositories {
+        fun supabase(client: SupabaseClient?, push: PushController? = null): Repositories {
             val quotes = SupabaseQuoteRepository(client)
             return Repositories(
                 feed = SupabaseFeedRepository(client, quotes),
@@ -90,6 +108,8 @@ data class Repositories(
                 composer = SupabaseComposerRepository(client) { bytes, type -> PhotoReader.describe(bytes, type) },
                 quotes = quotes,
                 profiles = SupabaseProfileRepository(client, quotes),
+                notifications = SupabaseNotificationRepository(client),
+                push = push,
             )
         }
     }
@@ -103,6 +123,8 @@ private sealed interface Screen {
     data class Follows(val id: String, val kind: FollowKind) : Screen
     data object EditProfile : Screen
     data object Settings : Screen
+    data object Notifications : Screen
+    data object NotificationSettings : Screen
     data object Drafts : Screen
     data class Coming(val message: Int) : Screen
 
@@ -113,6 +135,8 @@ private sealed interface Screen {
         is Follows -> "follows:$id:${kind.name}"
         EditProfile -> "edit"
         Settings -> "settings"
+        Notifications -> "notifications"
+        NotificationSettings -> "notification-settings"
         Drafts -> "drafts"
         is Coming -> "coming:$message"
     }
@@ -127,6 +151,8 @@ private sealed interface Screen {
                 "follows" -> if (parts.size == 3) runCatching { Follows(parts[1], FollowKind.valueOf(parts[2])) }.getOrNull() else null
                 "edit" -> EditProfile
                 "settings" -> Settings
+                "notifications" -> Notifications
+                "notification-settings" -> NotificationSettings
                 "drafts" -> Drafts
                 "coming" -> parts.getOrNull(1)?.toIntOrNull()?.let(::Coming)
                 else -> null
@@ -140,7 +166,13 @@ private sealed interface Screen {
  * (post, Quote, profile, follow lists, edit profile, drafts, composer).
  */
 @Composable
-fun SignedInApp(vm: AccountFlowViewModel, userId: String, repos: Repositories) {
+fun SignedInApp(
+    vm: AccountFlowViewModel,
+    userId: String,
+    repos: Repositories,
+    pushTarget: PushTarget? = null,
+    onPushTargetHandled: () -> Unit = {},
+) {
     // One feed and one engagement channel per account: switching accounts starts fresh.
     val sync = remember(userId) { EngagementSync() }
     val home: HomeViewModel = viewModel(key = "home:$userId", factory = viewModelFactory { initializer { HomeViewModel(repos.feed, userId, sync, repos.quotes) } })
@@ -161,8 +193,40 @@ fun SignedInApp(vm: AccountFlowViewModel, userId: String, repos: Repositories) {
         composer = draftId.orEmpty()
     }
     fun openProfile(id: String) = push(Screen.Profile(id))
+    val badge: UnreadBadge = viewModel(key = "badge:$userId", factory = viewModelFactory { initializer { UnreadBadge(repos.notifications, userId) } })
+    // web notification-count.ts: while the app is open, a push for this account, and a gentle poll.
+    LifecycleResumeEffect(userId) {
+        badge.refresh()
+        onPauseOrDispose {}
+    }
+    LaunchedEffect(userId) {
+        launch { PushEvents.received.collect { recipient -> if (recipient == userId) badge.refresh() } }
+        while (true) {
+            delay(12_000)
+            badge.refresh()
+        }
+    }
+    fun openNotification(item: NotificationTargetLike) {
+        when {
+            item.conversationId != null -> push(Screen.Coming(R.string.coming_chat))
+            item.dropId != null -> push(Screen.Post(item.dropId!!))
+            item.popId != null -> push(Screen.Coming(R.string.coming_pops))
+            item.clubPostId != null || item.clubId != null -> push(Screen.Coming(R.string.coming_clubs))
+            item.actorId != null -> push(Screen.Profile(item.actorId!!))
+        }
+    }
+    // A tapped push for this account opens where the notification leads.
+    LaunchedEffect(pushTarget, userId) {
+        val target = pushTarget ?: return@LaunchedEffect
+        if (target.recipientId == userId) {
+            badge.refresh()
+            openNotification(NotificationTargetLike.of(target))
+        }
+        onPushTargetHandled()
+    }
     val feedNav = HomeNavigation(
         onCompose = { openComposer(null) },
+        onNotifications = { push(Screen.Notifications) },
         onOpenPost = { push(Screen.Post(it.id)) },
         onOpenProfile = ::openProfile,
         onOpenQuote = { row -> row.redropId?.let { push(Screen.Quote(it)) } },
@@ -181,7 +245,7 @@ fun SignedInApp(vm: AccountFlowViewModel, userId: String, repos: Repositories) {
     )
 
     MainShell(
-        home = { HomeScreen(home, feedNav) },
+        home = { HomeScreen(home, feedNav, notificationCount = badge.count) },
         profile = { ProfileScreen(me, profileNav(userId, back = null), switcher) },
         onCompose = { openComposer(null) },
     )
@@ -242,7 +306,28 @@ fun SignedInApp(vm: AccountFlowViewModel, userId: String, repos: Repositories) {
                     EditProfileScreen(edit, onClose = ::close)
                 }
             }
-            Screen.Settings -> BackTitled(stringResource(R.string.settings), ::pop) { AccountHomeScreen(vm) }
+            Screen.Settings -> BackTitled(stringResource(R.string.settings), ::pop) {
+                SettingsRoot(vm, onNotifications = { push(Screen.NotificationSettings) })
+            }
+            Screen.Notifications -> {
+                val list: NotificationsViewModel = viewModel(
+                    key = "notifications:$userId",
+                    factory = viewModelFactory { initializer { NotificationsViewModel(repos.notifications, userId, onMarkedRead = badge::markedRead) } },
+                )
+                LifecycleResumeEffect(list) {
+                    list.onHint()
+                    onPauseOrDispose {}
+                }
+                LaunchedEffect(list) { PushEvents.received.collect { recipient -> if (recipient == userId) list.onHint() } }
+                NotificationsScreen(list, onBack = ::pop, onOpen = { openNotification(NotificationTargetLike.of(it)) })
+            }
+            Screen.NotificationSettings -> {
+                val settings: NotificationSettingsViewModel = viewModel(
+                    key = "notification-settings:$userId",
+                    factory = viewModelFactory { initializer { NotificationSettingsViewModel(repos.notifications, repos.push, userId) } },
+                )
+                NotificationSettingsScreen(settings, repos.push, onBack = ::pop)
+            }
             Screen.Drafts -> {
                 val drafts: DraftsViewModel = viewModel(
                     key = "drafts:$userId:$composerSession",
@@ -253,6 +338,9 @@ fun SignedInApp(vm: AccountFlowViewModel, userId: String, repos: Repositories) {
             is Screen.Coming -> BackTitled("", ::pop) { ComingSoon(screen.message) }
         }
     }
+
+    // web PushPrompt: main screens only, never above another screen or the composer.
+    if (stack.isEmpty() && composer == null) PushPromptHost(repos.push, userId)
 
     composer?.let { draftId ->
         val compose: ComposerViewModel = viewModel(
@@ -268,6 +356,42 @@ fun SignedInApp(vm: AccountFlowViewModel, userId: String, repos: Repositories) {
             }
         }
         ComposerScreen(compose)
+    }
+}
+
+/** What a notification or a push points at (web notifications-route open()). */
+private data class NotificationTargetLike(
+    val conversationId: String?,
+    val dropId: String?,
+    val popId: String?,
+    val clubPostId: String?,
+    val clubId: String?,
+    val actorId: String?,
+) {
+    companion object {
+        fun of(item: NotificationItem) = NotificationTargetLike(item.conversationId, item.dropId, item.popId, item.clubPostId, item.clubId, item.actorId)
+        fun of(target: PushTarget) = NotificationTargetLike(target.conversationId, target.dropId, target.popId, target.clubPostId, target.clubId, target.actorId)
+    }
+}
+
+/** Settings until M7: notifications, accounts on this phone, sign out and the version. */
+@Composable
+private fun SettingsRoot(vm: AccountFlowViewModel, onNotifications: () -> Unit) {
+    val c = Wyn.colors
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+        androidx.compose.foundation.layout.Row(
+            Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                .border(1.dp, c.border, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                .clickable(role = Role.Button, onClick = onNotifications).padding(horizontal = 14.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(WynIcons.Bell, contentDescription = null, tint = c.text, modifier = Modifier.size(19.dp))
+            Text(stringResource(R.string.notifications_title), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f).padding(start = 12.dp))
+            Icon(WynIcons.ChevronRight, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(18.dp))
+        }
+        io.wyn.wyn.feature.profile.PillButton(stringResource(R.string.sign_out_label), filled = false, outlined = true, enabled = !vm.homeBusy, modifier = Modifier.fillMaxWidth()) { vm.signOut() }
+        io.wyn.wyn.core.design.ErrorText(vm.homeMessage.text())
+        Text(stringResource(R.string.version_label), color = c.textMuted, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
 

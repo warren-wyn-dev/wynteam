@@ -205,6 +205,39 @@ class AccountFlowViewModelTest {
         assertTrue(store.all().isEmpty())
     }
 
+    @Test fun pushFollowsTheActiveAccountAcrossAddSwitchAndSignOut() = runTest(dispatcher) {
+        existingUser("u1", "a@example.com", "anna")
+        existingUser("u2", "b@example.com", "ben")
+        val tokens = io.wyn.wyn.testing.FakePushTokens()
+        val push = io.wyn.wyn.core.push.PushController(tokens, io.wyn.wyn.testing.FakeDeviceToken("t1"), io.wyn.wyn.core.push.InMemoryPushMemory()) { true }
+        val vm = AccountFlowViewModel(repo, store, configured = true, push = push); advanceUntilIdle()
+        vm.navigate(Route.Login()); vm.updateLoginEmail("a@example.com"); vm.updateLoginPassword("password-1234")
+        vm.submitLogin(); advanceUntilIdle()
+        push.enable("u1")
+        assertEquals("u1", tokens.registered["t1"])
+
+        // Adding an account: u1 stops receiving before u2 signs in; Push stays on for both.
+        vm.addAccount(); advanceUntilIdle()
+        assertTrue(tokens.registered.isEmpty())
+        vm.updateLoginEmail("b@example.com"); vm.updateLoginPassword("password-1234")
+        vm.submitLogin(); advanceUntilIdle()
+        assertEquals("u2", tokens.registered["t1"])
+
+        vm.switchTo("u1"); advanceUntilIdle()
+        assertEquals("u1", tokens.registered["t1"])
+
+        // Offline: the switch must not happen while u1 could still receive on this phone.
+        tokens.fail = true
+        vm.switchTo("u2"); advanceUntilIdle()
+        assertEquals("u1", repo.active)
+        assertEquals(io.wyn.wyn.R.string.push_detach_failed, vm.homeMessage?.res)
+
+        tokens.fail = false
+        vm.signOut(); advanceUntilIdle()
+        assertEquals("u2", repo.active)
+        assertEquals("u2", tokens.registered["t1"])
+    }
+
     @Test fun aRevokedSavedAccountIsDroppedAndTheCurrentOneKept() = runTest(dispatcher) {
         existingUser("u1", "a@example.com", "anna")
         existingUser("u2", "b@example.com", "ben")

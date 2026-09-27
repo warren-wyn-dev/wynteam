@@ -51,6 +51,7 @@ class AccountFlowViewModel(
     private val repo: AuthRepository,
     private val accounts: AccountStore,
     val configured: Boolean,
+    private val push: io.wyn.wyn.core.push.PushController? = null,
 ) : ViewModel() {
     var stack by mutableStateOf<List<Route>>(listOf(Route.Booting))
         private set
@@ -100,6 +101,8 @@ class AccountFlowViewModel(
     var homeBusy by mutableStateOf(false); private set
     var homeMessage by mutableStateOf<UiText?>(null); private set
     private var returnToUserId: String? = null
+    /** The account Push was on for when "add account" started; the next account keeps it on too. */
+    private var keepPushFrom: String? = null
 
     init {
         savedAccounts = accounts.all()
@@ -542,7 +545,19 @@ class AccountFlowViewModel(
         save(next.filter { it.userId == userId || it.session != null })
         activeUserId = userId
         resetDrafts()
+        push?.let { controller ->
+            keepPushFrom?.let { from -> if (from != userId) controller.keepOnAcrossAccountChange(from, userId) }
+            keepPushFrom = null
+            viewModelScope.launch { controller.resync(userId) }
+        }
     }
+
+    /**
+     * Before another account becomes active this phone stops receiving the
+     * current one's notifications (web detachPushBeforeAccountChange). False:
+     * the token could not be removed, so the change must not happen.
+     */
+    private suspend fun detachPush(): Boolean = push?.detachBeforeAccountChange() ?: true
 
     private fun save(list: List<SavedAccount>) {
         accounts.save(list)
@@ -568,6 +583,12 @@ class AccountFlowViewModel(
         homeBusy = true
         viewModelScope.launch {
             try {
+                val keepPush = push?.isOnBeforeAccountChange(activeId) == true
+                if (!detachPush()) {
+                    homeMessage = UiText(R.string.push_detach_failed)
+                    return@launch
+                }
+                if (keepPush) keepPushFrom = activeId
                 val session = repo.detachSession() ?: return@launch
                 save(accounts.all().map { if (it.userId == activeId) it.copy(session = session.json) else it })
                 returnToUserId = activeId
@@ -605,6 +626,11 @@ class AccountFlowViewModel(
                     stack = listOf(Route.Home)
                     return@launch
                 }
+                val keepPush = activeId != null && push?.isOnBeforeAccountChange(activeId) == true
+                if (activeId != null && !detachPush()) {
+                    homeMessage = UiText(R.string.push_detach_failed)
+                    return@launch
+                }
                 val previous = if (activeId != null) repo.detachSession() else null
                 if (activeId != null && previous != null) {
                     save(accounts.all().map { if (it.userId == activeId) it.copy(session = previous.json) else it })
@@ -612,6 +638,7 @@ class AccountFlowViewModel(
                 val saved = target.session
                 if (saved != null && repo.attachSession(SavedSession(saved))) {
                     returnToUserId = null
+                    if (keepPush) push?.keepOnAcrossAccountChange(activeId, userId)
                     registerActive(userId)
                     stack = listOf(Route.Home)
                     return@launch
@@ -645,6 +672,8 @@ class AccountFlowViewModel(
         viewModelScope.launch {
             try {
                 val activeId = repo.currentUserId()
+                // Best effort, as on the web: the token goes while this account can still remove it.
+                runCatching { detachPush() }
                 runCatching { repo.signOut() }
                 save(accounts.all().filterNot { it.userId == activeId })
                 activeUserId = null
