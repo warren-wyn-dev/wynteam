@@ -94,6 +94,17 @@ Still open in M1:
 - The photo crop is automatic (centre square); the web's interactive cropper comes with M3 (edit profile).
 - The signed-in screen is a temporary account screen until the M2 feed.
 
+## M2 status
+
+- **M2a Home feed** (#742): For You / Following, post cards, like, save, repost, follow, hide, report.
+- **M2b Post detail** (#742): comments and replies, activity, edit (30 min) / delete, report; likes stay in step with Home.
+- **M2c Composer + drafts**: text, up to 9 photos with aspect choice (gallery or camera), poll (2-4 options), audience
+  (public / friends / only me), 800ms autosave into `drop_drafts`, the drafts list, and publishing through
+  `publish_drop` with the web's operation id so a retry after an unclear result never creates a duplicate post.
+  Photo rules follow `web/lib/upload-image.ts` (types, 20MB). **Android also removes GPS location from JPEG metadata
+  before upload; the web uploads the original file** (recommended follow-up for the web).
+- **M2d (next)**: quote posts (quote card, quote composer, quote reposts in Following).
+
 ## Risks
 
 - Scope: ~40 web screens and months of web work. Mitigation: milestones, each usable on its own.

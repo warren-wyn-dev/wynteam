@@ -22,7 +22,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.wyn.wyn.core.data.EngagementSync
+import io.wyn.wyn.core.data.ComposerRepository
 import io.wyn.wyn.core.data.FeedRepository
+import io.wyn.wyn.core.data.SupabaseComposerRepository
+import io.wyn.wyn.feature.compose.ComposerExit
+import io.wyn.wyn.feature.compose.ComposerScreen
+import io.wyn.wyn.feature.compose.ComposerViewModel
+import io.wyn.wyn.feature.compose.DraftsScreen
+import io.wyn.wyn.feature.compose.DraftsViewModel
+import io.wyn.wyn.feature.compose.PhotoReader
 import io.wyn.wyn.core.data.PostRepository
 import io.wyn.wyn.core.data.SupabasePostRepository
 import io.wyn.wyn.feature.post.PostDetailScreen
@@ -77,6 +85,7 @@ class MainActivity : ComponentActivity() {
                     viewModel(factory = factory),
                     SupabaseFeedRepository(SupabaseProvider.client),
                     SupabasePostRepository(SupabaseProvider.client),
+                    SupabaseComposerRepository(SupabaseProvider.client) { bytes, type -> PhotoReader.describe(bytes, type) },
                     onExit = ::finish,
                 )
             }
@@ -85,7 +94,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostRepository, onExit: () -> Unit) {
+fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostRepository, composerRepo: ComposerRepository, onExit: () -> Unit) {
     val back: () -> Unit = { if (!vm.back()) onExit() }
     BackHandler(enabled = vm.stack.size > 1 || (vm.route as? Route.Login)?.addingAccount == true) { back() }
     when (val route = vm.route) {
@@ -111,21 +120,29 @@ fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostReposito
             // One feed and one engagement channel per account: switching accounts starts fresh.
             val sync = remember(userId) { EngagementSync() }
             val home: HomeViewModel = viewModel(key = "home:$userId", factory = viewModelFactory { initializer { HomeViewModel(feed, userId, sync) } })
-            var composeNotice by remember { mutableStateOf(false) }
+            var quoteNotice by remember { mutableStateOf(false) }
             var openPost by rememberSaveable(userId) { mutableStateOf<String?>(null) }
+            // null: closed; "" : new post; otherwise the draft being continued.
+            var composer by rememberSaveable(userId) { mutableStateOf<String?>(null) }
+            var composerSession by rememberSaveable(userId) { mutableStateOf(0) }
+            var draftsOpen by rememberSaveable(userId) { mutableStateOf(false) }
+            fun openComposer(draftId: String?) {
+                composerSession += 1
+                composer = draftId.orEmpty()
+            }
             MainShell(
                 home = {
                     HomeScreen(
                         home,
                         HomeNavigation(
-                            onCompose = { composeNotice = true },
-                            onQuote = { composeNotice = true },
+                            onCompose = { openComposer(null) },
+                            onQuote = { quoteNotice = true },
                             onOpenPost = { openPost = it.id },
                         ),
                     )
                 },
                 profile = { AccountHomeScreen(vm) },
-                onCompose = { composeNotice = true },
+                onCompose = { openComposer(null) },
             )
             openPost?.let { dropId ->
                 BackHandler { openPost = null }
@@ -135,20 +152,45 @@ fun WynosApp(vm: AccountFlowViewModel, feed: FeedRepository, posts: PostReposito
                 )
                 PostDetailScreen(detail, onBack = { openPost = null })
             }
-            if (composeNotice) {
-                LaunchedEffect(Unit) { delay(2500); composeNotice = false }
-                ComposeComingSoon()
+            if (draftsOpen) {
+                BackHandler { draftsOpen = false }
+                val drafts: DraftsViewModel = viewModel(
+                    key = "drafts:$userId:$composerSession",
+                    factory = viewModelFactory { initializer { DraftsViewModel(composerRepo, userId) } },
+                )
+                DraftsScreen(drafts, onBack = { draftsOpen = false }, onOpen = { id -> draftsOpen = false; openComposer(id) })
+            }
+            composer?.let { draftId ->
+                val compose: ComposerViewModel = viewModel(
+                    key = "composer:$userId:$composerSession",
+                    factory = viewModelFactory {
+                        initializer { ComposerViewModel(composerRepo, feed, userId, draftId.ifEmpty { null }) }
+                    },
+                )
+                LaunchedEffect(compose.exit) {
+                    when (compose.exit) {
+                        null -> Unit
+                        ComposerExit.Published -> { composer = null; home.refresh() }
+                        ComposerExit.Drafts -> { composer = null; composerSession += 1; draftsOpen = true }
+                        ComposerExit.Closed -> composer = null
+                    }
+                }
+                ComposerScreen(compose)
+            }
+            if (quoteNotice) {
+                LaunchedEffect(Unit) { delay(2500); quoteNotice = false }
+                ComingNotice(R.string.coming_quote)
             }
         }
     }
 }
 
-/** Until the composer lands (M2c), "post" says so instead of opening an empty screen. */
+/** A short notice for a feature that arrives in a later milestone. */
 @Composable
-private fun ComposeComingSoon() {
+private fun ComingNotice(message: Int) {
     Box(Modifier.fillMaxSize().padding(bottom = 80.dp, start = 14.dp, end = 14.dp), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
         Text(
-            stringResource(R.string.coming_compose),
+            stringResource(message),
             color = Wyn.colors.bg, fontSize = 13.sp,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Wyn.colors.text).padding(16.dp),
         )

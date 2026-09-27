@@ -29,6 +29,7 @@ supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgre
 supabase-storage = { group = "io.github.jan-tennert.supabase", name = "storage-kt" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version = "1.10.2" }
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version = "1.4.1" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 coil-test = { group = "io.coil-kt.coil3", name = "coil-test", version.ref = "coil" }

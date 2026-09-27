@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.exifinterface)
     implementation(libs.coil.network.okhttp)
     debugImplementation(libs.androidx.compose.ui.tooling)
 

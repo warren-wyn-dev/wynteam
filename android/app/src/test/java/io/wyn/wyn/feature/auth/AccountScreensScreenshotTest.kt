@@ -13,6 +13,7 @@ import io.wyn.wyn.core.design.WynosTheme
 import io.wyn.wyn.testing.FakeAuthRepository
 import io.wyn.wyn.testing.FakeFeedRepository
 import io.wyn.wyn.testing.FakePostRepository
+import io.wyn.wyn.testing.FakeComposerRepository
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
 import org.junit.Test
@@ -37,7 +38,7 @@ class AccountScreensScreenshotTest {
         settle()
         setup(vm)
         settle()
-        compose.setContent { WynosTheme(theme) { WynosApp(vm, FakeFeedRepository(), FakePostRepository(), onExit = {}) } }
+        compose.setContent { WynosTheme(theme) { WynosApp(vm, FakeFeedRepository(), FakePostRepository(), FakeComposerRepository(), onExit = {}) } }
         compose.waitForIdle()
         return vm
     }
