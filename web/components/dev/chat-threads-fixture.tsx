@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { ConversationThread, MessageActionMenu } from "@/components/chat/conversation-thread";
-import type { MessageRow, ProfileRow } from "@/lib/phase3-data";
+import type { MessageReaction, MessageRow, ProfileRow } from "@/lib/phase3-data";
 
 const ME = "00000000-0000-4000-8000-000000000001";
 const OTHER: ProfileRow = { id: "00000000-0000-4000-8000-000000000002", username: "mind_coffee", display_name: "มายด์", avatar_url: null } as ProfileRow;
@@ -26,6 +26,7 @@ const MESSAGES: MessageRow[] = [
 ];
 
 const PINNED = new Set(["m5"]);
+const INITIAL_REACTIONS: MessageReaction[] = [{ message_id: "m4", user_id: OTHER.id, emoji: "😂" }, { message_id: "m3", user_id: ME, emoji: "❤️" }];
 
 /** Dev-only preview of WYN-159: Web Beta1 thread vs the Beta2 Threads-style thread, same messages. */
 function Fixture() {
@@ -33,6 +34,7 @@ function Fixture() {
   const threads = params.get("threads") === "1";
   const [revealed, setRevealed] = useState<string | null>(null);
   const [actions, setActions] = useState<{ message: MessageRow; bubble: DOMRect } | null>(null);
+  const [reactions, setReactions] = useState(INITIAL_REACTIONS);
   return (
     <main className="route-main">
       <div className="conversation-page conversation-modern">
@@ -48,11 +50,12 @@ function Fixture() {
             onDelete={() => undefined}
             onOpenActions={(message, bubble) => setActions({ message, bubble })}
             pinnedIds={PINNED}
+            reactions={reactions}
             renderImage={() => null}
           />
         </div>
       </div>
-      {actions ? <MessageActionMenu message={actions.message} userId={ME} bubble={actions.bubble} pinned={actions.message.id === "m5"} onChoose={() => setActions(null)} onClose={() => setActions(null)} /> : null}
+      {actions ? <MessageActionMenu message={actions.message} userId={ME} bubble={actions.bubble} pinned={actions.message.id === "m5"} myReaction={reactions.find((item) => item.message_id === actions.message.id && item.user_id === ME)?.emoji ?? null} onReact={(emoji) => { setReactions((current) => [...current.filter((item) => !(item.message_id === actions.message.id && item.user_id === ME)), ...(emoji ? [{ message_id: actions.message.id, user_id: ME, emoji }] : [])]); setActions(null); }} onChoose={() => setActions(null)} onClose={() => setActions(null)} /> : null}
     </main>
   );
 }

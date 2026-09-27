@@ -844,6 +844,37 @@ export async function setMessagePinned(client: SupabaseClient, messageId: string
   fail(result.error, pinned ? "ปักหมุดไม่สำเร็จ" : "เลิกปักหมุดไม่สำเร็จ");
 }
 
+export const MESSAGE_REACTIONS = ["❤️", "😂", "😮", "😢", "😡", "👍"] as const;
+export type MessageReaction = { message_id: string; user_id: string; emoji: string };
+
+/**
+ * WYN-159 (Beta2): reactions on these messages. Empty (never an error) when
+ * reactions are not available, e.g. before the Beta2 migration is applied.
+ */
+export async function fetchMessageReactions(client: SupabaseClient, messageIds: string[]): Promise<MessageReaction[]> {
+  if (!messageIds.length) return [];
+  const result = await client.from("message_reactions").select("message_id,user_id,emoji").in("message_id", messageIds);
+  return result.error ? [] : (result.data ?? []) as MessageReaction[];
+}
+
+/** Set (or with null, remove) your reaction on a message. */
+export async function setMessageReaction(client: SupabaseClient, messageId: string, emoji: string | null): Promise<void> {
+  const result = await client.rpc("set_message_reaction", { p_message_id: messageId, p_emoji: emoji });
+  fail(result.error, "ส่งความรู้สึกไม่สำเร็จ");
+}
+
+/** WYN-159 (Beta2): ids you hid with "ลบสำหรับคุณ". Empty when unavailable. */
+export async function fetchHiddenMessageIds(client: SupabaseClient, messageIds: string[]): Promise<string[]> {
+  if (!messageIds.length) return [];
+  const result = await client.from("message_hides").select("message_id").in("message_id", messageIds);
+  return result.error ? [] : ((result.data ?? []) as { message_id: string }[]).map((row) => row.message_id);
+}
+
+export async function hideMessageForMe(client: SupabaseClient, messageId: string): Promise<void> {
+  const result = await client.rpc("hide_message_for_me", { p_message_id: messageId });
+  fail(result.error, "ลบข้อความไม่สำเร็จ");
+}
+
 /** Report someone else's message (server: submit_report, target "message"). */
 export async function reportMessage(client: SupabaseClient, messageId: string, category: string, detail: string): Promise<void> {
   const result = await client.rpc("submit_report", { p_target_type: "message", p_target_id: messageId, p_category: category, p_detail: detail.trim() || null });

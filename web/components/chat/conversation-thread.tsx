@@ -4,7 +4,7 @@ import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 
 import { Avatar } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
-import type { MessageRow, ProfileRow } from "@/lib/phase3-data";
+import { MESSAGE_REACTIONS, type MessageReaction, type MessageRow, type ProfileRow } from "@/lib/phase3-data";
 
 export function chatDayKey(value: string): string {
   const date = new Date(value);
@@ -26,7 +26,7 @@ export const GROUP_WINDOW_MS = 60_000;
 export const EDIT_WINDOW_MS = 30 * 60_000;
 const LONG_PRESS_MS = 450;
 
-export type MessageAction = "reply" | "edit" | "forward" | "copy" | "unsend" | "pin" | "unpin" | "report";
+export type MessageAction = "reply" | "edit" | "forward" | "copy" | "hide" | "unsend" | "pin" | "unpin" | "report";
 
 /** The hold menu for this message: the main list and the "เพิ่มเติม" list. */
 export function messageMenu(message: MessageRow, userId: string, options: { pinned?: boolean; now?: number } = {}): { main: MessageAction[]; more: MessageAction[] } {
@@ -40,6 +40,7 @@ export function messageMenu(message: MessageRow, userId: string, options: { pinn
   // Only text is forwarded: a chat image lives in this conversation's private storage folder.
   if (plainText) main.push("forward");
   if (hasText) main.push("copy");
+  main.push("hide");
   if (mine) main.push("unsend");
   const more: MessageAction[] = [options.pinned ? "unpin" : "pin"];
   if (!mine) more.push("report");
@@ -80,6 +81,7 @@ type Props = {
   /** Threads mode: long-press (or right-click) a bubble to open its actions. */
   onOpenActions?: (message: MessageRow, bubble: DOMRect) => void;
   pinnedIds?: ReadonlySet<string>;
+  reactions?: MessageReaction[];
   renderImage: (path: string) => ReactNode;
 };
 
@@ -153,7 +155,7 @@ function Bubble({ tappable, onTap, onLongPress, children, ...rest }: { tappable:
  * - time is hidden until a bubble is tapped (own bubble: time + delete);
  * - the sent/read receipt shows once, under the latest outgoing message.
  */
-export function ConversationThread({ messages, userId, other, otherLastReadAt, threads, revealedMessageId, onToggleReveal, onDelete, onOpenActions, pinnedIds, renderImage }: Props) {
+export function ConversationThread({ messages, userId, other, otherLastReadAt, threads, revealedMessageId, onToggleReveal, onDelete, onOpenActions, pinnedIds, reactions, renderImage }: Props) {
   const positions = threads ? groupPositions(messages) : null;
   const lastMineId = threads ? [...messages].reverse().find((message) => message.sender_id === userId && !message.pending)?.id : undefined;
   return (
@@ -193,6 +195,7 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
                   {message.localPreviewUrl ? <img className="message-image" src={message.localPreviewUrl} alt="" /> : message.image_url ? renderImage(message.image_url) : null}
                 </>}
               </Bubble>
+              {threads ? <ReactionChips reactions={reactions?.filter((reaction) => reaction.message_id === message.id)} userId={userId} /> : null}
               {showTime || showReceipt ? <div className="message-meta">
                 {showTime ? <time>{message.pending ? "กำลังส่ง…" : chatTimeLabel(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time> : null}
                 {showReceipt ? (
@@ -212,11 +215,26 @@ export function ConversationThread({ messages, userId, other, otherLastReadAt, t
   );
 }
 
-const ACTION_LABELS: Record<MessageAction, { label: string; icon: "reply" | "pencil" | "send" | "copy" | "undo" | "pin" | "flag" }> = {
+/** Reactions under a bubble: each emoji once, with a count when more than one person used it. */
+function ReactionChips({ reactions, userId }: { reactions?: MessageReaction[]; userId: string }) {
+  if (!reactions?.length) return null;
+  const counts = new Map<string, number>();
+  for (const reaction of reactions) counts.set(reaction.emoji, (counts.get(reaction.emoji) ?? 0) + 1);
+  const mine = reactions.some((reaction) => reaction.user_id === userId);
+  return (
+    <span className={`message-reactions${mine ? " mine" : ""}`} aria-label={[...counts].map(([emoji, count]) => `${emoji} ${count}`).join(", ")}>
+      {[...counts].map(([emoji]) => <span key={emoji}>{emoji}</span>)}
+      {reactions.length > 1 ? <small>{reactions.length}</small> : null}
+    </span>
+  );
+}
+
+const ACTION_LABELS: Record<MessageAction, { label: string; icon: "reply" | "pencil" | "send" | "copy" | "trash" | "undo" | "pin" | "flag" }> = {
   reply: { label: "ตอบกลับ", icon: "reply" },
   edit: { label: "แก้ไข", icon: "pencil" },
   forward: { label: "ส่งต่อ", icon: "send" },
   copy: { label: "คัดลอก", icon: "copy" },
+  hide: { label: "ลบสำหรับคุณ", icon: "trash" },
   unsend: { label: "ยกเลิกการส่ง", icon: "undo" },
   pin: { label: "ปักหมุด", icon: "pin" },
   unpin: { label: "เลิกปักหมุด", icon: "pin" },
@@ -233,17 +251,23 @@ const GAP = 8;
  * above when there is no room), headed by the message time. "เพิ่มเติม"
  * swaps in the secondary actions (pin, report).
  */
-export function MessageActionMenu({ message, userId, bubble, pinned, onChoose, onClose }: { message: MessageRow; userId: string; bubble: DOMRect; pinned?: boolean; onChoose: (action: MessageAction) => void; onClose: () => void }) {
+const REACTION_BAR = 64;
+const REACTION_BAR_WIDTH = 6 * 50 + 18;
+
+export function MessageActionMenu({ message, userId, bubble, pinned, myReaction, onReact, onChoose, onClose }: { message: MessageRow; userId: string; bubble: DOMRect; pinned?: boolean; myReaction?: string | null; onReact?: (emoji: string | null) => void; onChoose: (action: MessageAction) => void; onClose: () => void }) {
   const [view, setView] = useState<"main" | "more">("main");
   const menu = messageMenu(message, userId, { pinned });
   const rows = view === "main" ? menu.main.length + (menu.more.length ? 1 : 0) : menu.more.length + 1;
   const mine = message.sender_id === userId;
   const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
   const menuHeight = MENU_HEAD + Math.max(rows, menu.main.length + 1) * MENU_ROW + 8;
-  // Keep the bubble in view, then open the menu on whichever side has room.
-  const bubbleTop = Math.min(Math.max(bubble.top, 16), Math.max(16, viewportHeight - bubble.height - 16));
-  const below = bubbleTop + bubble.height + GAP + menuHeight <= viewportHeight - 16;
+  // Like iOS: the reaction bar sits above the bubble and the menu below it;
+  // when that does not fit, the bubble moves up (never under the bar).
+  const minTop = onReact ? 16 + REACTION_BAR + GAP : 16;
+  const bubbleTop = Math.max(minTop, Math.min(bubble.top, viewportHeight - 16 - menuHeight - GAP - bubble.height));
+  const below = !!onReact || bubbleTop + bubble.height + GAP + menuHeight <= viewportHeight - 16;
   const menuTop = below ? bubbleTop + bubble.height + GAP : Math.max(16, bubbleTop - GAP - menuHeight);
+  const reactionTop = bubbleTop - GAP - REACTION_BAR;
   const side = mine ? { right: Math.max(12, (typeof window === "undefined" ? 0 : window.innerWidth) - bubble.right) } : { left: Math.max(12, bubble.left) };
   const row = (action: MessageAction) => (
     <button key={action} role="menuitem" className={action === "unsend" || action === "report" ? "danger" : undefined} type="button" onClick={() => onChoose(action)}>
@@ -257,6 +281,11 @@ export function MessageActionMenu({ message, userId, bubble, pinned, onChoose, o
           {message.text ? <p data-i18n-skip="">{message.text}</p> : <i>{message.image_url ? "รูปภาพ" : "ข้อความ"}</i>}
         </div>
       </div>
+      {onReact ? <div className="message-reaction-bar" role="toolbar" aria-label="ส่งความรู้สึก" style={{ top: reactionTop, ...(mine ? side : { left: Math.max(12, Math.min(bubble.left, (typeof window === "undefined" ? 390 : window.innerWidth) - REACTION_BAR_WIDTH - 12)) }) }} onClick={(event) => event.stopPropagation()}>
+        {MESSAGE_REACTIONS.map((emoji) => (
+          <button key={emoji} type="button" aria-pressed={myReaction === emoji} className={myReaction === emoji ? "chosen" : undefined} onClick={() => onReact(myReaction === emoji ? null : emoji)}>{emoji}</button>
+        ))}
+      </div> : null}
       <section className="message-action-menu" role="menu" aria-label="ตัวเลือกข้อความ" style={{ top: menuTop, ...side }} onClick={(event) => event.stopPropagation()}>
         <time>{chatTimeLabel(message.created_at)}</time>
         {view === "main" ? <>

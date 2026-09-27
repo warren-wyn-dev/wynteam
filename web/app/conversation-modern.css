@@ -698,3 +698,78 @@
   margin: 2px 0 0 6px;
   opacity: 0.7;
 }
+
+/* WYN-159: reactions. */
+.message-reaction-bar {
+  position: fixed;
+  height: 64px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--wyn-border);
+  border-radius: 999px;
+  background: var(--wyn-bg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 14%);
+  animation: message-action-menu-in 160ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.message-reaction-bar button {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-reaction-bar button:active {
+  transform: scale(1.18);
+}
+
+.message-reaction-bar button.chosen {
+  background: var(--wyn-surface);
+}
+
+.conversation-modern .message-reactions {
+  position: relative;
+  z-index: 1;
+  min-height: 24px;
+  margin-top: -8px;
+  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 2px solid var(--wyn-bg);
+  border-radius: 999px;
+  background: var(--wyn-surface);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.conversation-modern .message-row.mine .message-reactions {
+  align-self: flex-end;
+  margin-right: 8px;
+}
+
+.conversation-modern .message-row.theirs .message-reactions {
+  align-self: flex-start;
+  margin-left: 8px;
+}
+
+.conversation-modern .message-reactions small {
+  margin-left: 2px;
+  color: var(--wyn-text-secondary);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-reaction-bar {
+    animation: none;
+  }
+}

@@ -29,7 +29,12 @@ import {
   fetchInbox,
   fetchMessageRequests,
   fetchMessages,
+  fetchHiddenMessageIds,
+  fetchMessageReactions,
   fetchPinnedMessageIds,
+  hideMessageForMe,
+  setMessageReaction,
+  type MessageReaction,
   fetchProfileSummary,
   findExistingConversationId,
   getOrCreateConversation,
@@ -271,6 +276,20 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [reporting, setReporting] = useState<MessageRow | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+  const [reactions, setReactions] = useState<MessageReaction[]>([]);
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
+  const loadedIds = useMemo(() => messages.filter((message) => !message.pending).map((message) => message.id).sort().join(","), [messages]);
+  useEffect(() => {
+    if (!chatThreads || !loadedIds) return;
+    let live = true;
+    const ids = loadedIds.split(",");
+    void Promise.all([fetchMessageReactions(client, ids), fetchHiddenMessageIds(client, ids)]).then(([nextReactions, hidden]) => {
+      if (!live) return;
+      setReactions(nextReactions);
+      setHiddenIds(new Set(hidden));
+    });
+    return () => { live = false; };
+  }, [chatThreads, client, loadedIds]);
   useEffect(() => {
     if (!chatThreads || isComposeMode) return;
     let live = true;
@@ -401,6 +420,13 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       return;
     }
     if (action === "report") { setReporting(message); return; }
+    if (action === "hide") {
+      void hideMessageForMe(client, message.id).then(
+        () => setHiddenIds((current) => new Set([...current, message.id])),
+        (e: unknown) => showToast(e instanceof Error ? e.message : "ลบข้อความไม่สำเร็จ"),
+      );
+      return;
+    }
     if (action === "copy") {
       void navigator.clipboard?.writeText(message.text ?? "").then(() => showToast("คัดลอกแล้ว"), () => showToast("คัดลอกไม่สำเร็จ"));
       return;
@@ -408,6 +434,16 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     if (action === "reply") { setEditing(null); setReplyTo(message); }
     else { setReplyTo(null); setFile(null); setEditing(message); setDraft(message.text ?? ""); }
     textareaRef.current?.focus();
+  };
+
+  const react = (message: MessageRow, emoji: string | null) => {
+    setActionMessage(null);
+    const previous = reactions;
+    setReactions((current) => [...current.filter((item) => !(item.message_id === message.id && item.user_id === userId)), ...(emoji ? [{ message_id: message.id, user_id: userId, emoji }] : [])]);
+    void setMessageReaction(client, message.id, emoji).catch((e: unknown) => {
+      setReactions(previous);
+      showToast(e instanceof Error ? e.message : "ส่งความรู้สึกไม่สำเร็จ");
+    });
   };
 
   const forwardTo = async (row: ConversationRow) => {
@@ -567,7 +603,8 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           {chatThreads ? <PinnedBar messages={ordered} pinnedIds={pinnedIds} /> : null}
           <div className="message-list conversation-thread" style={{ paddingBottom: composerHeight + 30 }}>
             <ConversationThread
-              messages={ordered}
+              messages={chatThreads && hiddenIds.size ? ordered.filter((message) => !hiddenIds.has(message.id)) : ordered}
+              reactions={reactions}
               userId={userId}
               other={other}
               otherLastReadAt={meta?.other_user_last_read_at}
@@ -586,7 +623,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           )}
         </div>
       )}
-      {actionMessage ? <MessageActionMenu message={actionMessage.message} userId={userId} bubble={actionMessage.bubble} pinned={pinnedSet.has(actionMessage.message.id)} onChoose={(action) => chooseAction(actionMessage.message, action)} onClose={() => setActionMessage(null)} /> : null}
+      {actionMessage ? <MessageActionMenu message={actionMessage.message} userId={userId} bubble={actionMessage.bubble} pinned={pinnedSet.has(actionMessage.message.id)} myReaction={reactions.find((item) => item.message_id === actionMessage.message.id && item.user_id === userId)?.emoji ?? null} onReact={(emoji) => react(actionMessage.message, emoji)} onChoose={(action) => chooseAction(actionMessage.message, action)} onClose={() => setActionMessage(null)} /> : null}
       {reporting ? <ReportMessageSheet onSubmit={async (category, detail) => { await reportMessage(client, reporting.id, category, detail); setReporting(null); showToast("ส่งรายงานแล้ว"); }} onClose={() => setReporting(null)} /> : null}
       {forwarding ? <ForwardSheet client={client} currentConversationId={conversationId} onPick={(row) => void forwardTo(row)} onClose={() => setForwarding(null)} /> : null}
       <Toast message={toastMessage} />
