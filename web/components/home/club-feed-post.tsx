@@ -31,6 +31,7 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
           >
             <strong
               className="wyn-post-author-name"
+              data-i18n-skip=""
               style={{ flex: "0 1 auto", fontSize: 14, lineHeight: 1.3, fontWeight: 600 }}
             >
               {name}

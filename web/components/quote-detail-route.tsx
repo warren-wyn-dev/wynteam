@@ -100,7 +100,7 @@ function QuoteComments({
               </strong>
               <small>{relativeTimeTh(comment.createdAt)}</small>
             </div>
-            <p>{comment.text}</p>
+            <p data-i18n-skip="">{comment.text}</p>
           </div>
           {comment.authorId === viewerId ? (
             <button className="detail-comment-delete" type="button" aria-label="ลบความคิดเห็น" disabled={sending} onClick={() => void remove(comment)}>

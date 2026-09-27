@@ -169,3 +169,17 @@
 - Risks: a non-image is readable for a few seconds before deletion; one extra function call per image upload; if the function is down, uploads still succeed and are not checked (fail-open).
 - Rollback: `storage-upload-validator.yml` action `remove`, which drops both triggers.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-26
+
+### DECISION — [2026-09-27] WYN-188: apply user_preferences to production
+- Founder answers: "ต่อเลย" (proceed with PR #733), then an explicit, separate AskUserQuestion for the production migration: **"ติดตั้งได้เลย"**.
+- Change: PR #733 merged (theme is developer-only). `web-beta2-apply-user-preferences.yml` applies `supabase/migrations_web_beta2_user_preferences.sql`, which is additive: one new owner-only table plus an updated_at trigger. It is validated in CI by `supabase/tests/web_beta2_user_preferences_test.sh`.
+- Rollback: `drop table if exists public.user_preferences; drop function if exists internal.touch_user_preferences();`
+- This approval covers this migration only. The general policy on AI-applied production SQL is unchanged.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
+
+### DECISION — [2026-09-27] Release WYN-188 theme to all users; finish and release WYN-189 Thai/English
+- Founder: **"จัดการให้เสร็จทั้ง2งานเลย อนุมัติทุกอย่าง พร้อมขึ้นเว็บ"**, meaning finish both tasks, everything approved, ready to go live.
+- WYN-188 theme: the developer gate is removed. Every account gets Settings → Theme, and choices sync through `user_preferences`, which is already live. Accounts that never choose keep the phone-following look they have today.
+- WYN-189 Thai/English: build every page, then release to every account once all pages are translated (Founder's earlier "ภาษาควรทำทุกหน้านะ"). Each part goes through per-PR staging first.
+- Scope of this approval: web code, the merges that follow, and production deploys of these two features. **It does not cover new production SQL**, which still needs its own explicit confirmation. WYN-189 reuses the existing `user_preferences.language_preference` column, so no new SQL is expected.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27

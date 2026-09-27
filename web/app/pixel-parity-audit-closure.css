@@ -152,21 +152,21 @@
   display: none;
 }
 
-.notification-root-header > button[aria-label="เมนู"]::before,
-.notification-root-header > button[aria-label="ค้นหา"]::before {
+.notification-root-header > button:is([aria-label="เมนู"],[aria-label="Menu"])::before,
+.notification-root-header > button:is([aria-label="ค้นหา"],[aria-label="Search"])::before {
   content: "";
   display: block;
   background: currentColor;
 }
 
-.notification-root-header > button[aria-label="เมนู"]::before {
+.notification-root-header > button:is([aria-label="เมนู"],[aria-label="Menu"])::before {
   width: 22px;
   height: 22px;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 18h18v-2H3v2Zm0-5h18v-2H3v2Zm0-7v2h18V6H3Z'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 18h18v-2H3v2Zm0-5h18v-2H3v2Zm0-7v2h18V6H3Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-.notification-root-header > button[aria-label="ค้นหา"]::before {
+.notification-root-header > button:is([aria-label="ค้นหา"],[aria-label="Search"])::before {
   width: 21px;
   height: 21px;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.5 3a6.5 6.5 0 1 0 4.09 11.55L19 19.96 20.41 18.55 15 13.14A6.5 6.5 0 0 0 9.5 3Zm0 2A4.5 4.5 0 1 1 5 9.5 4.505 4.505 0 0 1 9.5 5Z'/%3E%3C/svg%3E") center / contain no-repeat;
@@ -252,13 +252,13 @@
 
 /* Root AppChrome's backHref uses a Lucide chevron; Flutter is
    chevron_left_rounded size26. Keep the 48px hit target, normalize glyph. */
-.route-main:has(.settings-page) > .route-header a[aria-label="ย้อนกลับ"] > svg,
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] > svg {
+.route-main:has(.settings-page) > .route-header a:is([aria-label="ย้อนกลับ"],[aria-label="Back"]) > svg,
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"]) > svg {
   display: none;
 }
 
-.route-main:has(.settings-page) > .route-header a[aria-label="ย้อนกลับ"]::before,
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"]::before {
+.route-main:has(.settings-page) > .route-header a:is([aria-label="ย้อนกลับ"],[aria-label="Back"])::before,
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"])::before {
   content: "";
   width: 26px;
   height: 26px;
@@ -269,7 +269,7 @@
 }
 
 /* Neutralize the old typographic ‹ pseudo-glyph from system-parity-lock. */
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"]::before {
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"])::before {
   color: inherit;
   font-size: 0;
   line-height: normal;

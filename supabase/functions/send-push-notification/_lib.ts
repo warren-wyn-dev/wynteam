@@ -38,14 +38,36 @@ export function displayNameOrUsername(displayName: string | null, username: stri
   return displayName && displayName.length > 0 ? displayName : `@${username}`;
 }
 
+/** WYN-189: the recipient's chosen app language (user_preferences). */
+export type PushLanguage = "th" | "en";
+
+export function pushLanguageFrom(value: unknown): PushLanguage {
+  return value === "en" ? "en" : "th";
+}
+
 export function dmMessagePreview(
   text: string | null,
   imageUrl: string | null,
   sharedContentType: string | null,
   viewOnce = false,
+  lang: PushLanguage = "th",
 ): string {
   const trimmed = text?.trim();
   if (trimmed) return trimmed;
+
+  if (lang === "en") {
+    if (imageUrl) return viewOnce ? "sent you a view-once photo" : "sent you a photo";
+    switch (sharedContentType) {
+      case "drop":
+        return "shared a post with you";
+      case "profile":
+        return "shared a profile with you";
+      case "club":
+        return "shared a Club with you";
+      default:
+        return "sent you a message";
+    }
+  }
 
   if (imageUrl) {
     return viewOnce ? "ส่งรูปภาพแบบดูครั้งเดียว" : "ส่งรูปภาพ";
@@ -70,7 +92,9 @@ export function messageFor(
   reason: string | null = null,
   moderationActionType: string | null = null,
   dmPreview: string | null = null,
+  lang: PushLanguage = "th",
 ): string {
+  if (lang === "en") return messageForEn(type, actorName, clubName, reason, moderationActionType, dmPreview);
   const club = clubName ?? "Club";
   switch (type) {
     case "like_drop":
@@ -138,6 +162,82 @@ export function messageFor(
       return reason ?? "มีประกาศจากระบบ WYN";
     default:
       return "คุณมีการแจ้งเตือนใหม่";
+  }
+}
+
+function messageForEn(
+  type: string,
+  actorName: string,
+  clubName: string | null,
+  reason: string | null,
+  moderationActionType: string | null,
+  dmPreview: string | null,
+): string {
+  const club = clubName ?? "Club";
+  switch (type) {
+    case "like_drop":
+      return `${actorName} liked your post`;
+    case "like_pop":
+      return `${actorName} liked your Pop`;
+    case "comment_drop":
+      return `${actorName} commented on your post`;
+    case "comment_pop":
+      return `${actorName} commented on your Pop`;
+    case "follow":
+      return `${actorName} started following you`;
+    case "club_join_request":
+      return `${actorName} asked to join your ${club}`;
+    case "club_join_approved":
+      return `${actorName} approved your request to join ${club}`;
+    case "club_post_like":
+      return `${actorName} liked your post in ${club}`;
+    case "club_post_comment":
+      return `${actorName} commented on your post in ${club}`;
+    case "club_post_new":
+      return `${actorName} posted in ${club}`;
+    case "club_post_pinned":
+      return `${actorName} pinned a new post in ${club}`;
+    case "club_invite":
+      return `${actorName} invited you to join ${club}`;
+    case "mention_drop":
+      return `${actorName} mentioned you in a post`;
+    case "mention_club_post":
+      return `${actorName} mentioned you in a post in ${club}`;
+    case "redrop":
+      return `${actorName} reposted your post`;
+    case "moderation_warning":
+      return `You've received a warning from the WYN team: ${reason ?? ""}`;
+    case "moderation_content_removed":
+      return `Your content was removed for breaking the WYN rules -- reason: ${reason ?? ""}`;
+    case "appeal_approved":
+      switch (moderationActionType) {
+        case "warning":
+          return "Your appeal was approved. The warning has been removed from your account history";
+        case "restrict":
+          return "Your appeal was approved. You can post normally again";
+        case "suspend":
+          return "Your appeal was approved. Your account is back to normal";
+        case "ban":
+          return "Your appeal was approved. Your account is back to normal and you can sign in right away";
+        case "remove_content":
+          return "Your appeal was approved. The violation has been removed from your account history";
+        default:
+          return "Your appeal was approved";
+      }
+    case "appeal_rejected":
+      return `Your appeal was rejected -- reason: ${reason ?? ""}`;
+    case "message_request":
+      return `${actorName} sent you a message request`;
+    case "new_message":
+      return `${actorName} ${dmPreview ?? "sent you a message"}`;
+    case "follow_request":
+      return `${actorName} requested to follow you`;
+    case "follow_request_accepted":
+      return `${actorName} accepted your follow request`;
+    case "system":
+      return reason ?? "A notice from the WYN system";
+    default:
+      return "You have a new notification";
   }
 }
 

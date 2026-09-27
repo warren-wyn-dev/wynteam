@@ -8,15 +8,22 @@ import { SettingsChangePassword } from "@/components/settings-change-password";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import {
-  readStoredThemePreference,
+  chosenThemePreference,
   saveAccountThemePreference,
   setThemePreference,
   THEME_CHANGE_EVENT,
   THEME_PREFERENCES,
   type ThemePreference,
 } from "@/lib/theme-preference";
+import {
+  APP_LANGUAGES,
+  type AppLanguage,
+  currentLanguage,
+  LANGUAGE_CHANGE_EVENT,
+  saveAccountLanguage,
+  setLanguage,
+} from "@/lib/i18n/language";
 import { getPushAvailability, isCurrentDevicePushEnabled, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability, type PushBlockReason } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
@@ -140,7 +147,7 @@ const themeLabels: Record<ThemePreference, { title: string; description: string 
 function useThemePreference(): ThemePreference {
   const [preference, setPreference] = useState<ThemePreference>("system");
   useEffect(() => {
-    const read = () => setPreference(readStoredThemePreference() ?? "system");
+    const read = () => setPreference(chosenThemePreference() ?? "system");
     read();
     window.addEventListener(THEME_CHANGE_EVENT, read);
     window.addEventListener("storage", read);
@@ -184,6 +191,56 @@ function ThemePicker({ client, userId }: { client: SupabaseClient; userId: strin
   );
 }
 
+/** WYN-189: each language is always shown in its own script, whatever the page language. */
+const languageNames: Record<AppLanguage, string> = { th: "ไทย", en: "English" };
+
+function useAppLanguage(): AppLanguage {
+  const [language, setCurrent] = useState<AppLanguage>("th");
+  useEffect(() => {
+    const read = () => setCurrent(currentLanguage());
+    read();
+    window.addEventListener(LANGUAGE_CHANGE_EVENT, read);
+    window.addEventListener("storage", read);
+    return () => {
+      window.removeEventListener(LANGUAGE_CHANGE_EVENT, read);
+      window.removeEventListener("storage", read);
+    };
+  }, []);
+  return language;
+}
+
+function LanguagePicker({ client, userId }: { client: SupabaseClient; userId: string }) {
+  const current = useAppLanguage();
+  const [saveFailed, setSaveFailed] = useState(false);
+  const choose = (language: AppLanguage) => {
+    setLanguage(language);
+    void saveAccountLanguage(client, userId, language).then((saved) => setSaveFailed(!saved));
+  };
+  return (
+    <div className="settings-page" data-testid="language-picker">
+      <div className="settings-group" role="radiogroup" aria-label="ภาษา">
+        {APP_LANGUAGES.map((language) => (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={current === language}
+            className="settings-row enabled"
+            key={language}
+            lang={language}
+            onClick={() => choose(language)}
+          >
+            <span className="settings-row-copy" data-i18n-skip>
+              <strong>{languageNames[language]}</strong>
+            </span>
+            {current === language ? <WynosIcon name="check" size={20} strokeWidth={2.4} /> : null}
+          </button>
+        ))}
+      </div>
+      {saveFailed ? <p className="settings-safety">ใช้ภาษานี้บนอุปกรณ์นี้แล้ว แต่บันทึกลงบัญชีไม่สำเร็จ</p> : null}
+    </div>
+  );
+}
+
 type SettingsSnapshot = { profile: ProfileRow; notifications: NotificationSettings; online: boolean; blocked: ProfileRow[]; muted: ProfileRow[] };
 
 function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; userId: string; signOut: () => Promise<void> }) {
@@ -197,9 +254,9 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [loading, setLoading] = useState(!cached);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [section, setSection] = useState<"root" | "privacy" | "notifications" | "account" | "password" | "legal" | "theme">("root");
-  const isDeveloper = useIsDeveloperAccount(client, userId);
+  const [section, setSection] = useState<"root" | "privacy" | "notifications" | "account" | "password" | "legal" | "theme" | "language">("root");
   const themePreference = useThemePreference();
+  const appLanguage = useAppLanguage();
   const [document, setDocument] = useState<LegalDocument | null>(null);
   const [pushAvailability, setPushAvailability] = useState<PushAvailability | null>(null);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -354,7 +411,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   if (loading && !profile) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><LoadingState /></AppChrome>;
   if (!profile || !notifications) return <AppChrome title="ตั้งค่า" userId={userId} backHref={`/profile/${userId}`} showBottomNav={false}><EmptyState>{error || "ไม่พบการตั้งค่า"}</EmptyState></AppChrome>;
 
-  const title = section === "root" ? "ตั้งค่า" : section === "privacy" ? "ความเป็นส่วนตัว" : section === "notifications" ? "การแจ้งเตือน" : section === "account" ? "บัญชี" : section === "password" ? "เปลี่ยนรหัสผ่าน" : section === "theme" ? "ธีม" : "ข้อกำหนดและความเป็นส่วนตัว";
+  const title = section === "root" ? "ตั้งค่า" : section === "privacy" ? "ความเป็นส่วนตัว" : section === "notifications" ? "การแจ้งเตือน" : section === "account" ? "บัญชี" : section === "password" ? "เปลี่ยนรหัสผ่าน" : section === "theme" ? "ธีม" : section === "language" ? "ภาษา" : "ข้อกำหนดและความเป็นส่วนตัว";
   const back = section === "root" ? `/profile/${userId}` : undefined;
 
   return (
@@ -377,9 +434,8 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
           <div className="settings-group">
             {showInstallShortcut ? <SettingRow leading={<WynosIcon name="smartphone" size={19} strokeWidth={2} />} title="ติดตั้ง WYNOS" description="เพิ่มลงหน้าจอหลักและเปิดแบบแอป" onClick={() => window.dispatchEvent(new Event("wynos:open-install"))} /> : null}
             <SettingRow leading={<WynosIcon name="notifications" size={19} strokeWidth={2} />} title="การแจ้งเตือน" onClick={() => setSection("notifications")} />
-            {isDeveloper
-              ? <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีม" description={themeLabels[themePreference].title} onClick={() => setSection("theme")} />
-              : <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีมเข้ม" />}
+            <SettingRow leading={<WynosIcon name="moon" size={19} strokeWidth={2} />} title="ธีม" description={themeLabels[themePreference].title} onClick={() => setSection("theme")} />
+            <SettingRow leading={<WynosIcon name="globe" size={19} strokeWidth={2} />} title="ภาษา" description={languageNames[appLanguage]} onClick={() => setSection("language")} />
           </div>
           <h2>ช่วยเหลือ</h2>
           <div className="settings-group">
@@ -430,9 +486,10 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       ) : null}
       {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><SettingRow title="เปลี่ยนรหัสผ่าน" description="ยืนยันรหัสผ่านเดิมก่อนตั้งรหัสผ่านใหม่" leading={<WynosIcon name="lockKeyhole" size={19} strokeWidth={2} />} onClick={() => setSection("password")} /><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<WynosIcon name="download" size={19} strokeWidth={2} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<WynosIcon name="trash" size={19} strokeWidth={2} />} /></div><p className="settings-safety"><WynosIcon name="shieldCheck" size={16} strokeWidth={2} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
       {section === "password" ? <SettingsChangePassword client={client} userId={userId} onBack={() => setSection("account")} /> : null}
-      {section === "theme" && isDeveloper ? <ThemePicker client={client} userId={userId} /> : null}
+      {section === "theme" ? <ThemePicker client={client} userId={userId} /> : null}
+      {section === "language" ? <LanguagePicker client={client} userId={userId} /> : null}
       {section === "legal" ? <div className="settings-page"><div className="settings-group">{legalTypes.map(([type, label]) => <SettingRow title={label} key={type} onClick={() => void openDoc(type)} />)}</div></div> : null}
-      {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><WynosIcon name="close" size={24} strokeWidth={2} /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small><p>{document.content}</p></div></section></div> : null}
+      {document ? <div className="route-modal-backdrop" role="presentation" onClick={() => setDocument(null)}><section className="route-modal legal-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}><header><strong>{document.title}</strong><button className="route-icon-button" type="button" onClick={() => setDocument(null)}><WynosIcon name="close" size={24} strokeWidth={2} /></button></header><div className="legal-content"><small>เวอร์ชัน {document.version}</small>{appLanguage === "en" ? <p className="settings-safety" data-i18n-skip="">This document is currently available in Thai only.</p> : null}<p data-i18n-skip="" lang="th">{document.content}</p></div></section></div> : null}
     </AppChrome>
   );
 }

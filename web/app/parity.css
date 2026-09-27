@@ -288,7 +288,7 @@
   font-weight: 600;
 }
 
-.nav-button[aria-label="สร้างโพสต์"]::after {
+.nav-button:is([aria-label="สร้างโพสต์"],[aria-label="Create post"])::after {
   content: "โพสต์";
   color: var(--graphite);
   font-weight: 400;

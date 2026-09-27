@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForSettledRoute } from "./route-settled";
 
 test.describe("Web Beta1 email signup security", () => {
   // The mocked public username RPC must not be claimed by an installed PWA service worker on WebKit.
@@ -19,6 +20,7 @@ test.describe("Web Beta1 email signup security", () => {
     await expect(page).toHaveURL(/\/signup\/step-2$/);
 
     await expect(page.locator('input[name="password"]')).toHaveAttribute("placeholder", "อย่างน้อย 12 ตัวอักษร");
+    await waitForSettledRoute(page.locator('input[name="email"]'));
     await page.locator('input[name="email"]').fill("policy@example.invalid");
     await expect(page.locator('input[name="email"]')).toHaveValue("policy@example.invalid");
     await page.locator('input[name="password"]').fill("12345678901");

@@ -1,19 +1,96 @@
-/* WYN-188 — Web Beta2 dark-theme fixes.
-   Every rule here is scoped to :where(:root[data-theme="dark"]). Only accounts
-   that chose a theme (developers until the Founder releases WYN-188) ever get
-   that attribute, so none of this can change what Web Beta1 users see.
-   :where() adds no specificity, so each rule cascades like its unscoped base. */
+/* WYN-188 — dark-theme fixes (released to every account 2026-09-27).
+   They apply when Dark is chosen, and when nothing is chosen and the phone
+   is dark (the default, shown in Settings as "System"), so both look the
+   same. Light always wins. :where() adds no specificity, so each rule
+   cascades like its unscoped base. */
 
 /* Initial-letter avatar: sapphire (#1b3a6b) text is ~1.7:1 on the dark surface. */
 :where(:root[data-theme="dark"]) .route-avatar.fallback {
   color: var(--wyn-text-secondary);
 }
 
-/* Choosing Dark also sets color-scheme: dark (dark scrollbars, inputs,
-   pickers). WebKit then paints an unstyled native <button> with white text
-   on its light-grey bezel (~1.8:1). Class-less buttons get dark colours;
-   every styled button keeps its own. */
+/* Dark sets color-scheme: dark (dark scrollbars, inputs, pickers). WebKit
+   then paints an unstyled native <button> with white text on its light-grey
+   bezel (~1.8:1). Class-less buttons get dark colours; every styled button
+   keeps its own. */
 :where(:root[data-theme="dark"]) :where(button:not([class])) {
   background-color: var(--wyn-surface);
   color: var(--wyn-text);
+}
+
+/* Hard-coded light-theme colours found by a sweep of every stylesheet for
+   dark text or light surfaces that sit on the page background. */
+:where(:root[data-theme="dark"]) .notification-message {
+  color: var(--wyn-text);
+}
+:where(:root[data-theme="dark"]) .wyn-action-button {
+  color: var(--wyn-text);
+}
+:where(:root[data-theme="dark"]) .wyn-home-post-fab {
+  background: #f7f7f8;
+  color: #111111;
+}
+:where(:root[data-theme="dark"]) .wyn-post-follow-pill.is-following,
+:where(:root[data-theme="dark"]) .wyn-post-follow-pill.is-requested {
+  border-color: #34363b;
+}
+:where(:root[data-theme="dark"]) .wyn-chat-inbox .flutter-chat-search {
+  background: #1f2023 !important;
+}
+
+/* The WYNOS logo mark is black ink on transparency (Welcome, Login, Home). */
+:where(:root[data-theme="dark"]) img[src*="wynos_logo_mark"] {
+  filter: invert(1);
+}
+
+/* Installed iPhone: the safe area behind the status bar follows the page
+   (no :where() here: it must outrank :root.wyn-ios-standalone). */
+:root[data-theme="dark"].wyn-ios-standalone {
+  background-color: #000;
+}
+@media (prefers-color-scheme: dark) {
+  /* Initial-letter avatar: sapphire (#1b3a6b) text is ~1.7:1 on the dark surface. */
+  :where(:root:not([data-theme])) .route-avatar.fallback {
+    color: var(--wyn-text-secondary);
+  }
+
+  /* Dark sets color-scheme: dark (dark scrollbars, inputs, pickers). WebKit
+     then paints an unstyled native <button> with white text on its light-grey
+     bezel (~1.8:1). Class-less buttons get dark colours; every styled button
+     keeps its own. */
+  :where(:root:not([data-theme])) :where(button:not([class])) {
+    background-color: var(--wyn-surface);
+    color: var(--wyn-text);
+  }
+
+  /* Hard-coded light-theme colours found by a sweep of every stylesheet for
+     dark text or light surfaces that sit on the page background. */
+  :where(:root:not([data-theme])) .notification-message {
+    color: var(--wyn-text);
+  }
+  :where(:root:not([data-theme])) .wyn-action-button {
+    color: var(--wyn-text);
+  }
+  :where(:root:not([data-theme])) .wyn-home-post-fab {
+    background: #f7f7f8;
+    color: #111111;
+  }
+  :where(:root:not([data-theme])) .wyn-post-follow-pill.is-following,
+  :where(:root:not([data-theme])) .wyn-post-follow-pill.is-requested {
+    border-color: #34363b;
+  }
+  :where(:root:not([data-theme])) .wyn-chat-inbox .flutter-chat-search {
+    background: #1f2023 !important;
+  }
+
+  /* The WYNOS logo mark is black ink on transparency (Welcome, Login, Home). */
+  :where(:root:not([data-theme])) img[src*="wynos_logo_mark"] {
+    filter: invert(1);
+  }
+
+  /* Installed iPhone: the safe area behind the status bar follows the page
+     (no :where() here: it must outrank :root.wyn-ios-standalone). */
+  :root:not([data-theme]).wyn-ios-standalone {
+    background-color: #000;
+  }
 }

@@ -191,7 +191,7 @@ export function WyniiConversationHeader({ client, userId, conversationId, other,
           </span>
         </Link>
         <span className={styles.copy}>
-          <Link className={styles.personLink} href={`/profile/${other.id}`}><strong>{displayName}</strong></Link>
+          <Link className={styles.personLink} href={`/profile/${other.id}`}><strong data-i18n-skip="">{displayName}</strong></Link>
           <span className={styles.subline}>
             {online ? (
               <small className={styles.status}>ออนไลน์</small>
@@ -227,7 +227,7 @@ export function WyniiConversationHeader({ client, userId, conversationId, other,
               <div className={styles.statusTop}><strong>{status.short}</strong><span>{status.detail}</span></div>
               <div className={styles.members}>
                 <div className={styles.member}><span>คุณ</span><span className={status.mineDone ? styles.done : styles.waiting}>{status.mineDone ? "✓ ส่งแล้ว" : "รอ"}</span></div>
-                <div className={styles.member}><span>{displayName}</span><span className={status.otherDone ? styles.done : styles.waiting}>{status.otherDone ? "✓ ส่งแล้ว" : "รอ"}</span></div>
+                <div className={styles.member}><span data-i18n-skip="">{displayName}</span><span className={status.otherDone ? styles.done : styles.waiting}>{status.otherDone ? "✓ ส่งแล้ว" : "รอ"}</span></div>
               </div>
               <div className={styles.progressBlock}>
                 <div className={styles.progressCopy}><span>{wyniiStageLabel(stage)}</span><span>{nextMilestone == null ? "MAX" : `อีก ${Math.max(0, nextMilestone - pet.age_days)} วัน`}</span></div>

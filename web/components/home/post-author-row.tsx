@@ -32,7 +32,7 @@ export function PostAuthorRow({
   return (
     <header className="wyn-post-author-row">
       <Link className="wyn-post-author-link" href={profileHref}>
-        <strong className="wyn-post-author-name">
+        <strong className="wyn-post-author-name" data-i18n-skip="">
           {name}
         </strong>
         {verified ? <span className="route-verified wyn-post-verified" aria-label="ยืนยันแล้ว">✓</span> : null}

@@ -207,7 +207,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                     <Link className="chat-row request-main" href={`/chat/${row.conversation_id}?user=${encodeURIComponent(row.other_user_id)}`}>
                       <Avatar src={row.other_avatar_url} label={row.other_username} size={48} />
                       <span className="chat-row-copy">
-                        <strong>{row.other_display_name?.trim() || row.other_username}</strong>
+                        <strong data-i18n-skip="">{row.other_display_name?.trim() || row.other_username}</strong>
                         <small>{conversationPreview(row)}</small>
                       </span>
                     </Link>
@@ -240,7 +240,7 @@ function ChatInboxParityInner({ client, userId }: { client: SupabaseClient; user
                         {onlineIds.has(row.other_user_id) ? <span className="wyn-chat-online-dot" aria-label="ออนไลน์" /> : null}
                       </span>
                       <span className="chat-row-copy">
-                        <strong>{row.other_display_name?.trim() || row.other_username}</strong>
+                        <strong data-i18n-skip="">{row.other_display_name?.trim() || row.other_username}</strong>
                         <small>{conversationPreview(row)}</small>
                       </span>
                       <span className="flutter-chat-row-meta">

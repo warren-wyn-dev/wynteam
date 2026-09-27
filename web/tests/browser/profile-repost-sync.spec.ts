@@ -100,7 +100,7 @@ test("Home and Profile share approved Thai two-option Repost sheet without separ
   expect(choices).not.toContain("border-bottom");
   expect(css).toContain(".wyn-repost-sheet-choice");
   expect(css).toContain("border: 0;");
-  expect(css).toContain(".golden-drop-sheet[aria-label=\"รีโพสต์\"]");
-  expect(css).toContain(".audit-action-sheet[aria-label=\"รีโพสต์\"]");
+  expect(css).toContain(".golden-drop-sheet:is([aria-label=\"รีโพสต์\"],[aria-label=\"Repost\"])");
+  expect(css).toContain(".audit-action-sheet:is([aria-label=\"รีโพสต์\"],[aria-label=\"Repost\"])");
   expect(css).not.toContain(".wyn-redrop-sheet-option.is-quote");
 });

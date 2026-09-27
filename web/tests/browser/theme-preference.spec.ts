@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// WYN-188: Light / Dark / System theme (developer-only until released).
+// WYN-188: Light / Dark / System theme (released to every account 2026-09-27).
 const KEY = "wynos.theme.v1";
 
 async function storeChoice(page: Page, choice: string | null) {
@@ -15,7 +15,7 @@ async function storeChoice(page: Page, choice: string | null) {
 const bodyBackground = (page: Page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 const appliedTheme = (page: Page) => page.evaluate(() => document.documentElement.dataset.theme ?? null);
 
-test.describe("nobody chose a theme (every Web Beta1 user)", () => {
+test.describe("an account that never chose a theme", () => {
   test("no data-theme; the page follows the phone exactly as before", async ({ page }) => {
     await storeChoice(page, null);
     await page.emulateMedia({ colorScheme: "dark" });
@@ -27,7 +27,7 @@ test.describe("nobody chose a theme (every Web Beta1 user)", () => {
   });
 });
 
-test.describe("a developer's choice", () => {
+test.describe("a chosen theme", () => {
   test("Dark applies before first paint even when the phone is light", async ({ page }) => {
     await storeChoice(page, "dark");
     await page.emulateMedia({ colorScheme: "light" });
@@ -59,6 +59,24 @@ test.describe("a developer's choice", () => {
   });
 });
 
+test.describe("dark fixes reach the default (System) look too", () => {
+  for (const choice of ["dark", null] as const) {
+    test(`logo mark is visible on black (${choice ?? "nothing chosen, dark phone"})`, async ({ page }) => {
+      await storeChoice(page, choice);
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.goto("/welcome");
+      await expect(page.locator('img[src*="wynos_logo_mark"]').first()).toHaveCSS("filter", "invert(1)");
+    });
+  }
+
+  test("Light keeps the logo as drawn on a dark phone", async ({ page }) => {
+    await storeChoice(page, "light");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/welcome");
+    await expect(page.locator('img[src*="wynos_logo_mark"]').first()).toHaveCSS("filter", "none");
+  });
+});
+
 // Every main screen stays readable in the dark theme: no visible text below
 // 3:1 against its background (disabled controls are exempt under WCAG).
 for (const route of [
@@ -73,10 +91,11 @@ for (const route of [
   "/dev/follow-button-fixture",
   "/dev/composer-fixture",
 ]) {
-  test(`${route} is readable in the dark theme`, async ({ page }) => {
+  for (const choice of ["dark", null] as const) test(`${route} is readable in the dark theme${choice ? "" : " (nothing chosen, dark phone)"}`, async ({ page }) => {
     // The composer fixture is dev-server only (404 on hosted staging builds).
     test.skip(route === "/dev/composer-fixture" && Boolean(process.env.PLAYWRIGHT_BASE_URL), "dev-server-only fixture");
-    await storeChoice(page, "dark");
+    await storeChoice(page, choice);
+    await page.emulateMedia({ colorScheme: "dark" });
     await page.goto(route);
     await page.waitForLoadState("networkidle").catch(() => {});
     const failures = await page.evaluate(() => {

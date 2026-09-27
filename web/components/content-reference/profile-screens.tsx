@@ -59,7 +59,7 @@ export function ProfileHeader({
         <Avatar as="div" alt={`รูปโปรไฟล์ของ ${profile.displayName}`} className="avatar" size={64} />
         <div className="profile-copy">
           <div className="profile-name">{profile.displayName}</div>
-          <p className="profile-bio">{profile.bio}</p>
+          <p className="profile-bio" data-i18n-skip="">{profile.bio}</p>
           {profile.website ? (
             <div className="profile-link-row">
               <WynosIcon name="link" size={14} />
@@ -110,7 +110,7 @@ function ProfilePost({ authorName, timeLabel, text, onOpen, likeCount }: { autho
     <button className="profile-post" onClick={onOpen} type="button">
       <Avatar as="div" alt={`รูปโปรไฟล์ของ ${authorName}`} className="avatar" size={36} />
       <div className="profile-post-body">
-        <div className="profile-post-meta"><span>{authorName}</span><span> · {timeLabel}</span></div>
+        <div className="profile-post-meta"><span data-i18n-skip="">{authorName}</span><span> · {timeLabel}</span></div>
         <p>{text}</p>
         {likeCount !== undefined ? <div className="profile-post-actions"><span><WynosIcon name="like" size={18} />{likeCount}</span></div> : null}
       </div>

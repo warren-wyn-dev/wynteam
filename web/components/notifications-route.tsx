@@ -125,7 +125,7 @@ function NotificationMessage({ row, extraActorCount }: { row: NotificationRow; e
   const actorVisible = Boolean(row.actor_id) && message.startsWith(actor);
   return (
     <span className="notification-message">
-      {actorVisible ? <><b>{actor}</b>{message.slice(actor.length)}</> : message}
+      {actorVisible ? <><b data-i18n-skip="">{actor}</b>{message.slice(actor.length)}</> : message}
       {extraActorCount > 0 ? <em> และอีก {extraActorCount} คน</em> : null}
     </span>
   );

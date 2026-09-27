@@ -624,6 +624,7 @@ export function SignupStep1Screen() {
             <select
               aria-label="ปี"
               className="wyn-select"
+              data-i18n-years="buddhist"
               value={birthYear ?? ""}
               onChange={updateBirthDatePart("year")}
               disabled={!mounted}

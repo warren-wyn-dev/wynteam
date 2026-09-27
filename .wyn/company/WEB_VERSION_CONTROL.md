@@ -40,6 +40,7 @@ WYNOS Web Beta1 เป็น version track ของ **Web App** แยกจา
 - Post-launch fixes ใน Web Beta1: แชร์ลิงก์/preview/กลับหน้าที่แชร์หลังล็อกอิน (#727, Deploy #276), เปิดลิงก์จาก LINE ใน Safari และปิดการซูม (#729, Deploy #277, `d0ed2dc4d8f5e1403b02e44046e70fca319489ad`)
 - QA: **PASS** 2026-09-26. Founder ยืนยันการทดสอบบนมือถือจริงครบ ดู `.wyn/docs/qa/wynos-web-beta1-full-system-qa-2026-09-26.md` (Final sign-off)
 - Staging (เริ่ม Web Beta2, 2026-09-26): ทุก PR ที่แก้ `web/` ได้ staging URL ของตัวเอง ใช้ฐานข้อมูลเดียวกับ production ดู `docs/engineering/WEB_STAGING.md`
+- WYN-188 ธีม สว่าง/เข้ม/ตามระบบ: เปิดให้ทุกบัญชี (Founder อนุมัติ 2026-09-27) ค่าที่เลือกเก็บใน `user_preferences`
 - งานใหม่ทั้งหมดของ Web Beta2 ต้องอยู่หลัง developer gate (เช่น `is_developer_account`) จนกว่า Owner จะสั่ง release; ห้ามเปลี่ยนพฤติกรรมของ Web Beta1 ที่ผู้ใช้เห็นโดยไม่ได้รับอนุมัติ
 - Rollback/version change ยังเป็นอำนาจ Owner เท่านั้น
 

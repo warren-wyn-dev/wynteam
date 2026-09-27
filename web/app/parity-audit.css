@@ -24,14 +24,14 @@
 /* Approved single Repost menu for both Home and Profile.
    Flat white action sheet, circular-arrow repost icon, pencil for quote,
    Thai-only choice labels, no dividers, cards, subtitles or chevrons. */
-.audit-action-sheet[aria-label="รีโพสต์"],
-.golden-drop-sheet[aria-label="รีโพสต์"] {
+.audit-action-sheet:is([aria-label="รีโพสต์"],[aria-label="Repost"]),
+.golden-drop-sheet:is([aria-label="รีโพสต์"],[aria-label="Repost"]) {
   padding: 9px 0 calc(16px + env(safe-area-inset-bottom, 0px));
   border-radius: 26px 26px 0 0;
   background: var(--paper);
 }
-.audit-action-sheet[aria-label="รีโพสต์"] .audit-sheet-grip,
-.golden-drop-sheet[aria-label="รีโพสต์"] .golden-drop-sheet-grip {
+.audit-action-sheet:is([aria-label="รีโพสต์"],[aria-label="Repost"]) .audit-sheet-grip,
+.golden-drop-sheet:is([aria-label="รีโพสต์"],[aria-label="Repost"]) .golden-drop-sheet-grip {
   width: 40px;
   height: 4px;
   margin: 3px auto 13px;

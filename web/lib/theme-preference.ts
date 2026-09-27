@@ -1,17 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * WYN-188: Light / Dark / System theme (Web Beta2, developer-only until the
- * Founder releases it).
+ * WYN-188: Light / Dark / System theme. Built in Web Beta2 and released to
+ * every account by the Founder on 2026-09-27.
  *
  * How it applies:
- * - No choice stored (every non-developer): no `data-theme` on <html>. The
+ * - No choice stored (an account that never picked one): no `data-theme` on <html>. The
  *   legacy `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) … }`
  *   rules follow the phone, exactly as before WYN-188.
- * - A choice stored (developers): `data-theme` is always set to the applied
+ * - A choice stored: `data-theme` is always set to the applied
  *   theme, "light" or "dark". "system" resolves from the phone and follows it
  *   live. New Beta2 dark-mode fixes are written only under
- *   `:where(:root[data-theme="dark"])`, so they can never reach Web Beta1 users.
+ *   `:where(:root[data-theme="dark"])`, so they only reach people who chose a theme.
  *
  * The choice is cached on the device (read before first paint by
  * THEME_BOOT_SCRIPT, so there is no flash) and saved per account in
@@ -37,6 +37,14 @@ export function readStoredThemePreference(): ThemePreference | null {
   } catch {
     return null;
   }
+}
+
+// This page's choice, kept in memory too so it holds when storage is blocked.
+let chosenThisPage: ThemePreference | null | undefined;
+
+/** The choice in effect on this device/page, or null when none (follow the phone). */
+export function chosenThemePreference(): ThemePreference | null {
+  return readStoredThemePreference() ?? chosenThisPage ?? null;
 }
 
 function writeStoredThemePreference(preference: ThemePreference | null) {
@@ -98,6 +106,7 @@ export function applyThemePreference(preference: ThemePreference | null) {
 
 /** Apply, cache on this device, and tell listeners (other components). */
 export function setThemePreference(preference: ThemePreference | null) {
+  chosenThisPage = preference;
   applyThemePreference(preference);
   writeStoredThemePreference(preference);
   window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: preference }));
@@ -111,23 +120,33 @@ export const THEME_BOOT_SCRIPT = `(function(){try{var p=localStorage.getItem(${J
   THEME_STORAGE_KEY,
 )});if(p==="system")p=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";if(p==="light"||p==="dark"){var r=document.documentElement;r.setAttribute("data-theme",p);r.style.colorScheme=p;}}catch(e){}})();`;
 
-/** The account's saved choice, or null when none is saved or it cannot be read. */
-export async function loadAccountThemePreference(client: SupabaseClient, userId: string): Promise<ThemePreference | null> {
+/**
+ * The account's saved choice: the preference, `null` when the account has
+ * none, or `undefined` when it could not be read (keep the device's cache).
+ */
+export async function loadAccountThemePreference(client: SupabaseClient, userId: string): Promise<ThemePreference | null | undefined> {
   try {
     const { data, error } = await client.from("user_preferences").select("theme_preference").eq("user_id", userId).maybeSingle();
-    if (error || !data) return null;
-    return isThemePreference(data.theme_preference) ? data.theme_preference : null;
+    if (error) return undefined;
+    return isThemePreference(data?.theme_preference) ? data.theme_preference : null;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
-/** Save the choice to the account. Returns false if it could not be saved (it still applies on this device). */
-export async function saveAccountThemePreference(client: SupabaseClient, userId: string, preference: ThemePreference): Promise<boolean> {
-  try {
-    const { error } = await client.from("user_preferences").upsert({ user_id: userId, theme_preference: preference }, { onConflict: "user_id" });
-    return !error;
-  } catch {
-    return false;
-  }
+// Saves run one after another, so quick taps end on the last choice.
+let themeSaves: Promise<unknown> = Promise.resolve();
+
+/** Save the choice to the account. Resolves false if it could not be saved (it still applies on this device). */
+export function saveAccountThemePreference(client: SupabaseClient, userId: string, preference: ThemePreference): Promise<boolean> {
+  const save = themeSaves.then(async () => {
+    try {
+      const { error } = await client.from("user_preferences").upsert({ user_id: userId, theme_preference: preference }, { onConflict: "user_id" });
+      return !error;
+    } catch {
+      return false;
+    }
+  });
+  themeSaves = save;
+  return save;
 }

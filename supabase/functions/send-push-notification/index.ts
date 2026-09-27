@@ -12,6 +12,8 @@ import {
   fetchFcmAccessToken,
   type FcmServiceAccount,
   messageFor,
+  pushLanguageFrom,
+  type PushLanguage,
   safeErrorMessage,
   splitPushMessage,
   summariseOutcomes,
@@ -48,7 +50,16 @@ async function authoritativeNotification(
   return (rows[0] as NotificationRow | undefined) ?? null;
 }
 
-async function dmPreviewForNotification(row: NotificationRow): Promise<string | null> {
+// WYN-189: the recipient's app language. No row, or any read failure, keeps
+// the Thai templates every notification used before.
+async function recipientLanguage(recipientId: string): Promise<PushLanguage> {
+  const rows = await supabaseRestGet(
+    `user_preferences?user_id=eq.${encodeURIComponent(recipientId)}&select=language_preference`,
+  );
+  return pushLanguageFrom((rows[0] as { language_preference?: unknown } | undefined)?.language_preference);
+}
+
+async function dmPreviewForNotification(row: NotificationRow, lang: PushLanguage): Promise<string | null> {
   if (
     row.type !== "new_message" || !row.conversation_id || !row.actor_id ||
     !row.created_at
@@ -79,6 +90,7 @@ async function dmPreviewForNotification(row: NotificationRow): Promise<string | 
     message.image_url,
     message.shared_content_type,
     message.view_once === true,
+    lang,
   );
 }
 
@@ -121,11 +133,12 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
   const serviceAccount: FcmServiceAccount = JSON.parse(serviceAccountRaw);
 
-  const [actorRows, tokenRows] = await Promise.all([
+  const [actorRows, tokenRows, lang] = await Promise.all([
     row.actor_id
       ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
       : Promise.resolve([]),
     supabaseRestGet(`push_tokens?user_id=eq.${row.recipient_id}&select=token`),
+    recipientLanguage(row.recipient_id),
   ]);
   if (tokenRows.length === 0) {
     return new Response("No registered devices", { status: 200 });
@@ -134,7 +147,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   const actor = actorRows[0] as { username: string; display_name: string | null } | undefined;
   const actorName = actor
     ? displayNameOrUsername(actor.display_name, actor.username)
-    : "มีคน";
+    : lang === "en" ? "Someone" : "มีคน";
 
   let clubName: string | null = null;
   if (row.club_id) {
@@ -142,7 +155,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     clubName = (clubRows[0] as { name: string } | undefined)?.name ?? null;
   }
 
-  const dmPreview = await dmPreviewForNotification(row);
+  const dmPreview = await dmPreviewForNotification(row, lang);
   const body = messageFor(
     row.type,
     actorName,
@@ -150,6 +163,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     row.reason,
     row.moderation_action_type,
     dmPreview,
+    lang,
   );
   const { title, body: pushBody } = splitPushMessage(body, actorName);
   const data = buildDataPayload(row);

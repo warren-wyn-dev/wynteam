@@ -387,11 +387,11 @@ function ClubPostCard({
       <Link className="golden-club-post-avatar" href={`/profile/${post.author_id}`}><Avatar src={post.author_avatar_url} label={post.author_username || "W"} size={42} /></Link>
       <div className="golden-club-post-body">
         <header>
-          <Link href={`/profile/${post.author_id}`}><strong>{author}</strong><small>{relativeTimeTh(post.created_at)}</small></Link>
+          <Link href={`/profile/${post.author_id}`}><strong data-i18n-skip="">{author}</strong><small>{relativeTimeTh(post.created_at)}</small></Link>
           <button type="button" aria-label="เพิ่มเติม" onClick={() => setMenu(true)}><WynosIcon name="moreVertical" size={22} strokeWidth={2} /></button>
         </header>
         {post.pinned ? <span className="golden-club-pin"><WynosIcon name="pin" size={12} strokeWidth={2} /> ปักหมุด</span> : null}
-        {post.content ? <Link className="golden-club-post-open" href={`/club-post/${post.id}`}><p>{post.content}</p></Link> : null}
+        {post.content ? <Link className="golden-club-post-open" href={`/club-post/${post.id}`}><p data-i18n-skip="">{post.content}</p></Link> : null}
         {post.image_urls.length ? (
           <Link className={`golden-club-media ${post.image_urls.length > 1 ? "multi" : "single"}`} href={`/club-post/${post.id}`}>
             {post.image_urls.map((url, index) => <Image src={url} alt="" width={1200} height={1500} style={{ width: "100%", height: "auto" }} sizes="(max-width: 640px) 100vw, 640px" loading="lazy" key={`${post.id}:image:${index}`} />)}
@@ -487,8 +487,8 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
             <div className={`golden-club-message ${message.author_id === userId ? "mine" : ""}`} key={message.id}>
               {message.author_id !== userId ? <Avatar src={message.author_avatar_url} label={message.author_username} size={30} /> : null}
               <div className="golden-club-bubble">
-                <div className="golden-club-message-head"><strong>{message.author_id === userId ? "คุณ" : message.author_display_name?.trim() || message.author_username}</strong><button type="button" aria-label="ตัวเลือกข้อความ" onClick={() => message.author_id === userId || canModerate ? void remove(message.id) : setReport({ type: "club_channel_message", id: message.id, label: "รายงานข้อความ" })}><WynosIcon name="more" size={16} strokeWidth={2} /></button></div>
-                {message.content ? <p>{message.content}</p> : null}
+                <div className="golden-club-message-head"><strong data-i18n-skip={message.author_id === userId ? undefined : ""}>{message.author_id === userId ? "คุณ" : message.author_display_name?.trim() || message.author_username}</strong><button type="button" aria-label="ตัวเลือกข้อความ" onClick={() => message.author_id === userId || canModerate ? void remove(message.id) : setReport({ type: "club_channel_message", id: message.id, label: "รายงานข้อความ" })}><WynosIcon name="more" size={16} strokeWidth={2} /></button></div>
+                {message.content ? <p data-i18n-skip="">{message.content}</p> : null}
                 {message.image_url ? <Image src={message.image_url} alt="" width={280} height={330} sizes="280px" /> : null}
                 <small>{relativeTimeTh(message.created_at)}</small>
               </div>
@@ -549,14 +549,14 @@ function AboutTabView({ client, clubId, club, membership }: { client: SupabaseCl
       <div className="golden-club-about-tabs">{choices.map((choice) => <button className={tab === choice.key ? "active" : ""} type="button" onClick={() => setTab(choice.key)} key={choice.key}>{choice.label}</button>)}</div>
       {loading ? <LoadingState /> : tab === "details" ? (
         <div className="golden-club-details">
-          <h3>รายละเอียด</h3><p>{club.description || "ยังไม่มีคำอธิบาย"}</p>
+          <h3>รายละเอียด</h3><p data-i18n-skip={club.description ? "" : undefined}>{club.description || "ยังไม่มีคำอธิบาย"}</p>
           <dl><div><dt>หมวดหมู่</dt><dd>{club.category || "—"}</dd></div><div><dt>ความเป็นส่วนตัว</dt><dd>{club.privacy === "private" ? "ส่วนตัว" : "สาธารณะ"}</dd></div><div><dt>สมาชิก</dt><dd>{club.member_count.toLocaleString("th-TH")}</dd></div></dl>
           <h3>กฎของ Club</h3><p>{club.rules || "ยังไม่มีกฎของ Club"}</p>
         </div>
       ) : tab === "members" ? (
-        <div className="golden-club-members">{members.length ? members.map((person) => <Link href={`/profile/${person.user_id}`} key={person.user_id}><Avatar src={person.avatar_url} label={person.username} size={42} /><span><strong>{person.display_name?.trim() || person.username}</strong><small>@{person.username} · {person.role}</small></span><WynosIcon name="chevronRight" size={18} strokeWidth={2} /></Link>) : <EmptyState>ยังไม่มีสมาชิก</EmptyState>}</div>
+        <div className="golden-club-members">{members.length ? members.map((person) => <Link href={`/profile/${person.user_id}`} key={person.user_id}><Avatar src={person.avatar_url} label={person.username} size={42} /><span><strong data-i18n-skip="">{person.display_name?.trim() || person.username}</strong><small>@{person.username} · {person.role}</small></span><WynosIcon name="chevronRight" size={18} strokeWidth={2} /></Link>) : <EmptyState>ยังไม่มีสมาชิก</EmptyState>}</div>
       ) : tab === "events" ? (
-        <div className="golden-club-events">{events.length ? events.map((event) => <article key={event.id}><WynosIcon name="calendarDays" size={20} strokeWidth={2} /><div><strong>{event.title}</strong><small>{new Date(event.starts_at).toLocaleString("th-TH")}</small><p>{event.location_type === "online" ? "ออนไลน์" : "สถานที่"}: {event.location}</p>{event.description ? <p>{event.description}</p> : null}</div></article>) : <EmptyState>ยังไม่มีกิจกรรม</EmptyState>}</div>
+        <div className="golden-club-events">{events.length ? events.map((event) => <article key={event.id}><WynosIcon name="calendarDays" size={20} strokeWidth={2} /><div><strong>{event.title}</strong><small>{new Date(event.starts_at).toLocaleString("th-TH")}</small><p>{event.location_type === "online" ? "ออนไลน์" : "สถานที่"}: {event.location}</p>{event.description ? <p data-i18n-skip="">{event.description}</p> : null}</div></article>) : <EmptyState>ยังไม่มีกิจกรรม</EmptyState>}</div>
       ) : (
         <div className="golden-club-insights">{insights ? Object.entries(insights).map(([key, value]) => <div key={key}><span>{key.replaceAll("_", " ")}</span><strong>{String(value ?? 0)}</strong></div>) : <EmptyState>ยังไม่มีข้อมูล Insights</EmptyState>}</div>
       )}
@@ -718,7 +718,7 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
               {club.privacy === "private" ? <WynosIcon name="lock" size={13} strokeWidth={2} /> : null}
               {(approved || pending || owner) ? <button className="golden-club-inline-join" type="button" disabled={busy || owner || pending} onClick={() => void join()}>{approved && !owner ? <WynosIcon name="check" size={11} strokeWidth={2} /> : null}{statusLabel}</button> : null}
             </div>
-            {club.description ? <p>{club.description}</p> : null}
+            {club.description ? <p data-i18n-skip="">{club.description}</p> : null}
             {!membership ? <button className="golden-club-primary-join" type="button" disabled={busy} onClick={() => void join()}>{statusLabel}</button> : null}
             {error ? <p className="route-error">{error}</p> : null}
           </div>

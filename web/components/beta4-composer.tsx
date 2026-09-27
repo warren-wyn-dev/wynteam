@@ -535,7 +535,7 @@ export function Beta4Composer({
               <Avatar src={identity?.avatar_url} label={identity?.username || "WYNOS"} size={44} />
             </div>
             <div className={styles.composerBody}>
-              <strong className={styles.authorName}>{identity?.display_name?.trim() || identity?.username || "WYNOS"}</strong>
+              <strong className={styles.authorName} data-i18n-skip="">{identity?.display_name?.trim() || identity?.username || "WYNOS"}</strong>
               <textarea
                 ref={captionRef}
                 autoFocus

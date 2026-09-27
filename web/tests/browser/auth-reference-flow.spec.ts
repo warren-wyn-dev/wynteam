@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForSettledRoute } from "./route-settled";
 
 test.describe("HTML-reference auth flow", () => {
   test("six routes render and preserve source geometry", async ({ page }) => {
@@ -74,6 +75,7 @@ test.describe("HTML-reference auth flow", () => {
 
     await page.getByRole("button", { name: "หน้าถัดไป" }).click();
     await expect(page).toHaveURL(/\/signup\/step-2$/);
+    await waitForSettledRoute(page.locator('input[name="email"]'));
     await page.locator('input[name="email"]').fill("ploy@example.com");
     await page.locator('input[name="password"]').fill("password123");
     await page.locator('input[name="confirmPassword"]').fill("password123");
