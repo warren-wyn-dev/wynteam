@@ -52,6 +52,8 @@ jobs:
         run: npm run test:push-toggle
       - name: Shared link return-after-login regression
         run: npm run test:share-links
+      - name: Android app Digital Asset Links
+        run: npm run test:android-asset-links
       - name: Thai / English coverage and Beta2 gate regression
         run: npm run test:i18n
       - name: Web Beta1 club and draft regression

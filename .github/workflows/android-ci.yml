@@ -1,0 +1,66 @@
+name: Android App (TWA)
+
+# Builds the WYNOS Android app (android/). Pull requests get a debug APK to
+# install for testing. A manual run also produces the release App Bundle
+# (.aab) for Google Play, signed with the upload key when the
+# WYNOS_ANDROID_* secrets exist (see android/README.md). Nothing is uploaded
+# to Google Play from here; that stays a manual, Founder-approved step.
+
+on:
+  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Lint and debug APK
+        run: ./gradlew --no-daemon lintRelease assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wynos-android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      - name: Decode upload keystore
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.WYNOS_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+            echo "WYNOS_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::WYNOS_ANDROID_KEYSTORE_BASE64 is not set; the App Bundle will be unsigned."
+          fi
+      - name: Release App Bundle
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          WYNOS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WYNOS_ANDROID_KEYSTORE_PASSWORD }}
+          WYNOS_ANDROID_KEY_ALIAS: ${{ secrets.WYNOS_ANDROID_KEY_ALIAS }}
+          WYNOS_ANDROID_KEY_PASSWORD: ${{ secrets.WYNOS_ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon bundleRelease
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: wynos-android-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+      - name: Remove keystore
+        if: always() && github.event_name == 'workflow_dispatch'
+        run: rm -f "$RUNNER_TEMP/upload.jks"

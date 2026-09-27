@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches theme_color / background_color in web/app/manifest.ts. -->
+    <color name="wynosBackground">#FFFFFF</color>
+    <color name="wynosBackgroundDark">#000000</color>
+</resources>

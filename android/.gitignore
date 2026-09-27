@@ -1,0 +1,9 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+# Signing material never goes in git (see README.md → Signing).
+keystore.properties
+*.jks
+*.keystore

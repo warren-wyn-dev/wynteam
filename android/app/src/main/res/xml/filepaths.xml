@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Splash image handoff to the browser (androidbrowserhelper). -->
+<paths>
+    <files-path name="twa_splash" path="twa_splash/" />
+</paths>
