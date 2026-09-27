@@ -8,6 +8,7 @@ import { Avatar, EmptyState, LoadingState } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import {
   ANNOUNCEMENT_MAX_LENGTH,
+  ANNOUNCEMENT_PAGE_SIZE,
   announcementPermissions,
   canPostAnnouncement,
   createClubAnnouncement,
@@ -41,13 +42,17 @@ export function ClubAnnouncementsTab({
 }) {
   const [items, setItems] = useState<ClubAnnouncement[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [composer, setComposer] = useState<Composer | null>(null);
   const [menuFor, setMenuFor] = useState<ClubAnnouncement | null>(null);
   const staff = approved && canPostAnnouncement(role);
 
   const load = useCallback(async () => {
     try {
-      setItems(await fetchClubAnnouncements(client, clubId));
+      const rows = await fetchClubAnnouncements(client, clubId);
+      setItems(rows);
+      setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE);
       setFailed(false);
     } catch {
       setFailed(true);
@@ -58,10 +63,25 @@ export function ClubAnnouncementsTab({
     if (!approved) return;
     let live = true;
     void fetchClubAnnouncements(client, clubId)
-      .then((rows) => { if (live) { setItems(rows); setFailed(false); } })
+      .then((rows) => { if (live) { setItems(rows); setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE); setFailed(false); } })
       .catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
   }, [approved, client, clubId]);
+
+  const loadMore = async () => {
+    const oldest = items?.[items.length - 1]?.created_at;
+    if (!oldest || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const rows = await fetchClubAnnouncements(client, clubId, oldest);
+      setItems((current) => [...(current ?? []), ...rows.filter((row) => !current?.some((item) => item.id === row.id))]);
+      setHasMore(rows.length === ANNOUNCEMENT_PAGE_SIZE);
+    } catch {
+      onToast("โหลดประกาศเพิ่มไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const remove = async (announcement: ClubAnnouncement) => {
     setMenuFor(null);
@@ -122,6 +142,11 @@ export function ClubAnnouncementsTab({
           })}
         </ol>
       )}
+      {items?.length && hasMore ? (
+        <button className="club-announcement-more-list" type="button" disabled={loadingMore} onClick={() => void loadMore()}>
+          {loadingMore ? "กำลังโหลด…" : "ดูประกาศก่อนหน้า"}
+        </button>
+      ) : null}
 
       {menuFor ? (
         <BottomSheet label="ตัวเลือกประกาศ" onClose={() => setMenuFor(null)}>
@@ -145,7 +170,7 @@ export function ClubAnnouncementsTab({
           onSubmit={async (body) => {
             if (composer.mode === "create") {
               await createClubAnnouncement(client, clubId, body);
-              onToast("ประกาศแล้ว สมาชิกจะได้รับการแจ้งเตือน");
+              onToast("ประกาศแล้ว");
             } else {
               await updateClubAnnouncement(client, composer.announcement.id, body);
               onToast("บันทึกการแก้ไขแล้ว");
@@ -190,7 +215,7 @@ function AnnouncementComposer({
     <BottomSheet label={editing ? "แก้ไขประกาศ" : "เขียนประกาศ"} onClose={() => { if (!busy) onClose(); }}>
       <div className="club-announcement-composer">
         <strong>{editing ? "แก้ไขประกาศ" : "เขียนประกาศ"}</strong>
-        <small>{editing ? "สมาชิกจะเห็นว่าประกาศนี้ถูกแก้ไข" : "สมาชิกทุกคนใน Club จะได้รับการแจ้งเตือน"}</small>
+        <small>{editing ? "สมาชิกจะเห็นว่าประกาศนี้ถูกแก้ไข" : "สมาชิกที่เปิดการแจ้งเตือน Club จะได้รับแจ้งเตือน"}</small>
         <textarea
           aria-label="ข้อความประกาศ"
           placeholder="พิมพ์ประกาศถึงสมาชิก…"

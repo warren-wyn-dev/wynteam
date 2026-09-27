@@ -26,7 +26,7 @@ function fakeClient(rows: Row[]): SupabaseClient {
   let nextId = 100;
   const query = (table: string) => {
     const chain = {
-      select: () => chain, eq: () => chain, order: () => chain,
+      select: () => chain, eq: () => chain, lt: () => chain, order: () => chain,
       limit: async () => ({ data: [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at)), error: null }),
       in: async () => ({ data: table === "profiles" ? PEOPLE : [], error: null }),
     };

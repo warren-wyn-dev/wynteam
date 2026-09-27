@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * (supabase/migrations_web_beta2_club_announcements.sql).
  */
 export const ANNOUNCEMENT_MAX_LENGTH = 2000;
+export const ANNOUNCEMENT_PAGE_SIZE = 20;
 
 export type ClubAnnouncement = {
   id: string;
@@ -23,14 +24,19 @@ export type ClubAnnouncement = {
 type AnnouncementRow = Omit<ClubAnnouncement, "author_username" | "author_display_name" | "author_avatar_url">;
 type ProfileRow = { id: string; username: string; display_name: string | null; avatar_url: string | null };
 
-/** Newest first. Throws on a read error so the tab can show a retry. */
-export async function fetchClubAnnouncements(client: SupabaseClient, clubId: string): Promise<ClubAnnouncement[]> {
-  const { data, error } = await client
+/**
+ * One page, newest first; pass the oldest `created_at` already shown to get
+ * the next page. Throws on a read error so the tab can show a retry.
+ */
+export async function fetchClubAnnouncements(client: SupabaseClient, clubId: string, before?: string): Promise<ClubAnnouncement[]> {
+  let query = client
     .from("club_announcements")
     .select("id, club_id, author_id, body, created_at, edited_at")
-    .eq("club_id", clubId)
+    .eq("club_id", clubId);
+  if (before) query = query.lt("created_at", before);
+  const { data, error } = await query
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(ANNOUNCEMENT_PAGE_SIZE);
   if (error) throw error;
   const rows = (data ?? []) as AnnouncementRow[];
   const authorIds = [...new Set(rows.map((row) => row.author_id))];

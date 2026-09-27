@@ -42,12 +42,18 @@ revoke all on public.club_announcements from anon, authenticated;
 grant select on public.club_announcements to authenticated;
 grant all on public.club_announcements to service_role;
 
--- Same audience as club_posts: approved members only. No client
--- insert/update/delete policy: the RPCs below are the only write path.
+-- Same audience as club_posts: approved members only, never from an author
+-- blocked either way. Beta2: developer accounts only, so the table cannot be
+-- read through the API before release. No client insert/update/delete
+-- policy: the RPCs below are the only write path.
 drop policy if exists "Approved club members read announcements" on public.club_announcements;
 create policy "Approved club members read announcements"
   on public.club_announcements for select to authenticated
-  using (public.club_role(club_id, (select auth.uid())) is not null);
+  using (
+    public.club_role(club_id, (select auth.uid())) is not null
+    and not internal.is_blocked_either_way((select auth.uid()), author_id)
+    and public.is_developer_account()
+  );
 
 -- ---------------------------------------------------------------------
 -- Notification type. Rebuilt from the live constraint so any type that
@@ -76,8 +82,8 @@ begin
 end $$;
 
 -- Same fan-out rules as notify_club_post_pinned() (WYN-116): approved
--- members except the author, 'club' preference on, Club not muted.
--- Beta2: developer members only (see the header).
+-- members except the author, 'club' preference on, Club not muted, and
+-- never across a block. Beta2: developer members only (see the header).
 create or replace function internal.notify_club_announcement(p_club_id uuid, p_author_id uuid)
 returns void
 language sql
@@ -91,6 +97,7 @@ as $$
     and cm.status = 'approved'
     and cm.user_id <> p_author_id
     and exists (select 1 from public.developer_accounts d where d.user_id = cm.user_id)
+    and not internal.is_blocked_either_way(cm.user_id, p_author_id)
     and internal.notification_enabled(cm.user_id, 'club')
     and not exists (
       select 1 from public.club_notification_mutes cnm
@@ -124,6 +131,10 @@ begin
   end if;
   if coalesce(public.club_role(p_club_id, v_me), '') not in ('owner', 'admin', 'moderator') then
     raise exception 'Only Club staff can post announcements';
+  end if;
+  -- Same moderation restriction as creating a club post.
+  if internal.is_posting_blocked(v_me) then
+    raise exception 'Posting is restricted for this account';
   end if;
   if char_length(v_body) not between 1 and 2000 then
     raise exception 'Announcement must be 1-2000 characters';
@@ -160,6 +171,9 @@ begin
      or v_row.author_id <> v_me
      or coalesce(public.club_role(v_row.club_id, v_me), '') not in ('owner', 'admin', 'moderator') then
     raise exception 'Announcement not found or not yours to edit';
+  end if;
+  if internal.is_posting_blocked(v_me) then
+    raise exception 'Posting is restricted for this account';
   end if;
   if char_length(v_body) not between 1 and 2000 then
     raise exception 'Announcement must be 1-2000 characters';

@@ -222,3 +222,5 @@
 .club-announcement-composer-foot { display: flex; align-items: center; gap: 8px; }
 .club-announcement-count { margin-right: auto; color: var(--wyn-text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .club-announcement-compose { transition: none; } }
+.club-announcement-more-list { width: 100%; min-height: 44px; margin-top: 12px; border: 0; border-radius: 999px; background: var(--wyn-surface); color: var(--wyn-text); font: inherit; font-size: 14px; font-weight: 600; }
+.club-announcement-more-list:disabled { opacity: 0.6; }

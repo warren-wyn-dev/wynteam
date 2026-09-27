@@ -5,6 +5,10 @@ name: Web Beta2 -- apply Club announcements (WYN-137)
 # (AGENTS.md Change Control). Validated in CI by
 # supabase/tests/web_beta2_club_announcements_test.sh (applied twice).
 #
+# PREREQUISITE: deploy send-push-notification (deploy-edge-functions.yml,
+# function: send-push-notification) from the same main commit first, so
+# 'club_announcement' pushes use their own text instead of the generic one.
+#
 # SAFETY: additive. One new table (club_announcements), three RPCs
 # (developer-gated while in Beta2) and one internal fan-out function. The only
 # change to an existing object is adding 'club_announcement' to

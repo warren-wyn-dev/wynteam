@@ -44,6 +44,14 @@ as $$ select role from public.club_members where club_id = p_club_id and user_id
 create or replace function public.is_developer_account() returns boolean language sql security definer set search_path = public stable
 as $$ select exists(select 1 from public.developer_accounts where user_id = auth.uid()) $$;
 grant execute on function public.is_developer_account() to authenticated;
+create table public.blocks (blocker_id uuid, blocked_id uuid);
+create table public.posting_blocked (user_id uuid primary key);
+create or replace function internal.is_blocked_either_way(a uuid, b uuid) returns boolean
+language sql stable security definer set search_path = public
+as $$ select exists(select 1 from public.blocks where (blocker_id = a and blocked_id = b) or (blocker_id = b and blocked_id = a)) $$;
+create or replace function internal.is_posting_blocked(p_user_id uuid) returns boolean
+language sql stable security definer set search_path = public
+as $$ select exists(select 1 from public.posting_blocked where user_id = p_user_id) $$;
 create or replace function internal.notification_enabled(p_user_id uuid, p_category text) returns boolean
 language sql stable security definer set search_path = public
 as $$ select not exists(select 1 from public.notification_off where user_id = p_user_id) $$;
@@ -117,6 +125,51 @@ do $$ begin
     raise exception 'Muted member was notified';
   end if;
 end $$;
+
+-- Block either way: c blocks the moderator, so c neither sees b's
+-- announcement nor is notified of b's next one.
+insert into public.blocks values ('97000000-0000-0000-0000-00000000000c','97000000-0000-0000-0000-00000000000b');
+delete from public.club_notification_mutes;
+set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000b';
+set role authenticated;
+select public.create_club_announcement('97100000-0000-0000-0000-000000000001', 'หลัง block');
+reset role;
+do $$ begin
+  if exists (select 1 from public.notifications where type = 'club_announcement' and recipient_id = '97000000-0000-0000-0000-00000000000c' and actor_id = '97000000-0000-0000-0000-00000000000b') then
+    raise exception 'Blocked member was notified';
+  end if;
+end $$;
+set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000c';
+set role authenticated;
+do $$ begin
+  if (select count(*) from public.club_announcements) <> 1 then raise exception 'Blocked author''s announcements are visible: %', (select count(*) from public.club_announcements); end if;
+end $$;
+reset role;
+delete from public.blocks;
+delete from public.club_announcements where body = 'หลัง block';
+
+-- A moderation-restricted staff member cannot post.
+insert into public.posting_blocked values ('97000000-0000-0000-0000-00000000000b');
+set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000b';
+set role authenticated;
+do $$ begin
+  begin
+    perform public.create_club_announcement('97100000-0000-0000-0000-000000000001', 'restricted');
+    raise exception 'Posting-restricted staff posted';
+  exception when raise_exception then
+    if sqlerrm not like 'Posting is restricted%' then raise; end if;
+  end;
+end $$;
+reset role;
+delete from public.posting_blocked;
+
+-- Beta2: an approved member who is not a developer cannot read through the API.
+set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000d';
+set role authenticated;
+do $$ begin
+  if (select count(*) from public.club_announcements) <> 0 then raise exception 'Non-developer can read announcements before release'; end if;
+end $$;
+reset role;
 
 -- A developer member (not staff) reads but cannot post, edit or delete.
 set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000c';

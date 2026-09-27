@@ -27,13 +27,13 @@ test.describe("fixture", () => {
     await expect(tab.locator(".club-announcement-card")).toHaveCount(2);
     await tab.getByRole("button", { name: "เขียนประกาศถึงสมาชิก" }).click();
     const sheet = page.getByRole("dialog", { name: "เขียนประกาศ" });
-    await expect(sheet.getByText("สมาชิกทุกคนใน Club จะได้รับการแจ้งเตือน")).toBeVisible();
+    await expect(sheet.getByText("สมาชิกที่เปิดการแจ้งเตือน Club จะได้รับแจ้งเตือน")).toBeVisible();
     await expect(sheet.getByRole("button", { name: "ส่งประกาศ", exact: true })).toBeDisabled();
     await sheet.getByRole("textbox", { name: "ข้อความประกาศ" }).fill("งดกิจกรรมวันอาทิตย์นี้");
     await sheet.getByRole("button", { name: "ส่งประกาศ", exact: true }).click();
     await expect(sheet).toBeHidden();
     await expect(tab.locator(".club-announcement-card").first()).toContainText("งดกิจกรรมวันอาทิตย์นี้");
-    await expect(page.getByText("ประกาศแล้ว สมาชิกจะได้รับการแจ้งเตือน")).toBeVisible();
+    await expect(page.getByText("ประกาศแล้ว", { exact: true })).toBeVisible();
   });
 
   test("the author edits their own announcement and it is marked edited", async ({ page }) => {
