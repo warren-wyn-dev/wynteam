@@ -187,7 +187,7 @@ do $wynreadytest$ begin
   exception when raise_exception then
     if sqlerrm not like 'Club chat actions are not available%' then raise; end if;
   end;
-end $$;
+end $wynreadytest$;
 reset role;
 set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000005';
 set role authenticated;
