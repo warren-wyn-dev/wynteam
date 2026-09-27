@@ -11,6 +11,8 @@ import {
   type FcmServiceAccount,
   importPrivateKey,
   messageFor,
+  pushLanguageFrom,
+  dmMessagePreview,
   type NotificationRow,
   safeErrorMessage,
   splitPushMessage,
@@ -514,4 +516,33 @@ Deno.test("splitPushMessage requires the whole name, not a prefix of it", () => 
     title: "WYN",
     body: "namfahsuda ถูกใจโพสต์ของคุณ",
   });
+});
+
+// WYN-189: English templates for recipients who chose English.
+Deno.test("pushLanguageFrom defaults to Thai unless English was chosen", () => {
+  assertEquals(pushLanguageFrom("en"), "en");
+  assertEquals(pushLanguageFrom("th"), "th");
+  assertEquals(pushLanguageFrom(null), "th");
+  assertEquals(pushLanguageFrom("fr"), "th");
+});
+
+Deno.test("messageFor keeps Thai by default and switches to English on request", () => {
+  assertEquals(messageFor("like_drop", "Nam", null), "Nam ถูกใจโพสต์ของคุณ");
+  assertEquals(messageFor("like_drop", "Nam", null, null, null, null, "en"), "Nam liked your post");
+  assertEquals(
+    messageFor("club_post_comment", "Nam", "Coffee", null, null, null, "en"),
+    "Nam commented on your post in Coffee",
+  );
+  assertEquals(messageFor("unknown_type", "Nam", null, null, null, null, "en"), "You have a new notification");
+});
+
+Deno.test("English push messages still split into actor title and body", () => {
+  const split = splitPushMessage(messageFor("follow", "@nam", null, null, null, null, "en"), "@nam");
+  assertEquals(split, { title: "@nam", body: "started following you" });
+});
+
+Deno.test("dmMessagePreview English fallbacks never replace the sender's own text", () => {
+  assertEquals(dmMessagePreview("สวัสดี", null, null, false, "en"), "สวัสดี");
+  assertEquals(dmMessagePreview(null, "x.jpg", null, false, "en"), "sent you a photo");
+  assertEquals(dmMessagePreview(null, null, "club", false, "en"), "shared a Club with you");
 });
