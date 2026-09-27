@@ -61,6 +61,10 @@ import io.wyn.wyn.core.design.WynAvatar
 import io.wyn.wyn.core.design.WynIcons
 import io.wyn.wyn.core.design.WynPrimaryButton
 import io.wyn.wyn.feature.auth.text
+import io.wyn.wyn.feature.clubs.ClubFeedCard
+import io.wyn.wyn.feature.clubs.ClubFeedViewModel
+import io.wyn.wyn.feature.clubs.ClubPostActions
+import io.wyn.wyn.feature.clubs.ClubToast
 import io.wyn.wyn.feature.quote.QuoteCard
 import io.wyn.wyn.feature.quote.QuoteComposer
 import io.wyn.wyn.feature.quote.QuoteSheet
@@ -80,29 +84,36 @@ data class HomeNavigation(
     val onMenu: () -> Unit = {},
     val onQuote: (FeedRow) -> Unit = {},
     val onOpenQuote: (FeedRow) -> Unit = {},
+    val onOpenClubPost: (String) -> Unit = {},
+    val onExploreClubs: () -> Unit = {},
 )
 
 /** web HomeScreen: header, For You / Following / My Clubs, quick compose and the feed. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 0) {
+fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 0, clubs: ClubFeedViewModel? = null) {
     val c = Wyn.colors
     val context = LocalContext.current
     fun share(row: FeedRow) = sharePost(context, vm, row)
+    // Entering "คลับของฉัน" always revalidates in the background (web home-screen).
+    LaunchedEffect(vm.mode, clubs) { if (vm.mode == FeedMode.Clubs) clubs?.load() }
     Column(Modifier.fillMaxSize().background(c.bg)) {
         HomeHeader(notificationCount, nav)
         HomeTabs(vm.mode, vm::select)
         val snapshot = vm.snapshot
-        PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = vm::refresh, modifier = Modifier.weight(1f)) {
+        val clubMode = vm.mode == FeedMode.Clubs && clubs != null
+        PullToRefreshBox(
+            isRefreshing = if (clubMode) clubs!!.refreshing else vm.refreshing,
+            onRefresh = { if (clubMode) clubs!!.load(pull = true) else vm.refresh() },
+            modifier = Modifier.weight(1f),
+        ) {
             val listState = rememberLazyListState()
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 if (vm.mode != FeedMode.Clubs) {
                     item(key = "compose") { QuickCompose(vm.identity?.avatarUrl, nav.onCompose) }
                 }
                 when {
-                    vm.mode == FeedMode.Clubs -> item(key = "clubs") {
-                        EmptyState(stringResource(R.string.clubs_feed_coming), null) {}
-                    }
+                    vm.mode == FeedMode.Clubs -> if (clubs != null) clubRows(clubs, nav)
                     snapshot == null && vm.error != null -> item(key = "error") {
                         EmptyState(vm.error.text().orEmpty(), stringResource(R.string.retry)) { vm.load() }
                     }
@@ -123,6 +134,35 @@ fun HomeScreen(vm: HomeViewModel, nav: HomeNavigation, notificationCount: Int = 
         }
     }
     FeedOverlays(vm, nav, ::share, vm.identity?.avatarUrl, vm.identity?.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: vm.identity?.username)
+    if (vm.mode == FeedMode.Clubs && clubs != null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) { ClubToast(clubs.toast, clubs::dismissToast) }
+    }
+}
+
+/** web home-screen "คลับของฉัน": Club posts, or a way to find Clubs. */
+private fun LazyListScope.clubRows(clubs: ClubFeedViewModel, nav: HomeNavigation) {
+    when {
+        clubs.loading && clubs.posts.isEmpty() -> item(key = "clubs-loading") { FeedSkeleton() }
+        clubs.error != null && clubs.posts.isEmpty() -> item(key = "clubs-error") {
+            EmptyState(clubs.error.text().orEmpty(), stringResource(R.string.retry)) { clubs.load() }
+        }
+        clubs.posts.isEmpty() -> item(key = "clubs-empty") {
+            EmptyState(stringResource(R.string.home_clubs_empty), stringResource(R.string.clubs_explore_title), nav.onExploreClubs)
+        }
+        else -> items(clubs.posts, key = { "club-post:" + it.id }) { post ->
+            Column {
+                if (post.id != clubs.posts.first().id) HorizontalDivider(color = Wyn.colors.border, thickness = 1.dp)
+                ClubFeedCard(
+                    post,
+                    ClubPostActions(
+                        onLike = { clubs.toggleLike(post) },
+                        onOpen = { nav.onOpenClubPost(post.id) },
+                        onAuthor = { nav.onOpenProfile(post.authorId) },
+                    ),
+                )
+            }
+        }
+    }
 }
 
 /** Opens the system share sheet with a post's web link. */

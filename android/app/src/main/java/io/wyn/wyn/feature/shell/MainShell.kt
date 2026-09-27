@@ -45,8 +45,7 @@ enum class MainTab { Home, Clubs, Post, Chat, Profile }
 private val NavGrey = Color(0xFF9A9A9A)
 
 /**
- * The signed-in app: the web's five-tab bottom navigation. Tabs whose
- * milestone has not shipped yet say so instead of showing a fake screen.
+ * The signed-in app: the web's five-tab bottom navigation.
  */
 @Composable
 fun MainShell(
@@ -55,21 +54,30 @@ fun MainShell(
     onCompose: () -> Unit,
     chatUnread: Int = 0,
     chat: @Composable () -> Unit = { ComingSoon(R.string.coming_chat) },
+    clubs: @Composable () -> Unit = {},
     initialTab: MainTab = MainTab.Home,
+    /** The selected tab when the caller owns it (so another screen can switch tabs). */
+    tab: MainTab? = null,
+    onTab: (MainTab) -> Unit = {},
 ) {
-    var tab by rememberSaveable { mutableStateOf(initialTab) }
+    var ownTab by rememberSaveable { mutableStateOf(initialTab) }
+    val selected = tab ?: ownTab
+    fun select(next: MainTab) {
+        ownTab = next
+        onTab(next)
+    }
     Column(Modifier.fillMaxSize().background(Wyn.colors.bg).statusBarsPadding()) {
         // Screens below use safe-area padding; the tab bar already covers the navigation bar.
         Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.navigationBars)) {
-            when (tab) {
+            when (selected) {
                 MainTab.Home -> home()
                 MainTab.Profile -> profile()
-                MainTab.Clubs -> ComingSoon(R.string.coming_clubs)
+                MainTab.Clubs -> clubs()
                 MainTab.Chat -> chat()
                 MainTab.Post -> Unit // Opens the composer instead of switching tabs.
             }
         }
-        BottomNav(tab, chatUnread) { next -> if (next == MainTab.Post) onCompose() else tab = next }
+        BottomNav(selected, chatUnread) { next -> if (next == MainTab.Post) onCompose() else select(next) }
     }
 }
 
