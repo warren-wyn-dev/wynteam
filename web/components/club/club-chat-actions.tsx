@@ -67,6 +67,7 @@ export function ClubChatToolbar({
       <div className="golden-club-chat-tools-title">
         <span>ข้อความที่ปักหมุด</span>
         <button type="button" aria-expanded={searchOpen} onClick={() => {
+          pending.current += 1; setBusy(false);
           setSearchOpen((open) => !open); setError(""); setResults(null);
         }}>
           <WynosIcon name="search" size={16} />ค้นหาข้อความ
@@ -85,7 +86,10 @@ export function ClubChatToolbar({
         <div className="golden-club-search">
           <form role="search" onSubmit={(event) => void submit(event)}>
             <input aria-label="ค้นหาข้อความในห้องนี้" value={query}
-              maxLength={120} onChange={(event) => { setQuery(event.target.value); setResults(null); }}
+              maxLength={120} onChange={(event) => {
+                pending.current += 1; // Invalidate an in-flight query before accepting new input.
+                setBusy(false); setError(""); setQuery(event.target.value); setResults(null);
+              }}
               placeholder="ค้นหาในห้องนี้" />
             <button type="submit" disabled={!cleanClubChatSearch(query) || busy}>
               {busy ? "กำลังค้นหา…" : "ค้นหา"}
@@ -94,7 +98,7 @@ export function ClubChatToolbar({
           {results ? (
             <div className="golden-club-search-results" aria-label="ผลการค้นหา">
               {results.length ? results.map((hit) => (
-                <button key={hit.id} type="button" onClick={() => { setSearchOpen(false); void onJump(hit.id); }}>
+                <button key={hit.id} type="button" onClick={() => { pending.current += 1; setSearchOpen(false); void onJump(hit.id); }}>
                   <span data-i18n-skip="">{hit.content.slice(0, 180)}</span>
                   <small>{new Date(hit.created_at).toLocaleDateString()}</small>
                 </button>
