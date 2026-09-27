@@ -6,8 +6,7 @@ const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
 export default defineConfig({
   testDir: "./tests/browser",
   // Hosted Preview is wired to production Supabase rather than local
-  // reference fixtures. Food's dev fixture redirects on production builds
-  // by design; do NOT loosen that gate merely to satisfy remote Browser QA.
+  // reference fixtures.
   // Production builds intentionally do not expose the fake-client
   // /dev/composer-fixture. Its four interaction suites MUST still run in the
   // local Phase 4 QA job; hosted QA exercises real public routes separately.
@@ -17,7 +16,6 @@ export default defineConfig({
     ? [
         "**/content-reference-flow.spec.ts",
         "**/composer-caption-spacing.spec.ts",
-        "**/wynos-food-customer-demo.spec.ts",
         "**/composer-handle-drag.spec.ts",
         "**/composer-middle-swipe.spec.ts",
         "**/composer-popup-height.spec.ts",

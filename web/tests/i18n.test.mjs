@@ -33,7 +33,7 @@ function thaiInSource() {
     for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
       const path = join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (!/node_modules|(^|\/)dev$|fixture|components\/food|app\/food/.test(path)) walk(path);
+        if (!/node_modules|(^|\/)dev$|fixture/.test(path)) walk(path);
       } else if (/\.tsx?$/.test(entry.name) && !/fixture/.test(entry.name) && !path.startsWith("lib/i18n/")) files.push(path);
     }
   };
