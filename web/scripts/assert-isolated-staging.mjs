@@ -1,6 +1,7 @@
 // Isolated WYNOS Web Beta 2 staging: fail closed before any preview deploy.
 // Do not import this file into browser code; it reads CI-only environment values.
 const STAGING_REF = "yydgdapzlrjmlrjgijkj";
+const APPROVED_STAGING_VERCEL_PROJECT_ID = "prj_70GIbp0o056AOPsVUAie9CROED7r";
 const PROD_REF = "kqokpocajhfbidcxpvhh";
 
 export function assertIsolatedStaging(env) {
@@ -20,6 +21,8 @@ export function assertIsolatedStaging(env) {
     throw new Error("Staging and production Supabase keys must differ");
   if (!/^prj_[A-Za-z0-9]+$/.test(env.STAGING_VERCEL_PROJECT_ID) || !/^prj_[A-Za-z0-9]+$/.test(env.PRODUCTION_VERCEL_PROJECT_ID))
     throw new Error("Both Vercel project IDs must be explicit and valid");
+  if (env.STAGING_VERCEL_PROJECT_ID !== APPROVED_STAGING_VERCEL_PROJECT_ID)
+    throw new Error("Staging Vercel project must match the Founder-approved isolated staging project");
   if (env.STAGING_VERCEL_PROJECT_ID===env.PRODUCTION_VERCEL_PROJECT_ID)
     throw new Error("Staging and production Vercel projects must be different");
   return true;
