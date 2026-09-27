@@ -48,6 +48,7 @@ create policy "members read messages" on public.club_channel_messages
     exists(select 1 from public.club_channels c where c.id=channel_id
       and public.club_role(c.club_id, auth.uid()) is not null)
   );
+grant select on public.club_channels to authenticated;
 grant select, insert, update, delete on public.club_channel_messages to authenticated;
 insert into auth.users(id) select ('aaaaaaaa-0000-0000-0000-00000000000'||n)::uuid
   from unnest(array['1','2','3','4','5']) n;
