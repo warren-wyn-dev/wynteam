@@ -87,13 +87,25 @@ jobs:
           PREVIEW_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
+          # A 404/429/500 is not proof of Vercel Authentication. Fail closed
+          # unless the preview redirects an anonymous browser to Vercel SSO.
+          headers=$(mktemp)
+          trap 'rm -f "$headers"' EXIT
           status=$(curl --silent --show-error --max-time 30 \
-            --output /dev/null --write-out '%{http_code}' "$PREVIEW_URL/")
-          if [ "$status" = "200" ]; then
-            echo "::error::Unauthenticated staging preview is publicly accessible."
-            exit 1
-          fi
-          echo "Unauthenticated preview returned HTTP $status."
+            --dump-header "$headers" --output /dev/null --write-out '%{http_code}' "$PREVIEW_URL/")
+          case "$status" in
+            302|303|307|308)
+              if ! grep -Eiq '^location:[[:space:]]*https://vercel[.]com/sso-api([?/#]|[[:space:]]|$)' "$headers"; then
+                echo "::error::Staging preview redirected somewhere other than verified Vercel SSO."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Unexpected anonymous staging HTTP $status (required: Vercel SSO redirect)."
+              exit 1
+              ;;
+          esac
+          echo "Unauthenticated preview redirected to verified Vercel SSO (HTTP $status)."
 
       - name: Create temporary Vercel protection bypass for hosted QA
         run: |
