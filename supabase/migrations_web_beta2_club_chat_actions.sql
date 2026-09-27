@@ -199,6 +199,15 @@ as $wynready$ select public.is_developer_account() $wynready$;
 revoke all on function public.club_chat_actions_available() from public, anon;
 grant execute on function public.club_chat_actions_available() to authenticated;
 
--- Rollback requires the Founder: drop the three functions and new indexes,
--- then remove only the three columns added above after checking that no
--- developer's pinned/edited state still needs preservation.
+-- Founder-directed rollback ONLY, after checking developer edits/pins:
+--   drop function if exists public.club_chat_actions_available();
+--   drop function if exists public.search_club_channel_messages(uuid,text,integer);
+--   drop function if exists public.set_club_channel_message_pin(uuid,boolean);
+--   drop function if exists public.edit_club_channel_message(uuid,text);
+--   drop index if exists public.club_channel_messages_pinned_idx;
+--   drop index if exists public.club_channel_messages_fts_idx;
+--   drop index if exists public.club_channel_messages_trgm_idx;
+--   alter table public.club_channel_messages drop column if exists pinned_by,
+--       drop column if exists pinned_at, drop column if exists edited_at;
+-- Leave pg_trgm installed: other objects may come to depend on the extension.
+-- Never execute rollback automatically or while pinned/edited data is needed.
