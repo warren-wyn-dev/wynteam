@@ -35,28 +35,34 @@ export function ClubChatToolbar({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ClubChatSearchHit[] | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinRetry, setPinRetry] = useState(0);
   const pending = useRef(0);
 
   useEffect(() => {
     let active = true;
     void fetchPinnedClubChat(client, channelId)
-      .then((items) => { if (active) setPins(items); })
-      .catch(() => { if (active) setError("โหลดข้อความที่ปักหมุดไม่สำเร็จ"); });
+      .then((items) => {
+        if (active) { setPins(items); setPinError(""); }
+      })
+      .catch(() => { if (active) setPinError("โหลดข้อความที่ปักหมุดไม่สำเร็จ"); })
+      .finally(() => { if (active) setPinLoading(false); });
     return () => { active = false; };
-  }, [client, channelId, refreshToken]);
+  }, [client, channelId, refreshToken, pinRetry]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!cleanClubChatSearch(query) || busy) return;
     const request = ++pending.current;
     setBusy(true);
-    setError("");
+    setSearchError("");
     try {
       const hits = await searchClubChat(client, channelId, query);
       if (request === pending.current) setResults(hits);
     } catch {
-      if (request === pending.current) setError("ค้นหาข้อความไม่สำเร็จ");
+      if (request === pending.current) setSearchError("ค้นหาข้อความไม่สำเร็จ");
     } finally {
       if (request === pending.current) setBusy(false);
     }
@@ -68,7 +74,7 @@ export function ClubChatToolbar({
         <span>ข้อความที่ปักหมุด</span>
         <button type="button" aria-expanded={searchOpen} onClick={() => {
           pending.current += 1; setBusy(false);
-          setSearchOpen((open) => !open); setError(""); setResults(null);
+          setSearchOpen((open) => !open); setSearchError(""); setResults(null);
         }}>
           <WynosIcon name="search" size={16} />ค้นหาข้อความ
         </button>
@@ -82,21 +88,36 @@ export function ClubChatToolbar({
           ))}
         </div>
       ) : null}
+      {pinError ? (
+        <div className="golden-club-pin-error" role="alert">
+          <span>{pinError}</span>
+          <button type="button" disabled={pinLoading} onClick={() => {
+            setPinLoading(true);
+            setPinError("");
+            setPinRetry((value) => value + 1);
+          }}>ลองอีกครั้ง</button>
+        </div>
+      ) : null}
       {searchOpen ? (
         <div className="golden-club-search">
           <form role="search" onSubmit={(event) => void submit(event)}>
-            <input aria-label="ค้นหาข้อความในห้องนี้" value={query}
+            <input type="text" inputMode="search" enterKeyHint="search" autoComplete="off"
+              aria-label="ค้นหาข้อความในห้องนี้" value={query}
               maxLength={120} onChange={(event) => {
                 pending.current += 1; // Invalidate an in-flight query before accepting new input.
-                setBusy(false); setError(""); setQuery(event.target.value); setResults(null);
+                setBusy(false); setSearchError(""); setQuery(event.target.value); setResults(null);
               }}
               placeholder="ค้นหาในห้องนี้" />
+            {query ? <button className="golden-club-search-clear" type="button" aria-label="ล้างคำค้นหา"
+              onClick={() => {
+                pending.current += 1; setBusy(false); setSearchError(""); setQuery(""); setResults(null);
+              }}><WynosIcon name="close" size={16} /></button> : null}
             <button type="submit" disabled={!cleanClubChatSearch(query) || busy}>
               {busy ? "กำลังค้นหา…" : "ค้นหา"}
             </button>
           </form>
           {results ? (
-            <div className="golden-club-search-results" aria-label="ผลการค้นหา">
+            <div className="golden-club-search-results" aria-label="ผลการค้นหา" aria-live="polite">
               {results.length ? results.map((hit) => (
                 <button key={hit.id} type="button" onClick={() => { pending.current += 1; setSearchOpen(false); void onJump(hit.id); }}>
                   <span data-i18n-skip="">{hit.content.slice(0, 180)}</span>
@@ -107,7 +128,7 @@ export function ClubChatToolbar({
           ) : null}
         </div>
       ) : null}
-      {error ? <p className="route-error" role="alert">{error}</p> : null}
+      {searchError ? <p className="route-error" role="alert">{searchError}</p> : null}
     </div>
   );
 }
