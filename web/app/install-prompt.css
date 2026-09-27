@@ -149,3 +149,30 @@
 body:not(:has(.route-bottom-nav)) .install-prompt-banner {
   bottom: calc(12px + env(safe-area-inset-bottom));
 }
+
+/* Push prompt (Founder decision 2026-09-27): same card as the install
+   banner. While it is open the install banner waits behind it. */
+html[data-wynos-push-prompt] .install-prompt-banner:not(.push-prompt-banner) {
+  display: none;
+}
+
+.push-prompt-icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
+}
+
+.push-prompt-error {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.install-prompt-primary:disabled {
+  opacity: 0.6;
+}

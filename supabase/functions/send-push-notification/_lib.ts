@@ -313,6 +313,19 @@ export function webPushTopic(collapseKey: string): string {
   return collapseKey.replace(/-/g, "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 32);
 }
 
+/**
+ * Whether an FCM send error proves this device token is dead, so it should
+ * be removed. INVALID_ARGUMENT alone does not: FCM returns it for a bad
+ * message too, and deleting on it silently turned Push off for every
+ * device the moment one message was rejected. Only a token-specific
+ * INVALID_ARGUMENT ("registration token is not valid") counts.
+ */
+export function isDeadTokenError(status: string | undefined, message: string | undefined): boolean {
+  if (status === "UNREGISTERED" || status === "NOT_FOUND") return true;
+  if (status === "INVALID_ARGUMENT") return /registration token/i.test(message ?? "");
+  return false;
+}
+
 export function summariseOutcomes(outcomes: string[]): string {
   const sent = outcomes.filter((o) => o === "sent").length;
   const failures = outcomes.filter((o) => o !== "sent");

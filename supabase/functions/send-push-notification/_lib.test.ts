@@ -10,6 +10,7 @@ import {
   displayNameOrUsername,
   type FcmServiceAccount,
   importPrivateKey,
+  isDeadTokenError,
   messageFor,
   pushLanguageFrom,
   dmMessagePreview,
@@ -545,4 +546,14 @@ Deno.test("dmMessagePreview English fallbacks never replace the sender's own tex
   assertEquals(dmMessagePreview("สวัสดี", null, null, false, "en"), "สวัสดี");
   assertEquals(dmMessagePreview(null, "x.jpg", null, false, "en"), "sent you a photo");
   assertEquals(dmMessagePreview(null, null, "club", false, "en"), "shared a Club with you");
+});
+
+// A rejected message must never delete a healthy device token.
+Deno.test("isDeadTokenError only removes tokens FCM says are dead", () => {
+  assertEquals(isDeadTokenError("UNREGISTERED", "Requested entity was not found."), true);
+  assertEquals(isDeadTokenError("NOT_FOUND", undefined), true);
+  assertEquals(isDeadTokenError("INVALID_ARGUMENT", "The registration token is not a valid FCM registration token"), true);
+  assertEquals(isDeadTokenError("INVALID_ARGUMENT", "Invalid value at 'message.data[0].value'"), false);
+  assertEquals(isDeadTokenError("QUOTA_EXCEEDED", undefined), false);
+  assertEquals(isDeadTokenError(undefined, undefined), false);
 });

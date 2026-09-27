@@ -129,6 +129,86 @@ export async function pushSupported(): Promise<boolean> {
   return (await getPushAvailability()).available;
 }
 
+/** Why Push could not be turned on, in the words shown to people (Settings and the Push prompt). */
+export function pushReasonDescription(reason: PushBlockReason): string {
+  switch (reason) {
+    case "install-required": return "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮม แล้วเปิดผ่านไอคอนแอปก่อน";
+    case "not-configured": return "ระบบ Push ยังไม่ได้ตั้งค่า Firebase ครบ กรุณาแจ้งผู้ดูแล WYNOS";
+    case "denied": return "อุปกรณ์ปิดสิทธิ์แจ้งเตือนอยู่ ต้องอนุญาต WYNOS จากการตั้งค่าโทรศัพท์หรือเบราว์เซอร์ก่อน";
+    case "dismissed": return "ยังไม่ได้อนุญาตการแจ้งเตือน แตะเปิดอีกครั้งและเลือกอนุญาต";
+    case "worker-failed": return "เริ่มระบบแจ้งเตือนของแอปไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+    case "no-token": return "ลงทะเบียนอุปกรณ์กับ Firebase ไม่สำเร็จ ลองเปิดใหม่อีกครั้ง";
+    case "server-failed": return "บันทึกอุปกรณ์กับ WYNOS ไม่สำเร็จ กรุณาลองอีกครั้ง";
+    case "unsupported": return "เบราว์เซอร์นี้ไม่รองรับ Push ลอง Chrome บน Android หรือ WYNOS ที่ติดตั้งบนหน้าจอโฮมของ iPhone";
+    case "temporary": return "ตรวจสอบความพร้อมของ Push ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+  }
+}
+
+export const PUSH_PROMPT_DISMISS_KEY = "wynos.push.prompt.dismissed-at.v1";
+export const PUSH_PROMPT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+// Main app screens only: never over sign-in/sign-up, Settings (it has the switch) or legal pages.
+const PUSH_PROMPT_PATHS = /^\/(home|chat|notifications|clubs?|profile|search|trending|bookmarks|post|drop)(\/|$)/;
+
+export function isPushPromptPath(path: string): boolean {
+  return PUSH_PROMPT_PATHS.test(path);
+}
+
+/**
+ * Founder decision (2026-09-27): everyone who has not answered the
+ * notification question yet is asked once, in the app, after signing in.
+ * The OS permission popup itself only ever opens from the card's button
+ * (browsers and iOS require a tap). Pure so it can be unit tested.
+ *
+ * - "ask": the card with an Allow button.
+ * - "install": iPhone/iPad in a Safari tab — Push needs the Home Screen app first.
+ * - null: nothing to ask (already answered, unsupported, snoozed, wrong screen).
+ */
+export function pushPromptKind(state: {
+  path: string;
+  permission: NotificationPermission | "unsupported";
+  availability: PushAvailability;
+  dismissedAt: number | null;
+  now: number;
+}): "ask" | "install" | null {
+  if (!isPushPromptPath(state.path)) return null;
+  if (state.dismissedAt !== null && state.now - state.dismissedAt < PUSH_PROMPT_COOLDOWN_MS) return null;
+  if (!state.availability.available && state.availability.reason === "install-required") return "install";
+  // "granted" means they already said yes (and may have turned WYNOS Push off
+  // in Settings on purpose); "denied" can only be undone in the phone's settings.
+  if (state.permission !== "default") return null;
+  return state.availability.available ? "ask" : null;
+}
+
+const PUSH_WANTED_KEY = "wynos.push.wanted.v1";
+
+function readPushWanted(): string[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(PUSH_WANTED_KEY) ?? "[]");
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Remember, on this device, which accounts turned Push on. Account switching
+ * and sign-out detach the token (privacy) but keep this, so coming back to
+ * the account turns Push back on by itself. Only the Settings switch clears it.
+ */
+export function setPushWanted(userId: string, wanted: boolean) {
+  try {
+    const next = readPushWanted().filter((id) => id !== userId);
+    if (wanted) next.push(userId);
+    window.localStorage.setItem(PUSH_WANTED_KEY, JSON.stringify(next));
+  } catch {
+    // Private mode: Push still works for this session.
+  }
+}
+
+export function isPushWanted(userId: string): boolean {
+  return readPushWanted().includes(userId);
+}
+
 /**
  * Requests notification permission (a real permission prompt — only call
  * this from an explicit user action, e.g. a Settings toggle, never on
@@ -203,6 +283,7 @@ export async function subscribeToPushNotifications(
         { onConflict: "token" },
       );
     if (error) return { ok: false, reason: "server-failed" };
+    setPushWanted(userId, true);
     // On this exact device/account, confirmation is a successful server write,
     // not merely a granted OS notification permission. Display and in-app
     // wake-ups for every Push (foreground or not) happen in public/sw.js.
@@ -308,13 +389,16 @@ export async function revokeLocalPushSubscription(): Promise<boolean> {
 /** Whether THIS device's Firebase token is registered for THIS user.
  * Browser permission alone is not enough: the user may have switched
  * accounts or explicitly unsubscribed without revoking OS permission.
+ * null means it could not be checked (offline, Firebase or network error):
+ * callers keep what they showed before instead of flipping the switch off.
  */
-export async function isCurrentDevicePushEnabled(client: SupabaseClient, userId: string): Promise<boolean> {
+export async function isCurrentDevicePushEnabled(client: SupabaseClient, userId: string): Promise<boolean | null> {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
   try {
     const config = await fetchPushConfig();
-    if (!config?.configured) return false;
+    if (!config) return null;
+    if (!config.configured) return false;
     const registration = await navigator.serviceWorker.getRegistration("/");
     if (!registration) return false;
     // An off switch must not create a new FCM subscription merely because
@@ -324,14 +408,52 @@ export async function isCurrentDevicePushEnabled(client: SupabaseClient, userId:
     const fb = await loadFirebase();
     const messaging = fb.getMessaging(firebaseApp(fb, config));
     const token = await fb.getToken(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: registration });
-    if (!token) return false;
+    if (!token) return null;
     const { data, error } = await client.from("push_tokens")
       .select("token")
       .eq("user_id", userId)
       .eq("token", token)
       .maybeSingle();
-    return !error && Boolean(data);
-  } catch {
+    if (error) return null;
+    if (data) return true;
+    // FCM rotated this device's token, or the server dropped it: if this
+    // account turned Push on here, register the current token again.
+    if (isPushWanted(userId)) {
+      const saved = await client.from("push_tokens")
+        .upsert({ user_id: userId, token, platform: "web", updated_at: new Date().toISOString() }, { onConflict: "token" });
+      return saved.error ? null : true;
+    }
     return false;
+  } catch {
+    return null;
+  }
+}
+
+const resynced = new Set<string>();
+
+/**
+ * Once per page load for the signed-in account (like a native app's
+ * onTokenRefresh): if this account turned Push on here and the browser still
+ * allows notifications, make sure the device's current token is registered.
+ * Heals token rotation, a token the server dropped, and switching back to an
+ * account whose token was detached. Never prompts; failures are silent.
+ */
+export async function resyncPushRegistration(client: SupabaseClient, userId: string): Promise<void> {
+  if (resynced.has(userId) || !isPushWanted(userId)) return;
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  resynced.add(userId);
+  try {
+    const config = await fetchPushConfig();
+    if (!config?.configured || !config.vapidKey) return;
+    const registration = await navigator.serviceWorker.getRegistration("/") ?? await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    const fb = await loadFirebase();
+    const messaging = fb.getMessaging(firebaseApp(fb, config));
+    const token = await fb.getToken(messaging, { vapidKey: config.vapidKey, serviceWorkerRegistration: registration });
+    if (!token) return;
+    await client.from("push_tokens")
+      .upsert({ user_id: userId, token, platform: "web", updated_at: new Date().toISOString() }, { onConflict: "token" });
+  } catch {
+    resynced.delete(userId);
   }
 }

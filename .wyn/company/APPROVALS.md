@@ -197,3 +197,9 @@
 - Migration `supabase/migrations_web_beta2_message_reactions.sql`, applied via `web-beta2-apply-message-reactions.yml` after merge. It is additive: two new tables and two developer-gated RPCs. Rollback statements are in the file.
 - This approval does **not** release WYN-159 to everyone. That needs a separate "Beta2 release: chatThreads" approval.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
+
+### DECISION — [2026-09-27] Push notifications for every account: keep-on fix + in-app "turn on notifications" prompt
+- Founder: **"เปิดให้ใช้ทุกคน เฉพาะการแจ้งเตือน ทุกคนต้องได้รับการแจ้งเตือน"**, meaning release to everyone, notifications only, and everyone must get notifications. Then, in AskUserQuestion: **"ทำ เปิดให้ทุกคน"** for a prompt asking people who have not answered yet.
+- Scope: PR #736. It stops Push from turning itself off: server tokens are dropped only on a confirmed dead token, the switch no longer flips off on a failed check, and wanted accounts are re-registered on app open. It also adds a card on the main app screens: Allow opens the OS permission popup, and Not now waits 7 days. People who already allowed or denied are never asked again. On iPhone in a Safari tab, the card points to Add to Home Screen. It covers the merge, the production web deploy and the `send-push-notification` Edge Function deploy, for every account (not Beta2-gated).
+- Not covered: WYN-159 Beta2 chat stays developer-only. No production SQL.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
