@@ -28,3 +28,47 @@ For each push to such a PR the workflow:
 ## Rollback
 
 Production rollback is unchanged: use Vercel Instant Rollback to the previous production deployment, or revert the merge commit on `main`.
+
+## Isolated Beta2 staging (manual pilot; independent of the legacy per-PR previews)
+
+Founder approved a separate **Supabase Free** project, no incremental spending. The separate
+Singapore database is `yydgdapzlrjmlrjgijkj`, with the reviewed WYN-135/137/159 schema
+already installed; production remains `kqokpocajhfbidcxpvhh`. The existing
+`web-next-phase5-preview.yml` **still uses production Supabase**. Never run staging
+migrations, destructive tests or production-data fixtures against those legacy PR URLs.
+
+The new `web-beta2-isolated-staging.yml` is **manual-only** until Vercel access and
+environment isolation are independently verified. It refuses to deploy if required
+secrets are absent, either Supabase URL points at the wrong project, the staging key
+is not a publishable key, either key is shared with production, the Vercel project
+is shared, or the separate Vercel project does not require Vercel Authentication on
+previews. The workflow always attempts to revoke its temporary QA bypass. It never
+uses `--prod`, touches the production alias, or applies SQL.
+
+An authorized infra owner must first provision/reuse an explicitly approved **separate**
+Vercel project under the existing authorized scope, enable Vercel Authentication for
+all previews, and configure GitHub Actions secrets:
+
+- `STAGING_SUPABASE_URL` = `https://yydgdapzlrjmlrjgijkj.supabase.co`
+- `STAGING_SUPABASE_PUBLISHABLE_KEY` = that staging project's publishable key
+- `STAGING_VERCEL_PROJECT_ID` = the separate staging project's `prj_...` ID
+
+Existing production secrets `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and
+`VERCEL_PROJECT_ID`, plus the existing `VERCEL_ORG_ID` and `VERCEL_TOKEN`,
+are only used by the guard / authorized Vercel API. **Never supply a service-role
+key to NEXT_PUBLIC_* or use production accounts, credentials, messages, photos
+or auth exports as staging fixtures.** Check Vercel plan and any provisioning cost
+before creating a project; stop for new Founder approval if spending is required.
+
+Once a protected staging preview exists, create synthetic identities using the
+staging-only Supabase Auth Admin API and a separate, reviewed bootstrap procedure.
+Cover developer Owner/Admin/Moderator/Member, non-developer Member and outsider;
+do not mark authenticated staging E2E as passed until these actual staging logins
+and cross-role denials have been tested. Keep Push disabled and review Free quotas.
+When isolated staging is green, propose a **separate** reviewed PR to migrate the
+existing per-PR preview workflow from production to staging; do not silently change
+the production deployment or existing PR workflow in this pilot.
+
+Production developer-account UAT still follows Issue #748 on `wynos.online`, not
+this protected pilot. Issue #749 stays open until project protection, runtime
+variables and real synthetic-account tests are verified.
