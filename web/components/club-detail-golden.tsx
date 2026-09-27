@@ -453,7 +453,7 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   useEffect(() => {
     let active = true;
     if (!beta2Eligible) return () => { active = false; };
-    void client.rpc("club_chat_actions_available").then(({ data, error }) => {
+    void Promise.resolve(client.rpc("club_chat_actions_available")).then(({ data, error }) => {
       if (active) setBeta2Ready(!error && data === true);
     }).catch(() => { if (active) setBeta2Ready(false); });
     return () => { active = false; };
