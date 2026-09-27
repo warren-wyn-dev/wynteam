@@ -11,7 +11,7 @@ Summary: Settings → Language (ไทย / English). The first visit follows th
 - Dictionary: `web/lib/i18n/en.ts`, with 948 exact strings and 67 templates (`{0}` values). Thai dates such as `26 ก.ย.` and `26 กันยายน 2569` become English dates.
 - **Coverage guard:** `npm run test:i18n`, which CI runs, fails when any Thai UI string in `app/`, `components/` or `lib/` has no English entry. New Thai text must add its English line.
 - User content is never translated. Only exact UI strings match, and every element that renders people's words (post and comment text, chat and Club messages, names, bios, Club descriptions, events) carries `data-i18n-skip`. Textarea contents are skipped too, but their placeholders are translated.
-- No flash: `LANGUAGE_BOOT_SCRIPT` hides the page before first paint for English until the translator runs, with a 2.5 s safety timer. Nodes React has not hydrated yet (streamed Suspense) wait until they are hydrated, so there are no hydration errors.
+- No flash: `LANGUAGE_BOOT_SCRIPT` hides the page before first paint for English until the translator runs, with a 6 s safety timer. Nodes React has not hydrated yet (streamed Suspense) wait until they are hydrated, so there are no hydration errors.
 - Push: `send-push-notification` reads the recipient's `language_preference` and sends English templates for `en`. With no row, or on a read failure, it sends Thai, as before.
 - Browser QA runs with `locale: th-TH`. `tests/browser/language.spec.ts` covers English-phone first visit, saved choice, live switching, post text left unchanged, and clean hydration.
 
@@ -19,5 +19,6 @@ Summary: Settings → Language (ไทย / English). The first visit follows th
 
 - User content: posts, comments, messages, names, Club names and descriptions.
 - Legal documents (Terms, Privacy) stored in `platform_documents` exist in Thai only. In English, Settings shows "This document is currently available in Thai only." English legal text needs Founder/legal-approved content.
-- Server-rendered share-preview metadata (Open Graph) for link previews in other apps. The browser tab title is translated.
+- Server-rendered share-preview metadata (Open Graph) for link previews in other apps. The preview is fetched by LINE/Facebook/X crawlers, not by the person, so no viewer language is known; it stays Thai. The spec lists link-preview titles, so this needs Founder sign-off (or an English/bilingual preview decision). The browser tab title is translated.
+- System announcements (`system` notifications) are admin-written text sent to everyone as written; like user content they are not translated. Bilingual announcements would need an admin/schema change (Founder decision).
 - Developer-only pages (`/dev`, WYNOS Food preview).

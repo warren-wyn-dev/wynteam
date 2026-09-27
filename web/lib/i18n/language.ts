@@ -42,9 +42,14 @@ export function readStoredLanguage(): AppLanguage | null {
 // This page's choice, kept in memory too so it applies when storage is blocked.
 let chosenThisPage: AppLanguage | null | undefined;
 
+/** The choice in effect on this device/page, or null when none (follow the phone). */
+export function chosenLanguage(): AppLanguage | null {
+  return readStoredLanguage() ?? chosenThisPage ?? null;
+}
+
 /** The language this page should show: the choice, else the phone's language. */
 export function currentLanguage(): AppLanguage {
-  return readStoredLanguage() ?? chosenThisPage ?? deviceLanguage();
+  return chosenLanguage() ?? deviceLanguage();
 }
 
 /**
@@ -66,12 +71,13 @@ export function setLanguage(language: AppLanguage | null) {
  * Runs inline in <head> before first paint. For English it sets
  * `lang="en"` and `data-i18n-pending`, which hides the page (see
  * globals.css) until the translator has run, so Thai never flashes. A
- * safety timer shows the page regardless. Static string, no interpolated
- * input.
+ * 6-second safety timer shows the page regardless, in case JavaScript never
+ * runs; slow phones normally finish well before it. Static string, no
+ * interpolated input.
  */
 export const LANGUAGE_BOOT_SCRIPT = `(function(){try{var l=null;try{l=localStorage.getItem(${JSON.stringify(
   LANGUAGE_STORAGE_KEY,
-)})}catch(e){}if(l!=="th"&&l!=="en"){var n=(navigator.languages&&navigator.languages[0])||navigator.language||"th";l=/^en\\b/i.test(n)?"en":"th"}if(l==="en"){var r=document.documentElement;r.lang="en";r.setAttribute("data-i18n-pending","");setTimeout(function(){r.removeAttribute("data-i18n-pending")},2500)}}catch(e){}})();`;
+)})}catch(e){}if(l!=="th"&&l!=="en"){var n=(navigator.languages&&navigator.languages[0])||navigator.language||"th";l=/^en\\b/i.test(n)?"en":"th"}if(l==="en"){var r=document.documentElement;r.lang="en";r.setAttribute("data-i18n-pending","");setTimeout(function(){r.removeAttribute("data-i18n-pending")},6000)}}catch(e){}})();`;
 
 /**
  * The account's saved choice: the language, `null` when the account has

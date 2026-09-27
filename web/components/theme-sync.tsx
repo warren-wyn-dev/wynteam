@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   applyThemePreference,
+  chosenThemePreference,
   loadAccountThemePreference,
   readStoredThemePreference,
   setThemePreference,
@@ -29,7 +30,7 @@ export function ThemeSync() {
       if (!live || checkedFor !== userId) return;
       // An account with no saved choice drops the previous account's choice
       // cached on this device; a failed read keeps the cache (offline).
-      if (saved !== undefined && saved !== readStoredThemePreference()) setThemePreference(saved);
+      if (saved !== undefined && saved !== chosenThemePreference()) setThemePreference(saved);
     };
     const { data } = client.auth.onAuthStateChange((_event, session) => {
       const userId = session?.user?.id ?? null;

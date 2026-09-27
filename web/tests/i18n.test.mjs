@@ -96,6 +96,9 @@ test("exact strings, templates and whitespace", () => {
 test("a fragment after an inserted value reads in lower case", () => {
   assert.equal(translateToEnglish(" สมาชิก"), " members");
   assert.equal(translateToEnglish("สมาชิก"), "Members");
+  // <b>{actor}</b> followed by the rest of a notification template.
+  assert.equal(translateToEnglish(" ถูกใจโพสต์ของคุณใน Coffee"), " liked your post in Coffee");
+  assert.equal(translateToEnglish(" เริ่มติดตามคุณ"), " started following you");
 });
 
 test("Thai dates become English dates", () => {
@@ -132,4 +135,17 @@ test("the language boot script only hides the page for English", () => {
   // Only English phones get English on a first visit; every other language gets Thai (spec).
   assert.deepEqual(run(null, ["fr-FR"]), { lang: "th", pending: false });
   assert.deepEqual(run(null, ["en-GB", "th-TH"]), { lang: "en", pending: true });
+});
+
+test("CSS keyed on Thai attribute text also matches the English text", () => {
+  const cssDir = join(root, "app");
+  const bad = [];
+  for (const file of readdirSync(cssDir).filter((name) => name.endsWith(".css"))) {
+    const css = readFileSync(join(cssDir, file), "utf8");
+    for (const match of css.matchAll(/\[(aria-label|title|placeholder|alt)="([^"]*[฀-๿][^"]*)"\]/g)) {
+      const english = en.EN_EXACT[match[2]];
+      if (!english || !css.includes(`:is(${match[0]},[${match[1]}="${english}"])`)) bad.push(`app/${file}: ${match[0]}`);
+    }
+  }
+  assert.deepEqual(bad, []);
 });

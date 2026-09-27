@@ -9,7 +9,7 @@ import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/component
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
-  readStoredThemePreference,
+  chosenThemePreference,
   saveAccountThemePreference,
   setThemePreference,
   THEME_CHANGE_EVENT,
@@ -147,7 +147,7 @@ const themeLabels: Record<ThemePreference, { title: string; description: string 
 function useThemePreference(): ThemePreference {
   const [preference, setPreference] = useState<ThemePreference>("system");
   useEffect(() => {
-    const read = () => setPreference(readStoredThemePreference() ?? "system");
+    const read = () => setPreference(chosenThemePreference() ?? "system");
     read();
     window.addEventListener(THEME_CHANGE_EVENT, read);
     window.addEventListener("storage", read);

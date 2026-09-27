@@ -15,14 +15,14 @@
   font-weight: 700;
 }
 
-.route-main:has(.settings-page) > .route-header .route-header-actions:has(button[aria-label="กลับ"]) {
+.route-main:has(.settings-page) > .route-header .route-header-actions:has(button:is([aria-label="กลับ"],[aria-label="Back"])) {
   position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
 }
 
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] {
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"]) {
   width: 48px;
   height: 48px;
   display: grid;
@@ -31,13 +31,13 @@
   color: var(--wyn-text);
 }
 
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] svg {
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"]) svg {
   display: block;
   width: 26px;
   height: 26px;
 }
 
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"]::before {
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"])::before {
   content: none;
 }
 
@@ -193,11 +193,11 @@
 .flutter-detail-actions { min-height: 48px; margin: 7px 10px 0; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); align-items: stretch; }
 .flutter-detail-actions.public { grid-template-columns: repeat(5,minmax(0,1fr)); }
 .flutter-detail-actions button { min-width: 0; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--wyn-text); display: inline-flex; align-items: center; justify-content: center; gap: 7px; font: inherit; font-size: 14px; line-height: 1; }
-.flutter-detail-actions button[aria-label="ถูกใจ"] svg, .flutter-detail-actions button[aria-label="เลิกถูกใจ"] svg { width: 26px; height: 26px; }
-.flutter-detail-actions button[aria-label="ความคิดเห็น"] svg { width: 25px; height: 25px; }
-.flutter-detail-actions button[aria-label="รีโพสต์"] svg, .flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] svg { width: 27px; height: 27px; }
-.flutter-detail-actions button[aria-label="แชร์โพสต์"] svg { width: 24px; height: 24px; }
-.flutter-detail-actions button[aria-label="บันทึกโพสต์"] svg, .flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] svg { width: 26px; height: 26px; }
+.flutter-detail-actions button:is([aria-label="ถูกใจ"],[aria-label="Like"]) svg, .flutter-detail-actions button:is([aria-label="เลิกถูกใจ"],[aria-label="Unlike"]) svg { width: 26px; height: 26px; }
+.flutter-detail-actions button:is([aria-label="ความคิดเห็น"],[aria-label="Comments"]) svg { width: 25px; height: 25px; }
+.flutter-detail-actions button:is([aria-label="รีโพสต์"],[aria-label="Repost"]) svg, .flutter-detail-actions button:is([aria-label="ยกเลิกรีโพสต์"],[aria-label="Undo repost"]) svg { width: 27px; height: 27px; }
+.flutter-detail-actions button:is([aria-label="แชร์โพสต์"],[aria-label="Share post"]) svg { width: 24px; height: 24px; }
+.flutter-detail-actions button:is([aria-label="บันทึกโพสต์"],[aria-label="Save post"]) svg, .flutter-detail-actions button:is([aria-label="นำออกจากที่บันทึก"],[aria-label="Remove from saved"]) svg { width: 26px; height: 26px; }
 .flutter-detail-actions button.like.active { color: var(--wyn-like); }
 .flutter-detail-actions button.active:not(.like) { color: var(--wyn-text); }
 .detail-activity-row { width: calc(100% - 32px); height: 54px; margin: 2px 16px 10px; padding: 0 12px 0 14px; border: 0; border-radius: 18px; background: var(--wyn-surface); color: var(--wyn-text); display: grid; grid-template-columns: 42px minmax(0,1fr) 27px; align-items: center; text-align: left; }
@@ -324,10 +324,10 @@
 .flutter-detail-actions button svg { color: var(--wyn-text); }
 .flutter-detail-actions button.like.active { color: var(--wyn-text-secondary); }
 .flutter-detail-actions button.like.active svg { color: var(--wyn-like); }
-.flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] { color: var(--wyn-text-secondary); }
-.flutter-detail-actions button[aria-label="ยกเลิกรีโพสต์"] svg { color: var(--wyn-text); }
-.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] { color: var(--wyn-text-secondary); }
-.flutter-detail-actions button[aria-label="นำออกจากที่บันทึก"] svg { color: var(--wyn-text); }
+.flutter-detail-actions button:is([aria-label="ยกเลิกรีโพสต์"],[aria-label="Undo repost"]) { color: var(--wyn-text-secondary); }
+.flutter-detail-actions button:is([aria-label="ยกเลิกรีโพสต์"],[aria-label="Undo repost"]) svg { color: var(--wyn-text); }
+.flutter-detail-actions button:is([aria-label="นำออกจากที่บันทึก"],[aria-label="Remove from saved"]) { color: var(--wyn-text-secondary); }
+.flutter-detail-actions button:is([aria-label="นำออกจากที่บันทึก"],[aria-label="Remove from saved"]) svg { color: var(--wyn-text); }
 .detail-activity-row strong { margin-left: 7px; }
 
 /* Flutter comment row: 44px tap targets and reply guide before the 32px avatar. */

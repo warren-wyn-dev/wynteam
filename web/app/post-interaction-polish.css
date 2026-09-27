@@ -19,7 +19,7 @@
 /* Selected bookmark remains solid black in both light and dark themes. */
 .wyn-post-actions .wyn-action-save.is-active,
 .golden-drop-actions .golden-drop-save-inline.active,
-.flutter-detail-actions > button[aria-label="นำออกจากที่บันทึก"] {
+.flutter-detail-actions > button:is([aria-label="นำออกจากที่บันทึก"],[aria-label="Remove from saved"]) {
   color: var(--wyn-text);
 }
 

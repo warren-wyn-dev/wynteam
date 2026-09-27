@@ -140,7 +140,7 @@
 
 /* system-parity-lock previously synthesized a visible 0 for GoldenDropCard.
    Profile follows Home: no engagement number until the count is above zero. */
-.profile-feed-list .golden-drop-actions > button:not([aria-label="แชร์"]):not([aria-label="บันทึก"]):not([aria-label="ยกเลิกบันทึก"]):not(:has(> span))::after,
+.profile-feed-list .golden-drop-actions > button:not(:is([aria-label="แชร์"],[aria-label="Share"])):not(:is([aria-label="บันทึก"],[aria-label="Save"])):not(:is([aria-label="ยกเลิกบันทึก"],[aria-label="Unsave"])):not(:has(> span))::after,
 .profile-feed-list .golden-drop-actions > a:not(:has(> span))::after {
   content: none !important;
 }

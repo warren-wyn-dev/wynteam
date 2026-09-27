@@ -86,7 +86,7 @@ function DropDetailInner({ client, userId, dropId }: { client: SupabaseClient; u
   return (
     <AppChrome title="โพสต์" userId={userId} backHref="/">
       <article className="detail-post">
-        <Link className="route-drop-author" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} /><span><strong>{authorLabel(row)}</strong><small>@{row.author_username || "wynos"} · {relativeTimeTh(row.created_at)}</small></span></Link>
+        <Link className="route-drop-author" href={`/profile/${row.author_id}`}><Avatar src={row.author_avatar_url} label={row.author_username || "WYNOS"} /><span><strong data-i18n-skip="">{authorLabel(row)}</strong><small>@{row.author_username || "wynos"} · {relativeTimeTh(row.created_at)}</small></span></Link>
         {row.caption ? <p className="detail-caption">{row.caption}</p> : null}
         {row.image_url ? <img className="detail-image" src={row.image_url} alt="" loading="lazy" decoding="async" /> : null}
         <div className="detail-actions"><button className={liked ? "active like" : ""} type="button" onClick={() => void interact("like")}><WynosIcon name="like" size={20} strokeWidth={2} fill={liked ? "currentColor" : "none"} /> {row.like_count ?? 0}</button><button className={redropped ? "active" : ""} type="button" onClick={() => void interact("redrop")}><WynosIcon name="repost" size={20} strokeWidth={2} /> {row.redrop_count ?? 0}</button><button className={saved ? "active" : ""} type="button" onClick={() => void interact("save")}><WynosIcon name="bookmark" size={20} strokeWidth={2} fill={saved ? "currentColor" : "none"} /></button></div>

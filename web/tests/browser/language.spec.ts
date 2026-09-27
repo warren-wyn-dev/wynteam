@@ -39,6 +39,14 @@ test.describe("first visit follows the phone language", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "th");
   });
 
+  test("the birth-year picker shows Gregorian years in English", async ({ page }) => {
+    await storeChoice(page, "en");
+    await page.goto("/signup/step-1");
+    const year = page.locator('select[data-i18n-years="buddhist"]');
+    await expect(year.locator('option[value="2000"]')).toHaveText("2000");
+    await expect(year).toHaveAttribute("aria-label", "Year");
+  });
+
   test("streamed pages hydrate cleanly in English", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));

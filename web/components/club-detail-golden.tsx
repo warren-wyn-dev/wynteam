@@ -387,7 +387,7 @@ function ClubPostCard({
       <Link className="golden-club-post-avatar" href={`/profile/${post.author_id}`}><Avatar src={post.author_avatar_url} label={post.author_username || "W"} size={42} /></Link>
       <div className="golden-club-post-body">
         <header>
-          <Link href={`/profile/${post.author_id}`}><strong>{author}</strong><small>{relativeTimeTh(post.created_at)}</small></Link>
+          <Link href={`/profile/${post.author_id}`}><strong data-i18n-skip="">{author}</strong><small>{relativeTimeTh(post.created_at)}</small></Link>
           <button type="button" aria-label="เพิ่มเติม" onClick={() => setMenu(true)}><WynosIcon name="moreVertical" size={22} strokeWidth={2} /></button>
         </header>
         {post.pinned ? <span className="golden-club-pin"><WynosIcon name="pin" size={12} strokeWidth={2} /> ปักหมุด</span> : null}

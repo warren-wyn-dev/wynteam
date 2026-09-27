@@ -344,14 +344,14 @@
   position: relative;
 }
 
-.route-main:has(.settings-page) > .route-header .route-header-actions:has(button[aria-label="กลับ"]) {
+.route-main:has(.settings-page) > .route-header .route-header-actions:has(button:is([aria-label="กลับ"],[aria-label="Back"])) {
   position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
 }
 
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] {
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"]) {
   width: 48px;
   height: 48px;
   display: grid;
@@ -359,11 +359,11 @@
   font-size: 0;
 }
 
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"] svg {
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"]) svg {
   display: none;
 }
 
-.route-main:has(.settings-page) > .route-header button[aria-label="กลับ"]::before {
+.route-main:has(.settings-page) > .route-header button:is([aria-label="กลับ"],[aria-label="Back"])::before {
   content: "‹";
   color: var(--ink);
   font-size: 36px;
@@ -458,7 +458,7 @@
    Home's own PostActions always renders the count (including 0) directly in
    React, so it needs no CSS fallback — this remains for GoldenDropCard
    (Profile/Search/Bookmarks), which still renders a bare icon at zero. */
-.golden-drop-actions > button:not([aria-label="แชร์"]):not(:has(> span))::after,
+.golden-drop-actions > button:not(:is([aria-label="แชร์"],[aria-label="Share"])):not(:has(> span))::after,
 .golden-drop-actions > a:not(:has(> span))::after,
 .golden-drop-view:not(:has(> span))::after {
   content: "0";

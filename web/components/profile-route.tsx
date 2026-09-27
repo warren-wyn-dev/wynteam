@@ -639,7 +639,7 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
       <div className="wyn-profile-intro">
         <span className="wyn-profile-hero-avatar"><Avatar src={profile.avatar_url} label={profile.username} size={90} /></span>
         <div className="wyn-profile-copy">
-          <div className="wyn-profile-name"><span className="wyn-profile-display-name">{name}</span>{profile.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}</div>
+          <div className="wyn-profile-name"><span className="wyn-profile-display-name" data-i18n-skip="">{name}</span>{profile.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}</div>
           <div className="wyn-profile-handle">@{profile.username}</div>
         </div>
         {own ? <div className="wyn-profile-actions is-own">

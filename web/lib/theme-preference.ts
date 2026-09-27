@@ -39,6 +39,14 @@ export function readStoredThemePreference(): ThemePreference | null {
   }
 }
 
+// This page's choice, kept in memory too so it holds when storage is blocked.
+let chosenThisPage: ThemePreference | null | undefined;
+
+/** The choice in effect on this device/page, or null when none (follow the phone). */
+export function chosenThemePreference(): ThemePreference | null {
+  return readStoredThemePreference() ?? chosenThisPage ?? null;
+}
+
 function writeStoredThemePreference(preference: ThemePreference | null) {
   try {
     if (preference) window.localStorage.setItem(THEME_STORAGE_KEY, preference);
@@ -98,6 +106,7 @@ export function applyThemePreference(preference: ThemePreference | null) {
 
 /** Apply, cache on this device, and tell listeners (other components). */
 export function setThemePreference(preference: ThemePreference | null) {
+  chosenThisPage = preference;
   applyThemePreference(preference);
   writeStoredThemePreference(preference);
   window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: preference }));

@@ -4,11 +4,11 @@ import { useEffect } from "react";
 
 import { applyLanguage } from "@/lib/i18n/translator";
 import {
+  chosenLanguage,
   currentLanguage,
   LANGUAGE_CHANGE_EVENT,
   LANGUAGE_STORAGE_KEY,
   loadAccountLanguage,
-  readStoredLanguage,
   setLanguage,
 } from "@/lib/i18n/language";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -38,7 +38,7 @@ export function LanguageSync() {
       if (!live || checkedFor !== userId) return;
       // An account with no saved choice drops the previous account's choice
       // cached on this device; a failed read keeps the cache (offline).
-      if (saved !== undefined && saved !== readStoredLanguage()) setLanguage(saved);
+      if (saved !== undefined && saved !== chosenLanguage()) setLanguage(saved);
     };
     const subscription = client?.auth.onAuthStateChange((_event, session) => {
       const userId = session?.user?.id ?? null;

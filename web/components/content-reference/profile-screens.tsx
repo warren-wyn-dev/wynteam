@@ -110,7 +110,7 @@ function ProfilePost({ authorName, timeLabel, text, onOpen, likeCount }: { autho
     <button className="profile-post" onClick={onOpen} type="button">
       <Avatar as="div" alt={`รูปโปรไฟล์ของ ${authorName}`} className="avatar" size={36} />
       <div className="profile-post-body">
-        <div className="profile-post-meta"><span>{authorName}</span><span> · {timeLabel}</span></div>
+        <div className="profile-post-meta"><span data-i18n-skip="">{authorName}</span><span> · {timeLabel}</span></div>
         <p>{text}</p>
         {likeCount !== undefined ? <div className="profile-post-actions"><span><WynosIcon name="like" size={18} />{likeCount}</span></div> : null}
       </div>

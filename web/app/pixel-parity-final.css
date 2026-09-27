@@ -155,8 +155,8 @@
 }
 
 /* WYNHeartIcon is intentionally the Lucide reference heart, 1.5 stroke. */
-.flutter-detail-actions button[aria-label="ถูกใจ"] > svg,
-.flutter-detail-actions button[aria-label="เลิกถูกใจ"] > svg {
+.flutter-detail-actions button:is([aria-label="ถูกใจ"],[aria-label="Like"]) > svg,
+.flutter-detail-actions button:is([aria-label="เลิกถูกใจ"],[aria-label="Unlike"]) > svg {
   width: 26px;
   height: 26px;
   color: var(--wyn-text);

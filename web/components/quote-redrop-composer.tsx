@@ -183,7 +183,7 @@ export function QuoteRedropComposer({
               </div>
               <div className="wyn-quote-body">
                 <div className="wyn-quote-author">
-                  <strong>{actorName}</strong>
+                  <strong data-i18n-skip="">{actorName}</strong>
                   {actor?.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
                 </div>
                 <textarea
@@ -203,7 +203,7 @@ export function QuoteRedropComposer({
                     <Avatar src={row.author_avatar_url} label={authorLabel(row)} size={32} />
                     <span className="wyn-quote-original-byline">
                       <span className="wyn-quote-original-name">
-                        <strong>{authorLabel(row)}</strong>
+                        <strong data-i18n-skip="">{authorLabel(row)}</strong>
                         {row.author_is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
                       </span>
                       <small>@{row.author_username || "wynos"} · {relativeTimeTh(row.created_at)}</small>

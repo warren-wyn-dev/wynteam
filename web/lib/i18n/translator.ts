@@ -78,10 +78,20 @@ export function translateToEnglish(text: string): string | null {
   const key = leading ? `\u0001${core}` : core;
   let english = cache.get(key);
   if (english === undefined) {
-    english = (leading ? EN_AFTER_VALUE[core] : undefined) ?? EN_EXACT[core] ?? translatePattern(core) ?? translateDate(core) ?? null;
+    english = (leading ? EN_AFTER_VALUE[core] ?? translateTemplateTail(core) : undefined) ?? EN_EXACT[core] ?? translatePattern(core) ?? translateDate(core) ?? null;
     cache.set(key, english);
   }
   return english === null ? null : `${leading}${english}${trailing}`;
+}
+
+/**
+ * The rest of a template whose first value is rendered in its own element,
+ * e.g. <b>{actor}</b>" ถูกใจโพสต์ของคุณ" → " liked your post".
+ */
+function translateTemplateTail(core: string): string | null {
+  const MARK = "\u0002";
+  const english = translatePattern(`${MARK} ${core}`);
+  return english?.startsWith(`${MARK} `) ? english.slice(2) : null;
 }
 
 function translatePattern(text: string): string | null {
@@ -112,6 +122,12 @@ function skipped(node: Node): boolean {
   return Boolean(element?.closest(SKIP_SELECTOR));
 }
 
+/** Year pickers marked `data-i18n-years="buddhist"` list Buddhist-era years; English shows the Gregorian year. */
+function gregorianYear(node: Text, text: string): string | null {
+  if (!/^\s*25\d{2}\s*$/.test(text) || !node.parentElement?.closest('[data-i18n-years="buddhist"]')) return null;
+  return text.replace(/25\d{2}/, (year) => String(Number(year) - 543));
+}
+
 function applyText(node: Text) {
   // A textarea's text is what the person typed; its placeholder is still translated.
   if (node.parentElement?.tagName === "TEXTAREA") return;
@@ -119,7 +135,7 @@ function applyText(node: Text) {
   const record = textRecords.get(node);
   // React (or anyone) wrote new text since we last translated: that is the new Thai original.
   const thai = record && record.shown === current ? record.thai : current;
-  const shown = active === "en" ? (translateToEnglish(thai) ?? thai) : thai;
+  const shown = active === "en" ? (translateToEnglish(thai) ?? gregorianYear(node, thai) ?? thai) : thai;
   if (shown !== thai || record) textRecords.set(node, { thai, shown });
   if (current !== shown) node.data = shown;
 }
