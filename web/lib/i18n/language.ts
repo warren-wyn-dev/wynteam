@@ -44,10 +44,14 @@ export function currentLanguage(): AppLanguage {
   return readStoredLanguage() ?? deviceLanguage();
 }
 
-/** Cache the choice on this device and tell listeners (the translator, Settings). */
-export function setLanguage(language: AppLanguage) {
+/**
+ * Cache the choice on this device (`null` forgets it: follow the phone) and
+ * tell listeners (the translator, Settings).
+ */
+export function setLanguage(language: AppLanguage | null) {
   try {
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    if (language) window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    else window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
   } catch {
     // Private mode / blocked storage: the choice still applies for this page.
   }
@@ -65,23 +69,33 @@ export const LANGUAGE_BOOT_SCRIPT = `(function(){try{var l=null;try{l=localStora
   LANGUAGE_STORAGE_KEY,
 )})}catch(e){}if(l!=="th"&&l!=="en"){var n=(navigator.languages&&navigator.languages[0])||navigator.language||"th";l=/^th\\b/i.test(n)?"th":"en"}if(l==="en"){var r=document.documentElement;r.lang="en";r.setAttribute("data-i18n-pending","");setTimeout(function(){r.removeAttribute("data-i18n-pending")},2500)}}catch(e){}})();`;
 
-/** The account's saved choice, or null when none is saved or it cannot be read. */
-export async function loadAccountLanguage(client: SupabaseClient, userId: string): Promise<AppLanguage | null> {
+/**
+ * The account's saved choice: the language, `null` when the account has
+ * none, or `undefined` when it could not be read (keep the device's cache).
+ */
+export async function loadAccountLanguage(client: SupabaseClient, userId: string): Promise<AppLanguage | null | undefined> {
   try {
     const { data, error } = await client.from("user_preferences").select("language_preference").eq("user_id", userId).maybeSingle();
-    if (error || !data) return null;
-    return isAppLanguage(data.language_preference) ? data.language_preference : null;
+    if (error) return undefined;
+    return isAppLanguage(data?.language_preference) ? data.language_preference : null;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
-/** Save the choice to the account. Returns false if it could not be saved (it still applies on this device). */
-export async function saveAccountLanguage(client: SupabaseClient, userId: string, language: AppLanguage): Promise<boolean> {
-  try {
-    const { error } = await client.from("user_preferences").upsert({ user_id: userId, language_preference: language }, { onConflict: "user_id" });
-    return !error;
-  } catch {
-    return false;
-  }
+// Saves run one after another, so quick taps end on the last choice.
+let languageSaves: Promise<unknown> = Promise.resolve();
+
+/** Save the choice to the account. Resolves false if it could not be saved (it still applies on this device). */
+export function saveAccountLanguage(client: SupabaseClient, userId: string, language: AppLanguage): Promise<boolean> {
+  const save = languageSaves.then(async () => {
+    try {
+      const { error } = await client.from("user_preferences").upsert({ user_id: userId, language_preference: language }, { onConflict: "user_id" });
+      return !error;
+    } catch {
+      return false;
+    }
+  });
+  languageSaves = save;
+  return save;
 }

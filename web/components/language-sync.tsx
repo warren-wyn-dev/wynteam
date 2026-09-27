@@ -36,7 +36,9 @@ export function LanguageSync() {
     const sync = async (userId: string) => {
       const saved = await loadAccountLanguage(client!, userId);
       if (!live || checkedFor !== userId) return;
-      if (saved && saved !== readStoredLanguage()) setLanguage(saved);
+      // An account with no saved choice drops the previous account's choice
+      // cached on this device; a failed read keeps the cache (offline).
+      if (saved !== undefined && saved !== readStoredLanguage()) setLanguage(saved);
     };
     const subscription = client?.auth.onAuthStateChange((_event, session) => {
       const userId = session?.user?.id ?? null;

@@ -111,23 +111,33 @@ export const THEME_BOOT_SCRIPT = `(function(){try{var p=localStorage.getItem(${J
   THEME_STORAGE_KEY,
 )});if(p==="system")p=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";if(p==="light"||p==="dark"){var r=document.documentElement;r.setAttribute("data-theme",p);r.style.colorScheme=p;}}catch(e){}})();`;
 
-/** The account's saved choice, or null when none is saved or it cannot be read. */
-export async function loadAccountThemePreference(client: SupabaseClient, userId: string): Promise<ThemePreference | null> {
+/**
+ * The account's saved choice: the preference, `null` when the account has
+ * none, or `undefined` when it could not be read (keep the device's cache).
+ */
+export async function loadAccountThemePreference(client: SupabaseClient, userId: string): Promise<ThemePreference | null | undefined> {
   try {
     const { data, error } = await client.from("user_preferences").select("theme_preference").eq("user_id", userId).maybeSingle();
-    if (error || !data) return null;
-    return isThemePreference(data.theme_preference) ? data.theme_preference : null;
+    if (error) return undefined;
+    return isThemePreference(data?.theme_preference) ? data.theme_preference : null;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
-/** Save the choice to the account. Returns false if it could not be saved (it still applies on this device). */
-export async function saveAccountThemePreference(client: SupabaseClient, userId: string, preference: ThemePreference): Promise<boolean> {
-  try {
-    const { error } = await client.from("user_preferences").upsert({ user_id: userId, theme_preference: preference }, { onConflict: "user_id" });
-    return !error;
-  } catch {
-    return false;
-  }
+// Saves run one after another, so quick taps end on the last choice.
+let themeSaves: Promise<unknown> = Promise.resolve();
+
+/** Save the choice to the account. Resolves false if it could not be saved (it still applies on this device). */
+export function saveAccountThemePreference(client: SupabaseClient, userId: string, preference: ThemePreference): Promise<boolean> {
+  const save = themeSaves.then(async () => {
+    try {
+      const { error } = await client.from("user_preferences").upsert({ user_id: userId, theme_preference: preference }, { onConflict: "user_id" });
+      return !error;
+    } catch {
+      return false;
+    }
+  });
+  themeSaves = save;
+  return save;
 }

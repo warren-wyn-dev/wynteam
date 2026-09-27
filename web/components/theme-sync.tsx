@@ -27,7 +27,9 @@ export function ThemeSync() {
     const sync = async (userId: string) => {
       const saved = await loadAccountThemePreference(client, userId);
       if (!live || checkedFor !== userId) return;
-      if (saved && saved !== readStoredThemePreference()) setThemePreference(saved);
+      // An account with no saved choice drops the previous account's choice
+      // cached on this device; a failed read keeps the cache (offline).
+      if (saved !== undefined && saved !== readStoredThemePreference()) setThemePreference(saved);
     };
     const { data } = client.auth.onAuthStateChange((_event, session) => {
       const userId = session?.user?.id ?? null;
