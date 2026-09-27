@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { ClubAnnouncementsTab } from "@/components/club/club-announcements-tab";
 import { ClubChatMessageActions, ClubChatToolbar } from "@/components/club/club-chat-actions";
@@ -447,12 +447,14 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
   const [menuMessage, setMenuMessage] = useState<MessageRow | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  // Ignore responses started for another channel, gate mode, or newer request.
-  // Keep identity current during render: a stale Beta1 request cannot overwrite
-  // Beta2 metadata before the next effect has had a chance to run.
+  // Invalidate stale Beta1/channel requests before passive effects load the
+  // current view. React refs are updated in a layout effect, never in render.
   const activeView = useRef({ channelId, beta2 });
-  activeView.current = { channelId, beta2 };
   const reloadSequence = useRef(0);
+  useLayoutEffect(() => {
+    activeView.current = { channelId, beta2 };
+    reloadSequence.current += 1;
+  }, [channelId, beta2]);
   // A merge auto-deploys to production, but the SQL migration is Founder-run.
   // Fail closed until the final schema-readiness RPC exists and confirms the
   // caller is a developer; old Web Beta1 chat keeps working in the interim.
