@@ -77,6 +77,9 @@ test("Beta1 remains unchanged while Beta2 chat actions are developer gated", () 
   const gate = readFileSync(new URL("../lib/beta2.ts", import.meta.url), "utf8");
   const sql = readFileSync(new URL("../../supabase/migrations_web_beta2_club_chat_actions.sql", import.meta.url), "utf8");
   assert.match(page, /useBeta2Feature\("clubChatActions", client, userId\)/);
+  assert.match(page, /client\.rpc\("club_chat_actions_available"\)/);
+  assert.match(page, /beta2Eligible && beta2Ready/);
+  assert.match(sql, /public\.club_chat_actions_available\(\)/);
   assert.match(page, /beta2 \? setMenuMessage\(message\)/);
   assert.match(page, /beta2 \? ",edited_at,pinned_at" : ""/);
   assert.match(gate, /clubChatActions: false/);
