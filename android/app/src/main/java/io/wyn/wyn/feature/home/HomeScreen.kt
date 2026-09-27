@@ -425,7 +425,7 @@ private fun Snackbars(vm: HomeViewModel) {
 }
 
 @Composable
-private fun SnackBar(message: String, action: String?, onAction: (() -> Unit)?) {
+fun SnackBar(message: String, action: String?, onAction: (() -> Unit)?) {
     val c = Wyn.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,

@@ -62,7 +62,7 @@ object FeedText {
 
     /** web relativeTimeTh(), plus the English the web's dictionary shows ("5m", "2h", "3d", "Sep 4"). */
     fun relativeTime(iso: String, english: Boolean, now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault()): String {
-        val then = runCatching { Instant.parse(normalizeIso(iso)) }.getOrNull() ?: return ""
+        val then = parseInstant(iso) ?: return ""
         val seconds = Duration.between(then, now).seconds.coerceAtLeast(0)
         if (seconds < 60) return if (english) "now" else "เมื่อสักครู่"
         val minutes = seconds / 60
@@ -79,7 +79,9 @@ object FeedText {
         }
     }
 
-    /** Postgres timestamps ("2026-09-27 10:00:00.123+00") → ISO-8601 for Instant.parse. */
+    /** ISO-8601 or Postgres ("2026-09-27 10:00:00.123+00") timestamps; null when unreadable. */
+    fun parseInstant(value: String): Instant? = runCatching { Instant.parse(normalizeIso(value)) }.getOrNull()
+
     private fun normalizeIso(value: String): String {
         var text = value.trim().replace(' ', 'T')
         if (Regex("[+-]\\d{2}$").containsMatchIn(text)) text += ":00"

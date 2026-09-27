@@ -6,7 +6,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.wyn.wyn.R
+import io.wyn.wyn.core.data.EngagementChange
+import io.wyn.wyn.core.data.EngagementSync
 import io.wyn.wyn.core.data.FeedRepository
+import io.wyn.wyn.core.data.patched
 import io.wyn.wyn.core.data.FeedRow
 import io.wyn.wyn.core.data.FollowState
 import io.wyn.wyn.core.data.HomeIdentity
@@ -16,6 +19,8 @@ import io.wyn.wyn.feature.auth.UiText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
+
+private const val SOURCE = "home"
 
 enum class FeedMode { ForYou, Following, Clubs }
 
@@ -40,7 +45,11 @@ val ReportCategories = listOf(
  * cached snapshot per tab, optimistic like/save/repost/follow with
  * rollback, hide with undo, and report.
  */
-class HomeViewModel(private val repo: FeedRepository, val userId: String) : ViewModel() {
+class HomeViewModel(
+    private val repo: FeedRepository,
+    val userId: String,
+    private val sync: EngagementSync = EngagementSync(),
+) : ViewModel() {
     var mode by mutableStateOf(FeedMode.ForYou); private set
     private val cache = mutableMapOf<FeedMode, FeedSnapshot>()
     var snapshot by mutableStateOf<FeedSnapshot?>(null); private set
@@ -59,6 +68,15 @@ class HomeViewModel(private val repo: FeedRepository, val userId: String) : View
     private var loadJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            sync.changes.collect { change ->
+                if (change.userId != userId || change.source == SOURCE) return@collect
+                for ((key, cached) in cache.toMap()) {
+                    cache[key] = cached.copy(viewer = cached.viewer.patched(change), rows = cached.rows.map { it.patched(change) })
+                }
+                snapshot = cache[mode] ?: snapshot
+            }
+        }
         viewModelScope.launch { identity = runCatching { repo.fetchIdentity(userId) }.getOrNull() }
         load(FeedMode.ForYou)
     }
@@ -183,6 +201,7 @@ class HomeViewModel(private val repo: FeedRepository, val userId: String) : View
             update { s -> s.copy(viewer = s.viewer.with(liked = s.viewer.liked.toggle(row.id, !liked)), rows = s.rows.map { if (it.id == row.id) it.copy(likeCount = (it.likeCount + delta).coerceAtLeast(0)) else it }) }
             try {
                 repo.setLiked(userId, row.id, !liked)
+                sync.publish(EngagementChange(userId, row.id, liked = !liked, likeCount = (row.likeCount + delta).coerceAtLeast(0), source = SOURCE))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -204,6 +223,7 @@ class HomeViewModel(private val repo: FeedRepository, val userId: String) : View
             update { s -> s.copy(viewer = s.viewer.with(saved = s.viewer.saved.toggle(row.id, !saved))) }
             try {
                 repo.setSaved(userId, row.id, !saved)
+                sync.publish(EngagementChange(userId, row.id, saved = !saved, source = SOURCE))
                 toast = if (!saved) {
                     Toast(UiText(R.string.post_saved), UiText(R.string.undo)) { undoSave(row) }
                 } else {
@@ -224,6 +244,7 @@ class HomeViewModel(private val repo: FeedRepository, val userId: String) : View
             update { s -> s.copy(viewer = s.viewer.with(saved = s.viewer.saved - row.id)) }
             try {
                 repo.setSaved(userId, row.id, false)
+                sync.publish(EngagementChange(userId, row.id, saved = false, source = SOURCE))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -242,6 +263,7 @@ class HomeViewModel(private val repo: FeedRepository, val userId: String) : View
             update { s -> s.copy(viewer = s.viewer.with(redropped = s.viewer.redropped.toggle(row.id, !active)), rows = s.rows.map { if (it.id == row.id) it.copy(redropCount = (it.redropCount + delta).coerceAtLeast(0)) else it }) }
             try {
                 repo.setRedropped(userId, row.id, !active)
+                sync.publish(EngagementChange(userId, row.id, reposted = !active, repostCount = (row.redropCount + delta).coerceAtLeast(0), source = SOURCE))
                 sheet = null
             } catch (e: CancellationException) {
                 throw e
