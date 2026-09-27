@@ -205,8 +205,50 @@ export function setPushWanted(userId: string, wanted: boolean) {
   }
 }
 
+// Accounts whose owner turned Push off in Settings on this device. An
+// account switch never turns Push back on for them.
+const PUSH_OFF_KEY = "wynos.push.off.v1";
+
+function readPushOff(): string[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(PUSH_OFF_KEY) ?? "[]");
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The Settings switch: on clears an earlier "off", off is remembered. */
+export function setPushChosen(userId: string, on: boolean) {
+  setPushWanted(userId, on);
+  try {
+    const next = readPushOff().filter((id) => id !== userId);
+    if (!on) next.push(userId);
+    window.localStorage.setItem(PUSH_OFF_KEY, JSON.stringify(next));
+  } catch {
+    // Private mode: nothing to remember.
+  }
+}
+
 export function isPushWanted(userId: string): boolean {
   return readPushWanted().includes(userId);
+}
+
+/**
+ * Before switching or adding an account: whether Push is on for the current
+ * account on this device. The switch still detaches the old account's token
+ * (privacy); when this is true the caller marks both accounts as wanted, so
+ * Push comes back on by itself for the new account and on the way back.
+ */
+export async function isPushOnBeforeAccountChange(userId: string): Promise<boolean> {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
+  return isPushWanted(userId) || (await hasActivePushSubscription()) === true;
+}
+
+/** After a switch or add: keep Push on for both accounts on this device. */
+export function keepPushOnAcrossAccountChange(fromUserId: string | null | undefined, toUserId: string) {
+  if (fromUserId) setPushWanted(fromUserId, true);
+  if (!readPushOff().includes(toUserId)) setPushWanted(toUserId, true);
 }
 
 /**
@@ -283,7 +325,7 @@ export async function subscribeToPushNotifications(
         { onConflict: "token" },
       );
     if (error) return { ok: false, reason: "server-failed" };
-    setPushWanted(userId, true);
+    setPushChosen(userId, true);
     // On this exact device/account, confirmation is a successful server write,
     // not merely a granted OS notification permission. Display and in-app
     // wake-ups for every Push (foreground or not) happen in public/sw.js.
@@ -439,10 +481,17 @@ const resynced = new Set<string>();
  * account whose token was detached. Never prompts; failures are silent.
  */
 export async function resyncPushRegistration(client: SupabaseClient, userId: string): Promise<void> {
-  if (resynced.has(userId) || !isPushWanted(userId)) return;
+  if (resynced.has(userId)) return;
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   resynced.add(userId);
+  if (!isPushWanted(userId)) {
+    // Push turned on before the "wanted" flag existed: if this device is
+    // registered for the account right now, remember it so a later account
+    // switch or token rotation brings it back.
+    if ((await isCurrentDevicePushEnabled(client, userId)) === true) setPushWanted(userId, true);
+    return;
+  }
   try {
     const config = await fetchPushConfig();
     if (!config?.configured || !config.vapidKey) return;

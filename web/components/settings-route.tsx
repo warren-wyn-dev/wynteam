@@ -24,7 +24,7 @@ import {
   saveAccountLanguage,
   setLanguage,
 } from "@/lib/i18n/language";
-import { getPushAvailability, isCurrentDevicePushEnabled, pushReasonDescription, setPushWanted, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability } from "@/lib/push-notifications";
+import { getPushAvailability, isCurrentDevicePushEnabled, pushReasonDescription, setPushChosen, subscribeToPushNotifications, unsubscribeFromPushNotifications, type PushAvailability } from "@/lib/push-notifications";
 import {
   deleteMyAccount,
   exportMyData,
@@ -120,7 +120,7 @@ function VersionFooter() {
   // on "WYNOS Web Beta1" — neither matched that, and showing a different
   // version to different accounts was itself confusing. One label for
   // everyone now; no RPC call needed to decide it.
-  return <p className="settings-version-footer">Web Beta1</p>;
+  return <p className="settings-version-footer">Wynos Web Beta 1</p>;
 }
 
 const themeLabels: Record<ThemePreference, { title: string; description: string }> = {
@@ -355,7 +355,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
           return;
         }
         // Only turning the switch off here stops Push coming back by itself.
-        setPushWanted(userId, false);
+        setPushChosen(userId, false);
         setPushEnabled(false);
       }
     } catch {

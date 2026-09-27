@@ -31,7 +31,7 @@ import { loadHomeViewerState, predictFollowState, toggleAuthorFollow, type HomeV
 import type { HomeFeedRow } from "@/lib/feed";
 import { fetchProfileLikedContent, fetchProfilePostTimeline, fetchProfileStandardReposts, PROFILE_POST_PAGE_SIZE, PROFILE_REPOST_PAGE_SIZE } from "@/lib/profile-post-feed";
 import { haptic } from "@/lib/haptics";
-import { prewarmAccountSwitchPush, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { isPushOnBeforeAccountChange, keepPushOnAcrossAccountChange, prewarmAccountSwitchPush, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { deleteMountCache, getMountCache, setMountCache } from "@/lib/mount-cache";
 import { normalizeExternalUrl } from "@/lib/external-link";
 import { shareOrCopyLink } from "@/lib/share";
@@ -511,6 +511,8 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
         setAccountSwitcherError("บัญชีถูกเปลี่ยนในแท็บอื่นแล้ว กรุณาเปิดหน้านี้ใหม่");
         return;
       }
+      // Push on here stays on for the next account (and for A on the way back).
+      const keepPush = await isPushOnBeforeAccountChange(userId);
       // Keep the strict privacy gate: never activate B while A can still
       // receive A's Push notifications on the same browser subscription.
       if (!(await detachPushBeforeAccountChange())) {
@@ -525,6 +527,7 @@ function ProfileInner({ client, userId, profileId, fromTab }: { client: Supabase
         setAccountSwitcherError("สลับบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง");
         return;
       }
+      if (keepPush) keepPushOnAcrossAccountChange(userId, account.userId);
       // One hard navigation creates the new Supabase client and clears all
       // account-scoped React state. Go DIRECTLY to the verified user's own
       // profile (no /profile/me redirect or old-account history entry).

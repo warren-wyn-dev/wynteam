@@ -14,7 +14,7 @@ import {
   markAccountStorageActive,
   registerSessionAccount,
 } from "@/lib/account-registry";
-import { hasActivePushSubscription, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
+import { hasActivePushSubscription, isPushOnBeforeAccountChange, keepPushOnAcrossAccountChange, unsubscribeFromPushNotifications } from "@/lib/push-notifications";
 import { createAccountSwitchPriorClient } from "@/lib/supabase/browser";
 
 export function AccountAddRoute() {
@@ -53,6 +53,7 @@ export function AccountAddRoute() {
     // detaches Push twice, nor overwrites a newly activated account slot.
     finishInFlight.current = true;
     let navigating = false;
+    let keepPushFrom: string | null = null;
     try {
       // Keep the old account active until the new account is authenticated
       // and its registration succeeds. Detach the old Push token exactly
@@ -71,6 +72,7 @@ export function AccountAddRoute() {
           setMessage("บัญชีเดิมไม่ตรงกับเซสชันบนอุปกรณ์ กรุณาเปิด WYNOS ใหม่");
           return;
         }
+        if (differentAccount && priorId && await isPushOnBeforeAccountChange(priorId)) keepPushFrom = priorId;
         if (differentAccount && priorId && (!prior || !(await unsubscribeFromPushNotifications(prior)))) {
           setMessage("ปิด Push ของบัญชีเดิมไม่สำเร็จ กรุณากลับไปที่บัญชีเดิมแล้วลองอีกครั้ง");
           return;
@@ -89,6 +91,7 @@ export function AccountAddRoute() {
         return;
       }
       markAccountStorageActive(storageKey);
+      if (keepPushFrom) keepPushOnAcrossAccountChange(keepPushFrom, session.user.id);
       // Skip the /profile/me client redirect after a successful email or
       // Google add-account flow. The newly authenticated user is known here.
       window.location.replace(`/profile/${encodeURIComponent(session.user.id)}?from=tab`);

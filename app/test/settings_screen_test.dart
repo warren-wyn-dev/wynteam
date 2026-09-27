@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -187,7 +188,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('V1.0.0 Beta4', skipOffstage: false), findsOneWidget);
+      expect(find.text('Wynos Android v1.0.0 Beta 1', skipOffstage: false), findsOneWidget);
       expect(find.textContaining('Beta5', skipOffstage: false), findsNothing);
 
       final listView = tester.widget<ListView>(find.byType(ListView));
@@ -196,7 +197,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byWidget(children.last, skipOffstage: false),
-          matching: find.text('V1.0.0 Beta4', skipOffstage: false),
+          matching: find.text('Wynos Android v1.0.0 Beta 1', skipOffstage: false),
           skipOffstage: false,
         ),
         findsOneWidget,
@@ -217,11 +218,28 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('V1.0.0 Beta5 [พัฒนาอยู่]', skipOffstage: false),
+      // App development is paused: developers see the same name.
+      expect(find.text('Wynos Android v1.0.0 Beta 1', skipOffstage: false),
           findsOneWidget);
-      expect(find.text('V1.0.0 Beta4', skipOffstage: false), findsNothing);
+      expect(find.textContaining('Beta5', skipOffstage: false), findsNothing);
 
       recordingDeveloperAccessService.isDeveloperResult = false;
+    });
+
+    testWidgets('iOS shows the iOS name', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await tester.pumpWidget(MaterialApp(
+        home: SettingsScreen(
+          platformRole: PlatformRole.user,
+          isPrivate: false,
+          developerAccessService: recordingDeveloperAccessService,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Wynos iOS v1.0.0 Beta 1', skipOffstage: false),
+          findsOneWidget);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets(
@@ -239,7 +257,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('V1.0.0 Beta4', skipOffstage: false), findsOneWidget);
+      expect(find.text('Wynos Android v1.0.0 Beta 1', skipOffstage: false), findsOneWidget);
       expect(find.textContaining('Beta5', skipOffstage: false), findsNothing);
     });
   });
