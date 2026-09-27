@@ -984,7 +984,7 @@ export const EN_EXACT: Record<string, string> = {
   "ประกาศทางการ": "Official",
   "ส่งประกาศ": "Post announcement",
   "สมาชิกจะเห็นว่าประกาศนี้ถูกแก้ไข": "Members will see that this announcement was edited",
-  "สมาชิกที่เปิดการแจ้งเตือน Club จะได้รับแจ้งเตือน": "Members with Club notifications on will be notified",
+  "ประกาศจะแสดงในแท็บประกาศของ Club": "It appears in the Club's Announcements tab",
   "ข้อความประกาศ": "Announcement text",
   "พิมพ์ประกาศถึงสมาชิก…": "Write to your members…",
   "เปิดการแจ้งเตือน": "Turn on notifications",

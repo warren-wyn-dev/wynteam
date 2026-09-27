@@ -27,7 +27,7 @@ test.describe("fixture", () => {
     await expect(tab.locator(".club-announcement-card")).toHaveCount(2);
     await tab.getByRole("button", { name: "เขียนประกาศถึงสมาชิก" }).click();
     const sheet = page.getByRole("dialog", { name: "เขียนประกาศ" });
-    await expect(sheet.getByText("สมาชิกที่เปิดการแจ้งเตือน Club จะได้รับแจ้งเตือน")).toBeVisible();
+    await expect(sheet.getByText("ประกาศจะแสดงในแท็บประกาศของ Club")).toBeVisible();
     await expect(sheet.getByRole("button", { name: "ส่งประกาศ", exact: true })).toBeDisabled();
     await sheet.getByRole("textbox", { name: "ข้อความประกาศ" }).fill("งดกิจกรรมวันอาทิตย์นี้");
     await sheet.getByRole("button", { name: "ส่งประกาศ", exact: true }).click();

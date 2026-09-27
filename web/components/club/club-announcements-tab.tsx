@@ -23,7 +23,7 @@ type Composer = { mode: "create" } | { mode: "edit"; announcement: ClubAnnouncem
 
 /**
  * WYN-137 (Beta2): the Club's "ประกาศ" tab. Club-wide, not tied to a
- * channel. Staff post; every approved member reads and is notified.
+ * channel. Staff post; every approved member reads (notifications come with the release).
  */
 export function ClubAnnouncementsTab({
   client,
@@ -215,7 +215,7 @@ function AnnouncementComposer({
     <BottomSheet label={editing ? "แก้ไขประกาศ" : "เขียนประกาศ"} onClose={() => { if (!busy) onClose(); }}>
       <div className="club-announcement-composer">
         <strong>{editing ? "แก้ไขประกาศ" : "เขียนประกาศ"}</strong>
-        <small>{editing ? "สมาชิกจะเห็นว่าประกาศนี้ถูกแก้ไข" : "สมาชิกที่เปิดการแจ้งเตือน Club จะได้รับแจ้งเตือน"}</small>
+        <small>{editing ? "สมาชิกจะเห็นว่าประกาศนี้ถูกแก้ไข" : "ประกาศจะแสดงในแท็บประกาศของ Club"}</small>
         <textarea
           aria-label="ข้อความประกาศ"
           placeholder="พิมพ์ประกาศถึงสมาชิก…"

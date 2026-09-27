@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Web Beta2 WYN-137: Club announcements are staff-only to write, member-only
-# to read, developer-gated while in Beta2, and notify developer members only.
+# to read, developer-gated while in Beta2, and send no notifications yet.
 # Disposable PostgreSQL only. CI runs every maintained supabase/tests/*.sh file.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -79,14 +79,14 @@ SQL
 
 cat >"$WORK/assert.sql" <<'SQL'
 \set ON_ERROR_STOP on
--- The type constraint kept production-only types and gained the new one.
+-- The notifications constraint is untouched (Flutter shares the table).
 do $$ begin
-  if pg_get_constraintdef((select oid from pg_constraint where conname = 'notifications_type_check')) not like '%production_only_type%' then
-    raise exception 'Constraint rebuild dropped a production-only type';
+  if pg_get_constraintdef((select oid from pg_constraint where conname = 'notifications_type_check')) like '%club_announcement%' then
+    raise exception 'Migration changed notifications_type_check';
   end if;
 end $$;
 
--- Owner (developer) posts; developer members are notified, nobody else.
+-- Owner (developer) posts.
 set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000a';
 set role authenticated;
 select public.create_club_announcement('97100000-0000-0000-0000-000000000001', '  ประชุมวันเสาร์  ');
@@ -105,40 +105,21 @@ do $$ begin
   end;
 end $$;
 reset role;
-do $$ begin
-  -- b (dev moderator) and c (dev member) only: not the author a, not d/e
-  -- (not developers), not f (club notifications off), not the pending member.
-  if (select string_agg(right(recipient_id::text, 1), ',' order by recipient_id::text)
-      from public.notifications where type = 'club_announcement') <> 'b,c' then
-    raise exception 'Wrong recipients: %', (select string_agg(recipient_id::text, ',') from public.notifications where type = 'club_announcement');
-  end if;
-end $$;
-
--- Muting the Club stops the notification.
-insert into public.club_notification_mutes values ('97100000-0000-0000-0000-000000000001','97000000-0000-0000-0000-00000000000c');
+-- The moderator posts too. Beta2 sends no notification at all.
 set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000b';
 set role authenticated;
 select public.create_club_announcement('97100000-0000-0000-0000-000000000001', 'จาก moderator');
 reset role;
 do $$ begin
-  if exists (select 1 from public.notifications where type = 'club_announcement' and recipient_id = '97000000-0000-0000-0000-00000000000c' and actor_id = '97000000-0000-0000-0000-00000000000b') then
-    raise exception 'Muted member was notified';
-  end if;
+  if (select count(*) from public.notifications) <> 1 then raise exception 'An announcement created a notification'; end if;
 end $$;
 
--- Block either way: c blocks the moderator, so c neither sees b's
--- announcement nor is notified of b's next one.
+-- Block either way: c blocks the moderator, so c does not see b's announcement.
 insert into public.blocks values ('97000000-0000-0000-0000-00000000000c','97000000-0000-0000-0000-00000000000b');
-delete from public.club_notification_mutes;
 set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000b';
 set role authenticated;
 select public.create_club_announcement('97100000-0000-0000-0000-000000000001', 'หลัง block');
 reset role;
-do $$ begin
-  if exists (select 1 from public.notifications where type = 'club_announcement' and recipient_id = '97000000-0000-0000-0000-00000000000c' and actor_id = '97000000-0000-0000-0000-00000000000b') then
-    raise exception 'Blocked member was notified';
-  end if;
-end $$;
 set request.jwt.claim.sub='97000000-0000-0000-0000-00000000000c';
 set role authenticated;
 do $$ begin

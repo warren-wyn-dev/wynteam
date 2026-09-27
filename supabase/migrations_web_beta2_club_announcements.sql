@@ -4,7 +4,7 @@
 -- Founder decision (2026-09-20): a separate "Announcement" content type,
 -- not a filter on pinned posts. Owner/Admin/Moderator post it; every
 -- approved member reads it in the Club's own "ประกาศ" tab (Club-wide, not
--- tied to a channel) and is notified.
+-- tied to a channel). Member notifications come with the release.
 --
 -- Schema choice: a new table instead of `club_posts.type`. Every existing
 -- club_posts reader (Flutter and web feeds, likes, comments, insights,
@@ -13,15 +13,14 @@
 -- member create one or flip a post's type.
 --
 -- Production apply needs its own explicit Founder approval (AGENTS.md
--- Change Control). Additive and idempotent. The only change to an existing
--- object is widening notifications_type_check with 'club_announcement'
--- (read from the live constraint, so production-only types are kept).
+-- Change Control). Additive and idempotent: one new table and three RPCs.
+-- No existing table, row, policy, constraint or function is changed.
 --
--- Beta2 gate: while WYN-137 is developer-only, every write RPC refuses
--- non-developer accounts, and notifications go to developer members only.
--- Web and the Flutter app share the notifications table, and the installed
--- Flutter app throws on an unknown notification type (see WYN-043), so no
--- non-developer receives this type until the Founder decides the release.
+-- Beta2 gate: while WYN-137 is developer-only, the RPCs and the read
+-- policy refuse non-developer accounts. No notifications are sent yet
+-- (Founder, 2026-09-27): web and the Flutter app share the notifications
+-- table and the installed Flutter app cannot parse a new type (WYN-043).
+-- Member notifications come with the release, in a follow-up migration.
 -- =====================================================================
 
 create table if not exists public.club_announcements (
@@ -54,58 +53,6 @@ create policy "Approved club members read announcements"
     and not internal.is_blocked_either_way((select auth.uid()), author_id)
     and public.is_developer_account()
   );
-
--- ---------------------------------------------------------------------
--- Notification type. Rebuilt from the live constraint so any type that
--- exists only in production is kept; a no-op once the type is present.
--- ---------------------------------------------------------------------
-do $$
-declare
-  v_def text;
-begin
-  select pg_get_constraintdef(c.oid) into v_def
-  from pg_constraint c
-  where c.conrelid = 'public.notifications'::regclass
-    and c.conname = 'notifications_type_check';
-  if v_def is null then
-    raise exception 'notifications_type_check not found';
-  end if;
-  if position('''club_announcement''' in v_def) > 0 then
-    return;
-  end if;
-  if position('ARRAY[' in v_def) = 0 then
-    raise exception 'Unexpected notifications_type_check shape: %', v_def;
-  end if;
-  alter table public.notifications drop constraint notifications_type_check;
-  execute 'alter table public.notifications add constraint notifications_type_check '
-    || replace(v_def, 'ARRAY[', 'ARRAY[''club_announcement''::text, ');
-end $$;
-
--- Same fan-out rules as notify_club_post_pinned() (WYN-116): approved
--- members except the author, 'club' preference on, Club not muted, and
--- never across a block. Beta2: developer members only (see the header).
-create or replace function internal.notify_club_announcement(p_club_id uuid, p_author_id uuid)
-returns void
-language sql
-security definer
-set search_path = public
-as $$
-  insert into public.notifications (recipient_id, actor_id, type, club_id)
-  select cm.user_id, p_author_id, 'club_announcement', p_club_id
-  from public.club_members cm
-  where cm.club_id = p_club_id
-    and cm.status = 'approved'
-    and cm.user_id <> p_author_id
-    and exists (select 1 from public.developer_accounts d where d.user_id = cm.user_id)
-    and not internal.is_blocked_either_way(cm.user_id, p_author_id)
-    and internal.notification_enabled(cm.user_id, 'club')
-    and not exists (
-      select 1 from public.club_notification_mutes cnm
-      where cnm.club_id = p_club_id and cnm.user_id = cm.user_id
-    );
-$$;
-
-revoke all on function internal.notify_club_announcement(uuid, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Write RPCs. Permissions follow the spec: Owner/Admin/Moderator post;
@@ -144,7 +91,6 @@ begin
   values (p_club_id, v_me, v_body)
   returning id into v_id;
 
-  perform internal.notify_club_announcement(p_club_id, v_me);
   return v_id;
 end;
 $$;
@@ -223,7 +169,4 @@ grant execute on function public.delete_club_announcement(uuid) to authenticated
 --   drop function if exists public.delete_club_announcement(uuid);
 --   drop function if exists public.update_club_announcement(uuid, text);
 --   drop function if exists public.create_club_announcement(uuid, text);
---   drop function if exists internal.notify_club_announcement(uuid, uuid);
---   delete from public.notifications where type = 'club_announcement';
 --   drop table if exists public.club_announcements;
---   (notifications_type_check may keep 'club_announcement'; it is harmless.)

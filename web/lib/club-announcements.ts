@@ -42,7 +42,9 @@ export async function fetchClubAnnouncements(client: SupabaseClient, clubId: str
   const authorIds = [...new Set(rows.map((row) => row.author_id))];
   const profiles = new Map<string, ProfileRow>();
   if (authorIds.length) {
-    const { data: people } = await client.from("profiles").select("id, username, display_name, avatar_url").in("id", authorIds);
+    const { data: people, error: peopleError } = await client.from("profiles").select("id, username, display_name, avatar_url").in("id", authorIds);
+    // The author is part of an official announcement: fail to the retry state instead of "สมาชิก".
+    if (peopleError) throw peopleError;
     for (const person of (people ?? []) as ProfileRow[]) profiles.set(person.id, person);
   }
   return rows.map((row) => {

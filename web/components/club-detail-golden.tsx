@@ -559,15 +559,14 @@ function AboutTabView({ client, clubId, club, membership }: { client: SupabaseCl
 
 type ClubDetailSnapshot = { data: ClubData; posts: ClubHomePost[] };
 
-function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseClient; userId: string; clubId: string }) {
+function ClubDetailGoldenInner({ client, userId, clubId, initialTab }: { client: SupabaseClient; userId: string; clubId: string; initialTab?: "announcements" }) {
   const router = useRouter();
   const cacheKey = `club-detail:${userId}:${clubId}`;
   const cached = getMountCache<ClubDetailSnapshot>(cacheKey);
   const [data, setData] = useState<ClubData | null>(cached?.data ?? null);
   const [posts, setPosts] = useState<ClubHomePost[]>(cached?.posts ?? []);
-  // A Club announcement notification links to /club/<id>?tab=announcements.
-  const [tab, setTab] = useState<ClubTab>(() =>
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "announcements" ? "announcements" : "posts");
+  // From the server (?tab=announcements), so SSR and hydration agree.
+  const [tab, setTab] = useState<ClubTab>(initialTab ?? "posts");
   const announcementsOn = useBeta2Feature("clubAnnouncements", client, userId);
   const [loading, setLoading] = useState(!cached);
   const [busy, setBusy] = useState(false);
@@ -754,6 +753,6 @@ function ClubDetailGoldenInner({ client, userId, clubId }: { client: SupabaseCli
   );
 }
 
-export function ClubDetailGoldenRoute({ clubId }: { clubId: string }) {
-  return <DeveloperRouteGate>{({ client, userId }) => <ClubDetailGoldenInner client={client} userId={userId} clubId={clubId} />}</DeveloperRouteGate>;
+export function ClubDetailGoldenRoute({ clubId, initialTab }: { clubId: string; initialTab?: "announcements" }) {
+  return <DeveloperRouteGate>{({ client, userId }) => <ClubDetailGoldenInner client={client} userId={userId} clubId={clubId} initialTab={initialTab} />}</DeveloperRouteGate>;
 }
