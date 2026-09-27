@@ -29,7 +29,7 @@ create index if not exists message_reactions_message_idx
 
 alter table public.message_reactions enable row level security;
 
-revoke all on public.message_reactions from anon;
+revoke all on public.message_reactions from anon, authenticated;
 grant select on public.message_reactions to authenticated;
 grant all on public.message_reactions to service_role;
 
@@ -105,7 +105,7 @@ create index if not exists message_hides_user_idx
 
 alter table public.message_hides enable row level security;
 
-revoke all on public.message_hides from anon;
+revoke all on public.message_hides from anon, authenticated;
 grant select on public.message_hides to authenticated;
 grant all on public.message_hides to service_role;
 

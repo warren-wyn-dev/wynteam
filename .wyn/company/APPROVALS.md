@@ -190,3 +190,10 @@
 - Founder decision (AskUserQuestion): **keep it as released** ("ปล่อยไว้แบบนี้").
 - Going forward: the "Beta2 is developer-only until the Founder releases it" boundary applies to new Beta2 features. A broad approval to "go live" should be confirmed as "all users" vs "developers" before a release.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27
+
+### DECISION — [2026-09-27] WYN-159 Beta2 chat: merge developer-only, apply message reactions migration
+- Founder, after reviewing the before/after and hold-menu images: "ผ่านครับ เพิ่มเติม ปักมุด กับ รายงาน ด้วย". Then, in AskUserQuestion: **"ติดตั้งได้เลย"** for the reactions + delete-for-me migration, and **"ได้ เฉพาะนักพัฒนา"** to merge once CI passes.
+- Scope: WYN-159 Threads-style chat behind the Beta2 gate (`BETA2_RELEASED.chatThreads = false`, so non-developers keep the Web Beta1 chat). Merging deploys it to production, where only developer accounts see it.
+- Migration `supabase/migrations_web_beta2_message_reactions.sql`, applied via `web-beta2-apply-message-reactions.yml` after merge. It is additive: two new tables and two developer-gated RPCs. Rollback statements are in the file.
+- This approval does **not** release WYN-159 to everyone. That needs a separate "Beta2 release: chatThreads" approval.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-09-27

@@ -24,7 +24,7 @@ Before any release, confirm with the Founder whether it goes to everyone or only
 
 | Feature key | Task | Status |
 |---|---|---|
-| `chatThreads` | WYN-159 Threads-style chat | spec review → Founder before/after approval → build |
+| `chatThreads` | WYN-159 Threads-style chat: grouping, tap for time, hold menu (reactions, reply, edit ≤30 min, forward, copy, delete for me, unsend, pin, report) | Founder approved design; merged developer-only; reactions migration approved |
 | `clubChatActions` | WYN-135 Club chat edit / pin / search | spec + migration (separate SQL approval) |
 | `clubAnnouncements` | WYN-137 Club announcements | spec + migration (separate SQL approval) |
 
