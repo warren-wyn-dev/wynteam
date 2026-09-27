@@ -566,8 +566,11 @@ function ClubDetailGoldenInner({ client, userId, clubId, initialTab }: { client:
   const [data, setData] = useState<ClubData | null>(cached?.data ?? null);
   const [posts, setPosts] = useState<ClubHomePost[]>(cached?.posts ?? []);
   // From the server (?tab=announcements), so SSR and hydration agree.
-  const [tab, setTab] = useState<ClubTab>(initialTab ?? "posts");
+  const [selectedTab, setTab] = useState<ClubTab>(initialTab ?? "posts");
   const announcementsOn = useBeta2Feature("clubAnnouncements", client, userId);
+  // While the Beta2 gate is closed (or still checking), an announcements
+  // deep link behaves exactly like Posts, highlight included.
+  const tab: ClubTab = selectedTab === "announcements" && !announcementsOn ? "posts" : selectedTab;
   const [loading, setLoading] = useState(!cached);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -725,11 +728,11 @@ function ClubDetailGoldenInner({ client, userId, clubId, initialTab }: { client:
           <button className={tab === "about" ? "active" : ""} type="button" onClick={() => setTab("about")}><WynosIcon name="info" size={16} strokeWidth={2} />เกี่ยวกับ</button>
         </nav>
 
-        {tab === "posts" || (tab === "announcements" && !announcementsOn) ? (
+        {tab === "posts" ? (
           <section className="golden-club-posts">
             {club.privacy === "private" && !approved ? <EmptyState>เข้าร่วม Club เพื่อดูโพสต์</EmptyState> : posts.length ? posts.map((post) => <ClubPostCard client={client} userId={userId} initial={post} onChanged={() => void refresh()} key={post.id} />) : <EmptyState>ยังไม่มีโพสต์ใน Club นี้</EmptyState>}
           </section>
-        ) : tab === "announcements" && announcementsOn ? (
+        ) : tab === "announcements" ? (
           <ClubAnnouncementsTab client={client} userId={userId} clubId={clubId} role={membership?.role ?? null} approved={approved} onToast={showToast} />
         ) : tab === "chat" ? (
           <ChatTab client={client} userId={userId} clubId={clubId} membership={membership} channels={channels} />

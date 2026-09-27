@@ -16,7 +16,7 @@ test("the Club page shows the tab only through the Beta2 gate", () => {
   const page = readFileSync(join(process.cwd(), "components/club-detail-golden.tsx"), "utf8");
   expect(page).toContain('useBeta2Feature("clubAnnouncements", client, userId)');
   expect(page).toContain('{announcementsOn ? <button className={tab === "announcements"');
-  expect(page).toContain('tab === "announcements" && announcementsOn ?');
+  expect(page).toContain('const tab: ClubTab = selectedTab === "announcements" && !announcementsOn ? "posts" : selectedTab;');
 });
 
 test.describe("fixture", () => {
