@@ -7,7 +7,7 @@ const baseline = () => ({
   STAGING_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_staging",
   PRODUCTION_SUPABASE_URL: "https://kqokpocajhfbidcxpvhh.supabase.co",
   PRODUCTION_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_production",
-  STAGING_VERCEL_PROJECT_ID: "prj_stagingExample",
+  STAGING_VERCEL_PROJECT_ID: "prj_70GIbp0o056AOPsVUAie9CROED7r",
   PRODUCTION_VERCEL_PROJECT_ID: "prj_productionExample",
   VERCEL_ORG_ID: "team_example",
 });
@@ -40,5 +40,6 @@ test("staging cannot point to production, third-party Supabase, or plain HTTP", 
 test("staging rejects secret keys, shared production keys and shared Vercel projects", () => {
   assert.throws(() => assertIsolatedStaging({ ...baseline(), STAGING_SUPABASE_PUBLISHABLE_KEY: "sb_secret_wrong" }), /publishable key/);
   assert.throws(() => assertIsolatedStaging({ ...baseline(), STAGING_SUPABASE_PUBLISHABLE_KEY: baseline().PRODUCTION_SUPABASE_PUBLISHABLE_KEY }), /must differ/);
-  assert.throws(() => assertIsolatedStaging({ ...baseline(), STAGING_VERCEL_PROJECT_ID: baseline().PRODUCTION_VERCEL_PROJECT_ID }), /must be different/);
+  assert.throws(() => assertIsolatedStaging({ ...baseline(), STAGING_VERCEL_PROJECT_ID: baseline().PRODUCTION_VERCEL_PROJECT_ID }), /Founder-approved isolated staging project/);
+  assert.throws(() => assertIsolatedStaging({ ...baseline(), STAGING_VERCEL_PROJECT_ID: "prj_otherProtectedProject" }), /Founder-approved isolated staging project/);
 });
