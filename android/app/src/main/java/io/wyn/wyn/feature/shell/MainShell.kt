@@ -65,7 +65,7 @@ fun MainShell(
                 MainTab.Profile -> profile()
                 MainTab.Clubs -> ComingSoon(R.string.coming_clubs)
                 MainTab.Chat -> ComingSoon(R.string.coming_chat)
-                MainTab.Post -> ComingSoon(R.string.coming_compose)
+                MainTab.Post -> Unit // Opens the composer instead of switching tabs.
             }
         }
         BottomNav(tab, chatUnread) { next -> if (next == MainTab.Post) onCompose() else tab = next }
