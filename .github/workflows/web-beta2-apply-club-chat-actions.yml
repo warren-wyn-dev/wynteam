@@ -17,10 +17,10 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
     steps:
       - uses: actions/checkout@v4
-      - name: Require separate Founder approval for production SQL
+      - name: Require explicit, structured Founder approval for production SQL
         run: |
-          grep -Fq 'APPROVED WYN-135 production SQL' .wyn/company/APPROVALS.md ||
-            { echo "::error::WYN-135 SQL is staged, not approved for production."; exit 1; }
+          node web/scripts/check-wyn135-sql-approval.mjs .wyn/company/APPROVALS.md ||
+            { echo "::error::WYN-135 SQL requires a standalone Founder approval decision."; exit 1; }
       - name: Apply and verify WYN-135 SQL
         run: |
           set -euo pipefail
