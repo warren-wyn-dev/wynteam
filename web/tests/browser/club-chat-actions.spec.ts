@@ -71,6 +71,48 @@ test.describe("local developer-only fixture", () => {
     }
   });
 
+  test("pinned-message read failures can be retried without clearing channel search", async ({ page }) => {
+    await page.goto("/dev/club-chat-actions-fixture?role=owner&pin-error=1");
+    const pinError = page.locator(".golden-club-pin-error");
+    await expect(pinError).toContainText("โหลดข้อความที่ปักหมุดไม่สำเร็จ");
+
+    await page.getByRole("button", { name: "ค้นหาข้อความ", exact: true }).click();
+    await page.getByRole("textbox", { name: "ค้นหาข้อความในห้องนี้" }).fill("rules");
+    await page.getByRole("button", { name: "ค้นหา", exact: true }).click();
+    await expect(page.getByRole("button", { name: /please read the rules/ })).toBeVisible();
+    await expect(pinError).toBeVisible();
+
+    await pinError.getByRole("button", { name: "ลองอีกครั้ง" }).click();
+    // The error is cleared synchronously on click, so prove the retry
+    // actually completed by waiting for a known pinned message to load.
+    await expect(page.locator(".golden-club-pinned-list").getByRole("button", { name: /retry pin loaded/ })).toBeVisible();
+    await expect(pinError).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /please read the rules/ })).toBeVisible();
+  });
+
+  test("mobile search clears an in-flight request and keeps the search keyboard hint", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/dev/club-chat-actions-fixture?role=member&slow=1");
+    await page.getByRole("button", { name: "ค้นหาข้อความ", exact: true }).click();
+    const query = page.getByRole("textbox", { name: "ค้นหาข้อความในห้องนี้" });
+    await expect(query).toHaveAttribute("inputmode", "search");
+    await expect(query).toHaveAttribute("enterkeyhint", "search");
+    await query.fill("hello");
+    await page.getByRole("button", { name: "ค้นหา", exact: true }).click();
+
+    const clear = page.getByRole("button", { name: "ล้างคำค้นหา" });
+    await expect.poll(async () => (await clear.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await clear.click();
+    await expect(query).toHaveValue("");
+    await expect(clear).toHaveCount(0);
+    await page.waitForTimeout(650); // Late "hello" must not restore cleared results.
+    await expect(page.getByRole("button", { name: /hello club chat/ })).toHaveCount(0);
+
+    await query.fill("rules");
+    await page.getByRole("button", { name: "ค้นหา", exact: true }).click();
+    await expect(page.getByRole("button", { name: /please read the rules/ })).toBeVisible();
+  });
+
   test("mobile search and pin controls offer 44px touch targets", async ({ page }) => {
     await page.goto("/dev/club-chat-actions-fixture?role=owner");
     const search = page.getByRole("button", { name: "ค้นหาข้อความ", exact: true });
