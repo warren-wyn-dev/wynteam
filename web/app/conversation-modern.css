@@ -444,3 +444,332 @@
     transition: none;
   }
 }
+
+/* WYN-159 (Beta2, developer-only until released): Threads-style grouping.
+   Rows carry group-single/first/middle/last only when the feature is on
+   (components/chat/conversation-thread.tsx), so Web Beta1 is unchanged.
+   One sender's messages within 60s sit 4px apart with rounded inner
+   corners; only the group's last bubble keeps the flat "tail" corner. */
+.conversation-modern .message-row.group-first,
+.conversation-modern .message-row.group-middle {
+  margin-bottom: 4px;
+}
+
+.conversation-modern .message-row.group-last,
+.conversation-modern .message-row.group-single {
+  margin-bottom: 18px;
+}
+
+.conversation-modern .message-avatar-space {
+  flex: 0 0 34px;
+  width: 34px;
+}
+
+.conversation-modern .message-row.theirs.group-middle .message-bubble,
+.conversation-modern .message-row.theirs.group-last .message-bubble {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.conversation-modern .message-row.mine.group-middle .message-bubble,
+.conversation-modern .message-row.mine.group-last .message-bubble {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.conversation-modern .message-row[class*="group-"] .message-meta {
+  min-height: 16px;
+  margin-top: 4px;
+}
+
+.conversation-modern .message-row[class*="group-"] .message-bubble[role="button"] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Hold opens the message menu; keep iOS from starting text selection instead. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* WYN-159: replying to / editing a message shows its context above the input. */
+.conversation-modern .message-composer-context {
+  grid-column: 1 / -1;
+  min-height: 40px;
+  padding: 6px 4px 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 2px solid var(--wyn-text);
+  border-radius: 4px;
+  background: var(--wyn-surface);
+}
+
+.conversation-modern .message-composer-context span {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.conversation-modern .message-composer-context strong {
+  font-size: 13px;
+}
+
+.conversation-modern .message-composer-context small {
+  overflow: hidden;
+  color: var(--wyn-text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.conversation-modern .message-composer-context button {
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--wyn-text-secondary);
+}
+
+/* WYN-159: hold menu. The page dims and blurs; the held bubble is drawn
+   again, sharp, at the same place; the menu opens beside it. */
+.message-action-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  background: color-mix(in srgb, var(--wyn-bg) 55%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: message-action-in 140ms ease-out;
+}
+
+.message-action-lifted {
+  position: fixed;
+  display: flex;
+  pointer-events: none;
+}
+
+.message-action-lifted.mine {
+  justify-content: flex-end;
+}
+
+.message-action-bubble {
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 20px;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
+  font-size: 16px;
+  line-height: 1.4;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 14%);
+}
+
+.message-action-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message-action-lifted.mine .message-action-bubble {
+  border-bottom-right-radius: 6px;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
+}
+
+.message-action-lifted.theirs .message-action-bubble {
+  border-bottom-left-radius: 6px;
+}
+
+.message-action-menu {
+  position: fixed;
+  width: min(236px, calc(100vw - 24px));
+  padding: 4px 0;
+  overflow: hidden;
+  border: 1px solid var(--wyn-border);
+  border-radius: 20px;
+  background: var(--wyn-bg);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 16%);
+  animation: message-action-menu-in 160ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.message-action-menu time {
+  min-height: 40px;
+  padding: 12px 18px 4px;
+  display: block;
+  color: var(--wyn-text-muted);
+  font-size: 13px;
+}
+
+.message-action-menu button {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--wyn-text);
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.message-action-menu button:active {
+  background: var(--wyn-surface);
+}
+
+.message-action-menu button.danger {
+  color: var(--wyn-accent);
+}
+
+.message-forward-title {
+  display: block;
+  padding: 2px 20px 10px;
+  font-size: 17px;
+  text-align: center;
+}
+
+@keyframes message-action-in {
+  from { opacity: 0; }
+}
+
+@keyframes message-action-menu-in {
+  from { opacity: 0; transform: scale(0.94); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-action-overlay,
+  .message-action-menu {
+    animation: none;
+  }
+}
+
+.message-action-menu button.more svg:last-child {
+  margin-left: auto;
+  color: var(--wyn-text-muted);
+}
+
+/* WYN-159: pinned messages (at most 3 per chat). */
+.conversation-modern .message-pinned-bar {
+  position: sticky;
+  top: calc(64px + var(--wyn-ios-top-inset, 0px));
+  z-index: 5;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--wyn-border);
+  background: var(--wyn-bg);
+  color: var(--wyn-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.conversation-modern .message-pinned-bar span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.conversation-modern .message-pinned-bar strong {
+  font-size: 13px;
+}
+
+.conversation-modern .message-pinned-bar small {
+  overflow: hidden;
+  color: var(--wyn-text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.conversation-modern .message-pinned-mark {
+  float: right;
+  margin: 2px 0 0 6px;
+  opacity: 0.7;
+}
+
+/* WYN-159: reactions. */
+.message-reaction-bar {
+  position: fixed;
+  height: 64px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--wyn-border);
+  border-radius: 999px;
+  background: var(--wyn-bg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 14%);
+  animation: message-action-menu-in 160ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.message-reaction-bar button {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-reaction-bar button:active {
+  transform: scale(1.18);
+}
+
+.message-reaction-bar button.chosen {
+  background: var(--wyn-surface);
+}
+
+.conversation-modern .message-reactions {
+  position: relative;
+  z-index: 1;
+  min-height: 24px;
+  margin-top: -8px;
+  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 2px solid var(--wyn-bg);
+  border-radius: 999px;
+  background: var(--wyn-surface);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.conversation-modern .message-row.mine .message-reactions {
+  align-self: flex-end;
+  margin-right: 8px;
+}
+
+.conversation-modern .message-row.theirs .message-reactions {
+  align-self: flex-start;
+  margin-left: 8px;
+}
+
+.conversation-modern .message-reactions small {
+  margin-left: 2px;
+  color: var(--wyn-text-secondary);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-reaction-bar {
+    animation: none;
+  }
+}

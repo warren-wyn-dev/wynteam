@@ -6,12 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
+import { ConversationThread, MessageActionMenu, type MessageAction } from "@/components/chat/conversation-thread";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { AppChrome, Avatar, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { Toast, useToast } from "@/components/ui/toast";
 import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { WyniiConversationHeader } from "@/components/wynii-chat";
+import { useBeta2Feature } from "@/lib/beta2";
 import { relativeTimeTh } from "@/lib/feed";
 import { predictFollowState, toggleAuthorFollow } from "@/lib/home-actions";
 import { haptic } from "@/lib/haptics";
@@ -22,14 +24,23 @@ import {
   chatAllowed,
   deleteMessage,
   deleteMessageRequest,
+  editMessage,
   fetchConversationMeta,
   fetchInbox,
   fetchMessageRequests,
   fetchMessages,
+  fetchHiddenMessageIds,
+  fetchMessageReactions,
+  fetchPinnedMessageIds,
+  hideMessageForMe,
+  setMessageReaction,
+  type MessageReaction,
   fetchProfileSummary,
   findExistingConversationId,
   getOrCreateConversation,
   markConversationRead,
+  reportMessage,
+  setMessagePinned,
   searchProfiles,
   sendMessage,
   signedChatImage,
@@ -50,19 +61,6 @@ function conversationPreview(row: ConversationRow): string {
 
 function isUnread(row: ConversationRow, userId: string): boolean {
   return Boolean(row.last_message_sender_id !== userId && row.last_message_at && (!row.my_last_read_at || new Date(row.last_message_at) > new Date(row.my_last_read_at)));
-}
-
-function chatDayKey(value: string): string {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
-
-function chatDateLabel(value: string): string {
-  return new Intl.DateTimeFormat("th-TH-u-ca-gregory", { day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
-}
-
-function chatTimeLabel(value: string): string {
-  return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
 }
 
 function ChatInboxInner({ client, userId }: { client: SupabaseClient; userId: string }) {
@@ -157,6 +155,91 @@ function MessageImage({ client, path }: { client: SupabaseClient; path: string }
   return <Image className="message-image" src={url} alt="" width={280} height={330} sizes="280px" />;
 }
 
+/** WYN-159 (Beta2): pick another conversation to forward a text message to. */
+function ForwardSheet({ client, currentConversationId, onPick, onClose }: { client: SupabaseClient; currentConversationId: string; onPick: (row: ConversationRow) => void; onClose: () => void }) {
+  const [rows, setRows] = useState<ConversationRow[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    fetchInbox(client).then((all) => { if (live) setRows(all.filter((row) => row.conversation_id !== currentConversationId && row.status !== "pending")); }, () => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [client, currentConversationId]);
+  return (
+    <div className="route-modal-backdrop golden-drop-sheet-backdrop" role="presentation" onClick={onClose}>
+      <section className="golden-drop-sheet message-forward-sheet" role="dialog" aria-modal="true" aria-label="ส่งต่อ" onClick={(event) => event.stopPropagation()}>
+        <div className="golden-drop-sheet-grip" />
+        <strong className="message-forward-title">ส่งต่อ</strong>
+        {failed ? <p className="route-error route-pad">โหลดแชทไม่สำเร็จ</p> : rows === null ? <LoadingState /> : rows.length === 0 ? <EmptyState>ยังไม่มีบทสนทนา</EmptyState> : rows.map((row) => (
+          <button key={row.conversation_id} className="golden-drop-sheet-row" type="button" onClick={() => onPick(row)}>
+            <Avatar src={row.other_avatar_url} label={row.other_username} size={36} />
+            <span data-i18n-skip="">{row.other_display_name?.trim() || row.other_username}</span>
+          </button>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+/** WYN-159 (Beta2): the newest pinned message, above the thread. Tap jumps to it; tap again for the next pin. */
+function PinnedBar({ messages, pinnedIds }: { messages: MessageRow[]; pinnedIds: string[] }) {
+  const [index, setIndex] = useState(0);
+  const pinned = pinnedIds.map((id) => messages.find((message) => message.id === id)).filter((message): message is MessageRow => Boolean(message && !message.deleted_at));
+  if (!pinned.length) return null;
+  const current = pinned[index % pinned.length];
+  const jump = () => {
+    document.querySelector(`[data-message-id="${current.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setIndex((value) => value + 1);
+  };
+  return (
+    <button className="message-pinned-bar" type="button" onClick={jump} aria-label="ข้อความที่ปักหมุด">
+      <WynosIcon name="pin" size={16} strokeWidth={2} />
+      <span><strong>ข้อความที่ปักหมุด{pinned.length > 1 ? ` ${(index % pinned.length) + 1}/${pinned.length}` : ""}</strong><small data-i18n-skip="">{current.text || (current.image_url ? "รูปภาพ" : "ข้อความ")}</small></span>
+    </button>
+  );
+}
+
+const MESSAGE_REPORT_CATEGORIES = [
+  ["spam", "สแปม (Spam)"],
+  ["scam", "หลอกลวง (Scam)"],
+  ["harassment", "คุกคาม/กลั่นแกล้ง (Harassment)"],
+  ["hate", "ความเกลียดชัง (Hate)"],
+  ["sexual_content", "เนื้อหาทางเพศ (Sexual Content)"],
+  ["violence", "ความรุนแรง (Violence)"],
+  ["privacy", "ละเมิดความเป็นส่วนตัว (Privacy)"],
+  ["illegal_content", "ผิดกฎหมาย (Illegal Content)"],
+  ["copyright", "ละเมิดลิขสิทธิ์ (Copyright)"],
+  ["other", "อื่น ๆ (Other)"],
+] as const;
+
+/** WYN-159 (Beta2): report someone else's message. */
+function ReportMessageSheet({ onSubmit, onClose }: { onSubmit: (category: string, detail: string) => Promise<void>; onClose: () => void }) {
+  const [category, setCategory] = useState<string>("spam");
+  const [detail, setDetail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const send = async () => {
+    if (category === "other" && !detail.trim()) { setError("กรุณาระบุรายละเอียด"); return; }
+    setBusy(true); setError("");
+    try { await onSubmit(category, detail); }
+    catch (e) { setError(e instanceof Error ? e.message : "ส่งรายงานไม่สำเร็จ"); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="route-modal-backdrop golden-drop-sheet-backdrop" role="presentation" onClick={onClose}>
+      <section className="golden-drop-sheet" role="dialog" aria-modal="true" aria-label="รายงานข้อความ" onClick={(event) => event.stopPropagation()}>
+        <div className="golden-drop-sheet-grip" />
+        <div className="golden-drop-sheet-form">
+          <strong>รายงานข้อความ</strong>
+          <div className="golden-drop-report-list">{MESSAGE_REPORT_CATEGORIES.map(([value, label]) => <label key={value}><input type="radio" name="message-report" checked={category === value} onChange={() => setCategory(value)} />{label}</label>)}</div>
+          {category === "other" ? <textarea maxLength={1000} value={detail} onChange={(event) => setDetail(event.target.value)} placeholder="รายละเอียดเพิ่มเติม" /> : null}
+          {error ? <p className="route-error">{error}</p> : null}
+          <button className="route-primary" type="button" disabled={busy} onClick={() => void send()}>ส่งรายงาน</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 type ConversationSnapshot = { other: ProfileRow | null; messages: MessageRow[]; meta: ConversationMeta | null; hasMore: boolean };
 
 function ConversationInner({ client, userId, conversationId }: { client: SupabaseClient; userId: string; conversationId: string }) {
@@ -186,6 +269,35 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
   const [followBusy, setFollowBusy] = useState(false);
   const [error, setError] = useState("");
   const [revealedMessageId, setRevealedMessageId] = useState<string | null>(null);
+  const chatThreads = useBeta2Feature("chatThreads", client, userId);
+  // WYN-159 (Beta2): long-press actions on a message.
+  const [actionMessage, setActionMessage] = useState<{ message: MessageRow; bubble: DOMRect } | null>(null);
+  const [forwarding, setForwarding] = useState<MessageRow | null>(null);
+  const [reporting, setReporting] = useState<MessageRow | null>(null);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+  const [reactions, setReactions] = useState<MessageReaction[]>([]);
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
+  const loadedIds = useMemo(() => messages.filter((message) => !message.pending).map((message) => message.id).sort().join(","), [messages]);
+  useEffect(() => {
+    if (!chatThreads || !loadedIds) return;
+    let live = true;
+    const ids = loadedIds.split(",");
+    void Promise.all([fetchMessageReactions(client, ids), fetchHiddenMessageIds(client, ids)]).then(([nextReactions, hidden]) => {
+      if (!live) return;
+      setReactions(nextReactions);
+      setHiddenIds(new Set(hidden));
+    });
+    return () => { live = false; };
+  }, [chatThreads, client, loadedIds]);
+  useEffect(() => {
+    if (!chatThreads || isComposeMode) return;
+    let live = true;
+    fetchPinnedMessageIds(client, conversationId).then((ids) => { if (live) setPinnedIds(ids); }, () => undefined);
+    return () => { live = false; };
+  }, [chatThreads, client, conversationId, isComposeMode]);
+  const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
+  const [editing, setEditing] = useState<MessageRow | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const composerRef = useRef<HTMLFormElement | null>(null);
@@ -278,7 +390,76 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
     } finally { setLoadingMore(false); }
   };
 
+  const submitEdit = async (message: MessageRow) => {
+    const text = draft.trim();
+    if (sending || !text) return;
+    if (text === message.text?.trim()) { setEditing(null); setDraft(""); return; }
+    setSending(true); setError("");
+    try {
+      await editMessage(client, message.id, text);
+      const editedAt = new Date().toISOString();
+      setMessages((current) => current.map((item) => item.id === message.id ? { ...item, text, edited_at: editedAt } : item));
+      setEditing(null); setDraft("");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "แก้ไขข้อความไม่สำเร็จ");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const chooseAction = (message: MessageRow, action: MessageAction) => {
+    setActionMessage(null);
+    if (action === "unsend") { void remove(message); return; }
+    if (action === "forward") { setForwarding(message); return; }
+    if (action === "pin" || action === "unpin") {
+      const pin = action === "pin";
+      void setMessagePinned(client, message.id, pin).then(
+        () => { setPinnedIds((current) => pin ? [message.id, ...current.filter((id) => id !== message.id)] : current.filter((id) => id !== message.id)); showToast(pin ? "ปักหมุดแล้ว" : "เลิกปักหมุดแล้ว"); },
+        (e: unknown) => showToast(e instanceof Error ? e.message : "ปักหมุดไม่สำเร็จ"),
+      );
+      return;
+    }
+    if (action === "report") { setReporting(message); return; }
+    if (action === "hide") {
+      void hideMessageForMe(client, message.id).then(
+        () => setHiddenIds((current) => new Set([...current, message.id])),
+        (e: unknown) => showToast(e instanceof Error ? e.message : "ลบข้อความไม่สำเร็จ"),
+      );
+      return;
+    }
+    if (action === "copy") {
+      void navigator.clipboard?.writeText(message.text ?? "").then(() => showToast("คัดลอกแล้ว"), () => showToast("คัดลอกไม่สำเร็จ"));
+      return;
+    }
+    if (action === "reply") { setEditing(null); setReplyTo(message); }
+    else { setReplyTo(null); setFile(null); setEditing(message); setDraft(message.text ?? ""); }
+    textareaRef.current?.focus();
+  };
+
+  const react = (message: MessageRow, emoji: string | null) => {
+    setActionMessage(null);
+    const previous = reactions;
+    setReactions((current) => [...current.filter((item) => !(item.message_id === message.id && item.user_id === userId)), ...(emoji ? [{ message_id: message.id, user_id: userId, emoji }] : [])]);
+    void setMessageReaction(client, message.id, emoji).catch((e: unknown) => {
+      setReactions(previous);
+      showToast(e instanceof Error ? e.message : "ส่งความรู้สึกไม่สำเร็จ");
+    });
+  };
+
+  const forwardTo = async (row: ConversationRow) => {
+    const message = forwarding;
+    if (!message?.text) return;
+    setForwarding(null);
+    try {
+      await sendMessage(client, userId, row.conversation_id, { text: message.text });
+      showToast("ส่งต่อแล้ว");
+    } catch {
+      showToast("ส่งต่อไม่สำเร็จ");
+    }
+  };
+
   const submit = async () => {
+    if (editing) { await submitEdit(editing); return; }
     if (sending || (!draft.trim() && !file)) return;
     if (isComposeMode && !otherId) return;
     const text = draft.trim();
@@ -294,7 +475,11 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       created_at: new Date().toISOString(),
       pending: true,
       localPreviewUrl,
+      reply_to_message_id: replyTo?.id ?? null,
+      reply_to: replyTo ? { text: replyTo.text, image_url: replyTo.image_url, deleted_at: replyTo.deleted_at } : null,
     };
+    const replyToMessageId = replyTo?.id ?? null;
+    setReplyTo(null);
     setMessages((current) => [optimisticMessage, ...current]);
     setDraft(""); setFile(null); setSending(true); setError("");
     haptic();
@@ -304,7 +489,7 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
       // ever created here, at the moment of an actual first send -- never
       // just from opening the composer.
       const realConversationId = isComposeMode ? await getOrCreateConversation(client, otherId) : conversationId;
-      const created = await sendMessage(client, userId, realConversationId, { text, file: attachedFile });
+      const created = await sendMessage(client, userId, realConversationId, { text, file: attachedFile, replyToMessageId });
       if (isComposeMode) {
         // A full navigation (not just a state update) so the destination
         // mounts fresh against the real conversation id -- realtime
@@ -415,56 +600,32 @@ function ConversationInner({ client, userId, conversationId }: { client: Supabas
           </section> : null}
 
           {hasMore ? <button className="route-more" type="button" disabled={loadingMore} onClick={() => void loadOlder()}>{loadingMore ? "กำลังโหลด…" : "ดูข้อความก่อนหน้า"}</button> : null}
+          {chatThreads ? <PinnedBar messages={ordered} pinnedIds={pinnedIds} /> : null}
           <div className="message-list conversation-thread" style={{ paddingBottom: composerHeight + 30 }}>
-            {ordered.map((message, index) => {
-              const mine = message.sender_id === userId;
-              const canDelete = mine && !message.deleted_at && !message.pending;
-              const revealed = canDelete && revealedMessageId === message.id;
-              const previous = index > 0 ? ordered[index - 1] : null;
-              const showDate = !previous || chatDayKey(previous.created_at) !== chatDayKey(message.created_at);
-              const read = mine && Boolean(meta?.other_user_last_read_at && new Date(message.created_at) <= new Date(meta.other_user_last_read_at));
-              return <div className="message-entry" key={message.id}>
-                {showDate ? <div className="conversation-date-separator"><span>{chatDateLabel(message.created_at)}</span></div> : null}
-                <div className={`message-row ${mine ? "mine" : "theirs"} ${message.pending ? "is-pending" : ""}`}>
-                  {!mine && other ? <Avatar src={other.avatar_url} label={other.username} size={34} /> : null}
-                  <div className="message-stack">
-                    <div
-                      className="message-bubble"
-                      role={canDelete ? "button" : undefined}
-                      tabIndex={canDelete ? 0 : undefined}
-                      onClick={canDelete ? () => setRevealedMessageId((current) => current === message.id ? null : message.id) : undefined}
-                    >
-                      {message.deleted_at ? <i>ลบข้อความแล้ว</i> : <>
-                        {message.reply_to_message_id && message.reply_to ? <div className="reply-preview">{message.reply_to.deleted_at ? "ข้อความถูกลบ" : message.reply_to.text || (message.reply_to.image_url ? "รูปภาพ" : "ข้อความ")}</div> : null}
-                        {message.text ? <p data-i18n-skip="">{message.text}</p> : null}
-                        {message.localPreviewUrl ? <img className="message-image" src={message.localPreviewUrl} alt="" /> : message.image_url ? <MessageImage client={client} path={message.image_url} /> : null}
-                      </>}
-                    </div>
-                    <div className="message-meta">
-                      <time>{message.pending ? "กำลังส่ง…" : chatTimeLabel(message.created_at)}{message.edited_at ? " · แก้ไขแล้ว" : ""}</time>
-                      {mine && !message.pending ? (
-                        // WhatsApp/LINE-style receipt: single check = sent,
-                        // double check in the accent color = read. The
-                        // previous version rendered the identical glyph
-                        // ("✓" either way) so sent vs read never actually
-                        // differed on screen, only in the aria-label.
-                        <span className={`message-read-status ${read ? "read" : ""}`} aria-label={read ? "อ่านแล้ว" : "ส่งแล้ว"}>
-                          <WynosIcon name={read ? "checkCheck" : "check"} size={14} strokeWidth={2.4} />
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                  {revealed ? <button className="message-delete" type="button" aria-label="ลบข้อความ" onClick={() => void remove(message)}><WynosIcon name="trash" size={13} strokeWidth={2} /></button> : null}
-                </div>
-              </div>;
-            })}
+            <ConversationThread
+              messages={chatThreads && hiddenIds.size ? ordered.filter((message) => !hiddenIds.has(message.id)) : ordered}
+              reactions={reactions}
+              userId={userId}
+              other={other}
+              otherLastReadAt={meta?.other_user_last_read_at}
+              threads={chatThreads}
+              revealedMessageId={revealedMessageId}
+              onToggleReveal={(messageId) => setRevealedMessageId((current) => current === messageId ? null : messageId)}
+              onDelete={(message) => void remove(message)}
+              onOpenActions={(message, bubble) => setActionMessage({ message, bubble })}
+              pinnedIds={pinnedSet}
+              renderImage={(path) => <MessageImage client={client} path={path} />}
+            />
           </div>
           {error ? <p className="route-error route-pad">{error}</p> : null}
           {recipientPending ? <div className="conversation-request-bar"><p>ยอมรับคำขอข้อความเพื่อสนทนาต่อ</p><div><button className="route-primary" type="button" onClick={() => void accept()}>ยอมรับ</button><button className="route-secondary" type="button" onClick={() => void decline()}>ลบ</button></div></div> : requesterPending ? <div className="conversation-request-bar"><p>ส่งคำขอข้อความแล้ว · รออีกฝ่ายตอบรับ</p></div> : (
-            <form className="message-composer" ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}><label className="message-image-picker" aria-label="แนบรูปภาพ"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
+            <form className={`message-composer${replyTo || editing ? " has-context" : ""}`} ref={composerRef} onSubmit={(e) => { e.preventDefault(); void submit(); }}>{replyTo || editing ? <div className="message-composer-context"><span><strong>{editing ? "แก้ไขข้อความ" : "ตอบกลับ"}</strong><small data-i18n-skip="">{(editing ?? replyTo)?.text || ((editing ?? replyTo)?.image_url ? "รูปภาพ" : "ข้อความ")}</small></span><button type="button" aria-label="ยกเลิก" onClick={() => { if (editing) setDraft(""); setEditing(null); setReplyTo(null); }}><WynosIcon name="close" size={16} strokeWidth={2} /></button></div> : null}<label className="message-image-picker" aria-label="แนบรูปภาพ"><WynosIcon name="imagePlus" size={23} strokeWidth={2} /><input type="file" accept="image/*" hidden tabIndex={-1} disabled={sending || Boolean(editing)} onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label><div className="message-input-group"><textarea ref={textareaRef} rows={1} value={draft} disabled={sending} onChange={(e) => setDraft(e.target.value)} placeholder={file ? `รูป: ${file.name}` : "พิมพ์ข้อความ..."} /><button type="submit" aria-label="ส่ง" disabled={sending || (!draft.trim() && !file)}><WynosIcon name="send" size={18} strokeWidth={2} /></button></div>{file ? <button className="message-clear-file" type="button" aria-label="ยกเลิกรูป" onClick={() => setFile(null)}><WynosIcon name="close" size={15} strokeWidth={2} /></button> : null}</form>
           )}
         </div>
       )}
+      {actionMessage ? <MessageActionMenu message={actionMessage.message} userId={userId} bubble={actionMessage.bubble} pinned={pinnedSet.has(actionMessage.message.id)} myReaction={reactions.find((item) => item.message_id === actionMessage.message.id && item.user_id === userId)?.emoji ?? null} onReact={(emoji) => react(actionMessage.message, emoji)} onChoose={(action) => chooseAction(actionMessage.message, action)} onClose={() => setActionMessage(null)} /> : null}
+      {reporting ? <ReportMessageSheet onSubmit={async (category, detail) => { await reportMessage(client, reporting.id, category, detail); setReporting(null); showToast("ส่งรายงานแล้ว"); }} onClose={() => setReporting(null)} /> : null}
+      {forwarding ? <ForwardSheet client={client} currentConversationId={conversationId} onPick={(row) => void forwardTo(row)} onClose={() => setForwarding(null)} /> : null}
       <Toast message={toastMessage} />
     </AppChrome>
   );
