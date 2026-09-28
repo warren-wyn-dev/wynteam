@@ -1,0 +1,320 @@
+name: Web Beta2 -- isolated protected staging
+
+# Manual only, on main at a reviewed immutable commit. Existing per-PR
+# previews and production deployment are unchanged. The prior manual pilot
+# already demonstrated hosted QA with a temporary bypass. This revised
+# workflow moves full local-browser/fixture QA to a separate unprivileged runner
+# and limits the fresh credentialed runner to protected preview deploy + smoke.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # No unreviewed workflow_dispatch ref may select the deployed checkout.
+  # github.sha is the immutable main commit approved at dispatch time.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      reviewed_sha: ${{ steps.ref.outputs.sha }}
+    steps:
+      - name: Fail closed unless dispatch targets reviewed main
+        id: ref
+        env:
+          SOURCE_REF: ${{ github.ref }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$SOURCE_REF" != 'refs/heads/main' ] || [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Manual isolated staging may deploy only an immutable commit on main."
+            exit 1
+          fi
+          echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+  # npm lifecycle scripts and app/browser tests run on an UNPRIVILEGED runner.
+  # It never receives VERCEL_TOKEN or production project identifiers.
+  checks:
+    needs: guard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.reviewed_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install web dependencies (unprivileged runner only)
+        run: npm ci --no-audit --no-fund
+
+      - name: Web check against staging-only public configuration
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run check
+
+
+      # Full local browser QA covers the dev-only fixtures on this tokenless
+      # runner. The fresh deploy runner below verifies protected remote routes.
+      - name: Local browser QA without production accounts or Vercel token
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          npx playwright install --with-deps chromium webkit
+          npm run qa:browser
+
+  # A completely NEW runner receives the deploy credential only after
+  # unprivileged checks succeed. No npm ci, npm run check or app/browser test
+  # executes on this runner, so dependency hooks cannot persist into token steps.
+  staging:
+    needs: [guard, checks]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.reviewed_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fail closed unless staging and production identifiers are isolated
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          PRODUCTION_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          PRODUCTION_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          PRODUCTION_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        # Inline verified guards only: no repository code or dependency lifecycle
+        # is executed on this fresh runner before the deploy token is provided.
+        run: |
+          set -euo pipefail
+          case "$STAGING_SUPABASE_URL" in
+            https://yydgdapzlrjmlrjgijkj.supabase.co|https://yydgdapzlrjmlrjgijkj.supabase.co/) ;;
+            *) echo "::error::Unapproved staging Supabase project"; exit 1 ;;
+          esac
+          case "$PRODUCTION_SUPABASE_URL" in
+            https://kqokpocajhfbidcxpvhh.supabase.co|https://kqokpocajhfbidcxpvhh.supabase.co/) ;;
+            *) echo "::error::Unexpected production Supabase identity"; exit 1 ;;
+          esac
+          if [[ "$STAGING_SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* ||
+                -z "$PRODUCTION_SUPABASE_PUBLISHABLE_KEY" ||
+                "$STAGING_SUPABASE_PUBLISHABLE_KEY" == "$PRODUCTION_SUPABASE_PUBLISHABLE_KEY" ||
+                "$STAGING_VERCEL_PROJECT_ID" != 'prj_70GIbp0o056AOPsVUAie9CROED7r' ||
+                "$PRODUCTION_VERCEL_PROJECT_ID" != prj_* ||
+                "$STAGING_VERCEL_PROJECT_ID" == "$PRODUCTION_VERCEL_PROJECT_ID" ||
+                -z "$VERCEL_ORG_ID" ]]; then
+            echo "::error::Isolated staging credentials or project identity mismatch"
+            exit 1
+          fi
+          echo "Approved isolated project identities verified; no repository code executed."
+
+      - name: Verify publishable key belongs to the exact staging Supabase project
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          # An anonymous, ZERO-ROW PostgREST read checks the gateway key-to-project
+          # association and verifies the actual Data API. No user data is read.
+          response=$(mktemp)
+          trap 'rm -f "$response"' EXIT
+          base=$(printf '%s' "$STAGING_SUPABASE_URL" | sed 's:/*$::')
+          status=$(curl --silent --show-error --max-time 30 \
+            --header "apikey: $STAGING_SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Accept: application/json' \
+            --output "$response" --write-out '%{http_code}' \
+            "$base/rest/v1/profiles?select=id&limit=0")
+          if [ "$status" != '200' ]; then
+            echo "::error::Staging publishable key failed the exact-project public API probe (HTTP $status)."
+            exit 1
+          fi
+          node - "$response" <<'NODE'
+          const fs = require("node:fs");
+          const data = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          if (!Array.isArray(data) || data.length !== 0) {
+            console.error("Public API probe must return an empty zero-row JSON result.");
+            process.exit(1);
+          }
+          console.log("Staging publishable key accepted by the approved project (no data read).");
+          NODE
+
+      - name: Verify the distinct Vercel staging project requires authentication
+        env:
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          PRODUCTION_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          response=$(mktemp)
+          trap 'rm -f "$response"' EXIT
+          curl --fail --silent --show-error --max-time 30 \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --output "$response" \
+            "https://api.vercel.com/v9/projects/$STAGING_VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID"
+          node - "$response" <<'NODE'
+          const fs = require("node:fs");
+          const project = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          const protectedModes = ["preview", "all", "prod_deployment_urls_and_all_previews"];
+          if (project.id !== process.env.STAGING_VERCEL_PROJECT_ID ||
+              project.id === process.env.PRODUCTION_VERCEL_PROJECT_ID ||
+              !protectedModes.includes(project.ssoProtection?.deploymentType)) {
+            console.error("Staging Vercel project must differ from production and require Vercel Authentication for previews.");
+            process.exit(1);
+          }
+          console.log("Distinct Vercel project and preview Vercel Authentication verified.");
+          NODE
+
+      - name: Deploy to staging Vercel project, preview only (never production)
+        id: deploy
+        # The staging Vercel project's Root Directory is already "web".
+        # Running the CLI from web/ resolves web/web and fails; use repo root.
+        working-directory: .
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          export VERCEL_PROJECT_ID="$STAGING_VERCEL_PROJECT_ID"
+          url=$(npx --yes vercel@60.1.3 deploy --yes \
+            --token="$VERCEL_TOKEN" \
+            --build-env NEXT_PUBLIC_SUPABASE_URL="$STAGING_SUPABASE_URL" \
+            --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$STAGING_SUPABASE_PUBLISHABLE_KEY" \
+            --build-env VERCEL_PREVIEW_FEEDBACK_ENABLED=0 \
+            --env NEXT_PUBLIC_SUPABASE_URL="$STAGING_SUPABASE_URL" \
+            --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$STAGING_SUPABASE_PUBLISHABLE_KEY" \
+            --env VERCEL_PREVIEW_FEEDBACK_ENABLED=0 \
+            | tail -n 1)
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Isolated protected staging preview deployed (not the wynos.online alias)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Require unauthenticated requests to be blocked
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          # A 404/429/500 is not proof of Vercel Authentication. Fail closed
+          # unless the preview redirects an anonymous browser to Vercel SSO.
+          headers=$(mktemp)
+          trap 'rm -f "$headers"' EXIT
+          status=$(curl --silent --show-error --max-time 30 \
+            --dump-header "$headers" --output /dev/null --write-out '%{http_code}' "$PREVIEW_URL/")
+          case "$status" in
+            302|303|307|308)
+              if ! grep -Eiq '^location:[[:space:]]*https://vercel[.]com/sso-api([?/#]|[[:space:]]|$)' "$headers"; then
+                echo "::error::Staging preview redirected somewhere other than verified Vercel SSO."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Unexpected anonymous staging HTTP $status (required: Vercel SSO redirect)."
+              exit 1
+              ;;
+          esac
+          echo "Unauthenticated preview redirected to verified Vercel SSO (HTTP $status)."
+
+      - name: Create temporary Vercel protection bypass for hosted QA
+        env:
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          bypass=$(openssl rand -hex 16)
+          echo "::add-mask::$bypass"
+          echo "VERCEL_AUTOMATION_BYPASS_SECRET=$bypass" >> "$GITHUB_ENV"
+          curl --fail --silent --show-error --request PATCH \
+            --url "https://api.vercel.com/v1/projects/$STAGING_VERCEL_PROJECT_ID/protection-bypass?teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "{\"generate\":{\"secret\":\"$bypass\",\"note\":\"WYNOS Beta2 staging QA $GITHUB_RUN_ID\"}}" \
+            > /dev/null
+
+      - name: Smoke protected staging routes and prove Next.js HTML (never SSO)
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          headers=$(mktemp)
+          body=$(mktemp)
+          trap 'rm -f "$headers" "$body"' EXIT
+          for route in / /search /notifications /chat /settings /profile/me /clubs; do
+            url="$PREVIEW_URL$route"
+            verified=0
+            for attempt in 1 2 3 4; do
+              # Do not use --location: it would forward the protection bypass
+              # to Vercel SSO on a failed bypass and mistake login HTML for app HTML.
+              status=$(curl --silent --show-error --max-time 30 \
+                --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                --output "$body" --dump-header "$headers" --write-out '%{http_code}' "$url")
+              case "$status" in
+                200)
+                  case "$url" in
+                    "$PREVIEW_URL"|"$PREVIEW_URL"/*) ;;
+                    *) echo "::error::Unexpected effective staging URL"; exit 1 ;;
+                  esac
+                  if ! grep -q '/_next/' "$body"; then
+                    echo "::error::Route $route returned HTTP 200 without Next.js app HTML."
+                    exit 1
+                  fi
+                  verified=1
+                  break
+                  ;;
+                301|302|303|307|308)
+                  location=$(sed -n 's/^[Ll][Oo][Cc][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*//p' "$headers" | tr -d '\r' | tail -n 1)
+                  case "$location" in
+                    "$PREVIEW_URL"/*) url="$location" ;;
+                    /*) url="$PREVIEW_URL$location" ;;
+                    *) echo "::error::Unexpected/SSO redirect during protected route $route"; exit 1 ;;
+                  esac
+                  ;;
+                *)
+                  echo "::error::Protected route $route failed with HTTP $status"
+                  exit 1
+                  ;;
+              esac
+            done
+            if [ "$verified" != '1' ]; then
+              echo "::error::Protected route $route did not render the app within four redirects"
+              exit 1
+            fi
+          done
+          echo "All protected staging routes returned app HTML; SSO redirects rejected."
+
+      - name: Always revoke the temporary staging protection bypass
+        if: always()
+        env:
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            echo "No temporary bypass to revoke."
+            exit 0
+          fi
+          curl --fail --silent --show-error --request PATCH \
+            --url "https://api.vercel.com/v1/projects/$STAGING_VERCEL_PROJECT_ID/protection-bypass?teamId=$VERCEL_ORG_ID" \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "{\"revoke\":{\"secret\":\"$VERCEL_AUTOMATION_BYPASS_SECRET\",\"regenerate\":false}}" \
+            > /dev/null
+          echo "Temporary staging bypass revoked." >> "$GITHUB_STEP_SUMMARY"
