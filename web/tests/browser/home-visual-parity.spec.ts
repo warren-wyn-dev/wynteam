@@ -181,12 +181,12 @@ test("bottom navigation keeps readable labels and all five WYNOS destinations", 
   }
 
   const glyph = nav.locator(".route-nav-glyph").first();
-  await expect(glyph).toHaveCSS("width", "24px");
-  await expect(glyph).toHaveCSS("height", "24px");
+  await expect(glyph).toHaveCSS("width", "32px");
+  await expect(glyph).toHaveCSS("height", "32px");
   await expect(links.first()).toHaveCSS("font-size", "11px");
   const createGlyph = links.nth(2).locator(".route-nav-glyph");
-  await expect(createGlyph).toHaveCSS("width", "24px");
-  await expect(createGlyph).toHaveCSS("height", "24px");
+  await expect(createGlyph).toHaveCSS("width", "32px");
+  await expect(createGlyph).toHaveCSS("height", "32px");
 });
 
 test("bell and Chat tab show unread counts, not a bare dot", async ({ page }) => {
