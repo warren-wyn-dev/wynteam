@@ -4,11 +4,8 @@ import { motion, useAnimationControls } from "framer-motion";
 import { useEffect, useRef } from "react";
 
 /**
- * WYNOS Outline Clean like icon.
- *
- * The visible icon stays at the existing action-row size; only the artwork is
- * softened so Like, Comment, Repost, Share and Bookmark read as one family.
- * A real false -> true transition keeps the existing tactile bounce.
+ * WYNOS Beta 2 preview — social heart with Threads-like proportions.
+ * Keeps the existing WYNOS interaction size and like animation.
  */
 export function AnimatedHeart({
   size = 24,
@@ -24,7 +21,10 @@ export function AnimatedHeart({
 
   useEffect(() => {
     if (liked && !wasLiked.current) {
-      void controls.start({ scale: [1, 1.35, 0.95, 1.08, 1], transition: { duration: 0.42, ease: "easeOut" } });
+      void controls.start({
+        scale: [1, 1.3, 0.96, 1.05, 1],
+        transition: { duration: 0.36, ease: "easeOut" },
+      });
     }
     wasLiked.current = liked;
   }, [liked, controls]);
@@ -42,7 +42,7 @@ export function AnimatedHeart({
         strokeLinejoin="round"
         aria-hidden="true"
       >
-        <path d="M12 20.45c-.25 0-.5-.08-.7-.23C5.7 16.05 2.75 13.4 2.75 9.8c0-3.05 2.2-5.3 5.05-5.3 1.78 0 3.28.82 4.2 2.1.92-1.28 2.42-2.1 4.2-2.1 2.85 0 5.05 2.25 5.05 5.3 0 3.6-2.95 6.25-8.55 10.42-.2.15-.45.23-.7.23Z" />
+        <path d="M12 20.55c-.3 0-.58-.09-.82-.26C5.45 16.32 2.6 13.5 2.6 9.78 2.6 6.45 4.97 4.08 8.1 4.08c1.64 0 3.03.73 3.9 1.92.87-1.19 2.26-1.92 3.9-1.92 3.13 0 5.5 2.37 5.5 5.7 0 3.72-2.85 6.54-8.58 10.51-.24.17-.52.26-.82.26Z" />
       </svg>
     </motion.span>
   );
