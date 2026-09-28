@@ -26,7 +26,7 @@
 }
 
 /* Immersive Home replaces the dock with a floating 56px composer shortcut.
-   The normal 50px dock inset is not tall enough at the absolute end of the
+   The normal 68px dock inset is not tall enough at the absolute end of the
    feed: without this scoped padding, the FAB can cover the last post actions.
    Reserve just enough room while the Home chrome is deliberately hidden. */
 :root.wyn-home-scroll-hidden .route-with-bottom-nav {
@@ -80,11 +80,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 3px;
   color: var(--wyn-text-muted);
   text-decoration: none;
-  font-size: 10px;
-  line-height: 1;
+  font-size: 11px;
+  line-height: 1.05;
   font-weight: 500;
   -webkit-tap-highlight-color: transparent;
   transition: transform var(--wyn-motion-duration) var(--wyn-motion-easing);
@@ -118,16 +118,16 @@
 }
 
 .route-nav-glyph {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: block;
-  flex: 0 0 28px;
+  flex: 0 0 24px;
   color: currentColor;
 }
 
 .route-create-button {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
   background: transparent;
@@ -135,14 +135,14 @@
 }
 
 .route-create-button .route-nav-glyph {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
 }
 
 .route-nav-icon-wrap {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: block;
 }
 
@@ -151,11 +151,18 @@
   inset: 0;
 }
 
+/* The center create action stays in the same five-column layout and keeps
+   its label, but the glyph is slightly larger for faster recognition. */
+.route-nav-link:nth-child(3) .route-nav-glyph {
+  width: 30px;
+  height: 30px;
+}
+
 /* Unread count on the Chat tab: same red pill as the Home bell badge. */
 .route-nav-badge {
   position: absolute;
-  top: -3px;
-  left: 17px;
+  top: -4px;
+  left: 15px;
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
@@ -178,16 +185,25 @@
   }
 
   .route-nav-link {
-    gap: 1px;
-    font-size: 9.5px;
+    gap: 2px;
+    font-size: 10px;
   }
 
   .route-nav-glyph,
-  .route-create-button,
   .route-nav-icon-wrap {
-    width: 26px;
-    height: 26px;
-    flex-basis: 26px;
+    width: 22px;
+    height: 22px;
+    flex-basis: 22px;
+  }
+
+  .route-create-button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .route-nav-link:nth-child(3) .route-nav-glyph {
+    width: 28px;
+    height: 28px;
   }
 }
 
