@@ -93,6 +93,8 @@ test("manual staging workflow separates reviewed-source checks and token-bearing
   assert.match(staging, /ref: \$\{\{ needs\.guard\.outputs\.reviewed_sha \}\}/);
   assert.match(staging, /VERCEL_TOKEN/);
   assert.match(staging, /vercel@60\.1\.3/);
+  assert.match(staging, /Approved isolated project identities verified/);
+  assert.doesNotMatch(staging, /node scripts\/assert-isolated-staging\.mjs/);
   assert.doesNotMatch(staging, /^\s+run: npm ci\b/m);
   assert.doesNotMatch(staging, /^\s+run: npm run check\b/m);
   assert.doesNotMatch(staging, /^\s+npm run qa:browser\b/m);
