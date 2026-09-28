@@ -137,8 +137,9 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(navCss).toContain("height: 24px");
   expect(navCss).toContain("flex: 0 0 24px");
   expect(navCss).toContain("font-size: 11px");
-  expect(navCss).toContain(".route-nav-link:nth-child(3) .route-nav-glyph");
-  expect(navCss).toContain("width: 30px");
+  expect(navCss).not.toContain(".route-nav-link:nth-child(3) .route-nav-glyph");
+  expect(nav).toContain('kind="compose"');
+  expect(nav).toContain('className="route-nav-link route-nav-link--post"');
   expect(nav).toContain('fill={selected ? "currentColor" : "none"}');
 });
 
