@@ -17,7 +17,7 @@
  * separate subtrees agree on one number.
  */
 :root {
-  --wyn-bottom-nav-height: 50px;
+  --wyn-bottom-nav-height: 68px;
 }
 
 .route-with-bottom-nav {
@@ -48,7 +48,7 @@
   width: min(100%, 680px);
   height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
   min-height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
-  padding: 2px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
+  padding: 4px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
   background: var(--wyn-bg, var(--paper));
   border: 0;
   border-top: 1px solid var(--wyn-border, var(--hairline));
@@ -74,7 +74,7 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  padding: 1px 3px 2px;
+  padding: 4px 3px 5px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -174,7 +174,7 @@
 
 @media (max-width: 359px) {
   :root {
-    --wyn-bottom-nav-height: 48px;
+    --wyn-bottom-nav-height: 64px;
   }
 
   .route-nav-link {
