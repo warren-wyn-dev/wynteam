@@ -86,7 +86,7 @@ test("manual staging workflow separates reviewed-source checks and token-bearing
   assert.match(workflow, /\$\{\{ github\.ref \}\}/);
   assert.match(workflow, /refs\/heads\/main/);
   assert.match(checks, /npm ci --no-audit --no-fund/);
-  assert.match(checks, /npm run check/);
+  assert.match(checks, /^\s+run: npm run check$/m, "The unprivileged runner must actually execute the Web check");
   assert.match(checks, /npm run qa:browser/);
   assert.doesNotMatch(checks, /VERCEL_TOKEN|PRODUCTION_VERCEL_PROJECT_ID/);
   assert.match(staging, /needs: \[guard, checks\]/);
