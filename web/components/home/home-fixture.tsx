@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { HomeHeader } from "@/components/home/home-header";
@@ -117,6 +118,8 @@ const viewer: HomeViewerState = {
 const images = new Map<string, string[]>([["drop-4", [rows[3].image_url as string]]]);
 
 export function HomeFixture() {
+  const searchParams = useSearchParams();
+  const navState = searchParams.get("nav");
   const [mode, setMode] = useState<HomeFeedMode>("for-you");
   const [savedDropIds, setSavedDropIds] = useState<Set<string>>(new Set());
   const { toastMessage, toastAction, showToast, dismissToast } = useToast();
@@ -193,7 +196,13 @@ export function HomeFixture() {
           real app depends on instead of masking a cross-subtree bug. */}
       <BottomNavigation
         profileHref={`/profile/${VIEWER_ID}`}
-        isActive={(href) => href === "/"}
+        isActive={(href) => {
+          if (navState === "club") return href === "/clubs";
+          if (navState === "chat") return href === "/chat";
+          if (navState === "profile") return href === `/profile/${VIEWER_ID}`;
+          return navState !== "post" && href === "/";
+        }}
+        postActive={navState === "post"}
         chatUnreadCount={2}
       />
       <Toast message={toastMessage} action={toastAction} onDismiss={dismissToast} />
