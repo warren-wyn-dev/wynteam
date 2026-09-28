@@ -163,6 +163,12 @@ async function run() {
     await requireDenied(owner.rpc("set_club_channel_message_pin", {
       p_message_id: pinCandidates[3].id, p_pin: true,
     }), "fourth pin (three-pin server limit)");
+    unwrap(await clients.developer_admin.rpc("set_club_channel_message_pin", {
+      p_message_id: pinCandidates[2].id, p_pin: false,
+    }), "Admin unpin");
+    unwrap(await clients.developer_moderator.rpc("set_club_channel_message_pin", {
+      p_message_id: pinCandidates[2].id, p_pin: true,
+    }), "Moderator repin");
     const pinState = unwrap(await owner.from("club_channel_messages").select("pinned_at")
       .eq("id", originalMessage.id).single(), "Check pinned edit candidate");
     assert.ok(pinState.pinned_at, "Expected pre-edit pin");
@@ -234,6 +240,7 @@ async function run() {
       try { await client.auth.signOut({ scope: "local" }); } catch { /* ephemeral test client */ }
     }
   }
+  if (process.exitCode) throw new Error("Synthetic staging QA cleanup is incomplete");
   console.log("PASS Staging-only authenticated Club Chat and Club Announcements role QA");
 }
 
