@@ -41,7 +41,7 @@ process existed. The Founder chose to keep them live.
   member fan-out and drops the developer gates (its own SQL approval), after the Founder decides how
   to handle Flutter users.
 
-## Verified 2026-09-27 rollout state
+## Verified through 2026-09-28 rollout state
 
 - WYN-159 / PR #735, WYN-137 / PR #745, and WYN-135 / PR #741 are merged
   developer-only. All three `BETA2_RELEASED` entries remain `false`.
@@ -49,8 +49,15 @@ process existed. The Founder chose to keep them live.
   exact-SHA-256 gate, and read-only Production SQL confirms three columns,
   three indexes and four developer-only RPCs. **Do not re-run the migration.**
 - Existing per-PR protected Vercel previews still share Production Supabase;
-  an isolated Free staging database now exists but has no test Auth users or
-  protected Vercel runtime yet. See `WEB_STAGING.md` and Issue #749.
+  do not run destructive or migration QA against them. A distinct Free Supabase
+  Staging database and protected Vercel project now exist. The workflow-only
+  isolated pilot [#36347104318](https://github.com/warren-wyn-dev/wynteam/actions/runs/36347104318)
+  successfully deployed the pinned combined Beta2 snapshot, passed the
+  exact-project guard, Vercel SSO redirect, route smoke and hosted browser QA,
+  and revoked the QA bypass on 2026-09-28. The seven synthetic staging users
+  and authenticated role-denial E2E are **not** complete; see `WEB_STAGING.md`
+  and Issue #749. One unrelated staging Auth user had no profile at the latest
+  read-only count and must not be reused or deleted without identifying it.
 - Automated CI and production route smoke passed on the merged baseline.
   Real signed-in developer and non-developer denial tests remain PENDING in
   Issue #748; none of these changes authorizes public Beta2 release.
