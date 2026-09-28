@@ -1,4 +1,5 @@
 name: WYNOS Web Beta 2 Home Polish Certification
+# Retry marker: approved Beta 2 palette expectations are locked below.
 
 on:
   push:
