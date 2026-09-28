@@ -84,7 +84,7 @@
   color: var(--wyn-text-muted);
   text-decoration: none;
   font-size: 11px;
-  line-height: 1.05;
+  line-height: 1.35;
   font-weight: 500;
   -webkit-tap-highlight-color: transparent;
   transition: transform var(--wyn-motion-duration) var(--wyn-motion-easing);
@@ -111,10 +111,15 @@
 }
 
 .route-nav-link > span:last-child {
+  display: block;
+  width: 100%;
   max-width: 100%;
+  min-height: 1.35em;
+  padding-block: 1px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-align: center;
 }
 
 .route-nav-glyph {
