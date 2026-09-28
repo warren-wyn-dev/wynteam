@@ -1,0 +1,221 @@
+name: WYNOS Web Beta 2 Staging
+
+# Long-lived Beta 2 branch. This workflow is intentionally isolated from
+# WYNOS Web Beta 1 production: it can deploy only the dedicated staging
+# Vercel project with the dedicated staging Supabase project.
+on:
+  push:
+    branches:
+      - web-beta2
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-beta2-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wynos-web-beta2-staging
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout exact Beta 2 commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fail closed unless Beta 2 is isolated
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          PRODUCTION_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          PRODUCTION_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          stage_url=$(clean "$STAGING_SUPABASE_URL")
+          prod_url=$(clean "$PRODUCTION_SUPABASE_URL")
+          stage_project=$(clean "$STAGING_VERCEL_PROJECT_ID")
+          prod_project=$(clean "$PRODUCTION_VERCEL_PROJECT_ID")
+
+          test "$GITHUB_REF" = "refs/heads/web-beta2" || {
+            echo "::error::Beta 2 staging may run only from refs/heads/web-beta2"
+            exit 1
+          }
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::Expected an immutable 40-character commit SHA"
+            exit 1
+          }
+          test "$stage_url" = "https://yydgdapzlrjmlrjgijkj.supabase.co" || {
+            echo "::error::Unexpected Supabase staging project"
+            exit 1
+          }
+          test "$prod_url" = "https://kqokpocajhfbidcxpvhh.supabase.co" || {
+            echo "::error::Unexpected Supabase production project"
+            exit 1
+          }
+          test "$stage_url" != "$prod_url"
+          test "$stage_project" = "prj_70GIbp0o056AOPsVUAie9CROED7r" || {
+            echo "::error::Unexpected Vercel staging project"
+            exit 1
+          }
+          test "$prod_project" = "prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a" || {
+            echo "::error::Unexpected Vercel production project"
+            exit 1
+          }
+          test "$stage_project" != "$prod_project"
+
+          # Prove the public key actually belongs to the staging Data API.
+          body=$(mktemp)
+          trap 'rm -f "$body"' EXIT
+          code=$(curl --silent --show-error --max-time 30             --output "$body" --write-out '%{http_code}'             --header "apikey: $STAGING_SUPABASE_PUBLISHABLE_KEY"             --header "Authorization: Bearer $STAGING_SUPABASE_PUBLISHABLE_KEY"             "$stage_url/rest/v1/profiles?select=id&limit=0")
+          test "$code" = "200" || {
+            echo "::error::Staging publishable key probe returned HTTP $code"
+            exit 1
+          }
+          node - "$body" <<'NODE'
+          const fs = require("node:fs");
+          const value = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          if (!Array.isArray(value) || value.length !== 0) {
+            console.error("Expected a zero-row staging Data API response.");
+            process.exit(1);
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify Beta 1 code baseline against staging configuration
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run check
+
+  browser_qa:
+    needs: checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Browser QA with staging public configuration
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run qa:browser
+
+  deploy:
+    needs:
+      - checks
+      - browser_qa
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Deploy preview to the dedicated Beta 2 Staging project only
+        id: deploy
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          PRODUCTION_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/web-beta2"
+          test "$STAGING_VERCEL_PROJECT_ID" = "prj_70GIbp0o056AOPsVUAie9CROED7r"
+          test "$PRODUCTION_VERCEL_PROJECT_ID" = "prj_bzoZIUdyxaRvXiSLG1uSfjDsyS5a"
+          test "$STAGING_VERCEL_PROJECT_ID" != "$PRODUCTION_VERCEL_PROJECT_ID"
+          test "$STAGING_SUPABASE_URL" = "https://yydgdapzlrjmlrjgijkj.supabase.co"
+
+          export VERCEL_PROJECT_ID="$STAGING_VERCEL_PROJECT_ID"
+          url=$(npx --yes vercel@60.1.3 deploy --yes             --token="$VERCEL_TOKEN"             --build-env NEXT_PUBLIC_SUPABASE_URL="$STAGING_SUPABASE_URL"             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$STAGING_SUPABASE_PUBLISHABLE_KEY"             --build-env VERCEL_PREVIEW_FEEDBACK_ENABLED=0             --env NEXT_PUBLIC_SUPABASE_URL="$STAGING_SUPABASE_URL"             --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$STAGING_SUPABASE_PUBLISHABLE_KEY"             --env VERCEL_PREVIEW_FEEDBACK_ENABLED=0             | tail -n 1)
+
+          case "$url" in
+            https://*.vercel.app) ;;
+            *) echo "::error::Unexpected Vercel deployment URL"; exit 1 ;;
+          esac
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Beta 2 Staging preview: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow never uses --prod and never targets the WYNOS Web Beta 1 Vercel project." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create temporary staging protection bypass
+        env:
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          bypass=$(openssl rand -hex 16)
+          echo "::add-mask::$bypass"
+          echo "VERCEL_AUTOMATION_BYPASS_SECRET=$bypass" >> "$GITHUB_ENV"
+          curl --fail --silent --show-error --request PATCH             --url "https://api.vercel.com/v1/projects/$STAGING_VERCEL_PROJECT_ID/protection-bypass?teamId=$VERCEL_ORG_ID"             --header "Authorization: Bearer $VERCEL_TOKEN"             --header 'Content-Type: application/json'             --data "{\"generate\":{\"secret\":\"$bypass\",\"note\":\"WYNOS Web Beta 2 staging $GITHUB_RUN_ID\"}}"             > /dev/null
+
+      - name: Verify hosted Beta 2 is Next.js and uses only Staging Supabase
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          routes=(/ /search /notifications /chat /settings /profile/me /clubs /bookmarks /login /signup/step-1)
+          for route in "${routes[@]}"; do
+            code=$(curl --silent --show-error --max-time 30               --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"               --output /tmp/route.html --write-out '%{http_code}'               "$PREVIEW_URL$route")
+            test "$code" = "200" || {
+              echo "::error::$route returned HTTP $code"
+              exit 1
+            }
+          done
+
+          html=$(curl --fail --silent --show-error --max-time 30             --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"             "$PREVIEW_URL/")
+          grep -q '/_next/' <<< "$html"
+          grep -q 'yydgdapzlrjmlrjgijkj.supabase.co' <<< "$html" || {
+            echo "::error::Hosted Beta 2 does not contain the staging Supabase origin"
+            exit 1
+          }
+          if grep -q 'kqokpocajhfbidcxpvhh.supabase.co' <<< "$html"; then
+            echo "::error::Production Supabase origin leaked into Beta 2 Staging"
+            exit 1
+          fi
+
+      - name: Revoke temporary staging protection bypass
+        if: always()
+        env:
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            exit 0
+          fi
+          curl --fail --silent --show-error --request PATCH             --url "https://api.vercel.com/v1/projects/$STAGING_VERCEL_PROJECT_ID/protection-bypass?teamId=$VERCEL_ORG_ID"             --header "Authorization: Bearer $VERCEL_TOKEN"             --header 'Content-Type: application/json'             --data "{\"revoke\":{\"secret\":\"$VERCEL_AUTOMATION_BYPASS_SECRET\",\"regenerate\":false}}"             > /dev/null
