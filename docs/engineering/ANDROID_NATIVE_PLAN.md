@@ -193,6 +193,26 @@ Still open in M1:
   home screen" help item is for the web app only and is left out of the installed Android app.
 - **Next: M7b Settings (privacy, notifications, account, password, theme, language, legal) and Wynii.**
 
+## M7b status (settings and Wynii)
+
+- **Settings** (web settings-route): Account (change password, blocked and muted accounts with unblock / unmute,
+  export my data as a JSON file you save, delete account after two confirmations, then sign out), Privacy (private
+  account, who may message / mention / comment, who sees likes, show online status; optimistic with rollback),
+  Notifications (the M4 screen), Theme (system / light / dark), Language (ไทย / English), Help, Terms and Privacy
+  (the six platform documents), and sign out after confirming.
+- **Change password** (web settings-change-password / account-password): the web's form rules (12+ characters,
+  different, matching); the current password is checked on a separate client that never stores or refreshes a
+  session, the signed-in account is checked again before `updateUser`, and the web's messages are shown.
+- **Theme and language** apply on this phone at once and are saved to `user_preferences`; on sign-in the account's
+  choice wins and an account with none drops the previous account's (web ThemeSync / LanguageSync). The language
+  rebuilds the screen; app bundles keep both languages (`bundle.language.enableSplit = false`).
+- **Wynii** (web wynii-chat) in the conversation header: the "Wynii …" pill beside @username, the ⋯ menu (view
+  profile, see Wynii, or start one in an accepted conversation), and the sheet with the pet drawn from the web's art
+  for each stage, this round's status for both people, growth to the next milestone and the rule. It refreshes when
+  new messages arrive.
+- **Next: M8 Play Store release — needs Founder approval** (signing, store listing, App Links / assetlinks.json,
+  Firebase and Google sign-in configuration).
+
 ## Risks
 
 - Scope: ~40 web screens and months of web work. Mitigation: milestones, each usable on its own.

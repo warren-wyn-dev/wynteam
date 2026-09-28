@@ -56,6 +56,16 @@ import io.wyn.wyn.core.data.ClubRepository
 import io.wyn.wyn.core.data.SupabaseClubRepository
 import io.wyn.wyn.core.data.DiscoveryRepository
 import io.wyn.wyn.core.data.SupabaseDiscoveryRepository
+import io.wyn.wyn.core.data.DevicePreferences
+import io.wyn.wyn.core.data.SettingsRepository
+import io.wyn.wyn.core.data.SupabaseSettingsRepository
+import io.wyn.wyn.feature.chat.WyniiViewModel
+import io.wyn.wyn.feature.settings.DeviceAppearance
+import io.wyn.wyn.feature.settings.InMemoryAppearance
+import io.wyn.wyn.feature.settings.SettingsActions
+import io.wyn.wyn.feature.settings.SettingsScreen
+import io.wyn.wyn.feature.settings.SettingsViewModel
+import androidx.compose.ui.platform.LocalContext
 import io.wyn.wyn.feature.search.BookmarksScreen
 import io.wyn.wyn.feature.search.BookmarksViewModel
 import io.wyn.wyn.feature.search.SearchNavigation
@@ -135,10 +145,13 @@ data class Repositories(
     val chat: ChatRepository,
     val clubs: ClubRepository,
     val discovery: DiscoveryRepository,
+    val settings: SettingsRepository,
     val push: PushController? = null,
+    /** This phone's theme and language (null in tests: they follow the phone). */
+    val device: DevicePreferences? = null,
 ) {
     companion object {
-        fun supabase(client: SupabaseClient?, push: PushController? = null): Repositories {
+        fun supabase(client: SupabaseClient?, push: PushController? = null, device: DevicePreferences? = null): Repositories {
             val quotes = SupabaseQuoteRepository(client)
             val profiles = SupabaseProfileRepository(client, quotes)
             val clubs = SupabaseClubRepository(client)
@@ -152,7 +165,9 @@ data class Repositories(
                 chat = SupabaseChatRepository(client),
                 clubs = clubs,
                 discovery = SupabaseDiscoveryRepository(client, profiles, clubs, quotes),
+                settings = SupabaseSettingsRepository(client),
                 push = push,
+                device = device,
             )
         }
     }
@@ -262,11 +277,21 @@ fun SignedInApp(
     var composerSession by rememberSaveable(userId) { mutableIntStateOf(0) }
     var editSession by rememberSaveable(userId) { mutableIntStateOf(0) }
     var clubSession by rememberSaveable(userId) { mutableIntStateOf(0) }
+    var settingsSession by rememberSaveable(userId) { mutableIntStateOf(0) }
+    val appearance = remember(repos.device) { repos.device?.let(::DeviceAppearance) ?: InMemoryAppearance() }
+    val activity = androidx.activity.compose.LocalActivity.current
+    // web ThemeSync / LanguageSync: the account's saved choice wins and is kept on this phone;
+    // an account that never chose drops the previous account's choice. A failed read keeps it.
+    LaunchedEffect(userId) {
+        runCatching { repos.settings.theme(userId) }.onSuccess { saved -> if (saved != appearance.theme) appearance.applyTheme(saved) }
+        runCatching { repos.settings.language(userId) }.onSuccess { saved -> if (appearance.applyLanguage(saved)) activity?.recreate() }
+    }
     fun openComposer(draftId: String?) {
         composerSession += 1
         composer = draftId.orEmpty()
     }
     fun openProfile(id: String) = push(Screen.Profile(id))
+    fun openSettings() { settingsSession += 1; push(Screen.Settings) }
     val badge: UnreadBadge = viewModel(key = "badge:$userId", factory = viewModelFactory { initializer { UnreadBadge(repos.notifications, userId) } })
     // web notification-count.ts: while the app is open, a push for this account, and a gentle poll.
     LifecycleResumeEffect(userId) {
@@ -339,7 +364,7 @@ fun SignedInApp(
         onEdit = { editSession += 1; push(Screen.EditProfile) },
         onFollows = { kind -> push(Screen.Follows(profileId, kind)) },
         onMessage = { push(Screen.Conversation(null, profileId)) },
-        onSettings = { push(Screen.Settings) },
+        onSettings = { openSettings() },
     )
 
     MainShell(
@@ -372,7 +397,7 @@ fun SignedInApp(
             onCreateClub = { clubSession += 1; push(Screen.CreateClub) },
             onMyClubs = { push(Screen.MyClubs) },
             onBookmarks = { push(Screen.Bookmarks) },
-            onSettings = { push(Screen.Settings) },
+            onSettings = { openSettings() },
         ),
         onClose = { drawerOpen = false },
     )
@@ -433,8 +458,22 @@ fun SignedInApp(
                     EditProfileScreen(edit, onClose = ::close)
                 }
             }
-            Screen.Settings -> BackTitled(stringResource(R.string.settings), ::pop) {
-                SettingsRoot(vm, onNotifications = { push(Screen.NotificationSettings) })
+            Screen.Settings -> {
+                val settings: SettingsViewModel = viewModel(
+                    key = "settings:$userId:$settingsSession",
+                    factory = viewModelFactory { initializer { SettingsViewModel(repos.settings, appearance, userId) } },
+                )
+                SettingsScreen(
+                    settings,
+                    SettingsActions(
+                        onClose = ::pop,
+                        onNotifications = { push(Screen.NotificationSettings) },
+                        onSignOut = vm::signOut,
+                        onForgotPassword = { vm.navigate(io.wyn.wyn.feature.auth.Route.ForgotPassword) },
+                        onOpenProfile = ::openProfile,
+                    ),
+                    versionLabel = stringResource(R.string.version_label),
+                )
             }
             Screen.Notifications -> {
                 val list: NotificationsViewModel = viewModel(
@@ -558,10 +597,15 @@ fun SignedInApp(
                         }
                     }
                 }
+                // web WyniiConversationHeader: only for a conversation that exists.
+                val pet: WyniiViewModel? = conversation.conversationId?.let { id ->
+                    viewModel(key = "wynii:$userId:$id", factory = viewModelFactory { initializer { WyniiViewModel(repos.chat, userId, id) } })
+                }
                 ConversationScreen(
                     conversation, repos.chat,
                     onBack = { pop(); inbox.load() },
                     onOpenProfile = ::openProfile,
+                    wynii = pet,
                 )
             }
         }
@@ -599,27 +643,6 @@ private data class NotificationTargetLike(
     companion object {
         fun of(item: NotificationItem) = NotificationTargetLike(item.conversationId, item.dropId, item.popId, item.clubPostId, item.clubId, item.actorId)
         fun of(target: PushTarget) = NotificationTargetLike(target.conversationId, target.dropId, target.popId, target.clubPostId, target.clubId, target.actorId)
-    }
-}
-
-/** Settings until M7: notifications, accounts on this phone, sign out and the version. */
-@Composable
-private fun SettingsRoot(vm: AccountFlowViewModel, onNotifications: () -> Unit) {
-    val c = Wyn.colors
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
-        androidx.compose.foundation.layout.Row(
-            Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
-                .border(1.dp, c.border, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
-                .clickable(role = Role.Button, onClick = onNotifications).padding(horizontal = 14.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(WynIcons.Bell, contentDescription = null, tint = c.text, modifier = Modifier.size(19.dp))
-            Text(stringResource(R.string.notifications_title), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f).padding(start = 12.dp))
-            Icon(WynIcons.ChevronRight, contentDescription = null, tint = c.textSecondary, modifier = Modifier.size(18.dp))
-        }
-        io.wyn.wyn.feature.profile.PillButton(stringResource(R.string.sign_out_label), filled = false, outlined = true, enabled = !vm.homeBusy, modifier = Modifier.fillMaxWidth()) { vm.signOut() }
-        io.wyn.wyn.core.design.ErrorText(vm.homeMessage.text())
-        Text(stringResource(R.string.version_label), color = c.textMuted, fontSize = 11.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
