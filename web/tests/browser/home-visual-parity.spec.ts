@@ -38,7 +38,7 @@ test("Home header is balanced while keeping the approved feed tabs", async ({ pa
   await expect(page.locator(".wyn-home-logo")).toHaveCSS("width", "27px");
   await expect(page.locator(".wyn-home-logo")).toHaveCSS("height", "27px");
   await expect(page.locator(".wyn-home-title")).toHaveCSS("font-size", "18px");
-  await expect(page.getByRole("tab", { name: "กำลังติดตาม" })).toHaveCSS("color", "rgb(117, 122, 132)");
+  await expect(page.getByRole("tab", { name: "กำลังติดตาม" })).toHaveCSS("color", "rgb(141, 147, 156)");
 
   const [homeBox, indicatorBox] = await Promise.all([home.boundingBox(), indicator.boundingBox()]);
   expect(homeBox).not.toBeNull();
@@ -109,7 +109,7 @@ test("first post matches compact avatar author caption and action geometry", asy
   await expect(post.locator(".wyn-post-author-name")).toHaveCSS("font-size", "15px");
   await expect(post.locator(".wyn-post-timestamp")).toHaveCSS("font-size", "14px");
   await expect(redrop).toHaveCSS("font-size", "14px");
-  await expect(redrop).toHaveCSS("color", "rgb(115, 115, 120)");
+  await expect(redrop).toHaveCSS("color", "rgb(141, 147, 156)");
   await expect(redrop.locator("svg")).toHaveCSS("width", "16px");
   await expect(actions).toHaveCSS("min-height", "30px");
   await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "22px");
@@ -120,7 +120,7 @@ test("first post matches compact avatar author caption and action geometry", asy
   // and an open-top U-shaped tray rather than the previous house-like box.
   await expect(shareIcon.locator("path")).toHaveCount(1);
   await expect(shareIcon.locator("path")).toHaveAttribute("d", /M4\.75 11\.75v7\.1/);
-  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(139, 145, 155)");
+  await expect(actions.locator(".wyn-action-button").nth(1)).toHaveCSS("color", "rgb(133, 140, 150)");
   // This Thai fixture is shorter than 190 displayed graphemes. The updated
   // truncation rule must not show a redundant "ดูเพิ่มเติม" control.
   await expect(moreText).toHaveCount(0);
