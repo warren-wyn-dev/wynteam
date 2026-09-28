@@ -35,7 +35,8 @@ android {
         applicationId = "io.wyn.wyn"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        // Raised for every Play upload (the release workflow passes its run number).
+        versionCode = config("WYNOS_VERSION_CODE").toIntOrNull() ?: 1
         versionName = "1.0.0-beta1"
 
         buildConfigField("String", "SUPABASE_URL", "\"${config("WYNOS_SUPABASE_URL")}\"")

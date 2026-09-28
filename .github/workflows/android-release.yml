@@ -1,0 +1,76 @@
+name: Android release bundle
+
+# Builds the signed Play Store bundle (.aab) for Wynos Android
+# (docs/engineering/ANDROID_RELEASE.md). Run by hand from main only; the
+# bundle is kept as a workflow artifact for 7 days and uploaded to Play
+# Console by the Founder. Nothing is published from here.
+#
+# Secrets (repository or `android-release` environment secrets):
+#   ANDROID_UPLOAD_KEYSTORE_BASE64, ANDROID_UPLOAD_STORE_PASSWORD,
+#   ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD   (upload key)
+#   SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY                  (existing web values)
+#   FIREBASE_PROJECT_ID, FIREBASE_MESSAGING_SENDER_ID       (existing web values)
+#   FIREBASE_ANDROID_APP_ID, FIREBASE_ANDROID_API_KEY       (Firebase Android app io.wyn.wyn)
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    name: Signed release bundle
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: android-release
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Tests
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug
+      - name: Build signed bundle
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          WYNOS_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          WYNOS_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          WYNOS_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          WYNOS_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          WYNOS_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          WYNOS_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          WYNOS_FIREBASE_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          WYNOS_FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          WYNOS_FIREBASE_ANDROID_API_KEY: ${{ secrets.FIREBASE_ANDROID_API_KEY }}
+          # Play needs a higher version code for every upload.
+          WYNOS_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          for name in KEYSTORE_BASE64 WYNOS_UPLOAD_STORE_PASSWORD WYNOS_UPLOAD_KEY_ALIAS WYNOS_UPLOAD_KEY_PASSWORD \
+            WYNOS_SUPABASE_URL WYNOS_SUPABASE_PUBLISHABLE_KEY WYNOS_FIREBASE_PROJECT_ID WYNOS_FIREBASE_SENDER_ID \
+            WYNOS_FIREBASE_ANDROID_APP_ID WYNOS_FIREBASE_ANDROID_API_KEY; do
+            test -n "${!name}" || { echo "::error::$name is not set"; exit 1; }
+          done
+          export WYNOS_UPLOAD_STORE_FILE="$RUNNER_TEMP/upload.jks"
+          trap 'rm -f "$WYNOS_UPLOAD_STORE_FILE"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$WYNOS_UPLOAD_STORE_FILE"
+          ./gradlew --no-daemon bundleRelease
+          verified=$(jarsigner -verify app/build/outputs/bundle/release/app-release.aab)
+          grep -q "jar verified." <<< "$verified" || { echo "::error::the bundle is not signed"; exit 1; }
+          echo "Built versionCode $WYNOS_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wynos-android-${{ github.run_number }}
+          path: |
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/mapping/release/mapping.txt
+          retention-days: 7
+          if-no-files-found: error
