@@ -146,8 +146,10 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain('className={`route-nav-glyph route-nav-glyph--${kind}`}');
   expect(navCss).toContain("--wyn-nav-active: #111111");
   expect(navCss).toContain("--wyn-nav-inactive: #8e8e93");
-  expect(navCss).toContain("color: currentColor");
-  expect(navCss).toContain(".route-nav-link:active .route-nav-glyph");
+  expect(nav).toContain('route-nav-glyph-cutout');
+  expect(nav).toContain('route-nav-glyph--filled');
+  expect(nav).toContain("NAV_ACTIVE_ICON_PATHS");
+  expect(navCss).toContain("--wyn-nav-icon: #111111");
   expect(nav).toContain('postActive={postActive}');
   expect(nav).toContain('postActive ? "active" : ""');
   expect(navCss).toContain("gap: 5px");
