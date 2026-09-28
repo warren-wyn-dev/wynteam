@@ -119,6 +119,37 @@ not inferred or modified. No complete seven-user synthetic fixture exists yet.
 Merging `web/**` still auto-deploys Production; obtain separate authorized
 review/merge for PRs #750 and #752. No public Beta2 feature flag is enabled.
 
+### Secure manual workflow revision (PR #750; 2026-09-28)
+
+After independent review identified same-runner credential persistence risk,
+the proposed manual workflow was revised to require `refs/heads/main`,
+freeze the immutable `github.sha` at dispatch, and use **separate runners**:
+
+1. The unprivileged `checks` runner checks out the reviewed SHA, installs
+   dependencies and runs `npm run check` plus the full local Playwright
+   Chromium/WebKit QA with the isolated staging publishable configuration.
+   It has **no Vercel token or production Vercel identifiers**.
+2. Only after those checks pass, a fresh `staging` runner checks out the
+   same SHA, revalidates exact isolated project IDs and distinct publishable
+   keys, verifies preview protection, and uses the pinned Vercel CLI to deploy.
+   It checks anonymous SSO redirection and protected route smoke, then always
+   attempts to revoke the temporary protection bypass. It **never runs
+   `npm ci`, app test code or browser QA** with deployment credentials.
+
+The already successful independent pilot run #36347104318 tested the pinned
+Beta2 integration snapshot with hosted browser QA. Unlike that original
+pilot, this revised workflow deliberately runs full browser/fixture QA on a
+tokenless local runner and protected **route smoke** on the isolated deployment:
+it does not label route smoke as hosted browser E2E, and it still cannot
+replace signed-in seven-role staging UAT. The isolated proposed workflow
+cannot be dispatched from a feature branch and remains **unmerged**. Never
+change the legacy production-backed PR previews implicitly.
+
+The staging role runner now matches both PostgreSQL error code and the exact
+expected authorization/cap-denial message. Missing RPCs, network outages,
+unrelated constraint errors and unexpected failures cannot count as PASS.
+Its offline tests include regression cases for these false positives.
+
 ### Manual authenticated staging role QA (separate from green hosted preview)
 
 The staging-only bootstrap script in PR #750 generates seven synthetic accounts,
