@@ -96,8 +96,26 @@ test("manual staging workflow separates reviewed-source checks and token-bearing
   assert.match(staging, /id: deploy\n\s+(?:#[^\n]*\n\s+)*working-directory: \./,
     "Staging Vercel Root Directory is web, so CLI must run at repository root");
   assert.match(staging, /Approved isolated project identities verified/);
+  assert.match(staging, /profiles\\?select=id&limit=0/,
+    "The staging publishable key must be tested through an actual zero-row Data API call");
+  assert.match(staging, /if \[ "\$status" != '200' \]; then/,
+    "A mismatched project key must fail closed");
+  assert.match(staging, /All protected staging routes returned app HTML/);
+  assert.match(staging, /grep -q '\/_next\/'/);
+  assert.match(staging, /Unexpected\/SSO redirect during protected route/);
+  assert.doesNotMatch(staging, /^\s+curl[^\n]*--location\b/m,
+    "Protected curl must not send the temporary bypass to another origin");
   assert.doesNotMatch(staging, /node scripts\/assert-isolated-staging\.mjs/);
   assert.doesNotMatch(staging, /^\s+run: npm ci\b/m);
   assert.doesNotMatch(staging, /^\s+run: npm run check\b/m);
   assert.doesNotMatch(staging, /^\s+npm run qa:browser\b/m);
+});
+
+test("staging role QA restores only its own pins and proves message content changed", () => {
+  const roleQa = readFileSync(new URL("../scripts/verify-beta2-staging-roles.mjs", import.meta.url), "utf8");
+  assert.match(roleQa, /const qaPinned = new Set\(\)/);
+  assert.match(roleQa, /qaPinned\.add\(row\.id\)/);
+  assert.match(roleQa, /for \(const id of qaPinned\)/);
+  assert.doesNotMatch(roleQa, /for \(const row of remaining\.data/);
+  assert.match(roleQa, /assert\.equal\(edited\.content, expectedEditContent/);
 });
