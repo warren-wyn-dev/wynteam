@@ -53,6 +53,13 @@ jobs:
       - name: Install web dependencies (unprivileged runner only)
         run: npm ci --no-audit --no-fund
 
+      - name: Web check against staging-only public configuration
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run check
+
+
       # Full local browser QA covers the dev-only fixtures on this tokenless
       # runner. The fresh deploy runner below verifies protected remote routes.
       - name: Local browser QA without production accounts or Vercel token
@@ -141,12 +148,6 @@ jobs:
           }
           console.log("Distinct Vercel project and preview Vercel Authentication verified.");
           NODE
-
-      - name: Web check against staging-only public configuration
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
-        run: npm run check
 
       - name: Deploy to staging Vercel project, preview only (never production)
         id: deploy
