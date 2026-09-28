@@ -41,6 +41,7 @@
   --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);
   --wyn-nav-active: #111111;
   --wyn-nav-inactive: #8e8e93;
+  --wyn-nav-icon: #111111;
   position: fixed;
   z-index: 70;
   left: 50%;
@@ -130,7 +131,7 @@
   height: 32px;
   display: block;
   flex: 0 0 32px;
-  color: currentColor;
+  color: var(--wyn-nav-icon);
   transform: scale(var(--wyn-nav-glyph-scale));
   transform-origin: 50% 50%;
 }
@@ -197,12 +198,14 @@
   :root:not([data-theme="light"]) .route-bottom-nav {
     --wyn-nav-active: #f5f5f7;
     --wyn-nav-inactive: #8e8e93;
+    --wyn-nav-icon: #f5f5f7;
   }
 }
 
 :root[data-theme="dark"] .route-bottom-nav {
   --wyn-nav-active: #f5f5f7;
   --wyn-nav-inactive: #8e8e93;
+  --wyn-nav-icon: #f5f5f7;
 }
 
 @media (min-width: 681px) {
