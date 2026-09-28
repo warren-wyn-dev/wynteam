@@ -12,7 +12,8 @@ test("Beta 2 Home keeps the approved Threads layout while softening secondary ch
   const timestamp = post.locator(".wyn-post-timestamp");
   const actions = post.locator(".wyn-post-actions.wyn-threads-actions");
   const idleAction = actions.locator(".wyn-action-button:not(.is-liked):not(.is-active)").first();
-  const count = actions.locator(".wyn-action-button-count").first();
+  const idleCount = idleAction.locator(".wyn-action-button-count").first();
+  const likedCount = actions.locator(".wyn-action-button.is-liked .wyn-action-button-count").first();
   const save = actions.locator(".wyn-action-save");
   const inactiveNav = page.locator(".route-nav-link:not(.active)").first();
 
@@ -26,9 +27,12 @@ test("Beta 2 Home keeps the approved Threads layout while softening secondary ch
   await expect(composer).toHaveCSS("border-bottom-color", "rgb(237, 240, 242)");
   await expect(timestamp).toHaveCSS("color", "rgb(141, 147, 156)");
   await expect(idleAction).toHaveCSS("color", "rgb(133, 140, 150)");
-  if (await count.count()) {
-    await expect(count).toHaveCSS("color", "rgb(154, 160, 169)");
-    await expect(count).toHaveCSS("font-weight", "400");
+  if (await idleCount.count()) {
+    await expect(idleCount).toHaveCSS("color", "rgb(154, 160, 169)");
+    await expect(idleCount).toHaveCSS("font-weight", "400");
+  }
+  if (await likedCount.count()) {
+    await expect(likedCount).toHaveCSS("color", "rgb(255, 59, 48)");
   }
   await expect(inactiveNav).toHaveCSS("color", "rgb(138, 144, 153)");
 
