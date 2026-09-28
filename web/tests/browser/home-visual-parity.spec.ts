@@ -169,12 +169,12 @@ test("feed density keeps short posts short instead of article-sized", async ({ p
   expect(thirdBox?.height ?? 999).toBeLessThan(150);
 });
 
-test("bottom navigation stays compact and preserves all five WYNOS destinations", async ({ page }) => {
+test("bottom navigation keeps readable labels and all five WYNOS destinations", async ({ page }) => {
   const nav = page.locator(".route-bottom-nav");
   const links = nav.locator(".route-nav-link");
 
   await expect(nav).toHaveCSS("position", "fixed");
-  await expect(nav).toHaveCSS("height", "50px");
+  await expect(nav).toHaveCSS("height", "68px");
   await expect(links).toHaveCount(5);
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) {
     await expect(nav.getByText(label, { exact: true })).toBeVisible();
