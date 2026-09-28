@@ -110,12 +110,14 @@ const APPLE_STARTUP_IMAGES: { url: string; media: string }[] = [
 // own browser chrome. Added back explicitly via `other`. `startupImage`,
 // unlike `capable`, IS emitted correctly by this version (verified against
 // node_modules/next/dist/lib/metadata/metadata.js) — no workaround needed.
-// Founder-approved native iOS status bar: "default" reserves its own white
-// status area with dark clock/icons, so every screen (including Profile)
-// starts BELOW the system chrome. Do not recreate an in-page status overlay.
-// iOS may cache this metadata when the Home Screen app is installed:
-// an existing shortcut may need to be removed and added again.
-export const metadata:Metadata={metadataBase:new URL(SITE_URL),...shareMetadata("WYNOS","WYNOS social web"),appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
+// WYNOS Web Beta 2 deliberately uses the translucent installed-iOS viewport
+// because the Founder-approved Beta 1 Home Screen app currently renders this
+// way on the real iPhone baseline: the app/backdrop extends behind the system
+// status area, so the 92dvh composer begins at the same ~8% screen offset.
+// Keep the current safe-area CSS; only the native viewport mode differs.
+// iOS caches this metadata at installation time, so an existing Beta 2 Home
+// Screen shortcut must be removed and added again after this change.
+export const metadata:Metadata={metadataBase:new URL(SITE_URL),...shareMetadata("WYNOS","WYNOS social web"),appleWebApp:{capable:true,statusBarStyle:"black-translucent",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
 // Zoom is off, like a native app: Founder decision 2026-09-16 (#479),
 // reconfirmed 2026-09-26 after #687 had re-enabled it ("ปิดการซูมทั้งหมด").
 // maximumScale 1 also stops iOS zooming into text fields under 16px on focus.
