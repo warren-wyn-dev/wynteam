@@ -91,7 +91,29 @@ jobs:
           STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
           PRODUCTION_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-        run: node scripts/assert-isolated-staging.mjs
+        # Inline verified guards only: no repository code or dependency lifecycle
+        # is executed on this fresh runner before the deploy token is provided.
+        run: |
+          set -euo pipefail
+          case "$STAGING_SUPABASE_URL" in
+            https://yydgdapzlrjmlrjgijkj.supabase.co|https://yydgdapzlrjmlrjgijkj.supabase.co/) ;;
+            *) echo "::error::Unapproved staging Supabase project"; exit 1 ;;
+          esac
+          case "$PRODUCTION_SUPABASE_URL" in
+            https://kqokpocajhfbidcxpvhh.supabase.co|https://kqokpocajhfbidcxpvhh.supabase.co/) ;;
+            *) echo "::error::Unexpected production Supabase identity"; exit 1 ;;
+          esac
+          if [[ "$STAGING_SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* ||
+                -z "$PRODUCTION_SUPABASE_PUBLISHABLE_KEY" ||
+                "$STAGING_SUPABASE_PUBLISHABLE_KEY" == "$PRODUCTION_SUPABASE_PUBLISHABLE_KEY" ||
+                "$STAGING_VERCEL_PROJECT_ID" != 'prj_70GIbp0o056AOPsVUAie9CROED7r' ||
+                "$PRODUCTION_VERCEL_PROJECT_ID" != prj_* ||
+                "$STAGING_VERCEL_PROJECT_ID" == "$PRODUCTION_VERCEL_PROJECT_ID" ||
+                -z "$VERCEL_ORG_ID" ]]; then
+            echo "::error::Isolated staging credentials or project identity mismatch"
+            exit 1
+          fi
+          echo "Approved isolated project identities verified; no repository code executed."
 
       - name: Verify the distinct Vercel staging project requires authentication
         env:
