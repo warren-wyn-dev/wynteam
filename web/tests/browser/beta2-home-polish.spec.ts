@@ -25,7 +25,7 @@ test("Beta 2 Home keeps the approved Threads layout while softening secondary ch
 
   await expect(tabs).toHaveCSS("border-bottom-color", "rgb(237, 240, 242)");
   await expect(composer).toHaveCSS("border-bottom-color", "rgb(237, 240, 242)");
-  await expect(composer).toHaveCSS("min-height", "58px");
+  await expect(composer).toHaveCSS("min-height", "60px");
   await expect(page.getByRole("tab", { name: "สำหรับคุณ" })).toHaveCSS("font-size", "17px");
   await expect(timestamp).toHaveCSS("color", "rgb(141, 147, 156)");
   await expect(idleAction).toHaveCSS("color", "rgb(133, 140, 150)");
