@@ -131,10 +131,14 @@ freeze the immutable `github.sha` at dispatch, and use **separate runners**:
    It has **no Vercel token or production Vercel identifiers**.
 2. Only after those checks pass, a fresh `staging` runner checks out the
    same SHA, revalidates exact isolated project IDs and distinct publishable
-   keys, verifies preview protection, and uses the pinned Vercel CLI to deploy.
-   It checks anonymous SSO redirection and protected route smoke, then always
-   attempts to revoke the temporary protection bypass. It **never runs
-   `npm ci`, app test code or browser QA** with deployment credentials.
+   keys, probes the staging Supabase public Data API with a zero-row request
+   to prove the publishable key actually belongs to the approved project,
+   verifies preview protection, and uses the pinned Vercel CLI from repository
+   root to deploy. It checks anonymous SSO redirection and requires real
+   Next.js app HTML for each protected route (never accepts Vercel SSO login
+   HTML, and never forwards the bypass across origins), then always attempts
+   to revoke the temporary protection bypass. It **never runs `npm ci`,
+   app test code or browser QA** with deployment credentials.
 
 The already successful independent pilot run #36347104318 tested the pinned
 Beta2 integration snapshot with hosted browser QA. Unlike that original
@@ -149,6 +153,9 @@ The staging role runner now matches both PostgreSQL error code and the exact
 expected authorization/cap-denial message. Missing RPCs, network outages,
 unrelated constraint errors and unexpected failures cannot count as PASS.
 Its offline tests include regression cases for these false positives.
+The live role acceptance runner also asserts the requested edited text was
+persisted and tracks only pin IDs changed by that test invocation: failed QA
+must never clear pre-existing pins or mask incomplete cleanup.
 
 ### Manual authenticated staging role QA (separate from green hosted preview)
 
