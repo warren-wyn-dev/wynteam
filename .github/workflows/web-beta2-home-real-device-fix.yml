@@ -1,4 +1,5 @@
 name: WYNOS Web Beta 2 Home Real-Device Fix
+# Retry: compact composer corrected to 60px.
 
 on:
   push:
