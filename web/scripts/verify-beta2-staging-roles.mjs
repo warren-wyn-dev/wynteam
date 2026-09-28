@@ -81,6 +81,8 @@ async function run() {
   const clients = {};
   let owner, member, moderator, nondevMember, outsider, nondevOutsider;
   let firstChannel, originalMessage, announcementId = null;
+  // Track ONLY the pin changes made by this run; never clear pre-existing pins.
+  const qaPinned = new Set();
   const firstClub = manifest.clubs[0].id;
   const secondClub = manifest.clubs[1].id;
 
@@ -167,30 +169,36 @@ async function run() {
       p_message_id: originalMessage.id, p_pin: true,
     }), "nondeveloper pin", "P0001", /Club chat actions are not available yet/);
 
-    for (const row of pinCandidates.slice(0, 3))
+    for (const row of pinCandidates.slice(0, 3)) {
       unwrap(await owner.rpc("set_club_channel_message_pin", {
         p_message_id: row.id, p_pin: true,
       }), "Pin synthetic message");
+      qaPinned.add(row.id);
+    }
     await requireDenied(owner.rpc("set_club_channel_message_pin", {
       p_message_id: pinCandidates[3].id, p_pin: true,
     }), "fourth pin (three-pin server limit)", "P0001", /Pin limit reached/);
     unwrap(await clients.developer_admin.rpc("set_club_channel_message_pin", {
       p_message_id: pinCandidates[2].id, p_pin: false,
     }), "Admin unpin");
+    qaPinned.delete(pinCandidates[2].id);
     unwrap(await clients.developer_moderator.rpc("set_club_channel_message_pin", {
       p_message_id: pinCandidates[2].id, p_pin: true,
     }), "Moderator repin");
+    qaPinned.add(pinCandidates[2].id);
     const pinState = unwrap(await owner.from("club_channel_messages").select("pinned_at")
       .eq("id", originalMessage.id).single(), "Check pinned edit candidate");
     assert.ok(pinState.pinned_at, "Expected pre-edit pin");
+    const expectedEditContent = "Beta2 synthetic editing and unpin " + manifest.suffix;
     unwrap(await member.rpc("edit_club_channel_message", {
-      p_message_id: originalMessage.id,
-      p_content: "Beta2 synthetic editing and unpin " + manifest.suffix,
+      p_message_id: originalMessage.id, p_content: expectedEditContent,
     }), "Author edit");
     const edited = unwrap(await owner.from("club_channel_messages")
       .select("edited_at,pinned_at,content").eq("id", originalMessage.id).single(),
     "Read edited synthetic message");
+    assert.equal(edited.content, expectedEditContent, "Author edit must persist the requested message text");
     assert.ok(edited.edited_at && edited.pinned_at === null, "Author edit must unpin staff-pinned content");
+    qaPinned.delete(originalMessage.id);
     console.log("PASS staff pin cap, author edit, automatic unpin");
 
     await requireDenied(member.rpc("create_club_announcement", {
@@ -228,12 +236,11 @@ async function run() {
       const result = await owner.rpc("delete_club_announcement", { p_announcement_id: announcementId });
       if (result.error) { console.error("FAIL staging QA announcement cleanup"); process.exitCode = 1; }
     }
-    if (owner && firstChannel) {
-      const remaining = await owner.from("club_channel_messages").select("id")
-        .eq("channel_id", firstChannel).not("pinned_at", "is", null);
-      if (remaining.error) { console.error("FAIL staging QA pin cleanup"); process.exitCode = 1; }
-      else for (const row of remaining.data ?? []) {
-        const result = await owner.rpc("set_club_channel_message_pin", { p_message_id: row.id, p_pin: false });
+    if (owner && qaPinned.size) {
+      // A stale or failed run may leave other messages pinned. Never touch
+      // those: undo only message IDs successfully pinned by THIS run.
+      for (const id of qaPinned) {
+        const result = await owner.rpc("set_club_channel_message_pin", { p_message_id: id, p_pin: false });
         if (result.error) { console.error("FAIL staging QA pin cleanup"); process.exitCode = 1; }
       }
     }
