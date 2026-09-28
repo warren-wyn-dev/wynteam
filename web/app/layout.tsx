@@ -55,6 +55,7 @@ import "./profile-photo-cropper.css";
 import "./composer-popup.css";
 import "./post-interaction-polish.css";
 import "./theme-dark.css";
+import "./beta2-home-polish.css";
 import { SITE_URL, shareMetadata } from "@/lib/share-metadata";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme-preference";
 import { ThemeSync } from "@/components/theme-sync";
