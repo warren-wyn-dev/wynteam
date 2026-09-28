@@ -3,11 +3,10 @@ import Link from "next/link";
 import { AnimatedHeart } from "@/components/ui/animated-heart";
 import { AnimatedBookmark } from "@/components/ui/animated-bookmark";
 import { AnimatedCount } from "@/components/ui/animated-count";
-import { CommentIcon, RepostIcon } from "@/components/ui/post-action-icons";
-import { WynosShareIcon } from "@/components/ui/wynos-share-icon";
+import { CommentIcon, RepostIcon, ShareIcon } from "@/components/ui/post-action-icons";
 
 /**
- * Home action row. modernFeed uses the compact Threads-style interaction strip:
+ * Home action row. modernFeed uses the compact social interaction strip:
  * muted icons at rest, hidden zero counts, and intrinsic-width actions so a
  * count only pushes later actions when engagement actually exists.
  */
@@ -56,16 +55,16 @@ export function PostActions({
         <AnimatedHeart size={22} strokeWidth={2} liked={liked} />
         {count(likeCount)}
       </button>
+
       <Link
         className="wyn-action-button"
         href={commentHref}
         aria-label="ความคิดเห็น"
       >
-        {/* 2026-09-22: nudged up from 22 -- the comment bubble's shape reads
-            visually smaller than the other icons at the same nominal size. */}
-        <CommentIcon size={24} strokeWidth={2} />
+        <CommentIcon size={23} strokeWidth={2} />
         {count(commentCount)}
       </Link>
+
       {canRedrop ? (
         <button
           className={`wyn-action-button ${redropped ? "is-active" : ""}`}
@@ -74,20 +73,20 @@ export function PostActions({
           aria-pressed={redropped}
           onClick={onRedrop}
         >
-          {/* WYN-185 item 13: was 24 -- every other icon in this row is 22,
-              so this stood out slightly larger for no reason. */}
           <RepostIcon size={22} strokeWidth={2} />
           {count(redropCount)}
         </button>
       ) : null}
+
       <button
         className="wyn-action-button wyn-action-share"
         type="button"
         aria-label="แชร์"
         onClick={onShare}
       >
-        <WynosShareIcon size={22} />
+        <ShareIcon size={22} strokeWidth={2} />
       </button>
+
       {onSave ? (
         <button
           className={`wyn-action-button wyn-action-save ${saved ? "is-active" : ""}`}
