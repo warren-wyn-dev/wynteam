@@ -22,6 +22,20 @@ const supabaseRemotePattern = (() => {
   }
 })();
 
+const isBeta2Staging =
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ===
+  "https://yydgdapzlrjmlrjgijkj.supabase.co";
+
+// Beta 2 Staging-only seed media. These hosts are deliberately enabled only
+// when the build is wired to the isolated Beta 2 Supabase project, so merging
+// this file later cannot silently expand Production's image proxy allowlist.
+const beta2SeedRemotePatterns = isBeta2Staging
+  ? [
+      { protocol: "https" as const, hostname: "api.dicebear.com", port: "", pathname: "/**" },
+      { protocol: "https" as const, hostname: "images.unsplash.com", port: "", pathname: "/**" },
+    ]
+  : [];
+
 // WEB-B1-QA-01: baseline response hardening for every route. Clickjacking:
 // no third-party page may frame a signed-in WYNOS session (one-tap follow,
 // like, repost, accept message request). A full script CSP is a separate,
@@ -68,7 +82,10 @@ const nextConfig: NextConfig = {
   // effect on wynos.online.
   devIndicators: false,
   images: {
-    remotePatterns: supabaseRemotePattern ? [supabaseRemotePattern] : [],
+    remotePatterns: [
+      ...(supabaseRemotePattern ? [supabaseRemotePattern] : []),
+      ...beta2SeedRemotePatterns,
+    ],
     // remotePatterns alone doesn't cover it: Next.js's image optimizer also
     // unconditionally rejects any hostname that resolves to a private/loopback
     // IP (see is-private-ip.js), which is exactly what local Supabase CLI
