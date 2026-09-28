@@ -89,14 +89,14 @@ test("installed iPhone Profile starts its user-selected cover beneath the native
   await expect(page.locator(".wyn-profile-beta1 .wyn-profile-topbar")).toHaveCSS("padding-top", "0px");
 });
 
-test("metadata and CSS use Apple's default white status mode without old translucent workarounds", () => {
+test("Beta 2 metadata reproduces the installed Beta 1 translucent viewport while keeping current safe-area CSS", () => {
   const read = (name: string) => readFileSync(path.join(process.cwd(), name), "utf8");
   const layout = read("app/layout.tsx");
   const css = read("app/profile-web-beta1.css");
   const runtime = read("components/app-navigation-runtime.tsx");
-  expect(layout).toContain('statusBarStyle:"default"');
+  expect(layout).toContain('statusBarStyle:"black-translucent"');
   expect(layout).toContain('viewportFit:"cover"');
-  expect(layout).not.toContain('statusBarStyle:"black-translucent"');
+  expect(layout).not.toContain('statusBarStyle:"default"');
   expect(layout).not.toContain('className="wyn-ios-status-fill"');
   expect(css).not.toContain(".wyn-ios-status-fill");
   expect(css).not.toContain("#8f9bad");
