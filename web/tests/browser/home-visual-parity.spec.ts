@@ -34,7 +34,7 @@ test("Home header is balanced while keeping the approved feed tabs", async ({ pa
   await expect(header).toHaveCSS("height", "56px");
   await expect(tabs).toHaveCSS("height", "38px");
   await expect(activeTab).toHaveAttribute("aria-selected", "true");
-  await expect(activeTab).toHaveCSS("font-size", "18px");
+  await expect(activeTab).toHaveCSS("font-size", "17px");
   await expect(page.locator(".wyn-home-logo")).toHaveCSS("width", "27px");
   await expect(page.locator(".wyn-home-logo")).toHaveCSS("height", "27px");
   await expect(page.locator(".wyn-home-title")).toHaveCSS("font-size", "18px");
@@ -44,7 +44,7 @@ test("Home header is balanced while keeping the approved feed tabs", async ({ pa
   expect(homeBox).not.toBeNull();
   expect(indicatorBox).not.toBeNull();
   expect(Math.abs((homeBox?.height ?? 0) - 94)).toBeLessThanOrEqual(1);
-  expect(Math.abs((indicatorBox?.width ?? 0) - 120)).toBeLessThanOrEqual(1);
+  expect(Math.abs((indicatorBox?.width ?? 0) - 112)).toBeLessThanOrEqual(1);
   expect(Math.abs((indicatorBox?.height ?? 0) - 2)).toBeLessThanOrEqual(0.5);
 });
 
@@ -105,17 +105,17 @@ test("first post matches compact avatar author caption and action geometry", asy
 
   await expect(redrop).toContainText("รีโพสต์โดย WYNOS");
   await expect(follow).toHaveCSS("height", "26px");
-  await expect(caption).toHaveCSS("font-size", "16px");
-  await expect(post.locator(".wyn-post-author-name")).toHaveCSS("font-size", "15px");
-  await expect(post.locator(".wyn-post-timestamp")).toHaveCSS("font-size", "14px");
-  await expect(redrop).toHaveCSS("font-size", "14px");
+  await expect(caption).toHaveCSS("font-size", "15.5px");
+  await expect(post.locator(".wyn-post-author-name")).toHaveCSS("font-size", "14.5px");
+  await expect(post.locator(".wyn-post-timestamp")).toHaveCSS("font-size", "13.5px");
+  await expect(redrop).toHaveCSS("font-size", "13px");
   await expect(redrop).toHaveCSS("color", "rgb(141, 147, 156)");
   await expect(redrop.locator("svg")).toHaveCSS("width", "16px");
-  await expect(actions).toHaveCSS("min-height", "30px");
-  await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "22px");
+  await expect(actions).toHaveCSS("min-height", "32px");
+  await expect(actions.getByRole("button", { name: "รีโพสต์" }).locator("svg")).toHaveCSS("width", "20px");
   const shareIcon = actions.getByRole("button", { name: "แชร์" }).locator(".wyn-share-icon");
-  await expect(shareIcon).toHaveCSS("width", "22px");
-  await expect(shareIcon).toHaveCSS("height", "22px");
+  await expect(shareIcon).toHaveCSS("width", "20px");
+  await expect(shareIcon).toHaveCSS("height", "20px");
   // Beta1 approved reference: one continuous SVG path, separate up arrow
   // and an open-top U-shaped tray rather than the previous house-like box.
   await expect(shareIcon.locator("path")).toHaveCount(1);
@@ -181,8 +181,8 @@ test("bottom navigation stays compact and preserves all five WYNOS destinations"
   }
 
   const glyph = nav.locator(".route-nav-glyph").first();
-  await expect(glyph).toHaveCSS("width", "28px");
-  await expect(glyph).toHaveCSS("height", "28px");
+  await expect(glyph).toHaveCSS("width", "26px");
+  await expect(glyph).toHaveCSS("height", "26px");
 });
 
 test("bell and Chat tab show unread counts, not a bare dot", async ({ page }) => {
