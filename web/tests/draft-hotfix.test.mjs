@@ -18,6 +18,8 @@ function compile(path) {
   return mod.exports;
 }
 const { saveDraft, loadDraftImageFile } = compile("../lib/drafts.ts");
+// Uploads are real JPEG bytes: location metadata is removed before upload.
+const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xda, 0, 2, 0xff, 0xd9]);
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
 function mock() {
@@ -41,7 +43,7 @@ function mock() {
   return { client, uploads, downloads, rows, prefix };
 }
 test("first and repeated saves reuse the row UUID as object path", async () => {
-  const {client,uploads,rows}=mock(),file=new File(["jpeg"],"camera.jpeg",{type:"image/jpeg"});
+  const {client,uploads,rows}=mock(),file=new File([JPEG],"camera.jpeg",{type:"image/jpeg"});
   const id=await saveDraft(client,A,{file,caption:"First"});
   assert.equal(uploads[0].path,A+"/drafts/"+id+".jpeg");
   assert.equal(rows.get(id).id,id);
