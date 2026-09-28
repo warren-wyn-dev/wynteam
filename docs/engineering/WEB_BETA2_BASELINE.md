@@ -41,3 +41,21 @@ Before treating the baseline as ready, verify:
 - Staging deployment contains the Staging Supabase origin and does not contain the Production Supabase origin
 
 Test data is intentionally separate from Production; data contents are not expected to be identical.
+
+
+## Baseline certification — 2026-09-28
+
+- Full browser regression on the Beta 1 Web baseline: 995 passed, 9 skipped, with one WebKit/iPhone 432px timing case failing on the first run.
+- The single failed case was re-run independently and passed.
+- Baseline finalization run: GitHub Actions `36385850974` — success.
+- Certified protected Staging deployment: `dpl_DH6DJSYrXigjuzguM9fHrkj3GhBN`.
+- Certified Preview URL: `https://wynos-web-beta2-staging-a2l8925m1-warren14.vercel.app`.
+- Hosted smoke verified the main Web routes, Next.js runtime, Staging Supabase origin, absence of the Production Supabase origin, and public Firebase Web configuration.
+- The dedicated Vercel Staging project is configured to ignore Git-connected branches other than `web-beta2` (controlled exact-SHA CLI deploys are also allowed).
+- Vercel isolation run: GitHub Actions `36386358134` — success.
+- The permanent `web-beta2` Staging workflow now uses fail-closed project checks, one Playwright retry for browser timing flakes, protected Preview deployment only, same-origin redirect smoke checks, and automatic bypass revocation.
+- Production Vercel remains on the WYNOS Web Beta 1 deployment and was not targeted by any Beta 2 deployment.
+
+### Environment-only differences
+
+The application baseline is copied from Beta 1, but Staging intentionally uses separate accounts and test data. External provider credentials are not assumed to be shared with Production. In particular, Google OAuth on the Staging Supabase project remains disabled until dedicated Staging OAuth credentials are configured; email/password authentication is the supported Staging test path for now. This does not change the Beta 1 UI baseline or connect Beta 2 to Production data.
