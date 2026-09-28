@@ -130,20 +130,6 @@
   color: currentColor;
 }
 
-.route-create-button {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  color: currentColor;
-}
-
-.route-create-button .route-nav-glyph {
-  width: 30px;
-  height: 30px;
-}
-
 .route-nav-icon-wrap {
   position: relative;
   width: 24px;
@@ -154,13 +140,6 @@
 .route-nav-icon-wrap > .route-nav-glyph {
   position: absolute;
   inset: 0;
-}
-
-/* The center create action stays in the same five-column layout and keeps
-   its label, but the glyph is slightly larger for faster recognition. */
-.route-nav-link:nth-child(3) .route-nav-glyph {
-  width: 30px;
-  height: 30px;
 }
 
 /* Unread count on the Chat tab: same red pill as the Home bell badge. */
@@ -201,15 +180,6 @@
     flex-basis: 22px;
   }
 
-  .route-create-button {
-    width: 28px;
-    height: 28px;
-  }
-
-  .route-nav-link:nth-child(3) .route-nav-glyph {
-    width: 28px;
-    height: 28px;
-  }
 }
 
 @media (min-width: 681px) {
