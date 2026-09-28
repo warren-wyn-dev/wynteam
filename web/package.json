@@ -25,7 +25,7 @@
     "test:club-announcements": "node --test tests/club-announcements.test.mjs",
     "test:club-chat-actions": "node --test tests/club-chat-actions.test.mjs tests/wyn135-sql-approval.test.mjs",
     "test:share-links": "node --test tests/share-links.test.mjs",
-    "test:isolated-staging": "node --test tests/isolated-staging.test.mjs tests/staging-bootstrap.test.mjs"
+    "test:isolated-staging": "node --test tests/isolated-staging.test.mjs tests/staging-bootstrap.test.mjs tests/staging-role-qa.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
