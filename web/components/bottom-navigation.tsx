@@ -35,11 +35,14 @@ const NAV_ACTIVE_ICON_CUTOUTS: Partial<Record<MaterialNavKind, string>> = {
 };
 
 export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNavKind; selected?: boolean }) {
-  const cutout = selected ? NAV_ACTIVE_ICON_CUTOUTS[kind] : undefined;
+  // Post stays outline in every state by design. Other destinations use a
+  // filled variant only while selected.
+  const filled = selected && kind !== "compose";
+  const cutout = filled ? NAV_ACTIVE_ICON_CUTOUTS[kind] : undefined;
 
   return (
     <svg
-      className={`route-nav-glyph route-nav-glyph--${kind} ${selected ? "route-nav-glyph--filled" : "route-nav-glyph--outline"}`}
+      className={`route-nav-glyph route-nav-glyph--${kind} ${filled ? "route-nav-glyph--filled" : "route-nav-glyph--outline"}`}
       viewBox="0 0 160 160"
       aria-hidden="true"
       data-selected={selected ? "true" : undefined}
@@ -47,9 +50,27 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
       fillRule="evenodd"
       clipRule="evenodd"
     >
-      <path d={selected ? NAV_ACTIVE_ICON_PATHS[kind] : NAV_ICON_PATHS[kind]} />
+      {!filled && kind === "club" ? (
+        <g
+          className="route-nav-club-outline"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="80" cy="48" r="23" />
+          <path d="M35 132 C38 102 55 87 80 87 C105 87 122 102 125 132" />
+          <circle cx="34" cy="64" r="14" />
+          <path d="M8 124 C10 103 20 90 35 90 C44 90 51 94 57 101" />
+          <circle cx="126" cy="64" r="14" />
+          <path d="M152 124 C150 103 140 90 125 90 C116 90 109 94 103 101" />
+        </g>
+      ) : (
+        <path d={filled ? NAV_ACTIVE_ICON_PATHS[kind] : NAV_ICON_PATHS[kind]} />
+      )}
       {cutout ? <path className="route-nav-glyph-cutout" d={cutout} /> : null}
-      {selected && kind === "chat" ? (
+      {filled && kind === "chat" ? (
         <g className="route-nav-glyph-cutout">
           <circle cx="55" cy="80" r="7" />
           <circle cx="80" cy="80" r="7" />
