@@ -39,6 +39,8 @@
 .route-bottom-nav {
   /* Keep the compact reference spacing above the iOS home indicator. */
   --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);
+  --wyn-nav-active: #111111;
+  --wyn-nav-inactive: #9a9aa1;
   position: fixed;
   z-index: 70;
   left: 50%;
@@ -80,8 +82,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  color: var(--wyn-text-muted);
+  gap: 5px;
+  color: var(--wyn-nav-inactive);
   text-decoration: none;
   font-size: 11px;
   line-height: 1.35;
@@ -106,8 +108,8 @@
 }
 
 .route-nav-link.active {
-  color: var(--wyn-text);
-  font-weight: 700;
+  color: var(--wyn-nav-active);
+  font-weight: 600;
 }
 
 .route-nav-link > span:last-child {
@@ -123,17 +125,21 @@
 }
 
 .route-nav-glyph {
+  --wyn-nav-glyph-scale: 1;
   width: 32px;
   height: 32px;
   display: block;
   flex: 0 0 32px;
   color: currentColor;
-  opacity: 0.58;
+  transform: scale(var(--wyn-nav-glyph-scale));
+  transform-origin: 50% 50%;
 }
 
-.route-nav-link.active .route-nav-glyph {
-  opacity: 1;
-}
+.route-nav-glyph--home { --wyn-nav-glyph-scale: 1; }
+.route-nav-glyph--club { --wyn-nav-glyph-scale: 0.92; }
+.route-nav-glyph--compose { --wyn-nav-glyph-scale: 0.94; }
+.route-nav-glyph--chat { --wyn-nav-glyph-scale: 0.95; }
+.route-nav-glyph--profile { --wyn-nav-glyph-scale: 0.98; }
 
 .route-nav-icon-wrap {
   position: relative;
@@ -150,8 +156,8 @@
 /* Unread count on the Chat tab: same red pill as the Home bell badge. */
 .route-nav-badge {
   position: absolute;
-  top: -4px;
-  left: 15px;
+  top: -3px;
+  right: -5px;
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
@@ -174,7 +180,7 @@
   }
 
   .route-nav-link {
-    gap: 2px;
+    gap: 4px;
     font-size: 10px;
   }
 
@@ -185,6 +191,18 @@
     flex-basis: 29px;
   }
 
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .route-bottom-nav {
+    --wyn-nav-active: #f5f5f7;
+    --wyn-nav-inactive: #8e8e93;
+  }
+}
+
+:root[data-theme="dark"] .route-bottom-nav {
+  --wyn-nav-active: #f5f5f7;
+  --wyn-nav-inactive: #8e8e93;
 }
 
 @media (min-width: 681px) {
