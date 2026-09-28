@@ -13,55 +13,65 @@ import { triggerRouteRefresh } from "@/components/route-refresh-runtime";
 type MaterialNavKind = "home" | "club" | "chat" | "profile" | "compose";
 
 export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNavKind; selected?: boolean }) {
-  // 2026-09-21 "Tab Bar A: เส้นบาง" redesign: a simpler, unified line-icon
-  // set (matching the Lucide icon language the rest of the app already uses
-  // via WynosIcon) replaces the previous bespoke glyphs. Every tab that
-  // tracks an active route (home/club/chat/profile) fills solid on
-  // selection, same as the chat icon -- the Founder asked for that fill
-  // treatment across the whole bar, not just chat.
-  const strokeWidth = 1.8;
+  // WYNOS Web Beta 2: Founder-approved outline icon family.
+  // Keep the same outline silhouette in both inactive and active states;
+  // the parent tab handles active color/label emphasis.
+  const strokeWidth = 2.05;
+  const common = {
+    className: "route-nav-glyph",
+    viewBox: "0 0 24 24",
+    "aria-hidden": true,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "data-selected": selected ? "true" : undefined,
+  };
 
   if (kind === "home") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill={selected ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <path d="m3 11 9-8 9 8" />
-        <path d="M5 10v10h14V10" />
+      <svg {...common}>
+        <path d="M12 3.4 3.8 10.6v7.9A2.5 2.5 0 0 0 6.3 21h2.45v-5.35a3.25 3.25 0 0 1 6.5 0V21h2.45a2.5 2.5 0 0 0 2.5-2.5v-7.9L12 3.4Z" />
       </svg>
     );
   }
 
   if (kind === "club") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill={selected ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
-        <circle cx="10" cy="7" r="4" />
-        <path d="M21 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      <svg {...common}>
+        <circle cx="9" cy="7.2" r="3.35" />
+        <circle cx="17.1" cy="8.15" r="2.45" />
+        <path d="M3.45 20v-1.15a5.55 5.55 0 0 1 11.1 0V20" />
+        <path d="M14.4 15.3a4.15 4.15 0 0 1 6.15 3.65V20" />
       </svg>
     );
   }
 
   if (kind === "chat") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill={selected ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.77 1.46 5.24 3.75 6.86-.13 1.13-.5 2.36-1.32 3.62a.5.5 0 0 0 .58.75c1.9-.6 3.36-1.4 4.4-2.11.83.17 1.7.26 2.59.26 5.52 0 10-3.94 10-8.8S17.52 2 12 2Z" />
+      <svg {...common}>
+        <path d="M12 3.25c-5.18 0-9.2 3.55-9.2 8.05 0 2.17.92 4.15 2.45 5.58L4.4 21l4.28-1.68c1.02.34 2.14.53 3.32.53 5.18 0 9.2-3.55 9.2-8.05S17.18 3.25 12 3.25Z" />
+        <circle cx="8.45" cy="11.55" r=".72" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="11.55" r=".72" fill="currentColor" stroke="none" />
+        <circle cx="15.55" cy="11.55" r=".72" fill="currentColor" stroke="none" />
       </svg>
     );
   }
 
   if (kind === "profile") {
     return (
-      <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill={selected ? "currentColor" : "none"} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
+      <svg {...common}>
+        <circle cx="12" cy="7.1" r="3.45" />
+        <path d="M4.15 20.5v-.85a7.85 7.85 0 0 1 15.7 0v.85" />
       </svg>
     );
   }
 
   return (
-    <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M13.5 5H7.75A2.75 2.75 0 0 0 5 7.75v8.5A2.75 2.75 0 0 0 7.75 19h8.5A2.75 2.75 0 0 0 19 16.25V10.5" />
-      <path d="m12.25 13.25.62-2.6 4.93-4.93a1.42 1.42 0 0 1 2 0l.48.48a1.42 1.42 0 0 1 0 2l-4.93 4.93-2.6.62.5-2.5 4.8-4.8" />
+    <svg {...common}>
+      <path d="M13.2 4H7.1A3.1 3.1 0 0 0 4 7.1v9.8A3.1 3.1 0 0 0 7.1 20h9.8a3.1 3.1 0 0 0 3.1-3.1v-6.1" />
+      <path d="m11.25 14.15.78-3.18 5.05-5.05a1.55 1.55 0 0 1 2.19 0l.81.81a1.55 1.55 0 0 1 0 2.19l-5.05 5.05-3.18.78.4-2.4 5.25-5.25" />
     </svg>
   );
 }
