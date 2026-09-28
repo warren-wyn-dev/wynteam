@@ -170,7 +170,6 @@
     <string name="nav_post">Posts</string>
     <string name="nav_chat">Chat</string>
     <string name="nav_profile">Profile</string>
-    <string name="coming_chat">Chat arrives in the next Wynos Android update</string>
 
     <string name="post_title">Post</string>
     <string name="post_load_failed">Couldn\'t load the post</string>
@@ -445,7 +444,7 @@
     <string name="push_prompt_allow">Allow</string>
     <string name="push_prompt_opening">Opening…</string>
     <string name="sign_out_label">Sign out</string>
-    <string name="coming_pops">Pops are coming in a later version</string>
+    <string name="pop_unavailable">This content is no longer available</string>
     <string name="chat_title">Messages</string>
     <string name="chat_requests_title">Message requests</string>
     <string name="chat_search">Search messages</string>

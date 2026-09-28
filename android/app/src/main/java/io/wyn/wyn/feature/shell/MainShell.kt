@@ -53,7 +53,7 @@ fun MainShell(
     profile: @Composable () -> Unit,
     onCompose: () -> Unit,
     chatUnread: Int = 0,
-    chat: @Composable () -> Unit = { ComingSoon(R.string.coming_chat) },
+    chat: @Composable () -> Unit = {},
     clubs: @Composable () -> Unit = {},
     initialTab: MainTab = MainTab.Home,
     /** The selected tab when the caller owns it (so another screen can switch tabs). */
