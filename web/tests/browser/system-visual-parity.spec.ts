@@ -141,7 +141,9 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain('kind="compose"');
   expect(nav).toContain('className="route-nav-link route-nav-link--post"');
   expect(nav).toContain('"data-selected": selected ? "true" : undefined');
-  expect(nav).toContain('const strokeWidth = 2.05');
+  expect(nav).toContain('fillRule: "evenodd" as const');
+  expect(nav).toContain('viewBox="0 0 122 117"');
+  expect(nav).toContain('viewBox="0 0 125 119"');
 });
 
 test("bottom navigation has exactly one canonical stylesheet (no competing override layer)", () => {
