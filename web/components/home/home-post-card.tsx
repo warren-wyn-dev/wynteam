@@ -75,14 +75,12 @@ export function HomePostCard({
   const requested = viewer.pendingFollowAuthorIds.has(row.author_id);
   const canRedrop = row.audience == null || row.audience === "everyone";
   const time = relativeTimeTh(row.created_at);
-  const timeAndLocation = row.location ? `${time} · 📍 ${row.location}` : time;
   const profileHref = `/profile/${row.author_id}`;
   const caption = row.caption ? splitHomeCaption(row.caption) : null;
 
   return (
     <article
       className={`wyn-post ${row.redrop_id ? "has-redrop" : ""}`}
-      style={{ paddingTop: row.redrop_id ? 10 : 8 }}
     >
       {row.redrop_id ? (
         <div className="wyn-post-redrop-line">
@@ -99,7 +97,7 @@ export function HomePostCard({
           profileHref={profileHref}
           name={authorLabel(row)}
           verified={Boolean(row.author_is_verified)}
-          timeLabel={timeAndLocation}
+          timeLabel={time}
           showFollow={row.author_id !== userId}
           following={following}
           followRequested={requested}
@@ -136,6 +134,12 @@ export function HomePostCard({
                 compact
               />
             ) : null}
+          </div>
+        ) : null}
+        {row.location ? (
+          <div className="wyn-post-location">
+            <WynosIcon name="location" size={14} strokeWidth={1.8} />
+            <span data-i18n-skip="">{row.location}</span>
           </div>
         ) : null}
         <PostMediaCarousel

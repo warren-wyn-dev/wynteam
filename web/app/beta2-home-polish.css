@@ -1,18 +1,18 @@
 /*
  * WYNOS Web Beta 2 — Home feed polish.
  *
- * Founder-approved direction: keep the existing Threads-inspired composition
- * and make the chrome quieter so user content stays visually dominant.
- * This file is Beta 2-only and intentionally overrides presentation, not
- * Home/feed behavior, navigation destinations, data, or interaction logic.
+ * Visual direction: preserve WYNOS' existing feed structure, but make the
+ * hierarchy cleaner and closer to the Founder-approved mobile reference.
+ * This layer is presentation-only: no feed ranking, navigation, auth, or
+ * mutation behavior changes live here.
  */
 
 :root {
   --wyn-beta2-divider: #edf0f2;
   --wyn-beta2-meta: #8d939c;
   --wyn-beta2-idle-action: #858c96;
-  --wyn-beta2-action-count: #9aa0a9;
-  --wyn-beta2-nav-inactive: #8a9099;
+  --wyn-beta2-action-count: #8f96a0;
+  --wyn-beta2-nav-inactive: #8f959e;
 }
 
 :where(:root[data-theme="dark"]) {
@@ -33,46 +33,75 @@
   }
 }
 
-/* Header/tabs stay structurally identical; only reduce secondary emphasis. */
+/* Header stays structurally unchanged. Tabs are the reference's simple
+   text + underline treatment: clear active state, quiet inactive labels. */
 .wyn-home-tabs {
   border-bottom-color: var(--wyn-beta2-divider);
 }
 
 .wyn-home-tab {
   color: var(--wyn-beta2-meta);
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .wyn-home-tab.is-active {
   color: var(--wyn-text);
+  font-weight: 700;
 }
 
 .wyn-home-tab-indicator {
+  width: 120px;
   height: 2px;
 }
 
-/* Quick composer: slightly calmer and more compact without changing its
-   full-row touch target or the existing composer route. */
+/* Composer remains one flat feed row, not a floating card. The Beta 2
+   reference keeps the avatar and image affordance easy to identify. */
 .wyn-home-quick-compose {
   min-height: 64px;
-  padding-block: 10px;
+  padding: 10px 16px;
+  gap: 12px;
   border-bottom-color: var(--wyn-beta2-divider);
+}
+
+.wyn-home-quick-compose-avatar {
+  flex-basis: 38px;
+  width: 38px;
+  height: 38px;
+}
+
+.wyn-home-quick-compose-avatar .route-avatar,
+.wyn-home-quick-compose-avatar .wyn-default-profile-avatar {
+  width: 38px !important;
+  height: 38px !important;
 }
 
 .wyn-home-quick-compose-prompt {
   color: var(--wyn-beta2-meta);
+  font-size: 15px;
 }
 
 .wyn-home-quick-compose-image {
+  width: 22px;
+  height: 22px;
   color: var(--wyn-beta2-meta);
-  opacity: 0.76;
+  opacity: 0.8;
 }
 
-/* Posts are separated by a very light hairline; typography/metadata hierarchy
-   does the rest of the grouping instead of heavy card chrome. */
+/* Thin full-width separators keep the feed continuous instead of turning
+   each post into a floating card. */
 .wyn-home-feed .wyn-post + .wyn-post,
 .wyn-home-feed > :is(.wyn-post, .wyn-quote-feed-card)
   + :is(.wyn-post, .wyn-quote-feed-card) {
   border-top-color: var(--wyn-beta2-divider);
+}
+
+/* Post hierarchy: avatar/content geometry stays the approved 40px + 10px
+   grid; typography gets a little more confidence than the previous compact
+   pass so Thai captions read like the reference screenshot. */
+.wyn-home-feed .wyn-post-author-name {
+  font-size: 15.5px;
+  font-weight: 600;
 }
 
 .wyn-home-feed .wyn-post-timestamp,
@@ -82,29 +111,60 @@
   color: var(--wyn-beta2-meta);
 }
 
+.wyn-home-feed .wyn-post-timestamp {
+  font-size: 13.5px;
+}
+
 .wyn-home-feed .wyn-post-caption-wrap {
   margin-top: 2px;
+  font-size: 16px;
+  line-height: 1.36;
 }
 
 .wyn-home-feed .wyn-post-caption-tags {
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
+.wyn-home-feed .wyn-post-more-text {
+  font-size: 14.5px;
+}
+
+.wyn-home-feed .wyn-post-redrop-line {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+/* Location is deliberately separated from name/time. It is metadata, not
+   identity, and therefore gets its own calm line before media. */
+.wyn-post-location {
+  min-height: 20px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--wyn-beta2-meta);
+  font-size: 13.5px;
+  line-height: 1.3;
+  font-weight: 400;
+}
+
+.wyn-post-location svg {
+  flex: 0 0 auto;
+}
+
+/* Media keeps the X/Threads-inspired WYNOS geometry and rounded corners. */
 .wyn-home-feed .wyn-post-media {
-  margin-top: 7px;
+  margin-top: 8px;
 }
 
 .wyn-home-feed .wyn-post-media-item {
   border-radius: 14px;
 }
 
-/* The action strip should sit behind the content visually. Keep 44px hit
-   targets from the canonical CSS, but lighten the visible stroke/counts. */
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions {
-  margin: 4px 0 7px;
-  gap: 18px;
-}
-
+/* Founder decision: keep the interaction-row SIZE from the existing feed.
+   Therefore icon dimensions, intrinsic spacing, 44px hit targets and the
+   Bookmark position remain owned by canonical home.css. This layer changes
+   only visual emphasis, never action geometry. */
 .wyn-home-feed
   .wyn-post-actions.wyn-threads-actions
   .wyn-action-button:not(.is-liked):not(.is-active) {
@@ -129,15 +189,10 @@
   color: inherit;
 }
 
-/* Presentation attributes from icon components remain the source fallback.
-   CSS narrows the visible stroke on Home only; hit-area geometry is unchanged. */
 .wyn-home-feed
   .wyn-post-actions.wyn-threads-actions
   .wyn-action-button
-  svg {
-  stroke-width: 1.75;
-}
-
+  svg,
 .wyn-home-feed
   .wyn-post-actions.wyn-threads-actions
   .wyn-action-button
@@ -145,15 +200,14 @@
   stroke-width: 1.75;
 }
 
-/* Keep Bookmark pinned right while giving it the same quiet idle treatment. */
 .wyn-home-feed
   .wyn-post-actions.wyn-threads-actions
   .wyn-action-save:not(.is-active) {
   color: var(--wyn-beta2-idle-action);
 }
 
-/* Persistent app navigation: one strong active state, quiet inactive items.
-   Destinations, icons and touch targets are unchanged. */
+/* Bottom navigation follows the reference: canonical WYNOS 28px glyphs,
+   black active state and quiet gray inactive destinations. */
 .route-bottom-nav {
   border-top-color: var(--wyn-beta2-divider);
 }
@@ -169,160 +223,11 @@
 }
 
 @media (max-width: 359px) {
-  .wyn-home-feed .wyn-post-actions.wyn-threads-actions {
-    gap: 16px;
-  }
-}
-
-/* 2026-09-28 real-device correction.
-   The approved preview was calmer and more compact than the first shipped
-   Beta 2 polish pass. Keep all interaction targets, but reduce visual weight. */
-
-.wyn-home-tab {
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.wyn-home-tab.is-active {
-  font-weight: 700;
-}
-
-.wyn-home-tab-indicator {
-  width: 112px;
-}
-
-.wyn-home-quick-compose {
-  min-height: 60px;
-  padding: 8px 16px;
-  gap: 10px;
-}
-
-.wyn-home-quick-compose-avatar {
-  flex-basis: 34px;
-  width: 34px;
-  height: 34px;
-}
-
-.wyn-home-quick-compose-avatar .route-avatar,
-.wyn-home-quick-compose-avatar .wyn-default-profile-avatar {
-  width: 34px !important;
-  height: 34px !important;
-}
-
-.wyn-home-quick-compose-prompt {
-  font-size: 14.5px;
-}
-
-.wyn-home-quick-compose-image {
-  width: 20px;
-  height: 20px;
-  opacity: 0.7;
-}
-
-.wyn-home-feed .wyn-post {
-  padding-top: 9px;
-}
-
-.wyn-home-feed .wyn-post-author-name {
-  font-size: 14.5px;
-  font-weight: 600;
-}
-
-.wyn-home-feed .wyn-post-timestamp {
-  font-size: 13.5px;
-}
-
-.wyn-home-feed .wyn-post-caption-wrap {
-  margin-top: 2px;
-  font-size: 15.5px;
-  line-height: 1.36;
-}
-
-.wyn-home-feed .wyn-post-caption-tags {
-  margin-top: 3px;
-}
-
-.wyn-home-feed .wyn-post-more-text {
-  font-size: 14px;
-}
-
-.wyn-home-feed .wyn-post-redrop-line {
-  min-height: 18px;
-  margin-bottom: 2px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions {
-  min-height: 32px;
-  margin: 3px 0 7px;
-  gap: 20px;
-}
-
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button {
-  min-width: 22px;
-  min-height: 32px;
-  height: 32px;
-  gap: 4px;
-}
-
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button svg {
-  width: 20px;
-  height: 20px;
-  stroke-width: 1.6;
-}
-
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button svg :is(path, circle, line, polyline, polygon, rect) {
-  stroke-width: 1.6;
-}
-
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button:nth-child(2) svg {
-  width: 21px;
-  height: 21px;
-}
-
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-share .wyn-share-icon,
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-save svg {
-  width: 20px;
-  height: 20px;
-}
-
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button-count {
-  font-size: 12.5px;
-  font-weight: 400;
-}
-
-.route-bottom-nav {
-  border-top-color: #f0f1f2;
-}
-
-.route-nav-link {
-  color: #969ba3;
-  font-size: 9.5px;
-}
-
-.route-nav-glyph,
-.route-create-button,
-.route-nav-icon-wrap,
-.route-create-button .route-nav-glyph {
-  width: 26px;
-  height: 26px;
-}
-
-.route-nav-glyph {
-  flex-basis: 26px;
-}
-
-@media (max-width: 359px) {
   .wyn-home-tab {
     font-size: 15.5px;
   }
 
   .wyn-home-tab-indicator {
-    width: calc(100% - 24px);
-  }
-
-  .wyn-home-feed .wyn-post-actions.wyn-threads-actions {
-    gap: 17px;
+    width: calc(100% - 18px);
   }
 }
