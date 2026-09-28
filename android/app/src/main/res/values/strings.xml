@@ -176,7 +176,6 @@
     <string name="nav_post">โพสต์</string>
     <string name="nav_chat">แชท</string>
     <string name="nav_profile">โปรไฟล์</string>
-    <string name="coming_chat">แชทจะมาในอัปเดตถัดไปของ Wynos Android</string>
 
     <string name="post_title">โพสต์</string>
     <string name="post_load_failed">โหลดโพสต์ไม่สำเร็จ</string>
@@ -451,7 +450,7 @@
     <string name="push_prompt_allow">อนุญาต</string>
     <string name="push_prompt_opening">กำลังเปิด…</string>
     <string name="sign_out_label">ออกจากระบบ</string>
-    <string name="coming_pops">Pop จะมาในอัปเดตถัดไปของ Wynos Android</string>
+    <string name="pop_unavailable">เนื้อหานี้ไม่พร้อมใช้งานแล้ว</string>
     <string name="chat_title">ข้อความ</string>
     <string name="chat_requests_title">คำขอข้อความ</string>
     <string name="chat_search">ค้นหาข้อความ</string>

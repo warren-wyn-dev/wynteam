@@ -323,7 +323,8 @@ fun SignedInApp(
         when {
             item.conversationId != null -> push(Screen.Conversation(item.conversationId, item.actorId))
             item.dropId != null -> push(Screen.Post(item.dropId!!))
-            item.popId != null -> push(Screen.Coming(R.string.coming_pops))
+            // web PopUnavailableRoute: Pops are not part of Web Beta 1.
+            item.popId != null -> push(Screen.Coming(R.string.pop_unavailable))
             item.clubPostId != null -> push(Screen.ClubPost(item.clubPostId!!))
             item.clubId != null -> push(Screen.Club(item.clubId!!))
             item.actorId != null -> push(Screen.Profile(item.actorId!!))
@@ -501,7 +502,7 @@ fun SignedInApp(
                 )
                 DraftsScreen(drafts, onBack = ::pop, onOpen = { id -> pop(); openComposer(id) })
             }
-            is Screen.Coming -> BackTitled("", ::pop) { ComingSoon(screen.message) }
+            is Screen.Coming -> BackTitled("WYNOS", ::pop) { ComingSoon(screen.message) }
             is Screen.Club -> {
                 val club: ClubViewModel = viewModel(
                     key = "club:$userId:${screen.id}",
