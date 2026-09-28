@@ -41,6 +41,7 @@
   --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);
   --wyn-nav-active: #111111;
   --wyn-nav-inactive: #8e8e93;
+  --wyn-nav-icon: #111111;
   position: fixed;
   z-index: 70;
   left: 50%;
@@ -96,9 +97,6 @@
   transform: scale(var(--wyn-motion-press-scale));
 }
 
-.route-nav-link:active .route-nav-glyph {
-  color: var(--wyn-nav-active);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .route-bottom-nav,
@@ -134,7 +132,7 @@
   height: 32px;
   display: block;
   flex: 0 0 32px;
-  color: currentColor;
+  color: var(--wyn-nav-icon);
   transform: scale(var(--wyn-nav-glyph-scale));
   transform-origin: 50% 50%;
 }
@@ -144,6 +142,10 @@
 .route-nav-glyph--compose { --wyn-nav-glyph-scale: 0.93; }
 .route-nav-glyph--chat { --wyn-nav-glyph-scale: 1; }
 .route-nav-glyph--profile { --wyn-nav-glyph-scale: 0.96; }
+
+.route-nav-glyph-cutout {
+  fill: var(--wyn-bg, #fff);
+}
 
 .route-nav-icon-wrap {
   position: relative;
@@ -201,12 +203,14 @@
   :root:not([data-theme="light"]) .route-bottom-nav {
     --wyn-nav-active: #f5f5f7;
     --wyn-nav-inactive: #8e8e93;
+    --wyn-nav-icon: #f5f5f7;
   }
 }
 
 :root[data-theme="dark"] .route-bottom-nav {
   --wyn-nav-active: #f5f5f7;
   --wyn-nav-inactive: #8e8e93;
+  --wyn-nav-icon: #f5f5f7;
 }
 
 @media (min-width: 681px) {
