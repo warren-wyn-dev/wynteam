@@ -213,6 +213,16 @@ Still open in M1:
 - **Next: M8 Play Store release — needs Founder approval** (signing, store listing, App Links / assetlinks.json,
   Firebase and Google sign-in configuration).
 
+## M8 status (Play Store preparation)
+
+- Founder approved starting M8 on 2026-09-28. Each Play track (internal, closed, production) still needs its own
+  approval.
+- Release builds are signed with the upload key from `local.properties` or the environment (never committed).
+- App Links: `wynos.online` share links (Drop, Quote, Club, Club post, Club invite) open in the app. The web serves
+  `/.well-known/assetlinks.json` from the `ANDROID_APP_SHA256_FINGERPRINTS` setting. This makes the Club invite
+  screen reachable once the fingerprints are set and the web is deployed.
+- The runbook, the internal-testing checklist and the store listing draft are in `ANDROID_RELEASE.md`.
+
 ## Risks
 
 - Scope: ~40 web screens and months of web work. Mitigation: milestones, each usable on its own.

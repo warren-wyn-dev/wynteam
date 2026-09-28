@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { MAX_POST_IMAGES } from "@/lib/post-limits";
+import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 
 export class DropPublicationStateUnknownError extends Error {
@@ -128,7 +129,7 @@ export async function publishDropSafely(
       const { contentType, extension } = imageUploadType(file);
       const path = `${userId}/publications/${operationId}/${index}.${extension}`;
       const dimensions = await imageDimensions(file);
-      const uploaded = await client.storage.from("drop-images").upload(path, file, {
+      const uploaded = await client.storage.from("drop-images").upload(path, await withoutLocation(file, contentType), {
         cacheControl: "31536000",
         contentType,
         upsert: false,

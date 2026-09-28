@@ -485,6 +485,7 @@ export const EN_EXACT: Record<string, string> = {
   "รอ": "Pending",
   "รอการตอบรับ": "Awaiting response",
   "รองรับเฉพาะไฟล์รูปภาพ JPG, PNG, WebP, GIF หรือ HEIC": "Only JPG, PNG, WebP, GIF or HEIC images are supported",
+  "อ่านข้อมูลรูปไม่สำเร็จ ลองเลือกรูปอื่น": "Couldn't read this photo. Try another one",
   "รองรับไฟล์ JPG, PNG, HEIC ขนาดไม่เกิน 10MB": "JPG, PNG, HEIC up to 10MB",
   "รอบก่อนหน้าไม่ครบภายใน 24 ชั่วโมง เริ่มรอบใหม่ได้เมื่อมีข้อความใหม่": "The previous round wasn't completed within 24 hours. A new round starts with a new message",
   "รออนุมัติ": "Pending approval",

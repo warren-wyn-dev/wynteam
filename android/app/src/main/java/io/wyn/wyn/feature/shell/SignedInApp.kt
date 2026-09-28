@@ -100,6 +100,7 @@ import io.wyn.wyn.core.data.SupabaseNotificationRepository
 import io.wyn.wyn.core.push.PushController
 import io.wyn.wyn.core.push.PushEvents
 import io.wyn.wyn.core.push.PushTarget
+import io.wyn.wyn.core.link.AppLink
 import io.wyn.wyn.feature.notifications.NotificationSettingsScreen
 import io.wyn.wyn.feature.notifications.NotificationSettingsViewModel
 import io.wyn.wyn.feature.notifications.NotificationsScreen
@@ -259,6 +260,8 @@ fun SignedInApp(
     repos: Repositories,
     pushTarget: PushTarget? = null,
     onPushTargetHandled: () -> Unit = {},
+    appLink: AppLink? = null,
+    onAppLinkHandled: () -> Unit = {},
 ) {
     // One feed and one engagement channel per account: switching accounts starts fresh.
     val sync = remember(userId) { EngagementSync() }
@@ -338,6 +341,17 @@ fun SignedInApp(
             openNotification(NotificationTargetLike.of(target))
         }
         onPushTargetHandled()
+    }
+    // A wynos.online link opens the same screen the web page shows.
+    LaunchedEffect(appLink, userId) {
+        when (val link = appLink ?: return@LaunchedEffect) {
+            is AppLink.Drop -> push(Screen.Post(link.id))
+            is AppLink.Quote -> push(Screen.Quote(link.id))
+            is AppLink.Club -> push(Screen.Club(link.id))
+            is AppLink.ClubPost -> push(Screen.ClubPost(link.id))
+            is AppLink.ClubInvite -> push(Screen.ClubInvite(link.code))
+        }
+        onAppLinkHandled()
     }
     var shellTab by rememberSaveable(userId) { mutableStateOf(MainTab.Home) }
     var drawerOpen by rememberSaveable(userId) { mutableStateOf(false) }

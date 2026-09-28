@@ -1,6 +1,7 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 import type { HomeFeedRow } from "@/lib/feed";
+import { withoutLocation } from "@/lib/image-location";
 import { AVATAR_MAX_BYTES, imageUploadType } from "@/lib/upload-image";
 
 export type ProfileRow = {
@@ -600,7 +601,7 @@ export async function uploadProfileImage(
 ): Promise<string> {
   const { contentType, extension } = imageUploadType(file, AVATAR_MAX_BYTES);
   const path = `${userId}/${kind}.${extension}`;
-  const upload = await client.storage.from("avatars").upload(path, file, { upsert: true, contentType });
+  const upload = await client.storage.from("avatars").upload(path, await withoutLocation(file, contentType), { upsert: true, contentType });
   fail(upload.error, "อัปโหลดรูปไม่สำเร็จ");
   const { data } = client.storage.from("avatars").getPublicUrl(path);
   const url = `${data.publicUrl}?v=${Date.now()}`;
@@ -796,7 +797,7 @@ export async function sendMessage(
   if (input.file) {
     const { contentType, extension } = imageUploadType(input.file);
     imagePath = `${conversationId}/${userId}-${Date.now()}.${extension}`;
-    const upload = await client.storage.from("chat-media").upload(imagePath, input.file, {
+    const upload = await client.storage.from("chat-media").upload(imagePath, await withoutLocation(input.file, contentType), {
       upsert: false,
       contentType,
       cacheControl: "31536000",

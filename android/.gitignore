@@ -5,3 +5,6 @@ local.properties
 .idea/
 captures/
 .kotlin/
+# Signing keys never go into git.
+*.jks
+*.keystore
