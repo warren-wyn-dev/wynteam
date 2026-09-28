@@ -25,6 +25,8 @@ test("Beta 2 Home keeps the approved Threads layout while softening secondary ch
 
   await expect(tabs).toHaveCSS("border-bottom-color", "rgb(237, 240, 242)");
   await expect(composer).toHaveCSS("border-bottom-color", "rgb(237, 240, 242)");
+  await expect(composer).toHaveCSS("min-height", "58px");
+  await expect(page.getByRole("tab", { name: "สำหรับคุณ" })).toHaveCSS("font-size", "17px");
   await expect(timestamp).toHaveCSS("color", "rgb(141, 147, 156)");
   await expect(idleAction).toHaveCSS("color", "rgb(133, 140, 150)");
   if (await idleCount.count()) {
@@ -34,7 +36,7 @@ test("Beta 2 Home keeps the approved Threads layout while softening secondary ch
   if (await likedCount.count()) {
     await expect(likedCount).toHaveCSS("color", "rgb(255, 59, 48)");
   }
-  await expect(inactiveNav).toHaveCSS("color", "rgb(138, 144, 153)");
+  await expect(inactiveNav).toHaveCSS("color", "rgb(150, 155, 163)");
 
   const saveBox = await save.boundingBox();
   const actionsBox = await actions.boundingBox();
@@ -44,5 +46,5 @@ test("Beta 2 Home keeps the approved Threads layout while softening secondary ch
   expect(saveBox!.x + saveBox!.width).toBeGreaterThan(actionsBox!.x + actionsBox!.width * 0.88);
 
   const stroke = await idleAction.locator("svg").first().evaluate((svg) => getComputedStyle(svg).strokeWidth);
-  expect(parseFloat(stroke)).toBeCloseTo(1.75, 2);
+  expect(parseFloat(stroke)).toBeCloseTo(1.6, 2);
 });
