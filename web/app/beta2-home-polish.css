@@ -1,0 +1,175 @@
+/*
+ * WYNOS Web Beta 2 — Home feed polish.
+ *
+ * Founder-approved direction: keep the existing Threads-inspired composition
+ * and make the chrome quieter so user content stays visually dominant.
+ * This file is Beta 2-only and intentionally overrides presentation, not
+ * Home/feed behavior, navigation destinations, data, or interaction logic.
+ */
+
+:root {
+  --wyn-beta2-divider: #edf0f2;
+  --wyn-beta2-meta: #8d939c;
+  --wyn-beta2-idle-action: #858c96;
+  --wyn-beta2-action-count: #9aa0a9;
+  --wyn-beta2-nav-inactive: #8a9099;
+}
+
+:where(:root[data-theme="dark"]) {
+  --wyn-beta2-divider: #25282d;
+  --wyn-beta2-meta: #858b94;
+  --wyn-beta2-idle-action: #969ca5;
+  --wyn-beta2-action-count: #858b94;
+  --wyn-beta2-nav-inactive: #8f959e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :where(:root:not([data-theme="light"])) {
+    --wyn-beta2-divider: #25282d;
+    --wyn-beta2-meta: #858b94;
+    --wyn-beta2-idle-action: #969ca5;
+    --wyn-beta2-action-count: #858b94;
+    --wyn-beta2-nav-inactive: #8f959e;
+  }
+}
+
+/* Header/tabs stay structurally identical; only reduce secondary emphasis. */
+.wyn-home-tabs {
+  border-bottom-color: var(--wyn-beta2-divider);
+}
+
+.wyn-home-tab {
+  color: var(--wyn-beta2-meta);
+}
+
+.wyn-home-tab.is-active {
+  color: var(--wyn-text);
+}
+
+.wyn-home-tab-indicator {
+  height: 2px;
+}
+
+/* Quick composer: slightly calmer and more compact without changing its
+   full-row touch target or the existing composer route. */
+.wyn-home-quick-compose {
+  min-height: 64px;
+  padding-block: 10px;
+  border-bottom-color: var(--wyn-beta2-divider);
+}
+
+.wyn-home-quick-compose-prompt {
+  color: var(--wyn-beta2-meta);
+}
+
+.wyn-home-quick-compose-image {
+  color: var(--wyn-beta2-meta);
+  opacity: 0.76;
+}
+
+/* Posts are separated by a very light hairline; typography/metadata hierarchy
+   does the rest of the grouping instead of heavy card chrome. */
+.wyn-home-feed .wyn-post + .wyn-post,
+.wyn-home-feed > :is(.wyn-post, .wyn-quote-feed-card)
+  + :is(.wyn-post, .wyn-quote-feed-card) {
+  border-top-color: var(--wyn-beta2-divider);
+}
+
+.wyn-home-feed .wyn-post-timestamp,
+.wyn-home-feed .wyn-post-more,
+.wyn-home-feed .wyn-post-more-text,
+.wyn-home-feed .wyn-post-redrop-line {
+  color: var(--wyn-beta2-meta);
+}
+
+.wyn-home-feed .wyn-post-caption-wrap {
+  margin-top: 2px;
+}
+
+.wyn-home-feed .wyn-post-caption-tags {
+  margin-top: 3px;
+}
+
+.wyn-home-feed .wyn-post-media {
+  margin-top: 7px;
+}
+
+.wyn-home-feed .wyn-post-media-item {
+  border-radius: 14px;
+}
+
+/* The action strip should sit behind the content visually. Keep 44px hit
+   targets from the canonical CSS, but lighten the visible stroke/counts. */
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions {
+  margin: 4px 0 7px;
+  gap: 18px;
+}
+
+.wyn-home-feed
+  .wyn-post-actions.wyn-threads-actions
+  .wyn-action-button:not(.is-liked):not(.is-active) {
+  color: var(--wyn-beta2-idle-action);
+}
+
+.wyn-home-feed
+  .wyn-post-actions.wyn-threads-actions
+  .wyn-action-button-count {
+  color: var(--wyn-beta2-action-count);
+  font-weight: 400;
+}
+
+.wyn-home-feed
+  .wyn-post-actions.wyn-threads-actions
+  .wyn-action-button.is-liked
+  .wyn-action-button-count,
+.wyn-home-feed
+  .wyn-post-actions.wyn-threads-actions
+  .wyn-action-button.is-active
+  .wyn-action-button-count {
+  color: inherit;
+}
+
+/* Presentation attributes from icon components remain the source fallback.
+   CSS narrows the visible stroke on Home only; hit-area geometry is unchanged. */
+.wyn-home-feed
+  .wyn-post-actions.wyn-threads-actions
+  .wyn-action-button
+  svg {
+  stroke-width: 1.75;
+}
+
+.wyn-home-feed
+  .wyn-post-actions.wyn-threads-actions
+  .wyn-action-button
+  svg :is(path, circle, line, polyline, polygon, rect) {
+  stroke-width: 1.75;
+}
+
+/* Keep Bookmark pinned right while giving it the same quiet idle treatment. */
+.wyn-home-feed
+  .wyn-post-actions.wyn-threads-actions
+  .wyn-action-save:not(.is-active) {
+  color: var(--wyn-beta2-idle-action);
+}
+
+/* Persistent app navigation: one strong active state, quiet inactive items.
+   Destinations, icons and touch targets are unchanged. */
+.route-bottom-nav {
+  border-top-color: var(--wyn-beta2-divider);
+}
+
+.route-nav-link {
+  color: var(--wyn-beta2-nav-inactive);
+  font-weight: 500;
+}
+
+.route-nav-link.active {
+  color: var(--wyn-text);
+  font-weight: 700;
+}
+
+@media (max-width: 359px) {
+  .wyn-home-feed .wyn-post-actions.wyn-threads-actions {
+    gap: 16px;
+  }
+}
