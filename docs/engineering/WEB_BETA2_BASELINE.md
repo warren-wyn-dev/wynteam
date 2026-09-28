@@ -59,3 +59,13 @@ Test data is intentionally separate from Production; data contents are not expec
 ### Environment-only differences
 
 The application baseline is copied from Beta 1, but Staging intentionally uses separate accounts and test data. External provider credentials are not assumed to be shared with Production. In particular, Google OAuth on the Staging Supabase project remains disabled until dedicated Staging OAuth credentials are configured; email/password authentication is the supported Staging test path for now. This does not change the Beta 1 UI baseline or connect Beta 2 to Production data.
+
+## Installed iPhone visual baseline
+
+Source-code equality is not sufficient for parity certification on iOS Home Screen apps because iOS caches PWA status-bar metadata at installation time.
+
+The Founder-provided real-device Beta 1 reference currently uses a viewport where the app/backdrop extends behind the iPhone system status area. Beta 2 intentionally reproduces that installed-device geometry with `appleWebApp.statusBarStyle = "black-translucent"` while retaining the Beta 1 safe-area/layout CSS.
+
+For visual acceptance, compare the rendered Beta 2 Home Screen app against the Founder-provided Beta 1 screenshots on the same iPhone dimensions. Existing Beta 2 Home Screen shortcuts must be removed and re-added after a status-bar metadata change because iOS caches that metadata.
+
+Staging account/profile/post contents remain separate from Production data by design; visual parity means geometry, components, typography, controls and behavior, not copied Production user data.
