@@ -1,9 +1,9 @@
 /**
- * WYNOS Action Icons — Outline Clean.
+ * WYNOS post actions — Circular Minimal Social preview.
  *
- * These shapes are intentionally related: round line caps, round joins,
- * matching optical weight and softened corners. They stay as dedicated post
- * action components so unrelated WYNOS icons are not restyled by accident.
+ * Visual language: social-first, rounded and compact. Every icon uses
+ * round caps/joins and similar optical weight so the row reads as one family.
+ * Kept local to the post row so unrelated app icons are unaffected.
  */
 type PostActionIconProps = {
   size?: number;
@@ -11,7 +11,7 @@ type PostActionIconProps = {
   className?: string;
 };
 
-export function CommentIcon({ size = 24, strokeWidth = 1.8, className }: PostActionIconProps) {
+export function CommentIcon({ size = 24, strokeWidth = 1.9, className }: PostActionIconProps) {
   return (
     <svg
       width={size}
@@ -25,14 +25,12 @@ export function CommentIcon({ size = 24, strokeWidth = 1.8, className }: PostAct
       aria-hidden="true"
       className={className}
     >
-      {/* A round bubble plus a short curved tail avoids the old sharp pointer. */}
-      <path d="M12 3.6c5.02 0 9 3.48 9 7.8s-3.98 7.8-9 7.8-9-3.48-9-7.8 3.98-7.8 9-7.8Z" />
-      <path d="M7.8 18.15c-.42 1.08-1.18 1.85-2.3 2.3 1.6-.02 2.96-.4 4.08-1.08" />
+      <path d="M12 3.5c5.05 0 9 3.45 9 7.75S17.05 19 12 19c-.9 0-1.77-.11-2.59-.32-1.14.79-2.5 1.31-4.01 1.5.65-.75 1.12-1.63 1.4-2.58C4.46 16.17 3 13.86 3 11.25 3 6.95 6.95 3.5 12 3.5Z" />
     </svg>
   );
 }
 
-export function RepostIcon({ size = 24, strokeWidth = 1.8, className }: PostActionIconProps) {
+export function RepostIcon({ size = 24, strokeWidth = 1.9, className }: PostActionIconProps) {
   return (
     <svg
       width={size}
@@ -46,18 +44,37 @@ export function RepostIcon({ size = 24, strokeWidth = 1.8, className }: PostActi
       aria-hidden="true"
       className={className}
     >
-      {/* Two directional lanes read as repost, not a circular refresh icon. */}
-      <path d="M4.4 9V7.9A2.9 2.9 0 0 1 7.3 5h10.4" />
-      <path d="m15.2 2.8 2.8 2.2-2.8 2.2" />
-      <path d="M19.6 15v1.1A2.9 2.9 0 0 1 16.7 19H6.3" />
-      <path d="m8.8 21.2-2.8-2.2 2.8-2.2" />
+      <path d="M4.5 9V7.9A2.9 2.9 0 0 1 7.4 5h10.1" />
+      <path d="m15.15 2.85 2.9 2.15-2.9 2.15" />
+      <path d="M19.5 15v1.1A2.9 2.9 0 0 1 16.6 19H6.5" />
+      <path d="m8.85 21.15-2.9-2.15 2.9-2.15" />
+    </svg>
+  );
+}
+
+export function ShareIcon({ size = 24, strokeWidth = 1.9, className }: PostActionIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M20.6 3.6 3.8 10.8c-.58.25-.55 1.08.05 1.28l6.55 2.2 2.2 6.05c.21.58 1.03.61 1.29.05L20.6 3.6Z" />
+      <path d="m10.4 14.28 4.1-4.1" />
     </svg>
   );
 }
 
 export function SaveIcon({
   size = 24,
-  strokeWidth = 1.8,
+  strokeWidth = 1.9,
   saved = false,
   className,
 }: PostActionIconProps & { saved?: boolean }) {
@@ -74,8 +91,7 @@ export function SaveIcon({
       aria-hidden="true"
       className={className}
     >
-      {/* Rounded shoulders and a shallower notch keep Bookmark in the same family. */}
-      <path d="M7.5 3.25h9c1.1 0 2 .9 2 2v14.9L12 16.1l-6.5 4.05V5.25c0-1.1.9-2 2-2Z" />
+      <path d="M8.4 3.25h7.2c1.05 0 1.9.85 1.9 1.9v14.6L12 16.45l-5.5 3.3V5.15c0-1.05.85-1.9 1.9-1.9Z" />
     </svg>
   );
 }
