@@ -39,10 +39,12 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
 export function BottomNavigation({
   profileHref,
   isActive,
+  postActive = false,
   chatUnreadCount = 0,
 }: {
   profileHref: string;
   isActive: (href: string) => boolean;
+  postActive?: boolean;
   chatUnreadCount?: number;
 }) {
   const homeActive = isActive("/");
@@ -80,12 +82,12 @@ export function BottomNavigation({
         <span>คลับ</span>
       </Link>
       <Link
-        className="route-nav-link route-nav-link--post"
+        className={`route-nav-link route-nav-link--post ${postActive ? "active" : ""}`}
         href="/?compose=1"
         aria-label="สร้างโพสต์ใหม่"
         onPointerDown={() => { void import("@/components/beta4-composer"); }}
       >
-        <MaterialNavGlyph kind="compose" />
+        <MaterialNavGlyph kind="compose" selected={postActive} />
         <span>โพสต์</span>
       </Link>
       <Link className={`route-nav-link ${chatActive ? "active" : ""}`} href="/chat" aria-label={chatUnreadCount > 0 ? `แชท มี ${chatUnreadCount} บทสนทนาที่ยังไม่อ่าน` : "แชท"} onClick={handleActiveTabTap(chatActive, "/chat")}>
