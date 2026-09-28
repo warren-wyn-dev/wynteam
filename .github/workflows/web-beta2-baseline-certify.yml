@@ -135,18 +135,44 @@ jobs:
           PREVIEW_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
+          smoke_route() {
+            local route="$1" url="$PREVIEW_URL$route" hop code location
+            for hop in 1 2 3 4; do
+              rm -f /tmp/headers /tmp/route.html
+              code=$(curl --silent --show-error --max-time 30 \
+                --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                --dump-header /tmp/headers --output /tmp/route.html --write-out '%{http_code}' "$url")
+              if [ "$code" = "200" ]; then
+                grep -q '/_next/' /tmp/route.html || {
+                  echo "::error::$route final response is not the WYNOS Next.js app"
+                  exit 1
+                }
+                return 0
+              fi
+              case "$code" in 301|302|303|307|308) ;; *)
+                echo "::error::$route returned HTTP $code"
+                exit 1
+              esac
+              location=$(awk 'BEGIN{IGNORECASE=1} /^location:/{sub(/^[^:]*:[[:space:]]*/,""); sub(/\r$/,""); print; exit}' /tmp/headers)
+              test -n "$location" || { echo "::error::$route redirected without Location"; exit 1; }
+              case "$location" in
+                /*) url="$PREVIEW_URL$location" ;;
+                "$PREVIEW_URL"/*) url="$location" ;;
+                *) echo "::error::$route tried to redirect outside the certified Preview"; exit 1 ;;
+              esac
+            done
+            echo "::error::$route exceeded four redirects"
+            exit 1
+          }
+
           routes=(/ /home /search /notifications /chat /settings /profile/me /clubs /bookmarks /login /signup/step-1)
-          for route in "${routes[@]}"; do
-            code=$(curl --silent --show-error --max-time 30 \
-              --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-              --output /tmp/route.html --write-out '%{http_code}' "$PREVIEW_URL$route")
-            test "$code" = "200" || { echo "::error::$route returned HTTP $code"; exit 1; }
-          done
+          for route in "${routes[@]}"; do smoke_route "$route"; done
+
           html=$(curl --fail --silent --show-error --max-time 30 \
             --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$PREVIEW_URL/")
-          grep -q '/_next/' <<< "$html"
           grep -q 'yydgdapzlrjmlrjgijkj.supabase.co' <<< "$html"
           ! grep -q 'kqokpocajhfbidcxpvhh.supabase.co' <<< "$html"
+
           curl --silent --show-error --fail --max-time 30 \
             --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
             --output /tmp/push.json "$PREVIEW_URL/api/push-config"
