@@ -197,7 +197,7 @@
   .wyn-post-actions.wyn-threads-actions
   .wyn-action-button
   svg :is(path, circle, line, polyline, polygon, rect) {
-  stroke-width: 1.75;
+  stroke-width: 1.9;
 }
 
 .wyn-home-feed
@@ -232,4 +232,4 @@
   }
 }
 
-/* Staging redeploy marker: Outline Clean action family, 2026-09-28. */
+/* Circular Minimal Social preview: rounded social icon family, 2026-09-28. */
