@@ -1,0 +1,73 @@
+name: Android upload key
+
+# Creates the Play upload key on GitHub's runner and stores it straight into
+# the repository secrets the "Android release bundle" workflow reads, so no
+# computer is needed (docs/engineering/ANDROID_RELEASE.md). The key and its
+# password never appear in logs, artifacts or git. Only the public
+# certificate fingerprints are shown, for Play Console / Google sign-in.
+#
+# Needs one secret: ANDROID_SECRETS_TOKEN, a fine-grained personal access
+# token for this repository only, with "Secrets: Read and write". Delete the
+# token after the run.
+#
+# It refuses to run when an upload key is already stored. To replace a lost
+# or leaked key, ask Play support for an upload key reset first, then delete
+# ANDROID_UPLOAD_KEYSTORE_BASE64 and run this again.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  create:
+    name: Create and store the upload key
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Create the key and store it as secrets
+        env:
+          EXISTING_KEY: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          GH_TOKEN: ${{ secrets.ANDROID_SECRETS_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -n "$EXISTING_KEY" ]; then
+            echo "::error::An upload key is already stored. Nothing was changed."
+            exit 1
+          fi
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::ANDROID_SECRETS_TOKEN is not set (see docs/engineering/ANDROID_RELEASE.md)."
+            exit 1
+          fi
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          KEY_PASSWORD="$(openssl rand -base64 36 | tr -d '/+=\n' | cut -c1-40)"
+          echo "::add-mask::$KEY_PASSWORD"
+          export KEY_PASSWORD
+          # PKCS12 uses one password for the store and the key.
+          keytool -genkeypair -noprompt -keystore "$work/upload.jks" -storetype PKCS12 \
+            -alias upload -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=WYNOS Upload" \
+            -storepass:env KEY_PASSWORD -keypass:env KEY_PASSWORD > /dev/null
+          base64 -w0 "$work/upload.jks" > "$work/keystore.b64"
+          # Values go in on stdin, never on the command line.
+          gh secret set ANDROID_UPLOAD_KEYSTORE_BASE64 --repo "$REPO" < "$work/keystore.b64"
+          printf '%s' "$KEY_PASSWORD" | gh secret set ANDROID_UPLOAD_STORE_PASSWORD --repo "$REPO"
+          printf '%s' "$KEY_PASSWORD" | gh secret set ANDROID_UPLOAD_KEY_PASSWORD --repo "$REPO"
+          printf '%s' "upload" | gh secret set ANDROID_UPLOAD_KEY_ALIAS --repo "$REPO"
+          {
+            echo "### Upload key created and stored"
+            echo
+            echo "Public fingerprints of the upload certificate (safe to share):"
+            echo
+            echo '```'
+            keytool -list -v -keystore "$work/upload.jks" -storepass:env KEY_PASSWORD -alias upload \
+              | grep -E '^\s*SHA(1|256):'
+            echo '```'
+            echo
+            echo "Delete the ANDROID_SECRETS_TOKEN secret and the token itself now."
+          } >> "$GITHUB_STEP_SUMMARY"

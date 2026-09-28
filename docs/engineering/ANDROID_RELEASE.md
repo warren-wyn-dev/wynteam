@@ -10,6 +10,7 @@ Founder approved starting M8 on 2026-09-28. Each Play track still needs its own 
 | Release build: R8 minify, signed with the upload key when it is configured, unsigned otherwise | `android/app/build.gradle.kts` |
 | App Links: `https://wynos.online/drop/…`, `/quote/…`, `/club/…`, `/club-post/…`, `/club-invite/…` open in the app | `AndroidManifest.xml`, `core/link/AppLink.kt` |
 | Digital Asset Links file served at `https://wynos.online/.well-known/assetlinks.json` | `web/app/.well-known/assetlinks.json/route.ts`, `web/lib/android-asset-links.ts` |
+| Upload key created and stored as secrets by GitHub Actions (no computer needed) | `.github/workflows/android-upload-key.yml` |
 | Signed bundle built in GitHub Actions (manual, `main` only; artifact kept 7 days) | `.github/workflows/android-release.yml` |
 | Version | `versionName = "1.0.0-beta1"`; `versionCode` is the workflow run number (1 for local builds) |
 
@@ -19,21 +20,35 @@ link opens after they sign in.
 
 ## Founder / infra steps (nothing secret goes into git)
 
-1. **Upload key.** Create it once on a trusted computer (Java's `keytool`, or Android Studio → Build → Generate Signed
-   Bundle → Create new) and keep the file and passwords backed up outside the repository and outside chats:
-   `keytool -genkeypair -keystore wynos-upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 10000`
-2. **GitHub secrets** (Settings → Environments → `android-release`; adding a required reviewer there makes every
-   build wait for the Founder):
-   - `ANDROID_UPLOAD_KEYSTORE_BASE64` (`base64 -w0 wynos-upload.jks`), `ANDROID_UPLOAD_STORE_PASSWORD`,
-     `ANDROID_UPLOAD_KEY_ALIAS` (`upload`), `ANDROID_UPLOAD_KEY_PASSWORD`
+1. **Upload key, without a computer** (Founder has no computer; everything here works in a phone browser):
+   - GitHub → Settings (profile) → Developer settings → Fine-grained personal access tokens → Generate new token:
+     repository access **only `wynteam`**, permission **Secrets: Read and write**, expiry 7 days.
+   - Repository → Settings → Secrets and variables → Actions → New repository secret `ANDROID_SECRETS_TOKEN` = that
+     token.
+   - Actions → **Android upload key** → Run workflow (branch `main`). It creates the key on GitHub's runner and stores
+     `ANDROID_UPLOAD_KEYSTORE_BASE64`, `ANDROID_UPLOAD_STORE_PASSWORD`, `ANDROID_UPLOAD_KEY_PASSWORD` and
+     `ANDROID_UPLOAD_KEY_ALIAS` as repository secrets. The key never appears in logs, artifacts or git; the run
+     summary shows only its public SHA-1 / SHA-256 fingerprints. It refuses to run if a key is already stored.
+   - Then delete the `ANDROID_SECRETS_TOKEN` secret and the token itself.
+   - GitHub secrets cannot be read back, so there is no copy of this key. That is acceptable because Play App Signing
+     keeps the real app signing key at Google: a lost or leaked upload key is replaced through Play Console's upload
+     key reset (Play support), then this workflow is run again after deleting the old keystore secret.
+   - With a computer, a key can instead be made with `keytool` and stored by hand under the same four secret names
+     (`base64 -w0 wynos-upload.jks` for the keystore).
+2. **Other GitHub secrets** (repository secrets, or the `android-release` environment; a required reviewer on that
+   environment makes every build wait for the Founder):
    - `FIREBASE_ANDROID_APP_ID`, `FIREBASE_ANDROID_API_KEY` (Firebase → Add app → Android, package `io.wyn.wyn`)
    - Reused as they are: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `FIREBASE_PROJECT_ID`,
-     `FIREBASE_MESSAGING_SENDER_ID`. If they are repository secrets, the environment sees them too.
+     `FIREBASE_MESSAGING_SENDER_ID`.
 3. **Build:** Actions → **Android release bundle** → Run workflow (branch `main`). It runs the tests, builds and checks
    the signed `.aab`, and attaches it with the R8 `mapping.txt` as the run's artifact. For a local build, put the same
    values in `android/local.properties` as `WYNOS_*` names (see `app/build.gradle.kts`) and run
    `./gradlew bundleRelease`.
-4. **Play Console:** create the app `io.wyn.wyn` and turn on Play App Signing. Then upload the `.aab` to **internal testing**.
+4. **Play Console** (personal account: WYN is not a registered company, 2026-09-28): verify with a real Android phone
+   (Play Console app), create the app, keep Play App Signing's Google-generated app signing key, and upload the `.aab`
+   (downloaded from the run's artifact and unzipped on the phone) to **internal testing**.
+   - Personal accounts must run a **closed test with at least 12 testers for 14 days** before production access
+     (Google's rule at the time of writing).
 5. **App Links:** copy the SHA-256 fingerprints from Play Console → App integrity (the app signing key, and the upload
    key). Set them in Vercel as `ANDROID_APP_SHA256_FINGERPRINTS=AA:BB:…,CC:DD:…`, then deploy the web. That deploy is a
    production web deploy and needs Founder approval.
