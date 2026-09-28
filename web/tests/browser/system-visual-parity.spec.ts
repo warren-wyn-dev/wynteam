@@ -140,9 +140,9 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(navCss).not.toContain(".route-nav-link:nth-child(3) .route-nav-glyph");
   expect(nav).toContain('kind="compose"');
   expect(nav).toContain('className="route-nav-link route-nav-link--post"');
-  expect(nav).toContain('route-nav-glyph--${kind}');
-  expect(navCss).toContain("background-image: var(--wyn-nav-icon-image)");
-  expect(navCss).toContain("data:image/png;base64,");
+  expect(nav).toContain("NAV_ICON_PATHS");
+  expect(nav).toContain('viewBox="0 0 160 160"');
+  expect(nav).toContain('fill="currentColor"');
 });
 
 test("bottom navigation has exactly one canonical stylesheet (no competing override layer)", () => {
