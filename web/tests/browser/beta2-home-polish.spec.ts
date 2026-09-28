@@ -1,0 +1,44 @@
+import { expect, test } from "@playwright/test";
+
+test.use({ colorScheme: "light", serviceWorkers: "block" });
+
+test("Beta 2 Home keeps the approved Threads layout while softening secondary chrome", async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 932 });
+  await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
+
+  const tabs = page.locator(".wyn-home-tabs");
+  const composer = page.locator(".wyn-home-quick-compose");
+  const post = page.locator(".wyn-post").first();
+  const timestamp = post.locator(".wyn-post-timestamp");
+  const actions = post.locator(".wyn-post-actions.wyn-threads-actions");
+  const idleAction = actions.locator(".wyn-action-button:not(.is-liked):not(.is-active)").first();
+  const count = actions.locator(".wyn-action-button-count").first();
+  const save = actions.locator(".wyn-action-save");
+  const inactiveNav = page.locator(".route-nav-link:not(.active)").first();
+
+  await expect(tabs).toBeVisible();
+  await expect(composer).toBeVisible();
+  await expect(post).toBeVisible();
+  await expect(actions).toBeVisible();
+  await expect(save).toBeVisible();
+
+  await expect(tabs).toHaveCSS("border-bottom-color", "rgb(237, 240, 242)");
+  await expect(composer).toHaveCSS("border-bottom-color", "rgb(237, 240, 242)");
+  await expect(timestamp).toHaveCSS("color", "rgb(141, 147, 156)");
+  await expect(idleAction).toHaveCSS("color", "rgb(133, 140, 150)");
+  if (await count.count()) {
+    await expect(count).toHaveCSS("color", "rgb(154, 160, 169)");
+    await expect(count).toHaveCSS("font-weight", "400");
+  }
+  await expect(inactiveNav).toHaveCSS("color", "rgb(138, 144, 153)");
+
+  const saveBox = await save.boundingBox();
+  const actionsBox = await actions.boundingBox();
+  expect(saveBox).not.toBeNull();
+  expect(actionsBox).not.toBeNull();
+  // Bookmark remains the right-most action, as approved.
+  expect(saveBox!.x + saveBox!.width).toBeGreaterThan(actionsBox!.x + actionsBox!.width * 0.88);
+
+  const stroke = await idleAction.locator("svg").first().evaluate((svg) => getComputedStyle(svg).strokeWidth);
+  expect(parseFloat(stroke)).toBeCloseTo(1.75, 2);
+});
