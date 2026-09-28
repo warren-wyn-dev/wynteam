@@ -1,7 +1,10 @@
 name: Web Beta2 -- isolated protected staging
 
-# Manually dispatched until the separate Vercel project and staging-only secrets
-# are verified. The existing per-PR preview is intentionally NOT changed here.
+# Manual only, on main at a reviewed immutable commit. Existing per-PR
+# previews and production deployment are unchanged. The prior manual pilot
+# already demonstrated hosted QA with a temporary bypass. This revised
+# workflow moves full local-browser/fixture QA to a separate unprivileged runner
+# and limits the fresh credentialed runner to protected preview deploy + smoke.
 on:
   workflow_dispatch:
 
@@ -9,7 +12,30 @@ permissions:
   contents: read
 
 jobs:
-  staging:
+  # No unreviewed workflow_dispatch ref may select the deployed checkout.
+  # github.sha is the immutable main commit approved at dispatch time.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      reviewed_sha: ${{ steps.ref.outputs.sha }}
+    steps:
+      - name: Fail closed unless dispatch targets reviewed main
+        id: ref
+        env:
+          SOURCE_REF: ${{ github.ref }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$SOURCE_REF" != 'refs/heads/main' ] || [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Manual isolated staging may deploy only an immutable commit on main."
+            exit 1
+          fi
+          echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+  # npm lifecycle scripts and app/browser tests run on an UNPRIVILEGED runner.
+  # It never receives VERCEL_TOKEN or production project identifiers.
+  checks:
+    needs: guard
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -17,6 +43,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.guard.outputs.reviewed_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install web dependencies (unprivileged runner only)
+        run: npm ci --no-audit --no-fund
+
+      # Full local browser QA covers the dev-only fixtures on this tokenless
+      # runner. The fresh deploy runner below verifies protected remote routes.
+      - name: Local browser QA without production accounts or Vercel token
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          npx playwright install --with-deps chromium webkit
+          npm run qa:browser
+
+  # A completely NEW runner receives the deploy credential only after
+  # unprivileged checks succeed. No npm ci, npm run check or app/browser test
+  # executes on this runner, so dependency hooks cannot persist into token steps.
+  staging:
+    needs: [guard, checks]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.reviewed_sha }}
           persist-credentials: false
 
       - uses: actions/setup-node@v4
@@ -33,9 +92,6 @@ jobs:
           PRODUCTION_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
         run: node scripts/assert-isolated-staging.mjs
-
-      - name: Install web dependencies
-        run: npm ci --no-audit --no-fund
 
       - name: Verify the distinct Vercel staging project requires authentication
         env:
@@ -81,7 +137,7 @@ jobs:
         run: |
           set -euo pipefail
           export VERCEL_PROJECT_ID="$STAGING_VERCEL_PROJECT_ID"
-          url=$(npx --yes vercel@latest deploy --yes \
+          url=$(npx --yes vercel@60.1.3 deploy --yes \
             --token="$VERCEL_TOKEN" \
             --build-env NEXT_PUBLIC_SUPABASE_URL="$STAGING_SUPABASE_URL" \
             --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$STAGING_SUPABASE_PUBLISHABLE_KEY" \
@@ -146,13 +202,6 @@ jobs:
               --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
               --output /dev/null "$PREVIEW_URL$route"
           done
-
-      - name: Hosted browser QA (no production accounts)
-        env:
-          PLAYWRIGHT_BASE_URL: ${{ steps.deploy.outputs.url }}
-        run: |
-          npx playwright install --with-deps chromium webkit
-          npm run qa:browser
 
       - name: Always revoke the temporary staging protection bypass
         if: always()
