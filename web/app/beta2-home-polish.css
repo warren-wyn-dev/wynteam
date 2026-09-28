@@ -173,3 +173,156 @@
     gap: 16px;
   }
 }
+
+/* 2026-09-28 real-device correction.
+   The approved preview was calmer and more compact than the first shipped
+   Beta 2 polish pass. Keep all interaction targets, but reduce visual weight. */
+
+.wyn-home-tab {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.wyn-home-tab.is-active {
+  font-weight: 700;
+}
+
+.wyn-home-tab-indicator {
+  width: 112px;
+}
+
+.wyn-home-quick-compose {
+  min-height: 58px;
+  padding: 8px 16px;
+  gap: 10px;
+}
+
+.wyn-home-quick-compose-avatar {
+  flex-basis: 34px;
+  width: 34px;
+  height: 34px;
+}
+
+.wyn-home-quick-compose-avatar .route-avatar,
+.wyn-home-quick-compose-avatar .wyn-default-profile-avatar {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.wyn-home-quick-compose-prompt {
+  font-size: 14.5px;
+}
+
+.wyn-home-quick-compose-image {
+  width: 20px;
+  height: 20px;
+  opacity: 0.7;
+}
+
+.wyn-home-feed .wyn-post {
+  padding-top: 9px;
+}
+
+.wyn-home-feed .wyn-post-author-name {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.wyn-home-feed .wyn-post-timestamp {
+  font-size: 13.5px;
+}
+
+.wyn-home-feed .wyn-post-caption-wrap {
+  margin-top: 2px;
+  font-size: 15.5px;
+  line-height: 1.36;
+}
+
+.wyn-home-feed .wyn-post-caption-tags {
+  margin-top: 3px;
+}
+
+.wyn-home-feed .wyn-post-more-text {
+  font-size: 14px;
+}
+
+.wyn-home-feed .wyn-post-redrop-line {
+  min-height: 18px;
+  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions {
+  min-height: 32px;
+  margin: 3px 0 7px;
+  gap: 20px;
+}
+
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button {
+  min-width: 22px;
+  min-height: 32px;
+  height: 32px;
+  gap: 4px;
+}
+
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.6;
+}
+
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button svg :is(path, circle, line, polyline, polygon, rect) {
+  stroke-width: 1.6;
+}
+
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button:nth-child(2) svg {
+  width: 21px;
+  height: 21px;
+}
+
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-share .wyn-share-icon,
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-save svg {
+  width: 20px;
+  height: 20px;
+}
+
+.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button-count {
+  font-size: 12.5px;
+  font-weight: 400;
+}
+
+.route-bottom-nav {
+  border-top-color: #f0f1f2;
+}
+
+.route-nav-link {
+  color: #969ba3;
+  font-size: 9.5px;
+}
+
+.route-nav-glyph,
+.route-create-button,
+.route-nav-icon-wrap,
+.route-create-button .route-nav-glyph {
+  width: 26px;
+  height: 26px;
+}
+
+.route-nav-glyph {
+  flex-basis: 26px;
+}
+
+@media (max-width: 359px) {
+  .wyn-home-tab {
+    font-size: 15.5px;
+  }
+
+  .wyn-home-tab-indicator {
+    width: calc(100% - 24px);
+  }
+
+  .wyn-home-feed .wyn-post-actions.wyn-threads-actions {
+    gap: 17px;
+  }
+}
