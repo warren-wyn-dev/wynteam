@@ -23,7 +23,7 @@ const NAV_ICON_PATHS: Record<MaterialNavKind, string> = {
 export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNavKind; selected?: boolean }) {
   return (
     <svg
-      className="route-nav-glyph"
+      className={`route-nav-glyph route-nav-glyph--${kind}`}
       viewBox="0 0 160 160"
       aria-hidden="true"
       data-selected={selected ? "true" : undefined}
