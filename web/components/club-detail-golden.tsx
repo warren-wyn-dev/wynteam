@@ -33,6 +33,7 @@ import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import { useBeta2Feature } from "@/lib/beta2";
 import { fetchClub, type ClubRow } from "@/lib/phase3-data";
 import { shareOrCopyLink } from "@/lib/share";
+import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 
@@ -530,7 +531,7 @@ function ChatTab({ client, userId, clubId, membership, channels }: { client: Sup
       if (image) {
         const { contentType, extension } = imageUploadType(image);
         imagePath = `${clubId}/chat/${channelId}/${userId}-${Date.now()}.${extension}`;
-        const upload = await client.storage.from("club-media").upload(imagePath, image, { cacheControl: "31536000", upsert: false, contentType });
+        const upload = await client.storage.from("club-media").upload(imagePath, await withoutLocation(image, contentType), { cacheControl: "31536000", upsert: false, contentType });
         if (upload.error) throw upload.error;
       }
       const result = await client.from("club_channel_messages").insert({

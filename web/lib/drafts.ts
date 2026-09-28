@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 
 export type DraftRow = {
@@ -53,7 +54,7 @@ export async function saveDraft(
   if (input.file) {
     const { contentType, extension } = imageUploadType(input.file);
     const path = `${userId}/drafts/${id}.${extension}`;
-    const uploaded = await client.storage.from("drop-images").upload(path, input.file, {
+    const uploaded = await client.storage.from("drop-images").upload(path, await withoutLocation(input.file, contentType), {
       cacheControl: "60",
       contentType,
       upsert: true,
