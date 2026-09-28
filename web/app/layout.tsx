@@ -1,6 +1,7 @@
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { preconnect } from "react-dom";
 import { AppBottomNavHost } from "@/components/app-bottom-nav-runtime";
 import { AppNavigationRuntime } from "@/components/app-navigation-runtime";
@@ -150,5 +151,5 @@ export default function RootLayout({children}:Readonly<{children:React.ReactNode
   // It is a static constant, not user input. suppressHydrationWarning covers
   // that one attribute, which the server cannot know. WYN-189:
   // LANGUAGE_BOOT_SCRIPT likewise sets lang/data-i18n-pending for English.
-  return <html lang="th" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} /><script dangerouslySetInnerHTML={{ __html: LANGUAGE_BOOT_SCRIPT }} /></head><body><QueryProvider><AppNavigationRuntime /><ClientErrorMonitor /><ZoomLock /><ThemeSync /><LanguageSync /><PushResync /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><AppBottomNavHost /><InstallPromptBanner /><PushPrompt /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
+  return <html lang="th" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} /><script dangerouslySetInnerHTML={{ __html: LANGUAGE_BOOT_SCRIPT }} /></head><body><QueryProvider><AppNavigationRuntime /><ClientErrorMonitor /><ZoomLock /><ThemeSync /><LanguageSync /><PushResync /><SwipeBackGesture /><SignupDraftProvider><PageTransition>{children}</PageTransition></SignupDraftProvider><Suspense fallback={null}><AppBottomNavHost /></Suspense><InstallPromptBanner /><PushPrompt /></QueryProvider><Analytics /><SpeedInsights /></body></html>;
 }
