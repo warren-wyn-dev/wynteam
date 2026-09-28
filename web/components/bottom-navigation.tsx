@@ -10,7 +10,7 @@ import { triggerRouteRefresh } from "@/components/route-refresh-runtime";
  * The five existing destinations stay unchanged; the visual treatment is the
  * approved lightweight app dock with no selected background tile.
  */
-type MaterialNavKind = "home" | "club" | "chat" | "profile" | "add";
+type MaterialNavKind = "home" | "club" | "chat" | "profile" | "compose";
 
 export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNavKind; selected?: boolean }) {
   // 2026-09-21 "Tab Bar A: เส้นบาง" redesign: a simpler, unified line-icon
@@ -19,7 +19,7 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
   // tracks an active route (home/club/chat/profile) fills solid on
   // selection, same as the chat icon -- the Founder asked for that fill
   // treatment across the whole bar, not just chat.
-  const strokeWidth = 1.7;
+  const strokeWidth = 1.8;
 
   if (kind === "home") {
     return (
@@ -60,8 +60,8 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
 
   return (
     <svg className="route-nav-glyph" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9.5" />
-      <path d="M12 7.5v9M7.5 12h9" />
+      <path d="M13.5 5H7.75A2.75 2.75 0 0 0 5 7.75v8.5A2.75 2.75 0 0 0 7.75 19h8.5A2.75 2.75 0 0 0 19 16.25V10.5" />
+      <path d="m12.25 13.25.62-2.6 4.93-4.93a1.42 1.42 0 0 1 2 0l.48.48a1.42 1.42 0 0 1 0 2l-4.93 4.93-2.6.62.5-2.5 4.8-4.8" />
     </svg>
   );
 }
@@ -110,12 +110,12 @@ export function BottomNavigation({
         <span>คลับ</span>
       </Link>
       <Link
-        className="route-nav-link"
+        className="route-nav-link route-nav-link--post"
         href="/?compose=1"
         aria-label="สร้างโพสต์ใหม่"
         onPointerDown={() => { void import("@/components/beta4-composer"); }}
       >
-        <MaterialNavGlyph kind="add" />
+        <MaterialNavGlyph kind="compose" />
         <span>โพสต์</span>
       </Link>
       <Link className={`route-nav-link ${chatActive ? "active" : ""}`} href="/chat" aria-label={chatUnreadCount > 0 ? `แชท มี ${chatUnreadCount} บทสนทนาที่ยังไม่อ่าน` : "แชท"} onClick={handleActiveTabTap(chatActive, "/chat")}>
