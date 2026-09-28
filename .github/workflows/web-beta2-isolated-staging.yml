@@ -122,6 +122,36 @@ jobs:
           fi
           echo "Approved isolated project identities verified; no repository code executed."
 
+      - name: Verify publishable key belongs to the exact staging Supabase project
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          # An anonymous, ZERO-ROW PostgREST read checks the gateway key-to-project
+          # association and verifies the actual Data API. No user data is read.
+          response=$(mktemp)
+          trap 'rm -f "$response"' EXIT
+          base=$(printf '%s' "$STAGING_SUPABASE_URL" | sed 's:/*$::')
+          status=$(curl --silent --show-error --max-time 30 \
+            --header "apikey: $STAGING_SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Accept: application/json' \
+            --output "$response" --write-out '%{http_code}' \
+            "$base/rest/v1/profiles?select=id&limit=0")
+          if [ "$status" != '200' ]; then
+            echo "::error::Staging publishable key failed the exact-project public API probe (HTTP $status)."
+            exit 1
+          fi
+          node - "$response" <<'NODE'
+          const fs = require("node:fs");
+          const data = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          if (!Array.isArray(data) || data.length !== 0) {
+            console.error("Public API probe must return an empty zero-row JSON result.");
+            process.exit(1);
+          }
+          console.log("Staging publishable key accepted by the approved project (no data read).");
+          NODE
+
       - name: Verify the distinct Vercel staging project requires authentication
         env:
           STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
@@ -218,16 +248,56 @@ jobs:
             --data "{\"generate\":{\"secret\":\"$bypass\",\"note\":\"WYNOS Beta2 staging QA $GITHUB_RUN_ID\"}}" \
             > /dev/null
 
-      - name: Smoke protected staging routes
+      - name: Smoke protected staging routes and prove Next.js HTML (never SSO)
         env:
           PREVIEW_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
+          headers=$(mktemp)
+          body=$(mktemp)
+          trap 'rm -f "$headers" "$body"' EXIT
           for route in / /search /notifications /chat /settings /profile/me /clubs; do
-            curl --fail --silent --show-error --location --retry 5 --retry-delay 2 --max-time 30 \
-              --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-              --output /dev/null "$PREVIEW_URL$route"
+            url="$PREVIEW_URL$route"
+            verified=0
+            for attempt in 1 2 3 4; do
+              # Do not use --location: it would forward the protection bypass
+              # to Vercel SSO on a failed bypass and mistake login HTML for app HTML.
+              status=$(curl --silent --show-error --max-time 30 \
+                --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+                --output "$body" --dump-header "$headers" --write-out '%{http_code}' "$url")
+              case "$status" in
+                200)
+                  case "$url" in
+                    "$PREVIEW_URL"|"$PREVIEW_URL"/*) ;;
+                    *) echo "::error::Unexpected effective staging URL"; exit 1 ;;
+                  esac
+                  if ! grep -q '/_next/' "$body"; then
+                    echo "::error::Route $route returned HTTP 200 without Next.js app HTML."
+                    exit 1
+                  fi
+                  verified=1
+                  break
+                  ;;
+                301|302|303|307|308)
+                  location=$(sed -n 's/^[Ll][Oo][Cc][Aa][Tt][Ii][Oo][Nn]:[[:space:]]*//p' "$headers" | tr -d '\r' | tail -n 1)
+                  case "$location" in
+                    "$PREVIEW_URL"/*) url="$location" ;;
+                    /*) url="$PREVIEW_URL$location" ;;
+                    *) echo "::error::Unexpected/SSO redirect during protected route $route"; exit 1 ;;
+                  esac
+                  ;;
+                *)
+                  echo "::error::Protected route $route failed with HTTP $status"
+                  exit 1
+                  ;;
+              esac
+            done
+            if [ "$verified" != '1' ]; then
+              echo "::error::Protected route $route did not render the app within four redirects"
+              exit 1
+            fi
           done
+          echo "All protected staging routes returned app HTML; SSO redirects rejected."
 
       - name: Always revoke the temporary staging protection bypass
         if: always()
