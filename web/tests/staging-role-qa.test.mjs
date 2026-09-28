@@ -96,7 +96,7 @@ test("manual staging workflow separates reviewed-source checks and token-bearing
   assert.match(staging, /id: deploy\n\s+(?:#[^\n]*\n\s+)*working-directory: \./,
     "Staging Vercel Root Directory is web, so CLI must run at repository root");
   assert.match(staging, /Approved isolated project identities verified/);
-  assert.match(staging, /profiles\\?select=id&limit=0/,
+  assert.match(staging, /profiles\?select=id&limit=0/,
     "The staging publishable key must be tested through an actual zero-row Data API call");
   assert.match(staging, /if \[ "\$status" != '200' \]; then/,
     "A mismatched project key must fail closed");
