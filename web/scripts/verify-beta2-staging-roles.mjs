@@ -47,9 +47,20 @@ function unwrap(result, step) {
   return result.data;
 }
 
-async function requireDenied(resultPromise, step) {
+export function assertExpectedDenial(result, step, code, messagePattern) {
+  // A network failure, schema-cache miss or unrelated database error is NOT
+  // authorization evidence. The exact PostgreSQL code and denial reason must
+  // both match the case being asserted.
+  assert.ok(result?.error, step + " must return an authorization error");
+  assert.equal(result.error.code, code, step + " returned an unexpected error code");
+  assert.match(result.error.message ?? "", messagePattern,
+    step + " returned an unrelated database error");
+  return true;
+}
+
+async function requireDenied(resultPromise, step, code, messagePattern) {
   const result = await resultPromise;
-  assert.ok(result.error, step + " must be denied by the database");
+  assertExpectedDenial(result, step, code, messagePattern);
   console.log("PASS " + step);
 }
 
@@ -74,10 +85,10 @@ async function run() {
   const secondClub = manifest.clubs[1].id;
 
   try {
-    await requireDenied(anon.rpc("club_chat_actions_available"), "anonymous Club Chat readiness RPC");
+    await requireDenied(anon.rpc("club_chat_actions_available"), "anonymous Club Chat readiness RPC", "42501", /permission denied/i);
     await requireDenied(anon.rpc("search_club_channel_messages", {
       p_channel_id: firstClub, p_query: "hello", p_limit: 10,
-    }), "anonymous Club Chat search RPC");
+    }), "anonymous Club Chat search RPC", "42501", /permission denied/i);
     for (const account of manifest.accounts) {
       const client = makeClient();
       const login = unwrap(await client.auth.signInWithPassword({
@@ -136,25 +147,25 @@ async function run() {
     console.log("PASS approved member, Thai and literal wildcard search");
     await requireDenied(member.rpc("search_club_channel_messages", {
       p_channel_id: secondChannel, p_query: "Private", p_limit: 30,
-    }), "cross-Club member search");
+    }), "cross-Club member search", "P0001", /Not an approved member of this channel/);
     await requireDenied(outsider.rpc("search_club_channel_messages", {
       p_channel_id: firstChannel, p_query: "hello", p_limit: 30,
-    }), "developer nonmember search");
+    }), "developer nonmember search", "P0001", /Not an approved member of this channel/);
     await requireDenied(nondevMember.rpc("search_club_channel_messages", {
       p_channel_id: firstChannel, p_query: "hello", p_limit: 30,
-    }), "nondeveloper member search");
+    }), "nondeveloper member search", "P0001", /Club chat actions are not available yet/);
     await requireDenied(nondevOutsider.rpc("search_club_channel_messages", {
       p_channel_id: firstChannel, p_query: "hello", p_limit: 30,
-    }), "nondeveloper nonmember search");
+    }), "nondeveloper nonmember search", "P0001", /Club chat actions are not available yet/);
     await requireDenied(owner.rpc("edit_club_channel_message", {
       p_message_id: originalMessage.id, p_content: "owner cannot edit member's message",
-    }), "staff editing someone else's message");
+    }), "staff editing someone else's message", "P0001", /Message not found or not yours to edit/);
     await requireDenied(member.rpc("set_club_channel_message_pin", {
       p_message_id: originalMessage.id, p_pin: true,
-    }), "ordinary member pin");
+    }), "ordinary member pin", "P0001", /Only Club staff can pin messages/);
     await requireDenied(nondevMember.rpc("set_club_channel_message_pin", {
       p_message_id: originalMessage.id, p_pin: true,
-    }), "nondeveloper pin");
+    }), "nondeveloper pin", "P0001", /Club chat actions are not available yet/);
 
     for (const row of pinCandidates.slice(0, 3))
       unwrap(await owner.rpc("set_club_channel_message_pin", {
@@ -162,7 +173,7 @@ async function run() {
       }), "Pin synthetic message");
     await requireDenied(owner.rpc("set_club_channel_message_pin", {
       p_message_id: pinCandidates[3].id, p_pin: true,
-    }), "fourth pin (three-pin server limit)");
+    }), "fourth pin (three-pin server limit)", "P0001", /Pin limit reached/);
     unwrap(await clients.developer_admin.rpc("set_club_channel_message_pin", {
       p_message_id: pinCandidates[2].id, p_pin: false,
     }), "Admin unpin");
@@ -184,10 +195,10 @@ async function run() {
 
     await requireDenied(member.rpc("create_club_announcement", {
       p_club_id: firstClub, p_body: "Member must not post",
-    }), "ordinary member announcement write");
+    }), "ordinary member announcement write", "P0001", /Only Club staff can post announcements/);
     await requireDenied(nondevMember.rpc("create_club_announcement", {
       p_club_id: firstClub, p_body: "Nondeveloper must not post",
-    }), "nondeveloper announcement write");
+    }), "nondeveloper announcement write", "P0001", /Announcements are not available yet/);
     announcementId = unwrap(await moderator.rpc("create_club_announcement", {
       p_club_id: firstClub, p_body: "Synthetic role QA announcement " + manifest.suffix,
     }), "Moderator announcement create");
