@@ -43,7 +43,7 @@ jobs:
           cat /tmp/wynos-beta2.log
           exit 1
 
-      - name: Capture mobile screenshot
+      - name: Capture mobile screenshots
         run: |
           node <<'NODE'
           const { chromium } = require('@playwright/test');
@@ -56,16 +56,28 @@ jobs:
               hasTouch: true,
               locale: 'th-TH',
             });
-            await page.goto('http://127.0.0.1:3000/dev/home-fixture', { waitUntil: 'networkidle' });
-            await page.screenshot({ path: '../wynos-beta2-bottom-nav-mobile.png', fullPage: false });
+            const states = [
+              ['club', 'wynos-beta2-nav-club-active.png'],
+              ['post', 'wynos-beta2-nav-post-active.png'],
+              ['chat', 'wynos-beta2-nav-chat-active.png'],
+              ['profile', 'wynos-beta2-nav-profile-active.png'],
+            ];
+            for (const [state, file] of states) {
+              await page.goto(`http://127.0.0.1:3000/dev/home-fixture?nav=${state}`, { waitUntil: 'networkidle' });
+              await page.screenshot({ path: `../${file}`, fullPage: false });
+            }
             await browser.close();
           })();
           NODE
 
-      - name: Upload screenshot
+      - name: Upload screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: wynos-beta2-bottom-nav-mobile
-          path: wynos-beta2-bottom-nav-mobile.png
+          name: wynos-beta2-bottom-nav-active-states
+          path: |
+            wynos-beta2-nav-club-active.png
+            wynos-beta2-nav-post-active.png
+            wynos-beta2-nav-chat-active.png
+            wynos-beta2-nav-profile-active.png
           if-no-files-found: error
           retention-days: 7
