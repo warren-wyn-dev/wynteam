@@ -127,15 +127,15 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(flutterNav).toContain("fontSize: 11.5");
 
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(nav).toContain(label);
-  expect(navCss).toContain("--wyn-bottom-nav-height: 50px;");
+  expect(navCss).toContain("--wyn-bottom-nav-height: 68px;");
   expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);");
   expect(navCss).toContain("padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));");
   expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom))");
   expect(navCss).toContain("width: min(100%, 680px)");
   expect(navCss).toContain("border-top: 1px solid");
-  expect(navCss).toContain("width: 28px");
-  expect(navCss).toContain("height: 28px");
-  expect(navCss).toContain("flex: 0 0 28px");
+  expect(navCss).toContain("width: 24px");
+  expect(navCss).toContain("height: 24px");
+  expect(navCss).toContain("flex: 0 0 24px");
   expect(nav).toContain('fill={selected ? "currentColor" : "none"}');
 });
 
@@ -162,7 +162,7 @@ test("bottom navigation has exactly one canonical stylesheet (no competing overr
   // own unrelated 80px value doing exactly that). Guard both halves of
   // the fix so this can't quietly regress either way.
   const navCssRoot = read("app/bottom-nav.css");
-  expect(navCssRoot).toContain(":root {\n  --wyn-bottom-nav-height: 50px;\n}");
+  expect(navCssRoot).toContain(":root {\n  --wyn-bottom-nav-height: 68px;\n}");
   expect(navCssRoot).not.toContain(".route-with-bottom-nav {\n  --wyn-bottom-nav-height");
   for (const file of ["parity.css", "parity-final.css", "phase3.css", "pixel-parity-final.css", "system-parity-final.css"]) {
     expect(read(`app/${file}`), `${file} must not declare --wyn-bottom-nav-height`).not.toContain("--wyn-bottom-nav-height:");
