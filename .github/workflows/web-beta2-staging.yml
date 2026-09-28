@@ -48,6 +48,8 @@ jobs:
           clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
           stage_url=$(clean "$STAGING_SUPABASE_URL")
           prod_url=$(clean "$PRODUCTION_SUPABASE_URL")
+          stage_url=${stage_url%/}
+          prod_url=${prod_url%/}
           stage_project=$(clean "$STAGING_VERCEL_PROJECT_ID")
           prod_project=$(clean "$PRODUCTION_VERCEL_PROJECT_ID")
 
