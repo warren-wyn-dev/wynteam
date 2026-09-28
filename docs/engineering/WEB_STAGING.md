@@ -37,8 +37,7 @@ already installed; production remains `kqokpocajhfbidcxpvhh`. The existing
 `web-next-phase5-preview.yml` **still uses production Supabase**. Never run staging
 migrations, destructive tests or production-data fixtures against those legacy PR URLs.
 
-The new `web-beta2-isolated-staging.yml` is **manual-only** until Vercel access and
-environment isolation are independently verified. It refuses to deploy if required
+The separate `web-beta2-isolated-staging.yml` remains a manual-only proposal in PR #750. A distinct, workflow-only pilot is already on `main` as `web-beta2-isolated-staging-pilot.yml`; its approved immutable Beta2 integration snapshot was successfully tested on 2026-09-28. Neither workflow authorizes a public Beta2 release. It refuses to deploy if required
 secrets are absent, either Supabase URL points at the wrong project, the staging key
 is not a publishable key, either key is shared with production, the Vercel project
 is shared, or the separate Vercel project does not require Vercel Authentication on
@@ -71,8 +70,7 @@ script writes passwords and IDs to a permission-restricted **local temporary
 file**. Never commit or upload that file; securely distribute test credentials
 only to the authorized QA team, retain it for cleanup and remove the seeded
 users/data after testing. Do not run the script twice unintentionally. The
-staging project is currently unseeded; adding this script does not provision
-accounts until an authorized operator actually executes it.
+staging project does not have the required seven synthetic test identities yet; adding this script does not provision accounts until an authorized operator actually executes it.
 Cover developer Owner/Admin/Moderator/Member, non-developer Member and outsider;
 do not mark authenticated staging E2E as passed until these actual staging logins
 and cross-role denials have been tested. Keep Push disabled and review Free quotas.
@@ -91,7 +89,7 @@ applied to Supabase ref `yydgdapzlrjmlrjgijkj`, with the reviewed SQL source
 at `docs/engineering/staging-only/WEB_BETA2_ANON_GRANTS.sql`. Read-only
 post-migration verification: 143 public SQL functions on staging; 15 callable
 by `anon`, of which three use SECURITY DEFINER; 138 callable by
-`authenticated` (unchanged); zero staging Auth users and developer identities.
+`authenticated` (unchanged); at the time of the security audit, zero staging Auth users and developer identities.
 It removed the 103 excess anonymous function grants identified by comparing
 the staging baseline with the existing production function signatures and
 privileges. The eight Beta2 developer, Club Chat and Club Announcement RPCs
@@ -106,11 +104,54 @@ both databases; they require independent multi-role UAT tracked in [#688](https:
 Staging also reports other advisor warnings, which must be individually
 triaged; do not claim zero security warnings based on this one migration.
 
-**Outstanding release gates:** Founder reports the three staging GitHub
-repository secrets were added, but the GitHub connector cannot verify their
-names or values. The first authorized manual staging workflow run must pass
-its exact-project, distinct-key and Vercel SSO fail-closed checks. The workflow
-cannot be dispatched before it exists on GitHub's default branch, and merging
-`web/**` auto-deploys public Beta1 even while Beta2 feature flags stay off:
-obtain explicit Founder merge authorization separately. Human synthetic
-staging-account bootstrapping and role-denial browser UAT have not run.
+**Verified pilot and remaining release gates (2026-09-28):** The workflow-only pilot
+on `main` succeeded at [run #36347104318, attempt 2](https://github.com/warren-wyn-dev/wynteam/actions/runs/36347104318).
+GitHub jobs confirm the staging/production identifier guard, distinct protected
+Vercel project, `npm run check`, staging-only preview deploy, verified anonymous
+SSO redirect, route smoke, hosted browser QA and final temporary bypass
+revocation all succeeded. The hosted checks use no production or synthetic
+Auth identities: they are not authenticated role-denial E2E. The PR #750-specific
+workflow has not merged or run. GitHub connector cannot independently read
+staging secret values; the pilot's fail-closed runtime checks did succeed.
+A separate read-only staging check on 2026-09-28 found one Auth user, zero
+profiles/developer accounts/Clubs/messages/announcements; that user's origin is
+not inferred or modified. No complete seven-user synthetic fixture exists yet.
+Merging `web/**` still auto-deploys Production; obtain separate authorized
+review/merge for PRs #750 and #752. No public Beta2 feature flag is enabled.
+
+### Manual authenticated staging role QA (separate from green hosted preview)
+
+The staging-only bootstrap script in PR #750 generates seven synthetic accounts,
+two private Clubs, sample messages and announcements, and a private 0600
+manifest. It requires a staging-only server credential on an authorized
+operator's computer. Never put that credential or the manifest in CI, GitHub
+comments, Vercel environment variables, chat, screenshots or client code.
+If an unrelated user already exists on staging, do not delete or reuse it.
+
+After bootstrapping, run the additional manual test from the same reviewed PR
+branch in a trusted terminal. Supply the following through a secure local
+secret store (not command-line arguments or committed files):
+
+- STAGING_SUPABASE_URL = the exact approved staging URL above
+- STAGING_SUPABASE_PUBLISHABLE_KEY = staging-only public client key
+- CONFIRM_WYNOS_STAGING_ROLE_QA = YES
+- CI must not be set
+
+Run from `web/`:
+
+`node scripts/verify-beta2-staging-roles.mjs --manifest /secure/private-test-credentials.json`
+
+The QA runner refuses production URLs, privileged keys, CI, real-user emails,
+incomplete/foreign manifests and insecure manifest permissions. It uses
+normal signed-in clients, not service-role bypass, to test developer and
+nondeveloper gates; channel isolation; Thai, literal wildcard and outsider
+search denial; author edits; staff-only pins and the three-pin cap; automatic
+unpin after editing; and announcements visibility/edit/delete permissions.
+It best-effort restores test message text and pins, removes its temporary
+announcement and signs out. Investigate any cleanup error. The authorized
+operator must later remove only manifest-listed synthetic users and Clubs.
+
+`npm run test:isolated-staging` covers offline fail-closed preflight guards
+in CI, **not** authenticated seven-role QA. Record redacted real QA PASS/FAIL
+in Issue #749. Production human UAT is separately tracked in Issue #748.
+Neither green test authorizes public Beta2 release or a production merge.
