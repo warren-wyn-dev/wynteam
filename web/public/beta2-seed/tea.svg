@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1125" viewBox="0 0 900 1125">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#22352c"/><stop offset=".55" stop-color="#566f51"/><stop offset="1" stop-color="#171717"/></linearGradient><linearGradient id="tea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ffb332"/><stop offset="1" stop-color="#d96b12"/></linearGradient></defs>
+<rect width="900" height="1125" fill="url(#bg)"/><circle cx="160" cy="180" r="95" fill="#8cb67b" opacity=".55"/><circle cx="765" cy="250" r="140" fill="#d7b760" opacity=".25"/>
+<ellipse cx="450" cy="940" rx="330" ry="90" fill="#111" opacity=".35"/><path d="M305 300h290l-40 575H345z" fill="url(#tea)" stroke="#f6d4aa" stroke-width="14"/>
+<path d="M280 280h340l-35 90H315z" fill="#f7d8bb" opacity=".85"/><path d="M465 60h32v285h-32z" fill="#23a4aa"/>
+<path d="M345 720h210v210H345z" fill="#f6efe5" transform="rotate(-5 450 825)"/><text x="450" y="825" text-anchor="middle" font-family="Arial,sans-serif" font-size="58" font-weight="700" fill="#2f613f" transform="rotate(-5 450 825)">WYNOS CAFE</text></svg>
