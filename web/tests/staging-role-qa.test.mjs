@@ -93,6 +93,8 @@ test("manual staging workflow separates reviewed-source checks and token-bearing
   assert.match(staging, /ref: \$\{\{ needs\.guard\.outputs\.reviewed_sha \}\}/);
   assert.match(staging, /VERCEL_TOKEN/);
   assert.match(staging, /vercel@60\.1\.3/);
+  assert.match(staging, /id: deploy\n\s+(?:#[^\n]*\n\s+)*working-directory: \./,
+    "Staging Vercel Root Directory is web, so CLI must run at repository root");
   assert.match(staging, /Approved isolated project identities verified/);
   assert.doesNotMatch(staging, /node scripts\/assert-isolated-staging\.mjs/);
   assert.doesNotMatch(staging, /^\s+run: npm ci\b/m);
