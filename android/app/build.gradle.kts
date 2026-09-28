@@ -47,8 +47,20 @@ android {
         buildConfigField("String", "FIREBASE_SENDER_ID", "\"${config("WYNOS_FIREBASE_SENDER_ID")}\"")
     }
 
+    // Play upload key (docs/engineering/ANDROID_RELEASE.md). Never committed: the keystore
+    // path and passwords come from local.properties or the environment. Without them
+    // the release build stays unsigned.
+    val uploadStore = config("WYNOS_UPLOAD_STORE_FILE")
+    val uploadSigning = if (uploadStore.isEmpty()) null else signingConfigs.create("upload") {
+        storeFile = file(uploadStore)
+        storePassword = config("WYNOS_UPLOAD_STORE_PASSWORD")
+        keyAlias = config("WYNOS_UPLOAD_KEY_ALIAS")
+        keyPassword = config("WYNOS_UPLOAD_KEY_PASSWORD")
+    }
+
     buildTypes {
         release {
+            signingConfig = uploadSigning
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

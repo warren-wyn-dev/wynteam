@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.wyn.wyn.core.push.PushSetup
 import io.wyn.wyn.core.push.PushTarget
+import io.wyn.wyn.core.link.AppLink
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -51,10 +52,16 @@ class MainActivity : ComponentActivity() {
     /** A tapped push waiting to be opened (its data arrives as extras). */
     private var pushTarget by mutableStateOf<PushTarget?>(null)
 
+    /** A wynos.online link waiting to be opened (after signing in, if needed). */
+    private var appLink by mutableStateOf<AppLink?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) pushTarget = PushTarget.from(intent?.extras)
+        if (savedInstanceState == null) {
+            pushTarget = PushTarget.from(intent?.extras)
+            appLink = AppLink.from(intent)
+        }
         val push = PushSetup.controller(applicationContext)
         val factory = viewModelFactory {
             initializer {
@@ -76,6 +83,8 @@ class MainActivity : ComponentActivity() {
                     onExit = ::finish,
                     pushTarget = pushTarget,
                     onPushTargetHandled = { pushTarget = null },
+                    appLink = appLink,
+                    onAppLinkHandled = { appLink = null },
                 )
             }
         }
@@ -84,6 +93,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         PushTarget.from(intent.extras)?.let { pushTarget = it }
+        AppLink.from(intent)?.let { appLink = it }
     }
 }
 
@@ -100,6 +110,8 @@ fun WynosApp(
     onExit: () -> Unit,
     pushTarget: PushTarget? = null,
     onPushTargetHandled: () -> Unit = {},
+    appLink: AppLink? = null,
+    onAppLinkHandled: () -> Unit = {},
 ) {
     val back: () -> Unit = { if (!vm.back()) onExit() }
     BackHandler(enabled = vm.stack.size > 1 || (vm.route as? Route.Login)?.addingAccount == true) { back() }
@@ -123,7 +135,7 @@ fun WynosApp(
         Route.Onboarding -> OnboardingScreen(vm)
         Route.Home -> {
             val userId = vm.activeUserId ?: return
-            SignedInApp(vm, userId, repos, pushTarget, onPushTargetHandled)
+            SignedInApp(vm, userId, repos, pushTarget, onPushTargetHandled, appLink, onAppLinkHandled)
         }
     }
 }

@@ -20,6 +20,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- App Links: share links open here once wynos.online serves /.well-known/assetlinks.json. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="wynos.online" />
+                <data android:pathPrefix="/drop/" />
+                <data android:pathPrefix="/quote/" />
+                <data android:pathPrefix="/club/" />
+                <data android:pathPrefix="/club-post/" />
+                <data android:pathPrefix="/club-invite/" />
+            </intent-filter>
         </activity>
         <service
             android:name=".core.push.WynosMessagingService"
