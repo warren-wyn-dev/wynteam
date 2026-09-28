@@ -17,7 +17,7 @@
  * separate subtrees agree on one number.
  */
 :root {
-  --wyn-bottom-nav-height: 50px;
+  --wyn-bottom-nav-height: 68px;
 }
 
 .route-with-bottom-nav {
@@ -26,7 +26,7 @@
 }
 
 /* Immersive Home replaces the dock with a floating 56px composer shortcut.
-   The normal 50px dock inset is not tall enough at the absolute end of the
+   The normal 68px dock inset is not tall enough at the absolute end of the
    feed: without this scoped padding, the FAB can cover the last post actions.
    Reserve just enough room while the Home chrome is deliberately hidden. */
 :root.wyn-home-scroll-hidden .route-with-bottom-nav {
@@ -39,6 +39,9 @@
 .route-bottom-nav {
   /* Keep the compact reference spacing above the iOS home indicator. */
   --wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);
+  --wyn-nav-active: #111111;
+  --wyn-nav-inactive: #8e8e93;
+  --wyn-nav-icon: #111111;
   position: fixed;
   z-index: 70;
   left: 50%;
@@ -48,7 +51,7 @@
   width: min(100%, 680px);
   height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
   min-height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom));
-  padding: 2px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
+  padding: 4px env(safe-area-inset-right) var(--wyn-nav-safe-bottom) env(safe-area-inset-left);
   background: var(--wyn-bg, var(--paper));
   border: 0;
   border-top: 1px solid var(--wyn-border, var(--hairline));
@@ -74,17 +77,17 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  padding: 1px 3px 2px;
+  padding: 4px 3px 5px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  color: var(--wyn-text-muted);
+  gap: 5px;
+  color: var(--wyn-nav-inactive);
   text-decoration: none;
-  font-size: 10px;
-  line-height: 1;
+  font-size: 11px;
+  line-height: 1.35;
   font-weight: 500;
   -webkit-tap-highlight-color: transparent;
   transition: transform var(--wyn-motion-duration) var(--wyn-motion-easing);
@@ -93,6 +96,7 @@
 .route-nav-link:active {
   transform: scale(var(--wyn-motion-press-scale));
 }
+
 
 @media (prefers-reduced-motion: reduce) {
   .route-bottom-nav,
@@ -106,43 +110,47 @@
 }
 
 .route-nav-link.active {
-  color: var(--wyn-text);
-  font-weight: 700;
+  color: var(--wyn-nav-active);
+  font-weight: 600;
 }
 
 .route-nav-link > span:last-child {
+  display: block;
+  width: 100%;
   max-width: 100%;
+  min-height: 1.35em;
+  padding-block: 1px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-align: center;
 }
 
 .route-nav-glyph {
-  width: 28px;
-  height: 28px;
+  --wyn-nav-glyph-scale: 1;
+  width: 32px;
+  height: 32px;
   display: block;
-  flex: 0 0 28px;
-  color: currentColor;
+  flex: 0 0 32px;
+  color: var(--wyn-nav-icon);
+  transform: scale(var(--wyn-nav-glyph-scale));
+  transform-origin: 50% 50%;
 }
 
-.route-create-button {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  color: currentColor;
-}
+.route-nav-glyph--home { --wyn-nav-glyph-scale: 1; }
+.route-nav-glyph--club { --wyn-nav-glyph-scale: 1.08; }
+.route-nav-glyph--compose { --wyn-nav-glyph-scale: 0.93; }
+.route-nav-glyph--chat { --wyn-nav-glyph-scale: 1; }
+.route-nav-glyph--profile { --wyn-nav-glyph-scale: 0.96; }
 
-.route-create-button .route-nav-glyph {
-  width: 28px;
-  height: 28px;
+.route-nav-glyph-cutout {
+  fill: var(--wyn-bg, #fff);
 }
 
 .route-nav-icon-wrap {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: block;
 }
 
@@ -155,7 +163,7 @@
 .route-nav-badge {
   position: absolute;
   top: -3px;
-  left: 17px;
+  right: -5px;
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
@@ -174,21 +182,35 @@
 
 @media (max-width: 359px) {
   :root {
-    --wyn-bottom-nav-height: 48px;
+    --wyn-bottom-nav-height: 64px;
   }
 
   .route-nav-link {
-    gap: 1px;
-    font-size: 9.5px;
+    gap: 4px;
+    font-size: 10px;
   }
 
   .route-nav-glyph,
-  .route-create-button,
   .route-nav-icon-wrap {
-    width: 26px;
-    height: 26px;
-    flex-basis: 26px;
+    width: 29px;
+    height: 29px;
+    flex-basis: 29px;
   }
+
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .route-bottom-nav {
+    --wyn-nav-active: #f5f5f7;
+    --wyn-nav-inactive: #8e8e93;
+    --wyn-nav-icon: #f5f5f7;
+  }
+}
+
+:root[data-theme="dark"] .route-bottom-nav {
+  --wyn-nav-active: #f5f5f7;
+  --wyn-nav-inactive: #8e8e93;
+  --wyn-nav-icon: #f5f5f7;
 }
 
 @media (min-width: 681px) {

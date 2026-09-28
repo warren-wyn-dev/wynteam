@@ -127,16 +127,41 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(flutterNav).toContain("fontSize: 11.5");
 
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) expect(nav).toContain(label);
-  expect(navCss).toContain("--wyn-bottom-nav-height: 50px;");
+  expect(navCss).toContain("--wyn-bottom-nav-height: 68px;");
   expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);");
   expect(navCss).toContain("padding-bottom: calc(var(--wyn-bottom-nav-height) + min(env(safe-area-inset-bottom), 20px));");
   expect(navCss).toContain("height: calc(var(--wyn-bottom-nav-height) + var(--wyn-nav-safe-bottom))");
   expect(navCss).toContain("width: min(100%, 680px)");
   expect(navCss).toContain("border-top: 1px solid");
-  expect(navCss).toContain("width: 28px");
-  expect(navCss).toContain("height: 28px");
-  expect(navCss).toContain("flex: 0 0 28px");
-  expect(nav).toContain('fill={selected ? "currentColor" : "none"}');
+  expect(navCss).toContain("width: 32px");
+  expect(navCss).toContain("height: 32px");
+  expect(navCss).toContain("flex: 0 0 32px");
+  expect(navCss).toContain("font-size: 11px");
+  expect(navCss).not.toContain(".route-nav-link:nth-child(3) .route-nav-glyph");
+  expect(nav).toContain('kind="compose"');
+  expect(nav).toContain('className="route-nav-link route-nav-link--post"');
+  expect(nav).toContain("NAV_ICON_PATHS");
+  expect(nav).toContain('viewBox="0 0 160 160"');
+  expect(nav).toContain('fill="currentColor"');
+  expect(nav).toContain('className={`route-nav-glyph route-nav-glyph--${kind}`}');
+  expect(navCss).toContain("--wyn-nav-active: #111111");
+  expect(navCss).toContain("--wyn-nav-inactive: #8e8e93");
+  expect(nav).toContain('route-nav-glyph-cutout');
+  expect(nav).toContain('route-nav-glyph--filled');
+  expect(nav).toContain("NAV_ACTIVE_ICON_PATHS");
+  expect(nav).toContain('<circle cx="126" cy="64" r="14" />');
+  expect(nav).toContain('<circle cx="34" cy="64" r="14" />');
+  expect(nav).toContain('className="route-nav-club-outline"');
+  expect(nav).toContain('const filled = selected && kind !== "compose"');
+  expect(navCss).toContain("--wyn-nav-icon: #111111");
+  expect(nav).toContain('postActive={postActive}');
+  expect(nav).toContain('postActive ? "active" : ""');
+  expect(navCss).toContain("gap: 5px");
+  expect(navCss).toContain("font-weight: 600");
+  expect(navCss).toContain(".route-nav-glyph--club { --wyn-nav-glyph-scale: 1.08; }");
+  expect(navCss).toContain(".route-nav-glyph--compose { --wyn-nav-glyph-scale: 0.93; }");
+  expect(navCss).toContain(".route-nav-glyph--chat { --wyn-nav-glyph-scale: 1; }");
+  expect(navCss).toContain(".route-nav-glyph--profile { --wyn-nav-glyph-scale: 0.96; }");
 });
 
 test("bottom navigation has exactly one canonical stylesheet (no competing override layer)", () => {
@@ -162,7 +187,7 @@ test("bottom navigation has exactly one canonical stylesheet (no competing overr
   // own unrelated 80px value doing exactly that). Guard both halves of
   // the fix so this can't quietly regress either way.
   const navCssRoot = read("app/bottom-nav.css");
-  expect(navCssRoot).toContain(":root {\n  --wyn-bottom-nav-height: 50px;\n}");
+  expect(navCssRoot).toContain(":root {\n  --wyn-bottom-nav-height: 68px;\n}");
   expect(navCssRoot).not.toContain(".route-with-bottom-nav {\n  --wyn-bottom-nav-height");
   for (const file of ["parity.css", "parity-final.css", "phase3.css", "pixel-parity-final.css", "system-parity-final.css"]) {
     expect(read(`app/${file}`), `${file} must not declare --wyn-bottom-nav-height`).not.toContain("--wyn-bottom-nav-height:");
