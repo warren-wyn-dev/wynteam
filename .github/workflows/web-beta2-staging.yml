@@ -153,6 +153,13 @@ jobs:
           PRODUCTION_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/web-beta2"
@@ -208,6 +215,12 @@ jobs:
             echo "::error::Production Supabase origin leaked into Beta 2 Staging"
             exit 1
           fi
+
+          curl --silent --show-error --fail --max-time 30             --header "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"             --output /tmp/push-config.json "$PREVIEW_URL/api/push-config"
+          node -e 'const c=require("/tmp/push-config.json"); process.exit(c.configured===true?0:1)' || {
+            echo "::error::Beta 2 Staging is missing the public Firebase Web Push configuration used by Beta 1"
+            exit 1
+          }
 
       - name: Revoke temporary staging protection bypass
         if: always()
