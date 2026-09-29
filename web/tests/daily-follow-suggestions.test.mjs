@@ -15,6 +15,7 @@ const data = readFileSync(new URL("../lib/phase3-data.ts", import.meta.url), "ut
 const worker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
 const settings = readFileSync(new URL("../components/settings-route.tsx", import.meta.url), "utf8");
 const push = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
+const pushResync = readFileSync(new URL("../components/push-resync.tsx", import.meta.url), "utf8");
 
 test("daily follow suggestions are one delivery per local day with a 3-5 profile payload", () => {
   assert.match(migration, /unique \(user_id, local_date\)/i);
@@ -91,4 +92,6 @@ test("notification settings expose suggestions and Push registration persists ti
   assert.match(data, /push_suggestions: boolean/);
   assert.match(push, /resolvedOptions\(\)\.timeZone/);
   assert.match(push, /push_timezone: timezone/);
+  assert.match(pushResync, /syncPushTimezone/);
+  assert.match(pushResync, /push_timezone: timezone/);
 });
