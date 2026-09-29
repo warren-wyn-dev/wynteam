@@ -14,7 +14,7 @@ Rollout: Developer accounts only
 - In-App notifications: reuse existing notification center/read state/grouping.
 - Realtime: enable `public.notifications` in Supabase Realtime, but only developer accounts attach the live channel in the web client.
 - Web Push: reuse FCM + existing service worker/deep-link flow.
-- Developer-only Push preferences by category: likes, comments/mentions, follows, messages, Club, trending, system/security.
+- Developer-only Push preferences by category: likes, comments/mentions, follows, messages, Club, trending, system/admin.
 - Quiet Hours: pause Push only; In-App and unread badge continue normally.
 - Anti-spam/dedupe: retain existing database dedupe/collapse-key behavior.
 - System/Admin notifications: retain existing server-side flow.
