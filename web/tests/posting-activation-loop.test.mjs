@@ -56,6 +56,7 @@ test("posting nudges target recently active non-posters without daily spam", () 
   assert.match(migration, /daily_follow_suggestion_deliveries/);
   assert.match(migration, /interval '90 minutes'/);
   assert.match(migration, /daily_follow_quiet_now/);
+  assert.match(migration, /not internal\.is_posting_blocked\(p\.id\)/);
 });
 
 test("followed-post digests are batched, public-only, cursor-based and low frequency", () => {
@@ -65,6 +66,8 @@ test("followed-post digests are batched, public-only, cursor-based and low frequ
   assert.match(migration, /d\.deleted_at is null/);
   assert.match(migration, /d\.created_at > v\.cursor_at/);
   assert.match(migration, /is_blocked_either_way\(v\.user_id, d\.author_id\)/);
+  assert.match(migration, /is_posting_blocked\(d\.author_id\)/);
+  assert.match(migration, /m\.muter_id = v\.user_id[\s\S]*m\.muted_id = d\.author_id/);
   assert.match(migration, /last_sent_at <= now\(\) - interval '3 hours'/);
   assert.match(migration, /time '09:00'/);
   assert.match(migration, /time '21:30'/);
@@ -75,6 +78,7 @@ test("followed-post digests are batched, public-only, cursor-based and low frequ
 test("posting activity cron is Vault-authenticated and release gated", () => {
   assert.match(migration, /wynos_posting_activity_cron_key/);
   assert.match(migration, /verify_posting_activity_cron_key/);
+  assert.match(migration, /revoke all on function internal\.enroll_posting_activity_state\(\)/);
   assert.match(migration, /wynos-posting-activity/);
   assert.match(migration, /'7,37 \* \* \* \*'/);
   assert.match(migration, /active := false/);
