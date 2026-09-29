@@ -90,7 +90,7 @@ language sql
 stable
 security definer
 set search_path = public, internal
-as $
+as $$
   with user_tz as (
     select coalesce(
       (select s.push_timezone from public.notification_settings s where s.user_id = auth.uid()),
@@ -119,7 +119,7 @@ as $
   union all
   select profile_id from fallback
   limit 5;
-$;
+$$;
 
 revoke all on function public.daily_follow_suggestions_for_me() from public, anon;
 grant execute on function public.daily_follow_suggestions_for_me() to authenticated;
