@@ -130,6 +130,8 @@ export type NotificationSettings = {
   trending: boolean;
   system: boolean;
   suggestions: boolean;
+  post_updates: boolean;
+  posting_prompts: boolean;
 };
 
 export type NotificationDeveloperSettings = {
@@ -141,6 +143,8 @@ export type NotificationDeveloperSettings = {
   push_trending: boolean;
   push_system: boolean;
   push_suggestions: boolean;
+  push_post_updates: boolean;
+  push_posting_prompts: boolean;
   push_quiet_enabled: boolean;
   push_quiet_start: string;
   push_quiet_end: string;
@@ -168,6 +172,8 @@ const defaultNotificationSettings: NotificationSettings = {
   trending: true,
   system: true,
   suggestions: true,
+  post_updates: true,
+  posting_prompts: true,
 };
 
 const defaultNotificationDeveloperSettings: NotificationDeveloperSettings = {
@@ -179,6 +185,8 @@ const defaultNotificationDeveloperSettings: NotificationDeveloperSettings = {
   push_trending: true,
   push_system: true,
   push_suggestions: true,
+  push_post_updates: true,
+  push_posting_prompts: true,
   push_quiet_enabled: false,
   push_quiet_start: "22:00",
   push_quiet_end: "08:00",
@@ -1025,7 +1033,7 @@ export async function fetchNotificationDeveloperSettings(
 ): Promise<NotificationDeveloperSettings> {
   const result = await client
     .from("notification_settings")
-    .select("push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_suggestions,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone")
+    .select("push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_suggestions,push_post_updates,push_posting_prompts,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone")
     .maybeSingle();
   fail(result.error, "โหลดการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
   return { ...defaultNotificationDeveloperSettings, ...(result.data ?? {}) } as NotificationDeveloperSettings;

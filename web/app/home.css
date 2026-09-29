@@ -244,7 +244,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 66px;
+  min-height: 72px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--wyn-border);
   background: var(--wyn-bg);
@@ -279,13 +279,26 @@
   border-radius: 50%;
 }
 
-.wyn-home-quick-compose-prompt {
+.wyn-home-quick-compose-copy {
   flex: 1 1 auto;
   min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wyn-home-quick-compose-copy small {
   color: var(--wyn-text-secondary);
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.wyn-home-quick-compose-prompt {
+  min-width: 0;
+  color: var(--wyn-text);
   font-size: 15px;
-  line-height: 1.4;
-  font-weight: 400;
+  line-height: 1.35;
+  font-weight: 500;
 }
 
 .wyn-home-quick-compose-image {
@@ -294,6 +307,93 @@
   height: 22px;
   color: var(--wyn-text-secondary);
   opacity: 0.84;
+}
+
+.wyn-home-first-post {
+  margin: 12px 12px 4px;
+  padding: 14px;
+  border: 1px solid var(--wyn-border);
+  border-radius: 20px;
+  background: var(--wyn-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+.wyn-home-first-post-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.wyn-home-first-post-avatar {
+  display: flex;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+}
+
+.wyn-home-first-post-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wyn-home-first-post-copy strong {
+  color: var(--wyn-text);
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 750;
+}
+
+.wyn-home-first-post-copy small {
+  color: var(--wyn-text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.wyn-home-first-post-prompts {
+  margin-top: 12px;
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.wyn-home-first-post-prompts::-webkit-scrollbar {
+  display: none;
+}
+
+.wyn-home-first-post-chip {
+  flex: 0 0 auto;
+  max-width: min(78vw, 260px);
+  padding: 8px 11px;
+  border: 1px solid var(--wyn-border);
+  border-radius: 999px;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
+  font-size: 12px;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.wyn-home-first-post-button {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.wyn-home-first-post-chip:active,
+.wyn-home-first-post-button:active {
+  transform: scale(0.98);
 }
 
 /* ---------- Feed surface / empty-loading states ---------- */

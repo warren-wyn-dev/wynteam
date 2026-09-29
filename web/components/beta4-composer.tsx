@@ -66,12 +66,14 @@ export function Beta4Composer({
   client,
   userId,
   draftId,
+  promptText,
   onClose,
   onPublished,
 }: {
   client: SupabaseClient;
   userId: string;
   draftId?: string | null;
+  promptText?: string | null;
   onClose: () => void;
   onPublished: () => void;
 }) {
@@ -536,6 +538,12 @@ export function Beta4Composer({
             </div>
             <div className={styles.composerBody}>
               <strong className={styles.authorName} data-i18n-skip="">{identity?.display_name?.trim() || identity?.username || "WYNOS"}</strong>
+              {promptText ? (
+                <div className={styles.promptCard}>
+                  <span>หัวข้อชวนคุย</span>
+                  <strong>{promptText}</strong>
+                </div>
+              ) : null}
               <textarea
                 ref={captionRef}
                 autoFocus
@@ -550,7 +558,7 @@ export function Beta4Composer({
                   field.style.height = `${Math.min(field.scrollHeight, 168)}px`;
                 }}
                 onChange={(event) => setCaption(event.target.value)}
-                placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : "มีอะไรเกิดขึ้นบ้าง"}
+                placeholder={mode === "poll" ? "ตั้งคำถามโพล..." : promptText ? "เขียนความคิดของคุณ..." : "มีอะไรเกิดขึ้นบ้าง"}
               />
 
               {uploadProgress && uploadProgress.total > 0 ? <div className="beta4-upload-progress"><span>กำลังอัปโหลด {uploadProgress.uploaded}/{uploadProgress.total} รูป... {Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%</span><progress max={uploadProgress.total} value={uploadProgress.uploaded} /></div> : null}

@@ -1,0 +1,5 @@
+-- Migration-history reconciliation only.
+-- Production recorded this version during the release-gated posting-activation
+-- rollout after the schema from 20260929190537_web_posting_activation_loop.sql
+-- was already present. Keep this no-op file so local/remote migration history
+-- stays aligned; do not repeat any schema mutation here.
