@@ -328,7 +328,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $$
   select p_key is not null
      and length(p_key) >= 32
      and exists (
@@ -337,14 +337,14 @@ as $
        where name = 'wynos_web_reactivation_cron_key'
          and decrypted_secret = p_key
      );
-$;
+$$;
 
 revoke all on function public.verify_web_reactivation_cron_key(text)
   from public, anon, authenticated;
 grant execute on function public.verify_web_reactivation_cron_key(text)
   to service_role;
 
-do $
+do $$
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron')
      and exists (select 1 from pg_extension where extname = 'pg_net') then
