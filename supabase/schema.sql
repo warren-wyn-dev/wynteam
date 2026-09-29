@@ -17810,6 +17810,9 @@ $$;
 -- Exact username -> username prefix -> exact display name -> display-name prefix
 -- -> substring similarity. Blocked relationships never appear.
 
+create schema if not exists extensions;
+create extension if not exists pg_trgm with schema extensions;
+
 create index if not exists profiles_username_trgm_idx
   on public.profiles using gin (lower(username) extensions.gin_trgm_ops);
 
