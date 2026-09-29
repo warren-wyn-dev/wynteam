@@ -327,15 +327,20 @@ export async function subscribeToPushNotifications(
     if (error) return { ok: false, reason: "server-failed" };
 
     // Keep local-time Push schedules accurate for this account/device.
-    // This is best-effort: a timezone write failure must not undo an
-    // otherwise valid Web Push registration.
+    // This is deliberately detached and internally caught: a timezone write
+    // must never turn an otherwise successful Push registration into failure.
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    void client.from("notification_settings")
-      .upsert(
-        { user_id: userId, push_timezone: timezone, updated_at: new Date().toISOString() },
-        { onConflict: "user_id" },
-      )
-      .then(() => undefined, () => undefined);
+    void (async () => {
+      try {
+        await client.from("notification_settings")
+          .upsert(
+            { user_id: userId, push_timezone: timezone, updated_at: new Date().toISOString() },
+            { onConflict: "user_id" },
+          );
+      } catch {
+        // Best-effort metadata only. Push itself is already registered.
+      }
+    })();
 
     setPushChosen(userId, true);
     // On this exact device/account, confirmation is a successful server write,
