@@ -151,9 +151,11 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain("NAV_ACTIVE_ICON_PATHS");
   expect(nav).toContain('className="route-nav-club-outline"');
   expect(nav).toContain('className="route-nav-club-filled"');
+  expect(nav).toContain('strokeWidth="8"');
+  expect(nav).toContain('className="route-nav-club-star-cutout"');
+  expect(nav).toContain('M80 52 C84 65 91 73 105 80');
+  expect(nav).toContain('M80 18 C87 18 96 24 108 30');
   expect(nav).toContain('strokeLinejoin="round"');
-  expect(nav).toContain('M80 10 C82 17 86 21 93 24');
-  expect(nav).toContain('M28 136 C25 136 23 133 24 129 L20 76');
   expect(nav).toContain('strokeWidth="7"');
   expect(nav).toContain('const filled = selected && kind !== "compose"');
   expect(navCss).toContain("--wyn-nav-icon: #111111");
@@ -161,7 +163,7 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain('postActive ? "active" : ""');
   expect(navCss).toContain("gap: 5px");
   expect(navCss).toContain("font-weight: 600");
-  expect(navCss).toContain(".route-nav-glyph--club { --wyn-nav-glyph-scale: 1.06; }");
+  expect(navCss).toContain(".route-nav-glyph--club { --wyn-nav-glyph-scale: 1; }");
   expect(navCss).toContain(".route-nav-glyph--compose { --wyn-nav-glyph-scale: 0.93; }");
   expect(navCss).toContain(".route-nav-glyph--chat { --wyn-nav-glyph-scale: 1; }");
   expect(navCss).toContain(".route-nav-glyph--profile { --wyn-nav-glyph-scale: 0.96; }");
