@@ -17885,6 +17885,7 @@ as $$
       extensions.similarity(lower(coalesce(p.username, '')), i.term),
       extensions.similarity(lower(coalesce(p.display_name, '')), i.term)
     ) desc,
+    p.is_verified desc,
     lower(coalesce(p.username, '')) asc,
     p.id asc
   limit greatest(1, least(coalesce(p_limit, 30), 50))
