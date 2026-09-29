@@ -109,6 +109,10 @@ cat > "$WORK_DIR/10_seed_and_assert.sql" <<'EOF'
 \pset pager off
 \set ON_ERROR_STOP on
 
+-- Mirror hosted Supabase schema USAGE for helpers called by the RPC/RLS.
+-- anon intentionally does not receive internal schema usage.
+grant usage on schema auth, extensions, internal to authenticated;
+
 create table results (check_name text primary key, actual int, expected int);
 
 insert into auth.users (id,email) values
