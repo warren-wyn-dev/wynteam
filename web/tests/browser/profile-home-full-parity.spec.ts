@@ -37,6 +37,17 @@ test("post media has a loading skeleton and graceful broken-image fallback", () 
   expect(homeCss).toContain(".wyn-post-media-fallback");
 });
 
+test("broken post image swaps to the WYNOS fallback instead of showing the browser broken-image icon", async ({ page }) => {
+  await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
+  const image = page.locator(".wyn-post-media-item").first();
+  await expect(image).toBeVisible();
+  await image.evaluate((node) => node.dispatchEvent(new Event("error", { bubbles: true })));
+  const fallback = page.locator('.wyn-post-media-fallback[aria-label="รูปภาพไม่พร้อมใช้งาน"]').first();
+  await expect(fallback).toBeVisible();
+  await expect(fallback).toContainText("ไม่สามารถโหลดรูปได้");
+  await expect(fallback.locator("svg")).toHaveCount(1);
+});
+
 test("Home and Profile align header, caption, hashtags, inset media and actions at all mobile sizes", async ({ page }) => {
   for (const width of [390, 320, 768]) {
     await page.setViewportSize({ width, height: 820 });
