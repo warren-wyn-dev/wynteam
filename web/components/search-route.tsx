@@ -440,7 +440,7 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const submitted = urlQuery.length >= 2;
   const tabs = useMemo(() => [
     { id: "all" as const, label: "ทั้งหมด" },
-    { id: "users" as const, label: "User" },
+    { id: "users" as const, label: "ผู้ใช้" },
     { id: "posts" as const, label: "โพสต์" },
     { id: "clubs" as const, label: "Club" },
   ], []);
@@ -450,7 +450,7 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
         <button className="search-back-button" type="button" aria-label="ออกจากหน้าค้นหา" onClick={closeSearch}><WynosIcon name="back" size={28} strokeWidth={2} /></button>
         <div className="search-route-form" role="search">
           <button type="button" aria-label="ค้นหา" onClick={submitNow}><WynosIcon name="search" size={20} strokeWidth={2} /></button>
-          <input type="search" name="search_query" aria-label="ค้นหาผู้ใช้ โพสต์ และ Club" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitNow(); } }} placeholder="ค้นหา username, โพสต์, Club" inputMode="search" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
+          <input type="search" name="search_query" aria-label="ค้นหาผู้ใช้ โพสต์ และ Club" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitNow(); } }} placeholder="ค้นหาผู้ใช้ โพสต์ และ Club" inputMode="search" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
           {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={clear}><WynosIcon name="close" size={18} strokeWidth={2} /></button> : null}
         </div>
       </div>
