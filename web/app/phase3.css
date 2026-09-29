@@ -561,3 +561,19 @@ button.settings-row { cursor: pointer; }
 .settings-password-submit:disabled { opacity: .5; cursor: wait; }
 .settings-password-forgot { border: 0; background: transparent; color: var(--wyn-text); padding: 10px 0; min-height: 44px; font-size: 13px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) { .settings-password-submit:active { transform: scale(.98); } }
+
+
+/* Daily Follow Suggestions */
+.suggested-route { min-height: 100%; background: var(--wyn-bg); }
+.suggested-route-intro { padding: 18px 16px 14px; border-bottom: 1px solid var(--wyn-border); }
+.suggested-route-intro strong { display: block; font-size: 18px; line-height: 1.3; }
+.suggested-route-intro p { margin: 5px 0 0; color: var(--wyn-text-secondary); font-size: 13px; line-height: 1.45; }
+.suggested-route-list .route-person-row { min-height: 76px; padding-block: 11px; }
+.suggested-route-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.suggested-route-actions .route-pill { min-width: 84px; justify-content: center; }
+.suggested-hide { width: 32px; height: 32px; color: var(--wyn-text-secondary); }
+@media (max-width: 380px) {
+  .suggested-route-actions { gap: 2px; }
+  .suggested-route-actions .route-pill { min-width: 72px; padding-inline: 10px; }
+  .suggested-hide { width: 28px; height: 28px; }
+}
