@@ -349,15 +349,12 @@ export async function searchProfiles(
   query: string,
   page = 0,
 ): Promise<ProfileRow[]> {
-  const from = page * 30;
-  const pattern = safeOrPattern(query.trim());
-  const result = await client
-    .from("profiles")
-    .select(
-      "id,username,display_name,bio,avatar_url,cover_url,platform_role,is_private,is_verified,dm_permission,mention_permission,comment_permission,likes_visibility",
-    )
-    .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
-    .range(from, from + 29);
+  const trimmed = query.trim();
+  const result = await client.rpc("search_profiles_ranked", {
+    p_query: trimmed,
+    p_limit: 30,
+    p_offset: page * 30,
+  });
   fail(result.error, "ค้นหาผู้ใช้ไม่สำเร็จ");
   return (result.data ?? []).map((row) => asProfile(row as Record<string, unknown>));
 }
