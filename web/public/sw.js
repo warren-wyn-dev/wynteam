@@ -66,6 +66,7 @@ self.addEventListener("fetch", (event) => {
 // external links or malformed IDs from the notification's data field.
 const PUSH_UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 function pushTarget(data) {
+  if (data?.type === "web_reactivation") return "/home";
   const id = (key) => typeof data?.[key] === "string" && PUSH_UUID.test(data[key]) ? data[key] : null;
   const conversation = id("conversation_id");
   const actor = id("actor_id");
@@ -144,18 +145,20 @@ self.addEventListener("push", (event) => {
   // Wake any open WYNOS tabs with a content-free invalidation hint.
   // A tab always reads its OWN user's rows via Auth/RLS. A late A push
   // after switching to B never includes A's text or profile here.
-  const wakeTabs = self.clients.matchAll({ type: "window", includeUncontrolled: true })
-    .then((windows) => {
-      for (const client of windows) {
-        if (typeof client.postMessage !== "function") continue;
-        client.postMessage({
-          kind: "wynos:notification-push",
-          recipientId: pushString(data.recipient_id),
-          notificationId: pushString(data.notification_id),
-          notificationType: pushString(data.type),
-        });
-      }
-    }).catch(() => undefined);
+  const wakeTabs = data.type === "web_reactivation"
+    ? Promise.resolve()
+    : self.clients.matchAll({ type: "window", includeUncontrolled: true })
+      .then((windows) => {
+        for (const client of windows) {
+          if (typeof client.postMessage !== "function") continue;
+          client.postMessage({
+            kind: "wynos:notification-push",
+            recipientId: pushString(data.recipient_id),
+            notificationId: pushString(data.notification_id),
+            notificationType: pushString(data.type),
+          });
+        }
+      }).catch(() => undefined);
 
   // Every push shows exactly one banner (userVisibleOnly). The same tag as
   // the server's collapse key replaces a retried delivery instead of stacking.
