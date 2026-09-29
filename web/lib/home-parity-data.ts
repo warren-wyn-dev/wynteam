@@ -8,6 +8,7 @@ export type HomeIdentity = {
   is_verified?: boolean | null;
   follower_count: number;
   following_count: number;
+  post_count: number;
 };
 
 export type ClubHomePost = {
@@ -59,14 +60,16 @@ export async function fetchHomeIdentity(
   client: SupabaseClient,
   userId: string,
 ): Promise<HomeIdentity | null> {
-  const [profile, followers, following] = await Promise.all([
+  const [profile, followers, following, posts] = await Promise.all([
     client.from("profiles").select("id,username,display_name,avatar_url,is_verified").eq("id", userId).maybeSingle(),
     client.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", userId),
     client.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", userId),
+    client.from("drops").select("id", { count: "exact", head: true }).eq("author_id", userId).is("deleted_at", null),
   ]);
   throwIfError(profile.error);
   throwIfError(followers.error);
   throwIfError(following.error);
+  throwIfError(posts.error);
   if (!profile.data) return null;
   return {
     id: String(profile.data.id),
@@ -76,6 +79,7 @@ export async function fetchHomeIdentity(
     is_verified: Boolean(profile.data.is_verified),
     follower_count: followers.count ?? 0,
     following_count: following.count ?? 0,
+    post_count: posts.count ?? 0,
   };
 }
 
