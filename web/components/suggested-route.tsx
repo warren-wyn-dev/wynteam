@@ -50,15 +50,15 @@ function SuggestedInner({ client, userId }: { client: SupabaseClient; userId: st
     setLoading(true);
     setError("");
     try {
-      const daily = await fetchDailySuggestedProfiles(client);
+      const pushedDeliveryId = deliveryFromLocation();
+      const daily = await fetchDailySuggestedProfiles(client, pushedDeliveryId);
       const next = daily.profiles.filter((profile) => profile.id !== userId);
       const nextViewer = await loadHomeViewerState(client, userId, fakeRows(next));
       setProfiles(next);
       setViewer(nextViewer);
 
-      const deliveryId = deliveryFromLocation() ?? daily.deliveryId;
-      if (deliveryId) {
-        void markDailyFollowSuggestionOpened(client, deliveryId).catch(() => undefined);
+      if (pushedDeliveryId && daily.deliveryId === pushedDeliveryId) {
+        void markDailyFollowSuggestionOpened(client, pushedDeliveryId).catch(() => undefined);
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "โหลดคำแนะนำไม่สำเร็จ");
