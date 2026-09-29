@@ -203,3 +203,29 @@ test("data-only, empty and malformed pushes still show exactly one banner", asyn
   expect(worker.banners[0].options.tag).toBe(OTHER);
   expect(worker.wakeMessages).toHaveLength(3);
 });
+
+
+test("daily follow suggestion opens Suggested and does not increment notification wake state", async () => {
+  const clickWorker = fakeWorker();
+  await clickWorker.click({
+    type: "daily_follow_suggestion",
+    recipient_id: ID,
+    delivery_id: OTHER,
+  });
+  expect(clickWorker.opened).toEqual([
+    `https://wynos.online/suggested?source=daily_follow_suggestion&delivery=${OTHER}`,
+  ]);
+
+  const worker = pushWorker();
+  await worker.push({
+    data: {
+      type: "daily_follow_suggestion",
+      recipient_id: ID,
+      delivery_id: OTHER,
+      push_title: "WYNOS",
+      push_body: "daily suggestions",
+    },
+  });
+  expect(worker.banners).toHaveLength(1);
+  expect(worker.wakeMessages).toEqual([]);
+});
