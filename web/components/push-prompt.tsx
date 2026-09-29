@@ -123,7 +123,7 @@ export function PushPrompt() {
           <strong>เปิดการแจ้งเตือน</strong>
           <small>{kind === "install" ?
             "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้" :
-            "รู้ทันทีเมื่อมีข้อความ การตอบกลับ และคนติดตามใหม่"}</small>
+            "รู้เมื่อมีข้อความ การตอบกลับ และโพสต์ใหม่จากคนที่คุณติดตาม"}</small>
         </div>
         <button type="button" className="install-prompt-close" aria-label="ปิด" onClick={dismiss}>
           <WynosIcon name="close" size={16} strokeWidth={2} />
