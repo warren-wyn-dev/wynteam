@@ -209,6 +209,37 @@ jobs:
           })();
           NODE
 
+      - name: Capture immersive Post FAB
+        run: |
+          node <<'NODE'
+          const { chromium } = require('@playwright/test');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 2,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'th-TH',
+              colorScheme: 'light',
+            });
+            await page.goto('http://127.0.0.1:3000/dev/home-fixture', { waitUntil: 'networkidle' });
+            await page.evaluate(() => window.scrollTo(0, 360));
+            await page.locator('html.wyn-home-scroll-hidden').waitFor({ state: 'attached' });
+            const fab = page.getByRole('button', { name: 'สร้างโพสต์' });
+            await fab.waitFor({ state: 'visible' });
+            const fabPath = await fab.locator('.route-nav-glyph--compose path').getAttribute('d');
+            await page.evaluate(() => window.scrollTo(0, 0));
+            const navPath = await page.locator('.route-bottom-nav .route-nav-glyph--compose path').getAttribute('d');
+            if (!fabPath || fabPath !== navPath) throw new Error('FAB compose glyph does not match Post nav glyph');
+            await page.evaluate(() => window.scrollTo(0, 360));
+            await page.locator('html.wyn-home-scroll-hidden').waitFor({ state: 'attached' });
+            await page.waitForTimeout(150);
+            await page.screenshot({ path: '../wynos-beta2-post-fab-shared-icon.png', fullPage: false });
+            await browser.close();
+          })();
+          NODE
+
       - name: Upload QA matrix
         if: always()
         uses: actions/upload-artifact@v4
@@ -217,6 +248,7 @@ jobs:
           path: |
             wynos-beta2-nav-*.png
             wynos-beta2-media-*.png
+            wynos-beta2-post-fab-shared-icon.png
             wynos-beta2-bottom-nav-qa.json
           if-no-files-found: error
           retention-days: 7
