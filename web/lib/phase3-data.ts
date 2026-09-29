@@ -245,11 +245,6 @@ function asDrop(row: Record<string, unknown>): HomeFeedRow {
   };
 }
 
-function safeOrPattern(query: string): string {
-  const escaped = `%${query}%`.replace(/\\/g, "\\\\").replace(/\"/g, '\\"');
-  return `\"${escaped}\"`;
-}
-
 export function profileLabel(profile: Pick<ProfileRow, "username" | "display_name">): string {
   return profile.display_name?.trim() || profile.username || "WYNOS";
 }
