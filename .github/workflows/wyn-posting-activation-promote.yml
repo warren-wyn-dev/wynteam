@@ -20,6 +20,18 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Publish Push config bridge route
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          set -euo pipefail
+          export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          npx --yes vercel@61.0.0 routes add "WYNOS Push Config Bridge"             --src "/api/push-config"             --src-syntax path-to-regexp             --action rewrite             --dest "$SUPABASE_URL/functions/v1/web-push-config-bridge"             --yes             --token="$VERCEL_TOKEN"
+          npx --yes vercel@61.0.0 routes publish --yes --token="$VERCEL_TOKEN"
+
       - name: Point production domains at verified preview
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -59,7 +71,7 @@ jobs:
           node -e 'const c=require("/tmp/wynos-push-config.json"); process.exit(c.configured===true?0:1)'
 
       - name: Roll back aliases if verification failed
-        if: steps.verify.outcome != 'success'
+        if: steps.verify.outcome == 'failure'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
