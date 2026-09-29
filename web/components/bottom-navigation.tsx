@@ -53,12 +53,9 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
       {kind === "club" ? (
         filled ? (
           <g className="route-nav-club-filled">
-            <circle cx="80" cy="46" r="16.5" />
-            <path d="M54 126 V110 C54 96 65 87 80 87 C95 87 106 96 106 110 V126 Z" />
-            <circle cx="35" cy="67" r="9.5" />
-            <path d="M16 126 V116 C16 105 24 98 35 98 C46 98 51 105 51 116 V126 Z" />
-            <circle cx="125" cy="67" r="9.5" />
-            <path d="M109 126 V116 C109 105 114 98 125 98 C136 98 144 105 144 116 V126 Z" />
+            <circle cx="80" cy="57" r="23" />
+            <circle cx="58" cy="92" r="23" />
+            <circle cx="102" cy="92" r="23" />
           </g>
         ) : (
           <g
@@ -69,12 +66,9 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <circle cx="80" cy="47" r="16" />
-            <path d="M54 126 C54 101 65 87 80 87 C95 87 106 101 106 126" />
-            <circle cx="35" cy="67" r="9.5" />
-            <path d="M17 125 C17 107 24 97 35 97 C44 97 49 104 50 116" />
-            <circle cx="125" cy="67" r="9.5" />
-            <path d="M110 116 C111 104 116 97 125 97 C136 97 143 107 143 125" />
+            <circle cx="80" cy="57" r="23" />
+            <circle cx="58" cy="92" r="23" />
+            <circle cx="102" cy="92" r="23" />
           </g>
         )
       ) : (
