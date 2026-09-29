@@ -23,12 +23,12 @@ No Email notifications.
 - New service-role-only RPCs: `claim_due_web_reactivations()`, `complete_web_reactivation()`
 - New isolated Edge Function: `send-web-reactivation-push`
 - Sends only `push_tokens.platform = 'web'`; Android/iOS are not included
-- Push click routes to `/home`
+- On the current production worker, Push click enters WYNOS at `/notifications`
 - Quiet Hours and system/push-system preference are honored
 - Additional global delivery window: 09:00–21:00 Asia/Bangkok
 - The latest reactivation Push replaces the previous reactivation banner for that user
 - Only profiles created in the 24 hours before rollout are backfilled; older accounts are not bulk-enrolled
-- A return after onboarding, or remaining in the Web app for 10 minutes, marks the campaign activated/stopped
+- The existing Web Push registration refresh marks a returning user activated/stopped; enabling Web Push after the onboarding window also stops the campaign
 
 ## Scheduler authentication
 
@@ -50,12 +50,13 @@ The hourly pg_cron caller does not embed an API key.
 - Manual authenticated scheduler health invocation: HTTP 200 with `{"ok":true,"claimed":0,"sent":0,"failed":0}`.
 - At rollout verification: 7 profiles were enrolled from the last-24-hour safety window; 0 were due.
 - Supabase security advisor was reviewed after DDL. No new anonymous access was granted by this feature; existing project-wide advisor findings remain separate work.
+- Vercel preview deployment was blocked by the provider free-plan daily deployment quota (over 100 deployments/day), not by build/type/lint failure. The rollout therefore uses the already-live Web Push worker and backend heartbeat path and does not require a new Web bundle.
 
 ## Tests
 
 - Edge Function Deno check/test: green in CI.
 - Reactivation message rotation unit tests added.
-- Service-worker reactivation click routing regression added.
+- Existing production service-worker click behavior was kept unchanged to avoid a Vercel deployment while the daily deployment quota is exhausted.
 - Production DB migration dry-run passed before apply.
 - Production Cron → Edge → RPC health path passed without sending a Push.
 
