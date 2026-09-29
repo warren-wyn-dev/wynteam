@@ -321,7 +321,30 @@ grant execute on function public.finish_web_reactivation_push(uuid, integer, boo
 
 -- The actual key values are provisioned into Vault out-of-band; this migration
 -- contains names only, never credentials.
-do $$
+
+create or replace function public.verify_web_reactivation_cron_key(p_key text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select p_key is not null
+     and length(p_key) >= 32
+     and exists (
+       select 1
+       from vault.decrypted_secrets
+       where name = 'wynos_web_reactivation_cron_key'
+         and decrypted_secret = p_key
+     );
+$;
+
+revoke all on function public.verify_web_reactivation_cron_key(text)
+  from public, anon, authenticated;
+grant execute on function public.verify_web_reactivation_cron_key(text)
+  to service_role;
+
+do $
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron')
      and exists (select 1 from pg_extension where extname = 'pg_net') then
@@ -348,6 +371,12 @@ begin
             select decrypted_secret
             from vault.decrypted_secrets
             where name = 'wynos_cron_anon_key'
+            limit 1
+          ),
+          'X-Wynos-Cron-Key', (
+            select decrypted_secret
+            from vault.decrypted_secrets
+            where name = 'wynos_web_reactivation_cron_key'
             limit 1
           )
         ),
