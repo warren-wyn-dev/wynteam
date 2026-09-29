@@ -98,11 +98,15 @@ as $$
   with candidates as (
     select
       p.id as uid,
-      internal.daily_follow_suggestion_ids(p.id, 5) as ids,
+      suggestion.ids,
       ((now() at time zone coalesce(s.push_timezone, 'UTC'))::date) as local_day
     from public.profiles p
     left join public.notification_settings s on s.user_id = p.id
-    where coalesce(s.push_system, true)
+    cross join lateral (
+      select internal.daily_follow_suggestion_ids(p.id, 5) as ids
+    ) suggestion
+    where cardinality(suggestion.ids) > 0
+      and coalesce(s.push_system, true)
       and exists (
         select 1 from public.push_tokens t
         where t.user_id = p.id and t.platform = 'web'
@@ -126,7 +130,6 @@ as $$
     insert into public.daily_follow_suggestion_deliveries(user_id, local_date, profile_ids)
     select uid, local_day, ids
     from candidates
-    where cardinality(ids) > 0
     on conflict (user_id, local_date) do nothing
     returning id, user_id, profile_ids
   )
