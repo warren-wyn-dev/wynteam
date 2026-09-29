@@ -154,7 +154,7 @@ begin
           and d.deleted_at is null
       ) lp on true
       where (s.lease_until is null or s.lease_until <= now())
-        and not coalesce(internal.is_posting_blocked(p.id), false)
+        and not internal.is_posting_blocked(p.id)
         and exists (
           select 1
           from public.push_tokens pt
@@ -179,8 +179,8 @@ begin
     )
     select *
     from candidates c
-    where c.local_now::time >= time '17:00'
-      and c.local_now::time < time '18:00'
+    where c.local_now::time >= time '18:30'
+      and c.local_now::time < time '19:20'
       and not exists (
         select 1
         from public.daily_follow_suggestion_deliveries df
@@ -340,7 +340,7 @@ begin
           and df.sent_at >= now() - interval '90 minutes'
       )
       and (now() at time zone tz.name)::time >= time '09:00'
-      and (now() at time zone tz.name)::time < time '17:00'
+      and (now() at time zone tz.name)::time < time '21:30'
     order by s.user_id
     for update of s skip locked
     limit v_limit
@@ -360,7 +360,7 @@ begin
     where f.follower_id = v.user_id
       and d.created_at > v.cursor_at
       and not internal.is_blocked_either_way(v.user_id, d.author_id)
-      and not coalesce(internal.is_posting_blocked(d.author_id), false)
+      and not internal.is_posting_blocked(d.author_id)
       and not exists (
         select 1
         from public.mutes m
