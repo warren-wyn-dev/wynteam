@@ -37,13 +37,14 @@ test("daily follow suggestions are one delivery per local day with a 3-5 profile
 });
 
 test("candidate selection excludes unsafe or already-actioned accounts", () => {
-  assert.match(migration, /is_blocked_either_way\(v_user\.uid, p2\.id\)/);
-  assert.match(migration, /f\.follower_id = v_user\.uid[\s\S]*f\.following_id = p2\.id/);
-  assert.match(migration, /fr\.requester_id = v_user\.uid[\s\S]*fr\.target_id = p2\.id/);
-  assert.match(migration, /m\.muter_id = v_user\.uid[\s\S]*m\.muted_id = p2\.id/);
-  assert.match(migration, /rd\.user_id = v_user\.uid[\s\S]*rd\.dismissed_profile_id = p2\.id/);
+  assert.match(migration, /daily_follow_candidate_allowed/);
+  assert.match(migration, /is_blocked_either_way\(p_user_id, p\.id\)/);
+  assert.match(migration, /f\.follower_id = p_user_id[\s\S]*f\.following_id = p\.id/);
+  assert.match(migration, /fr\.requester_id = p_user_id[\s\S]*fr\.target_id = p\.id/);
+  assert.match(migration, /m\.muter_id = p_user_id[\s\S]*m\.muted_id = p\.id/);
+  assert.match(migration, /rd\.user_id = p_user_id[\s\S]*rd\.dismissed_profile_id = p\.id/);
   assert.match(migration, /onboarding_completed = true/);
-  assert.match(migration, /is_posting_blocked\(p2\.id\)/);
+  assert.match(migration, /is_posting_blocked\(p\.id\)/);
 });
 
 test("rotation hard-blocks the last 7 days and prefers fresh accounts within 30 days", () => {
