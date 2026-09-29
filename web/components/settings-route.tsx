@@ -56,17 +56,19 @@ const notificationLabels: Array<[keyof NotificationSettings, string]> = [
   ["messages", "ข้อความ"],
   ["club", "Club"],
   ["trending", "กำลังนิยม"],
+  ["suggestions", "คำแนะนำคนที่น่าสนใจ"],
   ["system", "ระบบ"],
 ];
 
 const developerPushLabels: Array<[keyof Pick<NotificationDeveloperSettings,
-  "push_likes" | "push_comments" | "push_follows" | "push_messages" | "push_club" | "push_trending" | "push_system">, string]> = [
+  "push_likes" | "push_comments" | "push_follows" | "push_messages" | "push_club" | "push_trending" | "push_system" | "push_suggestions">, string]> = [
   ["push_likes", "ถูกใจ"],
   ["push_comments", "ความคิดเห็นและการกล่าวถึง"],
   ["push_follows", "การติดตาม"],
   ["push_messages", "ข้อความ"],
   ["push_club", "Club"],
   ["push_trending", "กำลังนิยม"],
+  ["push_suggestions", "คำแนะนำคนที่น่าสนใจ"],
   ["push_system", "ระบบและความปลอดภัย"],
 ];
 
