@@ -129,24 +129,18 @@ begin
     return false;
   end if;
 
-  -- A later return activates immediately. Staying in the app for five
-  -- minutes also counts as "started using WYNOS" and stops the sequence.
-  if now() - v_state.first_app_seen_at >= interval '5 minutes' then
-    update public.web_reactivation_state
-    set activated_at = now(),
-        last_seen_at = now(),
-        next_due_at = null,
-        lease_until = null,
-        lease_stage = null,
-        updated_at = now()
-    where user_id = v_uid;
-    return true;
-  end if;
-
+  -- Any later touch means the person returned to WYNOS. The web tracker
+  -- intentionally calls this a second time after five minutes if the first
+  -- session stays open, so continuous real use also activates the account.
   update public.web_reactivation_state
-  set last_seen_at = now(), updated_at = now()
+  set activated_at = now(),
+      last_seen_at = now(),
+      next_due_at = null,
+      lease_until = null,
+      lease_stage = null,
+      updated_at = now()
   where user_id = v_uid;
-  return false;
+  return true;
 end;
 $$;
 
