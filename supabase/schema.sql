@@ -17730,9 +17730,6 @@ $$;
 revoke all on function public.get_quote_engagement(uuid[]) from public,anon;
 grant execute on function public.get_quote_engagement(uuid[]) to authenticated;
 
-commit;
-
-
 
 -- ============================================================
 -- Notifications Developer Preview — 2026-09-29
@@ -17815,4 +17812,6 @@ begin
   end if;
 end
 $$;
+
+commit;
 
