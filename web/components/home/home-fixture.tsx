@@ -146,7 +146,7 @@ export function HomeFixture() {
             <HomeTabs mode={mode} onSelect={setMode} />
           </div>
           <div className="wyn-home-feed">
-            {mode !== "clubs" ? <HomeQuickCompose username="fixture" /> : null}
+            {mode !== "clubs" ? <HomeQuickCompose username="fixture" hasPublishedPost /> : null}
             {rows.map((row) => (
               <HomePostCard
                 row={{ ...row, like_count: likeOverrides[row.id]?.count ?? row.like_count }}
