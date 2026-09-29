@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { useInView } from "react-intersection-observer";
 
+import { MaterialNavGlyph } from "@/components/bottom-navigation";
 import { ClubFeedPost } from "@/components/home/club-feed-post";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomeQuickCompose } from "@/components/home/home-quick-compose";
@@ -1129,7 +1130,7 @@ export function HomeScreen({ session }: { session: Session }) {
         aria-label="สร้างโพสต์"
         onClick={() => router.push("/?compose=1")}
       >
-        <WynosIcon name="post" size={30} strokeWidth={2} />
+        <MaterialNavGlyph kind="compose" />
       </button>
 
       {hidden ? (
