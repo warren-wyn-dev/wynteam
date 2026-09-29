@@ -243,18 +243,6 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
 
   const typedTokens = tokenRows as { id: string; token: string; platform: string }[];
-  if (!previewPolicy.allowed) {
-    await Promise.all(typedTokens.map(({ id, platform }) =>
-      upsertDelivery(row, { id, platform }, {
-        status: "skipped",
-        attempt_count: 0,
-        last_error: previewPolicy.skipReason ?? "policy",
-        next_retry_at: null,
-        sent_at: null,
-      })
-    ));
-    return new Response(`Skipped ${previewPolicy.skipReason ?? "policy"}`, { status: 200 });
-  }
 
   const actor = actorRows[0] as { username: string; display_name: string | null } | undefined;
   const actorName = actor
@@ -287,8 +275,22 @@ async function handleWebhook(req: Request): Promise<Response> {
 
   const outcomes = await Promise.all(
     typedTokens.map(async ({ id, token, platform }) => {
-      const maxAttempts = previewPolicy.enabled ? 3 : 1;
-      if (previewPolicy.enabled) {
+      // This rollout is for WYNOS Web. Do not let a web preview preference
+      // silence or retry Android/iOS Push for the same developer account.
+      const previewApplies = previewPolicy.enabled && platform === "web";
+      if (previewApplies && !previewPolicy.allowed) {
+        await upsertDelivery(row, { id, platform }, {
+          status: "skipped",
+          attempt_count: 0,
+          last_error: previewPolicy.skipReason ?? "policy",
+          next_retry_at: null,
+          sent_at: null,
+        });
+        return "skipped";
+      }
+
+      const maxAttempts = previewApplies ? 3 : 1;
+      if (previewApplies) {
         await upsertDelivery(row, { id, platform }, {
           status: "pending",
           attempt_count: 0,
@@ -327,7 +329,7 @@ async function handleWebhook(req: Request): Promise<Response> {
         });
 
         if (response.ok) {
-          if (previewPolicy.enabled) {
+          if (previewApplies) {
             await upsertDelivery(row, { id, platform }, {
               status: "sent",
               attempt_count: attempt,
@@ -348,7 +350,7 @@ async function handleWebhook(req: Request): Promise<Response> {
 
         const summary = `${response.status} ${status ?? "unknown"}`;
         const retry = attempt < maxAttempts && isRetryableFcmStatus(response.status);
-        if (previewPolicy.enabled) {
+        if (previewApplies) {
           await upsertDelivery(row, { id, platform }, {
             status: retry ? "retrying" : "failed",
             attempt_count: attempt,
