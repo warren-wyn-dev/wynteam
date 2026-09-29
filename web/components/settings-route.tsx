@@ -41,6 +41,7 @@ import {
   unmuteUser,
   updateNotificationSetting,
   updateNotificationDeveloperSetting,
+  updateNotificationDeveloperSettings,
   updateProfilePrivacySetting,
   type LegalDocument,
   type NotificationSettings,
@@ -379,7 +380,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   };
 
   const updateQuietTime = async (key: "push_quiet_start" | "push_quiet_end", value: string) => {
-    if (!developerNotifications) return;
+    if (!developerNotifications || busy) return;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     const previous = developerNotifications;
     const next = { ...developerNotifications, [key]: value, push_timezone: timezone };
@@ -387,10 +388,28 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
     setBusy(true);
     setError("");
     try {
-      await Promise.all([
-        updateNotificationDeveloperSetting(client, userId, key, value),
-        updateNotificationDeveloperSetting(client, userId, "push_timezone", timezone),
-      ]);
+      await updateNotificationDeveloperSettings(client, userId, { [key]: value, push_timezone: timezone });
+    } catch {
+      setDeveloperNotifications(previous);
+      setError("บันทึกช่วงพักการแจ้งเตือนไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleQuietHours = async (value: boolean) => {
+    if (!developerNotifications || busy) return;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const previous = developerNotifications;
+    const next = { ...developerNotifications, push_quiet_enabled: value, push_timezone: timezone };
+    setDeveloperNotifications(next);
+    setBusy(true);
+    setError("");
+    try {
+      await updateNotificationDeveloperSettings(client, userId, {
+        push_quiet_enabled: value,
+        push_timezone: timezone,
+      });
     } catch {
       setDeveloperNotifications(previous);
       setError("บันทึกช่วงพักการแจ้งเตือนไม่สำเร็จ");
@@ -564,11 +583,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
                     label="พัก Push ตามช่วงเวลา"
                     checked={developerNotifications?.push_quiet_enabled ?? false}
                     disabled={busy || !developerNotifications}
-                    onChange={(value) => {
-                      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-                      void developerNotification("push_timezone", timezone);
-                      void developerNotification("push_quiet_enabled", value);
-                    }}
+                    onChange={(value) => void toggleQuietHours(value)}
                   />}
                 />
                 {developerNotifications?.push_quiet_enabled ? (
