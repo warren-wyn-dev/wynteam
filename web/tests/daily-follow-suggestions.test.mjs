@@ -12,6 +12,7 @@ const edge = readFileSync(
 );
 const worker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
 const search = readFileSync(new URL("../components/search-route.tsx", import.meta.url), "utf8");
+const pushClient = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
 
 test("daily follow suggestions are at most once per local day and release-gated", () => {
   assert.match(migration, /unique \(user_id, local_date\)/);
@@ -50,4 +51,11 @@ test("push click opens the dedicated suggested people view without badge invalid
   assert.match(search, /params\.get\("suggested"\) === "1"/);
   assert.match(search, /<h1>แนะนำสำหรับคุณ<\/h1>/);
   assert.match(search, /fetchSuggestedProfiles\(client, suggestedOnly \? 5 : 10\)/);
+});
+
+
+test("Push registration syncs the browser timezone for local daily scheduling", () => {
+  assert.match(pushClient, /Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
+  assert.match(pushClient, /notification_settings/);
+  assert.match(pushClient, /push_timezone: timezone/);
 });
