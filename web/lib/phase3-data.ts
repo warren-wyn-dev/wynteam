@@ -351,7 +351,7 @@ export async function searchProfiles(
     p_offset: page * 30,
   });
   fail(result.error, "ค้นหาผู้ใช้ไม่สำเร็จ");
-  return (result.data ?? []).map((row) => asProfile(row as Record<string, unknown>));
+  return ((result.data ?? []) as Record<string, unknown>[]).map(asProfile);
 }
 
 export async function searchDrops(
