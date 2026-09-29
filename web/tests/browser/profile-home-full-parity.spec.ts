@@ -29,6 +29,8 @@ test("post media has a loading skeleton and graceful broken-image fallback", () 
   expect(carousel).toContain('className={\`wyn-post-media-item \${loaded[i] ? "is-loaded" : "is-loading"} \${positionClass}\`}');
   expect(carousel).toContain('onLoad={() => markLoaded(i)}');
   expect(carousel).toContain('onError={() => markFailed(i)}');
+  expect(carousel).toContain('onErrorCapture={(event) => {');
+  expect(carousel).toContain('data-wyn-media-index={i}');
   expect(carousel).toContain('className={\`wyn-post-media-item wyn-post-media-fallback \${positionClass}\`}');
   expect(carousel).toContain('aria-label="รูปภาพไม่พร้อมใช้งาน"');
   expect(carousel).toContain("<ImageOff");
