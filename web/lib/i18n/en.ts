@@ -1034,6 +1034,22 @@ export const EN_EXACT: Record<string, string> = {
   "บันทึกการเปิดคำแนะนำไม่สำเร็จ": "Couldn't record the suggestion open",
   "ซ่อนคำแนะนำไม่สำเร็จ กรุณาลองใหม่": "Couldn't hide this suggestion. Please try again",
   "ยังไม่มีบัญชีแนะนำสำหรับคุณตอนนี้": "There are no suggested accounts for you right now",
+  "เริ่มโพสต์แรกของคุณ ✨": "Create your first post ✨",
+  "ไม่ต้องคิดเยอะ เลือกหัวข้อหนึ่งแล้วเริ่มเขียนได้เลย": "Keep it simple—pick a prompt and start writing.",
+  "สร้างโพสต์แรก": "Create first post",
+  "หัวข้อวันนี้": "Today's prompt",
+  "หัวข้อชวนคุย": "Conversation prompt",
+  "เขียนความคิดของคุณ...": "Write what you think...",
+  "วันนี้มีอะไรเกิดขึ้นกับคุณบ้าง?": "What happened in your day today?",
+  "ช่วงนี้คุณกำลังฟังเพลงอะไรอยู่?": "What have you been listening to lately?",
+  "วันนี้มีเรื่องเล็ก ๆ อะไรที่ทำให้คุณรู้สึกดี?": "What's one small thing that made you feel good today?",
+  "มีคำถามอะไรที่อยากถามคนบน WYNOS ไหม?": "Is there anything you'd like to ask people on WYNOS?",
+  "วันนี้มีรูปไหนที่อยากแชร์?": "Is there a photo from today you'd like to share?",
+  "ช่วงนี้คุณกำลังสนใจเรื่องอะไรเป็นพิเศษ?": "What are you especially interested in lately?",
+  "ถ้ามีเวลาว่างตอนนี้ คุณอยากทำอะไร?": "If you had free time right now, what would you do?",
+  "แนะนำตัวสั้น ๆ ให้ทุกคนรู้จักคุณ": "Introduce yourself in a few words",
+  "เล่าเรื่องหนึ่งอย่างเกี่ยวกับวันนี้": "Share one thing about your day",
+  "ถามคำถามที่คุณอยากฟังความคิดเห็นจากคนอื่น": "Ask something you'd like others' opinions on",
 };
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
