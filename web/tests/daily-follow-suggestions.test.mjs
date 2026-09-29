@@ -12,6 +12,11 @@ const permanentGuard = readFileSync(
   "utf8",
 );
 
+const timezoneGuard = readFileSync(
+  new URL("../../supabase/migrations/20260929164931_daily_follow_suggestions_timezone_guard.sql", import.meta.url),
+  "utf8",
+);
+
 const edge = readFileSync(
   new URL("../../supabase/functions/send-daily-follow-suggestions/index.ts", import.meta.url),
   "utf8",
@@ -112,4 +117,13 @@ test("suggestion history rejects anonymous authenticated sessions", () => {
   assert.match(permanentGuard, /auth\.jwt\(\).*is_anonymous/s);
   assert.match(permanentGuard, /Permanent account required/);
   assert.match(permanentGuard, /\(select auth\.uid\(\)\) = user_id/);
+});
+
+test("daily suggestions require an explicitly synced valid browser timezone", () => {
+  assert.match(timezoneGuard, /push_timezone_synced_at timestamptz/);
+  assert.match(timezoneGuard, /ns\.push_timezone_synced_at is not null/);
+  assert.match(timezoneGuard, /join pg_timezone_names tz[\s\S]*tz\.name = ns\.push_timezone/);
+  assert.doesNotMatch(timezoneGuard, /coalesce\(tz\.name, 'UTC'\)/);
+  assert.match(push, /push_timezone_synced_at: new Date\(\)\.toISOString\(\)/);
+  assert.match(pushResync, /push_timezone_synced_at: new Date\(\)\.toISOString\(\)/);
 });
