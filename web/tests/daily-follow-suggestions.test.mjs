@@ -17,6 +17,11 @@ const timezoneGuard = readFileSync(
   "utf8",
 );
 
+const twiceDaily = readFileSync(
+  new URL("../../supabase/migrations/20260930030000_daily_follow_suggestions_twice_daily.sql", import.meta.url),
+  "utf8",
+);
+
 const edge = readFileSync(
   new URL("../../supabase/functions/send-daily-follow-suggestions/index.ts", import.meta.url),
   "utf8",
@@ -28,12 +33,23 @@ const settings = readFileSync(new URL("../components/settings-route.tsx", import
 const push = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
 const pushResync = readFileSync(new URL("../components/push-resync.tsx", import.meta.url), "utf8");
 
-test("daily follow suggestions are one delivery per local day with a 3-5 profile payload", () => {
-  assert.match(migration, /unique \(user_id, local_date\)/i);
+test("base daily follow suggestions keep a 3-5 profile payload and hourly cron", () => {
   assert.match(migration, /cardinality\(profile_ids\) between 3 and 5/i);
-  assert.match(migration, /local_now::time >= time '19:00'/i);
-  assert.match(migration, /local_now::time < time '22:00'/i);
   assert.match(migration, /'27 \* \* \* \*'/);
+});
+
+test("follow suggestions allow at most one morning and one evening delivery per local day", () => {
+  assert.match(twiceDaily, /delivery_slot text not null default 'evening'/i);
+  assert.match(twiceDaily, /delivery_slot in \('morning', 'evening'\)/i);
+  assert.match(twiceDaily, /drop constraint if exists daily_follow_suggestion_user_day_unique/i);
+  assert.match(twiceDaily, /unique \(user_id, local_date, delivery_slot\)/i);
+  assert.match(twiceDaily, /local_now::time >= time '10:00'/i);
+  assert.match(twiceDaily, /local_now::time < time '13:00'/i);
+  assert.match(twiceDaily, /local_now::time >= time '19:00'/i);
+  assert.match(twiceDaily, /local_now::time < time '22:00'/i);
+  assert.match(twiceDaily, /recent\.sent_at >= now\(\) - interval '6 hours'/i);
+  assert.match(twiceDaily, /d\.delivery_slot = v_user\.delivery_slot/i);
+  assert.match(twiceDaily, /v_user\.delivery_slot \|\| '\\|' \|\|/i);
 });
 
 test("candidate selection excludes unsafe or already-actioned accounts", () => {
