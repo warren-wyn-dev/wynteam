@@ -44,6 +44,8 @@ jobs:
         run: npm run test:account-switch
       - name: App-wide navigation, loading and cache performance regression
         run: npm run test:app-performance
+      - name: People Search ranking, privacy and Thai/English regression
+        run: npm run test:search
       - name: Notification realtime, Push delivery and unread-race regression
         run: npm run test:notifications
       - name: Offline Push logout fallback regression
