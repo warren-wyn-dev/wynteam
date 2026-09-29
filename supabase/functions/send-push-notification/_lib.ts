@@ -386,10 +386,11 @@ export function isDeadTokenError(status: string | undefined, message: string | u
 
 export function summariseOutcomes(outcomes: string[]): string {
   const sent = outcomes.filter((o) => o === "sent").length;
-  const failures = outcomes.filter((o) => o !== "sent");
-  if (failures.length === 0) return `OK sent=${sent}`;
+  const skipped = outcomes.filter((o) => o === "skipped").length;
+  const failures = outcomes.filter((o) => o !== "sent" && o !== "skipped");
+  if (failures.length === 0) return `OK sent=${sent}${skipped ? ` skipped=${skipped}` : ""}`;
   const reasons = [...new Set(failures)].join(", ");
-  return `OK sent=${sent} failed=${failures.length} (${reasons})`;
+  return `OK sent=${sent}${skipped ? ` skipped=${skipped}` : ""} failed=${failures.length} (${reasons})`;
 }
 
 export function splitPushMessage(
