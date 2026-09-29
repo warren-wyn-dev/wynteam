@@ -19,6 +19,8 @@ test("daily follow suggestions are at most once per local day and release-gated"
   assert.match(migration, /'37 \* \* \* \*'/);
   assert.match(migration, /cron\.alter_job[\s\S]*active := false/);
   assert.match(migration, /time '10:00'/);
+  assert.doesNotMatch(migration, /\nas \$\n/);
+  assert.doesNotMatch(migration, /\ndo \$\n/);
 });
 
 test("candidate ranking excludes unsafe and repetitive recommendations", () => {
