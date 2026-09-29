@@ -72,7 +72,14 @@ function pushTarget(data) {
       : null;
     return `/suggested?source=daily_follow_suggestion${delivery ? `&delivery=${delivery}` : ""}`;
   }
+  if (data?.type === "posting_prompt") {
+    const prompt = typeof data?.prompt_key === "string" && /^[a-z0-9-]{1,40}$/i.test(data.prompt_key)
+      ? data.prompt_key
+      : "daily";
+    return `/?compose=1&prompt=${encodeURIComponent(prompt)}&source=posting_prompt`;
+  }
   const id = (key) => typeof data?.[key] === "string" && PUSH_UUID.test(data[key]) ? data[key] : null;
+  if (data?.type === "followed_post_digest" && id("drop_id")) return `/drop/${id("drop_id")}`;
   const conversation = id("conversation_id");
   const actor = id("actor_id");
   if (conversation) return `/chat/${conversation}${actor ? `?user=${actor}` : ""}`;
@@ -150,7 +157,7 @@ self.addEventListener("push", (event) => {
   // Wake any open WYNOS tabs with a content-free invalidation hint.
   // A tab always reads its OWN user's rows via Auth/RLS. A late A push
   // after switching to B never includes A's text or profile here.
-  const wakeTabs = data.type === "daily_follow_suggestion"
+  const wakeTabs = data.type === "daily_follow_suggestion" || data.type === "posting_prompt" || data.type === "followed_post_digest"
     ? Promise.resolve()
     : self.clients.matchAll({ type: "window", includeUncontrolled: true })
       .then((windows) => {
