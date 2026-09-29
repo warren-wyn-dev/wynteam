@@ -43,7 +43,11 @@ test("broken post image swaps to the WYNOS fallback instead of showing the brows
   await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
   const image = page.locator(".wyn-post-media-item").first();
   await expect(image).toBeVisible();
-  await image.evaluate((node) => node.dispatchEvent(new Event("error", { bubbles: true })));
+  await page.route("**/__wynos_missing_post_image__.png", (route) => route.abort());
+  await image.evaluate((node) => {
+    node.removeAttribute("srcset");
+    node.setAttribute("src", "/__wynos_missing_post_image__.png");
+  });
   const fallback = page.locator('.wyn-post-media-fallback[aria-label="รูปภาพไม่พร้อมใช้งาน"]').first();
   await expect(fallback).toBeVisible();
   await expect(fallback).toContainText("ไม่สามารถโหลดรูปได้");
