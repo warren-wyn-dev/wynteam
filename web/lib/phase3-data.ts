@@ -537,8 +537,13 @@ export async function fetchTrendingHashtags(client: SupabaseClient, limit = 20):
     .map((tag) => ({ tag, score: scores.get(tag) ?? 0, postCount: counts.get(tag) ?? 0 }));
 }
 
-async function fetchRankedProfiles(client: SupabaseClient, rpcName: string, limit: number): Promise<ProfileRow[]> {
-  const idsResult = await client.rpc(rpcName, { p_limit: limit });
+async function fetchRankedProfiles(
+  client: SupabaseClient,
+  rpcName: string,
+  limit: number,
+  rpcArgs: Record<string, unknown> = { p_limit: limit },
+): Promise<ProfileRow[]> {
+  const idsResult = await client.rpc(rpcName, rpcArgs);
   fail(idsResult.error, "โหลดคำแนะนำไม่สำเร็จ");
   const ids = ((idsResult.data ?? []) as Record<string, unknown>[]).map((row) => String(row.profile_id ?? ""));
   if (!ids.length) return [];
@@ -557,6 +562,10 @@ async function fetchRankedProfiles(client: SupabaseClient, rpcName: string, limi
 
 export function fetchSuggestedProfiles(client: SupabaseClient, limit = 10) {
   return fetchRankedProfiles(client, "suggested_users", limit);
+}
+
+export function fetchDailySuggestedProfiles(client: SupabaseClient) {
+  return fetchRankedProfiles(client, "daily_follow_suggestions_for_me", 5, {});
 }
 
 export function fetchRisingProfiles(client: SupabaseClient, limit = 10) {
