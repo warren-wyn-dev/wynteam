@@ -75,6 +75,8 @@ test("Web Push click opens Suggested and does not wake the notification badge", 
 test("Suggested route loads the delivered set and records opens", () => {
   assert.match(route, /fetchDailySuggestedProfiles/);
   assert.match(route, /markDailyFollowSuggestionOpened/);
+  assert.match(route, /fetchDailySuggestedProfiles\(client, pushedDeliveryId\)/);
+  assert.match(route, /if \(pushedDeliveryId && daily\.deliveryId === pushedDeliveryId\)/);
   assert.match(route, /daily_follow_suggestion/);
   assert.match(route, /followButtonLabel/);
   assert.match(route, /profile_recommendation_dismissals/);
