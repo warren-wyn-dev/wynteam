@@ -51,6 +51,7 @@ import {
 import { useUnreadNotificationCount } from "@/lib/notification-count";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
+import { postingPromptByKey } from "@/lib/posting-prompts";
 
 // These are heavy, interaction-only overlays (composer with image/poll
 // upload, quote-redrop composer, side drawer) — none of them are needed for
@@ -953,7 +954,11 @@ export function HomeScreen({ session }: { session: Session }) {
         onTouchCancel={onTouchCancel}
       >
         {visibleMode !== "clubs" ? (
-          <HomeQuickCompose avatarUrl={identity?.avatar_url} username={identity?.username} />
+          <HomeQuickCompose
+            avatarUrl={identity?.avatar_url}
+            username={identity?.username}
+            hasPublishedPost={(identity?.post_count ?? 0) > 0}
+          />
         ) : null}
         {loading && !rows.length && !clubRows.length ? (
           <FeedSkeleton />
@@ -1146,8 +1151,12 @@ export function HomeScreen({ session }: { session: Session }) {
           client={client}
           userId={userId}
           draftId={searchParams.get("draft")}
+          promptText={postingPromptByKey(searchParams.get("prompt"))?.text ?? null}
           onClose={() => router.replace("/")}
-          onPublished={() => void load()}
+          onPublished={() => {
+            setIdentity((current) => current ? { ...current, post_count: current.post_count + 1 } : current);
+            void load();
+          }}
         />
       ) : null}
     </AppChrome>
