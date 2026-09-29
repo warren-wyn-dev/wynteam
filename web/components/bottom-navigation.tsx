@@ -60,12 +60,12 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
               className="route-nav-club-separators"
               fill="none"
               stroke="var(--wyn-bg, #fff)"
-              strokeWidth="7"
+              strokeWidth="5.5"
               strokeLinecap="round"
             >
-              <path d="M61 69 C70 72 77 80 78 89" />
-              <path d="M99 69 C90 72 83 80 82 89" />
-              <path d="M66 99 C75 94 85 94 94 99" />
+              <path d="M63 70 C70 74 75 80 76.5 87" />
+              <path d="M97 70 C90 74 85 80 83.5 87" />
+              <path d="M70 101 C76 98 84 98 90 101" />
             </g>
           </g>
         ) : (
