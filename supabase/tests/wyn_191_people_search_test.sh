@@ -98,6 +98,7 @@ grant usage on schema storage to authenticated, anon, service_role;
 -- hosted permission here so SECURITY INVOKER search functions can call
 -- auth.uid()/auth.jwt() under the real authenticated role in local QA.
 grant usage on schema auth to authenticated, anon, service_role;
+grant usage on schema extensions to authenticated, anon, service_role;
 grant execute on function auth.uid() to authenticated, anon, service_role;
 grant execute on function auth.role() to authenticated, anon, service_role;
 grant execute on function auth.jwt() to authenticated, anon, service_role;
