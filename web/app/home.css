@@ -64,6 +64,13 @@
   transform: translateY(0) scale(0.94);
 }
 
+.wyn-home-post-fab .route-nav-glyph--compose {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  color: inherit;
+}
+
 /* ---------- Header ---------- */
 
 /* Equal side tracks keep the WYNOS wordmark centered on the screen,
