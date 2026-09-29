@@ -131,6 +131,20 @@ export type NotificationSettings = {
   system: boolean;
 };
 
+export type NotificationDeveloperSettings = {
+  push_likes: boolean;
+  push_comments: boolean;
+  push_follows: boolean;
+  push_messages: boolean;
+  push_club: boolean;
+  push_trending: boolean;
+  push_system: boolean;
+  push_quiet_enabled: boolean;
+  push_quiet_start: string;
+  push_quiet_end: string;
+  push_timezone: string;
+};
+
 export type LegalDocument = {
   type: string;
   version: number;
@@ -151,6 +165,20 @@ const defaultNotificationSettings: NotificationSettings = {
   club: true,
   trending: true,
   system: true,
+};
+
+const defaultNotificationDeveloperSettings: NotificationDeveloperSettings = {
+  push_likes: true,
+  push_comments: true,
+  push_follows: true,
+  push_messages: true,
+  push_club: true,
+  push_trending: true,
+  push_system: true,
+  push_quiet_enabled: false,
+  push_quiet_start: "22:00",
+  push_quiet_end: "08:00",
+  push_timezone: "UTC",
 };
 
 function fail(error: { message?: string } | null | undefined, fallback = "เกิดข้อผิดพลาด") {
@@ -933,6 +961,40 @@ export async function updateNotificationSetting(
     .from("notification_settings")
     .upsert({ user_id: userId, [category]: value }, { onConflict: "user_id" });
   fail(result.error, "บันทึกการแจ้งเตือนไม่สำเร็จ");
+}
+
+export async function fetchNotificationDeveloperSettings(
+  client: SupabaseClient,
+): Promise<NotificationDeveloperSettings> {
+  const result = await client
+    .from("notification_settings")
+    .select("push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone")
+    .maybeSingle();
+  fail(result.error, "โหลดการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
+  return { ...defaultNotificationDeveloperSettings, ...(result.data ?? {}) } as NotificationDeveloperSettings;
+}
+
+export async function updateNotificationDeveloperSetting(
+  client: SupabaseClient,
+  userId: string,
+  key: keyof NotificationDeveloperSettings,
+  value: boolean | string,
+): Promise<void> {
+  const result = await client
+    .from("notification_settings")
+    .upsert({ user_id: userId, [key]: value, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+  fail(result.error, "บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
+}
+
+export async function updateNotificationDeveloperSettings(
+  client: SupabaseClient,
+  userId: string,
+  patch: Partial<NotificationDeveloperSettings>,
+): Promise<void> {
+  const result = await client
+    .from("notification_settings")
+    .upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+  fail(result.error, "บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
 }
 
 export async function updateProfilePrivacySetting(

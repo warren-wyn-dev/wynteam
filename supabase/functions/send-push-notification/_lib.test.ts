@@ -11,7 +11,10 @@ import {
   type FcmServiceAccount,
   importPrivateKey,
   isDeadTokenError,
+  isQuietHourAt,
+  isRetryableFcmStatus,
   messageFor,
+  pushPreferenceCategory,
   pushLanguageFrom,
   dmMessagePreview,
   type NotificationRow,
@@ -268,6 +271,32 @@ Deno.test("buildDataPayload includes conversation_id when set (new_message, WYN-
 });
 
 // Beta4 §11.6 (Duplicate Protection).
+Deno.test("developer preview maps notification types to the same preference families as WYN-044", () => {
+  assertEquals(pushPreferenceCategory("like_drop"), "likes");
+  assertEquals(pushPreferenceCategory("redrop"), "likes");
+  assertEquals(pushPreferenceCategory("comment_drop"), "comments");
+  assertEquals(pushPreferenceCategory("mention_drop"), "comments");
+  assertEquals(pushPreferenceCategory("follow_request"), "follows");
+  assertEquals(pushPreferenceCategory("new_message"), "messages");
+  assertEquals(pushPreferenceCategory("club_post_like"), "club");
+  assertEquals(pushPreferenceCategory("mention_club_post"), "club");
+  assertEquals(pushPreferenceCategory("trending"), "trending");
+  assertEquals(pushPreferenceCategory("moderation_warning"), "system");
+});
+
+Deno.test("quiet hours work across midnight and fail open for invalid timezone input", () => {
+  const at = (iso: string) => new Date(iso);
+  assertEquals(isQuietHourAt(at("2026-09-29T16:00:00Z"), "Asia/Bangkok", "22:00", "08:00"), true);
+  assertEquals(isQuietHourAt(at("2026-09-29T04:00:00Z"), "Asia/Bangkok", "22:00", "08:00"), false);
+  assertEquals(isQuietHourAt(at("2026-09-29T04:00:00Z"), "Asia/Bangkok", "09:00", "17:00"), true);
+  assertEquals(isQuietHourAt(at("2026-09-29T04:00:00Z"), "Not/AZone", "22:00", "08:00"), false);
+});
+
+Deno.test("retry policy is bounded to transient FCM transport statuses", () => {
+  for (const status of [429, 500, 502, 503, 504]) assertEquals(isRetryableFcmStatus(status), true);
+  for (const status of [400, 401, 403, 404, 409]) assertEquals(isRetryableFcmStatus(status), false);
+});
+
 Deno.test("collapseKeyFor is the notification row id, so a webhook retry of the same row collapses", () => {
   const row: NotificationRow = { ...baseRow, id: "n5", type: "like_drop", drop_id: "d1" };
   assertEquals(collapseKeyFor(row), "n5");
