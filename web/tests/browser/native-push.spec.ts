@@ -66,8 +66,14 @@ test("an auto-displayed FCM push opens its post; lifecycle pushes deep-link safe
   expect(reactivationWorker.opened).toEqual(["https://wynos.online/home"]);
 
   const suggestionWorker = fakeWorker();
-  await suggestionWorker.click({ type: "daily_follow_suggestion", recipient_id: ID });
-  expect(suggestionWorker.opened).toEqual(["https://wynos.online/search?suggested=1"]);
+  await suggestionWorker.click({
+    type: "daily_follow_suggestion",
+    recipient_id: ID,
+    delivery_id: OTHER,
+  });
+  expect(suggestionWorker.opened).toEqual([
+    `https://wynos.online/suggested?source=daily_follow_suggestion&delivery=${OTHER}`,
+  ]);
 
   const unsafeWorker = fakeWorker([{ url: "https://external.example/", focus: async () => { throw Error("Should not focus external client"); } }]);
   await unsafeWorker.click({ conversation_id: "//external.example/bad", url: "https://external.example/" });
@@ -225,13 +231,20 @@ test("reactivation push shows a banner without incrementing the notification bad
 });
 
 
-test("daily follow suggestion push shows a banner without incrementing the notification badge", async () => {
+test("daily follow suggestion push shows one data-only banner without incrementing the notification badge", async () => {
   const worker = pushWorker();
   await worker.push({
-    notification: { title: "คนใหม่ ๆ ที่คุณอาจสนใจ 👋", body: "เราเลือกบัญชีที่น่าสนใจมาให้คุณวันนี้" },
-    data: { type: "daily_follow_suggestion", recipient_id: ID },
+    data: {
+      type: "daily_follow_suggestion",
+      recipient_id: ID,
+      delivery_id: OTHER,
+      notification_id: OTHER,
+      push_title: "คนใหม่ ๆ ที่คุณอาจสนใจ 👋",
+      push_body: "เราเลือกบัญชีที่น่าสนใจมาให้คุณวันนี้",
+    },
   });
   expect(worker.banners).toHaveLength(1);
   expect(worker.banners[0].title).toBe("คนใหม่ ๆ ที่คุณอาจสนใจ 👋");
+  expect(worker.banners[0].options.tag).toBe(OTHER);
   expect(worker.wakeMessages).toEqual([]);
 });
