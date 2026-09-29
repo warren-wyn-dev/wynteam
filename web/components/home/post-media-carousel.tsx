@@ -93,6 +93,12 @@ export function PostMediaCarousel({
       <div
         ref={track}
         onScroll={updateIndex}
+        onErrorCapture={(event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLImageElement)) return;
+          const mediaIndex = Number(target.dataset.wynMediaIndex);
+          if (Number.isInteger(mediaIndex)) markFailed(mediaIndex);
+        }}
         className={`wyn-post-media-track ${urls.length === 1 ? "is-single" : ""}`}
         style={trackStyle}
       >
@@ -118,6 +124,7 @@ export function PostMediaCarousel({
               className={`wyn-post-media-item ${loaded[i] ? "is-loaded" : "is-loading"} ${positionClass}`}
               src={url}
               alt=""
+              data-wyn-media-index={i}
               width={intrinsicWidth}
               height={intrinsicHeight}
               style={{ width: "100%", height: "auto" }}
