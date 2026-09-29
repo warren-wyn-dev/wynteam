@@ -6,6 +6,12 @@ const migration = readFileSync(
   new URL("../../supabase/migrations/20260929164203_web_daily_follow_suggestions.sql", import.meta.url),
   "utf8",
 );
+
+const permanentGuard = readFileSync(
+  new URL("../../supabase/migrations/20260929164437_daily_follow_suggestions_permanent_account_guard.sql", import.meta.url),
+  "utf8",
+);
+
 const edge = readFileSync(
   new URL("../../supabase/functions/send-daily-follow-suggestions/index.ts", import.meta.url),
   "utf8",
@@ -100,4 +106,10 @@ test("notification settings expose suggestions and Push registration persists ti
   assert.match(push, /push_timezone: timezone/);
   assert.match(pushResync, /syncPushTimezone/);
   assert.match(pushResync, /push_timezone: timezone/);
+});
+
+test("suggestion history rejects anonymous authenticated sessions", () => {
+  assert.match(permanentGuard, /auth\.jwt\(\).*is_anonymous/s);
+  assert.match(permanentGuard, /Permanent account required/);
+  assert.match(permanentGuard, /\(select auth\.uid\(\)\) = user_id/);
 });
