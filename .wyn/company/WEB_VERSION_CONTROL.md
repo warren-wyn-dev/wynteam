@@ -31,17 +31,15 @@ WYNOS Web Beta1 เป็น version track ของ **Web App** แยกจา
 | Version | สถานะ | Baseline |
 |---|---|---|
 | WYNOS Web Beta1 | **Current — ผู้ใช้ทั่วไป (Public)** | Launch baseline `19f2f5830740ba1cc3d3a23c16ac94bc9185388c` (PR #725), WYN-158 Production Deploy **#275** (`36250184330`) — success, 2026-09-26. เดิม: `854d571b7548f45b1d12cdd2143580dc4e46312d`, Production Deploy #51 |
-| WYNOS Web Beta2 | **In development — เฉพาะบัญชีนักพัฒนา (Developer-only)** | ต่อยอดจาก Web Beta1 launch baseline ข้างบน; ยังไม่มี production release |
+| WYNOS Web Beta2 | **Suspended — หยุดพัฒนา 2026-09-29** | ฟีเจอร์ที่เสร็จแล้วถูกเปิดให้ผู้ใช้ทั่วไปและรวมกลับเข้า WYNOS Web Beta1; ห้ามเริ่มงานใหม่ใน track นี้ |
 
-## Web Beta1 Launch / Web Beta2 (Owner decision, 2026-09-26)
+## Web Beta1 Development Policy / Web Beta2 Suspended
 
-- Owner ตัดสินใจ (AskUserQuestion, 2026-09-26): **WYNOS Web Beta1 = เวอร์ชันผู้ใช้**, **WYNOS Web Beta2 = เฉพาะนักพัฒนา** — รูปแบบเดียวกับ Beta4 (ผู้ใช้) / Beta5 (นักพัฒนา) ของแอปใน `VERSION_CONTROL.md`
-- Launch baseline ของ Web Beta1 รวม: Push ตอนปิดแอป (#721), `recipient_id` ใน Push (#722, Edge Function deployed), ตัดโค้ด foreground Push (#723), ตัวเลข unread บนกระดิ่ง/แชท (#724), QA hardening (#725) และ production DB migration `web-beta1-apply-qa-hardening.yml` run `36250193842` (verified)
-- Post-launch fixes ใน Web Beta1: แชร์ลิงก์/preview/กลับหน้าที่แชร์หลังล็อกอิน (#727, Deploy #276), เปิดลิงก์จาก LINE ใน Safari และปิดการซูม (#729, Deploy #277, `d0ed2dc4d8f5e1403b02e44046e70fca319489ad`)
-- QA: **PASS** 2026-09-26. Founder ยืนยันการทดสอบบนมือถือจริงครบ ดู `.wyn/docs/qa/wynos-web-beta1-full-system-qa-2026-09-26.md` (Final sign-off)
-- Staging (เริ่ม Web Beta2, 2026-09-26): ทุก PR ที่แก้ `web/` ได้ staging URL ของตัวเอง ใช้ฐานข้อมูลเดียวกับ production ดู `docs/engineering/WEB_STAGING.md`
-- WYN-188 ธีม สว่าง/เข้ม/ตามระบบ: เปิดให้ทุกบัญชี (Founder อนุมัติ 2026-09-27) ค่าที่เลือกเก็บใน `user_preferences`
-- งานใหม่ทั้งหมดของ Web Beta2 ต้องอยู่หลัง developer gate (เช่น `is_developer_account`) จนกว่า Owner จะสั่ง release; ห้ามเปลี่ยนพฤติกรรมของ Web Beta1 ที่ผู้ใช้เห็นโดยไม่ได้รับอนุมัติ
+- Owner decision 2026-09-29: **ระงับ WYNOS Web Beta2** และไม่พัฒนาฟีเจอร์ใหม่ใน track นี้อีก
+- ฟีเจอร์เดิมจาก Beta2 ที่เปิดให้ผู้ใช้ทั่วไปและนับเป็นส่วนหนึ่งของ **WYNOS Web Beta1**: WYN-159 Threads-style chat, WYN-135 Club chat edit/pin/search และ WYN-137 Club announcements
+- งานเว็บใหม่ทั้งหมดพัฒนาภายใต้ **WYNOS Web Beta1** เท่านั้น
+- ฟีเจอร์ใหม่ที่ผู้ใช้มองเห็นต้องใช้ staged rollout ตาม WYN-125: **บัญชีนักพัฒนาเห็นก่อน** ผ่าน `is_developer_account()`; ผู้ใช้ทั่วไปเห็น behavior เดิมจนกว่า Owner จะสั่งเปิด
+- Per-PR Vercel staging ยังคงใช้เป็น QA gate ก่อน merge; ชื่อเวอร์ชันของงานยังเป็น WYNOS Web Beta1
 - Rollback/version change ยังเป็นอำนาจ Owner เท่านั้น
 
 ## Owner Authority
