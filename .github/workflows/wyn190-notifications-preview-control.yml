@@ -127,6 +127,18 @@ jobs:
                      ) as notifications_realtime_enabled;" | jq .
 
             run_sql "select count(*) as developer_account_count from public.developer_accounts;" | jq .
+
+            run_sql "select status, count(*) as deliveries
+                     from public.notification_push_deliveries
+                     where created_at >= now() - interval '24 hours'
+                     group by status
+                     order by status;" | jq .
+
+            run_sql "select count(*) as retrying_due_now
+                     from public.notification_push_deliveries
+                     where status='retrying'
+                       and next_retry_at is not null
+                       and next_retry_at <= now();" | jq .
           }
 
           case "$ACTION" in
