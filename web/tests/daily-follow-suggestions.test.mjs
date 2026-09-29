@@ -41,6 +41,12 @@ test("rotation hard-blocks the last 7 days and prefers fresh accounts within 30 
   assert.match(migration, /then 1 else 0 end/);
 });
 
+test("retry revalidates the same-day set before sending it again", () => {
+  assert.match(migration, /daily_follow_candidate_allowed/);
+  assert.match(migration, /bool_and\(internal\.daily_follow_candidate_allowed\(v_user\.uid, candidate_id\)\)/);
+  assert.match(migration, /then v_existing\.profile_ids[\s\S]*else null/);
+});
+
 test("daily suggestions respect Web Push eligibility, quiet hours and recent-notification anti-spam", () => {
   assert.match(migration, /pt\.platform = 'web'/);
   assert.match(migration, /push_suggestions/);
