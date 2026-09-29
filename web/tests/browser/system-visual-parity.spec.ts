@@ -149,9 +149,10 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain('route-nav-glyph-cutout');
   expect(nav).toContain('route-nav-glyph--filled');
   expect(nav).toContain("NAV_ACTIVE_ICON_PATHS");
-  expect(nav).toContain('<circle cx="126" cy="64" r="14" />');
-  expect(nav).toContain('<circle cx="34" cy="64" r="14" />');
+  expect(nav).toContain('<circle cx="122" cy="66" r="12" />');
+  expect(nav).toContain('<circle cx="38" cy="66" r="12" />');
   expect(nav).toContain('className="route-nav-club-outline"');
+  expect(nav).toContain('strokeWidth="8.5"');
   expect(nav).toContain('const filled = selected && kind !== "compose"');
   expect(navCss).toContain("--wyn-nav-icon: #111111");
   expect(nav).toContain('postActive={postActive}');
