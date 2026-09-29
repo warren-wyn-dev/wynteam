@@ -201,7 +201,7 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
 type DiscoverySnapshot = { hashtags: RankedHashtag[]; suggested: ProfileRow[] };
 
 function Discovery({ client, userId, suggestedOnly = false }: { client: SupabaseClient; userId: string; suggestedOnly?: boolean }) {
-  const cacheKey = `search-discovery:${userId}`;
+  const cacheKey = `search-discovery:${userId}:${suggestedOnly ? "suggested" : "default"}`;
   const cached = getMountCache<DiscoverySnapshot>(cacheKey);
   const [hashtags, setHashtags] = useState<RankedHashtag[]>(cached?.hashtags ?? []);
   const [suggested, setSuggested] = useState<ProfileRow[]>(cached?.suggested ?? []);
@@ -213,7 +213,7 @@ function Discovery({ client, userId, suggestedOnly = false }: { client: Supabase
   useEffect(() => {
     let live = true;
     void Promise.all([
-      fetchTrendingHashtags(client, 6),
+      suggestedOnly ? Promise.resolve([] as RankedHashtag[]) : fetchTrendingHashtags(client, 6),
       fetchSuggestedProfiles(client, suggestedOnly ? 5 : 10),
     ]).then(async ([tags, suggest]) => {
       if (!live) return;
