@@ -1050,6 +1050,8 @@ export const EN_EXACT: Record<string, string> = {
   "แนะนำตัวสั้น ๆ ให้ทุกคนรู้จักคุณ": "Introduce yourself in a few words",
   "เล่าเรื่องหนึ่งอย่างเกี่ยวกับวันนี้": "Share one thing about your day",
   "ถามคำถามที่คุณอยากฟังความคิดเห็นจากคนอื่น": "Ask something you'd like others' opinions on",
+  "โพสต์จากคนที่คุณติดตาม": "Posts from people you follow",
+  "คำแนะนำให้เริ่มโพสต์": "Posting prompts",
 };
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
