@@ -58,6 +58,9 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
           className={filled ? "route-nav-club-filled" : "route-nav-club-outline"}
           d={filled ? CLUB_REFERENCE_FILLED_PATH : CLUB_REFERENCE_OUTLINE_PATH}
           fill="currentColor"
+          stroke={filled ? "none" : "currentColor"}
+          strokeWidth={filled ? undefined : 1.35}
+          strokeLinejoin="round"
           fillRule="evenodd"
           clipRule="evenodd"
         />
