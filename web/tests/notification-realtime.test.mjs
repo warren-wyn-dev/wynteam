@@ -13,6 +13,7 @@ const compiled = ts.transpileModule(source, {
 function fixture() {
   let activeSlot = "wynos.account.test-a";
   let online = true;
+  let developer = true;
   let countResult = 3;
   let nextFetch = null;
   let snapshot = () => 0;
@@ -87,6 +88,10 @@ function fixture() {
       return channel;
     },
     removeChannel: async (channel) => { channel.removed = true; },
+    rpc: async (name) => {
+      assert.equal(name, "is_developer_account");
+      return { data: developer, error: null };
+    },
   };
   runInNewContext(compiled, {
     exports,
@@ -141,6 +146,7 @@ function fixture() {
     },
     changeSlot: (slot) => { activeSlot = slot; },
     setOnline: (value) => { online = value; },
+    setDeveloper: (value) => { developer = value; },
     pulse: (event = "INSERT", data = { id: "new-1", recipient_id: "account-a", type: "like_drop", is_read: false }) => {
       channels[0].callbacks[event].callback({ new: data });
     },
@@ -183,6 +189,7 @@ test("a stale SQL response must never erase a newer Realtime badge", async () =>
   const f = fixture();
   const resolve = f.deferFetch();
   f.hook();
+  await flush();
   f.pulse();
   resolve({ error: null, count: 0 });
   await flush();
@@ -190,6 +197,18 @@ test("a stale SQL response must never erase a newer Realtime badge", async () =>
   await flush();
   assert.equal(f.count, 3, "after reconciling, only the new server count is authoritative");
   assert.equal(f.unreadQueries, 2);
+  f.cleanup();
+});
+
+test("regular accounts keep polling and Push fallbacks without attaching the preview Realtime channel", async () => {
+  const f = fixture();
+  f.setDeveloper(false);
+  f.hook();
+  await flush();
+  assert.equal(f.channels.length, 0);
+  assert.equal(f.count, 3);
+  f.push({ recipientId: "account-a", notificationId: "regular-push", type: "follow" });
+  assert.equal(f.count, 4);
   f.cleanup();
 });
 
