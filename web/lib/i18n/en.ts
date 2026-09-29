@@ -1005,7 +1005,7 @@ export const EN_EXACT: Record<string, string> = {
   "พิมพ์ประกาศถึงสมาชิก…": "Write to your members…",
   "เปิดการแจ้งเตือน": "Turn on notifications",
   "ความคิดเห็นและการกล่าวถึง": "Comments and mentions",
-  "ระบบและความปลอดภัย": "System and security",
+  "ระบบและแอดมิน": "System and admin",
   "บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ": "Couldn't save the developer Push settings",
   "บันทึกช่วงพักการแจ้งเตือนไม่สำเร็จ": "Couldn't save Quiet Hours",
   "ฟีเจอร์ส่วนนี้เปิดให้เฉพาะบัญชีนักพัฒนาก่อน ผู้ใช้ทั่วไปยังใช้ระบบเดิม": "This section is available to developer accounts first. Regular users still use the existing notification system",
