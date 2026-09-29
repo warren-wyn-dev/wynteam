@@ -90,22 +90,14 @@ returns table (
   user_id uuid,
   profile_ids uuid[]
 )
-language plpgsql
+language sql
+volatile
 security definer
 set search_path = public, internal
 as $$
-declare
-  v_limit integer := greatest(1, least(coalesce(p_limit, 100), 300));
-begin
-  if current_user not in ('postgres', 'service_role') then
-    raise exception 'service_role required';
-  end if;
-
-  return query
   with candidates as (
     select
       p.id as uid,
-      coalesce(s.push_timezone, 'UTC') as tz,
       internal.daily_follow_suggestion_ids(p.id, 5) as ids,
       ((now() at time zone coalesce(s.push_timezone, 'UTC'))::date) as local_day
     from public.profiles p
@@ -119,9 +111,7 @@ begin
         select 1 from public.web_reactivation_state wr
         where wr.user_id = p.id and wr.activated_at is null
       )
-      and (
-        (now() at time zone coalesce(s.push_timezone, 'UTC'))::time >= time '10:00'
-      )
+      and (now() at time zone coalesce(s.push_timezone, 'UTC'))::time >= time '10:00'
       and not internal.web_reactivation_quiet_now(p.id)
       and not exists (
         select 1
@@ -130,18 +120,17 @@ begin
           and d.local_date = (now() at time zone coalesce(s.push_timezone, 'UTC'))::date
       )
     order by p.id
+    limit greatest(1, least(coalesce(p_limit, 100), 300))
   ),
   inserted as (
     insert into public.daily_follow_suggestion_deliveries(user_id, local_date, profile_ids)
     select uid, local_day, ids
     from candidates
     where cardinality(ids) > 0
-    limit v_limit
     on conflict (user_id, local_date) do nothing
     returning id, user_id, profile_ids
   )
-  select i.id, i.user_id, i.profile_ids from inserted i;
-end;
+  select id, user_id, profile_ids from inserted;
 $$;
 
 revoke all on function public.claim_daily_follow_suggestion_pushes(integer)
