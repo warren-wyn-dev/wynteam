@@ -200,7 +200,7 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
 
 type DiscoverySnapshot = { hashtags: RankedHashtag[]; suggested: ProfileRow[] };
 
-function Discovery({ client, userId }: { client: SupabaseClient; userId: string }) {
+function Discovery({ client, userId, suggestedOnly = false }: { client: SupabaseClient; userId: string; suggestedOnly?: boolean }) {
   const cacheKey = `search-discovery:${userId}`;
   const cached = getMountCache<DiscoverySnapshot>(cacheKey);
   const [hashtags, setHashtags] = useState<RankedHashtag[]>(cached?.hashtags ?? []);
@@ -214,7 +214,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
     let live = true;
     void Promise.all([
       fetchTrendingHashtags(client, 6),
-      fetchSuggestedProfiles(client, 10),
+      fetchSuggestedProfiles(client, suggestedOnly ? 5 : 10),
     ]).then(async ([tags, suggest]) => {
       if (!live) return;
       setHashtags(tags);
@@ -228,7 +228,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
       }
     }).catch(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [client, userId, cacheKey]);
+  }, [client, userId, cacheKey, suggestedOnly]);
 
   const follow = useCallback(async (profile: ProfileRow) => {
     if (!viewer || profile.id === userId || pending.has(profile.id)) return;
@@ -263,7 +263,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   if (loading && !hashtags.length && !suggested.length) return <SearchDiscoverySkeleton />;
   return (
     <div className="discovery-page flutter-search-discovery">
-      <section className="route-section">
+      {!suggestedOnly ? <section className="route-section">
         <div className="route-section-title"><h2>แฮชแท็กกำลังนิยม</h2></div>
         <div className="hashtag-list">
           {hashtags.length ? hashtags.map((item, index) => (
@@ -275,7 +275,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
           )) : <EmptyState>ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้</EmptyState>}
         </div>
         <Link className="top100-link" href="/trending">ดูอันดับทั้งหมด (Top 100) <WynosIcon name="chevronRight" size={14} strokeWidth={2} /></Link>
-      </section>
+      </section> : null}
       <section className="route-section flutter-suggested-section">
         <div className="route-section-title"><h2>แนะนำให้ติดตาม</h2></div>
         {suggested.length ? (
@@ -395,6 +395,7 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const router = useRouter();
   const params = useSearchParams();
   const urlQuery = params.get("q")?.trim() ?? "";
+  const suggestedOnly = params.get("suggested") === "1" && !urlQuery;
   const urlTabParam = params.get("type");
   const tab: SearchTab = SEARCH_TABS.includes(urlTabParam as SearchTab) ? (urlTabParam as SearchTab) : "all";
   const [draft, setDraft] = useState(urlQuery);
@@ -444,6 +445,18 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
     { id: "posts" as const, label: "โพสต์" },
     { id: "clubs" as const, label: "Club" },
   ], []);
+  if (suggestedOnly) {
+    return (
+      <AppChrome title="" userId={userId} headerMode="hidden">
+        <div className="flutter-search-header">
+          <button className="search-back-button" type="button" aria-label="ย้อนกลับ" onClick={closeSearch}><WynosIcon name="back" size={28} strokeWidth={2} /></button>
+          <div className="route-section-title"><h1>แนะนำสำหรับคุณ</h1></div>
+        </div>
+        <Discovery client={client} userId={userId} suggestedOnly />
+      </AppChrome>
+    );
+  }
+
   return (
     <AppChrome title="" userId={userId} headerMode="hidden">
       <div className="flutter-search-header">
