@@ -229,3 +229,77 @@ test("daily follow suggestion opens Suggested and does not increment notificatio
   expect(worker.banners).toHaveLength(1);
   expect(worker.wakeMessages).toEqual([]);
 });
+
+
+test("posting prompt opens the composer and does not increment notification wake state", async () => {
+  const clickWorker = fakeWorker();
+  await clickWorker.click({
+    type: "posting_prompt",
+    recipient_id: ID,
+    delivery_id: OTHER,
+    prompt_key: "first-intro",
+  });
+  expect(clickWorker.opened).toEqual([
+    "https://wynos.online/?compose=1&prompt=first-intro&source=posting_prompt",
+  ]);
+
+  const unsafePromptWorker = fakeWorker();
+  await unsafePromptWorker.click({
+    type: "posting_prompt",
+    recipient_id: ID,
+    prompt_key: "../notifications",
+  });
+  expect(unsafePromptWorker.opened).toEqual([
+    "https://wynos.online/?compose=1&prompt=daily&source=posting_prompt",
+  ]);
+
+  const worker = pushWorker();
+  await worker.push({
+    data: {
+      type: "posting_prompt",
+      recipient_id: ID,
+      delivery_id: OTHER,
+      prompt_key: "first-intro",
+      push_title: "WYNOS",
+      push_body: "start posting",
+    },
+  });
+  expect(worker.banners).toHaveLength(1);
+  expect(worker.wakeMessages).toEqual([]);
+});
+
+test("followed post digest opens one post or Home for a batch and does not wake the badge", async () => {
+  const onePost = fakeWorker();
+  await onePost.click({
+    type: "followed_post_digest",
+    recipient_id: ID,
+    drop_id: OTHER,
+    post_count: "1",
+  });
+  expect(onePost.opened).toEqual([`https://wynos.online/drop/${OTHER}`]);
+
+  const batch = fakeWorker();
+  await batch.click({
+    type: "followed_post_digest",
+    recipient_id: ID,
+    drop_id: OTHER,
+    post_count: "4",
+  });
+  expect(batch.opened).toEqual(["https://wynos.online/"]);
+
+  const worker = pushWorker();
+  await worker.push({
+    data: {
+      type: "followed_post_digest",
+      recipient_id: ID,
+      delivery_id: OTHER,
+      drop_id: ID,
+      post_count: "4",
+      author_count: "2",
+      push_title: "WYNOS",
+      push_body: "new followed posts",
+    },
+  });
+  expect(worker.banners).toHaveLength(1);
+  expect(worker.wakeMessages).toEqual([]);
+});
