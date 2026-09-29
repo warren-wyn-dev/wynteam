@@ -16,6 +16,7 @@ import { haptic } from "@/lib/haptics";
 import type { HomeFeedRow } from "@/lib/feed";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
 import {
+  fetchDailySuggestedProfiles,
   fetchSuggestedProfiles,
   fetchTrendingHashtags,
   searchClubs,
@@ -214,7 +215,7 @@ function Discovery({ client, userId, suggestedOnly = false }: { client: Supabase
     let live = true;
     void Promise.all([
       suggestedOnly ? Promise.resolve([] as RankedHashtag[]) : fetchTrendingHashtags(client, 6),
-      fetchSuggestedProfiles(client, suggestedOnly ? 5 : 10),
+      suggestedOnly ? fetchDailySuggestedProfiles(client) : fetchSuggestedProfiles(client, 10),
     ]).then(async ([tags, suggest]) => {
       if (!live) return;
       setHashtags(tags);
