@@ -1,9 +1,23 @@
 "use client";
 
 import { useEffect } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { resyncPushRegistration } from "@/lib/push-notifications";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+async function syncPushTimezone(client: SupabaseClient, userId: string) {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  try {
+    await client.from("notification_settings")
+      .upsert(
+        { user_id: userId, push_timezone: timezone, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+  } catch {
+    // Scheduling metadata is best-effort and must never block app startup.
+  }
+}
 
 /**
  * Keeps Push on for accounts that turned it on on this device: after a
@@ -21,7 +35,10 @@ export function PushResync() {
       if (!userId) return;
       if (timer) clearTimeout(timer);
       // Outside the auth callback (supabase-js must not be awaited inside it) and after first paint.
-      timer = setTimeout(() => void resyncPushRegistration(client, userId), 3000);
+      timer = setTimeout(() => {
+        void resyncPushRegistration(client, userId);
+        void syncPushTimezone(client, userId);
+      }, 3000);
     });
     return () => {
       if (timer) clearTimeout(timer);
