@@ -63,7 +63,7 @@ export function HomeQuickCompose({
         <small>หัวข้อวันนี้</small>
         <span className="wyn-home-quick-compose-prompt">{prompt.text}</span>
       </span>
-      <WynosIcon name="compose" className="wyn-home-quick-compose-image" size={21} strokeWidth={1.8} />
+      <WynosIcon name="pencil" className="wyn-home-quick-compose-image" size={21} strokeWidth={1.8} />
     </Link>
   );
 }
