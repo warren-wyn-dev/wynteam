@@ -31,6 +31,8 @@ export const EN_EXACT: Record<string, string> = {
   "Club สาธารณะ": "Public Club",
   "Club ส่วนตัว": "Private Club",
   "Drop ต้องมีข้อความหรือรูปภาพ": "A Drop needs text or an image",
+  "รูปภาพไม่พร้อมใช้งาน": "Image unavailable",
+  "ไม่สามารถโหลดรูปได้": "Couldn\'t load this image",
   "Google ยังไม่ได้ส่งข้อมูลเข้าสู่ WYNOS กรุณากลับมาที่แอปแล้วลองใหม่": "Google hasn't sent your sign-in to WYNOS yet. Please return to the app and try again",
   "Pop บน WYNOS": "Pop on WYNOS",
   "Quote ReDrop ไม่สำเร็จ": "Couldn't Quote ReDrop",
