@@ -5,7 +5,6 @@ type FcmServiceAccount = { client_email: string; private_key: string; project_id
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const FCM_SERVICE_ACCOUNT = Deno.env.get("FCM_SERVICE_ACCOUNT");
 
 function base64Url(bytes: Uint8Array): string {
@@ -133,9 +132,6 @@ async function stateStillEligible(userId: string, stage: number): Promise<boolea
 
 Deno.serve(async (req: Request) => {
   try {
-    const auth = req.headers.get("authorization") ?? "";
-    if (auth !== `Bearer ${ANON_KEY}`) return new Response("Forbidden", { status: 403 });
-
     const cronKey = req.headers.get("x-wynos-cron-key") ?? "";
     const cronAuthorized = await rpc<boolean>("verify_web_reactivation_cron_key", { p_key: cronKey });
     if (!cronAuthorized) return new Response("Forbidden", { status: 403 });
