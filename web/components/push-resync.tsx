@@ -11,7 +11,7 @@ async function syncPushTimezone(client: SupabaseClient, userId: string) {
   try {
     await client.from("notification_settings")
       .upsert(
-        { user_id: userId, push_timezone: timezone, updated_at: new Date().toISOString() },
+        { user_id: userId, push_timezone: timezone, push_timezone_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() },
         { onConflict: "user_id" },
       );
   } catch {
