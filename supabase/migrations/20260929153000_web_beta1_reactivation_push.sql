@@ -395,4 +395,4 @@ begin
     );
   end if;
 end
-$;
+$$;
