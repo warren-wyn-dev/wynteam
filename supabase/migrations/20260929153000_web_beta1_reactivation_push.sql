@@ -361,18 +361,6 @@ begin
         ) || '/functions/v1/send-web-reactivation',
         headers := jsonb_build_object(
           'Content-Type', 'application/json',
-          'apikey', (
-            select decrypted_secret
-            from vault.decrypted_secrets
-            where name = 'wynos_cron_anon_key'
-            limit 1
-          ),
-          'Authorization', 'Bearer ' || (
-            select decrypted_secret
-            from vault.decrypted_secrets
-            where name = 'wynos_cron_anon_key'
-            limit 1
-          ),
           'X-Wynos-Cron-Key', (
             select decrypted_secret
             from vault.decrypted_secrets
