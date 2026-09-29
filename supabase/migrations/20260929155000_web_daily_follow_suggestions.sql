@@ -172,6 +172,10 @@ begin
           where n.recipient_id = p.id
             and n.created_at >= now() - interval '90 minutes'
         )
+      -- Serialize claims for the same account without locking unrelated
+      -- users. A concurrent cron/manual invocation skips an already-claimed
+      -- profile instead of racing the unique (user_id, local_date) insert.
+      for update of p skip locked
     )
     select
       uid,
