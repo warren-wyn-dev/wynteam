@@ -151,10 +151,9 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain("NAV_ACTIVE_ICON_PATHS");
   expect(nav).toContain('className="route-nav-club-outline"');
   expect(nav).toContain('className="route-nav-club-filled"');
-  expect(nav).toContain('M54 126 C54 101 65 87 80 87');
-  expect(nav).toContain('<circle cx="125" cy="67" r="9.5" />');
-  expect(nav).toContain('<circle cx="35" cy="67" r="9.5" />');
-  expect(nav).toContain('<circle cx="80" cy="47" r="16" />');
+  expect(nav).toContain('<circle cx="102" cy="92" r="23" />');
+  expect(nav).toContain('<circle cx="58" cy="92" r="23" />');
+  expect(nav).toContain('<circle cx="80" cy="57" r="23" />');
   expect(nav).toContain('strokeWidth="8"');
   expect(nav).toContain('const filled = selected && kind !== "compose"');
   expect(navCss).toContain("--wyn-nav-icon: #111111");
@@ -162,7 +161,7 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain('postActive ? "active" : ""');
   expect(navCss).toContain("gap: 5px");
   expect(navCss).toContain("font-weight: 600");
-  expect(navCss).toContain(".route-nav-glyph--club { --wyn-nav-glyph-scale: 1.17; }");
+  expect(navCss).toContain(".route-nav-glyph--club { --wyn-nav-glyph-scale: 1.03; }");
   expect(navCss).toContain(".route-nav-glyph--compose { --wyn-nav-glyph-scale: 0.93; }");
   expect(navCss).toContain(".route-nav-glyph--chat { --wyn-nav-glyph-scale: 1; }");
   expect(navCss).toContain(".route-nav-glyph--profile { --wyn-nav-glyph-scale: 0.96; }");
