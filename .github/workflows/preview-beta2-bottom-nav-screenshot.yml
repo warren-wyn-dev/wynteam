@@ -43,41 +43,131 @@ jobs:
           cat /tmp/wynos-beta2.log
           exit 1
 
-      - name: Capture mobile screenshots
+      - name: Capture and QA mobile navigation matrix
         run: |
           node <<'NODE'
+          const fs = require('fs');
           const { chromium } = require('@playwright/test');
+
           (async () => {
             const browser = await chromium.launch();
-            const page = await browser.newPage({
-              viewport: { width: 390, height: 844 },
-              deviceScaleFactor: 2,
-              isMobile: true,
-              hasTouch: true,
-              locale: 'th-TH',
-            });
-            const states = [
-              ['club', 'wynos-beta2-nav-club-active.png'],
-              ['post', 'wynos-beta2-nav-post-active.png'],
-              ['chat', 'wynos-beta2-nav-chat-active.png'],
-              ['profile', 'wynos-beta2-nav-profile-active.png'],
+            const states = ['home', 'club', 'post', 'chat', 'profile'];
+            const scenarios = [
+              { name: 'light-390', width: 390, height: 844, dark: false, captureAll: true },
+              { name: 'light-320', width: 320, height: 700, dark: false, captureAll: true },
+              { name: 'dark-390', width: 390, height: 844, dark: true, captureAll: true },
             ];
-            for (const [state, file] of states) {
-              await page.goto(`http://127.0.0.1:3000/dev/home-fixture?nav=${state}`, { waitUntil: 'networkidle' });
-              await page.screenshot({ path: `../${file}`, fullPage: false });
+
+            const report = [];
+            let failed = false;
+
+            for (const scenario of scenarios) {
+              const page = await browser.newPage({
+                viewport: { width: scenario.width, height: scenario.height },
+                deviceScaleFactor: 2,
+                isMobile: true,
+                hasTouch: true,
+                locale: 'th-TH',
+                colorScheme: scenario.dark ? 'dark' : 'light',
+              });
+
+              for (const state of states) {
+                const suffix = state === 'home' ? '' : `?nav=${state}`;
+                await page.goto(`http://127.0.0.1:3000/dev/home-fixture${suffix}`, { waitUntil: 'networkidle' });
+                if (scenario.dark) {
+                  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+                } else {
+                  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+                }
+                await page.waitForTimeout(100);
+
+                const metrics = await page.evaluate(() => {
+                  const nav = document.querySelector('.route-bottom-nav');
+                  const links = [...document.querySelectorAll('.route-bottom-nav .route-nav-link')];
+                  const glyphs = [...document.querySelectorAll('.route-bottom-nav .route-nav-glyph')];
+                  const activeLinks = links.filter((el) => el.classList.contains('active'));
+                  const labels = links.map((el) => {
+                    const label = el.querySelector('span:last-child');
+                    if (!label) return null;
+                    return {
+                      text: label.textContent?.trim() || '',
+                      clientWidth: label.clientWidth,
+                      scrollWidth: label.scrollWidth,
+                      clientHeight: label.clientHeight,
+                      scrollHeight: label.scrollHeight,
+                    };
+                  });
+                  const rects = links.map((el) => {
+                    const r = el.getBoundingClientRect();
+                    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+                  });
+                  const glyphRects = glyphs.map((el) => {
+                    const r = el.getBoundingClientRect();
+                    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+                  });
+                  const navRect = nav?.getBoundingClientRect();
+                  const postGlyph = document.querySelector('.route-nav-glyph--compose');
+                  return {
+                    linkCount: links.length,
+                    activeCount: activeLinks.length,
+                    activeLabel: activeLinks[0]?.textContent?.trim() || '',
+                    linkRects: rects,
+                    glyphRects,
+                    labels,
+                    navRect: navRect ? { left: navRect.left, right: navRect.right, width: navRect.width, bottom: navRect.bottom } : null,
+                    viewportWidth: window.innerWidth,
+                    viewportHeight: window.innerHeight,
+                    postFilled: postGlyph?.classList.contains('route-nav-glyph--filled') || false,
+                  };
+                });
+
+                const widths = metrics.linkRects.map((r) => r.width);
+                const maxWidthDelta = widths.length ? Math.max(...widths) - Math.min(...widths) : 999;
+                const labelsFit = metrics.labels.every((x) => x && x.scrollWidth <= x.clientWidth + 1 && x.scrollHeight <= x.clientHeight + 1);
+                const glyphsInsideViewport = metrics.glyphRects.every((r) => r.left >= -0.5 && r.right <= metrics.viewportWidth + 0.5);
+                const navFullWidth = metrics.navRect &&
+                  Math.abs(metrics.navRect.left) <= 0.5 &&
+                  Math.abs(metrics.navRect.right - metrics.viewportWidth) <= 0.5;
+                const navAtBottom = metrics.navRect &&
+                  Math.abs(metrics.navRect.bottom - metrics.viewportHeight) <= 1.5;
+
+                const checks = {
+                  fiveTabs: metrics.linkCount === 5,
+                  oneActiveTab: metrics.activeCount === 1,
+                  equalTabWidths: maxWidthDelta <= 1,
+                  labelsFit,
+                  glyphsInsideViewport,
+                  navFullWidth,
+                  navAtBottom,
+                  postRemainsOutline: state !== 'post' || !metrics.postFilled,
+                };
+
+                const ok = Object.values(checks).every(Boolean);
+                if (!ok) failed = true;
+                report.push({ scenario: scenario.name, state, ok, checks, metrics });
+
+                const file = `../wynos-beta2-nav-${scenario.name}-${state}-active.png`;
+                await page.screenshot({ path: file, fullPage: false });
+              }
+
+              await page.close();
             }
+
+            fs.writeFileSync('../wynos-beta2-bottom-nav-qa.json', JSON.stringify(report, null, 2));
+            console.log(JSON.stringify(report.map(({ scenario, state, ok, checks }) => ({ scenario, state, ok, checks })), null, 2));
+
             await browser.close();
+            if (failed) process.exit(1);
           })();
           NODE
 
-      - name: Upload screenshots
+      - name: Upload QA matrix
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wynos-beta2-bottom-nav-active-states
+          name: wynos-beta2-bottom-nav-qa
           path: |
-            wynos-beta2-nav-club-active.png
-            wynos-beta2-nav-post-active.png
-            wynos-beta2-nav-chat-active.png
-            wynos-beta2-nav-profile-active.png
+            wynos-beta2-nav-*.png
+            wynos-beta2-bottom-nav-qa.json
           if-no-files-found: error
           retention-days: 7
