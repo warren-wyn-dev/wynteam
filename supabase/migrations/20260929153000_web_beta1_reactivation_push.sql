@@ -121,6 +121,21 @@ begin
   end if;
 
   if v_state.first_app_seen_at is null then
+    -- If the first tracker touch happens well after signup, the person has
+    -- already returned from the abandoned signup session. Activate at once.
+    if now() - v_state.enrolled_at >= interval '5 minutes' then
+      update public.web_reactivation_state
+      set first_app_seen_at = now(),
+          last_seen_at = now(),
+          activated_at = now(),
+          next_due_at = null,
+          lease_until = null,
+          lease_stage = null,
+          updated_at = now()
+      where user_id = v_uid;
+      return true;
+    end if;
+
     update public.web_reactivation_state
     set first_app_seen_at = now(),
         last_seen_at = now(),
