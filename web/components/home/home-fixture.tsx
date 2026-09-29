@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { BottomNavigation } from "@/components/bottom-navigation";
+import { BottomNavigation, MaterialNavGlyph } from "@/components/bottom-navigation";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomeQuickCompose } from "@/components/home/home-quick-compose";
 import { HomePostCard } from "@/components/home/home-post-card";
@@ -185,7 +185,7 @@ export function HomeFixture() {
         </main>
       </div>
       <button className="wyn-home-post-fab" type="button" aria-label="สร้างโพสต์">
-        <WynosIcon name="post" size={30} strokeWidth={2} />
+        <MaterialNavGlyph kind="compose" />
       </button>
       {/* Sibling of .route-with-bottom-nav, matching AppBottomNavHost's
           placement in app/layout.tsx — not nested inside it, so this
