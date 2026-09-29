@@ -8,6 +8,7 @@ import { SettingsChangePassword } from "@/components/settings-change-password";
 import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
 import { WynosIcon } from "@/components/ui/wynos-icon";
 import { getMountCache, setMountCache } from "@/lib/mount-cache";
+import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
 import {
   chosenThemePreference,
   saveAccountThemePreference,
@@ -32,15 +33,18 @@ import {
   fetchLegalDocument,
   fetchMutedUsers,
   fetchNotificationSettings,
+  fetchNotificationDeveloperSettings,
   fetchProfile,
   fetchShowOnlineStatus,
   setShowOnlineStatus,
   unblockUser,
   unmuteUser,
   updateNotificationSetting,
+  updateNotificationDeveloperSetting,
   updateProfilePrivacySetting,
   type LegalDocument,
   type NotificationSettings,
+  type NotificationDeveloperSettings,
   type ProfileRow,
 } from "@/lib/phase3-data";
 
@@ -52,6 +56,17 @@ const notificationLabels: Array<[keyof NotificationSettings, string]> = [
   ["club", "Club"],
   ["trending", "กำลังนิยม"],
   ["system", "ระบบ"],
+];
+
+const developerPushLabels: Array<[keyof Pick<NotificationDeveloperSettings,
+  "push_likes" | "push_comments" | "push_follows" | "push_messages" | "push_club" | "push_trending" | "push_system">, string]> = [
+  ["push_likes", "ถูกใจ"],
+  ["push_comments", "ความคิดเห็นและการกล่าวถึง"],
+  ["push_follows", "การติดตาม"],
+  ["push_messages", "ข้อความ"],
+  ["push_club", "Club"],
+  ["push_trending", "กำลังนิยม"],
+  ["push_system", "ระบบและความปลอดภัย"],
 ];
 
 const legalTypes: Array<[string, string]> = [
@@ -235,6 +250,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [profile, setProfile] = useState<ProfileRow | null>(cached?.profile ?? null);
   const [online, setOnline] = useState(cached?.online ?? true);
   const [notifications, setNotifications] = useState<NotificationSettings | null>(cached?.notifications ?? null);
+  const [developerNotifications, setDeveloperNotifications] = useState<NotificationDeveloperSettings | null>(null);
   const [blocked, setBlocked] = useState<ProfileRow[]>(cached?.blocked ?? []);
   const [muted, setMuted] = useState<ProfileRow[]>(cached?.muted ?? []);
   const [loading, setLoading] = useState(!cached);
@@ -249,6 +265,7 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState("");
   const [showInstallShortcut, setShowInstallShortcut] = useState(false);
+  const isDeveloper = useIsDeveloperAccount(client, userId);
 
   useEffect(() => {
     const standalone = window.matchMedia("(display-mode: standalone)");
@@ -265,6 +282,18 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isDeveloper) {
+      setDeveloperNotifications(null);
+      return;
+    }
+    let active = true;
+    void fetchNotificationDeveloperSettings(client)
+      .then((next) => { if (active) setDeveloperNotifications(next); })
+      .catch(() => { if (active) setDeveloperNotifications(null); });
+    return () => { active = false; };
+  }, [client, isDeveloper, userId]);
 
   useEffect(() => {
     // Only inspect Firebase/browser availability when opening Notifications.
@@ -327,6 +356,47 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
     try { await updateNotificationSetting(client, userId, key, value); }
     catch { setNotifications(previous); setError("บันทึกการแจ้งเตือนไม่สำเร็จ"); }
     finally { setBusy(false); }
+  };
+
+  const developerNotification = async (
+    key: keyof NotificationDeveloperSettings,
+    value: boolean | string,
+  ) => {
+    if (!isDeveloper || !developerNotifications || busy) return;
+    const previous = developerNotifications;
+    const next = { ...developerNotifications, [key]: value } as NotificationDeveloperSettings;
+    setDeveloperNotifications(next);
+    setBusy(true);
+    setError("");
+    try {
+      await updateNotificationDeveloperSetting(client, userId, key, value);
+    } catch {
+      setDeveloperNotifications(previous);
+      setError("บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateQuietTime = async (key: "push_quiet_start" | "push_quiet_end", value: string) => {
+    if (!developerNotifications) return;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const previous = developerNotifications;
+    const next = { ...developerNotifications, [key]: value, push_timezone: timezone };
+    setDeveloperNotifications(next);
+    setBusy(true);
+    setError("");
+    try {
+      await Promise.all([
+        updateNotificationDeveloperSetting(client, userId, key, value),
+        updateNotificationDeveloperSetting(client, userId, "push_timezone", timezone),
+      ]);
+    } catch {
+      setDeveloperNotifications(previous);
+      setError("บันทึกช่วงพักการแจ้งเตือนไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const pushToggle = async (value: boolean) => {
@@ -471,6 +541,54 @@ function SettingsInner({ client, userId, signOut }: { client: SupabaseClient; us
                 trailing={<Toggle label={label} checked={notifications[key]} disabled={busy}
                   onChange={(value) => void notification(key, value)} />} />)}
           </div>
+          {isDeveloper ? (
+            <>
+              <div className="settings-preview-banner" role="status">
+                <strong>Notifications Developer Preview</strong>
+                <small>ฟีเจอร์ส่วนนี้เปิดให้เฉพาะบัญชีนักพัฒนาก่อน ผู้ใช้ทั่วไปยังใช้ระบบเดิม</small>
+              </div>
+              <h2>Push ตามประเภท</h2>
+              <div className="settings-group">
+                {developerNotifications ? developerPushLabels.map(([key, label]) => (
+                  <SettingRow title={label} key={key}
+                    trailing={<Toggle label={`Push: ${label}`} checked={developerNotifications[key]}
+                      disabled={busy} onChange={(value) => void developerNotification(key, value)} />} />
+                )) : <p className="settings-safety">กำลังโหลดการตั้งค่า Developer Preview…</p>}
+              </div>
+              <h2>Quiet Hours</h2>
+              <div className="settings-group">
+                <SettingRow
+                  title="พัก Push ตามช่วงเวลา"
+                  description="In-App และ badge ยังทำงานตามปกติ เฉพาะ Push จะถูกพัก"
+                  trailing={<Toggle
+                    label="พัก Push ตามช่วงเวลา"
+                    checked={developerNotifications?.push_quiet_enabled ?? false}
+                    disabled={busy || !developerNotifications}
+                    onChange={(value) => {
+                      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+                      void developerNotification("push_timezone", timezone);
+                      void developerNotification("push_quiet_enabled", value);
+                    }}
+                  />}
+                />
+                {developerNotifications?.push_quiet_enabled ? (
+                  <div className="settings-quiet-hours">
+                    <label>
+                      <span>เริ่มพัก</span>
+                      <input type="time" value={developerNotifications.push_quiet_start.slice(0, 5)}
+                        disabled={busy} onChange={(event) => void updateQuietTime("push_quiet_start", event.target.value)} />
+                    </label>
+                    <label>
+                      <span>สิ้นสุด</span>
+                      <input type="time" value={developerNotifications.push_quiet_end.slice(0, 5)}
+                        disabled={busy} onChange={(event) => void updateQuietTime("push_quiet_end", event.target.value)} />
+                    </label>
+                    <small data-i18n-skip>{developerNotifications.push_timezone}</small>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </div>
       ) : null}
       {section === "account" ? <div className="settings-page"><h2>ความปลอดภัย</h2><div className="settings-group"><SettingRow title="เปลี่ยนรหัสผ่าน" description="ยืนยันรหัสผ่านเดิมก่อนตั้งรหัสผ่านใหม่" leading={<WynosIcon name="lockKeyhole" size={19} strokeWidth={2} />} onClick={() => setSection("password")} /><div className="settings-subsection"><strong>บัญชีที่บล็อก</strong>{blocked.length ? blocked.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unblockUser(client, item.id).then(() => setBlocked((rows) => rows.filter((row) => row.id !== item.id)))}>ปลดบล็อก</button>} />) : <small>ไม่มี</small>}</div><div className="settings-subsection"><strong>บัญชีที่ปิดเสียง</strong>{muted.length ? muted.map((item) => <ProfileRowView profile={item} key={item.id} trailing={<button className="route-pill soft" type="button" onClick={() => void unmuteUser(client, userId, item.id).then(() => setMuted((rows) => rows.filter((row) => row.id !== item.id)))}>เปิดเสียง</button>} />) : <small>ไม่มี</small>}</div></div><h2>ข้อมูลของฉัน</h2><div className="settings-group"><SettingRow title="ส่งออกข้อมูลของฉัน" onClick={() => void exportData()} trailing={<WynosIcon name="download" size={19} strokeWidth={2} />} /><SettingRow title="ลบบัญชี" danger onClick={() => void deleteAccount()} trailing={<WynosIcon name="trash" size={19} strokeWidth={2} />} /></div><p className="settings-safety"><WynosIcon name="shieldCheck" size={16} strokeWidth={2} /> การจัดการข้อมูลทั้งหมดใช้สิทธิ์ RLS/RPC ของบัญชีที่เข้าสู่ระบบอยู่เท่านั้น</p></div> : null}
