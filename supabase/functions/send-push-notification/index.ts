@@ -11,8 +11,11 @@ import {
   dmMessagePreview,
   fetchFcmAccessToken,
   isDeadTokenError,
+  isQuietHourAt,
+  isRetryableFcmStatus,
   type FcmServiceAccount,
   messageFor,
+  pushPreferenceCategory,
   pushLanguageFrom,
   type PushLanguage,
   safeErrorMessage,
@@ -35,6 +38,99 @@ async function supabaseRestGet(path: string): Promise<unknown[]> {
   });
   if (!response.ok) return [];
   return await response.json();
+}
+
+async function supabaseRestWrite(
+  path: string,
+  method: "POST" | "PATCH",
+  body: Record<string, unknown>,
+  prefer?: string,
+): Promise<boolean> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      apikey: SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      ...(prefer ? { Prefer: prefer } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  return response.ok;
+}
+
+type PreviewPushSettings = {
+  push_likes?: boolean;
+  push_comments?: boolean;
+  push_follows?: boolean;
+  push_messages?: boolean;
+  push_club?: boolean;
+  push_trending?: boolean;
+  push_system?: boolean;
+  push_quiet_enabled?: boolean;
+  push_quiet_start?: string;
+  push_quiet_end?: string;
+  push_timezone?: string;
+};
+
+type PreviewPolicy = {
+  enabled: boolean;
+  allowed: boolean;
+  skipReason?: "category_disabled" | "quiet_hours";
+};
+
+async function developerPreviewPolicy(row: NotificationRow): Promise<PreviewPolicy> {
+  const developers = await supabaseRestGet(
+    `developer_accounts?user_id=eq.${encodeURIComponent(row.recipient_id)}&select=user_id&limit=1`,
+  );
+  if (developers.length === 0) return { enabled: false, allowed: true };
+
+  const rows = await supabaseRestGet(
+    `notification_settings?user_id=eq.${encodeURIComponent(row.recipient_id)}` +
+      "&select=push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone",
+  );
+  const prefs = (rows[0] as PreviewPushSettings | undefined) ?? {};
+  const category = pushPreferenceCategory(row.type);
+  const categoryValue = prefs[`push_${category}` as keyof PreviewPushSettings];
+  if (categoryValue === false) {
+    return { enabled: true, allowed: false, skipReason: "category_disabled" };
+  }
+  if (
+    prefs.push_quiet_enabled === true &&
+    isQuietHourAt(
+      new Date(),
+      typeof prefs.push_timezone === "string" ? prefs.push_timezone : "UTC",
+      typeof prefs.push_quiet_start === "string" ? prefs.push_quiet_start : "22:00",
+      typeof prefs.push_quiet_end === "string" ? prefs.push_quiet_end : "08:00",
+    )
+  ) {
+    return { enabled: true, allowed: false, skipReason: "quiet_hours" };
+  }
+  return { enabled: true, allowed: true };
+}
+
+async function upsertDelivery(
+  row: NotificationRow,
+  token: { id: string; platform: string },
+  values: Record<string, unknown>,
+): Promise<void> {
+  await supabaseRestWrite(
+    "notification_push_deliveries?on_conflict=notification_id,token_id",
+    "POST",
+    {
+      notification_id: row.id,
+      user_id: row.recipient_id,
+      token_id: token.id,
+      platform: token.platform,
+      ...values,
+      updated_at: new Date().toISOString(),
+    },
+    "resolution=merge-duplicates,return=minimal",
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function authoritativeNotification(
@@ -134,15 +230,30 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
   const serviceAccount: FcmServiceAccount = JSON.parse(serviceAccountRaw);
 
-  const [actorRows, tokenRows, lang] = await Promise.all([
+  const [actorRows, tokenRows, lang, previewPolicy] = await Promise.all([
     row.actor_id
       ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
       : Promise.resolve([]),
-    supabaseRestGet(`push_tokens?user_id=eq.${row.recipient_id}&select=token`),
+    supabaseRestGet(`push_tokens?user_id=eq.${row.recipient_id}&select=id,token,platform`),
     recipientLanguage(row.recipient_id),
+    developerPreviewPolicy(row),
   ]);
   if (tokenRows.length === 0) {
     return new Response("No registered devices", { status: 200 });
+  }
+
+  const typedTokens = tokenRows as { id: string; token: string; platform: string }[];
+  if (!previewPolicy.allowed) {
+    await Promise.all(typedTokens.map(({ id, platform }) =>
+      upsertDelivery(row, { id, platform }, {
+        status: "skipped",
+        attempt_count: 0,
+        last_error: previewPolicy.skipReason ?? "policy",
+        next_retry_at: null,
+        sent_at: null,
+      })
+    ));
+    return new Response(`Skipped ${previewPolicy.skipReason ?? "policy"}`, { status: 200 });
   }
 
   const actor = actorRows[0] as { username: string; display_name: string | null } | undefined;
@@ -175,41 +286,81 @@ async function handleWebhook(req: Request): Promise<Response> {
     `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
 
   const outcomes = await Promise.all(
-    (tokenRows as { token: string }[]).map(async ({ token }) => {
-      const response = await fetch(fcmUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: {
-            token,
-            notification: { title, body: pushBody },
-            data,
-            webpush: {
-              headers: { Topic: webPushTopic(collapseKey) },
-              notification: {
-                title,
-                body: pushBody,
-                icon: "/icons/icon-192.png",
-                badge: "/icons/icon-192.png",
-                tag: collapseKey,
-              },
-            },
-            android: { collapse_key: collapseKey },
-            apns: { headers: { "apns-collapse-id": collapseKey } },
-          },
-        }),
-      });
-      if (response.ok) return "sent";
-
-      const errorBody = await response.json().catch(() => null);
-      const status = errorBody?.error?.status as string | undefined;
-      if (isDeadTokenError(status, errorBody?.error?.message as string | undefined)) {
-        await deletePushToken(token);
+    typedTokens.map(async ({ id, token, platform }) => {
+      const maxAttempts = previewPolicy.enabled ? 3 : 1;
+      if (previewPolicy.enabled) {
+        await upsertDelivery(row, { id, platform }, {
+          status: "pending",
+          attempt_count: 0,
+          last_error: null,
+          next_retry_at: null,
+          sent_at: null,
+        });
       }
-      return `${response.status} ${status ?? "unknown"}`;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const response = await fetch(fcmUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: {
+              token,
+              notification: { title, body: pushBody },
+              data,
+              webpush: {
+                headers: { Topic: webPushTopic(collapseKey) },
+                notification: {
+                  title,
+                  body: pushBody,
+                  icon: "/icons/icon-192.png",
+                  badge: "/icons/icon-192.png",
+                  tag: collapseKey,
+                },
+              },
+              android: { collapse_key: collapseKey },
+              apns: { headers: { "apns-collapse-id": collapseKey } },
+            },
+          }),
+        });
+
+        if (response.ok) {
+          if (previewPolicy.enabled) {
+            await upsertDelivery(row, { id, platform }, {
+              status: "sent",
+              attempt_count: attempt,
+              last_error: null,
+              next_retry_at: null,
+              sent_at: new Date().toISOString(),
+            });
+          }
+          return "sent";
+        }
+
+        const errorBody = await response.json().catch(() => null);
+        const status = errorBody?.error?.status as string | undefined;
+        const errorMessage = errorBody?.error?.message as string | undefined;
+        if (isDeadTokenError(status, errorMessage)) {
+          await deletePushToken(token);
+        }
+
+        const summary = `${response.status} ${status ?? "unknown"}`;
+        const retry = attempt < maxAttempts && isRetryableFcmStatus(response.status);
+        if (previewPolicy.enabled) {
+          await upsertDelivery(row, { id, platform }, {
+            status: retry ? "retrying" : "failed",
+            attempt_count: attempt,
+            last_error: summary.slice(0, 300),
+            next_retry_at: retry ? new Date(Date.now() + (attempt === 1 ? 300 : 900)).toISOString() : null,
+            sent_at: null,
+          });
+        }
+        if (!retry) return summary;
+        await sleep(attempt === 1 ? 300 : 900);
+      }
+      return "failed";
     }),
   );
 
