@@ -14,7 +14,6 @@ const route = readFileSync(new URL("../components/suggested-route.tsx", import.m
 const data = readFileSync(new URL("../lib/phase3-data.ts", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
 const settings = readFileSync(new URL("../components/settings-route.tsx", import.meta.url), "utf8");
-const push = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
 const pushResync = readFileSync(new URL("../components/push-resync.tsx", import.meta.url), "utf8");
 
 test("daily follow suggestions are one delivery per local day with a 3-5 profile payload", () => {
@@ -26,13 +25,15 @@ test("daily follow suggestions are one delivery per local day with a 3-5 profile
 });
 
 test("candidate selection excludes unsafe or already-actioned accounts", () => {
-  assert.match(migration, /is_blocked_either_way\(v_user\.uid, p2\.id\)/);
-  assert.match(migration, /f\.follower_id = v_user\.uid[\s\S]*f\.following_id = p2\.id/);
-  assert.match(migration, /fr\.requester_id = v_user\.uid[\s\S]*fr\.target_id = p2\.id/);
-  assert.match(migration, /m\.muter_id = v_user\.uid[\s\S]*m\.muted_id = p2\.id/);
-  assert.match(migration, /rd\.user_id = v_user\.uid[\s\S]*rd\.dismissed_profile_id = p2\.id/);
+  assert.match(migration, /daily_follow_candidate_allowed/);
+  assert.match(migration, /is_blocked_either_way\(p_user_id, p2\.id\)/);
+  assert.match(migration, /f\.follower_id = p_user_id[\s\S]*f\.following_id = p2\.id/);
+  assert.match(migration, /fr\.requester_id = p_user_id[\s\S]*fr\.target_id = p2\.id/);
+  assert.match(migration, /m\.muter_id = p_user_id[\s\S]*m\.muted_id = p2\.id/);
+  assert.match(migration, /rd\.user_id = p_user_id[\s\S]*rd\.dismissed_profile_id = p2\.id/);
   assert.match(migration, /onboarding_completed = true/);
   assert.match(migration, /is_posting_blocked\(p2\.id\)/);
+  assert.match(migration, /where internal\.daily_follow_candidate_allowed\(v_user\.uid, p2\.id\)/);
 });
 
 test("rotation hard-blocks the last 7 days and prefers fresh accounts within 30 days", () => {
@@ -94,13 +95,12 @@ test("Suggested route loads the delivered set and records opens", () => {
   assert.match(data, /mark_daily_follow_suggestion_opened/);
 });
 
-test("notification settings expose suggestions and Push registration persists timezone", () => {
+test("notification settings expose suggestions and authenticated Web sessions sync timezone", () => {
   assert.match(settings, /\["suggestions", "คำแนะนำคนที่น่าสนใจ"\]/);
   assert.match(settings, /\["push_suggestions", "คำแนะนำคนที่น่าสนใจ"\]/);
   assert.match(data, /suggestions: boolean/);
   assert.match(data, /push_suggestions: boolean/);
-  assert.match(push, /resolvedOptions\(\)\.timeZone/);
-  assert.match(push, /push_timezone: timezone/);
+  assert.match(pushResync, /resolvedOptions\(\)\.timeZone/);
   assert.match(pushResync, /syncPushTimezone/);
   assert.match(pushResync, /push_timezone: timezone/);
 });
