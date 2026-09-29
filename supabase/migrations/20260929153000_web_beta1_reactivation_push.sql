@@ -385,6 +385,14 @@ begin
       );
       $job$
     );
+
+    -- Release gate: schema may be prepared before the matching web build is
+    -- live. Keep delivery OFF until the production web tracker has deployed
+    -- and smoke-tested; release enables this job explicitly afterwards.
+    perform cron.alter_job(
+      job_id := (select jobid from cron.job where jobname = 'wynos-web-reactivation'),
+      active := false
+    );
   end if;
 end
-$$;
+$;
