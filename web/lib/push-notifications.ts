@@ -325,6 +325,23 @@ export async function subscribeToPushNotifications(
         { onConflict: "token" },
       );
     if (error) return { ok: false, reason: "server-failed" };
+
+    // Keep local-time Push schedules accurate for this account/device.
+    // This is deliberately detached and internally caught: a timezone write
+    // must never turn an otherwise successful Push registration into failure.
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    void (async () => {
+      try {
+        await client.from("notification_settings")
+          .upsert(
+            { user_id: userId, push_timezone: timezone, push_timezone_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+            { onConflict: "user_id" },
+          );
+      } catch {
+        // Best-effort metadata only. Push itself is already registered.
+      }
+    })();
+
     setPushChosen(userId, true);
     // On this exact device/account, confirmation is a successful server write,
     // not merely a granted OS notification permission. Display and in-app

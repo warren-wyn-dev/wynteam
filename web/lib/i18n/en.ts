@@ -1027,6 +1027,13 @@ export const EN_EXACT: Record<string, string> = {
   "● กำลังใช้งาน · 6 คน": "● Active · 6 people",
   "✓ ส่งแล้ว": "✓ Sent",
   "🔊 ห้องพูดคุย": "🔊 Chat room",
+  "คำแนะนำคนที่น่าสนใจ": "People suggestions",
+  "เราเลือกบัญชีที่คุณอาจสนใจ": "Accounts you may be interested in",
+  "อ้างอิงจากการติดตามร่วมกันและบัญชีที่น่าสนใจบน WYNOS": "Based on shared follows and interesting accounts on WYNOS",
+  "โหลดคำแนะนำประจำวันไม่สำเร็จ": "Couldn't load today's suggestions",
+  "บันทึกการเปิดคำแนะนำไม่สำเร็จ": "Couldn't record the suggestion open",
+  "ซ่อนคำแนะนำไม่สำเร็จ กรุณาลองใหม่": "Couldn't hide this suggestion. Please try again",
+  "ยังไม่มีบัญชีแนะนำสำหรับคุณตอนนี้": "There are no suggested accounts for you right now",
 };
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */

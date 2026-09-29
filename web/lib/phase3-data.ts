@@ -129,6 +129,7 @@ export type NotificationSettings = {
   club: boolean;
   trending: boolean;
   system: boolean;
+  suggestions: boolean;
 };
 
 export type NotificationDeveloperSettings = {
@@ -139,6 +140,7 @@ export type NotificationDeveloperSettings = {
   push_club: boolean;
   push_trending: boolean;
   push_system: boolean;
+  push_suggestions: boolean;
   push_quiet_enabled: boolean;
   push_quiet_start: string;
   push_quiet_end: string;
@@ -165,6 +167,7 @@ const defaultNotificationSettings: NotificationSettings = {
   club: true,
   trending: true,
   system: true,
+  suggestions: true,
 };
 
 const defaultNotificationDeveloperSettings: NotificationDeveloperSettings = {
@@ -175,6 +178,7 @@ const defaultNotificationDeveloperSettings: NotificationDeveloperSettings = {
   push_club: true,
   push_trending: true,
   push_system: true,
+  push_suggestions: true,
   push_quiet_enabled: false,
   push_quiet_start: "22:00",
   push_quiet_end: "08:00",
@@ -537,10 +541,7 @@ export async function fetchTrendingHashtags(client: SupabaseClient, limit = 20):
     .map((tag) => ({ tag, score: scores.get(tag) ?? 0, postCount: counts.get(tag) ?? 0 }));
 }
 
-async function fetchRankedProfiles(client: SupabaseClient, rpcName: string, limit: number): Promise<ProfileRow[]> {
-  const idsResult = await client.rpc(rpcName, { p_limit: limit });
-  fail(idsResult.error, "โหลดคำแนะนำไม่สำเร็จ");
-  const ids = ((idsResult.data ?? []) as Record<string, unknown>[]).map((row) => String(row.profile_id ?? ""));
+async function fetchProfilesByIds(client: SupabaseClient, ids: string[]): Promise<ProfileRow[]> {
   if (!ids.length) return [];
   const profiles = await client
     .from("profiles")
@@ -555,8 +556,53 @@ async function fetchRankedProfiles(client: SupabaseClient, rpcName: string, limi
   return ids.map((id) => byId.get(id)).filter((value): value is ProfileRow => Boolean(value));
 }
 
+async function fetchRankedProfiles(client: SupabaseClient, rpcName: string, limit: number): Promise<ProfileRow[]> {
+  const idsResult = await client.rpc(rpcName, { p_limit: limit });
+  fail(idsResult.error, "โหลดคำแนะนำไม่สำเร็จ");
+  const ids = ((idsResult.data ?? []) as Record<string, unknown>[]).map((row) => String(row.profile_id ?? ""));
+  return fetchProfilesByIds(client, ids);
+}
+
 export function fetchSuggestedProfiles(client: SupabaseClient, limit = 10) {
   return fetchRankedProfiles(client, "suggested_users", limit);
+}
+
+export async function fetchDailySuggestedProfiles(
+  client: SupabaseClient,
+  deliveryId?: string | null,
+): Promise<{ profiles: ProfileRow[]; deliveryId: string | null }> {
+  let query = client
+    .from("daily_follow_suggestion_deliveries")
+    .select("id,profile_ids")
+    .eq("status", "sent");
+
+  query = deliveryId
+    ? query.eq("id", deliveryId)
+    : query.order("sent_at", { ascending: false });
+
+  const delivery = await query.limit(1).maybeSingle();
+  fail(delivery.error, "โหลดคำแนะนำประจำวันไม่สำเร็จ");
+
+  const ids = Array.isArray(delivery.data?.profile_ids)
+    ? delivery.data.profile_ids.map((id: unknown) => String(id)).filter(Boolean)
+    : [];
+  if (!ids.length) {
+    return { profiles: await fetchSuggestedProfiles(client, 10), deliveryId: null };
+  }
+  return {
+    profiles: await fetchProfilesByIds(client, ids),
+    deliveryId: String(delivery.data?.id ?? "") || null,
+  };
+}
+
+export async function markDailyFollowSuggestionOpened(
+  client: SupabaseClient,
+  deliveryId: string,
+): Promise<void> {
+  const result = await client.rpc("mark_daily_follow_suggestion_opened", {
+    p_delivery_id: deliveryId,
+  });
+  fail(result.error, "บันทึกการเปิดคำแนะนำไม่สำเร็จ");
 }
 
 export function fetchRisingProfiles(client: SupabaseClient, limit = 10) {
@@ -979,7 +1025,7 @@ export async function fetchNotificationDeveloperSettings(
 ): Promise<NotificationDeveloperSettings> {
   const result = await client
     .from("notification_settings")
-    .select("push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone")
+    .select("push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_suggestions,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone")
     .maybeSingle();
   fail(result.error, "โหลดการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
   return { ...defaultNotificationDeveloperSettings, ...(result.data ?? {}) } as NotificationDeveloperSettings;
