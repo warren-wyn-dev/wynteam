@@ -256,3 +256,13 @@
 - Staging: authorized to create a separate Free-tier Supabase project with **no incremental spending**; do not upgrade plans or incur a paid project, and request another explicit Founder approval before any spending. Prefer the existing WYNOS organization's second active Free slot if available; do not reactivate, repurpose or delete the older inactive project. Scope further implementation/isolation in issue #749; never copy production user data or credentials.
 - Founder statement (2026-09-27): "ทีมพัฒนาจะทดสอบ"; "อนุมัติให้ใช้โปรเจกต์ Free แยก หากมีค่าใช้จ่ายต้องขออนุมัติใหม่".
 - Status: APPROVED within these no-spend limits.
+
+### DECISION — [2026-09-29] Release remaining web developer features; suspend Web Beta2
+- Founder instruction: open the remaining developer-only web features to general users, stop Web Beta2 development, and continue future development only under **WYNOS Web Beta1** with developer-first staged rollout.
+- Public release scope: WYN-159 `chatThreads`, WYN-135 `clubChatActions`, WYN-137 `clubAnnouncements`.
+- Database authorization: approved to remove only the `is_developer_account()` rollout checks for those released features. Existing conversation membership, Club membership/staff roles, moderation checks, RLS and RPC grants remain in force.
+- Club announcements: public Web feature is released without adding notification fan-out in this change; notification-schema work remains separate because other clients share that table.
+- Version policy: **WYNOS Web Beta2 is suspended**. No new Beta2 features/branches/releases. All future web features belong to **WYNOS Web Beta1** and default to developer-account visibility until the Founder explicitly opens them.
+- Production SQL artifact: `supabase/migrations_web_beta1_release_developer_features.sql`.
+- Status: **APPROVED / DIRECT FOUNDER DECISION**.
+

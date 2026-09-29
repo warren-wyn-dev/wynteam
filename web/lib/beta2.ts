@@ -2,35 +2,40 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
-
 /**
- * Web Beta2 feature switches (Founder decision 2026-09-27: "มาพัฒนา Beta2
- * ก่อน อย่าพึ่งปล่อยจริง").
+ * Legacy compatibility switches for the three features built during the
+ * short-lived WYNOS Web Beta2 track.
  *
- * Beta2 work ships to wynos.online like everything else, but each feature
- * stays visible to developer accounts only (`is_developer_account()`,
- * fail-closed) until the Founder releases it. Releasing a feature means
- * flipping its entry here to `true` in a PR that records the Founder's
- * approval in .wyn/company/APPROVALS.md.
+ * Founder decision 2026-09-29:
+ * - release all three features to every eligible WYNOS Web user;
+ * - suspend the Web Beta2 development track;
+ * - continue future web development under WYNOS Web Beta1, with new
+ *   user-facing features staged to developer accounts first.
  *
- * This is product gating for the UI. Any new server capability behind a
- * Beta2 feature must also check `is_developer_account()` on the server until
- * release, so the feature cannot be reached by calling the API directly.
+ * Do not add new features to this map. New Web Beta1 work should use the
+ * normal developer-account staged-rollout mechanism directly.
  */
 export const BETA2_RELEASED = {
-  /** WYN-159: Threads-style chat. */
-  chatThreads: false,
-  /** WYN-135: edit, pin and search messages in Club chat. */
-  clubChatActions: false,
-  /** WYN-137: Club announcements. */
-  clubAnnouncements: false,
+  /** WYN-159: Threads-style chat. Public since 2026-09-29. */
+  chatThreads: true,
+  /** WYN-135: edit, pin and search messages in Club chat. Public since 2026-09-29. */
+  clubChatActions: true,
+  /** WYN-137: Club announcements. Public since 2026-09-29. */
+  clubAnnouncements: true,
 } as const;
 
 export type Beta2Feature = keyof typeof BETA2_RELEASED;
 
-/** Whether this account may use a Beta2 feature: released to everyone, or a confirmed developer. */
-export function useBeta2Feature(feature: Beta2Feature, client: SupabaseClient | null | undefined, userId?: string): boolean {
-  const isDeveloper = useIsDeveloperAccount(client, userId);
-  return BETA2_RELEASED[feature] || isDeveloper;
+/**
+ * Compatibility hook kept so existing call sites do not need a risky release
+ * refactor. The retired Beta2 feature set is permanently public.
+ */
+export function useBeta2Feature(
+  feature: Beta2Feature,
+  client: SupabaseClient | null | undefined,
+  userId?: string,
+): boolean {
+  void client;
+  void userId;
+  return BETA2_RELEASED[feature];
 }
