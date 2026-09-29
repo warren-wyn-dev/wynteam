@@ -138,7 +138,7 @@
 }
 
 .route-nav-glyph--home { --wyn-nav-glyph-scale: 1; }
-.route-nav-glyph--club { --wyn-nav-glyph-scale: 1.06; }
+.route-nav-glyph--club { --wyn-nav-glyph-scale: 1; }
 .route-nav-glyph--compose { --wyn-nav-glyph-scale: 0.93; }
 .route-nav-glyph--chat { --wyn-nav-glyph-scale: 1; }
 .route-nav-glyph--profile { --wyn-nav-glyph-scale: 0.96; }
