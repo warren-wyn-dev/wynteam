@@ -131,7 +131,7 @@ language sql
 stable
 security definer
 set search_path = public, internal
-as $
+as $$
   select exists (
     select 1
     from public.profiles p2
@@ -177,7 +177,7 @@ as $
           and p2.id = any(h7.profile_ids)
       )
   );
-$;
+$$;
 
 revoke all on function internal.daily_follow_candidate_allowed(uuid, uuid)
   from public, anon, authenticated;
