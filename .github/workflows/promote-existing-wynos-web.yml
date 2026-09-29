@@ -38,23 +38,23 @@ jobs:
         run: |
           set -euo pipefail
           export VERCEL_ORG_ID VERCEL_PROJECT_ID
-          npx --yes vercel@61.0.0 curl / --deployment "$TARGET_DEPLOYMENT" --token="$VERCEL_TOKEN" > /tmp/home.html
+          npx --yes vercel@61.0.0 --token="$VERCEL_TOKEN" curl / --deployment "$TARGET_DEPLOYMENT" > /tmp/home.html
           grep -q '/_next/' /tmp/home.html
           ! grep -q 'flutter_bootstrap.js' /tmp/home.html
 
-          npx --yes vercel@61.0.0 curl /sw.js --deployment "$TARGET_DEPLOYMENT" --token="$VERCEL_TOKEN" > /tmp/sw.js
+          npx --yes vercel@61.0.0 --token="$VERCEL_TOKEN" curl /sw.js --deployment "$TARGET_DEPLOYMENT" > /tmp/sw.js
           grep -q 'posting_prompt' /tmp/sw.js
           grep -q 'followed_post_digest' /tmp/sw.js
           grep -q 'daily_follow_suggestion' /tmp/sw.js
 
-          npx --yes vercel@61.0.0 curl /api/push-config --deployment "$TARGET_DEPLOYMENT" --token="$VERCEL_TOKEN" > /tmp/push-config.json
+          npx --yes vercel@61.0.0 --token="$VERCEL_TOKEN" curl /api/push-config --deployment "$TARGET_DEPLOYMENT" > /tmp/push-config.json
           node -e 'const fs=require("fs"); const c=JSON.parse(fs.readFileSync("/tmp/push-config.json","utf8")); if(c.configured!==true) process.exit(1)'
 
       - name: Promote existing READY deployment
         run: |
           set -euo pipefail
           export VERCEL_ORG_ID VERCEL_PROJECT_ID
-          npx --yes vercel@61.0.0 promote "$TARGET_DEPLOYMENT" --yes --timeout 5m --token="$VERCEL_TOKEN"
+          npx --yes vercel@61.0.0 --token="$VERCEL_TOKEN" promote "$TARGET_DEPLOYMENT" --yes --timeout 5m
 
       - name: Verify wynos.online after promotion
         run: |
