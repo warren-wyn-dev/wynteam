@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WYN-191 regression: ranked, block-aware People Search.
+# WYN-192 regression: ranked bilingual Post Search.
 # Loads the full schema into a throwaway PostgreSQL DB and exercises the RPC
 # under the real authenticated role. Never touches dev/prod data.
 
@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCHEMA_FILE="$SCRIPT_DIR/../schema.sql"
-DB_NAME="wyn191_people_search_regression_test"
+DB_NAME="wyn192_post_search_regression_test"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 chmod 755 "$WORK_DIR"
@@ -27,19 +27,18 @@ run_psql() {
 
 createdb_any() {
   local db="$1"
-  createdb "$db" >/dev/null 2>&1     || { command -v sudo >/dev/null 2>&1 && sudo -u postgres createdb "$db" >/dev/null 2>&1; }
+  createdb "$db" >/dev/null 2>&1 || { command -v sudo >/dev/null 2>&1 && sudo -u postgres createdb "$db" >/dev/null 2>&1; }
 }
 
 dropdb_any() {
   local db="$1"
-  dropdb --if-exists "$db" >/dev/null 2>&1     || { command -v sudo >/dev/null 2>&1 && sudo -u postgres dropdb --if-exists "$db" >/dev/null 2>&1; }     || true
+  dropdb --if-exists "$db" >/dev/null 2>&1 || { command -v sudo >/dev/null 2>&1 && sudo -u postgres dropdb --if-exists "$db" >/dev/null 2>&1; } || true
 }
 
 cat > "$WORK_DIR/00_stub.sql" <<'EOF'
 create extension if not exists pgcrypto;
 
 create schema if not exists auth;
-create schema if not exists extensions;
 create table if not exists auth.users (
   id uuid primary key default gen_random_uuid(),
   email text
@@ -93,13 +92,7 @@ begin
 end
 $$;
 
-grant usage on schema public to authenticated, anon, service_role;
-grant usage on schema storage to authenticated, anon, service_role;
--- Supabase grants API roles access to auth helper functions. Mirror that
--- hosted permission here so SECURITY INVOKER search functions can call
--- auth.uid()/auth.jwt() under the real authenticated role in local QA.
-grant usage on schema auth to authenticated, anon, service_role;
-grant usage on schema extensions to authenticated, anon, service_role;
+grant usage on schema public, auth, storage to authenticated, anon, service_role;
 grant execute on function auth.uid() to authenticated, anon, service_role;
 grant execute on function auth.role() to authenticated, anon, service_role;
 grant execute on function auth.jwt() to authenticated, anon, service_role;
@@ -110,85 +103,91 @@ cat > "$WORK_DIR/10_seed_and_assert.sql" <<'EOF'
 \pset pager off
 \set ON_ERROR_STOP on
 
--- Mirror hosted Supabase schema USAGE for helpers called by the RPC/RLS.
--- anon intentionally does not receive internal schema usage.
 grant usage on schema auth, extensions, internal to authenticated;
 
 create table results (check_name text primary key, actual int, expected int);
 
 insert into auth.users (id,email) values
-  ('19100000-0000-0000-0000-000000000001','viewer191@test.com'),
-  ('19100000-0000-0000-0000-000000000002','exact191@test.com'),
-  ('19100000-0000-0000-0000-000000000003','prefix191@test.com'),
-  ('19100000-0000-0000-0000-000000000004','display191@test.com'),
-  ('19100000-0000-0000-0000-000000000005','displayprefix191@test.com'),
-  ('19100000-0000-0000-0000-000000000006','contains191@test.com'),
-  ('19100000-0000-0000-0000-000000000007','blocked191@test.com')
+  ('19200000-0000-0000-0000-000000000001','viewer192@test.com'),
+  ('19200000-0000-0000-0000-000000000002','blocked192@test.com')
 on conflict (id) do nothing;
 
 insert into public.profiles (id,username,display_name) values
-  ('19100000-0000-0000-0000-000000000001','viewer191','Viewer'),
-  ('19100000-0000-0000-0000-000000000002','alex','Exact User'),
-  ('19100000-0000-0000-0000-000000000003','alexander','Prefix User'),
-  ('19100000-0000-0000-0000-000000000004','handle191','Alex Person'),
-  ('19100000-0000-0000-0000-000000000005','handle192','Alex Person Extra'),
-  ('19100000-0000-0000-0000-000000000006','zzalexzz','Contains User'),
-  ('19100000-0000-0000-0000-000000000007','blockedperson','Blocked Person')
+  ('19200000-0000-0000-0000-000000000001','viewer192','Viewer 192'),
+  ('19200000-0000-0000-0000-000000000002','blocked192','Blocked 192')
 on conflict (id) do update
 set username=excluded.username, display_name=excluded.display_name;
 
+insert into public.drops (id,author_id,caption) values
+  ('19210000-0000-0000-0000-000000000001','19200000-0000-0000-0000-000000000001','wynpostsearchprobe'),
+  ('19210000-0000-0000-0000-000000000002','19200000-0000-0000-0000-000000000001','wynpostsearchprobe extra words'),
+  ('19210000-0000-0000-0000-000000000003','19200000-0000-0000-0000-000000000001','hello wynpostsearchprobe world'),
+  ('19210000-0000-0000-0000-000000000004','19200000-0000-0000-0000-000000000001','นี่คือโพสต์สำหรับทดสอบค้นหาโพสต์ภาษาไทย'),
+  ('19210000-0000-0000-0000-000000000005','19200000-0000-0000-0000-000000000001','sample english search text for ranking'),
+  ('19210000-0000-0000-0000-000000000007','19200000-0000-0000-0000-000000000002','wynpostsearchprobe blocked');
+
+insert into public.drops (id,author_id,caption,deleted_at) values
+  ('19210000-0000-0000-0000-000000000006','19200000-0000-0000-0000-000000000001','wynpostsearchprobe deleted',now());
+
 insert into public.blocks (blocker_id, blocked_id)
-values ('19100000-0000-0000-0000-000000000001','19100000-0000-0000-0000-000000000007')
+values ('19200000-0000-0000-0000-000000000001','19200000-0000-0000-0000-000000000002')
 on conflict do nothing;
 
 insert into results
 select 'CHECK01_authenticated_can_execute',
-       has_function_privilege('authenticated','public.search_profiles_ranked(text,integer,integer)'::regprocedure,'EXECUTE')::int,
+       has_function_privilege('authenticated','public.search_drop_ids_ranked(text,integer,integer)'::regprocedure,'EXECUTE')::int,
        1;
 
 insert into results
 select 'CHECK02_anon_cannot_execute',
-       has_function_privilege('anon','public.search_profiles_ranked(text,integer,integer)'::regprocedure,'EXECUTE')::int,
+       has_function_privilege('anon','public.search_drop_ids_ranked(text,integer,integer)'::regprocedure,'EXECUTE')::int,
        0;
 
 set role authenticated;
-set request.jwt.claim.sub = '19100000-0000-0000-0000-000000000001';
+set request.jwt.claim.sub = '19200000-0000-0000-0000-000000000001';
 set request.jwt.claim.role = 'authenticated';
-set request.jwt.claims = '{"sub":"19100000-0000-0000-0000-000000000001","role":"authenticated","is_anonymous":false}';
+set request.jwt.claims = '{"sub":"19200000-0000-0000-0000-000000000001","role":"authenticated","is_anonymous":false}';
 
 insert into results
-select 'CHECK03_exact_username_first',
-       ((select username from public.search_profiles_ranked('alex',30,0) limit 1)='alex')::int,
+select 'CHECK03_exact_caption_first',
+       ((select id from public.search_drop_ids_ranked('wynpostsearchprobe',21,0) limit 1)='19210000-0000-0000-0000-000000000001'::uuid)::int,
        1;
 
 insert into results
-select 'CHECK04_at_username_first',
-       ((select username from public.search_profiles_ranked('@alex',30,0) limit 1)='alex')::int,
-       1;
-
-insert into results
-select 'CHECK05_username_prefix_before_contains',
-       (
-         (select username from public.search_profiles_ranked('alex',30,0) offset 1 limit 1)='alexander'
+select 'CHECK04_thai_substring_match',
+       exists(
+         select 1 from public.search_drop_ids_ranked('ค้นหาโพสต์',21,0)
+         where id='19210000-0000-0000-0000-000000000004'::uuid
        )::int,
        1;
 
 insert into results
-select 'CHECK06_exact_display_name_first',
-       ((select username from public.search_profiles_ranked('Alex Person',30,0) limit 1)='handle191')::int,
+select 'CHECK05_english_multiword_match',
+       exists(
+         select 1 from public.search_drop_ids_ranked('search sample',21,0)
+         where id='19210000-0000-0000-0000-000000000005'::uuid
+       )::int,
        1;
 
 insert into results
-select 'CHECK07_blocked_profile_hidden',
+select 'CHECK06_deleted_hidden',
        (not exists(
-         select 1 from public.search_profiles_ranked('blockedperson',30,0)
-         where id='19100000-0000-0000-0000-000000000007'
+         select 1 from public.search_drop_ids_ranked('wynpostsearchprobe',21,0)
+         where id='19210000-0000-0000-0000-000000000006'::uuid
+       ))::int,
+       1;
+
+insert into results
+select 'CHECK07_blocked_hidden',
+       (not exists(
+         select 1 from public.search_drop_ids_ranked('wynpostsearchprobe',21,0)
+         where id='19210000-0000-0000-0000-000000000007'::uuid
        ))::int,
        1;
 
 insert into results
 select 'CHECK08_short_query_returns_zero',
-       ((select count(*) from public.search_profiles_ranked('a',30,0))=0)::int,
+       ((select count(*) from public.search_drop_ids_ranked('a',21,0))=0)::int,
        1;
 
 reset role;
@@ -217,7 +216,7 @@ if ! run_psql "$DB_NAME" "$SCHEMA_FILE"; then
   exit 1
 fi
 if ! run_psql "$DB_NAME" "$WORK_DIR/10_seed_and_assert.sql"; then
-  echo "FAIL: WYN-191 assertions errored" >&2
+  echo "FAIL: WYN-192 assertions errored" >&2
   dropdb_any "$DB_NAME"
   exit 1
 fi
