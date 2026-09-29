@@ -29,6 +29,7 @@ test("reactivation schedule is 24h, 3d, 7d, then every 7d", () => {
   assert.match(migration, /enrolled_at \+ interval '7 days'/);
   assert.match(migration, /now\(\) \+ interval '7 days'/);
   assert.match(migration, /'17 \* \* \* \*'/);
+  assert.match(migration, /cron\.alter_job[\s\S]*active := false/);
 });
 
 test("rollout does not back-send to historical accounts", () => {
