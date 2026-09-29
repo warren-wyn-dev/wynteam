@@ -53,20 +53,24 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
       {kind === "club" ? (
         filled ? (
           <g className="route-nav-club-filled">
-            <path d="M28 136 C25 136 23 133 24 129 L20 76 C19.5 72 21.5 69 24.5 69 C26 69 27.5 69.7 29 71 L56 90 C59 92.2 62 92.5 64.5 91 C66.8 89.6 68.2 87.5 69 84.8 L74.5 61 C76 55.5 77.7 52 80 52 C82.3 52 84 55.5 85.5 61 L91 84.8 C91.8 87.5 93.2 89.6 95.5 91 C98 92.5 101 92.2 104 90 L131 71 C132.5 69.7 134 69 135.5 69 C138.5 69 140.5 72 140 76 L136 129 C137 133 135 136 132 136 Z" fill="currentColor" />
-            <path d="M80 10 C82 17 86 21 93 24 C86 27 82 31 80 38 C78 31 74 27 67 24 C74 21 78 17 80 10 Z" fill="currentColor" />
+            <path d="M80 18 C87 18 96 24 108 30 C119 35 129 37 135 43 C140 48 142 55 142 64 L142 86 C142 110 131 127 113 139 C101 147 88 151 80 154 C72 151 59 147 47 139 C29 127 18 110 18 86 L18 64 C18 55 20 48 25 43 C31 37 41 35 52 30 C64 24 73 18 80 18 Z" fill="currentColor" />
+            <path
+              className="route-nav-club-star-cutout"
+              d="M80 52 C84 65 91 73 105 80 C91 87 84 95 80 108 C76 95 69 87 55 80 C69 73 76 65 80 52 Z"
+              fill="var(--wyn-bg, #fff)"
+            />
           </g>
         ) : (
-          <g
-            className="route-nav-club-outline"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M28 136 C25 136 23 133 24 129 L20 76 C19.5 72 21.5 69 24.5 69 C26 69 27.5 69.7 29 71 L56 90 C59 92.2 62 92.5 64.5 91 C66.8 89.6 68.2 87.5 69 84.8 L74.5 61 C76 55.5 77.7 52 80 52 C82.3 52 84 55.5 85.5 61 L91 84.8 C91.8 87.5 93.2 89.6 95.5 91 C98 92.5 101 92.2 104 90 L131 71 C132.5 69.7 134 69 135.5 69 C138.5 69 140.5 72 140 76 L136 129 C137 133 135 136 132 136 Z" />
-            <path d="M80 10 C82 17 86 21 93 24 C86 27 82 31 80 38 C78 31 74 27 67 24 C74 21 78 17 80 10 Z" />
+          <g className="route-nav-club-outline">
+            <path
+              d="M80 18 C87 18 96 24 108 30 C119 35 129 37 135 43 C140 48 142 55 142 64 L142 86 C142 110 131 127 113 139 C101 147 88 151 80 154 C72 151 59 147 47 139 C29 127 18 110 18 86 L18 64 C18 55 20 48 25 43 C31 37 41 35 52 30 C64 24 73 18 80 18 Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path d="M80 52 C84 65 91 73 105 80 C91 87 84 95 80 108 C76 95 69 87 55 80 C69 73 76 65 80 52 Z" fill="currentColor" />
           </g>
         )
       ) : (
