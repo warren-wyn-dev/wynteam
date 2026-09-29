@@ -1,11 +1,6 @@
 name: WYN Posting Activation Promote
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/wyn-posting-activation-promote.yml'
   workflow_dispatch:
 
 permissions:
