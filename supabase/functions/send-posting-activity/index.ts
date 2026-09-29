@@ -6,7 +6,7 @@ import {
   pushLanguageFrom,
   safeErrorMessage,
   type FcmServiceAccount,
-} from "../send-push-notification/_lib.ts";
+} from "./_lib.ts";
 
 type NudgeClaim = {
   delivery_id: string;
@@ -74,22 +74,22 @@ function nudgeCopy(kind: NudgeClaim["kind"], langValue: unknown) {
   if (lang === "en") {
     return kind === "first_post"
       ? {
-          title: "Your first post can be simple ✨",
-          body: "Pick a short prompt and share something about yourself.",
+          title: "Your first post can be simple 👋",
+          body: "Introduce yourself, share your day, or ask a quick question on WYNOS.",
         }
       : {
-          title: "Anything you'd like to share today? 👋",
-          body: "A short thought, photo, or question is enough.",
+          title: "Anything you'd like to share today? ✨",
+          body: "A short post is enough—share what you're interested in right now.",
         };
   }
   return kind === "first_post"
     ? {
-        title: "โพสต์แรกของคุณเริ่มได้ง่าย ๆ ✨",
-        body: "เลือกหัวข้อสั้น ๆ แล้วแชร์เรื่องของคุณได้เลย",
+        title: "โพสต์แรกของคุณเริ่มง่าย ๆ 👋",
+        body: "แนะนำตัว เล่าเรื่องวันนี้ หรือถามอะไรสั้น ๆ บน WYNOS",
       }
     : {
-        title: "วันนี้มีอะไรอยากแชร์ไหม? 👋",
-        body: "แค่เรื่องสั้น ๆ รูปหนึ่งรูป หรือคำถามหนึ่งข้อก็ได้",
+        title: "วันนี้มีอะไรอยากแชร์ไหม? ✨",
+        body: "โพสต์สั้น ๆ ก็ได้ เล่าเรื่องที่คุณกำลังสนใจอยู่",
       };
 }
 
