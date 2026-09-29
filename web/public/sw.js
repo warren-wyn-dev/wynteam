@@ -66,7 +66,6 @@ self.addEventListener("fetch", (event) => {
 // external links or malformed IDs from the notification's data field.
 const PUSH_UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 function pushTarget(data) {
-  if (data?.type === "web_reactivation") return "/home";
   const id = (key) => typeof data?.[key] === "string" && PUSH_UUID.test(data[key]) ? data[key] : null;
   const conversation = id("conversation_id");
   const actor = id("actor_id");
