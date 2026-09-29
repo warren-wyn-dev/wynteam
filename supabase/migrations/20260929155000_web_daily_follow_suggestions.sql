@@ -122,6 +122,63 @@ begin
 end;
 $$;
 
+create or replace function internal.daily_follow_candidate_allowed(
+  p_user_id uuid,
+  p_profile_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists (
+    select 1
+    from public.profiles p
+    join public.profile_private pp
+      on pp.id = p.id
+     and pp.onboarding_completed = true
+    where p.id = p_profile_id
+      and p.id <> p_user_id
+      and p.username is not null
+      and btrim(p.username) <> ''
+      and not internal.is_blocked_either_way(p_user_id, p.id)
+      and not coalesce(internal.is_posting_blocked(p.id), false)
+      and not exists (
+        select 1
+        from public.follows f
+        where f.follower_id = p_user_id
+          and f.following_id = p.id
+      )
+      and not exists (
+        select 1
+        from public.follow_requests fr
+        where fr.requester_id = p_user_id
+          and fr.target_id = p.id
+      )
+      and not exists (
+        select 1
+        from public.mutes m
+        where m.muter_id = p_user_id
+          and m.muted_id = p.id
+      )
+      and not exists (
+        select 1
+        from public.profile_recommendation_dismissals rd
+        where rd.user_id = p_user_id
+          and rd.dismissed_profile_id = p.id
+      )
+      and not exists (
+        select 1
+        from public.daily_follow_suggestion_deliveries h7
+        where h7.user_id = p_user_id
+          and h7.status = 'sent'
+          and h7.sent_at >= now() - interval '7 days'
+          and p.id = any(h7.profile_ids)
+      )
+  );
+$;
+
 create or replace function public.claim_daily_follow_suggestions(
   p_limit integer default 50
 )
@@ -205,8 +262,24 @@ begin
          and v_existing.lease_until > now() then
         continue;
       end if;
-      v_profiles := v_existing.profile_ids;
+
+      -- A failed/expired claim can be retried later the same evening. Reuse
+      -- the exact set only while every account is still eligible; if the user
+      -- followed, requested, blocked, muted or dismissed anyone meanwhile,
+      -- rebuild the set before sending.
+      select case
+        when count(*) = cardinality(v_existing.profile_ids)
+         and bool_and(internal.daily_follow_candidate_allowed(v_user.uid, candidate_id))
+        then v_existing.profile_ids
+        else null
+      end
+      into v_profiles
+      from unnest(v_existing.profile_ids) as candidate_id;
     else
+      v_profiles := null;
+    end if;
+
+    if v_profiles is null then
       select array_agg(candidate.profile_id order by candidate.rank_order)
       into v_profiles
       from (
@@ -238,46 +311,7 @@ begin
               md5(p2.id::text || '|' || v_user.due_date::text || '|' || v_user.uid::text)
           ) as rank_order
         from public.profiles p2
-        join public.profile_private pp2
-          on pp2.id = p2.id
-         and pp2.onboarding_completed = true
-        where p2.id <> v_user.uid
-          and p2.username is not null
-          and btrim(p2.username) <> ''
-          and not internal.is_blocked_either_way(v_user.uid, p2.id)
-          and not coalesce(internal.is_posting_blocked(p2.id), false)
-          and not exists (
-            select 1
-            from public.follows f
-            where f.follower_id = v_user.uid
-              and f.following_id = p2.id
-          )
-          and not exists (
-            select 1
-            from public.follow_requests fr
-            where fr.requester_id = v_user.uid
-              and fr.target_id = p2.id
-          )
-          and not exists (
-            select 1
-            from public.mutes m
-            where m.muter_id = v_user.uid
-              and m.muted_id = p2.id
-          )
-          and not exists (
-            select 1
-            from public.profile_recommendation_dismissals rd
-            where rd.user_id = v_user.uid
-              and rd.dismissed_profile_id = p2.id
-          )
-          and not exists (
-            select 1
-            from public.daily_follow_suggestion_deliveries h7
-            where h7.user_id = v_user.uid
-              and h7.status = 'sent'
-              and h7.sent_at >= now() - interval '7 days'
-              and p2.id = any(h7.profile_ids)
-          )
+        where internal.daily_follow_candidate_allowed(v_user.uid, p2.id)
         order by
           case when exists (
             select 1
