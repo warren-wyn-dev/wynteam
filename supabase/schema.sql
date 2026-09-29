@@ -17754,9 +17754,9 @@ alter table public.notification_settings
 -- Keep WYN-157's RESTRICTIVE guest-write policies in place. They are
 -- additional guards (AND-ed with feature policies), not broad grants.
 
--- The allowlist is intentionally RPC-only. is_developer_account() is
--- SECURITY DEFINER, so removing direct table grants does not affect the gate.
-revoke all on table public.developer_accounts from anon, authenticated;
+-- Keep WYN-125's existing table grants unchanged. With RLS enabled and no
+-- client-facing policies, authenticated callers still observe zero rows while
+-- is_developer_account() reaches the allowlist through SECURITY DEFINER.
 
 create table if not exists public.notification_push_deliveries (
   id uuid primary key default gen_random_uuid(),
