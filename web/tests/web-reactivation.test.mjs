@@ -51,4 +51,7 @@ test("cron uses Vault names rather than committed credential values", () => {
   assert.match(edge, /x-wynos-cron-key/);
   assert.doesNotMatch(migration, /sb_publishable_/);
   assert.doesNotMatch(migration, /eyJhbGciOi/);
+  assert.doesNotMatch(migration, /\nas \$\n/);
+  assert.doesNotMatch(migration, /\ndo \$\n/);
+  assert.match(migration, /verify_web_reactivation_cron_key[\s\S]*as \$\$/);
 });
