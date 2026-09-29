@@ -309,6 +309,60 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
   return json.access_token as string;
 }
 
+export type PushPreferenceCategory = "likes" | "comments" | "follows" | "messages" | "club" | "trending" | "system";
+
+export function pushPreferenceCategory(type: string): PushPreferenceCategory {
+  if (type === "like_drop" || type === "like_pop") return "likes";
+  if (type === "follow" || type === "follow_request" || type === "follow_request_accepted") return "follows";
+  if (type === "message_request" || type === "new_message") return "messages";
+  if (type.startsWith("club_") || type === "mention_club_post") return "club";
+  if (type === "trending") return "trending";
+  if (type === "comment_drop" || type === "comment_pop" || type === "mention_drop" || type === "redrop") return "comments";
+  return "system";
+}
+
+function clockMinutes(value: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})/.exec(value);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+export function isQuietHourAt(
+  now: Date,
+  timezone: string,
+  start: string,
+  end: string,
+): boolean {
+  const startMinutes = clockMinutes(start);
+  const endMinutes = clockMinutes(end);
+  if (startMinutes == null || endMinutes == null || startMinutes === endMinutes) return false;
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone || "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(now);
+    const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "-1");
+    const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "-1");
+    if (hour < 0 || minute < 0) return false;
+    const current = hour * 60 + minute;
+    return startMinutes < endMinutes
+      ? current >= startMinutes && current < endMinutes
+      : current >= startMinutes || current < endMinutes;
+  } catch {
+    // An invalid timezone should never suppress a notification.
+    return false;
+  }
+}
+
+export function isRetryableFcmStatus(httpStatus: number): boolean {
+  return httpStatus === 429 || httpStatus === 500 || httpStatus === 502 || httpStatus === 503 || httpStatus === 504;
+}
+
 export function collapseKeyFor(row: NotificationRow): string {
   return row.id;
 }
