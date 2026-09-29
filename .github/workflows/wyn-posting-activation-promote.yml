@@ -20,27 +20,32 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Promote verified preview to production
+      - name: Point production domains at verified preview
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          DEPLOYMENT_URL: https://web-8i8d08apv-warren14.vercel.app
+          TARGET_DEPLOYMENT: web-8i8d08apv-warren14.vercel.app
         run: |
           set -euo pipefail
           export VERCEL_ORG_ID VERCEL_PROJECT_ID
-          npx --yes vercel@latest promote "$DEPLOYMENT_URL" --yes --token="$VERCEL_TOKEN"
+          npx --yes vercel@61.0.0 alias set "$TARGET_DEPLOYMENT" wynos.online --token="$VERCEL_TOKEN"
+          npx --yes vercel@61.0.0 alias set "$TARGET_DEPLOYMENT" www.wynos.online --token="$VERCEL_TOKEN"
 
       - name: Verify posting activation production build
+        id: verify
+        continue-on-error: true
         run: |
           set -euo pipefail
+          ready=0
           for attempt in $(seq 1 24); do
             if curl --silent --show-error --fail --location --max-time 20               --header 'Cache-Control: no-cache'               "https://wynos.online/?_wyn_posting_activation=${GITHUB_RUN_ID}-${attempt}"               | grep -q '/_next/'; then
+              ready=1
               break
             fi
-            test "$attempt" -lt 24 || exit 1
             sleep 5
           done
+          test "$ready" -eq 1
 
           curl --fail --location --retry 5 --retry-delay 2 --max-time 30             --output /dev/null https://wynos.online/
           curl --fail --location --retry 5 --retry-delay 2 --max-time 30             --output /dev/null https://wynos.online/settings
@@ -48,6 +53,26 @@ jobs:
           curl --silent --show-error --fail --location --retry 5 --max-time 30             --output /tmp/wynos-sw.js https://wynos.online/sw.js
           grep -q 'posting_prompt' /tmp/wynos-sw.js
           grep -q 'followed_post_digest' /tmp/wynos-sw.js
+          grep -q 'daily_follow_suggestion' /tmp/wynos-sw.js
 
           curl --silent --show-error --fail --location --retry 3 --max-time 30             --output /tmp/wynos-push-config.json https://wynos.online/api/push-config
           node -e 'const c=require("/tmp/wynos-push-config.json"); process.exit(c.configured===true?0:1)'
+
+      - name: Roll back aliases if verification failed
+        if: steps.verify.outcome != 'success'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          ROLLBACK_DEPLOYMENT: web-jgxo0l74t-warren14.vercel.app
+        run: |
+          set -euo pipefail
+          export VERCEL_ORG_ID VERCEL_PROJECT_ID
+          npx --yes vercel@61.0.0 alias set "$ROLLBACK_DEPLOYMENT" wynos.online --token="$VERCEL_TOKEN"
+          npx --yes vercel@61.0.0 alias set "$ROLLBACK_DEPLOYMENT" www.wynos.online --token="$VERCEL_TOKEN"
+          echo "::error::Production verification failed; aliases restored to prior production."
+          exit 1
+
+      - name: Confirm production alias release
+        if: steps.verify.outcome == 'success'
+        run: echo "Posting Activation web build is live on wynos.online."
