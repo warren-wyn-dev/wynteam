@@ -55,16 +55,16 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
           className="route-nav-club-outline"
           fill="none"
           stroke="currentColor"
-          strokeWidth="9"
+          strokeWidth="8.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <circle cx="80" cy="48" r="23" />
-          <path d="M35 132 C38 102 55 87 80 87 C105 87 122 102 125 132" />
-          <circle cx="34" cy="64" r="14" />
-          <path d="M8 124 C10 103 20 90 35 90 C44 90 51 94 57 101" />
-          <circle cx="126" cy="64" r="14" />
-          <path d="M152 124 C150 103 140 90 125 90 C116 90 109 94 103 101" />
+          <circle cx="80" cy="47" r="19" />
+          <path d="M43 132 C46 106 60 92 80 92 C100 92 114 106 117 132" />
+          <circle cx="38" cy="66" r="12" />
+          <path d="M14 124 C16 106 25 96 38 96 C46 96 52 100 58 106" />
+          <circle cx="122" cy="66" r="12" />
+          <path d="M146 124 C144 106 135 96 122 96 C114 96 108 100 102 106" />
         </g>
       ) : (
         <path d={filled ? NAV_ACTIVE_ICON_PATHS[kind] : NAV_ICON_PATHS[kind]} />
