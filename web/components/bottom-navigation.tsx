@@ -53,8 +53,8 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
       {kind === "club" ? (
         filled ? (
           <g className="route-nav-club-filled">
-            <path d="M43 118 Q40 118 40 114 L35 76 Q34 72 38 74 L59 87 Q64 90 67 85 L75 67 Q80 56 85 67 L93 85 Q96 90 101 87 L122 74 Q126 72 125 76 L120 114 Q120 118 117 118 Z" fill="currentColor" />
-            <path d="M80 28 C82 32 85 35 89 37 C85 39 82 42 80 46 C78 42 75 39 71 37 C75 35 78 32 80 28 Z" fill="currentColor" />
+            <path d="M30 132 Q27 132 28 126 L24 72 Q24 66 30 70 L57 89 Q63 93 67 86 L75 61 Q80 47 85 61 L93 86 Q97 93 103 89 L130 70 Q136 66 136 72 L132 126 Q133 132 127 132 Z" fill="currentColor" />
+            <path d="M80 18 C82.5 23 86 26.5 91 29 C86 31.5 82.5 35 80 40 C77.5 35 74 31.5 69 29 C74 26.5 77.5 23 80 18 Z" fill="currentColor" />
           </g>
         ) : (
           <g
@@ -65,8 +65,8 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M43 118 Q40 118 40 114 L35 76 Q34 72 38 74 L59 87 Q64 90 67 85 L75 67 Q80 56 85 67 L93 85 Q96 90 101 87 L122 74 Q126 72 125 76 L120 114 Q120 118 117 118 Z" />
-            <path d="M80 28 C82 32 85 35 89 37 C85 39 82 42 80 46 C78 42 75 39 71 37 C75 35 78 32 80 28 Z" />
+            <path d="M30 132 Q27 132 28 126 L24 72 Q24 66 30 70 L57 89 Q63 93 67 86 L75 61 Q80 47 85 61 L93 86 Q97 93 103 89 L130 70 Q136 66 136 72 L132 126 Q133 132 127 132 Z" />
+            <path d="M80 18 C82.5 23 86 26.5 91 29 C86 31.5 82.5 35 80 40 C77.5 35 74 31.5 69 29 C74 26.5 77.5 23 80 18 Z" />
           </g>
         )
       ) : (
