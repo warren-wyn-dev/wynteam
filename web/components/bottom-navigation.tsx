@@ -52,35 +52,21 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
     >
       {kind === "club" ? (
         filled ? (
-          <g className="route-nav-club-filled">
-            <circle cx="80" cy="45" r="31" />
-            <circle cx="51" cy="97" r="31" />
-            <circle cx="109" cy="97" r="31" />
-            <g
-              className="route-nav-club-separators"
-              fill="none"
-              stroke="var(--wyn-bg, #fff)"
-              strokeWidth="5.5"
-              strokeLinecap="round"
-            >
-              <path d="M63 70 C70 74 75 80 76.5 87" />
-              <path d="M97 70 C90 74 85 80 83.5 87" />
-              <path d="M70 101 C76 98 84 98 90 101" />
-            </g>
-          </g>
+          <path
+            className="route-nav-club-filled"
+            d="M80 23 C86 48 101 68 129 80 C101 92 86 112 80 137 C74 112 59 92 31 80 C59 68 74 48 80 23 Z"
+            fill="currentColor"
+          />
         ) : (
-          <g
+          <path
             className="route-nav-club-outline"
+            d="M80 23 C86 48 101 68 129 80 C101 92 86 112 80 137 C74 112 59 92 31 80 C59 68 74 48 80 23 Z"
             fill="none"
             stroke="currentColor"
             strokeWidth="8"
             strokeLinecap="round"
             strokeLinejoin="round"
-          >
-            <circle cx="80" cy="45" r="31" />
-            <circle cx="51" cy="97" r="31" />
-            <circle cx="109" cy="97" r="31" />
-          </g>
+          />
         )
       ) : (
         <path d={filled ? NAV_ACTIVE_ICON_PATHS[kind] : NAV_ICON_PATHS[kind]} />
