@@ -10,55 +10,97 @@ const edge = readFileSync(
   new URL("../../supabase/functions/send-daily-follow-suggestions/index.ts", import.meta.url),
   "utf8",
 );
+const route = readFileSync(new URL("../components/suggested-route.tsx", import.meta.url), "utf8");
+const data = readFileSync(new URL("../lib/phase3-data.ts", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
-const search = readFileSync(new URL("../components/search-route.tsx", import.meta.url), "utf8");
-const pushClient = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
+const settings = readFileSync(new URL("../components/settings-route.tsx", import.meta.url), "utf8");
+const push = readFileSync(new URL("../lib/push-notifications.ts", import.meta.url), "utf8");
+const pushResync = readFileSync(new URL("../components/push-resync.tsx", import.meta.url), "utf8");
 
-test("daily follow suggestions are at most once per local day and release-gated", () => {
-  assert.match(migration, /unique \(user_id, local_date\)/);
-  assert.match(migration, /'37 \* \* \* \*'/);
-  assert.match(migration, /cron\.alter_job[\s\S]*active := false/);
-  assert.match(migration, /time '10:00'/);
-  assert.doesNotMatch(migration, /\nas \$\n/);
-  assert.doesNotMatch(migration, /\ndo \$\n/);
+test("daily follow suggestions are one delivery per local day with a 3-5 profile payload", () => {
+  assert.match(migration, /unique \(user_id, local_date\)/i);
+  assert.match(migration, /cardinality\(profile_ids\) between 3 and 5/i);
+  assert.match(migration, /local_now::time >= time '19:00'/i);
+  assert.match(migration, /local_now::time < time '22:00'/i);
+  assert.match(migration, /'27 \* \* \* \*'/);
 });
 
-test("candidate ranking excludes unsafe and repetitive recommendations", () => {
-  assert.match(migration, /not internal\.is_blocked_either_way/);
-  assert.match(migration, /public\.mutes/);
-  assert.match(migration, /profile_recommendation_dismissals/);
-  assert.match(migration, /public\.follows f/);
-  assert.match(migration, /interval '7 days'/);
+test("candidate selection excludes unsafe or already-actioned accounts", () => {
+  assert.match(migration, /is_blocked_either_way\(v_user\.uid, p2\.id\)/);
+  assert.match(migration, /f\.follower_id = v_user\.uid[\s\S]*f\.following_id = p2\.id/);
+  assert.match(migration, /fr\.requester_id = v_user\.uid[\s\S]*fr\.target_id = p2\.id/);
+  assert.match(migration, /m\.muter_id = v_user\.uid[\s\S]*m\.muted_id = p2\.id/);
+  assert.match(migration, /rd\.user_id = v_user\.uid[\s\S]*rd\.dismissed_profile_id = p2\.id/);
   assert.match(migration, /onboarding_completed = true/);
-  assert.match(migration, /limit greatest\(1, least\(coalesce\(p_limit, 5\), 5\)\)/);
+  assert.match(migration, /is_posting_blocked\(p2\.id\)/);
 });
 
-test("inactive new users do not receive daily follow push on top of reactivation", () => {
+test("rotation hard-blocks the last 7 days and prefers fresh accounts within 30 days", () => {
+  assert.match(migration, /sent_at >= now\(\) - interval '7 days'/);
+  assert.match(migration, /sent_at >= now\(\) - interval '30 days'/);
+  assert.match(migration, /then 1 else 0 end/);
+});
+
+test("retry revalidates the same-day set before sending it again", () => {
+  assert.match(migration, /daily_follow_candidate_allowed/);
+  assert.match(migration, /bool_and\(internal\.daily_follow_candidate_allowed\(v_user\.uid, candidate_id\)\)/);
+  assert.match(migration, /then v_existing\.profile_ids[\s\S]*else null/);
+});
+
+test("daily suggestions respect Web Push eligibility, quiet hours and recent-notification anti-spam", () => {
+  assert.match(migration, /pt\.platform = 'web'/);
+  assert.match(migration, /push_suggestions/);
+  assert.match(migration, /suggestions/);
+  assert.match(migration, /daily_follow_quiet_now/);
+  assert.match(migration, /interval '90 minutes'/);
   assert.match(migration, /web_reactivation_state wr/);
   assert.match(migration, /wr\.activated_at is null/);
 });
 
-test("delivery is Web-only, bilingual, and does not create notification-center rows", () => {
+test("cron is release-gated and authenticated by a dedicated Vault key", () => {
+  assert.match(migration, /wynos_daily_follow_cron_key/);
+  assert.match(migration, /verify_daily_follow_suggestion_cron_key/);
+  assert.match(migration, /cron\.alter_job[\s\S]*active := false/);
+  assert.doesNotMatch(migration, /eyJhbGciOi/);
+  assert.doesNotMatch(migration, /sb_secret_/);
+});
+
+test("sender is Web-only, data-only, and carries the delivery id for attribution", () => {
   assert.match(edge, /platform=eq\.web/);
-  assert.match(edge, /คนใหม่ ๆ ที่คุณอาจสนใจ 👋/);
-  assert.match(edge, /People you may want to follow 👋/);
-  assert.doesNotMatch(edge, /rest\/v1\/notifications/);
-  assert.doesNotMatch(edge, /from\("notifications"\)/);
+  assert.match(edge, /type: "daily_follow_suggestion"/);
+  assert.match(edge, /delivery_id: claim\.delivery_id/);
+  assert.match(edge, /notification_id: claim\.delivery_id/);
+  assert.match(edge, /push_title: title/);
+  assert.match(edge, /push_body: body/);
+  assert.doesNotMatch(edge, /notification:\s*\{/);
+  assert.match(edge, /verify_daily_follow_suggestion_cron_key/);
 });
 
-test("push click opens the dedicated suggested people view without badge invalidation", () => {
-  assert.match(worker, /daily_follow_suggestion/);
-  assert.match(worker, /\/search\?suggested=1/);
-  assert.match(worker, /web_reactivation" \|\| data\.type === "daily_follow_suggestion/);
-  assert.match(search, /params\.get\("suggested"\) === "1"/);
-  assert.match(search, /<h1>แนะนำสำหรับคุณ<\/h1>/);
-  assert.match(search, /suggestedOnly \? fetchDailySuggestedProfiles\(client\) : fetchSuggestedProfiles\(client, 10\)/);
-  assert.match(migration, /daily_follow_suggestions_for_me/);
+test("Web Push click opens Suggested and does not wake the notification badge", () => {
+  assert.match(worker, /data\?\.type === "daily_follow_suggestion"/);
+  assert.match(worker, /\/suggested\?source=daily_follow_suggestion/);
+  assert.match(worker, /data\.type === "daily_follow_suggestion"[\s\S]*Promise\.resolve\(\)/);
 });
 
+test("Suggested route loads the delivered set and records opens", () => {
+  assert.match(route, /fetchDailySuggestedProfiles/);
+  assert.match(route, /markDailyFollowSuggestionOpened/);
+  assert.match(route, /fetchDailySuggestedProfiles\(client, pushedDeliveryId\)/);
+  assert.match(route, /if \(pushedDeliveryId && daily\.deliveryId === pushedDeliveryId\)/);
+  assert.match(route, /daily_follow_suggestion/);
+  assert.match(route, /followButtonLabel/);
+  assert.match(route, /profile_recommendation_dismissals/);
+  assert.match(data, /daily_follow_suggestion_deliveries/);
+  assert.match(data, /mark_daily_follow_suggestion_opened/);
+});
 
-test("Push registration syncs the browser timezone for local daily scheduling", () => {
-  assert.match(pushClient, /Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
-  assert.match(pushClient, /notification_settings/);
-  assert.match(pushClient, /push_timezone: timezone/);
+test("notification settings expose suggestions and Push registration persists timezone", () => {
+  assert.match(settings, /\["suggestions", "คำแนะนำคนที่น่าสนใจ"\]/);
+  assert.match(settings, /\["push_suggestions", "คำแนะนำคนที่น่าสนใจ"\]/);
+  assert.match(data, /suggestions: boolean/);
+  assert.match(data, /push_suggestions: boolean/);
+  assert.match(push, /resolvedOptions\(\)\.timeZone/);
+  assert.match(push, /push_timezone: timezone/);
+  assert.match(pushResync, /syncPushTimezone/);
+  assert.match(pushResync, /push_timezone: timezone/);
 });
