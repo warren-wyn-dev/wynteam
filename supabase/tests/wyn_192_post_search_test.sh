@@ -171,18 +171,18 @@ select 'CHECK05_english_multiword_match',
 
 insert into results
 select 'CHECK06_deleted_hidden',
-       not exists(
+       (not exists(
          select 1 from public.search_drop_ids_ranked('wynpostsearchprobe',21,0)
          where id='19210000-0000-0000-0000-000000000006'::uuid
-       )::int,
+       ))::int,
        1;
 
 insert into results
 select 'CHECK07_blocked_hidden',
-       not exists(
+       (not exists(
          select 1 from public.search_drop_ids_ranked('wynpostsearchprobe',21,0)
          where id='19210000-0000-0000-0000-000000000007'::uuid
-       )::int,
+       ))::int,
        1;
 
 insert into results
