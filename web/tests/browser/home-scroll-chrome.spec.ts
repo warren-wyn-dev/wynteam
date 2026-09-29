@@ -27,6 +27,10 @@ for (const width of [320, 390, 432]) {
     await expect(fab).toBeVisible();
     await expect(fab).toHaveCSS("width", "56px");
     await expect(fab).toHaveCSS("height", "56px");
+    const fabComposePath = fab.locator(".route-nav-glyph--compose path");
+    const navComposePath = nav.locator(".route-nav-glyph--compose path");
+    await expect(fab.locator(".route-nav-glyph--compose")).toBeVisible();
+    await expect(fabComposePath).toHaveAttribute("d", await navComposePath.getAttribute("d") ?? "");
     const hiddenHome = await home.boundingBox();
     expect(hiddenHome).not.toBeNull();
     expect(hiddenHome!.y + hiddenHome!.height).toBeLessThanOrEqual(1);

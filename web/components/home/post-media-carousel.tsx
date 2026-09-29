@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart } from "lucide-react";
+import { Heart, ImageOff } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 
@@ -29,6 +29,8 @@ export function PostMediaCarousel({
   const lastTap = useRef(0);
   const [burst, setBurst] = useState(false);
   const [index, setIndex] = useState(0);
+  const [loaded, setLoaded] = useState<Record<number, boolean>>({});
+  const [failed, setFailed] = useState<Record<number, boolean>>({});
   const track = useRef<HTMLDivElement>(null);
 
   const updateIndex = () => {
@@ -39,6 +41,14 @@ export function PostMediaCarousel({
     if (stride <= 0) return;
     const next = Math.max(0, Math.min(urls.length - 1, Math.round(node.scrollLeft / stride)));
     setIndex((current) => (current === next ? current : next));
+  };
+
+  const markLoaded = (imageIndex: number) => {
+    setLoaded((current) => current[imageIndex] ? current : { ...current, [imageIndex]: true });
+  };
+
+  const markFailed = (imageIndex: number) => {
+    setFailed((current) => current[imageIndex] ? current : { ...current, [imageIndex]: true });
   };
 
   const doubleLike = () => {
@@ -83,25 +93,52 @@ export function PostMediaCarousel({
       <div
         ref={track}
         onScroll={updateIndex}
+        onErrorCapture={(event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLImageElement)) return;
+          const mediaIndex = Number(target.dataset.wynMediaIndex);
+          if (Number.isInteger(mediaIndex)) markFailed(mediaIndex);
+        }}
         className={`wyn-post-media-track ${urls.length === 1 ? "is-single" : ""}`}
         style={trackStyle}
       >
-        {urls.map((url, i) => (
-          <Image
-            className={`wyn-post-media-item ${urls.length > 1 ? (i === index ? "is-front" : i < index ? "is-before" : "is-after") : ""}`}
-            src={url}
-            alt=""
-            width={intrinsicWidth}
-            height={intrinsicHeight}
-            style={{ width: "100%", height: "auto" }}
-            sizes={urls.length > 1
-              ? "(max-width: 680px) calc(82vw - 59px), 492px"
-              : "(max-width: 680px) calc(100vw - 72px), 600px"}
-            priority={priority && i === 0}
-            loading={priority && i === 0 ? undefined : "lazy"}
-            key={`${postKey}:${i}`}
-          />
-        ))}
+        {urls.map((url, i) => {
+          const positionClass = urls.length > 1
+            ? (i === index ? "is-front" : i < index ? "is-before" : "is-after")
+            : "";
+          if (failed[i]) {
+            return (
+              <span
+                className={`wyn-post-media-item wyn-post-media-fallback ${positionClass}`}
+                role="img"
+                aria-label="รูปภาพไม่พร้อมใช้งาน"
+                key={`${postKey}:${i}:fallback`}
+              >
+                <ImageOff aria-hidden="true" size={28} strokeWidth={1.8} />
+                <span>ไม่สามารถโหลดรูปได้</span>
+              </span>
+            );
+          }
+          return (
+            <Image
+              className={`wyn-post-media-item ${loaded[i] ? "is-loaded" : "is-loading"} ${positionClass}`}
+              src={url}
+              alt=""
+              data-wyn-media-index={i}
+              width={intrinsicWidth}
+              height={intrinsicHeight}
+              style={{ width: "100%", height: "auto" }}
+              sizes={urls.length > 1
+                ? "(max-width: 680px) calc(82vw - 59px), 492px"
+                : "(max-width: 680px) calc(100vw - 72px), 600px"}
+              priority={priority && i === 0}
+              loading={priority && i === 0 ? undefined : "lazy"}
+              onLoad={() => markLoaded(i)}
+              onError={() => markFailed(i)}
+              key={`${postKey}:${i}`}
+            />
+          );
+        })}
       </div>
       {burst ? <Heart className="wyn-post-heart-burst" size={72} fill="currentColor" strokeWidth={0} /> : null}
     </div>

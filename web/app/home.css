@@ -64,6 +64,13 @@
   transform: translateY(0) scale(0.94);
 }
 
+.wyn-home-post-fab .route-nav-glyph--compose {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  color: inherit;
+}
+
 /* ---------- Header ---------- */
 
 /* Equal side tracks keep the WYNOS wordmark centered on the screen,
@@ -545,6 +552,48 @@
   background: var(--wyn-surface);
 }
 
+.wyn-post-media-item.is-loading {
+  background:
+    linear-gradient(
+      100deg,
+      var(--wyn-surface, #f1f2f4) 20%,
+      color-mix(in srgb, var(--wyn-surface, #f1f2f4) 72%, var(--wyn-bg, #fff)) 38%,
+      var(--wyn-surface, #f1f2f4) 56%
+    );
+  background-size: 220% 100%;
+  animation: wyn-post-media-loading 1.25s ease-in-out infinite;
+}
+
+.wyn-post-media-item.is-loaded {
+  animation: none;
+  background: var(--wyn-surface, #f1f2f4);
+}
+
+.wyn-post-media-fallback {
+  box-sizing: border-box;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 7px;
+  min-height: 150px;
+  overflow: hidden;
+  border: 1px solid var(--wyn-border, #e4e5e8);
+  background: var(--wyn-surface, #f1f2f4);
+  color: var(--wyn-text-secondary, #7b7f87);
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.wyn-post-media-fallback svg {
+  opacity: 0.78;
+}
+
+@keyframes wyn-post-media-loading {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+
 .wyn-post-media-track.is-single {
   padding-right: 0;
 }
@@ -736,7 +785,9 @@
   .wyn-home,
   .wyn-home-header-action,
   .wyn-post-follow-pill,
-  .wyn-home-tab-indicator {
+  .wyn-home-tab-indicator,
+  .wyn-post-media-item.is-loading {
     transition: none;
+    animation: none;
   }
 }

@@ -169,20 +169,24 @@ test("feed density keeps short posts short instead of article-sized", async ({ p
   expect(thirdBox?.height ?? 999).toBeLessThan(150);
 });
 
-test("bottom navigation stays compact and preserves all five WYNOS destinations", async ({ page }) => {
+test("bottom navigation keeps readable labels and all five WYNOS destinations", async ({ page }) => {
   const nav = page.locator(".route-bottom-nav");
   const links = nav.locator(".route-nav-link");
 
   await expect(nav).toHaveCSS("position", "fixed");
-  await expect(nav).toHaveCSS("height", "50px");
+  await expect(nav).toHaveCSS("height", "68px");
   await expect(links).toHaveCount(5);
   for (const label of ["หน้าหลัก", "คลับ", "โพสต์", "แชท", "โปรไฟล์"]) {
     await expect(nav.getByText(label, { exact: true })).toBeVisible();
   }
 
   const glyph = nav.locator(".route-nav-glyph").first();
-  await expect(glyph).toHaveCSS("width", "28px");
-  await expect(glyph).toHaveCSS("height", "28px");
+  await expect(glyph).toHaveCSS("width", "32px");
+  await expect(glyph).toHaveCSS("height", "32px");
+  await expect(links.first()).toHaveCSS("font-size", "11px");
+  const createGlyph = links.nth(2).locator(".route-nav-glyph");
+  await expect(createGlyph).toHaveCSS("width", "32px");
+  await expect(createGlyph).toHaveCSS("height", "32px");
 });
 
 test("bell and Chat tab show unread counts, not a bare dot", async ({ page }) => {

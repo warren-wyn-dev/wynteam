@@ -88,3 +88,18 @@ test("Beta1 remains unchanged while Beta2 chat actions are developer gated", () 
   assert.match(sql, /public\.club_role\(v_club, v_me\)/);
   assert.match(sql, /for update;\s*if not found/);
 });
+
+
+test("mobile Club toolbar keeps pin errors separate from search and safely clears pending queries", () => {
+  const toolbar = readFileSync(new URL("../components/club/club-chat-actions.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/club-detail-golden.css", import.meta.url), "utf8");
+  assert.match(toolbar, /\[pinError, setPinError\] = useState/);
+  assert.match(toolbar, /\[searchError, setSearchError\] = useState/);
+  assert.match(toolbar, /setPinRetry\(\(value\) => value \+ 1\)/);
+  assert.match(toolbar, /\.finally\(\(\) => \{ if \(active\) setPinLoading\(false\); \}\)/);
+  assert.match(toolbar, /inputMode="search" enterKeyHint="search"/);
+  assert.match(toolbar, /aria-label="ล้างคำค้นหา"/);
+  assert.match(toolbar, /pending\.current \+= 1; setBusy\(false\); setSearchError\(""\); setQuery\(""\); setResults\(null\);/);
+  assert.match(css, /\.golden-club-search form \.golden-club-search-clear.*min-width: 44px/);
+  assert.match(css, /\.golden-club-pin-error button \{ min-height: 44px/);
+});

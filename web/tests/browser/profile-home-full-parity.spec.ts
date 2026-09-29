@@ -22,6 +22,38 @@ test("Profile uses the actual HomePostCard renderer for every normal, liked and 
   expect(beta1).not.toContain("font-size: 15.5px !important");
 });
 
+test("post media has a loading skeleton and graceful broken-image fallback", () => {
+  const carousel = read("components/home/post-media-carousel.tsx");
+  const homeCss = read("app/home.css");
+
+  expect(carousel).toContain('className={\`wyn-post-media-item \${loaded[i] ? "is-loaded" : "is-loading"} \${positionClass}\`}');
+  expect(carousel).toContain('onLoad={() => markLoaded(i)}');
+  expect(carousel).toContain('onError={() => markFailed(i)}');
+  expect(carousel).toContain('onErrorCapture={(event) => {');
+  expect(carousel).toContain('data-wyn-media-index={i}');
+  expect(carousel).toContain('className={\`wyn-post-media-item wyn-post-media-fallback \${positionClass}\`}');
+  expect(carousel).toContain('aria-label="รูปภาพไม่พร้อมใช้งาน"');
+  expect(carousel).toContain("<ImageOff");
+  expect(homeCss).toContain(".wyn-post-media-item.is-loading");
+  expect(homeCss).toContain("@keyframes wyn-post-media-loading");
+  expect(homeCss).toContain(".wyn-post-media-fallback");
+});
+
+test("broken post image swaps to the WYNOS fallback instead of showing the browser broken-image icon", async ({ page }) => {
+  await page.goto("/dev/home-fixture", { waitUntil: "domcontentloaded" });
+  const image = page.locator(".wyn-post-media-item").first();
+  await expect(image).toBeVisible();
+  await page.route("**/__wynos_missing_post_image__.png", (route) => route.abort());
+  await image.evaluate((node) => {
+    node.removeAttribute("srcset");
+    node.setAttribute("src", "/__wynos_missing_post_image__.png");
+  });
+  const fallback = page.locator('.wyn-post-media-fallback[aria-label="รูปภาพไม่พร้อมใช้งาน"]').first();
+  await expect(fallback).toBeVisible();
+  await expect(fallback).toContainText("ไม่สามารถโหลดรูปได้");
+  await expect(fallback.locator("svg")).toHaveCount(1);
+});
+
 test("Home and Profile align header, caption, hashtags, inset media and actions at all mobile sizes", async ({ page }) => {
   for (const width of [390, 320, 768]) {
     await page.setViewportSize({ width, height: 820 });

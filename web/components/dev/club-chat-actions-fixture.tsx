@@ -10,7 +10,10 @@ type Row = { id: string; channel_id: string; author_id: string; content: string;
 const ME = "00000000-0000-0000-0000-000000000001";
 const OTHER = "00000000-0000-0000-0000-000000000002";
 
-function makeClient(rows: Row[], delayFirstSearch = false): SupabaseClient {
+type FixtureClient = SupabaseClient & { allowPinReadAfterRetry: () => void };
+
+function makeClient(rows: Row[], delayFirstSearch = false, failFirstPinRead = false): FixtureClient {
+  let pinReadShouldFail = failFirstPinRead;
   const query = () => {
     let channel = "";
     const chain = {
@@ -18,12 +21,20 @@ function makeClient(rows: Row[], delayFirstSearch = false): SupabaseClient {
       eq: (key: string, value: string) => { if (key === "channel_id") channel = value; return chain; },
       not: () => chain,
       order: () => chain,
-      limit: async () => ({ data: rows.filter((row) => row.channel_id === channel && row.pinned_at), error: null }),
+      limit: async () => {
+        if (pinReadShouldFail) {
+          // Keep failing across Strict Mode's mount/effect replay. Only an explicit
+          // retry can clear this injected failure, so the browser test is stable.
+          return { data: null, error: { message: "Simulated pin fetch failure until retry" } };
+        }
+        return { data: rows.filter((row) => row.channel_id === channel && row.pinned_at), error: null };
+      },
     };
     return chain;
   };
   return {
     from: query,
+    allowPinReadAfterRetry: () => { pinReadShouldFail = false; },
     rpc: async (name: string, args: Record<string, unknown>) => {
       // Deterministic out-of-order replies for the stale-search browser test.
       if (name === "search_club_channel_messages" && delayFirstSearch && args.p_query === "hello")
@@ -37,22 +48,28 @@ function makeClient(rows: Row[], delayFirstSearch = false): SupabaseClient {
           && item.content.toLowerCase().includes(String(args.p_query).toLowerCase())), error: null };
       return { data: null, error: null };
     },
-  } as unknown as SupabaseClient;
+  } as unknown as FixtureClient;
 }
 
 function Inner() {
   const params = useSearchParams();
   const role = params.get("role") ?? "owner";
   const mine = params.get("mine") !== "0";
+  const failFirstPinRead = params.get("pin-error") === "1";
   const rows = useMemo<Row[]>(() => [
     { id: "m1", channel_id: "channel1", author_id: ME, content: "hello club chat", pinned_at: null, created_at: "2026-09-27T12:00:00Z" },
     { id: "m2", channel_id: "channel1", author_id: OTHER, content: "please read the rules", pinned_at: null, created_at: "2026-09-27T12:01:00Z" },
     { id: "m3", channel_id: "channel2", author_id: OTHER, content: "secret second channel", pinned_at: null, created_at: "2026-09-27T12:02:00Z" },
     { id: "m4", channel_id: "channel1", author_id: OTHER, content: "สวัสดีครับ ไปไหนกัน", pinned_at: null, created_at: "2026-09-27T12:03:00Z" },
     { id: "m5", channel_id: "channel2", author_id: OTHER, content: "สวัสดีจากห้องอื่น", pinned_at: null, created_at: "2026-09-27T12:04:00Z" },
-  ], []);
+    ...(failFirstPinRead ? [{
+      id: "retry-pin", channel_id: "channel1", author_id: OTHER,
+      content: "retry pin loaded", pinned_at: "2026-09-27T12:05:00Z",
+      created_at: "2026-09-27T12:05:00Z",
+    }] : []),
+  ], [failFirstPinRead]);
   const slow = params.get("slow") === "1";
-  const client = useMemo(() => makeClient(rows, slow), [rows, slow]);
+  const client = useMemo(() => makeClient(rows, slow, failFirstPinRead), [rows, slow, failFirstPinRead]);
   const [tick, setTick] = useState(0);
   const [chosen, setChosen] = useState<Row | null>(null);
   const [jumped, setJumped] = useState("");
@@ -61,7 +78,8 @@ function Inner() {
     <main className="route-main">
       <section className="golden-club-chat" aria-label="Club chat Beta2 fixture">
         <ClubChatToolbar client={client} channelId="channel1" refreshToken={tick}
-          onJump={async (id) => { setJumped(id); }} />
+          onJump={async (id) => { setJumped(id); }}
+          onPinRetry={client.allowPinReadAfterRetry} />
         <div className="golden-club-messages">
           <p data-testid="content">{rows[0].content}</p>
           <p data-testid="jumped">{jumped}</p>

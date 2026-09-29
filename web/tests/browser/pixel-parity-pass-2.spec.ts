@@ -58,7 +58,7 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(flutterNav).toContain("Icons.person_rounded");
   expect(flutterNav).toContain("const SizedBox(height: 6)");
 
-  expect(nav).toContain('type MaterialNavKind = "home" | "club" | "chat" | "profile" | "add";');
+  expect(nav).toContain('type MaterialNavKind = "home" | "club" | "chat" | "profile" | "compose";');
   expect(chrome).toContain('unreadNotificationCount > 9 ? "9+"');
   expect(nav).toContain('const homeActive = isActive("/");');
   expect(nav).toContain('kind="home" selected={homeActive}');
@@ -71,7 +71,7 @@ test("pixel parity pass 2 keeps product behavior while applying the approved Hom
   expect(navCss).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
   expect(navCss).toContain("border-radius: 0");
   expect(navCss).toContain("border-top: 1px solid");
-  expect(navCss).toContain("width: 28px");
+  expect(navCss).toContain("width: 32px");
   expect(home).toContain("width: 120px;");
   expect(navCss).toContain("--wyn-nav-safe-bottom: min(env(safe-area-inset-bottom), 20px);");
 
