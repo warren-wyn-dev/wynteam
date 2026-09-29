@@ -161,6 +161,54 @@ jobs:
           })();
           NODE
 
+      - name: Capture post media states
+        run: |
+          node <<'NODE'
+          const { chromium } = require('@playwright/test');
+
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 2,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'th-TH',
+              colorScheme: 'light',
+            });
+
+            const openMediaPost = async () => {
+              await page.goto('http://127.0.0.1:3000/dev/home-fixture', { waitUntil: 'networkidle' });
+              await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+              const post = page.locator('.wyn-post').filter({ has: page.locator('.wyn-post-media-item') }).first();
+              await post.scrollIntoViewIfNeeded();
+              await page.waitForTimeout(150);
+              return post;
+            };
+
+            let post = await openMediaPost();
+            await page.screenshot({ path: '../wynos-beta2-media-normal.png', fullPage: false });
+
+            post = await openMediaPost();
+            const img = post.locator('.wyn-post-media-item').first();
+            await img.evaluate((node) => node.dispatchEvent(new Event('error', { bubbles: true })));
+            await page.locator('.wyn-post-media-fallback').first().waitFor({ state: 'visible' });
+            await page.waitForTimeout(100);
+            await page.screenshot({ path: '../wynos-beta2-media-fallback.png', fullPage: false });
+
+            post = await openMediaPost();
+            const loading = post.locator('.wyn-post-media-item').first();
+            await loading.evaluate((node) => {
+              node.classList.remove('is-loaded');
+              node.classList.add('is-loading');
+            });
+            await page.waitForTimeout(100);
+            await page.screenshot({ path: '../wynos-beta2-media-loading.png', fullPage: false });
+
+            await browser.close();
+          })();
+          NODE
+
       - name: Upload QA matrix
         if: always()
         uses: actions/upload-artifact@v4
@@ -168,6 +216,7 @@ jobs:
           name: wynos-beta2-bottom-nav-qa
           path: |
             wynos-beta2-nav-*.png
+            wynos-beta2-media-*.png
             wynos-beta2-bottom-nav-qa.json
           if-no-files-found: error
           retention-days: 7
