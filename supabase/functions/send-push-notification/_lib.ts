@@ -312,12 +312,12 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
 export type PushPreferenceCategory = "likes" | "comments" | "follows" | "messages" | "club" | "trending" | "system";
 
 export function pushPreferenceCategory(type: string): PushPreferenceCategory {
-  if (type === "like_drop" || type === "like_pop") return "likes";
+  if (type === "like_drop" || type === "like_pop" || type === "redrop") return "likes";
   if (type === "follow" || type === "follow_request" || type === "follow_request_accepted") return "follows";
   if (type === "message_request" || type === "new_message") return "messages";
   if (type.startsWith("club_") || type === "mention_club_post") return "club";
   if (type === "trending") return "trending";
-  if (type === "comment_drop" || type === "comment_pop" || type === "mention_drop" || type === "redrop") return "comments";
+  if (type === "comment_drop" || type === "comment_pop" || type === "mention_drop") return "comments";
   return "system";
 }
 
