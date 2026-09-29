@@ -154,7 +154,7 @@ begin
           and d.deleted_at is null
       ) lp on true
       where (s.lease_until is null or s.lease_until <= now())
-        and not internal.is_posting_blocked(p.id)
+        and not coalesce(internal.is_posting_blocked(p.id), false)
         and exists (
           select 1
           from public.push_tokens pt
@@ -360,7 +360,7 @@ begin
     where f.follower_id = v.user_id
       and d.created_at > v.cursor_at
       and not internal.is_blocked_either_way(v.user_id, d.author_id)
-      and not internal.is_posting_blocked(d.author_id)
+      and not coalesce(internal.is_posting_blocked(d.author_id), false)
       and not exists (
         select 1
         from public.mutes m
