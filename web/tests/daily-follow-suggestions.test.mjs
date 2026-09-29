@@ -50,7 +50,8 @@ test("push click opens the dedicated suggested people view without badge invalid
   assert.match(worker, /web_reactivation" \|\| data\.type === "daily_follow_suggestion/);
   assert.match(search, /params\.get\("suggested"\) === "1"/);
   assert.match(search, /<h1>แนะนำสำหรับคุณ<\/h1>/);
-  assert.match(search, /fetchSuggestedProfiles\(client, suggestedOnly \? 5 : 10\)/);
+  assert.match(search, /suggestedOnly \? fetchDailySuggestedProfiles\(client\) : fetchSuggestedProfiles\(client, 10\)/);
+  assert.match(migration, /daily_follow_suggestions_for_me/);
 });
 
 
