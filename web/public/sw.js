@@ -73,13 +73,29 @@ function pushTarget(data) {
     return `/suggested?source=daily_follow_suggestion${delivery ? `&delivery=${delivery}` : ""}`;
   }
   if (data?.type === "posting_prompt") {
-    const prompt = typeof data?.prompt_key === "string" && /^[a-z0-9-]{1,40}$/i.test(data.prompt_key)
+    const allowedPrompts = new Set([
+      "daily",
+      "first-intro",
+      "first-today",
+      "first-question",
+      "daily-now",
+      "daily-listening",
+      "daily-smallwin",
+      "daily-question",
+      "daily-photo",
+      "daily-interest",
+      "daily-weekend",
+    ]);
+    const prompt = typeof data?.prompt_key === "string" && allowedPrompts.has(data.prompt_key)
       ? data.prompt_key
       : "daily";
     return `/?compose=1&prompt=${encodeURIComponent(prompt)}&source=posting_prompt`;
   }
   const id = (key) => typeof data?.[key] === "string" && PUSH_UUID.test(data[key]) ? data[key] : null;
-  if (data?.type === "followed_post_digest" && id("drop_id")) return `/drop/${id("drop_id")}`;
+  if (data?.type === "followed_post_digest") {
+    const count = Number.parseInt(data?.post_count ?? "0", 10);
+    return count === 1 && id("drop_id") ? `/drop/${id("drop_id")}` : "/";
+  }
   const conversation = id("conversation_id");
   const actor = id("actor_id");
   if (conversation) return `/chat/${conversation}${actor ? `?user=${actor}` : ""}`;
