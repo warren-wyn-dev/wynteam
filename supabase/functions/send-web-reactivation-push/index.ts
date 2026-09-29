@@ -50,6 +50,21 @@ async function rpcRows<T>(
   return await response.json() as T[];
 }
 
+async function rpcValue<T>(
+  name: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: serviceHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`${name} failed with HTTP ${response.status}`);
+  }
+  return await response.json() as T;
+}
+
 async function rpcVoid(
   name: string,
   body: Record<string, unknown>,
@@ -193,6 +208,18 @@ Deno.serve(async (req) => {
         status: 405,
         headers: { Allow: "POST" },
       });
+    }
+
+    const cronToken = req.headers.get("x-wynos-cron-token");
+    if (!cronToken) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const validCronToken = await rpcValue<boolean>(
+      "validate_web_reactivation_cron_token",
+      { p_token: cronToken },
+    );
+    if (!validCronToken) {
+      return new Response("Unauthorized", { status: 401 });
     }
 
     // Request payload is intentionally ignored. Recipients, timing, language,
