@@ -64,6 +64,8 @@ test("cron is release-gated and authenticated by a dedicated Vault key", () => {
   assert.match(migration, /cron\.alter_job[\s\S]*active := false/);
   assert.doesNotMatch(migration, /eyJhbGciOi/);
   assert.doesNotMatch(migration, /sb_secret_/);
+  assert.doesNotMatch(migration, /\nas \$\n/);
+  assert.doesNotMatch(migration, /\ndo \$\n/);
 });
 
 test("sender is Web-only, data-only, and carries the delivery id for attribution", () => {
