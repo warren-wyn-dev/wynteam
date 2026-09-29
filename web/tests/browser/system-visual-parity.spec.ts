@@ -151,7 +151,8 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain("NAV_ACTIVE_ICON_PATHS");
   expect(nav).toContain('className="route-nav-club-outline"');
   expect(nav).toContain('className="route-nav-club-filled"');
-  expect(nav).toContain('strokeWidth="7"');
+  expect(nav).toContain('strokeWidth="5.5"');
+  expect(nav).toContain('M70 101 C76 98 84 98 90 101');
   expect(nav).toContain('className="route-nav-club-separators"');
   expect(nav).toContain('<circle cx="109" cy="97" r="31" />');
   expect(nav).toContain('<circle cx="51" cy="97" r="31" />');
