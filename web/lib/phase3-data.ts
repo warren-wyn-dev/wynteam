@@ -986,6 +986,17 @@ export async function updateNotificationDeveloperSetting(
   fail(result.error, "บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
 }
 
+export async function updateNotificationDeveloperSettings(
+  client: SupabaseClient,
+  userId: string,
+  patch: Partial<NotificationDeveloperSettings>,
+): Promise<void> {
+  const result = await client
+    .from("notification_settings")
+    .upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+  fail(result.error, "บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
+}
+
 export async function updateProfilePrivacySetting(
   client: SupabaseClient,
   userId: string,
