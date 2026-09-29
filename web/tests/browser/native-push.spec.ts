@@ -56,7 +56,7 @@ test("a background DM push opens the conversation in an existing WYNOS window", 
   expect(worker.opened).toEqual([]);
 });
 
-test("an auto-displayed FCM push opens its post; reactivation opens Home; unsafe payloads stay same-origin", async () => {
+test("an auto-displayed FCM push opens its post; lifecycle pushes deep-link safely; unsafe payloads stay same-origin", async () => {
   const postWorker = fakeWorker();
   await postWorker.click({ FCM_MSG: { data: { drop_id: ID } } });
   expect(postWorker.opened).toEqual([`https://wynos.online/drop/${ID}`]);
@@ -64,6 +64,10 @@ test("an auto-displayed FCM push opens its post; reactivation opens Home; unsafe
   const reactivationWorker = fakeWorker();
   await reactivationWorker.click({ type: "web_reactivation", recipient_id: ID });
   expect(reactivationWorker.opened).toEqual(["https://wynos.online/home"]);
+
+  const suggestionWorker = fakeWorker();
+  await suggestionWorker.click({ type: "daily_follow_suggestion", recipient_id: ID });
+  expect(suggestionWorker.opened).toEqual(["https://wynos.online/search?suggested=1"]);
 
   const unsafeWorker = fakeWorker([{ url: "https://external.example/", focus: async () => { throw Error("Should not focus external client"); } }]);
   await unsafeWorker.click({ conversation_id: "//external.example/bad", url: "https://external.example/" });
@@ -217,5 +221,17 @@ test("reactivation push shows a banner without incrementing the notification bad
   });
   expect(worker.banners).toHaveLength(1);
   expect(worker.banners[0].title).toBe("WYNOS");
+  expect(worker.wakeMessages).toEqual([]);
+});
+
+
+test("daily follow suggestion push shows a banner without incrementing the notification badge", async () => {
+  const worker = pushWorker();
+  await worker.push({
+    notification: { title: "คนใหม่ ๆ ที่คุณอาจสนใจ 👋", body: "เราเลือกบัญชีที่น่าสนใจมาให้คุณวันนี้" },
+    data: { type: "daily_follow_suggestion", recipient_id: ID },
+  });
+  expect(worker.banners).toHaveLength(1);
+  expect(worker.banners[0].title).toBe("คนใหม่ ๆ ที่คุณอาจสนใจ 👋");
   expect(worker.wakeMessages).toEqual([]);
 });
