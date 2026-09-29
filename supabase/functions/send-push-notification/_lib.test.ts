@@ -458,6 +458,11 @@ Deno.test("summariseOutcomes distinguishes a total failure from a success", () =
   );
 });
 
+Deno.test("summariseOutcomes reports preference and Quiet Hours skips without false failures", () => {
+  assertEquals(summariseOutcomes(["skipped"]), "OK sent=0 skipped=1");
+  assertEquals(summariseOutcomes(["sent", "skipped"]), "OK sent=1 skipped=1");
+});
+
 Deno.test("summariseOutcomes reports a partial failure with both counts", () => {
   assertEquals(
     summariseOutcomes(["sent", "403 SENDER_ID_MISMATCH"]),
