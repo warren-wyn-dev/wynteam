@@ -46,13 +46,8 @@ create index if not exists notification_push_deliveries_retry_idx
 
 alter table public.notification_push_deliveries enable row level security;
 revoke all on table public.notification_push_deliveries from anon, authenticated;
-do $
-begin
-  if exists (select 1 from pg_roles where rolname = 'service_role') then
-    execute 'grant select, insert, update, delete on table public.notification_push_deliveries to service_role';
-  end if;
-end
-$;
+-- Supabase grants service_role table access through platform default privileges.
+-- Do not expose this internal delivery table to anon/authenticated roles.
 
 -- Postgres Changes requires explicit publication membership. The client still
 -- attaches this channel only after is_developer_account() resolves true.
