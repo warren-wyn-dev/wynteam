@@ -16,7 +16,8 @@ test("reactivation activation is server-backed and stops after a return or five 
   assert.match(tracker, /mark_web_reactivation_seen/);
   assert.match(tracker, /visibilitychange/);
   assert.match(tracker, /5 \* 60 \* 1000/);
-  assert.match(migration, /interval '5 minutes'/);
+  assert.match(tracker, /CONTINUOUS_USE_ACTIVATION_MS/);
+  assert.match(migration, /Any later touch means the person returned to WYNOS/);
   assert.match(migration, /activated_at = now\(\)/);
   assert.match(migration, /next_due_at = null/);
 });
