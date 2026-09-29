@@ -1052,10 +1052,12 @@ export const EN_EXACT: Record<string, string> = {
   "ถามคำถามที่คุณอยากฟังความคิดเห็นจากคนอื่น": "Ask something you'd like others' opinions on",
   "โพสต์จากคนที่คุณติดตาม": "Posts from people you follow",
   "คำแนะนำให้เริ่มโพสต์": "Posting prompts",
+  "เริ่มโพสต์แรกของคุณ": "Create your first post",
 };
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["สร้างโพสต์ {0}", "Create post: {0}"],
   ["ซ่อนคำแนะนำ @{0}", "Hide suggestion @{0}"],
   ["คุณ {0}", "You {0}"],
   ["ข้อความที่ปักหมุด {0}/{1}", "Pinned message {0}/{1}"],
