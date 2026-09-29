@@ -330,10 +330,13 @@ export async function subscribeToPushNotifications(
     // Keep this best-effort: a timezone preference write must never turn a
     // successfully registered Push token into a false "Push failed" result.
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    await client.from("notification_settings")
-      .upsert({ user_id: userId, push_timezone: timezone }, { onConflict: "user_id" })
-      .then(() => undefined)
-      .catch(() => undefined);
+    try {
+      await client.from("notification_settings")
+        .upsert({ user_id: userId, push_timezone: timezone }, { onConflict: "user_id" });
+    } catch {
+      // Token registration already succeeded; timezone will fall back to UTC
+      // until a later settings write/resubscribe updates it.
+    }
 
     setPushChosen(userId, true);
     // On this exact device/account, confirmation is a successful server write,
