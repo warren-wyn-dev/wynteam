@@ -1038,6 +1038,7 @@ export const EN_EXACT: Record<string, string> = {
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["ซ่อนคำแนะนำ @{0}", "Hide suggestion @{0}"],
   ["คุณ {0}", "You {0}"],
   ["ข้อความที่ปักหมุด {0}/{1}", "Pinned message {0}/{1}"],
   ["@{0} บน WYNOS", "@{0} on WYNOS"],
