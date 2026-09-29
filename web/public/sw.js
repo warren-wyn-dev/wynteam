@@ -67,7 +67,12 @@ self.addEventListener("fetch", (event) => {
 const PUSH_UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 function pushTarget(data) {
   if (data?.type === "web_reactivation") return "/home";
-  if (data?.type === "daily_follow_suggestion") return "/search?suggested=1";
+  if (data?.type === "daily_follow_suggestion") {
+    const delivery = typeof data?.delivery_id === "string" && PUSH_UUID.test(data.delivery_id)
+      ? data.delivery_id
+      : null;
+    return `/suggested?source=daily_follow_suggestion${delivery ? `&delivery=${delivery}` : ""}`;
+  }
   const id = (key) => typeof data?.[key] === "string" && PUSH_UUID.test(data[key]) ? data[key] : null;
   const conversation = id("conversation_id");
   const actor = id("actor_id");
