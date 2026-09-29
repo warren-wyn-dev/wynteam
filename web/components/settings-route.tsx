@@ -67,7 +67,7 @@ const developerPushLabels: Array<[keyof Pick<NotificationDeveloperSettings,
   ["push_messages", "ข้อความ"],
   ["push_club", "Club"],
   ["push_trending", "กำลังนิยม"],
-  ["push_system", "ระบบและความปลอดภัย"],
+  ["push_system", "ระบบและแอดมิน"],
 ];
 
 const legalTypes: Array<[string, string]> = [
