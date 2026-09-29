@@ -6,7 +6,7 @@ import {
   pushLanguageFrom,
   safeErrorMessage,
   type FcmServiceAccount,
-} from "../send-push-notification/_lib.ts";
+} from "./_lib.ts";
 
 type Claim = {
   delivery_id: string;
