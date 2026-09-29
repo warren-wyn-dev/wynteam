@@ -46,10 +46,11 @@ test("reactivation delivery is web-only and never creates a shared notification 
 
 test("cron uses Vault names rather than committed credential values", () => {
   assert.match(migration, /wynos_project_url/);
-  assert.match(migration, /wynos_cron_anon_key/);
   assert.match(migration, /wynos_web_reactivation_cron_key/);
   assert.match(edge, /verify_web_reactivation_cron_key/);
   assert.match(edge, /x-wynos-cron-key/);
+  assert.doesNotMatch(edge, /SUPABASE_ANON_KEY/);
+  assert.doesNotMatch(migration, /wynos_cron_anon_key/);
   assert.doesNotMatch(migration, /sb_publishable_/);
   assert.doesNotMatch(migration, /eyJhbGciOi/);
   assert.doesNotMatch(migration, /\nas \$\n/);
