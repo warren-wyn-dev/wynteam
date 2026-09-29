@@ -67,6 +67,7 @@ self.addEventListener("fetch", (event) => {
 const PUSH_UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 function pushTarget(data) {
   if (data?.type === "web_reactivation") return "/home";
+  if (data?.type === "daily_follow_suggestion") return "/search?suggested=1";
   const id = (key) => typeof data?.[key] === "string" && PUSH_UUID.test(data[key]) ? data[key] : null;
   const conversation = id("conversation_id");
   const actor = id("actor_id");
@@ -145,7 +146,7 @@ self.addEventListener("push", (event) => {
   // Wake any open WYNOS tabs with a content-free invalidation hint.
   // A tab always reads its OWN user's rows via Auth/RLS. A late A push
   // after switching to B never includes A's text or profile here.
-  const wakeTabs = data.type === "web_reactivation"
+  const wakeTabs = data.type === "web_reactivation" || data.type === "daily_follow_suggestion"
     ? Promise.resolve()
     : self.clients.matchAll({ type: "window", includeUncontrolled: true })
       .then((windows) => {
