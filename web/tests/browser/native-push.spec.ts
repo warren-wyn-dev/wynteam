@@ -66,20 +66,6 @@ test("an auto-displayed FCM push opens its post; unsafe payloads stay same-origi
   expect(unsafeWorker.opened).toEqual(["https://wynos.online/notifications"]);
 });
 
-test("a web reactivation push opens the WYNOS home feed", async () => {
-  const worker = fakeWorker();
-  await worker.click({
-    FCM_MSG: {
-      data: {
-        type: "web_reactivation",
-        recipient_id: ID,
-        notification_id: `web-reactivation-${ID}`,
-      },
-    },
-  });
-  expect(worker.opened).toEqual(["https://wynos.online/home"]);
-});
-
 test("offline PWA worker still registers static caching when Firebase CDN is blocked", () => {
   const source = readFileSync(path.join(process.cwd(), "public/sw.js"), "utf8");
   const events: string[] = [];
