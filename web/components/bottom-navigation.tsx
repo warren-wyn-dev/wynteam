@@ -50,22 +50,33 @@ export function MaterialNavGlyph({ kind, selected = false }: { kind: MaterialNav
       fillRule="evenodd"
       clipRule="evenodd"
     >
-      {!filled && kind === "club" ? (
-        <g
-          className="route-nav-club-outline"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="8.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="80" cy="47" r="19" />
-          <path d="M43 132 C46 106 60 92 80 92 C100 92 114 106 117 132" />
-          <circle cx="38" cy="66" r="12" />
-          <path d="M14 124 C16 106 25 96 38 96 C46 96 52 100 58 106" />
-          <circle cx="122" cy="66" r="12" />
-          <path d="M146 124 C144 106 135 96 122 96 C114 96 108 100 102 106" />
-        </g>
+      {kind === "club" ? (
+        filled ? (
+          <g className="route-nav-club-filled">
+            <circle cx="80" cy="46" r="18" />
+            <path d="M52 130 C53 102 64 88 80 88 C96 88 107 102 108 130 Z" />
+            <circle cx="31" cy="65" r="11" />
+            <path d="M11 126 C12 107 20 97 31 97 C39 97 44 101 48 108 L48 126 Z" />
+            <circle cx="129" cy="65" r="11" />
+            <path d="M149 126 C148 107 140 97 129 97 C121 97 116 101 112 108 L112 126 Z" />
+          </g>
+        ) : (
+          <g
+            className="route-nav-club-outline"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="80" cy="46" r="18" />
+            <path d="M52 130 C53 102 64 88 80 88 C96 88 107 102 108 130" />
+            <circle cx="31" cy="65" r="11" />
+            <path d="M11 126 C12 107 20 97 31 97 C39 97 44 101 48 108" />
+            <circle cx="129" cy="65" r="11" />
+            <path d="M149 126 C148 107 140 97 129 97 C121 97 116 101 112 108" />
+          </g>
+        )
       ) : (
         <path d={filled ? NAV_ACTIVE_ICON_PATHS[kind] : NAV_ICON_PATHS[kind]} />
       )}
