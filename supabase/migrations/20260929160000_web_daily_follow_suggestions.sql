@@ -84,6 +84,46 @@ $$;
 revoke all on function internal.daily_follow_suggestion_ids(uuid, integer)
   from public, anon, authenticated;
 
+create or replace function public.daily_follow_suggestions_for_me()
+returns table (profile_id uuid)
+language sql
+stable
+security definer
+set search_path = public, internal
+as $
+  with user_tz as (
+    select coalesce(
+      (select s.push_timezone from public.notification_settings s where s.user_id = auth.uid()),
+      'UTC'
+    ) as timezone
+  ),
+  today_delivery as (
+    select d.profile_ids
+    from public.daily_follow_suggestion_deliveries d
+    cross join user_tz tz
+    where d.user_id = auth.uid()
+      and d.local_date = (now() at time zone tz.timezone)::date
+      and d.status in ('claimed', 'sent')
+    order by d.created_at desc
+    limit 1
+  ),
+  chosen as (
+    select unnest(d.profile_ids) as profile_id
+    from today_delivery d
+  ),
+  fallback as (
+    select unnest(internal.daily_follow_suggestion_ids(auth.uid(), 5)) as profile_id
+    where not exists (select 1 from chosen)
+  )
+  select profile_id from chosen
+  union all
+  select profile_id from fallback
+  limit 5;
+$;
+
+revoke all on function public.daily_follow_suggestions_for_me() from public, anon;
+grant execute on function public.daily_follow_suggestions_for_me() to authenticated;
+
 create or replace function public.claim_daily_follow_suggestion_pushes(p_limit integer default 100)
 returns table (
   delivery_id uuid,
