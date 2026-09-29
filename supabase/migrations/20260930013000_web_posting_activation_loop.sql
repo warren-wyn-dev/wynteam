@@ -179,8 +179,8 @@ begin
     )
     select *
     from candidates c
-    where c.local_now::time >= time '18:30'
-      and c.local_now::time < time '19:20'
+    where c.local_now::time >= time '17:00'
+      and c.local_now::time < time '18:00'
       and not exists (
         select 1
         from public.daily_follow_suggestion_deliveries df
@@ -340,7 +340,7 @@ begin
           and df.sent_at >= now() - interval '90 minutes'
       )
       and (now() at time zone tz.name)::time >= time '09:00'
-      and (now() at time zone tz.name)::time < time '21:30'
+      and (now() at time zone tz.name)::time < time '17:00'
     order by s.user_id
     for update of s skip locked
     limit v_limit
