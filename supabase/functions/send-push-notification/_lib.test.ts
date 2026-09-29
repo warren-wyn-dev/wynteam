@@ -273,7 +273,7 @@ Deno.test("buildDataPayload includes conversation_id when set (new_message, WYN-
 // Beta4 §11.6 (Duplicate Protection).
 Deno.test("developer preview maps notification types to the same preference families as WYN-044", () => {
   assertEquals(pushPreferenceCategory("like_drop"), "likes");
-  assertEquals(pushPreferenceCategory("redrop"), "comments");
+  assertEquals(pushPreferenceCategory("redrop"), "likes");
   assertEquals(pushPreferenceCategory("comment_drop"), "comments");
   assertEquals(pushPreferenceCategory("mention_drop"), "comments");
   assertEquals(pushPreferenceCategory("follow_request"), "follows");
