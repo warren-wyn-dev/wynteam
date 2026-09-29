@@ -1,0 +1,190 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { AppChrome, EmptyState, LoadingState, ProfileRowView } from "@/components/phase3-ui";
+import { followButtonLabel } from "@/components/ui/follow-button-label";
+import { WynosIcon } from "@/components/ui/wynos-icon";
+import type { HomeFeedRow } from "@/lib/feed";
+import { loadHomeViewerState, toggleAuthorFollow, type HomeViewerState } from "@/lib/home-actions";
+import { haptic } from "@/lib/haptics";
+import {
+  fetchDailySuggestedProfiles,
+  markDailyFollowSuggestionOpened,
+  type ProfileRow,
+} from "@/lib/phase3-data";
+
+function fakeRows(profiles: ProfileRow[]): HomeFeedRow[] {
+  return profiles.map((profile) => ({
+    id: "",
+    content_type: "drop",
+    author_id: profile.id,
+    author_username: profile.username,
+    author_display_name: profile.display_name,
+    author_avatar_url: profile.avatar_url,
+    created_at: new Date(0).toISOString(),
+  }));
+}
+
+function deliveryFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("source") !== "daily_follow_suggestion") return null;
+  const delivery = params.get("delivery");
+  return delivery && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(delivery)
+    ? delivery
+    : null;
+}
+
+function SuggestedInner({ client, userId }: { client: SupabaseClient; userId: string }) {
+  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
+  const [viewer, setViewer] = useState<HomeViewerState | null>(null);
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [followError, setFollowError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const daily = await fetchDailySuggestedProfiles(client);
+      const next = daily.profiles.filter((profile) => profile.id !== userId);
+      const nextViewer = await loadHomeViewerState(client, userId, fakeRows(next));
+      setProfiles(next);
+      setViewer(nextViewer);
+
+      const deliveryId = deliveryFromLocation() ?? daily.deliveryId;
+      if (deliveryId) {
+        void markDailyFollowSuggestionOpened(client, deliveryId).catch(() => undefined);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "โหลดคำแนะนำไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }, [client, userId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const follow = useCallback(async (profile: ProfileRow) => {
+    if (!viewer || pending.has(profile.id)) return;
+    const wasFollowing = viewer.followedAuthorIds.has(profile.id);
+    const wasRequested = viewer.pendingFollowAuthorIds.has(profile.id);
+    const isPrivate = viewer.privateAuthorIds.has(profile.id) || profile.is_private;
+    if (wasRequested && isPrivate && !window.confirm(`ยกเลิกคำขอติดตาม @${profile.username}?`)) return;
+
+    if (!wasFollowing) haptic();
+    setPending((current) => new Set(current).add(profile.id));
+    setFollowError("");
+
+    try {
+      const state = await toggleAuthorFollow(client, userId, profile.id, {
+        currentlyFollowing: wasFollowing,
+        pendingRequest: wasRequested,
+        isPrivate,
+      });
+      setViewer((current) => {
+        if (!current) return current;
+        const followed = new Set(current.followedAuthorIds);
+        const requested = new Set(current.pendingFollowAuthorIds);
+        if (state === "following") followed.add(profile.id); else followed.delete(profile.id);
+        if (state === "requested") requested.add(profile.id); else requested.delete(profile.id);
+        return { ...current, followedAuthorIds: followed, pendingFollowAuthorIds: requested };
+      });
+    } catch {
+      setFollowError("อัปเดตการติดตามไม่สำเร็จ กรุณาลองอีกครั้ง");
+    } finally {
+      setPending((current) => {
+        const next = new Set(current);
+        next.delete(profile.id);
+        return next;
+      });
+    }
+  }, [client, pending, userId, viewer]);
+
+  const dismiss = useCallback(async (profile: ProfileRow) => {
+    const before = profiles;
+    setProfiles((current) => current.filter((item) => item.id !== profile.id));
+    const result = await client.from("profile_recommendation_dismissals").insert({
+      user_id: userId,
+      dismissed_profile_id: profile.id,
+    });
+    if (result.error) {
+      setProfiles(before);
+      setError("ซ่อนคำแนะนำไม่สำเร็จ กรุณาลองใหม่");
+    }
+  }, [client, profiles, userId]);
+
+  return (
+    <AppChrome title="แนะนำสำหรับคุณ" userId={userId} backHref="/home" showBottomNav={false}>
+      <div className="suggested-route">
+        <header className="suggested-route-intro">
+          <strong>เราเลือกบัญชีที่คุณอาจสนใจ</strong>
+          <p>อ้างอิงจากการติดตามร่วมกันและบัญชีที่น่าสนใจบน WYNOS</p>
+        </header>
+
+        {error ? (
+          <div className="route-empty">
+            <p>{error}</p>
+            <button className="route-secondary" type="button" onClick={() => void load()}>ลองใหม่</button>
+          </div>
+        ) : loading && !profiles.length ? (
+          <LoadingState />
+        ) : !profiles.length ? (
+          <EmptyState>ยังไม่มีบัญชีแนะนำสำหรับคุณตอนนี้</EmptyState>
+        ) : (
+          <div className="route-list suggested-route-list">
+            {profiles.map((profile) => {
+              const following = viewer?.followedAuthorIds.has(profile.id) ?? false;
+              const requested = viewer?.pendingFollowAuthorIds.has(profile.id) ?? false;
+              return (
+                <div className="suggested-route-row" key={profile.id}>
+                  <ProfileRowView
+                    profile={profile}
+                    trailing={(
+                      <span className="suggested-route-actions">
+                        <button
+                          className={`route-pill ${following || requested ? "soft" : ""}`}
+                          type="button"
+                          disabled={!viewer || pending.has(profile.id)}
+                          onClick={() => void follow(profile)}
+                        >
+                          {followButtonLabel({
+                            busy: pending.has(profile.id),
+                            following,
+                            requested,
+                          })}
+                        </button>
+                        <button
+                          className="route-icon-button suggested-hide"
+                          type="button"
+                          aria-label={`ซ่อนคำแนะนำ @${profile.username}`}
+                          onClick={() => void dismiss(profile)}
+                        >
+                          <WynosIcon name="close" size={16} strokeWidth={2} />
+                        </button>
+                      </span>
+                    )}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {followError ? <p className="route-error route-pad" role="alert">{followError}</p> : null}
+      </div>
+    </AppChrome>
+  );
+}
+
+export function SuggestedRoute() {
+  return (
+    <DeveloperRouteGate>
+      {({ client, userId }) => <SuggestedInner client={client} userId={userId} />}
+    </DeveloperRouteGate>
+  );
+}
