@@ -17751,20 +17751,8 @@ alter table public.notification_settings
   add column if not exists push_quiet_end time not null default '08:00',
   add column if not exists push_timezone text not null default 'UTC';
 
--- Restore the notification tables' original owner-only RLS contract. These
--- production-drift policies were broader than the source-of-truth policies.
-drop policy if exists wyn157_permanent_insert on public.developer_accounts;
-drop policy if exists wyn157_permanent_update on public.developer_accounts;
-drop policy if exists wyn157_permanent_delete on public.developer_accounts;
-drop policy if exists wyn157_permanent_insert on public.notification_settings;
-drop policy if exists wyn157_permanent_update on public.notification_settings;
-drop policy if exists wyn157_permanent_delete on public.notification_settings;
-drop policy if exists wyn157_permanent_insert on public.notifications;
-drop policy if exists wyn157_permanent_update on public.notifications;
-drop policy if exists wyn157_permanent_delete on public.notifications;
-drop policy if exists wyn157_permanent_insert on public.push_tokens;
-drop policy if exists wyn157_permanent_update on public.push_tokens;
-drop policy if exists wyn157_permanent_delete on public.push_tokens;
+-- Keep WYN-157's RESTRICTIVE guest-write policies in place. They are
+-- additional guards (AND-ed with feature policies), not broad grants.
 
 -- The allowlist is intentionally RPC-only. is_developer_account() is
 -- SECURITY DEFINER, so removing direct table grants does not affect the gate.
@@ -17794,7 +17782,13 @@ create index if not exists notification_push_deliveries_retry_idx
 
 alter table public.notification_push_deliveries enable row level security;
 revoke all on table public.notification_push_deliveries from anon, authenticated;
-grant select, insert, update, delete on table public.notification_push_deliveries to service_role;
+do $
+begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant select, insert, update, delete on table public.notification_push_deliveries to service_role;
+  end if;
+end
+$;
 
 -- Postgres Changes requires explicit publication membership. The client still
 -- attaches this channel only after is_developer_account() resolves true.
@@ -17813,5 +17807,5 @@ begin
 end
 $$;
 
-commit;
 
+commit;
