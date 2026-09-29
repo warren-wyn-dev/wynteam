@@ -152,6 +152,7 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain('className="route-nav-club-outline"');
   expect(nav).toContain('className="route-nav-club-filled"');
   expect(nav).toContain('d={filled ? CLUB_REFERENCE_FILLED_PATH : CLUB_REFERENCE_OUTLINE_PATH}');
+  expect(nav).toContain('strokeWidth={filled ? undefined : 1.35}');
   expect(nav).toContain("CLUB_REFERENCE_FILLED_PATH");
   expect(nav).toContain("CLUB_REFERENCE_OUTLINE_PATH");
   expect(nav).toContain('const filled = selected && kind !== "compose"');
@@ -160,7 +161,7 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain('postActive ? "active" : ""');
   expect(navCss).toContain("gap: 5px");
   expect(navCss).toContain("font-weight: 600");
-  expect(navCss).toContain(".route-nav-glyph--club { --wyn-nav-glyph-scale: 1.08; }");
+  expect(navCss).toContain(".route-nav-glyph--club { --wyn-nav-glyph-scale: 1.17; }");
   expect(navCss).toContain(".route-nav-glyph--compose { --wyn-nav-glyph-scale: 0.93; }");
   expect(navCss).toContain(".route-nav-glyph--chat { --wyn-nav-glyph-scale: 1; }");
   expect(navCss).toContain(".route-nav-glyph--profile { --wyn-nav-glyph-scale: 0.96; }");
