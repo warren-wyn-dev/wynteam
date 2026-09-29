@@ -14,6 +14,7 @@ function fixture() {
   let activeSlot = "wynos.account.test-a";
   let online = true;
   let developer = true;
+  let developerRpcThrows = false;
   let countResult = 3;
   let nextFetch = null;
   let snapshot = () => 0;
@@ -90,6 +91,7 @@ function fixture() {
     removeChannel: async (channel) => { channel.removed = true; },
     rpc: async (name) => {
       assert.equal(name, "is_developer_account");
+      if (developerRpcThrows) throw new Error("network unavailable");
       return { data: developer, error: null };
     },
   };
@@ -147,6 +149,7 @@ function fixture() {
     changeSlot: (slot) => { activeSlot = slot; },
     setOnline: (value) => { online = value; },
     setDeveloper: (value) => { developer = value; },
+    setDeveloperRpcThrows: (value) => { developerRpcThrows = value; },
     pulse: (event = "INSERT", data = { id: "new-1", recipient_id: "account-a", type: "like_drop", is_read: false }) => {
       channels[0].callbacks[event].callback({ new: data });
     },
@@ -197,6 +200,18 @@ test("a stale SQL response must never erase a newer Realtime badge", async () =>
   await flush();
   assert.equal(f.count, 3, "after reconciling, only the new server count is authoritative");
   assert.equal(f.unreadQueries, 2);
+  f.cleanup();
+});
+
+test("a failed developer gate RPC fails closed without breaking notification fallbacks", async () => {
+  const f = fixture();
+  f.setDeveloperRpcThrows(true);
+  f.hook();
+  await flush();
+  assert.equal(f.channels.length, 0);
+  assert.equal(f.count, 3);
+  f.push({ recipientId: "account-a", notificationId: "fallback-push", type: "follow" });
+  assert.equal(f.count, 4);
   f.cleanup();
 });
 
