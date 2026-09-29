@@ -6,6 +6,11 @@ const migration = readFileSync(
   new URL("../../supabase/migrations/20260929190537_web_posting_activation_loop.sql", import.meta.url),
   "utf8",
 );
+const hardening = readFileSync(
+  new URL("../../supabase/migrations/20260929190851_posting_activity_restriction_null_safety.sql", import.meta.url),
+  "utf8",
+);
+
 const edge = readFileSync(
   new URL("../../supabase/functions/send-posting-activity/index.ts", import.meta.url),
   "utf8",
@@ -51,12 +56,12 @@ test("posting nudges target recently active non-posters without daily spam", () 
   assert.match(migration, /c\.last_post_at <= now\(\) - interval '7 days'/);
   assert.match(migration, /c\.last_sent_at <= now\(\) - interval '3 days'/);
   assert.match(migration, /c\.last_sent_at <= now\(\) - interval '7 days'/);
-  assert.match(migration, /local_now::time >= time '17:00'/);
-  assert.match(migration, /local_now::time < time '18:00'/);
+  assert.match(migration, /local_now::time >= time '18:30'/);
+  assert.match(migration, /local_now::time < time '19:20'/);
   assert.match(migration, /daily_follow_suggestion_deliveries/);
   assert.match(migration, /interval '90 minutes'/);
   assert.match(migration, /daily_follow_quiet_now/);
-  assert.match(migration, /not coalesce\(internal\.is_posting_blocked\(p\.id\), false\)/);
+  assert.match(migration, /not internal\.is_posting_blocked\(p\.id\)/);
 });
 
 test("followed-post digests are batched, public-only, cursor-based and low frequency", () => {
@@ -66,11 +71,11 @@ test("followed-post digests are batched, public-only, cursor-based and low frequ
   assert.match(migration, /d\.deleted_at is null/);
   assert.match(migration, /d\.created_at > v\.cursor_at/);
   assert.match(migration, /is_blocked_either_way\(v\.user_id, d\.author_id\)/);
-  assert.match(migration, /coalesce\(internal\.is_posting_blocked\(d\.author_id\), false\)/);
+  assert.match(migration, /is_posting_blocked\(d\.author_id\)/);
   assert.match(migration, /m\.muter_id = v\.user_id[\s\S]*m\.muted_id = d\.author_id/);
   assert.match(migration, /last_sent_at <= now\(\) - interval '3 hours'/);
   assert.match(migration, /time '09:00'/);
-  assert.match(migration, /time '17:00'/);
+  assert.match(migration, /time '21:30'/);
   assert.match(migration, /count\(distinct d\.author_id\)/);
   assert.match(migration, /pending_cursor_at/);
 });
@@ -114,4 +119,13 @@ test("no Email notification path is introduced", () => {
   const combined = [migration, edge, worker, home, composer, settings, data].join("\n").toLowerCase();
   assert.doesNotMatch(combined, /email notification/);
   assert.doesNotMatch(combined, /send[_-]?email/);
+});
+
+test("follow-up hardening keeps restriction checks null-safe and separates engagement windows", () => {
+  assert.match(hardening, /not coalesce\(internal\.is_posting_blocked\(p\.id\), false\)/);
+  assert.match(hardening, /not coalesce\(internal\.is_posting_blocked\(d\.author_id\), false\)/);
+  assert.match(hardening, /local_now::time >= time '17:00'/);
+  assert.match(hardening, /local_now::time < time '18:00'/);
+  assert.match(hardening, /time '09:00'/);
+  assert.match(hardening, /time '17:00'/);
 });
