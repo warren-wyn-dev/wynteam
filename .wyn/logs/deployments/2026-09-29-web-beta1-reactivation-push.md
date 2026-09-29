@@ -64,8 +64,7 @@ The hourly pg_cron caller does not embed an API key.
 
 1. Unschedule `wynos-web-reactivation-push`.
 2. Disable/remove `send-web-reactivation-push`.
-3. Revert the Web service-worker/activation heartbeat commit.
-4. Drop `profiles_enroll_web_reactivation` and the reactivation RPCs.
-5. Drop the private reactivation state/auth tables if full data cleanup is explicitly approved.
+3. Drop `profiles_enroll_web_reactivation`, the Push-token activation triggers, and the reactivation RPCs if a full schema rollback is required.
+4. Drop the private reactivation state/auth tables if full data cleanup is explicitly approved.
 
-Rollback steps 4–5 are schema-destructive and therefore require a separate explicit Founder approval.
+Rollback steps 3–4 are schema-destructive and therefore require a separate explicit Founder approval.
