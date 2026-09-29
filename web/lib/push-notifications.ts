@@ -325,19 +325,6 @@ export async function subscribeToPushNotifications(
         { onConflict: "token" },
       );
     if (error) return { ok: false, reason: "server-failed" };
-
-    // Daily/Quiet-Hours scheduling needs the browser's real local timezone.
-    // Keep this best-effort: a timezone preference write must never turn a
-    // successfully registered Push token into a false "Push failed" result.
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    try {
-      await client.from("notification_settings")
-        .upsert({ user_id: userId, push_timezone: timezone }, { onConflict: "user_id" });
-    } catch {
-      // Token registration already succeeded; timezone will fall back to UTC
-      // until a later settings write/resubscribe updates it.
-    }
-
     setPushChosen(userId, true);
     // On this exact device/account, confirmation is a successful server write,
     // not merely a granted OS notification permission. Display and in-app
