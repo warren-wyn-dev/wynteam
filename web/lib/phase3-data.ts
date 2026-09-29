@@ -569,14 +569,18 @@ export function fetchSuggestedProfiles(client: SupabaseClient, limit = 10) {
 
 export async function fetchDailySuggestedProfiles(
   client: SupabaseClient,
+  deliveryId?: string | null,
 ): Promise<{ profiles: ProfileRow[]; deliveryId: string | null }> {
-  const delivery = await client
+  let query = client
     .from("daily_follow_suggestion_deliveries")
     .select("id,profile_ids")
-    .eq("status", "sent")
-    .order("sent_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .eq("status", "sent");
+
+  query = deliveryId
+    ? query.eq("id", deliveryId)
+    : query.order("sent_at", { ascending: false });
+
+  const delivery = await query.limit(1).maybeSingle();
   fail(delivery.error, "โหลดคำแนะนำประจำวันไม่สำเร็จ");
 
   const ids = Array.isArray(delivery.data?.profile_ids)
