@@ -130,6 +130,7 @@ Deno.serve(async (req: Request) => {
                   type: "daily_follow_suggestion",
                   recipient_id: claim.user_id,
                   delivery_id: claim.delivery_id,
+                  notification_id: claim.delivery_id,
                   suggestion_count: String(claim.profile_ids.length),
                   push_title: title,
                   push_body: body,
