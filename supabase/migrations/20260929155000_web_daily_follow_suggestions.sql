@@ -131,7 +131,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $daily_follow$
   select exists (
     select 1
     from public.profiles p
@@ -177,7 +177,7 @@ as $
           and p.id = any(h7.profile_ids)
       )
   );
-$;
+$daily_follow$;
 
 create or replace function public.claim_daily_follow_suggestions(
   p_limit integer default 50
