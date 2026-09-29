@@ -116,6 +116,7 @@ test("Settings root preserves exact current seven-row structure", () => {
 test("root navigation keeps the five WYNOS destinations with the approved web-app dock geometry", () => {
   const navCss = read("app/bottom-nav.css");
   const nav = read("components/bottom-navigation.tsx");
+  const navRuntime = read("components/app-bottom-nav-runtime.tsx");
   const metrics = read("../app/lib/core/design/wynos_founder_metrics.dart");
   const flutterNav = read("../app/lib/features/root/presentation/widgets/wynos_founder_bottom_navigation.dart");
 
@@ -161,7 +162,7 @@ test("root navigation keeps the five WYNOS destinations with the approved web-ap
   expect(nav).toContain('strokeLinecap="round"');
   expect(nav).toContain('const filled = selected && kind !== "compose"');
   expect(navCss).toContain("--wyn-nav-icon: #111111");
-  expect(nav).toContain('postActive={postActive}');
+  expect(navRuntime).toContain('postActive={postActive}');
   expect(nav).toContain('postActive ? "active" : ""');
   expect(navCss).toContain("gap: 5px");
   expect(navCss).toContain("font-weight: 600");
