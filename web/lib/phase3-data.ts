@@ -359,16 +359,35 @@ export async function searchDrops(
   query: string,
   page = 0,
 ): Promise<HomeFeedRow[]> {
-  const from = page * 21;
+  const ranked = await client.rpc("search_drop_ids_ranked", {
+    p_query: query.trim(),
+    p_limit: 21,
+    p_offset: page * 21,
+  });
+  fail(ranked.error, "ค้นหาโพสต์ไม่สำเร็จ");
+
+  const ids = ((ranked.data ?? []) as Array<{ id?: string | null }>)
+    .map((row) => row.id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  if (!ids.length) return [];
+
   const result = await client
     .from("drops")
     .select(dropCardSelect)
-    .ilike("caption", `%${query.trim()}%`)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .range(from, from + 20);
+    .in("id", ids)
+    .is("deleted_at", null);
   fail(result.error, "ค้นหาโพสต์ไม่สำเร็จ");
-  return (result.data ?? []).map((row) => asDrop(row as Record<string, unknown>));
+
+  const byId = new Map(
+    (result.data ?? []).map((row) => {
+      const mapped = asDrop(row as Record<string, unknown>);
+      return [mapped.id, mapped] as const;
+    }),
+  );
+  return ids.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [row] : [];
+  });
 }
 
 async function signClubMedia(client: SupabaseClient, path: unknown): Promise<string | null> {
