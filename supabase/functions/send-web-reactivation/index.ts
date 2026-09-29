@@ -136,6 +136,10 @@ Deno.serve(async (req: Request) => {
     const auth = req.headers.get("authorization") ?? "";
     if (auth !== `Bearer ${ANON_KEY}`) return new Response("Forbidden", { status: 403 });
 
+    const cronKey = req.headers.get("x-wynos-cron-key") ?? "";
+    const cronAuthorized = await rpc<boolean>("verify_web_reactivation_cron_key", { p_key: cronKey });
+    if (!cronAuthorized) return new Response("Forbidden", { status: 403 });
+
     const payload = await req.json().catch(() => ({}));
     if (payload?.source !== "pg_cron") return new Response("Ignored", { status: 200 });
     if (!FCM_SERVICE_ACCOUNT) return new Response("FCM not configured", { status: 500 });
