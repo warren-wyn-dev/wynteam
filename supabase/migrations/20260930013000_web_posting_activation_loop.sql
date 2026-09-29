@@ -95,6 +95,8 @@ begin
 end;
 $posting_activity_enroll$;
 
+revoke all on function internal.enroll_posting_activity_state() from public, anon, authenticated;
+
 drop trigger if exists profiles_enroll_posting_activity on public.profiles;
 create trigger profiles_enroll_posting_activity
 after insert on public.profiles
@@ -152,6 +154,7 @@ begin
           and d.deleted_at is null
       ) lp on true
       where (s.lease_until is null or s.lease_until <= now())
+        and not internal.is_posting_blocked(p.id)
         and exists (
           select 1
           from public.push_tokens pt
@@ -356,7 +359,14 @@ begin
      and d.audience = 'everyone'
     where f.follower_id = v.user_id
       and d.created_at > v.cursor_at
-      and not internal.is_blocked_either_way(v.user_id, d.author_id);
+      and not internal.is_blocked_either_way(v.user_id, d.author_id)
+      and not internal.is_posting_blocked(d.author_id)
+      and not exists (
+        select 1
+        from public.mutes m
+        where m.muter_id = v.user_id
+          and m.muted_id = d.author_id
+      );
 
     if coalesce(v_batch.post_count, 0) = 0 or v_batch.latest_at is null then
       continue;
