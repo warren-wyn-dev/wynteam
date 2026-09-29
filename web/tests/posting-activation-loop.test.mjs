@@ -51,8 +51,8 @@ test("posting nudges target recently active non-posters without daily spam", () 
   assert.match(migration, /c\.last_post_at <= now\(\) - interval '7 days'/);
   assert.match(migration, /c\.last_sent_at <= now\(\) - interval '3 days'/);
   assert.match(migration, /c\.last_sent_at <= now\(\) - interval '7 days'/);
-  assert.match(migration, /local_now::time >= time '18:30'/);
-  assert.match(migration, /local_now::time < time '19:20'/);
+  assert.match(migration, /local_now::time >= time '17:00'/);
+  assert.match(migration, /local_now::time < time '18:00'/);
   assert.match(migration, /daily_follow_suggestion_deliveries/);
   assert.match(migration, /interval '90 minutes'/);
   assert.match(migration, /daily_follow_quiet_now/);
@@ -70,7 +70,7 @@ test("followed-post digests are batched, public-only, cursor-based and low frequ
   assert.match(migration, /m\.muter_id = v\.user_id[\s\S]*m\.muted_id = d\.author_id/);
   assert.match(migration, /last_sent_at <= now\(\) - interval '3 hours'/);
   assert.match(migration, /time '09:00'/);
-  assert.match(migration, /time '21:30'/);
+  assert.match(migration, /time '17:00'/);
   assert.match(migration, /count\(distinct d\.author_id\)/);
   assert.match(migration, /pending_cursor_at/);
 });
