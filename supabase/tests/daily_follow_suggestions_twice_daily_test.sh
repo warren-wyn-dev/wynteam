@@ -192,7 +192,7 @@ psql -X -d "$DB" -v ON_ERROR_STOP=1 -f "$WORK/stub.sql" >/dev/null
 
 # Apply twice to prove the migration is idempotent.
 for _ in 1 2; do
-  psql -X -d "$DB" -v ON_ERROR_STOP=1     -f "$ROOT/supabase/migrations/20260930030000_daily_follow_suggestions_twice_daily.sql" >/dev/null
+  psql -X -d "$DB" -v ON_ERROR_STOP=1     -f "$ROOT/supabase/migrations/20260929201547_daily_follow_suggestions_twice_daily.sql" >/dev/null
 done
 
 psql -X -d "$DB" -v ON_ERROR_STOP=1 -f "$WORK/assert.sql"
