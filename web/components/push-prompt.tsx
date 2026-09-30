@@ -15,6 +15,7 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const SHOW_DELAY_MS = 4000;
+const HIGH_INTENT_SHOW_DELAY_MS = 1200;
 // Same event the Settings install row uses to open the install instructions.
 const OPEN_INSTALL_EVENT = "wynos:open-install";
 
@@ -45,7 +46,7 @@ export function PushPrompt() {
   const pathname = usePathname() ?? "";
   const [userId, setUserId] = useState<string | null>(null);
   // Tied to the account it was worked out for, so it never shows for the next account.
-  const [prompt, setPrompt] = useState<{ userId: string; kind: "ask" | "install" } | null>(null);
+  const [prompt, setPrompt] = useState<{ userId: string; kind: "ask" | "install" | "settings" } | null>(null);
   const kind = prompt && prompt.userId === userId && isPushPromptPath(pathname) ? prompt.kind : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -62,15 +63,21 @@ export function PushPrompt() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    const delay = /^\/(chat|notifications)(\/|$)/.test(pathname)
+      ? HIGH_INTENT_SHOW_DELAY_MS
+      : SHOW_DELAY_MS;
     const timer = window.setTimeout(async () => {
       const permission = typeof Notification === "undefined" ? "unsupported" : Notification.permission;
-      // Nothing to ask: skip the availability check (it loads Firebase).
-      if (permission === "granted" || permission === "denied") return;
-      const availability = await getPushAvailability();
+      // Granted needs no prompt. Denied skips Firebase loading but can still
+      // show a recovery card on Chat/Notifications.
+      if (permission === "granted") return;
+      const availability = permission === "denied"
+        ? ({ available: false, reason: "denied" } as const)
+        : await getPushAvailability();
       if (cancelled) return;
       const next = pushPromptKind({ path: pathname, permission, availability, dismissedAt: readDismissedAt(), now: Date.now() });
       setPrompt(next ? { userId, kind: next } : null);
-    }, SHOW_DELAY_MS);
+    }, delay);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -111,8 +118,16 @@ export function PushPrompt() {
   };
 
   const showInstall = () => {
-    dismiss();
+    // This is forward progress, not a dismissal. Do not start the seven-day
+    // Push cooldown: after the user installs/opens the iOS Home Screen app,
+    // WYNOS should be able to ask for notification permission right away.
+    setPrompt(null);
     window.dispatchEvent(new Event(OPEN_INSTALL_EVENT));
+  };
+
+  const showPermissionHelp = () => {
+    writeDismissedAt();
+    window.location.assign("/settings");
   };
 
   return (
@@ -120,10 +135,12 @@ export function PushPrompt() {
       <div className="install-prompt-row">
         <span className="push-prompt-icon" aria-hidden="true"><WynosIcon name="notifications" size={22} strokeWidth={2} /></span>
         <div className="install-prompt-copy">
-          <strong>เปิดการแจ้งเตือน</strong>
+          <strong>{kind === "settings" ? "เปิดการแจ้งเตือนอีกครั้ง" : "เปิดการแจ้งเตือน"}</strong>
           <small>{kind === "install" ?
             "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้" :
-            "รู้เมื่อมีข้อความ การตอบกลับ และโพสต์ใหม่จากคนที่คุณติดตาม"}</small>
+            kind === "settings" ?
+              "เบราว์เซอร์ปิดสิทธิ์แจ้งเตือนอยู่ เปิดสิทธิ์ให้ WYNOS เพื่อไม่พลาดข้อความและการตอบกลับ" :
+              "รู้ทันทีเมื่อมีข้อความ การตอบกลับ และกิจกรรมสำคัญใน WYNOS"}</small>
         </div>
         <button type="button" className="install-prompt-close" aria-label="ปิด" onClick={dismiss}>
           <WynosIcon name="close" size={16} strokeWidth={2} />
@@ -134,7 +151,9 @@ export function PushPrompt() {
         <button type="button" className="install-prompt-ghost" onClick={dismiss}>ไม่ใช่ตอนนี้</button>
         {kind === "install" ?
           <button type="button" className="install-prompt-primary" onClick={showInstall}>วิธีเพิ่มไปยังหน้าจอโฮม</button> :
-          <button type="button" className="install-prompt-primary" disabled={busy} onClick={() => void allow()}>{busy ? "กำลังเปิด…" : "อนุญาต"}</button>}
+          kind === "settings" ?
+            <button type="button" className="install-prompt-primary" onClick={showPermissionHelp}>ดูวิธีเปิด</button> :
+            <button type="button" className="install-prompt-primary" disabled={busy} onClick={() => void allow()}>{busy ? "กำลังเปิด…" : "เปิดการแจ้งเตือน"}</button>}
       </div>
     </div>
   );
