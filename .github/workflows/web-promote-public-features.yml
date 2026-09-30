@@ -56,7 +56,7 @@ jobs:
             exit 1
           }
 
-          npx --yes vercel@latest curl /api/push-config             --deployment "$PREVIEW_URL"             --token="$VERCEL_TOKEN"             > /tmp/preview-push-config.json
+          npx --yes vercel@latest curl /api/push-config             --deployment "$PREVIEW_URL"             > /tmp/preview-push-config.json
 
           node -e '
             const fs = require("fs");
@@ -72,7 +72,7 @@ jobs:
 
           for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested; do
             echo "Checking preview $route"
-            npx --yes vercel@latest curl "$route"               --deployment "$PREVIEW_URL"               --token="$VERCEL_TOKEN"               >/dev/null
+            npx --yes vercel@latest curl "$route"               --deployment "$PREVIEW_URL"               >/dev/null
           done
 
       - name: Promote validated preview to production
