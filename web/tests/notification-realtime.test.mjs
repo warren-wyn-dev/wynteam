@@ -203,24 +203,24 @@ test("a stale SQL response must never erase a newer Realtime badge", async () =>
   f.cleanup();
 });
 
-test("a failed developer gate RPC fails closed without breaking notification fallbacks", async () => {
+test("Realtime is GA and no longer depends on the developer gate RPC", async () => {
   const f = fixture();
   f.setDeveloperRpcThrows(true);
   f.hook();
   await flush();
-  assert.equal(f.channels.length, 0);
+  assert.equal(f.channels.length, 1);
   assert.equal(f.count, 3);
   f.push({ recipientId: "account-a", notificationId: "fallback-push", type: "follow" });
   assert.equal(f.count, 4);
   f.cleanup();
 });
 
-test("regular accounts keep polling and Push fallbacks without attaching the preview Realtime channel", async () => {
+test("regular accounts attach Realtime while retaining polling and Push fallbacks", async () => {
   const f = fixture();
   f.setDeveloper(false);
   f.hook();
   await flush();
-  assert.equal(f.channels.length, 0);
+  assert.equal(f.channels.length, 1);
   assert.equal(f.count, 3);
   f.push({ recipientId: "account-a", notificationId: "regular-push", type: "follow" });
   assert.equal(f.count, 4);
