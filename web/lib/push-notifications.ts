@@ -148,6 +148,7 @@ export const PUSH_PROMPT_DISMISS_KEY = "wynos.push.prompt.dismissed-at.v1";
 export const PUSH_PROMPT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 // Main app screens only: never over sign-in/sign-up, Settings (it has the switch) or legal pages.
 const PUSH_PROMPT_PATHS = /^\/(home|chat|notifications|clubs?|profile|search|trending|bookmarks|post|drop)(\/|$)/;
+const PUSH_PERMISSION_RECOVERY_PATHS = /^\/(chat|notifications)(\/|$)/;
 
 export function isPushPromptPath(path: string): boolean {
   return PUSH_PROMPT_PATHS.test(path);
@@ -161,7 +162,9 @@ export function isPushPromptPath(path: string): boolean {
  *
  * - "ask": the card with an Allow button.
  * - "install": iPhone/iPad in a Safari tab — Push needs the Home Screen app first.
- * - null: nothing to ask (already answered, unsupported, snoozed, wrong screen).
+ * - "settings": permission was denied before; show recovery guidance only on
+ *   high-intent Chat/Notifications screens, where Push has an obvious benefit.
+ * - null: nothing to ask (already enabled, unsupported, snoozed, wrong screen).
  */
 export function pushPromptKind(state: {
   path: string;
@@ -169,12 +172,15 @@ export function pushPromptKind(state: {
   availability: PushAvailability;
   dismissedAt: number | null;
   now: number;
-}): "ask" | "install" | null {
+}): "ask" | "install" | "settings" | null {
   if (!isPushPromptPath(state.path)) return null;
   if (state.dismissedAt !== null && state.now - state.dismissedAt < PUSH_PROMPT_COOLDOWN_MS) return null;
   if (!state.availability.available && state.availability.reason === "install-required") return "install";
+  if (state.permission === "denied") {
+    return PUSH_PERMISSION_RECOVERY_PATHS.test(state.path) ? "settings" : null;
+  }
   // "granted" means they already said yes (and may have turned WYNOS Push off
-  // in Settings on purpose); "denied" can only be undone in the phone's settings.
+  // in Settings on purpose). Unsupported browsers have no recovery path.
   if (state.permission !== "default") return null;
   return state.availability.available ? "ask" : null;
 }
