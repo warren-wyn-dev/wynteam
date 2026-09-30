@@ -30,9 +30,21 @@ test("never over sign-in, sign-up, onboarding, Settings or the landing page", ()
   }
 });
 
-test("already answered: granted or denied is never asked again", () => {
+test("granted is never asked again; denied gets recovery only where Push matters most", () => {
   assert.equal(pushPromptKind({ ...base, permission: "granted" }), null);
-  assert.equal(pushPromptKind({ ...base, permission: "denied" }), null);
+  assert.equal(pushPromptKind({
+    ...base,
+    permission: "denied",
+    availability: { available: false, reason: "denied" },
+  }), null);
+  for (const path of ["/chat", "/chat/abc", "/notifications"]) {
+    assert.equal(pushPromptKind({
+      ...base,
+      path,
+      permission: "denied",
+      availability: { available: false, reason: "denied" },
+    }), "settings", path);
+  }
 });
 
 test("unsupported or unconfigured devices are not asked", () => {
@@ -57,4 +69,23 @@ test("the OS permission popup is only requested from the Allow tap", () => {
   const effects = source.slice(0, source.indexOf("const allow = async"));
   assert.doesNotMatch(effects, /subscribeToPushNotifications\(/);
   assert.match(source, /onClick=\{\(\) => void allow\(\)\}/);
+});
+
+
+test("iOS install handoff does not accidentally snooze the Push question for seven days", () => {
+  const source = readFileSync(new URL("../components/push-prompt.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("const showInstall =");
+  const end = source.indexOf("const showPermissionHelp =", start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const handoff = source.slice(start, end);
+  assert.doesNotMatch(handoff, /dismiss\(\)/);
+  assert.match(handoff, /setPrompt\(null\)/);
+  assert.match(handoff, /OPEN_INSTALL_EVENT/);
+});
+
+test("Chat and Notifications use the faster high-intent prompt delay", () => {
+  const source = readFileSync(new URL("../components/push-prompt.tsx", import.meta.url), "utf8");
+  assert.match(source, /HIGH_INTENT_SHOW_DELAY_MS\s*=\s*1200/);
+  assert.match(source, /\^\\\/\(chat\|notifications\)/);
 });
