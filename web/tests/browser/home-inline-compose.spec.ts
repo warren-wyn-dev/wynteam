@@ -10,11 +10,12 @@ for (const width of [320, 390, 432]) {
     await page.setViewportSize({ width, height: 768 });
     await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
     const tabs = page.locator(".wyn-home-tabs");
-    const row = page.getByRole("link", { name: "สร้างโพสต์ มีอะไรอยากแชร์?" });
+    const row = page.locator("a.wyn-home-quick-compose");
 
     await expect(row).toBeVisible();
-    await expect(row).toHaveAttribute("href", "/?compose=1");
-    await expect(row).toContainText("มีอะไรอยากแชร์?");
+    await expect(row).toHaveAttribute("href", /^\/\?compose=1&prompt=[^&]+$/);
+    await expect(row).toContainText("หัวข้อวันนี้");
+    await expect(row.locator(".wyn-home-quick-compose-prompt")).toHaveText(/.+/);
     await expect(row.locator(".wyn-home-quick-compose-avatar .wyn-default-profile-avatar")).toBeVisible();
     await expect(row.locator(".wyn-home-quick-compose-image")).toBeVisible();
     await expect(row).toHaveCSS("border-bottom-width", "1px");
@@ -36,7 +37,7 @@ for (const width of [320, 390, 432]) {
 
 test("quick compose is present in For You and Following, not Clubs", async ({ page }) => {
   await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
-  const row = page.getByRole("link", { name: "สร้างโพสต์ มีอะไรอยากแชร์?" });
+  const row = page.locator("a.wyn-home-quick-compose");
 
   await expect(row).toBeVisible();
   await page.getByRole("tab", { name: "กำลังติดตาม" }).click();
@@ -50,7 +51,7 @@ test("quick compose is present in For You and Following, not Clubs", async ({ pa
 test("inline composer scrolls with the feed while the existing header stays sticky", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 768 });
   await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
-  const row = page.getByRole("link", { name: "สร้างโพสต์ มีอะไรอยากแชร์?" });
+  const row = page.locator("a.wyn-home-quick-compose");
   const initial = await row.boundingBox();
   expect(initial).not.toBeNull();
 
@@ -65,7 +66,7 @@ test("inline composer scrolls with the feed while the existing header stays stic
 test("quick compose stays quiet and legible in dark mode", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/dev/home-fixture", { waitUntil: "networkidle" });
-  const row = page.getByRole("link", { name: "สร้างโพสต์ มีอะไรอยากแชร์?" });
+  const row = page.locator("a.wyn-home-quick-compose");
   await expect(row).toBeVisible();
   const style = await row.evaluate((el) => {
     const computed = getComputedStyle(el);
