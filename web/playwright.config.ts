@@ -15,6 +15,7 @@ export default defineConfig({
   testIgnore: remoteBaseURL
     ? [
         "**/content-reference-flow.spec.ts",
+        "**/home-inline-compose.spec.ts",
         "**/composer-caption-spacing.spec.ts",
         "**/composer-handle-drag.spec.ts",
         "**/composer-middle-swipe.spec.ts",
