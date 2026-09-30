@@ -3,7 +3,6 @@ import { expect, test } from "@playwright/test";
 // Uses the same presentational component as signed-in Home, but without
 // accounts, API traffic, live posts or drafts.
 test.use({ serviceWorkers: "block" });
-test.skip(Boolean(process.env.PLAYWRIGHT_BASE_URL), "dev-server-only fixture");
 
 for (const width of [320, 390, 432]) {
   test(`minimal quick compose stays under the tabs and opens the existing composer at ${width}px`, async ({ page }) => {
