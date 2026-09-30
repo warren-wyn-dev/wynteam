@@ -50,8 +50,8 @@ jobs:
       - name: Verify READY preview and production Push config
         run: |
           set -euo pipefail
-          npx --yes vercel@latest inspect "$PREVIEW_URL" --token="$VERCEL_TOKEN" >/tmp/inspect.txt
-          grep -qi 'ready' /tmp/inspect.txt || {
+          npx --yes vercel@latest inspect "$PREVIEW_URL" --token="$VERCEL_TOKEN" 2>&1 | tee /tmp/inspect.txt
+          grep -qi 'status.*Ready' /tmp/inspect.txt || {
             echo '::error::The release preview is not READY.'
             exit 1
           }
