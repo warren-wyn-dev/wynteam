@@ -7,6 +7,7 @@ import ts from "typescript";
 const CONFIG = new URL("../playwright.config.ts", import.meta.url);
 const fixtureOnly = [
   "content-reference-flow",
+  "home-inline-compose",
   "composer-caption-spacing",
   "composer-handle-drag",
   "composer-middle-swipe",
@@ -46,7 +47,7 @@ test("fixture-only composer suites remain mandatory in local CI", () => {
   assert.ok(config.webServer, "local CI must launch its local Next.js test server");
 });
 
-test("hosted QA excludes only fake-client fixture suites, not real route tests", () => {
+test("hosted QA excludes only dev-server fixture suites, not real route tests", () => {
   const config = evaluateConfig("https://preview.example.test");
   assert.equal(config.webServer, undefined);
   const actual = Array.from(config.testIgnore, (entry) => String(entry).replace(/^.*\//, "").replace(/\.spec\.ts$/, "")).sort();

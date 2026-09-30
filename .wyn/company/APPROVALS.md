@@ -256,3 +256,18 @@
 - Staging: authorized to create a separate Free-tier Supabase project with **no incremental spending**; do not upgrade plans or incur a paid project, and request another explicit Founder approval before any spending. Prefer the existing WYNOS organization's second active Free slot if available; do not reactivate, repurpose or delete the older inactive project. Scope further implementation/isolation in issue #749; never copy production user data or credentials.
 - Founder statement (2026-09-27): "ทีมพัฒนาจะทดสอบ"; "อนุมัติให้ใช้โปรเจกต์ Free แยก หากมีค่าใช้จ่ายต้องขออนุมัติใหม่".
 - Status: APPROVED within these no-spend limits.
+
+
+### DECISION — [2026-09-30] Release current developer-only WYNOS Web features to every account
+- Founder direction: **"อยากให้ฟังชั่นที่เปิดใช้แค่นักพัฒนา เปิดให้ใช้ทุกคน"** — release the currently developer-only WYNOS Web features to all signed-in users.
+- Scope: public release of the current Web rollout gates only. Existing authentication, ownership, Club-role, moderation, privacy, block/mute and RLS checks remain unchanged.
+- Beta2 release: chatThreads
+- Beta2 release: clubChatActions
+- Beta2 release: clubAnnouncements
+- Notifications release: advanced Web Push preferences, Quiet Hours, delivery tracking/retry policy and notification Realtime are released from Developer Preview to every Web account.
+- Existing GA pull-to-refresh on Notifications, Bookmarks, Profile and Club posts remains unchanged; it was already released to everyone before this decision.
+- No Email Notifications are added.
+- Production authorization: Founder explicitly requested that these features be opened to everyone; this entry records approval for merge, the required additive Realtime publication migration, Edge Function rollout, and WYNOS Web production deployment after CI/QA gates pass.
+- Rollback: revert the web release commit / restore the prior Edge Function and remove `public.notifications` from `supabase_realtime` if a release regression requires containment. Do not weaken unrelated auth/RLS controls.
+- สถานะ: **อนุมัติแล้ว**
+- วันที่ตัดสินใจ: 2026-09-30

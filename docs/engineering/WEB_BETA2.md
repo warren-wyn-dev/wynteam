@@ -24,9 +24,9 @@ Before any release, confirm with the Founder whether it goes to everyone or only
 
 | Feature key | Task | Status |
 |---|---|---|
-| `chatThreads` | WYN-159 Threads-style chat: grouping, tap for time, hold menu (reactions, reply, edit ≤30 min, forward, copy, delete for me, unsend, pin, report) | Founder approved design; merged developer-only; reactions migration approved |
-| `clubChatActions` | WYN-135 Club chat edit / pin / search | implemented in [draft PR #741](https://github.com/warren-wyn-dev/wynteam/pull/741); developer-only; QA and separate production SQL approval pending |
-| `clubAnnouncements` | WYN-137 Club announcements: "ประกาศ" tab (Club-wide), staff post/edit/delete; no notifications until release | built; migration `migrations_web_beta2_club_announcements.sql` approved by the Founder, applied after merge once main CI is green; see release notes below |
+| `chatThreads` | WYN-159 Threads-style chat: grouping, tap for time, hold menu (reactions, reply, edit ≤30 min, forward, copy, delete for me, unsend, pin, report) | Released to every Web account 2026-09-30 |
+| `clubChatActions` | WYN-135 Club chat edit / pin / search | Released to every Web account 2026-09-30; production RPC readiness already live |
+| `clubAnnouncements` | WYN-137 Club announcements: "ประกาศ" tab (Club-wide), staff post/edit/delete | Released to every Web account 2026-09-30; announcement notification fan-out remains out of scope until cross-client compatibility is released |
 
 WYN-188 (theme) and WYN-189 (Thai/English) were released to everyone on 2026-09-27, before this
 process existed. The Founder chose to keep them live.

@@ -1,29 +1,29 @@
 # WYN-190 — Notifications Developer Preview
 
-Status: Active
+Status: Completed — released to all Web accounts 2026-09-30
 Date: 2026-09-29
 Owner: WYN Engineering
-Rollout: Developer accounts only
+Rollout: All signed-in WYNOS Web accounts
 
 ## Founder direction
 
-เปิดระบบ Notifications แบบครบวงจรบน WYNOS Web ผ่าน Developer Preview/Feature Flag ก่อน โดยผู้ใช้ทั่วไปต้องคงพฤติกรรมเดิม และไม่มี Email Notifications.
+ระบบ Notifications แบบครบวงจรผ่าน Developer Preview แล้ว และ Founder อนุมัติให้เปิดกับผู้ใช้ WYNOS Web ทุกบัญชีเมื่อ 2026-09-30 โดยยังไม่มี Email Notifications.
 
 ## Scope
 
 - In-App notifications: reuse existing notification center/read state/grouping.
-- Realtime: enable `public.notifications` in Supabase Realtime, but only developer accounts attach the live channel in the web client.
+- Realtime: `public.notifications` is published to Supabase Realtime and every signed-in web account attaches its recipient-scoped live channel.
 - Web Push: reuse FCM + existing service worker/deep-link flow.
-- Developer-only Push preferences by category: likes, comments/mentions, follows, messages, Club, trending, system/security.
+- Push preferences by category for every Web account: likes, comments/mentions, follows, messages, Club, trending, suggestions, followed-post updates, posting prompts and system/security.
 - Quiet Hours: pause Push only; In-App and unread badge continue normally.
 - Anti-spam/dedupe: retain existing database dedupe/collapse-key behavior.
 - System/Admin notifications: retain existing server-side flow.
-- Delivery tracking + bounded retry for developer accounts.
+- Delivery tracking + bounded retry for every Web Push recipient.
 - No Email Notifications.
 
-## Non-developer behavior
+## Public release behavior
 
-When `is_developer_account() == false`, advanced controls are hidden, Realtime channel is not attached, and the existing Push/poll/focus fallback behavior remains unchanged.
+Advanced Push controls, Quiet Hours and Realtime are available to every signed-in Web account. Push/poll/focus remain independent fallback/recovery paths.
 
 ## Acceptance criteria
 

@@ -73,18 +73,12 @@ type PreviewPushSettings = {
   push_timezone?: string;
 };
 
-type PreviewPolicy = {
-  enabled: boolean;
+type WebPushPolicy = {
   allowed: boolean;
   skipReason?: "category_disabled" | "quiet_hours";
 };
 
-async function developerPreviewPolicy(row: NotificationRow): Promise<PreviewPolicy> {
-  const developers = await supabaseRestGet(
-    `developer_accounts?user_id=eq.${encodeURIComponent(row.recipient_id)}&select=user_id&limit=1`,
-  );
-  if (developers.length === 0) return { enabled: false, allowed: true };
-
+async function webPushPolicy(row: NotificationRow): Promise<WebPushPolicy> {
   const rows = await supabaseRestGet(
     `notification_settings?user_id=eq.${encodeURIComponent(row.recipient_id)}` +
       "&select=push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone",
@@ -93,7 +87,7 @@ async function developerPreviewPolicy(row: NotificationRow): Promise<PreviewPoli
   const category = pushPreferenceCategory(row.type);
   const categoryValue = prefs[`push_${category}` as keyof PreviewPushSettings];
   if (categoryValue === false) {
-    return { enabled: true, allowed: false, skipReason: "category_disabled" };
+    return { allowed: false, skipReason: "category_disabled" };
   }
   if (
     prefs.push_quiet_enabled === true &&
@@ -104,9 +98,9 @@ async function developerPreviewPolicy(row: NotificationRow): Promise<PreviewPoli
       typeof prefs.push_quiet_end === "string" ? prefs.push_quiet_end : "08:00",
     )
   ) {
-    return { enabled: true, allowed: false, skipReason: "quiet_hours" };
+    return { allowed: false, skipReason: "quiet_hours" };
   }
-  return { enabled: true, allowed: true };
+  return { allowed: true };
 }
 
 async function upsertDelivery(
@@ -230,13 +224,13 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
   const serviceAccount: FcmServiceAccount = JSON.parse(serviceAccountRaw);
 
-  const [actorRows, tokenRows, lang, previewPolicy] = await Promise.all([
+  const [actorRows, tokenRows, lang, webPolicy] = await Promise.all([
     row.actor_id
       ? supabaseRestGet(`profiles?id=eq.${row.actor_id}&select=username,display_name`)
       : Promise.resolve([]),
     supabaseRestGet(`push_tokens?user_id=eq.${row.recipient_id}&select=id,token,platform`),
     recipientLanguage(row.recipient_id),
-    developerPreviewPolicy(row),
+    webPushPolicy(row),
   ]);
   if (tokenRows.length === 0) {
     return new Response("No registered devices", { status: 200 });
@@ -275,22 +269,22 @@ async function handleWebhook(req: Request): Promise<Response> {
 
   const outcomes = await Promise.all(
     typedTokens.map(async ({ id, token, platform }) => {
-      // This rollout is for WYNOS Web. Do not let a web preview preference
-      // silence or retry Android/iOS Push for the same developer account.
-      const previewApplies = previewPolicy.enabled && platform === "web";
-      if (previewApplies && !previewPolicy.allowed) {
+      // Web Push category preferences, Quiet Hours and bounded retry are GA.
+      // Android/iOS keep their existing transport behavior.
+      const webPolicyApplies = platform === "web";
+      if (webPolicyApplies && !webPolicy.allowed) {
         await upsertDelivery(row, { id, platform }, {
           status: "skipped",
           attempt_count: 0,
-          last_error: previewPolicy.skipReason ?? "policy",
+          last_error: webPolicy.skipReason ?? "policy",
           next_retry_at: null,
           sent_at: null,
         });
         return "skipped";
       }
 
-      const maxAttempts = previewApplies ? 3 : 1;
-      if (previewApplies) {
+      const maxAttempts = webPolicyApplies ? 3 : 1;
+      if (webPolicyApplies) {
         await upsertDelivery(row, { id, platform }, {
           status: "pending",
           attempt_count: 0,
@@ -329,7 +323,7 @@ async function handleWebhook(req: Request): Promise<Response> {
         });
 
         if (response.ok) {
-          if (previewApplies) {
+          if (webPolicyApplies) {
             await upsertDelivery(row, { id, platform }, {
               status: "sent",
               attempt_count: attempt,
@@ -350,7 +344,7 @@ async function handleWebhook(req: Request): Promise<Response> {
 
         const summary = `${response.status} ${status ?? "unknown"}`;
         const retry = attempt < maxAttempts && isRetryableFcmStatus(response.status);
-        if (previewApplies) {
+        if (webPolicyApplies) {
           await upsertDelivery(row, { id, platform }, {
             status: retry ? "retrying" : "failed",
             attempt_count: attempt,

@@ -1035,7 +1035,7 @@ export async function fetchNotificationDeveloperSettings(
     .from("notification_settings")
     .select("push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_suggestions,push_post_updates,push_posting_prompts,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone")
     .maybeSingle();
-  fail(result.error, "โหลดการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
+  fail(result.error, "โหลดการตั้งค่า Push ไม่สำเร็จ");
   return { ...defaultNotificationDeveloperSettings, ...(result.data ?? {}) } as NotificationDeveloperSettings;
 }
 
@@ -1048,7 +1048,7 @@ export async function updateNotificationDeveloperSetting(
   const result = await client
     .from("notification_settings")
     .upsert({ user_id: userId, [key]: value, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-  fail(result.error, "บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
+  fail(result.error, "บันทึกการตั้งค่า Push ไม่สำเร็จ");
 }
 
 export async function updateNotificationDeveloperSettings(
@@ -1059,7 +1059,7 @@ export async function updateNotificationDeveloperSettings(
   const result = await client
     .from("notification_settings")
     .upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-  fail(result.error, "บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
+  fail(result.error, "บันทึกการตั้งค่า Push ไม่สำเร็จ");
 }
 
 export async function updateProfilePrivacySetting(

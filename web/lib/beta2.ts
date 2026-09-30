@@ -20,11 +20,11 @@ import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
  */
 export const BETA2_RELEASED = {
   /** WYN-159: Threads-style chat. */
-  chatThreads: false,
+  chatThreads: true,
   /** WYN-135: edit, pin and search messages in Club chat. */
-  clubChatActions: false,
+  clubChatActions: true,
   /** WYN-137: Club announcements. */
-  clubAnnouncements: false,
+  clubAnnouncements: true,
 } as const;
 
 export type Beta2Feature = keyof typeof BETA2_RELEASED;
