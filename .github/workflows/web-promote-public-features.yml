@@ -1,7 +1,8 @@
 name: WYNOS Web Promote Public Features
 
-# One-time quota-safe production release path for the Founder-approved
-# developer-feature GA on 2026-09-30. The normal production deploy attempted
+# Quota-safe production release path for a validated READY web artifact.
+# Reused on 2026-09-30 for the Push opt-in conversion hotfix after the normal
+# production deploy hit Vercel's Free deployment/day limit. The normal production deploy attempted
 # to create a new deployment but Vercel Free rejected it after >100 deployments
 # in 24 hours. The CLI promotion endpoint is quota-gated too, so this path
 # assigns the existing READY artifact directly to the production domains
@@ -30,7 +31,7 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     env:
-      PREVIEW_URL: https://web-efd48gf5s-warren14.vercel.app
+      PREVIEW_URL: https://web-8kwky3ne2-warren14.vercel.app
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
