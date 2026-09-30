@@ -2133,3 +2133,21 @@ Postgres จะ validate **ทั้งแถว** ทุกครั้งท�
 
 PR: claude/wyn187-cleanup-legacy-social-links → main (merged) — รอ Founder กดรัน workflow เพื่อ apply กับ
 production จริง
+
+
+## [2026-09-30] เปิดฟีเจอร์ WYNOS Web ที่จำกัดเฉพาะนักพัฒนาให้ผู้ใช้ทุกบัญชี
+
+Founder สั่งชัดเจนว่า **"อยากให้ฟังชั่นที่เปิดใช้แค่นักพัฒนา เปิดให้ใช้ทุกคน"** จึงอนุมัติให้ยุติ staged rollout
+สำหรับฟีเจอร์ WYNOS Web ที่ยังติด developer-account gate และเปิดให้ผู้ใช้ที่ล็อกอินทุกบัญชีใช้งานได้
+
+ขอบเขต release นี้:
+- `chatThreads` (WYN-159)
+- `clubChatActions` (WYN-135)
+- `clubAnnouncements` (WYN-137)
+- Notifications advanced Web Push settings, Push ตามประเภท, Quiet Hours, delivery tracking/retry และ Realtime
+  สำหรับผู้ใช้ WYNOS Web ทุกบัญชี
+- **ยังไม่มี Email Notifications**
+
+การเปิดใช้งานครั้งนี้เป็นการปลด **product rollout gate** เท่านั้น ไม่ลดทอน authentication, RLS, ownership,
+Club membership/role, moderation, block/mute หรือ privacy checks เดิม และ Club Announcement notification
+fan-out ยังไม่เพิ่มจนกว่าจะรองรับ notification type ข้าม client ได้ครบ
