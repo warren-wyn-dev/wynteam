@@ -1015,7 +1015,7 @@ export const EN_EXACT: Record<string, string> = {
   "In-App และ badge ยังทำงานตามปกติ เฉพาะ Push จะถูกพัก": "In-app notifications and badges keep working normally; only Push is paused",
   "เริ่มพัก": "Starts",
   "สิ้นสุด": "Ends",
-  "โหลดการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ": "Couldn't load the developer Push settings",
+  "โหลดการตั้งค่า Push ไม่สำเร็จ": "Couldn't load the Push settings",
   "รู้ทันทีเมื่อมีข้อความ การตอบกลับ และคนติดตามใหม่": "Know right away about new messages, replies and followers",
   "บน iPhone/iPad ต้องเพิ่ม WYNOS ไปยังหน้าจอโฮมก่อน จึงจะรับการแจ้งเตือนได้": "On iPhone/iPad, add WYNOS to your Home Screen first to get notifications",
   "วิธีเพิ่มไปยังหน้าจอโฮม": "How to add to Home Screen",
