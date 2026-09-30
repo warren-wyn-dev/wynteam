@@ -1,0 +1,116 @@
+name: WYNOS Web Promote Public Features
+
+# One-time quota-safe production release path for the Founder-approved
+# developer-feature GA on 2026-09-30. The normal production deploy attempted
+# to create a new deployment but Vercel Free rejected it after >100 deployments
+# in 24 hours. Promotion re-points production traffic to an already-built,
+# READY preview without creating a deployment.
+#
+# Safety gates:
+# - Preview was built from the same production runtime as PR #786. Commits after
+#   that build changed QA/test files only.
+# - Verify the preview's public Push config BEFORE promotion so a Preview
+#   artifact without Firebase Web config can never replace production.
+# - Verify public routes and Push config again after promotion.
+#
+# This workflow runs once when it is added to main. Future production releases
+# continue using wyn-158-production-deploy.yml.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/web-promote-public-features.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      PREVIEW_URL: https://web-efd48gf5s-warren14.vercel.app
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Verify deployment credentials
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          for value in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            cleaned=$(clean "${!value}")
+            test -n "$cleaned" || { echo "::error::$value is empty"; exit 1; }
+            printf -v "$value" '%s' "$cleaned"
+          done
+          echo "VERCEL_TOKEN=$VERCEL_TOKEN" >> "$GITHUB_ENV"
+          echo "VERCEL_ORG_ID=$VERCEL_ORG_ID" >> "$GITHUB_ENV"
+          echo "VERCEL_PROJECT_ID=$VERCEL_PROJECT_ID" >> "$GITHUB_ENV"
+
+      - name: Verify READY preview and production Push config
+        run: |
+          set -euo pipefail
+          npx --yes vercel@latest inspect "$PREVIEW_URL" --token="$VERCEL_TOKEN" >/tmp/inspect.txt
+          grep -qi 'ready' /tmp/inspect.txt || {
+            echo '::error::The release preview is not READY.'
+            exit 1
+          }
+
+          npx --yes vercel@latest curl /api/push-config             --deployment "$PREVIEW_URL"             --token="$VERCEL_TOKEN"             > /tmp/preview-push-config.json
+
+          node -e '
+            const fs = require("fs");
+            const raw = fs.readFileSync("/tmp/preview-push-config.json", "utf8");
+            const start = raw.indexOf("{");
+            if (start < 0) process.exit(1);
+            const config = JSON.parse(raw.slice(start));
+            if (config.configured !== true) process.exit(1);
+          ' || {
+            echo '::error::Preview Web Push config is not production-ready; refusing promotion.'
+            exit 1
+          }
+
+          for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested; do
+            echo "Checking preview $route"
+            npx --yes vercel@latest curl "$route"               --deployment "$PREVIEW_URL"               --token="$VERCEL_TOKEN"               >/dev/null
+          done
+
+      - name: Promote validated preview to production
+        run: |
+          set -euo pipefail
+          npx --yes vercel@latest promote "$PREVIEW_URL"             --yes             --timeout 5m             --token="$VERCEL_TOKEN"
+
+      - name: Verify wynos.online after promotion
+        run: |
+          set -euo pipefail
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            html=$(curl --silent --show-error --fail --location --max-time 30               --header 'Cache-Control: no-cache'               "https://wynos.online/?_wyn_promote_verify=${GITHUB_RUN_ID}-${attempt}" || true)
+            if grep -q '/_next/' <<< "$html" && ! grep -q 'flutter_bootstrap.js' <<< "$html"; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          test "$ready" -eq 1 || {
+            echo '::error::wynos.online did not serve the promoted Next.js release.'
+            exit 1
+          }
+
+          for route in / /search /notifications /chat /settings /profile/me /clubs /bookmarks /suggested; do
+            echo "Checking https://wynos.online$route"
+            curl --fail --location --retry 5 --retry-delay 2 --max-time 30               --header 'Cache-Control: no-cache'               --output /dev/null "https://wynos.online$route"
+          done
+
+          curl --silent --show-error --fail --location --retry 3 --max-time 30             "https://wynos.online/api/push-config?_wyn_promote_verify=${GITHUB_RUN_ID}"             > /tmp/production-push-config.json
+
+          node -e '
+            const config = require("/tmp/production-push-config.json");
+            process.exit(config.configured === true ? 0 : 1);
+          ' || {
+            echo '::error::Production Web Push config is unavailable after promotion.'
+            exit 1
+          }
+
+          echo 'WYNOS Web developer-feature public release promoted and verified.' >> "$GITHUB_STEP_SUMMARY"
