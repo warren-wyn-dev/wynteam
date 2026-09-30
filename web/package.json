@@ -15,7 +15,7 @@
     "check": "npm run lint && npm run typecheck && npm run test:google-pwa-oauth && npm run test:feed-latency && npm run test:account-cache-isolation && npm run test:account-switch && npm run test:app-performance && npm run test:search && npm run test:notifications && npm run test:playwright-gates && npm run test:push-offline-logout && npm run test:push-toggle && npm run test:club-announcements && npm run test:club-chat-actions && npm run test:share-links && npm run test:android-asset-links && npm run test:image-location && npm run test:i18n && npm run build",
     "test:image-location": "node --test tests/image-location.test.mjs tests/upload-image.test.mjs",
     "test:android-asset-links": "node --test tests/android-asset-links.test.mjs",
-    "test:i18n": "node --test tests/i18n.test.mjs tests/beta2-gate.test.mjs",
+    "test:i18n": "node --test tests/i18n.test.mjs tests/beta2-gate.test.mjs tests/developer-features-public-release.test.mjs",
     "test:feed-latency": "node --test tests/home-feed-latency.test.mjs",
     "test:account-cache-isolation": "node --test tests/account-cache-isolation.test.mjs",
     "test:playwright-gates": "node --test tests/playwright-gates.test.mjs",
