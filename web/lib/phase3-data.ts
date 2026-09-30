@@ -1048,7 +1048,7 @@ export async function updateNotificationDeveloperSetting(
   const result = await client
     .from("notification_settings")
     .upsert({ user_id: userId, [key]: value, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-  fail(result.error, "บันทึกการตั้งค่า Push สำหรับนักพัฒนาไม่สำเร็จ");
+  fail(result.error, "บันทึกการตั้งค่า Push ไม่สำเร็จ");
 }
 
 export async function updateNotificationDeveloperSettings(
