@@ -3,8 +3,9 @@ name: WYNOS Web Promote Public Features
 # One-time quota-safe production release path for the Founder-approved
 # developer-feature GA on 2026-09-30. The normal production deploy attempted
 # to create a new deployment but Vercel Free rejected it after >100 deployments
-# in 24 hours. Promotion re-points production traffic to an already-built,
-# READY preview without creating a deployment.
+# in 24 hours. The CLI promotion endpoint is quota-gated too, so this path
+# assigns the existing READY artifact directly to the production domains
+# without creating a deployment.
 #
 # Safety gates:
 # - Preview was built from the same production runtime as PR #786. Commits after
@@ -75,10 +76,11 @@ jobs:
             npx --yes vercel@latest curl "$route"               --deployment "$PREVIEW_URL"               >/dev/null
           done
 
-      - name: Promote validated preview to production
+      - name: Point production domains at validated preview
         run: |
           set -euo pipefail
-          npx --yes vercel@latest promote "$PREVIEW_URL"             --yes             --timeout 5m             --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest alias set "$PREVIEW_URL" wynos.online --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest alias set "$PREVIEW_URL" www.wynos.online --token="$VERCEL_TOKEN"
 
       - name: Verify wynos.online after promotion
         run: |
