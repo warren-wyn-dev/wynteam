@@ -134,14 +134,12 @@ function processHint(runtime: Runtime, kind: Hint["kind"], notificationId?: stri
   }
 }
 
-async function attachDeveloperRealtime(runtime: Runtime): Promise<void> {
-  // Notifications Developer Preview: publication can be enabled safely at
-  // the database layer, but only explicitly allowlisted developer accounts
-  // attach the live Postgres Changes channel during the staged rollout.
-  // Everyone else keeps the existing Push/focus/visible-poll behavior.
+async function attachRealtime(runtime: Runtime): Promise<void> {
+  // Realtime is public for every signed-in web account. Row visibility is
+  // still enforced by the notifications RLS policy and the recipient filter.
+  // Push/focus/visible polling remain independent recovery paths.
   try {
-    const access = await runtime.client.rpc("is_developer_account");
-    if (!current(runtime) || access.error || access.data !== true || runtime.channel) return;
+    if (!current(runtime) || runtime.channel) return;
     runtime.channel = runtime.client
       .channel(`wynos-notifications:${runtime.userId}`)
       .on("postgres_changes", {
@@ -163,7 +161,7 @@ async function attachDeveloperRealtime(runtime: Runtime): Promise<void> {
         if (status === "SUBSCRIBED") scheduleRefresh(runtime, 0);
       });
   } catch {
-    // A failed preview socket must never blank the badge. Existing Push and
+    // A failed Realtime socket must never blank the badge. Existing Push and
     // visible polling stay active for both developers and regular accounts.
   }
 }
@@ -237,7 +235,7 @@ function start(client: SupabaseClient, userId: string): Runtime {
     } catch { /* The authenticated page still has local refresh and focus. */ }
   }
 
-  void attachDeveloperRealtime(runtime);
+  void attachRealtime(runtime);
 
   runtime.pollTimer = window.setInterval(() => {
     if (document.visibilityState === "visible" && navigator.onLine && current(runtime)) {
