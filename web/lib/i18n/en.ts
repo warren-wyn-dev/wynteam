@@ -1335,6 +1335,12 @@ Object.assign(EN_EXACT, {
   "ใช้เป็นที่อยู่เริ่มต้น": "Use as default address",
   "ไม่พบเมนู": "No menu items found",
   "ไม่มีออเดอร์ที่กำลังดำเนินการ": "No active orders",
+  "ขั้นต่ำ": "Minimum",
+  "ยอดขั้นต่ำของร้านคือ": "Store minimum is",
+  "ไปชำระเงิน ·": "Continue to payment ·",
+  "· ค่าเริ่มต้น": "· Default",
+  "ประมาณ": "About",
+  "นาที": "minutes",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
