@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
@@ -142,7 +143,7 @@ function MerchantBlocked({ signOut }: { signOut: () => Promise<void> }) {
       <h1>WYNOS Merchant</h1>
       <p>บัญชีนี้ยังไม่มีสิทธิ์จัดการร้าน</p>
       <button className="wm-primary" type="button" onClick={() => void signOut()}>ออกจากระบบ</button>
-      <a className="wm-secondary-link" href="/">กลับ WYNOS</a>
+      <Link className="wm-secondary-link" href="/">กลับ WYNOS</Link>
     </main>
   );
 }
@@ -204,7 +205,7 @@ function MerchantInner({
   const [manualOpen, setManualOpen] = useState(false);
   const [storeEditing, setStoreEditing] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
   const loadingRef = useRef(false);
 
   const load = useCallback(async (quiet = false) => {
@@ -229,7 +230,7 @@ function MerchantInner({
     }
   }, [client]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {\n    const timer = window.setTimeout(() => void load(), 0);\n    return () => window.clearTimeout(timer);\n  }, [load]);
 
   useEffect(() => {
     if (!store?.id) return;
