@@ -35,8 +35,12 @@ export type DeveloperRouteContext = {
  */
 export function DeveloperRouteGate({
   children,
+  signedOutPath = "/welcome",
+  afterSignOutPath = signedOutPath,
 }: {
   children: (context: DeveloperRouteContext) => React.ReactNode;
+  signedOutPath?: string;
+  afterSignOutPath?: string;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -120,19 +124,17 @@ export function DeveloperRouteGate({
   }, [acceptSession, client]);
 
   useEffect(() => {
-    // Straight to /welcome, not "/": routing through Home first just means
-    // ParityAuthEntry immediately replaces *again* to /welcome once its own
-    // session check lands — a wasted extra hop, and one more chance for that
-    // second replace to race a navigation the user already started in the
-    // meantime.
+    // Consumer routes default to /welcome. Product surfaces such as
+    // WYNOS Merchant can supply their own signed-out entry while retaining
+    // the same session verification and return-path behavior.
     if (gate === "signed-out") {
       // Keep a shared link (post, profile, club) to reopen after sign-in,
       // including its #fragment (e.g. /quote/<id>#comments).
       if (signedOutFromSessionRef.current) clearReturnPath();
       else rememberReturnPath(`${window.location.pathname}${window.location.search}${window.location.hash}`);
-      router.replace("/welcome");
+      router.replace(signedOutPath);
     }
-  }, [gate, router]);
+  }, [gate, router, signedOutPath]);
 
   const signOut = useCallback(async () => {
     if (!client) return;
@@ -155,8 +157,8 @@ export function DeveloperRouteGate({
     // Rebuild it from the now-cleared active pointer before the next login.
     // A signing-out account's page must not reopen for the next login.
     clearReturnPath();
-    window.location.replace("/welcome");
-  }, [client, queryClient, session]);
+    window.location.replace(afterSignOutPath);
+  }, [afterSignOutPath, client, queryClient, session]);
 
   if (gate === "loading" || gate === "signed-out") {
     return <main className="route-state"><div className="route-system-spinner" aria-label="กำลังโหลด" /></main>;
