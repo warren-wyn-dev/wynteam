@@ -26,6 +26,11 @@ test("final WYNOS Beta4 source parity contract remains locked", () => {
   expect(profile).toContain('aria-label="แชร์โปรไฟล์" title="แชร์โปรไฟล์"');
   expect(profile).toContain('profile.cover_url');
   expect(profile).toContain('<WynosShareIcon size={22} />');
+  expect(profile).toContain('aria-label="ตั้งค่า" title="ตั้งค่า"');
+  expect(profile).toContain('<WynosIcon name="settings" size={24} strokeWidth={2.1} />');
+  expect(profile).toContain('className="wyn-profile-name-switcher"');
+  expect(profile).toContain('<WynosIcon name="chevronDown" size={18} strokeWidth={2.4} />');
+  expect(profile).not.toContain('aria-label={own ? "ตัวเลือกของฉัน" : "เพิ่มเติม"}');
 
   expect(composer).toContain('type AspectRatioChoice = "original" | "1:1" | "4:5" | "16:9";');
   expect(composer).toContain("beta4-composer-header");

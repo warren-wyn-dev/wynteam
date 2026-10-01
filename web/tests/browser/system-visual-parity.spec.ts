@@ -320,9 +320,13 @@ test("Post Detail closes the exact current Flutter geometry and interaction gaps
 test("Profile own actions retain the current icon-only Beta1 cover-aware design", () => {
   const profile = read("components/profile-route.tsx");
   const profileGoldenCss = read("app/profile-golden-final.css");
+  const profileBetaCss = read("app/profile-web-beta1.css");
   expect(profile).toContain('aria-label="แก้ไขโปรไฟล์" title="แก้ไขโปรไฟล์"');
   expect(profile).toContain('aria-label="แชร์โปรไฟล์" title="แชร์โปรไฟล์"');
   expect(profile).toContain('profile.cover_url');
   expect(profile).toContain('<WynosShareIcon size={22} />');
   expect(profileGoldenCss).toContain(".wyn-profile-action-primary");
+  expect(profile).toContain('aria-label="ตั้งค่า" title="ตั้งค่า"');
+  expect(profile).toContain('className="wyn-profile-name-switcher"');
+  expect(profileBetaCss).toContain(".wyn-profile-name-switcher");
 });

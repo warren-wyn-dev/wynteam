@@ -154,6 +154,28 @@
   width: 16px;
   height: 16px;
 }
+.wyn-profile-beta1 .wyn-profile-name-switcher {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  margin: 0 0 0 1px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wyn-text, #101015);
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.wyn-profile-beta1 .wyn-profile-name-switcher:active {
+  transform: scale(.9);
+}
+.wyn-profile-beta1 .wyn-profile-name-switcher svg {
+  display: block;
+}
 .wyn-profile-beta1 .wyn-profile-handle {
   margin-top: 3px;
   overflow: hidden;
@@ -322,6 +344,7 @@
     width: 76px !important; height: 76px !important;
   }
   .wyn-profile-beta1 .wyn-profile-name { font-size: 15px; }
+  .wyn-profile-beta1 .wyn-profile-name-switcher { width: 24px; height: 24px; flex-basis: 24px; }
   .wyn-profile-beta1 .wyn-profile-handle { font-size: 12.5px; }
   .wyn-profile-beta1 .wyn-profile-actions.is-own { gap: 6px; }
   .wyn-profile-beta1 .wyn-profile-actions.is-own .wyn-profile-action-primary,
