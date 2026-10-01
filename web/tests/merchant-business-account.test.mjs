@@ -20,3 +20,28 @@ test("Merchant keeps store tenancy separate from the shared WYNOS identity", () 
   assert.doesNotMatch(auth, /signUpMerchantWithEmail/);
   assert.doesNotMatch(auth, /บัญชี WYNOS Merchant แยกจากบัญชี WYNOS Social/);
 });
+
+
+const core = fs.readFileSync(new URL("../components/merchant/merchant-core-panels.tsx", import.meta.url), "utf8");
+const coreData = fs.readFileSync(new URL("../lib/merchant-core.ts", import.meta.url), "utf8");
+const migration = fs.readFileSync(new URL("../../supabase/migrations_wynos_merchant_core_completion_v1.sql", import.meta.url), "utf8");
+
+test("Merchant core completion adds staff roles, refunds, readiness, notifications and activity", () => {
+  assert.match(core, /MerchantStoreTools/);
+  assert.match(core, /RefundControls/);
+  assert.match(core, /Activity Log/);
+  assert.match(core, /การแจ้งเตือน Merchant/);
+  assert.match(coreData, /merchant_staff_members/);
+  assert.match(coreData, /merchant_set_refund_status/);
+  assert.match(coreData, /merchant_store_readiness/);
+  assert.match(migration, /merchant_activity_log/);
+  assert.match(migration, /refund_status/);
+  assert.match(migration, /trg_food_store_publish_guard/);
+});
+
+test("Merchant orders expose search plus payment and date filters", () => {
+  assert.match(app, /wm-order-search-tools/);
+  assert.match(app, /paymentFilter/);
+  assert.match(app, /dateFilter/);
+  assert.match(app, /recipient_phone/);
+});
