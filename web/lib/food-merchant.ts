@@ -5,6 +5,7 @@ import { imageUploadType } from "@/lib/upload-image";
 
 export type FoodStore = {
   id: string;
+  merchant_account_id: string | null;
   slug: string;
   name: string;
   description: string | null;
@@ -74,6 +75,11 @@ export type FoodOrder = {
   source: "app" | "manual" | "social";
   status: "pending_acceptance" | "preparing" | "ready_for_delivery" | "out_for_delivery" | "delivered" | "cancelled";
   payment_status: "pending" | "submitted" | "paid" | "issue" | "refunded";
+  refund_status: "none" | "pending" | "refunded" | "failed";
+  refund_note: string | null;
+  refund_requested_at: string | null;
+  refunded_at: string | null;
+  refund_updated_by: string | null;
   recipient_name: string;
   recipient_phone: string;
   shipping_address: string;
