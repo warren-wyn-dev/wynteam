@@ -1,6 +1,7 @@
-/* Threads-style post actions requested for Home, Club feed and Profile.
-   Keep zero engagement invisible. Each action owns only the width it needs,
-   so later actions shift naturally when a count appears. */
+/* WYNOS post actions: thin, black, rounded icon language across Home,
+   Club feed and Profile. Keep zero engagement invisible. Each action owns
+   only the width it needs, so later actions still shift naturally when a
+   count appears. */
 
 .wyn-post-actions.wyn-threads-actions {
   min-height: 30px;
@@ -26,7 +27,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 5px;
-  color: #73777f;
+  color: var(--wyn-text, #111111);
   text-decoration: none;
   line-height: 0;
   transition: color 160ms ease, transform 120ms ease;
@@ -47,12 +48,6 @@
   color: var(--wyn-text, #111111);
 }
 
-/* Founder-approved Home feed polish: soften idle icons and counts only;
-   preserve liked, reposted and saved colors and other feed surfaces. */
-.wyn-home-feed .wyn-post-actions.wyn-threads-actions .wyn-action-button:not(.is-liked):not(.is-active) {
-  color: #8b919b;
-}
-
 .wyn-post-actions.wyn-threads-actions .wyn-action-share {
   min-width: 24px;
   padding: 5px 0;
@@ -61,9 +56,6 @@
 }
 
 .wyn-post-actions.wyn-threads-actions .wyn-action-share .wyn-share-icon {
-  /* WYN-185 item 13: was 24px, standing out against the row's other icons
-     (Like/Comment/Repost/Save), all 22px -- matches WynosShareIcon's own
-     size={22} prop now instead of overriding it up to 24. */
   width: 22px;
   height: 22px;
   transform: translateY(0.5px);
@@ -105,7 +97,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #73777f;
+  color: var(--wyn-text, #111111);
   font-size: 13px;
   line-height: 0;
   font-weight: 500;
@@ -125,8 +117,8 @@
 }
 
 .profile-feed-list .golden-drop-actions .wyn-share-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   transform: translateY(0.5px);
   transform-origin: center;
 }

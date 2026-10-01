@@ -53,7 +53,7 @@ export function PostActions({
         aria-pressed={liked}
         onClick={onLike}
       >
-        <AnimatedHeart size={22} strokeWidth={2} liked={liked} />
+        <AnimatedHeart size={22} strokeWidth={1.6} liked={liked} />
         {count(likeCount)}
       </button>
       <Link
@@ -61,9 +61,7 @@ export function PostActions({
         href={commentHref}
         aria-label="ความคิดเห็น"
       >
-        {/* 2026-09-22: nudged up from 22 -- the comment bubble's shape reads
-            visually smaller than the other icons at the same nominal size. */}
-        <CommentIcon size={24} strokeWidth={2} />
+        <CommentIcon size={22} strokeWidth={1.6} />
         {count(commentCount)}
       </Link>
       {canRedrop ? (
@@ -74,9 +72,7 @@ export function PostActions({
           aria-pressed={redropped}
           onClick={onRedrop}
         >
-          {/* WYN-185 item 13: was 24 -- every other icon in this row is 22,
-              so this stood out slightly larger for no reason. */}
-          <RepostIcon size={22} strokeWidth={2} />
+          <RepostIcon size={22} strokeWidth={1.6} />
           {count(redropCount)}
         </button>
       ) : null}
@@ -86,7 +82,7 @@ export function PostActions({
         aria-label="แชร์"
         onClick={onShare}
       >
-        <WynosShareIcon size={22} />
+        <WynosShareIcon size={22} strokeWidth={1.6} />
       </button>
       {onSave ? (
         <button
@@ -96,7 +92,7 @@ export function PostActions({
           aria-pressed={saved}
           onClick={onSave}
         >
-          <AnimatedBookmark size={22} strokeWidth={2} saved={saved} />
+          <AnimatedBookmark size={22} strokeWidth={1.6} saved={saved} />
         </button>
       ) : null}
     </div>

@@ -16,6 +16,37 @@
   transform: scale(0.94);
 }
 
+/* 2026-10-01 Founder-approved action icon refresh:
+   thin rounded strokes, black/primary text color at rest, red Like when active.
+   Intrinsic widths stay untouched so counts still push later actions naturally. */
+.wyn-post-actions.wyn-threads-actions .wyn-action-button,
+.profile-feed-list .golden-drop-actions > button,
+.profile-feed-list .golden-drop-actions > a,
+.flutter-detail-actions > button {
+  color: var(--wyn-text, #111111);
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-button svg,
+.profile-feed-list .golden-drop-actions svg,
+.flutter-detail-actions > button svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.6;
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-button.is-liked,
+.profile-feed-list .golden-drop-actions > button.liked,
+.flutter-detail-actions > button.like.active {
+  color: var(--wyn-like);
+}
+
+.flutter-detail-actions > button,
+.flutter-detail-actions > button.active,
+.flutter-detail-actions > button.like.active {
+  font-size: 14px;
+  font-weight: 500;
+}
+
 /* Selected bookmark remains solid black in both light and dark themes. */
 .wyn-post-actions .wyn-action-save.is-active,
 .golden-drop-actions .golden-drop-save-inline.active,
