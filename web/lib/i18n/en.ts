@@ -4,6 +4,15 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ตรวจสอบสลิปอัตโนมัติสำเร็จ ชำระเงินแล้ว": "Slip verified automatically. Payment complete",
+  "ตรวจสอบสลิปไม่ผ่าน กรุณาตรวจสอบและส่งใหม่": "Slip verification failed. Please check it and submit again",
+  "รับสลิปแล้ว กำลังรอร้านตรวจสอบ": "Slip received. Waiting for the merchant to review it",
+  "โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ": "Pay the merchant directly, then attach the slip for verification",
+  "ตรวจสอบสลิปอัตโนมัติแล้ว": "Slip verified automatically",
+  "รอตรวจสอบโดยร้าน": "Waiting for merchant review",
+  "ตรวจสลิปอัตโนมัติแล้ว · ยอดและบัญชีผู้รับตรงร้าน": "Slip verified automatically · amount and recipient match the merchant",
+  "ระบบรับสลิปแล้ว · รอร้านตรวจสอบ": "Slip received · waiting for merchant review",
+  "ร้านยืนยันการชำระเงินแล้ว": "Payment confirmed by the merchant",
   "เข้าสู่ระบบ — WYNOS Merchant": "Sign in — WYNOS Merchant",
   "สมัคร — WYNOS Merchant": "Sign up — WYNOS Merchant",
   "กลับ WYNOS Merchant": "Back to WYNOS Merchant",
@@ -1404,6 +1413,10 @@ Object.assign(EN_EXACT, {
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["QR นี้ตั้งยอด {0} ให้อัตโนมัติ", "This QR sets the amount to {0} automatically"],
+  ["ออเดอร์ #{0} · ลูกค้าส่งสลิปแล้ว", "Order #{0} · customer submitted a payment slip"],
+  ["ออเดอร์ #{0} · ชำระเงินแล้ว", "Order #{0} · paid"],
+  ["ออเดอร์ #{0} · การชำระเงินมีปัญหา", "Order #{0} · payment needs attention"],
   ["ออเดอร์ #{0} · {1}", "Order #{0} · {1}"],
   ["ยืนยันออเดอร์ · {0}", "Confirm order · {0}"],
   ["{0} ออเดอร์", "{0} orders"],
