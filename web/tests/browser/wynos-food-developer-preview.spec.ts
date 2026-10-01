@@ -62,3 +62,17 @@ test("Food developer preview can be tested without exposing the domain publicly"
   expect(rolloutSql).toContain("not public.is_developer_account()");
   expect(rolloutSql).toContain("not public.food_public_access_enabled()");
 });
+
+
+test("closed preview lockdown keeps catalog and customer APIs developer-only", () => {
+  const sql = read("../supabase/migrations_wynos_food_developer_preview_lockdown.sql");
+  const rls = read("../supabase/migrations_wynos_food_developer_preview_rls_lockdown.sql");
+
+  expect(sql).toContain("food_require_developer_preview_access");
+  expect(sql).toContain("public.is_developer_account()");
+  expect(sql).toContain('create policy "Food stores visible to developers and staff"');
+  expect(sql).toContain('create policy "Food menu visible to developers and staff"');
+  expect(rls).toContain('create policy "Food orders visible to developer buyer and merchant"');
+  expect(rls).toContain("public.is_developer_account()");
+  expect(rls).toContain("Food private developer customer and merchant upload");
+});
