@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, DropPreviewCard, EmptyState, ProfileRowView } from "@/components/phase3-ui";
+import { AppChrome, Avatar, DropPreviewCard, EmptyState, ProfileRowView } from "@/components/phase3-ui";
 import { FeedSkeleton, SearchClubSkeleton, SearchDiscoverySkeleton, SearchUserSkeleton } from "@/components/ui/skeleton";
 import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -198,9 +198,31 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
   return <div className="route-list">{rows.map((club) => <Link href={`/club/${club.id}`} className="route-club-row" key={club.id}><span className="route-club-image">{club.icon_url ? <Image src={club.icon_url} alt="" width={46} height={46} sizes="46px" /> : club.name.slice(0, 1)}</span><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small></span></Link>)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
+type SearchTab = "all" | "users" | "posts" | "clubs";
+type RecentSearch = { query: string; tab: SearchTab; savedAt: number };
 type DiscoverySnapshot = { hashtags: RankedHashtag[]; suggested: ProfileRow[] };
 
-function Discovery({ client, userId }: { client: SupabaseClient; userId: string }) {
+function formatCompactPostCount(count: number) {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(count >= 100_000 ? 0 : 1).replace(/\.0$/, "")}K`;
+  return count.toLocaleString("th-TH");
+}
+
+function Discovery({
+  client,
+  userId,
+  recentSearches,
+  onRecentSelect,
+  onRecentRemove,
+  onRecentClear,
+}: {
+  client: SupabaseClient;
+  userId: string;
+  recentSearches: RecentSearch[];
+  onRecentSelect: (item: RecentSearch) => void;
+  onRecentRemove: (item: RecentSearch) => void;
+  onRecentClear: () => void;
+}) {
   const cacheKey = `search-discovery:${userId}`;
   const cached = getMountCache<DiscoverySnapshot>(cacheKey);
   const [hashtags, setHashtags] = useState<RankedHashtag[]>(cached?.hashtags ?? []);
@@ -209,11 +231,12 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   const [loading, setLoading] = useState(!cached);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [followError, setFollowError] = useState("");
+  const [showAllSuggested, setShowAllSuggested] = useState(false);
 
   useEffect(() => {
     let live = true;
     void Promise.all([
-      fetchTrendingHashtags(client, 6),
+      fetchTrendingHashtags(client, 5),
       fetchSuggestedProfiles(client, 10),
     ]).then(async ([tags, suggest]) => {
       if (!live) return;
@@ -261,33 +284,87 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   }, [client, pending, userId, viewer]);
 
   if (loading && !hashtags.length && !suggested.length) return <SearchDiscoverySkeleton />;
+  const visibleSuggested = showAllSuggested ? suggested : suggested.slice(0, 5);
+
   return (
     <div className="discovery-page flutter-search-discovery">
-      <section className="route-section">
-        <div className="route-section-title"><h2>แฮชแท็กกำลังนิยม</h2></div>
-        <div className="hashtag-list">
-          {hashtags.length ? hashtags.map((item, index) => (
-            <div className="hashtag-row flutter-rank-row" key={item.tag}>
-              <b>{index + 1}</b>
-              <span className="flutter-rank-copy"><strong>#{item.tag}</strong><small>{item.postCount.toLocaleString("th-TH")} โพสต์ · กำลังนิยมใน ไทย</small></span>
-              <WynosIcon name="more" size={16} strokeWidth={2} aria-hidden="true" />
-            </div>
-          )) : <EmptyState>ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้</EmptyState>}
+      {recentSearches.length ? (
+        <section className="search-recent-section" aria-label="ค้นหาล่าสุด">
+          <div className="search-recent-title">
+            <h2>ค้นหาล่าสุด</h2>
+            <button type="button" onClick={onRecentClear}>ล้างทั้งหมด</button>
+          </div>
+          <div className="search-recent-scroll">
+            {recentSearches.map((item) => (
+              <div className="recent-search-chip" key={`${item.tab}:${item.query}`}>
+                <button className="recent-search-main" type="button" onClick={() => onRecentSelect(item)}>
+                  <span className="recent-search-icon" aria-hidden="true">
+                    {item.query.startsWith("#") ? "#" : <WynosIcon name={item.tab === "clubs" ? "club" : item.tab === "users" ? "profile" : "search"} size={16} strokeWidth={2} />}
+                  </span>
+                  <span data-i18n-skip="">{item.query}</span>
+                </button>
+                <button className="recent-search-remove" type="button" aria-label={`ลบ ${item.query} จากการค้นหาล่าสุด`} onClick={() => onRecentRemove(item)}>
+                  <WynosIcon name="close" size={16} strokeWidth={2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="route-section search-trending-section">
+        <div className="route-section-title search-discovery-title">
+          <h2>แฮชแท็กกำลังนิยม</h2>
+          <Link className="discovery-section-action" href="/trending">ดูทั้งหมด (Top 100) <WynosIcon name="chevronRight" size={15} strokeWidth={2.2} /></Link>
         </div>
-        <Link className="top100-link" href="/trending">ดูอันดับทั้งหมด (Top 100) <WynosIcon name="chevronRight" size={14} strokeWidth={2} /></Link>
+        <div className="hashtag-list">
+          {hashtags.length ? hashtags.map((item, index) => {
+            const change = item.changePercent ?? 0;
+            const tone = change < 0 ? "down" : index === 0 ? "hot" : "up";
+            return (
+              <Link className="hashtag-row flutter-rank-row" href={`/search?q=${encodeURIComponent(`#${item.tag}`)}&type=posts`} key={item.tag}>
+                <b>{index + 1}</b>
+                <span className="flutter-rank-copy">
+                  <strong>#{item.tag}</strong>
+                  <small>{formatCompactPostCount(item.postCount)} โพสต์</small>
+                </span>
+                <span className={`trend-change ${tone}`}>{change < 0 ? "▼" : "▲"} {change >= 0 ? "+" : ""}{change}%</span>
+                <WynosIcon className="trend-row-chevron" name="chevronRight" size={18} strokeWidth={2.2} aria-hidden="true" />
+              </Link>
+            );
+          }) : <EmptyState>ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้</EmptyState>}
+        </div>
       </section>
+
       <section className="route-section flutter-suggested-section">
-        <div className="route-section-title"><h2>แนะนำให้ติดตาม</h2></div>
+        <div className="route-section-title search-discovery-title">
+          <h2>แนะนำให้ติดตาม</h2>
+          {suggested.length > 5 ? (
+            <button className="discovery-section-action" type="button" onClick={() => setShowAllSuggested((value) => !value)}>
+              {showAllSuggested ? "ย่อ" : "ดูเพิ่มเติม"} <WynosIcon name="chevronRight" size={15} strokeWidth={2.2} />
+            </button>
+          ) : null}
+        </div>
         {suggested.length ? (
           <div className="route-list">
-            {suggested.map((profile) => {
+            {visibleSuggested.map((profile) => {
               const followed = viewer?.followedAuthorIds.has(profile.id) ?? false;
               const requested = viewer?.pendingFollowAuthorIds.has(profile.id) ?? false;
+              const name = profile.display_name?.trim() || profile.username;
               return (
-                <ProfileRowView
-                  profile={profile}
-                  key={profile.id}
-                  trailing={profile.id === userId ? null : (
+                <div className="search-suggested-row" key={profile.id}>
+                  <Link className="search-suggested-main" href={`/profile/${profile.id}`}>
+                    <Avatar src={profile.avatar_url} label={profile.username} size={48} />
+                    <span className="search-suggested-copy">
+                      <strong data-i18n-skip="">
+                        {name}
+                        {profile.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
+                      </strong>
+                      <small data-i18n-skip="">@{profile.username}</small>
+                      {profile.bio?.trim() ? <p data-i18n-skip="">{profile.bio.trim()}</p> : null}
+                    </span>
+                  </Link>
+                  {profile.id === userId ? null : (
                     <button
                       className={`route-pill search-follow-button ${followed || requested ? "soft" : ""}`}
                       disabled={!viewer || pending.has(profile.id)}
@@ -297,7 +374,7 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
                       {followButtonLabel({ busy: pending.has(profile.id), following: followed, requested })}
                     </button>
                   )}
-                />
+                </div>
               );
             })}
           </div>
@@ -308,7 +385,6 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   );
 }
 
-type SearchTab = "all" | "users" | "posts" | "clubs";
 type AllResultsSnapshot = { users: ProfileRow[]; drops: HomeFeedRow[]; clubs: ClubRow[] };
 
 // WYN-185 item 7: the "ทั้งหมด" (All) default tab, so a query that only
@@ -384,6 +460,8 @@ function AllResults({
 
 const SEARCH_TABS: readonly SearchTab[] = ["all", "users", "posts", "clubs"];
 const SEARCH_DEBOUNCE_MS = 400;
+const RECENT_SEARCH_STORAGE_KEY = "wynos:recent-searches:v1";
+const RECENT_SEARCH_LIMIT = 8;
 
 // WYN-185 item 7: query + result tab now live in the URL (?q=...&type=...)
 // instead of only in local state, so a refresh, back/forward navigation, or
@@ -398,6 +476,47 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const urlTabParam = params.get("type");
   const tab: SearchTab = SEARCH_TABS.includes(urlTabParam as SearchTab) ? (urlTabParam as SearchTab) : "all";
   const [draft, setDraft] = useState(urlQuery);
+  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+  const recentStorageKey = useMemo(() => `${RECENT_SEARCH_STORAGE_KEY}:${userId}`, [userId]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(recentStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as RecentSearch[];
+      if (!Array.isArray(parsed)) return;
+      setRecentSearches(parsed.filter((item) =>
+        item && typeof item.query === "string" && SEARCH_TABS.includes(item.tab as SearchTab),
+      ).slice(0, RECENT_SEARCH_LIMIT));
+    } catch {
+      // A malformed/private-mode localStorage entry should never block Search.
+    }
+  }, [recentStorageKey]);
+
+  const persistRecent = useCallback((next: RecentSearch[]) => {
+    setRecentSearches(next);
+    try {
+      window.localStorage.setItem(recentStorageKey, JSON.stringify(next));
+    } catch {
+      // Search remains usable even when storage is unavailable.
+    }
+  }, [recentStorageKey]);
+
+  const rememberSearch = useCallback((query: string, searchTab: SearchTab) => {
+    if (query.length < 2) return;
+    const normalized = query.trim();
+    const next = [
+      { query: normalized, tab: searchTab, savedAt: Date.now() },
+      ...recentSearches.filter((item) => item.query.toLocaleLowerCase() !== normalized.toLocaleLowerCase() || item.tab !== searchTab),
+    ].slice(0, RECENT_SEARCH_LIMIT);
+    persistRecent(next);
+  }, [persistRecent, recentSearches]);
+
+  const removeRecent = useCallback((target: RecentSearch) => {
+    persistRecent(recentSearches.filter((item) => !(item.query === target.query && item.tab === target.tab)));
+  }, [persistRecent, recentSearches]);
+
+  const clearRecent = useCallback(() => persistRecent([]), [persistRecent]);
 
   // The URL is the source of truth; keep the input in sync when it changes
   // from outside typing (back/forward, a shared link, the clear button).
@@ -410,6 +529,11 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
     const suffix = qs.toString();
     router.replace(suffix ? `/search?${suffix}` : "/search");
   }, [router]);
+
+  const selectRecent = useCallback((item: RecentSearch) => {
+    setDraft(item.query);
+    updateUrl(item.query, item.tab);
+  }, [updateUrl]);
 
   // Debounced as-you-type search (WYN-185 item 7: "ใช้ debounce สำหรับช่องค้นหา").
   // Submitting via Enter/the search icon (submitNow below) bypasses this
@@ -425,6 +549,7 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const submitNow = () => {
     const trimmed = draft.trim();
     if (trimmed.length > 0 && trimmed.length < 2) return;
+    if (trimmed) rememberSearch(trimmed, tab);
     updateUrl(trimmed, tab);
   };
   const selectTab = (next: SearchTab) => updateUrl(urlQuery, next);
@@ -450,11 +575,20 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
         <button className="search-back-button" type="button" aria-label="ออกจากหน้าค้นหา" onClick={closeSearch}><WynosIcon name="back" size={28} strokeWidth={2} /></button>
         <div className="search-route-form" role="search">
           <button type="button" aria-label="ค้นหา" onClick={submitNow}><WynosIcon name="search" size={20} strokeWidth={2} /></button>
-          <input type="search" name="search_query" aria-label="ค้นหาผู้ใช้ โพสต์ และ Club" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitNow(); } }} placeholder="ค้นหาผู้ใช้ โพสต์ และ Club" inputMode="search" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
+          <input type="search" name="search_query" aria-label="ค้นหาผู้ใช้ โพสต์ และคลับ" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitNow(); } }} placeholder="ค้นหาผู้ใช้ โพสต์ และคลับ" inputMode="search" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
           {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={clear}><WynosIcon name="close" size={18} strokeWidth={2} /></button> : null}
         </div>
       </div>
-      {!submitted ? <Discovery client={client} userId={userId} /> : (
+      {!submitted ? (
+        <Discovery
+          client={client}
+          userId={userId}
+          recentSearches={recentSearches}
+          onRecentSelect={selectRecent}
+          onRecentRemove={removeRecent}
+          onRecentClear={clearRecent}
+        />
+      ) : (
         <>
           <div className="route-tabs flutter-search-tabs" role="tablist" aria-label="ประเภทผลการค้นหา">{tabs.map((item) => <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => selectTab(item.id)} key={item.id}>{item.label}</button>)}</div>
           {tab === "all" ? <AllResults client={client} userId={userId} query={urlQuery} onSelectTab={selectTab} /> : null}
