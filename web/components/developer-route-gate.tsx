@@ -157,6 +157,10 @@ export function DeveloperRouteGate({
     // Rebuild it from the now-cleared active pointer before the next login.
     // A signing-out account's page must not reopen for the next login.
     clearReturnPath();
+    if (afterSignOutPath === "/welcome") {
+      window.location.replace("/welcome");
+      return;
+    }
     window.location.replace(afterSignOutPath);
   }, [afterSignOutPath, client, queryClient, session]);
 
