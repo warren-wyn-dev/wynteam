@@ -198,9 +198,31 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
   return <div className="route-list">{rows.map((club) => <Link href={`/club/${club.id}`} className="route-club-row" key={club.id}><span className="route-club-image">{club.icon_url ? <Image src={club.icon_url} alt="" width={46} height={46} sizes="46px" /> : club.name.slice(0, 1)}</span><span><strong>{club.name}</strong><small>{club.member_count.toLocaleString("th-TH")} สมาชิก{club.category ? ` · ${club.category}` : ""}</small></span></Link>)}{hasMore ? <button className="route-more" type="button" disabled={loading} onClick={() => void load(page + 1, true)}>ดูเพิ่มเติม</button> : null}</div>;
 }
 
+type SearchTab = "all" | "users" | "posts" | "clubs";
+type RecentSearch = { query: string; tab: SearchTab; savedAt: number };
 type DiscoverySnapshot = { hashtags: RankedHashtag[]; suggested: ProfileRow[] };
 
-function Discovery({ client, userId }: { client: SupabaseClient; userId: string }) {
+function formatCompactPostCount(count: number) {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(count >= 100_000 ? 0 : 1).replace(/\.0$/, "")}K`;
+  return count.toLocaleString("th-TH");
+}
+
+function Discovery({
+  client,
+  userId,
+  recentSearches,
+  onRecentSelect,
+  onRecentRemove,
+  onRecentClear,
+}: {
+  client: SupabaseClient;
+  userId: string;
+  recentSearches: RecentSearch[];
+  onRecentSelect: (item: RecentSearch) => void;
+  onRecentRemove: (item: RecentSearch) => void;
+  onRecentClear: () => void;
+}) {
   const cacheKey = `search-discovery:${userId}`;
   const cached = getMountCache<DiscoverySnapshot>(cacheKey);
   const [hashtags, setHashtags] = useState<RankedHashtag[]>(cached?.hashtags ?? []);
@@ -209,11 +231,12 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   const [loading, setLoading] = useState(!cached);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [followError, setFollowError] = useState("");
+  const [showAllSuggested, setShowAllSuggested] = useState(false);
 
   useEffect(() => {
     let live = true;
     void Promise.all([
-      fetchTrendingHashtags(client, 6),
+      fetchTrendingHashtags(client, 5),
       fetchSuggestedProfiles(client, 10),
     ]).then(async ([tags, suggest]) => {
       if (!live) return;
@@ -261,26 +284,70 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   }, [client, pending, userId, viewer]);
 
   if (loading && !hashtags.length && !suggested.length) return <SearchDiscoverySkeleton />;
+  const visibleSuggested = showAllSuggested ? suggested : suggested.slice(0, 5);
+
   return (
     <div className="discovery-page flutter-search-discovery">
-      <section className="route-section">
-        <div className="route-section-title"><h2>แฮชแท็กกำลังนิยม</h2></div>
-        <div className="hashtag-list">
-          {hashtags.length ? hashtags.map((item, index) => (
-            <div className="hashtag-row flutter-rank-row" key={item.tag}>
-              <b>{index + 1}</b>
-              <span className="flutter-rank-copy"><strong>#{item.tag}</strong><small>{item.postCount.toLocaleString("th-TH")} โพสต์ · กำลังนิยมใน ไทย</small></span>
-              <WynosIcon name="more" size={16} strokeWidth={2} aria-hidden="true" />
-            </div>
-          )) : <EmptyState>ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้</EmptyState>}
+      {recentSearches.length ? (
+        <section className="search-recent-section" aria-label="ค้นหาล่าสุด">
+          <div className="search-recent-title">
+            <h2>ค้นหาล่าสุด</h2>
+            <button type="button" onClick={onRecentClear}>ล้างทั้งหมด</button>
+          </div>
+          <div className="search-recent-scroll">
+            {recentSearches.map((item) => (
+              <div className="recent-search-chip" key={`${item.tab}:${item.query}`}>
+                <button className="recent-search-main" type="button" onClick={() => onRecentSelect(item)}>
+                  <span className="recent-search-icon" aria-hidden="true">
+                    {item.query.startsWith("#") ? "#" : <WynosIcon name={item.tab === "clubs" ? "club" : item.tab === "users" ? "profile" : "search"} size={16} strokeWidth={2} />}
+                  </span>
+                  <span data-i18n-skip="">{item.query}</span>
+                </button>
+                <button className="recent-search-remove" type="button" aria-label={`ลบ ${item.query} จากการค้นหาล่าสุด`} onClick={() => onRecentRemove(item)}>
+                  <WynosIcon name="close" size={16} strokeWidth={2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="route-section search-trending-section">
+        <div className="route-section-title search-discovery-title">
+          <h2>แฮชแท็กกำลังนิยม</h2>
+          <Link className="discovery-section-action" href="/trending">ดูทั้งหมด (Top 100) <WynosIcon name="chevronRight" size={15} strokeWidth={2.2} /></Link>
         </div>
-        <Link className="top100-link" href="/trending">ดูอันดับทั้งหมด (Top 100) <WynosIcon name="chevronRight" size={14} strokeWidth={2} /></Link>
+        <div className="hashtag-list">
+          {hashtags.length ? hashtags.map((item, index) => {
+            const change = item.changePercent ?? 0;
+            const tone = change < 0 ? "down" : index === 0 ? "hot" : "up";
+            return (
+              <Link className="hashtag-row flutter-rank-row" href={`/search?q=${encodeURIComponent(`#${item.tag}`)}&type=posts`} key={item.tag}>
+                <b>{index + 1}</b>
+                <span className="flutter-rank-copy">
+                  <strong>#{item.tag}</strong>
+                  <small>{formatCompactPostCount(item.postCount)} โพสต์</small>
+                </span>
+                <span className={`trend-change ${tone}`}>{change < 0 ? "▼" : "▲"} {change >= 0 ? "+" : ""}{change}%</span>
+                <WynosIcon className="trend-row-chevron" name="chevronRight" size={18} strokeWidth={2.2} aria-hidden="true" />
+              </Link>
+            );
+          }) : <EmptyState>ยังไม่มีแฮชแท็กกำลังนิยมตอนนี้</EmptyState>}
+        </div>
       </section>
+
       <section className="route-section flutter-suggested-section">
-        <div className="route-section-title"><h2>แนะนำให้ติดตาม</h2></div>
+        <div className="route-section-title search-discovery-title">
+          <h2>แนะนำให้ติดตาม</h2>
+          {suggested.length > 5 ? (
+            <button className="discovery-section-action" type="button" onClick={() => setShowAllSuggested((value) => !value)}>
+              {showAllSuggested ? "ย่อ" : "ดูเพิ่มเติม"} <WynosIcon name="chevronRight" size={15} strokeWidth={2.2} />
+            </button>
+          ) : null}
+        </div>
         {suggested.length ? (
           <div className="route-list">
-            {suggested.map((profile) => {
+            {visibleSuggested.map((profile) => {
               const followed = viewer?.followedAuthorIds.has(profile.id) ?? false;
               const requested = viewer?.pendingFollowAuthorIds.has(profile.id) ?? false;
               return (
@@ -308,7 +375,6 @@ function Discovery({ client, userId }: { client: SupabaseClient; userId: string 
   );
 }
 
-type SearchTab = "all" | "users" | "posts" | "clubs";
 type AllResultsSnapshot = { users: ProfileRow[]; drops: HomeFeedRow[]; clubs: ClubRow[] };
 
 // WYN-185 item 7: the "ทั้งหมด" (All) default tab, so a query that only
