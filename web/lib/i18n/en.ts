@@ -1547,6 +1547,13 @@ Object.assign(EN_EXACT, {
 
 // WYNOS Merchant Campaign Center.
 Object.assign(EN_EXACT, {
+  "ลด": "Save",
+  "· สูงสุด": "· up to",
+  "ไม่กำหนด": "No end date",
+  "ลบแคมเปญ “": "Delete campaign “",
+  "แคมเปญกำลังใช้งาน": "active campaigns",
+  "· ปิดขายอยู่": "· unavailable",
+  "เมื่อสั่งขั้นต่ำ": "Minimum spend",
   "หยุดอยู่": "Paused",
   "สิทธิ์ครบแล้ว": "Usage limit reached",
   "ตั้งเวลาไว้": "Scheduled",
