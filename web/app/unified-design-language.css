@@ -97,7 +97,7 @@
 
 /* Thin dividers and flat rows instead of competing card styles. */
 .route-section {
-  border-bottom-color: var(--wyn-ui-divider);
+  border-bottom: 1px solid var(--wyn-ui-divider);
   background: transparent;
 }
 
