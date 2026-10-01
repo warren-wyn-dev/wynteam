@@ -213,7 +213,7 @@ function MerchantInner({
     loadingRef.current = true;
     if (!quiet) setLoading(true);
     else setRefreshing(true);
-    setMessage("");
+    if (!quiet) setMessage("");
     try {
       const next = await fetchMerchantSnapshot(client);
       setAccess(next.access);
@@ -221,6 +221,7 @@ function MerchantInner({
       setMenu(next.menu);
       setOrders(next.orders);
       setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? null : null);
+      return next;
     } catch (error) {
       setMessage(merchantError(error, "โหลดข้อมูลร้านไม่สำเร็จ"));
     } finally {
@@ -242,11 +243,19 @@ function MerchantInner({
       if (payload.eventType === "INSERT") {
         if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([180, 80, 180]);
         if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-          new Notification("WYNOS Merchant · ออเดอร์ใหม่", {
+          const options = {
             body: `#${String(next.order_number ?? "")} · ${money(next.total as number | string | undefined)}`,
             icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
             tag: String(next.id ?? "wynos-food-order"),
-          });
+          };
+          if ("serviceWorker" in navigator) {
+            void navigator.serviceWorker.ready
+              .then((registration) => registration.showNotification("WYNOS Merchant · ออเดอร์ใหม่", options))
+              .catch(() => undefined);
+          } else {
+            try { new Notification("WYNOS Merchant · ออเดอร์ใหม่", options); } catch { /* best effort */ }
+          }
         }
       }
       void load(true);
@@ -450,8 +459,8 @@ function MerchantInner({
           onClose={() => setManualOpen(false)}
           onSaved={async (orderId) => {
             setManualOpen(false);
-            await load(true);
-            const next = orders.find((order) => order.id === orderId);
+            const snapshot = await load(true);
+            const next = snapshot?.orders.find((order) => order.id === orderId);
             if (next) setSelectedOrder(next);
           }}
           onMessage={setMessage}
