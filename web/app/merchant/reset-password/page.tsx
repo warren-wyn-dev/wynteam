@@ -1,7 +1,7 @@
-import { MerchantResetPasswordScreen } from "@/components/merchant/merchant-auth";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "ตั้งรหัสผ่านใหม่ — WYNOS Merchant" };
 
 export default function MerchantResetPasswordPage() {
-  return <MerchantResetPasswordScreen />;
+  redirect("/reset-password");
 }
