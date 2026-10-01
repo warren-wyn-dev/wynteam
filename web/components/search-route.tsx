@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
-import { AppChrome, DropPreviewCard, EmptyState, ProfileRowView } from "@/components/phase3-ui";
+import { AppChrome, Avatar, DropPreviewCard, EmptyState, ProfileRowView } from "@/components/phase3-ui";
 import { FeedSkeleton, SearchClubSkeleton, SearchDiscoverySkeleton, SearchUserSkeleton } from "@/components/ui/skeleton";
 import { followButtonLabel } from "@/components/ui/follow-button-label";
 import { WynosIcon } from "@/components/ui/wynos-icon";
@@ -350,11 +350,21 @@ function Discovery({
             {visibleSuggested.map((profile) => {
               const followed = viewer?.followedAuthorIds.has(profile.id) ?? false;
               const requested = viewer?.pendingFollowAuthorIds.has(profile.id) ?? false;
+              const name = profile.display_name?.trim() || profile.username;
               return (
-                <ProfileRowView
-                  profile={profile}
-                  key={profile.id}
-                  trailing={profile.id === userId ? null : (
+                <div className="search-suggested-row" key={profile.id}>
+                  <Link className="search-suggested-main" href={`/profile/${profile.id}`}>
+                    <Avatar src={profile.avatar_url} label={profile.username} size={48} />
+                    <span className="search-suggested-copy">
+                      <strong data-i18n-skip="">
+                        {name}
+                        {profile.is_verified ? <span className="route-verified" aria-label="ยืนยันแล้ว">✓</span> : null}
+                      </strong>
+                      <small data-i18n-skip="">@{profile.username}</small>
+                      {profile.bio?.trim() ? <p data-i18n-skip="">{profile.bio.trim()}</p> : null}
+                    </span>
+                  </Link>
+                  {profile.id === userId ? null : (
                     <button
                       className={`route-pill search-follow-button ${followed || requested ? "soft" : ""}`}
                       disabled={!viewer || pending.has(profile.id)}
@@ -364,7 +374,7 @@ function Discovery({
                       {followButtonLabel({ busy: pending.has(profile.id), following: followed, requested })}
                     </button>
                   )}
-                />
+                </div>
               );
             })}
           </div>
