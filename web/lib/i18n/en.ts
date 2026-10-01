@@ -1316,6 +1316,7 @@ Object.assign(EN_EXACT, {
   "ตั้งรหัสผ่านใหม่ — WYNOS Merchant": "Set a new password — WYNOS Merchant",
   "บัญชีนี้ไม่ใช่บัญชี WYNOS Merchant กรุณาใช้บัญชี Merchant หรือสมัครใหม่": "This is not a WYNOS Merchant account. Use a Merchant account or sign up",
   "อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลสำหรับ WYNOS Merchant อีกอีเมลหนึ่ง": "This email is already in use. Use a different email for WYNOS Merchant",
+  "อีเมลนี้มีบัญชี WYNOS อยู่แล้ว จึงยังใช้สร้างบัญชี Merchant แยกในระบบปัจจุบันไม่ได้": "This email already has a WYNOS account, so it cannot create a separate Merchant account in the current auth system",
   "กำลังตรวจสอบบัญชี Merchant…": "Checking Merchant account…",
   "เข้าสู่ระบบด้วยอีเมลและรหัสผ่านของ WYNOS Merchant": "Sign in with your WYNOS Merchant email and password",
   "อีเมล Merchant": "Merchant email",
