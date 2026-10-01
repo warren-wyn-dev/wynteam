@@ -106,6 +106,7 @@ export const EN_EXACT: Record<string, string> = {
   "กำลังตรวจสอบอุปกรณ์…": "Checking this device…",
   "กำลังตรวจสอบ…": "Checking…",
   "กำลังติดตาม": "Following",
+  "กำลังติดตาม…": "Following…",
   "กำลังนิยม": "Popular",
   "กำลังบันทึกร่าง…": "Saving draft…",
   "กำลังบันทึก…": "Saving…",
