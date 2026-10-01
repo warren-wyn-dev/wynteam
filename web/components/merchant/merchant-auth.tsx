@@ -2,10 +2,14 @@
 
 import { ArrowLeft, CheckCircle2, Clock3, Store, XCircle } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { signInWithEmail } from "@/lib/auth-repository";
+import {
+  fetchMerchantIdentity,
+  resetMerchantPasswordForEmail,
+  signInMerchantWithEmail,
+  signUpMerchantWithEmail,
+} from "@/lib/merchant-account";
 import {
   fetchMerchantApplication,
   submitMerchantApplication,
@@ -13,8 +17,11 @@ import {
   type MerchantApplicationDraft,
   type MerchantBusinessType,
 } from "@/lib/merchant-application";
-import { consumeReturnPath, rememberReturnPath } from "@/lib/return-to";
-import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/browser";
+import { MIN_SIGNUP_PASSWORD_LENGTH } from "@/lib/signup-password-policy";
+import {
+  getMerchantSupabaseBrowserClient,
+  hasMerchantBrowserConfig,
+} from "@/lib/supabase/merchant-browser";
 
 const EMPTY_DRAFT: MerchantApplicationDraft = {
   businessName: "",
@@ -35,11 +42,7 @@ function MerchantAuthBrand() {
 }
 
 function MerchantAuthShell({ children }: { children: ReactNode }) {
-  return (
-    <main className="wm-auth-shell">
-      <section className="wm-auth-card">{children}</section>
-    </main>
-  );
+  return <main className="wm-auth-shell"><section className="wm-auth-card">{children}</section></main>;
 }
 
 function BackToMerchant() {
@@ -50,8 +53,18 @@ function BackToMerchant() {
   );
 }
 
+function authErrorMessage(error: unknown) {
+  const code = (error as { code?: string })?.code;
+  const message = error instanceof Error ? error.message : "";
+  if (code === "email_not_confirmed") return "บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณากดลิงก์ยืนยันในอีเมลก่อนเข้าสู่ระบบ";
+  if (message === "not_merchant_account") return "บัญชีนี้ไม่ใช่บัญชี WYNOS Merchant กรุณาใช้บัญชี Merchant หรือสมัครใหม่";
+  if (message === "merchant_email_already_used") return "อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลสำหรับ WYNOS Merchant อีกอีเมลหนึ่ง";
+  if (message === "merchant_password_too_short") return `รหัสผ่าน Merchant ต้องมีอย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`;
+  return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
+}
+
 export function MerchantLoginScreen() {
-  const client = useMemo(() => getSupabaseBrowserClient(), []);
+  const client = useMemo(() => getMerchantSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,24 +74,25 @@ export function MerchantLoginScreen() {
   useEffect(() => {
     let mounted = true;
     if (!client) return;
-    void client.auth.getSession().then(({ data, error }) => {
+    void client.auth.getSession().then(async ({ data, error }) => {
       if (!mounted) return;
       if (!error && data.session) {
-        window.location.replace(consumeReturnPath() ?? "/merchant");
-        return;
+        const identity = await fetchMerchantIdentity(client, data.session.user.id).catch(() => null);
+        if (identity?.active) {
+          window.location.replace("/merchant");
+          return;
+        }
+        await client.auth.signOut();
       }
-      setChecking(false);
-    }).catch(() => {
       if (mounted) setChecking(false);
-    });
+    }).catch(() => { if (mounted) setChecking(false); });
     return () => { mounted = false; };
   }, [client]);
 
   async function submit() {
     if (loading) return;
     setMessage("");
-    const normalized = email.trim();
-    if (!normalized || !password) {
+    if (!email.trim() || !password) {
       setMessage("กรุณากรอกอีเมลและรหัสผ่าน");
       return;
     }
@@ -89,26 +103,17 @@ export function MerchantLoginScreen() {
 
     setLoading(true);
     try {
-      const active = await client.auth.getSession();
-      if (active.error) throw active.error;
-      if (active.data.session) {
-        window.location.replace(consumeReturnPath() ?? "/merchant");
-        return;
-      }
-      await signInWithEmail(client, normalized, password);
-      window.location.replace(consumeReturnPath() ?? "/merchant");
+      await signInMerchantWithEmail(client, email.trim(), password);
+      window.location.replace("/merchant");
     } catch (error) {
-      const code = (error as { code?: string })?.code;
-      setMessage(code === "email_not_confirmed"
-        ? "บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณากดลิงก์ยืนยันในอีเมลก่อนเข้าสู่ระบบ"
-        : "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+      setMessage(authErrorMessage(error));
     } finally {
       setLoading(false);
     }
   }
 
   if (checking) {
-    return <MerchantAuthShell><div className="wm-auth-loading"><div className="wm-loader" /><span>กำลังตรวจสอบบัญชี…</span></div></MerchantAuthShell>;
+    return <MerchantAuthShell><div className="wm-auth-loading"><div className="wm-loader" /><span>กำลังตรวจสอบบัญชี Merchant…</span></div></MerchantAuthShell>;
   }
 
   return (
@@ -117,17 +122,17 @@ export function MerchantLoginScreen() {
       <div className="wm-auth-hero">
         <div className="wm-auth-mark"><Store size={30} strokeWidth={1.7} /></div>
         <h1>เข้าสู่ระบบ Merchant</h1>
-        <p>จัดการร้าน ออเดอร์ เมนู ยอดขาย และการจัดส่งจากบัญชี WYNOS ของคุณ</p>
+        <p>เข้าสู่ระบบด้วยอีเมลและรหัสผ่านของ WYNOS Merchant</p>
       </div>
       <div className="wm-auth-form">
-        <label>อีเมล<input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
-        <label>รหัสผ่าน<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่านของคุณ" /></label>
-        <div className="wm-auth-inline"><Link href="/forgot-password">ลืมรหัสผ่าน?</Link></div>
+        <label>อีเมล Merchant<input type="email" autoComplete="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="merchant@example.com" /></label>
+        <label>รหัสผ่าน<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="รหัสผ่าน Merchant" /></label>
+        <div className="wm-auth-inline"><Link href="/merchant/forgot-password">ลืมรหัสผ่าน?</Link></div>
         {message ? <p className="wm-auth-error" role="alert">{message}</p> : null}
         <button className="wm-primary wm-full" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
       </div>
-      <p className="wm-auth-switch">ยังไม่มี Merchant? <Link href="/merchant/signup">สมัคร WYNOS Merchant</Link></p>
-      <p className="wm-auth-footnote">ใช้บัญชี WYNOS เดียวกันได้ ไม่ต้องสร้างบัญชีซ้ำ</p>
+      <p className="wm-auth-switch">ยังไม่มีบัญชี Merchant? <Link href="/merchant/signup">สมัคร WYNOS Merchant</Link></p>
+      <p className="wm-auth-footnote">บัญชี WYNOS Merchant แยกจากบัญชี WYNOS Social</p>
     </MerchantAuthShell>
   );
 }
@@ -137,7 +142,7 @@ function statusContent(application: MerchantApplication) {
     return {
       icon: <CheckCircle2 size={34} strokeWidth={1.7} />,
       title: "คำขอได้รับการอนุมัติแล้ว",
-      detail: "บัญชีของคุณได้รับอนุมัติสำหรับ WYNOS Merchant แล้ว หากร้านถูกผูกกับบัญชีเรียบร้อย คุณสามารถเข้า Dashboard ได้ทันที",
+      detail: "บัญชี Merchant ของคุณได้รับอนุมัติแล้ว และพร้อมเข้า Dashboard เมื่อร้านถูก provision",
       tone: "approved",
     };
   }
@@ -158,70 +163,93 @@ function statusContent(application: MerchantApplication) {
 }
 
 export function MerchantSignupScreen() {
-  const router = useRouter();
-  const client = useMemo(() => getSupabaseBrowserClient(), []);
+  const client = useMemo(() => getMerchantSupabaseBrowserClient(), []);
   const [checking, setChecking] = useState(() => Boolean(client));
   const [userId, setUserId] = useState<string | null>(null);
   const [application, setApplication] = useState<MerchantApplication | null>(null);
   const [draft, setDraft] = useState<MerchantApplicationDraft>(EMPTY_DRAFT);
   const [editingRejected, setEditingRejected] = useState(false);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [awaitingEmailConfirmation, setAwaitingEmailConfirmation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  async function loadApplication(id: string) {
+    if (!client) return;
+    const current = await fetchMerchantApplication(client, id);
+    setApplication(current);
+    if (current) {
+      setDraft({
+        businessName: current.business_name,
+        businessType: current.business_type,
+        contactName: current.contact_name,
+        phone: current.phone,
+        address: current.address,
+        note: current.note ?? "",
+      });
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
     if (!client) return;
-
     void (async () => {
       try {
         const session = await client.auth.getSession();
         if (!mounted) return;
-        if (session.error || !session.data.session) {
+        if (!session.data.session) {
           setChecking(false);
           return;
         }
-
-        const id = session.data.session.user.id;
-        setUserId(id);
-
-        const access = await client.rpc("food_has_merchant_access", { p_store_id: null });
+        const identity = await fetchMerchantIdentity(client, session.data.session.user.id);
         if (!mounted) return;
-        if (!access.error && access.data === true) {
-          window.location.replace("/merchant");
+        if (!identity?.active) {
+          await client.auth.signOut();
+          setChecking(false);
           return;
         }
-
-        const current = await fetchMerchantApplication(client, id);
-        if (!mounted) return;
-        setApplication(current);
-        if (current) {
-          setDraft({
-            businessName: current.business_name,
-            businessType: current.business_type,
-            contactName: current.contact_name,
-            phone: current.phone,
-            address: current.address,
-            note: current.note ?? "",
-          });
-        }
+        const id = session.data.session.user.id;
+        setUserId(id);
+        await loadApplication(id);
       } catch {
         if (mounted) setMessage("โหลดข้อมูลสมัคร Merchant ไม่สำเร็จ กรุณาลองใหม่");
       } finally {
         if (mounted) setChecking(false);
       }
     })();
-
     return () => { mounted = false; };
   }, [client]);
 
-  function startAccountSignup() {
-    rememberReturnPath("/merchant/signup");
-    router.push("/signup/step-1");
-  }
+  async function createMerchantAccount() {
+    if (!client || loading) return;
+    if (!accountEmail.trim()) {
+      setMessage("กรุณากรอกอีเมล Merchant");
+      return;
+    }
+    if (accountPassword !== confirmPassword) {
+      setMessage("รหัสผ่านทั้งสองช่องไม่ตรงกัน");
+      return;
+    }
 
-  function startMerchantLogin() {
-    rememberReturnPath("/merchant/signup");
-    router.push("/merchant/login");
+    setLoading(true);
+    setMessage("");
+    try {
+      const data = await signUpMerchantWithEmail(client, accountEmail.trim(), accountPassword);
+      if (!data.session || !data.user) {
+        setAwaitingEmailConfirmation(true);
+        setMessage("สร้างบัญชี Merchant แล้ว กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ");
+        return;
+      }
+      setUserId(data.user.id);
+      await loadApplication(data.user.id);
+      setMessage("สร้างบัญชี WYNOS Merchant เรียบร้อยแล้ว");
+    } catch (error) {
+      setMessage(authErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function submit() {
@@ -230,8 +258,7 @@ export function MerchantSignupScreen() {
     setMessage("");
     try {
       await submitMerchantApplication(client, userId, draft, application);
-      const next = await fetchMerchantApplication(client, userId);
-      setApplication(next);
+      await loadApplication(userId);
       setEditingRejected(false);
       setMessage("ส่งคำขอ WYNOS Merchant เรียบร้อยแล้ว");
     } catch (error) {
@@ -241,10 +268,9 @@ export function MerchantSignupScreen() {
     }
   }
 
-  if (!hasSupabaseBrowserConfig()) {
+  if (!hasMerchantBrowserConfig()) {
     return <MerchantAuthShell><div className="wm-auth-state"><MerchantAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>WYNOS Merchant ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></MerchantAuthShell>;
   }
-
   if (checking) {
     return <MerchantAuthShell><div className="wm-auth-loading"><div className="wm-loader" /><span>กำลังเปิดหน้าสมัคร Merchant…</span></div></MerchantAuthShell>;
   }
@@ -255,17 +281,27 @@ export function MerchantSignupScreen() {
         <div className="wm-auth-top"><BackToMerchant /><MerchantAuthBrand /><span className="wm-auth-top-spacer" /></div>
         <div className="wm-auth-hero">
           <div className="wm-auth-mark"><Store size={30} strokeWidth={1.7} /></div>
-          <h1>สมัคร WYNOS Merchant</h1>
-          <p>เปิดร้านบน WYNOS ด้วยบัญชีเดียวกับ WYNOS ปกติ แต่มีพื้นที่สมัครและจัดการ Merchant แยกโดยเฉพาะ</p>
+          <h1>สร้างบัญชี WYNOS Merchant</h1>
+          <p>บัญชีร้านค้าแยกจาก WYNOS Social ใช้อีเมลและรหัสผ่านสำหรับธุรกิจโดยเฉพาะ</p>
         </div>
         <div className="wm-auth-benefits">
-          <span><CheckCircle2 size={18} />ใช้บัญชี WYNOS เดิมได้</span>
-          <span><CheckCircle2 size={18} />สมัครร้านและติดตามสถานะแยก</span>
-          <span><CheckCircle2 size={18} />ข้อมูล Merchant ไม่ปะปนกับหน้า Social</span>
+          <span><CheckCircle2 size={18} />บัญชี Merchant แยกจาก Social</span>
+          <span><CheckCircle2 size={18} />ร้านมี Merchant Account ของตัวเอง</span>
+          <span><CheckCircle2 size={18} />รองรับ Owner และ Staff หลายคน</span>
         </div>
-        <button className="wm-primary wm-full" type="button" onClick={startAccountSignup}>สร้างบัญชีเพื่อสมัคร Merchant</button>
-        <button className="wm-auth-secondary wm-full" type="button" onClick={startMerchantLogin}>มีบัญชี WYNOS แล้ว</button>
-        <p className="wm-auth-footnote">การสร้างบัญชีถือว่ายอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวของ WYNOS</p>
+        <div className="wm-auth-form">
+          <label>อีเมล Merchant<input type="email" autoComplete="email" autoCapitalize="none" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="merchant@example.com" /></label>
+          <label>รหัสผ่าน<input type="password" autoComplete="new-password" value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} placeholder={`อย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`} /></label>
+          <label>ยืนยันรหัสผ่าน<input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="กรอกรหัสผ่านอีกครั้ง" /></label>
+        </div>
+        {message ? <p className={awaitingEmailConfirmation ? "wm-auth-success" : "wm-auth-error"} role="status">{message}</p> : null}
+        {!awaitingEmailConfirmation ? (
+          <button className="wm-primary wm-full" type="button" disabled={loading} onClick={() => void createMerchantAccount()}>{loading ? "กำลังสร้างบัญชี…" : "สร้างบัญชี Merchant"}</button>
+        ) : (
+          <Link className="wm-primary wm-full wm-link-button" href="/merchant/login">ไปหน้าเข้าสู่ระบบ</Link>
+        )}
+        <p className="wm-auth-switch">มีบัญชี Merchant แล้ว? <Link href="/merchant/login">เข้าสู่ระบบ</Link></p>
+        <p className="wm-auth-footnote">หากอีเมลนี้ใช้กับบัญชี WYNOS Social อยู่แล้ว ให้ใช้อีเมล Merchant อีกอีเมลหนึ่ง</p>
       </MerchantAuthShell>
     );
   }
@@ -276,14 +312,12 @@ export function MerchantSignupScreen() {
       <MerchantAuthShell>
         <div className="wm-auth-top"><BackToMerchant /><MerchantAuthBrand /><span className="wm-auth-top-spacer" /></div>
         <div className={"wm-application-status wm-application-status--" + status.tone}>
-          {status.icon}
-          <h1>{status.title}</h1>
-          <p>{status.detail}</p>
+          {status.icon}<h1>{status.title}</h1><p>{status.detail}</p>
         </div>
         <div className="wm-application-summary">
           <span><small>ชื่อธุรกิจ</small><strong>{application.business_name}</strong></span>
           <span><small>เบอร์ติดต่อ</small><strong>{application.phone}</strong></span>
-          <span><small>ส่งคำขอเมื่อ</small><strong>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(new Date(application.created_at))}</strong></span>
+          <span><small>Merchant Account</small><strong>{application.merchant_account_id ?? "กำลังสร้าง"}</strong></span>
         </div>
         {message ? <p className="wm-auth-success" role="status">{message}</p> : null}
         <Link className="wm-primary wm-full wm-link-button" href="/merchant">ไป WYNOS Merchant</Link>
@@ -300,9 +334,7 @@ export function MerchantSignupScreen() {
       {rejected && !editingRejected ? (
         <>
           <div className={"wm-application-status wm-application-status--" + rejected.tone}>
-            {rejected.icon}
-            <h1>{rejected.title}</h1>
-            <p>{rejected.detail}</p>
+            {rejected.icon}<h1>{rejected.title}</h1><p>{rejected.detail}</p>
           </div>
           <button className="wm-primary wm-full" type="button" onClick={() => setEditingRejected(true)}>แก้ไขและส่งใหม่</button>
         </>
@@ -310,10 +342,7 @@ export function MerchantSignupScreen() {
 
       {showForm ? (
         <>
-          <div className="wm-auth-heading">
-            <h1>{application ? "แก้ไขคำขอ Merchant" : "ข้อมูลร้านของคุณ"}</h1>
-            <p>ข้อมูลนี้ใช้สำหรับตรวจสอบและเปิดสิทธิ์ WYNOS Merchant</p>
-          </div>
+          <div className="wm-auth-heading"><h1>{application ? "แก้ไขคำขอ Merchant" : "ข้อมูลธุรกิจ"}</h1><p>ข้อมูลนี้จะผูกกับ Merchant Account ของร้าน</p></div>
           <div className="wm-auth-form">
             <label>ชื่อร้าน / ชื่อธุรกิจ<input value={draft.businessName} onChange={(event) => setDraft({ ...draft, businessName: event.target.value })} placeholder="เช่น ร้าน WYNOS Cafe" /></label>
             <label>ประเภทธุรกิจ<select value={draft.businessType} onChange={(event) => setDraft({ ...draft, businessType: event.target.value as MerchantBusinessType })}><option value="food">อาหาร / เครื่องดื่ม</option><option value="retail">ร้านค้าสินค้า</option><option value="service">บริการ</option><option value="other">อื่น ๆ</option></select></label>
@@ -324,9 +353,99 @@ export function MerchantSignupScreen() {
           </div>
           {message ? <p className={message.includes("เรียบร้อย") ? "wm-auth-success" : "wm-auth-error"} role="status">{message}</p> : null}
           <button className="wm-primary wm-full" type="button" disabled={loading} onClick={() => void submit()}>{loading ? "กำลังส่งคำขอ…" : application ? "ส่งคำขอใหม่" : "ส่งคำขอสมัคร Merchant"}</button>
-          <p className="wm-auth-footnote">การส่งคำขอไม่ได้เปิดสิทธิ์ร้านโดยอัตโนมัติ WYNOS จะตรวจสอบก่อนเปิด Merchant Dashboard</p>
+          <p className="wm-auth-footnote">Owner จะเป็นสมาชิกคนแรกของ Merchant Account และสามารถเพิ่ม Staff ได้ในระบบทีมงานภายหลัง</p>
         </>
       ) : null}
+    </MerchantAuthShell>
+  );
+}
+
+export function MerchantForgotPasswordScreen() {
+  const client = useMemo(() => getMerchantSupabaseBrowserClient(), []);
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function submit() {
+    if (!client || loading || !email.trim()) return;
+    setLoading(true);
+    try {
+      await resetMerchantPasswordForEmail(client, email.trim());
+      setMessage("ส่งลิงก์รีเซ็ตรหัสผ่าน Merchant แล้ว กรุณาตรวจสอบอีเมล");
+    } catch {
+      setMessage("ส่งลิงก์รีเซ็ตรหัสผ่านไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <MerchantAuthShell>
+      <div className="wm-auth-top"><Link className="wm-auth-back" href="/merchant/login"><ArrowLeft size={20} /></Link><MerchantAuthBrand /><span className="wm-auth-top-spacer" /></div>
+      <div className="wm-auth-heading"><h1>ลืมรหัสผ่าน Merchant</h1><p>เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปยังอีเมล Merchant</p></div>
+      <div className="wm-auth-form"><label>อีเมล Merchant<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label></div>
+      {message ? <p className="wm-auth-success" role="status">{message}</p> : null}
+      <button className="wm-primary wm-full" type="button" disabled={loading || !email.trim()} onClick={() => void submit()}>{loading ? "กำลังส่ง…" : "ส่งลิงก์รีเซ็ต"}</button>
+    </MerchantAuthShell>
+  );
+}
+
+export function MerchantResetPasswordScreen() {
+  const client = useMemo(() => getMerchantSupabaseBrowserClient(), []);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!client) return;
+    let mounted = true;
+    const sync = async () => {
+      const { data } = await client.auth.getSession();
+      if (mounted) setReady(Boolean(data.session));
+    };
+    void sync();
+    const { data } = client.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      if (event === "PASSWORD_RECOVERY" || session) setReady(Boolean(session));
+    });
+    return () => { mounted = false; data.subscription.unsubscribe(); };
+  }, [client]);
+
+  async function submit() {
+    if (!client || loading) return;
+    if (password.length < MIN_SIGNUP_PASSWORD_LENGTH) {
+      setMessage(`รหัสผ่านต้องมีอย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setMessage("รหัสผ่านทั้งสองช่องไม่ตรงกัน");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await client.auth.updateUser({ password });
+      if (error) throw error;
+      setMessage("เปลี่ยนรหัสผ่าน Merchant เรียบร้อยแล้ว");
+      window.setTimeout(() => window.location.replace("/merchant/login"), 700);
+    } catch {
+      setMessage("เปลี่ยนรหัสผ่านไม่สำเร็จ ลิงก์อาจหมดอายุ");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <MerchantAuthShell>
+      <div className="wm-auth-top"><Link className="wm-auth-back" href="/merchant/login"><ArrowLeft size={20} /></Link><MerchantAuthBrand /><span className="wm-auth-top-spacer" /></div>
+      <div className="wm-auth-heading"><h1>ตั้งรหัสผ่าน Merchant ใหม่</h1><p>{ready ? "ตั้งรหัสผ่านใหม่สำหรับบัญชี Merchant" : "กำลังตรวจสอบลิงก์รีเซ็ต…"}</p></div>
+      <div className="wm-auth-form">
+        <label>รหัสผ่านใหม่<input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+        <label>ยืนยันรหัสผ่าน<input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+      </div>
+      {message ? <p className={message.includes("เรียบร้อย") ? "wm-auth-success" : "wm-auth-error"} role="status">{message}</p> : null}
+      <button className="wm-primary wm-full" type="button" disabled={!ready || loading} onClick={() => void submit()}>{loading ? "กำลังบันทึก…" : "บันทึกรหัสผ่านใหม่"}</button>
     </MerchantAuthShell>
   );
 }

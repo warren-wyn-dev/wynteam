@@ -6,6 +6,7 @@ export type MerchantBusinessType = "food" | "retail" | "service" | "other";
 export type MerchantApplication = {
   id: string;
   user_id: string;
+  merchant_account_id: string | null;
   business_name: string;
   business_type: MerchantBusinessType;
   contact_name: string;
@@ -41,9 +42,9 @@ export async function fetchMerchantApplication(client: SupabaseClient, userId: s
 
 export async function submitMerchantApplication(
   client: SupabaseClient,
-  userId: string,
+  _userId: string,
   draft: MerchantApplicationDraft,
-  existing: MerchantApplication | null,
+  _existing: MerchantApplication | null,
 ) {
   const businessName = draft.businessName.trim();
   const contactName = draft.contactName.trim();
@@ -56,28 +57,13 @@ export async function submitMerchantApplication(
   if (!phone) throw new Error("กรุณากรอกเบอร์โทร");
   if (!address) throw new Error("กรุณากรอกที่อยู่ร้านหรือที่อยู่ธุรกิจ");
 
-  const payload = {
-    business_name: businessName,
-    business_type: draft.businessType,
-    contact_name: contactName,
-    phone,
-    address,
-    note: note || null,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (existing) {
-    const { error } = await client
-      .from("merchant_applications")
-      .update({ ...payload, status: "pending" })
-      .eq("id", existing.id)
-      .eq("user_id", userId);
-    if (error) throw new Error(error.message);
-    return;
-  }
-
-  const { error } = await client
-    .from("merchant_applications")
-    .insert({ user_id: userId, ...payload });
+  const { error } = await client.rpc("merchant_submit_application", {
+    p_business_name: businessName,
+    p_business_type: draft.businessType,
+    p_contact_name: contactName,
+    p_phone: phone,
+    p_address: address,
+    p_note: note || null,
+  });
   if (error) throw new Error(error.message);
 }

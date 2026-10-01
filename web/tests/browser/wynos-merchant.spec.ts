@@ -78,35 +78,38 @@ test("Food Merchant hardening blocks anonymous accounts from permanent orders an
 });
 
 
-test("Merchant has separate login and signup entry while keeping shared WYNOS auth", () => {
+test("Merchant has separate business login/signup session from WYNOS Social", () => {
   const login = read("app/merchant/login/page.tsx");
   const signup = read("app/merchant/signup/page.tsx");
   const auth = read("components/merchant/merchant-auth.tsx");
+  const account = read("lib/merchant-account.ts");
+  const merchantClient = read("lib/supabase/merchant-browser.ts");
   const app = read("components/merchant/wynos-merchant-app.tsx");
-  const gate = read("components/developer-route-gate.tsx");
+  const gate = read("components/merchant/merchant-route-gate.tsx");
 
   expect(login).toContain("MerchantLoginScreen");
   expect(signup).toContain("MerchantSignupScreen");
-  expect(auth).toContain('signInWithEmail');
-  expect(auth).toContain('rememberReturnPath("/merchant/signup")');
-  expect(auth).toContain('router.push("/signup/step-1")');
-  expect(auth).toContain('client.rpc("food_has_merchant_access"');
-  expect(app).toContain('signedOutPath="/merchant/login"');
-  expect(app).toContain('href="/merchant/signup"');
-  expect(gate).toContain('signedOutPath = "/welcome"');
-  expect(gate).toContain("afterSignOutPath = signedOutPath");
+  expect(auth).toContain("signInMerchantWithEmail");
+  expect(auth).toContain("signUpMerchantWithEmail");
+  expect(auth).toContain("บัญชี WYNOS Merchant แยกจากบัญชี WYNOS Social");
+  expect(account).toContain('wynos_account_type: "merchant"');
+  expect(merchantClient).toContain('MERCHANT_AUTH_STORAGE_KEY = "wynos-merchant-auth-v1"');
+  expect(app).toContain("<MerchantRouteGate>");
+  expect(gate).toContain('window.location.replace("/merchant/login")');
 });
 
-test("Merchant applications are self-service but cannot self-approve", () => {
+test("Merchant applications use business tenancy and cannot self-approve", () => {
   const data = read("lib/merchant-application.ts");
-  const sql = read("../supabase/migrations_wynos_merchant_application_v1.sql");
+  const baseSql = read("../supabase/migrations_wynos_merchant_application_v1.sql");
+  const accountSql = read("../supabase/migrations_wynos_merchant_accounts_v2.sql");
 
-  expect(data).toContain('from("merchant_applications")');
-  expect(data).toContain('status: "pending"');
-  expect(sql).toContain("alter table public.merchant_applications enable row level security");
-  expect(sql).toContain("(select auth.uid()) = user_id");
-  expect(sql).toContain("status = 'pending'");
-  expect(sql).toContain("revoke all on public.merchant_applications from anon");
-  expect(sql).toContain("grant update (business_name, business_type, contact_name, phone, address, note, status, updated_at)");
-  expect(sql).not.toContain("grant update (status, reviewed_at");
+  expect(data).toContain('client.rpc("merchant_submit_application"');
+  expect(accountSql).toContain("public.merchant_accounts");
+  expect(accountSql).toContain("public.merchant_memberships");
+  expect(accountSql).toContain("merchant_account_id");
+  expect(accountSql).toContain("status='pending'");
+  expect(accountSql).toContain("Only admins can review merchant applications");
+  expect(baseSql).toContain("alter table public.merchant_applications enable row level security");
+  expect(baseSql).toContain("revoke all on public.merchant_applications from anon");
+  expect(accountSql).not.toContain("grant update (status, reviewed_at");
 });
