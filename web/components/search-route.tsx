@@ -450,6 +450,8 @@ function AllResults({
 
 const SEARCH_TABS: readonly SearchTab[] = ["all", "users", "posts", "clubs"];
 const SEARCH_DEBOUNCE_MS = 400;
+const RECENT_SEARCH_STORAGE_KEY = "wynos:recent-searches:v1";
+const RECENT_SEARCH_LIMIT = 8;
 
 // WYN-185 item 7: query + result tab now live in the URL (?q=...&type=...)
 // instead of only in local state, so a refresh, back/forward navigation, or
@@ -464,6 +466,50 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const urlTabParam = params.get("type");
   const tab: SearchTab = SEARCH_TABS.includes(urlTabParam as SearchTab) ? (urlTabParam as SearchTab) : "all";
   const [draft, setDraft] = useState(urlQuery);
+  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(RECENT_SEARCH_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as RecentSearch[];
+      if (!Array.isArray(parsed)) return;
+      setRecentSearches(parsed.filter((item) =>
+        item && typeof item.query === "string" && SEARCH_TABS.includes(item.tab as SearchTab),
+      ).slice(0, RECENT_SEARCH_LIMIT));
+    } catch {
+      // A malformed/private-mode localStorage entry should never block Search.
+    }
+  }, []);
+
+  const persistRecent = useCallback((next: RecentSearch[]) => {
+    setRecentSearches(next);
+    try {
+      window.localStorage.setItem(RECENT_SEARCH_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // Search remains usable even when storage is unavailable.
+    }
+  }, []);
+
+  const rememberSearch = useCallback((query: string, searchTab: SearchTab) => {
+    if (query.length < 2) return;
+    const normalized = query.trim();
+    const next = [
+      { query: normalized, tab: searchTab, savedAt: Date.now() },
+      ...recentSearches.filter((item) => item.query.toLocaleLowerCase() !== normalized.toLocaleLowerCase() || item.tab !== searchTab),
+    ].slice(0, RECENT_SEARCH_LIMIT);
+    persistRecent(next);
+  }, [persistRecent, recentSearches]);
+
+  const removeRecent = useCallback((target: RecentSearch) => {
+    persistRecent(recentSearches.filter((item) => !(item.query === target.query && item.tab === target.tab)));
+  }, [persistRecent, recentSearches]);
+
+  const clearRecent = useCallback(() => persistRecent([]), [persistRecent]);
+  const selectRecent = useCallback((item: RecentSearch) => {
+    setDraft(item.query);
+    updateUrl(item.query, item.tab);
+  }, [updateUrl]);
 
   // The URL is the source of truth; keep the input in sync when it changes
   // from outside typing (back/forward, a shared link, the clear button).
@@ -491,6 +537,7 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const submitNow = () => {
     const trimmed = draft.trim();
     if (trimmed.length > 0 && trimmed.length < 2) return;
+    if (trimmed) rememberSearch(trimmed, tab);
     updateUrl(trimmed, tab);
   };
   const selectTab = (next: SearchTab) => updateUrl(urlQuery, next);
@@ -516,11 +563,20 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
         <button className="search-back-button" type="button" aria-label="ออกจากหน้าค้นหา" onClick={closeSearch}><WynosIcon name="back" size={28} strokeWidth={2} /></button>
         <div className="search-route-form" role="search">
           <button type="button" aria-label="ค้นหา" onClick={submitNow}><WynosIcon name="search" size={20} strokeWidth={2} /></button>
-          <input type="search" name="search_query" aria-label="ค้นหาผู้ใช้ โพสต์ และ Club" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitNow(); } }} placeholder="ค้นหาผู้ใช้ โพสต์ และ Club" inputMode="search" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
+          <input type="search" name="search_query" aria-label="ค้นหาผู้ใช้ โพสต์ และคลับ" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitNow(); } }} placeholder="ค้นหาผู้ใช้ โพสต์ และคลับ" inputMode="search" enterKeyHint="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} />
           {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={clear}><WynosIcon name="close" size={18} strokeWidth={2} /></button> : null}
         </div>
       </div>
-      {!submitted ? <Discovery client={client} userId={userId} /> : (
+      {!submitted ? (
+        <Discovery
+          client={client}
+          userId={userId}
+          recentSearches={recentSearches}
+          onRecentSelect={selectRecent}
+          onRecentRemove={removeRecent}
+          onRecentClear={clearRecent}
+        />
+      ) : (
         <>
           <div className="route-tabs flutter-search-tabs" role="tablist" aria-label="ประเภทผลการค้นหา">{tabs.map((item) => <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => selectTab(item.id)} key={item.id}>{item.label}</button>)}</div>
           {tab === "all" ? <AllResults client={client} userId={userId} query={urlQuery} onSelectTab={selectTab} /> : null}
