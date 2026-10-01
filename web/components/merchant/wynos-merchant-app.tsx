@@ -262,7 +262,6 @@ function MerchantInner({
       setInstallPrompt(event as InstallPromptEvent);
     };
     window.addEventListener("beforeinstallprompt", handler);
-    setNotificationsEnabled("Notification" in window && Notification.permission === "granted");
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
