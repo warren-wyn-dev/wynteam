@@ -33,7 +33,6 @@ import { MerchantStoreTools, RefundControls } from "@/components/merchant/mercha
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
-  createManualFoodOrder,
   deleteMenuItem,
   fetchMerchantSnapshot,
   foodPrivateSignedUrl,
@@ -53,7 +52,6 @@ import {
   type FoodMenuItem,
   type FoodOrder,
   type FoodStore,
-  type ManualOrderDraft,
   type MenuDraft,
 } from "@/lib/food-merchant";
 
@@ -205,7 +203,6 @@ function MerchantInner({
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("active");
   const [menuQuery, setMenuQuery] = useState("");
   const [menuDraft, setMenuDraft] = useState<MenuDraft | null>(null);
-  const [manualOpen, setManualOpen] = useState(false);
   const [storeEditing, setStoreEditing] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
@@ -414,7 +411,6 @@ function MerchantInner({
             filter={orderFilter}
             onFilter={setOrderFilter}
             onOpen={setSelectedOrder}
-            onManual={() => setManualOpen(true)}
           />
         ) : null}
 
@@ -493,22 +489,6 @@ function MerchantInner({
           draft={menuDraft}
           onClose={() => setMenuDraft(null)}
           onSaved={async () => { setMenuDraft(null); await load(true); }}
-          onMessage={setMessage}
-        />
-      ) : null}
-
-      {manualOpen && store ? (
-        <ManualOrderSheet
-          client={client}
-          store={store}
-          menu={menu}
-          onClose={() => setManualOpen(false)}
-          onSaved={async (orderId) => {
-            setManualOpen(false);
-            const snapshot = await load(true);
-            const next = snapshot?.orders.find((order) => order.id === orderId);
-            if (next) setSelectedOrder(next);
-          }}
           onMessage={setMessage}
         />
       ) : null}
@@ -650,14 +630,12 @@ function OrdersPanel({
   filter,
   onFilter,
   onOpen,
-  onManual,
 }: {
   orders: FoodOrder[];
   allOrders: FoodOrder[];
   filter: OrderFilter;
   onFilter: (value: OrderFilter) => void;
   onOpen: (order: FoodOrder) => void;
-  onManual: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | FoodOrder["payment_status"]>("all");
@@ -692,9 +670,8 @@ function OrdersPanel({
 
   return (
     <>
-      <div className="wm-page-heading wm-page-heading--action">
-        <div><small>จัดการงานร้าน</small><h1>ออเดอร์</h1></div>
-        <button className="wm-small-primary" type="button" onClick={onManual}><Plus size={17} /> สร้างออเดอร์</button>
+      <div className="wm-page-heading">
+        <div><small>ออเดอร์จาก WYNOS Food</small><h1>ออเดอร์</h1></div>
       </div>
       <div className="wm-order-search-tools">
         <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="เลขออเดอร์ · ชื่อลูกค้า · เบอร์โทร · เมนู" /></label>
@@ -1082,71 +1059,6 @@ function MenuEditor({
         <label className="wm-check-row"><input type="checkbox" checked={form.is_available} onChange={(e) => setForm({ ...form, is_available: e.target.checked })} /><span><strong>เปิดขาย</strong><small>ปิดได้ทันทีเมื่อเมนูหมด</small></span></label>
         <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกเมนู"}</button>
         {form.id ? <button className="wm-danger-link" type="button" disabled={busy} onClick={() => void remove()}>ลบเมนู</button> : null}
-      </div>
-    </Sheet>
-  );
-}
-
-function ManualOrderSheet({
-  client,
-  store,
-  menu,
-  onClose,
-  onSaved,
-  onMessage,
-}: {
-  client: SupabaseClient;
-  store: FoodStore;
-  menu: FoodMenuItem[];
-  onClose: () => void;
-  onSaved: (orderId: string) => Promise<void>;
-  onMessage: (message: string) => void;
-}) {
-  const [recipientName, setRecipientName] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("");
-  const [shippingAddress, setShippingAddress] = useState("");
-  const [customerNote, setCustomerNote] = useState("");
-  const [paid, setPaid] = useState(true);
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [busy, setBusy] = useState(false);
-  const selected = menu.filter((item) => (quantities[item.id] ?? 0) > 0);
-  const subtotal = selected.reduce((sum, item) => sum + Number(item.price) * (quantities[item.id] ?? 0), 0);
-  const total = subtotal + Number(store.delivery_fee);
-
-  const create = async () => {
-    setBusy(true);
-    try {
-      const draft: ManualOrderDraft = {
-        recipientName,
-        recipientPhone,
-        shippingAddress,
-        customerNote,
-        paymentStatus: paid ? "paid" : "pending",
-        items: selected.map((item) => ({ menu_item_id: item.id, quantity: quantities[item.id] })),
-      };
-      const id = await createManualFoodOrder(client, store.id, draft);
-      onMessage("สร้างออเดอร์แล้ว");
-      await onSaved(id);
-    } catch (error) { onMessage(merchantError(error)); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <Sheet title="สร้างออเดอร์" onClose={onClose} wide>
-      <div className="wm-form">
-        <div className="wm-manual-menu">
-          <h3>เลือกเมนู</h3>
-          {menu.filter((item) => item.is_available).map((item) => (
-            <div key={item.id}><span><strong>{item.name}</strong><small>{money(item.price)}</small></span><div className="wm-qty"><button type="button" onClick={() => setQuantities({ ...quantities, [item.id]: Math.max(0, (quantities[item.id] ?? 0) - 1) })}>−</button><b>{quantities[item.id] ?? 0}</b><button type="button" onClick={() => setQuantities({ ...quantities, [item.id]: (quantities[item.id] ?? 0) + 1 })}>+</button></div></div>
-          ))}
-        </div>
-        <label>ชื่อลูกค้า<input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} /></label>
-        <label>เบอร์โทร<input value={recipientPhone} onChange={(e) => setRecipientPhone(e.target.value)} inputMode="tel" /></label>
-        <label>ที่อยู่จัดส่ง<textarea value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} /></label>
-        <label>หมายเหตุ<textarea value={customerNote} onChange={(e) => setCustomerNote(e.target.value)} placeholder="ไม่ใส่ผัก / โทรเมื่อถึง" /></label>
-        <label className="wm-check-row"><input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} /><span><strong>ชำระเงินแล้ว</strong><small>เงินเข้าบัญชีร้านแล้ว</small></span></label>
-        <div className="wm-manual-total"><span>ยอดรวม</span><strong>{money(total)}</strong></div>
-        <button className="wm-primary wm-full" type="button" disabled={busy || !selected.length} onClick={() => void create()}>{busy ? "กำลังสร้าง…" : "สร้างออเดอร์"}</button>
       </div>
     </Sheet>
   );
