@@ -1613,6 +1613,18 @@ Object.assign(EN_EXACT, {
   "ส่วนลดค่าส่ง": "Delivery discount",
   "WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ": "WYNOS automatically applies the promotion that saves you the most",
   "ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์": "The system will confirm the discount again before creating the order",
+  "โปร ·": "Promotion ·",
+  "ใช้แคมเปญ": "Campaign applied",
+  "แคมเปญ": "Campaign",
+  "ลด": "Save",
+  "· สูงสุด": "· up to",
+  "ไม่กำหนด": "No end date",
+  "ลบแคมเปญ “": "Delete campaign “",
+  "แคมเปญกำลังใช้งาน": "active campaigns",
+  "· ปิดขายอยู่": "· currently unavailable",
+  "เมื่อสั่งขั้นต่ำ": "Minimum spend",
+  "ลบแคมเปญ": "Delete campaign",
+  "แคมเปญ ·": "Campaign ·",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
