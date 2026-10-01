@@ -477,10 +477,11 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const tab: SearchTab = SEARCH_TABS.includes(urlTabParam as SearchTab) ? (urlTabParam as SearchTab) : "all";
   const [draft, setDraft] = useState(urlQuery);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+  const recentStorageKey = useMemo(() => `${RECENT_SEARCH_STORAGE_KEY}:${userId}`, [userId]);
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(RECENT_SEARCH_STORAGE_KEY);
+      const raw = window.localStorage.getItem(recentStorageKey);
       if (!raw) return;
       const parsed = JSON.parse(raw) as RecentSearch[];
       if (!Array.isArray(parsed)) return;
@@ -490,16 +491,16 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
     } catch {
       // A malformed/private-mode localStorage entry should never block Search.
     }
-  }, []);
+  }, [recentStorageKey]);
 
   const persistRecent = useCallback((next: RecentSearch[]) => {
     setRecentSearches(next);
     try {
-      window.localStorage.setItem(RECENT_SEARCH_STORAGE_KEY, JSON.stringify(next));
+      window.localStorage.setItem(recentStorageKey, JSON.stringify(next));
     } catch {
       // Search remains usable even when storage is unavailable.
     }
-  }, []);
+  }, [recentStorageKey]);
 
   const rememberSearch = useCallback((query: string, searchTab: SearchTab) => {
     if (query.length < 2) return;
