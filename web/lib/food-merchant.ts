@@ -95,6 +95,10 @@ export type FoodOrder = {
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  campaign_discount: number | string;
+  delivery_discount: number | string;
   total: number | string;
   eta_minutes: number | null;
   accepted_at: string | null;
