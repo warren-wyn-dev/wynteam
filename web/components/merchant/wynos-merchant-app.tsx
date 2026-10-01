@@ -29,6 +29,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
+import { setMerchantStorePublished } from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
   createManualFoodOrder,
@@ -630,6 +632,9 @@ function OrdersPanel({
   onOpen: (order: FoodOrder) => void;
   onManual: () => void;
 }) {
+  const [query, setQuery] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | FoodOrder["payment_status"]>("all");
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "7d" | "30d">("all");
   const counts: Record<OrderFilter, number> = {
     active: allOrders.filter((o) => !["delivered", "cancelled"].includes(o.status)).length,
     new: allOrders.filter((o) => o.status === "pending_acceptance").length,
@@ -638,11 +643,50 @@ function OrdersPanel({
     delivery: allOrders.filter((o) => o.status === "out_for_delivery").length,
     done: allOrders.filter((o) => ["delivered", "cancelled"].includes(o.status)).length,
   };
+  const visibleOrders = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase("th-TH");
+    const now = new Date().getTime();
+    const day = 24 * 60 * 60 * 1000;
+    return orders.filter((order) => {
+      if (paymentFilter !== "all" && order.payment_status !== paymentFilter) return false;
+      if (dateFilter === "today" && !sameLocalDay(order.created_at)) return false;
+      if (dateFilter === "7d" && new Date(order.created_at).getTime() < now - 7 * day) return false;
+      if (dateFilter === "30d" && new Date(order.created_at).getTime() < now - 30 * day) return false;
+      if (!q) return true;
+      const haystack = [
+        order.order_number,
+        order.recipient_name,
+        order.recipient_phone,
+        ...(order.food_order_items ?? []).map((item) => item.item_name),
+      ].join(" ").toLocaleLowerCase("th-TH");
+      return haystack.includes(q);
+    });
+  }, [dateFilter, orders, paymentFilter, query]);
+
   return (
     <>
       <div className="wm-page-heading wm-page-heading--action">
         <div><small>จัดการงานร้าน</small><h1>ออเดอร์</h1></div>
         <button className="wm-small-primary" type="button" onClick={onManual}><Plus size={17} /> สร้างออเดอร์</button>
+      </div>
+      <div className="wm-order-search-tools">
+        <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="เลขออเดอร์ · ชื่อลูกค้า · เบอร์โทร · เมนู" /></label>
+        <div className="wm-order-selects">
+          <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as "all" | FoodOrder["payment_status"])}>
+            <option value="all">การชำระเงินทั้งหมด</option>
+            <option value="pending">รอชำระเงิน</option>
+            <option value="submitted">รอตรวจสลิป</option>
+            <option value="paid">ชำระแล้ว</option>
+            <option value="issue">มีปัญหา</option>
+            <option value="refunded">คืนเงินแล้ว</option>
+          </select>
+          <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value as "all" | "today" | "7d" | "30d")}>
+            <option value="all">ทุกช่วงเวลา</option>
+            <option value="today">วันนี้</option>
+            <option value="7d">7 วันล่าสุด</option>
+            <option value="30d">30 วันล่าสุด</option>
+          </select>
+        </div>
       </div>
       <div className="wm-filter-tabs">
         {ORDER_FILTERS.map((item) => (
@@ -651,13 +695,12 @@ function OrdersPanel({
           </button>
         ))}
       </div>
-      {orders.length ? <div className="wm-order-list wm-order-list--page">{orders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} />)}</div> : (
-        <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>ไม่มีออเดอร์ในหมวดนี้</strong></div>
+      {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} />)}</div> : (
+        <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>ไม่พบออเดอร์ที่ตรงกับตัวกรอง</strong></div>
       )}
     </>
   );
 }
-
 function MenuPanel({
   client,
   menu,
@@ -738,6 +781,7 @@ function ReportsPanel({ orders }: { orders: FoodOrder[] }) {
 function StorePanel({
   client,
   store,
+  userId,
   installPrompt,
   onInstall,
   onEdit,
@@ -759,7 +803,7 @@ function StorePanel({
   const togglePublished = async () => {
     setBusy(true);
     try {
-      await updateFoodStore(client, store.id, { is_published: !store.is_published });
+      await setMerchantStorePublished(client, store.id, !store.is_published);
       onReload();
     } catch (error) { onMessage(merchantError(error)); }
     finally { setBusy(false); }
@@ -782,6 +826,7 @@ function StorePanel({
         {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม WYNOS Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><ChevronRight size={19} /></button>
       </section>
+      <MerchantStoreTools client={client} store={store} userId={userId} onMessage={onMessage} />
     </>
   );
 }
@@ -891,6 +936,13 @@ function OrderSheet({
           ) : null}
         </div>
       </section>
+
+      <RefundControls
+        client={client}
+        order={order}
+        onMessage={onMessage}
+        onReload={onReload}
+      />
 
       <section className="wm-detail-section">
         <h3>ลูกค้าและที่อยู่</h3>

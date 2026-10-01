@@ -946,3 +946,375 @@
     align-content: start;
   }
 }
+
+
+/* Merchant core completion */
+.wm-order-search-tools {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.wm-order-selects {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wm-order-selects select,
+.wm-staff-add select,
+.wm-staff-row select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--wm-border);
+  border-radius: 12px;
+  background: var(--wm-surface);
+  color: var(--wm-text);
+  padding: 0 12px;
+  font: inherit;
+}
+
+.wm-core-tools {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding-bottom: 12px;
+}
+
+.wm-readiness-card,
+.wm-core-section {
+  border: 1px solid var(--wm-border);
+  border-radius: 18px;
+  background: var(--wm-surface);
+  padding: 16px;
+}
+
+.wm-readiness-card.is-ready {
+  background: color-mix(in srgb, var(--wm-surface) 92%, #1a9b55 8%);
+}
+
+.wm-core-heading,
+.wm-core-section-head > div,
+.wm-refund-title > div {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.wm-core-heading > span:last-child,
+.wm-core-section-head > div > span,
+.wm-refund-title > div > span {
+  display: grid;
+  gap: 2px;
+}
+
+.wm-core-heading strong,
+.wm-core-section-head strong,
+.wm-refund-title strong {
+  font-size: 15px;
+}
+
+.wm-core-heading small,
+.wm-core-section-head small,
+.wm-refund-title small {
+  color: var(--wm-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.wm-core-icon,
+.wm-activity-icon,
+.wm-staff-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: var(--wm-surface);
+}
+
+.wm-core-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.wm-readiness-missing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.wm-readiness-missing span,
+.wm-role-pill,
+.wm-refund-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  background: var(--wm-surface);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.wm-core-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.wm-core-section-head > button,
+.wm-text-button {
+  border: 0;
+  background: transparent;
+  color: var(--wm-red);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wm-staff-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.5fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.wm-staff-add label {
+  display: grid;
+  gap: 5px;
+}
+
+.wm-staff-add label > span {
+  color: var(--wm-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wm-staff-add input {
+  min-height: 42px;
+  border: 1px solid var(--wm-border);
+  border-radius: 12px;
+  background: var(--wm-surface);
+  color: var(--wm-text);
+  padding: 0 12px;
+  font: inherit;
+}
+
+.wm-staff-list,
+.wm-core-feed,
+.wm-activity-list {
+  display: grid;
+  gap: 8px;
+}
+
+.wm-staff-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(108px, auto) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 54px;
+  border-top: 1px solid var(--wm-border);
+  padding-top: 8px;
+}
+
+.wm-staff-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.wm-staff-row.is-disabled {
+  opacity: 0.55;
+}
+
+.wm-staff-avatar {
+  width: 34px;
+  height: 34px;
+}
+
+.wm-staff-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.wm-staff-copy strong,
+.wm-staff-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wm-staff-copy strong {
+  font-size: 14px;
+}
+
+.wm-staff-copy small {
+  color: var(--wm-muted);
+  font-size: 12px;
+}
+
+.wm-core-feed > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--wm-border);
+  background: transparent;
+  color: inherit;
+  padding: 10px 0 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wm-core-feed > button:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.wm-core-feed > button > span:last-child {
+  display: grid;
+  gap: 3px;
+}
+
+.wm-core-feed strong {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wm-core-feed small,
+.wm-activity-list small {
+  color: var(--wm-muted);
+  font-size: 11px;
+}
+
+.wm-feed-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 6px;
+  background: var(--wm-border);
+}
+
+.wm-core-feed > button.is-unread .wm-feed-dot {
+  background: var(--wm-red);
+}
+
+.wm-core-feed > button.is-unread strong {
+  font-weight: 800;
+}
+
+.wm-activity-list > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border-top: 1px solid var(--wm-border);
+  padding-top: 9px;
+}
+
+.wm-activity-list > div:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.wm-activity-list > div > span:last-child {
+  display: grid;
+  gap: 3px;
+}
+
+.wm-activity-list strong {
+  font-size: 13px;
+}
+
+.wm-activity-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.wm-core-empty {
+  margin: 0;
+  color: var(--wm-muted);
+  font-size: 13px;
+}
+
+.wm-refund-box {
+  border: 1px solid color-mix(in srgb, var(--wm-border) 72%, #d99b20 28%);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--wm-surface) 95%, #d99b20 5%);
+  padding: 15px;
+}
+
+.wm-refund-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.wm-refund-status.is-pending {
+  background: #fff3d6;
+  color: #946200;
+}
+
+.wm-refund-status.is-refunded {
+  background: #e5f7ec;
+  color: #197342;
+}
+
+.wm-refund-status.is-failed {
+  background: #ffe5e8;
+  color: #a32231;
+}
+
+.wm-refund-box > p {
+  margin: 6px 0;
+  color: var(--wm-muted);
+  font-size: 12px;
+}
+
+.wm-refund-box label {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.wm-refund-box textarea {
+  min-height: 72px;
+  resize: vertical;
+  border: 1px solid var(--wm-border);
+  border-radius: 12px;
+  background: var(--wm-surface);
+  color: var(--wm-text);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+@media (max-width: 620px) {
+  .wm-order-selects,
+  .wm-staff-add {
+    grid-template-columns: 1fr;
+  }
+
+  .wm-staff-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .wm-staff-row > select,
+  .wm-staff-row > .wm-role-pill,
+  .wm-staff-row > .wm-text-button {
+    grid-column: 2;
+  }
+
+  .wm-refund-title {
+    display: grid;
+  }
+}
