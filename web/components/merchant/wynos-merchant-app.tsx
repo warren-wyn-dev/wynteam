@@ -30,7 +30,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
-import { setMerchantStorePublished } from "@/lib/merchant-core";
+import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
   createManualFoodOrder,
@@ -240,6 +240,33 @@ function MerchantInner({
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("notification-test") !== "1") return;
+
+    try {
+      const raw = JSON.parse(window.sessionStorage.getItem(MERCHANT_NOTIFICATION_TEST_RESULT_KEY) ?? "{}") as Record<string, unknown>;
+      window.sessionStorage.setItem(MERCHANT_NOTIFICATION_TEST_RESULT_KEY, JSON.stringify({
+        ...raw,
+        deep_link: { status: "pass", detail: "Deep Link ผ่านแล้ว" },
+      }));
+    } catch {
+      // Deep Link still worked even if private browsing blocks storage.
+    }
+
+    url.searchParams.delete("notification-test");
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
+
+    const timer = window.setTimeout(() => {
+      setTab("store");
+      setMessage("ทดสอบ Deep Link สำเร็จแล้ว");
+      window.dispatchEvent(new Event("wynos:merchant-notification-test-deep-link"));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!store?.id) return;

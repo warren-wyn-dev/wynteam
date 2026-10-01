@@ -163,3 +163,87 @@ export async function setMerchantRefundStatus(
   });
   if (error) throw new Error(error.message);
 }
+
+
+export const MERCHANT_NOTIFICATION_TEST_RESULT_KEY = "wynos.merchant.notification-test.result.v1";
+
+export type MerchantNotificationTestReceipt = {
+  merchant_notification_id: string;
+  push_notification_id: string;
+  created_at: string;
+};
+
+export type MerchantPushDelivery = {
+  id: string;
+  notification_id: string;
+  platform: string;
+  status: string;
+  attempt_count: number;
+  last_error: string | null;
+  sent_at: string | null;
+  updated_at: string;
+};
+
+export async function sendMerchantTestNotification(
+  client: SupabaseClient,
+  storeId: string,
+): Promise<MerchantNotificationTestReceipt> {
+  const { data, error } = await client.rpc("merchant_send_test_notification", {
+    p_store_id: storeId,
+  });
+  if (error) {
+    if (error.message.includes("notification_test_rate_limited")) {
+      throw new Error("กรุณารอสักครู่ก่อนทดสอบอีกครั้ง");
+    }
+    throw new Error(error.message);
+  }
+  const raw = (data ?? {}) as Partial<MerchantNotificationTestReceipt>;
+  if (!raw.merchant_notification_id || !raw.push_notification_id || !raw.created_at) {
+    throw new Error("ทดสอบการแจ้งเตือนไม่สำเร็จ");
+  }
+  return {
+    merchant_notification_id: String(raw.merchant_notification_id),
+    push_notification_id: String(raw.push_notification_id),
+    created_at: String(raw.created_at),
+  };
+}
+
+export async function fetchMerchantNotificationById(
+  client: SupabaseClient,
+  id: string,
+): Promise<MerchantNotification | null> {
+  const { data, error } = await client
+    .from("merchant_notifications")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as MerchantNotification | null) ?? null;
+}
+
+export async function fetchMerchantPushDeliveries(
+  client: SupabaseClient,
+  notificationId: string,
+): Promise<MerchantPushDelivery[]> {
+  const { data, error } = await client
+    .from("notification_push_deliveries")
+    .select("id,notification_id,platform,status,attempt_count,last_error,sent_at,updated_at")
+    .eq("notification_id", notificationId)
+    .eq("platform", "web")
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MerchantPushDelivery[];
+}
+
+export async function countMerchantWebPushTokens(
+  client: SupabaseClient,
+  userId: string,
+): Promise<number> {
+  const { count, error } = await client
+    .from("push_tokens")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("platform", "web");
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}

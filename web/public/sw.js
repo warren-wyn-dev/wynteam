@@ -66,6 +66,7 @@ self.addEventListener("fetch", (event) => {
 // external links or malformed IDs from the notification's data field.
 const PUSH_UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 function pushTarget(data) {
+  if (data?.merchant_test === "1") return "/merchant?notification-test=1";
   if (data?.type === "daily_follow_suggestion") {
     const delivery = typeof data?.delivery_id === "string" && PUSH_UUID.test(data.delivery_id)
       ? data.delivery_id
