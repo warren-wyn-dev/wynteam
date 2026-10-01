@@ -126,14 +126,6 @@ export type MenuDraft = {
   is_available: boolean;
 };
 
-export type ManualOrderDraft = {
-  recipientName: string;
-  recipientPhone: string;
-  shippingAddress: string;
-  customerNote: string;
-  paymentStatus: "pending" | "paid";
-  items: Array<{ menu_item_id: string; quantity: number; note?: string }>;
-};
 
 const FOOD_PUBLIC = "food-public";
 const FOOD_PRIVATE = "food-private";
@@ -296,21 +288,6 @@ export async function uploadFoodPrivateImage(client: SupabaseClient, file: File,
   });
   if (error) throw new Error(error.message);
   return path;
-}
-
-export async function createManualFoodOrder(client: SupabaseClient, storeId: string, draft: ManualOrderDraft) {
-  if (!draft.items.some((item) => item.quantity > 0)) throw new Error("กรุณาเลือกอย่างน้อย 1 เมนู");
-  const { data, error } = await client.rpc("food_create_manual_order", {
-    p_store_id: storeId,
-    p_recipient_name: draft.recipientName,
-    p_recipient_phone: draft.recipientPhone,
-    p_shipping_address: draft.shippingAddress,
-    p_customer_note: draft.customerNote || null,
-    p_items: draft.items.filter((item) => item.quantity > 0),
-    p_payment_status: draft.paymentStatus,
-  });
-  if (error) throw new Error(error.message);
-  return String(data);
 }
 
 export async function setFoodPaymentStatus(client: SupabaseClient, orderId: string, status: "paid" | "issue" | "refunded", note?: string) {
