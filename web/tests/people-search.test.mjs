@@ -21,6 +21,8 @@ test("Thai search chrome uses People wording and keeps English translation-compa
   assert.match(route, /placeholder="ค้นหาผู้ใช้ โพสต์ และคลับ"/);
   assert.match(route, /aria-label="ค้นหาผู้ใช้ โพสต์ และคลับ"/);
   assert.doesNotMatch(route, /id: "users" as const, label: "User"/);
+  assert.match(route, />ค้นหาล่าสุด</);
+  assert.match(route, />ล้างทั้งหมด</);
   assert.match(route, />ดูทั้งหมด \(Top 100\)/);
   assert.match(route, />ดูเพิ่มเติม/);
 });
