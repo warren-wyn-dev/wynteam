@@ -35,7 +35,7 @@ export function MerchantRouteGate({
     }
     try {
       const identity = await fetchMerchantIdentity(client, nextSession.user.id);
-      if (!identity?.active || identity.identity_mode !== "merchant") {
+      if (!identity?.active) {
         await client.auth.signOut();
         setSession(null);
         setState("invalid");

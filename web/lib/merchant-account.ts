@@ -26,7 +26,7 @@ export async function signInMerchantWithEmail(client: SupabaseClient, email: str
   if (!data.user) throw new Error("merchant_sign_in_failed");
 
   const identity = await fetchMerchantIdentity(client, data.user.id);
-  if (!identity?.active || identity.identity_mode !== "merchant") {
+  if (!identity?.active) {
     await client.auth.signOut();
     throw new Error("not_merchant_account");
   }
