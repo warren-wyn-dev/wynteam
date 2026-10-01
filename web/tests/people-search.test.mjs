@@ -18,9 +18,13 @@ test("People Search uses the ranked RPC with stable 30-row pagination", () => {
 
 test("Thai search chrome uses People wording and keeps English translation-compatible source text", () => {
   assert.match(route, /id: "users" as const, label: "ผู้ใช้"/);
-  assert.match(route, /placeholder="ค้นหาผู้ใช้ โพสต์ และ Club"/);
-  assert.match(route, /aria-label="ค้นหาผู้ใช้ โพสต์ และ Club"/);
+  assert.match(route, /placeholder="ค้นหาผู้ใช้ โพสต์ และคลับ"/);
+  assert.match(route, /aria-label="ค้นหาผู้ใช้ โพสต์ และคลับ"/);
   assert.doesNotMatch(route, /id: "users" as const, label: "User"/);
+  assert.match(route, />ค้นหาล่าสุด</);
+  assert.match(route, />ล้างทั้งหมด</);
+  assert.match(route, />ดูทั้งหมด \(Top 100\)/);
+  assert.match(route, />ดูเพิ่มเติม/);
 });
 
 test("ranked search supports @username and prioritizes exact/prefix matches", () => {
