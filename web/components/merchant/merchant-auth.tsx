@@ -78,7 +78,7 @@ export function MerchantLoginScreen() {
       if (!mounted) return;
       if (!error && data.session) {
         const identity = await fetchMerchantIdentity(client, data.session.user.id).catch(() => null);
-        if (identity?.active) {
+        if (identity?.active && identity.identity_mode === "merchant") {
           window.location.replace("/merchant");
           return;
         }
@@ -205,7 +205,7 @@ export function MerchantSignupScreen() {
         }
         const identity = await fetchMerchantIdentity(client, session.data.session.user.id);
         if (!mounted) return;
-        if (!identity?.active) {
+        if (!identity?.active || identity.identity_mode !== "merchant") {
           await client.auth.signOut();
           setChecking(false);
           return;

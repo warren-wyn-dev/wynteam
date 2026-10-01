@@ -20,3 +20,8 @@ test("Merchant signup creates merchant-only identities", () => {
   assert.doesNotMatch(auth, /ใช้บัญชี WYNOS เดียวกันได้/);
   assert.match(auth, /รองรับ Owner และ Staff หลายคน/);
 });
+
+test("legacy Social identities cannot enter the dedicated Merchant session", () => {
+  assert.match(gate, /identity\.identity_mode !== "merchant"/);
+  assert.match(merchantAccount, /identity\.identity_mode !== "merchant"/);
+});
