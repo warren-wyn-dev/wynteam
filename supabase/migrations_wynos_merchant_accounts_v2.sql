@@ -443,11 +443,14 @@ begin
     ma.created_at,
     ma.updated_at,
     ma.food_store_id,
-    exists (
-      select 1
-      from public.merchant_memberships mm
-      where mm.merchant_account_id = ma.merchant_account_id
-        and mm.active
+    (
+      ma.food_store_id is not null
+      and exists (
+        select 1
+        from public.merchant_memberships mm
+        where mm.merchant_account_id = ma.merchant_account_id
+          and mm.active
+      )
     ) as merchant_access_enabled
   from public.merchant_applications ma
   left join public.profiles applicant on applicant.id = ma.user_id
@@ -642,9 +645,12 @@ begin
   select
     ma.status,
     ma.food_store_id,
-    exists (
-      select 1 from public.merchant_memberships mm
-      where mm.merchant_account_id=ma.merchant_account_id and mm.active
+    (
+      ma.food_store_id is not null
+      and exists (
+        select 1 from public.merchant_memberships mm
+        where mm.merchant_account_id=ma.merchant_account_id and mm.active
+      )
     )
   from public.merchant_applications ma
   where ma.id=v_application.id;
