@@ -10,6 +10,26 @@ create index if not exists merchant_applications_food_store_idx
   on public.merchant_applications (food_store_id)
   where food_store_id is not null;
 
+alter table public.audit_log
+  drop constraint if exists audit_log_event_type_check;
+
+alter table public.audit_log
+  add constraint audit_log_event_type_check
+  check (event_type in (
+    'moderation_action_applied',
+    'appeal_decided',
+    'system_notification_sent',
+    'account_deleted',
+    'data_exported',
+    'admin_user_action_applied',
+    'admin_user_unbanned',
+    'admin_content_removed',
+    'admin_content_restored',
+    'admin_announcement_sent',
+    'admin_merchant_application_approved',
+    'admin_merchant_application_rejected'
+  ));
+
 create or replace function public.admin_merchant_applications(
   p_status text default null,
   p_limit integer default 100
