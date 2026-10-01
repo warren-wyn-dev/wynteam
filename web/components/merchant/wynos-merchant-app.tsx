@@ -28,7 +28,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { MerchantRouteGate } from "@/components/merchant/merchant-route-gate";
+import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import {
   completeFoodDelivery,
   createManualFoodOrder,
@@ -1158,8 +1158,8 @@ function StoreEditor({
 
 export function WynosMerchantApp() {
   return (
-    <MerchantRouteGate>
+    <DeveloperRouteGate signedOutPath="/merchant/login" afterSignOutPath="/merchant/login">
       {({ client, userId, signOut }) => <MerchantInner client={client} userId={userId} signOut={signOut} />}
-    </MerchantRouteGate>
+    </DeveloperRouteGate>
   );
 }
