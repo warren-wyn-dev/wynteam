@@ -27,6 +27,7 @@ required_migration = [
     "revoke all on function public.food_record_payment_verification",
     "source in ('app','manual','social')",
     "food_orders_notify_merchant_payment",
+    "revoke all on table public.food_payment_verifications from public, anon, authenticated",
 ]
 for token in required_migration:
     assert token in migration, token
