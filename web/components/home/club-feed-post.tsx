@@ -1,9 +1,10 @@
-import { Heart, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 import { Avatar } from "@/components/phase3-ui";
 import { AnimatedCount } from "@/components/ui/animated-count";
+import { AnimatedHeart } from "@/components/ui/animated-heart";
+import { CommentIcon } from "@/components/ui/post-action-icons";
 import { RichPostText } from "@/components/rich-post-text";
 import { relativeTimeTh } from "@/lib/feed";
 import type { ClubHomePost } from "@/lib/home-parity-data";
@@ -89,11 +90,11 @@ export function ClubFeedPost({ post, onLike }: { post: ClubHomePost; onLike: () 
             aria-label={post.liked_by_me ? "เลิกถูกใจ" : "ถูกใจ"}
             onClick={onLike}
           >
-            <Heart size={20} strokeWidth={2} fill={post.liked_by_me ? "currentColor" : "none"} />
+            <AnimatedHeart size={22} strokeWidth={1.6} liked={post.liked_by_me} />
             <AnimatedCount className="wyn-action-button-count" value={post.like_count} hideZero />
           </button>
           <Link className="wyn-action-button" href={`/club-post/${post.id}`} aria-label="ความคิดเห็น">
-            <MessageCircle size={20} strokeWidth={2} />
+            <CommentIcon size={22} strokeWidth={1.6} />
             <AnimatedCount className="wyn-action-button-count" value={post.comment_count} hideZero />
           </Link>
         </div>
