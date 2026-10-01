@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Clock3,
   Home,
-  ImagePlus,
   MapPin,
   Minus,
   PackageCheck,
@@ -79,12 +78,6 @@ const TRACKING_STEPS: Array<{
   { status: "out_for_delivery", label: "กำลังจัดส่ง" },
   { status: "delivered", label: "จัดส่งสำเร็จ" },
 ];
-
-function sameLocalDay(value: string) {
-  const a = new Date(value);
-  const b = new Date();
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
