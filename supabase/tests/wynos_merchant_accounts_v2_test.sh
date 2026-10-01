@@ -17,6 +17,7 @@ required = [
     "identity_mode in ('merchant', 'legacy_social')",
     "role in ('owner', 'admin', 'manager', 'orders', 'support', 'delivery')",
     "public.merchant_notifications",
+    "insert into public.profiles(id)",
     "join public.merchant_memberships",
 ]
 for token in required:
