@@ -217,12 +217,10 @@ function HomePanel({
 
   return (
     <>
-      {!store.is_published ? (
-        <div className="wf-preview-banner">
-          <span>DEV</span>
-          <div><strong>Developer Preview เท่านั้น</strong><small>ร้านนี้ยังไม่เปิดให้ผู้ใช้ทั่วไปและไม่ถูกแสดงใน WYNOS</small></div>
-        </div>
-      ) : null}
+      <div className="wf-preview-banner">
+        <span>DEV</span>
+        <div><strong>Developer Preview เท่านั้น</strong><small>ร้านนี้ยังไม่เปิดให้ผู้ใช้ทั่วไปและไม่ถูกแสดงใน WYNOS</small></div>
+      </div>
 
       <section className="wf-store-hero">
         <div className="wf-store-cover">
