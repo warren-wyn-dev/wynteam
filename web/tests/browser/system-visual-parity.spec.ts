@@ -219,6 +219,9 @@ test("Home actions follow the Founder mockup: Like Comment Repost Share Save, hi
   expect(postActions).toContain("<AnimatedBookmark");
   expect(postActions).toContain("value={value} hideZero");
   expect(postActions).toContain("{count(likeCount)}");
+  expect(postActions).toContain('strokeWidth={1.6}');
+  expect(postActions).toContain('<CommentIcon size={22} strokeWidth={1.6} />');
+  expect(postActions).toContain('<WynosShareIcon size={22} strokeWidth={1.6} />');
   expect(postActions).not.toContain("Eye");
   expect(postActions).not.toContain("visibility");
 });
