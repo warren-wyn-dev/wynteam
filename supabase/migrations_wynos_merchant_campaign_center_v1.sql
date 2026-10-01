@@ -692,19 +692,31 @@ begin
     raise exception 'minimum order not met';
   end if;
 
-  select c.campaign_id,c.campaign_name,c.campaign_type,c.campaign_discount,c.delivery_discount
-    into v_campaign_id,v_campaign_name,v_campaign_type,v_campaign_discount,v_delivery_discount
-  from internal.food_campaign_candidates(
-    p_store_id,v_subtotal,v_store.delivery_fee,v_item_totals
-  ) c
-  limit 1;
+  -- Select the best promotion, lock it, then re-check under the lock.
+  -- If another checkout consumed its final limited use while we waited,
+  -- retry so the customer can still receive the next-best eligible campaign.
+  loop
+    v_campaign_id := null;
+    v_campaign_name := null;
+    v_campaign_type := null;
+    v_campaign_discount := 0;
+    v_delivery_discount := 0;
 
-  if v_campaign_id is not null then
+    select c.campaign_id,c.campaign_name,c.campaign_type,c.campaign_discount,c.delivery_discount
+      into v_campaign_id,v_campaign_name,v_campaign_type,v_campaign_discount,v_delivery_discount
+    from internal.food_campaign_candidates(
+      p_store_id,v_subtotal,v_store.delivery_fee,v_item_totals
+    ) c
+    limit 1;
+
+    exit when v_campaign_id is null;
+
     select * into v_campaign
     from public.food_campaigns c
     where c.id=v_campaign_id
     for update;
 
+    v_campaign_id := null;
     select c.campaign_id,c.campaign_name,c.campaign_type,c.campaign_discount,c.delivery_discount
       into v_campaign_id,v_campaign_name,v_campaign_type,v_campaign_discount,v_delivery_discount
     from internal.food_campaign_candidates(
@@ -712,7 +724,9 @@ begin
     ) c
     where c.campaign_id=v_campaign.id
     limit 1;
-  end if;
+
+    exit when v_campaign_id is not null;
+  end loop;
 
   v_campaign_discount := coalesce(v_campaign_discount,0);
   v_delivery_discount := coalesce(v_delivery_discount,0);
