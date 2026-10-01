@@ -55,15 +55,12 @@ export function MerchantLoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(() => Boolean(client));
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     let mounted = true;
-    if (!client) {
-      setChecking(false);
-      return;
-    }
+    if (!client) return;
     void client.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
       if (!error && data.session) {
@@ -163,7 +160,7 @@ function statusContent(application: MerchantApplication) {
 export function MerchantSignupScreen() {
   const router = useRouter();
   const client = useMemo(() => getSupabaseBrowserClient(), []);
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(() => Boolean(client));
   const [userId, setUserId] = useState<string | null>(null);
   const [application, setApplication] = useState<MerchantApplication | null>(null);
   const [draft, setDraft] = useState<MerchantApplicationDraft>(EMPTY_DRAFT);
@@ -173,10 +170,7 @@ export function MerchantSignupScreen() {
 
   useEffect(() => {
     let mounted = true;
-    if (!client) {
-      setChecking(false);
-      return;
-    }
+    if (!client) return;
 
     void (async () => {
       try {
