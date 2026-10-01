@@ -121,6 +121,12 @@
   background: var(--wyn-bg);
 }
 
+.search-recent-section {
+  padding: 18px 0 18px;
+  border-bottom: 1px solid var(--wyn-border);
+}
+
+.search-recent-title,
 .search-discovery-title {
   display: flex !important;
   align-items: center !important;
@@ -128,6 +134,11 @@
   gap: 12px;
 }
 
+.search-recent-title {
+  padding: 0 20px 12px;
+}
+
+.search-recent-title h2,
 .flutter-search-discovery .search-discovery-title h2 {
   margin: 0 !important;
   padding: 0 !important;
@@ -138,6 +149,7 @@
   letter-spacing: 0 !important;
 }
 
+.search-recent-title > button,
 .discovery-section-action {
   min-height: 32px;
   padding: 0;
@@ -154,6 +166,69 @@
   gap: 2px;
 }
 
+.search-recent-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 20px 2px;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+.search-recent-scroll::-webkit-scrollbar { display: none; }
+
+.recent-search-chip {
+  height: 42px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
+}
+
+.recent-search-main,
+.recent-search-remove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.recent-search-main {
+  max-width: 220px;
+  padding: 0 5px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.recent-search-main > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-search-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: grid;
+  place-items: center;
+  color: var(--wyn-text);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.recent-search-remove {
+  width: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--wyn-text-secondary);
+}
 
 .flutter-search-discovery > .route-section,
 .flutter-search-discovery .route-section {
@@ -367,8 +442,10 @@
 }
 
 @media (max-width: 380px) {
-  .flutter-search-discovery .search-discovery-title { padding-left: 16px !important; padding-right: 16px !important; }
-  .flutter-search-discovery .hashtag-list { padding-left: 16px !important; padding-right: 16px !important; }
+  .flutter-search-discovery .search-discovery-title,
+  .search-recent-title { padding-left: 16px !important; padding-right: 16px !important; }
+  .flutter-search-discovery .hashtag-list,
+  .search-recent-scroll { padding-left: 16px !important; padding-right: 16px !important; }
   .search-suggested-row { margin-left: 16px; margin-right: 16px; }
   .trend-change { min-width: 70px; padding-inline: 8px; }
   .search-follow-button { min-width: 84px; padding-inline: 14px !important; }
