@@ -645,7 +645,7 @@ function OrdersPanel({
   };
   const visibleOrders = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("th-TH");
-    const now = Date.now();
+    const now = new Date().getTime();
     const day = 24 * 60 * 60 * 1000;
     return orders.filter((order) => {
       if (paymentFilter !== "all" && order.payment_status !== paymentFilter) return false;
