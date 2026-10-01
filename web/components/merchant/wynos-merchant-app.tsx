@@ -165,7 +165,7 @@ function OrderCard({ order, onOpen }: { order: FoodOrder; onOpen: () => void }) 
       <div className="wm-order-card-top">
         <span>
           <strong>#{order.order_number}</strong>
-          <small>{shortTime(order.created_at)} · {order.source === "manual" ? "ร้านสร้าง" : "WYNOS Food"}</small>
+          <small>{shortTime(order.created_at)} · {order.source === "manual" ? "ร้านสร้าง" : order.source === "social" ? "WYNOS Social" : "WYNOS Food"}</small>
         </span>
         <b>{money(order.total)}</b>
       </div>
@@ -208,6 +208,7 @@ function MerchantInner({
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
   const loadingRef = useRef(false);
+  const paymentStatusRef = useRef<Map<string, FoodOrder["payment_status"]>>(new Map());
 
   const load = useCallback(async (quiet = false) => {
     if (loadingRef.current) return;
@@ -221,6 +222,7 @@ function MerchantInner({
       setStore(next.store);
       setMenu(next.menu);
       setOrders(next.orders);
+      paymentStatusRef.current = new Map(next.orders.map((order) => [order.id, order.payment_status]));
       setSelectedOrder((current) => current ? next.orders.find((order) => order.id === current.id) ?? null : null);
       return next;
     } catch (error) {
@@ -242,6 +244,7 @@ function MerchantInner({
     const channel = subscribeMerchantOrders(client, store.id, (payload) => {
       const next = payload.new as Partial<FoodOrder>;
       if (payload.eventType === "INSERT") {
+        if (typeof next.id === "string" && next.payment_status) paymentStatusRef.current.set(next.id, next.payment_status);
         if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([180, 80, 180]);
         if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
           const options = {
@@ -256,6 +259,19 @@ function MerchantInner({
               .catch(() => undefined);
           } else {
             try { new Notification("WYNOS Merchant · ออเดอร์ใหม่", options); } catch { /* best effort */ }
+          }
+        }
+      } else if (payload.eventType === "UPDATE" && typeof next.id === "string" && next.payment_status) {
+        const previousPayment = paymentStatusRef.current.get(next.id);
+        paymentStatusRef.current.set(next.id, next.payment_status);
+        if (previousPayment && previousPayment !== next.payment_status) {
+          if (next.payment_status === "submitted") {
+            setMessage(`ออเดอร์ #${String(next.order_number ?? "")} · ลูกค้าส่งสลิปแล้ว`);
+            if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([120, 70, 120]);
+          } else if (next.payment_status === "paid") {
+            setMessage(`ออเดอร์ #${String(next.order_number ?? "")} · ชำระเงินแล้ว`);
+          } else if (next.payment_status === "issue") {
+            setMessage(`ออเดอร์ #${String(next.order_number ?? "")} · การชำระเงินมีปัญหา`);
           }
         }
       }
@@ -861,6 +877,10 @@ function OrderSheet({
           <PaymentStatus order={order} />
           {slipUrl ? <a href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" /></a> : null}
           {order.payment_note ? <p>{order.payment_note}</p> : null}
+          {order.payment_verification_status === "auto_verified" ? <p>ตรวจสลิปอัตโนมัติแล้ว · ยอดและบัญชีผู้รับตรงร้าน</p> : null}
+          {order.payment_verification_status === "manual_review" && order.payment_status === "submitted" ? <p>ระบบรับสลิปแล้ว · รอร้านตรวจสอบ</p> : null}
+          {order.payment_verification_status === "manual_verified" ? <p>ร้านยืนยันการชำระเงินแล้ว</p> : null}
+          {order.payment_verification_status === "rejected" && order.payment_verification_note ? <p>{order.payment_verification_note}</p> : null}
           {order.payment_status === "submitted" ? (
             <div className="wm-two-actions">
               <button className="wm-primary" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "ยืนยันเงินเข้าแล้ว")}>ยืนยันเงินเข้า</button>
