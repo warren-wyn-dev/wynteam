@@ -1,42 +1,16 @@
-name: Deploy Admin Merchant Review Once
+name: Deploy Admin Merchant Review Once (disabled)
 
+# One-time deployment helper used on 2026-10-01.
+# It is intentionally manual-only after the attempted deployment so pushes
+# to this feature branch cannot deploy Admin production again.
 on:
-  push:
-    branches:
-      - feat/admin-merchant-applications
-    paths:
-      - '.github/workflows/deploy-admin-merchant-once.yml'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
 
 jobs:
-  deploy:
+  note:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: admin
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy WYN Admin to Vercel production
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-        run: |
-          set -euo pipefail
-          clean() { printf '%s' "$1" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
-          VERCEL_TOKEN=$(clean "$VERCEL_TOKEN")
-          SUPABASE_URL=$(clean "$SUPABASE_URL")
-          SUPABASE_PUBLISHABLE_KEY=$(clean "$SUPABASE_PUBLISHABLE_KEY")
-          for value in VERCEL_TOKEN SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
-            test -n "$(eval echo \"\$$value\")" || { echo "::error::$value is empty"; exit 1; }
-          done
-
-          npx --yes vercel@latest deploy --prod --yes \
-            --token="$VERCEL_TOKEN" \
-            --build-env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
-            --build-env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
-            --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
-            --env NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+      - run: echo "Use the canonical deploy-admin.yml workflow when Vercel deployment quota is available."
