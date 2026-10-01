@@ -57,8 +57,9 @@ function authErrorMessage(error: unknown) {
   const code = (error as { code?: string })?.code;
   const message = error instanceof Error ? error.message : "";
   if (code === "email_not_confirmed") return "บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณากดลิงก์ยืนยันในอีเมลก่อนเข้าสู่ระบบ";
+  if (code === "user_already_exists") return "อีเมลนี้มีบัญชี WYNOS อยู่แล้ว จึงยังใช้สร้างบัญชี Merchant แยกในระบบปัจจุบันไม่ได้";
   if (message === "not_merchant_account") return "บัญชีนี้ไม่ใช่บัญชี WYNOS Merchant กรุณาใช้บัญชี Merchant หรือสมัครใหม่";
-  if (message === "merchant_email_already_used") return "อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลสำหรับ WYNOS Merchant อีกอีเมลหนึ่ง";
+  if (message === "merchant_email_already_used") return "อีเมลนี้มีบัญชี WYNOS อยู่แล้ว จึงยังใช้สร้างบัญชี Merchant แยกในระบบปัจจุบันไม่ได้";
   if (message === "merchant_password_too_short") return `รหัสผ่าน Merchant ต้องมีอย่างน้อย ${MIN_SIGNUP_PASSWORD_LENGTH} ตัวอักษร`;
   return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
 }
