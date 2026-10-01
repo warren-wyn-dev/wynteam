@@ -199,7 +199,6 @@ function ClubResults({ client, query }: { client: SupabaseClient; query: string 
 }
 
 type SearchTab = "all" | "users" | "posts" | "clubs";
-type RecentSearch = { query: string; tab: SearchTab; savedAt: number };
 type DiscoverySnapshot = { hashtags: RankedHashtag[]; suggested: ProfileRow[] };
 
 function formatCompactPostCount(count: number) {
@@ -208,21 +207,7 @@ function formatCompactPostCount(count: number) {
   return count.toLocaleString("th-TH");
 }
 
-function Discovery({
-  client,
-  userId,
-  recentSearches,
-  onRecentSelect,
-  onRecentRemove,
-  onRecentClear,
-}: {
-  client: SupabaseClient;
-  userId: string;
-  recentSearches: RecentSearch[];
-  onRecentSelect: (item: RecentSearch) => void;
-  onRecentRemove: (item: RecentSearch) => void;
-  onRecentClear: () => void;
-}) {
+function Discovery({ client, userId }: { client: SupabaseClient; userId: string }) {
   const cacheKey = `search-discovery:${userId}`;
   const cached = getMountCache<DiscoverySnapshot>(cacheKey);
   const [hashtags, setHashtags] = useState<RankedHashtag[]>(cached?.hashtags ?? []);
@@ -288,30 +273,6 @@ function Discovery({
 
   return (
     <div className="discovery-page flutter-search-discovery">
-      {recentSearches.length ? (
-        <section className="search-recent-section" aria-label="ค้นหาล่าสุด">
-          <div className="search-recent-title">
-            <h2>ค้นหาล่าสุด</h2>
-            <button type="button" onClick={onRecentClear}>ล้างทั้งหมด</button>
-          </div>
-          <div className="search-recent-scroll">
-            {recentSearches.map((item) => (
-              <div className="recent-search-chip" key={`${item.tab}:${item.query}`}>
-                <button className="recent-search-main" type="button" onClick={() => onRecentSelect(item)}>
-                  <span className="recent-search-icon" aria-hidden="true">
-                    {item.query.startsWith("#") ? "#" : <WynosIcon name={item.tab === "clubs" ? "club" : item.tab === "users" ? "profile" : "search"} size={16} strokeWidth={2} />}
-                  </span>
-                  <span data-i18n-skip="">{item.query}</span>
-                </button>
-                <button className="recent-search-remove" type="button" aria-label={`ลบ ${item.query} จากการค้นหาล่าสุด`} onClick={() => onRecentRemove(item)}>
-                  <WynosIcon name="close" size={16} strokeWidth={2} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
       <section className="route-section search-trending-section">
         <div className="route-section-title search-discovery-title">
           <h2>แฮชแท็กกำลังนิยม</h2>
@@ -460,8 +421,6 @@ function AllResults({
 
 const SEARCH_TABS: readonly SearchTab[] = ["all", "users", "posts", "clubs"];
 const SEARCH_DEBOUNCE_MS = 400;
-const RECENT_SEARCH_STORAGE_KEY = "wynos:recent-searches:v1";
-const RECENT_SEARCH_LIMIT = 8;
 
 // WYN-185 item 7: query + result tab now live in the URL (?q=...&type=...)
 // instead of only in local state, so a refresh, back/forward navigation, or
@@ -476,47 +435,6 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const urlTabParam = params.get("type");
   const tab: SearchTab = SEARCH_TABS.includes(urlTabParam as SearchTab) ? (urlTabParam as SearchTab) : "all";
   const [draft, setDraft] = useState(urlQuery);
-  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
-  const recentStorageKey = useMemo(() => `${RECENT_SEARCH_STORAGE_KEY}:${userId}`, [userId]);
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(recentStorageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as RecentSearch[];
-      if (!Array.isArray(parsed)) return;
-      setRecentSearches(parsed.filter((item) =>
-        item && typeof item.query === "string" && SEARCH_TABS.includes(item.tab as SearchTab),
-      ).slice(0, RECENT_SEARCH_LIMIT));
-    } catch {
-      // A malformed/private-mode localStorage entry should never block Search.
-    }
-  }, [recentStorageKey]);
-
-  const persistRecent = useCallback((next: RecentSearch[]) => {
-    setRecentSearches(next);
-    try {
-      window.localStorage.setItem(recentStorageKey, JSON.stringify(next));
-    } catch {
-      // Search remains usable even when storage is unavailable.
-    }
-  }, [recentStorageKey]);
-
-  const rememberSearch = useCallback((query: string, searchTab: SearchTab) => {
-    if (query.length < 2) return;
-    const normalized = query.trim();
-    const next = [
-      { query: normalized, tab: searchTab, savedAt: Date.now() },
-      ...recentSearches.filter((item) => item.query.toLocaleLowerCase() !== normalized.toLocaleLowerCase() || item.tab !== searchTab),
-    ].slice(0, RECENT_SEARCH_LIMIT);
-    persistRecent(next);
-  }, [persistRecent, recentSearches]);
-
-  const removeRecent = useCallback((target: RecentSearch) => {
-    persistRecent(recentSearches.filter((item) => !(item.query === target.query && item.tab === target.tab)));
-  }, [persistRecent, recentSearches]);
-
-  const clearRecent = useCallback(() => persistRecent([]), [persistRecent]);
 
   // The URL is the source of truth; keep the input in sync when it changes
   // from outside typing (back/forward, a shared link, the clear button).
@@ -530,10 +448,6 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
     router.replace(suffix ? `/search?${suffix}` : "/search");
   }, [router]);
 
-  const selectRecent = useCallback((item: RecentSearch) => {
-    setDraft(item.query);
-    updateUrl(item.query, item.tab);
-  }, [updateUrl]);
 
   // Debounced as-you-type search (WYN-185 item 7: "ใช้ debounce สำหรับช่องค้นหา").
   // Submitting via Enter/the search icon (submitNow below) bypasses this
@@ -549,7 +463,6 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   const submitNow = () => {
     const trimmed = draft.trim();
     if (trimmed.length > 0 && trimmed.length < 2) return;
-    if (trimmed) rememberSearch(trimmed, tab);
     updateUrl(trimmed, tab);
   };
   const selectTab = (next: SearchTab) => updateUrl(urlQuery, next);
@@ -579,16 +492,7 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
           {draft ? <button type="button" aria-label="ล้างคำค้นหา" onClick={clear}><WynosIcon name="close" size={18} strokeWidth={2} /></button> : null}
         </div>
       </div>
-      {!submitted ? (
-        <Discovery
-          client={client}
-          userId={userId}
-          recentSearches={recentSearches}
-          onRecentSelect={selectRecent}
-          onRecentRemove={removeRecent}
-          onRecentClear={clearRecent}
-        />
-      ) : (
+      {!submitted ? <Discovery client={client} userId={userId} /> : (
         <>
           <div className="route-tabs flutter-search-tabs" role="tablist" aria-label="ประเภทผลการค้นหา">{tabs.map((item) => <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => selectTab(item.id)} key={item.id}>{item.label}</button>)}</div>
           {tab === "all" ? <AllResults client={client} userId={userId} query={urlQuery} onSelectTab={selectTab} /> : null}
