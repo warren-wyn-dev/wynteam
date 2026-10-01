@@ -27,6 +27,11 @@ export type HomeFeedRow = {
   quote_reposter_id?: string | null;
   quote_reposter_username?: string | null;
   quote_reposted_at?: string | null;
+  social_offer_item_id?: string | null;
+  social_offer_store_name?: string | null;
+  social_offer_item_name?: string | null;
+  social_offer_price?: number | string | null;
+  social_offer_orderable?: boolean | null;
   location?: string | null;
   audience?: string | null;
 };
