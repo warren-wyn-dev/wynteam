@@ -41,6 +41,10 @@ create index if not exists food_campaigns_store_status_idx
   on public.food_campaigns(store_id,is_active,starts_at,ends_at)
   where deleted_at is null;
 
+create index if not exists food_campaigns_created_by_idx
+  on public.food_campaigns(created_by)
+  where created_by is not null;
+
 create table if not exists public.food_campaign_items (
   campaign_id uuid not null references public.food_campaigns(id) on delete cascade,
   menu_item_id uuid not null references public.food_menu_items(id) on delete cascade,
