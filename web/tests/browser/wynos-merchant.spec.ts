@@ -67,3 +67,12 @@ test("Food Merchant migration isolates the restaurant domain and has no commissi
   expect(sql).not.toContain("commission");
   expect(sql).not.toContain("merchant_wallet");
 });
+
+
+test("Food Merchant hardening blocks anonymous accounts from permanent orders and private media", () => {
+  const sql = read("../supabase/migrations_wynos_food_merchant_v1_hardening.sql");
+  expect(sql).toContain("food_is_permanent_account");
+  expect(sql).toContain("permanent account required");
+  expect(sql).toContain("(auth.uid()::text || '/slips/%')");
+  expect(sql).toContain("public.food_is_permanent_account()");
+});
