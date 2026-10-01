@@ -13,6 +13,33 @@ test("source-derived system parity stylesheet is imported before interaction clo
   expect(layout).toContain(interactionLayer);
   expect(layout.lastIndexOf(sourceLayer)).toBeGreaterThan(layout.lastIndexOf('import "./system-parity-lock.css";'));
   expect(layout.lastIndexOf(interactionLayer)).toBeGreaterThan(layout.lastIndexOf(sourceLayer));
+  expect(layout).toContain('import "./unified-design-language.css";');
+  expect(layout.lastIndexOf('import "./unified-design-language.css";')).toBeGreaterThan(layout.lastIndexOf('import "./theme-dark.css";'));
+});
+
+test("all primary Web surfaces share the approved WYNOS design language", () => {
+  const unified = read("app/unified-design-language.css");
+  const design = read("app/design-system.css");
+  for (const selector of [
+    ".route-header",
+    ".detail-floating-header",
+    ".flutter-chat-header",
+    ".flutter-search-header",
+    ".beta4-composer-header",
+    ".notification-row",
+    ".chat-row",
+    ".settings-row",
+    ".route-person-row",
+    ".route-club-row",
+    ".route-empty",
+    ".wyn-post-actions.wyn-threads-actions",
+  ]) expect(unified).toContain(selector);
+  expect(unified).toContain("--wyn-ui-icon-stroke: 1.8");
+  expect(unified).toContain("--wyn-ui-action-stroke: 1.6");
+  expect(unified).toContain("background: var(--wyn-text)");
+  expect(unified).toContain("color: var(--wyn-color-link-vivid)");
+  expect(design).toContain("--wyn-size-icon-comment: 22px");
+  expect(design).toContain("--wyn-stroke-icon-action: 1.6");
 });
 
 test("Search keeps the current Flutter Discovery then three-tab contract", () => {
