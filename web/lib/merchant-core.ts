@@ -1,0 +1,165 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export type MerchantStaffRole = "owner" | "admin" | "manager" | "orders" | "support" | "delivery";
+
+export type MerchantStaffMember = {
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  role: MerchantStaffRole;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MerchantNotification = {
+  id: string;
+  merchant_account_id: string;
+  recipient_user_id: string;
+  type: "system" | "order" | "payment" | "staff";
+  reason: string;
+  read_at: string | null;
+  created_at: string;
+};
+
+export type MerchantActivity = {
+  id: string;
+  merchant_account_id: string;
+  actor_id: string | null;
+  actor_username_snapshot: string | null;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  detail: Record<string, unknown>;
+  created_at: string;
+};
+
+export type MerchantStoreReadiness = {
+  ready: boolean;
+  missing: string[];
+};
+
+export async function fetchMerchantStaff(client: SupabaseClient, storeId: string) {
+  const { data, error } = await client.rpc("merchant_staff_members", { p_store_id: storeId });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MerchantStaffMember[];
+}
+
+export async function addMerchantStaff(
+  client: SupabaseClient,
+  storeId: string,
+  username: string,
+  role: Exclude<MerchantStaffRole, "owner">,
+) {
+  const clean = username.trim().replace(/^@/, "");
+  if (!clean) throw new Error("กรุณาใส่ @username ของบัญชี WYNOS");
+  const { data, error } = await client.rpc("merchant_add_staff_by_username", {
+    p_store_id: storeId,
+    p_username: clean,
+    p_role: role,
+  });
+  if (error) throw new Error(error.message);
+  return String(data);
+}
+
+export async function updateMerchantStaff(
+  client: SupabaseClient,
+  storeId: string,
+  userId: string,
+  role: Exclude<MerchantStaffRole, "owner">,
+  active: boolean,
+) {
+  const { error } = await client.rpc("merchant_update_staff_member", {
+    p_store_id: storeId,
+    p_user_id: userId,
+    p_role: role,
+    p_active: active,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchMerchantNotifications(
+  client: SupabaseClient,
+  merchantAccountId: string,
+  limit = 30,
+) {
+  const { data, error } = await client
+    .from("merchant_notifications")
+    .select("*")
+    .eq("merchant_account_id", merchantAccountId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MerchantNotification[];
+}
+
+export async function markMerchantNotificationRead(client: SupabaseClient, id: string) {
+  const { error } = await client
+    .from("merchant_notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function markAllMerchantNotificationsRead(client: SupabaseClient, merchantAccountId: string) {
+  const { error } = await client
+    .from("merchant_notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("merchant_account_id", merchantAccountId)
+    .is("read_at", null);
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchMerchantActivity(
+  client: SupabaseClient,
+  merchantAccountId: string,
+  limit = 30,
+) {
+  const { data, error } = await client
+    .from("merchant_activity_log")
+    .select("*")
+    .eq("merchant_account_id", merchantAccountId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MerchantActivity[];
+}
+
+export async function fetchStoreReadiness(client: SupabaseClient, storeId: string) {
+  const { data, error } = await client.rpc("merchant_store_readiness", { p_store_id: storeId });
+  if (error) throw new Error(error.message);
+  const raw = (data ?? {}) as Partial<MerchantStoreReadiness>;
+  return {
+    ready: raw.ready === true,
+    missing: Array.isArray(raw.missing) ? raw.missing.map(String) : [],
+  } satisfies MerchantStoreReadiness;
+}
+
+export async function setMerchantStorePublished(
+  client: SupabaseClient,
+  storeId: string,
+  published: boolean,
+) {
+  if (published) {
+    const readiness = await fetchStoreReadiness(client, storeId);
+    if (!readiness.ready) {
+      throw new Error(`ร้านยังไม่พร้อมเผยแพร่: ${readiness.missing.join(", ")}`);
+    }
+  }
+  const { error } = await client.from("food_stores").update({ is_published: published }).eq("id", storeId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setMerchantRefundStatus(
+  client: SupabaseClient,
+  orderId: string,
+  status: "pending" | "refunded" | "failed",
+  note?: string,
+) {
+  const { error } = await client.rpc("merchant_set_refund_status", {
+    p_order_id: orderId,
+    p_status: status,
+    p_note: note?.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+}
