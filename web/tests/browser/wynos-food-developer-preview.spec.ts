@@ -50,10 +50,15 @@ test("Food customer checkout uses server-authoritative totals and direct store s
   expect(app).not.toContain("WYNOS Wallet");
 });
 
-test("Food developer preview can be tested while unpublished without exposing it publicly", () => {
-  const sql = read("../supabase/migrations_wynos_food_customer_preview_v1.sql");
-  expect(sql).toContain("(not v_store.is_published and not public.is_developer_account())");
-  expect(sql).toContain("food_customer_addresses");
-  expect(sql).toContain("food_is_permanent_account()");
-  expect(sql).toContain("food_cancel_order");
+test("Food developer preview can be tested without exposing the domain publicly", () => {
+  const customerSql = read("../supabase/migrations_wynos_food_customer_preview_v1.sql");
+  const rolloutSql = read("../supabase/migrations_wynos_food_rollout_gate_v1.sql");
+
+  expect(customerSql).toContain("food_customer_addresses");
+  expect(customerSql).toContain("food_is_permanent_account()");
+  expect(customerSql).toContain("food_cancel_order");
+  expect(rolloutSql).toContain("public_enabled boolean not null default false");
+  expect(rolloutSql).toContain("food_public_access_enabled()");
+  expect(rolloutSql).toContain("not public.is_developer_account()");
+  expect(rolloutSql).toContain("not public.food_public_access_enabled()");
 });
