@@ -41,6 +41,7 @@ import {
   paymentLabel,
   saveMenuItem,
   setFoodPaymentStatus,
+  setFoodSocialOffer,
   setMenuAvailability,
   statusLabel,
   subscribeMerchantOrders,
@@ -70,6 +71,7 @@ const EMPTY_MENU_DRAFT: MenuDraft = {
   price: "",
   image_path: null,
   is_available: true,
+  social_drop_id: null,
 };
 
 const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
@@ -403,6 +405,7 @@ function MerchantInner({
               price: String(item.price),
               image_path: item.image_path,
               is_available: item.is_available,
+              social_drop_id: item.social_drop_id ?? null,
             })}
             onAdd={() => setMenuDraft({ ...EMPTY_MENU_DRAFT })}
             onToggle={async (item) => {
@@ -689,7 +692,7 @@ function MenuPanel({
             <article className={`wm-menu-row ${item.is_available ? "" : "is-off"}`} key={item.id}>
               <button className="wm-menu-main" type="button" onClick={() => onEdit(item)}>
                 <span className="wm-menu-photo">{image ? <img src={image} alt="" /> : <UtensilsCrossed size={24} strokeWidth={1.5} />}</span>
-                <span className="wm-menu-copy"><strong>{item.name}</strong><small>{item.category}</small><b>{money(item.price)}</b></span>
+                <span className="wm-menu-copy"><strong>{item.name}</strong><small>{item.category}{item.social_drop_id ? " · เชื่อมโพสต์แล้ว" : ""}</small><b>{money(item.price)}</b></span>
               </button>
               <button className={`wm-switch ${item.is_available ? "is-on" : ""}`} type="button" aria-label={item.is_available ? "ปิดขายชั่วคราว" : "เปิดขาย"} onClick={() => onToggle(item)}><i /></button>
             </article>
@@ -973,6 +976,7 @@ function MenuEditor({
   onMessage: (message: string) => void;
 }) {
   const [form, setForm] = useState(draft);
+  const [socialPost, setSocialPost] = useState(draft.social_drop_id ? `https://wynos.online/drop/${draft.social_drop_id}` : "");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const save = async () => {
@@ -980,7 +984,8 @@ function MenuEditor({
     try {
       let imagePath = form.image_path ?? null;
       if (file) imagePath = await uploadFoodPublicImage(client, file, `stores/${store.id}/menu`);
-      await saveMenuItem(client, store.id, { ...form, image_path: imagePath });
+      const menuItemId = await saveMenuItem(client, store.id, { ...form, image_path: imagePath });
+      await setFoodSocialOffer(client, menuItemId, socialPost);
       onMessage(form.id ? "บันทึกเมนูแล้ว" : "เพิ่มเมนูแล้ว");
       await onSaved();
     } catch (error) { onMessage(merchantError(error)); }
@@ -999,6 +1004,7 @@ function MenuEditor({
         <label>ชื่อเมนู<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น ข้าวกะเพรา" /></label>
         <div className="wm-form-grid"><label>หมวด<input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></label><label>ราคา<input type="number" min="0" step="1" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0" /></label></div>
         <label>รายละเอียด<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="รายละเอียดอาหาร" /></label>
+        <label>โพสต์ขายบน WYNOS<input value={socialPost} onChange={(e) => setSocialPost(e.target.value)} placeholder="https://wynos.online/drop/..." /><small className="wm-field-hint">ใช้โพสต์สาธารณะของบัญชีนี้ ลูกค้าจะเห็นปุ่มสั่งซื้อใน Feed</small></label>
         <label className="wm-upload"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /><Upload size={20} /><span>{file ? file.name : "อัปโหลดรูปเมนู"}</span></label>
         <label className="wm-check-row"><input type="checkbox" checked={form.is_available} onChange={(e) => setForm({ ...form, is_available: e.target.checked })} /><span><strong>เปิดขาย</strong><small>ปิดได้ทันทีเมื่อเมนูหมด</small></span></label>
         <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกเมนู"}</button>
