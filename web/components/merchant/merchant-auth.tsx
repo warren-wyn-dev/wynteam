@@ -3,7 +3,7 @@
 import { ArrowLeft, CheckCircle2, Clock3, Store, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { signInWithEmail } from "@/lib/auth-repository";
 import {
@@ -34,7 +34,7 @@ function MerchantAuthBrand() {
   );
 }
 
-function MerchantAuthShell({ children }: { children: React.ReactNode }) {
+function MerchantAuthShell({ children }: { children: ReactNode }) {
   return (
     <main className="wm-auth-shell">
       <section className="wm-auth-card">{children}</section>
@@ -51,7 +51,6 @@ function BackToMerchant() {
 }
 
 export function MerchantLoginScreen() {
-  const router = useRouter();
   const client = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -248,12 +247,6 @@ export function MerchantSignupScreen() {
     }
   }
 
-  async function signOut() {
-    if (!client) return;
-    await client.auth.signOut();
-    window.location.replace("/merchant/signup");
-  }
-
   if (!hasSupabaseBrowserConfig()) {
     return <MerchantAuthShell><div className="wm-auth-state"><MerchantAuthBrand /><h1>ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h1><p>WYNOS Merchant ยังเชื่อมต่อระบบบัญชีไม่ได้</p></div></MerchantAuthShell>;
   }
@@ -300,7 +293,6 @@ export function MerchantSignupScreen() {
         </div>
         {message ? <p className="wm-auth-success" role="status">{message}</p> : null}
         <Link className="wm-primary wm-full wm-link-button" href="/merchant">ไป WYNOS Merchant</Link>
-        <button className="wm-auth-text-button" type="button" onClick={() => void signOut()}>ออกจากบัญชี</button>
       </MerchantAuthShell>
     );
   }
@@ -310,7 +302,7 @@ export function MerchantSignupScreen() {
 
   return (
     <MerchantAuthShell>
-      <div className="wm-auth-top"><BackToMerchant /><MerchantAuthBrand /><button className="wm-auth-text-button wm-auth-text-button--top" type="button" onClick={() => void signOut()}>ออก</button></div>
+      <div className="wm-auth-top"><BackToMerchant /><MerchantAuthBrand /><span className="wm-auth-top-spacer" /></div>
       {rejected && !editingRejected ? (
         <>
           <div className={"wm-application-status wm-application-status--" + rejected.tone}>
