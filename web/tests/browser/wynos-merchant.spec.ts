@@ -125,3 +125,18 @@ test("Merchant applications use business tenancy and cannot self-approve", () =>
   expect(baseSql).toContain("revoke all on public.merchant_applications from anon");
   expect(accountSql).not.toContain("grant update (status, reviewed_at");
 });
+
+
+test("Campaign Center keeps promotion creation in Merchant and pricing in WYNOS Food", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const center = read("components/merchant/merchant-campaign-center.tsx");
+  const sql = read("../supabase/migrations_wynos_merchant_campaign_center_v1.sql");
+
+  expect(app).toContain("MerchantCampaignCenter");
+  expect(center).toContain("Campaign Center");
+  expect(center).toContain("WYNOS Food จะเลือกแคมเปญที่ลูกค้าประหยัดได้มากที่สุด");
+  expect(sql).toContain("internal.food_campaign_candidates");
+  expect(sql).toContain("order by saving desc");
+  expect(sql).toContain("food_quote_order");
+  expect(sql).toContain("campaign_applied");
+});
