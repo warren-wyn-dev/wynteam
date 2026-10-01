@@ -14,6 +14,7 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { MerchantNotificationTest } from "@/components/merchant/merchant-notification-test";
 import type { FoodOrder, FoodStore } from "@/lib/food-merchant";
 import {
   addMerchantStaff,
@@ -294,6 +295,14 @@ export function MerchantStoreTools({
           )) : <p className="wm-core-empty">ยังไม่มีการแจ้งเตือน Merchant</p>}
         </div>
       </section>
+
+      <MerchantNotificationTest
+        client={client}
+        store={store}
+        userId={userId}
+        onMessage={onMessage}
+        onReload={load}
+      />
 
       <section className="wm-core-section">
         <div className="wm-core-section-head">
