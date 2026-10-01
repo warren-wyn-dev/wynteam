@@ -27,6 +27,7 @@ for token in [
     "food_campaign_release_on_cancel",
     "usage_count=greatest(usage_count-1,0)",
     "campaign_applied",
+    "total = subtotal - campaign_discount + delivery_fee - delivery_discount",
     "food_campaigns_created_by_idx",
 ]:
     assert token in migration, token
