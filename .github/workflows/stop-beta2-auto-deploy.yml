@@ -1,4 +1,4 @@
-name: Stop Beta2 Auto Deploy
+name: Remove Beta2 Staging
 
 on:
   push:
@@ -11,15 +11,10 @@ permissions:
   contents: read
 
 jobs:
-  disconnect:
+  remove:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Disconnect Beta2 staging from Git auto-deploy
+      - name: Permanently remove WYNOS Web Beta2 staging project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
@@ -27,11 +22,6 @@ jobs:
           VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           test -n "$VERCEL_TOKEN" || { echo "::error::VERCEL_TOKEN is empty"; exit 1; }
 
-          npx --yes vercel@latest link --yes \
-            --project wynos-web-beta2-staging \
-            --scope warren14 \
-            --token="$VERCEL_TOKEN"
-
-          npx --yes vercel@latest git disconnect --yes \
+          npx --yes vercel@latest project rm wynos-web-beta2-staging --yes \
             --scope warren14 \
             --token="$VERCEL_TOKEN"
