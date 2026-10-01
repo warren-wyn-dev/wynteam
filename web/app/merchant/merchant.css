@@ -1318,3 +1318,79 @@
     display: grid;
   }
 }
+
+
+/* Merchant Notification Test Center */
+.wm-notification-test-copy {
+  margin: -2px 0 12px;
+  color: var(--wm-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wm-notification-test-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.wm-notification-test-row {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--wm-border);
+  border-radius: 14px;
+  padding: 10px;
+  background: var(--wm-bg);
+}
+
+.wm-notification-test-channel {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--wm-surface);
+  color: var(--wm-secondary);
+}
+
+.wm-notification-test-row > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wm-notification-test-row strong {
+  font-size: 12.5px;
+}
+
+.wm-notification-test-row small {
+  color: var(--wm-muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.wm-test-status {
+  display: grid;
+  place-items: center;
+  color: var(--wm-muted);
+}
+
+.wm-notification-test-row.is-pass .wm-test-status { color: #1a8a4a; }
+.wm-notification-test-row.is-warn .wm-test-status { color: #b67608; }
+.wm-notification-test-row.is-fail .wm-test-status { color: var(--wm-red); }
+.wm-notification-test-row.is-running .wm-test-status { color: var(--wm-red); }
+
+.wm-test-spin {
+  animation: wm-spin .75s linear infinite;
+}
+
+@media (max-width: 620px) {
+  .wm-notification-test-grid {
+    grid-template-columns: 1fr;
+  }
+}
