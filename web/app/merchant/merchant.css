@@ -619,6 +619,13 @@
   font-size: 13px;
 }
 .wm-form textarea { min-height: 82px; resize: vertical; }
+.wm-field-hint {
+  margin-top: -1px;
+  color: var(--wm-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 450;
+}
 .wm-form input:focus,
 .wm-form textarea:focus,
 .wm-form select:focus { border-color: var(--wm-red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--wm-red) 13%, transparent); }
