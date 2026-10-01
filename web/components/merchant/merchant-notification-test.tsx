@@ -141,7 +141,7 @@ export function MerchantNotificationTest({
 
       let registration: ServiceWorkerRegistration | null = null;
       if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
-        registration = await navigator.serviceWorker.getRegistration("/");
+        registration = (await navigator.serviceWorker.getRegistration("/")) ?? null;
       }
       next = {
         ...next,
@@ -153,10 +153,7 @@ export function MerchantNotificationTest({
 
       const observedIds = new Set<string>();
       let expectedId: string | null = null;
-      let realtimeResolve: ((value: boolean) => void) | null = null;
-      let subscribedResolve: ((value: boolean) => void) | null = null;
-      const realtimePromise = new Promise<boolean>((resolve) => { realtimeResolve = resolve; });
-      const subscribedPromise = new Promise<boolean>((resolve) => { subscribedResolve = resolve; });
+      let channelState: "connecting" | "subscribed" | "failed" = "connecting";
 
       channel = client
         .channel(`merchant-notification-test:${userId}:${new Date().getTime()}`)
@@ -170,24 +167,21 @@ export function MerchantNotificationTest({
           },
           (payload) => {
             const id = typeof payload.new?.id === "string" ? payload.new.id : null;
-            if (!id) return;
-            observedIds.add(id);
-            if (expectedId === id) realtimeResolve?.(true);
+            if (id) observedIds.add(id);
           },
         )
         .subscribe((status) => {
-          if (status === "SUBSCRIBED") subscribedResolve?.(true);
-          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") subscribedResolve?.(false);
+          if (status === "SUBSCRIBED") channelState = "subscribed";
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") channelState = "failed";
         });
 
-      const subscribed = await Promise.race([
-        subscribedPromise,
-        wait(4_000).then(() => false),
-      ]);
+      for (let attempt = 0; attempt < 8 && channelState === "connecting"; attempt += 1) {
+        await wait(500);
+      }
+      const subscribed = channelState === "subscribed";
 
       const receipt = await sendMerchantTestNotification(client, store.id);
       expectedId = receipt.merchant_notification_id;
-      if (observedIds.has(expectedId)) realtimeResolve?.(true);
 
       const inApp = await fetchMerchantNotificationById(client, receipt.merchant_notification_id);
       next = {
@@ -198,9 +192,12 @@ export function MerchantNotificationTest({
       };
       commitResults(next);
 
-      const gotRealtime = subscribed
-        ? await Promise.race([realtimePromise, wait(5_000).then(() => false)])
-        : false;
+      if (subscribed) {
+        for (let attempt = 0; attempt < 10 && expectedId && !observedIds.has(expectedId); attempt += 1) {
+          await wait(500);
+        }
+      }
+      const gotRealtime = subscribed && expectedId !== null && observedIds.has(expectedId);
       next = {
         ...next,
         realtime: gotRealtime
