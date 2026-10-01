@@ -73,6 +73,14 @@ alter table public.food_orders
   add constraint food_orders_delivery_discount_check
   check (delivery_discount >= 0 and delivery_discount <= delivery_fee);
 
+alter table public.food_orders
+  drop constraint if exists food_orders_total_consistency;
+alter table public.food_orders
+  add constraint food_orders_total_consistency
+  check (
+    total = subtotal - campaign_discount + delivery_fee - delivery_discount
+  );
+
 create index if not exists food_orders_campaign_id_idx
   on public.food_orders(campaign_id)
   where campaign_id is not null;
