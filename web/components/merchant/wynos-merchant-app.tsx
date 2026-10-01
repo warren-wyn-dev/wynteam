@@ -256,13 +256,16 @@ function MerchantInner({
       // Deep Link still worked even if private browsing blocks storage.
     }
 
-    setTab("store");
-    setMessage("ทดสอบ Deep Link สำเร็จแล้ว");
-    window.dispatchEvent(new Event("wynos:merchant-notification-test-deep-link"));
-
     url.searchParams.delete("notification-test");
     const nextUrl = `${url.pathname}${url.search}${url.hash}`;
     window.history.replaceState(window.history.state, "", nextUrl);
+
+    const timer = window.setTimeout(() => {
+      setTab("store");
+      setMessage("ทดสอบ Deep Link สำเร็จแล้ว");
+      window.dispatchEvent(new Event("wynos:merchant-notification-test-deep-link"));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
