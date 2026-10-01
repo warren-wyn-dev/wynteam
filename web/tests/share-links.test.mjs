@@ -44,11 +44,13 @@ test("login wall, sign-in, onboarding and sign-out are wired to the return path"
   const gate = read("../components/developer-route-gate.tsx");
   const auth = read("../components/auth-flow/screens.tsx");
   // Shared-link visit keeps path, query and #fragment…
-  assert.match(gate, /else rememberReturnPath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}\$\{window\.location\.hash\}`\);\n\s+router\.replace\("\/welcome"\)/);
+  assert.match(gate, /signedOutPath = "\/welcome"/);
+  assert.match(gate, /else rememberReturnPath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}\$\{window\.location\.hash\}`\);/);
+  assert.match(gate, /router\.replace\(signedOutPath\)/);
   // …but a tab that just lost a session (incl. cross-tab sign-out) clears it.
   assert.match(gate, /if \(previousSession && !nextSession\) signedOutFromSessionRef\.current = true;/);
   assert.match(gate, /if \(signedOutFromSessionRef\.current\) clearReturnPath\(\);/);
-  assert.match(gate, /clearReturnPath\(\);\n\s+window\.location\.replace\("\/welcome"\)/);
+  assert.match(gate, /clearReturnPath\(\);[\s\S]*afterSignOutPath === "\/welcome"[\s\S]*window\.location\.replace\("\/welcome"\)/);
   assert.match(auth, /hasProfile \? consumeReturnPath\(\) \?\? "\/" : "\/signup\/step-1"/);
   assert.match(auth, /router\.push\(consumeReturnPath\(\) \?\? "\/"\)/);
 });
