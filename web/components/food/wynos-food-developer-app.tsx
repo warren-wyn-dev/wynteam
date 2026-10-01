@@ -778,7 +778,7 @@ function OrderDetailSheet({
           {canPay ? (
             <div className="wf-payment">
               <p>โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ</p>
-              {dynamicPaymentQr ? <div className="wf-inline-warning">QR นี้ตั้งยอด {foodMoney(order.total)} ให้อัตโนมัติ</div> : null}
+              {dynamicPaymentQr ? <div className="wf-inline-warning">{`QR นี้ตั้งยอด ${foodMoney(order.total)} ให้อัตโนมัติ`}</div> : null}
               {paymentQr ? (
                 <div className="wf-payment-qr">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
