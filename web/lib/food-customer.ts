@@ -70,7 +70,7 @@ export type FoodCustomerOrder = {
   order_number: string;
   store_id: string;
   buyer_id: string | null;
-  source: "app" | "manual";
+  source: "app" | "manual" | "social";
   status: "pending_acceptance" | "preparing" | "ready_for_delivery" | "out_for_delivery" | "delivered" | "cancelled";
   payment_status: "pending" | "submitted" | "paid" | "issue" | "refunded";
   recipient_name: string;
@@ -79,6 +79,13 @@ export type FoodCustomerOrder = {
   customer_note: string | null;
   payment_slip_path: string | null;
   payment_note: string | null;
+  payment_verification_status: "not_started" | "manual_review" | "auto_verified" | "manual_verified" | "rejected";
+  payment_provider: string | null;
+  payment_provider_code: string | null;
+  payment_transaction_ref: string | null;
+  payment_verified_at: string | null;
+  payment_verification_note: string | null;
+  source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
   total: number | string;
@@ -264,16 +271,51 @@ export async function uploadFoodPaymentSlip(
   return path;
 }
 
+export type FoodPaymentVerificationResult = {
+  status: "auto_verified" | "manual_review" | "rejected";
+  provider?: string;
+  code?: string | null;
+};
+
+export async function fetchFoodPromptPayQr(client: SupabaseClient, orderId: string) {
+  const { data, error } = await client.functions.invoke("food-payment-qr", {
+    body: { orderId },
+  });
+  if (error || !data || typeof data.dataUrl !== "string") return null;
+  return {
+    dataUrl: data.dataUrl as string,
+    amount: Number(data.amount ?? 0),
+    payeeName: typeof data.payeeName === "string" ? data.payeeName : null,
+  };
+}
+
 export async function submitFoodPayment(
   client: SupabaseClient,
   orderId: string,
   slipPath: string,
-) {
+): Promise<FoodPaymentVerificationResult> {
   const { error } = await client.rpc("food_submit_payment", {
     p_order_id: orderId,
     p_slip_path: slipPath,
   });
   if (error) throw new Error(error.message);
+
+  const verification = await client.functions.invoke("food-verify-slip", {
+    body: { orderId },
+  });
+  if (verification.error || !verification.data) {
+    return { status: "manual_review", provider: "manual" };
+  }
+
+  const status = verification.data.status;
+  if (status !== "auto_verified" && status !== "manual_review" && status !== "rejected") {
+    return { status: "manual_review", provider: "manual" };
+  }
+  return {
+    status,
+    provider: typeof verification.data.provider === "string" ? verification.data.provider : undefined,
+    code: typeof verification.data.code === "string" ? verification.data.code : null,
+  };
 }
 
 export async function saveFoodCustomerAddress(
