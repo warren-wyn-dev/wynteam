@@ -88,6 +88,10 @@ export type FoodCustomerOrder = {
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  campaign_discount: number | string;
+  delivery_discount: number | string;
   total: number | string;
   eta_minutes: number | null;
   accepted_at: string | null;
@@ -119,6 +123,17 @@ export type FoodCartLine = {
   menu_item_id: string;
   quantity: number;
   note: string;
+};
+
+export type FoodOrderQuote = {
+  subtotal: number;
+  delivery_fee: number;
+  campaign_discount: number;
+  delivery_discount: number;
+  total: number;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  campaign_type: "percentage" | "fixed" | "free_delivery" | null;
 };
 
 export type FoodCustomerSnapshot = {
@@ -219,6 +234,34 @@ export async function fetchFoodCustomerSnapshot(
     menu: (menuResult.data ?? []) as FoodCustomerMenuItem[],
     orders: (ordersResult.data ?? []) as FoodCustomerOrder[],
     addresses: (addressesResult.data ?? []) as FoodCustomerAddress[],
+  };
+}
+
+export async function quoteFoodCustomerOrder(
+  client: SupabaseClient,
+  storeId: string,
+  items: FoodCartLine[],
+): Promise<FoodOrderQuote> {
+  const { data, error } = await client.rpc("food_quote_order", {
+    p_store_id: storeId,
+    p_items: items.map((line) => ({
+      menu_item_id: line.menu_item_id,
+      quantity: line.quantity,
+    })),
+  });
+  if (error) throw new Error(error.message);
+  const raw = (data ?? {}) as Partial<FoodOrderQuote>;
+  return {
+    subtotal: Number(raw.subtotal ?? 0),
+    delivery_fee: Number(raw.delivery_fee ?? 0),
+    campaign_discount: Number(raw.campaign_discount ?? 0),
+    delivery_discount: Number(raw.delivery_discount ?? 0),
+    total: Number(raw.total ?? 0),
+    campaign_id: raw.campaign_id ? String(raw.campaign_id) : null,
+    campaign_name: raw.campaign_name ? String(raw.campaign_name) : null,
+    campaign_type: raw.campaign_type === "percentage" || raw.campaign_type === "fixed" || raw.campaign_type === "free_delivery"
+      ? raw.campaign_type
+      : null,
   };
 }
 
