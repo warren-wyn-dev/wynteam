@@ -112,6 +112,54 @@ async function hydrateImageAspectRatios(
   return rows.map((row) => ratios.has(row.id) ? { ...row, image_aspect_ratio: ratios.get(row.id) } : row);
 }
 
+async function hydrateSocialOffers(
+  client: SupabaseClient,
+  rows: HomeFeedRow[],
+): Promise<HomeFeedRow[]> {
+  const ids = [...new Set(rows.map((row) => row.id).filter(Boolean))];
+  if (!ids.length) return rows;
+
+  const result = await client.rpc("food_social_offers_for_drops", {
+    p_drop_ids: ids,
+  });
+  // Social Commerce is additive. A temporarily unavailable migration must not
+  // break the core social Feed; simply render the post without a Buy card.
+  if (result.error || !Array.isArray(result.data)) return rows;
+
+  const offers = new Map<string, Record<string, unknown>>();
+  for (const raw of result.data) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    if (typeof row.drop_id !== "string") continue;
+    offers.set(row.drop_id, row);
+  }
+
+  return rows.map((row) => {
+    const offer = offers.get(row.id);
+    if (!offer) return row;
+    return {
+      ...row,
+      social_offer_item_id: typeof offer.menu_item_id === "string" ? offer.menu_item_id : null,
+      social_offer_store_name: typeof offer.store_name === "string" ? offer.store_name : null,
+      social_offer_item_name: typeof offer.item_name === "string" ? offer.item_name : null,
+      social_offer_price: typeof offer.price === "number" || typeof offer.price === "string" ? offer.price : null,
+      social_offer_orderable: offer.is_orderable === true,
+    };
+  });
+}
+
+async function hydrateHomeRows(
+  client: SupabaseClient,
+  rows: HomeFeedRow[],
+): Promise<HomeFeedRow[]> {
+  const [withImages, withOffers] = await Promise.all([
+    hydrateImageAspectRatios(client, rows),
+    hydrateSocialOffers(client, rows),
+  ]);
+  const offers = new Map(withOffers.map((row) => [row.id, row]));
+  return withImages.map((row) => offers.get(row.id) ?? row);
+}
+
 export async function fetchRankedDropRows(
   client: SupabaseClient,
 ): Promise<HomeFeedRow[]> {
@@ -122,7 +170,7 @@ export async function fetchRankedDropRows(
   // Telemetry is best-effort. Do not delay the first visible Feed frame while
   // record_feed_impressions waits for an additional network round-trip.
   void recordRankedImpressions(client, result.data, Date.now() - startedAt);
-  return hydrateImageAspectRatios(client, rows);
+  return hydrateHomeRows(client, rows);
 }
 
 export async function fetchFollowingDropRows(
@@ -155,7 +203,7 @@ export async function fetchFollowingDropRows(
   const combined = [...rankedDropRows(result.data, followingLimit), ...quoteShares]
     .sort((a,b) => Date.parse(b.quote_reposted_at ?? b.created_at) - Date.parse(a.quote_reposted_at ?? a.created_at))
     .slice(0,followingLimit);
-  return hydrateImageAspectRatios(client, combined);
+  return hydrateHomeRows(client, combined);
 }
 
 export async function fetchTrendingDropRows(
@@ -167,7 +215,7 @@ export async function fetchTrendingDropRows(
     p_limit: trendingLimit,
   });
   throwIfError(result.error);
-  return hydrateImageAspectRatios(client, rankedDropRows(result.data, trendingLimit));
+  return hydrateHomeRows(client, rankedDropRows(result.data, trendingLimit));
 }
 
 export async function fetchHomeSurfaceRows(
