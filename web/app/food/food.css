@@ -775,3 +775,30 @@
   .wf-loader, .wf-mini-loader { animation: none; }
   .wyn-food * { transition-duration: 0s !important; }
 }
+
+
+/* WYNOS Food campaign savings */
+.wf-summary .is-discount {
+  color: var(--wf-green);
+}
+
+.wf-promo-applied {
+  margin: 10px 0;
+  border: 1px solid color-mix(in srgb, var(--wf-green) 24%, var(--wf-border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--wf-green) 5%, var(--wf-bg));
+  padding: 10px 12px;
+  display: grid;
+  gap: 2px;
+}
+
+.wf-promo-applied strong {
+  color: var(--wf-green);
+  font-size: 12px;
+}
+
+.wf-promo-applied small {
+  color: var(--wf-secondary);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
