@@ -41,6 +41,7 @@ export type FoodMenuItem = {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  social_drop_id?: string | null;
 };
 
 export type FoodOrderItem = {
@@ -118,6 +119,7 @@ export type MenuDraft = {
   price: string;
   image_path?: string | null;
   is_available: boolean;
+  social_drop_id?: string | null;
 };
 
 export type ManualOrderDraft = {
@@ -174,7 +176,7 @@ export async function fetchMerchantSnapshot(client: SupabaseClient): Promise<Mer
   const store = (storeResult.data as FoodStore | null) ?? null;
   if (!store) return { access: true, store: null, menu: [], orders: [] };
 
-  const [menuResult, ordersResult] = await Promise.all([
+  const [menuResult, ordersResult, offersResult] = await Promise.all([
     client
       .from("food_menu_items")
       .select("*")
@@ -187,15 +189,26 @@ export async function fetchMerchantSnapshot(client: SupabaseClient): Promise<Mer
       .eq("store_id", store.id)
       .order("created_at", { ascending: false })
       .limit(250),
+    client.rpc("food_merchant_social_offers", { p_store_id: store.id }),
   ]);
 
   if (menuResult.error) throw new Error(menuResult.error.message);
   if (ordersResult.error) throw new Error(ordersResult.error.message);
+  if (offersResult.error) throw new Error(offersResult.error.message);
+
+  const socialByMenu = new Map(
+    (offersResult.data ?? [])
+      .filter((row) => row.is_active === true)
+      .map((row) => [String(row.menu_item_id), String(row.drop_id)]),
+  );
 
   return {
     access: true,
     store,
-    menu: (menuResult.data ?? []) as FoodMenuItem[],
+    menu: (menuResult.data ?? []).map((row) => ({
+      ...row,
+      social_drop_id: socialByMenu.get(String(row.id)) ?? null,
+    })) as FoodMenuItem[],
     orders: (ordersResult.data ?? []) as FoodOrder[],
   };
 }
@@ -240,9 +253,36 @@ export async function saveMenuItem(client: SupabaseClient, storeId: string, draf
     is_available: draft.is_available,
   };
   const query = draft.id
-    ? client.from("food_menu_items").update(payload).eq("id", draft.id).eq("store_id", storeId)
-    : client.from("food_menu_items").insert(payload);
-  const { error } = await query;
+    ? client.from("food_menu_items").update(payload).eq("id", draft.id).eq("store_id", storeId).select("id").single()
+    : client.from("food_menu_items").insert(payload).select("id").single();
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return String(data.id);
+}
+
+const DROP_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function wynosDropIdFromInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (DROP_ID_PATTERN.test(trimmed)) return trimmed;
+  try {
+    const url = new URL(trimmed, "https://wynos.online");
+    const match = /^\/drop\/([0-9a-f-]+)\/?$/i.exec(url.pathname);
+    return match && DROP_ID_PATTERN.test(match[1]) ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setFoodSocialOffer(client: SupabaseClient, menuItemId: string, input: string) {
+  const trimmed = input.trim();
+  const dropId = wynosDropIdFromInput(trimmed);
+  if (trimmed && !dropId) throw new Error("ลิงก์โพสต์ WYNOS ไม่ถูกต้อง");
+  const { error } = await client.rpc("food_set_social_offer", {
+    p_menu_item_id: menuItemId,
+    p_drop_id: dropId,
+  });
   if (error) throw new Error(error.message);
 }
 
