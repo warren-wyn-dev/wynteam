@@ -124,6 +124,13 @@ set search_path = public, internal
 as $$
 begin
   if lower(coalesce(new.raw_user_meta_data ->> 'wynos_account_type', '')) = 'merchant' then
+    -- Merchant identities use a separate browser session and never go through
+    -- WYNOS Social onboarding. A blank profile row is still required because
+    -- existing Food audit/order actor foreign keys reference profiles(id).
+    insert into public.profiles(id)
+    values (new.id)
+    on conflict (id) do nothing;
+
     insert into public.merchant_users(user_id, identity_mode, active)
     values (new.id, 'merchant', true)
     on conflict (user_id) do update
