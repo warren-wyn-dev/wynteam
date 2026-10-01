@@ -3,16 +3,18 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MIGRATION="$ROOT/supabase/migrations_wynos_merchant_campaign_center_v1.sql"
+HARDENING="$ROOT/supabase/migrations_wynos_merchant_campaign_center_total_consistency_v1.sql"
 MERCHANT_UI="$ROOT/web/components/merchant/merchant-campaign-center.tsx"
 FOOD_DATA="$ROOT/web/lib/food-customer.ts"
 
-python3 - "$MIGRATION" "$MERCHANT_UI" "$FOOD_DATA" <<'PY'
+python3 - "$MIGRATION" "$HARDENING" "$MERCHANT_UI" "$FOOD_DATA" <<'PY'
 import sys
 from pathlib import Path
 
 migration = Path(sys.argv[1]).read_text()
-merchant_ui = Path(sys.argv[2]).read_text()
-food_data = Path(sys.argv[3]).read_text()
+hardening = Path(sys.argv[2]).read_text()
+merchant_ui = Path(sys.argv[3]).read_text()
+food_data = Path(sys.argv[4]).read_text()
 
 for token in [
     "public.food_campaigns",
@@ -27,7 +29,6 @@ for token in [
     "food_campaign_release_on_cancel",
     "usage_count=greatest(usage_count-1,0)",
     "campaign_applied",
-    "total = subtotal - campaign_discount + delivery_fee - delivery_discount",
     "food_campaigns_created_by_idx",
 ]:
     assert token in migration, token
@@ -40,6 +41,7 @@ for table in ["food_campaigns", "food_campaign_items", "food_order_campaigns"]:
 # endpoint must not be reintroduced by this migration.
 assert "merchant_has_store_role(p_store_id,array['owner','admin','manager'])" in migration
 assert "food_create_manual_order" not in migration
+assert "total = subtotal - campaign_discount + delivery_fee - delivery_discount" in hardening
 
 # Browser pricing is a preview; the final order still runs the same server-side
 # candidate calculation and writes the campaign snapshot atomically.
