@@ -1,0 +1,283 @@
+/* WYNOS unified design language — 2026-10-01
+   One visual direction across root screens, detail screens, settings and
+   composer surfaces: thin rounded icons, neutral black/grey hierarchy,
+   compact black primary pills, light-grey inputs and hairline separators.
+   This file is intentionally loaded last so page-specific legacy layers
+   cannot pull the product back into different visual systems. */
+
+:root {
+  --wyn-ui-side-padding: 16px;
+  --wyn-ui-icon-stroke: 1.8;
+  --wyn-ui-action-stroke: 1.6;
+  --wyn-ui-primary-height: 36px;
+  --wyn-ui-compact-height: 34px;
+  --wyn-ui-input-height: 46px;
+  --wyn-ui-radius-input: 23px;
+  --wyn-ui-radius-control: 14px;
+  --wyn-ui-divider: var(--wyn-border);
+}
+
+/* Shared header language: no heavy surfaces, one icon weight everywhere. */
+.route-header,
+.detail-floating-header,
+.flutter-chat-header,
+.flutter-search-header,
+.beta4-composer-header {
+  background-color: var(--wyn-bg);
+  color: var(--wyn-text);
+  box-shadow: none;
+}
+
+.route-header h1,
+.detail-floating-header > strong,
+.flutter-chat-header h1,
+.beta4-composer-header-title {
+  color: var(--wyn-text);
+  letter-spacing: 0;
+}
+
+.route-header :is(button, a) svg,
+.detail-floating-header button svg,
+.flutter-chat-header button svg,
+.flutter-search-header button svg,
+.beta4-composer-header button svg,
+.wyn-profile-topbar button svg {
+  stroke-width: var(--wyn-ui-icon-stroke);
+}
+
+.route-icon-link,
+.route-icon-button,
+.wyn-chat-header-icon,
+.detail-header-more,
+.search-back-button {
+  color: var(--wyn-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Black primary / quiet secondary controls across the product. */
+.route-primary,
+.route-pill:not(.soft),
+.search-follow-button:not(.soft),
+.detail-follow-button,
+.wyn-button--primary {
+  border-color: var(--wyn-text);
+  border-radius: 999px;
+  background: var(--wyn-text);
+  color: var(--wyn-bg);
+  box-shadow: none;
+  font-weight: 650;
+}
+
+.route-secondary,
+.route-pill.soft,
+.search-follow-button.soft,
+.wyn-button--outline {
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--wyn-surface);
+  color: var(--wyn-text);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.route-primary.small,
+.route-secondary.small {
+  min-height: var(--wyn-ui-compact-height);
+  border-radius: 999px;
+}
+
+.route-primary:active:not(:disabled),
+.route-secondary:active:not(:disabled),
+.route-pill:active:not(:disabled),
+.search-follow-button:active:not(:disabled),
+.detail-follow-button:active:not(:disabled),
+.wyn-button:active:not(:disabled) {
+  transform: scale(.96);
+}
+
+/* Thin dividers and flat rows instead of competing card styles. */
+.route-section {
+  border-bottom-color: var(--wyn-ui-divider);
+  background: transparent;
+}
+
+.notification-row,
+.chat-row,
+.settings-row,
+.route-person-row,
+.route-club-row,
+.search-suggested-row {
+  background: var(--wyn-bg);
+  box-shadow: none;
+  border-bottom-color: var(--wyn-ui-divider);
+}
+
+.notification-row:last-child,
+.chat-row:last-child,
+.settings-row:last-child,
+.route-person-row:last-child,
+.route-club-row:last-child,
+.search-suggested-row:last-child {
+  border-bottom-color: transparent;
+}
+
+/* One metadata hierarchy everywhere. */
+:is(
+  .notification-row,
+  .chat-row,
+  .settings-row,
+  .route-person-row,
+  .route-club-row,
+  .search-suggested-row,
+  .detail-author-row
+) small,
+.route-meta,
+.route-subtitle {
+  color: var(--wyn-text-secondary);
+  font-weight: 400;
+}
+
+:is(
+  .notification-row,
+  .chat-row,
+  .settings-row,
+  .route-person-row,
+  .route-club-row,
+  .search-suggested-row
+) strong {
+  color: var(--wyn-text);
+}
+
+/* Links, hashtags and mentions use one vivid interactive blue. */
+:is(
+  .detail-caption,
+  .golden-drop-caption,
+  .wyn-home-post-text,
+  .route-copy,
+  .profile-bio
+) :is(a, .hashtag, .mention),
+.discovery-section-action,
+.search-all-see-more {
+  color: var(--wyn-color-link-vivid);
+}
+
+/* Search / message / comment inputs share the same quiet pill treatment. */
+.search-route-form,
+.flutter-chat-search,
+.flutter-detail-composer-field input,
+.wyn-input {
+  box-shadow: none;
+}
+
+.search-route-form,
+.flutter-chat-search {
+  border-color: var(--wyn-border);
+  border-radius: 999px;
+  background: var(--wyn-surface);
+}
+
+.flutter-detail-composer-field input {
+  min-height: var(--wyn-ui-input-height);
+  border-color: var(--wyn-border);
+  border-radius: var(--wyn-ui-radius-input);
+  background: var(--wyn-surface);
+}
+
+:is(.search-route-form input, .flutter-chat-search input, .flutter-detail-composer-field input, .wyn-input)::placeholder {
+  color: var(--wyn-text-muted);
+  opacity: 1;
+}
+
+:is(.search-route-form, .flutter-chat-search, .flutter-detail-composer-field, .wyn-field):focus-within {
+  outline: none;
+}
+
+/* Empty states remain light, centered and intentionally compact. */
+.route-empty {
+  color: var(--wyn-text-secondary);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.route-empty > :is(p, strong) {
+  color: inherit;
+  font-weight: 500;
+}
+
+.route-empty svg {
+  color: var(--wyn-text-muted);
+  stroke-width: var(--wyn-ui-icon-stroke);
+}
+
+/* Post interactions are the canonical action icon language. */
+.wyn-post-actions.wyn-threads-actions .wyn-action-button svg,
+.profile-feed-list .golden-drop-actions svg,
+.flutter-detail-actions > button svg,
+.wyn-quote-feed-actions svg {
+  stroke-width: var(--wyn-ui-action-stroke);
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-button,
+.profile-feed-list .golden-drop-actions > button,
+.profile-feed-list .golden-drop-actions > a,
+.flutter-detail-actions > button,
+.wyn-quote-feed-actions button {
+  color: var(--wyn-text);
+}
+
+.wyn-post-actions.wyn-threads-actions .wyn-action-button.is-liked,
+.profile-feed-list .golden-drop-actions > button.liked,
+.flutter-detail-actions > button.like.active {
+  color: var(--wyn-like);
+}
+
+/* Sheet/dialog geometry follows the same rounded, neutral family. */
+.route-modal,
+.detail-activity-sheet,
+.detail-more-sheet {
+  background: var(--wyn-bg);
+  color: var(--wyn-text);
+  box-shadow: none;
+}
+
+.route-modal :is(button, a) svg,
+.detail-activity-sheet :is(button, a) svg,
+.detail-more-sheet :is(button, a) svg {
+  stroke-width: var(--wyn-ui-icon-stroke);
+}
+
+/* Consistent press motion, without moving layout. */
+:where(
+  .route-icon-link,
+  .route-icon-button,
+  .wyn-chat-header-icon,
+  .detail-header-more,
+  .search-back-button,
+  .wyn-profile-topbar button
+) {
+  transition: transform var(--wyn-motion-duration) var(--wyn-motion-easing);
+}
+
+:where(
+  .route-icon-link,
+  .route-icon-button,
+  .wyn-chat-header-icon,
+  .detail-header-more,
+  .search-back-button,
+  .wyn-profile-topbar button
+):active {
+  transform: scale(var(--wyn-motion-press-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .route-icon-link,
+    .route-icon-button,
+    .wyn-chat-header-icon,
+    .detail-header-more,
+    .search-back-button,
+    .wyn-profile-topbar button
+  ) {
+    transition: none;
+  }
+}
