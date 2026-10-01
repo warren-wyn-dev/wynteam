@@ -22,6 +22,20 @@ jobs:
           VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '\n\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           test -n "$VERCEL_TOKEN" || { echo "::error::VERCEL_TOKEN is empty"; exit 1; }
 
-          npx --yes vercel@latest project rm wynos-web-beta2-staging --yes \
-            --scope warren14 \
-            --token="$VERCEL_TOKEN"
+          body_file=$(mktemp)
+          status=$(curl --silent --show-error \
+            --output "$body_file" \
+            --write-out "%{http_code}" \
+            --request DELETE \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/prj_70GIbp0o056AOPsVUAie9CROED7r?teamId=team_Kamt1PUT5XKn9MWrF404re1w")
+
+          if [ "$status" = "200" ] || [ "$status" = "204" ] || [ "$status" = "404" ]; then
+            echo "Beta2 staging removed (HTTP $status)."
+            cat "$body_file"
+            exit 0
+          fi
+
+          echo "::error::Failed to remove Beta2 staging (HTTP $status)"
+          cat "$body_file"
+          exit 1
