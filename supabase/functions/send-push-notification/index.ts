@@ -11,6 +11,7 @@ import {
   dmMessagePreview,
   fetchFcmAccessToken,
   isDeadTokenError,
+  isMerchantNotificationTest,
   isQuietHourAt,
   isRetryableFcmStatus,
   type FcmServiceAccount,
@@ -79,6 +80,7 @@ type WebPushPolicy = {
 };
 
 async function webPushPolicy(row: NotificationRow): Promise<WebPushPolicy> {
+  if (isMerchantNotificationTest(row)) return { allowed: true };
   const rows = await supabaseRestGet(
     `notification_settings?user_id=eq.${encodeURIComponent(row.recipient_id)}` +
       "&select=push_likes,push_comments,push_follows,push_messages,push_club,push_trending,push_system,push_quiet_enabled,push_quiet_start,push_quiet_end,push_timezone",
