@@ -76,3 +76,19 @@ test("Food customer access gate keeps preview closed and future rollout explicit
   expect(sql).toContain('create policy "Food private upload by rollout gate"');
   expect(sql).toContain("food customer access required");
 });
+
+
+test("Food checkout previews Campaign Center savings but revalidates them on the server", () => {
+  const data = read("lib/food-customer.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const sql = read("../supabase/migrations_wynos_merchant_campaign_center_v1.sql");
+
+  expect(data).toContain('client.rpc("food_quote_order"');
+  expect(app).toContain("campaign_discount");
+  expect(app).toContain("delivery_discount");
+  expect(app).toContain("ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์");
+  expect(sql).toContain("select * into v_campaign");
+  expect(sql).toContain("for update");
+  expect(sql).toContain("v_total := greatest");
+  expect(sql).toContain("usage_count=usage_count+1");
+});

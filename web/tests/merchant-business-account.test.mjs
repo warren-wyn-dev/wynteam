@@ -75,3 +75,54 @@ test("Merchant notification test is self-only and never creates a Food order", (
   assert.match(notificationTestMigration, /recipient_id[\s\S]*v_user/);
   assert.doesNotMatch(notificationTestMigration, /insert into public\.food_orders/);
 });
+
+
+const campaignUi = fs.readFileSync(new URL("../components/merchant/merchant-campaign-center.tsx", import.meta.url), "utf8");
+const campaignData = fs.readFileSync(new URL("../lib/merchant-campaigns.ts", import.meta.url), "utf8");
+const foodCustomer = fs.readFileSync(new URL("../lib/food-customer.ts", import.meta.url), "utf8");
+const foodCustomerApp = fs.readFileSync(new URL("../components/food/wynos-food-developer-app.tsx", import.meta.url), "utf8");
+const campaignMigration = fs.readFileSync(new URL("../../supabase/migrations_wynos_merchant_campaign_center_v1.sql", import.meta.url), "utf8");
+
+test("Merchant Campaign Center manages scheduled percentage, fixed and free-delivery promotions", () => {
+  assert.match(app, /MerchantCampaignCenter/);
+  assert.match(campaignUi, /Campaign Center/);
+  assert.match(campaignUi, /percentage/);
+  assert.match(campaignUi, /fixed/);
+  assert.match(campaignUi, /free_delivery/);
+  assert.match(campaignUi, /minSubtotal/);
+  assert.match(campaignUi, /maxDiscount/);
+  assert.match(campaignUi, /usageLimit/);
+  assert.match(campaignUi, /itemIds/);
+  assert.match(campaignUi, /ยอดขายจากโปร/);
+  assert.match(campaignData, /merchant_food_campaigns/);
+  assert.match(campaignData, /merchant_upsert_food_campaign/);
+  assert.match(campaignData, /merchant_set_food_campaign_active/);
+  assert.match(campaignData, /merchant_delete_food_campaign/);
+});
+
+test("Campaign pricing is server-authoritative, picks one best campaign and releases cancelled usage", () => {
+  assert.match(campaignMigration, /internal\.food_campaign_candidates/);
+  assert.match(campaignMigration, /order by saving desc/);
+  assert.match(campaignMigration, /food_quote_order/);
+  assert.match(campaignMigration, /create or replace function public\.food_create_order/);
+  assert.match(campaignMigration, /campaign_discount/);
+  assert.match(campaignMigration, /delivery_discount/);
+  assert.match(campaignMigration, /for update/);
+  assert.match(campaignMigration, /usage_count=usage_count\+1/);
+  assert.match(campaignMigration, /food_campaign_release_on_cancel/);
+  assert.match(campaignMigration, /usage_count=greatest\(usage_count-1,0\)/);
+  assert.match(campaignMigration, /food_order_campaigns/);
+  assert.doesNotMatch(campaignMigration, /food_create_manual_order/);
+
+  assert.match(foodCustomer, /food_quote_order/);
+  assert.match(foodCustomerApp, /WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ/);
+  assert.match(foodCustomerApp, /ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์/);
+});
+
+test("Campaign tables are not directly exposed to browser roles", () => {
+  for (const table of ["food_campaigns", "food_campaign_items", "food_order_campaigns"]) {
+    assert.match(campaignMigration, new RegExp("alter table public\\." + table + " enable row level security"));
+    assert.match(campaignMigration, new RegExp("revoke all on table public\\." + table + " from public, anon, authenticated"));
+  }
+  assert.match(campaignMigration, /merchant_has_store_role\(p_store_id,array\['owner','admin','manager'\]\)/);
+});

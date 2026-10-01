@@ -67,6 +67,10 @@ const ACTION_LABELS: Record<string, string> = {
   order_status_changed: "เปลี่ยนสถานะออเดอร์",
   payment_status_changed: "เปลี่ยนสถานะการชำระเงิน",
   refund_status_changed: "เปลี่ยนสถานะคืนเงิน",
+  campaign_created: "สร้างแคมเปญ",
+  campaign_updated: "แก้ไขแคมเปญ",
+  campaign_active_changed: "เปลี่ยนสถานะแคมเปญ",
+  campaign_deleted: "ลบแคมเปญ",
 };
 
 const STAFF_ROLES: Array<Exclude<MerchantStaffRole, "owner">> = [

@@ -40,6 +40,7 @@ import {
   foodPaymentStatusLabel,
   foodPrivateSignedUrl,
   foodPublicUrl,
+  quoteFoodCustomerOrder,
   saveFoodCustomerAddress,
   submitFoodPayment,
   subscribeFoodCustomerOrders,
@@ -50,6 +51,7 @@ import {
   type FoodCustomerMenuItem,
   type FoodCustomerOrder,
   type FoodCustomerSnapshot,
+  type FoodOrderQuote,
   type FoodCustomerStore,
 } from "@/lib/food-customer";
 
@@ -297,19 +299,23 @@ function CartPanel({
   store,
   menu,
   cart,
+  quote,
   onCart,
   onCheckout,
 }: {
   store: FoodCustomerStore | null;
   menu: FoodCustomerMenuItem[];
   cart: FoodCartLine[];
+  quote: FoodOrderQuote | null;
   onCart: (cart: FoodCartLine[]) => void;
   onCheckout: () => void;
 }) {
   const priced = cart.map((line) => ({ line, item: itemFor(menu, line.menu_item_id) }));
   const subtotal = priced.reduce((sum, row) => sum + (row.item ? Number(row.item.price) * row.line.quantity : 0), 0);
   const delivery = Number(store?.delivery_fee ?? 0);
-  const total = subtotal + delivery;
+  const campaignDiscount = Number(quote?.campaign_discount ?? 0);
+  const deliveryDiscount = Number(quote?.delivery_discount ?? 0);
+  const total = quote?.total ?? subtotal + delivery;
   const hasUnavailable = priced.some((row) => !row.item?.is_available);
   const belowMinimum = subtotal < Number(store?.minimum_order ?? 0);
   const canCheckout = !!store && store.is_open && cart.length > 0 && !hasUnavailable && !belowMinimum;
@@ -359,9 +365,12 @@ function CartPanel({
 
           <div className="wf-summary">
             <div><span>ค่าอาหาร</span><b>{foodMoney(subtotal)}</b></div>
+            {campaignDiscount > 0 ? <div className="is-discount"><span>{quote?.campaign_name ? "โปร · " + quote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
             <div><span>ค่าส่ง</span><b>{foodMoney(delivery)}</b></div>
+            {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
             <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(total)}</b></div>
           </div>
+          {quote?.campaign_name ? <div className="wf-promo-applied"><strong>ใช้แคมเปญ {quote.campaign_name}</strong><small>WYNOS เลือกโปรที่ประหยัดที่สุดให้อัตโนมัติ</small></div> : null}
 
           {belowMinimum && store ? (
             <div className="wf-inline-warning">ยอดขั้นต่ำของร้านคือ {foodMoney(store.minimum_order)}</div>
@@ -577,6 +586,7 @@ function CheckoutSheet({
   menu,
   cart,
   addresses,
+  quote,
   busy,
   onClose,
   onAddAddress,
@@ -586,6 +596,7 @@ function CheckoutSheet({
   menu: FoodCustomerMenuItem[];
   cart: FoodCartLine[];
   addresses: FoodCustomerAddress[];
+  quote: FoodOrderQuote | null;
   busy: boolean;
   onClose: () => void;
   onAddAddress: () => void;
@@ -598,7 +609,9 @@ function CheckoutSheet({
     const item = itemFor(menu, line.menu_item_id);
     return sum + (item ? Number(item.price) * line.quantity : 0);
   }, 0);
-  const total = subtotal + Number(store.delivery_fee);
+  const campaignDiscount = Number(quote?.campaign_discount ?? 0);
+  const deliveryDiscount = Number(quote?.delivery_discount ?? 0);
+  const total = quote?.total ?? subtotal + Number(store.delivery_fee);
 
   return (
     <Sheet title="Checkout" onClose={onClose}>
@@ -626,9 +639,12 @@ function CheckoutSheet({
         </div>
         <div className="wf-summary">
           <div><span>ค่าอาหาร</span><b>{foodMoney(subtotal)}</b></div>
+          {campaignDiscount > 0 ? <div className="is-discount"><span>{quote?.campaign_name ? "โปร · " + quote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
           <div><span>ค่าส่ง</span><b>{foodMoney(store.delivery_fee)}</b></div>
+          {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(total)}</b></div>
         </div>
+        {quote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {quote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
         <p className="wf-server-note">ยอดจริงจะถูกตรวจและคำนวณจากระบบอีกครั้งก่อนสร้างออเดอร์</p>
         <button className="wf-primary wf-full" type="button" disabled={!address || busy} onClick={() => { if (address) onSubmit(address, note); }}>
           {busy ? "กำลังสร้างออเดอร์…" : `ยืนยันออเดอร์ · ${foodMoney(total)}`}
@@ -765,7 +781,9 @@ function OrderDetailSheet({
           </div>
           <div className="wf-summary">
             <div><span>ค่าอาหาร</span><b>{foodMoney(order.subtotal)}</b></div>
+            {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "โปร · " + order.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(order.campaign_discount)}</b></div> : null}
             <div><span>ค่าส่ง</span><b>{foodMoney(order.delivery_fee)}</b></div>
+            {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(order.delivery_discount)}</b></div> : null}
             <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(order.total)}</b></div>
           </div>
         </section>
@@ -847,6 +865,7 @@ function FoodCustomerInner({
   const [selectedItem, setSelectedItem] = useState<FoodCustomerMenuItem | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<FoodCustomerOrder | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [quote, setQuote] = useState<FoodOrderQuote | null>(null);
   const [addressDraft, setAddressDraft] = useState<FoodAddressDraft | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -905,6 +924,30 @@ function FoodCustomerInner({
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    let live = true;
+    if (!snapshot?.store || !cart.length) {
+      const timer = window.setTimeout(() => {
+        if (live) setQuote(null);
+      }, 0);
+      return () => {
+        live = false;
+        window.clearTimeout(timer);
+      };
+    }
+
+    const timer = window.setTimeout(() => {
+      void quoteFoodCustomerOrder(client, snapshot.store!.id, cart)
+        .then((next) => { if (live) setQuote(next); })
+        .catch(() => { if (live) setQuote(null); });
+    }, 180);
+
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [cart, client, snapshot?.store]);
 
   useEffect(() => {
     localStorage.setItem(`wynos-food-cart-v1:${userId}`, JSON.stringify(cart));
@@ -1023,7 +1066,7 @@ function FoodCustomerInner({
       <section className="wf-content">
         {tab === "home" ? <HomePanel client={client} store={store} menu={menu} onItem={setSelectedItem} /> : null}
         {tab === "orders" ? <OrdersPanel orders={orders} onOrder={setSelectedOrder} /> : null}
-        {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
+        {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
         {tab === "account" ? (
           <AccountPanel
             addresses={addresses}
@@ -1065,6 +1108,7 @@ function FoodCustomerInner({
           menu={menu}
           cart={cart}
           addresses={addresses}
+          quote={quote}
           busy={busy}
           onClose={() => setCheckoutOpen(false)}
           onAddAddress={() => setAddressDraft({ ...EMPTY_ADDRESS, isDefault: addresses.length === 0 })}

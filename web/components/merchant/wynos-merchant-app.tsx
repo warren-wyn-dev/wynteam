@@ -29,6 +29,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
 import {
@@ -445,6 +446,7 @@ function MerchantInner({
           <StorePanel
             client={client}
             store={store}
+            menu={menu}
             userId={userId}
             installPrompt={installPrompt}
             onInstall={() => void install()}
@@ -785,6 +787,7 @@ function ReportsPanel({ orders }: { orders: FoodOrder[] }) {
 function StorePanel({
   client,
   store,
+  menu,
   userId,
   installPrompt,
   onInstall,
@@ -795,6 +798,7 @@ function StorePanel({
 }: {
   client: SupabaseClient;
   store: FoodStore;
+  menu: FoodMenuItem[];
   userId: string;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
@@ -830,6 +834,7 @@ function StorePanel({
         {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม WYNOS Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><ChevronRight size={19} /></button>
       </section>
+      <MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={onMessage} />
       <MerchantStoreTools client={client} store={store} userId={userId} onMessage={onMessage} />
     </>
   );
@@ -915,7 +920,9 @@ function OrderSheet({
         </div>
         <div className="wm-totals">
           <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
+          {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "แคมเปญ · " + order.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{money(order.campaign_discount)}</b></div> : null}
           <div><span>ค่าส่ง</span><b>{money(order.delivery_fee)}</b></div>
+          {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{money(order.delivery_discount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>
         </div>
       </section>
