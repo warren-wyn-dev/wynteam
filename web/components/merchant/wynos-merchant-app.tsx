@@ -141,8 +141,9 @@ function MerchantBlocked({ signOut }: { signOut: () => Promise<void> }) {
     <main className="wm-blocked">
       <div className="wm-blocked-mark"><Store size={34} strokeWidth={1.7} /></div>
       <h1>WYNOS Merchant</h1>
-      <p>บัญชีนี้ยังไม่มีสิทธิ์จัดการร้าน</p>
-      <button className="wm-primary" type="button" onClick={() => void signOut()}>ออกจากระบบ</button>
+      <p>บัญชีนี้ยังไม่ได้เปิดสิทธิ์ Merchant</p>
+      <Link className="wm-primary wm-link-button" href="/merchant/signup">สมัคร WYNOS Merchant</Link>
+      <button className="wm-auth-secondary" type="button" onClick={() => void signOut()}>ออกจากระบบ</button>
       <Link className="wm-secondary-link" href="/">กลับ WYNOS</Link>
     </main>
   );
@@ -1137,7 +1138,7 @@ function StoreEditor({
 
 export function WynosMerchantApp() {
   return (
-    <DeveloperRouteGate>
+    <DeveloperRouteGate signedOutPath="/merchant/login" afterSignOutPath="/merchant/login">
       {({ client, userId, signOut }) => <MerchantInner client={client} userId={userId} signOut={signOut} />}
     </DeveloperRouteGate>
   );

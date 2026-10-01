@@ -35,8 +35,12 @@ export type DeveloperRouteContext = {
  */
 export function DeveloperRouteGate({
   children,
+  signedOutPath = "/welcome",
+  afterSignOutPath = signedOutPath,
 }: {
   children: (context: DeveloperRouteContext) => React.ReactNode;
+  signedOutPath?: string;
+  afterSignOutPath?: string;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -120,19 +124,23 @@ export function DeveloperRouteGate({
   }, [acceptSession, client]);
 
   useEffect(() => {
-    // Straight to /welcome, not "/": routing through Home first just means
-    // ParityAuthEntry immediately replaces *again* to /welcome once its own
-    // session check lands — a wasted extra hop, and one more chance for that
-    // second replace to race a navigation the user already started in the
-    // meantime.
+    // Consumer routes keep their original /welcome contract verbatim because
+    // shared-link/account-switch regressions intentionally lock that behavior.
+    // Product surfaces such as Merchant may opt into a different entry path.
     if (gate === "signed-out") {
-      // Keep a shared link (post, profile, club) to reopen after sign-in,
-      // including its #fragment (e.g. /quote/<id>#comments).
+      if (signedOutPath === "/welcome") {
+        // Keep a shared link (post, profile, club) to reopen after sign-in,
+        // including its #fragment (e.g. /quote/<id>#comments).
+        if (signedOutFromSessionRef.current) clearReturnPath();
+        else rememberReturnPath(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+        router.replace("/welcome");
+        return;
+      }
       if (signedOutFromSessionRef.current) clearReturnPath();
       else rememberReturnPath(`${window.location.pathname}${window.location.search}${window.location.hash}`);
-      router.replace("/welcome");
+      router.replace(signedOutPath);
     }
-  }, [gate, router]);
+  }, [gate, router, signedOutPath]);
 
   const signOut = useCallback(async () => {
     if (!client) return;
@@ -154,9 +162,14 @@ export function DeveloperRouteGate({
     // singleton, which is still bound to the old account's storage key.
     // Rebuild it from the now-cleared active pointer before the next login.
     // A signing-out account's page must not reopen for the next login.
+    if (afterSignOutPath === "/welcome") {
+      clearReturnPath();
+      window.location.replace("/welcome");
+      return;
+    }
     clearReturnPath();
-    window.location.replace("/welcome");
-  }, [client, queryClient, session]);
+    window.location.replace(afterSignOutPath);
+  }, [afterSignOutPath, client, queryClient, session]);
 
   if (gate === "loading" || gate === "signed-out") {
     return <main className="route-state"><div className="route-system-spinner" aria-label="กำลังโหลด" /></main>;

@@ -76,3 +76,37 @@ test("Food Merchant hardening blocks anonymous accounts from permanent orders an
   expect(sql).toContain("(auth.uid()::text || '/slips/%')");
   expect(sql).toContain("public.food_is_permanent_account()");
 });
+
+
+test("Merchant has separate login and signup entry while keeping shared WYNOS auth", () => {
+  const login = read("app/merchant/login/page.tsx");
+  const signup = read("app/merchant/signup/page.tsx");
+  const auth = read("components/merchant/merchant-auth.tsx");
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const gate = read("components/developer-route-gate.tsx");
+
+  expect(login).toContain("MerchantLoginScreen");
+  expect(signup).toContain("MerchantSignupScreen");
+  expect(auth).toContain('signInWithEmail');
+  expect(auth).toContain('rememberReturnPath("/merchant/signup")');
+  expect(auth).toContain('router.push("/signup/step-1")');
+  expect(auth).toContain('client.rpc("food_has_merchant_access"');
+  expect(app).toContain('signedOutPath="/merchant/login"');
+  expect(app).toContain('href="/merchant/signup"');
+  expect(gate).toContain('signedOutPath = "/welcome"');
+  expect(gate).toContain("afterSignOutPath = signedOutPath");
+});
+
+test("Merchant applications are self-service but cannot self-approve", () => {
+  const data = read("lib/merchant-application.ts");
+  const sql = read("../supabase/migrations_wynos_merchant_application_v1.sql");
+
+  expect(data).toContain('from("merchant_applications")');
+  expect(data).toContain('status: "pending"');
+  expect(sql).toContain("alter table public.merchant_applications enable row level security");
+  expect(sql).toContain("(select auth.uid()) = user_id");
+  expect(sql).toContain("status = 'pending'");
+  expect(sql).toContain("revoke all on public.merchant_applications from anon");
+  expect(sql).toContain("grant update (business_name, business_type, contact_name, phone, address, note, status, updated_at)");
+  expect(sql).not.toContain("grant update (status, reviewed_at");
+});
