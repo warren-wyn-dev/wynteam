@@ -506,10 +506,6 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
   }, [persistRecent, recentSearches]);
 
   const clearRecent = useCallback(() => persistRecent([]), [persistRecent]);
-  const selectRecent = useCallback((item: RecentSearch) => {
-    setDraft(item.query);
-    updateUrl(item.query, item.tab);
-  }, [updateUrl]);
 
   // The URL is the source of truth; keep the input in sync when it changes
   // from outside typing (back/forward, a shared link, the clear button).
@@ -522,6 +518,11 @@ function SearchInner({ client, userId }: { client: SupabaseClient; userId: strin
     const suffix = qs.toString();
     router.replace(suffix ? `/search?${suffix}` : "/search");
   }, [router]);
+
+  const selectRecent = useCallback((item: RecentSearch) => {
+    setDraft(item.query);
+    updateUrl(item.query, item.tab);
+  }, [updateUrl]);
 
   // Debounced as-you-type search (WYN-185 item 7: "ใช้ debounce สำหรับช่องค้นหา").
   // Submitting via Enter/the search icon (submitNow below) bypasses this
