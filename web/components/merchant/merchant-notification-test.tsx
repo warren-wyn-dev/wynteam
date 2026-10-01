@@ -153,7 +153,7 @@ export function MerchantNotificationTest({
 
       const observedIds = new Set<string>();
       let expectedId: string | null = null;
-      let channelState: "connecting" | "subscribed" | "failed" = "connecting";
+      const channelState: { value: "connecting" | "subscribed" | "failed" } = { value: "connecting" };
 
       channel = client
         .channel(`merchant-notification-test:${userId}:${new Date().getTime()}`)
@@ -171,14 +171,14 @@ export function MerchantNotificationTest({
           },
         )
         .subscribe((status) => {
-          if (status === "SUBSCRIBED") channelState = "subscribed";
-          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") channelState = "failed";
+          if (status === "SUBSCRIBED") channelState.value = "subscribed";
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") channelState.value = "failed";
         });
 
-      for (let attempt = 0; attempt < 8 && channelState === "connecting"; attempt += 1) {
+      for (let attempt = 0; attempt < 8 && channelState.value === "connecting"; attempt += 1) {
         await wait(500);
       }
-      const subscribed = channelState === "subscribed";
+      const subscribed = channelState.value === "subscribed";
 
       const receipt = await sendMerchantTestNotification(client, store.id);
       expectedId = receipt.merchant_notification_id;
