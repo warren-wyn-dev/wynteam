@@ -309,6 +309,12 @@ export async function fetchFcmAccessToken(serviceAccount: FcmServiceAccount): Pr
   return json.access_token as string;
 }
 
+export const MERCHANT_NOTIFICATION_TEST_REASON = "WYNOS Merchant · ทดสอบการแจ้งเตือน";
+
+export function isMerchantNotificationTest(row: NotificationRow): boolean {
+  return row.type === "system" && row.reason === MERCHANT_NOTIFICATION_TEST_REASON;
+}
+
 export type PushPreferenceCategory = "likes" | "comments" | "follows" | "messages" | "club" | "trending" | "system";
 
 export function pushPreferenceCategory(type: string): PushPreferenceCategory {
@@ -418,6 +424,7 @@ export function buildDataPayload(row: NotificationRow): Record<string, string> {
   // The web badge only applies an optimistic +1 when the Push names the
   // signed-in account; without it every Push is a slower refresh hint.
   data.recipient_id = row.recipient_id;
+  if (isMerchantNotificationTest(row)) data.merchant_test = "1";
   if (row.actor_id) data.actor_id = row.actor_id;
   if (row.drop_id) data.drop_id = row.drop_id;
   if (row.pop_id) data.pop_id = row.pop_id;
