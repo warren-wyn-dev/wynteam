@@ -84,8 +84,7 @@ using (
   or public.food_has_merchant_access(store_id)
 );
 
-revoke all on table public.food_payment_verifications from anon;
-revoke insert, update, delete on table public.food_payment_verifications from authenticated;
+revoke all on table public.food_payment_verifications from public, anon, authenticated;
 grant select on table public.food_payment_verifications to authenticated;
 
 create or replace function public.food_record_payment_verification(
