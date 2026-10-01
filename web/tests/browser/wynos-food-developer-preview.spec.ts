@@ -62,3 +62,17 @@ test("Food developer preview can be tested without exposing the domain publicly"
   expect(rolloutSql).toContain("not public.is_developer_account()");
   expect(rolloutSql).toContain("not public.food_public_access_enabled()");
 });
+
+
+test("Food customer access gate keeps preview closed and future rollout explicit", () => {
+  const sql = read("../supabase/migrations_wynos_food_customer_access_gate_v2.sql");
+
+  expect(sql).toContain("food_customer_access_enabled()");
+  expect(sql).toContain("public.is_developer_account()");
+  expect(sql).toContain("public.food_public_access_enabled()");
+  expect(sql).toContain('create policy "Food stores visible by rollout gate"');
+  expect(sql).toContain('create policy "Food orders visible by rollout gate"');
+  expect(sql).toContain('create policy "Food customer addresses visible by rollout gate"');
+  expect(sql).toContain('create policy "Food private upload by rollout gate"');
+  expect(sql).toContain("food customer access required");
+});
