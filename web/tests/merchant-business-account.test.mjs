@@ -45,3 +45,32 @@ test("Merchant orders expose search plus payment and date filters", () => {
   assert.match(app, /dateFilter/);
   assert.match(app, /recipient_phone/);
 });
+
+
+const notificationTest = fs.readFileSync(new URL("../components/merchant/merchant-notification-test.tsx", import.meta.url), "utf8");
+const notificationTestMigration = fs.readFileSync(new URL("../../supabase/migrations_wynos_merchant_notification_test_center_v1.sql", import.meta.url), "utf8");
+const worker = fs.readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+const pushLib = fs.readFileSync(new URL("../../supabase/functions/send-push-notification/_lib.ts", import.meta.url), "utf8");
+
+test("Merchant notification test center exercises In-App, Realtime, Web Push and Deep Link", () => {
+  assert.match(notificationTest, /merchant_send_test_notification/);
+  assert.match(notificationTest, /postgres_changes/);
+  assert.match(notificationTest, /subscribeToPushNotifications/);
+  assert.match(notificationTest, /notification_push_deliveries/);
+  assert.match(notificationTest, /Deep Link/);
+  assert.match(notificationTestMigration, /supabase_realtime/);
+  assert.match(notificationTestMigration, /merchant_send_test_notification/);
+  assert.match(notificationTestMigration, /notification_push_deliveries/);
+  assert.match(notificationTestMigration, /notification_test_rate_limited/);
+  assert.match(worker, /merchant_test/);
+  assert.match(worker, /\/merchant\?notification-test=1/);
+  assert.match(pushLib, /merchant_test/);
+});
+
+test("Merchant notification test is self-only and never creates a Food order", () => {
+  assert.match(notificationTestMigration, /v_user uuid := auth\.uid\(\)/);
+  assert.match(notificationTestMigration, /mm\.user_id = v_user/);
+  assert.match(notificationTestMigration, /recipient_user_id[\s\S]*v_user/);
+  assert.match(notificationTestMigration, /recipient_id[\s\S]*v_user/);
+  assert.doesNotMatch(notificationTestMigration, /insert into public\.food_orders/);
+});
