@@ -135,7 +135,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const form = new FormData();
-  form.append("files", slip, "payment-slip");
+  const slipFileName = String(order.payment_slip_path).split("/").pop() || "payment-slip.webp";
+  form.append("files", slip, slipFileName);
   form.append("amount", Number(order.total).toFixed(2));
   form.append("log", receiverBound ? "true" : "false");
 
