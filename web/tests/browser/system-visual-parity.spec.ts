@@ -307,7 +307,14 @@ test("Post Detail closes the exact current Flutter geometry and interaction gaps
   expect(detail).toContain('size={44}');
   expect(detail).toContain('size={isReply ? 32 : 36}');
   expect(detail).toContain('placeholder="แสดงความคิดเห็น..."');
-  expect(detail).toContain('<WynosIcon name="poll" size={22} strokeWidth={2} />');
+  expect(detail).toContain('<WynosIcon name="poll" size={22} strokeWidth={1.6} />');
+  expect(detail).toContain('className="detail-header-more"');
+  expect(detail).toContain('!ownDrop && !followingAuthor && !pendingAuthor');
+  expect(detail).toContain('followBusy ? "กำลังติดตาม…" : "ติดตาม"');
+  expect(detail).toContain('value={row.comment_count ?? 0} hideZero');
+  expect(detail).toContain('value={row.redrop_count ?? 0} hideZero');
+  expect(detail).toContain('className="detail-comments-empty"');
+  expect(detail).not.toContain('followButtonLabel({ busy: followBusy, following: followingAuthor, requested: pendingAuthor })');
   expect(detail).not.toContain("window.prompt");
   expect(detail).not.toContain("window.confirm");
   expect(interaction).toContain(".detail-dialog-backdrop");
