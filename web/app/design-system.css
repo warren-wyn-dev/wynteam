@@ -26,10 +26,10 @@
   --wyn-touch-target-min: 44px;
   --wyn-size-icon-default: 20px;
   --wyn-size-icon-action: 22px;
-  --wyn-size-icon-comment: 24px;
+  --wyn-size-icon-comment: 22px;
   --wyn-size-icon-nav: 28px;
   --wyn-stroke-icon-default: 1.8;
-  --wyn-stroke-icon-action: 2;
+  --wyn-stroke-icon-action: 1.6;
   --wyn-stroke-icon-nav: 1.7;
 
   /* WYN-160: consolidated type/radius scale — declared here so every
