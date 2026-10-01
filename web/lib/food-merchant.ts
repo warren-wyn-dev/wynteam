@@ -71,7 +71,7 @@ export type FoodOrder = {
   store_id: string;
   buyer_id: string | null;
   created_by: string | null;
-  source: "app" | "manual";
+  source: "app" | "manual" | "social";
   status: "pending_acceptance" | "preparing" | "ready_for_delivery" | "out_for_delivery" | "delivered" | "cancelled";
   payment_status: "pending" | "submitted" | "paid" | "issue" | "refunded";
   recipient_name: string;
@@ -80,6 +80,13 @@ export type FoodOrder = {
   customer_note: string | null;
   payment_slip_path: string | null;
   payment_note: string | null;
+  payment_verification_status: "not_started" | "manual_review" | "auto_verified" | "manual_verified" | "rejected";
+  payment_provider: string | null;
+  payment_provider_code: string | null;
+  payment_transaction_ref: string | null;
+  payment_verified_at: string | null;
+  payment_verification_note: string | null;
+  source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
   total: number | string;
