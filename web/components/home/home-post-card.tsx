@@ -147,6 +147,20 @@ export function HomePostCard({
           modernFeed
           priority={priority}
         />
+        {row.social_offer_item_id ? (
+          <div className="wyn-social-offer">
+            <div className="wyn-social-offer__copy">
+              <small>{row.social_offer_store_name || "WYNOS Merchant"}</small>
+              <strong>{row.social_offer_item_name || "สินค้า"}</strong>
+              <b>{new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", minimumFractionDigits: 0 }).format(Number(row.social_offer_price ?? 0))}</b>
+            </div>
+            {row.social_offer_orderable ? (
+              <Link className="wyn-social-offer__buy" href={`/buy/${row.id}`}>สั่งซื้อ</Link>
+            ) : (
+              <span className="wyn-social-offer__disabled">ยังไม่พร้อมรับออเดอร์</span>
+            )}
+          </div>
+        ) : null}
         <PostActions
           liked={liked}
           likeCount={row.like_count ?? 0}
