@@ -671,14 +671,20 @@ function OrderDetailSheet({
 
   useEffect(() => {
     let live = true;
-    setDynamicPaymentQr(null);
-    if (!store?.promptpay_id || !["pending", "issue"].includes(order.payment_status)) {
-      return () => { live = false; };
-    }
-    void fetchFoodPromptPayQr(client, order.id).then((result) => {
-      if (live) setDynamicPaymentQr(result?.dataUrl ?? null);
-    });
-    return () => { live = false; };
+    const timer = window.setTimeout(() => {
+      if (!live) return;
+      if (!store?.promptpay_id || !["pending", "issue"].includes(order.payment_status)) {
+        setDynamicPaymentQr(null);
+        return;
+      }
+      void fetchFoodPromptPayQr(client, order.id).then((result) => {
+        if (live) setDynamicPaymentQr(result?.dataUrl ?? null);
+      });
+    }, 0);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
   }, [client, order.id, order.payment_status, store?.promptpay_id]);
 
   const submitSlip = async () => {
