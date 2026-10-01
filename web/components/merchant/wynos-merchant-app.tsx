@@ -17,7 +17,6 @@ import {
   Plus,
   ReceiptText,
   Search,
-  Settings,
   ShoppingBag,
   Store,
   Truck,
