@@ -1,5 +1,21 @@
 -- WYNOS Merchant payment core: PromptPay QR + slip verification + manual fallback.
 
+alter table public.food_stores
+  drop constraint if exists food_stores_promptpay_id_format_check;
+alter table public.food_stores
+  add constraint food_stores_promptpay_id_format_check
+  check (
+    promptpay_id is null
+    or btrim(promptpay_id) = ''
+    or (
+      length(regexp_replace(promptpay_id, '[^0-9]', '', 'g')) in (10, 13, 15)
+      and (
+        length(regexp_replace(promptpay_id, '[^0-9]', '', 'g')) <> 10
+        or regexp_replace(promptpay_id, '[^0-9]', '', 'g') like '0%'
+      )
+    )
+  );
+
 alter table public.food_orders
   add column if not exists payment_verification_status text not null default 'not_started',
   add column if not exists payment_provider text,
@@ -119,6 +135,26 @@ begin
 
     if found then
       if v_existing.order_id = p_order_id then
+        update public.food_orders
+        set payment_status = case
+              when v_existing.status = 'auto_verified' then 'paid'
+              when v_existing.status = 'rejected' then 'issue'
+              else 'submitted'
+            end,
+            payment_verification_status = v_existing.status,
+            payment_provider = v_existing.provider,
+            payment_provider_code = v_existing.provider_code,
+            payment_transaction_ref = v_existing.transaction_ref,
+            payment_verified_at = case
+              when v_existing.status in ('auto_verified','rejected') then coalesce(payment_verified_at, now())
+              else null
+            end,
+            payment_verification_note = v_existing.note,
+            paid_at = case
+              when v_existing.status = 'auto_verified' then coalesce(paid_at, now())
+              else paid_at
+            end
+        where id = v_order.id;
         return v_existing.status;
       end if;
       v_result := 'rejected';
