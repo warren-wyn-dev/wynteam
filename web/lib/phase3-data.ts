@@ -48,6 +48,8 @@ export type RankedHashtag = {
   tag: string;
   score: number;
   postCount: number;
+  /** 24h engagement change compared with the preceding 24h window. */
+  changePercent?: number;
 };
 
 export type NotificationRow = {
@@ -527,6 +529,8 @@ export async function fetchTrendingHashtags(client: SupabaseClient, limit = 20):
   const now = Date.now();
   const scores = new Map<string, number>();
   const counts = new Map<string, number>();
+  const recentEngagement = new Map<string, number>();
+  const previousEngagement = new Map<string, number>();
   for (const raw of (result.data ?? []) as Record<string, unknown>[]) {
     const caption = raw.caption == null ? "" : String(raw.caption);
     const tags = extractHashtags(caption);
@@ -541,12 +545,24 @@ export async function fetchTrendingHashtags(client: SupabaseClient, limit = 20):
     for (const tag of tags) {
       scores.set(tag, (scores.get(tag) ?? 0) + score);
       counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      const window = ageHours <= 24 ? recentEngagement : previousEngagement;
+      window.set(tag, (window.get(tag) ?? 0) + engagement);
     }
   }
   return [...scores.keys()]
     .sort((a, b) => (scores.get(b)! - scores.get(a)!) || ((counts.get(b) ?? 0) - (counts.get(a) ?? 0)))
     .slice(0, limit)
-    .map((tag) => ({ tag, score: scores.get(tag) ?? 0, postCount: counts.get(tag) ?? 0 }));
+    .map((tag) => {
+      const recent = recentEngagement.get(tag) ?? 0;
+      const previous = previousEngagement.get(tag) ?? 0;
+      const rawChange = previous > 0 ? ((recent - previous) / previous) * 100 : recent > 0 ? 100 : 0;
+      return {
+        tag,
+        score: scores.get(tag) ?? 0,
+        postCount: counts.get(tag) ?? 0,
+        changePercent: Math.max(-999, Math.min(999, Math.round(rawChange))),
+      };
+    });
 }
 
 async function fetchProfilesByIds(client: SupabaseClient, ids: string[]): Promise<ProfileRow[]> {
