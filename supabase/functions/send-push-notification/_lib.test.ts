@@ -595,3 +595,26 @@ Deno.test("isDeadTokenError only removes tokens FCM says are dead", () => {
   assertEquals(isDeadTokenError("QUOTA_EXCEEDED", undefined), false);
   assertEquals(isDeadTokenError(undefined, undefined), false);
 });
+
+
+Deno.test("Merchant notification test payload is tagged for the Merchant deep link only", () => {
+  const base: NotificationRow = {
+    id: "11111111-1111-4111-8111-111111111111",
+    recipient_id: "22222222-2222-4222-8222-222222222222",
+    actor_id: null,
+    type: "system",
+    drop_id: null,
+    pop_id: null,
+    club_id: null,
+    club_post_id: null,
+    reason: "WYNOS Merchant · ทดสอบการแจ้งเตือน",
+    moderation_action_id: null,
+    moderation_action_type: null,
+    conversation_id: null,
+  };
+  assertEquals(buildDataPayload(base).merchant_test, "1");
+  assertEquals(
+    buildDataPayload({ ...base, reason: "ประกาศระบบทั่วไป" }).merchant_test,
+    undefined,
+  );
+});
