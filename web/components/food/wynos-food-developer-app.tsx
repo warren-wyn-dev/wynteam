@@ -33,6 +33,7 @@ import {
   createFoodCustomerOrder,
   deleteFoodCustomerAddress,
   fetchFoodCustomerSnapshot,
+  fetchFoodPromptPayQr,
   foodCustomerError,
   foodMoney,
   foodOrderStatusLabel,
@@ -658,6 +659,7 @@ function OrderDetailSheet({
 }) {
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [dynamicPaymentQr, setDynamicPaymentQr] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const proof = order.food_delivery_proofs?.[0];
 
@@ -667,6 +669,24 @@ function OrderDetailSheet({
     return () => { live = false; };
   }, [client, order.id, proof?.image_path]);
 
+  useEffect(() => {
+    let live = true;
+    const timer = window.setTimeout(() => {
+      if (!live) return;
+      if (!store?.promptpay_id || !["pending", "issue"].includes(order.payment_status)) {
+        setDynamicPaymentQr(null);
+        return;
+      }
+      void fetchFoodPromptPayQr(client, order.id).then((result) => {
+        if (live) setDynamicPaymentQr(result?.dataUrl ?? null);
+      });
+    }, 0);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [client, order.id, order.payment_status, store?.promptpay_id]);
+
   const submitSlip = async () => {
     if (!slipFile) {
       onMessage("กรุณาเลือกรูปสลิป");
@@ -675,8 +695,14 @@ function OrderDetailSheet({
     setWorking(true);
     try {
       const path = await uploadFoodPaymentSlip(client, userId, order.id, slipFile);
-      await submitFoodPayment(client, order.id, path);
-      onMessage("ส่งสลิปให้ร้านตรวจสอบแล้ว");
+      const verification = await submitFoodPayment(client, order.id, path);
+      onMessage(
+        verification.status === "auto_verified"
+          ? "ตรวจสอบสลิปอัตโนมัติสำเร็จ ชำระเงินแล้ว"
+          : verification.status === "rejected"
+            ? "ตรวจสอบสลิปไม่ผ่าน กรุณาตรวจสอบและส่งใหม่"
+            : "รับสลิปแล้ว กำลังรอร้านตรวจสอบ",
+      );
       setSlipFile(null);
       await onReload();
     } catch (error) {
@@ -704,7 +730,7 @@ function OrderDetailSheet({
   const isCancelled = order.status === "cancelled";
   const canPay = !isCancelled && ["pending", "issue"].includes(order.payment_status);
   const canCancel = order.status === "pending_acceptance" && ["pending", "issue"].includes(order.payment_status);
-  const paymentQr = foodPublicUrl(client, store?.payment_qr_path);
+  const paymentQr = dynamicPaymentQr ?? foodPublicUrl(client, store?.payment_qr_path);
   const combinedBusy = busy || working;
 
   return (
@@ -747,9 +773,12 @@ function OrderDetailSheet({
         <section className="wf-order-section">
           <div className="wf-section-title"><h2>การชำระเงิน</h2><span className={`wf-payment-status wf-payment-status--${order.payment_status}`}>{foodPaymentStatusLabel(order.payment_status)}</span></div>
           {order.payment_note ? <div className="wf-inline-warning">{order.payment_note}</div> : null}
+          {order.payment_verification_status === "auto_verified" ? <div className="wf-inline-warning">ตรวจสอบสลิปอัตโนมัติแล้ว</div> : null}
+          {order.payment_verification_status === "manual_review" && order.payment_status === "submitted" ? <div className="wf-inline-warning">รอตรวจสอบโดยร้าน</div> : null}
           {canPay ? (
             <div className="wf-payment">
-              <p>โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ร้านยืนยัน</p>
+              <p>โอนเงินเข้าบัญชีร้านโดยตรง แล้วแนบสลิปเพื่อให้ระบบตรวจสอบ</p>
+              {dynamicPaymentQr ? <div className="wf-inline-warning">{`QR นี้ตั้งยอด ${foodMoney(order.total)} ให้อัตโนมัติ`}</div> : null}
               {paymentQr ? (
                 <div className="wf-payment-qr">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
