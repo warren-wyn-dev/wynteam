@@ -24,7 +24,6 @@ test("Merchant is a separate installable app surface with the red WYNOS identity
 test("Merchant data layer uses dedicated Food RPCs, secure evidence storage and realtime", () => {
   const data = read("lib/food-merchant.ts");
   expect(data).toContain('client.rpc("food_has_merchant_access"');
-  expect(data).toContain('client.rpc("food_create_manual_order"');
   expect(data).toContain('client.rpc("food_set_payment_status"');
   expect(data).toContain('client.rpc("food_transition_order"');
   expect(data).toContain('client.rpc("food_complete_delivery"');
@@ -33,9 +32,23 @@ test("Merchant data layer uses dedicated Food RPCs, secure evidence storage and 
   expect(data).toContain("withoutLocation(file, contentType)");
 });
 
-test("Merchant workflow supports manual orders, self delivery and mandatory drop-off proof", () => {
+test("Merchant receives orders from WYNOS Food only while keeping delivery workflow", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
-  expect(app).toContain("createManualFoodOrder");
+  const data = read("lib/food-merchant.ts");
+  const guardSql = read("../supabase/migrations_wynos_food_orders_only_v1.sql");
+
+  expect(app).toContain("ออเดอร์จาก WYNOS Food");
+  expect(app).not.toContain("createManualFoodOrder");
+  expect(app).not.toContain("ManualOrderSheet");
+  expect(app).not.toContain("> สร้างออเดอร์</button>");
+  expect(data).not.toContain('client.rpc("food_create_manual_order"');
+
+  expect(guardSql).toContain("new orders must be created through WYNOS Food");
+  expect(guardSql).toContain("revoke execute on function public.food_create_manual_order");
+  expect(guardSql).toContain("revoke insert on table public.food_orders from anon, authenticated");
+  expect(guardSql).toContain("new.source <> 'app'");
+  expect(guardSql).toContain("new.buyer_id <> new.created_by");
+
   expect(app).toContain('capture="environment"');
   expect(app).toContain('deliveryMethod === "dropoff"');
   expect(app).toContain("ถ่ายรูปหลักฐานการจัดส่ง");

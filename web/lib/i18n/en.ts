@@ -4,6 +4,7 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "ออเดอร์จาก WYNOS Food": "Orders from WYNOS Food",
   "ทดสอบการแจ้งเตือน": "Test notifications",
   "ตรวจสอบ In-App, Realtime, Web Push และ Deep Link ของอุปกรณ์นี้": "Check In-App, Realtime, Web Push and Deep Link on this device",
   "ระบบทดสอบจะส่งเฉพาะบัญชีของคุณ และไม่สร้างออเดอร์จริง": "The test sends only to your account and does not create a real order",
