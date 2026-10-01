@@ -53,10 +53,11 @@ const worker = fs.readFileSync(new URL("../public/sw.js", import.meta.url), "utf
 const pushLib = fs.readFileSync(new URL("../../supabase/functions/send-push-notification/_lib.ts", import.meta.url), "utf8");
 
 test("Merchant notification test center exercises In-App, Realtime, Web Push and Deep Link", () => {
-  assert.match(notificationTest, /merchant_send_test_notification/);
+  assert.match(notificationTest, /sendMerchantTestNotification/);
+  assert.match(coreData, /merchant_send_test_notification/);
   assert.match(notificationTest, /postgres_changes/);
   assert.match(notificationTest, /subscribeToPushNotifications/);
-  assert.match(notificationTest, /notification_push_deliveries/);
+  assert.match(coreData, /notification_push_deliveries/);
   assert.match(notificationTest, /Deep Link/);
   assert.match(notificationTestMigration, /supabase_realtime/);
   assert.match(notificationTestMigration, /merchant_send_test_notification/);
