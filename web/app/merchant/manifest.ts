@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+const MERCHANT_ICON_192 = "/icons/merchant/merchant-app-v2-192.png";
+const MERCHANT_ICON_512 = "/icons/merchant/merchant-app-v2-512.png";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/merchant",
@@ -9,14 +12,14 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/merchant",
     scope: "/merchant",
     display: "standalone",
-    background_color: "#ffffff",
+    background_color: "#e32636",
     theme_color: "#e32636",
     lang: "th",
     orientation: "portrait",
     icons: [
-      { src: "/icons/merchant/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/merchant/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icons/merchant/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: MERCHANT_ICON_192, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: MERCHANT_ICON_512, sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: MERCHANT_ICON_512, sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
