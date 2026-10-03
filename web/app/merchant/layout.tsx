@@ -3,13 +3,14 @@ import type { ReactNode } from "react";
 
 import "./merchant.css";
 
-const MERCHANT_ICON = (size: number) => `/merchant/icon-v11?size=${size}`;
+const MERCHANT_ICON = (size: number) => `/merchant/icon-v12?size=${size}`;
+const MERCHANT_APPLE_ICON = "/icons/merchant/merchant-approved-v12-180.png";
 
 export const metadata: Metadata = {
   title: "Wynos Merchant",
   applicationName: "Wynos Merchant",
   description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
-  manifest: "/merchant/manifest.webmanifest?v=20261004-11",
+  manifest: "/merchant/manifest.webmanifest?v=20261004-12",
   icons: {
     icon: [
       { url: MERCHANT_ICON(16), sizes: "16x16", type: "image/png" },
@@ -20,17 +21,10 @@ export const metadata: Metadata = {
     ],
     shortcut: [{ url: MERCHANT_ICON(32), sizes: "32x32", type: "image/png" }],
     apple: [
-      { url: MERCHANT_ICON(57), sizes: "57x57", type: "image/png" },
-      { url: MERCHANT_ICON(72), sizes: "72x72", type: "image/png" },
-      { url: MERCHANT_ICON(76), sizes: "76x76", type: "image/png" },
-      { url: MERCHANT_ICON(114), sizes: "114x114", type: "image/png" },
-      { url: MERCHANT_ICON(120), sizes: "120x120", type: "image/png" },
-      { url: MERCHANT_ICON(152), sizes: "152x152", type: "image/png" },
-      { url: MERCHANT_ICON(167), sizes: "167x167", type: "image/png" },
-      { url: MERCHANT_ICON(180), sizes: "180x180", type: "image/png" },
+      { url: MERCHANT_APPLE_ICON, sizes: "180x180", type: "image/png" },
     ],
     other: [
-      { rel: "apple-touch-icon-precomposed", url: MERCHANT_ICON(180), sizes: "180x180", type: "image/png" },
+      { rel: "apple-touch-icon-precomposed", url: MERCHANT_APPLE_ICON, sizes: "180x180", type: "image/png" },
     ],
   },
   openGraph: {
