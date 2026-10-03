@@ -246,7 +246,8 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(app).toContain("disabled={busy || !slipUrl}");
   expect(app).toContain("// Reload after failures too: a two-step action may have half succeeded.");
   expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
-  expect(app).toContain("acting={actingIds.has(order.id)}");
+  // A pressed card stays busy until a reload shows the order's new status.
+  expect(app).toContain("acting={actedFrom.get(order.id) === order.status}");
   expect(css).toContain("max-height: calc(100dvh - 32px);");
   expect(css).toContain(".wm-card-action { min-height: 54px; font-size: 17px; }");
   expect(css).toContain("@media (prefers-reduced-motion: reduce)");

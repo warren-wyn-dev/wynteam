@@ -270,7 +270,15 @@ function MerchantInner({
   const [selectedOrder, setSelectedOrder] = useState<FoodOrder | null>(null);
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("new");
   // WYN-198: one-tap card actions and the new-order alert.
-  const [actingIds, setActingIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Order id -> the status it had when the store pressed its card button. The
+  // card stays busy until a reload shows a different status (or the call fails),
+  // so a stale card can never send the same step twice.
+  const [actedFrom, setActedFrom] = useState<ReadonlyMap<string, FoodOrder["status"]>>(() => new Map());
+  const forgetAction = (orderId: string) => setActedFrom((current) => {
+    const next = new Map(current);
+    next.delete(orderId);
+    return next;
+  });
   const [seenAlerts, setSeenAlerts] = useState<Set<string>>(() => new Set());
   const soundReady = useMerchantSoundUnlock();
   const [menuQuery, setMenuQuery] = useState("");
@@ -439,8 +447,8 @@ function MerchantInner({
       setSelectedOrder(order);
       return;
     }
-    if (actingIds.has(order.id)) return;
-    setActingIds((current) => new Set(current).add(order.id));
+    if (actedFrom.get(order.id) === order.status) return;
+    setActedFrom((current) => new Map(current).set(order.id, order.status));
     try {
       if (next.step === "accept") {
         await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);
@@ -454,14 +462,10 @@ function MerchantInner({
       }
     } catch (error) {
       setMessage(merchantError(error));
+      forgetAction(order.id);
     } finally {
       // Reload on failure too: the order may have moved on elsewhere.
       void load(true);
-      setActingIds((current) => {
-        const next = new Set(current);
-        next.delete(order.id);
-        return next;
-      });
     }
   };
   const visibleMenu = useMemo(() => {
@@ -517,7 +521,7 @@ function MerchantInner({
             onReload={() => void load(true)}
             onOrder={setSelectedOrder}
             onAction={(order) => void quickAction(order)}
-            actingIds={actingIds}
+            actedFrom={actedFrom}
             onOpenOrders={() => setTab("orders")}
           />
         ) : null}
@@ -530,7 +534,7 @@ function MerchantInner({
             onFilter={setOrderFilter}
             onOpen={setSelectedOrder}
             onAction={(order) => void quickAction(order)}
-            actingIds={actingIds}
+            actedFrom={actedFrom}
           />
         ) : null}
 
@@ -671,7 +675,7 @@ function HomePanel({
   onReload,
   onOrder,
   onAction,
-  actingIds,
+  actedFrom,
   onOpenOrders,
 }: {
   client: SupabaseClient;
@@ -685,7 +689,7 @@ function HomePanel({
   onReload: () => void;
   onOrder: (order: FoodOrder) => void;
   onAction: (order: FoodOrder) => void;
-  actingIds: ReadonlySet<string>;
+  actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
   onOpenOrders: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -743,7 +747,7 @@ function HomePanel({
           <button type="button" onClick={onOpenOrders}>ดูทั้งหมด <ChevronRight size={15} /></button>
         </div>
         {attentionOrders.length ? (
-          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actingIds.has(order.id)} />)}</div>
+          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div>
         ) : (
           <div className="wm-empty wm-empty--compact"><PackageCheck size={34} strokeWidth={1.5} /><strong>จัดการครบแล้ว</strong><p>ยังไม่มีออเดอร์ที่ต้องดำเนินการ</p></div>
         )}
@@ -767,7 +771,7 @@ function OrdersPanel({
   onFilter,
   onOpen,
   onAction,
-  actingIds,
+  actedFrom,
 }: {
   orders: FoodOrder[];
   allOrders: FoodOrder[];
@@ -775,7 +779,7 @@ function OrdersPanel({
   onFilter: (value: OrderFilter) => void;
   onOpen: (order: FoodOrder) => void;
   onAction: (order: FoodOrder) => void;
-  actingIds: ReadonlySet<string>;
+  actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
 }) {
   const [showTools, setShowTools] = useState(false);
   const [query, setQuery] = useState("");
@@ -846,7 +850,7 @@ function OrdersPanel({
           </select>
         </div>
       </div> : null}
-      {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} onAction={onAction} acting={actingIds.has(order.id)} />)}</div> : (
+      {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div> : (
         <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>{query || paymentFilter !== "all" || dateFilter !== "all" ? "ไม่พบออเดอร์ที่ตรงกับตัวกรอง" : "ไม่มีออเดอร์ในแท็บนี้"}</strong></div>
       )}
     </>
