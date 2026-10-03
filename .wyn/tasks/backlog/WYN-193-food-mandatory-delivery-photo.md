@@ -93,3 +93,11 @@ Founder อนุมัติ PRD → Full-Stack (migration + UI + tests) → QA
 ## Found during review (separate task)
 
 - WYN-194: food-private storage อ่าน/อัปโหลดข้ามร้านได้ เมื่อมีร้านที่ 2
+
+## QA round 1 (2026-10-03) — FAIL → fixed
+
+- H1: PostgREST embeds `food_delivery_proofs` one-to-one (unique `order_id`) as an object, so `?.[0]` hid the photo from customer and Merchant (pre-existing on main). Fixed with `orderDeliveryProof()` in `web/lib/food-merchant.ts` / `web/lib/food-customer.ts` + regression test.
+- M1: behaviour test `supabase/tests/wynos_food_delivery_storage_test.sh` (local PostgreSQL; `PSQL="sudo -u postgres psql"`), mutation-checked.
+- L1: `p_method is null` rejected. L2: location note trimmed of tabs/newlines.
+- L3 (open, product): delivered notification ignores the in-app 'system' preference, same as the other Food transactional notifications (paid, refund).
+- L4 (open, follow-up): wrong photo cannot be replaced; orphan upload if the RPC fails after upload.

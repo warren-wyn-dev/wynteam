@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { orderDeliveryProof as customerDeliveryProof } from "../../lib/food-customer";
+import { orderDeliveryProof as merchantDeliveryProof } from "../../lib/food-merchant";
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
@@ -177,13 +179,29 @@ test("WYN-194 Food storage is isolated per store", () => {
   for (const policy of [
     "Food private media readable by rollout gate",
     "Food private upload by rollout gate",
-    "Food private update by rollout gate",
-    "Food private delete by rollout gate",
     "Food public media merchant upload",
     "Food public media merchant update",
     "Food public media merchant delete",
   ]) {
     expect(sql).toContain(`drop policy if exists "${policy}" on storage.objects;`);
     expect(sql).toContain(`create policy "${policy}"`);
+  }
+  // Slips and delivery photos are evidence: no API update/delete for anyone.
+  for (const policy of ["Food private update by rollout gate", "Food private delete by rollout gate"]) {
+    expect(sql).toContain(`drop policy if exists "${policy}" on storage.objects;`);
+    expect(sql).not.toContain(`create policy "${policy}"`);
+  }
+});
+
+test("Delivery proof is read from the one-to-one PostgREST embed", () => {
+  const proof = { id: "p", order_id: "o", method: "direct", location_note: null, image_path: "delivery/o/a.jpg", created_at: "" };
+  for (const pick of [merchantDeliveryProof, customerDeliveryProof] as Array<(order: { food_delivery_proofs?: unknown }) => unknown>) {
+    expect(pick({ food_delivery_proofs: proof })).toEqual(proof);
+    expect(pick({ food_delivery_proofs: [proof] })).toEqual(proof);
+    expect(pick({ food_delivery_proofs: null })).toBeUndefined();
+    expect(pick({})).toBeUndefined();
+  }
+  for (const file of ["components/merchant/wynos-merchant-app.tsx", "components/food/wynos-food-developer-app.tsx"]) {
+    expect(read(file)).not.toContain("food_delivery_proofs?.[0]");
   }
 });

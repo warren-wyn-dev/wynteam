@@ -24,7 +24,7 @@ set search_path = public
 as $$
 declare
   v_order public.food_orders%rowtype;
-  v_note text := nullif(left(trim(coalesce(p_location_note,'')),500),'');
+  v_note text := nullif(left(btrim(coalesce(p_location_note,''), E' \t\r\n'),500),'');
 begin
   select * into v_order from public.food_orders where id=p_order_id for update;
   if not found or not public.merchant_has_store_role(v_order.store_id, array['owner','admin','manager','orders','delivery']) then
@@ -33,7 +33,7 @@ begin
   if v_order.status <> 'out_for_delivery' then
     raise exception 'order is not out for delivery';
   end if;
-  if p_method not in ('direct','dropoff') then
+  if p_method is null or p_method not in ('direct','dropoff') then
     raise exception 'invalid delivery method';
   end if;
   if p_image_path is null

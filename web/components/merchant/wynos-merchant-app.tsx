@@ -49,6 +49,7 @@ import {
   transitionFoodOrder,
   updateFoodStore,
   uploadFoodPrivateImage,
+  orderDeliveryProof,
   uploadFoodPublicImage,
   type FoodMenuItem,
   type FoodOrder,
@@ -872,13 +873,13 @@ function OrderSheet({
   const [locationNote, setLocationNote] = useState("");
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
 
+  const proofPath = orderDeliveryProof(order)?.image_path;
   useEffect(() => {
     let live = true;
     void foodPrivateSignedUrl(client, order.payment_slip_path).then((url) => { if (live) setSlipUrl(url); });
-    const proofPath = order.food_delivery_proofs?.[0]?.image_path;
     void foodPrivateSignedUrl(client, proofPath).then((url) => { if (live) setProofUrl(url); });
     return () => { live = false; };
-  }, [client, order.id, order.payment_slip_path, order.food_delivery_proofs]);
+  }, [client, order.id, order.payment_slip_path, proofPath]);
 
   const run = async (action: () => Promise<void>, success?: string) => {
     setBusy(true);
@@ -1004,7 +1005,7 @@ function OrderSheet({
       ) : null}
 
       {order.status === "delivered" ? (
-        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{order.food_delivery_proofs?.[0]?.location_note ? <p>วางไว้: {order.food_delivery_proofs[0].location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
+        <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{orderDeliveryProof(order)?.location_note ? <p>วางไว้: {orderDeliveryProof(order)?.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
       ) : null}
 
       {!["delivered", "cancelled"].includes(order.status) ? (

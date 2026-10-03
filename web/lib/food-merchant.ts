@@ -110,8 +110,16 @@ export type FoodOrder = {
   created_at: string;
   updated_at: string;
   food_order_items?: FoodOrderItem[];
-  food_delivery_proofs?: FoodDeliveryProof[];
+  food_delivery_proofs?: FoodDeliveryProof | FoodDeliveryProof[] | null;
 };
+
+// food_delivery_proofs.order_id is unique, so PostgREST embeds it one-to-one
+// as an object; older responses and fixtures use an array.
+export function orderDeliveryProof(order: Pick<FoodOrder, "food_delivery_proofs">): FoodDeliveryProof | undefined {
+  const proofs = order.food_delivery_proofs;
+  return (Array.isArray(proofs) ? proofs[0] : proofs) ?? undefined;
+}
+
 
 export type MerchantSnapshot = {
   access: boolean;

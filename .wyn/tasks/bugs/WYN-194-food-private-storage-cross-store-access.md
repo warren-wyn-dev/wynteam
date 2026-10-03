@@ -13,11 +13,12 @@ Root Cause: storage policy ตรวจแค่ "เป็น merchant สั�
 Fix: `supabase/migrations_wynos_food_storage_store_isolation_v1.sql`
 - private read: ร้านเห็นเฉพาะ `delivery/<order>/` และสลิป `<buyer>/slips/<order>/` (หรือ `payment_slip_path`) ของออเดอร์ในร้านตัวเอง; ลูกค้าเหมือนเดิม
 - private upload: ร้านอัปโหลดได้เฉพาะ `delivery/<order>/<file>` ของออเดอร์ร้านตัวเองที่ `out_for_delivery` ด้วยบทบาทส่งของ; ลูกค้าเหมือนเดิม
-- private update/delete: ร้านไม่มีสิทธิ์แล้ว (หลักฐานแก้/ลบไม่ได้); ลูกค้าเหมือนเดิม
+- private update/delete: ไม่มีใครแก้/ลบผ่าน API ได้แล้ว ทั้งร้านและลูกค้า (QA M2: ลูกค้าเคยเปลี่ยนสลิปหลังร้านยืนยันเงินเข้าได้); client upload แบบ `upsert:false` อยู่แล้ว
 - public write: เฉพาะ `stores/<store_id>/...` โดย owner/admin/manager ของร้านนั้น; public read เหมือนเดิม
 - developer accounts ยังเข้าถึงได้ทุกร้านเหมือนเดิม (ผ่าน helper เดิม)
 Files Changed: migration ใหม่ + `web/tests/browser/wynos-merchant.spec.ts`
 Tests: local PostgreSQL 16 + RLS stubs — owner A เห็นเฉพาะไฟล์ร้าน A, owner B เฉพาะร้าน B, ลูกค้าเห็นของตัวเองครบ; B อัปโหลดเข้าออเดอร์ A / ทับ-ลบ-เพิ่ม QR ของ A → ถูกปฏิเสธ; คนส่ง A อัปโหลดออเดอร์ที่ยังไม่ออกส่ง / nested path / store media → ถูกปฏิเสธ; ร้านลบหลักฐาน → 0 แถว; contract test ผ่าน 3 projects
 Regression Risk: กลาง — merchant/customer media ทั้งหมด; ไฟล์ food-public เดิมที่ไม่อยู่ใต้ `stores/<id>/` แก้ไม่ได้แล้ว (อ่านได้ตามเดิม)
 Rollback: re-run policies เดิมจาก 2 ไฟล์ข้างบน
-Handoff to QA: ใช่
+Tests (เพิ่ม): `supabase/tests/wynos_food_delivery_storage_test.sh`
+Handoff to QA: ใช่ — QA round 1 ผ่านส่วน WYN-194, M2 แก้แล้ว

@@ -13,13 +13,14 @@
 --   * merchants read only slips and delivery photos of orders in their store;
 --   * merchants upload only to delivery/<order_id>/ for an order of their store
 --     that is out for delivery, with a delivery-capable role;
---   * merchants can no longer update or delete private evidence.
+--   * nobody can update or delete private evidence (slips, delivery photos)
+--     through the API any more; clients always upload a new object.
 -- food-public
 --   * public read is unchanged;
 --   * writes are limited to stores/<store_id>/... for owner/admin/manager of
 --     that store (the same roles that manage menu and store settings).
 --
--- Only storage.objects policies are replaced. No object or row is changed.
+-- Only storage.objects policies are replaced or dropped. No object or row is changed.
 -- Rollback: re-run the food-private policies from
 -- migrations_wynos_food_customer_access_gate_v2.sql and the food-public write
 -- policies from migrations_wynos_food_merchant_v1.sql.
@@ -96,31 +97,11 @@ with check (
   )
 );
 
+-- Payment slips are evidence too: once uploaded, nobody edits or deletes them
+-- through the API. Clients always upload a new object (upsert:false) and the
+-- order points at it, so customers do not need update/delete either.
 drop policy if exists "Food private update by rollout gate" on storage.objects;
-create policy "Food private update by rollout gate"
-on storage.objects for update to authenticated
-using (
-  bucket_id='food-private'
-  and public.food_customer_access_enabled()
-  and (storage.foldername(name))[1] = auth.uid()::text
-  and (storage.foldername(name))[2] = 'slips'
-)
-with check (
-  bucket_id='food-private'
-  and public.food_customer_access_enabled()
-  and (storage.foldername(name))[1] = auth.uid()::text
-  and (storage.foldername(name))[2] = 'slips'
-);
-
 drop policy if exists "Food private delete by rollout gate" on storage.objects;
-create policy "Food private delete by rollout gate"
-on storage.objects for delete to authenticated
-using (
-  bucket_id='food-private'
-  and public.food_customer_access_enabled()
-  and (storage.foldername(name))[1] = auth.uid()::text
-  and (storage.foldername(name))[2] = 'slips'
-);
 
 -- food-public ---------------------------------------------------------------
 
