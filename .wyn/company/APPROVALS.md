@@ -286,3 +286,14 @@
 - ไม่ครอบคลุม: merge เข้า main, apply migration production, production deploy — ต้องขออนุมัติแยกหลัง QA
 - Rollback: re-run policies เดิมจาก `migrations_wynos_food_customer_access_gate_v2.sql` และ `migrations_wynos_food_merchant_v1.sql`
 - สถานะ: **อนุมัติแล้ว (implementation + QA)**. วันที่ 2026-10-03
+
+### DECISION — [2026-10-03] WYN-193 / WYN-194 production release
+- Founder: **"อนุมัติ merge และติดตั้งบนระบบจริง"** (after QA & Security PASS, CTO review and Codex review fixes on PR #819)
+- Scope:
+  1. merge PR #819 (web auto-deploys to production);
+  2. immediately afterwards, dispatch `food-apply-wyn193-wyn194.yml` on main with `APPLY-WYN-193-194`, which applies `migrations_wynos_food_storage_store_isolation_v1.sql` then `migrations_wynos_food_delivery_photo_required_v1.sql` in one transaction and verifies them;
+  3. deploy Edge Function `validate-upload`, then run `storage-upload-validator.yml` with `create`, then `test`, to cover the `food-private` and `food-public` buckets.
+- Runbook: between steps 1 and 2, do not complete 'direct' deliveries.
+- Rollback: Vercel Instant Rollback / revert the merge commit; the SQL rollback is in the workflow header; `storage-upload-validator.yml` with `remove`.
+- Post-release: send one test order and open its delivery photo from the customer side.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03
