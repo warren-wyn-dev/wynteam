@@ -46,6 +46,7 @@ import {
   addressLocation,
   currentFoodLocation,
   searchFoodPlaces,
+  searchStorePlaces,
   storeHasDeliveryZone,
   type FoodLocation,
   type FoodPlace,
@@ -563,13 +564,19 @@ function ItemSheet({
   );
 }
 
-/** WYN-196: pin the delivery point with GPS or a place search. */
+/**
+ * WYN-196: pin the delivery point with GPS or a place search.
+ * WYN-197: the search looks in the store's own place list first (free), then
+ * falls back to the location-search Edge Function.
+ */
 function DeliveryPinPicker({
   client,
+  storeId,
   location,
   onChange,
 }: {
   client: SupabaseClient;
+  storeId: string | null;
   location: FoodLocation | null;
   onChange: (location: FoodLocation | null, place?: FoodPlace) => void;
 }) {
@@ -595,9 +602,13 @@ function DeliveryPinPicker({
     setWorking(true);
     setStatus("");
     try {
-      const next = await searchFoodPlaces(client, query);
+      let next = storeId ? (await searchStorePlaces(client, storeId, query)) ?? [] : [];
+      if (!next.length && query.trim()) {
+        // The store list is the free path; the geocoder is optional extra.
+        next = await searchFoodPlaces(client, query).catch(() => []);
+      }
       setResults(next);
-      if (!next.length) setStatus("ไม่พบสถานที่ ลองพิมพ์ชื่ออื่นหรือใช้ตำแหน่งปัจจุบัน");
+      if (!next.length) setStatus("ไม่พบสถานที่นี้ ลองพิมพ์ชื่ออื่นหรือใช้ตำแหน่งปัจจุบัน");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "ค้นหาไม่สำเร็จ");
     } finally {
@@ -623,10 +634,10 @@ function DeliveryPinPicker({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void search(); } }}
-          placeholder="หรือค้นหาสถานที่ เช่น ชื่อหมู่บ้าน คอนโด"
+          placeholder="หรือค้นหา เช่น ชื่อหอพัก คอนโด หมู่บ้าน"
           aria-label="ค้นหาสถานที่"
         />
-        <button type="button" aria-label="ค้นหา" disabled={working || !query.trim()} onClick={() => void search()}><Search size={16} /></button>
+        <button type="button" aria-label="ค้นหา" disabled={working} onClick={() => void search()}><Search size={16} /></button>
       </div>
       {results.length ? (
         <div className="wf-pin-results" role="list">
@@ -644,6 +655,7 @@ function DeliveryPinPicker({
 
 function AddressEditor({
   client,
+  storeId,
   showPin,
   draft,
   onClose,
@@ -651,6 +663,7 @@ function AddressEditor({
   busy,
 }: {
   client: SupabaseClient;
+  storeId: string | null;
   /** Only stores with a delivery zone need a pin (WYN-196). */
   showPin: boolean;
   draft: FoodAddressDraft;
@@ -668,6 +681,7 @@ function AddressEditor({
         <label>ที่อยู่จัดส่ง<textarea value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
         {showPin || form.location ? <DeliveryPinPicker
           client={client}
+          storeId={storeId}
           location={form.location}
           onChange={(location, place) => setForm((current) => ({
             ...current,
@@ -1250,7 +1264,7 @@ function FoodCustomerInner({
       ) : null}
 
       {addressDraft ? (
-        <AddressEditor client={client} showPin={storeHasDeliveryZone(store)} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft) => void saveAddress(draft)} />
+        <AddressEditor client={client} storeId={store?.id ?? null} showPin={storeHasDeliveryZone(store)} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft) => void saveAddress(draft)} />
       ) : null}
 
       {selectedOrder ? (

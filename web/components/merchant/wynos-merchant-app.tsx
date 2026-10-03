@@ -35,6 +35,8 @@ import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from
 import {
   completeFoodDelivery,
   deleteMenuItem,
+  deleteStorePlace,
+  fetchStorePlaces,
   fetchMerchantSnapshot,
   foodPrivateSignedUrl,
   foodPublicUrl,
@@ -42,6 +44,7 @@ import {
   money,
   paymentLabel,
   saveMenuItem,
+  saveStorePlace,
   setFoodPaymentStatus,
   setMenuAvailability,
   statusLabel,
@@ -54,9 +57,10 @@ import {
   type FoodMenuItem,
   type FoodOrder,
   type FoodStore,
+  type FoodStorePlace,
   type MenuDraft,
 } from "@/lib/food-merchant";
-import { currentFoodLocation, foodMapsHref, type FoodLocation } from "@/lib/food-customer";
+import { currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation } from "@/lib/food-customer";
 
 type MerchantTab = "home" | "orders" | "menu" | "reports" | "store";
 type OrderFilter = "active" | "new" | "preparing" | "ready" | "delivery" | "done";
@@ -1188,6 +1192,7 @@ function StoreEditor({
           <label>บาทต่อ กม. ที่เกิน<input type="number" min="0" max="1000" inputMode="decimal" value={form.delivery_fee_per_km} onChange={(e) => setForm({ ...form, delivery_fee_per_km: e.target.value })} /></label>
           <small>{`ตัวอย่าง: ส่ง 4 กม. ค่าส่ง ${exampleFee(form.delivery_fee, form.delivery_base_km, form.delivery_fee_per_km)} บาท (ส่วนที่เกินคิดต่อ กม. ปัดขึ้นเป็นบาทเต็ม)`}</small>
         </div> : null}
+        {zoneReady ? <StorePlacesEditor client={client} storeId={store.id} storePin={pin} radiusKm={Number(form.delivery_radius_km || 5)} /> : null}
         <h3>รับชำระเงินเข้าร้าน</h3>
         <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
         <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>
@@ -1197,6 +1202,136 @@ function StoreEditor({
         <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>{busy ? "กำลังบันทึก…" : "บันทึกการตั้งค่า"}</button>
       </div>
     </Sheet>
+  );
+}
+
+type StorePlaceForm = { id?: string; name: string; detail: string; coords: string; is_active: boolean };
+
+/**
+ * WYN-197: the store's own list of places (dorms, condos, villages) that
+ * customers can pick in the Food place search. Free: no geocoding service.
+ * Each change is saved right away, separately from the store settings form.
+ */
+function StorePlacesEditor({
+  client,
+  storeId,
+  storePin,
+  radiusKm,
+}: {
+  client: SupabaseClient;
+  storeId: string;
+  storePin: FoodLocation | null;
+  radiusKm: number;
+}) {
+  // undefined = loading, null = not available yet (migration not applied).
+  const [places, setPlaces] = useState<FoodStorePlace[] | null | undefined>(undefined);
+  const [form, setForm] = useState<StorePlaceForm | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
+
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    fetchStorePlaces(client, storeId).then(
+      (next) => { if (active) setPlaces(next); },
+      (error) => { if (active) { setPlaces([]); setStatus(merchantError(error)); } },
+    );
+    return () => { active = false; };
+  }, [client, storeId, version]);
+
+  if (places === null) return null;
+
+  const formPin = form ? parseFoodLocation(form.coords) : null;
+  const distanceText = (location: FoodLocation) => {
+    if (!storePin) return "";
+    const km = foodDistanceKm(storePin, location);
+    const away = `ห่างร้าน ${km.toFixed(1)} กม.`;
+    return km > radiusKm ? `${away} · ${"นอกพื้นที่ส่ง"}` : away;
+  };
+
+  const pickCurrent = async () => {
+    if (!form) return;
+    setStatus("กำลังหาตำแหน่ง…");
+    try {
+      const here = await currentFoodLocation();
+      setForm({ ...form, coords: `${here.latitude.toFixed(6)}, ${here.longitude.toFixed(6)}` });
+      setStatus("");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "หาตำแหน่งไม่สำเร็จ");
+    }
+  };
+
+  const run = async (work: () => Promise<void>, done: string) => {
+    setBusy(true);
+    try {
+      await work();
+      setStatus(done);
+      setVersion((value) => value + 1);
+    } catch (error) {
+      setStatus(merchantError(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = () => {
+    if (!form) return;
+    if (!formPin) { setStatus("พิกัดไม่ถูกต้อง ใช้ปุ่มตำแหน่งปัจจุบันหรือวางพิกัดจากแผนที่"); return; }
+    void run(async () => {
+      await saveStorePlace(client, storeId, { ...form, latitude: formPin.latitude, longitude: formPin.longitude });
+      setForm(null);
+    }, "บันทึกสถานที่แล้ว");
+  };
+
+  const toggle = (place: FoodStorePlace) => void run(
+    () => saveStorePlace(client, storeId, { ...place, detail: place.detail ?? "", is_active: !place.is_active }),
+    place.is_active ? "ซ่อนสถานที่แล้ว" : "แสดงสถานที่แล้ว",
+  );
+
+  const remove = (place: FoodStorePlace) => {
+    if (!window.confirm(`ลบ “${place.name}”?`)) return;
+    void run(() => deleteStorePlace(client, storeId, place.id), "ลบสถานที่แล้ว");
+  };
+
+  return (
+    <div className="wm-zone wm-places">
+      <strong>สถานที่ที่ร้านส่งบ่อย</strong>
+      <small>ลูกค้าค้นหาชื่อเหล่านี้ได้ตอนใส่ที่อยู่ ฟรี ไม่ต้องใช้บริการแผนที่</small>
+      {places === undefined ? <small>กำลังโหลด…</small> : places.length ? (
+        <ul className="wm-place-list">
+          {places.map((place) => (
+            <li key={place.id} className={place.is_active ? "" : "is-off"}>
+              <span>
+                <strong>{place.name}</strong>
+                <small>{[place.detail, distanceText(place), place.is_active ? "" : "ซ่อนอยู่"].filter(Boolean).join(" · ")}</small>
+              </span>
+              <span className="wm-place-actions">
+                <button type="button" disabled={busy} onClick={() => setForm({ id: place.id, name: place.name, detail: place.detail ?? "", coords: `${place.latitude}, ${place.longitude}`, is_active: place.is_active })}>แก้ไข</button>
+                <button type="button" disabled={busy} onClick={() => toggle(place)}>{place.is_active ? "ซ่อน" : "แสดง"}</button>
+                <button type="button" disabled={busy} onClick={() => remove(place)}>ลบ</button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : <small>ยังไม่มีสถานที่ เพิ่มหอพัก คอนโด หรือหมู่บ้านที่ส่งบ่อยได้เลย</small>}
+      {form ? (
+        <div className="wm-place-form">
+          <label>ชื่อสถานที่<input value={form.name} maxLength={120} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น หอพัก ABC" /></label>
+          <label>รายละเอียด (ไม่บังคับ)<input value={form.detail} maxLength={200} onChange={(e) => setForm({ ...form, detail: e.target.value })} placeholder="เช่น ซอย 5 ตรงข้าม 7-Eleven" /></label>
+          <label>พิกัด<input value={form.coords} inputMode="decimal" onChange={(e) => setForm({ ...form, coords: e.target.value })} placeholder="เช่น 13.75631, 100.50176" /></label>
+          <small>{formPin ? distanceText(formPin) || "พิกัดถูกต้อง" : "กดปุ่มด้านล่างตอนอยู่ที่สถานที่ หรือกดค้างบน Google Maps แล้วคัดลอกพิกัดมาวาง"}</small>
+          <div className="wm-two-actions">
+            <button className="wm-secondary" type="button" disabled={busy} onClick={() => void pickCurrent()}><MapPin size={16} /> ใช้ตำแหน่งปัจจุบัน</button>
+            <button className="wm-secondary" type="button" disabled={busy} onClick={() => setForm(null)}>ยกเลิก</button>
+          </div>
+          <button className="wm-primary wm-full" type="button" disabled={busy || !form.name.trim() || !formPin} onClick={save}>{busy ? "กำลังบันทึก…" : "บันทึกสถานที่"}</button>
+        </div>
+      ) : (
+        <button className="wm-secondary" type="button" disabled={busy || places === undefined} onClick={() => setForm({ name: "", detail: "", coords: "", is_active: true })}><Plus size={16} /> เพิ่มสถานที่</button>
+      )}
+      {status ? <p role="status">{status}</p> : null}
+    </div>
   );
 }
 

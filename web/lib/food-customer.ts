@@ -533,6 +533,51 @@ export async function searchFoodPlaces(client: SupabaseClient, query: string): P
   }).slice(0, 8);
 }
 
+/**
+ * WYN-197: free place search over the store's own list (food_store_places).
+ * Returns null when the list is not available yet (migration not applied), so
+ * the caller can fall back to the location-search Edge Function.
+ */
+export async function searchStorePlaces(client: SupabaseClient, storeId: string, query: string): Promise<FoodPlace[] | null> {
+  const { data, error } = await client.rpc("food_search_store_places", {
+    p_store_id: storeId,
+    p_query: query.trim().slice(0, 100),
+  });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw new Error(foodCustomerError(error, "ค้นหาสถานที่ไม่สำเร็จ"));
+  }
+  return ((data ?? []) as Array<{ name: string; detail: string | null; latitude: number; longitude: number }>).flatMap((row) => {
+    const latitude = Number(row.latitude);
+    const longitude = Number(row.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+    return [{ name: row.name, address: row.detail, latitude, longitude }];
+  });
+}
+
+/**
+ * WYN-197: read a pin pasted from a map app, e.g. "13.75631, 100.50176" or a
+ * Google Maps link with "@13.75,100.50" or "q=13.75,100.50".
+ */
+export function parseFoodLocation(text: string): FoodLocation | null {
+  const match = text.match(/(?:^|[^\d.])(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)(?![\d.])/);
+  if (!match) return null;
+  const latitude = Number(match[1]);
+  const longitude = Number(match[2]);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  return { latitude, longitude };
+}
+
+/** Straight-line distance in km, the same haversine formula as the server. */
+export function foodDistanceKm(from: FoodLocation, to: FoodLocation) {
+  const rad = (value: number) => (value * Math.PI) / 180;
+  const dLat = rad(to.latitude - from.latitude);
+  const dLng = rad(to.longitude - from.longitude);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(from.latitude)) * Math.cos(rad(to.latitude)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 /** A Google Maps link that opens at the exact pin when there is one. */
 export function foodMapsHref(location: FoodLocation | null, fallbackAddress: string) {
   return location

@@ -19,7 +19,7 @@ test("WYNOS Food is a separate closed developer-only surface", () => {
   expect(layout).toContain("follow: false");
   expect(manifest).toContain('start_url: "/food"');
   expect(manifest).toContain('scope: "/food"');
-  expect(manifest).toContain('theme_color: "#111111"');
+  expect(manifest).toContain('theme_color: "#e32636"');
 });
 
 test("Food customer flow is connected to real ordering, payment and realtime APIs", () => {
@@ -137,4 +137,31 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(merchant).toContain("const zoneReady = store.delivery_radius_km !== undefined;");
   expect(lib).toContain("...pinParams(input.location)");
   expect(merchant).toContain("foodMapsHref(");
+});
+
+test("WYN-197 free place search uses the store's own place list", () => {
+  const sql = read("../supabase/migrations_wynos_food_store_places_v1.sql");
+  const lib = read("lib/food-customer.ts");
+  const merchantLib = read("lib/food-merchant.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const merchant = read("components/merchant/wynos-merchant-app.tsx");
+
+  // Only the store's managers write; customers read through a scoped RPC.
+  expect(sql).toContain("alter table public.food_store_places enable row level security;");
+  expect(sql).toContain("using (public.food_has_merchant_access(store_id));");
+  expect(sql).toContain("with check (public.merchant_has_store_role(store_id, array['owner','admin','manager']));");
+  expect(sql).toContain("where p.store_id = p_store_id\n    and p.is_active");
+  expect(sql).toContain("revoke all on function public.food_search_store_places(uuid,text) from public, anon;");
+  expect(sql).not.toMatch(/to anon/);
+
+  // Food searches the store list first; the geocoder is only a fallback.
+  expect(lib).toContain('client.rpc("food_search_store_places"');
+  expect(app).toContain("let next = storeId ? (await searchStorePlaces(client, storeId, query)) ?? [] : [];");
+  expect(app).toContain("next = await searchFoodPlaces(client, query).catch(() => []);");
+
+  // Merchant manages the list and hides it until the table exists.
+  expect(merchantLib).toContain('.from("food_store_places")');
+  expect(merchantLib).toContain('if (error.code === "42P01" || error.code === "PGRST205") return null;');
+  expect(merchant).toContain("<StorePlacesEditor");
+  expect(merchant).toContain("parseFoodLocation(form.coords)");
 });
