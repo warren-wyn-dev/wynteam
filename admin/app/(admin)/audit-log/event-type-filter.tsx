@@ -22,6 +22,7 @@ const EVENT_TYPES = [
   { value: "admin_content_removed", label: "ลบเนื้อหา (Admin)" },
   { value: "admin_content_restored", label: "กู้คืนเนื้อหา (Admin)" },
   { value: "admin_announcement_sent", label: "ส่งประกาศ" },
+  { value: "admin_inactive_reminder_sent", label: "เตือนผู้ใช้ที่ไม่ได้ใช้งาน" },
 ];
 
 export function EventTypeFilter() {

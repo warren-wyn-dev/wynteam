@@ -10,7 +10,8 @@ export type AuditLogEventType =
   | "admin_user_unbanned"
   | "admin_content_removed"
   | "admin_content_restored"
-  | "admin_announcement_sent";
+  | "admin_announcement_sent"
+  | "admin_inactive_reminder_sent";
 
 export type AuditLogRow = {
   id: string;

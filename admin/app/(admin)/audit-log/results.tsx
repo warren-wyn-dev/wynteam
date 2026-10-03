@@ -11,6 +11,7 @@ const EVENT_TYPE_LABEL: Record<AuditLogEventType, string> = {
   admin_content_removed: "ลบเนื้อหา (Admin)",
   admin_content_restored: "กู้คืนเนื้อหา (Admin)",
   admin_announcement_sent: "ส่งประกาศ",
+  admin_inactive_reminder_sent: "เตือนผู้ใช้ที่ไม่ได้ใช้งาน",
 };
 
 function formatDate(iso: string) {
