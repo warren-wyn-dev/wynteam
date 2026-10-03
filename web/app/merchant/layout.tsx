@@ -3,17 +3,15 @@ import type { ReactNode } from "react";
 
 import "./merchant.css";
 
-const MERCHANT_ICON_192 = "/icons/merchant/merchant-app-v3-192.png";
-const MERCHANT_ICON_512 = "/icons/merchant/merchant-app-v3-512.png";
-// Exact 180×180 iOS Home Screen artwork. Keep the filename versioned so
-// Safari cannot reuse a stale touch icon cached from an earlier install.
-const MERCHANT_APPLE_TOUCH_ICON = "/icons/merchant/apple-touch-icon-v5-180.png";
+const MERCHANT_ICON_192 = "/merchant/icon-v6?size=192";
+const MERCHANT_ICON_512 = "/merchant/icon-v6?size=512";
+const MERCHANT_APPLE_TOUCH_ICON = "/merchant/icon-v6?size=180";
 
 export const metadata: Metadata = {
   title: "WYNOS Merchant",
   applicationName: "WYNOS Merchant",
   description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
-  manifest: "/merchant/manifest.webmanifest?v=20261003-5",
+  manifest: "/merchant/manifest.webmanifest?v=20261004-6",
   icons: {
     icon: [
       { url: MERCHANT_ICON_192, sizes: "192x192", type: "image/png" },
