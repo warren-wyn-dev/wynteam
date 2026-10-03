@@ -83,7 +83,7 @@ run >/dev/null < "$ROOT/supabase/migrations_wynos_food_delivery_photo_required_v
 # Each case runs as `authenticated` for one user and must match the expectation.
 expect_ok()   { run -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" >/dev/null 2>&1 || { echo "FAIL (expected success): $3"; exit 1; }; }
 # expect_fail <uid> <sql> <description> <expected error substring>
-expect_fail() { local err; if err="$(run -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" 2>&1 >/dev/null)"; then echo "FAIL (expected error): $3"; exit 1; fi
+expect_fail() { local err; if err="$(run -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" 2>&1)"; then echo "FAIL (expected error): $3"; exit 1; fi
                 [[ "$err" == *"$4"* ]] || { echo "FAIL: $3 (wrong error: $err)"; exit 1; }; }
 expect_eq()   { local got; got="$(run -At -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" | tail -n1)";
                 [[ "$got" == "$3" ]] || { echo "FAIL: $4 (got '$got', want '$3')"; exit 1; }; }
