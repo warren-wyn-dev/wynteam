@@ -1,6 +1,6 @@
 # Product Task — WYN-197 — WYNOS Food: free place search from the store's own place list
 
-Status: review — PR open, waiting for Founder approval to merge and apply
+Status: approved — releasing PR #825
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-03
 

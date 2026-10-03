@@ -313,3 +313,12 @@
   A store without a pinned location keeps its flat fee. The store owner pins the store in Merchant settings.
 - Rollback: revert the merge commit or use Vercel Instant Rollback; SQL rollback is in the workflow header.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03
+
+### DECISION — [2026-10-03] WYN-197 WYNOS Food free place search (store place list)
+- Founder asked for free place search without a paid map service. AI recommended a per-store place list (option 1). Founder: **"อนุมัติ"** to build it. After reviewing PR #825: **"อนุมัติ"**.
+- Scope:
+  1. merge PR #825 (web auto-deploys; safe before the migration);
+  2. dispatch `food-apply-wyn197.yml` with `APPLY-WYN-197` (adds `food_store_places` and `food_search_store_places`).
+  The store adds its places in Merchant settings.
+- Rollback: revert the merge commit; SQL rollback is in the workflow header.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03
