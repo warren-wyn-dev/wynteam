@@ -14,7 +14,7 @@ test("Merchant is a separate installable app surface with the red WYNOS identity
   expect(page).toContain("<WynosMerchantApp />");
   // The manifest URL may carry an icon cache-busting query (?v=…).
   expect(layout).toMatch(/manifest: "\/merchant\/manifest\.webmanifest(\?v=[^"]+)?"/);
-  expect(layout).toContain('title: "WYNOS Merchant"');
+  expect(layout).toContain('title: "Wynos Merchant"');
   expect(manifest).toContain('start_url: "/merchant"');
   expect(manifest).toContain('scope: "/merchant"');
   expect(manifest).toContain('theme_color: "#e32636"');
@@ -209,4 +209,31 @@ test("Delivery proof is read from the one-to-one PostgREST embed", () => {
   for (const file of ["components/merchant/wynos-merchant-app.tsx", "components/food/wynos-food-developer-app.tsx"]) {
     expect(read(file)).not.toContain("food_delivery_proofs?.[0]");
   }
+});
+
+test("WYN-198 Merchant order flow: one main action per order and a loud new-order alert", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const alert = read("components/merchant/merchant-order-alert.tsx");
+  const css = read("app/merchant/merchant.css");
+
+  // Four tabs in working order; search and filters are tucked away.
+  expect(app).toContain('type OrderFilter = "new" | "cooking" | "delivery" | "done";');
+  expect(app).toContain('useState<OrderFilter>("new")');
+  expect(app).toContain("{showTools ? <div className=\"wm-order-search-tools\">");
+
+  // The card runs simple steps; the slip and the delivery photo still need the order open.
+  expect(app).toContain('if (next.step === "check_slip" || next.step === "deliver") {');
+  expect(app).toContain('await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);');
+
+  // One button confirms the payment and accepts; accepting still needs a paid order.
+  expect(app).toContain('await setFoodPaymentStatus(client, order.id, "paid");\n                    await transitionFoodOrder(client, order.id, "preparing", eta);');
+  expect(app).toContain('order.status === "pending_acceptance" && (order.payment_status === "submitted" || order.payment_status === "paid")');
+
+  // The alert rings until it is opened or dismissed, for at most three minutes.
+  expect(alert).toContain("const ALERT_MAX_MS = 3 * 60 * 1000;");
+  expect(alert).toContain('role="alertdialog"');
+  expect(alert).toContain('window.addEventListener("pointerdown", unlock);');
+  expect(app).toContain("{alertOrder && !selectedOrder ? (");
+  expect(css).toContain(".wm-card-action { min-height: 54px; font-size: 17px; }");
+  expect(css).toContain("@media (prefers-reduced-motion: reduce)");
 });

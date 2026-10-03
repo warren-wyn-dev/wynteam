@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
+import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
@@ -63,7 +64,7 @@ import {
 import { currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation } from "@/lib/food-customer";
 
 type MerchantTab = "home" | "orders" | "menu" | "reports" | "store";
-type OrderFilter = "active" | "new" | "preparing" | "ready" | "delivery" | "done";
+type OrderFilter = "new" | "cooking" | "delivery" | "done";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -79,14 +80,55 @@ const EMPTY_MENU_DRAFT: MenuDraft = {
   is_available: true,
 };
 
+// WYN-198: four simple tabs, in the order the store works through them.
 const ORDER_FILTERS: Array<{ key: OrderFilter; label: string }> = [
-  { key: "active", label: "ทั้งหมด" },
   { key: "new", label: "ใหม่" },
-  { key: "preparing", label: "กำลังทำ" },
-  { key: "ready", label: "พร้อมส่ง" },
+  { key: "cooking", label: "กำลังทำ" },
   { key: "delivery", label: "กำลังส่ง" },
-  { key: "done", label: "เสร็จสิ้น" },
+  { key: "done", label: "เสร็จแล้ว" },
 ];
+
+function orderInFilter(order: FoodOrder, filter: OrderFilter) {
+  if (filter === "new") return order.status === "pending_acceptance";
+  if (filter === "cooking") return order.status === "preparing" || order.status === "ready_for_delivery";
+  if (filter === "delivery") return order.status === "out_for_delivery";
+  return order.status === "delivered" || order.status === "cancelled";
+}
+
+/** An order the store can accept now: it is new and the customer has paid or sent a slip. */
+function needsStoreNow(order: FoodOrder) {
+  return order.status === "pending_acceptance" && (order.payment_status === "submitted" || order.payment_status === "paid");
+}
+
+/** A new slip (new storage path) alerts again; marking it paid does not. */
+function alertKey(order: FoodOrder) {
+  return `${order.id}:${order.payment_slip_path ?? "no-slip"}`;
+}
+
+type QuickStep = "check_slip" | "accept" | "ready" | "dispatch" | "deliver";
+
+/**
+ * WYN-198: the one main action for an order, shown on its card. Steps that
+ * need a look (the slip) or a photo (delivery) open the order instead.
+ */
+function quickStep(order: FoodOrder): { step: QuickStep; label: string } | null {
+  if (order.status === "pending_acceptance") {
+    if (order.payment_status === "submitted") return { step: "check_slip", label: "ดูสลิป · รับออเดอร์" };
+    if (order.payment_status === "paid") return { step: "accept", label: "รับออเดอร์" };
+    return null;
+  }
+  if (order.status === "preparing") return { step: "ready", label: "อาหารพร้อมแล้ว" };
+  if (order.status === "ready_for_delivery") return { step: "dispatch", label: "เริ่มจัดส่ง" };
+  if (order.status === "out_for_delivery") return { step: "deliver", label: "ส่งถึงแล้ว · แนบรูป" };
+  return null;
+}
+
+function waitingNote(order: FoodOrder) {
+  if (order.status !== "pending_acceptance") return null;
+  if (order.payment_status === "pending") return "รอลูกค้าโอนเงิน";
+  if (order.payment_status === "issue") return "รอลูกค้าส่งสลิปใหม่";
+  return null;
+}
 
 function sameLocalDay(value: string, date = new Date()) {
   const stamp = new Date(value);
@@ -166,9 +208,22 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
   );
 }
 
-function OrderCard({ order, onOpen }: { order: FoodOrder; onOpen: () => void }) {
+function OrderCard({
+  order,
+  onOpen,
+  onAction,
+  acting = false,
+}: {
+  order: FoodOrder;
+  onOpen: () => void;
+  onAction?: (order: FoodOrder) => void;
+  acting?: boolean;
+}) {
+  const next = quickStep(order);
+  const note = waitingNote(order);
   return (
-    <button className="wm-order-card" type="button" onClick={onOpen}>
+    <article className={`wm-order-card ${needsStoreNow(order) ? "is-urgent" : ""}`}>
+      <button className="wm-order-card-open" type="button" onClick={onOpen}>
       <div className="wm-order-card-top">
         <span>
           <strong>#{order.order_number}</strong>
@@ -185,7 +240,13 @@ function OrderCard({ order, onOpen }: { order: FoodOrder; onOpen: () => void }) 
         <PaymentStatus order={order} />
         <ChevronRight size={18} strokeWidth={1.8} />
       </div>
-    </button>
+      </button>
+      {next && onAction ? (
+        <button className="wm-primary wm-full wm-card-action" type="button" disabled={acting} onClick={() => onAction(order)}>
+          {acting ? "กำลังบันทึก…" : next.label}
+        </button>
+      ) : note ? <p className="wm-card-note">{note}</p> : null}
+    </article>
   );
 }
 
@@ -207,7 +268,11 @@ function MerchantInner({
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<FoodOrder | null>(null);
-  const [orderFilter, setOrderFilter] = useState<OrderFilter>("active");
+  const [orderFilter, setOrderFilter] = useState<OrderFilter>("new");
+  // WYN-198: one-tap card actions and the new-order alert.
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [seenAlerts, setSeenAlerts] = useState<Set<string>>(() => new Set());
+  const soundReady = useMerchantSoundUnlock();
   const [menuQuery, setMenuQuery] = useState("");
   const [menuDraft, setMenuDraft] = useState<MenuDraft | null>(null);
   const [storeEditing, setStoreEditing] = useState(false);
@@ -347,14 +412,40 @@ function MerchantInner({
     () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").slice(0, 8),
     [orders],
   );
-  const filteredOrders = useMemo(() => orders.filter((order) => {
-    if (orderFilter === "new") return order.status === "pending_acceptance";
-    if (orderFilter === "preparing") return order.status === "preparing";
-    if (orderFilter === "ready") return order.status === "ready_for_delivery";
-    if (orderFilter === "delivery") return order.status === "out_for_delivery";
-    if (orderFilter === "done") return order.status === "delivered" || order.status === "cancelled";
-    return order.status !== "delivered" && order.status !== "cancelled";
-  }), [orderFilter, orders]);
+  const filteredOrders = useMemo(() => orders.filter((order) => orderInFilter(order, orderFilter)), [orderFilter, orders]);
+  const alertQueue = useMemo(
+    () => orders.filter((order) => needsStoreNow(order) && !seenAlerts.has(alertKey(order))),
+    [orders, seenAlerts],
+  );
+  const alertOrder = alertQueue[0] ?? null;
+  const markAlertSeen = (order: FoodOrder) => setSeenAlerts((current) => new Set(current).add(alertKey(order)));
+
+  const quickAction = async (order: FoodOrder) => {
+    const next = quickStep(order);
+    if (!next) return;
+    if (next.step === "check_slip" || next.step === "deliver") {
+      setSelectedOrder(order);
+      return;
+    }
+    setActingId(order.id);
+    try {
+      if (next.step === "accept") {
+        await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);
+        setMessage(`รับออเดอร์ #${order.order_number} แล้ว`);
+      } else if (next.step === "ready") {
+        await transitionFoodOrder(client, order.id, "ready_for_delivery");
+        setMessage(`ออเดอร์ #${order.order_number} อาหารพร้อมแล้ว`);
+      } else {
+        await transitionFoodOrder(client, order.id, "out_for_delivery");
+        setMessage(`ออเดอร์ #${order.order_number} เริ่มจัดส่งแล้ว`);
+      }
+      await load(true);
+    } catch (error) {
+      setMessage(merchantError(error));
+    } finally {
+      setActingId(null);
+    }
+  };
   const visibleMenu = useMemo(() => {
     const q = menuQuery.trim().toLocaleLowerCase("th-TH");
     return q ? menu.filter((item) => `${item.name} ${item.category}`.toLocaleLowerCase("th-TH").includes(q)) : menu;
@@ -407,6 +498,8 @@ function MerchantInner({
             onInstall={() => void install()}
             onReload={() => void load(true)}
             onOrder={setSelectedOrder}
+            onAction={(order) => void quickAction(order)}
+            actingId={actingId}
             onOpenOrders={() => setTab("orders")}
           />
         ) : null}
@@ -418,6 +511,8 @@ function MerchantInner({
             filter={orderFilter}
             onFilter={setOrderFilter}
             onOpen={setSelectedOrder}
+            onAction={(order) => void quickAction(order)}
+            actingId={actingId}
           />
         ) : null}
 
@@ -479,6 +574,16 @@ function MerchantInner({
         <NavButton active={tab === "reports"} label="รายงาน" icon={<LayoutGrid />} onClick={() => setTab("reports")} />
         <NavButton active={tab === "store"} label="ร้านค้า" icon={<Store />} onClick={() => setTab("store")} />
       </nav>
+
+      {alertOrder && !selectedOrder ? (
+        <NewOrderAlert
+          order={alertOrder}
+          count={alertQueue.length}
+          soundReady={soundReady}
+          onOpen={() => { markAlertSeen(alertOrder); setSelectedOrder(alertOrder); }}
+          onDismiss={() => markAlertSeen(alertOrder)}
+        />
+      ) : null}
 
       {selectedOrder && store ? (
         <OrderSheet
@@ -546,6 +651,8 @@ function HomePanel({
   onInstall,
   onReload,
   onOrder,
+  onAction,
+  actingId,
   onOpenOrders,
 }: {
   client: SupabaseClient;
@@ -558,6 +665,8 @@ function HomePanel({
   onInstall: () => void;
   onReload: () => void;
   onOrder: (order: FoodOrder) => void;
+  onAction: (order: FoodOrder) => void;
+  actingId: string | null;
   onOpenOrders: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -615,7 +724,7 @@ function HomePanel({
           <button type="button" onClick={onOpenOrders}>ดูทั้งหมด <ChevronRight size={15} /></button>
         </div>
         {attentionOrders.length ? (
-          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} />)}</div>
+          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actingId === order.id} />)}</div>
         ) : (
           <div className="wm-empty wm-empty--compact"><PackageCheck size={34} strokeWidth={1.5} /><strong>จัดการครบแล้ว</strong><p>ยังไม่มีออเดอร์ที่ต้องดำเนินการ</p></div>
         )}
@@ -638,23 +747,27 @@ function OrdersPanel({
   filter,
   onFilter,
   onOpen,
+  onAction,
+  actingId,
 }: {
   orders: FoodOrder[];
   allOrders: FoodOrder[];
   filter: OrderFilter;
   onFilter: (value: OrderFilter) => void;
   onOpen: (order: FoodOrder) => void;
+  onAction: (order: FoodOrder) => void;
+  actingId: string | null;
 }) {
+  const [showTools, setShowTools] = useState(false);
   const [query, setQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | FoodOrder["payment_status"]>("all");
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "7d" | "30d">("all");
+  // "Done" keeps growing, so only the working tabs show a count.
   const counts: Record<OrderFilter, number> = {
-    active: allOrders.filter((o) => !["delivered", "cancelled"].includes(o.status)).length,
-    new: allOrders.filter((o) => o.status === "pending_acceptance").length,
-    preparing: allOrders.filter((o) => o.status === "preparing").length,
-    ready: allOrders.filter((o) => o.status === "ready_for_delivery").length,
-    delivery: allOrders.filter((o) => o.status === "out_for_delivery").length,
-    done: allOrders.filter((o) => ["delivered", "cancelled"].includes(o.status)).length,
+    new: allOrders.filter((o) => orderInFilter(o, "new")).length,
+    cooking: allOrders.filter((o) => orderInFilter(o, "cooking")).length,
+    delivery: allOrders.filter((o) => orderInFilter(o, "delivery")).length,
+    done: 0,
   };
   const visibleOrders = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("th-TH");
@@ -680,8 +793,22 @@ function OrdersPanel({
     <>
       <div className="wm-page-heading">
         <div><small>ออเดอร์จาก WYNOS Food</small><h1>ออเดอร์</h1></div>
+        <button className={`wm-icon-button ${showTools ? "is-active" : ""}`} type="button" aria-label="ค้นหาและตัวกรอง" aria-expanded={showTools} onClick={() => {
+          // Closing the tools clears them, so no hidden filter is left on.
+          if (showTools) { setQuery(""); setPaymentFilter("all"); setDateFilter("all"); }
+          setShowTools(!showTools);
+        }}>
+          <Search size={21} strokeWidth={1.8} />
+        </button>
       </div>
-      <div className="wm-order-search-tools">
+      <div className="wm-filter-tabs wm-filter-tabs--simple" role="tablist" aria-label="สถานะออเดอร์">
+        {ORDER_FILTERS.map((item) => (
+          <button key={item.key} className={filter === item.key ? "is-active" : ""} type="button" role="tab" aria-selected={filter === item.key} onClick={() => onFilter(item.key)}>
+            <span>{item.label}</span>{counts[item.key] ? <b>{counts[item.key]}</b> : null}
+          </button>
+        ))}
+      </div>
+      {showTools ? <div className="wm-order-search-tools">
         <label className="wm-search"><Search size={19} strokeWidth={1.7} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="เลขออเดอร์ · ชื่อลูกค้า · เบอร์โทร · เมนู" /></label>
         <div className="wm-order-selects">
           <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as "all" | FoodOrder["payment_status"])}>
@@ -699,16 +826,9 @@ function OrdersPanel({
             <option value="30d">30 วันล่าสุด</option>
           </select>
         </div>
-      </div>
-      <div className="wm-filter-tabs">
-        {ORDER_FILTERS.map((item) => (
-          <button key={item.key} className={filter === item.key ? "is-active" : ""} type="button" onClick={() => onFilter(item.key)}>
-            {item.label}{counts[item.key] ? <b>{counts[item.key]}</b> : null}
-          </button>
-        ))}
-      </div>
-      {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} />)}</div> : (
-        <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>ไม่พบออเดอร์ที่ตรงกับตัวกรอง</strong></div>
+      </div> : null}
+      {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} onAction={onAction} acting={actingId === order.id} />)}</div> : (
+        <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>{query || paymentFilter !== "all" || dateFilter !== "all" ? "ไม่พบออเดอร์ที่ตรงกับตัวกรอง" : "ไม่มีออเดอร์ในแท็บนี้"}</strong></div>
       )}
     </>
   );
@@ -920,6 +1040,66 @@ function OrderSheet({
         <small>{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.created_at))}</small>
       </div>
 
+      {order.status === "pending_acceptance" ? (
+        <section className="wm-detail-section wm-next-step">
+          <h3>รับออเดอร์</h3>
+          {order.payment_status === "submitted" ? (
+            <>
+              <p>ดูสลิปให้แน่ใจว่าเงินเข้าแล้ว จากนั้นกดปุ่มเดียวเพื่อยืนยันเงินและรับออเดอร์</p>
+              {slipUrl ? <a className="wm-slip-preview" href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" /></a> : null}
+            </>
+          ) : null}
+          {order.payment_status === "pending" ? <p>รอลูกค้าโอนเงิน ถ้าได้รับเงินช่องทางอื่นแล้ว กด “ทำเครื่องหมายว่าชำระแล้ว” ด้านล่าง</p> : null}
+          {order.payment_status === "issue" ? <p>แจ้งลูกค้าแล้วว่าสลิปมีปัญหา รอลูกค้าส่งสลิปใหม่</p> : null}
+          {order.payment_status === "submitted" || order.payment_status === "paid" ? (
+            <>
+              <label>เวลาทำโดยประมาณ<select value={eta} onChange={(e) => setEta(Number(e.target.value))}><option value={15}>15 นาที</option><option value={30}>30 นาที</option><option value={45}>45 นาที</option><option value={60}>60 นาที</option></select></label>
+              {order.payment_status === "submitted" ? (
+                <>
+                  {/* WYN-198: one button confirms the payment and accepts the order. */}
+                  <button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(async () => {
+                    await setFoodPaymentStatus(client, order.id, "paid");
+                    await transitionFoodOrder(client, order.id, "preparing", eta);
+                  }, "ยืนยันเงินเข้าและรับออเดอร์แล้ว")}>เงินเข้าแล้ว · รับออเดอร์</button>
+                  <button className="wm-secondary wm-full" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่"), "แจ้งลูกค้าว่าสลิปมีปัญหาแล้ว")}>สลิปมีปัญหา</button>
+                </>
+              ) : (
+                <button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "preparing", eta), "รับออเดอร์แล้ว")}>รับออเดอร์</button>
+              )}
+            </>
+          ) : null}
+        </section>
+      ) : null}
+
+      {order.status === "preparing" ? (
+        <section className="wm-detail-section wm-next-step"><h3>กำลังเตรียม</h3><p>เมื่ออาหารพร้อม ให้เปลี่ยนสถานะเพื่อเข้าสู่ขั้นตอนจัดส่ง</p><button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "ready_for_delivery"), "อาหารพร้อมจัดส่ง")}>อาหารพร้อมแล้ว</button></section>
+      ) : null}
+
+      {order.status === "ready_for_delivery" ? (
+        <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>ส่งอาหารให้คนส่งแล้วกดเริ่มจัดส่ง เมื่อส่งถึงแล้ว ขอรูปจากคนส่งมาแนบเพื่อยืนยันกับลูกค้า</p><button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
+      ) : null}
+
+      {order.status === "out_for_delivery" ? (
+        <section className="wm-detail-section wm-next-step">
+          <h3>Delivery Mode</h3>
+          <div className="wm-delivery-methods">
+            <button className={deliveryMethod === "direct" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("direct")}><PackageCheck size={20} /><span><strong>ส่งให้ลูกค้า</strong><small>ส่งถึงมือผู้รับ · ต้องมีรูป</small></span></button>
+            <button className={deliveryMethod === "dropoff" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("dropoff")}><ImagePlus size={20} /><span><strong>วางสินค้าไว้</strong><small>ต้องมีรูปและจุดที่วาง</small></span></button>
+          </div>
+          <div className="wm-proof-form">
+            <label className="wm-upload">
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setDeliveryFile(e.target.files?.[0] ?? null)} />
+              <ImagePlus size={22} /><span>{deliveryFile ? deliveryFile.name : "แนบรูปยืนยันการจัดส่งจากคนส่ง (จำเป็น)"}</span>
+            </label>
+            {deliveryMethod === "dropoff" ? (
+              <label>วางสินค้าไว้ที่ไหน?<textarea value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder="เช่น โต๊ะหน้าประตูด้านซ้าย" /></label>
+            ) : null}
+          </div>
+          <button className="wm-primary wm-full" disabled={busy || !deliveryFile || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
+        </section>
+      ) : null}
+
+
       <section className="wm-detail-section">
         <h3>รายการอาหาร</h3>
         <div className="wm-line-items">
@@ -940,13 +1120,17 @@ function OrderSheet({
         <h3>การชำระเงิน</h3>
         <div className="wm-payment-box">
           <PaymentStatus order={order} />
-          {slipUrl ? <a href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" /></a> : null}
+          {slipUrl && !(order.status === "pending_acceptance" && order.payment_status === "submitted") ? <a href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" /></a> : null}
           {order.payment_note ? <p>{order.payment_note}</p> : null}
           {order.payment_verification_status === "auto_verified" ? <p>ตรวจสลิปอัตโนมัติแล้ว · ยอดและบัญชีผู้รับตรงร้าน</p> : null}
           {order.payment_verification_status === "manual_review" && order.payment_status === "submitted" ? <p>ระบบรับสลิปแล้ว · รอร้านตรวจสอบ</p> : null}
           {order.payment_verification_status === "manual_verified" ? <p>ร้านยืนยันการชำระเงินแล้ว</p> : null}
           {order.payment_verification_status === "rejected" && order.payment_verification_note ? <p>{order.payment_verification_note}</p> : null}
-          {order.payment_status === "submitted" ? (
+          {order.status === "pending_acceptance" ? (
+            order.payment_status === "pending" ? (
+              <button className="wm-secondary wm-full" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
+            ) : null
+          ) : order.payment_status === "submitted" ? (
             <div className="wm-two-actions">
               <button className="wm-primary" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "ยืนยันเงินเข้าแล้ว")}>ยืนยันเงินเข้า</button>
               <button className="wm-secondary" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่"))}>มีปัญหา</button>
@@ -978,42 +1162,7 @@ function OrderSheet({
         </div>
       </section>
 
-      {order.status === "pending_acceptance" ? (
-        <section className="wm-detail-section wm-next-step">
-          <h3>รับออเดอร์</h3>
-          <label>เวลาทำโดยประมาณ<select value={eta} onChange={(e) => setEta(Number(e.target.value))}><option value={15}>15 นาที</option><option value={30}>30 นาที</option><option value={45}>45 นาที</option><option value={60}>60 นาที</option></select></label>
-          <button className="wm-primary wm-full" disabled={busy || order.payment_status !== "paid"} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "preparing", eta), "รับออเดอร์แล้ว")}>รับออเดอร์</button>
-          {order.payment_status !== "paid" ? <small>ยืนยันการชำระเงินก่อนรับออเดอร์</small> : null}
-        </section>
-      ) : null}
 
-      {order.status === "preparing" ? (
-        <section className="wm-detail-section wm-next-step"><h3>กำลังเตรียม</h3><p>เมื่ออาหารพร้อม ให้เปลี่ยนสถานะเพื่อเข้าสู่ขั้นตอนจัดส่ง</p><button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "ready_for_delivery"), "อาหารพร้อมจัดส่ง")}>อาหารพร้อมแล้ว</button></section>
-      ) : null}
-
-      {order.status === "ready_for_delivery" ? (
-        <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>ส่งอาหารให้คนส่งแล้วกดเริ่มจัดส่ง เมื่อส่งถึงแล้ว ขอรูปจากคนส่งมาแนบเพื่อยืนยันกับลูกค้า</p><button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
-      ) : null}
-
-      {order.status === "out_for_delivery" ? (
-        <section className="wm-detail-section wm-next-step">
-          <h3>Delivery Mode</h3>
-          <div className="wm-delivery-methods">
-            <button className={deliveryMethod === "direct" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("direct")}><PackageCheck size={20} /><span><strong>ส่งให้ลูกค้า</strong><small>ส่งถึงมือผู้รับ · ต้องมีรูป</small></span></button>
-            <button className={deliveryMethod === "dropoff" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("dropoff")}><ImagePlus size={20} /><span><strong>วางสินค้าไว้</strong><small>ต้องมีรูปและจุดที่วาง</small></span></button>
-          </div>
-          <div className="wm-proof-form">
-            <label className="wm-upload">
-              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setDeliveryFile(e.target.files?.[0] ?? null)} />
-              <ImagePlus size={22} /><span>{deliveryFile ? deliveryFile.name : "แนบรูปยืนยันการจัดส่งจากคนส่ง (จำเป็น)"}</span>
-            </label>
-            {deliveryMethod === "dropoff" ? (
-              <label>วางสินค้าไว้ที่ไหน?<textarea value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder="เช่น โต๊ะหน้าประตูด้านซ้าย" /></label>
-            ) : null}
-          </div>
-          <button className="wm-primary wm-full" disabled={busy || !deliveryFile || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
-        </section>
-      ) : null}
 
       {order.status === "delivered" ? (
         <section className="wm-detail-section wm-delivered-box"><PackageCheck size={28} /><div><strong>จัดส่งสำเร็จแล้ว</strong><small>{order.delivered_at ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.delivered_at)) : ""}</small>{proof?.location_note ? <p>วางไว้: {proof.location_note}</p> : null}</div>{proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="หลักฐานการจัดส่ง" /></a> : null}</section>
