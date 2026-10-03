@@ -1,6 +1,6 @@
 # Product Task — WYN-196 — WYNOS Food delivery zone and distance fee
 
-Status: review
+Status: approved — releasing PR #824
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-03
 
