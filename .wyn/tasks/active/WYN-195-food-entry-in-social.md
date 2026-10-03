@@ -1,6 +1,6 @@
 # Product Task — WYN-195 — WYNOS Food entry inside the social app
 
-Status: review
+Status: approved — merging PR #820
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-03
 

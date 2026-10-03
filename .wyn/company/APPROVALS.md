@@ -297,3 +297,9 @@
 - Rollback: Vercel Instant Rollback / revert the merge commit; the SQL rollback is in the workflow header; `storage-upload-validator.yml` with `remove`.
 - Post-release: send one test order and open its delivery photo from the customer side.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03
+
+### DECISION — [2026-10-03] WYN-195 WYNOS Food entry in the social app
+- Founder: **"WYNOS Food ควรมีอยู่ในหน้าโซเซียลนะ"**. In AskUserQuestion, placement **"แถบลัดใต้แท็บหน้าหลัก กับ ในเมนูด้านข้าง"** and audience **"เฉพาะ developer ก่อน"**. On the staging preview: **"อนุมัติ"** to merge PR #820.
+- Scope: web-only Home shortcut row and drawer item, shown to developer accounts only. No database or API change. Opening Food to everyone needs a separate decision.
+- Rollback: revert the merge commit, or use Vercel Instant Rollback.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03
