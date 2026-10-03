@@ -270,7 +270,7 @@ function MerchantInner({
   const [selectedOrder, setSelectedOrder] = useState<FoodOrder | null>(null);
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("new");
   // WYN-198: one-tap card actions and the new-order alert.
-  const [actingId, setActingId] = useState<string | null>(null);
+  const [actingIds, setActingIds] = useState<ReadonlySet<string>>(() => new Set());
   const [seenAlerts, setSeenAlerts] = useState<Set<string>>(() => new Set());
   const soundReady = useMerchantSoundUnlock();
   const [menuQuery, setMenuQuery] = useState("");
@@ -439,7 +439,8 @@ function MerchantInner({
       setSelectedOrder(order);
       return;
     }
-    setActingId(order.id);
+    if (actingIds.has(order.id)) return;
+    setActingIds((current) => new Set(current).add(order.id));
     try {
       if (next.step === "accept") {
         await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);
@@ -455,7 +456,11 @@ function MerchantInner({
     } catch (error) {
       setMessage(merchantError(error));
     } finally {
-      setActingId(null);
+      setActingIds((current) => {
+        const next = new Set(current);
+        next.delete(order.id);
+        return next;
+      });
     }
   };
   const visibleMenu = useMemo(() => {
@@ -511,7 +516,7 @@ function MerchantInner({
             onReload={() => void load(true)}
             onOrder={setSelectedOrder}
             onAction={(order) => void quickAction(order)}
-            actingId={actingId}
+            actingIds={actingIds}
             onOpenOrders={() => setTab("orders")}
           />
         ) : null}
@@ -524,7 +529,7 @@ function MerchantInner({
             onFilter={setOrderFilter}
             onOpen={setSelectedOrder}
             onAction={(order) => void quickAction(order)}
-            actingId={actingId}
+            actingIds={actingIds}
           />
         ) : null}
 
@@ -587,7 +592,7 @@ function MerchantInner({
         <NavButton active={tab === "store"} label="ร้านค้า" icon={<Store />} onClick={() => setTab("store")} />
       </nav>
 
-      {alertOrder && !selectedOrder ? (
+      {alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
         <NewOrderAlert
           order={alertOrder}
           count={alertQueue.length}
@@ -664,7 +669,7 @@ function HomePanel({
   onReload,
   onOrder,
   onAction,
-  actingId,
+  actingIds,
   onOpenOrders,
 }: {
   client: SupabaseClient;
@@ -678,7 +683,7 @@ function HomePanel({
   onReload: () => void;
   onOrder: (order: FoodOrder) => void;
   onAction: (order: FoodOrder) => void;
-  actingId: string | null;
+  actingIds: ReadonlySet<string>;
   onOpenOrders: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -736,7 +741,7 @@ function HomePanel({
           <button type="button" onClick={onOpenOrders}>ดูทั้งหมด <ChevronRight size={15} /></button>
         </div>
         {attentionOrders.length ? (
-          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actingId === order.id} />)}</div>
+          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actingIds.has(order.id)} />)}</div>
         ) : (
           <div className="wm-empty wm-empty--compact"><PackageCheck size={34} strokeWidth={1.5} /><strong>จัดการครบแล้ว</strong><p>ยังไม่มีออเดอร์ที่ต้องดำเนินการ</p></div>
         )}
@@ -760,7 +765,7 @@ function OrdersPanel({
   onFilter,
   onOpen,
   onAction,
-  actingId,
+  actingIds,
 }: {
   orders: FoodOrder[];
   allOrders: FoodOrder[];
@@ -768,7 +773,7 @@ function OrdersPanel({
   onFilter: (value: OrderFilter) => void;
   onOpen: (order: FoodOrder) => void;
   onAction: (order: FoodOrder) => void;
-  actingId: string | null;
+  actingIds: ReadonlySet<string>;
 }) {
   const [showTools, setShowTools] = useState(false);
   const [query, setQuery] = useState("");
@@ -839,7 +844,7 @@ function OrdersPanel({
           </select>
         </div>
       </div> : null}
-      {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} onAction={onAction} acting={actingId === order.id} />)}</div> : (
+      {visibleOrders.length ? <div className="wm-order-list wm-order-list--page">{visibleOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOpen(order)} onAction={onAction} acting={actingIds.has(order.id)} />)}</div> : (
         <div className="wm-empty"><ShoppingBag size={38} strokeWidth={1.5} /><strong>{query || paymentFilter !== "all" || dateFilter !== "all" ? "ไม่พบออเดอร์ที่ตรงกับตัวกรอง" : "ไม่มีออเดอร์ในแท็บนี้"}</strong></div>
       )}
     </>
@@ -1004,7 +1009,8 @@ function OrderSheet({
 }) {
   const [busy, setBusy] = useState(false);
   const [eta, setEta] = useState(order.eta_minutes ?? 30);
-  const [slipUrl, setSlipUrl] = useState<string | null>(null);
+  // The signed slip URL for a given slip path; null url = it failed to load.
+  const [slip, setSlip] = useState<{ path: string | null; url: string | null } | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [deliveryMethod, setDeliveryMethod] = useState<"direct" | "dropoff">("direct");
   const [locationNote, setLocationNote] = useState("");
@@ -1014,19 +1020,25 @@ function OrderSheet({
   const proofPath = proof?.image_path;
   useEffect(() => {
     let live = true;
-    void foodPrivateSignedUrl(client, order.payment_slip_path).then((url) => { if (live) setSlipUrl(url); });
+    void foodPrivateSignedUrl(client, order.payment_slip_path).then((url) => { if (live) setSlip({ path: order.payment_slip_path, url }); });
     void foodPrivateSignedUrl(client, proofPath).then((url) => { if (live) setProofUrl(url); });
     return () => { live = false; };
   }, [client, order.id, order.payment_slip_path, proofPath]);
+
+  const slipLoaded = slip !== null && slip.path === order.payment_slip_path;
+  const slipUrl = slipLoaded ? slip.url : null;
 
   const run = async (action: () => Promise<void>, success?: string) => {
     setBusy(true);
     try {
       await action();
       if (success) onMessage(success);
-      onReload();
     } catch (error) { onMessage(merchantError(error)); }
-    finally { setBusy(false); }
+    finally {
+      // Reload after failures too: a two-step action may have half succeeded.
+      onReload();
+      setBusy(false);
+    }
   };
 
   const complete = async () => {
@@ -1058,7 +1070,9 @@ function OrderSheet({
           {order.payment_status === "submitted" ? (
             <>
               <p>ดูสลิปให้แน่ใจว่าเงินเข้าแล้ว จากนั้นกดปุ่มเดียวเพื่อยืนยันเงินและรับออเดอร์</p>
-              {slipUrl ? <a className="wm-slip-preview" href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" /></a> : null}
+              {slipUrl ? <a className="wm-slip-preview" href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" /></a> : (
+                <p role="status">{slipLoaded ? "โหลดสลิปไม่สำเร็จ ปิดแล้วเปิดออเดอร์ใหม่อีกครั้ง" : "กำลังโหลดสลิป…"}</p>
+              )}
             </>
           ) : null}
           {order.payment_status === "pending" ? <p>รอลูกค้าโอนเงิน ถ้าได้รับเงินช่องทางอื่นแล้ว กด “ทำเครื่องหมายว่าชำระแล้ว” ด้านล่าง</p> : null}
@@ -1069,7 +1083,8 @@ function OrderSheet({
               {order.payment_status === "submitted" ? (
                 <>
                   {/* WYN-198: one button confirms the payment and accepts the order. */}
-                  <button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(async () => {
+                  {/* The store must see the slip before it can confirm the payment. */}
+                  <button className="wm-primary wm-full" disabled={busy || !slipUrl} type="button" onClick={() => void run(async () => {
                     await setFoodPaymentStatus(client, order.id, "paid");
                     await transitionFoodOrder(client, order.id, "preparing", eta);
                   }, "ยืนยันเงินเข้าและรับออเดอร์แล้ว")}>เงินเข้าแล้ว · รับออเดอร์</button>

@@ -1189,6 +1189,8 @@ export const EN_EXACT: Record<string, string> = {
   "หรือค้นหาสถานที่ เช่น ชื่อหมู่บ้าน คอนโด": "Or search for a place, e.g. village or condo name",
   "ค้นหาสถานที่": "Search places",
   "ปักหมุดตำแหน่งร้านแล้ว อย่าลืมกดบันทึก": "Store location pinned. Remember to save",
+  "โหลดสลิปไม่สำเร็จ ปิดแล้วเปิดออเดอร์ใหม่อีกครั้ง": "Could not load the slip. Close and open the order again",
+  "กำลังโหลดสลิป…": "Loading slip…",
   "ลูกค้าโอนเงินแล้ว": "Customer has paid",
   "ออเดอร์ใหม่": "New order",
   "แตะที่หน้าจอหนึ่งครั้งเพื่อเปิดเสียงแจ้งเตือน": "Tap the screen once to turn on alert sounds",

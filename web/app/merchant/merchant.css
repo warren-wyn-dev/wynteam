@@ -1838,6 +1838,9 @@
 .wm-alert {
   position: relative;
   width: min(100%, 420px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 28px 20px 20px;
   border-radius: 24px;
   background: var(--wm-bg);

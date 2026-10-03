@@ -239,7 +239,13 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(app).toContain("reloadQueuedRef.current = true;");
   expect(app).toContain('aria-pressed={filter === item.key}');
   expect(app).not.toContain('role="tablist"');
-  expect(app).toContain("{alertOrder && !selectedOrder ? (");
+  // The slip must be on screen before the combined button works, a failed
+  // second step still reloads, and the alert never hides behind another sheet.
+  expect(app).toContain("disabled={busy || !slipUrl}");
+  expect(app).toContain("// Reload after failures too: a two-step action may have half succeeded.");
+  expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
+  expect(app).toContain("acting={actingIds.has(order.id)}");
+  expect(css).toContain("max-height: calc(100dvh - 32px);");
   expect(css).toContain(".wm-card-action { min-height: 54px; font-size: 17px; }");
   expect(css).toContain("@media (prefers-reduced-motion: reduce)");
 });
