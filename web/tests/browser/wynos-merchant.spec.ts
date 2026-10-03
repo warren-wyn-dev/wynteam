@@ -233,6 +233,12 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(alert).toContain("const ALERT_MAX_MS = 3 * 60 * 1000;");
   expect(alert).toContain('role="alertdialog"');
   expect(alert).toContain('window.addEventListener("pointerdown", unlock);');
+  expect(alert).toContain('if (event.key === "Escape") {');
+  expect(alert).toContain("if (previous?.isConnected) previous.focus();");
+  // A refresh asked for during another refresh is queued, not dropped.
+  expect(app).toContain("reloadQueuedRef.current = true;");
+  expect(app).toContain('aria-pressed={filter === item.key}');
+  expect(app).not.toContain('role="tablist"');
   expect(app).toContain("{alertOrder && !selectedOrder ? (");
   expect(css).toContain(".wm-card-action { min-height: 54px; font-size: 17px; }");
   expect(css).toContain("@media (prefers-reduced-motion: reduce)");

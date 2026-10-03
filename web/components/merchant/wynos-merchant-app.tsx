@@ -279,10 +279,16 @@ function MerchantInner({
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
   const loadingRef = useRef(false);
+  // A refresh asked for while one is running runs once more afterwards, so
+  // the last realtime event or action always shows its final state.
+  const reloadQueuedRef = useRef(false);
   const paymentStatusRef = useRef<Map<string, FoodOrder["payment_status"]>>(new Map());
 
   const load = useCallback(async (quiet = false) => {
-    if (loadingRef.current) return;
+    if (loadingRef.current) {
+      reloadQueuedRef.current = true;
+      return;
+    }
     loadingRef.current = true;
     if (!quiet) setLoading(true);
     else setRefreshing(true);
@@ -302,8 +308,14 @@ function MerchantInner({
       loadingRef.current = false;
       setLoading(false);
       setRefreshing(false);
+      if (reloadQueuedRef.current) {
+        reloadQueuedRef.current = false;
+        void loadRef.current?.(true);
+      }
     }
   }, [client]);
+  const loadRef = useRef<typeof load | null>(null);
+  useEffect(() => { loadRef.current = load; }, [load]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -801,9 +813,9 @@ function OrdersPanel({
           <Search size={21} strokeWidth={1.8} />
         </button>
       </div>
-      <div className="wm-filter-tabs wm-filter-tabs--simple" role="tablist" aria-label="สถานะออเดอร์">
+      <div className="wm-filter-tabs wm-filter-tabs--simple" role="group" aria-label="สถานะออเดอร์">
         {ORDER_FILTERS.map((item) => (
-          <button key={item.key} className={filter === item.key ? "is-active" : ""} type="button" role="tab" aria-selected={filter === item.key} onClick={() => onFilter(item.key)}>
+          <button key={item.key} className={filter === item.key ? "is-active" : ""} type="button" aria-pressed={filter === item.key} onClick={() => onFilter(item.key)}>
             <span>{item.label}</span>{counts[item.key] ? <b>{counts[item.key]}</b> : null}
           </button>
         ))}

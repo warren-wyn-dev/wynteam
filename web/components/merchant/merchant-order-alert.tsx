@@ -84,6 +84,40 @@ export function NewOrderAlert({
   onDismiss: () => void;
 }) {
   const openRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const dismissRef = useRef(onDismiss);
+  useEffect(() => { dismissRef.current = onDismiss; }, [onDismiss]);
+
+  // Modal for keyboard users: focus stays inside, Escape closes, and focus
+  // returns to where it was when the alert closes.
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        dismissRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled])"));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const inside = dialogRef.current.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || !inside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (previous?.isConnected) previous.focus();
+    };
+  }, []);
 
   useEffect(() => {
     openRef.current?.focus();
@@ -107,7 +141,7 @@ export function NewOrderAlert({
   const slipWaiting = order.payment_status === "submitted";
 
   return (
-    <div className="wm-alert-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="wm-alert-title">
+    <div ref={dialogRef} className="wm-alert-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="wm-alert-title">
       <section className="wm-alert">
         <button className="wm-alert-close" type="button" aria-label="ปิด" onClick={onDismiss}><X size={22} /></button>
         <span className="wm-alert-icon"><BellRing size={34} /></span>
