@@ -11,6 +11,8 @@ import { useInView } from "react-intersection-observer";
 import { MaterialNavGlyph } from "@/components/bottom-navigation";
 import { ClubFeedPost } from "@/components/home/club-feed-post";
 import { HomeHeader } from "@/components/home/home-header";
+import { useIsDeveloperAccount } from "@/lib/use-is-developer-account";
+import { HomeFoodShortcut } from "@/components/home/home-food-shortcut";
 import { HomeQuickCompose } from "@/components/home/home-quick-compose";
 import { HomePostCard } from "@/components/home/home-post-card";
 import { QuoteFeedCard } from "@/components/quote-feed-card";
@@ -320,6 +322,8 @@ export function HomeScreen({ session }: { session: Session }) {
   // Shares its cache with AppChrome's own root-nav badge (lib/notification-count.ts)
   // so opening /notifications clears both instantly instead of each polling separately.
   const notificationBadge = useUnreadNotificationCount(client, userId, true);
+  // WYN-195: WYNOS Food is developer-only until launch.
+  const showFood = useIsDeveloperAccount(client, userId);
 
   // Plays a directional slide the moment the visible tab's content actually
   // lands (tap or swipe both funnel through switchMode, which records the
@@ -953,6 +957,7 @@ export function HomeScreen({ session }: { session: Session }) {
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchCancel}
       >
+        {showFood ? <HomeFoodShortcut /> : null}
         {visibleMode !== "clubs" ? (
           <HomeQuickCompose
             avatarUrl={identity?.avatar_url}
@@ -1024,7 +1029,7 @@ export function HomeScreen({ session }: { session: Session }) {
       </div>
 
       <AnimatePresence>
-        {drawerOpen ? <HomeDrawer identity={identity} onClose={() => setDrawerOpen(false)} /> : null}
+        {drawerOpen ? <HomeDrawer identity={identity} showFood={showFood} onClose={() => setDrawerOpen(false)} /> : null}
       </AnimatePresence>
 
       <AnimatePresence>

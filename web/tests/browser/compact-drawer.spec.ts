@@ -14,7 +14,11 @@ test("drawer uses founder-approved compact four-item layout and anchored footer"
   expect(drawer).not.toContain('go("/drafts")');
   expect(drawer).not.toContain('className="drawer-menu-row" type="button" onClick={() => go("/add-to-home.html")');
   const options = [...drawer.matchAll(/className="drawer-menu-row" type="button" onClick=\{\(\) => go\("([^"]+)"\)\}/g)].map((match) => match[1]);
-  expect(options).toEqual(["/clubs", "/clubs/new", "/clubs?mine=1", "/bookmarks"]);
+  // Everyone keeps the four approved rows. WYN-195 adds WYNOS Food only for
+  // developer accounts (Founder 2026-10-03), behind the showFood gate.
+  expect(options.filter((href) => href !== "/food")).toEqual(["/clubs", "/clubs/new", "/clubs?mine=1", "/bookmarks"]);
+  expect(options.filter((href) => href === "/food")).toHaveLength(1);
+  expect(drawer).toMatch(/\{showFood \? \(\s*<button className="drawer-menu-row" type="button" onClick=\{\(\) => go\("\/food"\)\}/);
   expect(drawer).toContain('className="wynos-drawer-footer"');
   expect(drawer).toContain('setPanel("feedback")');
   expect(drawer).toContain('setPanel("help")');

@@ -12,7 +12,16 @@ type DrawerPanel = "feedback" | "help" | null;
 
 /** The mobile root drawer: swipe left, tap the backdrop or press Escape to
  * dismiss. The four original destinations keep their existing routes. */
-export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | null; onClose: () => void }) {
+export function HomeDrawer({
+  identity,
+  showFood = false,
+  onClose,
+}: {
+  identity: HomeIdentity | null;
+  /** WYN-195: developer accounts only until WYNOS Food launches. */
+  showFood?: boolean;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [panel, setPanel] = useState<DrawerPanel>(null);
   const [feedback, setFeedback] = useState("");
@@ -128,6 +137,13 @@ export function HomeDrawer({ identity, onClose }: { identity: HomeIdentity | nul
           </button>
 
           <nav className="drawer-menu-list" aria-label="เมนูหลัก">
+            {showFood ? (
+              <button className="drawer-menu-row" type="button" onClick={() => go("/food")}>
+                <span className="drawer-menu-icon"><WynosIcon name="food" size={22} strokeWidth={1.85} /></span>
+                <span>WYNOS Food</span>
+                <WynosIcon name="chevronRight" size={20} strokeWidth={1.9} />
+              </button>
+            ) : null}
             <button className="drawer-menu-row" type="button" onClick={() => go("/clubs")}>
               <span className="drawer-menu-icon"><WynosIcon name="compass" size={22} strokeWidth={1.85} /></span>
               <span>สำรวจ Club</span>
