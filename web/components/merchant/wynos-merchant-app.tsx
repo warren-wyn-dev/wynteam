@@ -452,10 +452,11 @@ function MerchantInner({
         await transitionFoodOrder(client, order.id, "out_for_delivery");
         setMessage(`ออเดอร์ #${order.order_number} เริ่มจัดส่งแล้ว`);
       }
-      await load(true);
     } catch (error) {
       setMessage(merchantError(error));
     } finally {
+      // Reload on failure too: the order may have moved on elsewhere.
+      void load(true);
       setActingIds((current) => {
         const next = new Set(current);
         next.delete(order.id);
@@ -594,6 +595,7 @@ function MerchantInner({
 
       {alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
         <NewOrderAlert
+          key={alertKey(alertOrder)}
           order={alertOrder}
           count={alertQueue.length}
           soundReady={soundReady}
@@ -984,9 +986,14 @@ function StorePanel({
 }
 
 function Sheet({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+  const sheetRef = useRef<HTMLElement>(null);
+  // Move keyboard focus into the sheet when it opens (e.g. from the new-order alert).
+  useEffect(() => {
+    if (!sheetRef.current?.contains(document.activeElement)) sheetRef.current?.focus();
+  }, []);
   return (
     <div className="wm-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`wm-sheet ${wide ? "wm-sheet--wide" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
+      <section ref={sheetRef} tabIndex={-1} className={`wm-sheet ${wide ? "wm-sheet--wide" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
         <header><button type="button" aria-label="ปิด" onClick={onClose}><X size={22} /></button><h2>{title}</h2><span /></header>
         <div className="wm-sheet-body">{children}</div>
       </section>

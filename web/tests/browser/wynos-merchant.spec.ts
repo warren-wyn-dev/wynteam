@@ -234,7 +234,9 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(alert).toContain('role="alertdialog"');
   expect(alert).toContain('window.addEventListener("pointerdown", unlock);');
   expect(alert).toContain('if (event.key === "Escape") {');
-  expect(alert).toContain("if (previous?.isConnected) previous.focus();");
+  expect(alert).toContain("if (restoreFocusRef.current && previous?.isConnected) previous.focus();");
+  expect(app).toContain("key={alertKey(alertOrder)}");
+  expect(app).toContain("// Reload on failure too: the order may have moved on elsewhere.");
   // A refresh asked for during another refresh is queued, not dropped.
   expect(app).toContain("reloadQueuedRef.current = true;");
   expect(app).toContain('aria-pressed={filter === item.key}');

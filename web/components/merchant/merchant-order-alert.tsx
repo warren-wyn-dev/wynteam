@@ -86,7 +86,10 @@ export function NewOrderAlert({
   const openRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const dismissRef = useRef(onDismiss);
-  useEffect(() => { dismissRef.current = onDismiss; }, [onDismiss]);
+  // Focus goes back only when the alert is dismissed; opening the order hands
+  // focus to the order sheet instead.
+  const restoreFocusRef = useRef(false);
+  useEffect(() => { dismissRef.current = () => { restoreFocusRef.current = true; onDismiss(); }; }, [onDismiss]);
 
   // Modal for keyboard users: focus stays inside, Escape closes, and focus
   // returns to where it was when the alert closes.
@@ -115,7 +118,7 @@ export function NewOrderAlert({
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      if (previous?.isConnected) previous.focus();
+      if (restoreFocusRef.current && previous?.isConnected) previous.focus();
     };
   }, []);
 
@@ -143,7 +146,7 @@ export function NewOrderAlert({
   return (
     <div ref={dialogRef} className="wm-alert-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="wm-alert-title">
       <section className="wm-alert">
-        <button className="wm-alert-close" type="button" aria-label="ปิด" onClick={onDismiss}><X size={22} /></button>
+        <button className="wm-alert-close" type="button" aria-label="ปิด" onClick={() => dismissRef.current()}><X size={22} /></button>
         <span className="wm-alert-icon"><BellRing size={34} /></span>
         <h2 id="wm-alert-title">{slipWaiting ? "ลูกค้าโอนเงินแล้ว" : "ออเดอร์ใหม่"}</h2>
         <strong className="wm-alert-number">#{order.order_number}</strong>

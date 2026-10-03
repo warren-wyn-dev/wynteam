@@ -1884,3 +1884,4 @@
 @media (prefers-reduced-motion: reduce) {
   .wm-alert, .wm-alert-icon { animation: none; }
 }
+.wm-sheet:focus { outline: none; }
