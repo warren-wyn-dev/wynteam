@@ -117,7 +117,47 @@ const APPLE_STARTUP_IMAGES: { url: string; media: string }[] = [
 // starts BELOW the system chrome. Do not recreate an in-page status overlay.
 // iOS may cache this metadata when the Home Screen app is installed:
 // an existing shortcut may need to be removed and added again.
-export const metadata:Metadata={metadataBase:new URL(SITE_URL),...shareMetadata("WYNOS","WYNOS social web"),appleWebApp:{capable:true,statusBarStyle:"default",title:"WYNOS",startupImage:APPLE_STARTUP_IMAGES},other:{"apple-mobile-web-app-capable":"yes"}};
+const WYNOS_ICON = (size: number) => `/app-icon-v7?size=${size}`;
+
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  ...shareMetadata("WYNOS", "WYNOS social web"),
+  manifest: "/manifest.webmanifest?v=20261004-7",
+  icons: {
+    icon: [
+      { url: WYNOS_ICON(16), sizes: "16x16", type: "image/png" },
+      { url: WYNOS_ICON(32), sizes: "32x32", type: "image/png" },
+      { url: WYNOS_ICON(48), sizes: "48x48", type: "image/png" },
+      { url: WYNOS_ICON(192), sizes: "192x192", type: "image/png" },
+      { url: WYNOS_ICON(512), sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: [{ url: WYNOS_ICON(32), sizes: "32x32", type: "image/png" }],
+    apple: [
+      { url: WYNOS_ICON(57), sizes: "57x57", type: "image/png" },
+      { url: WYNOS_ICON(72), sizes: "72x72", type: "image/png" },
+      { url: WYNOS_ICON(76), sizes: "76x76", type: "image/png" },
+      { url: WYNOS_ICON(114), sizes: "114x114", type: "image/png" },
+      { url: WYNOS_ICON(120), sizes: "120x120", type: "image/png" },
+      { url: WYNOS_ICON(152), sizes: "152x152", type: "image/png" },
+      { url: WYNOS_ICON(167), sizes: "167x167", type: "image/png" },
+      { url: WYNOS_ICON(180), sizes: "180x180", type: "image/png" },
+    ],
+    other: [
+      { rel: "apple-touch-icon-precomposed", url: WYNOS_ICON(180), sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "WYNOS",
+    startupImage: APPLE_STARTUP_IMAGES,
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "msapplication-TileColor": "#ffffff",
+    "msapplication-TileImage": WYNOS_ICON(144),
+  },
+};
 // Zoom is off, like a native app: Founder decision 2026-09-16 (#479),
 // reconfirmed 2026-09-26 after #687 had re-enabled it ("ปิดการซูมทั้งหมด").
 // maximumScale 1 also stops iOS zooming into text fields under 16px on focus.

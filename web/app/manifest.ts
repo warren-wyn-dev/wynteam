@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+const WYNOS_ICON_192 = "/app-icon-v7?size=192";
+const WYNOS_ICON_512 = "/app-icon-v7?size=512";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "WYNOS",
@@ -12,8 +15,8 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#ffffff",
     lang: "th",
     icons: [
-      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: WYNOS_ICON_192, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: WYNOS_ICON_512, sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/icons/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };

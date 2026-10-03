@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+const FOOD_ICON_192 = "/food/icon-v7?size=192";
+const FOOD_ICON_512 = "/food/icon-v7?size=512";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/food",
@@ -9,13 +12,13 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/food",
     scope: "/food",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#111111",
+    background_color: "#e32636",
+    theme_color: "#e32636",
     lang: "th",
     orientation: "portrait",
     icons: [
-      { src: "/icons/food/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/food/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: FOOD_ICON_192, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: FOOD_ICON_512, sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/icons/food/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };

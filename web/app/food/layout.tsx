@@ -3,23 +3,45 @@ import type { ReactNode } from "react";
 
 import "./food.css";
 
+const FOOD_ICON = (size: number) => `/food/icon-v7?size=${size}`;
+
 export const metadata: Metadata = {
   title: "WYNOS Food · Developer Preview",
   applicationName: "WYNOS Food",
   description: "WYNOS Food closed developer preview",
-  manifest: "/food/manifest.webmanifest",
+  manifest: "/food/manifest.webmanifest?v=20261004-7",
   icons: {
     icon: [
-      { url: "/icons/food/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/food/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: FOOD_ICON(16), sizes: "16x16", type: "image/png" },
+      { url: FOOD_ICON(32), sizes: "32x32", type: "image/png" },
+      { url: FOOD_ICON(48), sizes: "48x48", type: "image/png" },
+      { url: FOOD_ICON(192), sizes: "192x192", type: "image/png" },
+      { url: FOOD_ICON(512), sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icons/food/icon-192.png", sizes: "192x192", type: "image/png" }],
+    shortcut: [{ url: FOOD_ICON(32), sizes: "32x32", type: "image/png" }],
+    apple: [
+      { url: FOOD_ICON(57), sizes: "57x57", type: "image/png" },
+      { url: FOOD_ICON(72), sizes: "72x72", type: "image/png" },
+      { url: FOOD_ICON(76), sizes: "76x76", type: "image/png" },
+      { url: FOOD_ICON(114), sizes: "114x114", type: "image/png" },
+      { url: FOOD_ICON(120), sizes: "120x120", type: "image/png" },
+      { url: FOOD_ICON(152), sizes: "152x152", type: "image/png" },
+      { url: FOOD_ICON(167), sizes: "167x167", type: "image/png" },
+      { url: FOOD_ICON(180), sizes: "180x180", type: "image/png" },
+    ],
+    other: [
+      { rel: "apple-touch-icon-precomposed", url: FOOD_ICON(180), sizes: "180x180", type: "image/png" },
+    ],
   },
   robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "WYNOS Food",
+  },
+  other: {
+    "msapplication-TileColor": "#e32636",
+    "msapplication-TileImage": FOOD_ICON(144),
   },
 };
 
@@ -31,8 +53,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: light)", color: "#e32636" },
+    { media: "(prefers-color-scheme: dark)", color: "#e32636" },
   ],
 };
 

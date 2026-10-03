@@ -1,17 +1,12 @@
 import { ImageResponse } from "next/og";
 
-const SOURCE_ICON = "https://wynos.online/icons/merchant/apple-touch-icon-v5-180.png";
+const SOURCE_ICON = "https://wynos.online/icons/food/icon-512.png";
 const ALLOWED_SIZES = new Set([16, 32, 48, 57, 64, 72, 76, 96, 114, 120, 128, 144, 152, 167, 180, 192, 256, 384, 512]);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const requested = Number(searchParams.get("size") ?? "180");
-  const size = ALLOWED_SIZES.has(requested) ? requested : 180;
-
-  // Preserve the approved 3D Merchant artwork, but enlarge it enough to
-  // remove the white safety border baked into the source PNG. The system
-  // applies its own rounded icon mask afterwards.
-  const artworkSize = Math.round(size * (180 / 156));
+  const requested = Number(searchParams.get("size") ?? "192");
+  const size = ALLOWED_SIZES.has(requested) ? requested : 192;
 
   return new ImageResponse(
     (
@@ -26,13 +21,7 @@ export async function GET(request: Request) {
           background: "#e32636",
         }}
       >
-        <img
-          src={SOURCE_ICON}
-          width={artworkSize}
-          height={artworkSize}
-          alt=""
-          style={{ width: artworkSize, height: artworkSize, flex: "none" }}
-        />
+        <img src={SOURCE_ICON} width={size} height={size} alt="" />
       </div>
     ),
     {

@@ -19,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: MERCHANT_ICON_192, sizes: "192x192", type: "image/png", purpose: "any" },
       { src: MERCHANT_ICON_512, sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: MERCHANT_ICON_512, sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/merchant/merchant-app-v3-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }

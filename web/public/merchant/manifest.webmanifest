@@ -24,7 +24,7 @@
       "purpose": "any"
     },
     {
-      "src": "/merchant/icon-v6?size=512",
+      "src": "/icons/merchant/merchant-app-v3-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
