@@ -162,3 +162,28 @@ test("WYN-193 every Food delivery needs an uploaded photo and notifies the buyer
   expect(sql).toContain("insert into public.notifications(recipient_id,actor_id,type,reason)");
   expect(sql).toContain("revoke all on function public.food_complete_delivery(uuid,text,text,text) from public, anon;");
 });
+
+test("WYN-194 Food storage is isolated per store", () => {
+  const sql = read("../supabase/migrations_wynos_food_storage_store_isolation_v1.sql");
+
+  // No storage policy may grant access to every store's files any more.
+  const policies = sql.replace(/^--.*$/gm, "");
+  expect(policies).not.toContain("food_has_merchant_access(null)");
+  expect(sql).toContain("public.food_has_merchant_access(o.store_id)");
+  expect(sql).toContain("and o.status = 'out_for_delivery'");
+  expect(sql).toContain("public.merchant_has_store_role(o.store_id, array['owner','admin','manager','orders','delivery'])");
+  expect(sql).toContain("public.merchant_has_store_role(s.id, array['owner','admin','manager'])");
+  expect(sql).toContain("(storage.foldername(name))[1] = 'stores'");
+  for (const policy of [
+    "Food private media readable by rollout gate",
+    "Food private upload by rollout gate",
+    "Food private update by rollout gate",
+    "Food private delete by rollout gate",
+    "Food public media merchant upload",
+    "Food public media merchant update",
+    "Food public media merchant delete",
+  ]) {
+    expect(sql).toContain(`drop policy if exists "${policy}" on storage.objects;`);
+    expect(sql).toContain(`create policy "${policy}"`);
+  }
+});

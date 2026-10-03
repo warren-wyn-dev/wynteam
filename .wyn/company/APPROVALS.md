@@ -279,3 +279,10 @@
 - ไม่ครอบคลุม: การ merge เข้า main, การ apply `supabase/migrations_wynos_food_delivery_photo_required_v1.sql` บน production และ production deploy — ต้องขออนุมัติแยกหลัง QA
 - Rollback: re-run `food_complete_delivery` จาก `migrations_wynos_merchant_core_completion_v1.sql` และ revert web commit
 - สถานะ: **อนุมัติแล้ว (implementation)**. วันที่ 2026-10-03
+
+### DECISION — [2026-10-03] WYN-194 isolate WYNOS Food storage per store
+- Founder: **"แก้ปัญหาให้หน่อย แล้วQA"** หลังได้รับรายงานว่า storage ของ Food ข้ามร้านได้
+- Scope: security policy tightening เฉพาะ storage policies ของ `food-private` / `food-public` (`supabase/migrations_wynos_food_storage_store_isolation_v1.sql`) + QA; ไม่ลดสิทธิ์ลูกค้า ไม่แก้ข้อมูล
+- ไม่ครอบคลุม: merge เข้า main, apply migration production, production deploy — ต้องขออนุมัติแยกหลัง QA
+- Rollback: re-run policies เดิมจาก `migrations_wynos_food_customer_access_gate_v2.sql` และ `migrations_wynos_food_merchant_v1.sql`
+- สถานะ: **อนุมัติแล้ว (implementation + QA)**. วันที่ 2026-10-03
