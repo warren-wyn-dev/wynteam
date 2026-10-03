@@ -3,23 +3,33 @@ import type { ReactNode } from "react";
 
 import "./merchant.css";
 
-const I = "/icons/merchant/v13";
+const MERCHANT_ICON_180 = "/icons/merchant/v14-180.png";
+const MERCHANT_ICON_192 = "/icons/merchant/v14-192.png";
+const MERCHANT_ICON_512 = "/icons/merchant/v14-512.png";
 
 export const metadata: Metadata = {
   title: "Wynos Merchant",
   applicationName: "Wynos Merchant",
   description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
-  manifest: "/merchant/manifest.webmanifest?v=13",
+  manifest: "/merchant/manifest.webmanifest?v=14",
   icons: {
     icon: [
-      { url: I + "-192.png", sizes: "192x192", type: "image/png" },
-      { url: I + "-512.png", sizes: "512x512", type: "image/png" },
+      { url: MERCHANT_ICON_192, sizes: "192x192", type: "image/png" },
+      { url: MERCHANT_ICON_512, sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: [
+      { url: MERCHANT_ICON_192, sizes: "192x192", type: "image/png" },
     ],
     apple: [
-      { url: I + "-180.png", sizes: "180x180", type: "image/png" },
+      { url: MERCHANT_ICON_180, sizes: "180x180", type: "image/png" },
     ],
     other: [
-      { rel: "apple-touch-icon-precomposed", url: I + "-180.png", sizes: "180x180", type: "image/png" },
+      {
+        rel: "apple-touch-icon-precomposed",
+        url: MERCHANT_ICON_180,
+        sizes: "180x180",
+        type: "image/png",
+      },
     ],
   },
   appleWebApp: {
