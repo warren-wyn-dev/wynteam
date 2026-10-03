@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { orderDeliveryProof } from "../../lib/food-delivery-proof";
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
@@ -49,9 +50,9 @@ test("Merchant receives orders from WYNOS Food only while keeping delivery workf
   expect(guardSql).toContain("new.source <> 'app'");
   expect(guardSql).toContain("new.buyer_id <> new.created_by");
 
-  expect(app).toContain('capture="environment"');
   expect(app).toContain('deliveryMethod === "dropoff"');
-  expect(app).toContain("ถ่ายรูปหลักฐานการจัดส่ง");
+  expect(app).toContain("แนบรูปยืนยันการจัดส่งจากคนส่ง (จำเป็น)");
+  expect(app).toContain("disabled={busy || !deliveryFile");
   expect(app).toContain("วางสินค้าไว้ที่ไหน?");
   expect(app).toContain("ยืนยันส่งสำเร็จ");
   expect(app).toContain("ยืนยันเงินเข้า");
@@ -139,4 +140,72 @@ test("Campaign Center keeps promotion creation in Merchant and pricing in WYNOS 
   expect(sql).toContain("order by saving desc");
   expect(sql).toContain("food_quote_order");
   expect(sql).toContain("campaign_applied");
+});
+
+
+test("WYN-193 every Food delivery needs an uploaded photo and notifies the buyer", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const sql = read("../supabase/migrations_wynos_food_delivery_photo_required_v1.sql");
+
+  // The photo comes from an outside courier, so it is picked from the gallery
+  // and is required for both "direct" and "dropoff".
+  expect(app).not.toContain('capture="environment" onChange={(e) => setDeliveryFile');
+  expect(app).toContain('if (!deliveryFile) throw new Error("กรุณาแนบรูปยืนยันการจัดส่งจากคนส่ง");');
+  expect(app).toContain("uploadFoodPrivateImage(client, deliveryFile, `delivery/${order.id}`)");
+
+  expect(sql).toContain("create or replace function public.food_complete_delivery(");
+  expect(sql).toContain("raise exception 'delivery photo is required'");
+  expect(sql).toContain("p_image_path not like 'delivery/' || p_order_id::text || '/%'");
+  expect(sql).toContain("o.bucket_id='food-private' and o.name=p_image_path");
+  expect(sql).toContain("merchant_has_store_role(v_order.store_id, array['owner','admin','manager','orders','delivery'])");
+  expect(sql).toContain("raise exception 'dropoff location is required'");
+  expect(sql).not.toContain("case when p_method='dropoff' then p_image_path else null end");
+  expect(sql).toContain("insert into public.notifications(recipient_id,actor_id,type,reason)");
+  expect(sql).toContain("revoke all on function public.food_complete_delivery(uuid,text,text,text) from public, anon;");
+});
+
+test("WYN-194 Food storage is isolated per store", () => {
+  const sql = read("../supabase/migrations_wynos_food_storage_store_isolation_v1.sql");
+
+  // No storage policy may grant access to every store's files any more.
+  const policies = sql.replace(/^--.*$/gm, "");
+  expect(policies).not.toContain("food_has_merchant_access(null)");
+  expect(sql).toContain("public.food_has_merchant_access(o.store_id)");
+  expect(sql).toContain("and o.status = 'out_for_delivery'");
+  expect(sql).toContain("public.merchant_has_store_role(o.store_id, array['owner','admin','manager','orders','delivery'])");
+  expect(sql).toContain("create or replace function public.food_store_media_writable(p_name text)");
+  expect(sql).toContain("(storage.foldername(p_name))[1] = 'stores'");
+  expect(sql).toContain("with check (bucket_id='food-public' and public.food_store_media_writable(name));");
+  // Index-friendly uuid comparison, never a cast of a non-uuid path segment.
+  expect(sql).toContain("o.id = public.food_path_uuid((storage.foldername(name))[2])");
+  expect(policies).not.toContain("o.id::text");
+  for (const policy of [
+    "Food private media readable by rollout gate",
+    "Food private upload by rollout gate",
+    "Food public media merchant upload",
+    "Food public media merchant update",
+    "Food public media merchant delete",
+  ]) {
+    expect(sql).toContain(`drop policy if exists "${policy}" on storage.objects;`);
+    expect(sql).toContain(`create policy "${policy}"`);
+  }
+  // Slips and delivery photos are evidence: no API update/delete for anyone.
+  for (const policy of ["Food private update by rollout gate", "Food private delete by rollout gate"]) {
+    expect(sql).toContain(`drop policy if exists "${policy}" on storage.objects;`);
+    expect(sql).not.toContain(`create policy "${policy}"`);
+  }
+});
+
+test("Delivery proof is read from the one-to-one PostgREST embed", () => {
+  const proof = { id: "p", order_id: "o", method: "direct", location_note: null, image_path: "delivery/o/a.jpg", created_at: "" };
+  expect(orderDeliveryProof({ food_delivery_proofs: proof })).toEqual(proof);
+  expect(orderDeliveryProof({ food_delivery_proofs: [proof] })).toEqual(proof);
+  expect(orderDeliveryProof({ food_delivery_proofs: null })).toBeUndefined();
+  expect(orderDeliveryProof({})).toBeUndefined();
+  for (const lib of ["lib/food-merchant.ts", "lib/food-customer.ts"]) {
+    expect(read(lib)).toContain('export { orderDeliveryProof } from "@/lib/food-delivery-proof";');
+  }
+  for (const file of ["components/merchant/wynos-merchant-app.tsx", "components/food/wynos-food-developer-app.tsx"]) {
+    expect(read(file)).not.toContain("food_delivery_proofs?.[0]");
+  }
 });

@@ -14,6 +14,9 @@ export const IMAGE_BUCKETS = new Set([
   "drop-images",
   "chat-media",
   "club-media",
+  // WYNOS Food: payment slips, delivery photos (private) and store media (public).
+  "food-private",
+  "food-public",
 ]);
 
 /** Bytes needed to recognise every supported format (ISO-BMFF brands included). */

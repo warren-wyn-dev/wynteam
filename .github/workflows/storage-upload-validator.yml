@@ -2,7 +2,7 @@ name: Storage upload validator (WEB-B1-QA-04)
 
 # Installs, verifies and end-to-end tests the Database Webhook that sends
 # every new or replaced object in the image buckets (avatars, drop-images,
-# chat-media, club-media) to the `validate-upload` Edge Function. That
+# chat-media, club-media, food-private, food-public) to the `validate-upload` Edge Function. That
 # function reads the first bytes and deletes objects that are not images.
 # Founder-approved 2026-09-26 (.wyn/company/APPROVALS.md). Deploy the function
 # first with deploy-edge-functions.yml (function: validate-upload).
@@ -54,7 +54,7 @@ jobs:
           done
           PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
           API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
-          BUCKETS="'avatars','drop-images','chat-media','club-media'"
+          BUCKETS="'avatars','drop-images','chat-media','club-media','food-private','food-public'"
           INSERT_TRIGGER=storage_objects_validate_upload_insert
           UPDATE_TRIGGER=storage_objects_validate_upload_update
 

@@ -62,7 +62,7 @@ const event = (overrides: Partial<WebhookPayload> & { record?: Record<string, un
 Deno.test("only image-bucket objects with sane paths are inspected", () => {
   assertEquals(targetFromPayload(event()), { bucket: "drop-images", name: "u1/publications/op/0.jpg", id: "obj-1" });
   assertEquals(targetFromPayload(event({ type: "UPDATE" }))?.bucket, "drop-images");
-  for (const bucket of ["avatars", "chat-media", "club-media"]) {
+  for (const bucket of ["avatars", "chat-media", "club-media", "food-private", "food-public"]) {
     assertEquals(targetFromPayload(event({ record: { bucket_id: bucket, name: "a/b.png" } }))?.bucket, bucket);
   }
   const ignored: WebhookPayload[] = [

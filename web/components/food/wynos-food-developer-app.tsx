@@ -39,6 +39,7 @@ import {
   foodOrderStatusLabel,
   foodPaymentStatusLabel,
   foodPrivateSignedUrl,
+  orderDeliveryProof,
   foodPublicUrl,
   quoteFoodCustomerOrder,
   saveFoodCustomerAddress,
@@ -677,7 +678,7 @@ function OrderDetailSheet({
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [dynamicPaymentQr, setDynamicPaymentQr] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
-  const proof = order.food_delivery_proofs?.[0];
+  const proof = orderDeliveryProof(order);
 
   useEffect(() => {
     let live = true;

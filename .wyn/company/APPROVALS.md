@@ -271,3 +271,29 @@
 - Rollback: revert the web release commit / restore the prior Edge Function and remove `public.notifications` from `supabase_realtime` if a release regression requires containment. Do not weaken unrelated auth/RLS controls.
 - สถานะ: **อนุมัติแล้ว**
 - วันที่ตัดสินใจ: 2026-09-30
+
+### DECISION — [2026-10-03] WYN-193 WYNOS Food mandatory delivery photo + buyer notification
+- Founder: **"บังคับให้ร้านแนบรูปทุกครั้ง"** และ **"เอาตามที่ว่าดีที่สุดเลย"** (รับข้อเสนอ: บังคับรูปทุกวิธีส่ง + แจ้งเตือนลูกค้าเมื่อส่งถึง; ยังไม่บันทึกข้อมูลคนส่ง)
+- Context: ไม่มีระบบไรเดอร์ ร้านจ้างคนส่งภายนอก คนส่งส่งรูปให้ร้าน ร้านแนบรูปให้ลูกค้า; ตอนนี้มีร้าน WYNOS ร้านเดียว แต่กติกาใช้กับทุกร้าน
+- Scope: implementation บน branch + PRD `.wyn/tasks/backlog/WYN-193-food-mandatory-delivery-photo.md`
+- ไม่ครอบคลุม: การ merge เข้า main, การ apply `supabase/migrations_wynos_food_delivery_photo_required_v1.sql` บน production และ production deploy — ต้องขออนุมัติแยกหลัง QA
+- Rollback: re-run `food_complete_delivery` จาก `migrations_wynos_merchant_core_completion_v1.sql` และ revert web commit
+- สถานะ: **อนุมัติแล้ว (implementation)**. วันที่ 2026-10-03
+
+### DECISION — [2026-10-03] WYN-194 isolate WYNOS Food storage per store
+- Founder: **"แก้ปัญหาให้หน่อย แล้วQA"** หลังได้รับรายงานว่า storage ของ Food ข้ามร้านได้
+- Scope: security policy tightening เฉพาะ storage policies ของ `food-private` / `food-public` (`supabase/migrations_wynos_food_storage_store_isolation_v1.sql`) + QA; ไม่ลดสิทธิ์ลูกค้า ไม่แก้ข้อมูล
+- ไม่ครอบคลุม: merge เข้า main, apply migration production, production deploy — ต้องขออนุมัติแยกหลัง QA
+- Rollback: re-run policies เดิมจาก `migrations_wynos_food_customer_access_gate_v2.sql` และ `migrations_wynos_food_merchant_v1.sql`
+- สถานะ: **อนุมัติแล้ว (implementation + QA)**. วันที่ 2026-10-03
+
+### DECISION — [2026-10-03] WYN-193 / WYN-194 production release
+- Founder: **"อนุมัติ merge และติดตั้งบนระบบจริง"** (after QA & Security PASS, CTO review and Codex review fixes on PR #819)
+- Scope:
+  1. merge PR #819 (web auto-deploys to production);
+  2. immediately afterwards, dispatch `food-apply-wyn193-wyn194.yml` on main with `APPLY-WYN-193-194`, which applies `migrations_wynos_food_storage_store_isolation_v1.sql` then `migrations_wynos_food_delivery_photo_required_v1.sql` in one transaction and verifies them;
+  3. deploy Edge Function `validate-upload`, then run `storage-upload-validator.yml` with `create`, then `test`, to cover the `food-private` and `food-public` buckets.
+- Runbook: between steps 1 and 2, do not complete 'direct' deliveries.
+- Rollback: Vercel Instant Rollback / revert the merge commit; the SQL rollback is in the workflow header; `storage-upload-validator.yml` with `remove`.
+- Post-release: send one test order and open its delivery photo from the customer side.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03

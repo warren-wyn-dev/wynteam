@@ -3,6 +3,8 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 
+export { orderDeliveryProof } from "@/lib/food-delivery-proof";
+
 export type FoodStore = {
   id: string;
   merchant_account_id: string | null;
@@ -110,8 +112,10 @@ export type FoodOrder = {
   created_at: string;
   updated_at: string;
   food_order_items?: FoodOrderItem[];
-  food_delivery_proofs?: FoodDeliveryProof[];
+  food_delivery_proofs?: FoodDeliveryProof | FoodDeliveryProof[] | null;
 };
+
+
 
 export type MerchantSnapshot = {
   access: boolean;

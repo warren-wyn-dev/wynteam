@@ -1,0 +1,85 @@
+name: Food -- apply WYN-194 storage isolation and WYN-193 delivery photo
+
+# Applies, in this order:
+#   1. supabase/migrations_wynos_food_storage_store_isolation_v1.sql (WYN-194)
+#   2. supabase/migrations_wynos_food_delivery_photo_required_v1.sql (WYN-193)
+# Runs only by manual dispatch on main after the Founder approves production
+# (AGENTS.md Change Control) and after the web change that always sends a
+# delivery photo is live. Behaviour tests:
+# supabase/tests/wynos_food_delivery_storage_test.sh.
+#
+# SAFETY: replaces storage.objects policies for the food-private / food-public
+# buckets and public.food_complete_delivery, and adds two helper functions
+# (food_path_uuid, food_store_media_writable). No table, object or row changes.
+# Both files run in one transaction.
+# ROLLBACK (Founder, SQL editor), if ever needed: re-run
+#   - the food-private policies in supabase/migrations_wynos_food_customer_access_gate_v2.sql
+#   - the food-public write policies in supabase/migrations_wynos_food_merchant_v1.sql
+#   - public.food_complete_delivery from supabase/migrations_wynos_merchant_core_completion_v1.sql
+#   then drop function public.food_store_media_writable(text), public.food_path_uuid(text);
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-WYN-193-194 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-193-194'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          # One request, one transaction: both migrations land together or not at all.
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_food_storage_store_isolation_v1.sql)
+          $(cat supabase/migrations_wynos_food_delivery_photo_required_v1.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no personal data is read.
+          run_sql "select
+              (select count(*) from pg_policies where schemaname='storage' and tablename='objects'
+                 and (coalesce(qual,'') || coalesce(with_check,'')) like '%food_has_merchant_access(NULL%') as any_store_policies,
+              (select count(*) from pg_policies where schemaname='storage' and tablename='objects'
+                 and policyname in ('Food private update by rollout gate','Food private delete by rollout gate')) as private_edit_policies,
+              (select count(*) from pg_policies where schemaname='storage' and tablename='objects'
+                 and policyname in ('Food private media readable by rollout gate','Food private upload by rollout gate',
+                   'Food public media readable','Food public media merchant upload','Food public media merchant update','Food public media merchant delete')) as expected_policies,
+              position('delivery photo is required' in pg_get_functiondef('public.food_complete_delivery(uuid,text,text,text)'::regprocedure)) > 0 as photo_required,
+              has_function_privilege('authenticated', 'public.food_complete_delivery(uuid,text,text,text)', 'execute') as merchants_can_call,
+              has_function_privilege('anon', 'public.food_complete_delivery(uuid,text,text,text)', 'execute') as anon_can_call,
+              public.food_path_uuid('not-a-uuid') is null as path_uuid_safe;" \
+            | tee result.json | jq .
+          jq -e '.[0].any_store_policies == 0 and .[0].private_edit_policies == 0 and .[0].expected_policies == 6
+                 and .[0].photo_required == true and .[0].merchants_can_call == true and .[0].anon_can_call == false and .[0].path_uuid_safe == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "WYN-194 storage isolation and WYN-193 delivery photo are live."
