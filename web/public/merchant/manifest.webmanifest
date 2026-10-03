@@ -1,33 +1,9 @@
 {
-  "id": "/merchant",
-  "name": "Wynos Merchant",
-  "short_name": "Wynos Merchant",
-  "description": "จัดการร้าน WYNOS Food",
-  "start_url": "/merchant",
-  "scope": "/merchant",
-  "display": "standalone",
-  "background_color": "#e32636",
-  "theme_color": "#e32636",
-  "lang": "th",
-  "orientation": "portrait",
-  "icons": [
-    {
-      "src": "/merchant/icon-v10?size=192",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/merchant/icon-v10?size=512",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/merchant/icon-v10?size=512&maskable=1",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ]
+ "id":"/merchant","name":"Wynos Merchant","short_name":"Wynos Merchant","description":"จัดการร้าน WYNOS Food",
+ "start_url":"/merchant","scope":"/merchant","display":"standalone","background_color":"#e32636","theme_color":"#e32636","lang":"th","orientation":"portrait",
+ "icons":[
+  {"src":"/merchant/icon-v11?size=192","sizes":"192x192","type":"image/png","purpose":"any"},
+  {"src":"/merchant/icon-v11?size=512","sizes":"512x512","type":"image/png","purpose":"any"},
+  {"src":"/merchant/icon-v11?size=512&maskable=1","sizes":"512x512","type":"image/png","purpose":"maskable"}
+ ]
 }
