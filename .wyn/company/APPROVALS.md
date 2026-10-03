@@ -271,3 +271,11 @@
 - Rollback: revert the web release commit / restore the prior Edge Function and remove `public.notifications` from `supabase_realtime` if a release regression requires containment. Do not weaken unrelated auth/RLS controls.
 - สถานะ: **อนุมัติแล้ว**
 - วันที่ตัดสินใจ: 2026-09-30
+
+### DECISION — [2026-10-03] WYN-193 WYNOS Food mandatory delivery photo + buyer notification
+- Founder: **"บังคับให้ร้านแนบรูปทุกครั้ง"** และ **"เอาตามที่ว่าดีที่สุดเลย"** (รับข้อเสนอ: บังคับรูปทุกวิธีส่ง + แจ้งเตือนลูกค้าเมื่อส่งถึง; ยังไม่บันทึกข้อมูลคนส่ง)
+- Context: ไม่มีระบบไรเดอร์ ร้านจ้างคนส่งภายนอก คนส่งส่งรูปให้ร้าน ร้านแนบรูปให้ลูกค้า; ตอนนี้มีร้าน WYNOS ร้านเดียว แต่กติกาใช้กับทุกร้าน
+- Scope: implementation บน branch + PRD `.wyn/tasks/backlog/WYN-193-food-mandatory-delivery-photo.md`
+- ไม่ครอบคลุม: การ merge เข้า main, การ apply `supabase/migrations_wynos_food_delivery_photo_required_v1.sql` บน production และ production deploy — ต้องขออนุมัติแยกหลัง QA
+- Rollback: re-run `food_complete_delivery` จาก `migrations_wynos_merchant_core_completion_v1.sql` และ revert web commit
+- สถานะ: **อนุมัติแล้ว (implementation)**. วันที่ 2026-10-03

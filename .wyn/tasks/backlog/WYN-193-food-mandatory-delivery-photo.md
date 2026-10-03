@@ -1,6 +1,6 @@
 # Product Task — WYN-193 — WYNOS Food: บังคับแนบรูปทุกครั้งที่ส่งสำเร็จ
 
-Status: backlog — รอ Founder อนุมัติ PRD
+Status: review — implemented, รอ QA & Security / CTO review; migration ยังไม่ apply production
 Owner: AI Product Manager
 Date: 2026-10-03
 
@@ -10,6 +10,7 @@ Date: 2026-10-03
 - เมื่อส่งเสร็จ คนส่งส่งรูปให้ร้าน (ช่องทางนอกระบบ เช่น LINE) แล้วร้านแนบรูปในแอป Merchant ให้ลูกค้าเห็น
 - ตอนนี้มีร้านเดียว (ร้าน WYNOS) แต่ทุกอย่างต้องใช้ได้กับร้านอื่นในอนาคตด้วยกติกาเดียวกัน
 - Founder (2026-10-03): **"บังคับให้ร้านแนบรูปทุกครั้ง"**
+- Founder (2026-10-03): **"เอาตามที่ว่าดีที่สุดเลย"** → อนุมัติ WYN-193 + แจ้งเตือนลูกค้าเมื่อส่งถึง (ตามที่ AI แนะนำ); ยังไม่ทำการบันทึกข้อมูลคนส่ง
 
 ## Feature
 
@@ -38,6 +39,8 @@ Date: 2026-10-03
 6. หน้าลูกค้า: แสดงรูปทั้งแบบ `direct` และ `dropoff` (ปัจจุบันรองรับแล้ว ตรวจยืนยัน)
 7. ออเดอร์ที่ส่งสำเร็จไปแล้วก่อนหน้านี้ไม่ถูกแก้ไข (ไม่ backfill, ไม่เปลี่ยน constraint ที่ทำให้ข้อมูลเก่าผิด)
 8. ใช้กับทุกร้านเหมือนกัน ไม่มี setting รายร้าน
+9. แจ้งเตือนลูกค้า (in-app + push ผ่าน `public.notifications` เดิม, type `system`) เมื่อออเดอร์ส่งถึง
+10. Server ตรวจว่ารูปถูก upload จริงใน bucket `food-private` และ path ไม่มี `..`
 
 ## Acceptance Criteria
 
@@ -48,7 +51,8 @@ Date: 2026-10-03
 5. UI Merchant ไม่ให้กด "ส่งแล้ว" ถ้ายังไม่แนบรูป ทั้งสองวิธี
 6. ลูกค้าเห็นรูปในหน้าออเดอร์ทั้งสองวิธี; ลูกค้าคนอื่นเปิดรูปไม่ได้
 7. ข้อมูลออเดอร์เก่าไม่เปลี่ยน
-8. Supabase test (`supabase/tests/`) + browser tests ของ merchant/food ผ่าน
+8. ลูกค้าได้รับแจ้งเตือน "ออเดอร์ #N ส่งถึงแล้ว" หนึ่งครั้งต่อออเดอร์
+9. Supabase test (`supabase/tests/`) + browser tests ของ merchant/food ผ่าน
 
 ## Dependencies
 
@@ -66,7 +70,6 @@ P0 (ก่อนเปิด Food ให้ลูกค้าทั่วไป)
 
 ## Out of scope (คุยแยก)
 
-- แจ้งเตือนลูกค้าเมื่อส่งสำเร็จ
 - บันทึกชื่อ/เบอร์/ค่าจ้างคนส่ง
 - พื้นที่จัดส่ง
 - ระบบไรเดอร์กลาง
@@ -74,3 +77,19 @@ P0 (ก่อนเปิด Food ให้ลูกค้าทั่วไป)
 ## Handoff
 
 Founder อนุมัติ PRD → Full-Stack (migration + UI + tests) → QA & Security → CTO review → merge → apply migration หลัง Founder อนุมัติ
+
+## Implementation (2026-10-03)
+
+- `supabase/migrations_wynos_food_delivery_photo_required_v1.sql` — replace `food_complete_delivery` เท่านั้น
+- `web/components/merchant/wynos-merchant-app.tsx` — ช่องแนบรูปทุกวิธีส่ง (เลือกจากคลังรูปได้ เพราะรูปมาจากคนส่ง), ปุ่มยืนยันปิดจนกว่าจะมีรูป, ข้อความ "ร้านจ้างคนส่ง"
+- `web/tests/browser/wynos-merchant.spec.ts` — contract test WYN-193 (และแก้ label "วางสินค้าไว้ที่ไหน?" ที่ test เดิม fail อยู่แล้ว)
+
+## Verification
+
+- Local PostgreSQL 16 + stubs: outsider, ไม่มีรูป, รูปของออเดอร์อื่น, รูปไม่มีจริง, `..`, dropoff ไม่มีจุดวาง → ปฏิเสธทั้งหมด; direct/dropoff มีรูป → delivered, เก็บรูป, แจ้งเตือนผู้ซื้อ 1 ครั้ง; ซ้ำ → ปฏิเสธ
+- `wynos-merchant.spec.ts` ผ่านทั้ง 3 projects; `npm run typecheck` ผ่าน; `npm run lint` 0 errors
+- `wynos-food-developer-preview.spec.ts` test แรก fail ก่อนแก้อยู่แล้ว (คาดหวัง `is_developer_account`) — ไม่เกี่ยวกับ WYN-193
+
+## Found during review (separate task)
+
+- WYN-194: food-private storage อ่าน/อัปโหลดข้ามร้านได้ เมื่อมีร้านที่ 2

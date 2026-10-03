@@ -49,9 +49,9 @@ test("Merchant receives orders from WYNOS Food only while keeping delivery workf
   expect(guardSql).toContain("new.source <> 'app'");
   expect(guardSql).toContain("new.buyer_id <> new.created_by");
 
-  expect(app).toContain('capture="environment"');
   expect(app).toContain('deliveryMethod === "dropoff"');
-  expect(app).toContain("ถ่ายรูปหลักฐานการจัดส่ง");
+  expect(app).toContain("แนบรูปยืนยันการจัดส่งจากคนส่ง (จำเป็น)");
+  expect(app).toContain("disabled={busy || !deliveryFile");
   expect(app).toContain("วางสินค้าไว้ที่ไหน?");
   expect(app).toContain("ยืนยันส่งสำเร็จ");
   expect(app).toContain("ยืนยันเงินเข้า");
@@ -139,4 +139,26 @@ test("Campaign Center keeps promotion creation in Merchant and pricing in WYNOS 
   expect(sql).toContain("order by saving desc");
   expect(sql).toContain("food_quote_order");
   expect(sql).toContain("campaign_applied");
+});
+
+
+test("WYN-193 every Food delivery needs an uploaded photo and notifies the buyer", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const sql = read("../supabase/migrations_wynos_food_delivery_photo_required_v1.sql");
+
+  // The photo comes from an outside courier, so it is picked from the gallery
+  // and is required for both "direct" and "dropoff".
+  expect(app).not.toContain('capture="environment" onChange={(e) => setDeliveryFile');
+  expect(app).toContain('if (!deliveryFile) throw new Error("กรุณาแนบรูปยืนยันการจัดส่งจากคนส่ง");');
+  expect(app).toContain("uploadFoodPrivateImage(client, deliveryFile, `delivery/${order.id}`)");
+
+  expect(sql).toContain("create or replace function public.food_complete_delivery(");
+  expect(sql).toContain("raise exception 'delivery photo is required'");
+  expect(sql).toContain("p_image_path not like 'delivery/' || p_order_id::text || '/%'");
+  expect(sql).toContain("o.bucket_id='food-private' and o.name=p_image_path");
+  expect(sql).toContain("merchant_has_store_role(v_order.store_id, array['owner','admin','manager','orders','delivery'])");
+  expect(sql).toContain("raise exception 'dropoff location is required'");
+  expect(sql).not.toContain("case when p_method='dropoff' then p_image_path else null end");
+  expect(sql).toContain("insert into public.notifications(recipient_id,actor_id,type,reason)");
+  expect(sql).toContain("revoke all on function public.food_complete_delivery(uuid,text,text,text) from public, anon;");
 });

@@ -892,13 +892,10 @@ function OrderSheet({
 
   const complete = async () => {
     await run(async () => {
-      let path: string | null = null;
-      if (deliveryMethod === "dropoff") {
-        if (!deliveryFile) throw new Error("กรุณาถ่ายรูปจุดที่วางสินค้า");
-        if (!locationNote.trim()) throw new Error("กรุณาระบุว่าวางสินค้าไว้ที่ไหน");
-        path = await uploadFoodPrivateImage(client, deliveryFile, `delivery/${order.id}`);
-      }
-      await completeFoodDelivery(client, order.id, deliveryMethod, locationNote, path);
+      if (!deliveryFile) throw new Error("กรุณาแนบรูปยืนยันการจัดส่งจากคนส่ง");
+      if (deliveryMethod === "dropoff" && !locationNote.trim()) throw new Error("กรุณาระบุว่าวางสินค้าไว้ที่ไหน");
+      const path = await uploadFoodPrivateImage(client, deliveryFile, `delivery/${order.id}`);
+      await completeFoodDelivery(client, order.id, deliveryMethod, deliveryMethod === "dropoff" ? locationNote : "", path);
     }, "ส่งออเดอร์สำเร็จแล้ว");
   };
 
@@ -983,26 +980,26 @@ function OrderSheet({
       ) : null}
 
       {order.status === "ready_for_delivery" ? (
-        <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>คุณเป็นผู้จัดส่งเอง ระบบจะเข้าสู่ Delivery Mode หลังเริ่มงาน</p><button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
+        <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>ส่งอาหารให้คนส่งแล้วกดเริ่มจัดส่ง เมื่อส่งถึงแล้ว ขอรูปจากคนส่งมาแนบเพื่อยืนยันกับลูกค้า</p><button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
       ) : null}
 
       {order.status === "out_for_delivery" ? (
         <section className="wm-detail-section wm-next-step">
           <h3>Delivery Mode</h3>
           <div className="wm-delivery-methods">
-            <button className={deliveryMethod === "direct" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("direct")}><PackageCheck size={20} /><span><strong>ส่งให้ลูกค้า</strong><small>ส่งถึงมือผู้รับแล้ว</small></span></button>
+            <button className={deliveryMethod === "direct" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("direct")}><PackageCheck size={20} /><span><strong>ส่งให้ลูกค้า</strong><small>ส่งถึงมือผู้รับ · ต้องมีรูป</small></span></button>
             <button className={deliveryMethod === "dropoff" ? "is-active" : ""} type="button" onClick={() => setDeliveryMethod("dropoff")}><ImagePlus size={20} /><span><strong>วางสินค้าไว้</strong><small>ต้องมีรูปและจุดที่วาง</small></span></button>
           </div>
-          {deliveryMethod === "dropoff" ? (
-            <div className="wm-proof-form">
-              <label className="wm-upload">
-                <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(e) => setDeliveryFile(e.target.files?.[0] ?? null)} />
-                <ImagePlus size={22} /><span>{deliveryFile ? deliveryFile.name : "ถ่ายรูปหลักฐานการจัดส่ง"}</span>
-              </label>
-              <label>วางไว้ที่ไหน?<textarea value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder="เช่น โต๊ะหน้าประตูด้านซ้าย" /></label>
-            </div>
-          ) : null}
-          <button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
+          <div className="wm-proof-form">
+            <label className="wm-upload">
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setDeliveryFile(e.target.files?.[0] ?? null)} />
+              <ImagePlus size={22} /><span>{deliveryFile ? deliveryFile.name : "แนบรูปยืนยันการจัดส่งจากคนส่ง (จำเป็น)"}</span>
+            </label>
+            {deliveryMethod === "dropoff" ? (
+              <label>วางสินค้าไว้ที่ไหน?<textarea value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder="เช่น โต๊ะหน้าประตูด้านซ้าย" /></label>
+            ) : null}
+          </div>
+          <button className="wm-primary wm-full" disabled={busy || !deliveryFile || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
         </section>
       ) : null}
 
