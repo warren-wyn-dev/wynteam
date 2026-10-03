@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
 
-const MERCHANT_ICON_192 = "/merchant/icon-v10?size=192";
-const MERCHANT_ICON_512 = "/merchant/icon-v10?size=512";
-const MERCHANT_ICON_MASKABLE = "/merchant/icon-v10?size=512&maskable=1";
+const MERCHANT_ICON_192 = "/merchant/icon-v11?size=192";
+const MERCHANT_ICON_512 = "/merchant/icon-v11?size=512";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -20,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: MERCHANT_ICON_192, sizes: "192x192", type: "image/png", purpose: "any" },
       { src: MERCHANT_ICON_512, sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: MERCHANT_ICON_MASKABLE, sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: MERCHANT_ICON_512, sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
