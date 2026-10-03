@@ -120,3 +120,10 @@ Accepted / open:
 - Orphan photo when the RPC fails after upload (L4 follow-up).
 - The notification skips the `system` preference, matching the other Food transactional messages; it should be sent anyway.
 - The apply workflow has no GitHub Environment reviewer gate. It follows the repo's existing apply-workflow pattern (main only + typed confirmation), and the Founder dispatches it.
+
+## Codex review (2026-10-03)
+
+- Fixed (P1): legacy `food_staff` rows of any role passed `merchant_has_store_role()`. `food_store_media_writable()` now checks roles itself, so only membership owner/admin/manager or a legacy `food_staff` owner can write store media.
+- Fixed (P1): content validation. The `validate-upload` webhook (WEB-B1-QA-04) now also covers `food-private` and `food-public`. After merge: deploy `validate-upload`, then run `storage-upload-validator.yml` → `create`, then `test`.
+- Fixed (P2): the buyer notification respects `internal.notification_enabled(buyer,'system')`.
+- Accepted with runbook (P1): between the web deploy and the migration, the old RPC drops the photo on 'direct' deliveries. Dispatch the apply workflow right after merge, and do not complete 'direct' deliveries until it is green. Food is developer-only and has one store.

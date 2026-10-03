@@ -4,7 +4,8 @@
 -- attaches it here before marking the order delivered. Both 'direct' and
 -- 'dropoff' now need a photo that was actually uploaded under this order's
 -- delivery folder. 'dropoff' still needs a location note. The buyer is notified
--- in-app (and by the existing notifications -> push path) when it is delivered.
+-- in-app (and by the existing notifications -> push path) when it is delivered,
+-- unless they turned off 'system' notifications.
 --
 -- Additive and non-destructive: only replaces public.food_complete_delivery.
 -- Existing delivered orders and food_delivery_proofs rows are not changed.
@@ -75,7 +76,7 @@ begin
     auth.uid()
   );
 
-  if v_order.buyer_id is not null then
+  if v_order.buyer_id is not null and internal.notification_enabled(v_order.buyer_id, 'system') then
     insert into public.notifications(recipient_id,actor_id,type,reason)
     values (
       v_order.buyer_id,null,'system',

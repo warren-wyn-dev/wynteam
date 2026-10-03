@@ -26,7 +26,11 @@ alter table storage.objects enable row level security;
 create table public.developer_accounts(user_id uuid);
 create table public.merchant_memberships(merchant_account_id uuid, user_id uuid, role text, active boolean);
 create table public.food_stores(id uuid primary key, merchant_account_id uuid);
-create table public.food_staff(store_id uuid, user_id uuid, active boolean);
+create table public.food_staff(store_id uuid, user_id uuid, role text, active boolean);
+create table public.notification_settings(user_id uuid primary key, system boolean);
+create function internal.notification_enabled(p_user_id uuid, p_category text) returns boolean
+language sql stable security definer set search_path = public as
+  $$ select coalesce((select system from public.notification_settings where user_id = p_user_id), true) $$;
 create table public.food_orders(id uuid primary key, store_id uuid, buyer_id uuid, order_number int,
   status text, payment_slip_path text, delivered_at timestamptz);
 create table public.food_delivery_proofs(order_id uuid unique, method text not null, location_note text,
@@ -61,11 +65,16 @@ insert into merchant_memberships values
   ('a0000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-0000000000a1','owner',true),
   ('a0000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-0000000000a2','delivery',true),
   ('b0000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-0000000000b1','owner',true);
+-- Legacy staff row: delivery role on store B, no membership (backfilled stores keep these).
+insert into food_staff values ('bbbbbbbb-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000b5','delivery',true);
+-- Buyer c2 turned off system notifications.
+insert into notification_settings values ('00000000-0000-0000-0000-0000000000c2', false);
 insert into food_orders values
   ('11111111-0000-0000-0000-000000000000','aaaaaaaa-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000c1',101,'out_for_delivery',
    '00000000-0000-0000-0000-0000000000c1/slips/11111111-0000-0000-0000-000000000000/s.jpg',null),
   ('22222222-0000-0000-0000-000000000000','bbbbbbbb-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000c1',102,'out_for_delivery',
    '00000000-0000-0000-0000-0000000000c1/slips/22222222-0000-0000-0000-000000000000/s.jpg',null),
+  ('44444444-0000-0000-0000-000000000000','aaaaaaaa-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000c2',104,'out_for_delivery',null,null),
   ('33333333-0000-0000-0000-000000000000','aaaaaaaa-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000c1',103,'preparing',
    '00000000-0000-0000-0000-0000000000c1/slips/legacy.jpg',null);
 insert into storage.objects values
@@ -89,8 +98,8 @@ expect_eq()   { local got; got="$(run -At -c "set role authenticated; select set
                 [[ "$got" == "$3" ]] || { echo "FAIL: $4 (got '$got', want '$3')"; exit 1; }; }
 
 A1=00000000-0000-0000-0000-0000000000a1; A2=00000000-0000-0000-0000-0000000000a2
-B1=00000000-0000-0000-0000-0000000000b1; C1=00000000-0000-0000-0000-0000000000c1
-O1=11111111-0000-0000-0000-000000000000; O2=22222222-0000-0000-0000-000000000000; O3=33333333-0000-0000-0000-000000000000
+B1=00000000-0000-0000-0000-0000000000b1; B5=00000000-0000-0000-0000-0000000000b5; C2=00000000-0000-0000-0000-0000000000c2; C1=00000000-0000-0000-0000-0000000000c1
+O1=11111111-0000-0000-0000-000000000000; O2=22222222-0000-0000-0000-000000000000; O3=33333333-0000-0000-0000-000000000000; O4=44444444-0000-0000-0000-000000000000
 PRIV="select count(*) from storage.objects where bucket_id='food-private'"
 
 # WYN-194 reads: each store sees only its own order evidence; the buyer sees all of theirs.
@@ -103,6 +112,8 @@ expect_fail "$B1" "insert into storage.objects values ('food-public','stores/aaa
 expect_eq "$B1" "with u as (update storage.objects set name=name where name like 'stores/aaaaaaaa%' returning 1) select count(*) from u" 0 "store B overwrites store A QR"
 expect_eq "$B1" "with d as (delete from storage.objects where name like 'stores/aaaaaaaa%' returning 1) select count(*) from d" 0 "store B deletes store A QR"
 expect_ok   "$B1" "insert into storage.objects values ('food-public','stores/bbbbbbbb-0000-0000-0000-000000000000/menu/m.png')" "store B uploads own menu image"
+expect_fail "$B5" "insert into storage.objects values ('food-public','stores/bbbbbbbb-0000-0000-0000-000000000000/payment/x.png')" "legacy delivery staff changes store QR" "row-level security"
+expect_eq "$B5" "with u as (update storage.objects set name=name where name like 'stores/bbbbbbbb%' returning 1) select count(*) from u" 0 "legacy delivery staff overwrites store QR"
 expect_fail "$A2" "insert into storage.objects values ('food-public','stores/aaaaaaaa-0000-0000-0000-000000000000/payment/x.png')" "delivery role changes store media" "row-level security"
 expect_fail "$A2" "insert into storage.objects values ('food-private','delivery/$O3/no.jpg')" "upload for an order not out for delivery" "row-level security"
 expect_fail "$A2" "insert into storage.objects values ('food-private','delivery/$O1/sub/no.jpg')" "nested delivery path" "row-level security"
@@ -130,6 +141,10 @@ expect_eq "$A1" "reset role; select status || '|' || (select image_path from foo
   "delivered|delivery/$O1/a.jpg|" "direct keeps the photo and drops the note"
 expect_eq "$A1" "reset role; select count(*) from notifications where recipient_id='$C1' and reason like 'ออเดอร์ #101 ส่งถึงแล้ว%'" 1 "buyer notified once"
 expect_ok   "$B1" "$DONE('$O2','dropoff','หน้าประตู','delivery/$O2/d.jpg')" "dropoff with photo and location"
+# A buyer who turned off system notifications is not notified.
+expect_ok   "$A2" "insert into storage.objects values ('food-private','delivery/$O4/p.jpg')" "delivery role uploads photo for opted-out buyer"
+expect_ok   "$A1" "$DONE('$O4','direct',null,'delivery/$O4/p.jpg')" "deliver to opted-out buyer"
+expect_eq "$A1" "reset role; select count(*) from notifications where recipient_id='$C2'" 0 "opted-out buyer gets no notification"
 
 # A store keeps its slip evidence after the buyer's profile is deleted (buyer_id set to null).
 run -c "update food_orders set buyer_id=null where id='$O2'" >/dev/null

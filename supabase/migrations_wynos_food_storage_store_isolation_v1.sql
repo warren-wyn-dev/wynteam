@@ -53,13 +53,39 @@ create or replace function public.food_store_media_writable(p_name text)
 returns boolean
 language sql
 stable
+security definer
 set search_path = ''
 as $$
-  select (storage.foldername(p_name))[1] = 'stores'
-    and public.merchant_has_store_role(
-      public.food_path_uuid((storage.foldername(p_name))[2]),
-      array['owner','admin','manager']
-    );
+  -- Not merchant_has_store_role(): it accepts a legacy food_staff row of any
+  -- role, which would let delivery staff replace the store's PromptPay QR.
+  with target as (
+    select public.food_path_uuid((storage.foldername(p_name))[2]) as store_id
+    where (storage.foldername(p_name))[1] = 'stores'
+  )
+  select exists (
+    select 1 from target t
+    where (select auth.uid()) is not null
+      and (
+        exists (select 1 from public.developer_accounts d where d.user_id = (select auth.uid()))
+        or exists (
+          select 1
+          from public.food_stores s
+          join public.merchant_memberships mm on mm.merchant_account_id = s.merchant_account_id
+          where s.id = t.store_id
+            and mm.user_id = (select auth.uid())
+            and mm.active
+            and mm.role in ('owner','admin','manager')
+        )
+        or exists (
+          select 1
+          from public.food_staff fs
+          where fs.store_id = t.store_id
+            and fs.user_id = (select auth.uid())
+            and fs.active
+            and fs.role = 'owner'
+        )
+      )
+  );
 $$;
 
 revoke all on function public.food_store_media_writable(text) from public, anon;
