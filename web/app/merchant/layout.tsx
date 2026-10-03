@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 
 import "./merchant.css";
 
-const MERCHANT_ICON = (size: number) => `/merchant/icon-v9?size=${size}`;
+const MERCHANT_ICON = (size: number) => `/merchant/icon-v10?size=${size}`;
 
 export const metadata: Metadata = {
   title: "Wynos Merchant",
   applicationName: "Wynos Merchant",
   description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
-  manifest: "/merchant/manifest.webmanifest?v=20261004-9",
+  manifest: "/merchant/manifest.webmanifest?v=20261004-10",
   icons: {
     icon: [
       { url: MERCHANT_ICON(16), sizes: "16x16", type: "image/png" },
