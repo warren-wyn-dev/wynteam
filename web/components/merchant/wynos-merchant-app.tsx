@@ -1186,7 +1186,7 @@ function StoreEditor({
             <label>รวมในค่าส่งเริ่มต้น (กม.)<input type="number" min="0" max="50" step="0.5" inputMode="decimal" value={form.delivery_base_km} onChange={(e) => setForm({ ...form, delivery_base_km: e.target.value })} /></label>
           </div>
           <label>บาทต่อ กม. ที่เกิน<input type="number" min="0" max="1000" inputMode="decimal" value={form.delivery_fee_per_km} onChange={(e) => setForm({ ...form, delivery_fee_per_km: e.target.value })} /></label>
-          <small>{`ตัวอย่าง: ส่ง 4 กม. จ่าย ค่าส่งเริ่มต้น + (4 − ${form.delivery_base_km || 0}) × ${form.delivery_fee_per_km || 0} บาท`}</small>
+          <small>{`ตัวอย่าง: ส่ง 4 กม. ค่าส่ง ${exampleFee(form.delivery_fee, form.delivery_base_km, form.delivery_fee_per_km)} บาท (ส่วนที่เกินคิดต่อ กม. ปัดขึ้นเป็นบาทเต็ม)`}</small>
         </div> : null}
         <h3>รับชำระเงินเข้าร้าน</h3>
         <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
@@ -1198,6 +1198,12 @@ function StoreEditor({
       </div>
     </Sheet>
   );
+}
+
+/** WYN-196: same formula as internal.food_delivery_fee on the server. */
+function exampleFee(base: string, baseKm: string, perKm: string, distanceKm = 4) {
+  const extra = Math.max(distanceKm - Number(baseKm || 0), 0) * Number(perKm || 0);
+  return Number(base || 0) + Math.ceil(Math.round(extra * 100) / 100);
 }
 
 export function WynosMerchantApp() {

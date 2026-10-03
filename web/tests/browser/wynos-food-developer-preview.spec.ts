@@ -129,7 +129,9 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(lib).toContain("return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};");
   expect(lib).toContain('client.functions.invoke("location-search"');
   expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
-  expect(app).toContain("disabled={!address || busy || Boolean(blockedReason)}");
+  expect(app).toContain("disabled={!address || busy || quoteLoading || Boolean(blockedReason)}");
+  expect(app).toContain('aria-label="ค้นหา"');
+  expect(merchant).toContain("Math.ceil(");
   expect(app).toContain("<DeliveryPinPicker");
   expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
   expect(merchant).toContain("const zoneReady = store.delivery_radius_km !== undefined;");

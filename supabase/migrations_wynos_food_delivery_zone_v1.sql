@@ -16,9 +16,13 @@
 --
 -- Additive: new nullable/defaulted columns, one helper, two replaced RPCs (the
 -- old signatures are dropped so the radius cannot be bypassed).
--- Rollback: re-run food_quote_order / food_create_order from
--- migrations_wynos_merchant_campaign_center_v1.sql after dropping the
--- (…, double precision, double precision) versions; the columns can stay.
+-- Rollback: unpinning every store (latitude/longitude = null) restores the
+-- flat fee immediately and is safe with the new web deployed. A full rollback
+-- must revert the WYN-196 web commit first, then drop the (…, double
+-- precision, double precision) RPCs and re-run food_quote_order /
+-- food_create_order from migrations_wynos_merchant_campaign_center_v1.sql and
+-- food_upsert_customer_address from
+-- migrations_wynos_food_customer_access_gate_v2.sql; the columns can stay.
 
 alter table public.food_stores
   add column if not exists latitude double precision,

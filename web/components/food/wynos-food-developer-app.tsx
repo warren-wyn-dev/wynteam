@@ -626,7 +626,7 @@ function DeliveryPinPicker({
           placeholder="หรือค้นหาสถานที่ เช่น ชื่อหมู่บ้าน คอนโด"
           aria-label="ค้นหาสถานที่"
         />
-        <button type="button" disabled={working || !query.trim()} onClick={() => void search()}><Search size={16} /></button>
+        <button type="button" aria-label="ค้นหา" disabled={working || !query.trim()} onClick={() => void search()}><Search size={16} /></button>
       </div>
       {results.length ? (
         <div className="wf-pin-results" role="list">
@@ -729,6 +729,8 @@ function CheckoutSheet({
     return () => { live = false; };
   }, [addressId, cart, client, locationKey, store.id, zone]);
   const current = addressQuote?.key === `${addressId}|${locationKey}` ? addressQuote : null;
+  // Until the quote for this address arrives, the fee is unknown: no confirm.
+  const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
   const effectiveQuote = current?.quote ?? quote;
   const blockedReason = !address
     ? ""
@@ -774,8 +776,8 @@ function CheckoutSheet({
         {blockedReason ? <div className="wf-inline-warning" role="alert">{blockedReason}</div> : null}
         {effectiveQuote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {effectiveQuote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
         <p className="wf-server-note">ยอดจริงจะถูกตรวจและคำนวณจากระบบอีกครั้งก่อนสร้างออเดอร์</p>
-        <button className="wf-primary wf-full" type="button" disabled={!address || busy || Boolean(blockedReason)} onClick={() => { if (address) onSubmit(address, note); }}>
-          {busy ? "กำลังสร้างออเดอร์…" : `ยืนยันออเดอร์ · ${foodMoney(total)}`}
+        <button className="wf-primary wf-full" type="button" disabled={!address || busy || quoteLoading || Boolean(blockedReason)} onClick={() => { if (address) onSubmit(address, note); }}>
+          {busy ? "กำลังสร้างออเดอร์…" : quoteLoading ? "กำลังคำนวณค่าส่ง…" : `ยืนยันออเดอร์ · ${foodMoney(total)}`}
         </button>
       </div>
     </Sheet>

@@ -10,9 +10,14 @@ name: Food -- apply WYN-196 delivery zone
 # SAFETY: additive columns with defaults, one helper pair, three replaced
 # RPCs. A store without a pinned location keeps its flat fee, so nothing
 # changes for customers until the store owner pins the store.
-# ROLLBACK (Founder, SQL editor): drop the new RPC signatures and re-run the
-# previous definitions from migrations_wynos_merchant_campaign_center_v1.sql
-# and migrations_wynos_food_customer_access_gate_v2.sql; the columns can stay.
+# ROLLBACK: first unpin every store (update food_stores set latitude=null,
+# longitude=null) so customers stop needing a pin and the fee is flat again;
+# this alone is a safe, instant rollback with the new web still deployed.
+# Only for a full rollback: revert the WYN-196 web commit FIRST (the web sends
+# p_latitude/p_longitude to pinned stores), then drop the new RPC signatures
+# and re-run the previous definitions from
+# migrations_wynos_merchant_campaign_center_v1.sql and
+# migrations_wynos_food_customer_access_gate_v2.sql; the columns can stay.
 on:
   workflow_dispatch:
     inputs:

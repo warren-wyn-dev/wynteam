@@ -1180,6 +1180,7 @@ export const EN_EXACT: Record<string, string> = {
   "หาตำแหน่งไม่สำเร็จ": "Couldn't get the location",
   "ไม่พบสถานที่ ลองพิมพ์ชื่ออื่นหรือใช้ตำแหน่งปัจจุบัน": "No places found. Try another name or use your current location",
   "ตำแหน่งจัดส่ง": "Delivery location",
+  "กำลังคำนวณค่าส่ง…": "Working out the delivery fee…",
   "ที่อยู่นี้ยังไม่ได้ปักหมุดตำแหน่ง แก้ไขที่อยู่เพื่อปักหมุดก่อนสั่ง": "This address isn't pinned yet. Edit it to pin the location before ordering",
   "ล้าง": "Clear",
   "ใช้คำนวณระยะทางและค่าส่ง": "Used to work out distance and delivery fee",
@@ -1747,5 +1748,5 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["ไม่พบ Club ที่ตรงกับ “{0}”", "No Club matches “{0}”"],
   ["· {0} กม.", "· {0} km"],
   ["ปักหมุดแล้ว · {0}, {1}", "Pinned · {0}, {1}"],
-  ["ตัวอย่าง: ส่ง 4 กม. จ่าย ค่าส่งเริ่มต้น + (4 − {0}) × {1} บาท", "Example: a 4 km delivery costs the base fee + (4 − {0}) × {1} baht"],
+  ["ตัวอย่าง: ส่ง 4 กม. ค่าส่ง {0} บาท (ส่วนที่เกินคิดต่อ กม. ปัดขึ้นเป็นบาทเต็ม)", "Example: a 4 km delivery costs {0} baht (the per-km part is rounded up to a whole baht)"],
 ];
