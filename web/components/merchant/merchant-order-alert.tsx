@@ -32,7 +32,12 @@ function audioContext(): AudioContext | null {
 
 function playChime() {
   const context = audioContext();
-  if (!context || context.state !== "running") return false;
+  if (!context) return false;
+  if (context.state !== "running") {
+    // Phones suspend audio in the background; try to resume (may need a tap).
+    void context.resume().catch(() => undefined);
+    return false;
+  }
   const start = context.currentTime;
   [880, 1175, 880, 1175].forEach((frequency, index) => {
     const oscillator = context.createOscillator();
@@ -54,16 +59,26 @@ function playChime() {
 export function useMerchantSoundUnlock() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
+    let watched: AudioContext | null = null;
+    // Track the real state: the browser can suspend audio again (app sent to
+    // the background), and then the alert must ask for a tap again.
+    const sync = () => setReady(watched?.state === "running");
     const unlock = () => {
       const context = audioContext();
       if (!context) return;
-      void context.resume().then(() => setReady(context.state === "running")).catch(() => undefined);
+      if (watched !== context) {
+        watched?.removeEventListener("statechange", sync);
+        watched = context;
+        context.addEventListener("statechange", sync);
+      }
+      void context.resume().then(sync).catch(() => undefined);
     };
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
     return () => {
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
+      watched?.removeEventListener("statechange", sync);
     };
   }, []);
   return ready;

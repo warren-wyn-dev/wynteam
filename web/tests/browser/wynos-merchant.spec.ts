@@ -250,6 +250,9 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   // A pressed card stays busy until a reload shows the order's new status.
   expect(app).toContain("acting={actedFrom.get(order.id) === order.status}");
   expect(app).toContain("const locked = busy || actedAt === stateKey;");
+  expect(app).toContain("const stateKey = `${order.status}:${order.payment_status}:${order.updated_at}`;");
+  expect(app).toContain('className="wm-order-card-open" type="button" disabled={acting}');
+  expect(alert).toContain('context.addEventListener("statechange", sync);');
   expect(app).toContain("return () => { if (opener?.isConnected) opener.focus(); };");
   expect(css).toContain("max-height: calc(100dvh - 32px);");
   expect(css).toContain(".wm-card-action { min-height: 54px; font-size: 17px; }");

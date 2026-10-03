@@ -223,7 +223,8 @@ function OrderCard({
   const note = waitingNote(order);
   return (
     <article className={`wm-order-card ${needsStoreNow(order) ? "is-urgent" : ""}`}>
-      <button className="wm-order-card-open" type="button" onClick={onOpen}>
+      {/* Opening is locked too while the card's step runs, so the sheet cannot repeat it. */}
+      <button className="wm-order-card-open" type="button" disabled={acting} onClick={onOpen}>
       <div className="wm-order-card-top">
         <span>
           <strong>#{order.order_number}</strong>
@@ -1050,7 +1051,9 @@ function OrderSheet({
   // Every action here changes the order's status or payment status. Keep the
   // buttons locked after a success until the reloaded order shows that change,
   // so a tap on the old snapshot cannot repeat the action.
-  const stateKey = `${order.status}:${order.payment_status}`;
+  // updated_at changes with every server update, so the lock cannot come back
+  // when a status cycles (e.g. slip issue -> new slip -> submitted again).
+  const stateKey = `${order.status}:${order.payment_status}:${order.updated_at}`;
   const [actedAt, setActedAt] = useState<string | null>(null);
   const locked = busy || actedAt === stateKey;
 
