@@ -1,0 +1,75 @@
+name: Admin -- apply inactive reminders
+
+# Applies supabase/migrations_admin_inactive_reminders.sql to production.
+# Runs only by manual dispatch after the Founder approves this migration
+# (AGENTS.md Change Control). Validated in CI by
+# supabase/tests/admin_inactive_reminders_test.sh (applied twice).
+#
+# SAFETY: additive. One new internal table (who was reminded when), three
+# functions, and one more allowed audit_log event type; the existing event
+# types are read from the live constraint and kept. No existing row changes.
+# ROLLBACK (Founder, SQL editor), if ever needed:
+#   drop function if exists public.admin_send_inactive_reminder(integer, text);
+#   drop function if exists public.admin_count_inactive_users(integer);
+#   drop function if exists internal.inactive_reminder_recipients(integer);
+#   drop table if exists internal.inactive_reminders;
+# (The extra allowed audit_log event type is harmless to keep.)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code"; cat "$out"; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "$(cat supabase/migrations_admin_inactive_reminders.sql)" >/dev/null
+          # Counts only (no personal data): the recipient query must run against
+          # the real auth tables, and app users must not reach the internals.
+          run_sql "select
+              (select count(*) from internal.inactive_reminder_recipients(7)) >= 0 as recipients_query_ok,
+              (select pg_get_constraintdef(oid) like '%admin_inactive_reminder_sent%'
+                 from pg_constraint where conname = 'audit_log_event_type_check'
+                   and conrelid = 'public.audit_log'::regclass) as audit_type_added,
+              (select pg_get_constraintdef(oid) like '%admin_announcement_sent%'
+                 from pg_constraint where conname = 'audit_log_event_type_check'
+                   and conrelid = 'public.audit_log'::regclass) as old_types_kept,
+              has_function_privilege('authenticated', 'public.admin_send_inactive_reminder(integer, text)', 'execute') as admins_can_call,
+              has_function_privilege('anon', 'public.admin_send_inactive_reminder(integer, text)', 'execute') as anon_can_call,
+              has_function_privilege('authenticated', 'internal.inactive_reminder_recipients(integer)', 'execute') as helper_exposed,
+              has_table_privilege('authenticated', 'internal.inactive_reminders', 'select') as log_exposed;" \
+            | tee result.json | jq .
+          jq -e '.[0].recipients_query_ok == true and .[0].audit_type_added == true and .[0].old_types_kept == true
+                 and .[0].admins_can_call == true and .[0].anon_can_call == false
+                 and .[0].helper_exposed == false and .[0].log_exposed == false' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "Inactive reminders are live."
