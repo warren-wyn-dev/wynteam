@@ -72,7 +72,26 @@ async function fetchLocationIq(url: string): Promise<unknown> {
   }
 }
 
+// WYN-196: WYNOS Food on the web calls this from the browser too, so every
+// response carries CORS headers and the preflight is answered. Supabase still
+// verifies the JWT before this code runs.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+  const response = await handle(req);
+  for (const [key, value] of Object.entries(CORS_HEADERS)) response.headers.set(key, value);
+  response.headers.set("Content-Type", "application/json");
+  return response;
+});
+
+async function handle(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
   }
@@ -161,4 +180,4 @@ Deno.serve(async (req) => {
     // this user's own rate limit either way.
     return new Response(JSON.stringify({ error: "Location search failed" }), { status: 502 });
   }
-});
+}

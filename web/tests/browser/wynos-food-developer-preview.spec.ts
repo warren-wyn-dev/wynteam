@@ -108,3 +108,31 @@ test("WYN-195 WYNOS Food entry sits under the Home tabs and in the drawer for de
   expect(drawer).toContain('{showFood ? (');
   expect(drawer).toContain('go("/food")');
 });
+
+test("WYN-196 delivery zone: distance fee and radius are enforced on the server", () => {
+  const sql = read("../supabase/migrations_wynos_food_delivery_zone_v1.sql");
+  const lib = read("lib/food-customer.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const merchant = read("components/merchant/wynos-merchant-app.tsx");
+
+  // Server owns the fee and the radius; old signatures cannot bypass them.
+  expect(sql).toContain("drop function if exists public.food_quote_order(uuid,jsonb);");
+  expect(sql).toContain("drop function if exists public.food_create_order(uuid,text,text,text,text,jsonb);");
+  expect(sql).toContain("raise exception 'outside delivery area'");
+  expect(sql).toContain("raise exception 'delivery location required'");
+  expect(sql).toContain("ceil(greatest(v_distance - v_store.delivery_base_km, 0) * v_store.delivery_fee_per_km)");
+  expect(sql).toContain("add column if not exists delivery_radius_km numeric(5,2) not null default 5");
+  expect(sql).toContain("from internal.food_delivery_fee(p_store_id, p_latitude, p_longitude) z;");
+  expect(sql).not.toMatch(/v_store\.delivery_fee,v_item_totals/);
+
+  // Client sends the pin; checkout blocks unpinned or out-of-range addresses.
+  expect(lib).toContain("return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};");
+  expect(lib).toContain('client.functions.invoke("location-search"');
+  expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
+  expect(app).toContain("disabled={!address || busy || Boolean(blockedReason)}");
+  expect(app).toContain("<DeliveryPinPicker");
+  expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
+  expect(merchant).toContain("const zoneReady = store.delivery_radius_km !== undefined;");
+  expect(lib).toContain("...pinParams(input.location)");
+  expect(merchant).toContain("foodMapsHref(");
+});

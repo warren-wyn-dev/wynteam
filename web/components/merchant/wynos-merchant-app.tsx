@@ -56,6 +56,7 @@ import {
   type FoodStore,
   type MenuDraft,
 } from "@/lib/food-merchant";
+import { currentFoodLocation, foodMapsHref, type FoodLocation } from "@/lib/food-customer";
 
 type MerchantTab = "home" | "orders" | "menu" | "reports" | "store";
 type OrderFilter = "active" | "new" | "preparing" | "ready" | "delivery" | "done";
@@ -901,7 +902,12 @@ function OrderSheet({
     }, "ส่งออเดอร์สำเร็จแล้ว");
   };
 
-  const mapHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.shipping_address)}`;
+  const mapHref = foodMapsHref(
+    order.delivery_latitude != null && order.delivery_longitude != null
+      ? { latitude: Number(order.delivery_latitude), longitude: Number(order.delivery_longitude) }
+      : null,
+    order.shipping_address,
+  );
   return (
     <Sheet title={`ออเดอร์ #${order.order_number}`} onClose={onClose} wide>
       <div className="wm-order-detail-head">
@@ -920,7 +926,7 @@ function OrderSheet({
         <div className="wm-totals">
           <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
           {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "แคมเปญ · " + order.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{money(order.campaign_discount)}</b></div> : null}
-          <div><span>ค่าส่ง</span><b>{money(order.delivery_fee)}</b></div>
+          <div><span>ค่าส่ง{order.delivery_distance_km != null ? ` · ${Number(order.delivery_distance_km).toFixed(1)} กม.` : ""}</span><b>{money(order.delivery_fee)}</b></div>
           {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{money(order.delivery_discount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>
         </div>
@@ -1092,6 +1098,9 @@ function StoreEditor({
     delivery_area: store.delivery_area ?? "",
     delivery_fee: String(store.delivery_fee),
     minimum_order: String(store.minimum_order),
+    delivery_radius_km: String(store.delivery_radius_km ?? 5),
+    delivery_base_km: String(store.delivery_base_km ?? 2),
+    delivery_fee_per_km: String(store.delivery_fee_per_km ?? 0),
     promptpay_name: store.promptpay_name ?? "",
     promptpay_id: store.promptpay_id ?? "",
     bank_name: store.bank_name ?? "",
@@ -1101,6 +1110,22 @@ function StoreEditor({
   });
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  // WYN-196: pinned store location for the delivery radius and per-km fee.
+  const [pin, setPin] = useState<FoodLocation | null>(
+    store.latitude != null && store.longitude != null ? { latitude: Number(store.latitude), longitude: Number(store.longitude) } : null,
+  );
+  const [pinStatus, setPinStatus] = useState("");
+  // The zone columns exist only once the WYN-196 migration is applied.
+  const zoneReady = store.delivery_radius_km !== undefined;
+  const pinStore = async () => {
+    setPinStatus("กำลังหาตำแหน่ง…");
+    try {
+      setPin(await currentFoodLocation());
+      setPinStatus("ปักหมุดตำแหน่งร้านแล้ว อย่าลืมกดบันทึก");
+    } catch (error) {
+      setPinStatus(error instanceof Error ? error.message : "หาตำแหน่งไม่สำเร็จ");
+    }
+  };
 
   const save = async () => {
     setBusy(true);
@@ -1116,6 +1141,13 @@ function StoreEditor({
         delivery_area: form.delivery_area.trim() || null,
         delivery_fee: Number(form.delivery_fee || 0),
         minimum_order: Number(form.minimum_order || 0),
+        ...(zoneReady ? {
+          latitude: pin?.latitude ?? null,
+          longitude: pin?.longitude ?? null,
+          delivery_radius_km: Number(form.delivery_radius_km || 5),
+          delivery_base_km: Number(form.delivery_base_km || 0),
+          delivery_fee_per_km: Number(form.delivery_fee_per_km || 0),
+        } : {}),
         promptpay_name: form.promptpay_name.trim() || null,
         promptpay_id: form.promptpay_id.trim() || null,
         bank_name: form.bank_name.trim() || null,
@@ -1140,7 +1172,22 @@ function StoreEditor({
         <label>เวลาเปิด–ปิด<input value={form.business_hours} onChange={(e) => setForm({ ...form, business_hours: e.target.value })} placeholder="เช่น ทุกวัน 10:00–20:00" /></label>
         <h3>การจัดส่ง</h3>
         <label>พื้นที่จัดส่ง<textarea value={form.delivery_area} onChange={(e) => setForm({ ...form, delivery_area: e.target.value })} placeholder="เช่น รัศมี 5 กม. / เขตที่ให้บริการ" /></label>
-        <div className="wm-form-grid"><label>ค่าส่ง<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
+        <div className="wm-form-grid"><label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
+        {zoneReady ? <div className="wm-zone">
+          <strong>ตำแหน่งร้านและระยะส่ง</strong>
+          <small>{pin ? `ปักหมุดแล้ว · ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}` : "ยังไม่ปักหมุด: ค่าส่งเป็นราคาเดียวและไม่จำกัดระยะ"}</small>
+          <div className="wm-two-actions">
+            <button className="wm-secondary" type="button" onClick={() => void pinStore()}>ใช้ตำแหน่งปัจจุบันเป็นร้าน</button>
+            {pin ? <button className="wm-secondary" type="button" onClick={() => { setPin(null); setPinStatus("ล้างหมุดแล้ว อย่าลืมกดบันทึก"); }}>ล้างหมุด</button> : null}
+          </div>
+          {pinStatus ? <p role="status">{pinStatus}</p> : null}
+          <div className="wm-form-grid">
+            <label>ส่งไกลสุด (กม.)<input type="number" min="0.5" max="50" step="0.5" inputMode="decimal" value={form.delivery_radius_km} onChange={(e) => setForm({ ...form, delivery_radius_km: e.target.value })} /></label>
+            <label>รวมในค่าส่งเริ่มต้น (กม.)<input type="number" min="0" max="50" step="0.5" inputMode="decimal" value={form.delivery_base_km} onChange={(e) => setForm({ ...form, delivery_base_km: e.target.value })} /></label>
+          </div>
+          <label>บาทต่อ กม. ที่เกิน<input type="number" min="0" max="1000" inputMode="decimal" value={form.delivery_fee_per_km} onChange={(e) => setForm({ ...form, delivery_fee_per_km: e.target.value })} /></label>
+          <small>{`ตัวอย่าง: ส่ง 4 กม. จ่าย ค่าส่งเริ่มต้น + (4 − ${form.delivery_base_km || 0}) × ${form.delivery_fee_per_km || 0} บาท`}</small>
+        </div> : null}
         <h3>รับชำระเงินเข้าร้าน</h3>
         <div className="wm-form-grid"><label>ชื่อ PromptPay<input value={form.promptpay_name} onChange={(e) => setForm({ ...form, promptpay_name: e.target.value })} /></label><label>เบอร์/เลข PromptPay<input value={form.promptpay_id} onChange={(e) => setForm({ ...form, promptpay_id: e.target.value })} /></label></div>
         <label>ธนาคาร<input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} /></label>

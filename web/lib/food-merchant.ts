@@ -19,6 +19,12 @@ export type FoodStore = {
   delivery_area: string | null;
   delivery_fee: number | string;
   minimum_order: number | string;
+  /** WYN-196 delivery zone. latitude null = flat delivery fee, no radius. */
+  latitude?: number | null;
+  longitude?: number | null;
+  delivery_radius_km?: number | string;
+  delivery_base_km?: number | string;
+  delivery_fee_per_km?: number | string;
   promptpay_name: string | null;
   promptpay_id: string | null;
   bank_name: string | null;
@@ -97,6 +103,9 @@ export type FoodOrder = {
   source_drop_id: string | null;
   subtotal: number | string;
   delivery_fee: number | string;
+  delivery_latitude?: number | null;
+  delivery_longitude?: number | null;
+  delivery_distance_km?: number | string | null;
   campaign_id: string | null;
   campaign_name: string | null;
   campaign_discount: number | string;
@@ -218,6 +227,11 @@ export async function updateFoodStore(client: SupabaseClient, storeId: string, p
     delivery_area: patch.delivery_area,
     delivery_fee: patch.delivery_fee,
     minimum_order: patch.minimum_order,
+    latitude: patch.latitude,
+    longitude: patch.longitude,
+    delivery_radius_km: patch.delivery_radius_km,
+    delivery_base_km: patch.delivery_base_km,
+    delivery_fee_per_km: patch.delivery_fee_per_km,
     promptpay_name: patch.promptpay_name,
     promptpay_id: patch.promptpay_id,
     bank_name: patch.bank_name,
