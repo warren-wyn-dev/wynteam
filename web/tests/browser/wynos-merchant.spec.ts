@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { orderDeliveryProof as customerDeliveryProof } from "../../lib/food-customer";
-import { orderDeliveryProof as merchantDeliveryProof } from "../../lib/food-merchant";
+import { orderDeliveryProof } from "../../lib/food-delivery-proof";
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
@@ -174,8 +173,12 @@ test("WYN-194 Food storage is isolated per store", () => {
   expect(sql).toContain("public.food_has_merchant_access(o.store_id)");
   expect(sql).toContain("and o.status = 'out_for_delivery'");
   expect(sql).toContain("public.merchant_has_store_role(o.store_id, array['owner','admin','manager','orders','delivery'])");
-  expect(sql).toContain("public.merchant_has_store_role(s.id, array['owner','admin','manager'])");
-  expect(sql).toContain("(storage.foldername(name))[1] = 'stores'");
+  expect(sql).toContain("create or replace function public.food_store_media_writable(p_name text)");
+  expect(sql).toContain("(storage.foldername(p_name))[1] = 'stores'");
+  expect(sql).toContain("with check (bucket_id='food-public' and public.food_store_media_writable(name));");
+  // Index-friendly uuid comparison, never a cast of a non-uuid path segment.
+  expect(sql).toContain("o.id = public.food_path_uuid((storage.foldername(name))[2])");
+  expect(policies).not.toContain("o.id::text");
   for (const policy of [
     "Food private media readable by rollout gate",
     "Food private upload by rollout gate",
@@ -195,11 +198,12 @@ test("WYN-194 Food storage is isolated per store", () => {
 
 test("Delivery proof is read from the one-to-one PostgREST embed", () => {
   const proof = { id: "p", order_id: "o", method: "direct", location_note: null, image_path: "delivery/o/a.jpg", created_at: "" };
-  for (const pick of [merchantDeliveryProof, customerDeliveryProof] as Array<(order: { food_delivery_proofs?: unknown }) => unknown>) {
-    expect(pick({ food_delivery_proofs: proof })).toEqual(proof);
-    expect(pick({ food_delivery_proofs: [proof] })).toEqual(proof);
-    expect(pick({ food_delivery_proofs: null })).toBeUndefined();
-    expect(pick({})).toBeUndefined();
+  expect(orderDeliveryProof({ food_delivery_proofs: proof })).toEqual(proof);
+  expect(orderDeliveryProof({ food_delivery_proofs: [proof] })).toEqual(proof);
+  expect(orderDeliveryProof({ food_delivery_proofs: null })).toBeUndefined();
+  expect(orderDeliveryProof({})).toBeUndefined();
+  for (const lib of ["lib/food-merchant.ts", "lib/food-customer.ts"]) {
+    expect(read(lib)).toContain('export { orderDeliveryProof } from "@/lib/food-delivery-proof";');
   }
   for (const file of ["components/merchant/wynos-merchant-app.tsx", "components/food/wynos-food-developer-app.tsx"]) {
     expect(read(file)).not.toContain("food_delivery_proofs?.[0]");

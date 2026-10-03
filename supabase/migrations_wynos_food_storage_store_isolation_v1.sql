@@ -20,10 +20,50 @@
 --   * writes are limited to stores/<store_id>/... for owner/admin/manager of
 --     that store (the same roles that manage menu and store settings).
 --
--- Only storage.objects policies are replaced or dropped. No object or row is changed.
+-- Only storage.objects policies are replaced or dropped, plus two small helper
+-- functions. No object or row is changed.
 -- Rollback: re-run the food-private policies from
 -- migrations_wynos_food_customer_access_gate_v2.sql and the food-public write
--- policies from migrations_wynos_food_merchant_v1.sql.
+-- policies from migrations_wynos_food_merchant_v1.sql, then
+-- drop function public.food_store_media_writable(text), public.food_path_uuid(text).
+
+-- helpers --------------------------------------------------------------------
+
+-- A storage path segment as a uuid, or null when it is not one. Comparing
+-- o.id = food_path_uuid(...) (instead of o.id::text = ...) lets the policies
+-- use the food_orders primary key, and CASE never casts a non-uuid.
+create or replace function public.food_path_uuid(p_segment text)
+returns uuid
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when p_segment ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then p_segment::uuid
+  end;
+$$;
+
+revoke all on function public.food_path_uuid(text) from public, anon;
+grant execute on function public.food_path_uuid(text) to authenticated;
+
+-- Public store media lives under stores/<store_id>/...; only that store's
+-- owner/admin/manager may write it. One definition for all three write policies.
+create or replace function public.food_store_media_writable(p_name text)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select (storage.foldername(p_name))[1] = 'stores'
+    and public.merchant_has_store_role(
+      public.food_path_uuid((storage.foldername(p_name))[2]),
+      array['owner','admin','manager']
+    );
+$$;
+
+revoke all on function public.food_store_media_writable(text) from public, anon;
+grant execute on function public.food_store_media_writable(text) to authenticated;
 
 -- food-private --------------------------------------------------------------
 
@@ -43,7 +83,7 @@ using (
       and exists (
         select 1
         from public.food_orders o
-        where o.id::text = (storage.foldername(name))[2]
+        where o.id = public.food_path_uuid((storage.foldername(name))[2])
           and o.buyer_id = auth.uid()
       )
     )
@@ -52,21 +92,28 @@ using (
       and exists (
         select 1
         from public.food_orders o
-        where o.id::text = (storage.foldername(name))[2]
+        where o.id = public.food_path_uuid((storage.foldername(name))[2])
           and public.food_has_merchant_access(o.store_id)
       )
     )
+    -- Slips: <buyer>/slips/<order_id>/<file>, or the path the order points at
+    -- (legacy <buyer>/slips/<file>). Not tied to buyer_id, which becomes null
+    -- if the buyer's profile is deleted.
     or (
       (storage.foldername(name))[2] = 'slips'
-      and exists (
-        select 1
-        from public.food_orders o
-        where o.buyer_id::text = (storage.foldername(name))[1]
-          and (
-            o.id::text = (storage.foldername(name))[3]
-            or o.payment_slip_path = name
-          )
-          and public.food_has_merchant_access(o.store_id)
+      and (
+        exists (
+          select 1
+          from public.food_orders o
+          where o.id = public.food_path_uuid((storage.foldername(name))[3])
+            and public.food_has_merchant_access(o.store_id)
+        )
+        or exists (
+          select 1
+          from public.food_orders o
+          where o.payment_slip_path = name
+            and public.food_has_merchant_access(o.store_id)
+        )
       )
     )
   )
@@ -89,7 +136,7 @@ with check (
       and exists (
         select 1
         from public.food_orders o
-        where o.id::text = (storage.foldername(name))[2]
+        where o.id = public.food_path_uuid((storage.foldername(name))[2])
           and o.status = 'out_for_delivery'
           and public.merchant_has_store_role(o.store_id, array['owner','admin','manager','orders','delivery'])
       )
@@ -108,51 +155,15 @@ drop policy if exists "Food private delete by rollout gate" on storage.objects;
 drop policy if exists "Food public media merchant upload" on storage.objects;
 create policy "Food public media merchant upload"
 on storage.objects for insert to authenticated
-with check (
-  bucket_id='food-public'
-  and (storage.foldername(name))[1] = 'stores'
-  and exists (
-    select 1
-    from public.food_stores s
-    where s.id::text = (storage.foldername(name))[2]
-      and public.merchant_has_store_role(s.id, array['owner','admin','manager'])
-  )
-);
+with check (bucket_id='food-public' and public.food_store_media_writable(name));
 
 drop policy if exists "Food public media merchant update" on storage.objects;
 create policy "Food public media merchant update"
 on storage.objects for update to authenticated
-using (
-  bucket_id='food-public'
-  and (storage.foldername(name))[1] = 'stores'
-  and exists (
-    select 1
-    from public.food_stores s
-    where s.id::text = (storage.foldername(name))[2]
-      and public.merchant_has_store_role(s.id, array['owner','admin','manager'])
-  )
-)
-with check (
-  bucket_id='food-public'
-  and (storage.foldername(name))[1] = 'stores'
-  and exists (
-    select 1
-    from public.food_stores s
-    where s.id::text = (storage.foldername(name))[2]
-      and public.merchant_has_store_role(s.id, array['owner','admin','manager'])
-  )
-);
+using (bucket_id='food-public' and public.food_store_media_writable(name))
+with check (bucket_id='food-public' and public.food_store_media_writable(name));
 
 drop policy if exists "Food public media merchant delete" on storage.objects;
 create policy "Food public media merchant delete"
 on storage.objects for delete to authenticated
-using (
-  bucket_id='food-public'
-  and (storage.foldername(name))[1] = 'stores'
-  and exists (
-    select 1
-    from public.food_stores s
-    where s.id::text = (storage.foldername(name))[2]
-      and public.merchant_has_store_role(s.id, array['owner','admin','manager'])
-  )
-);
+using (bucket_id='food-public' and public.food_store_media_writable(name));

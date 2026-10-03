@@ -111,6 +111,7 @@ expect_eq "$B1" "with d as (delete from storage.objects where name like 'deliver
 expect_eq "$C1" "with d as (delete from storage.objects where name like '%/slips/%' returning 1) select count(*) from d" 0 "buyer deletes submitted slip"
 expect_eq "$C1" "with u as (update storage.objects set name=name where name like '%/slips/%' returning 1) select count(*) from u" 0 "buyer replaces submitted slip"
 expect_ok   "$C1" "insert into storage.objects values ('food-private','$C1/slips/$O1/new.jpg')" "buyer uploads a new slip"
+expect_ok   "$C1" "insert into storage.objects values ('food-private','$C1/slips/not-a-uuid/x.jpg')" "non-uuid folder does not break the policy"
 expect_fail "$C1" "insert into storage.objects values ('food-private','$A1/slips/x.jpg')" "buyer uploads into another user's folder" "row-level security"
 
 # WYN-193: a delivery photo is required for every completed delivery.
@@ -129,5 +130,9 @@ expect_eq "$A1" "reset role; select status || '|' || (select image_path from foo
   "delivered|delivery/$O1/a.jpg|" "direct keeps the photo and drops the note"
 expect_eq "$A1" "reset role; select count(*) from notifications where recipient_id='$C1' and reason like 'ออเดอร์ #101 ส่งถึงแล้ว%'" 1 "buyer notified once"
 expect_ok   "$B1" "$DONE('$O2','dropoff','หน้าประตู','delivery/$O2/d.jpg')" "dropoff with photo and location"
+
+# A store keeps its slip evidence after the buyer's profile is deleted (buyer_id set to null).
+run -c "update food_orders set buyer_id=null where id='$O2'" >/dev/null
+expect_eq "$B1" "select count(*) from storage.objects where name like '%/slips/$O2/%'" 1 "store reads slip of an order whose buyer was deleted"
 
 echo "PASS: WYNOS Food delivery photo is required and Food storage is isolated per store"

@@ -106,3 +106,17 @@ Founder อนุมัติ PRD → Full-Stack (migration + UI + tests) → QA
 
 - Fixes for H1, M1, M2, L1 and L2 were verified. 9 of 11 mutants were caught; the 2 that slipped through (L1 rollback, legacy slip branch) are now caught as well, because `expect_fail` checks the error message and the test includes a legacy slip case.
 - Remaining: on staging, open one real delivery photo (PostgREST response shape); L3 product decision; L4 follow-up; the stub does not enable RLS on `food_orders`/`food_stores` (QA verified that case separately).
+
+## CTO final review (2026-10-03)
+
+Fixed in this PR:
+- The apply workflow runs both migrations in one transaction.
+- Store slip access is no longer tied to `buyer_id`, so it still works after the buyer's profile is deleted.
+- Policies compare uuids through `food_path_uuid()`, which can use the index and never casts a non-uuid.
+- The public media rule lives in one `food_store_media_writable()` helper.
+- `orderDeliveryProof` is shared from `web/lib/food-delivery-proof.ts`.
+
+Accepted / open:
+- Orphan photo when the RPC fails after upload (L4 follow-up).
+- The notification skips the `system` preference, matching the other Food transactional messages; it should be sent anyway.
+- The apply workflow has no GitHub Environment reviewer gate. It follows the repo's existing apply-workflow pattern (main only + typed confirmation), and the Founder dispatches it.

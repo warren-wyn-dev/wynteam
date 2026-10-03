@@ -3,6 +3,8 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { withoutLocation } from "@/lib/image-location";
 import { imageUploadType } from "@/lib/upload-image";
 
+export { orderDeliveryProof } from "@/lib/food-delivery-proof";
+
 export type FoodStore = {
   id: string;
   merchant_account_id: string | null;
@@ -113,12 +115,6 @@ export type FoodOrder = {
   food_delivery_proofs?: FoodDeliveryProof | FoodDeliveryProof[] | null;
 };
 
-// food_delivery_proofs.order_id is unique, so PostgREST embeds it one-to-one
-// as an object; older responses and fixtures use an array.
-export function orderDeliveryProof(order: Pick<FoodOrder, "food_delivery_proofs">): FoodDeliveryProof | undefined {
-  const proofs = order.food_delivery_proofs;
-  return (Array.isArray(proofs) ? proofs[0] : proofs) ?? undefined;
-}
 
 
 export type MerchantSnapshot = {
