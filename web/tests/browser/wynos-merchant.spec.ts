@@ -12,7 +12,8 @@ test("Merchant is a separate installable app surface with the red WYNOS identity
   const css = read("app/merchant/merchant.css");
 
   expect(page).toContain("<WynosMerchantApp />");
-  expect(layout).toContain('manifest: "/merchant/manifest.webmanifest"');
+  // The manifest URL may carry an icon cache-busting query (?v=…).
+  expect(layout).toMatch(/manifest: "\/merchant\/manifest\.webmanifest(\?v=[^"]+)?"/);
   expect(layout).toContain('title: "WYNOS Merchant"');
   expect(manifest).toContain('start_url: "/merchant"');
   expect(manifest).toContain('scope: "/merchant"');

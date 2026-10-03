@@ -303,3 +303,13 @@
 - Scope: web-only Home shortcut row and drawer item, shown to developer accounts only. No database or API change. Opening Food to everyone needs a separate decision.
 - Rollback: revert the merge commit, or use Vercel Instant Rollback.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03
+
+### DECISION — [2026-10-03] WYN-196 WYNOS Food delivery zone and distance fee
+- Founder (AskUserQuestion): default radius **"5 กม."**, fee **"ตามระยะทาง"**, location input **"กดใช้ตำแหน่งปัจจุบัน + ค้นหา"**. After reviewing PR #824: **"อนุมัติ"**.
+- Scope:
+  1. merge PR #824 (web auto-deploys; safe before or after the migration);
+  2. dispatch `food-apply-wyn196.yml` with `APPLY-WYN-196`;
+  3. deploy the `location-search` Edge Function (adds CORS).
+  A store without a pinned location keeps its flat fee. The store owner pins the store in Merchant settings.
+- Rollback: revert the merge commit or use Vercel Instant Rollback; SQL rollback is in the workflow header.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03

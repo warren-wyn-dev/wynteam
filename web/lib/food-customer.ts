@@ -18,6 +18,12 @@ export type FoodCustomerStore = {
   delivery_area: string | null;
   delivery_fee: number | string;
   minimum_order: number | string;
+  /** WYN-196: pinned store location. Null keeps the flat delivery fee. */
+  latitude?: number | null;
+  longitude?: number | null;
+  delivery_radius_km?: number | string;
+  delivery_base_km?: number | string;
+  delivery_fee_per_km?: number | string;
   promptpay_name: string | null;
   promptpay_id: string | null;
   bank_name: string | null;
@@ -119,9 +125,27 @@ export type FoodCustomerAddress = {
   address: string;
   delivery_note: string | null;
   is_default: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
   created_at: string;
   updated_at: string;
 };
+
+/** WYN-196: a delivery pin. */
+export type FoodLocation = { latitude: number; longitude: number };
+
+function pinParams(location: FoodLocation | null | undefined) {
+  return location ? { p_latitude: location.latitude, p_longitude: location.longitude } : {};
+}
+
+export function addressLocation(address: Pick<FoodCustomerAddress, "latitude" | "longitude"> | null | undefined): FoodLocation | null {
+  if (address?.latitude == null || address?.longitude == null) return null;
+  return { latitude: Number(address.latitude), longitude: Number(address.longitude) };
+}
+
+export function storeHasDeliveryZone(store: Pick<FoodCustomerStore, "latitude" | "longitude"> | null | undefined) {
+  return store?.latitude != null && store?.longitude != null;
+}
 
 export type FoodCartLine = {
   menu_item_id: string;
@@ -138,6 +162,9 @@ export type FoodOrderQuote = {
   campaign_id: string | null;
   campaign_name: string | null;
   campaign_type: "percentage" | "fixed" | "free_delivery" | null;
+  delivery_distance_km: number | null;
+  delivery_radius_km: number | null;
+  delivery_needs_location: boolean;
 };
 
 export type FoodCustomerSnapshot = {
@@ -156,6 +183,7 @@ export type FoodAddressDraft = {
   address: string;
   deliveryNote: string;
   isDefault: boolean;
+  location: FoodLocation | null;
 };
 
 const FOOD_PUBLIC = "food-public";
@@ -245,8 +273,12 @@ export async function quoteFoodCustomerOrder(
   client: SupabaseClient,
   storeId: string,
   items: FoodCartLine[],
+  location: FoodLocation | null = null,
 ): Promise<FoodOrderQuote> {
   const { data, error } = await client.rpc("food_quote_order", {
+    // Coordinates are sent only when there is a pin, so this also works
+    // against the pre-WYN-196 RPC signature during a rollout.
+    ...pinParams(location),
     p_store_id: storeId,
     p_items: items.map((line) => ({
       menu_item_id: line.menu_item_id,
@@ -266,6 +298,9 @@ export async function quoteFoodCustomerOrder(
     campaign_type: raw.campaign_type === "percentage" || raw.campaign_type === "fixed" || raw.campaign_type === "free_delivery"
       ? raw.campaign_type
       : null,
+    delivery_distance_km: raw.delivery_distance_km == null ? null : Number(raw.delivery_distance_km),
+    delivery_radius_km: raw.delivery_radius_km == null ? null : Number(raw.delivery_radius_km),
+    delivery_needs_location: raw.delivery_needs_location === true,
   };
 }
 
@@ -278,9 +313,11 @@ export async function createFoodCustomerOrder(
     shippingAddress: string;
     customerNote?: string;
     items: FoodCartLine[];
+    location: FoodLocation | null;
   },
 ) {
   const { data, error } = await client.rpc("food_create_order", {
+    ...pinParams(input.location),
     p_store_id: storeId,
     p_recipient_name: input.recipientName,
     p_recipient_phone: input.recipientPhone,
@@ -377,6 +414,7 @@ export async function saveFoodCustomerAddress(
     p_address: draft.address,
     p_delivery_note: draft.deliveryNote || null,
     p_is_default: draft.isDefault,
+    ...pinParams(draft.location),
   });
   if (error) throw new Error(error.message);
   return String(data);
@@ -445,5 +483,59 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("order cannot be cancelled by customer")) return "ออเดอร์นี้ยกเลิกเองไม่ได้แล้ว กรุณาติดต่อร้าน";
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
+  if (message.includes("outside delivery area")) return "ที่อยู่นี้อยู่นอกพื้นที่จัดส่งของร้าน";
+  if (message.includes("delivery location required")) return "กรุณาปักหมุดตำแหน่งที่อยู่จัดส่งก่อนสั่ง";
+  if (message.includes("invalid delivery location")) return "ตำแหน่งที่อยู่ไม่ถูกต้อง ลองปักหมุดใหม่";
   return message || fallback;
+}
+
+/** WYN-196: the phone's current position, for the delivery pin. */
+export function currentFoodLocation(timeoutMs = 12000): Promise<FoodLocation> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+      (error) => reject(new Error(
+        error.code === error.PERMISSION_DENIED
+          ? "กรุณาอนุญาตให้เข้าถึงตำแหน่งในเบราว์เซอร์"
+          : "หาตำแหน่งปัจจุบันไม่สำเร็จ ลองใหม่หรือค้นหาสถานที่แทน",
+      )),
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60_000 },
+    );
+  });
+}
+
+export type FoodPlace = { name: string; address: string | null; latitude: number; longitude: number };
+
+/** WYN-196: place search through the existing location-search Edge Function. */
+export async function searchFoodPlaces(client: SupabaseClient, query: string): Promise<FoodPlace[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const { data, error } = await client.functions.invoke("location-search", {
+    body: { mode: "search", query: trimmed.slice(0, 200) },
+  });
+  if (error) throw new Error("ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองใช้ตำแหน่งปัจจุบันแทน");
+  const results = Array.isArray((data as { results?: unknown })?.results) ? (data as { results: unknown[] }).results : [];
+  return results.flatMap((row) => {
+    const place = row as { name?: unknown; address?: unknown; lat?: unknown; lon?: unknown };
+    const latitude = Number(place.lat);
+    const longitude = Number(place.lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+    return [{
+      name: typeof place.name === "string" ? place.name : "",
+      address: typeof place.address === "string" ? place.address : null,
+      latitude,
+      longitude,
+    }];
+  }).slice(0, 8);
+}
+
+/** A Google Maps link that opens at the exact pin when there is one. */
+export function foodMapsHref(location: FoodLocation | null, fallbackAddress: string) {
+  return location
+    ? `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackAddress)}`;
 }

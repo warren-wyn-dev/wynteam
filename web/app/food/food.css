@@ -802,3 +802,20 @@
   font-size: 10.5px;
   line-height: 1.4;
 }
+
+/* WYN-196 delivery pin picker */
+.wf-pin { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--wf-border); border-radius: 12px; }
+.wf-pin > strong { font-size: 13px; }
+.wf-pin > small, .wf-pin-status { margin: 0; color: var(--wf-secondary); font-size: 11.5px; line-height: 1.4; }
+.wf-pin-set { display: flex; align-items: center; gap: 6px; color: var(--wf-green); font-size: 12px; font-weight: 600; }
+.wf-pin-set span { flex: 1; min-width: 0; }
+.wf-pin-set button { border: 0; background: none; color: var(--wf-secondary); font-size: 12px; padding: 4px 6px; min-height: 32px; }
+.wf-pin-search { display: flex; gap: 6px; }
+.wf-pin-search input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--wf-border); border-radius: 10px; background: var(--wf-bg); color: var(--wf-text); font: inherit; font-size: 16px; }
+.wf-pin-search button { flex: 0 0 44px; min-height: 44px; border: 1px solid var(--wf-border); border-radius: 10px; background: var(--wf-surface); color: var(--wf-text); display: inline-flex; align-items: center; justify-content: center; }
+.wf-pin-search button:disabled { opacity: .4; }
+.wf-pin-results { display: grid; border: 1px solid var(--wf-border); border-radius: 10px; overflow: hidden; }
+.wf-pin-results button { display: grid; gap: 2px; text-align: left; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--wf-border); background: var(--wf-bg); color: var(--wf-text); font: inherit; min-height: 44px; }
+.wf-pin-results button:last-child { border-bottom: 0; }
+.wf-pin-results strong { font-size: 13px; }
+.wf-pin-results small { color: var(--wf-secondary); font-size: 11px; line-height: 1.35; }

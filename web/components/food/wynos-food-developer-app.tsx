@@ -21,6 +21,7 @@ import {
   UserRound,
   UtensilsCrossed,
   X,
+  LocateFixed,
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
@@ -42,6 +43,12 @@ import {
   orderDeliveryProof,
   foodPublicUrl,
   quoteFoodCustomerOrder,
+  addressLocation,
+  currentFoodLocation,
+  searchFoodPlaces,
+  storeHasDeliveryZone,
+  type FoodLocation,
+  type FoodPlace,
   saveFoodCustomerAddress,
   submitFoodPayment,
   subscribeFoodCustomerOrders,
@@ -70,6 +77,7 @@ const EMPTY_ADDRESS: FoodAddressDraft = {
   address: "",
   deliveryNote: "",
   isDefault: true,
+  location: null,
 };
 
 const TRACKING_STEPS: Array<{
@@ -555,12 +563,96 @@ function ItemSheet({
   );
 }
 
+/** WYN-196: pin the delivery point with GPS or a place search. */
+function DeliveryPinPicker({
+  client,
+  location,
+  onChange,
+}: {
+  client: SupabaseClient;
+  location: FoodLocation | null;
+  onChange: (location: FoodLocation | null, place?: FoodPlace) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<FoodPlace[]>([]);
+  const [status, setStatus] = useState("");
+  const [working, setWorking] = useState(false);
+
+  const pickCurrent = async () => {
+    setWorking(true);
+    setStatus("");
+    try {
+      onChange(await currentFoodLocation());
+      setResults([]);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "หาตำแหน่งไม่สำเร็จ");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const search = async () => {
+    setWorking(true);
+    setStatus("");
+    try {
+      const next = await searchFoodPlaces(client, query);
+      setResults(next);
+      if (!next.length) setStatus("ไม่พบสถานที่ ลองพิมพ์ชื่ออื่นหรือใช้ตำแหน่งปัจจุบัน");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "ค้นหาไม่สำเร็จ");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div className="wf-pin">
+      <strong>ตำแหน่งจัดส่ง</strong>
+      {location ? (
+        <div className="wf-pin-set">
+          <MapPin size={16} />
+          <span>ปักหมุดแล้ว</span><small data-i18n-skip="">{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</small>
+          <button type="button" onClick={() => onChange(null)}>ล้าง</button>
+        </div>
+      ) : <small>ใช้คำนวณระยะทางและค่าส่ง</small>}
+      <button className="wf-secondary wf-full" type="button" disabled={working} onClick={() => void pickCurrent()}>
+        <LocateFixed size={16} /> {working ? "กำลังหาตำแหน่ง…" : "ใช้ตำแหน่งปัจจุบัน"}
+      </button>
+      <div className="wf-pin-search">
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void search(); } }}
+          placeholder="หรือค้นหาสถานที่ เช่น ชื่อหมู่บ้าน คอนโด"
+          aria-label="ค้นหาสถานที่"
+        />
+        <button type="button" aria-label="ค้นหา" disabled={working || !query.trim()} onClick={() => void search()}><Search size={16} /></button>
+      </div>
+      {results.length ? (
+        <div className="wf-pin-results" role="list">
+          {results.map((place) => (
+            <button key={`${place.latitude},${place.longitude}`} role="listitem" type="button" onClick={() => { onChange({ latitude: place.latitude, longitude: place.longitude }, place); setResults([]); }}>
+              <strong>{place.name || "สถานที่"}</strong>{place.address ? <small>{place.address}</small> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {status ? <p className="wf-pin-status" role="status">{status}</p> : null}
+    </div>
+  );
+}
+
 function AddressEditor({
+  client,
+  showPin,
   draft,
   onClose,
   onSave,
   busy,
 }: {
+  client: SupabaseClient;
+  /** Only stores with a delivery zone need a pin (WYN-196). */
+  showPin: boolean;
   draft: FoodAddressDraft;
   onClose: () => void;
   onSave: (draft: FoodAddressDraft) => void;
@@ -574,6 +666,15 @@ function AddressEditor({
         <label>ชื่อผู้รับ<input value={form.recipientName} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} /></label>
         <label>เบอร์โทร<input inputMode="tel" value={form.recipientPhone} onChange={(event) => setForm({ ...form, recipientPhone: event.target.value })} /></label>
         <label>ที่อยู่จัดส่ง<textarea value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
+        {showPin || form.location ? <DeliveryPinPicker
+          client={client}
+          location={form.location}
+          onChange={(location, place) => setForm((current) => ({
+            ...current,
+            location,
+            address: current.address.trim() || !place ? current.address : [place.name, place.address].filter(Boolean).join(" "),
+          }))}
+        /> : null}
         <label>หมายเหตุการจัดส่ง<textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น โทรเมื่อถึง / ประตูสีขาว" /></label>
         <label className="wf-check"><input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} /><span><strong>ใช้เป็นที่อยู่เริ่มต้น</strong><small>เลือกให้อัตโนมัติตอน Checkout</small></span></label>
         <button className="wf-primary wf-full" type="button" disabled={busy} onClick={() => onSave(form)}>{busy ? "กำลังบันทึก…" : "บันทึกที่อยู่"}</button>
@@ -583,6 +684,7 @@ function AddressEditor({
 }
 
 function CheckoutSheet({
+  client,
   store,
   menu,
   cart,
@@ -593,6 +695,7 @@ function CheckoutSheet({
   onAddAddress,
   onSubmit,
 }: {
+  client: SupabaseClient;
   store: FoodCustomerStore;
   menu: FoodCustomerMenuItem[];
   cart: FoodCartLine[];
@@ -610,9 +713,34 @@ function CheckoutSheet({
     const item = itemFor(menu, line.menu_item_id);
     return sum + (item ? Number(item.price) * line.quantity : 0);
   }, 0);
-  const campaignDiscount = Number(quote?.campaign_discount ?? 0);
-  const deliveryDiscount = Number(quote?.delivery_discount ?? 0);
-  const total = quote?.total ?? subtotal + Number(store.delivery_fee);
+  // WYN-196: re-quote for the chosen address so the fee follows its distance.
+  const zone = storeHasDeliveryZone(store);
+  const location = addressLocation(address);
+  const locationKey = location ? `${location.latitude},${location.longitude}` : "";
+  const [addressQuote, setAddressQuote] = useState<{ key: string; quote: FoodOrderQuote | null; error: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const key = `${addressId}|${locationKey}`;
+    const loc = zone && locationKey ? { latitude: Number(locationKey.split(",")[0]), longitude: Number(locationKey.split(",")[1]) } : null;
+    if (!addressId || (zone && !loc)) return () => { live = false; };
+    void quoteFoodCustomerOrder(client, store.id, cart, loc)
+      .then((next) => { if (live) setAddressQuote({ key, quote: next, error: "" }); })
+      .catch((error) => { if (live) setAddressQuote({ key, quote: null, error: foodCustomerError(error) }); });
+    return () => { live = false; };
+  }, [addressId, cart, client, locationKey, store.id, zone]);
+  const current = addressQuote?.key === `${addressId}|${locationKey}` ? addressQuote : null;
+  // Until the quote for this address arrives, the fee is unknown: no confirm.
+  const quoteLoading = Boolean(address) && (!zone || Boolean(location)) && current === null;
+  const effectiveQuote = current?.quote ?? quote;
+  const blockedReason = !address
+    ? ""
+    : zone && !location
+      ? "ที่อยู่นี้ยังไม่ได้ปักหมุดตำแหน่ง แก้ไขที่อยู่เพื่อปักหมุดก่อนสั่ง"
+      : current?.error ?? "";
+  const deliveryFee = Number(effectiveQuote?.delivery_fee ?? store.delivery_fee);
+  const campaignDiscount = Number(effectiveQuote?.campaign_discount ?? 0);
+  const deliveryDiscount = Number(effectiveQuote?.delivery_discount ?? 0);
+  const total = effectiveQuote?.total ?? subtotal + deliveryFee;
 
   return (
     <Sheet title="Checkout" onClose={onClose}>
@@ -640,15 +768,16 @@ function CheckoutSheet({
         </div>
         <div className="wf-summary">
           <div><span>ค่าอาหาร</span><b>{foodMoney(subtotal)}</b></div>
-          {campaignDiscount > 0 ? <div className="is-discount"><span>{quote?.campaign_name ? "โปร · " + quote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
-          <div><span>ค่าส่ง</span><b>{foodMoney(store.delivery_fee)}</b></div>
+          {campaignDiscount > 0 ? <div className="is-discount"><span>{effectiveQuote?.campaign_name ? "โปร · " + effectiveQuote.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{foodMoney(campaignDiscount)}</b></div> : null}
+          <div><span>ค่าส่ง{current?.quote?.delivery_distance_km != null ? ` · ${current.quote.delivery_distance_km.toFixed(1)} กม.` : ""}</span><b>{foodMoney(deliveryFee)}</b></div>
           {deliveryDiscount > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{foodMoney(deliveryDiscount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{foodMoney(total)}</b></div>
         </div>
-        {quote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {quote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
+        {blockedReason ? <div className="wf-inline-warning" role="alert">{blockedReason}</div> : null}
+        {effectiveQuote?.campaign_name ? <div className="wf-promo-applied"><strong>แคมเปญ {effectiveQuote.campaign_name}</strong><small>ส่วนลดจะยืนยันอีกครั้งโดยระบบก่อนสร้างออเดอร์</small></div> : null}
         <p className="wf-server-note">ยอดจริงจะถูกตรวจและคำนวณจากระบบอีกครั้งก่อนสร้างออเดอร์</p>
-        <button className="wf-primary wf-full" type="button" disabled={!address || busy} onClick={() => { if (address) onSubmit(address, note); }}>
-          {busy ? "กำลังสร้างออเดอร์…" : `ยืนยันออเดอร์ · ${foodMoney(total)}`}
+        <button className="wf-primary wf-full" type="button" disabled={!address || busy || quoteLoading || Boolean(blockedReason)} onClick={() => { if (address) onSubmit(address, note); }}>
+          {busy ? "กำลังสร้างออเดอร์…" : quoteLoading ? "กำลังคำนวณค่าส่ง…" : `ยืนยันออเดอร์ · ${foodMoney(total)}`}
         </button>
       </div>
     </Sheet>
@@ -1024,6 +1153,7 @@ function FoodCustomerInner({
         shippingAddress: address.address,
         customerNote: combinedNote,
         items: cart,
+        location: storeHasDeliveryZone(store) ? addressLocation(address) : null,
       });
       setCart([]);
       setCheckoutOpen(false);
@@ -1082,6 +1212,7 @@ function FoodCustomerInner({
               address: address.address,
               deliveryNote: address.delivery_note ?? "",
               isDefault: address.is_default,
+              location: addressLocation(address),
             })}
             onDeleteAddress={(id) => void deleteAddress(id)}
             onInstall={() => void install()}
@@ -1105,6 +1236,7 @@ function FoodCustomerInner({
 
       {checkoutOpen && store ? (
         <CheckoutSheet
+          client={client}
           store={store}
           menu={menu}
           cart={cart}
@@ -1118,7 +1250,7 @@ function FoodCustomerInner({
       ) : null}
 
       {addressDraft ? (
-        <AddressEditor draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft) => void saveAddress(draft)} />
+        <AddressEditor client={client} showPin={storeHasDeliveryZone(store)} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft) => void saveAddress(draft)} />
       ) : null}
 
       {selectedOrder ? (

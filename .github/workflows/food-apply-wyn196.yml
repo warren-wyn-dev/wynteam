@@ -1,0 +1,81 @@
+name: Food -- apply WYN-196 delivery zone
+
+# Applies supabase/migrations_wynos_food_delivery_zone_v1.sql (WYN-196):
+# store location + radius + per-km fee, address/order coordinates, and the
+# distance-aware food_quote_order / food_create_order /
+# food_upsert_customer_address RPCs. Manual dispatch on main only, after the
+# Founder approves production. Behaviour test:
+# supabase/tests/wynos_food_delivery_zone_test.sh.
+#
+# SAFETY: additive columns with defaults, one helper pair, three replaced
+# RPCs. A store without a pinned location keeps its flat fee, so nothing
+# changes for customers until the store owner pins the store.
+# ROLLBACK: first unpin every store (update food_stores set latitude=null,
+# longitude=null) so customers stop needing a pin and the fee is flat again;
+# this alone is a safe, instant rollback with the new web still deployed.
+# Only for a full rollback: revert the WYN-196 web commit FIRST (the web sends
+# p_latitude/p_longitude to pinned stores), then drop the new RPC signatures
+# and re-run the previous definitions from
+# migrations_wynos_merchant_campaign_center_v1.sql and
+# migrations_wynos_food_customer_access_gate_v2.sql; the columns can stay.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-WYN-196 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-196'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_food_delivery_zone_v1.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no personal data is read.
+          run_sql "select
+              (select count(*) from information_schema.columns where table_schema='public' and table_name='food_stores'
+                 and column_name in ('latitude','longitude','delivery_radius_km','delivery_base_km','delivery_fee_per_km')) as store_columns,
+              (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                 where n.nspname='public' and p.proname='food_create_order') as create_order_versions,
+              position('outside delivery area' in pg_get_functiondef('internal.food_delivery_fee(uuid,double precision,double precision)'::regprocedure)) > 0 as radius_enforced,
+              has_function_privilege('authenticated', 'public.food_create_order(uuid,text,text,text,text,jsonb,double precision,double precision)', 'execute') as customers_can_order,
+              has_function_privilege('anon', 'public.food_create_order(uuid,text,text,text,text,jsonb,double precision,double precision)', 'execute') as anon_can_order,
+              has_function_privilege('authenticated', 'internal.food_delivery_fee(uuid,double precision,double precision)', 'execute') as helper_exposed;" \
+            | tee result.json | jq .
+          jq -e '.[0].store_columns == 5 and .[0].create_order_versions == 1 and .[0].radius_enforced == true
+                 and .[0].customers_can_order == true and .[0].anon_can_order == false and .[0].helper_exposed == false' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "WYN-196 delivery zone is live."

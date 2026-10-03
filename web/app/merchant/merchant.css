@@ -1769,3 +1769,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* WYN-196 store location and delivery radius */
+.wm-zone { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--wyn-border, #e5e5e5); border-radius: 12px; }
+.wm-zone > strong { font-size: 14px; }
+.wm-zone > small, .wm-zone > p { margin: 0; color: var(--wyn-text-secondary, #737373); font-size: 12px; line-height: 1.4; }
