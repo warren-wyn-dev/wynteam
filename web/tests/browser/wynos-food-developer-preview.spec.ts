@@ -11,7 +11,9 @@ test("WYNOS Food is a separate closed developer-only surface", () => {
   const manifest = read("app/food/manifest.ts");
 
   expect(page).toContain("<WynosFoodDeveloperApp />");
-  expect(app).toContain('client.rpc("is_developer_account")');
+  // The developer gate lives in the data layer the app loads through.
+  expect(read("lib/food-customer.ts")).toContain('client.rpc("is_developer_account")');
+  expect(app).toContain("fetchFoodCustomerSnapshot(client, userId)");
   expect(app).toContain('router.replace("/")');
   expect(layout).toContain("index: false");
   expect(layout).toContain("follow: false");
@@ -91,4 +93,18 @@ test("Food checkout previews Campaign Center savings but revalidates them on the
   expect(sql).toContain("for update");
   expect(sql).toContain("v_total := greatest");
   expect(sql).toContain("usage_count=usage_count+1");
+});
+
+test("WYN-195 WYNOS Food entry sits under the Home tabs and in the drawer for developers only", () => {
+  const home = read("components/home/home-screen.tsx");
+  const drawer = read("components/home/home-drawer.tsx");
+  const shortcut = read("components/home/home-food-shortcut.tsx");
+
+  expect(home).toContain("const showFood = useIsDeveloperAccount(client, userId);");
+  expect(home).toContain("{showFood ? <HomeFoodShortcut /> : null}");
+  expect(home).toContain("showFood={showFood}");
+  expect(shortcut).toContain('href="/food"');
+  expect(drawer).toContain("showFood = false");
+  expect(drawer).toContain('{showFood ? (');
+  expect(drawer).toContain('go("/food")');
 });

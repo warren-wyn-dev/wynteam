@@ -1168,6 +1168,8 @@ export const EN_EXACT: Record<string, string> = {
   "คำแนะนำให้เริ่มโพสต์": "Posting prompts",
   "เริ่มโพสต์แรกของคุณ": "Create your first post",
   "รู้เมื่อมีข้อความ การตอบกลับ และโพสต์ใหม่จากคนที่คุณติดตาม": "Know about messages, replies, and new posts from people you follow",
+  "เปิด WYNOS Food สั่งอาหาร": "Open WYNOS Food to order",
+  "สั่งอาหาร ส่งถึงที่": "Order food, delivered to you",
 };
 
 // WYNOS Merchant v1 is a separate installable surface but follows the same
