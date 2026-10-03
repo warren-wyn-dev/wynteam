@@ -53,7 +53,7 @@ test("Merchant receives orders from WYNOS Food only while keeping delivery workf
 
   expect(app).toContain('deliveryMethod === "dropoff"');
   expect(app).toContain("แนบรูปยืนยันการจัดส่งจากคนส่ง (จำเป็น)");
-  expect(app).toContain("disabled={busy || !deliveryFile");
+  expect(app).toContain("disabled={locked || !deliveryFile");
   expect(app).toContain("วางสินค้าไว้ที่ไหน?");
   expect(app).toContain("ยืนยันส่งสำเร็จ");
   expect(app).toContain("ยืนยันเงินเข้า");
@@ -243,11 +243,13 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(app).not.toContain('role="tablist"');
   // The slip must be on screen before the combined button works, a failed
   // second step still reloads, and the alert never hides behind another sheet.
-  expect(app).toContain("disabled={busy || !slipUrl}");
+  expect(app).toContain("disabled={locked || !slipUrl}");
   expect(app).toContain("// Reload after failures too: a two-step action may have half succeeded.");
   expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
   // A pressed card stays busy until a reload shows the order's new status.
   expect(app).toContain("acting={actedFrom.get(order.id) === order.status}");
+  expect(app).toContain("const locked = busy || actedAt === stateKey;");
+  expect(app).toContain("return () => { if (opener?.isConnected) opener.focus(); };");
   expect(css).toContain("max-height: calc(100dvh - 32px);");
   expect(css).toContain(".wm-card-action { min-height: 54px; font-size: 17px; }");
   expect(css).toContain("@media (prefers-reduced-motion: reduce)");

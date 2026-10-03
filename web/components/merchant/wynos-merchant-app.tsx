@@ -991,9 +991,12 @@ function StorePanel({
 
 function Sheet({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   const sheetRef = useRef<HTMLElement>(null);
-  // Move keyboard focus into the sheet when it opens (e.g. from the new-order alert).
+  // Move keyboard focus into the sheet when it opens (e.g. from the new-order
+  // alert) and give it back to whatever opened the sheet when it closes.
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (!sheetRef.current?.contains(document.activeElement)) sheetRef.current?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
   }, []);
   return (
     <div className="wm-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -1039,12 +1042,20 @@ function OrderSheet({
   const slipLoaded = slip !== null && slip.path === order.payment_slip_path;
   const slipUrl = slipLoaded ? slip.url : null;
 
+  // Every action here changes the order's status or payment status. Keep the
+  // buttons locked after a success until the reloaded order shows that change,
+  // so a tap on the old snapshot cannot repeat the action.
+  const stateKey = `${order.status}:${order.payment_status}`;
+  const [actedAt, setActedAt] = useState<string | null>(null);
+  const locked = busy || actedAt === stateKey;
+
   const run = async (action: () => Promise<void>, success?: string) => {
     setBusy(true);
+    setActedAt(stateKey);
     try {
       await action();
       if (success) onMessage(success);
-    } catch (error) { onMessage(merchantError(error)); }
+    } catch (error) { onMessage(merchantError(error)); setActedAt(null); }
     finally {
       // Reload after failures too: a two-step action may have half succeeded.
       onReload();
@@ -1095,14 +1106,14 @@ function OrderSheet({
                 <>
                   {/* WYN-198: one button confirms the payment and accepts the order. */}
                   {/* The store must see the slip before it can confirm the payment. */}
-                  <button className="wm-primary wm-full" disabled={busy || !slipUrl} type="button" onClick={() => void run(async () => {
+                  <button className="wm-primary wm-full" disabled={locked || !slipUrl} type="button" onClick={() => void run(async () => {
                     await setFoodPaymentStatus(client, order.id, "paid");
                     await transitionFoodOrder(client, order.id, "preparing", eta);
                   }, "ยืนยันเงินเข้าและรับออเดอร์แล้ว")}>เงินเข้าแล้ว · รับออเดอร์</button>
-                  <button className="wm-secondary wm-full" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่"), "แจ้งลูกค้าว่าสลิปมีปัญหาแล้ว")}>สลิปมีปัญหา</button>
+                  <button className="wm-secondary wm-full" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่"), "แจ้งลูกค้าว่าสลิปมีปัญหาแล้ว")}>สลิปมีปัญหา</button>
                 </>
               ) : (
-                <button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "preparing", eta), "รับออเดอร์แล้ว")}>รับออเดอร์</button>
+                <button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "preparing", eta), "รับออเดอร์แล้ว")}>รับออเดอร์</button>
               )}
             </>
           ) : null}
@@ -1110,11 +1121,11 @@ function OrderSheet({
       ) : null}
 
       {order.status === "preparing" ? (
-        <section className="wm-detail-section wm-next-step"><h3>กำลังเตรียม</h3><p>เมื่ออาหารพร้อม ให้เปลี่ยนสถานะเพื่อเข้าสู่ขั้นตอนจัดส่ง</p><button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "ready_for_delivery"), "อาหารพร้อมจัดส่ง")}>อาหารพร้อมแล้ว</button></section>
+        <section className="wm-detail-section wm-next-step"><h3>กำลังเตรียม</h3><p>เมื่ออาหารพร้อม ให้เปลี่ยนสถานะเพื่อเข้าสู่ขั้นตอนจัดส่ง</p><button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "ready_for_delivery"), "อาหารพร้อมจัดส่ง")}>อาหารพร้อมแล้ว</button></section>
       ) : null}
 
       {order.status === "ready_for_delivery" ? (
-        <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>ส่งอาหารให้คนส่งแล้วกดเริ่มจัดส่ง เมื่อส่งถึงแล้ว ขอรูปจากคนส่งมาแนบเพื่อยืนยันกับลูกค้า</p><button className="wm-primary wm-full" disabled={busy} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
+        <section className="wm-detail-section wm-next-step"><h3>พร้อมจัดส่ง</h3><p>ส่งอาหารให้คนส่งแล้วกดเริ่มจัดส่ง เมื่อส่งถึงแล้ว ขอรูปจากคนส่งมาแนบเพื่อยืนยันกับลูกค้า</p><button className="wm-primary wm-full" disabled={locked} type="button" onClick={() => void run(() => transitionFoodOrder(client, order.id, "out_for_delivery"), "เริ่มจัดส่งแล้ว")}><Truck size={18} /> เริ่มจัดส่ง</button></section>
       ) : null}
 
       {order.status === "out_for_delivery" ? (
@@ -1133,7 +1144,7 @@ function OrderSheet({
               <label>วางสินค้าไว้ที่ไหน?<textarea value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder="เช่น โต๊ะหน้าประตูด้านซ้าย" /></label>
             ) : null}
           </div>
-          <button className="wm-primary wm-full" disabled={busy || !deliveryFile || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
+          <button className="wm-primary wm-full" disabled={locked || !deliveryFile || (deliveryMethod === "dropoff" && !locationNote.trim())} type="button" onClick={() => void complete()}><Check size={18} /> ยืนยันส่งสำเร็จ</button>
         </section>
       ) : null}
 
@@ -1166,15 +1177,15 @@ function OrderSheet({
           {order.payment_verification_status === "rejected" && order.payment_verification_note ? <p>{order.payment_verification_note}</p> : null}
           {order.status === "pending_acceptance" ? (
             order.payment_status === "pending" ? (
-              <button className="wm-secondary wm-full" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
+              <button className="wm-secondary wm-full" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
             ) : null
           ) : order.payment_status === "submitted" ? (
             <div className="wm-two-actions">
-              <button className="wm-primary" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "ยืนยันเงินเข้าแล้ว")}>ยืนยันเงินเข้า</button>
-              <button className="wm-secondary" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่"))}>มีปัญหา</button>
+              <button className="wm-primary" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "ยืนยันเงินเข้าแล้ว")}>ยืนยันเงินเข้า</button>
+              <button className="wm-secondary" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "issue", "กรุณาตรวจสอบหรือส่งสลิปใหม่"))}>มีปัญหา</button>
             </div>
           ) : order.payment_status === "pending" ? (
-            <button className="wm-secondary wm-full" disabled={busy} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
+            <button className="wm-secondary wm-full" disabled={locked} type="button" onClick={() => void run(() => setFoodPaymentStatus(client, order.id, "paid"), "บันทึกว่าชำระแล้ว")}>ทำเครื่องหมายว่าชำระแล้ว</button>
           ) : null}
         </div>
       </section>
@@ -1207,7 +1218,7 @@ function OrderSheet({
       ) : null}
 
       {!["delivered", "cancelled"].includes(order.status) ? (
-        <button className="wm-danger-link" disabled={busy} type="button" onClick={() => {
+        <button className="wm-danger-link" disabled={locked} type="button" onClick={() => {
           if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
           void run(() => transitionFoodOrder(client, order.id, "cancelled"), "ยกเลิกออเดอร์แล้ว");
         }}>ยกเลิกออเดอร์</button>
