@@ -94,9 +94,9 @@ test("metadata and CSS use Apple's default white status mode without old translu
   const layout = read("app/layout.tsx");
   const css = read("app/profile-web-beta1.css");
   const runtime = read("components/app-navigation-runtime.tsx");
-  expect(layout).toContain('statusBarStyle:"default"');
+  expect(layout).toMatch(/statusBarStyle:\s*"default"/);
   expect(layout).toContain('viewportFit:"cover"');
-  expect(layout).not.toContain('statusBarStyle:"black-translucent"');
+  expect(layout).not.toMatch(/statusBarStyle:\s*"black-translucent"/);
   expect(layout).not.toContain('className="wyn-ios-status-fill"');
   expect(css).not.toContain(".wyn-ios-status-fill");
   expect(css).not.toContain("#8f9bad");

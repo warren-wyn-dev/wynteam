@@ -1774,3 +1774,15 @@
 .wm-zone { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--wyn-border, #e5e5e5); border-radius: 12px; }
 .wm-zone > strong { font-size: 14px; }
 .wm-zone > small, .wm-zone > p { margin: 0; color: var(--wyn-text-secondary, #737373); font-size: 12px; line-height: 1.4; }
+
+/* WYN-197: store place list */
+.wm-place-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.wm-place-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid var(--wyn-border, #e5e5e5); }
+.wm-place-list li.is-off { opacity: .55; }
+.wm-place-list li > span:first-child { display: grid; gap: 2px; min-width: 0; }
+.wm-place-list strong { font-size: 13px; overflow-wrap: anywhere; }
+.wm-place-list small { color: var(--wyn-text-secondary, #737373); font-size: 11.5px; }
+.wm-place-actions { display: flex; flex-shrink: 0; gap: 4px; }
+.wm-place-actions button { min-height: 32px; padding: 0 10px; border: 1px solid var(--wyn-border, #e5e5e5); border-radius: 999px; background: transparent; color: inherit; font: inherit; font-size: 12px; }
+.wm-place-form { display: grid; gap: 8px; }
+.wm-place-form > small { color: var(--wyn-text-secondary, #737373); font-size: 12px; line-height: 1.4; }

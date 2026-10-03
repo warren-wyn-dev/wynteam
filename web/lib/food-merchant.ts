@@ -246,6 +246,65 @@ export async function updateFoodStore(client: SupabaseClient, storeId: string, p
   if (error) throw new Error(error.message);
 }
 
+/** WYN-197: a place the store delivers to, offered in the customer's place search. */
+export type FoodStorePlace = {
+  id: string;
+  store_id: string;
+  name: string;
+  detail: string | null;
+  latitude: number;
+  longitude: number;
+  is_active: boolean;
+};
+
+export type FoodStorePlaceDraft = {
+  id?: string;
+  name: string;
+  detail: string;
+  latitude: number;
+  longitude: number;
+  is_active: boolean;
+};
+
+/** null = the WYN-197 table is not there yet, so Merchant hides the list. */
+export async function fetchStorePlaces(client: SupabaseClient, storeId: string): Promise<FoodStorePlace[] | null> {
+  const { data, error } = await client
+    .from("food_store_places")
+    .select("id,store_id,name,detail,latitude,longitude,is_active")
+    .eq("store_id", storeId)
+    .order("name");
+  if (error) {
+    if (error.code === "42P01" || error.code === "PGRST205") return null;
+    throw new Error(error.message);
+  }
+  return (data ?? []) as FoodStorePlace[];
+}
+
+export async function saveStorePlace(client: SupabaseClient, storeId: string, draft: FoodStorePlaceDraft) {
+  const name = draft.name.trim();
+  if (!name) throw new Error("กรุณาใส่ชื่อสถานที่");
+  if (name.length > 120) throw new Error("ชื่อสถานที่ยาวเกินไป");
+  if (!Number.isFinite(draft.latitude) || !Number.isFinite(draft.longitude)) throw new Error("กรุณาปักหมุดสถานที่");
+  const payload = {
+    store_id: storeId,
+    name,
+    detail: draft.detail.trim().slice(0, 200) || null,
+    latitude: draft.latitude,
+    longitude: draft.longitude,
+    is_active: draft.is_active,
+  };
+  const query = draft.id
+    ? client.from("food_store_places").update(payload).eq("id", draft.id).eq("store_id", storeId)
+    : client.from("food_store_places").insert(payload);
+  const { error } = await query;
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteStorePlace(client: SupabaseClient, storeId: string, placeId: string) {
+  const { error } = await client.from("food_store_places").delete().eq("id", placeId).eq("store_id", storeId);
+  if (error) throw new Error(error.message);
+}
+
 export async function saveMenuItem(client: SupabaseClient, storeId: string, draft: MenuDraft) {
   const price = Number(draft.price);
   if (!draft.name.trim()) throw new Error("กรุณาใส่ชื่อเมนู");
