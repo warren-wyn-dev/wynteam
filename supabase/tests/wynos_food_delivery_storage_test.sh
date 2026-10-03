@@ -66,11 +66,13 @@ insert into food_orders values
    '00000000-0000-0000-0000-0000000000c1/slips/11111111-0000-0000-0000-000000000000/s.jpg',null),
   ('22222222-0000-0000-0000-000000000000','bbbbbbbb-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000c1',102,'out_for_delivery',
    '00000000-0000-0000-0000-0000000000c1/slips/22222222-0000-0000-0000-000000000000/s.jpg',null),
-  ('33333333-0000-0000-0000-000000000000','aaaaaaaa-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000c1',103,'preparing',null,null);
+  ('33333333-0000-0000-0000-000000000000','aaaaaaaa-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000c1',103,'preparing',
+   '00000000-0000-0000-0000-0000000000c1/slips/legacy.jpg',null);
 insert into storage.objects values
   ('food-private','00000000-0000-0000-0000-0000000000c1/slips/11111111-0000-0000-0000-000000000000/s.jpg'),
   ('food-private','00000000-0000-0000-0000-0000000000c1/slips/22222222-0000-0000-0000-000000000000/s.jpg'),
   ('food-private','delivery/22222222-0000-0000-0000-000000000000/d.jpg'),
+  ('food-private','00000000-0000-0000-0000-0000000000c1/slips/legacy.jpg'),
   ('food-public','stores/aaaaaaaa-0000-0000-0000-000000000000/payment/qr.png'),
   ('food-public','stores/bbbbbbbb-0000-0000-0000-000000000000/payment/qr.png');
 SQL
@@ -80,7 +82,9 @@ run >/dev/null < "$ROOT/supabase/migrations_wynos_food_delivery_photo_required_v
 
 # Each case runs as `authenticated` for one user and must match the expectation.
 expect_ok()   { run -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" >/dev/null 2>&1 || { echo "FAIL (expected success): $3"; exit 1; }; }
-expect_fail() { if run -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" >/dev/null 2>&1; then echo "FAIL (expected error): $3"; exit 1; fi; }
+# expect_fail <uid> <sql> <description> <expected error substring>
+expect_fail() { local err; if err="$(run -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" 2>&1 >/dev/null)"; then echo "FAIL (expected error): $3"; exit 1; fi
+                [[ "$err" == *"$4"* ]] || { echo "FAIL: $3 (wrong error: $err)"; exit 1; }; }
 expect_eq()   { local got; got="$(run -At -c "set role authenticated; select set_config('test.uid','$1',false);" -c "$2" | tail -n1)";
                 [[ "$got" == "$3" ]] || { echo "FAIL: $4 (got '$got', want '$3')"; exit 1; }; }
 
@@ -90,37 +94,37 @@ O1=11111111-0000-0000-0000-000000000000; O2=22222222-0000-0000-0000-000000000000
 PRIV="select count(*) from storage.objects where bucket_id='food-private'"
 
 # WYN-194 reads: each store sees only its own order evidence; the buyer sees all of theirs.
-expect_eq "$A1" "$PRIV" 1 "owner A sees only store A slip"
+expect_eq "$A1" "$PRIV" 2 "owner A sees only store A slips, including a legacy slip path"
 expect_eq "$B1" "$PRIV" 2 "owner B sees only store B slip and delivery photo"
-expect_eq "$C1" "$PRIV" 3 "buyer sees own slips and delivery photos"
+expect_eq "$C1" "$PRIV" 4 "buyer sees own slips and delivery photos"
 # WYN-194 writes across stores are rejected.
-expect_fail "$B1" "insert into storage.objects values ('food-private','delivery/$O1/x.jpg')" "store B uploads into store A order"
-expect_fail "$B1" "insert into storage.objects values ('food-public','stores/aaaaaaaa-0000-0000-0000-000000000000/payment/evil.png')" "store B adds store A QR"
+expect_fail "$B1" "insert into storage.objects values ('food-private','delivery/$O1/x.jpg')" "store B uploads into store A order" "row-level security"
+expect_fail "$B1" "insert into storage.objects values ('food-public','stores/aaaaaaaa-0000-0000-0000-000000000000/payment/evil.png')" "store B adds store A QR" "row-level security"
 expect_eq "$B1" "with u as (update storage.objects set name=name where name like 'stores/aaaaaaaa%' returning 1) select count(*) from u" 0 "store B overwrites store A QR"
 expect_eq "$B1" "with d as (delete from storage.objects where name like 'stores/aaaaaaaa%' returning 1) select count(*) from d" 0 "store B deletes store A QR"
 expect_ok   "$B1" "insert into storage.objects values ('food-public','stores/bbbbbbbb-0000-0000-0000-000000000000/menu/m.png')" "store B uploads own menu image"
-expect_fail "$A2" "insert into storage.objects values ('food-public','stores/aaaaaaaa-0000-0000-0000-000000000000/payment/x.png')" "delivery role changes store media"
-expect_fail "$A2" "insert into storage.objects values ('food-private','delivery/$O3/no.jpg')" "upload for an order not out for delivery"
-expect_fail "$A2" "insert into storage.objects values ('food-private','delivery/$O1/sub/no.jpg')" "nested delivery path"
+expect_fail "$A2" "insert into storage.objects values ('food-public','stores/aaaaaaaa-0000-0000-0000-000000000000/payment/x.png')" "delivery role changes store media" "row-level security"
+expect_fail "$A2" "insert into storage.objects values ('food-private','delivery/$O3/no.jpg')" "upload for an order not out for delivery" "row-level security"
+expect_fail "$A2" "insert into storage.objects values ('food-private','delivery/$O1/sub/no.jpg')" "nested delivery path" "row-level security"
 # Evidence cannot be edited or deleted through the API, by the store or the buyer.
 expect_eq "$B1" "with d as (delete from storage.objects where name like 'delivery/%' returning 1) select count(*) from d" 0 "store deletes delivery evidence"
 expect_eq "$C1" "with d as (delete from storage.objects where name like '%/slips/%' returning 1) select count(*) from d" 0 "buyer deletes submitted slip"
 expect_eq "$C1" "with u as (update storage.objects set name=name where name like '%/slips/%' returning 1) select count(*) from u" 0 "buyer replaces submitted slip"
 expect_ok   "$C1" "insert into storage.objects values ('food-private','$C1/slips/$O1/new.jpg')" "buyer uploads a new slip"
-expect_fail "$C1" "insert into storage.objects values ('food-private','$A1/slips/x.jpg')" "buyer uploads into another user's folder"
+expect_fail "$C1" "insert into storage.objects values ('food-private','$A1/slips/x.jpg')" "buyer uploads into another user's folder" "row-level security"
 
 # WYN-193: a delivery photo is required for every completed delivery.
 DONE="select public.food_complete_delivery"
 expect_ok   "$A2" "insert into storage.objects values ('food-private','delivery/$O1/a.jpg')" "delivery role uploads photo"
-expect_fail "$B1" "$DONE('$O1','direct',null,'delivery/$O1/a.jpg')" "other store completes delivery"
-expect_fail "$A1" "$DONE('$O1','direct',null,null)" "direct without photo"
-expect_fail "$A1" "$DONE('$O1',null,null,'delivery/$O1/a.jpg')" "null method"
-expect_fail "$A1" "$DONE('$O1','direct',null,'delivery/$O2/d.jpg')" "photo of another order"
-expect_fail "$A1" "$DONE('$O1','direct',null,'delivery/$O1/missing.jpg')" "photo that was never uploaded"
-expect_fail "$A1" "$DONE('$O1','direct',null,'delivery/$O1/../$O2/d.jpg')" "path traversal"
-expect_fail "$A1" "$DONE('$O1','dropoff',E' \\t\\n ','delivery/$O1/a.jpg')" "dropoff with blank location"
+expect_fail "$B1" "$DONE('$O1','direct',null,'delivery/$O1/a.jpg')" "other store completes delivery" "delivery role required"
+expect_fail "$A1" "$DONE('$O1','direct',null,null)" "direct without photo" "delivery photo is required"
+expect_fail "$A1" "$DONE('$O1',null,null,'delivery/$O1/a.jpg')" "null method" "invalid delivery method"
+expect_fail "$A1" "$DONE('$O1','direct',null,'delivery/$O2/d.jpg')" "photo of another order" "delivery photo is required"
+expect_fail "$A1" "$DONE('$O1','direct',null,'delivery/$O1/missing.jpg')" "photo that was never uploaded" "delivery photo is required"
+expect_fail "$A1" "$DONE('$O1','direct',null,'delivery/$O1/../$O2/d.jpg')" "path traversal" "delivery photo is required"
+expect_fail "$A1" "$DONE('$O1','dropoff',E' \\t\\n ','delivery/$O1/a.jpg')" "dropoff with blank location" "dropoff location is required"
 expect_ok   "$A1" "$DONE('$O1','direct','ignored','delivery/$O1/a.jpg')" "direct with photo"
-expect_fail "$A1" "$DONE('$O1','direct',null,'delivery/$O1/a.jpg')" "completing twice"
+expect_fail "$A1" "$DONE('$O1','direct',null,'delivery/$O1/a.jpg')" "completing twice" "order is not out for delivery"
 expect_eq "$A1" "reset role; select status || '|' || (select image_path from food_delivery_proofs where order_id='$O1') || '|' || coalesce((select location_note from food_delivery_proofs where order_id='$O1'),'') from food_orders where id='$O1'" \
   "delivered|delivery/$O1/a.jpg|" "direct keeps the photo and drops the note"
 expect_eq "$A1" "reset role; select count(*) from notifications where recipient_id='$C1' and reason like 'ออเดอร์ #101 ส่งถึงแล้ว%'" 1 "buyer notified once"

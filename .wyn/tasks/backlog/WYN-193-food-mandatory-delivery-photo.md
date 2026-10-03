@@ -1,6 +1,6 @@
 # Product Task — WYN-193 — WYNOS Food: บังคับแนบรูปทุกครั้งที่ส่งสำเร็จ
 
-Status: review — implemented, รอ QA & Security / CTO review; migration ยังไม่ apply production
+Status: review — QA & Security PASS (round 2), รอ CTO final review; migration ยังไม่ apply production
 Owner: AI Product Manager
 Date: 2026-10-03
 
@@ -101,3 +101,8 @@ Founder อนุมัติ PRD → Full-Stack (migration + UI + tests) → QA
 - L1: `p_method is null` rejected. L2: location note trimmed of tabs/newlines.
 - L3 (open, product): delivered notification ignores the in-app 'system' preference, same as the other Food transactional notifications (paid, refund).
 - L4 (open, follow-up): wrong photo cannot be replaced; orphan upload if the RPC fails after upload.
+
+## QA round 2 (2026-10-03) — PASS
+
+- Fixes for H1, M1, M2, L1 and L2 were verified. 9 of 11 mutants were caught; the 2 that slipped through (L1 rollback, legacy slip branch) are now caught as well, because `expect_fail` checks the error message and the test includes a legacy slip case.
+- Remaining: on staging, open one real delivery photo (PostgREST response shape); L3 product decision; L4 follow-up; the stub does not enable RLS on `food_orders`/`food_stores` (QA verified that case separately).
