@@ -17,7 +17,7 @@ test("Merchant is a separate installable app surface with the red WYNOS identity
   expect(layout).toContain('title: "Wynos Merchant"');
   expect(manifest).toContain('start_url: "/merchant"');
   expect(manifest).toContain('scope: "/merchant"');
-  expect(manifest).toContain('theme_color: "#e32636"');
+  expect(manifest).toContain('theme_color: "#ee1228"');
   expect(css).toContain("--wm-red: #e32636");
   expect(css).toContain(".wm-nav");
   expect(css).toContain(".wm-delivery-methods");
