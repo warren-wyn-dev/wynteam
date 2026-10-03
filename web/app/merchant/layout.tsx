@@ -5,16 +5,26 @@ import "./merchant.css";
 
 const MERCHANT_ICON_192 = "/icons/merchant/merchant-app-v3-192.png";
 const MERCHANT_ICON_512 = "/icons/merchant/merchant-app-v3-512.png";
+// iOS Home Screen uses apple-touch-icon in preference to manifest icons.
+// Keep this on a dedicated, cache-busted path so Safari cannot reuse a stale
+// site snapshot or an icon from another WYNOS surface.
+const MERCHANT_APPLE_TOUCH_ICON = "/icons/merchant/apple-touch-icon-v4.png";
 
 export const metadata: Metadata = {
   title: "WYNOS Merchant",
   applicationName: "WYNOS Merchant",
   description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
-  manifest: "/merchant/manifest.webmanifest?v=20261003-3",
+  manifest: "/merchant/manifest.webmanifest?v=20261003-4",
   icons: {
     icon: [
       { url: MERCHANT_ICON_192, sizes: "192x192", type: "image/png" },
       { url: MERCHANT_ICON_512, sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: MERCHANT_APPLE_TOUCH_ICON, type: "image/png" },
+    ],
+    other: [
+      { rel: "apple-touch-icon-precomposed", url: MERCHANT_APPLE_TOUCH_ICON, type: "image/png" },
     ],
   },
   openGraph: {
