@@ -1041,6 +1041,11 @@ function OrderSheet({
 
   const slipLoaded = slip !== null && slip.path === order.payment_slip_path;
   const slipUrl = slipLoaded ? slip.url : null;
+  // The image itself must render, not just its signed URL, before the store
+  // can confirm the payment.
+  const [slipImage, setSlipImage] = useState<{ url: string; ok: boolean } | null>(null);
+  const slipShown = slipUrl !== null && slipImage?.url === slipUrl && slipImage.ok;
+  const slipImageFailed = slipUrl !== null && slipImage?.url === slipUrl && !slipImage.ok;
 
   // Every action here changes the order's status or payment status. Keep the
   // buttons locked after a success until the reloaded order shows that change,
@@ -1092,9 +1097,19 @@ function OrderSheet({
           {order.payment_status === "submitted" ? (
             <>
               <p>ดูสลิปให้แน่ใจว่าเงินเข้าแล้ว จากนั้นกดปุ่มเดียวเพื่อยืนยันเงินและรับออเดอร์</p>
-              {slipUrl ? <a className="wm-slip-preview" href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" /></a> : (
-                <p role="status">{slipLoaded ? "โหลดสลิปไม่สำเร็จ ปิดแล้วเปิดออเดอร์ใหม่อีกครั้ง" : "กำลังโหลดสลิป…"}</p>
-              )}
+              {slipUrl && !slipImageFailed ? (
+                <a className="wm-slip-preview" href={slipUrl} target="_blank" rel="noreferrer">
+                  <img
+                    src={slipUrl}
+                    alt="สลิปชำระเงิน"
+                    onLoad={() => setSlipImage({ url: slipUrl, ok: true })}
+                    onError={() => setSlipImage({ url: slipUrl, ok: false })}
+                  />
+                </a>
+              ) : null}
+              {!slipShown ? (
+                <p role="status">{slipImageFailed || (slipLoaded && !slipUrl) ? "โหลดสลิปไม่สำเร็จ ปิดแล้วเปิดออเดอร์ใหม่อีกครั้ง" : "กำลังโหลดสลิป…"}</p>
+              ) : null}
             </>
           ) : null}
           {order.payment_status === "pending" ? <p>รอลูกค้าโอนเงิน ถ้าได้รับเงินช่องทางอื่นแล้ว กด “ทำเครื่องหมายว่าชำระแล้ว” ด้านล่าง</p> : null}
@@ -1106,7 +1121,7 @@ function OrderSheet({
                 <>
                   {/* WYN-198: one button confirms the payment and accepts the order. */}
                   {/* The store must see the slip before it can confirm the payment. */}
-                  <button className="wm-primary wm-full" disabled={locked || !slipUrl} type="button" onClick={() => void run(async () => {
+                  <button className="wm-primary wm-full" disabled={locked || !slipShown} type="button" onClick={() => void run(async () => {
                     await setFoodPaymentStatus(client, order.id, "paid");
                     await transitionFoodOrder(client, order.id, "preparing", eta);
                   }, "ยืนยันเงินเข้าและรับออเดอร์แล้ว")}>เงินเข้าแล้ว · รับออเดอร์</button>

@@ -243,7 +243,8 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(app).not.toContain('role="tablist"');
   // The slip must be on screen before the combined button works, a failed
   // second step still reloads, and the alert never hides behind another sheet.
-  expect(app).toContain("disabled={locked || !slipUrl}");
+  expect(app).toContain("disabled={locked || !slipShown}");
+  expect(app).toContain("onLoad={() => setSlipImage({ url: slipUrl, ok: true })}");
   expect(app).toContain("// Reload after failures too: a two-step action may have half succeeded.");
   expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
   // A pressed card stays busy until a reload shows the order's new status.
