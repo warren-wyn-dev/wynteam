@@ -1,7 +1,7 @@
 {
   "id": "/merchant",
-  "name": "WYNOS Merchant",
-  "short_name": "Merchant",
+  "name": "Wynos Merchant",
+  "short_name": "Wynos Merchant",
   "description": "จัดการร้าน WYNOS Food",
   "start_url": "/merchant",
   "scope": "/merchant",
@@ -12,19 +12,19 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/merchant/icon-v6?size=192",
+      "src": "/merchant/icon-v8?size=192",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/merchant/icon-v6?size=512",
+      "src": "/merchant/icon-v8?size=512",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/merchant/merchant-app-v3-512.png",
+      "src": "/merchant/icon-v8?size=512&maskable=1",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

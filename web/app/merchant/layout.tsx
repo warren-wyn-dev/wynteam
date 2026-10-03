@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 
 import "./merchant.css";
 
-const MERCHANT_ICON = (size: number) => `/merchant/icon-v6?size=${size}`;
+const MERCHANT_ICON = (size: number) => `/merchant/icon-v8?size=${size}`;
 
 export const metadata: Metadata = {
-  title: "WYNOS Merchant",
-  applicationName: "WYNOS Merchant",
+  title: "Wynos Merchant",
+  applicationName: "Wynos Merchant",
   description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
-  manifest: "/merchant/manifest.webmanifest?v=20261004-7",
+  manifest: "/merchant/manifest.webmanifest?v=20261004-8",
   icons: {
     icon: [
       { url: MERCHANT_ICON(16), sizes: "16x16", type: "image/png" },
@@ -34,14 +34,14 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "WYNOS Merchant",
+    title: "Wynos Merchant",
     description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
-    images: [{ url: MERCHANT_ICON(512), width: 512, height: 512, alt: "WYNOS Merchant" }],
+    images: [{ url: MERCHANT_ICON(512), width: 512, height: 512, alt: "Wynos Merchant" }],
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "WYNOS Merchant",
+    title: "Wynos Merchant",
     description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
     images: [MERCHANT_ICON(512)],
   },
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "WYNOS Merchant",
+    title: "Wynos Merchant",
   },
   other: {
     "msapplication-TileColor": "#e32636",
