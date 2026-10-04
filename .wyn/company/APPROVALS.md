@@ -528,3 +528,14 @@
   3. Run `deploy-admin.yml`.
 - Rollback: revert, then re-run both functions from `migrations_wynos_admin_food_ops_v1.sql`.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-210 finance page opened to every store
+
+- Founder: "เปิดทุกคน". This is the explicit WYN-125 go-ahead to end the staged rollout.
+- Change:
+  - The developer gate around `MerchantFinance` is removed.
+  - The old `FinancePanel` is removed.
+  - Frontend only; the WYN-210 RPC is already live.
+- Release: merge. Web auto-deploys.
+- Rollback: revert the PR (the old page comes back).
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
