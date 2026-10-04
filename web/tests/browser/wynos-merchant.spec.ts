@@ -344,4 +344,11 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(app).toContain('<NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม"');
   expect(app).not.toContain('label="รายงาน"');
   expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));\n}\n.wm-nav > button {");
+  // Light only: the layout pins light tokens whatever the phone or WYN theme says.
+  const layout = read("app/merchant/layout.tsx");
+  expect(layout).toContain('return <div className="wm-force-light">{children}</div>;');
+  expect(layout).toContain('colorScheme: "light",');
+  expect(css).toContain("html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }");
+  expect(css).not.toContain("prefers-color-scheme: dark");
+  expect(css).not.toContain("var(--wyn-");
 });

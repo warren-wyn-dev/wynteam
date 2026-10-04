@@ -47,8 +47,10 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: "#ee1228",
+  colorScheme: "light",
 };
 
+// WYN-204: Merchant is light only, whatever the phone or WYN theme says.
 export default function MerchantLayout({ children }: { children: ReactNode }) {
-  return children;
+  return <div className="wm-force-light">{children}</div>;
 }

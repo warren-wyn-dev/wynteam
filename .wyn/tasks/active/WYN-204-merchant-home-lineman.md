@@ -1,6 +1,6 @@
 # Product Task — WYN-204 — Wynos Merchant: simple Wynos home, 3D shortcuts and four tabs
 
-Status: awaiting Founder approval (PR review and merge)
+Status: approved — releasing PR #832
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
@@ -20,6 +20,7 @@ Date: 2026-10-04
   - Below it, one row of 3D shortcuts: orders to handle (with a count badge), menu, campaigns, reports.
   - Then "ต้องจัดการตอนนี้", then a "ร้านพร้อมขาย x%" bar using the publish readiness rules. The bar is hidden when complete or suspended, and it expands to show each step with a link to fix it.
 - Four bottom tabs. "เพิ่มเติม" holds reports, campaigns (moved out of store settings), store settings, notifications, sound test, install and sign out. Each sub-page has a back button.
+- Merchant is light only (Founder: "แอปแค่โหมดสว่างพอ"). The layout wraps Merchant in `.wm-force-light`, which pins the light WYN tokens.
 - The order list "ต้องจัดการตอนนี้" stays on home. No data, API or database changes.
 
 ## Acceptance criteria
