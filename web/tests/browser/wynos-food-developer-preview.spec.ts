@@ -164,6 +164,7 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   const sql = read("../supabase/migrations_wynos_food_delivery_zone_v1.sql");
   const lib = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");
+  const map = read("components/food/food-delivery-map-picker.tsx");
   const merchant = read("components/merchant/wynos-merchant-app.tsx");
 
   // Server owns the fee and the radius; old signatures cannot bypass them.
@@ -181,7 +182,7 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(lib).toContain('client.functions.invoke("location-search"');
   expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
   expect(app).toContain("disabled={!address || busy || quoteLoading || Boolean(blockedReason)}");
-  expect(app).toContain('aria-label="ค้นหา"');
+  expect(map).toContain('aria-label="ค้นหาสถานที่หรือที่อยู่"');
   expect(merchant).toContain("Math.ceil(");
   expect(app).toContain("<DeliveryPinPicker");
   expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
@@ -194,7 +195,7 @@ test("WYN-197 free place search uses the store's own place list", () => {
   const sql = read("../supabase/migrations_wynos_food_store_places_v1.sql");
   const lib = read("lib/food-customer.ts");
   const merchantLib = read("lib/food-merchant.ts");
-  const app = read("components/food/wynos-food-developer-app.tsx");
+  const map = read("components/food/food-delivery-map-picker.tsx");
   const merchant = read("components/merchant/wynos-merchant-app.tsx");
 
   // Only the store's managers write; customers read through a scoped RPC.
@@ -207,8 +208,8 @@ test("WYN-197 free place search uses the store's own place list", () => {
 
   // Food searches the store list first; the geocoder is only a fallback.
   expect(lib).toContain('client.rpc("food_search_store_places"');
-  expect(app).toContain("let next = storeId ? (await searchStorePlaces(client, storeId, query)) ?? [] : [];");
-  expect(app).toContain("next = await searchFoodPlaces(client, query).catch(() => []);");
+  expect(map).toContain("let next = storeId ? (await searchStorePlaces(client, storeId, trimmed)) ?? [] : [];");
+  expect(map).toContain("if (!next.length) next = await searchFoodPlaces(client, trimmed);");
 
   // Merchant manages the list and hides it until the table exists.
   expect(merchantLib).toContain('.from("food_store_places")');
