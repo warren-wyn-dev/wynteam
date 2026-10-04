@@ -22,6 +22,16 @@ test("WYNOS Food is a separate closed developer-only surface", () => {
   expect(manifest).toContain('theme_color: "#e32636"');
 });
 
+test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+
+  expect(app).toContain('type FoodTab = "home" | "orders" | "messages" | "cart" | "account"');
+  expect(app).toContain('onClick={() => onTab("messages")}');
+  expect(app).toContain('tab === "messages" ? <MessagesPanel /> : null');
+  expect(app).toContain("แชท WYNOS Food แยกจากแชท WYNOS");
+  expect(app).not.toContain('onMessages={() => router.push("/chat")}');
+});
+
 test("Food customer flow is connected to real ordering, payment and realtime APIs", () => {
   const data = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");
