@@ -1,6 +1,6 @@
 # Product Task — WYN-198 — Wynos Merchant: simpler order flow
 
-Status: review — PR open, waiting for Founder approval to merge (web only)
+Status: approved — released via PR #826
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-03
 
