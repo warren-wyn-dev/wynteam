@@ -1,6 +1,6 @@
 # Product Task — WYN-205 — Wynos Merchant: finance, ads, campaigns, promotions shortcuts
 
-Status: awaiting Founder approval (PR review and merge)
+Status: approved — releasing PR #833
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
