@@ -425,3 +425,19 @@
 - Release: merge PR #840. Web auto-deploys.
 - Rollback: revert PR #840.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-209 Wynos Merchant app icon (PR #841)
+
+- Founder request:
+  - "ออกแบบไอคอนแอป Wynos Merchant ให้ด้วย"
+  - Then supplied the exact artwork: "แค่อยากเพิ่มคำว่า Merchant ในไอคอน และจัด ไอคอน ชื่อ ให้สวย ตรงกลาง"
+  - Picked text size C.
+- Change:
+  - v15 icons use the Founder's artwork, full-bleed red with no white border.
+  - "Merchant" sits under the mark, centred.
+  - The manifest moves to `?v=15`.
+  - Fixes the truncated v14-512 PNG.
+- Frontend assets only. No database, API or auth change.
+- Release: merge PR #841. Web auto-deploys.
+- Rollback: revert PR #841.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
