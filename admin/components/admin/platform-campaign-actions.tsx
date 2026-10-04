@@ -132,7 +132,7 @@ export function PlatformCampaignFormButton({ campaign }: { campaign?: AdminPlatf
 }
 
 /** WYN-206: record a transfer of what WYNOS owes a store. */
-export function PlatformSettleButton({ storeId, storeName, owed }: { storeId: string; storeName: string; owed: string }) {
+export function PlatformSettleButton({ storeId, storeName, owed, owedAmount, owedOrders }: { storeId: string; storeName: string; owed: string; owedAmount: number; owedOrders: number }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reference, setReference] = useState("");
@@ -144,7 +144,7 @@ export function PlatformSettleButton({ storeId, storeName, owed }: { storeId: st
     setError(null);
     startTransition(async () => {
       try {
-        await settlePlatformStore({ storeId, reference, note });
+        await settlePlatformStore({ storeId, reference, note, expectedAmount: owedAmount, expectedCount: owedOrders });
         setOpen(false);
         setReference("");
         setNote("");
@@ -162,7 +162,7 @@ export function PlatformSettleButton({ storeId, storeName, owed }: { storeId: st
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{`โอนคืนร้าน ${storeName}`}</DialogTitle>
-            <DialogDescription>{`โอน ${owed} ให้ร้านก่อน แล้วใส่เลขอ้างอิงการโอน ระบบจะปิดยอดค้างของทุกออเดอร์ที่นับไว้ และแจ้งเจ้าของร้าน`}</DialogDescription>
+            <DialogDescription>{`โอน ${owed} (${owedOrders} ออเดอร์) ให้ร้านก่อน แล้วใส่เลขอ้างอิงการโอน ระบบจะปิดยอดเฉพาะเมื่อยอดยังตรงกับที่แสดงนี้ และแจ้งเจ้าของร้าน`}</DialogDescription>
           </DialogHeader>
           <label className="grid gap-1 text-sm"><span>เลขอ้างอิงการโอน</span><input className={fieldClass} value={reference} maxLength={120} onChange={(e) => setReference(e.target.value)} /></label>
           <label className="grid gap-1 text-sm"><span>หมายเหตุ (ไม่บังคับ)</span><Textarea value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} /></label>

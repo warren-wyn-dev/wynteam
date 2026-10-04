@@ -94,7 +94,7 @@ export default async function FoodCampaignsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <strong className="text-lg">{formatBaht(row.owed)}</strong>
-                    <PlatformSettleButton storeId={row.store_id} storeName={row.store_name} owed={formatBaht(row.owed)} />
+                    <PlatformSettleButton storeId={row.store_id} storeName={row.store_name} owed={formatBaht(row.owed)} owedAmount={Number(row.owed)} owedOrders={Number(row.owed_orders)} />
                   </div>
                 </div>
               ))}

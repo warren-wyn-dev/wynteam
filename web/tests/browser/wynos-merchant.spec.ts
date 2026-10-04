@@ -501,3 +501,25 @@ test("WYN-210 finance: any period, net sales and income worked out on the server
   expect(migration).toContain("revoke all on function public.merchant_finance_summary(uuid, date, date) from public, anon;");
   expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-210'");
 });
+
+test("WYN-213 merchant access hardening: no developer cross-store access, legacy roles, safe payouts", () => {
+  const sql = read("../supabase/migrations_wynos_merchant_access_hardening_v1.sql");
+  const adminActions = read("../admin/lib/admin-food-actions.ts");
+  const settleButton = read("../admin/components/admin/platform-campaign-actions.tsx");
+  const workflow = read("../.github/workflows/food-apply-wyn213.yml");
+
+  // Helpers no longer let developer accounts into every store.
+  expect(sql).not.toContain("from public.developer_accounts");
+  // Legacy food_staff rows count by their real role.
+  expect(sql).toContain("(case fs.role when 'owner' then 'owner' when 'staff' then 'orders' when 'delivery' then 'delivery' end) = any(p_roles)");
+  // WYNOS owes only paid orders from real customers.
+  expect(sql).toContain("and o.payment_status = 'paid'");
+  expect(sql).toContain("where mm.merchant_account_id = s.merchant_account_id and mm.user_id = o.buyer_id");
+  // Payouts must match what the admin saw; one slip, one top-up.
+  expect(sql).toContain("raise exception 'owed amount changed, reload and check before recording';");
+  expect(sql).toContain("drop function if exists public.admin_settle_platform_store(uuid, text, text);");
+  expect(sql).toContain("create unique index if not exists food_ad_topups_slip_path_uidx on public.food_ad_topups(slip_path);");
+  expect(adminActions).toContain("p_expected_amount: params.expectedAmount,");
+  expect(settleButton).toContain("expectedAmount: owedAmount, expectedCount: owedOrders");
+  expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-213'");
+});

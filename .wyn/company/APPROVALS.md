@@ -494,3 +494,20 @@
 - Release: merge PR #867. Web auto-deploys.
 - Rollback: revert PR #867.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-213 Merchant access hardening (PR #874)
+
+- Source: WYNOS Admin Merchant audit. The Founder approved the work, then gave "อนุมัติ" for merge and production.
+- Security change:
+  - The developer-account cross-store bypass is removed from the merchant helpers.
+  - Legacy `food_staff` rows count by role.
+  - WYNOS owes only paid orders from real customers.
+  - Payouts must match the amount the admin saw.
+  - One ad slip, one top-up.
+- Accepted: developer accounts need a store membership to use the Merchant app for a store.
+- Release:
+  1. Merge PR #874.
+  2. Dispatch `food-apply-wyn213.yml` with `APPLY-WYN-213`.
+  3. Run `deploy-admin.yml`.
+- Rollback: previous definitions (listed in the workflow header); drop `food_ad_topups_slip_path_uidx`.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
