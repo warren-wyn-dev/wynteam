@@ -9,28 +9,26 @@ import { useId } from "react";
  */
 export type MerchantIcon3DName = "orders" | "ads" | "campaign" | "promotion" | "finance" | "menu" | "store" | "reports" | "bell" | "sound" | "install";
 
-type Tone = "red" | "amber" | "green" | "blue" | "violet";
+type Tone = "red";
 
 const TONES: Record<Tone, { light: string; base: string; dark: string }> = {
   red: { light: "#ff8a94", base: "#ef2b3c", dark: "#b3162a" },
-  amber: { light: "#ffd480", base: "#ffa31a", dark: "#d97706" },
-  green: { light: "#86e5ad", base: "#22b45e", dark: "#12813f" },
-  blue: { light: "#94ccff", base: "#2f8cf0", dark: "#1a5cc0" },
-  violet: { light: "#c6adff", base: "#8a5cf6", dark: "#5a33c8" },
 };
 
+// Founder: "ทุกหน้า ต้องคุมโทนสีประจำนะให้เด่นกว่า คือสีแดง" and
+// "ถ้ามีสีรุ้ง ตัดทิ้งเลย ไม่ใช้แล้ว": every icon is Wynos red and white.
 const TONE_OF: Record<MerchantIcon3DName, Tone> = {
   orders: "red",
-  ads: "amber",
-  campaign: "blue",
+  ads: "red",
+  campaign: "red",
   promotion: "red",
-  finance: "green",
-  menu: "green",
-  store: "blue",
-  reports: "violet",
+  finance: "red",
+  menu: "red",
+  store: "red",
+  reports: "red",
   bell: "red",
-  sound: "violet",
-  install: "blue",
+  sound: "red",
+  install: "red",
 };
 
 type Paint = { top: string; body: string; light: string; base: string; dark: string };
@@ -61,10 +59,10 @@ const SHAPES: Record<MerchantIcon3DName, (p: Paint) => React.ReactNode> = {
   campaign: (p) => (
     <>
       <rect x="9" y="21" width="30" height="19" rx="3" fill={p.body} />
-      <rect x="21" y="21" width="6" height="19" fill="#ffd166" />
+      <rect x="21" y="21" width="6" height="19" fill="#ffffff" fillOpacity=".92" />
       <rect x="7" y="15" width="34" height="8" rx="3" fill={p.top} />
-      <rect x="21" y="15" width="6" height="8" fill="#ffe08a" />
-      <path d="M24 15c-2.5-6-10-7.5-10.5-3.2C13 15 19 15.5 24 15zM24 15c2.5-6 10-7.5 10.5-3.2C35 15 29 15.5 24 15z" fill="#ffc24b" stroke="#e9a21a" strokeWidth="1.2" />
+      <rect x="21" y="15" width="6" height="8" fill="#ffffff" />
+      <path d="M24 15c-2.5-6-10-7.5-10.5-3.2C13 15 19 15.5 24 15zM24 15c2.5-6 10-7.5 10.5-3.2C35 15 29 15.5 24 15z" fill="#ffffff" stroke="#ffd8dc" strokeWidth="1.2" />
       <rect x="10" y="16.4" width="10" height="2" rx="1" fill={SHINE} />
       <path d="M12 25v11" stroke={SHINE} strokeWidth="2" strokeLinecap="round" />
     </>
@@ -86,13 +84,13 @@ const SHAPES: Record<MerchantIcon3DName, (p: Paint) => React.ReactNode> = {
       <rect x="7" y="14" width="34" height="25" rx="5" fill={p.top} />
       <path d="M7 31h34v3a5 5 0 0 1-5 5H12a5 5 0 0 1-5-5z" fill={p.body} />
       <rect x="29" y="21.5" width="13" height="9" rx="4.5" fill={p.dark} />
-      <circle cx="34" cy="26" r="2.2" fill="#ffd166" />
+      <circle cx="34" cy="26" r="2.2" fill="#ffffff" />
       <rect x="10" y="16.5" width="15" height="2" rx="1" fill={SHINE} />
     </>
   ),
   menu: (p) => (
     <>
-      <path d="M27 7.5 35.5 21M31.5 6.5l6 13" stroke="#c97b3d" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M27 7.5 35.5 21M31.5 6.5l6 13" stroke="#b3162a" strokeWidth="2.6" strokeLinecap="round" />
       <path d="M10 22.5c1.5-7.5 7-10 14-10s12.5 2.5 14 10z" fill="#fff6e6" />
       <path d="M15 17.5c2-2.4 5-3.4 8-3.4" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
       <ellipse cx="24" cy="22.5" rx="17" ry="3.3" fill={p.light} />
@@ -143,7 +141,7 @@ const SHAPES: Record<MerchantIcon3DName, (p: Paint) => React.ReactNode> = {
   install: (p) => (
     <>
       <rect x="13.5" y="5.5" width="21" height="35" rx="5" fill={p.body} />
-      <rect x="16.5" y="9.5" width="15" height="25" rx="2.4" fill="#f4f9ff" />
+      <rect x="16.5" y="9.5" width="15" height="25" rx="2.4" fill="#fff6f7" />
       <path d="M24 14v12.5M19.6 22.2 24 26.6l4.4-4.4" fill="none" stroke={p.base} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
       <rect x="21" y="36.4" width="6" height="1.8" rx=".9" fill={p.light} />
       <path d="M15.5 9.5v8" stroke={SHINE} strokeWidth="1.4" strokeLinecap="round" />
