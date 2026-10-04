@@ -1956,22 +1956,10 @@
 .wm-tile:not(.wm-tile--sales) strong { color: var(--wm-text); font-size: 26px; }
 .wm-tile:not(.wm-tile--sales) strong.is-alert { color: var(--wm-red); }
 .wm-tile small { max-width: 100%; color: var(--wm-secondary); font-size: 12px; }
-.wm-tile:has(.wm-tile-icon) small { max-width: calc(100% - 46px); }
-.wm-tile .wm-tile-icon { position: absolute; right: 11px; bottom: 11px; }
-.wm-tile-icon {
-  --tone: var(--wm-red);
-  width: 42px;
-  height: 42px;
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--tone) 13%, transparent);
-  color: var(--tone);
-  display: grid;
-  place-items: center;
-}
-.wm-tile-icon[data-tone="amber"] { --tone: #f08c00; }
-.wm-tile-icon[data-tone="green"] { --tone: #12a150; }
-.wm-tile-icon[data-tone="blue"] { --tone: #1c7ed6; }
-.wm-tile-icon[data-tone="violet"] { --tone: #7048e8; }
+.wm-tile:has(.wm-tile-icon) small { max-width: calc(100% - 58px); }
+.wm-tile .wm-tile-icon { position: absolute; right: 8px; bottom: 6px; }
+.wm-tile-icon { display: grid; place-items: center; line-height: 0; }
+.wm-icon-3d { display: block; overflow: visible; }
 
 .wm-checklist { margin-top: 16px; border: 1px solid var(--wm-border); border-radius: 999px; background: var(--wm-bg); overflow: hidden; }
 .wm-checklist.is-open { border-radius: 20px; }
@@ -1997,12 +1985,11 @@
 
 .wm-service-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 6px; }
 .wm-service-grid > button { min-width: 0; min-height: 88px; padding: 4px 2px; border: 0; background: transparent; color: var(--wm-text); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font-size: 12.5px; line-height: 1.25; }
-.wm-service-grid .wm-tile-icon { width: 50px; height: 50px; border-radius: 16px; }
 
 @media (max-width: 370px) {
   .wm-home-grid { gap: 8px; }
   .wm-tile { min-height: 104px; padding: 11px; }
   .wm-tile strong { font-size: 25px; }
-  .wm-tile .wm-tile-icon { width: 36px; height: 36px; border-radius: 11px; }
+  .wm-tile .wm-icon-3d { width: 44px; height: 44px; }
   .wm-service-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

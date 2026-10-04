@@ -13,7 +13,6 @@ import {
   Home,
   ImagePlus,
   LogOut,
-  Megaphone,
   LayoutGrid,
   MapPin,
   Menu as MenuIcon,
@@ -22,7 +21,6 @@ import {
   Phone,
   Plus,
   Search,
-  Settings,
   ShoppingBag,
   ShoppingBasket,
   Store,
@@ -38,6 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
+import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, previewMerchantOrderSound, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
@@ -808,20 +807,20 @@ function HomePanel({
         <button className="wm-tile" type="button" onClick={onOpenOrders}>
           <span className="wm-tile-title">รอจัดการ</span>
           <strong className={attentionOrders.length ? "is-alert" : ""}>{attentionOrders.length}</strong>
-          <span className="wm-tile-icon" data-tone="red"><ShoppingBasket size={22} /></span>
+          <span className="wm-tile-icon"><MerchantIcon3D name="orders" size={56} /></span>
         </button>
         <button className="wm-tile" type="button" onClick={() => onOpenTab("campaigns")}>
           <span className="wm-tile-title">แคมเปญ</span>
-          <span className="wm-tile-icon" data-tone="amber"><Megaphone size={22} /></span>
+          <span className="wm-tile-icon"><MerchantIcon3D name="campaign" size={56} /></span>
         </button>
         <button className="wm-tile" type="button" onClick={() => onOpenTab("menu")}>
           <span className="wm-tile-title">เมนู</span>
           <strong>{availableMenu}</strong>
-          <span className="wm-tile-icon" data-tone="green"><UtensilsCrossed size={22} /></span>
+          <span className="wm-tile-icon"><MerchantIcon3D name="menu" size={56} /></span>
         </button>
         <button className="wm-tile" type="button" onClick={() => onOpenTab("store")}>
           <span className="wm-tile-title">ตั้งค่าร้าน</span>
-          <span className="wm-tile-icon" data-tone="blue"><Settings size={22} /></span>
+          <span className="wm-tile-icon"><MerchantIcon3D name="store" size={56} /></span>
         </button>
       </div>
 
@@ -900,12 +899,12 @@ function MorePanel({
       <section className="wm-section">
         <div className="wm-section-title"><h2>เครื่องมือร้าน</h2></div>
         <div className="wm-service-grid">
-          <button type="button" onClick={() => onOpenTab("reports")}><span className="wm-tile-icon" data-tone="blue"><CircleDollarSign size={24} /></span>รายงานยอดขาย</button>
-          <button type="button" onClick={() => onOpenTab("campaigns")}><span className="wm-tile-icon" data-tone="amber"><Megaphone size={24} /></span>แคมเปญ</button>
-          <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon" data-tone="green"><Settings size={24} /></span>ตั้งค่าร้าน</button>
-          <button type="button" onClick={onNotifications}><span className="wm-tile-icon" data-tone="red"><Bell size={24} /></span>การแจ้งเตือน</button>
-          <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span className="wm-tile-icon" data-tone="violet"><BellRing size={24} /></span>ลองเสียงออเดอร์</button>
-          {installPrompt ? <button type="button" onClick={onInstall}><span className="wm-tile-icon" data-tone="blue"><Store size={24} /></span>ติดตั้งแอป</button> : null}
+          <button type="button" onClick={() => onOpenTab("reports")}><span className="wm-tile-icon"><MerchantIcon3D name="reports" size={52} /></span>รายงานยอดขาย</button>
+          <button type="button" onClick={() => onOpenTab("campaigns")}><span className="wm-tile-icon"><MerchantIcon3D name="campaign" size={52} /></span>แคมเปญ</button>
+          <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon"><MerchantIcon3D name="store" size={52} /></span>ตั้งค่าร้าน</button>
+          <button type="button" onClick={onNotifications}><span className="wm-tile-icon"><MerchantIcon3D name="bell" size={52} /></span>การแจ้งเตือน</button>
+          <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span className="wm-tile-icon"><MerchantIcon3D name="sound" size={52} /></span>ลองเสียงออเดอร์</button>
+          {installPrompt ? <button type="button" onClick={onInstall}><span className="wm-tile-icon"><MerchantIcon3D name="install" size={52} /></span>ติดตั้งแอป</button> : null}
         </div>
       </section>
       <section className="wm-settings-list">

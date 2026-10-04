@@ -337,4 +337,9 @@ test("WYN-204 Merchant home follows the LINE MAN layout with four tabs", () => {
   expect(app).toContain('<NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม"');
   expect(app).not.toContain('label="รายงาน"');
   expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));\n}\n.wm-nav > button {");
+  // Wynos's own 3D icon set (SVG, no third-party artwork) on the shortcuts.
+  const icons = read("components/merchant/merchant-3d-icons.tsx");
+  expect(icons).toContain('export function MerchantIcon3D({ name, size = 44 }');
+  expect(app).toContain('<MerchantIcon3D name="orders" size={56} />');
+  expect(app).toContain('<MerchantIcon3D name="reports" size={52} />');
 });

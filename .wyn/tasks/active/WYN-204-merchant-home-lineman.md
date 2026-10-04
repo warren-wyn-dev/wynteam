@@ -9,6 +9,7 @@ Date: 2026-10-04
 - Founder shared LINE MAN Merchant screenshots: "ชอบ LINE MAN มาก ดูใช้งานง่าย".
 - Picked all four parts: store header and open-store bar, sales card and shortcuts, setup checklist, and a bottom bar with "หน้าหลัก · รับออเดอร์ · เมนู · เพิ่มเติม".
 - Wynos red and our own icons. No LINE MAN logos, images or ads/finance features we do not have.
+- Founder: "อยากได้ UX UI ไม่ซ้ำใคร เรียบง่าย ใช้งานง่าย ปุ่มไอคอน 3D สวยๆ". Added Wynos's own 3D icon set (SVG, `merchant-3d-icons.tsx`) for the shortcut tiles and the "เพิ่มเติม" grid.
 
 ## Scope (web only)
 
