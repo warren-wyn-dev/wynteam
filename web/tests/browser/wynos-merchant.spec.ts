@@ -365,7 +365,15 @@ test("WYN-205 Merchant finance page and the store's own promotions", () => {
   expect(app).toContain('const paid = orders.filter((order) => order.payment_status === "paid");');
   expect(app).toContain('const waiting = orders.filter((order) => order.payment_status === "submitted");');
   // Payment channels are masked to the last 4 digits.
-  expect(app).toContain("const last4 = (value: string | null) =>");
+  expect(app).toContain("const last4 = (value: string | null) => {");
+  expect(app).toContain('const digits = (value ?? "").replace(/\\D/g, "");');
+  // Failed refunds are still to do; activity is ordered by when money moved.
+  expect(app).toContain('order.refund_status === "pending" || order.refund_status === "failed"');
+  expect(app).toContain(".sort((a, b) => new Date(movedAt(b)).getTime() - new Date(movedAt(a)).getTime())");
+  // Dynamic promotion text is translated through EN_PATTERNS.
+  const en = read("lib/i18n/en.ts");
+  expect(en).toContain('["{0} โปรโมชั่นกำลังใช้งาน", "{0} active promotions"]');
+  expect(en).toContain('["โปรโมชั่น · {0}", "Promotion · {0}"]');
   // The existing discount system is "โปรโมชั่น"; WYNOS campaigns and ads are
   // separate releases (WYN-206 / WYN-207) and say so until then.
   expect(app).toContain('{tab === "promotions" && store ? (');

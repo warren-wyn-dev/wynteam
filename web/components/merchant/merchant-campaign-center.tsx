@@ -165,7 +165,7 @@ export function MerchantCampaignCenter({
   };
 
   const remove = async (campaign: MerchantCampaign) => {
-    if (!window.confirm("ลบโปรโมชั่น “" + campaign.name + "”?")) return;
+    if (!window.confirm(`ลบโปรโมชั่น “${campaign.name}”?`)) return;
     setBusy(true);
     try {
       await deleteMerchantCampaign(client, store.id, campaign.id);
@@ -196,7 +196,7 @@ export function MerchantCampaignCenter({
           <span className="wm-campaign-icon"><Megaphone size={21} /></span>
           <span>
             <strong>โปรโมชั่นของร้าน</strong>
-            <small>{activeCount ? String(activeCount) + " โปรโมชั่นกำลังใช้งาน" : "ลดราคาเองเพื่อดึงลูกค้าบน WYNOS Food"}</small>
+            <small>{activeCount ? `${activeCount} โปรโมชั่นกำลังใช้งาน` : "ลดราคาเองเพื่อดึงลูกค้าบน WYNOS Food"}</small>
           </span>
         </div>
         <div className="wm-campaign-head-actions">
