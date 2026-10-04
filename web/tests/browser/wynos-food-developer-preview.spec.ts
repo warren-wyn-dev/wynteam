@@ -29,6 +29,22 @@ test("WYNOS Food hides the persistent Social bottom navigation", () => {
   expect(host).toContain("if (hideForFood || !navState?.visible || !navState.userId) return null;");
 });
 
+test("WYNOS Food delivery address uses an interactive map pin flow", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const map = read("components/food/food-delivery-map-picker.tsx");
+  const data = read("lib/food-customer.ts");
+
+  expect(app).toContain("ค้นหาและปักหมุดบนแผนที่");
+  expect(app).toContain("<FoodDeliveryMapPicker");
+  expect(map).toContain("https://tiles.openfreemap.org/styles/liberty");
+  expect(map).toContain("Search by LocationIQ.com");
+  expect(map).toContain("เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร");
+  expect(map).toContain("currentFoodLocation()");
+  expect(map).toContain("searchFoodPlaces(client, trimmed)");
+  expect(map).toContain("reverseFoodPlace(client, next)");
+  expect(data).toContain('body: { mode: "reverse", lat: location.latitude, lon: location.longitude }');
+});
+
 test("WYNOS Food profile is delivery-specific and separate from Social profile", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
   const data = read("lib/food-customer.ts");

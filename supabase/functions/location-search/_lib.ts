@@ -90,6 +90,7 @@ export function buildSearchUrl(apiKey: string, query: string): string {
     q: query,
     format: "json",
     limit: "10",
+    "accept-language": "th,en",
     // Product spec's UI copy table has no Thai-vs-English distinction,
     // but WYN targets Thai users first -- biasing results toward
     // Thailand keeps a bare "starbucks"-style query useful without
@@ -105,6 +106,7 @@ export function buildReverseUrl(apiKey: string, lat: number, lon: number): strin
     lat: String(lat),
     lon: String(lon),
     format: "json",
+    "accept-language": "th,en",
   });
   return `https://us1.locationiq.com/v1/reverse?${params.toString()}`;
 }
