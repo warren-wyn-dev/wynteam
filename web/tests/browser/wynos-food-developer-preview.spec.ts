@@ -13,7 +13,7 @@ test("WYNOS Food is a separate closed developer-only surface", () => {
   expect(page).toContain("<WynosFoodDeveloperApp />");
   // The developer gate lives in the data layer the app loads through.
   expect(read("lib/food-customer.ts")).toContain('client.rpc("is_developer_account")');
-  expect(app).toContain("fetchFoodCustomerSnapshot(client, userId)");
+  expect(app).toContain("fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null)");
   expect(app).toContain('router.replace("/")');
   expect(layout).toContain("index: false");
   expect(layout).toContain("follow: false");

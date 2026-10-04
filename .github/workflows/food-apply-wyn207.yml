@@ -1,0 +1,77 @@
+name: Food -- apply WYN-207 pay-per-click ads
+
+# Applies supabase/migrations_wynos_food_ads_v1.sql (WYN-207): ad settings
+# (ads start switched OFF), store ad accounts, PromptPay top-ups reviewed by
+# Admin, server-side click charging (once per customer per store per day),
+# the Food store directory with ads first, ad-slip storage policies and the
+# new audit event types. Manual dispatch on main only, after the Founder
+# approves production. Behaviour test: supabase/tests/wynos_food_ads_test.sh.
+#
+# SAFETY: additive. Four new tables (RLS on, no direct grants), two storage
+# policies limited to food-private/ads/<store_id>/, and new RPCs. Ads stay
+# off until Admin sets WYNOS's PromptPay and turns them on.
+# ROLLBACK (Founder, SQL editor): update public.food_ad_settings set
+# ads_enabled = false; that hides every ad and stops top-ups and charging.
+# Then drop the new RPCs and the two "Food ad slips" storage policies. Keep
+# the tables until any remaining credit is refunded to stores.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-WYN-207 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-207'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_food_ads_v1.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no personal data is read.
+          run_sql "select
+              (select count(*) from pg_class where relname in ('food_ad_settings','food_ad_accounts','food_ad_topups','food_ad_clicks') and relrowsecurity) as rls_tables,
+              (select ads_enabled from public.food_ad_settings where id = 1) as ads_enabled,
+              (select count(*) from pg_policies where schemaname='storage' and tablename='objects' and policyname like 'Food ad slips%') as slip_policies,
+              has_table_privilege('authenticated', 'public.food_ad_accounts', 'update') as users_edit_balance,
+              has_function_privilege('anon', 'public.food_ad_click(uuid,text)', 'execute') as anon_can_click,
+              has_function_privilege('authenticated', 'public.food_store_directory(text)', 'execute') as customers_list_stores,
+              (select pg_get_constraintdef(oid) like '%admin_ad_topup_reviewed%' from pg_constraint
+                 where conname='audit_log_event_type_check') as audit_types;" \
+            | tee result.json | jq .
+          jq -e '.[0].rls_tables == 4 and .[0].slip_policies == 2 and .[0].users_edit_balance == false
+                 and .[0].anon_can_click == false and .[0].customers_list_stores == true and .[0].audit_types == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "WYN-207 ads are installed (switched on/off from WYNOS Admin)."

@@ -35,7 +35,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
-import { MerchantIcon3D, type MerchantIcon3DName } from "@/components/merchant/merchant-3d-icons";
+import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
+import { MerchantAds } from "@/components/merchant/merchant-ads";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
@@ -614,12 +615,10 @@ function MerchantInner({
         ) : null}
 
         {tab === "ads" && store ? (
-          <ComingSoonPanel
-            icon="ads"
-            eyebrow="ดันร้านให้ลูกค้าเห็นก่อน"
-            title="โฆษณา"
-            lines={["ขึ้นร้านแนะนำหน้าแรกและอันดับบนสุดตอนค้นหา", "จ่ายต่อคลิก เติมเครดิตด้วย PromptPay"]}
-          />
+          <>
+            <div className="wm-page-heading"><div><small>ดันร้านให้ลูกค้าเห็นก่อน</small><h1>โฆษณา</h1></div></div>
+            <MerchantAds client={client} store={store} onMessage={setMessage} />
+          </>
         ) : null}
 
         {tab === "store" && store ? (
@@ -1110,20 +1109,6 @@ function FinancePanel({ store, orders, onEditStore }: { store: FoodStore; orders
           <div className="wm-empty wm-empty--compact"><CircleDollarSign size={34} strokeWidth={1.5} /><strong>ยังไม่มีรายการเงิน</strong></div>
         )}
         {orders.length >= 250 ? <p className="wm-money-note">คำนวณจาก 250 ออเดอร์ล่าสุด</p> : null}
-      </section>
-    </>
-  );
-}
-
-/** WYN-205: WYNOS campaigns and ads ship in their own releases (WYN-206/207). */
-function ComingSoonPanel({ icon, eyebrow, title, lines }: { icon: MerchantIcon3DName; eyebrow: string; title: string; lines: string[] }) {
-  return (
-    <>
-      <div className="wm-page-heading"><div><small>{eyebrow}</small><h1>{title}</h1></div></div>
-      <section className="wm-coming-soon">
-        <MerchantIcon3D name={icon} size={88} />
-        <strong>เร็วๆ นี้</strong>
-        <ul>{lines.map((line) => <li key={line}>{line}</li>)}</ul>
       </section>
     </>
   );

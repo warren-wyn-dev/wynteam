@@ -99,3 +99,40 @@ export function platformCampaignError(error: unknown, fallback: string) {
   if (message.includes("Only admins")) return "เฉพาะ Admin เท่านั้นที่ทำรายการนี้ได้";
   return message || fallback;
 }
+
+/** WYN-207: ad settings, top-up review and stopping a store's ads (admin only). */
+export async function saveAdSettings(params: { costPerClick: number; minTopup: number; promptpayName: string; promptpayId: string; enabled: boolean }) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_update_ad_settings", {
+    p_cost_per_click: params.costPerClick,
+    p_min_topup: params.minTopup,
+    p_wynos_promptpay_name: params.promptpayName,
+    p_wynos_promptpay_id: params.promptpayId,
+    p_ads_enabled: params.enabled,
+  });
+  if (error) throw error;
+}
+
+export async function reviewAdTopup(params: { topupId: string; approve: boolean; note?: string }) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_review_ad_topup", { p_topup_id: params.topupId, p_approve: params.approve, p_note: params.note?.trim() || null });
+  if (error) throw error;
+}
+
+export async function setAdAccountStatus(params: { storeId: string; stop: boolean; reason?: string }) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("admin_set_ad_account_status", { p_store_id: params.storeId, p_stop: params.stop, p_reason: params.reason?.trim() || null });
+  if (error) throw error;
+}
+
+export function adminAdError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error ?? "");
+  if (message.includes("set the WYNOS PromptPay before turning ads on")) return "ใส่ PromptPay ของ WYNOS ก่อนเปิดระบบโฆษณา";
+  if (message.includes("food_ad_settings_promptpay_check")) return "เลข PromptPay ต้องเป็นตัวเลข 10–20 หลัก";
+  if (message.includes("food_ad_settings_cpc_check")) return "ราคาต่อคลิกต้องมากกว่า 0 และไม่เกิน 1,000 บาท";
+  if (message.includes("food_ad_settings_min_topup_check")) return "ยอดเติมขั้นต่ำต้องมากกว่า 0";
+  if (message.includes("a reason is required")) return "กรุณาใส่เหตุผล";
+  if (message.includes("top-up already reviewed")) return "รายการนี้ตรวจไปแล้ว";
+  if (message.includes("Only admins")) return "เฉพาะ Admin เท่านั้นที่ทำรายการนี้ได้";
+  return message || fallback;
+}
