@@ -229,12 +229,13 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(app).toContain('await setFoodPaymentStatus(client, order.id, "paid");\n                    await transitionFoodOrder(client, order.id, "preparing", eta);');
   expect(app).toContain('order.status === "pending_acceptance" && (order.payment_status === "submitted" || order.payment_status === "paid")');
 
-  // The alert rings until it is opened or dismissed, for at most three minutes.
-  expect(alert).toContain("const ALERT_MAX_MS = 3 * 60 * 1000;");
+  // WYN-202: the alert rings until the order is opened or accepted, with no time limit.
+  expect(alert).not.toContain("ALERT_MAX_MS");
+  expect(alert).toContain("const timer = window.setInterval(ring, ALERT_REPEAT_MS);");
+  expect(alert).not.toContain('className="wm-alert-close"');
   expect(alert).toContain('role="alertdialog"');
   expect(alert).toContain('window.addEventListener("pointerdown", unlock);');
   expect(alert).toContain('if (event.key === "Escape") {');
-  expect(alert).toContain("if (restoreFocusRef.current && previous?.isConnected) previous.focus();");
   expect(app).toContain("key={alertKey(alertOrder)}");
   expect(app).toContain("// Reload on failure too: the order may have moved on elsewhere.");
   // A refresh asked for during another refresh is queued, not dropped.
