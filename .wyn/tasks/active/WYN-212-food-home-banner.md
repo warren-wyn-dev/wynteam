@@ -1,6 +1,6 @@
 # Product Task — WYN-212 — Home Food banner only for people in Maha Sarakham
 
-Status: in review — awaiting Founder "อนุมัติ" to merge
+Status: approved — Founder "อนุมัติ" 2026-10-04; releasing PR #867
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
