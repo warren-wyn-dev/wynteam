@@ -39,6 +39,8 @@ import {
   deleteFoodCustomerAddress,
   fetchFoodCustomerSnapshot,
   fetchFoodPromptPayQr,
+  checkFoodServiceArea,
+  currentFoodLocation,
   foodCustomerError,
   foodMoney,
   foodOrderStatusLabel,
@@ -110,13 +112,55 @@ function FoodLoading() {
     <main className="wf-loading" aria-label="กำลังโหลด WYNOS Food">
       <div className="wf-loader" />
       <strong>WYNOS Food</strong>
-      <small>Developer Preview</small>
     </main>
   );
 }
 
 function FoodDenied() {
   return <FoodLoading />;
+}
+
+type FoodAreaState = "checking" | "inside" | "outside" | "unknown";
+
+/** WYN-211: what customers outside Maha Sarakham (or without a location) see. */
+function FoodServiceAreaIntro({
+  client,
+  state,
+  onCheck,
+  onUseLocation,
+}: {
+  client: SupabaseClient;
+  state: FoodAreaState;
+  onCheck: (location: FoodLocation) => void;
+  onUseLocation: () => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  if (state === "checking") return <FoodLoading />;
+  return (
+    <main className="wyn-food wf-area">
+      <section className="wf-area-card">
+        <span className="wf-area-icon"><MapPin size={30} /></span>
+        <h1>WYNOS Food เปิดให้บริการเฉพาะจังหวัดมหาสารคาม</h1>
+        <p>
+          {state === "outside"
+            ? "ตำแหน่งของคุณอยู่นอกจังหวัดมหาสารคาม ตอนนี้ยังสั่งอาหารไม่ได้ เรากำลังขยายพื้นที่ให้บริการ"
+            : "อนุญาตให้ใช้ตำแหน่ง หรือเลือกตำแหน่งบนแผนที่ เพื่อเช็กว่าคุณอยู่ในพื้นที่ให้บริการ"}
+        </p>
+        <button className="wf-primary" type="button" onClick={onUseLocation}><LocateFixed size={18} />ใช้ตำแหน่งปัจจุบัน</button>
+        <button className="wf-secondary" type="button" onClick={() => setPicking(true)}><MapPin size={18} />เลือกตำแหน่งบนแผนที่</button>
+        <Link className="wf-area-home" href="/">กลับหน้าหลัก</Link>
+      </section>
+      {picking ? (
+        <FoodDeliveryMapPicker
+          client={client}
+          storeId={null}
+          initialLocation={null}
+          onClose={() => setPicking(false)}
+          onConfirm={(location) => { setPicking(false); onCheck(location); }}
+        />
+      ) : null}
+    </main>
+  );
 }
 
 function FoodHeader({
@@ -1106,6 +1150,21 @@ function FoodCustomerInner({
 }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<FoodCustomerSnapshot | null>(null);
+  // WYN-211: Food is open to everyone, but only customers in Maha Sarakham
+  // get past the introduction page (developers skip it, like the server).
+  const [area, setArea] = useState<FoodAreaState>("checking");
+  const resolveArea = useCallback(async (location: FoodLocation | null) => {
+    try {
+      const point = location ?? await currentFoodLocation();
+      setArea(await checkFoodServiceArea(client, point) ? "inside" : "outside");
+    } catch {
+      setArea("unknown");
+    }
+  }, [client]);
+  const checkArea = (location: FoodLocation | null) => {
+    setArea("checking");
+    void resolveArea(location);
+  };
   // WYN-207: the store picked from the directory (remembered on this device).
   const storeKey = `wynos-food-store-v1:${userId}`;
   const [initialPickedStore] = useState(() => {
@@ -1143,7 +1202,7 @@ function FoodCustomerInner({
     if (quiet) setRefreshing(true);
     try {
       const next = await fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null);
-      if (!next.developer) {
+      if (!next.allowed) {
         router.replace("/");
         return null;
       }
@@ -1215,11 +1274,28 @@ function FoodCustomerInner({
     localStorage.setItem(`wynos-food-cart-v1:${userId}`, JSON.stringify(cart));
   }, [cart, userId]);
 
+  // A saved delivery pin answers without asking for GPS.
+  const savedPin = snapshot?.addresses.find((address) => address.is_default && address.latitude != null && address.longitude != null)
+    ?? snapshot?.addresses.find((address) => address.latitude != null && address.longitude != null);
+  const savedPinKey = savedPin ? `${savedPin.latitude},${savedPin.longitude}` : "";
+  const areaNeeded = Boolean(snapshot?.allowed && !snapshot.developer);
   useEffect(() => {
-    if (!snapshot?.developer) return;
+    if (!areaNeeded) return;
+    let live = true;
+    const [lat, lng] = savedPinKey.split(",").map(Number);
+    const point = savedPinKey ? Promise.resolve({ latitude: lat, longitude: lng }) : currentFoodLocation();
+    void point
+      .then((location) => checkFoodServiceArea(client, location))
+      .then((inside) => { if (live) setArea(inside ? "inside" : "outside"); })
+      .catch(() => { if (live) setArea("unknown"); });
+    return () => { live = false; };
+  }, [areaNeeded, client, savedPinKey]);
+
+  useEffect(() => {
+    if (!snapshot?.allowed) return;
     const channel = subscribeFoodCustomerOrders(client, userId, () => void load(true));
     return () => { void client.removeChannel(channel); };
-  }, [client, load, snapshot?.developer, userId]);
+  }, [client, load, snapshot?.allowed, userId]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -1332,7 +1408,17 @@ function FoodCustomerInner({
   const pull = usePullToRefresh({ enabled: tab === "home" || tab === "orders", onRefresh: async () => { await load(true); } });
 
   if (!snapshot) return <FoodLoading />;
-  if (!snapshot.developer) return <FoodDenied />;
+  if (!snapshot.allowed) return <FoodDenied />;
+  if (!snapshot.developer && area !== "inside") {
+    return (
+      <FoodServiceAreaIntro
+        client={client}
+        state={area}
+        onCheck={(location) => checkArea(location)}
+        onUseLocation={() => checkArea(null)}
+      />
+    );
+  }
 
   return (
     <main className="wyn-food">
