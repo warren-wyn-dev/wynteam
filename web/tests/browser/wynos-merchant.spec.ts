@@ -349,6 +349,13 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(app).toContain('label="รับออเดอร์"');
   expect(app).toContain('<NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม"');
   expect(app).not.toContain('label="รายงาน"');
+  // WYN-208: Wynos's own bottom-bar icons, outline when idle and solid red when selected.
+  expect(app).toContain('icon={<MerchantNavIcon name="orders" active={tab === "orders"} />}');
+  expect(app).toContain('icon={<MerchantNavIcon name="more" active={MORE_PAGES.has(tab)} />}');
+  const navIcons = read("components/merchant/merchant-nav-icons.tsx");
+  expect(navIcons).toContain('const fill = active ? RED : "none";');
+  expect(navIcons).toContain('const RED = "#e32636";');
+  expect(css).toContain(".wm-nav-icon > svg.wm-nav-svg { width: 26px; height: 26px; stroke-width: initial; }");
   expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));\n}\n.wm-nav > button {");
   // Light only: the layout pins light tokens whatever the phone or WYN theme says.
   const layout = read("app/merchant/layout.tsx");
