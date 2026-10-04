@@ -1,6 +1,6 @@
 # Product Task — WYN-206 — WYNOS campaigns (Admin designs, stores join, hybrid funding)
 
-Status: awaiting Founder approval (PR review, merge, production migration)
+Status: approved — releasing PR #835 and applying the migration
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
