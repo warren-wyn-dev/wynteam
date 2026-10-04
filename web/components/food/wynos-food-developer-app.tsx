@@ -8,6 +8,7 @@ import {
   Clock3,
   Home,
   MapPin,
+  MessageCircle,
   Minus,
   PackageCheck,
   Phone,
@@ -121,35 +122,48 @@ function FoodDenied() {
 }
 
 function FoodHeader({
+  cartCount,
+  onCart,
   onRefresh,
   refreshing,
 }: {
+  cartCount: number;
+  onCart: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }) {
   return (
     <header className="wf-header">
+      <Link className="wf-exit-button" href="/" aria-label="ออกจาก WYNOS Food">
+        <ArrowLeft size={21} strokeWidth={2} />
+      </Link>
       <div className="wf-brand">
         <span>WYNOS</span>
         <b>Food</b>
         <small>Developer Preview</small>
       </div>
-      <button className="wf-icon-button" type="button" aria-label="อัปเดตข้อมูล" onClick={onRefresh}>
-        {refreshing ? <i className="wf-mini-loader" /> : <Clock3 size={21} strokeWidth={1.8} />}
-      </button>
+      <div className="wf-header-actions">
+        <button className="wf-icon-button wf-cart-button" type="button" aria-label={cartCount ? `ตะกร้า ${cartCount} รายการ` : "ตะกร้า"} onClick={onCart}>
+          <ShoppingBag size={21} strokeWidth={1.9} />
+          {cartCount ? <i>{cartCount > 9 ? "9+" : cartCount}</i> : null}
+        </button>
+        <button className="wf-icon-button" type="button" aria-label="อัปเดตข้อมูล" onClick={onRefresh}>
+          {refreshing ? <i className="wf-mini-loader" /> : <Clock3 size={21} strokeWidth={1.8} />}
+        </button>
+      </div>
     </header>
   );
 }
 
 function FoodNav({
   tab,
-  cartCount,
   activeCount,
+  onMessages,
   onTab,
 }: {
   tab: FoodTab;
-  cartCount: number;
   activeCount: number;
+  onMessages: () => void;
   onTab: (tab: FoodTab) => void;
 }) {
   return (
@@ -158,13 +172,13 @@ function FoodNav({
         <span><Home /></span><small>หน้าหลัก</small>
       </button>
       <button type="button" className={tab === "orders" ? "is-active" : ""} onClick={() => onTab("orders")}>
-        <span><ReceiptText />{activeCount ? <i>{activeCount > 9 ? "9+" : activeCount}</i> : null}</span><small>ออเดอร์</small>
+        <span><ReceiptText />{activeCount ? <i>{activeCount > 9 ? "9+" : activeCount}</i> : null}</span><small>คำสั่งซื้อ</small>
       </button>
-      <button type="button" className={tab === "cart" ? "is-active" : ""} onClick={() => onTab("cart")}>
-        <span><ShoppingBag />{cartCount ? <i>{cartCount > 9 ? "9+" : cartCount}</i> : null}</span><small>ตะกร้า</small>
+      <button type="button" onClick={onMessages}>
+        <span><MessageCircle /></span><small>ข้อความ</small>
       </button>
       <button type="button" className={tab === "account" ? "is-active" : ""} onClick={() => onTab("account")}>
-        <span><UserRound /></span><small>บัญชี</small>
+        <span><UserRound /></span><small>โปรไฟล์</small>
       </button>
     </nav>
   );
@@ -361,7 +375,7 @@ function HomePanel({
       </div>
 
       <div className="wf-section-title">
-        <h2>{category === "ทั้งหมด" ? "เมนูทั้งหมด" : category}</h2>
+        <h2>{category === "ทั้งหมด" ? "เมนูแนะนำ" : category}</h2>
         <small>{visible.length} เมนู</small>
       </div>
 
@@ -494,7 +508,7 @@ function OrdersPanel({
 
   return (
     <>
-      <div className="wf-page-title"><div><small>ติดตามและดูประวัติ</small><h1>ออเดอร์</h1></div></div>
+      <div className="wf-page-title"><div><small>ติดตามและดูประวัติ</small><h1>คำสั่งซื้อ</h1></div></div>
       <div className="wf-section-title"><h2>กำลังดำเนินการ</h2><small>{active.length}</small></div>
       {active.length ? <div className="wf-order-list">{active.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} />)}</div> : (
         <div className="wf-empty wf-empty--compact"><PackageCheck size={36} strokeWidth={1.4} /><strong>ไม่มีออเดอร์ที่กำลังดำเนินการ</strong></div>
@@ -540,7 +554,7 @@ function AccountPanel({
 }) {
   return (
     <>
-      <div className="wf-page-title"><div><small>Developer Preview</small><h1>บัญชี</h1></div></div>
+      <div className="wf-page-title"><div><small>Developer Preview</small><h1>โปรไฟล์</h1></div></div>
       <section className="wf-account-card">
         <span><UserRound size={26} /></span>
         <div><strong>บัญชีนักพัฒนา WYNOS</strong><small>WYNOS Food ถูกซ่อนจากผู้ใช้ทั่วไป</small></div>
@@ -1311,7 +1325,7 @@ function FoodCustomerInner({
 
   return (
     <main className="wyn-food">
-      <FoodHeader onRefresh={() => void load(true)} refreshing={refreshing} />
+      <FoodHeader cartCount={cartCount} onCart={() => setTab("cart")} onRefresh={() => void load(true)} refreshing={refreshing} />
       {message ? <div className="wf-toast" role="status"><span>{message}</span><button type="button" aria-label="ปิด" onClick={() => setMessage("")}><X size={16} /></button></div> : null}
 
       <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
@@ -1342,7 +1356,7 @@ function FoodCustomerInner({
         ) : null}
       </section>
 
-      <FoodNav tab={tab} cartCount={cartCount} activeCount={activeCount} onTab={setTab} />
+      <FoodNav tab={tab} activeCount={activeCount} onMessages={() => router.push("/chat")} onTab={setTab} />
 
       {selectedItem && store ? (
         <ItemSheet

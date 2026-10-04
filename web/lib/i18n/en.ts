@@ -898,6 +898,7 @@ export const EN_EXACT: Record<string, string> = {
   "เพิ่มโพล": "Add poll",
   "เพื่อน": "Friends",
   "เมนู": "Menu",
+  "เมนูแนะนำ": "Recommended menu",
   "เมนู WYNOS": "WYNOS menu",
   "เมนูหลัก": "Main menu",
   "เมษายน": "April",
@@ -1716,6 +1717,7 @@ Object.assign(EN_EXACT, {
   "ลบที่อยู่นี้?": "Delete this address?",
   "ลบที่อยู่แล้ว": "Address deleted",
   "สรุปคำสั่งซื้อ": "Order summary",
+  "คำสั่งซื้อ": "Orders",
   "สร้างออเดอร์แล้ว กรุณาชำระเงินเข้าบัญชีร้าน": "Order created. Please pay the store directly",
   "สร้างและตั้งค่าร้านจาก WYNOS Merchant ก่อนเริ่มทดสอบฝั่งลูกค้า": "Create and configure the store in WYNOS Merchant before testing the customer flow",
   "ส่งสลิปให้ร้านตรวจสอบแล้ว": "Payment slip sent to the store for verification",
@@ -1725,6 +1727,7 @@ Object.assign(EN_EXACT, {
   "หมายเหตุถึงร้าน": "Note to store",
   "หมายเหตุเพิ่มเติม": "Additional note",
   "ออกจาก WYNOS Food Developer Preview": "Leave WYNOS Food Developer Preview",
+  "ออกจาก WYNOS Food": "Leave WYNOS Food",
   "ออเดอร์ถูกยกเลิก": "Order cancelled",
   "ออเดอร์นี้ยกเลิกเองไม่ได้แล้ว กรุณาติดต่อร้าน": "This order can no longer be cancelled here. Please contact the store",
   "อัปเดตตะกร้า": "Update cart",
@@ -1841,6 +1844,7 @@ Object.assign(EN_EXACT, {
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
 export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
+  ["ตะกร้า {0} รายการ", "Cart, {0} items"],
   ["{0} แคมเปญกำลังใช้งาน", "{0} active campaigns"],
   ["แคมเปญ WYNOS · {0}", "WYNOS campaign · {0}"],
   ["{0} โปรโมชั่นกำลังใช้งาน", "{0} active promotions"],
