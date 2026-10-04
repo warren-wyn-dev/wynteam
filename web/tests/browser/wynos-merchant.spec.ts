@@ -382,3 +382,11 @@ test("WYN-205 Merchant finance page and the store's own promotions", () => {
   expect(app).toContain("<MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={setMessage} />");
   expect(app).toContain('<ComingSoonPanel\n            icon="ads"');
 });
+
+test("WYN-205 Wynos red leads on every Merchant page", () => {
+  const css = read("app/merchant/merchant.css");
+  // Primary buttons and summary cards are red, not black.
+  expect(css).toMatch(/\.wm-primary \{[^}]*background: var\(--wm-red\);[^}]*color: #fff;/);
+  expect(css).toMatch(/\.wm-small-primary \{[^}]*background: var\(--wm-red\);/);
+  expect(css).toMatch(/\.wm-report-hero \{[^}]*background: linear-gradient\(150deg, #ff4d5e 0%, #e32636 55%, #b8142a 100%\);/);
+});

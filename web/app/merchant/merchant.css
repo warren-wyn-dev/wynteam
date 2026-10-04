@@ -1,7 +1,10 @@
 /* WYNOS Merchant — production merchant PWA
    WYNOS neutral design language + Merchant red identity.
    WYN-204: Merchant is light only (Founder: "แอปแค่โหมดสว่างพอ"), whatever
-   the phone or the WYN theme setting says. */
+   the phone or the WYN theme setting says.
+   WYN-205: Wynos red leads on every page (Founder: "ทุกหน้า ต้องคุมโทนสี
+   ประจำนะให้เด่นกว่า คือสีแดง"): primary buttons and summary cards are red;
+   the multi-colour 3D icons stay as small accents. */
 .wm-force-light {
   --wyn-bg: #ffffff;
   --wyn-surface: #f5f5f5;
@@ -317,16 +320,16 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   min-height: 36px;
   padding: 0 13px;
   border: 0;
-  background: var(--wm-text);
-  color: var(--wm-bg);
+  background: var(--wm-red);
+  color: #fff;
   font-size: 12px;
 }
 .wm-primary {
   min-height: 46px;
   padding: 0 18px;
   border: 0;
-  background: var(--wm-text);
-  color: var(--wm-bg);
+  background: var(--wm-red);
+  color: #fff;
   font-size: 14px;
 }
 .wm-secondary {
@@ -382,15 +385,15 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
   min-height: 142px;
   padding: 20px;
   border-radius: 20px;
-  background: var(--wm-text);
-  color: var(--wm-bg);
+  background: linear-gradient(150deg, #ff4d5e 0%, #e32636 55%, #b8142a 100%);
+  color: #fff;
   display: grid;
   align-content: center;
   gap: 4px;
 }
-.wm-report-hero small { opacity: .72; font-size: 12px; }
+.wm-report-hero small { opacity: .92; font-size: 12px; }
 .wm-report-hero strong { font-size: 31px; line-height: 1.15; letter-spacing: -.8px; }
-.wm-report-hero span { opacity: .72; font-size: 11px; }
+.wm-report-hero span { opacity: .92; font-size: 11px; }
 .wm-metrics--reports { margin-top: 11px; }
 .wm-ranking { border-top: 1px solid var(--wm-border); }
 .wm-ranking > div { min-height: 51px; border-bottom: 1px solid var(--wm-border); display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 8px; font-size: 13px; }
@@ -2005,7 +2008,7 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-money-list span { min-width: 0; display: grid; gap: 2px; }
 .wm-money-list strong { font-size: 14px; }
 .wm-money-list small { color: var(--wm-secondary); font-size: 12px; }
-.wm-money-list b { font-size: 15px; color: var(--wm-success-text); white-space: nowrap; }
+.wm-money-list b { font-size: 15px; color: var(--wm-text); white-space: nowrap; }
 .wm-money-list .is-out b { color: var(--wm-red-text); }
 .wm-money-list .is-waiting b { color: var(--wm-secondary); }
 .wm-money-list .is-failed b, .wm-money-list .is-failed small { color: var(--wm-red-text); }
