@@ -1207,7 +1207,7 @@ export const EN_EXACT: Record<string, string> = {
   "เผยแพร่ร้านบน WYNOS Food": "Publish the store on WYNOS Food",
   "เพิ่มยอดขาย": "Grow sales",
   "แก้ไขร้าน": "Edit store",
-  "ใส่โลโก้ร้าน": "Add a store logo",
+  "ใส่เบอร์ ที่อยู่ เวลาเปิด และพื้นที่ส่ง": "Add phone, address, opening hours and delivery area",
   "ไปที่เมนู": "Go to menu",
   "ร้านถูกระงับโดยทีม WYNOS": "Store suspended by the WYNOS team",
   "ติดต่อทีม WYNOS เพื่อขอยกเลิกการระงับ": "Contact the WYNOS team to lift the suspension",

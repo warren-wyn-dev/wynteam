@@ -330,7 +330,9 @@ test("WYN-204 Merchant home follows the LINE MAN layout with four tabs", () => {
   expect(app).toContain('role="switch"');
   expect(app).toContain('<button className="wm-tile wm-tile--sales" type="button" onClick={() => onOpenTab("reports")}>');
   // The setup checklist only counts what the store already has.
-  expect(app).toContain("done: Boolean(store.promptpay_id || store.bank_account_number || store.payment_qr_path)");
+  expect(app).toContain("done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
+  // The tile and nav badge count every unfinished order, not the 8 previewed.
+  expect(app).toContain("{activeOrderCount}</strong>");
   expect(app).toContain("{checklistDone < checklist.length && !store.admin_suspended_at ? (");
   // Four bottom tabs; reports, store settings and campaigns live under "เพิ่มเติม".
   expect(app).toContain('label="รับออเดอร์"');

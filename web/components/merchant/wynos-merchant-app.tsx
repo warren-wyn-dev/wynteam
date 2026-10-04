@@ -435,6 +435,11 @@ function MerchantInner({
   const todayOrders = useMemo(() => orders.filter((order) => sameLocalDay(order.created_at)), [orders]);
   const todayDelivered = useMemo(() => todayOrders.filter((order) => order.status === "delivered"), [todayOrders]);
   const todaySales = useMemo(() => todayDelivered.reduce((sum, order) => sum + Number(order.total), 0), [todayDelivered]);
+  // Every unfinished order counts (tile and nav badge); home previews 8.
+  const activeOrderCount = useMemo(
+    () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length,
+    [orders],
+  );
   const attentionOrders = useMemo(
     () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").slice(0, 8),
     [orders],
@@ -531,6 +536,7 @@ function MerchantInner({
             todayOrders={todayOrders}
             todaySales={todaySales}
             attentionOrders={attentionOrders}
+            activeOrderCount={activeOrderCount}
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
@@ -632,7 +638,7 @@ function MerchantInner({
 
       <nav className="wm-nav" aria-label="WYNOS Merchant">
         <NavButton active={tab === "home"} label="หน้าหลัก" icon={<Home />} onClick={() => setTab("home")} />
-        <NavButton active={tab === "orders"} label="รับออเดอร์" icon={<ShoppingBasket />} badge={attentionOrders.length} onClick={() => setTab("orders")} />
+        <NavButton active={tab === "orders"} label="รับออเดอร์" icon={<ShoppingBasket />} badge={activeOrderCount} onClick={() => setTab("orders")} />
         <NavButton active={tab === "menu"} label="เมนู" icon={<UtensilsCrossed />} onClick={() => setTab("menu")} />
         <NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม" icon={<LayoutGrid />} onClick={() => setTab("more")} />
       </nav>
@@ -720,6 +726,7 @@ function HomePanel({
   todayOrders,
   todaySales,
   attentionOrders,
+  activeOrderCount,
   installPrompt,
   onInstall,
   onReload,
@@ -737,6 +744,7 @@ function HomePanel({
   todayOrders: FoodOrder[];
   todaySales: number;
   attentionOrders: FoodOrder[];
+  activeOrderCount: number;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onReload: () => void;
@@ -762,10 +770,12 @@ function HomePanel({
     } finally { setBusy(false); }
   };
   const availableMenu = menu.filter((item) => item.is_available).length;
-  // WYN-204: "เตรียมร้านให้พร้อม" from what the store already has.
+  // WYN-204: "เตรียมร้านให้พร้อม" uses the same rules as the publish check
+  // (internal.food_store_readiness_missing), so a ticked list can publish.
+  const filled = (value: string | null | undefined) => Boolean(value?.trim());
   const checklist = [
-    { key: "logo", label: "ใส่โลโก้ร้าน", done: Boolean(store.logo_path), action: "แก้ไขร้าน", onGo: onEditStore },
-    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: Boolean(store.promptpay_id || store.bank_account_number || store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
+    { key: "info", label: "ใส่เบอร์ ที่อยู่ เวลาเปิด และพื้นที่ส่ง", done: filled(store.phone) && filled(store.address) && filled(store.business_hours) && filled(store.delivery_area), action: "แก้ไขร้าน", onGo: onEditStore },
+    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
     { key: "menu", label: "เปิดขายเมนูอย่างน้อย 1 รายการ", done: availableMenu > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
     { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
   ];
@@ -787,7 +797,7 @@ function HomePanel({
             <span><b>{store.is_open ? "เปิดร้าน" : "ปิดร้าน"}</b> {store.is_open ? "(กำลังรับออเดอร์)" : "(ไม่รับออเดอร์)"}</span>
             <span className={`wm-switch ${store.is_open ? "is-on" : ""}`}><i /></span>
           </button>
-          <button className="wm-round-action" type="button" aria-label="แก้ไขข้อมูลร้าน" onClick={onEditStore}><Pencil size={20} /></button>
+          <button className="wm-round-action" type="button" aria-label="แก้ไขร้าน" onClick={onEditStore}><Pencil size={20} /></button>
         </div>
       </div>
 
@@ -806,7 +816,7 @@ function HomePanel({
         </button>
         <button className="wm-tile" type="button" onClick={onOpenOrders}>
           <span className="wm-tile-title">รอจัดการ</span>
-          <strong className={attentionOrders.length ? "is-alert" : ""}>{attentionOrders.length}</strong>
+          <strong className={activeOrderCount ? "is-alert" : ""}>{activeOrderCount}</strong>
           <span className="wm-tile-icon"><MerchantIcon3D name="orders" size={56} /></span>
         </button>
         <button className="wm-tile" type="button" onClick={() => onOpenTab("campaigns")}>
