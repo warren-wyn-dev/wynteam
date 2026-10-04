@@ -7,15 +7,15 @@ Date: 2026-10-04
 ## Founder direction
 
 - "ออกแบบไอคอนแอป Wynos Merchant ให้ด้วย".
-- After seeing a new storefront design, the Founder asked for the original artwork instead: "ชอบแบบเดิม ไม่มีขอบขาว และอยากให้เพิ่มคำว่า Merchant บนไอคอน".
+- "ชอบแบบเดิม ไม่มีขอบขาว และอยากให้เพิ่มคำว่า Merchant บนไอคอน".
+- The Founder then supplied the exact artwork (1254px glossy W + shop): "ไอคอนที่อยากได้ แค่อยากเพิ่มคำว่า Merchant ในไอคอน และจัด ไอคอน ชื่อ ให้สวย ตรงกลาง".
 
 ## Design
 
-- The original glossy red icon with the white W and the shop under the middle peak, redrawn as a vector so every size is sharp.
-  - The only intact copies of the old artwork were 180–192px; every larger file was corrupted.
-- Full-bleed red with no white border around the icon.
-- The word **Merchant** in white under the W.
-- Source art: `web/public/icons/merchant/v15-source.svg`. Its text uses Liberation Sans Bold; the shipped PNGs are pre-rendered.
+- The Founder's artwork, unchanged. The W + shop is cropped from it with soft edges and placed on a full-bleed red background in the same reds, so there is no white border.
+- **Merchant** in white Outfit Bold (OFL), with the same soft pink bevel and shadow as the mark.
+- The mark and the word are centred together as one group.
+- Master: `web/public/icons/merchant/v15-1024.png`.
 
 ## Files
 
@@ -23,7 +23,7 @@ Date: 2026-10-04
 |---|---|---|
 | `v15-180.png` | iPhone (apple-touch-icon) | Full-bleed square; iOS rounds it |
 | `v15-192.png`, `v15-512.png` | Manifest / browser "any" | Rounded |
-| `v15-maskable-512.png` | Android | Full bleed; the W and the word sit inside the 80% safe zone |
+| `v15-maskable-512.png` | Android | Full bleed; the mark and the word are smaller so they sit inside the 80% safe zone |
 
 - Manifest URL bumped to `?v=15`, so installed phones fetch the new icon.
 
