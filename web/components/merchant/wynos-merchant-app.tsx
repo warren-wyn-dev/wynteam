@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
+import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
 import {
@@ -282,6 +283,9 @@ function MerchantInner({
   });
   const [seenAlerts, setSeenAlerts] = useState<Set<string>>(() => new Set());
   const soundReady = useMerchantSoundUnlock();
+  // WYN-199: ask for notifications as soon as Merchant opens ("auto"), or
+  // again from the bell button ("bell").
+  const [notifyPrompt, setNotifyPrompt] = useState<"auto" | "bell" | null>("auto");
   const [menuQuery, setMenuQuery] = useState("");
   const [menuDraft, setMenuDraft] = useState<MenuDraft | null>(null);
   const [storeEditing, setStoreEditing] = useState(false);
@@ -409,15 +413,6 @@ function MerchantInner({
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  const requestNotifications = async () => {
-    if (!("Notification" in window)) {
-      setMessage("อุปกรณ์นี้ไม่รองรับการแจ้งเตือนผ่านเบราว์เซอร์");
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    setNotificationsEnabled(permission === "granted");
-    if (permission !== "granted") setMessage("ยังไม่ได้อนุญาตการแจ้งเตือน");
-  };
 
   const install = async () => {
     if (!installPrompt) return;
@@ -489,7 +484,7 @@ function MerchantInner({
             className={`wm-icon-button ${notificationsEnabled ? "is-active" : ""}`}
             type="button"
             aria-label="เปิดการแจ้งเตือน"
-            onClick={() => void requestNotifications()}
+            onClick={() => setNotifyPrompt("bell")}
           >
             <Bell size={21} strokeWidth={1.8} />
           </button>
@@ -597,6 +592,17 @@ function MerchantInner({
         <NavButton active={tab === "reports"} label="รายงาน" icon={<LayoutGrid />} onClick={() => setTab("reports")} />
         <NavButton active={tab === "store"} label="ร้านค้า" icon={<Store />} onClick={() => setTab("store")} />
       </nav>
+
+      {notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
+        <MerchantNotificationPrompt
+          key={notifyPrompt}
+          client={client}
+          userId={userId}
+          forceOpen={notifyPrompt === "bell"}
+          onClose={() => setNotifyPrompt(null)}
+          onEnabled={() => setNotificationsEnabled(true)}
+        />
+      ) : null}
 
       {alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
         <NewOrderAlert

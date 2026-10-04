@@ -258,3 +258,19 @@ test("WYN-198 Merchant order flow: one main action per order and a loud new-orde
   expect(css).toContain(".wm-card-action { min-height: 54px; font-size: 17px; }");
   expect(css).toContain("@media (prefers-reduced-motion: reduce)");
 });
+
+test("WYN-199 Merchant asks to turn on notifications as soon as it opens", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const prompt = read("components/merchant/merchant-notification-prompt.tsx");
+
+  // Opens automatically, and again from the bell, using the shared Push flow
+  // (permission request first, then the device token in push_tokens).
+  expect(app).toContain('useState<"auto" | "bell" | null>("auto")');
+  expect(app).toContain('onClick={() => setNotifyPrompt("bell")}');
+  expect(app).not.toContain("Notification.requestPermission()");
+  expect(prompt).toContain("await subscribeToPushNotifications(client, userId);");
+  expect(prompt).toContain("isCurrentDevicePushEnabled(client, userId)");
+  // Never on top of the new-order alert or another sheet; "later" lasts one session.
+  expect(app).toContain("{notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
+  expect(prompt).toContain("window.sessionStorage.setItem(LATER_KEY, \"1\")");
+});
