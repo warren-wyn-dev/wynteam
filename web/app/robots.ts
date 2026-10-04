@@ -9,6 +9,7 @@ export default function robots(): MetadataRoute.Robots {
     sitemap: [
       "https://wynos.online/sitemap.xml",
       "https://food.wynos.online/sitemap.xml",
+      "https://merchant.wynos.online/sitemap.xml",
     ],
   };
 }

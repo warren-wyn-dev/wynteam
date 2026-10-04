@@ -14,5 +14,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: "https://merchant.wynos.online/",
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 1,
+    },
   ];
 }

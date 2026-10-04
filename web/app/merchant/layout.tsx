@@ -8,9 +8,34 @@ const MERCHANT_ICON_192 = "/icons/merchant/v15-192.png";
 const MERCHANT_ICON_512 = "/icons/merchant/v15-512.png";
 
 export const metadata: Metadata = {
-  title: "Wynos Merchant",
-  applicationName: "Wynos Merchant",
-  description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
+  metadataBase: new URL("https://merchant.wynos.online"),
+  title: "WYNOS Merchant | ระบบร้านอาหาร WYNOS",
+  applicationName: "WYNOS Merchant",
+  description:
+    "WYNOS Merchant (wynosmerchant) ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
+  keywords: [
+    "WYNOS Merchant",
+    "wynosmerchant",
+    "wynos merchant",
+    "ร้านอาหาร WYNOS",
+    "ระบบร้านอาหาร",
+    "WYNOS Food Merchant",
+  ],
+  alternates: {
+    canonical: "https://merchant.wynos.online/",
+  },
+  openGraph: {
+    type: "website",
+    url: "https://merchant.wynos.online/",
+    siteName: "WYNOS Merchant",
+    title: "WYNOS Merchant | ระบบร้านอาหาร WYNOS",
+    description: "ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS ที่ merchant.wynos.online",
+  },
+  twitter: {
+    card: "summary",
+    title: "WYNOS Merchant | ระบบร้านอาหาร WYNOS",
+    description: "ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS ที่ merchant.wynos.online",
+  },
   manifest: "/merchant/manifest.webmanifest?v=15",
   icons: {
     icon: [
@@ -37,7 +62,7 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Wynos Merchant",
   },
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
