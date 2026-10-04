@@ -49,6 +49,7 @@ import {
   currentFoodLocation,
   searchFoodPlaces,
   searchStorePlaces,
+  fetchStorePlatformCampaigns,
   storeHasDeliveryZone,
   type FoodLocation,
   type FoodPlace,
@@ -207,6 +208,15 @@ function HomePanel({
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ทั้งหมด");
+  const [campaigns, setCampaigns] = useState<string[]>([]);
+  const storeId = store?.id ?? null;
+  // WYN-206: show the WYNOS campaigns this store joined.
+  useEffect(() => {
+    if (!storeId) return;
+    let live = true;
+    void fetchStorePlatformCampaigns(client, storeId).then((names) => { if (live) setCampaigns(names); });
+    return () => { live = false; };
+  }, [client, storeId]);
   const categories = useMemo(() => ["ทั้งหมด", ...new Set(menu.map((item) => item.category))], [menu]);
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("th-TH");
@@ -253,6 +263,9 @@ function HomePanel({
           </span>
           <div className="wf-store-copy">
             <div><h1>{store.name}</h1><FoodStatus store={store} /></div>
+            {campaigns.length ? (
+              <div className="wf-campaign-badges">{campaigns.map((name) => <span key={name}>{`แคมเปญ WYNOS · ${name}`}</span>)}</div>
+            ) : null}
             {store.description ? <p>{store.description}</p> : null}
             <div className="wf-store-meta">
               {store.business_hours ? <span><Clock3 size={14} />{store.business_hours}</span> : null}

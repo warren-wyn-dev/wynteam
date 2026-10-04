@@ -819,3 +819,7 @@
 .wf-pin-results button:last-child { border-bottom: 0; }
 .wf-pin-results strong { font-size: 13px; }
 .wf-pin-results small { color: var(--wf-secondary); font-size: 11px; line-height: 1.35; }
+
+/* WYN-206: WYNOS campaign badge on the store header. */
+.wf-campaign-badges { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+.wf-campaign-badges span { min-height: 26px; padding: 0 10px; border-radius: 999px; background: #e32636; color: #fff; display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; }

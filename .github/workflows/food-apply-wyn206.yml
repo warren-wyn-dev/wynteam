@@ -1,0 +1,84 @@
+name: Food -- apply WYN-206 WYNOS campaigns
+
+# Applies supabase/migrations_wynos_platform_campaigns_v1.sql (WYN-206):
+# WYNOS campaigns designed in Admin and joined by stores, with hybrid funding
+# (Admin sets WYNOS's share per campaign), the owed-to-store ledger and
+# settlements, Food campaign badges, and the new audit event types. Manual
+# dispatch on main only, after the Founder approves production. Behaviour
+# test: supabase/tests/wynos_platform_campaigns_test.sh.
+#
+# SAFETY: additive. Two new tables (RLS on, no direct grants), two nullable
+# columns on food_campaigns (default: not a WYNOS campaign), three on
+# food_order_campaigns, guard triggers that only act on WYNOS campaign rows,
+# and new RPCs. merchant_food_campaigns is replaced with the same body plus
+# one filter. Existing store promotions and pricing are unchanged.
+# ROLLBACK (Founder, SQL editor): set every WYNOS enrollment inactive first
+# (update public.food_campaigns set is_active=false, deleted_at=now() where
+# platform_campaign_id is not null, with set_config('wyn.platform_campaign_write','on',true)
+# in the same transaction), then drop the new triggers and RPCs. Keep the
+# tables until any owed amounts are settled.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-WYN-206 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-206'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_platform_campaigns_v1.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no personal data is read.
+          run_sql "select
+              (select count(*) from pg_class where relname in ('food_platform_campaigns','food_platform_settlements') and relrowsecurity) as rls_tables,
+              (select count(*) from information_schema.columns where table_schema='public'
+                 and ((table_name='food_campaigns' and column_name in ('platform_campaign_id','platform_share_percent'))
+                   or (table_name='food_order_campaigns' and column_name in ('platform_campaign_id','platform_funded','settlement_id')))) as new_columns,
+              (select count(*) from pg_trigger where not tgisinternal and tgname in
+                 ('food_campaigns_platform_guard','food_campaign_items_platform_guard','food_order_campaigns_platform_share')) as triggers,
+              has_table_privilege('authenticated', 'public.food_platform_campaigns', 'select') as users_read_table,
+              has_function_privilege('anon', 'public.admin_settle_platform_store(uuid,text,text)', 'execute') as anon_can_settle,
+              has_function_privilege('authenticated', 'public.merchant_join_platform_campaign(uuid,uuid)', 'execute') as merchants_can_join,
+              (select pg_get_constraintdef(oid) like '%admin_platform_campaign_settled%' from pg_constraint
+                 where conname='audit_log_event_type_check') as audit_types;" \
+            | tee result.json | jq .
+          jq -e '.[0].rls_tables == 2 and .[0].new_columns == 5 and .[0].triggers == 3
+                 and .[0].users_read_table == false and .[0].anon_can_settle == false
+                 and .[0].merchants_can_join == true and .[0].audit_types == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "WYN-206 WYNOS campaigns are live."

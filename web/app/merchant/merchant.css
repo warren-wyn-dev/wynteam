@@ -2017,3 +2017,31 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-coming-soon { margin-top: 10px; padding: 28px 20px; border: 1px solid var(--wm-border); border-radius: 22px; background: var(--wm-surface); display: grid; justify-items: center; gap: 10px; text-align: center; }
 .wm-coming-soon strong { font-size: 18px; }
 .wm-coming-soon ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; color: var(--wm-secondary); font-size: 14px; line-height: 1.45; }
+
+/* WYN-206: WYNOS campaigns (designed by WYNOS Admin, joined by the store). */
+.wm-pc-owed { margin-top: 6px; padding: 18px; border-radius: 22px; background: linear-gradient(150deg, #ff4d5e 0%, #e32636 55%, #b8142a 100%); color: #fff; display: grid; gap: 2px; }
+.wm-pc-owed small { opacity: .92; font-size: 13px; }
+.wm-pc-owed strong { font-size: 32px; line-height: 1.15; letter-spacing: -.8px; }
+.wm-pc-owed span { opacity: .92; font-size: 12.5px; }
+.wm-pc-list { display: grid; gap: 12px; }
+.wm-pc-card { padding: 16px; border: 1px solid var(--wm-border); border-radius: 20px; background: var(--wm-bg); display: grid; gap: 10px; }
+.wm-pc-card.is-joined { border-color: var(--wm-red-border); background: var(--wm-red-soft); }
+.wm-pc-head { display: flex; align-items: center; gap: 12px; }
+.wm-pc-head > div { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.wm-pc-head strong { font-size: 16px; overflow-wrap: anywhere; }
+.wm-pc-head small { color: var(--wm-secondary); font-size: 12px; }
+.wm-pc-chip { padding: 4px 10px; border-radius: 999px; background: var(--wm-red); color: #fff; font-size: 12px; white-space: nowrap; }
+.wm-pc-terms { margin: 0; font-size: 18px; font-weight: 750; color: var(--wm-red-text); }
+.wm-pc-desc { margin: 0; color: var(--wm-secondary); font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.wm-pc-split { display: grid; gap: 6px; font-size: 13px; color: var(--wm-secondary); }
+.wm-pc-split b { color: var(--wm-red-text); }
+.wm-pc-bar { height: 8px; border-radius: 999px; background: var(--wm-border); overflow: hidden; }
+.wm-pc-bar i { display: block; height: 100%; background: var(--wm-red); }
+.wm-pc-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.wm-pc-stats span { padding: 10px; border-radius: 14px; background: var(--wm-surface); display: grid; gap: 2px; }
+.wm-pc-stats small { color: var(--wm-secondary); font-size: 11.5px; }
+.wm-pc-stats strong { font-size: 15px; }
+.wm-pc-confirm { display: grid; gap: 12px; }
+.wm-pc-confirm > strong { font-size: 18px; }
+.wm-pc-confirm > p { margin: 0; font-size: 16px; font-weight: 700; color: var(--wm-red-text); }
+.wm-pc-confirm ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; line-height: 1.5; }

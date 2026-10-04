@@ -37,6 +37,7 @@ import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantIcon3D, type MerchantIcon3DName } from "@/components/merchant/merchant-3d-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
+import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, previewMerchantOrderSound, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
@@ -606,12 +607,10 @@ function MerchantInner({
         ) : null}
 
         {tab === "campaigns" && store ? (
-          <ComingSoonPanel
-            icon="campaign"
-            eyebrow="จาก WYNOS"
-            title="แคมเปญ"
-            lines={["ทีม WYNOS ออกแบบแคมเปญให้ร้านเลือกเข้าร่วม", "ร้านที่เข้าร่วมได้ป้ายแคมเปญและขึ้นหน้ารวมใน WYNOS Food"]}
-          />
+          <>
+            <div className="wm-page-heading"><div><small>จาก WYNOS</small><h1>แคมเปญ</h1></div></div>
+            <MerchantPlatformCampaigns client={client} store={store} onMessage={setMessage} />
+          </>
         ) : null}
 
         {tab === "ads" && store ? (
