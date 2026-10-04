@@ -2045,3 +2045,13 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-pc-confirm > strong { font-size: 18px; }
 .wm-pc-confirm > p { margin: 0; font-size: 16px; font-weight: 700; color: var(--wm-red-text); }
 .wm-pc-confirm ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; line-height: 1.5; }
+
+/* WYN-207: pay-per-click ads. */
+.wm-ads-stats { margin-top: 12px; margin-bottom: 12px; }
+.wm-ads-where { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--wm-secondary); font-size: 14px; line-height: 1.5; }
+.wm-ads-topup { padding: 16px; border: 1px solid var(--wm-border); border-radius: 20px; display: grid; gap: 10px; }
+.wm-ads-topup > p { margin: 0; color: var(--wm-secondary); font-size: 13.5px; }
+.wm-ads-promptpay { font-size: 22px; letter-spacing: .5px; color: var(--wm-red-text); }
+.wm-ads-topup .wm-field { display: grid; gap: 6px; font-size: 13px; }
+.wm-ads-topup .wm-field input { min-height: 48px; padding: 0 14px; border: 1px solid var(--wm-border); border-radius: 14px; font-size: 16px; }
+.wm-ads-slip { cursor: pointer; min-height: 48px; }

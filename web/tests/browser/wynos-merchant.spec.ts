@@ -376,11 +376,11 @@ test("WYN-205 Merchant finance page and the store's own promotions", () => {
   const en = read("lib/i18n/en.ts");
   expect(en).toContain('["{0} โปรโมชั่นกำลังใช้งาน", "{0} active promotions"]');
   expect(en).toContain('["โปรโมชั่น · {0}", "Promotion · {0}"]');
-  // The existing discount system is "โปรโมชั่น"; WYNOS campaigns and ads are
-  // separate releases (WYN-206 / WYN-207) and say so until then.
+  // The existing discount system is "โปรโมชั่น"; WYNOS campaigns (WYN-206)
+  // and ads (WYN-207) have their own pages.
   expect(app).toContain('{tab === "promotions" && store ? (');
   expect(app).toContain("<MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={setMessage} />");
-  expect(app).toContain('<ComingSoonPanel\n            icon="ads"');
+  expect(app).not.toContain("ComingSoonPanel");
 });
 
 test("WYN-206 WYNOS campaigns: Admin designs, stores join, hybrid funding is shown before joining", () => {
@@ -414,4 +414,24 @@ test("WYN-205 Wynos red leads on every Merchant page", () => {
   for (const colour of ["#ffa31a", "#22b45e", "#2f8cf0", "#8a5cf6"]) {
     expect(css).not.toContain(colour);
   }
+});
+
+test("WYN-207 pay-per-click ads: Admin-controlled, charged on the server, labelled in Food", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const ads = read("components/merchant/merchant-ads.tsx");
+  const data = read("lib/merchant-ads.ts");
+  const food = read("components/food/wynos-food-developer-app.tsx");
+  const migration = read("../supabase/migrations_wynos_food_ads_v1.sql");
+
+  // Server decides every charge: once per customer per store per day, never the store's own team.
+  expect(migration).toContain("constraint food_ad_clicks_once_per_day unique (store_id, viewer_id, click_day)");
+  expect(migration).toContain("return 'own_store';");
+  expect(migration).toContain("ads_enabled boolean not null default false");
+  // Slips go to the store's own private folder and Admin approves the credit.
+  expect(data).toContain("uploadFoodPrivateImage(client, slip, `ads/${storeId}`)");
+  expect(app).toContain("<MerchantAds client={client} store={store} onMessage={setMessage} />");
+  expect(ads).toContain("ส่งสลิปให้ WYNOS ตรวจ");
+  // Food: ads first, always labelled; opening one reports the click.
+  expect(food).toContain('{store.is_ad ? <b className="wf-ad-label">โฆษณา</b> : null}');
+  expect(food).toContain("if (next.is_ad) void recordFoodAdClick(client, next.id, placement)");
 });

@@ -218,18 +218,26 @@ export async function foodPrivateSignedUrl(
 export async function fetchFoodCustomerSnapshot(
   client: SupabaseClient,
   userId: string,
+  storeId: string | null = null,
 ): Promise<FoodCustomerSnapshot> {
   const access = await client.rpc("is_developer_account");
   if (access.error || access.data !== true) {
     return { developer: false, store: null, menu: [], orders: [], addresses: [] };
   }
 
-  const storeResult = await client
-    .from("food_stores")
-    .select("*")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  // WYN-207: the customer can pick a store from the directory; without a
+  // pick (or if it is no longer visible) Food opens the first store.
+  const picked = storeId
+    ? await client.from("food_stores").select("*").eq("id", storeId).maybeSingle()
+    : { data: null, error: null };
+  const storeResult = picked.data
+    ? picked
+    : await client
+      .from("food_stores")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
   if (storeResult.error) throw new Error(storeResult.error.message);
 
   const store = (storeResult.data as FoodCustomerStore | null) ?? null;
@@ -279,6 +287,31 @@ export async function fetchStorePlatformCampaigns(client: SupabaseClient, storeI
   return (data as Array<{ store_id: string; campaign_name: string }>)
     .filter((row) => row.store_id === storeId)
     .map((row) => row.campaign_name);
+}
+
+/** WYN-207: a store in the Food directory; is_ad = a live paid ad (shown first, labelled). */
+export type FoodDirectoryStore = {
+  id: string;
+  slug: string;
+  name: string;
+  logo_path: string | null;
+  cover_path: string | null;
+  business_hours: string | null;
+  delivery_fee: number | string;
+  is_open: boolean;
+  is_ad: boolean;
+};
+
+/** Store directory with live ads first. null = not available (older database). */
+export async function fetchFoodStoreDirectory(client: SupabaseClient, query = ""): Promise<FoodDirectoryStore[] | null> {
+  const { data, error } = await client.rpc("food_store_directory", { p_query: query.trim() || null });
+  if (error || !Array.isArray(data)) return null;
+  return data as FoodDirectoryStore[];
+}
+
+/** Tells the server an ad was opened; the server decides whether it is charged. */
+export async function recordFoodAdClick(client: SupabaseClient, storeId: string, placement: "home" | "search") {
+  await client.rpc("food_ad_click", { p_store_id: storeId, p_placement: placement });
 }
 
 export async function quoteFoodCustomerOrder(

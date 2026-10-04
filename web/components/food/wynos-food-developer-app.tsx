@@ -50,6 +50,9 @@ import {
   searchFoodPlaces,
   searchStorePlaces,
   fetchStorePlatformCampaigns,
+  fetchFoodStoreDirectory,
+  recordFoodAdClick,
+  type FoodDirectoryStore,
   storeHasDeliveryZone,
   type FoodLocation,
   type FoodPlace,
@@ -195,16 +198,82 @@ function MenuImage({
   );
 }
 
+/**
+ * WYN-207: store directory. Live paid ads come first as "ร้านแนะนำ" with a
+ * "โฆษณา" label; search puts them on top too. Opening an ad tells the server,
+ * which decides whether to charge (once per customer per store per day).
+ */
+function StoreDirectory({
+  client,
+  currentStoreId,
+  onPick,
+}: {
+  client: SupabaseClient;
+  currentStoreId: string | null;
+  onPick: (store: FoodDirectoryStore, placement: "home" | "search") => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [stores, setStores] = useState<FoodDirectoryStore[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    const timer = window.setTimeout(() => {
+      void fetchFoodStoreDirectory(client, query).then((next) => { if (live) setStores(next); });
+    }, query ? 300 : 0);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [client, query]);
+  // Nothing to choose from (one store, or an older database): stay out of the way.
+  if (!stores || (!query && stores.length <= 1)) return null;
+  const placement = query.trim() ? "search" : "home";
+  const ads = stores.filter((store) => store.is_ad);
+  const rest = stores.filter((store) => !store.is_ad);
+  const card = (store: FoodDirectoryStore) => {
+    const logo = foodPublicUrl(client, store.logo_path);
+    return (
+      <button key={store.id} type="button" className={`wf-dir-store ${store.id === currentStoreId ? "is-current" : ""}`} onClick={() => onPick(store, placement)}>
+        <span className="wf-dir-logo">{logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt="" />
+        ) : <Store size={20} strokeWidth={1.5} />}</span>
+        <span className="wf-dir-copy"><strong>{store.name}</strong><small>{store.is_open ? `ค่าส่ง ${foodMoney(store.delivery_fee)}` : "ปิดอยู่"}</small></span>
+        {store.is_ad ? <b className="wf-ad-label">โฆษณา</b> : null}
+      </button>
+    );
+  };
+  return (
+    <section className="wf-directory">
+      <label className="wf-search">
+        <Search size={19} strokeWidth={1.7} />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาร้าน" aria-label="ค้นหาร้าน" />
+      </label>
+      {ads.length ? (
+        <>
+          <h2 className="wf-dir-title">{placement === "search" ? "ร้านที่ตรงกับการค้นหา" : "ร้านแนะนำ"}</h2>
+          <div className="wf-dir-list">{ads.map(card)}</div>
+        </>
+      ) : null}
+      {rest.length ? (
+        <>
+          <h2 className="wf-dir-title">{ads.length ? "ร้านอื่นๆ" : "ร้านทั้งหมด"}</h2>
+          <div className="wf-dir-list">{rest.map(card)}</div>
+        </>
+      ) : null}
+      {!stores.length ? <p className="wf-dir-empty">ไม่พบร้านที่ค้นหา</p> : null}
+    </section>
+  );
+}
+
 function HomePanel({
   client,
   store,
   menu,
   onItem,
+  onPickStore,
 }: {
   client: SupabaseClient;
   store: FoodCustomerStore | null;
   menu: FoodCustomerMenuItem[];
   onItem: (item: FoodCustomerMenuItem) => void;
+  onPickStore: (store: FoodDirectoryStore, placement: "home" | "search") => void;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ทั้งหมด");
@@ -246,6 +315,8 @@ function HomePanel({
         <span>DEV</span>
         <div><strong>Developer Preview เท่านั้น</strong><small>ร้านนี้ยังไม่เปิดให้ผู้ใช้ทั่วไปและไม่ถูกแสดงใน WYNOS</small></div>
       </div>
+
+      <StoreDirectory client={client} currentStoreId={store.id} onPick={onPickStore} />
 
       <section className="wf-store-hero">
         <div className="wf-store-cover">
@@ -1010,6 +1081,13 @@ function FoodCustomerInner({
 }) {
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<FoodCustomerSnapshot | null>(null);
+  // WYN-207: the store picked from the directory (remembered on this device).
+  const storeKey = `wynos-food-store-v1:${userId}`;
+  const [initialPickedStore] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try { return localStorage.getItem(storeKey) ?? ""; } catch { return ""; }
+  });
+  const pickedStoreRef = useRef<string>(initialPickedStore);
   const [tab, setTab] = useState<FoodTab>("home");
   const [cart, setCart] = useState<FoodCartLine[]>(() => {
     if (typeof window === "undefined") return [];
@@ -1039,7 +1117,7 @@ function FoodCustomerInner({
     loadingRef.current = true;
     if (quiet) setRefreshing(true);
     try {
-      const next = await fetchFoodCustomerSnapshot(client, userId);
+      const next = await fetchFoodCustomerSnapshot(client, userId, pickedStoreRef.current || null);
       if (!next.developer) {
         router.replace("/");
         return null;
@@ -1216,6 +1294,16 @@ function FoodCustomerInner({
   };
 
   // WYN-201: pull down to refresh the store, menu and orders.
+  const pickStore = (next: FoodDirectoryStore, placement: "home" | "search") => {
+    if (next.is_ad) void recordFoodAdClick(client, next.id, placement).catch(() => undefined);
+    if (next.id === store?.id) return;
+    if (cart.length && !window.confirm(`เปลี่ยนไปร้าน “${next.name}”? ตะกร้าเดิมจะถูกล้าง`)) return;
+    if (cart.length) setCart([]);
+    pickedStoreRef.current = next.id;
+    try { localStorage.setItem(storeKey, next.id); } catch { /* private mode */ }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    void load(true);
+  };
   const pull = usePullToRefresh({ enabled: tab === "home" || tab === "orders", onRefresh: async () => { await load(true); } });
 
   if (!snapshot) return <FoodLoading />;
@@ -1228,7 +1316,7 @@ function FoodCustomerInner({
 
       <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
       <section className="wf-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
-        {tab === "home" ? <HomePanel client={client} store={store} menu={menu} onItem={setSelectedItem} /> : null}
+        {tab === "home" ? <HomePanel client={client} store={store} menu={menu} onItem={setSelectedItem} onPickStore={pickStore} /> : null}
         {tab === "orders" ? <OrdersPanel orders={orders} onOrder={setSelectedOrder} /> : null}
         {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
         {tab === "account" ? (
