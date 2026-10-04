@@ -78,11 +78,20 @@ export async function savePlatformCampaign(input: PlatformCampaignInput): Promis
 }
 
 /** WYN-206: record that WYNOS transferred what it owes a store. */
-export async function settlePlatformStore(params: { storeId: string; reference: string; note?: string }): Promise<void> {
+export async function settlePlatformStore(params: {
+  storeId: string;
+  reference: string;
+  note?: string;
+  /** WYN-213: what the admin saw and transferred; the server refuses if it changed. */
+  expectedAmount: number;
+  expectedCount: number;
+}): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.rpc("admin_settle_platform_store", {
     p_store_id: params.storeId,
     p_reference: params.reference.trim(),
+    p_expected_amount: params.expectedAmount,
+    p_expected_count: params.expectedCount,
     p_note: params.note?.trim() || null,
   });
   if (error) throw error;
@@ -96,6 +105,7 @@ export function platformCampaignError(error: unknown, fallback: string) {
   if (message.includes("food_platform_campaigns_share_check")) return "สัดส่วนที่ WYNOS ออกต้องอยู่ระหว่าง 0–100%";
   if (message.includes("transfer reference is required")) return "กรุณาใส่เลขอ้างอิงการโอน";
   if (message.includes("nothing to settle")) return "ไม่มียอดค้างโอนแล้ว";
+  if (message.includes("owed amount changed")) return "ยอดค้างเปลี่ยนระหว่างเปิดหน้านี้ กรุณารีเฟรชแล้วตรวจยอดก่อนโอนใหม่";
   if (message.includes("Only admins")) return "เฉพาะ Admin เท่านั้นที่ทำรายการนี้ได้";
   return message || fallback;
 }
