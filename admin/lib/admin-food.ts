@@ -225,3 +225,59 @@ export function formatThaiDate(value: string | null | undefined) {
     timeZone: "Asia/Bangkok",
   }).format(new Date(value));
 }
+
+
+export type AdminWynosPlace = {
+  id: string;
+  name_th: string;
+  name_en: string | null;
+  category: string;
+  address: string | null;
+  building: string | null;
+  latitude: number;
+  longitude: number;
+  entrance_latitude: number | null;
+  entrance_longitude: number | null;
+  source: string;
+  source_ref: string | null;
+  verification_status: "unverified" | "merchant_verified" | "wynos_verified";
+  merchant_store_id: string | null;
+  food_store_place_id: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminWynosStorePlace = {
+  id: string;
+  name_th: string;
+  latitude: number;
+  longitude: number;
+  verification_status: string;
+  is_active: boolean;
+  updated_at: string;
+};
+
+export async function fetchAdminWynosPlaces(params: {
+  query?: string;
+  category?: string;
+  status?: string;
+  limit?: number;
+} = {}): Promise<AdminWynosPlace[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_wynos_places", {
+    p_query: params.query?.trim() || null,
+    p_category: params.category || null,
+    p_status: params.status || null,
+    p_limit: params.limit ?? 250,
+  });
+  if (error) throw error;
+  return (data ?? []) as AdminWynosPlace[];
+}
+
+export async function fetchAdminWynosPlaceForStore(storeId: string): Promise<AdminWynosStorePlace | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_wynos_place_for_store", { p_store_id: storeId });
+  if (error) throw error;
+  return (data as AdminWynosStorePlace | null) ?? null;
+}
