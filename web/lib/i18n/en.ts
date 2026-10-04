@@ -1970,6 +1970,8 @@ Object.assign(EN_EXACT, {
   "ร้านนี้ยังไม่พร้อมรับการจัดส่ง": "This store is not ready for delivery",
   "กรุณาตรวจสอบตำแหน่งจัดส่ง": "Please check the delivery location",
   "อาคาร/หมู่บ้าน": "Building / village",
+  "ข้อมูลแผนที่และแหล่งข้อมูล": "Map data and sources",
+  "ข้อมูลแผนที่": "Map data",
   "กำลังค้นหาชื่อสถานที่…": "Finding place name…",
   "ไม่พบชื่อสถานที่": "Place name unavailable",
   "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น WYNOS Maps": "No pin yet: the store will not appear on WYNOS Maps",
