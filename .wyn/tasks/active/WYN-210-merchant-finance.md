@@ -71,3 +71,8 @@ Date: 2026-10-04
 - Revert the PR.
 - Optionally `drop function public.merchant_finance_summary(uuid, date, date)`.
 - No data changes to undo.
+
+## Opened to everyone (2026-10-04)
+
+- The Founder said "เปิดทุกคน". The WYN-125 gate is removed, so every store now gets the new finance page.
+- The previous order-based `FinancePanel` is deleted.
