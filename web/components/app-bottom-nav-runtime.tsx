@@ -59,7 +59,8 @@ export function AppBottomNavHost() {
   const postActive = pathname === "/" && searchParams.get("compose") === "1";
   const userId = navState?.userId ?? "";
   const chatUnreadCount = useUnreadChatCount(userId ? getSupabaseBrowserClient() : null, userId, pathname);
-  if (!navState?.visible || !navState.userId) return null;
+  const hideForFood = pathname === "/food" || pathname.startsWith("/food/");
+  if (hideForFood || !navState?.visible || !navState.userId) return null;
 
   const isActive = (href: string) => (
     href === "/"
