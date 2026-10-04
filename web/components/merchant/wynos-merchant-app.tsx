@@ -435,13 +435,9 @@ function MerchantInner({
   const todayOrders = useMemo(() => orders.filter((order) => sameLocalDay(order.created_at)), [orders]);
   const todayDelivered = useMemo(() => todayOrders.filter((order) => order.status === "delivered"), [todayOrders]);
   const todaySales = useMemo(() => todayDelivered.reduce((sum, order) => sum + Number(order.total), 0), [todayDelivered]);
-  // Every unfinished order counts (tile and nav badge); home previews 8.
+  // Every unfinished order counts on the "รับออเดอร์" nav badge.
   const activeOrderCount = useMemo(
     () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length,
-    [orders],
-  );
-  const attentionOrders = useMemo(
-    () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").slice(0, 8),
     [orders],
   );
   const filteredOrders = useMemo(() => orders.filter((order) => orderInFilter(order, orderFilter)), [orderFilter, orders]);
@@ -535,14 +531,9 @@ function MerchantInner({
             menu={menu}
             todayOrders={todayOrders}
             todaySales={todaySales}
-            attentionOrders={attentionOrders}
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
-            onOrder={setSelectedOrder}
-            onAction={(order) => void quickAction(order)}
-            actedFrom={actedFrom}
-            onOpenOrders={() => setTab("orders")}
             onOpenTab={setTab}
             onEditStore={() => setStoreEditing(true)}
             onMessage={setMessage}
@@ -744,14 +735,9 @@ function HomePanel({
   menu,
   todayOrders,
   todaySales,
-  attentionOrders,
   installPrompt,
   onInstall,
   onReload,
-  onOrder,
-  onAction,
-  actedFrom,
-  onOpenOrders,
   onOpenTab,
   onEditStore,
   onMessage,
@@ -761,14 +747,9 @@ function HomePanel({
   menu: FoodMenuItem[];
   todayOrders: FoodOrder[];
   todaySales: number;
-  attentionOrders: FoodOrder[];
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onReload: () => void;
-  onOrder: (order: FoodOrder) => void;
-  onAction: (order: FoodOrder) => void;
-  actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
-  onOpenOrders: () => void;
   onOpenTab: (tab: MerchantTab) => void;
   onEditStore: () => void;
   onMessage: (message: string) => void;
@@ -842,17 +823,6 @@ function HomePanel({
         <button type="button" onClick={() => onOpenTab("promotions")}><MerchantIcon3D name="promotion" size={52} />โปรโมชั่น</button>
       </nav>
 
-      <section className="wm-section">
-        <div className="wm-section-title">
-          <h2>ต้องจัดการตอนนี้</h2>
-          <button type="button" onClick={onOpenOrders}>ดูทั้งหมด <ChevronRight size={15} /></button>
-        </div>
-        {attentionOrders.length ? (
-          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div>
-        ) : (
-          <div className="wm-empty wm-empty--compact"><PackageCheck size={34} strokeWidth={1.5} /><strong>จัดการครบแล้ว</strong><p>ยังไม่มีออเดอร์ที่ต้องดำเนินการ</p></div>
-        )}
-      </section>
 
       {nextStep && !store.admin_suspended_at ? (
         <section className={`wm-ready ${checklistOpen ? "is-open" : ""}`}>
@@ -1083,11 +1053,20 @@ function FinancePanel({ store, orders, onEditStore }: { store: FoodStore; orders
   const monthly = paid.filter((order) => new Date(paidAt(order)) >= monthStart);
   const waiting = orders.filter((order) => order.payment_status === "submitted");
   const refunded = orders.filter((order) => order.payment_status === "refunded" || order.refund_status === "refunded");
-  const refundPending = orders.filter((order) => order.refund_status === "pending");
+  // Refunds still to do: requested, or tried and failed (payment stays "paid").
+  const refundPending = orders.filter((order) => order.refund_status === "pending" || order.refund_status === "failed");
+  // When the money last moved for this order, so refunds of old orders still
+  // show up as recent activity at the right time.
+  const movedAt = (order: FoodOrder) =>
+    order.refunded_at ?? (order.refund_status !== "none" ? order.refund_requested_at : null) ?? order.paid_at ?? order.created_at;
   const recent = orders
     .filter((order) => order.payment_status === "paid" || order.payment_status === "submitted" || order.payment_status === "refunded" || order.refund_status !== "none")
+    .sort((a, b) => new Date(movedAt(b)).getTime() - new Date(movedAt(a)).getTime())
     .slice(0, 20);
-  const last4 = (value: string | null) => (value ? `••••${value.replace(/\s/g, "").slice(-4)}` : "");
+  const last4 = (value: string | null) => {
+    const digits = (value ?? "").replace(/\D/g, "");
+    return digits ? `••••${digits.slice(-4)}` : "";
+  };
   const channels = [
     store.promptpay_id ? `PromptPay ${store.promptpay_name ?? ""} ${last4(store.promptpay_id)}`.trim() : null,
     store.bank_account_number ? `${store.bank_name ?? "บัญชีธนาคาร"} ${last4(store.bank_account_number)}` : null,
@@ -1102,7 +1081,7 @@ function FinancePanel({ store, orders, onEditStore }: { store: FoodStore; orders
         <Metric label="สัปดาห์นี้" value={money(sum(weekly))} hint={`${weekly.length} รายการ`} />
         <Metric label="เดือนนี้" value={money(sum(monthly))} hint={`${monthly.length} รายการ`} />
         <Metric label="รอตรวจสลิป" value={money(sum(waiting))} hint={`${waiting.length} รายการ`} />
-        <Metric label="คืนเงินแล้ว" value={money(sum(refunded))} hint={refundPending.length ? `รอคืนอีก ${refundPending.length}` : `${refunded.length} รายการ`} />
+        <Metric label="คืนเงินแล้ว" value={money(sum(refunded))} hint={refundPending.length ? `ต้องคืนอีก ${refundPending.length}` : `${refunded.length} รายการ`} />
       </div>
       <section className="wm-section">
         <div className="wm-section-title"><h2>ช่องทางรับเงิน</h2><button type="button" onClick={onEditStore}>แก้ไข <ChevronRight size={15} /></button></div>
@@ -1118,10 +1097,11 @@ function FinancePanel({ store, orders, onEditStore }: { store: FoodStore; orders
           <div className="wm-money-list">
             {recent.map((order) => {
               const out = order.payment_status === "refunded" || order.refund_status === "refunded";
-              const label = out ? "คืนเงินแล้ว" : order.refund_status === "pending" ? "รอคืนเงิน" : order.payment_status === "submitted" ? "รอตรวจสลิป" : "รับเงินแล้ว";
+              const failed = !out && order.refund_status === "failed";
+              const label = out ? "คืนเงินแล้ว" : failed ? "คืนเงินไม่สำเร็จ" : order.refund_status === "pending" ? "รอคืนเงิน" : order.payment_status === "submitted" ? "รอตรวจสลิป" : "รับเงินแล้ว";
               return (
-                <div key={order.id} className={out ? "is-out" : order.payment_status === "submitted" ? "is-waiting" : ""}>
-                  <span><strong>#{order.order_number}</strong><small>{label} · {shortTime(order.paid_at ?? order.created_at)}</small></span>
+                <div key={order.id} className={out ? "is-out" : failed ? "is-failed" : order.payment_status === "submitted" || order.refund_status === "pending" ? "is-waiting" : ""}>
+                  <span><strong>#{order.order_number}</strong><small>{label} · {shortTime(movedAt(order))}</small></span>
                   <b>{out ? "−" : ""}{money(order.total)}</b>
                 </div>
               );
@@ -1424,7 +1404,7 @@ function OrderSheet({
         </div>
         <div className="wm-totals">
           <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
-          {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "โปรโมชั่น · " + order.campaign_name : "ส่วนลดโปรโมชั่น"}</span><b>−{money(order.campaign_discount)}</b></div> : null}
+          {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? `โปรโมชั่น · ${order.campaign_name}` : "ส่วนลดโปรโมชั่น"}</span><b>−{money(order.campaign_discount)}</b></div> : null}
           <div><span>ค่าส่ง{order.delivery_distance_km != null ? ` · ${Number(order.delivery_distance_km).toFixed(1)} กม.` : ""}</span><b>{money(order.delivery_fee)}</b></div>
           {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{money(order.delivery_discount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>

@@ -338,8 +338,10 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   for (const shortcut of ['name="finance" size={52} />การเงิน', 'name="ads" size={52} />โฆษณา', 'name="campaign" size={52} />แคมเปญ', 'name="promotion" size={52} />โปรโมชั่น']) {
     expect(app).toContain(shortcut);
   }
-  // The nav badge counts every unfinished order, not the 8 previewed.
+  // The nav badge counts every unfinished order. Founder removed the
+  // "ต้องจัดการตอนนี้" list from home; orders live in "รับออเดอร์".
   expect(app).toContain("badge={activeOrderCount}");
+  expect(app).not.toContain("<h2>ต้องจัดการตอนนี้</h2>");
   // Readiness uses the publish rules (paired payment fields).
   expect(app).toContain("done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
   expect(app).toContain("{nextStep && !store.admin_suspended_at ? (");
@@ -365,10 +367,32 @@ test("WYN-205 Merchant finance page and the store's own promotions", () => {
   expect(app).toContain('const paid = orders.filter((order) => order.payment_status === "paid");');
   expect(app).toContain('const waiting = orders.filter((order) => order.payment_status === "submitted");');
   // Payment channels are masked to the last 4 digits.
-  expect(app).toContain("const last4 = (value: string | null) =>");
+  expect(app).toContain("const last4 = (value: string | null) => {");
+  expect(app).toContain('const digits = (value ?? "").replace(/\\D/g, "");');
+  // Failed refunds are still to do; activity is ordered by when money moved.
+  expect(app).toContain('order.refund_status === "pending" || order.refund_status === "failed"');
+  expect(app).toContain(".sort((a, b) => new Date(movedAt(b)).getTime() - new Date(movedAt(a)).getTime())");
+  // Dynamic promotion text is translated through EN_PATTERNS.
+  const en = read("lib/i18n/en.ts");
+  expect(en).toContain('["{0} โปรโมชั่นกำลังใช้งาน", "{0} active promotions"]');
+  expect(en).toContain('["โปรโมชั่น · {0}", "Promotion · {0}"]');
   // The existing discount system is "โปรโมชั่น"; WYNOS campaigns and ads are
   // separate releases (WYN-206 / WYN-207) and say so until then.
   expect(app).toContain('{tab === "promotions" && store ? (');
   expect(app).toContain("<MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={setMessage} />");
   expect(app).toContain('<ComingSoonPanel\n            icon="ads"');
+});
+
+test("WYN-205 Wynos red leads on every Merchant page", () => {
+  const css = read("app/merchant/merchant.css");
+  // Primary buttons and summary cards are red, not black.
+  expect(css).toMatch(/\.wm-primary \{[^}]*background: var\(--wm-red\);[^}]*color: #fff;/);
+  expect(css).toMatch(/\.wm-small-primary \{[^}]*background: var\(--wm-red\);/);
+  expect(css).toMatch(/\.wm-report-hero \{[^}]*background: linear-gradient\(150deg, #ff4d5e 0%, #e32636 55%, #b8142a 100%\);/);
+  // No rainbow colours in the page styling (Founder: "ถ้ามีสีรุ้ง ตัดทิ้งเลย").
+  // The 3D icons keep their own colours so each one is easy to tell apart
+  // (Founder: "พวกไอคอน ไม่ต้องคุมโทนแดง หมดก็ได้ เดียว งง").
+  for (const colour of ["#ffa31a", "#22b45e", "#2f8cf0", "#8a5cf6"]) {
+    expect(css).not.toContain(colour);
+  }
 });

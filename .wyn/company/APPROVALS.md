@@ -379,3 +379,23 @@
 - WYN-206 funding: **"แคมเปญ เป็นระบบไฮบริด แล้วแต่จะตั้งยังไง ขึ้นอยู่กับ WYNOS Admin จะเป็นคนออกแคมเปญ"**. Admin sets, per campaign, how much of the discount WYNOS funds and how much the store funds. WYNOS's share is recorded as owed to the store until Admin marks it paid.
 - Rollback for WYN-205: revert the merge commit or use Vercel Instant Rollback.
 - สถานะ: **อนุมัติแล้ว** (WYN-205 release; WYN-206 direction). วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-205 follow-ups (PR #834) and WYN-206 WYNOS campaigns (PR #835)
+- PR #834:
+  - Codex finance fixes.
+  - Founder: "เอาตรงที่วงสีเหลืองออก" (remove "ต้องจัดการตอนนี้" from home).
+  - Founder: "ทุกหน้า ต้องคุมโทนสีประจำนะให้เด่นกว่า คือสีแดง".
+  - Founder: "ถ้ามีสีรุ้ง ตัดทิ้งเลย ไม่ใช้แล้ว". For Wynos Merchant this replaces the AGENTS.md "rainbow accents 10–20%" direction: the page styling is red and white with no rainbow.
+  - Founder: "พวกไอคอน ไม่ต้องคุมโทนแดง หมดก็ได้ เดียว งง". The 3D icons keep their own colours.
+- PR #835: WYNOS campaigns designed in Admin with hybrid funding (Admin sets WYNOS's share per campaign). WYNOS's share is owed to the store until Admin records the transfer. Security decisions accepted:
+  - Admin-only campaign design.
+  - Admin-only payouts, showing store payout details.
+  - Admin-only settlement.
+  - A guard stops stores changing WYNOS campaign terms.
+- After reviewing both PRs: **"อนุมัติ"**.
+- Release:
+  1. Merge #834 (the web auto-deploys).
+  2. Merge #835 and dispatch `food-apply-wyn206.yml` with `APPLY-WYN-206`.
+  3. Run `deploy-admin.yml`.
+- Rollback: revert the merge commits. The SQL rollback for WYN-206 is in the workflow header.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
