@@ -1573,3 +1573,13 @@
     border-inline: 1px solid #e7e7e9;
   }
 }
+
+/* WYN-211: introduction page for customers outside Maha Sarakham. */
+.wf-area { min-height: 100dvh; padding: max(24px, env(safe-area-inset-top)) 20px 32px; display: grid; place-items: center; }
+.wf-area-card { width: min(100%, 420px); display: grid; justify-items: center; gap: 12px; text-align: center; }
+.wf-area-icon { width: 64px; height: 64px; border-radius: 22px; background: var(--wf-red-soft); color: var(--wf-red); display: grid; place-items: center; }
+.wf-area-card h1 { margin: 6px 0 0; font-size: 21px; line-height: 1.35; letter-spacing: -.3px; }
+.wf-area-card p { margin: 0 0 8px; color: var(--wf-secondary); font-size: 14px; line-height: 1.55; }
+.wf-area-card .wf-primary, .wf-area-card .wf-secondary { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.wf-area-card .wf-primary { background: var(--wf-red); }
+.wf-area-home { margin-top: 4px; color: var(--wf-secondary); font-size: 13px; }

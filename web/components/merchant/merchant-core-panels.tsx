@@ -39,6 +39,7 @@ const READINESS_LABELS: Record<string, string> = {
   address: "ที่อยู่ร้าน",
   business_hours: "เวลาเปิด–ปิด",
   delivery_area: "พื้นที่จัดส่ง",
+  service_area: "ปักหมุดร้านในจังหวัดมหาสารคาม",
   payment: "ช่องทางรับเงิน",
   menu: "เมนูที่เปิดขาย",
 };

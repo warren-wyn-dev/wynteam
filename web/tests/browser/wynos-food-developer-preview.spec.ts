@@ -156,12 +156,12 @@ test("Food checkout previews Campaign Center savings but revalidates them on the
   expect(sql).toContain("usage_count=usage_count+1");
 });
 
-test("WYN-195 WYNOS Food entry sits under the Home tabs and in the drawer for developers only", () => {
+test("WYN-195 WYNOS Food entry sits under the Home tabs and in the drawer (WYN-211: for everyone)", () => {
   const home = read("components/home/home-screen.tsx");
   const drawer = read("components/home/home-drawer.tsx");
   const shortcut = read("components/home/home-food-shortcut.tsx");
 
-  expect(home).toContain("const showFood = useIsDeveloperAccount(client, userId);");
+  expect(home).toContain("const showFood = Boolean(userId);");
   expect(home).toContain("{showFood ? <HomeFoodShortcut /> : null}");
   expect(home).toContain("showFood={showFood}");
   expect(shortcut).toContain('href="/food"');
@@ -226,4 +226,28 @@ test("WYN-197 free place search uses the store's own place list", () => {
   expect(merchantLib).toContain('if (error.code === "42P01" || error.code === "PGRST205") return null;');
   expect(merchant).toContain("<StorePlacesEditor");
   expect(merchant).toContain("parseFoodLocation(form.coords)");
+});
+
+test("WYN-211 WYNOS Food is open to everyone; ordering only in Maha Sarakham", () => {
+  const sql = read("../supabase/migrations_wynos_food_service_area_v1.sql");
+  const lib = read("lib/food-customer.ts");
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const panels = read("components/merchant/merchant-core-panels.tsx");
+  const workflow = read("../.github/workflows/food-apply-wyn211.yml");
+
+  // Public rollout switch, and the client follows the server's access rule.
+  expect(sql).toContain("update public.food_rollout_settings set public_enabled = true where id = true;");
+  expect(lib).toContain('client.rpc("food_customer_access_enabled")');
+  expect(lib).toContain("if (!developer && (access.error || access.data !== true)) {");
+  // Server: store pin and delivery pin must be inside the province (developers exempt).
+  expect(sql).toContain("raise exception 'store is outside the service area';");
+  expect(sql).toContain("raise exception 'outside service area';");
+  expect(sql).toContain("case when not internal.food_in_service_area(s.latitude, s.longitude) then 'service_area' end");
+  expect(sql).toContain("revoke all on table public.food_service_areas from public, anon, authenticated;");
+  // Web: customers outside the area only get the introduction page.
+  expect(app).toContain('if (!snapshot.developer && area !== "inside") {');
+  expect(app).toContain("<h1>WYNOS Food เปิดให้บริการเฉพาะจังหวัดมหาสารคาม</h1>");
+  expect(lib).toContain('if (message.includes("outside service area")) return "ตอนนี้ WYNOS Food ส่งได้เฉพาะในจังหวัดมหาสารคาม";');
+  expect(panels).toContain('service_area: "ปักหมุดร้านในจังหวัดมหาสารคาม",');
+  expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-211'");
 });

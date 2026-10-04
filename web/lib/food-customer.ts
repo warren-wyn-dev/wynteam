@@ -168,6 +168,9 @@ export type FoodOrderQuote = {
 };
 
 export type FoodCustomerSnapshot = {
+  /** May use WYNOS Food at all (signed-in permanent account, public rollout or developer). */
+  allowed: boolean;
+  /** Developer accounts skip the Maha Sarakham area check, like the server does. */
   developer: boolean;
   store: FoodCustomerStore | null;
   menu: FoodCustomerMenuItem[];
@@ -220,9 +223,13 @@ export async function fetchFoodCustomerSnapshot(
   userId: string,
   storeId: string | null = null,
 ): Promise<FoodCustomerSnapshot> {
-  const access = await client.rpc("is_developer_account");
-  if (access.error || access.data !== true) {
-    return { developer: false, store: null, menu: [], orders: [], addresses: [] };
+  const [access, developerCheck] = await Promise.all([
+    client.rpc("food_customer_access_enabled"),
+    client.rpc("is_developer_account"),
+  ]);
+  const developer = !developerCheck.error && developerCheck.data === true;
+  if (!developer && (access.error || access.data !== true)) {
+    return { allowed: false, developer: false, store: null, menu: [], orders: [], addresses: [] };
   }
 
   // WYN-207: the customer can pick a store from the directory; without a
@@ -269,7 +276,8 @@ export async function fetchFoodCustomerSnapshot(
   if (addressesResult.error) throw new Error(addressesResult.error.message);
 
   return {
-    developer: true,
+    allowed: true,
+    developer,
     store,
     menu: (menuResult.data ?? []) as FoodCustomerMenuItem[],
     orders: (ordersResult.data ?? []) as FoodCustomerOrder[],
@@ -528,10 +536,23 @@ export function foodCustomerError(error: unknown, fallback = "ดำเนิน
   if (message.includes("order cannot be cancelled by customer")) return "ออเดอร์นี้ยกเลิกเองไม่ได้แล้ว กรุณาติดต่อร้าน";
   if (message.includes("permanent account required")) return "ต้องใช้บัญชี WYNOS ที่ลงทะเบียนแล้ว";
   if (message.includes("address information is required")) return "กรุณากรอกข้อมูลที่อยู่ให้ครบ";
+  if (message.includes("store is outside the service area")) return "ร้านนี้ยังไม่เปิดให้บริการในพื้นที่";
+  if (message.includes("outside service area")) return "ตอนนี้ WYNOS Food ส่งได้เฉพาะในจังหวัดมหาสารคาม";
   if (message.includes("outside delivery area")) return "ที่อยู่นี้อยู่นอกพื้นที่จัดส่งของร้าน";
   if (message.includes("delivery location required")) return "กรุณาปักหมุดตำแหน่งที่อยู่จัดส่งก่อนสั่ง";
   if (message.includes("invalid delivery location")) return "ตำแหน่งที่อยู่ไม่ถูกต้อง ลองปักหมุดใหม่";
   return message || fallback;
+}
+
+/**
+ * WYN-211: is this point inside the area WYNOS Food serves (Maha Sarakham)?
+ * The server checks every quote and order again; this only drives the
+ * introduction page for customers outside the area.
+ */
+export async function checkFoodServiceArea(client: SupabaseClient, location: FoodLocation) {
+  const { data, error } = await client.rpc("food_service_area_check", { p_latitude: location.latitude, p_longitude: location.longitude });
+  if (error) throw new Error(error.message);
+  return data === true;
 }
 
 /** WYN-196: the phone's current position, for the delivery pin. */
