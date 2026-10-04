@@ -654,10 +654,15 @@ export type FoodPlace = {
   longitude: number;
   category?: string | null;
   verificationStatus?: string | null;
+  merchantStoreId?: string | null;
+  storeSlug?: string | null;
+  isOpen?: boolean | null;
+  deliveryRadiusKm?: number | null;
+  distanceKm?: number | null;
   source?: "wynos" | "geo" | "legacy" | "store";
 };
 
-function parsePlaceRows(rows: unknown[], source: FoodPlace["source"]): FoodPlace[] {
+function parsePlaceRows(rows: unknown[], source: FoodPlace["source"], limit = 12): FoodPlace[] {
   return rows.flatMap((row) => {
     const place = row as {
       place_id?: unknown;
@@ -669,6 +674,11 @@ function parsePlaceRows(rows: unknown[], source: FoodPlace["source"]): FoodPlace
       longitude?: unknown;
       category?: unknown;
       verification_status?: unknown;
+      merchant_store_id?: unknown;
+      store_slug?: unknown;
+      is_open?: unknown;
+      delivery_radius_km?: unknown;
+      distance_km?: unknown;
     };
     const latitude = Number(place.lat ?? place.latitude);
     const longitude = Number(place.lon ?? place.longitude);
@@ -681,9 +691,18 @@ function parsePlaceRows(rows: unknown[], source: FoodPlace["source"]): FoodPlace
       longitude,
       category: typeof place.category === "string" ? place.category : null,
       verificationStatus: typeof place.verification_status === "string" ? place.verification_status : null,
+      merchantStoreId: typeof place.merchant_store_id === "string" ? place.merchant_store_id : null,
+      storeSlug: typeof place.store_slug === "string" ? place.store_slug : null,
+      isOpen: typeof place.is_open === "boolean" ? place.is_open : null,
+      deliveryRadiusKm: place.delivery_radius_km == null || !Number.isFinite(Number(place.delivery_radius_km))
+        ? null
+        : Number(place.delivery_radius_km),
+      distanceKm: place.distance_km == null || !Number.isFinite(Number(place.distance_km))
+        ? null
+        : Number(place.distance_km),
       source,
     }];
-  }).slice(0, 12);
+  }).slice(0, limit);
 }
 
 function parseMapPlaces(payload: unknown, source: FoodPlace["source"]): FoodPlace[] {
@@ -691,6 +710,24 @@ function parseMapPlaces(payload: unknown, source: FoodPlace["source"]): FoodPlac
     ? (payload as { results: unknown[] }).results
     : [];
   return parsePlaceRows(results, source);
+}
+
+export async function fetchNearbyWynosPlaces(
+  client: SupabaseClient,
+  location: FoodLocation,
+  radiusKm = 25,
+): Promise<FoodPlace[]> {
+  const { data, error } = await client.rpc("wynos_nearby_places", {
+    p_latitude: location.latitude,
+    p_longitude: location.longitude,
+    p_radius_km: Math.min(Math.max(radiusKm, 1), 50),
+    p_limit: 80,
+  });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return [];
+    return [];
+  }
+  return parsePlaceRows(Array.isArray(data) ? data : [], "wynos", 80);
 }
 
 async function searchWynosPlaces(client: SupabaseClient, query: string): Promise<FoodPlace[]> {
