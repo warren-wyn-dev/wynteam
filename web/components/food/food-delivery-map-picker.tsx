@@ -181,9 +181,6 @@ export function FoodDeliveryMapPicker({
     let fallbackTimer: number | null = null;
     let failureTimer: number | null = null;
 
-    setMapReady(false);
-    setMapFailed(false);
-
     void loadMapLibre()
       .then((maplibre) => {
         if (!live || !mapNode.current) return;
@@ -209,7 +206,7 @@ export function FoodDeliveryMapPicker({
           setMapFailed(false);
         };
 
-        const useFallback = () => {
+        const applyFallback = () => {
           if (!live || !map || styleLoaded || fallbackApplied) return;
           fallbackApplied = true;
           try {
@@ -235,7 +232,7 @@ export function FoodDeliveryMapPicker({
         };
 
         const onError = () => {
-          if (!styleLoaded) useFallback();
+          if (!styleLoaded) applyFallback();
         };
 
         map.on("style.load", markReady);
@@ -247,7 +244,7 @@ export function FoodDeliveryMapPicker({
         window.setTimeout(() => map?.resize(), 60);
         window.setTimeout(() => map?.resize(), 450);
 
-        fallbackTimer = window.setTimeout(useFallback, 3000);
+        fallbackTimer = window.setTimeout(applyFallback, 3000);
         failureTimer = window.setTimeout(() => {
           if (!styleLoaded && live) setMapFailed(true);
         }, 8500);
@@ -364,7 +361,12 @@ export function FoodDeliveryMapPicker({
             <MapPin size={30} />
             <strong>แผนที่ยังโหลดไม่สำเร็จ</strong>
             <small>ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง</small>
-            <button type="button" onClick={() => setMapAttempt((value) => value + 1)}><RefreshCw size={16} /> ลองใหม่</button>
+            <button type="button" onClick={() => {
+              setMapReady(false);
+              setMapFailed(false);
+              setStatus("");
+              setMapAttempt((value) => value + 1);
+            }}><RefreshCw size={16} /> ลองใหม่</button>
           </div>
         ) : null}
         <div className="wf-map-center-pin" aria-hidden="true"><MapPin size={42} fill="currentColor" /></div>
