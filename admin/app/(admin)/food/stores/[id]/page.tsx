@@ -9,6 +9,7 @@ import {
   FOOD_TEAM_ROLE_LABEL,
   fetchAdminFoodOrders,
   fetchAdminFoodStoreDetail,
+  fetchAdminWynosPlaceForStore,
   formatBaht,
   formatThaiDate,
 } from "@/lib/admin-food";
@@ -24,6 +25,7 @@ export default async function FoodStoreDetailPage({
   const { id } = await params;
   const store = await fetchAdminFoodStoreDetail(id);
   if (!store) notFound();
+  const mapPlace = await fetchAdminWynosPlaceForStore(store.id);
   // Orders carry customer data: admins only.
   const orders = role === "admin" ? await fetchAdminFoodOrders({ storeId: store.id, limit: 20 }) : [];
   const suspended = Boolean(store.admin_suspended_at);
@@ -46,6 +48,22 @@ export default async function FoodStoreDetailPage({
           <p className="text-xs text-muted-foreground">สร้างเมื่อ {formatThaiDate(store.created_at)}</p>
         </div>
         {role === "admin" ? <FoodStoreSuspensionActions storeId={store.id} storeName={store.name} suspended={suspended} /> : null}
+      </section>
+
+      <section className="rounded-xl border p-4 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-medium">WYNOS Maps</p>
+            {mapPlace ? (
+              <p className="mt-1 text-muted-foreground">
+                {mapPlace.id} · {mapPlace.latitude.toFixed(5)}, {mapPlace.longitude.toFixed(5)} · {mapPlace.is_active ? "แสดงบนแผนที่" : "ยังไม่แสดง"}
+              </p>
+            ) : (
+              <p className="mt-1 text-muted-foreground">ร้านนี้ยังไม่มี WYNOS Place — Merchant ต้องปักหมุดก่อนเผยแพร่</p>
+            )}
+          </div>
+          <Link href="/food/places?category=restaurant" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent">เปิด Places Manager</Link>
+        </div>
       </section>
 
       {suspended ? (
