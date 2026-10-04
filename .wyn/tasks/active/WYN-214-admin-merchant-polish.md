@@ -1,6 +1,6 @@
 # Product Task — WYN-214 — WYNOS Admin Merchant polish
 
-Status: in review — Founder "ทำต่อ"; awaiting "อนุมัติ" for merge, migration and Admin deploy
+Status: approved — Founder "อนุมัติ" 2026-10-04; releasing PR #877, migration, Admin deploy
 Owner: AI Coding / AI QA & Security
 Date: 2026-10-04
 
