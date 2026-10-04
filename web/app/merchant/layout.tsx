@@ -3,15 +3,15 @@ import type { ReactNode } from "react";
 
 import "./merchant.css";
 
-const MERCHANT_ICON_180 = "/icons/merchant/v14-180.png";
-const MERCHANT_ICON_192 = "/icons/merchant/v14-192.png";
-const MERCHANT_ICON_512 = "/icons/merchant/v14-512.png";
+const MERCHANT_ICON_180 = "/icons/merchant/v15-180.png";
+const MERCHANT_ICON_192 = "/icons/merchant/v15-192.png";
+const MERCHANT_ICON_512 = "/icons/merchant/v15-512.png";
 
 export const metadata: Metadata = {
   title: "Wynos Merchant",
   applicationName: "Wynos Merchant",
   description: "จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food",
-  manifest: "/merchant/manifest.webmanifest?v=14",
+  manifest: "/merchant/manifest.webmanifest?v=15",
   icons: {
     icon: [
       { url: MERCHANT_ICON_192, sizes: "192x192", type: "image/png" },
