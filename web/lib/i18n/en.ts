@@ -1974,6 +1974,13 @@ Object.assign(EN_EXACT, {
   "ปักหมุดที่อยู่ก่อนเพื่อเช็กการจัดส่ง": "Pin a delivery address to check delivery",
   "ใช้ตำแหน่งนี้": "Use this location",
   "ดูร้านใน WYNOS Food": "View store in WYNOS Food",
+  "ร้านอาหาร": "Restaurant",
+  "จุดรับอาหาร": "Pickup point",
+  "อาคาร": "Building",
+  "ทางเข้า": "Entrance",
+  "กม. จากกลางแผนที่": "km from map center",
+  "ร้านนี้ส่งถึง ·": "Delivery available ·",
+  "กม. · ค่าส่ง": "km · delivery",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
