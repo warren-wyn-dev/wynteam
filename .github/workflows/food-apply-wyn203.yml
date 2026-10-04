@@ -1,0 +1,83 @@
+name: Food -- apply WYN-203 admin store operations
+
+# Applies supabase/migrations_wynos_admin_food_ops_v1.sql (WYN-203): WYNOS
+# Admin store list / overview / team / cross-store orders RPCs, store
+# suspension (columns + triggers), admin-only read of food-private evidence
+# (slips, delivery photos) and the new audit event types. Manual dispatch on
+# main only, after the Founder approves production. Behaviour test:
+# supabase/tests/wynos_admin_food_ops_test.sh.
+#
+# SAFETY: additive. Three nullable columns on food_stores (all stores start
+# unsuspended), two triggers that only act on suspended stores, one storage
+# read policy for platform admins, and new RPCs; the audit constraint keeps
+# every existing event type.
+# ROLLBACK (Founder, SQL editor): drop trigger food_stores_guard_suspension on
+# public.food_stores; drop trigger food_orders_block_suspended_store on
+# public.food_orders; drop policy "Food private readable by WYNOS admin" on
+# storage.objects; drop the admin_food_* / admin_set_food_store_* functions.
+# The columns and audit types can stay; the Admin pages then show an error.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY-WYN-203 to confirm the production migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm == 'APPLY-WYN-203'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify
+        run: |
+          set -euo pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]'; }
+          SUPABASE_URL=$(clean "$SUPABASE_URL")
+          SUPABASE_ACCESS_TOKEN=$(clean "$SUPABASE_ACCESS_TOKEN")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ACCESS_TOKEN secret is missing"; exit 1
+          fi
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's#^https?://([^.]+)\..*#\1#')
+          API="https://api.supabase.com/v1/projects/$PROJECT_REF/database/query"
+          run_sql() {
+            local body out code
+            body=$(jq -n --arg q "$1" '{query: $q}')
+            out=$(mktemp)
+            code=$(curl -sS -o "$out" -w '%{http_code}' -X POST "$API" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" -d "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::HTTP $code" >&2; cat "$out" >&2; rm -f "$out"; return 1
+            fi
+            cat "$out"; rm -f "$out"
+          }
+          run_sql "begin;
+          $(cat supabase/migrations_wynos_admin_food_ops_v1.sql)
+          commit;" >/dev/null
+          # Definitions and privileges only; no personal data is read.
+          run_sql "select
+              (select count(*) from information_schema.columns where table_schema='public' and table_name='food_stores'
+                 and column_name in ('admin_suspended_at','admin_suspended_reason','admin_suspended_by')) as suspension_columns,
+              (select count(*) from pg_trigger where not tgisinternal
+                 and tgname in ('food_stores_guard_suspension','food_orders_block_suspended_store')) as triggers,
+              (select count(*) from pg_policies where schemaname='storage' and tablename='objects'
+                 and policyname='Food private readable by WYNOS admin') as admin_evidence_policy,
+              has_function_privilege('anon', 'public.admin_food_orders(uuid,text,text,integer)', 'execute') as anon_can_list_orders,
+              has_function_privilege('anon', 'public.admin_set_food_store_suspension(uuid,boolean,text)', 'execute') as anon_can_suspend,
+              has_function_privilege('authenticated', 'public.admin_food_overview()', 'execute') as admins_can_call,
+              (select pg_get_constraintdef(oid) like '%admin_food_order_viewed%' from pg_constraint
+                 where conname='audit_log_event_type_check') as audit_types;" \
+            | tee result.json | jq .
+          jq -e '.[0].suspension_columns == 3 and .[0].triggers == 2 and .[0].admin_evidence_policy == 1
+                 and .[0].anon_can_list_orders == false and .[0].anon_can_suspend == false
+                 and .[0].admins_can_call == true and .[0].audit_types == true' result.json >/dev/null \
+            || { echo "::error::Verification failed"; exit 1; }
+          echo "WYN-203 admin store operations are live."
