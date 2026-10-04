@@ -343,7 +343,8 @@ export function FoodDeliveryMapPicker({
   useEffect(() => {
     if (!mapReady || !autoLocate || initialLocation || autoLocateRef.current) return;
     autoLocateRef.current = true;
-    void pickCurrentLocation();
+    const timer = window.setTimeout(() => void pickCurrentLocation(), 0);
+    return () => window.clearTimeout(timer);
   }, [autoLocate, initialLocation, mapReady, pickCurrentLocation]);
 
   useEffect(() => {
