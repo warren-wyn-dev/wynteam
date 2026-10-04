@@ -30,14 +30,24 @@ function audioContext(): AudioContext | null {
   return sharedContext;
 }
 
-function playChime() {
-  const context = audioContext();
-  if (!context) return false;
-  if (context.state !== "running") {
-    // Phones suspend audio in the background; try to resume (may need a tap).
-    void context.resume().catch(() => undefined);
-    return false;
-  }
+// WYN-200: Wynos's own order sound, synthesized by
+// scripts/generate-merchant-order-sound.py (no third-party audio).
+export const MERCHANT_ORDER_SOUND_URL = "/sounds/wynos-merchant-order.wav";
+let orderSound: Promise<AudioBuffer | null> | null = null;
+
+function loadOrderSound(context: AudioContext) {
+  orderSound ??= fetch(MERCHANT_ORDER_SOUND_URL)
+    .then((response) => (response.ok ? response.arrayBuffer() : Promise.reject(new Error("sound"))))
+    .then((bytes) => context.decodeAudioData(bytes))
+    .catch(() => {
+      orderSound = null; // try again next time
+      return null;
+    });
+  return orderSound;
+}
+
+/** The old synthesized tones, used only if the sound file cannot load. */
+function playFallbackTones(context: AudioContext) {
   const start = context.currentTime;
   [880, 1175, 880, 1175].forEach((frequency, index) => {
     const oscillator = context.createOscillator();
@@ -52,7 +62,42 @@ function playChime() {
     oscillator.start(at);
     oscillator.stop(at + 0.21);
   });
+}
+
+function playChime() {
+  const context = audioContext();
+  if (!context) return false;
+  if (context.state !== "running") {
+    // Phones suspend audio in the background; try to resume (may need a tap).
+    void context.resume().catch(() => undefined);
+    return false;
+  }
+  void loadOrderSound(context).then((buffer) => {
+    if (!buffer) {
+      playFallbackTones(context);
+      return;
+    }
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    source.start();
+  });
   return true;
+}
+
+/**
+ * Play the order sound once from a tap (e.g. "ลองฟังเสียง"). The tap also
+ * unlocks audio, so later alerts can ring on their own.
+ */
+export async function previewMerchantOrderSound() {
+  const context = audioContext();
+  if (!context) return false;
+  try {
+    await context.resume();
+  } catch {
+    return false;
+  }
+  return playChime();
 }
 
 /** Browsers only allow sound after a tap, so unlock audio on the first one. */

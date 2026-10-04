@@ -274,3 +274,18 @@ test("WYN-199 Merchant asks to turn on notifications as soon as it opens", () =>
   expect(app).toContain("{notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
   expect(prompt).toContain("window.sessionStorage.setItem(LATER_KEY, \"1\")");
 });
+
+test("WYN-200 Merchant order alert uses Wynos's own generated sound", () => {
+  const alert = read("components/merchant/merchant-order-alert.tsx");
+  const generator = read("scripts/generate-merchant-order-sound.py");
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+
+  // The sound is synthesized by a script in the repo (no third-party audio)
+  // and the committed file exists.
+  expect(generator).toContain("synthesized from scratch");
+  expect(readFileSync(join(process.cwd(), "public/sounds/wynos-merchant-order.wav")).subarray(0, 4).toString()).toBe("RIFF");
+  expect(alert).toContain('export const MERCHANT_ORDER_SOUND_URL = "/sounds/wynos-merchant-order.wav";');
+  // Falls back to synthesized tones if the file cannot load, and can be previewed.
+  expect(alert).toContain("playFallbackTones(context);");
+  expect(app).toContain("previewMerchantOrderSound()");
+});
