@@ -1064,3 +1064,156 @@
   .wf-menu-list { grid-template-columns: 1fr; }
   .wf-menu-image { height: 170px; }
 }
+
+
+/* WYNOS Food customer profile — separate from WYNOS Social */
+.wf-food-profile-card {
+  padding: 16px;
+  border: 1px solid #ececef;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 5%);
+  display: grid;
+  gap: 15px;
+}
+.wf-food-profile-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.wf-food-profile-head > span {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--wf-red-soft);
+  color: var(--wf-red);
+  display: grid;
+  place-items: center;
+}
+.wf-food-profile-head > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.wf-food-profile-head strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+.wf-food-profile-head small {
+  color: var(--wf-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.wf-food-profile-head em {
+  min-height: 25px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--wf-red-soft);
+  color: var(--wf-red-dark);
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.wf-food-profile-details {
+  padding: 2px 0;
+  border-top: 1px solid #f0f0f1;
+  display: grid;
+}
+.wf-food-profile-details > div {
+  min-height: 54px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f1;
+  display: grid;
+  grid-template-columns: minmax(104px, .7fr) minmax(0, 1.3fr);
+  gap: 12px;
+  align-items: center;
+}
+.wf-food-profile-details > div:last-child { border-bottom: 0; }
+.wf-food-profile-details span {
+  color: var(--wf-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.wf-food-profile-details span svg { color: var(--wf-red); }
+.wf-food-profile-details strong,
+.wf-food-profile-details p {
+  margin: 0;
+  color: var(--wf-text);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.wf-food-profile-details .is-ready,
+.wf-location-ready { color: var(--wf-green); }
+.wf-food-profile-details .is-missing,
+.wf-location-missing { color: #b45b00; }
+.wf-food-profile-empty {
+  min-height: 190px;
+  padding: 12px 4px 2px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--wf-muted);
+}
+.wf-food-profile-empty > svg { color: var(--wf-red); }
+.wf-food-profile-empty strong {
+  color: var(--wf-text);
+  font-size: 14px;
+}
+.wf-food-profile-empty p {
+  max-width: 330px;
+  margin: 0 0 6px;
+  color: var(--wf-secondary);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.wf-location-ready,
+.wf-location-missing {
+  margin-top: 2px;
+  font-size: 9.5px !important;
+  font-weight: 700;
+}
+.wf-form-note {
+  padding: 10px 12px;
+  border: 1px solid #ffd7db;
+  border-radius: 12px;
+  background: var(--wf-red-soft);
+  color: var(--wf-red-dark);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.wf-form > label > b {
+  color: var(--wf-red);
+  font-size: 11px;
+}
+.wf-form > label > small {
+  color: var(--wf-muted);
+  font-size: 9.5px;
+  font-weight: 500;
+}
+.wf-form .wf-primary:disabled {
+  background: #d4d4d7;
+  color: #fff;
+  opacity: 1;
+}
+
+@media (max-width: 390px) {
+  .wf-food-profile-card { padding: 14px; }
+  .wf-food-profile-head { grid-template-columns: 42px minmax(0, 1fr); }
+  .wf-food-profile-head > em {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .wf-food-profile-details > div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+}
