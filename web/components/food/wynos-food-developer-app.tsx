@@ -71,7 +71,7 @@ import {
   type FoodCustomerStore,
 } from "@/lib/food-customer";
 
-type FoodTab = "home" | "orders" | "cart" | "account";
+type FoodTab = "home" | "orders" | "messages" | "cart" | "account";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -158,12 +158,10 @@ function FoodHeader({
 function FoodNav({
   tab,
   activeCount,
-  onMessages,
   onTab,
 }: {
   tab: FoodTab;
   activeCount: number;
-  onMessages: () => void;
   onTab: (tab: FoodTab) => void;
 }) {
   return (
@@ -174,7 +172,7 @@ function FoodNav({
       <button type="button" className={tab === "orders" ? "is-active" : ""} onClick={() => onTab("orders")}>
         <span><ReceiptText />{activeCount ? <i>{activeCount > 9 ? "9+" : activeCount}</i> : null}</span><small>คำสั่งซื้อ</small>
       </button>
-      <button type="button" onClick={onMessages}>
+      <button type="button" className={tab === "messages" ? "is-active" : ""} onClick={() => onTab("messages")}>
         <span><MessageCircle /></span><small>ข้อความ</small>
       </button>
       <button type="button" className={tab === "account" ? "is-active" : ""} onClick={() => onTab("account")}>
@@ -515,6 +513,22 @@ function OrdersPanel({
       )}
       <div className="wf-section-title wf-section-title--spaced"><h2>ประวัติ</h2><small>{history.length}</small></div>
       {history.length ? <div className="wf-order-list">{history.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} />)}</div> : null}
+    </>
+  );
+}
+
+function MessagesPanel() {
+  return (
+    <>
+      <div className="wf-page-title">
+        <div><small>WYNOS Food</small><h1>ข้อความ</h1></div>
+      </div>
+      <div className="wf-empty">
+        <MessageCircle size={42} strokeWidth={1.35} />
+        <strong>ยังไม่มีข้อความ</strong>
+        <p>การสนทนากับร้านและผู้จัดส่งจะแสดงที่นี่</p>
+        <p>แชท WYNOS Food แยกจากแชท WYNOS</p>
+      </div>
     </>
   );
 }
@@ -1332,6 +1346,7 @@ function FoodCustomerInner({
       <section className="wf-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
         {tab === "home" ? <HomePanel client={client} store={store} menu={menu} onItem={setSelectedItem} onPickStore={pickStore} /> : null}
         {tab === "orders" ? <OrdersPanel orders={orders} onOrder={setSelectedOrder} /> : null}
+        {tab === "messages" ? <MessagesPanel /> : null}
         {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}
         {tab === "account" ? (
           <AccountPanel
@@ -1356,7 +1371,7 @@ function FoodCustomerInner({
         ) : null}
       </section>
 
-      <FoodNav tab={tab} activeCount={activeCount} onMessages={() => router.push("/chat")} onTab={setTab} />
+      <FoodNav tab={tab} activeCount={activeCount} onTab={setTab} />
 
       {selectedItem && store ? (
         <ItemSheet

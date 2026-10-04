@@ -542,6 +542,8 @@ export const EN_EXACT: Record<string, string> = {
   "ยังไม่มีการแจ้งเตือน": "No notifications yet",
   "ยังไม่มีกิจกรรม": "No activity yet",
   "ยังไม่มีข้อความ": "No messages yet",
+  "การสนทนากับร้านและผู้จัดส่งจะแสดงที่นี่": "Conversations with stores and couriers will appear here",
+  "แชท WYNOS Food แยกจากแชท WYNOS": "WYNOS Food chat is separate from WYNOS chat",
   "ยังไม่มีข้อความในห้องนี้": "No messages in this room yet",
   "ยังไม่มีข้อมูล Insights": "No Insights yet",
   "ยังไม่มีคนถูกใจโพสต์นี้": "No one has liked this post yet",
