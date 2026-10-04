@@ -124,6 +124,7 @@ Deno.test("buildSearchUrl includes the api key, query, and a Thailand bias", () 
   assertEquals(parsed.searchParams.get("key"), "test-key");
   assertEquals(parsed.searchParams.get("q"), "starbucks");
   assertEquals(parsed.searchParams.get("countrycodes"), "th");
+  assertEquals(parsed.searchParams.get("accept-language"), "th,en");
 });
 
 Deno.test("buildReverseUrl includes the api key and coordinates", () => {
@@ -131,6 +132,7 @@ Deno.test("buildReverseUrl includes the api key and coordinates", () => {
   const parsed = new URL(url);
   assertEquals(parsed.searchParams.get("lat"), "13.75");
   assertEquals(parsed.searchParams.get("lon"), "100.5");
+  assertEquals(parsed.searchParams.get("accept-language"), "th,en");
 });
 
 Deno.test("isRateLimited is false right up to the cap, true once at/over it", () => {
