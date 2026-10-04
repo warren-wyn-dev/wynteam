@@ -1,6 +1,6 @@
 # Product Task — WYN-201 — Pull to refresh in Wynos Merchant and WYNOS Food
 
-Status: review — PR open, waiting for Founder approval to merge (web only)
+Status: approved — released via PR #829
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
