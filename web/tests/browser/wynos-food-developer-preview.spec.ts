@@ -22,6 +22,13 @@ test("WYNOS Food is a separate closed developer-only surface", () => {
   expect(manifest).toContain('theme_color: "#e32636"');
 });
 
+test("WYNOS Food hides the persistent Social bottom navigation", () => {
+  const host = read("components/app-bottom-nav-runtime.tsx");
+
+  expect(host).toContain('const hideForFood = pathname === "/food" || pathname.startsWith("/food/");');
+  expect(host).toContain("if (hideForFood || !navState?.visible || !navState.userId) return null;");
+});
+
 test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
 
