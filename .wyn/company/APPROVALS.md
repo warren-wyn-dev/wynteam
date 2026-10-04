@@ -460,3 +460,23 @@
   2. Dispatch `food-apply-wyn210.yml` with `APPLY-WYN-210`.
 - Rollback: revert PR #849; `drop function public.merchant_finance_summary(uuid, date, date)`.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-211 Open WYNOS Food to everyone, ordering only in Maha Sarakham (PR #865)
+
+- Founder request: "Wynos Food เปิดให้ทุกคนเห็น แต่สามารถใช้ได้แค่คนที่อยู่ จ มหาสารคาม".
+- Founder's answers:
+  - The area is checked from the delivery pin, on the server.
+  - Stores must be in Maha Sarakham.
+  - People outside the province see only an introduction page.
+- Change:
+  - `public_enabled = true`.
+  - The Food entry shows for every signed-in user.
+  - Quote and order refuse a store pin or delivery pin outside the Maha Sarakham boundary (OSM, ODbL); developers are exempt.
+  - Readiness requires a store pin inside the province.
+- Accepted:
+  - Published stores without a pin inside the province stop taking orders until they pin it.
+- Release:
+  1. Merge PR #865 (web auto-deploys).
+  2. Dispatch `food-apply-wyn211.yml` with `APPLY-WYN-211`.
+- Rollback: `public_enabled = false` and revert; or re-apply the previous `food_delivery_fee` and readiness definitions.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04

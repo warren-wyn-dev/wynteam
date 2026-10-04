@@ -1,6 +1,6 @@
 # Product Task — WYN-211 — Open WYNOS Food to everyone, ordering only in Maha Sarakham
 
-Status: in review — awaiting Founder "อนุมัติ" for merge and production migration
+Status: approved — Founder "อนุมัติ" 2026-10-04; releasing PR #865 and applying the migration
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
