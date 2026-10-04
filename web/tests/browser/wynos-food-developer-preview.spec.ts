@@ -73,6 +73,26 @@ test("WYNOS Food profile is delivery-specific and separate from Social profile",
   expect(data).toContain('client.rpc("food_upsert_customer_address"');
 });
 
+test("WYNOS Maps Places enriches saved addresses without exposing customer homes", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const data = read("lib/food-customer.ts");
+  const sql = read("../supabase/migrations_wynos_maps_places_saved_addresses_v1.sql");
+
+  expect(sql).toContain("create table if not exists public.wynos_places");
+  expect(sql).toContain("alter table public.wynos_places enable row level security");
+  expect(sql).toContain('revoke all on table public.wynos_places from anon, authenticated');
+  expect(sql).toContain("food_upsert_customer_address_v2");
+  expect(sql).toContain("food_delivery_availability");
+  expect(sql).toContain("wynos_search_places");
+  expect(sql).toContain("place_id text references public.wynos_places(id) on delete set null");
+  expect(data).toContain('client.rpc("wynos_search_places"');
+  expect(data).toContain('client.rpc("food_upsert_customer_address_v2"');
+  expect(data).toContain('client.rpc("food_delivery_availability"');
+  expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
+  expect(app).toContain("หมายเหตุถึงผู้จัดส่ง");
+  expect(app).toContain("WYNOS Place ·");
+});
+
 test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
 
