@@ -38,7 +38,7 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(app).toContain("<FoodDeliveryMapPicker");
   const css = read("app/food/food.css");
 
-  expect(map).toContain("https://tiles.openfreemap.org/styles/liberty");
+  expect(map).toContain('const MAP_STYLE = "/maps/wynos-green.json";');
   expect(map).toContain("maplibre-gl@");
   expect(map).toContain("/dist/maplibre-gl.js");
   expect(map).toContain("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
@@ -86,11 +86,14 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(sql).toContain("wynos_search_places");
   expect(sql).toContain("place_id text references public.wynos_places(id) on delete set null");
   expect(data).toContain('client.rpc("wynos_search_places"');
+  expect(data).toContain('client.rpc("wynos_search_store_places"');
   expect(data).toContain('client.rpc("food_upsert_customer_address_v2"');
   expect(data).toContain('client.rpc("food_delivery_availability"');
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
   expect(app).toContain("หมายเหตุถึงผู้จัดส่ง");
   expect(app).toContain("WYNOS Place ·");
+  expect(app).toContain('const WYNOS_MAPS_PIN_STORAGE_KEY = "wynos:maps:last-pin";');
+  expect(app).toContain("draftWithLastWynosMapsPin");
 });
 
 test("WYNOS Food messages stay inside Food and never open Social Chat", () => {

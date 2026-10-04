@@ -316,6 +316,9 @@ export function FoodDeliveryMapPicker({
     moveTo({ latitude: result.latitude, longitude: result.longitude }, result);
   };
 
+  const showLegacySearchAttribution =
+    place?.source === "legacy" || results.some((result) => result.source === "legacy");
+
   return (
     <div className="wf-map-picker" role="dialog" aria-modal="true" aria-label="ปักหมุดตำแหน่งจัดส่ง">
       <header className="wf-map-picker-head">
@@ -395,7 +398,9 @@ export function FoodDeliveryMapPicker({
         >
           <Check size={18} /> ยืนยันตำแหน่งนี้
         </button>
-        <a href="https://locationiq.com" target="_blank" rel="noreferrer">Search by LocationIQ.com</a>
+        {showLegacySearchAttribution ? (
+          <a href="https://locationiq.com" target="_blank" rel="noreferrer">Search by LocationIQ.com</a>
+        ) : null}
       </section>
     </div>
   );

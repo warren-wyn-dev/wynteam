@@ -96,6 +96,41 @@ const EMPTY_ADDRESS: FoodAddressDraft = {
   location: null,
 };
 
+const WYNOS_MAPS_PIN_STORAGE_KEY = "wynos:maps:last-pin";
+const WYNOS_MAPS_PIN_MAX_AGE_MS = 30 * 60 * 1000;
+
+type StoredWynosMapsPin = {
+  location?: FoodLocation;
+  place?: FoodPlace;
+  savedAt?: string;
+};
+
+function draftWithLastWynosMapsPin(draft: FoodAddressDraft): FoodAddressDraft {
+  if (draft.id || draft.location || typeof window === "undefined") return draft;
+  try {
+    const raw = window.localStorage.getItem(WYNOS_MAPS_PIN_STORAGE_KEY);
+    if (!raw) return draft;
+    const saved = JSON.parse(raw) as StoredWynosMapsPin;
+    const savedAt = saved.savedAt ? Date.parse(saved.savedAt) : Number.NaN;
+    if (!Number.isFinite(savedAt) || Date.now() - savedAt > WYNOS_MAPS_PIN_MAX_AGE_MS) return draft;
+    const latitude = Number(saved.location?.latitude);
+    const longitude = Number(saved.location?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return draft;
+    const place = saved.place;
+    return {
+      ...draft,
+      location: { latitude, longitude },
+      placeId: place?.placeId ?? null,
+      placeName: place?.name ?? "",
+      address: draft.address.trim() || !place
+        ? draft.address
+        : [place.name, place.address].filter(Boolean).join(" "),
+    };
+  } catch {
+    return draft;
+  }
+}
+
 const TRACKING_STEPS: Array<{
   status: FoodCustomerOrder["status"];
   label: string;
@@ -834,7 +869,7 @@ function AddressEditor({
   onSave: (draft: FoodAddressDraft) => void;
   busy: boolean;
 }) {
-  const [form, setForm] = useState(draft);
+  const [form, setForm] = useState(() => draftWithLastWynosMapsPin(draft));
   const locationKey = form.location ? `${form.location.latitude},${form.location.longitude}` : "";
   const [availabilityState, setAvailabilityState] = useState<{
     key: string;
@@ -1383,6 +1418,7 @@ function FoodCustomerInner({
     setBusy(true);
     try {
       await saveFoodCustomerAddress(client, draft);
+      try { window.localStorage.removeItem(WYNOS_MAPS_PIN_STORAGE_KEY); } catch { /* private mode */ }
       setMessage("บันทึกที่อยู่แล้ว");
       setAddressDraft(null);
       await load(true);
