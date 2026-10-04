@@ -127,6 +127,12 @@ export type FoodCustomerAddress = {
   is_default: boolean;
   latitude?: number | null;
   longitude?: number | null;
+  place_id?: string | null;
+  place_name?: string | null;
+  building_name?: string | null;
+  floor?: string | null;
+  room?: string | null;
+  landmark?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -185,6 +191,12 @@ export type FoodAddressDraft = {
   recipientPhone: string;
   address: string;
   deliveryNote: string;
+  placeId: string | null;
+  placeName: string;
+  buildingName: string;
+  floor: string;
+  room: string;
+  landmark: string;
   isDefault: boolean;
   location: FoodLocation | null;
 };
@@ -459,7 +471,7 @@ export async function saveFoodCustomerAddress(
   client: SupabaseClient,
   draft: FoodAddressDraft,
 ) {
-  const { data, error } = await client.rpc("food_upsert_customer_address", {
+  const v2Args = {
     p_address_id: draft.id ?? null,
     p_label: draft.label,
     p_recipient_name: draft.recipientName,
@@ -467,10 +479,70 @@ export async function saveFoodCustomerAddress(
     p_address: draft.address,
     p_delivery_note: draft.deliveryNote || null,
     p_is_default: draft.isDefault,
+    p_latitude: draft.location?.latitude ?? null,
+    p_longitude: draft.location?.longitude ?? null,
+    p_place_id: draft.placeId || null,
+    p_place_name: draft.placeName || null,
+    p_building_name: draft.buildingName || null,
+    p_floor: draft.floor || null,
+    p_room: draft.room || null,
+    p_landmark: draft.landmark || null,
+  };
+  const v2 = await client.rpc("food_upsert_customer_address_v2", v2Args);
+  if (!v2.error) return String(v2.data);
+  if (v2.error.code !== "PGRST202" && v2.error.code !== "42883") throw new Error(v2.error.message);
+
+  // Rollout fallback for an older database.
+  const legacy = await client.rpc("food_upsert_customer_address", {
+    p_address_id: draft.id ?? null,
+    p_label: draft.label,
+    p_recipient_name: draft.recipientName,
+    p_recipient_phone: draft.recipientPhone,
+    p_address: draft.address,
+    p_delivery_note: [
+      draft.buildingName ? `อาคาร ${draft.buildingName}` : "",
+      draft.floor ? `ชั้น ${draft.floor}` : "",
+      draft.room ? `ห้อง ${draft.room}` : "",
+      draft.landmark ? `จุดสังเกต ${draft.landmark}` : "",
+      draft.deliveryNote,
+    ].filter(Boolean).join(" · ") || null,
+    p_is_default: draft.isDefault,
     ...pinParams(draft.location),
   });
-  if (error) throw new Error(error.message);
-  return String(data);
+  if (legacy.error) throw new Error(legacy.error.message);
+  return String(legacy.data);
+}
+
+export type FoodDeliveryAvailability = {
+  can_deliver: boolean;
+  reason: "store_unavailable" | "outside_delivery_area" | "outside_service_area" | "location_required" | null;
+  distance_km: number | null;
+  delivery_fee: number | null;
+  delivery_radius_km: number | null;
+};
+
+export async function checkFoodDeliveryAvailability(
+  client: SupabaseClient,
+  storeId: string,
+  location: FoodLocation,
+): Promise<FoodDeliveryAvailability | null> {
+  const { data, error } = await client.rpc("food_delivery_availability", {
+    p_store_id: storeId,
+    p_latitude: location.latitude,
+    p_longitude: location.longitude,
+  });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw new Error(error.message);
+  }
+  const raw = (data ?? {}) as Partial<FoodDeliveryAvailability>;
+  return {
+    can_deliver: raw.can_deliver === true,
+    reason: raw.reason ?? null,
+    distance_km: raw.distance_km == null ? null : Number(raw.distance_km),
+    delivery_fee: raw.delivery_fee == null ? null : Number(raw.delivery_fee),
+    delivery_radius_km: raw.delivery_radius_km == null ? null : Number(raw.delivery_radius_km),
+  };
 }
 
 export async function deleteFoodCustomerAddress(client: SupabaseClient, addressId: string) {
@@ -574,24 +646,64 @@ export function currentFoodLocation(timeoutMs = 12000): Promise<FoodLocation> {
   });
 }
 
-export type FoodPlace = { name: string; address: string | null; latitude: number; longitude: number };
+export type FoodPlace = {
+  placeId?: string | null;
+  name: string;
+  address: string | null;
+  latitude: number;
+  longitude: number;
+  category?: string | null;
+  verificationStatus?: string | null;
+  source?: "wynos" | "geo" | "legacy" | "store";
+};
 
-function parseMapPlaces(payload: unknown): FoodPlace[] {
-  const results = Array.isArray((payload as { results?: unknown })?.results)
-    ? (payload as { results: unknown[] }).results
-    : [];
-  return results.flatMap((row) => {
-    const place = row as { name?: unknown; address?: unknown; lat?: unknown; lon?: unknown };
-    const latitude = Number(place.lat);
-    const longitude = Number(place.lon);
+function parsePlaceRows(rows: unknown[], source: FoodPlace["source"]): FoodPlace[] {
+  return rows.flatMap((row) => {
+    const place = row as {
+      place_id?: unknown;
+      name?: unknown;
+      address?: unknown;
+      lat?: unknown;
+      lon?: unknown;
+      latitude?: unknown;
+      longitude?: unknown;
+      category?: unknown;
+      verification_status?: unknown;
+    };
+    const latitude = Number(place.lat ?? place.latitude);
+    const longitude = Number(place.lon ?? place.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
     return [{
+      placeId: typeof place.place_id === "string" ? place.place_id : null,
       name: typeof place.name === "string" ? place.name : "",
       address: typeof place.address === "string" ? place.address : null,
       latitude,
       longitude,
+      category: typeof place.category === "string" ? place.category : null,
+      verificationStatus: typeof place.verification_status === "string" ? place.verification_status : null,
+      source,
     }];
-  }).slice(0, 8);
+  }).slice(0, 12);
+}
+
+function parseMapPlaces(payload: unknown, source: FoodPlace["source"]): FoodPlace[] {
+  const results = Array.isArray((payload as { results?: unknown })?.results)
+    ? (payload as { results: unknown[] }).results
+    : [];
+  return parsePlaceRows(results, source);
+}
+
+async function searchWynosPlaces(client: SupabaseClient, query: string): Promise<FoodPlace[]> {
+  const { data, error } = await client.rpc("wynos_search_places", {
+    p_query: query.slice(0, 200),
+    p_latitude: null,
+    p_longitude: null,
+  });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return [];
+    return [];
+  }
+  return parsePlaceRows(Array.isArray(data) ? data : [], "wynos");
 }
 
 async function searchWynosMapsApi(query: string): Promise<FoodPlace[] | null> {
@@ -602,7 +714,7 @@ async function searchWynosMapsApi(query: string): Promise<FoodPlace[] | null> {
     });
     if (response.status === 503) return null;
     if (!response.ok) throw new Error("WYNOS Maps search unavailable");
-    return parseMapPlaces(await response.json());
+    return parseMapPlaces(await response.json(), "geo");
   } catch {
     return null;
   }
@@ -616,19 +728,22 @@ async function reverseWynosMapsApi(location: FoodLocation): Promise<FoodPlace[] 
     );
     if (response.status === 503) return null;
     if (!response.ok) throw new Error("WYNOS Maps reverse unavailable");
-    return parseMapPlaces(await response.json());
+    return parseMapPlaces(await response.json(), "geo");
   } catch {
     return null;
   }
 }
 
 /**
- * Search WYNOS Geo first. During the self-hosted rollout only, fall back to the
- * legacy location-search Edge Function so delivery pinning never goes down.
+ * WYNOS Places is searched first. WYNOS Geo is next, and the legacy
+ * location-search Edge Function remains only as a rollout fallback.
  */
 export async function searchFoodPlaces(client: SupabaseClient, query: string): Promise<FoodPlace[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
+
+  const ownPlaces = await searchWynosPlaces(client, trimmed);
+  if (ownPlaces.length) return ownPlaces;
 
   const wynosResults = await searchWynosMapsApi(trimmed);
   if (wynosResults !== null) return wynosResults;
@@ -637,7 +752,7 @@ export async function searchFoodPlaces(client: SupabaseClient, query: string): P
     body: { mode: "search", query: trimmed.slice(0, 200) },
   });
   if (error) throw new Error("ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองใช้ตำแหน่งปัจจุบันแทน");
-  return parseMapPlaces(data);
+  return parseMapPlaces(data, "legacy");
 }
 
 /**
@@ -652,7 +767,7 @@ export async function reverseFoodPlace(client: SupabaseClient, location: FoodLoc
     body: { mode: "reverse", lat: location.latitude, lon: location.longitude },
   });
   if (error) return null;
-  return parseMapPlaces(data)[0] ?? null;
+  return parseMapPlaces(data, "legacy")[0] ?? null;
 }
 
 
@@ -674,7 +789,7 @@ export async function searchStorePlaces(client: SupabaseClient, storeId: string,
     const latitude = Number(row.latitude);
     const longitude = Number(row.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
-    return [{ name: row.name, address: row.detail, latitude, longitude }];
+    return [{ name: row.name, address: row.detail, latitude, longitude, source: "store" as const }];
   });
 }
 
