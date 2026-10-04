@@ -1,4 +1,4 @@
-# Product Task — WYN-204 — Wynos Merchant: LINE MAN–style home and four tabs
+# Product Task — WYN-204 — Wynos Merchant: simple Wynos home, 3D shortcuts and four tabs
 
 Status: awaiting Founder approval (PR review and merge)
 Owner: AI Product Manager / AI Coding
@@ -11,15 +11,14 @@ Date: 2026-10-04
 - Wynos red and our own icons. No LINE MAN logos, images or ads/finance features we do not have.
 - Founder: "อยากได้ UX UI ไม่ซ้ำใคร เรียบง่าย ใช้งานง่าย ปุ่มไอคอน 3D สวยๆ". Added Wynos's own 3D icon set (SVG, `merchant-3d-icons.tsx`) for the shortcut tiles and the "เพิ่มเติม" grid.
 
+- Founder asked whether the layout was too close to LINE MAN, reviewed a Wynos alternative, and said: "ผมชอบดีไซน์เรียบๆ ใช้งานง่าย ดูแล้วเข้าใจ ไม่งง". AI recommended the simpler Wynos layout below.
+
 ## Scope (web only)
 
-- Home: the store name in large type, an open/close pill (a switch) with an edit-store button, then tiles:
-  - today's sales (opens reports)
-  - orders to handle (opens orders)
-  - campaigns
-  - menu (dishes on sale)
-  - store settings
-- "เตรียมร้านให้พร้อมขาย (x/4)" checklist, built from existing data: logo, payment method, at least one dish on sale, published. It is hidden when complete or suspended, and each step links to where it is fixed.
+- Home (Wynos layout):
+  - One red "today" card holds the store name, the edit button, today's sales (opens reports) and a large open/close switch.
+  - Below it, one row of 3D shortcuts: orders to handle (with a count badge), menu, campaigns, reports.
+  - Then "ต้องจัดการตอนนี้", then a "ร้านพร้อมขาย x%" bar using the publish readiness rules. The bar is hidden when complete or suspended, and it expands to show each step with a link to fix it.
 - Four bottom tabs. "เพิ่มเติม" holds reports, campaigns (moved out of store settings), store settings, notifications, sound test, install and sign out. Each sub-page has a back button.
 - The order list "ต้องจัดการตอนนี้" stays on home. No data, API or database changes.
 

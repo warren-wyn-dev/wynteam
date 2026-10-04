@@ -321,27 +321,27 @@ test("WYN-203 WYNOS Admin can suspend a store and see cross-store orders", () =>
   expect(data).toContain('if (message.includes("store is suspended"))');
 });
 
-test("WYN-204 Merchant home follows the LINE MAN layout with four tabs", () => {
+test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D shortcuts", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
   const css = read("app/merchant/merchant.css");
+  const icons = read("components/merchant/merchant-3d-icons.tsx");
 
-  // Store name, open/close pill and edit button on top; sales and shortcut tiles.
-  expect(app).toContain('className={`wm-status-pill ${store.is_open ? "is-open" : ""}`}');
+  // One red "today" card: store, sales (opens reports) and the open switch.
+  expect(app).toContain('<section className="wm-hero">');
+  expect(app).toContain('<button className="wm-hero-sales" type="button" onClick={() => onOpenTab("reports")}>');
+  expect(app).toContain('className={`wm-open-switch ${store.is_open ? "is-open" : ""}`}');
   expect(app).toContain('role="switch"');
-  expect(app).toContain('<button className="wm-tile wm-tile--sales" type="button" onClick={() => onOpenTab("reports")}>');
-  // The setup checklist only counts what the store already has.
+  // One row of Wynos's own 3D icons (SVG, no third-party artwork); the
+  // orders badge counts every unfinished order, not the 8 previewed.
+  expect(icons).toContain("export function MerchantIcon3D({ name, size = 44 }");
+  expect(app).toContain('<MerchantIcon3D name="orders" size={52} />รอจัดการ');
+  expect(app).toContain('{activeOrderCount ? <b className="wm-shortcut-badge">{activeOrderCount}</b> : null}');
+  // Readiness uses the publish rules (paired payment fields).
   expect(app).toContain("done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
-  // The tile and nav badge count every unfinished order, not the 8 previewed.
-  expect(app).toContain("{activeOrderCount}</strong>");
-  expect(app).toContain("{checklistDone < checklist.length && !store.admin_suspended_at ? (");
+  expect(app).toContain("{nextStep && !store.admin_suspended_at ? (");
   // Four bottom tabs; reports, store settings and campaigns live under "เพิ่มเติม".
   expect(app).toContain('label="รับออเดอร์"');
   expect(app).toContain('<NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม"');
   expect(app).not.toContain('label="รายงาน"');
   expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));\n}\n.wm-nav > button {");
-  // Wynos's own 3D icon set (SVG, no third-party artwork) on the shortcuts.
-  const icons = read("components/merchant/merchant-3d-icons.tsx");
-  expect(icons).toContain('export function MerchantIcon3D({ name, size = 44 }');
-  expect(app).toContain('<MerchantIcon3D name="orders" size={56} />');
-  expect(app).toContain('<MerchantIcon3D name="reports" size={52} />');
 });

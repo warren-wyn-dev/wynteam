@@ -7,7 +7,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   CircleDollarSign,
   Clock3,
   Home,
@@ -780,26 +779,36 @@ function HomePanel({
     { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
   ];
   const checklistDone = checklist.filter((item) => item.done).length;
+  const readyPercent = Math.round((checklistDone / checklist.length) * 100);
+  const nextStep = checklist.find((item) => !item.done);
 
+  // WYN-204: Wynos home — one red "today" card (store, sales, open switch),
+  // one row of 3D shortcuts, then the orders to handle.
   return (
     <>
-      <div className="wm-home-head">
-        <h1>{store.name}</h1>
-        <div className="wm-status-row">
-          <button
-            className={`wm-status-pill ${store.is_open ? "is-open" : ""}`}
-            type="button"
-            role="switch"
-            aria-checked={store.is_open}
-            aria-label={store.is_open ? "เปิดร้านอยู่ กดเพื่อปิดรับออเดอร์" : "ปิดร้านอยู่ กดเพื่อเปิดรับออเดอร์"}
-            disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}
-          >
-            <span><b>{store.is_open ? "เปิดร้าน" : "ปิดร้าน"}</b> {store.is_open ? "(กำลังรับออเดอร์)" : "(ไม่รับออเดอร์)"}</span>
-            <span className={`wm-switch ${store.is_open ? "is-on" : ""}`}><i /></span>
-          </button>
-          <button className="wm-round-action" type="button" aria-label="แก้ไขร้าน" onClick={onEditStore}><Pencil size={20} /></button>
+      <section className="wm-hero">
+        <div className="wm-hero-top">
+          <div><small>ร้านของคุณ</small><h1>{store.name}</h1></div>
+          <button className="wm-hero-edit" type="button" aria-label="แก้ไขร้าน" onClick={onEditStore}><Pencil size={19} /></button>
         </div>
-      </div>
+        <button className="wm-hero-sales" type="button" onClick={() => onOpenTab("reports")}>
+          <small>ยอดขายวันนี้</small>
+          <strong>{money(todaySales)}</strong>
+          <span>{todayOrders.length} ออเดอร์ <ChevronRight size={14} /></span>
+        </button>
+        <button
+          className={`wm-open-switch ${store.is_open ? "is-open" : ""}`}
+          type="button"
+          role="switch"
+          aria-checked={store.is_open}
+          aria-label={store.is_open ? "เปิดร้านอยู่ กดเพื่อปิดรับออเดอร์" : "ปิดร้านอยู่ กดเพื่อเปิดรับออเดอร์"}
+          disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}
+        >
+          <i className="wm-open-dot" />
+          <span><b>{store.is_open ? "เปิดรับออเดอร์" : "ปิดร้านอยู่"}</b><small>{store.is_open ? "แตะเพื่อปิดร้าน" : "แตะเพื่อเปิดรับออเดอร์"}</small></span>
+          <span className={`wm-switch ${store.is_open ? "is-on" : ""}`}><i /></span>
+        </button>
+      </section>
 
       {store.admin_suspended_at ? (
         <div className="wm-setup-banner wm-suspended-banner" role="alert">
@@ -808,38 +817,34 @@ function HomePanel({
         </div>
       ) : null}
 
-      <div className="wm-home-grid">
-        <button className="wm-tile wm-tile--sales" type="button" onClick={() => onOpenTab("reports")}>
-          <span className="wm-tile-title">ยอดขายวันนี้ <i><ChevronRight size={17} /></i></span>
-          <strong>{money(todaySales)}</strong>
-          <small>{todayOrders.length} ออเดอร์</small>
+      <nav className="wm-shortcuts" aria-label="ทางลัด">
+        <button type="button" onClick={onOpenOrders}>
+          {activeOrderCount ? <b className="wm-shortcut-badge">{activeOrderCount}</b> : null}
+          <MerchantIcon3D name="orders" size={52} />รอจัดการ
         </button>
-        <button className="wm-tile" type="button" onClick={onOpenOrders}>
-          <span className="wm-tile-title">รอจัดการ</span>
-          <strong className={activeOrderCount ? "is-alert" : ""}>{activeOrderCount}</strong>
-          <span className="wm-tile-icon"><MerchantIcon3D name="orders" size={56} /></span>
-        </button>
-        <button className="wm-tile" type="button" onClick={() => onOpenTab("campaigns")}>
-          <span className="wm-tile-title">แคมเปญ</span>
-          <span className="wm-tile-icon"><MerchantIcon3D name="campaign" size={56} /></span>
-        </button>
-        <button className="wm-tile" type="button" onClick={() => onOpenTab("menu")}>
-          <span className="wm-tile-title">เมนู</span>
-          <strong>{availableMenu}</strong>
-          <span className="wm-tile-icon"><MerchantIcon3D name="menu" size={56} /></span>
-        </button>
-        <button className="wm-tile" type="button" onClick={() => onOpenTab("store")}>
-          <span className="wm-tile-title">ตั้งค่าร้าน</span>
-          <span className="wm-tile-icon"><MerchantIcon3D name="store" size={56} /></span>
-        </button>
-      </div>
+        <button type="button" onClick={() => onOpenTab("menu")}><MerchantIcon3D name="menu" size={52} />เมนู</button>
+        <button type="button" onClick={() => onOpenTab("campaigns")}><MerchantIcon3D name="campaign" size={52} />แคมเปญ</button>
+        <button type="button" onClick={() => onOpenTab("reports")}><MerchantIcon3D name="reports" size={52} />รายงาน</button>
+      </nav>
 
-      {checklistDone < checklist.length && !store.admin_suspended_at ? (
-        <section className={`wm-checklist ${checklistOpen ? "is-open" : ""}`}>
-          <button className="wm-checklist-bar" type="button" aria-expanded={checklistOpen} onClick={() => setChecklistOpen((open) => !open)}>
-            <ClipboardList size={19} />
-            <span>{`เตรียมร้านให้พร้อมขาย (${checklistDone}/${checklist.length})`}</span>
-            <ChevronRight size={19} />
+      <section className="wm-section">
+        <div className="wm-section-title">
+          <h2>ต้องจัดการตอนนี้</h2>
+          <button type="button" onClick={onOpenOrders}>ดูทั้งหมด <ChevronRight size={15} /></button>
+        </div>
+        {attentionOrders.length ? (
+          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div>
+        ) : (
+          <div className="wm-empty wm-empty--compact"><PackageCheck size={34} strokeWidth={1.5} /><strong>จัดการครบแล้ว</strong><p>ยังไม่มีออเดอร์ที่ต้องดำเนินการ</p></div>
+        )}
+      </section>
+
+      {nextStep && !store.admin_suspended_at ? (
+        <section className={`wm-ready ${checklistOpen ? "is-open" : ""}`}>
+          <button className="wm-ready-bar" type="button" aria-expanded={checklistOpen} onClick={() => setChecklistOpen((open) => !open)}>
+            <span className="wm-ready-head"><span>ร้านพร้อมขาย</span><b>{readyPercent}%</b></span>
+            <span className="wm-ready-track" aria-hidden="true"><i style={{ width: `${readyPercent}%` }} /></span>
+            <small>{`เหลือ ${checklist.length - checklistDone} ขั้น`} · {nextStep.label}</small>
           </button>
           {checklistOpen ? (
             <ul>
@@ -854,18 +859,6 @@ function HomePanel({
           ) : null}
         </section>
       ) : null}
-
-      <section className="wm-section">
-        <div className="wm-section-title">
-          <h2>ต้องจัดการตอนนี้</h2>
-          <button type="button" onClick={onOpenOrders}>ดูทั้งหมด <ChevronRight size={15} /></button>
-        </div>
-        {attentionOrders.length ? (
-          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div>
-        ) : (
-          <div className="wm-empty wm-empty--compact"><PackageCheck size={34} strokeWidth={1.5} /><strong>จัดการครบแล้ว</strong><p>ยังไม่มีออเดอร์ที่ต้องดำเนินการ</p></div>
-        )}
-      </section>
 
       {installPrompt ? (
         <button className="wm-install-card" type="button" onClick={onInstall}>
