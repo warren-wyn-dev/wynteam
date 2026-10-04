@@ -6,9 +6,34 @@ import "./food.css";
 const FOOD_ICON = (size: number) => `/food/icon-v7?size=${size}`;
 
 export const metadata: Metadata = {
-  title: "WYNOS Food · Developer Preview",
+  metadataBase: new URL("https://food.wynos.online"),
+  title: "WYNOS Food | สั่งอาหารออนไลน์",
   applicationName: "WYNOS Food",
-  description: "WYNOS Food closed developer preview",
+  description:
+    "WYNOS Food (wynosfood) บริการสั่งอาหารออนไลน์จาก WYNOS ค้นหาร้านอาหาร เลือกเมนู และสั่งอาหารผ่าน food.wynos.online",
+  keywords: [
+    "WYNOS Food",
+    "wynosfood",
+    "wynos food",
+    "สั่งอาหาร",
+    "สั่งอาหารออนไลน์",
+    "food delivery",
+  ],
+  alternates: {
+    canonical: "https://food.wynos.online/",
+  },
+  openGraph: {
+    type: "website",
+    url: "https://food.wynos.online/",
+    siteName: "WYNOS Food",
+    title: "WYNOS Food | สั่งอาหารออนไลน์",
+    description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
+  },
+  twitter: {
+    card: "summary",
+    title: "WYNOS Food | สั่งอาหารออนไลน์",
+    description: "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online",
+  },
   manifest: "/food/manifest.webmanifest?v=20261004-7",
   icons: {
     icon: [
@@ -33,7 +58,7 @@ export const metadata: Metadata = {
       { rel: "apple-touch-icon-precomposed", url: FOOD_ICON(180), sizes: "180x180", type: "image/png" },
     ],
   },
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
