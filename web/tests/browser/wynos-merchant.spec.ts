@@ -389,11 +389,10 @@ test("WYN-205 Wynos red leads on every Merchant page", () => {
   expect(css).toMatch(/\.wm-primary \{[^}]*background: var\(--wm-red\);[^}]*color: #fff;/);
   expect(css).toMatch(/\.wm-small-primary \{[^}]*background: var\(--wm-red\);/);
   expect(css).toMatch(/\.wm-report-hero \{[^}]*background: linear-gradient\(150deg, #ff4d5e 0%, #e32636 55%, #b8142a 100%\);/);
-  // No rainbow colours (Founder: "ถ้ามีสีรุ้ง ตัดทิ้งเลย ไม่ใช้แล้ว").
-  const icons = read("components/merchant/merchant-3d-icons.tsx");
-  expect(icons).toContain('type Tone = "red";');
+  // No rainbow colours in the page styling (Founder: "ถ้ามีสีรุ้ง ตัดทิ้งเลย").
+  // The 3D icons keep their own colours so each one is easy to tell apart
+  // (Founder: "พวกไอคอน ไม่ต้องคุมโทนแดง หมดก็ได้ เดียว งง").
   for (const colour of ["#ffa31a", "#22b45e", "#2f8cf0", "#8a5cf6"]) {
     expect(css).not.toContain(colour);
-    expect(icons).not.toContain(colour);
   }
 });

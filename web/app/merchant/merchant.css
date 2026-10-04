@@ -4,7 +4,8 @@
    the phone or the WYN theme setting says.
    WYN-205: Wynos red leads on every page (Founder: "ทุกหน้า ต้องคุมโทนสี
    ประจำนะให้เด่นกว่า คือสีแดง"): primary buttons and summary cards are red;
-   no rainbow colours (Founder: "ถ้ามีสีรุ้ง ตัดทิ้งเลย ไม่ใช้แล้ว"). */
+   no rainbow colours in page styling (Founder: "ถ้ามีสีรุ้ง ตัดทิ้งเลย ไม่ใช้แล้ว").
+   The 3D icons keep their own colours so they are easy to tell apart. */
 .wm-force-light {
   --wyn-bg: #ffffff;
   --wyn-surface: #f5f5f5;
