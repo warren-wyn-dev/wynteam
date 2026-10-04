@@ -11,6 +11,9 @@
   --wm-secondary: var(--wyn-text-secondary, #737373);
   --wm-muted: var(--wyn-text-muted, #9a9a9a);
   --wm-border: var(--wyn-border, #e5e5e5);
+  /* WYN-204: text on tinted surfaces; both pass 4.5:1 in light and dark. */
+  --wm-success-text: #0b7a3b;
+  --wm-red-text: #b81828;
   min-height: 100dvh;
   max-width: 760px;
   margin: 0 auto;
@@ -1915,7 +1918,7 @@
 }
 .wm-status-pill > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wm-status-pill b { color: var(--wm-text); font-size: 16px; }
-.wm-status-pill.is-open b { color: #0b7a3b; }
+.wm-status-pill.is-open b { color: var(--wm-success-text); }
 .wm-status-pill.is-open .wm-switch.is-on { background: #12a150; }
 .wm-status-pill:disabled { opacity: .55; }
 .wm-round-action {
@@ -1972,8 +1975,8 @@
 .wm-checklist li { min-height: 46px; display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
 .wm-checklist li > span:nth-child(2) { min-width: 0; flex: 1; }
 .wm-checklist li.is-done > span:nth-child(2) { color: var(--wm-secondary); text-decoration: line-through; }
-.wm-checklist li small { color: #0b7a3b; font-size: 12px; font-weight: 650; }
-.wm-checklist li button { min-height: 36px; padding: 0 13px; border: 0; border-radius: 999px; background: var(--wm-red-soft); color: var(--wm-red); font-size: 12.5px; font-weight: 700; }
+.wm-checklist li small { color: var(--wm-success-text); font-size: 12px; font-weight: 650; }
+.wm-checklist li button { min-height: 44px; padding: 0 15px; border: 0; border-radius: 999px; background: var(--wm-red-soft); color: var(--wm-red-text); font-size: 12.5px; font-weight: 700; }
 .wm-check-mark { flex: 0 0 22px; width: 22px; height: 22px; border: 1.5px solid var(--wm-border); border-radius: 50%; display: grid; place-items: center; color: #fff; }
 .wm-checklist li.is-done .wm-check-mark { border-color: #12a150; background: #12a150; }
 
@@ -1992,4 +1995,21 @@
   .wm-tile strong { font-size: 25px; }
   .wm-tile .wm-icon-3d { width: 44px; height: 44px; }
   .wm-service-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* WYN-204: Merchant tints follow the WYN theme (System follows the phone
+   unless Light is chosen; Dark whenever chosen — see design-system.css). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wyn-merchant {
+    --wm-red-soft: #2a0c10;
+    --wm-red-border: #5a1a22;
+    --wm-success-text: #3ddc84;
+    --wm-red-text: #ff8a94;
+  }
+}
+:root[data-theme="dark"] .wyn-merchant {
+  --wm-red-soft: #2a0c10;
+  --wm-red-border: #5a1a22;
+  --wm-success-text: #3ddc84;
+  --wm-red-text: #ff8a94;
 }
