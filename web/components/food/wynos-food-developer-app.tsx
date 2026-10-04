@@ -566,34 +566,71 @@ function AccountPanel({
   onInstall: () => void;
   onNotifications: () => void;
 }) {
+  const primary = addresses.find((address) => address.is_default) ?? addresses[0] ?? null;
+  const primaryLocation = addressLocation(primary);
+
   return (
     <>
-      <div className="wf-page-title"><div><small>Developer Preview</small><h1>โปรไฟล์</h1></div></div>
-      <section className="wf-account-card">
-        <span><UserRound size={26} /></span>
-        <div><strong>บัญชีนักพัฒนา WYNOS</strong><small>WYNOS Food ถูกซ่อนจากผู้ใช้ทั่วไป</small></div>
+      <div className="wf-page-title"><div><small>WYNOS Food</small><h1>โปรไฟล์</h1></div></div>
+
+      <section className="wf-food-profile-card">
+        <div className="wf-food-profile-head">
+          <span><UserRound size={25} /></span>
+          <div>
+            <strong>โปรไฟล์ WYNOS Food</strong>
+            <small>ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น</small>
+          </div>
+          <em>แยกจาก WYNOS</em>
+        </div>
+
+        {primary ? (
+          <>
+            <div className="wf-food-profile-details">
+              <div><span><UserRound size={17} /> ชื่อผู้รับ</span><strong>{primary.recipient_name}</strong></div>
+              <div><span><Phone size={17} /> เบอร์โทร</span><strong>{primary.recipient_phone}</strong></div>
+              <div><span><MapPin size={17} /> ที่อยู่หลัก</span><p>{primary.address}</p></div>
+              <div><span><LocateFixed size={17} /> โลเคชั่น</span><strong className={primaryLocation ? "is-ready" : "is-missing"}>{primaryLocation ? "ปักหมุดแล้ว" : "ยังไม่ได้ปักหมุด"}</strong></div>
+              {primary.delivery_note ? <div><span><Home size={17} /> รายละเอียดเพิ่มเติม</span><p>{primary.delivery_note}</p></div> : null}
+            </div>
+            <button className="wf-secondary wf-full" type="button" onClick={() => onEditAddress(primary)}>แก้ไขโปรไฟล์ WYNOS Food</button>
+          </>
+        ) : (
+          <div className="wf-food-profile-empty">
+            <MapPin size={32} strokeWidth={1.45} />
+            <strong>ตั้งค่าโปรไฟล์ก่อนสั่งอาหาร</strong>
+            <p>กรอกชื่อผู้รับ เบอร์โทร ที่อยู่ โลเคชั่น และรายละเอียดการจัดส่ง</p>
+            <button className="wf-primary wf-full" type="button" onClick={onAddAddress}>ตั้งค่าโปรไฟล์ WYNOS Food</button>
+          </div>
+        )}
       </section>
 
       <div className="wf-section-title wf-section-title--spaced">
-        <h2>ที่อยู่จัดส่ง</h2>
-        <button type="button" onClick={onAddAddress}><Plus size={15} /> เพิ่ม</button>
+        <h2>ที่อยู่ของฉัน</h2>
+        <button type="button" onClick={onAddAddress}><Plus size={15} /> เพิ่มที่อยู่</button>
       </div>
       {addresses.length ? (
         <div className="wf-address-list">
           {addresses.map((address) => (
             <article key={address.id} className="wf-address-row">
               <MapPin size={19} />
-              <div><strong>{address.label}{address.is_default ? " · ค่าเริ่มต้น" : ""}</strong><small>{address.recipient_name} · {address.recipient_phone}</small><p>{address.address}</p></div>
+              <div>
+                <strong>{address.label}{address.is_default ? " · ที่อยู่หลัก" : ""}</strong>
+                <small>{address.recipient_name} · {address.recipient_phone}</small>
+                <p>{address.address}</p>
+                <small className={addressLocation(address) ? "wf-location-ready" : "wf-location-missing"}>
+                  {addressLocation(address) ? "ปักหมุดแล้ว" : "ยังไม่ได้ปักหมุดโลเคชั่น"}
+                </small>
+              </div>
               <button type="button" onClick={() => onEditAddress(address)}>แก้ไข</button>
               <button type="button" aria-label="ลบที่อยู่" onClick={() => onDeleteAddress(address.id)}><Trash2 size={17} /></button>
             </article>
           ))}
         </div>
-      ) : <div className="wf-empty wf-empty--compact"><MapPin size={34} strokeWidth={1.4} /><strong>ยังไม่มีที่อยู่จัดส่ง</strong></div>}
+      ) : null}
 
       <div className="wf-settings-list">
         <button type="button" onClick={onNotifications}>
-          <span><Bell size={20} /><div><strong>การแจ้งเตือน</strong><small>{notificationsEnabled ? "เปิดแล้วสำหรับอุปกรณ์นี้" : "เปิดแจ้งเตือนสถานะออเดอร์ขณะทดสอบ"}</small></div></span>
+          <span><Bell size={20} /><div><strong>การแจ้งเตือน WYNOS Food</strong><small>{notificationsEnabled ? "เปิดแล้วสำหรับอุปกรณ์นี้" : "แจ้งสถานะคำสั่งซื้อและการจัดส่ง"}</small></div></span>
           <ChevronRight size={18} />
         </button>
         {installPrompt ? (
@@ -603,7 +640,7 @@ function AccountPanel({
           </button>
         ) : null}
         <Link href="/">
-          <span><ArrowLeft size={20} /><div><strong>กลับไป WYNOS</strong><small>ออกจาก WYNOS Food Developer Preview</small></div></span>
+          <span><ArrowLeft size={20} /><div><strong>กลับไป WYNOS</strong><small>ออกจาก WYNOS Food โดยไม่แก้โปรไฟล์ WYNOS</small></div></span>
           <ChevronRight size={18} />
         </Link>
       </div>
@@ -786,13 +823,15 @@ function AddressEditor({
   busy: boolean;
 }) {
   const [form, setForm] = useState(draft);
+  const complete = Boolean(form.recipientName.trim() && form.recipientPhone.trim() && form.address.trim() && form.location);
   return (
-    <Sheet title={form.id ? "แก้ไขที่อยู่" : "เพิ่มที่อยู่"} onClose={onClose}>
+    <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose}>
       <div className="wf-form">
-        <label>ชื่อที่อยู่<input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="เช่น บ้าน / หอพัก" /></label>
-        <label>ชื่อผู้รับ<input value={form.recipientName} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} /></label>
-        <label>เบอร์โทร<input inputMode="tel" value={form.recipientPhone} onChange={(event) => setForm({ ...form, recipientPhone: event.target.value })} /></label>
-        <label>ที่อยู่จัดส่ง<textarea value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
+        <div className="wf-form-note">ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS</div>
+        <label>ชื่อที่อยู่ <small>เช่น บ้าน / หอพัก</small><input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="ที่อยู่ของฉัน" /></label>
+        <label>ชื่อผู้รับ <b>*</b><input value={form.recipientName} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} placeholder="ชื่อผู้รับอาหาร" /></label>
+        <label>เบอร์โทร <b>*</b><input inputMode="tel" autoComplete="tel" value={form.recipientPhone} onChange={(event) => setForm({ ...form, recipientPhone: event.target.value })} placeholder="เบอร์สำหรับติดต่อจัดส่ง" /></label>
+        <label>ที่อยู่จัดส่ง <b>*</b><textarea value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} placeholder="บ้านเลขที่ ถนน ซอย ตำบล/แขวง อำเภอ/เขต จังหวัด" /></label>
         {showPin || form.location ? <DeliveryPinPicker
           client={client}
           storeId={storeId}
@@ -803,9 +842,10 @@ function AddressEditor({
             address: current.address.trim() || !place ? current.address : [place.name, place.address].filter(Boolean).join(" "),
           }))}
         /> : null}
-        <label>หมายเหตุการจัดส่ง<textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น โทรเมื่อถึง / ประตูสีขาว" /></label>
-        <label className="wf-check"><input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} /><span><strong>ใช้เป็นที่อยู่เริ่มต้น</strong><small>เลือกให้อัตโนมัติตอน Checkout</small></span></label>
-        <button className="wf-primary wf-full" type="button" disabled={busy} onClick={() => onSave(form)}>{busy ? "กำลังบันทึก…" : "บันทึกที่อยู่"}</button>
+        <label>รายละเอียดเพิ่มเติม<textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น อาคาร ชั้น ห้อง จุดสังเกต หรือโทรเมื่อถึง" /></label>
+        <label className="wf-check"><input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} /><span><strong>ใช้เป็นที่อยู่หลัก</strong><small>WYNOS Food จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span></label>
+        {!form.location ? <div className="wf-inline-warning">กรุณาปักหมุดโลเคชั่นก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
+        <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>{busy ? "กำลังบันทึก…" : "บันทึกข้อมูล WYNOS Food"}</button>
       </div>
     </Sheet>
   );
@@ -1400,7 +1440,7 @@ function FoodCustomerInner({
       ) : null}
 
       {addressDraft ? (
-        <AddressEditor client={client} storeId={store?.id ?? null} showPin={storeHasDeliveryZone(store)} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft) => void saveAddress(draft)} />
+        <AddressEditor client={client} storeId={store?.id ?? null} showPin={true} draft={addressDraft} busy={busy} onClose={() => setAddressDraft(null)} onSave={(draft) => void saveAddress(draft)} />
       ) : null}
 
       {selectedOrder ? (
