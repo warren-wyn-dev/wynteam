@@ -777,10 +777,40 @@ export async function reverseFoodPlace(client: SupabaseClient, location: FoodLoc
  * the caller can fall back to the location-search Edge Function.
  */
 export async function searchStorePlaces(client: SupabaseClient, storeId: string, query: string): Promise<FoodPlace[] | null> {
-  const { data, error } = await client.rpc("food_search_store_places", {
+  const args = {
     p_store_id: storeId,
     p_query: query.trim().slice(0, 100),
-  });
+  };
+
+  const own = await client.rpc("wynos_search_store_places", args);
+  if (!own.error) {
+    return ((own.data ?? []) as Array<{
+      place_id: string | null;
+      name: string;
+      detail: string | null;
+      latitude: number;
+      longitude: number;
+    }>).flatMap((row) => {
+      const latitude = Number(row.latitude);
+      const longitude = Number(row.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+      return [{
+        placeId: row.place_id,
+        name: row.name,
+        address: row.detail,
+        latitude,
+        longitude,
+        category: "pickup_point",
+        verificationStatus: row.place_id ? "merchant_verified" : null,
+        source: "store" as const,
+      }];
+    });
+  }
+  if (own.error.code !== "PGRST202" && own.error.code !== "42883") {
+    throw new Error(foodCustomerError(own.error, "ค้นหาสถานที่ไม่สำเร็จ"));
+  }
+
+  const { data, error } = await client.rpc("food_search_store_places", args);
   if (error) {
     if (error.code === "PGRST202" || error.code === "42883") return null;
     throw new Error(foodCustomerError(error, "ค้นหาสถานที่ไม่สำเร็จ"));
@@ -789,7 +819,7 @@ export async function searchStorePlaces(client: SupabaseClient, storeId: string,
     const latitude = Number(row.latitude);
     const longitude = Number(row.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
-    return [{ name: row.name, address: row.detail, latitude, longitude, source: "store" as const }];
+    return [{ placeId: null, name: row.name, address: row.detail, latitude, longitude, source: "store" as const }];
   });
 }
 
