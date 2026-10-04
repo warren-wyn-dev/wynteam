@@ -322,3 +322,9 @@
   The store adds its places in Merchant settings.
 - Rollback: revert the merge commit; SQL rollback is in the workflow header.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-03
+
+### DECISION — [2026-10-04] WYN-198 Wynos Merchant simpler order flow
+- Founder: "Wynos Merchant อยากให้ระบบใช้งานง่ายๆ เหมือนของ LINE MAN Merchant". In AskUserQuestion: all four changes (one button per order card, new-order pop-up with sound, four-tab order page, bigger buttons and text) and **"รวมเป็นปุ่มเดียว"** for slip check + accept. After reviewing PR #826: **"อนุมัติ"**.
+- Scope: web only, no database change. Merge PR #826 (the web auto-deploys).
+- Rollback: revert the merge commit or use Vercel Instant Rollback.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04

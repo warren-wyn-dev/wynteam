@@ -14,10 +14,10 @@ test("Merchant is a separate installable app surface with the red WYNOS identity
   expect(page).toContain("<WynosMerchantApp />");
   // The manifest URL may carry an icon cache-busting query (?v=…).
   expect(layout).toMatch(/manifest: "\/merchant\/manifest\.webmanifest(\?v=[^"]+)?"/);
-  expect(layout).toContain('title: "WYNOS Merchant"');
+  expect(layout).toContain('title: "Wynos Merchant"');
   expect(manifest).toContain('start_url: "/merchant"');
   expect(manifest).toContain('scope: "/merchant"');
-  expect(manifest).toContain('theme_color: "#e32636"');
+  expect(manifest).toContain('theme_color: "#ee1228"');
   expect(css).toContain("--wm-red: #e32636");
   expect(css).toContain(".wm-nav");
   expect(css).toContain(".wm-delivery-methods");
@@ -53,7 +53,7 @@ test("Merchant receives orders from WYNOS Food only while keeping delivery workf
 
   expect(app).toContain('deliveryMethod === "dropoff"');
   expect(app).toContain("แนบรูปยืนยันการจัดส่งจากคนส่ง (จำเป็น)");
-  expect(app).toContain("disabled={busy || !deliveryFile");
+  expect(app).toContain("disabled={locked || !deliveryFile");
   expect(app).toContain("วางสินค้าไว้ที่ไหน?");
   expect(app).toContain("ยืนยันส่งสำเร็จ");
   expect(app).toContain("ยืนยันเงินเข้า");
@@ -209,4 +209,52 @@ test("Delivery proof is read from the one-to-one PostgREST embed", () => {
   for (const file of ["components/merchant/wynos-merchant-app.tsx", "components/food/wynos-food-developer-app.tsx"]) {
     expect(read(file)).not.toContain("food_delivery_proofs?.[0]");
   }
+});
+
+test("WYN-198 Merchant order flow: one main action per order and a loud new-order alert", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const alert = read("components/merchant/merchant-order-alert.tsx");
+  const css = read("app/merchant/merchant.css");
+
+  // Four tabs in working order; search and filters are tucked away.
+  expect(app).toContain('type OrderFilter = "new" | "cooking" | "delivery" | "done";');
+  expect(app).toContain('useState<OrderFilter>("new")');
+  expect(app).toContain("{showTools ? <div className=\"wm-order-search-tools\">");
+
+  // The card runs simple steps; the slip and the delivery photo still need the order open.
+  expect(app).toContain('if (next.step === "check_slip" || next.step === "deliver") {');
+  expect(app).toContain('await transitionFoodOrder(client, order.id, "preparing", order.eta_minutes ?? 30);');
+
+  // One button confirms the payment and accepts; accepting still needs a paid order.
+  expect(app).toContain('await setFoodPaymentStatus(client, order.id, "paid");\n                    await transitionFoodOrder(client, order.id, "preparing", eta);');
+  expect(app).toContain('order.status === "pending_acceptance" && (order.payment_status === "submitted" || order.payment_status === "paid")');
+
+  // The alert rings until it is opened or dismissed, for at most three minutes.
+  expect(alert).toContain("const ALERT_MAX_MS = 3 * 60 * 1000;");
+  expect(alert).toContain('role="alertdialog"');
+  expect(alert).toContain('window.addEventListener("pointerdown", unlock);');
+  expect(alert).toContain('if (event.key === "Escape") {');
+  expect(alert).toContain("if (restoreFocusRef.current && previous?.isConnected) previous.focus();");
+  expect(app).toContain("key={alertKey(alertOrder)}");
+  expect(app).toContain("// Reload on failure too: the order may have moved on elsewhere.");
+  // A refresh asked for during another refresh is queued, not dropped.
+  expect(app).toContain("reloadQueuedRef.current = true;");
+  expect(app).toContain('aria-pressed={filter === item.key}');
+  expect(app).not.toContain('role="tablist"');
+  // The slip must be on screen before the combined button works, a failed
+  // second step still reloads, and the alert never hides behind another sheet.
+  expect(app).toContain("disabled={locked || !slipShown}");
+  expect(app).toContain("onLoad={() => setSlipImage({ url: slipUrl, ok: true })}");
+  expect(app).toContain("// Reload after failures too: a two-step action may have half succeeded.");
+  expect(app).toContain("{alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (");
+  // A pressed card stays busy until a reload shows the order's new status.
+  expect(app).toContain("acting={actedFrom.get(order.id) === order.status}");
+  expect(app).toContain("const locked = busy || actedAt === stateKey;");
+  expect(app).toContain("const stateKey = `${order.status}:${order.payment_status}:${order.updated_at}`;");
+  expect(app).toContain('className="wm-order-card-open" type="button" disabled={acting}');
+  expect(alert).toContain('context.addEventListener("statechange", sync);');
+  expect(app).toContain("return () => { if (opener?.isConnected) opener.focus(); };");
+  expect(css).toContain("max-height: calc(100dvh - 32px);");
+  expect(css).toContain(".wm-card-action { min-height: 54px; font-size: 17px; }");
+  expect(css).toContain("@media (prefers-reduced-motion: reduce)");
 });
