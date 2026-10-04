@@ -1,4 +1,5 @@
 name: WYN-158 Production Deploy
+# WYN-213: redeploy Food and Merchant SEO metadata.
 
 on:
   workflow_dispatch:
