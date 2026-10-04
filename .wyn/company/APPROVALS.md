@@ -328,3 +328,9 @@
 - Scope: web only, no database change. Merge PR #826 (the web auto-deploys).
 - Rollback: revert the merge commit or use Vercel Instant Rollback.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-199 Wynos Merchant asks for notifications on open
+- Founder: "เวลากดเข้าไอคอน ควรถาม/ขออนุญาต เปิดการแจ้งเตือนทันทีนะ". After reviewing PR #827: **"อนุมัติ"**.
+- Scope: web only, no database change. Merge PR #827 (the web auto-deploys).
+- Rollback: revert the merge commit or use Vercel Instant Rollback.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
