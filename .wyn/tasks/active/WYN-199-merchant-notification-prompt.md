@@ -1,6 +1,6 @@
 # Product Task — WYN-199 — Wynos Merchant: ask for notifications on open
 
-Status: review — PR open, waiting for Founder approval to merge (web only)
+Status: approved — released via PR #827
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
