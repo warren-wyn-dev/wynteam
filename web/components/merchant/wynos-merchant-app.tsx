@@ -5,20 +5,26 @@ import {
   Bell,
   BellRing,
   Check,
+  ChevronLeft,
   ChevronRight,
+  ClipboardList,
   CircleDollarSign,
   Clock3,
   Home,
   ImagePlus,
+  LogOut,
+  Megaphone,
   LayoutGrid,
   MapPin,
   Menu as MenuIcon,
   PackageCheck,
+  Pencil,
   Phone,
   Plus,
-  ReceiptText,
   Search,
+  Settings,
   ShoppingBag,
+  ShoppingBasket,
   Store,
   Truck,
   Upload,
@@ -67,7 +73,10 @@ import {
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation } from "@/lib/food-customer";
 
-type MerchantTab = "home" | "orders" | "menu" | "reports" | "store";
+// WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
+// and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
+type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "campaigns";
+const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "campaigns"]);
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
 
 type InstallPromptEvent = Event & {
@@ -519,7 +528,7 @@ function MerchantInner({
           <HomePanel
             client={client}
             store={store}
-            orders={orders}
+            menu={menu}
             todayOrders={todayOrders}
             todaySales={todaySales}
             attentionOrders={attentionOrders}
@@ -530,6 +539,8 @@ function MerchantInner({
             onAction={(order) => void quickAction(order)}
             actedFrom={actedFrom}
             onOpenOrders={() => setTab("orders")}
+            onOpenTab={setTab}
+            onEditStore={() => setStoreEditing(true)}
             onMessage={setMessage}
           />
         ) : null}
@@ -571,13 +582,36 @@ function MerchantInner({
           />
         ) : null}
 
+        {tab === "reports" || tab === "store" || tab === "campaigns" ? (
+          <button className="wm-back" type="button" onClick={() => setTab("more")}><ChevronLeft size={20} />เพิ่มเติม</button>
+        ) : null}
+
+        {tab === "more" && store ? (
+          <MorePanel
+            client={client}
+            store={store}
+            installPrompt={installPrompt}
+            onInstall={() => void install()}
+            onOpenTab={setTab}
+            onNotifications={() => setNotifyPrompt("bell")}
+            onMessage={setMessage}
+            onSignOut={() => void signOut()}
+          />
+        ) : null}
+
         {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
+
+        {tab === "campaigns" && store ? (
+          <>
+            <div className="wm-page-heading"><div><small>เพิ่มยอดขาย</small><h1>แคมเปญ</h1></div></div>
+            <MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={setMessage} />
+          </>
+        ) : null}
 
         {tab === "store" && store ? (
           <StorePanel
             client={client}
             store={store}
-            menu={menu}
             userId={userId}
             installPrompt={installPrompt}
             onInstall={() => void install()}
@@ -599,10 +633,9 @@ function MerchantInner({
 
       <nav className="wm-nav" aria-label="WYNOS Merchant">
         <NavButton active={tab === "home"} label="หน้าหลัก" icon={<Home />} onClick={() => setTab("home")} />
-        <NavButton active={tab === "orders"} label="ออเดอร์" icon={<ReceiptText />} badge={attentionOrders.length} onClick={() => setTab("orders")} />
+        <NavButton active={tab === "orders"} label="รับออเดอร์" icon={<ShoppingBasket />} badge={attentionOrders.length} onClick={() => setTab("orders")} />
         <NavButton active={tab === "menu"} label="เมนู" icon={<UtensilsCrossed />} onClick={() => setTab("menu")} />
-        <NavButton active={tab === "reports"} label="รายงาน" icon={<LayoutGrid />} onClick={() => setTab("reports")} />
-        <NavButton active={tab === "store"} label="ร้านค้า" icon={<Store />} onClick={() => setTab("store")} />
+        <NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม" icon={<LayoutGrid />} onClick={() => setTab("more")} />
       </nav>
 
       {notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
@@ -684,7 +717,7 @@ function NavButton({
 function HomePanel({
   client,
   store,
-  orders,
+  menu,
   todayOrders,
   todaySales,
   attentionOrders,
@@ -695,11 +728,13 @@ function HomePanel({
   onAction,
   actedFrom,
   onOpenOrders,
+  onOpenTab,
+  onEditStore,
   onMessage,
 }: {
   client: SupabaseClient;
   store: FoodStore;
-  orders: FoodOrder[];
+  menu: FoodMenuItem[];
   todayOrders: FoodOrder[];
   todaySales: number;
   attentionOrders: FoodOrder[];
@@ -710,9 +745,12 @@ function HomePanel({
   onAction: (order: FoodOrder) => void;
   actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
   onOpenOrders: () => void;
+  onOpenTab: (tab: MerchantTab) => void;
+  onEditStore: () => void;
   onMessage: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const toggleOpen = async () => {
     setBusy(true);
     try {
@@ -724,51 +762,89 @@ function HomePanel({
       onReload();
     } finally { setBusy(false); }
   };
-  const waitingPayment = orders.filter((order) => order.payment_status === "submitted").length;
-  const preparing = orders.filter((order) => order.status === "preparing").length;
-  const delivery = orders.filter((order) => order.status === "out_for_delivery").length;
+  const availableMenu = menu.filter((item) => item.is_available).length;
+  // WYN-204: "เตรียมร้านให้พร้อม" from what the store already has.
+  const checklist = [
+    { key: "logo", label: "ใส่โลโก้ร้าน", done: Boolean(store.logo_path), action: "แก้ไขร้าน", onGo: onEditStore },
+    { key: "payment", label: "ตั้งช่องทางรับเงิน", done: Boolean(store.promptpay_id || store.bank_account_number || store.payment_qr_path), action: "ตั้งค่า", onGo: onEditStore },
+    { key: "menu", label: "เปิดขายเมนูอย่างน้อย 1 รายการ", done: availableMenu > 0, action: "ไปที่เมนู", onGo: () => onOpenTab("menu") },
+    { key: "publish", label: "เผยแพร่ร้านบน WYNOS Food", done: store.is_published, action: "เผยแพร่", onGo: () => onOpenTab("store") },
+  ];
+  const checklistDone = checklist.filter((item) => item.done).length;
 
   return (
     <>
-      <div className="wm-page-heading">
-        <div>
-          <small>ร้านของคุณ</small>
-          <h1>{store.name}</h1>
+      <div className="wm-home-head">
+        <h1>{store.name}</h1>
+        <div className="wm-status-row">
+          <button
+            className={`wm-status-pill ${store.is_open ? "is-open" : ""}`}
+            type="button"
+            role="switch"
+            aria-checked={store.is_open}
+            aria-label={store.is_open ? "เปิดร้านอยู่ กดเพื่อปิดรับออเดอร์" : "ปิดร้านอยู่ กดเพื่อเปิดรับออเดอร์"}
+            disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}
+          >
+            <span><b>{store.is_open ? "เปิดร้าน" : "ปิดร้าน"}</b> {store.is_open ? "(กำลังรับออเดอร์)" : "(ไม่รับออเดอร์)"}</span>
+            <span className={`wm-switch ${store.is_open ? "is-on" : ""}`}><i /></span>
+          </button>
+          <button className="wm-round-action" type="button" aria-label="แก้ไขข้อมูลร้าน" onClick={onEditStore}><Pencil size={20} /></button>
         </div>
-        <span className={`wm-live ${store.is_open ? "is-open" : ""}`}>
-          <i />{store.is_open ? "เปิดรับออเดอร์" : "ปิดรับออเดอร์"}
-        </span>
       </div>
-
-      <button className={`wm-open-toggle ${store.is_open ? "is-open" : ""}`} type="button" disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}>
-        <span>
-          <strong>{store.is_open ? "กำลังเปิดรับออเดอร์" : "หยุดรับออเดอร์อยู่"}</strong>
-          <small>{store.is_open ? "ลูกค้าสามารถสั่งอาหารได้" : "กดเพื่อเปิดร้านเมื่อพร้อม"}</small>
-        </span>
-        <i><b /></i>
-      </button>
 
       {store.admin_suspended_at ? (
         <div className="wm-setup-banner wm-suspended-banner" role="alert">
           <Store size={22} strokeWidth={1.7} />
           <span><strong>ร้านถูกระงับโดยทีม WYNOS</strong><small>{store.admin_suspended_reason ? `เหตุผล: ${store.admin_suspended_reason}` : "ติดต่อทีม WYNOS เพื่อขอยกเลิกการระงับ"}</small></span>
         </div>
-      ) : !store.is_published ? (
-        <div className="wm-setup-banner">
-          <Store size={22} strokeWidth={1.7} />
-          <span><strong>ร้านยังไม่เผยแพร่</strong><small>ตั้งค่าข้อมูลร้านและช่องทางรับเงินก่อนเปิดให้ลูกค้าสั่ง</small></span>
-        </div>
       ) : null}
 
-      <section className="wm-section">
-        <div className="wm-section-title"><h2>วันนี้</h2><small>{todayOrders.length} ออเดอร์</small></div>
-        <div className="wm-metrics">
-          <Metric label="ยอดขาย" value={money(todaySales)} />
-          <Metric label="รอตรวจเงิน" value={String(waitingPayment)} />
-          <Metric label="กำลังทำ" value={String(preparing)} />
-          <Metric label="กำลังส่ง" value={String(delivery)} />
-        </div>
-      </section>
+      <div className="wm-home-grid">
+        <button className="wm-tile wm-tile--sales" type="button" onClick={() => onOpenTab("reports")}>
+          <span className="wm-tile-title">ยอดขายวันนี้ <i><ChevronRight size={17} /></i></span>
+          <strong>{money(todaySales)}</strong>
+          <small>{todayOrders.length} ออเดอร์</small>
+        </button>
+        <button className="wm-tile" type="button" onClick={onOpenOrders}>
+          <span className="wm-tile-title">รอจัดการ</span>
+          <strong className={attentionOrders.length ? "is-alert" : ""}>{attentionOrders.length}</strong>
+          <span className="wm-tile-icon" data-tone="red"><ShoppingBasket size={22} /></span>
+        </button>
+        <button className="wm-tile" type="button" onClick={() => onOpenTab("campaigns")}>
+          <span className="wm-tile-title">แคมเปญ</span>
+          <span className="wm-tile-icon" data-tone="amber"><Megaphone size={22} /></span>
+        </button>
+        <button className="wm-tile" type="button" onClick={() => onOpenTab("menu")}>
+          <span className="wm-tile-title">เมนู</span>
+          <strong>{availableMenu}</strong>
+          <span className="wm-tile-icon" data-tone="green"><UtensilsCrossed size={22} /></span>
+        </button>
+        <button className="wm-tile" type="button" onClick={() => onOpenTab("store")}>
+          <span className="wm-tile-title">ตั้งค่าร้าน</span>
+          <span className="wm-tile-icon" data-tone="blue"><Settings size={22} /></span>
+        </button>
+      </div>
+
+      {checklistDone < checklist.length && !store.admin_suspended_at ? (
+        <section className={`wm-checklist ${checklistOpen ? "is-open" : ""}`}>
+          <button className="wm-checklist-bar" type="button" aria-expanded={checklistOpen} onClick={() => setChecklistOpen((open) => !open)}>
+            <ClipboardList size={19} />
+            <span>{`เตรียมร้านให้พร้อมขาย (${checklistDone}/${checklist.length})`}</span>
+            <ChevronRight size={19} />
+          </button>
+          {checklistOpen ? (
+            <ul>
+              {checklist.map((item) => (
+                <li key={item.key} className={item.done ? "is-done" : ""}>
+                  <span className="wm-check-mark">{item.done ? <Check size={14} /> : null}</span>
+                  <span>{item.label}</span>
+                  {item.done ? <small>เรียบร้อย</small> : <button type="button" onClick={item.onGo}>{item.action}</button>}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="wm-section">
         <div className="wm-section-title">
@@ -789,6 +865,52 @@ function HomePanel({
           <ChevronRight size={18} />
         </button>
       ) : null}
+    </>
+  );
+}
+
+/** WYN-204: "เพิ่มเติม" — everything that is not an order or a dish. */
+function MorePanel({
+  client,
+  store,
+  installPrompt,
+  onInstall,
+  onOpenTab,
+  onNotifications,
+  onMessage,
+  onSignOut,
+}: {
+  client: SupabaseClient;
+  store: FoodStore;
+  installPrompt: InstallPromptEvent | null;
+  onInstall: () => void;
+  onOpenTab: (tab: MerchantTab) => void;
+  onNotifications: () => void;
+  onMessage: (message: string) => void;
+  onSignOut: () => void;
+}) {
+  return (
+    <>
+      <div className="wm-page-heading"><div><small>Wynos Merchant</small><h1>เพิ่มเติม</h1></div></div>
+      <button className="wm-store-card wm-store-card--link" type="button" onClick={() => onOpenTab("store")}>
+        <span className="wm-store-avatar">{store.logo_path ? <img src={foodPublicUrl(client, store.logo_path) ?? ""} alt="" /> : <Store size={30} strokeWidth={1.6} />}</span>
+        <span><strong>{store.name}</strong><small>{store.is_published ? "เผยแพร่บน WYNOS Food แล้ว" : "ร้านยังไม่เผยแพร่"}</small></span>
+        <ChevronRight size={19} />
+      </button>
+      <section className="wm-section">
+        <div className="wm-section-title"><h2>เครื่องมือร้าน</h2></div>
+        <div className="wm-service-grid">
+          <button type="button" onClick={() => onOpenTab("reports")}><span className="wm-tile-icon" data-tone="blue"><CircleDollarSign size={24} /></span>รายงานยอดขาย</button>
+          <button type="button" onClick={() => onOpenTab("campaigns")}><span className="wm-tile-icon" data-tone="amber"><Megaphone size={24} /></span>แคมเปญ</button>
+          <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon" data-tone="green"><Settings size={24} /></span>ตั้งค่าร้าน</button>
+          <button type="button" onClick={onNotifications}><span className="wm-tile-icon" data-tone="red"><Bell size={24} /></span>การแจ้งเตือน</button>
+          <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span className="wm-tile-icon" data-tone="violet"><BellRing size={24} /></span>ลองเสียงออเดอร์</button>
+          {installPrompt ? <button type="button" onClick={onInstall}><span className="wm-tile-icon" data-tone="blue"><Store size={24} /></span>ติดตั้งแอป</button> : null}
+        </div>
+      </section>
+      <section className="wm-settings-list">
+        <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><LogOut size={19} /></button>
+      </section>
     </>
   );
 }
@@ -965,7 +1087,6 @@ function ReportsPanel({ orders }: { orders: FoodOrder[] }) {
 function StorePanel({
   client,
   store,
-  menu,
   userId,
   installPrompt,
   onInstall,
@@ -976,7 +1097,6 @@ function StorePanel({
 }: {
   client: SupabaseClient;
   store: FoodStore;
-  menu: FoodMenuItem[];
   userId: string;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
@@ -1013,7 +1133,6 @@ function StorePanel({
         {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม WYNOS Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><ChevronRight size={19} /></button>
       </section>
-      <MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={onMessage} />
       <MerchantStoreTools client={client} store={store} userId={userId} onMessage={onMessage} />
     </>
   );

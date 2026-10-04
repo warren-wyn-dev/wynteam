@@ -426,7 +426,7 @@
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .wm-nav > button {
   min-width: 0;
@@ -1886,3 +1886,123 @@
   .wm-alert, .wm-alert-icon { animation: none; }
 }
 .wm-sheet:focus { outline: none; }
+
+/* WYN-204: LINE MAN–style home — store header, status pill, shortcut tiles,
+   setup checklist; four bottom tabs with "เพิ่มเติม" holding the rest. */
+.wm-home-head {
+  margin: -18px -16px 0;
+  padding: 18px 16px 4px;
+  background: linear-gradient(180deg, var(--wm-red-soft), transparent);
+}
+.wm-home-head h1 { margin: 0 0 12px; overflow-wrap: anywhere; font-size: 25px; line-height: 1.2; letter-spacing: -.55px; }
+.wm-status-row { display: flex; align-items: center; gap: 9px; }
+.wm-status-pill {
+  min-width: 0;
+  min-height: 52px;
+  flex: 1;
+  padding: 0 8px 0 18px;
+  border: 1px solid var(--wm-border);
+  border-radius: 999px;
+  background: var(--wm-bg);
+  color: var(--wm-secondary);
+  box-shadow: 0 4px 14px rgba(17, 17, 17, .06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  font-size: 13.5px;
+}
+.wm-status-pill > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-status-pill b { color: var(--wm-text); font-size: 16px; }
+.wm-status-pill.is-open b { color: #12a150; }
+.wm-status-pill.is-open .wm-switch.is-on { background: #12a150; }
+.wm-status-pill:disabled { opacity: .55; }
+.wm-round-action {
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--wm-red);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--wm-red) 30%, transparent);
+}
+.wm-round-action:active, .wm-status-pill:active, .wm-tile:active { transform: scale(.97); }
+
+.wm-home-grid { margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.wm-tile {
+  position: relative;
+  min-width: 0;
+  min-height: 112px;
+  padding: 13px 13px 12px;
+  border: 1px solid var(--wm-border);
+  border-radius: 20px;
+  background: var(--wm-bg);
+  color: var(--wm-text);
+  box-shadow: 0 3px 12px rgba(17, 17, 17, .04);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+}
+.wm-tile--sales { grid-column: span 2; }
+.wm-tile-title { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 14.5px; font-weight: 650; }
+.wm-tile-title i { width: 30px; height: 30px; border-radius: 50%; background: var(--wm-surface); color: var(--wm-secondary); display: grid; place-items: center; }
+.wm-tile strong { margin-top: auto; font-size: 30px; line-height: 1.1; letter-spacing: -.8px; color: var(--wm-red); }
+.wm-tile:not(.wm-tile--sales) strong { color: var(--wm-text); font-size: 26px; }
+.wm-tile:not(.wm-tile--sales) strong.is-alert { color: var(--wm-red); }
+.wm-tile small { max-width: 100%; color: var(--wm-secondary); font-size: 12px; }
+.wm-tile:has(.wm-tile-icon) small { max-width: calc(100% - 46px); }
+.wm-tile .wm-tile-icon { position: absolute; right: 11px; bottom: 11px; }
+.wm-tile-icon {
+  --tone: var(--wm-red);
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--tone) 13%, transparent);
+  color: var(--tone);
+  display: grid;
+  place-items: center;
+}
+.wm-tile-icon[data-tone="amber"] { --tone: #f08c00; }
+.wm-tile-icon[data-tone="green"] { --tone: #12a150; }
+.wm-tile-icon[data-tone="blue"] { --tone: #1c7ed6; }
+.wm-tile-icon[data-tone="violet"] { --tone: #7048e8; }
+
+.wm-checklist { margin-top: 16px; border: 1px solid var(--wm-border); border-radius: 999px; background: var(--wm-bg); overflow: hidden; }
+.wm-checklist.is-open { border-radius: 20px; }
+.wm-checklist-bar { width: 100%; min-height: 52px; padding: 0 16px; border: 0; background: transparent; color: var(--wm-text); display: flex; align-items: center; gap: 10px; text-align: left; font-size: 14px; }
+.wm-checklist-bar > span { min-width: 0; flex: 1; }
+.wm-checklist-bar > svg:first-child { color: var(--wm-secondary); }
+.wm-checklist-bar > svg:last-child { color: var(--wm-secondary); transition: transform .2s; }
+.wm-checklist.is-open .wm-checklist-bar > svg:last-child { transform: rotate(90deg); }
+.wm-checklist ul { margin: 0; padding: 0 16px 12px; list-style: none; display: grid; gap: 4px; }
+.wm-checklist li { min-height: 46px; display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+.wm-checklist li > span:nth-child(2) { min-width: 0; flex: 1; }
+.wm-checklist li.is-done > span:nth-child(2) { color: var(--wm-secondary); text-decoration: line-through; }
+.wm-checklist li small { color: #12a150; font-size: 12px; font-weight: 650; }
+.wm-checklist li button { min-height: 36px; padding: 0 13px; border: 0; border-radius: 999px; background: var(--wm-red-soft); color: var(--wm-red); font-size: 12.5px; font-weight: 700; }
+.wm-check-mark { flex: 0 0 22px; width: 22px; height: 22px; border: 1.5px solid var(--wm-border); border-radius: 50%; display: grid; place-items: center; color: #fff; }
+.wm-checklist li.is-done .wm-check-mark { border-color: #12a150; background: #12a150; }
+
+.wm-back { min-height: 44px; margin: 4px 0 -4px -6px; padding: 0 6px; border: 0; background: transparent; color: var(--wm-secondary); display: inline-flex; align-items: center; gap: 2px; font-size: 14px; font-weight: 600; }
+
+.wm-store-card--link { width: 100%; border: 0; border-bottom: 1px solid var(--wm-border); background: transparent; color: var(--wm-text); display: flex; align-items: center; gap: 12px; text-align: left; }
+.wm-store-card--link > span:nth-child(2) { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.wm-store-card--link > svg { color: var(--wm-secondary); }
+
+.wm-service-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 6px; }
+.wm-service-grid > button { min-width: 0; min-height: 88px; padding: 4px 2px; border: 0; background: transparent; color: var(--wm-text); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font-size: 12.5px; line-height: 1.25; }
+.wm-service-grid .wm-tile-icon { width: 50px; height: 50px; border-radius: 16px; }
+
+@media (max-width: 370px) {
+  .wm-home-grid { gap: 8px; }
+  .wm-tile { min-height: 104px; padding: 11px; }
+  .wm-tile strong { font-size: 25px; }
+  .wm-tile .wm-tile-icon { width: 36px; height: 36px; border-radius: 11px; }
+  .wm-service-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

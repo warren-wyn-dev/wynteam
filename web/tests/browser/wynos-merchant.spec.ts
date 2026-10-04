@@ -320,3 +320,21 @@ test("WYN-203 WYNOS Admin can suspend a store and see cross-store orders", () =>
   expect(merchant).toContain("disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}");
   expect(data).toContain('if (message.includes("store is suspended"))');
 });
+
+test("WYN-204 Merchant home follows the LINE MAN layout with four tabs", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const css = read("app/merchant/merchant.css");
+
+  // Store name, open/close pill and edit button on top; sales and shortcut tiles.
+  expect(app).toContain('className={`wm-status-pill ${store.is_open ? "is-open" : ""}`}');
+  expect(app).toContain('role="switch"');
+  expect(app).toContain('<button className="wm-tile wm-tile--sales" type="button" onClick={() => onOpenTab("reports")}>');
+  // The setup checklist only counts what the store already has.
+  expect(app).toContain("done: Boolean(store.promptpay_id || store.bank_account_number || store.payment_qr_path)");
+  expect(app).toContain("{checklistDone < checklist.length && !store.admin_suspended_at ? (");
+  // Four bottom tabs; reports, store settings and campaigns live under "เพิ่มเติม".
+  expect(app).toContain('label="รับออเดอร์"');
+  expect(app).toContain('<NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม"');
+  expect(app).not.toContain('label="รายงาน"');
+  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));\n}\n.wm-nav > button {");
+});
