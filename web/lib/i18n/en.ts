@@ -1690,6 +1690,7 @@ Object.assign(EN_EXACT, {
   "จัดส่งไปที่": "Deliver to",
   "ชื่อที่อยู่": "Address label",
   "ชื่อผู้รับ": "Recipient name",
+  "ชื่อผู้รับอาหาร": "Food recipient name",
   "ตะกร้า": "Cart",
   "ตะกร้ายังว่าง": "Your cart is empty",
   "ติดตั้ง WYNOS Food": "Install WYNOS Food",
