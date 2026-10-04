@@ -1189,6 +1189,8 @@ export const EN_EXACT: Record<string, string> = {
   "หรือค้นหาสถานที่ เช่น ชื่อหมู่บ้าน คอนโด": "Or search for a place, e.g. village or condo name",
   "ค้นหาสถานที่": "Search places",
   "ปักหมุดตำแหน่งร้านแล้ว อย่าลืมกดบันทึก": "Store location pinned. Remember to save",
+  "กำลังอัปเดตข้อมูลร้าน": "Updating store data",
+  "กำลังอัปเดต WYNOS Food": "Updating WYNOS Food",
   "ลองฟังเสียงแจ้งเตือน": "Preview the alert sound",
   "เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่": "Could not play sound. Check that your phone is not muted",
   "เสียงแจ้งเตือนออเดอร์": "Order alert sound",
