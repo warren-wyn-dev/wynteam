@@ -13,7 +13,7 @@ Date: 2026-10-04
 ## Design
 
 - The Founder's artwork, unchanged. The W + shop is cropped from it with soft edges and placed on a full-bleed red background in the same reds, so there is no white border.
-- **Merchant** in white Outfit Bold (OFL), with the same soft pink bevel and shadow as the mark.
+- **Merchant** in white Outfit Bold (OFL), with the same soft pink bevel and shadow as the mark. The Founder picked the largest text size (option C).
 - The mark and the word are centred together as one group.
 - Master: `web/public/icons/merchant/v15-1024.png`.
 
