@@ -61,7 +61,7 @@ declare global {
 const MAPLIBRE_VERSION = "5.12.0";
 const MAPLIBRE_JS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
 const MAPLIBRE_CSS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const MAP_STYLE = "/maps/wynos-green.json";
 const FALLBACK_MAP_STYLE: MapStyle = {
   version: 8,
   sources: {
