@@ -1,7 +1,7 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, LocateFixed, MapPin, RefreshCw, Search, Store, X } from "lucide-react";
+import { Check, Info, LocateFixed, MapPin, RefreshCw, Search, Store, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -182,6 +182,7 @@ export function FoodDeliveryMapPicker({
   } | null>(null);
   const [status, setStatus] = useState("");
   const [working, setWorking] = useState(false);
+  const [showAttribution, setShowAttribution] = useState(false);
   const [resolvingPlace, setResolvingPlace] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
@@ -262,7 +263,7 @@ export function FoodDeliveryMapPicker({
           style: MAP_STYLE,
           center: start,
           zoom: initialLocation ? 16 : 5.4,
-          attributionControl: true,
+          attributionControl: false,
         });
         mapRef.current = map;
 
@@ -433,8 +434,6 @@ export function FoodDeliveryMapPicker({
 
   const showLegacySearchAttribution =
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
-  const showOsmReverseAttribution =
-    place?.source === "osm" || results.some((result) => result.source === "osm");
   const showPhotonAttribution =
     place?.source === "photon" || results.some((result) => result.source === "photon");
 
@@ -492,6 +491,32 @@ export function FoodDeliveryMapPicker({
           </div>
         ) : null}
         <div className="wf-map-center-pin" aria-hidden="true"><MapPin size={42} fill="currentColor" /></div>
+        <div className="wf-map-attribution">
+          {showAttribution ? (
+            <div className="wf-map-attribution-panel" role="dialog" aria-label="ข้อมูลแผนที่และแหล่งข้อมูล">
+              <strong>ข้อมูลแผนที่</strong>
+              <a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a>
+              <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">© OpenMapTiles</a>
+              <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
+              {showPhotonAttribution ? (
+                <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Geocoding by Photon</a>
+              ) : null}
+              {showLegacySearchAttribution ? (
+                <a href="https://locationiq.com" target="_blank" rel="noreferrer">Search by LocationIQ</a>
+              ) : null}
+              <button type="button" onClick={() => setShowAttribution(false)}>ปิด</button>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="wf-map-attribution-button"
+            aria-label="ข้อมูลแผนที่และแหล่งข้อมูล"
+            aria-expanded={showAttribution}
+            onClick={() => setShowAttribution((value) => !value)}
+          >
+            <Info size={14} />
+          </button>
+        </div>
         <button className="wf-map-current" type="button" disabled={working} onClick={() => void pickCurrentLocation()}>
           <LocateFixed size={19} /> <span>ตำแหน่งปัจจุบัน</span>
         </button>
@@ -571,19 +596,7 @@ export function FoodDeliveryMapPicker({
         >
           <Check size={18} /> ยืนยันตำแหน่งนี้
         </button>
-        {showLegacySearchAttribution ? (
-          <a href="https://locationiq.com" target="_blank" rel="noreferrer">Search by LocationIQ.com</a>
-        ) : null}
-        {showOsmReverseAttribution ? (
-          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Address © OpenStreetMap contributors</a>
-        ) : null}
-        {showPhotonAttribution ? (
-          <span className="wf-map-geocoder-credit">
-            <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Geocoding by Photon</a>
-            {" · "}
-            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
-          </span>
-        ) : null}
+
       </section>
     </div>
   );
