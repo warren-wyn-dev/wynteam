@@ -334,3 +334,9 @@
 - Scope: web only, no database change. Merge PR #827 (the web auto-deploys).
 - Rollback: revert the merge commit or use Vercel Instant Rollback.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-200 Wynos Merchant own order alert sound
+- Founder: "เพิ่มเสียงการแจ้งเตือน ที่เป็นของตัวเอง ไม่ติดลิขสิทธิ์". After listening and reviewing PR #828: **"อนุมัติ"**.
+- Scope: web only. An original sound synthesized by `web/scripts/generate-merchant-order-sound.py` (no third-party audio), played in the new-order alert. Merge PR #828 (the web auto-deploys).
+- Rollback: revert the merge commit or use Vercel Instant Rollback.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04

@@ -1,6 +1,6 @@
 # Product Task — WYN-200 — Wynos Merchant: own order alert sound
 
-Status: review — PR open, waiting for Founder approval to merge (web only)
+Status: approved — released via PR #828
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
