@@ -415,6 +415,15 @@
 - Rollback: switch ads off in Admin (or `update food_ad_settings set ads_enabled=false`), then revert. Full SQL rollback is in the workflow header.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
 
+### DECISION — [2026-10-04] WYN-208 Wynos Merchant bottom-bar icons (PR #840)
+
+- Founder request: "ออกแบบไอคอนด้านล่างให้หน่อย".
+- Change: Wynos's own icons for the four bottom tabs:
+  - Not selected: outline.
+  - Selected: solid Wynos red with white details.
+- Frontend only. No database, API or auth change.
+- Release: merge PR #840. Web auto-deploys.
+- Rollback: revert PR #840.
 ### DECISION — [2026-10-04] WYN-209 Wynos Merchant app icon (PR #841)
 
 - Founder request:

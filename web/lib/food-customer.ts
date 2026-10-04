@@ -578,6 +578,27 @@ export async function searchFoodPlaces(client: SupabaseClient, query: string): P
   }).slice(0, 8);
 }
 
+
+/** Reverse-geocode a delivery pin through the same server-side LocationIQ proxy. */
+export async function reverseFoodPlace(client: SupabaseClient, location: FoodLocation): Promise<FoodPlace | null> {
+  const { data, error } = await client.functions.invoke("location-search", {
+    body: { mode: "reverse", lat: location.latitude, lon: location.longitude },
+  });
+  if (error) return null;
+  const results = Array.isArray((data as { results?: unknown })?.results) ? (data as { results: unknown[] }).results : [];
+  const row = results[0] as { name?: unknown; address?: unknown; lat?: unknown; lon?: unknown } | undefined;
+  if (!row) return null;
+  const latitude = Number(row.lat);
+  const longitude = Number(row.lon);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return {
+    name: typeof row.name === "string" ? row.name : "",
+    address: typeof row.address === "string" ? row.address : null,
+    latitude,
+    longitude,
+  };
+}
+
 /**
  * WYN-197: free place search over the store's own list (food_store_places).
  * Returns null when the list is not available yet (migration not applied), so

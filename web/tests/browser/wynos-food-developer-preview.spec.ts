@@ -22,6 +22,47 @@ test("WYNOS Food is a separate closed developer-only surface", () => {
   expect(manifest).toContain('theme_color: "#e32636"');
 });
 
+test("WYNOS Food hides the persistent Social bottom navigation", () => {
+  const host = read("components/app-bottom-nav-runtime.tsx");
+
+  expect(host).toContain('const hideForFood = pathname === "/food" || pathname.startsWith("/food/");');
+  expect(host).toContain("if (hideForFood || !navState?.visible || !navState.userId) return null;");
+});
+
+test("WYNOS Food delivery address uses an interactive map pin flow", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const map = read("components/food/food-delivery-map-picker.tsx");
+  const data = read("lib/food-customer.ts");
+
+  expect(app).toContain("ค้นหาและปักหมุดบนแผนที่");
+  expect(app).toContain("<FoodDeliveryMapPicker");
+  expect(map).toContain("https://tiles.openfreemap.org/styles/liberty");
+  expect(map).toContain("Search by LocationIQ.com");
+  expect(map).toContain("เลื่อนแผนที่ให้หมุดตรงจุดรับอาหาร");
+  expect(map).toContain("currentFoodLocation()");
+  expect(map).toContain("searchFoodPlaces(client, trimmed)");
+  expect(map).toContain("reverseFoodPlace(client, next)");
+  expect(data).toContain('body: { mode: "reverse", lat: location.latitude, lon: location.longitude }');
+});
+
+test("WYNOS Food profile is delivery-specific and separate from Social profile", () => {
+  const app = read("components/food/wynos-food-developer-app.tsx");
+  const data = read("lib/food-customer.ts");
+
+  expect(app).toContain("โปรไฟล์ WYNOS Food");
+  expect(app).toContain("ข้อมูลสำหรับการสั่งและจัดส่งอาหารเท่านั้น");
+  expect(app).toContain("ชื่อผู้รับ");
+  expect(app).toContain("เบอร์โทร");
+  expect(app).toContain("ที่อยู่หลัก");
+  expect(app).toContain("โลเคชั่น");
+  expect(app).toContain("รายละเอียดเพิ่มเติม");
+  expect(app).toContain("ข้อมูลนี้เป็นของ WYNOS Food เท่านั้น และไม่แก้ไขโปรไฟล์ WYNOS");
+  expect(app).toContain("showPin={true}");
+  expect(app).not.toContain('href="/profile/');
+  expect(data).toContain('.from("food_customer_addresses")');
+  expect(data).toContain('client.rpc("food_upsert_customer_address"');
+});
+
 test("WYNOS Food messages stay inside Food and never open Social Chat", () => {
   const app = read("components/food/wynos-food-developer-app.tsx");
 
@@ -123,6 +164,7 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   const sql = read("../supabase/migrations_wynos_food_delivery_zone_v1.sql");
   const lib = read("lib/food-customer.ts");
   const app = read("components/food/wynos-food-developer-app.tsx");
+  const map = read("components/food/food-delivery-map-picker.tsx");
   const merchant = read("components/merchant/wynos-merchant-app.tsx");
 
   // Server owns the fee and the radius; old signatures cannot bypass them.
@@ -140,7 +182,7 @@ test("WYN-196 delivery zone: distance fee and radius are enforced on the server"
   expect(lib).toContain('client.functions.invoke("location-search"');
   expect(app).toContain("location: storeHasDeliveryZone(store) ? addressLocation(address) : null");
   expect(app).toContain("disabled={!address || busy || quoteLoading || Boolean(blockedReason)}");
-  expect(app).toContain('aria-label="ค้นหา"');
+  expect(map).toContain('aria-label="ค้นหาสถานที่หรือที่อยู่"');
   expect(merchant).toContain("Math.ceil(");
   expect(app).toContain("<DeliveryPinPicker");
   expect(merchant).toContain("delivery_fee_per_km: Number(form.delivery_fee_per_km || 0)");
@@ -153,7 +195,7 @@ test("WYN-197 free place search uses the store's own place list", () => {
   const sql = read("../supabase/migrations_wynos_food_store_places_v1.sql");
   const lib = read("lib/food-customer.ts");
   const merchantLib = read("lib/food-merchant.ts");
-  const app = read("components/food/wynos-food-developer-app.tsx");
+  const map = read("components/food/food-delivery-map-picker.tsx");
   const merchant = read("components/merchant/wynos-merchant-app.tsx");
 
   // Only the store's managers write; customers read through a scoped RPC.
@@ -166,8 +208,8 @@ test("WYN-197 free place search uses the store's own place list", () => {
 
   // Food searches the store list first; the geocoder is only a fallback.
   expect(lib).toContain('client.rpc("food_search_store_places"');
-  expect(app).toContain("let next = storeId ? (await searchStorePlaces(client, storeId, query)) ?? [] : [];");
-  expect(app).toContain("next = await searchFoodPlaces(client, query).catch(() => []);");
+  expect(map).toContain("let next = storeId ? (await searchStorePlaces(client, storeId, trimmed)) ?? [] : [];");
+  expect(map).toContain("if (!next.length) next = await searchFoodPlaces(client, trimmed);");
 
   // Merchant manages the list and hides it until the table exists.
   expect(merchantLib).toContain('.from("food_store_places")');

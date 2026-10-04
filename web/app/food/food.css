@@ -1064,3 +1064,439 @@
   .wf-menu-list { grid-template-columns: 1fr; }
   .wf-menu-image { height: 170px; }
 }
+
+
+/* WYNOS Food customer profile — separate from WYNOS Social */
+.wf-food-profile-card {
+  padding: 16px;
+  border: 1px solid #ececef;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 5%);
+  display: grid;
+  gap: 15px;
+}
+.wf-food-profile-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.wf-food-profile-head > span {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--wf-red-soft);
+  color: var(--wf-red);
+  display: grid;
+  place-items: center;
+}
+.wf-food-profile-head > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.wf-food-profile-head strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+.wf-food-profile-head small {
+  color: var(--wf-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.wf-food-profile-head em {
+  min-height: 25px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--wf-red-soft);
+  color: var(--wf-red-dark);
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.wf-food-profile-details {
+  padding: 2px 0;
+  border-top: 1px solid #f0f0f1;
+  display: grid;
+}
+.wf-food-profile-details > div {
+  min-height: 54px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f1;
+  display: grid;
+  grid-template-columns: minmax(104px, .7fr) minmax(0, 1.3fr);
+  gap: 12px;
+  align-items: center;
+}
+.wf-food-profile-details > div:last-child { border-bottom: 0; }
+.wf-food-profile-details span {
+  color: var(--wf-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.wf-food-profile-details span svg { color: var(--wf-red); }
+.wf-food-profile-details strong,
+.wf-food-profile-details p {
+  margin: 0;
+  color: var(--wf-text);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.wf-food-profile-details .is-ready,
+.wf-location-ready { color: var(--wf-green); }
+.wf-food-profile-details .is-missing,
+.wf-location-missing { color: #b45b00; }
+.wf-food-profile-empty {
+  min-height: 190px;
+  padding: 12px 4px 2px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--wf-muted);
+}
+.wf-food-profile-empty > svg { color: var(--wf-red); }
+.wf-food-profile-empty strong {
+  color: var(--wf-text);
+  font-size: 14px;
+}
+.wf-food-profile-empty p {
+  max-width: 330px;
+  margin: 0 0 6px;
+  color: var(--wf-secondary);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.wf-location-ready,
+.wf-location-missing {
+  margin-top: 2px;
+  font-size: 9.5px !important;
+  font-weight: 700;
+}
+.wf-form-note {
+  padding: 10px 12px;
+  border: 1px solid #ffd7db;
+  border-radius: 12px;
+  background: var(--wf-red-soft);
+  color: var(--wf-red-dark);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.wf-form > label > b {
+  color: var(--wf-red);
+  font-size: 11px;
+}
+.wf-form > label > small {
+  color: var(--wf-muted);
+  font-size: 9.5px;
+  font-weight: 500;
+}
+.wf-form .wf-primary:disabled {
+  background: #d4d4d7;
+  color: #fff;
+  opacity: 1;
+}
+
+@media (max-width: 390px) {
+  .wf-food-profile-card { padding: 14px; }
+  .wf-food-profile-head { grid-template-columns: 42px minmax(0, 1fr); }
+  .wf-food-profile-head > em {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .wf-food-profile-details > div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+}
+
+
+/* WYNOS Food interactive delivery map */
+.wf-pin--map { gap: 10px; }
+.wf-pin-summary {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.wf-pin-summary > span {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--wf-surface);
+  color: var(--wf-muted);
+  display: grid;
+  place-items: center;
+}
+.wf-pin-summary > span.is-ready {
+  background: var(--wf-red-soft);
+  color: var(--wf-red);
+}
+.wf-pin-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.wf-pin-summary strong { font-size: 12.5px; }
+.wf-pin-summary small { color: var(--wf-secondary); font-size: 10.5px; line-height: 1.45; }
+.wf-pin-summary em { color: var(--wf-muted); font-size: 9.5px; font-style: normal; font-variant-numeric: tabular-nums; }
+.wf-pin-clear {
+  justify-self: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--wf-secondary);
+  font-size: 10.5px;
+}
+
+.wf-map-picker {
+  position: fixed;
+  z-index: 160;
+  inset: 0;
+  width: 100%;
+  min-height: 100dvh;
+  background: #fff;
+  color: #111;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+.wf-map-picker-head {
+  min-height: calc(58px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 12px 0;
+  border-bottom: 1px solid #ececef;
+  background: rgb(255 255 255 / 96%);
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  align-items: center;
+}
+.wf-map-picker-head > button {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: #f6f6f7;
+  color: #111;
+  display: grid;
+  place-items: center;
+}
+.wf-map-picker-head > div {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  text-align: center;
+}
+.wf-map-picker-head strong { font-size: 14px; font-weight: 800; }
+.wf-map-picker-head small { color: #77777b; font-size: 9.5px; }
+
+.wf-map-search-wrap {
+  position: relative;
+  z-index: 4;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f1;
+  background: #fff;
+}
+.wf-map-search {
+  min-height: 46px;
+  padding: 0 8px 0 12px;
+  border: 1px solid #e7e7e9;
+  border-radius: 14px;
+  background: #f7f7f8;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+.wf-map-search > svg { color: var(--wf-red); }
+.wf-map-search input {
+  min-width: 0;
+  width: 100%;
+  height: 44px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #111;
+  font: inherit;
+  font-size: 16px;
+}
+.wf-map-search button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--wf-red);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+}
+.wf-map-search button:disabled { opacity: .4; }
+.wf-map-results {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% - 4px);
+  left: 12px;
+  right: 12px;
+  max-height: min(44dvh, 330px);
+  border: 1px solid #e7e7e9;
+  border-radius: 15px;
+  background: #fff;
+  overflow-y: auto;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 15%);
+}
+.wf-map-results button {
+  width: 100%;
+  min-height: 58px;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid #f0f0f1;
+  background: #fff;
+  color: #111;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  text-align: left;
+}
+.wf-map-results button:last-child { border-bottom: 0; }
+.wf-map-results button > svg { margin-top: 2px; color: var(--wf-red); }
+.wf-map-results button > span { min-width: 0; display: grid; gap: 2px; }
+.wf-map-results strong { font-size: 12px; }
+.wf-map-results small { color: #77777b; font-size: 10px; line-height: 1.4; }
+
+.wf-map-canvas-wrap {
+  position: relative;
+  min-height: 280px;
+  background: #ececef;
+  overflow: hidden;
+}
+.wf-map-canvas { position: absolute; inset: 0; }
+.wf-map-loading {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  background: #f4f4f5;
+  color: #77777b;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+}
+.wf-map-center-pin {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 56px;
+  color: var(--wf-red);
+  transform: translate(-50%, -88%);
+  filter: drop-shadow(0 5px 8px rgb(0 0 0 / 22%));
+  pointer-events: none;
+}
+.wf-map-center-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 14px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 18%);
+  transform: translateX(-50%);
+  filter: blur(2px);
+}
+.wf-map-current {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  bottom: 12px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #e1e1e3;
+  border-radius: 13px;
+  background: rgb(255 255 255 / 96%);
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 10%);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.wf-map-current > svg { color: var(--wf-red); }
+.wf-map-current:disabled { opacity: .55; }
+
+.wf-map-confirm {
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid #e9e9eb;
+  background: #fff;
+  display: grid;
+  gap: 9px;
+}
+.wf-map-confirm-copy {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.wf-map-confirm-copy > span {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--wf-red-soft);
+  color: var(--wf-red);
+  display: grid;
+  place-items: center;
+}
+.wf-map-confirm-copy > div { min-width: 0; display: grid; gap: 2px; }
+.wf-map-confirm-copy small { color: #77777b; font-size: 9.5px; }
+.wf-map-confirm-copy strong {
+  overflow: hidden;
+  color: #111;
+  font-size: 11.5px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.wf-map-confirm > p {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff5f6;
+  color: #a9000e;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.wf-map-confirm .wf-primary {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.wf-map-confirm > a {
+  justify-self: center;
+  color: #77777b;
+  font-size: 8.5px;
+  text-decoration: none;
+}
+
+@media (min-width: 680px) {
+  .wf-map-picker {
+    width: min(100%, 680px);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    border-inline: 1px solid #e7e7e9;
+  }
+}
