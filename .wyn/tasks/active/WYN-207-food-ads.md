@@ -1,6 +1,6 @@
 # Product Task — WYN-207 — WYNOS Food pay-per-click ads (Admin-controlled)
 
-Status: awaiting Founder approval (PR review, merge, production migration)
+Status: approved — releasing PR #836 and applying the migration
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 

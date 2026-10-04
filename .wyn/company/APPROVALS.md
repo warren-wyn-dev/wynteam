@@ -399,3 +399,18 @@
   3. Run `deploy-admin.yml`.
 - Rollback: revert the merge commits. The SQL rollback for WYN-206 is in the workflow header.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-207 WYNOS Food pay-per-click ads (PR #836)
+- Founder decisions: pay per click with WYNOS Admin control, PromptPay plus slip, Food home recommendations and top of search. After reviewing PR #836: **"อนุมัติ"**.
+- Scope:
+  - Admin ad settings (off by default), slip review, stop/allow store ads.
+  - Merchant ad credit, top-up and pause.
+  - Food store directory with labelled ads.
+  - Server-side click charging: once per customer per store per day, never for the store's own team.
+- Security decisions accepted:
+  - RLS on with no direct grants (balances cannot be edited).
+  - Ad slip storage scoped to the store's own folder.
+  - Admin-only money actions, audited.
+- Release: merge PR #836, dispatch `food-apply-wyn207.yml` with `APPLY-WYN-207`, run `deploy-admin.yml`. The Founder then sets WYNOS PromptPay and price in Admin and switches ads on.
+- Rollback: switch ads off in Admin (or `update food_ad_settings set ads_enabled=false`), then revert. Full SQL rollback is in the workflow header.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
