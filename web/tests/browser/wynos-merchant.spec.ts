@@ -523,3 +523,22 @@ test("WYN-213 merchant access hardening: no developer cross-store access, legacy
   expect(settleButton).toContain("expectedAmount: owedAmount, expectedCount: owedOrders");
   expect(workflow).toContain("github.event.inputs.confirm == 'APPLY-WYN-213'");
 });
+
+test("WYN-214 Admin merchant polish: service area, order money, refunds, safe approvals", () => {
+  const sql = read("../supabase/migrations_wynos_admin_merchant_polish_v1.sql");
+  const store = read("../admin/app/(admin)/food/stores/[id]/page.tsx");
+  const orders = read("../admin/app/(admin)/food/orders/page.tsx");
+  const order = read("../admin/app/(admin)/food/orders/[id]/page.tsx");
+  const card = read("../admin/components/admin/merchant-review-card.tsx");
+
+  expect(sql).toContain("'in_service_area', internal.food_in_service_area(v_store.latitude, v_store.longitude),");
+  expect(sql).toContain("or (p_status = 'refund_pending' and o.refund_status in ('pending', 'failed'))");
+  expect(store).toContain('{store.in_service_area ? "อยู่ในเขตมหาสารคาม" : "อยู่นอกเขต / ยังไม่ปักหมุด"}');
+  expect(orders).toContain('{ value: "refund_pending", label: "รอคืนเงิน" },');
+  expect(orders).toContain("orders.length >= ORDER_LIMIT");
+  // The breakdown now adds up: discounts are shown.
+  expect(order).toContain("Number(order.campaign_discount ?? 0) > 0");
+  // Approval is final: confirm first, errors in Thai.
+  expect(card).toContain("if (!window.confirm(`${what}? อนุมัติแล้วย้อนกลับไม่ได้`)) return;");
+  expect(card).toContain('return "คำขอนี้อนุมัติไปแล้ว เปลี่ยนไม่ได้";');
+});

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   FOOD_ORDER_STATUS_LABEL,
   FOOD_PAYMENT_STATUS_LABEL,
+  FOOD_REFUND_STATUS_LABEL,
   fetchAdminFoodOrders,
   formatBaht,
   formatThaiDate,
@@ -18,7 +19,10 @@ const FILTERS: Array<{ value: "all" | AdminFoodOrderStatusFilter; label: string 
   { value: "active", label: "กำลังดำเนินการ" },
   { value: "delivered", label: "ส่งแล้ว" },
   { value: "cancelled", label: "ยกเลิก" },
+  { value: "payment_review", label: "รอตรวจการชำระ" },
+  { value: "refund_pending", label: "รอคืนเงิน" },
 ];
+const ORDER_LIMIT = 300;
 
 /** WYN-203: orders across every store, for complaints (admin only: customer data). */
 export default async function FoodOrdersPage({
@@ -40,6 +44,7 @@ export default async function FoodOrdersPage({
     status: resolved === "all" ? undefined : resolved,
     query: q,
     storeId: store,
+    limit: ORDER_LIMIT,
   });
   const keep = (next: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
@@ -82,6 +87,9 @@ export default async function FoodOrdersPage({
         {store ? <Link href={keep({ store: undefined })} className="inline-flex min-h-11 items-center rounded-full border px-4 text-sm text-muted-foreground hover:bg-muted">เฉพาะร้านนี้ ✕</Link> : null}
       </div>
 
+      {orders.length >= ORDER_LIMIT ? (
+        <p className="text-sm text-muted-foreground">{`แสดง ${ORDER_LIMIT} รายการล่าสุด ใช้ตัวกรองหรือค้นหาเพื่อดูรายการที่เก่ากว่า`}</p>
+      ) : null}
       {orders.length === 0 ? (
         <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่พบออเดอร์</div>
       ) : (
@@ -95,6 +103,7 @@ export default async function FoodOrdersPage({
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <Badge variant="gray-tonal">{FOOD_ORDER_STATUS_LABEL[order.status] ?? order.status}</Badge>
                 <Badge variant="outline">{FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
+                {order.refund_status !== "none" ? <Badge variant="destructive">{FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}</Badge> : null}
                 <span className="font-medium tabular-nums">{formatBaht(order.total)}</span>
               </div>
             </Link>

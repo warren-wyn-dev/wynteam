@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   FOOD_ORDER_STATUS_LABEL,
   FOOD_PAYMENT_STATUS_LABEL,
+  FOOD_REFUND_STATUS_LABEL,
   fetchAdminFoodOrderDetail,
   formatBaht,
   formatThaiDate,
@@ -42,7 +43,7 @@ export default async function FoodOrderDetailPage({
           <h2 className="text-xl font-semibold">ออเดอร์ #{order.order_number}</h2>
           <Badge variant="gray-tonal">{FOOD_ORDER_STATUS_LABEL[order.status] ?? order.status}</Badge>
           <Badge variant="outline">{FOOD_PAYMENT_STATUS_LABEL[order.payment_status] ?? order.payment_status}</Badge>
-          {order.refund_status !== "none" ? <Badge variant="destructive">คืนเงิน: {order.refund_status}</Badge> : null}
+          {order.refund_status !== "none" ? <Badge variant="destructive">{FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}</Badge> : null}
         </div>
         <p className="text-sm text-muted-foreground">
           ร้าน <Link href={`/food/stores/${order.store_id}`} className="hover:underline">{detail.store_name ?? "—"}</Link> · สั่งเมื่อ {formatThaiDate(order.created_at)}
@@ -71,6 +72,12 @@ export default async function FoodOrderDetailPage({
           <div className="mt-3 border-t pt-2 text-sm">
             <div className="flex justify-between"><span>ค่าอาหาร</span><span className="tabular-nums">{formatBaht(order.subtotal)}</span></div>
             <div className="flex justify-between"><span>ค่าส่ง</span><span className="tabular-nums">{formatBaht(order.delivery_fee)}</span></div>
+            {Number(order.campaign_discount ?? 0) > 0 ? (
+              <div className="flex justify-between"><span>{`ส่วนลด${order.campaign_name ? ` (${String(order.campaign_name)})` : ""}`}</span><span className="tabular-nums">−{formatBaht(Number(order.campaign_discount))}</span></div>
+            ) : null}
+            {Number(order.delivery_discount ?? 0) > 0 ? (
+              <div className="flex justify-between"><span>ส่วนลดค่าส่ง</span><span className="tabular-nums">−{formatBaht(Number(order.delivery_discount))}</span></div>
+            ) : null}
             <div className="flex justify-between font-semibold"><span>รวม</span><span className="tabular-nums">{formatBaht(order.total)}</span></div>
           </div>
         </div>
@@ -85,6 +92,13 @@ export default async function FoodOrderDetailPage({
             <EvidenceError label="มีสลิปแนบไว้ แต่โหลดไฟล์ไม่สำเร็จ" />
           ) : <p className="text-sm text-muted-foreground">ไม่มีสลิป</p>}
           {order.payment_note ? <p className="mt-2 text-sm text-muted-foreground">{order.payment_note}</p> : null}
+          {order.refund_status !== "none" ? (
+            <p className="mt-2 text-sm">
+              {FOOD_REFUND_STATUS_LABEL[order.refund_status] ?? order.refund_status}
+              {order.refund_requested_at ? ` · ขอคืนเมื่อ ${formatThaiDate(String(order.refund_requested_at))}` : ""}
+              {order.refund_note ? ` · ${String(order.refund_note)}` : ""}
+            </p>
+          ) : null}
         </div>
         <div className="rounded-xl border p-4">
           <h3 className="mb-2 text-sm font-semibold">หลักฐานการจัดส่ง</h3>

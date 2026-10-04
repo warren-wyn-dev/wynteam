@@ -87,6 +87,9 @@ export default async function FoodStoresPage({
           </div>
         </div>
 
+        {stores.length >= 500 ? (
+          <p className="text-sm text-muted-foreground">แสดง 500 ร้านแรก ใช้ช่องค้นหาเพื่อหาร้านที่ไม่อยู่ในรายการ</p>
+        ) : null}
         {stores.length === 0 ? (
           <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่พบร้าน</div>
         ) : (
