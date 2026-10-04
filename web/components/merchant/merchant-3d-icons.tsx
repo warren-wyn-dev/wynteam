@@ -7,7 +7,7 @@ import { useId } from "react";
  * artwork). Each icon is one object lit from the top-left: a light-to-base
  * top face, a base-to-dark body, a soft white highlight and a floor shadow.
  */
-export type MerchantIcon3DName = "orders" | "campaign" | "menu" | "store" | "reports" | "bell" | "sound" | "install";
+export type MerchantIcon3DName = "orders" | "ads" | "campaign" | "promotion" | "finance" | "menu" | "store" | "reports" | "bell" | "sound" | "install";
 
 type Tone = "red" | "amber" | "green" | "blue" | "violet";
 
@@ -21,7 +21,10 @@ const TONES: Record<Tone, { light: string; base: string; dark: string }> = {
 
 const TONE_OF: Record<MerchantIcon3DName, Tone> = {
   orders: "red",
-  campaign: "amber",
+  ads: "amber",
+  campaign: "blue",
+  promotion: "red",
+  finance: "green",
   menu: "green",
   store: "blue",
   reports: "violet",
@@ -45,7 +48,7 @@ const SHAPES: Record<MerchantIcon3DName, (p: Paint) => React.ReactNode> = {
       <rect x="10" y="19.4" width="15" height="2" rx="1" fill={SHINE} />
     </>
   ),
-  campaign: (p) => (
+  ads: (p) => (
     <>
       <path d="M14.5 26.5 17 36a2 2 0 0 0 2.4 1.4l1.4-.4a2 2 0 0 0 1.4-2.4l-2-7.2z" fill={p.dark} />
       <path d="M12 19.5 31.5 11a2.6 2.6 0 0 1 3.6 2.4v19.2a2.6 2.6 0 0 1-3.6 2.4L12 26.5z" fill={p.top} />
@@ -53,6 +56,38 @@ const SHAPES: Record<MerchantIcon3DName, (p: Paint) => React.ReactNode> = {
       <ellipse cx="34.6" cy="23" rx="2.6" ry="10.4" fill={p.dark} fillOpacity=".55" />
       <path d="M15.5 19.4 29.5 13.4" stroke={SHINE} strokeWidth="2" strokeLinecap="round" />
       <path d="M39.5 17.5c2.2 3.6 2.2 7.4 0 11" fill="none" stroke={p.base} strokeWidth="2.6" strokeLinecap="round" />
+    </>
+  ),
+  campaign: (p) => (
+    <>
+      <rect x="9" y="21" width="30" height="19" rx="3" fill={p.body} />
+      <rect x="21" y="21" width="6" height="19" fill="#ffd166" />
+      <rect x="7" y="15" width="34" height="8" rx="3" fill={p.top} />
+      <rect x="21" y="15" width="6" height="8" fill="#ffe08a" />
+      <path d="M24 15c-2.5-6-10-7.5-10.5-3.2C13 15 19 15.5 24 15zM24 15c2.5-6 10-7.5 10.5-3.2C35 15 29 15.5 24 15z" fill="#ffc24b" stroke="#e9a21a" strokeWidth="1.2" />
+      <rect x="10" y="16.4" width="10" height="2" rx="1" fill={SHINE} />
+      <path d="M12 25v11" stroke={SHINE} strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  promotion: (p) => (
+    <>
+      <path d="M8 22.5V11a3 3 0 0 1 3-3h11.5a3 3 0 0 1 2.1.9l14.5 14.5a3 3 0 0 1 0 4.2L27.6 39.1a3 3 0 0 1-4.2 0L8.9 24.6a3 3 0 0 1-.9-2.1z" fill={p.top} />
+      <path d="M38.6 28.4 27.6 39.4a3 3 0 0 1-4.2 0L9 25l1.2-1.6 14.6 14.4a2 2 0 0 0 2.8 0L39 26.6z" fill={p.dark} fillOpacity=".55" />
+      <circle cx="15.5" cy="15.5" r="3" fill="#fff" />
+      <path d="m20 30 9.5-9.5" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="21.5" cy="23.5" r="2" fill="#fff" />
+      <circle cx="28" cy="29" r="2" fill="#fff" />
+      <path d="M11 11.5v7" stroke={SHINE} strokeWidth="1.8" strokeLinecap="round" />
+    </>
+  ),
+  finance: (p) => (
+    <>
+      <path d="M11 14 30 8.5a2.5 2.5 0 0 1 3.1 1.7L34.5 15H11z" fill={p.dark} />
+      <rect x="7" y="14" width="34" height="25" rx="5" fill={p.top} />
+      <path d="M7 31h34v3a5 5 0 0 1-5 5H12a5 5 0 0 1-5-5z" fill={p.body} />
+      <rect x="29" y="21.5" width="13" height="9" rx="4.5" fill={p.dark} />
+      <circle cx="34" cy="26" r="2.2" fill="#ffd166" />
+      <rect x="10" y="16.5" width="15" height="2" rx="1" fill={SHINE} />
     </>
   ),
   menu: (p) => (

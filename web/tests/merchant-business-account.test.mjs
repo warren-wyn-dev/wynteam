@@ -85,7 +85,8 @@ const campaignMigration = fs.readFileSync(new URL("../../supabase/migrations_wyn
 
 test("Merchant Campaign Center manages scheduled percentage, fixed and free-delivery promotions", () => {
   assert.match(app, /MerchantCampaignCenter/);
-  assert.match(campaignUi, /Campaign Center/);
+  // WYN-205: shown as "โปรโมชั่นของร้าน" (the store's own discounts) in Merchant.
+  assert.match(campaignUi, /โปรโมชั่นของร้าน/);
   assert.match(campaignUi, /percentage/);
   assert.match(campaignUi, /fixed/);
   assert.match(campaignUi, /free_delivery/);

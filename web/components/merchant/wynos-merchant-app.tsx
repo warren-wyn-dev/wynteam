@@ -35,7 +35,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
-import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
+import { MerchantIcon3D, type MerchantIcon3DName } from "@/components/merchant/merchant-3d-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, previewMerchantOrderSound, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
@@ -73,8 +73,9 @@ import { currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, t
 
 // WYN-204: four bottom tabs like LINE MAN Merchant. Reports, store settings
 // and campaigns open from "เพิ่มเติม" (and the home shortcuts) as sub-pages.
-type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "campaigns";
-const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "campaigns"]);
+// WYN-205: finance, ads, WYNOS campaigns and the store's own promotions.
+type MerchantTab = "home" | "orders" | "menu" | "more" | "reports" | "store" | "finance" | "ads" | "campaigns" | "promotions";
+const MORE_PAGES: ReadonlySet<MerchantTab> = new Set(["more", "reports", "store", "finance", "ads", "campaigns", "promotions"]);
 type OrderFilter = "new" | "cooking" | "delivery" | "done";
 
 type InstallPromptEvent = Event & {
@@ -487,7 +488,7 @@ function MerchantInner({
   // WYN-201: pull down to refresh on the list tabs (forms and sheets are
   // excluded by the hook: dialogs and inputs never start a pull).
   const pull = usePullToRefresh({
-    enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports",
+    enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports" || tab === "finance",
     onRefresh: async () => { await load(true); },
   });
 
@@ -535,7 +536,6 @@ function MerchantInner({
             todayOrders={todayOrders}
             todaySales={todaySales}
             attentionOrders={attentionOrders}
-            activeOrderCount={activeOrderCount}
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
@@ -586,7 +586,7 @@ function MerchantInner({
           />
         ) : null}
 
-        {tab === "reports" || tab === "store" || tab === "campaigns" ? (
+        {MORE_PAGES.has(tab) && tab !== "more" ? (
           <button className="wm-back" type="button" onClick={() => setTab("more")}><ChevronLeft size={20} />เพิ่มเติม</button>
         ) : null}
 
@@ -605,11 +605,31 @@ function MerchantInner({
 
         {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
 
-        {tab === "campaigns" && store ? (
+        {tab === "finance" && store ? <FinancePanel store={store} orders={orders} onEditStore={() => setStoreEditing(true)} /> : null}
+
+        {tab === "promotions" && store ? (
           <>
-            <div className="wm-page-heading"><div><small>เพิ่มยอดขาย</small><h1>แคมเปญ</h1></div></div>
+            <div className="wm-page-heading"><div><small>ส่วนลดที่ร้านตั้งเอง</small><h1>โปรโมชั่น</h1></div></div>
             <MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={setMessage} />
           </>
+        ) : null}
+
+        {tab === "campaigns" && store ? (
+          <ComingSoonPanel
+            icon="campaign"
+            eyebrow="จาก WYNOS"
+            title="แคมเปญ"
+            lines={["ทีม WYNOS ออกแบบแคมเปญให้ร้านเลือกเข้าร่วม", "ร้านที่เข้าร่วมได้ป้ายแคมเปญและขึ้นหน้ารวมใน WYNOS Food"]}
+          />
+        ) : null}
+
+        {tab === "ads" && store ? (
+          <ComingSoonPanel
+            icon="ads"
+            eyebrow="ดันร้านให้ลูกค้าเห็นก่อน"
+            title="โฆษณา"
+            lines={["ขึ้นร้านแนะนำหน้าแรกและอันดับบนสุดตอนค้นหา", "จ่ายต่อคลิก เติมเครดิตด้วย PromptPay"]}
+          />
         ) : null}
 
         {tab === "store" && store ? (
@@ -725,7 +745,6 @@ function HomePanel({
   todayOrders,
   todaySales,
   attentionOrders,
-  activeOrderCount,
   installPrompt,
   onInstall,
   onReload,
@@ -743,7 +762,6 @@ function HomePanel({
   todayOrders: FoodOrder[];
   todaySales: number;
   attentionOrders: FoodOrder[];
-  activeOrderCount: number;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onReload: () => void;
@@ -818,13 +836,10 @@ function HomePanel({
       ) : null}
 
       <nav className="wm-shortcuts" aria-label="ทางลัด">
-        <button type="button" onClick={onOpenOrders}>
-          {activeOrderCount ? <b className="wm-shortcut-badge">{activeOrderCount}</b> : null}
-          <MerchantIcon3D name="orders" size={52} />รอจัดการ
-        </button>
-        <button type="button" onClick={() => onOpenTab("menu")}><MerchantIcon3D name="menu" size={52} />เมนู</button>
+        <button type="button" onClick={() => onOpenTab("finance")}><MerchantIcon3D name="finance" size={52} />การเงิน</button>
+        <button type="button" onClick={() => onOpenTab("ads")}><MerchantIcon3D name="ads" size={52} />โฆษณา</button>
         <button type="button" onClick={() => onOpenTab("campaigns")}><MerchantIcon3D name="campaign" size={52} />แคมเปญ</button>
-        <button type="button" onClick={() => onOpenTab("reports")}><MerchantIcon3D name="reports" size={52} />รายงาน</button>
+        <button type="button" onClick={() => onOpenTab("promotions")}><MerchantIcon3D name="promotion" size={52} />โปรโมชั่น</button>
       </nav>
 
       <section className="wm-section">
@@ -903,7 +918,10 @@ function MorePanel({
         <div className="wm-section-title"><h2>เครื่องมือร้าน</h2></div>
         <div className="wm-service-grid">
           <button type="button" onClick={() => onOpenTab("reports")}><span className="wm-tile-icon"><MerchantIcon3D name="reports" size={52} /></span>รายงานยอดขาย</button>
+          <button type="button" onClick={() => onOpenTab("finance")}><span className="wm-tile-icon"><MerchantIcon3D name="finance" size={52} /></span>การเงิน</button>
+          <button type="button" onClick={() => onOpenTab("promotions")}><span className="wm-tile-icon"><MerchantIcon3D name="promotion" size={52} /></span>โปรโมชั่น</button>
           <button type="button" onClick={() => onOpenTab("campaigns")}><span className="wm-tile-icon"><MerchantIcon3D name="campaign" size={52} /></span>แคมเปญ</button>
+          <button type="button" onClick={() => onOpenTab("ads")}><span className="wm-tile-icon"><MerchantIcon3D name="ads" size={52} /></span>โฆษณา</button>
           <button type="button" onClick={() => onOpenTab("store")}><span className="wm-tile-icon"><MerchantIcon3D name="store" size={52} /></span>ตั้งค่าร้าน</button>
           <button type="button" onClick={onNotifications}><span className="wm-tile-icon"><MerchantIcon3D name="bell" size={52} /></span>การแจ้งเตือน</button>
           <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span className="wm-tile-icon"><MerchantIcon3D name="sound" size={52} /></span>ลองเสียงออเดอร์</button>
@@ -1048,6 +1066,86 @@ function MenuPanel({
         })}
       </div>
       {!menu.length ? <div className="wm-empty"><MenuIcon size={38} strokeWidth={1.5} /><strong>ยังไม่มีเมนู</strong><p>เพิ่มอาหารหรือเครื่องดื่มเพื่อเริ่มรับออเดอร์</p></div> : null}
+    </>
+  );
+}
+
+/** WYN-205: money in and out, from the orders already loaded in Merchant. */
+function FinancePanel({ store, orders, onEditStore }: { store: FoodStore; orders: FoodOrder[]; onEditStore: () => void }) {
+  const now = new Date();
+  const week = startOfWeek();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const paidAt = (order: FoodOrder) => order.paid_at ?? order.updated_at;
+  const sum = (rows: FoodOrder[]) => rows.reduce((total, row) => total + Number(row.total), 0);
+  const paid = orders.filter((order) => order.payment_status === "paid");
+  const today = paid.filter((order) => sameLocalDay(paidAt(order)));
+  const weekly = paid.filter((order) => new Date(paidAt(order)) >= week);
+  const monthly = paid.filter((order) => new Date(paidAt(order)) >= monthStart);
+  const waiting = orders.filter((order) => order.payment_status === "submitted");
+  const refunded = orders.filter((order) => order.payment_status === "refunded" || order.refund_status === "refunded");
+  const refundPending = orders.filter((order) => order.refund_status === "pending");
+  const recent = orders
+    .filter((order) => order.payment_status === "paid" || order.payment_status === "submitted" || order.payment_status === "refunded" || order.refund_status !== "none")
+    .slice(0, 20);
+  const last4 = (value: string | null) => (value ? `••••${value.replace(/\s/g, "").slice(-4)}` : "");
+  const channels = [
+    store.promptpay_id ? `PromptPay ${store.promptpay_name ?? ""} ${last4(store.promptpay_id)}`.trim() : null,
+    store.bank_account_number ? `${store.bank_name ?? "บัญชีธนาคาร"} ${last4(store.bank_account_number)}` : null,
+    store.payment_qr_path ? "QR รับเงิน" : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return (
+    <>
+      <div className="wm-page-heading"><div><small>เงินเข้าร้าน</small><h1>การเงิน</h1></div></div>
+      <div className="wm-report-hero"><small>เงินเข้าวันนี้</small><strong>{money(sum(today))}</strong><span>{today.length} รายการยืนยันรับเงินแล้ว</span></div>
+      <div className="wm-metrics wm-metrics--reports">
+        <Metric label="สัปดาห์นี้" value={money(sum(weekly))} hint={`${weekly.length} รายการ`} />
+        <Metric label="เดือนนี้" value={money(sum(monthly))} hint={`${monthly.length} รายการ`} />
+        <Metric label="รอตรวจสลิป" value={money(sum(waiting))} hint={`${waiting.length} รายการ`} />
+        <Metric label="คืนเงินแล้ว" value={money(sum(refunded))} hint={refundPending.length ? `รอคืนอีก ${refundPending.length}` : `${refunded.length} รายการ`} />
+      </div>
+      <section className="wm-section">
+        <div className="wm-section-title"><h2>ช่องทางรับเงิน</h2><button type="button" onClick={onEditStore}>แก้ไข <ChevronRight size={15} /></button></div>
+        {channels.length ? (
+          <div className="wm-money-channels">{channels.map((channel) => <span key={channel}>{channel}</span>)}</div>
+        ) : (
+          <button className="wm-setup-banner" type="button" onClick={onEditStore}><CircleDollarSign size={22} /><span><strong>ยังไม่ได้ตั้งช่องทางรับเงิน</strong><small>ลูกค้าต้องมีช่องทางโอนก่อนสั่งได้</small></span></button>
+        )}
+      </section>
+      <section className="wm-section">
+        <div className="wm-section-title"><h2>รายการล่าสุด</h2></div>
+        {recent.length ? (
+          <div className="wm-money-list">
+            {recent.map((order) => {
+              const out = order.payment_status === "refunded" || order.refund_status === "refunded";
+              const label = out ? "คืนเงินแล้ว" : order.refund_status === "pending" ? "รอคืนเงิน" : order.payment_status === "submitted" ? "รอตรวจสลิป" : "รับเงินแล้ว";
+              return (
+                <div key={order.id} className={out ? "is-out" : order.payment_status === "submitted" ? "is-waiting" : ""}>
+                  <span><strong>#{order.order_number}</strong><small>{label} · {shortTime(order.paid_at ?? order.created_at)}</small></span>
+                  <b>{out ? "−" : ""}{money(order.total)}</b>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="wm-empty wm-empty--compact"><CircleDollarSign size={34} strokeWidth={1.5} /><strong>ยังไม่มีรายการเงิน</strong></div>
+        )}
+        {orders.length >= 250 ? <p className="wm-money-note">คำนวณจาก 250 ออเดอร์ล่าสุด</p> : null}
+      </section>
+    </>
+  );
+}
+
+/** WYN-205: WYNOS campaigns and ads ship in their own releases (WYN-206/207). */
+function ComingSoonPanel({ icon, eyebrow, title, lines }: { icon: MerchantIcon3DName; eyebrow: string; title: string; lines: string[] }) {
+  return (
+    <>
+      <div className="wm-page-heading"><div><small>{eyebrow}</small><h1>{title}</h1></div></div>
+      <section className="wm-coming-soon">
+        <MerchantIcon3D name={icon} size={88} />
+        <strong>เร็วๆ นี้</strong>
+        <ul>{lines.map((line) => <li key={line}>{line}</li>)}</ul>
+      </section>
     </>
   );
 }
@@ -1326,7 +1424,7 @@ function OrderSheet({
         </div>
         <div className="wm-totals">
           <div><span>ค่าอาหาร</span><b>{money(order.subtotal)}</b></div>
-          {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "แคมเปญ · " + order.campaign_name : "ส่วนลดแคมเปญ"}</span><b>−{money(order.campaign_discount)}</b></div> : null}
+          {Number(order.campaign_discount ?? 0) > 0 ? <div className="is-discount"><span>{order.campaign_name ? "โปรโมชั่น · " + order.campaign_name : "ส่วนลดโปรโมชั่น"}</span><b>−{money(order.campaign_discount)}</b></div> : null}
           <div><span>ค่าส่ง{order.delivery_distance_km != null ? ` · ${Number(order.delivery_distance_km).toFixed(1)} กม.` : ""}</span><b>{money(order.delivery_fee)}</b></div>
           {Number(order.delivery_discount ?? 0) > 0 ? <div className="is-discount"><span>ส่วนลดค่าส่ง</span><b>−{money(order.delivery_discount)}</b></div> : null}
           <div className="is-total"><span>ยอดสุทธิ</span><b>{money(order.total)}</b></div>
