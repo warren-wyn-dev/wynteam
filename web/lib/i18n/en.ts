@@ -1970,6 +1970,10 @@ Object.assign(EN_EXACT, {
   "ร้านนี้ยังไม่พร้อมรับการจัดส่ง": "This store is not ready for delivery",
   "กรุณาตรวจสอบตำแหน่งจัดส่ง": "Please check the delivery location",
   "อาคาร/หมู่บ้าน": "Building / village",
+  "ปิดข้อมูลสถานที่": "Close place details",
+  "ปักหมุดที่อยู่ก่อนเพื่อเช็กการจัดส่ง": "Pin a delivery address to check delivery",
+  "ใช้ตำแหน่งนี้": "Use this location",
+  "ดูร้านใน WYNOS Food": "View store in WYNOS Food",
 });
 
 /** Thai text with inserted values ({0}, {1}, …) and its English form. */
@@ -2112,6 +2116,7 @@ export const EN_PATTERNS: ReadonlyArray<readonly [string, string]> = [
   ["ร้านนี้ส่งถึง · {0} กม. · ค่าส่ง {1}", "Delivery available · {0} km · delivery {1}"],
   ["ร้านนี้ส่งถึง · {0}ค่าส่ง {1}", "Delivery available · {0}delivery {1}"],
   ["{0} กม. ·", "{0} km ·"],
+  ["{0} กม. จากกลางแผนที่", "{0} km from map center"],
   ["อยู่นอกระยะจัดส่งของร้าน{0}", "Outside this store's delivery range{0}"],
   ["· ร้านส่งได้ประมาณ {0} กม.", "· about {0} km maximum"],
   ["อาคาร {0}", "Building {0}"],
