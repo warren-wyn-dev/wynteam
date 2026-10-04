@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { rememberFoodArea } from "@/lib/food-area-memory";
 import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   cancelFoodCustomerOrder,
@@ -1156,11 +1157,13 @@ function FoodCustomerInner({
   const resolveArea = useCallback(async (location: FoodLocation | null) => {
     try {
       const point = location ?? await currentFoodLocation();
-      setArea(await checkFoodServiceArea(client, point) ? "inside" : "outside");
+      const inside = await checkFoodServiceArea(client, point);
+      rememberFoodArea(userId, inside ? "inside" : "outside");
+      setArea(inside ? "inside" : "outside");
     } catch {
       setArea("unknown");
     }
-  }, [client]);
+  }, [client, userId]);
   const checkArea = (location: FoodLocation | null) => {
     setArea("checking");
     void resolveArea(location);
@@ -1286,10 +1289,14 @@ function FoodCustomerInner({
     const point = savedPinKey ? Promise.resolve({ latitude: lat, longitude: lng }) : currentFoodLocation();
     void point
       .then((location) => checkFoodServiceArea(client, location))
-      .then((inside) => { if (live) setArea(inside ? "inside" : "outside"); })
+      .then((inside) => {
+        // WYN-212: Home shows its Food banner only to people found inside.
+        rememberFoodArea(userId, inside ? "inside" : "outside");
+        if (live) setArea(inside ? "inside" : "outside");
+      })
       .catch(() => { if (live) setArea("unknown"); });
     return () => { live = false; };
-  }, [areaNeeded, client, savedPinKey]);
+  }, [areaNeeded, client, savedPinKey, userId]);
 
   useEffect(() => {
     if (!snapshot?.allowed) return;
