@@ -1,11 +1,14 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, LocateFixed, MapPin, RefreshCw, Search, X } from "lucide-react";
+import { Check, LocateFixed, MapPin, RefreshCw, Search, Store, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  checkFoodDeliveryAvailability,
   currentFoodLocation,
+  fetchNearbyWynosPlaces,
+  foodMoney,
   reverseFoodPlace,
   searchFoodPlaces,
   searchStorePlaces,
@@ -41,6 +44,12 @@ type MapInstance = {
   setStyle: (style: MapStyle) => void;
 };
 
+type MarkerInstance = {
+  setLngLat: (location: [number, number]) => MarkerInstance;
+  addTo: (map: MapInstance) => MarkerInstance;
+  remove: () => void;
+};
+
 type MapLibreGlobal = {
   Map: new (options: {
     container: HTMLElement;
@@ -49,6 +58,7 @@ type MapLibreGlobal = {
     zoom: number;
     attributionControl?: boolean;
   }) => MapInstance;
+  Marker: new (options: { element: HTMLElement; anchor?: string }) => MarkerInstance;
 };
 
 declare global {
@@ -136,27 +146,46 @@ function placeText(place: FoodPlace | null, location: FoodLocation | null) {
   return "เลื่อนแผนที่หรือค้นหาสถานที่";
 }
 
+function placeCategory(place: FoodPlace) {
+  if (place.category === "restaurant") return "ร้านอาหาร";
+  if (place.category === "pickup_point") return "จุดรับอาหาร";
+  if (place.category === "building") return "อาคาร";
+  if (place.category === "entrance") return "ทางเข้า";
+  return "สถานที่";
+}
+
 export function FoodDeliveryMapPicker({
   client,
   storeId,
   initialLocation,
   onClose,
   onConfirm,
+  autoLocate = false,
 }: {
   client: SupabaseClient;
   storeId: string | null;
   initialLocation: FoodLocation | null;
   onClose: () => void;
   onConfirm: (location: FoodLocation, place?: FoodPlace) => void;
+  autoLocate?: boolean;
 }) {
   const mapNode = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const dragRef = useRef(false);
   const reverseTimerRef = useRef<number | null>(null);
+  const nearbyRequestRef = useRef(0);
+  const nearbyMarkersRef = useRef<MarkerInstance[]>([]);
+  const autoLocateRef = useRef(false);
   const [location, setLocation] = useState<FoodLocation | null>(initialLocation);
   const [place, setPlace] = useState<FoodPlace | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FoodPlace[]>([]);
+  const [nearbyPlaces, setNearbyPlaces] = useState<FoodPlace[]>([]);
+  const [activeNearbyPlace, setActiveNearbyPlace] = useState<FoodPlace | null>(null);
+  const [nearbyAvailabilityState, setNearbyAvailabilityState] = useState<{
+    key: string;
+    value: Awaited<ReturnType<typeof checkFoodDeliveryAvailability>>;
+  } | null>(null);
   const [status, setStatus] = useState("");
   const [working, setWorking] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -172,6 +201,43 @@ export function FoodDeliveryMapPicker({
       setPlace(null);
     }
   }, [client]);
+
+  const loadNearby = useCallback(async (center: FoodLocation) => {
+    const requestId = ++nearbyRequestRef.current;
+    try {
+      const places = await fetchNearbyWynosPlaces(client, center, 25);
+      if (nearbyRequestRef.current === requestId) setNearbyPlaces(places);
+    } catch {
+      if (nearbyRequestRef.current === requestId) setNearbyPlaces([]);
+    }
+  }, [client]);
+
+  const moveTo = useCallback((next: FoodLocation, nextPlace?: FoodPlace) => {
+    setLocation(next);
+    setChosen(true);
+    setPlace(nextPlace ?? null);
+    setActiveNearbyPlace(null);
+    mapRef.current?.flyTo({
+      center: [next.longitude, next.latitude],
+      zoom: 17,
+      essential: true,
+    });
+    void loadNearby(next);
+  }, [loadNearby]);
+
+  const pickCurrentLocation = useCallback(async () => {
+    setWorking(true);
+    setStatus("");
+    try {
+      const next = await currentFoodLocation();
+      moveTo(next);
+      await reverse(next);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "หาตำแหน่งปัจจุบันไม่สำเร็จ");
+    } finally {
+      setWorking(false);
+    }
+  }, [moveTo, reverse]);
 
   useEffect(() => {
     let live = true;
@@ -204,6 +270,7 @@ export function FoodDeliveryMapPicker({
           styleLoaded = true;
           setMapReady(true);
           setMapFailed(false);
+          void loadNearby({ latitude: start[1], longitude: start[0] });
         };
 
         const applyFallback = () => {
@@ -220,13 +287,16 @@ export function FoodDeliveryMapPicker({
           dragRef.current = true;
         };
         const onMoveEnd = () => {
-          if (!dragRef.current || !map) return;
-          dragRef.current = false;
+          if (!map) return;
           const center = map.getCenter();
           const next = { latitude: center.lat, longitude: center.lng };
+          void loadNearby(next);
+          if (!dragRef.current) return;
+          dragRef.current = false;
           setLocation(next);
           setChosen(true);
           setPlace(null);
+          setActiveNearbyPlace(null);
           if (reverseTimerRef.current) window.clearTimeout(reverseTimerRef.current);
           reverseTimerRef.current = window.setTimeout(() => void reverse(next), 650);
         };
@@ -262,35 +332,75 @@ export function FoodDeliveryMapPicker({
       if (fallbackTimer) window.clearTimeout(fallbackTimer);
       if (failureTimer) window.clearTimeout(failureTimer);
       if (reverseTimerRef.current) window.clearTimeout(reverseTimerRef.current);
+      nearbyRequestRef.current += 1;
+      nearbyMarkersRef.current.forEach((marker) => marker.remove());
+      nearbyMarkersRef.current = [];
       map?.remove();
       mapRef.current = null;
     };
-  }, [initialLocation, mapAttempt, reverse]);
+  }, [initialLocation, loadNearby, mapAttempt, reverse]);
 
-  const moveTo = (next: FoodLocation, nextPlace?: FoodPlace) => {
-    setLocation(next);
-    setChosen(true);
-    setPlace(nextPlace ?? null);
-    mapRef.current?.flyTo({
-      center: [next.longitude, next.latitude],
-      zoom: 17,
-      essential: true,
+  useEffect(() => {
+    if (!mapReady || !autoLocate || initialLocation || autoLocateRef.current) return;
+    autoLocateRef.current = true;
+    void pickCurrentLocation();
+  }, [autoLocate, initialLocation, mapReady, pickCurrentLocation]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const maplibre = window.maplibregl;
+    if (!mapReady || !map || !maplibre) return;
+
+    nearbyMarkersRef.current.forEach((marker) => marker.remove());
+    const markers = nearbyPlaces.map((nearbyPlace) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = nearbyPlace.merchantStoreId
+        ? "wf-map-place-marker is-food"
+        : "wf-map-place-marker is-place";
+      button.setAttribute("aria-label", `${placeCategory(nearbyPlace)} ${nearbyPlace.name}`);
+      button.title = nearbyPlace.name;
+      const dot = document.createElement("span");
+      button.appendChild(dot);
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setActiveNearbyPlace(nearbyPlace);
+      });
+      return new maplibre.Marker({ element: button, anchor: "bottom" })
+        .setLngLat([nearbyPlace.longitude, nearbyPlace.latitude])
+        .addTo(map);
     });
-  };
+    nearbyMarkersRef.current = markers;
 
-  const pickCurrentLocation = async () => {
-    setWorking(true);
-    setStatus("");
-    try {
-      const next = await currentFoodLocation();
-      moveTo(next);
-      await reverse(next);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "หาตำแหน่งปัจจุบันไม่สำเร็จ");
-    } finally {
-      setWorking(false);
-    }
-  };
+    return () => {
+      markers.forEach((marker) => marker.remove());
+      if (nearbyMarkersRef.current === markers) nearbyMarkersRef.current = [];
+    };
+  }, [mapReady, nearbyPlaces]);
+
+  const availabilityKey = activeNearbyPlace?.merchantStoreId && location
+    ? `${activeNearbyPlace.merchantStoreId}|${location.latitude},${location.longitude}`
+    : "";
+
+  useEffect(() => {
+    if (!activeNearbyPlace?.merchantStoreId || !location || !availabilityKey) return;
+    let live = true;
+    const store = activeNearbyPlace.merchantStoreId;
+    const deliveryPoint = location;
+    void checkFoodDeliveryAvailability(client, store, deliveryPoint)
+      .then((value) => {
+        if (live) setNearbyAvailabilityState({ key: availabilityKey, value });
+      })
+      .catch(() => {
+        if (live) setNearbyAvailabilityState({ key: availabilityKey, value: null });
+      });
+    return () => { live = false; };
+  }, [activeNearbyPlace?.merchantStoreId, availabilityKey, client, location]);
+
+  const nearbyAvailability = nearbyAvailabilityState?.key === availabilityKey
+    ? nearbyAvailabilityState.value
+    : null;
 
   const search = async () => {
     const trimmed = query.trim();
@@ -347,7 +457,7 @@ export function FoodDeliveryMapPicker({
         {results.length ? (
           <div className="wf-map-results">
             {results.map((result) => (
-              <button key={`${result.latitude},${result.longitude},${result.name}`} type="button" onClick={() => chooseResult(result)}>
+              <button key={result.placeId ?? `${result.latitude},${result.longitude},${result.name}`} type="button" onClick={() => chooseResult(result)}>
                 <MapPin size={17} />
                 <span><strong>{result.name || "สถานที่"}</strong>{result.address ? <small>{result.address}</small> : null}</span>
               </button>
@@ -379,6 +489,49 @@ export function FoodDeliveryMapPicker({
       </div>
 
       <section className="wf-map-confirm">
+        {activeNearbyPlace ? (
+          <article className="wf-map-place-card">
+            <button className="wf-map-place-close" type="button" aria-label="ปิดข้อมูลสถานที่" onClick={() => setActiveNearbyPlace(null)}>
+              <X size={16} />
+            </button>
+            <div className={activeNearbyPlace.merchantStoreId ? "wf-map-place-icon is-food" : "wf-map-place-icon"}>
+              {activeNearbyPlace.merchantStoreId ? <Store size={18} /> : <MapPin size={18} />}
+            </div>
+            <div className="wf-map-place-copy">
+              <small>{placeCategory(activeNearbyPlace)}{activeNearbyPlace.verificationStatus === "wynos_verified" ? " · WYNOS Verified" : activeNearbyPlace.verificationStatus === "merchant_verified" ? " · Merchant Verified" : ""}</small>
+              <strong>{activeNearbyPlace.name}</strong>
+              {activeNearbyPlace.address ? <p>{activeNearbyPlace.address}</p> : null}
+              {activeNearbyPlace.distanceKm != null ? <em>{activeNearbyPlace.distanceKm.toFixed(1)} กม. จากกลางแผนที่</em> : null}
+              {activeNearbyPlace.merchantStoreId ? (
+                <div className="wf-map-place-delivery">
+                  <span className={activeNearbyPlace.isOpen ? "is-open" : ""}>
+                    {activeNearbyPlace.isOpen ? "เปิดรับออเดอร์" : "ปิดรับออเดอร์"}
+                  </span>
+                  {!location ? <small>ปักหมุดที่อยู่ก่อนเพื่อเช็กการจัดส่ง</small> : nearbyAvailability?.can_deliver ? (
+                    <small>ร้านนี้ส่งถึง · {nearbyAvailability.distance_km?.toFixed(1) ?? "—"} กม. · ค่าส่ง {foodMoney(nearbyAvailability.delivery_fee ?? 0)}</small>
+                  ) : nearbyAvailability?.reason === "outside_delivery_area" ? (
+                    <small>อยู่นอกระยะจัดส่งของร้าน</small>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <div className="wf-map-place-actions">
+              <button
+                type="button"
+                onClick={() => moveTo(
+                  { latitude: activeNearbyPlace.latitude, longitude: activeNearbyPlace.longitude },
+                  activeNearbyPlace,
+                )}
+              >
+                ใช้ตำแหน่งนี้
+              </button>
+              {activeNearbyPlace.merchantStoreId ? (
+                <a href={`/food?store=${encodeURIComponent(activeNearbyPlace.merchantStoreId)}`}>ดูร้านใน WYNOS Food</a>
+              ) : null}
+            </div>
+          </article>
+        ) : null}
+
         <div className="wf-map-confirm-copy">
           <span><MapPin size={18} /></span>
           <div>
