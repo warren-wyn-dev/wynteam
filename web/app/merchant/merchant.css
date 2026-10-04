@@ -471,6 +471,8 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-nav > button.is-active { color: var(--wm-red); }
 .wm-nav-icon { position: relative; width: 30px; height: 29px; display: grid; place-items: center; }
 .wm-nav-icon > svg { width: 23px; height: 23px; stroke-width: 1.7; }
+/* WYN-208: Wynos's own bottom-bar icons (outline, solid red when selected). */
+.wm-nav-icon > svg.wm-nav-svg { width: 26px; height: 26px; stroke-width: initial; }
 .wm-nav-icon i {
   position: absolute;
   top: -3px;

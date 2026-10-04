@@ -9,10 +9,8 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
-  Home,
   ImagePlus,
   LogOut,
-  LayoutGrid,
   MapPin,
   Menu as MenuIcon,
   PackageCheck,
@@ -21,7 +19,6 @@ import {
   Plus,
   Search,
   ShoppingBag,
-  ShoppingBasket,
   Store,
   Truck,
   Upload,
@@ -37,6 +34,7 @@ import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantAds } from "@/components/merchant/merchant-ads";
+import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
@@ -645,10 +643,10 @@ function MerchantInner({
       </section>
 
       <nav className="wm-nav" aria-label="WYNOS Merchant">
-        <NavButton active={tab === "home"} label="หน้าหลัก" icon={<Home />} onClick={() => setTab("home")} />
-        <NavButton active={tab === "orders"} label="รับออเดอร์" icon={<ShoppingBasket />} badge={activeOrderCount} onClick={() => setTab("orders")} />
-        <NavButton active={tab === "menu"} label="เมนู" icon={<UtensilsCrossed />} onClick={() => setTab("menu")} />
-        <NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม" icon={<LayoutGrid />} onClick={() => setTab("more")} />
+        <NavButton active={tab === "home"} label="หน้าหลัก" icon={<MerchantNavIcon name="home" active={tab === "home"} />} onClick={() => setTab("home")} />
+        <NavButton active={tab === "orders"} label="รับออเดอร์" icon={<MerchantNavIcon name="orders" active={tab === "orders"} />} badge={activeOrderCount} onClick={() => setTab("orders")} />
+        <NavButton active={tab === "menu"} label="เมนู" icon={<MerchantNavIcon name="menu" active={tab === "menu"} />} onClick={() => setTab("menu")} />
+        <NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม" icon={<MerchantNavIcon name="more" active={MORE_PAGES.has(tab)} />} onClick={() => setTab("more")} />
       </nav>
 
       {notifyPrompt && store && !alertOrder && !selectedOrder && !menuDraft && !storeEditing ? (
