@@ -135,8 +135,9 @@ test("Campaign Center keeps promotion creation in Merchant and pricing in WYNOS 
   const sql = read("../supabase/migrations_wynos_merchant_campaign_center_v1.sql");
 
   expect(app).toContain("MerchantCampaignCenter");
-  expect(center).toContain("Campaign Center");
-  expect(center).toContain("WYNOS Food จะเลือกแคมเปญที่ลูกค้าประหยัดได้มากที่สุด");
+  // WYN-205: the store's own discounts are called "โปรโมชั่น" in Merchant.
+  expect(center).toContain("<strong>โปรโมชั่นของร้าน</strong>");
+  expect(center).toContain("WYNOS Food จะเลือกโปรโมชั่นที่ลูกค้าประหยัดได้มากที่สุด");
   expect(sql).toContain("internal.food_campaign_candidates");
   expect(sql).toContain("order by saving desc");
   expect(sql).toContain("food_quote_order");
@@ -296,7 +297,7 @@ test("WYN-201 Merchant and Food lists refresh with a pull-down gesture", () => {
   const food = read("components/food/wynos-food-developer-app.tsx");
 
   // The shared hook (same feel as the social app); lists only, never forms.
-  expect(merchant).toContain('enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports",');
+  expect(merchant).toContain('enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports" || tab === "finance",');
   expect(merchant).toContain('<section className="wm-content" onTouchStart={pull.onTouchStart}');
   expect(food).toContain('usePullToRefresh({ enabled: tab === "home" || tab === "orders"');
   expect(food).toContain('<section className="wf-content" onTouchStart={pull.onTouchStart}');
@@ -331,11 +332,14 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(app).toContain('<button className="wm-hero-sales" type="button" onClick={() => onOpenTab("reports")}>');
   expect(app).toContain('className={`wm-open-switch ${store.is_open ? "is-open" : ""}`}');
   expect(app).toContain('role="switch"');
-  // One row of Wynos's own 3D icons (SVG, no third-party artwork); the
-  // orders badge counts every unfinished order, not the 8 previewed.
+  // One row of Wynos's own 3D icons (SVG, no third-party artwork). WYN-205:
+  // the Founder picked การเงิน · โฆษณา · แคมเปญ · โปรโมชั่น for this row.
   expect(icons).toContain("export function MerchantIcon3D({ name, size = 44 }");
-  expect(app).toContain('<MerchantIcon3D name="orders" size={52} />รอจัดการ');
-  expect(app).toContain('{activeOrderCount ? <b className="wm-shortcut-badge">{activeOrderCount}</b> : null}');
+  for (const shortcut of ['name="finance" size={52} />การเงิน', 'name="ads" size={52} />โฆษณา', 'name="campaign" size={52} />แคมเปญ', 'name="promotion" size={52} />โปรโมชั่น']) {
+    expect(app).toContain(shortcut);
+  }
+  // The nav badge counts every unfinished order, not the 8 previewed.
+  expect(app).toContain("badge={activeOrderCount}");
   // Readiness uses the publish rules (paired payment fields).
   expect(app).toContain("done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
   expect(app).toContain("{nextStep && !store.admin_suspended_at ? (");
@@ -351,4 +355,20 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   expect(css).toContain("html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }");
   expect(css).not.toContain("prefers-color-scheme: dark");
   expect(css).not.toContain("var(--wyn-");
+});
+
+test("WYN-205 Merchant finance page and the store's own promotions", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+
+  // Money comes from the store's own orders: paid, waiting for slip check, refunded.
+  expect(app).toContain("function FinancePanel(");
+  expect(app).toContain('const paid = orders.filter((order) => order.payment_status === "paid");');
+  expect(app).toContain('const waiting = orders.filter((order) => order.payment_status === "submitted");');
+  // Payment channels are masked to the last 4 digits.
+  expect(app).toContain("const last4 = (value: string | null) =>");
+  // The existing discount system is "โปรโมชั่น"; WYNOS campaigns and ads are
+  // separate releases (WYN-206 / WYN-207) and say so until then.
+  expect(app).toContain('{tab === "promotions" && store ? (');
+  expect(app).toContain("<MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={setMessage} />");
+  expect(app).toContain('<ComingSoonPanel\n            icon="ads"');
 });

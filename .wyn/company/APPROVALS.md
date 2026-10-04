@@ -368,3 +368,14 @@
 - Release: merge PR #832; the web auto-deploys.
 - Rollback: revert the merge commit or use Vercel Instant Rollback.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-205 Merchant finance page and four home shortcuts; WYN-206 campaign funding
+- Founder: "ตรงนี้ให้มีแค่ การเงิน โฆษณา แคมเปญ โปรโมชั่น", then "ทำครบทั้ง 4 ระบบเลย". Decisions:
+  - Ads: pay per click, controlled from WYNOS Admin.
+  - Ad payment: PromptPay plus slip.
+  - Campaigns: designed by WYNOS Admin.
+  - Ad placement: Food home recommended stores, plus top of search.
+- After reviewing PR #833: **"อนุมัติ"**. Scope: web only (shortcuts, finance page, store discounts renamed โปรโมชั่น, coming-soon pages for campaigns and ads).
+- WYN-206 funding: **"แคมเปญ เป็นระบบไฮบริด แล้วแต่จะตั้งยังไง ขึ้นอยู่กับ WYNOS Admin จะเป็นคนออกแคมเปญ"**. Admin sets, per campaign, how much of the discount WYNOS funds and how much the store funds. WYNOS's share is recorded as owed to the store until Admin marks it paid.
+- Rollback for WYN-205: revert the merge commit or use Vercel Instant Rollback.
+- สถานะ: **อนุมัติแล้ว** (WYN-205 release; WYN-206 direction). วันที่ 2026-10-04

@@ -46,7 +46,8 @@ assert "total = subtotal - campaign_discount + delivery_fee - delivery_discount"
 # Browser pricing is a preview; the final order still runs the same server-side
 # candidate calculation and writes the campaign snapshot atomically.
 assert 'client.rpc("food_quote_order"' in food_data
-assert "WYNOS Food จะเลือกแคมเปญที่ลูกค้าประหยัดได้มากที่สุด" in merchant_ui
+# WYN-205: the store's own discounts are called "โปรโมชั่น" in Merchant.
+assert "WYNOS Food จะเลือกโปรโมชั่นที่ลูกค้าประหยัดได้มากที่สุด" in merchant_ui
 assert migration.count("internal.food_campaign_candidates(") >= 3
 
 print("PASS: Merchant Campaign Center is server-priced, role-gated and non-stacking")

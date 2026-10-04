@@ -114,7 +114,7 @@ export function MerchantCampaignCenter({
       setCampaigns(result.campaigns);
       setCanManage(result.can_manage);
     } catch (error) {
-      onMessage(error instanceof Error ? error.message : "โหลดแคมเปญไม่สำเร็จ");
+      onMessage(error instanceof Error ? error.message : "โหลดโปรโมชั่นไม่สำเร็จ");
     }
   }, [client, onMessage, store.id]);
 
@@ -131,7 +131,7 @@ export function MerchantCampaignCenter({
   const save = async () => {
     if (!draft) return;
     if (!draft.name.trim()) {
-      onMessage("กรุณาตั้งชื่อแคมเปญ");
+      onMessage("กรุณาตั้งชื่อโปรโมชั่น");
       return;
     }
     if (draft.scope === "items" && draft.campaignType !== "free_delivery" && !draft.itemIds.length) {
@@ -141,11 +141,11 @@ export function MerchantCampaignCenter({
     setBusy(true);
     try {
       await saveMerchantCampaign(client, store.id, draft);
-      onMessage(draft.id ? "อัปเดตแคมเปญแล้ว" : "สร้างแคมเปญแล้ว");
+      onMessage(draft.id ? "อัปเดตโปรโมชั่นแล้ว" : "สร้างโปรโมชั่นแล้ว");
       setDraft(null);
       await load();
     } catch (error) {
-      onMessage(error instanceof Error ? error.message : "บันทึกแคมเปญไม่สำเร็จ");
+      onMessage(error instanceof Error ? error.message : "บันทึกโปรโมชั่นไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -155,25 +155,25 @@ export function MerchantCampaignCenter({
     setBusy(true);
     try {
       await setMerchantCampaignActive(client, store.id, campaign.id, !campaign.is_active);
-      onMessage(campaign.is_active ? "หยุดแคมเปญแล้ว" : "เปิดแคมเปญแล้ว");
+      onMessage(campaign.is_active ? "หยุดโปรโมชั่นแล้ว" : "เปิดโปรโมชั่นแล้ว");
       await load();
     } catch (error) {
-      onMessage(error instanceof Error ? error.message : "เปลี่ยนสถานะแคมเปญไม่สำเร็จ");
+      onMessage(error instanceof Error ? error.message : "เปลี่ยนสถานะโปรโมชั่นไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
   };
 
   const remove = async (campaign: MerchantCampaign) => {
-    if (!window.confirm("ลบแคมเปญ “" + campaign.name + "”?")) return;
+    if (!window.confirm("ลบโปรโมชั่น “" + campaign.name + "”?")) return;
     setBusy(true);
     try {
       await deleteMerchantCampaign(client, store.id, campaign.id);
-      onMessage("ลบแคมเปญแล้ว");
+      onMessage("ลบโปรโมชั่นแล้ว");
       if (draft?.id === campaign.id) setDraft(null);
       await load();
     } catch (error) {
-      onMessage(error instanceof Error ? error.message : "ลบแคมเปญไม่สำเร็จ");
+      onMessage(error instanceof Error ? error.message : "ลบโปรโมชั่นไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -195,17 +195,17 @@ export function MerchantCampaignCenter({
         <div>
           <span className="wm-campaign-icon"><Megaphone size={21} /></span>
           <span>
-            <strong>Campaign Center</strong>
-            <small>{activeCount ? String(activeCount) + " แคมเปญกำลังใช้งาน" : "สร้างโปรโมชันสำหรับ WYNOS Food"}</small>
+            <strong>โปรโมชั่นของร้าน</strong>
+            <small>{activeCount ? String(activeCount) + " โปรโมชั่นกำลังใช้งาน" : "ลดราคาเองเพื่อดึงลูกค้าบน WYNOS Food"}</small>
           </span>
         </div>
         <div className="wm-campaign-head-actions">
           {canManage ? (
             <button className="wm-small-primary" type="button" onClick={() => setDraft(blankDraft())}>
-              <Plus size={16} /> สร้างแคมเปญ
+              <Plus size={16} /> สร้างโปรโมชั่น
             </button>
           ) : null}
-          <button className="wm-campaign-collapse" type="button" aria-label={expanded ? "ย่อ Campaign Center" : "ขยาย Campaign Center"} onClick={() => setExpanded((value) => !value)}>
+          <button className="wm-campaign-collapse" type="button" aria-label={expanded ? "ย่อโปรโมชั่น" : "ขยายโปรโมชั่น"} onClick={() => setExpanded((value) => !value)}>
             {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
         </div>
@@ -214,18 +214,18 @@ export function MerchantCampaignCenter({
       {expanded ? (
         <>
           <p className="wm-campaign-note">
-            WYNOS Food จะเลือกแคมเปญที่ลูกค้าประหยัดได้มากที่สุดให้อัตโนมัติ 1 แคมเปญต่อออเดอร์ และไม่ซ้อนส่วนลด
+            WYNOS Food จะเลือกโปรโมชั่นที่ลูกค้าประหยัดได้มากที่สุดให้อัตโนมัติ 1 โปรโมชั่นต่อออเดอร์ และไม่ซ้อนส่วนลด
           </p>
 
           {draft ? (
             <div className="wm-campaign-editor">
               <div className="wm-campaign-editor-title">
-                <strong>{draft.id ? "แก้ไขแคมเปญ" : "สร้างแคมเปญใหม่"}</strong>
+                <strong>{draft.id ? "แก้ไขโปรโมชั่น" : "สร้างโปรโมชั่นใหม่"}</strong>
                 <button type="button" onClick={() => setDraft(null)}>ยกเลิก</button>
               </div>
 
               <label className="wm-campaign-field">
-                <span>ชื่อแคมเปญ</span>
+                <span>ชื่อโปรโมชั่น</span>
                 <input value={draft.name} maxLength={80} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="เช่น ลดมื้อเย็น 15%" />
               </label>
 
@@ -309,7 +309,7 @@ export function MerchantCampaignCenter({
               ) : null}
 
               <button className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void save()}>
-                {busy ? "กำลังบันทึก…" : draft.id ? "บันทึกการแก้ไข" : "เปิดแคมเปญ"}
+                {busy ? "กำลังบันทึก…" : draft.id ? "บันทึกการแก้ไข" : "เปิดโปรโมชั่น"}
               </button>
             </div>
           ) : null}
@@ -354,7 +354,7 @@ export function MerchantCampaignCenter({
             }) : (
               <div className="wm-campaign-empty">
                 <Megaphone size={28} strokeWidth={1.5} />
-                <strong>ยังไม่มีแคมเปญ</strong>
+                <strong>ยังไม่มีโปรโมชั่น</strong>
                 <p>สร้างส่วนลด ส่งฟรี หรือโปรเฉพาะเมนูได้จากที่นี่</p>
               </div>
             )}
