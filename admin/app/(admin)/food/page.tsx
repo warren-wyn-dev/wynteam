@@ -90,6 +90,7 @@ export default async function FoodStoresPage({
                   </p>
                 </div>
                 <div className="flex gap-4 text-sm sm:text-right">
+                  <div><p className="text-muted-foreground">กำลังดำเนินการ</p><p className={store.active_orders > 0 ? "font-semibold text-primary" : "font-medium"}>{store.active_orders.toLocaleString("th-TH")} ออเดอร์</p></div>
                   <div><p className="text-muted-foreground">30 วัน</p><p className="font-medium">{store.orders_30d.toLocaleString("th-TH")} ออเดอร์</p></div>
                   <div><p className="text-muted-foreground">ยอดขาย 30 วัน</p><p className="font-medium">{formatBaht(store.sales_30d)}</p></div>
                 </div>

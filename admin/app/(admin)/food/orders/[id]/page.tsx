@@ -26,7 +26,7 @@ export default async function FoodOrderDetailPage({
   const detail = await fetchAdminFoodOrderDetail(id);
   if (!detail) notFound();
   const { order } = detail;
-  const [slipUrl, proofUrl] = await Promise.all([
+  const [slip, proof] = await Promise.all([
     signAdminFoodEvidence(order.payment_slip_path),
     signAdminFoodEvidence(detail.proof?.image_path),
   ]);
@@ -79,7 +79,11 @@ export default async function FoodOrderDetailPage({
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border p-4">
           <h3 className="mb-2 text-sm font-semibold">สลิปชำระเงิน</h3>
-          {slipUrl ? <a href={slipUrl} target="_blank" rel="noreferrer"><img src={slipUrl} alt="สลิปชำระเงิน" className="max-h-96 rounded-lg border object-contain" /></a> : <p className="text-sm text-muted-foreground">ไม่มีสลิป</p>}
+          {slip.status === "ready" ? (
+            <a href={slip.url} target="_blank" rel="noreferrer"><img src={slip.url} alt="สลิปชำระเงิน" className="max-h-96 rounded-lg border object-contain" /></a>
+          ) : slip.status === "error" ? (
+            <EvidenceError label="มีสลิปแนบไว้ แต่โหลดไฟล์ไม่สำเร็จ" />
+          ) : <p className="text-sm text-muted-foreground">ไม่มีสลิป</p>}
           {order.payment_note ? <p className="mt-2 text-sm text-muted-foreground">{order.payment_note}</p> : null}
         </div>
         <div className="rounded-xl border p-4">
@@ -87,7 +91,11 @@ export default async function FoodOrderDetailPage({
           {detail.proof ? (
             <>
               <p className="text-sm">{detail.proof.method === "dropoff" ? `วางไว้: ${detail.proof.location_note ?? ""}` : "ส่งถึงมือผู้รับ"} · {formatThaiDate(detail.proof.created_at)}</p>
-              {proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="รูปยืนยันการจัดส่ง" className="mt-2 max-h-96 rounded-lg border object-contain" /></a> : null}
+              {proof.status === "ready" ? (
+                <a href={proof.url} target="_blank" rel="noreferrer"><img src={proof.url} alt="รูปยืนยันการจัดส่ง" className="mt-2 max-h-96 rounded-lg border object-contain" /></a>
+              ) : proof.status === "error" ? (
+                <EvidenceError label="มีรูปยืนยันการจัดส่ง แต่โหลดไฟล์ไม่สำเร็จ" />
+              ) : null}
             </>
           ) : <p className="text-sm text-muted-foreground">ยังไม่ส่ง</p>}
         </div>
@@ -106,5 +114,13 @@ export default async function FoodOrderDetailPage({
         </ol>
       </section>
     </div>
+  );
+}
+
+function EvidenceError({ label }: { label: string }) {
+  return (
+    <p role="alert" className="mt-2 text-sm text-destructive">
+      {label} · <a href="" className="underline">ลองโหลดอีกครั้ง</a>
+    </p>
   );
 }

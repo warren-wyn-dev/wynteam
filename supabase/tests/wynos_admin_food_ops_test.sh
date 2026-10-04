@@ -59,12 +59,14 @@ insert into public.profiles values
   ('$OWNER','owner1','Owner','user'), ('$MANAGER','manager1','Manager','user');
 insert into public.merchant_accounts values ('$ACCOUNT');
 insert into public.merchant_memberships(merchant_account_id, user_id, role) values ('$ACCOUNT','$OWNER','owner'), ('$ACCOUNT','$MANAGER','manager');
-insert into public.food_stores(id, slug, name, merchant_account_id, is_open, is_published) values ('$STORE','main','ร้านทดสอบ','$ACCOUNT', true, true);
+insert into public.food_stores(id, slug, name, phone, merchant_account_id, is_open, is_published) values ('$STORE','main','ร้านทดสอบ','0899999999','$ACCOUNT', true, true);
 insert into public.food_staff values ('$STORE','$MANAGER','manager',true);
 insert into public.food_orders(id, order_number, store_id, buyer_id, recipient_name, recipient_phone, total, status, delivered_at)
   values ('$ORDER','1001','$STORE','$USER','คุณลูกค้า','0812345678', 150, 'delivered', now());
 insert into public.food_order_items values ('$ORDER','ข้าวผัด',1,150,null);
 SQL
+run >/dev/null 2>&1 < "$ROOT/supabase/migrations_wynos_admin_food_ops_v1.sql"
+# The apply workflow can be dispatched again; a re-run must keep every type.
 run >/dev/null 2>&1 < "$ROOT/supabase/migrations_wynos_admin_food_ops_v1.sql"
 
 # as <uid> <sql>: run as an authenticated user, last output line only.
@@ -77,6 +79,7 @@ expect_fail() { local err; if err="$(run -c "select set_config('test.uid','$1',f
 
 # Read access: admin and moderator see store data; regular users see nothing.
 expect_eq "$MOD" "select (public.admin_food_overview()->>'stores_total')" "1" "moderator sees the overview"
+expect_eq "$MOD" "select count(*) from public.admin_food_stores('0899')" "1" "store search matches the phone number"
 expect_eq "$MOD" "select owner_username || '|' || staff_count || '|' || orders_total from public.admin_food_stores()" "owner1|2|1" "moderator sees the store list with owner and counts"
 expect_eq "$MOD" "select jsonb_array_length(public.admin_food_store_detail('$STORE')->'team')" "2" "moderator sees the store team"
 expect_fail "$USER" "select public.admin_food_overview()" "regular user cannot read the overview" "Not authorized"
@@ -100,6 +103,7 @@ expect_db "select is_published::text || is_open::text || (admin_suspended_at is 
 expect_db "select count(*) from public.notifications where recipient_id = '$OWNER'" "1" "the owner is notified"
 expect_db "select count(*) from public.audit_log where event_type = 'admin_food_store_suspended'" "1" "suspension is audited"
 expect_fail "$MANAGER" "update public.food_stores set admin_suspended_at = null" "store staff cannot lift a suspension" "store suspension can only be changed by WYNOS admin"
+expect_fail "$ADMIN" "update public.food_stores set admin_suspended_at = null" "a platform admin cannot skip the audited RPC with a direct update" "store suspension can only be changed by WYNOS admin"
 expect_fail "$MANAGER" "update public.food_stores set is_open = true" "store staff cannot reopen a suspended store" "store is suspended"
 expect_fail "$USER" "insert into public.food_orders(store_id, order_number) values ('$STORE', '1002')" "suspended store takes no new orders" "store is not accepting orders"
 expect_eq "$ADMIN" "select public.admin_set_food_store_suspension('$STORE', false)::text" "" "admin lifts the suspension"

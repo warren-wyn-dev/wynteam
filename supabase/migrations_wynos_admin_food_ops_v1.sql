@@ -60,17 +60,21 @@ $$;
 revoke all on function public.food_is_platform_admin() from public, anon;
 grant execute on function public.food_is_platform_admin() to authenticated;
 
+-- SECURITY INVOKER on purpose: current_user is the API role (authenticated /
+-- anon) for a direct PATCH, and the function owner inside the SECURITY DEFINER
+-- admin RPC. So the suspension fields only change through that RPC, which
+-- requires a reason, notifies the store and writes the audit log — even a
+-- platform admin who is also on the store team cannot PATCH them directly.
 create or replace function internal.food_store_guard_suspension()
 returns trigger
 language plpgsql
-security definer
 set search_path = ''
 as $$
 begin
   if (new.admin_suspended_at is distinct from old.admin_suspended_at
       or new.admin_suspended_reason is distinct from old.admin_suspended_reason
       or new.admin_suspended_by is distinct from old.admin_suspended_by)
-     and not public.food_is_platform_admin() then
+     and current_user in ('authenticated', 'anon') then
     raise exception 'store suspension can only be changed by WYNOS admin';
   end if;
   if new.admin_suspended_at is not null then
@@ -133,8 +137,13 @@ begin
   where c.conname = 'audit_log_event_type_check'
     and c.conrelid = 'public.audit_log'::regclass;
 
-  select coalesce(array_agg(distinct m[1]), '{}') into v_types
-  from regexp_matches(coalesce(v_def, ''), '''([a-z0-9_]+)''', 'g') as m;
+  -- Each quoted literal is either 'a' (ARRAY['a'::text, ...]) or '{a,b}'
+  -- (= any ('{a,b}'::text[]), the form this migration writes on a re-run).
+  select coalesce(array_agg(distinct t), '{}') into v_types
+  from regexp_matches(coalesce(v_def, ''), '''([^'']*)''', 'g') as m,
+       unnest(string_to_array(btrim(m[1], '{}'), ',')) as raw,
+       btrim(raw, ' "') as t
+  where t ~ '^[a-z0-9_]+$';
 
   select array_agg(distinct t order by t) into v_types
   from unnest(v_types || array[
@@ -282,6 +291,7 @@ begin
   where v_query is null
      or s.name ilike '%' || v_query || '%'
      or s.slug ilike '%' || v_query || '%'
+     or coalesce(s.phone, '') ilike '%' || v_query || '%'
   order by (s.admin_suspended_at is not null) desc, s.created_at desc
   limit 500;
 end;
@@ -591,6 +601,9 @@ begin
   if not found or v_store.merchant_account_id is null then
     raise exception 'store not found';
   end if;
+  -- One team change per merchant account at a time, so two concurrent
+  -- requests cannot each switch off a different owner and leave none.
+  perform 1 from public.merchant_accounts where id = v_store.merchant_account_id for update;
   select * into v_member from public.merchant_memberships
   where merchant_account_id = v_store.merchant_account_id and user_id = p_user_id
   for update;

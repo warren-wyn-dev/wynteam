@@ -169,13 +169,22 @@ export async function fetchAdminFoodOrderDetail(orderId: string): Promise<AdminF
   return data as AdminFoodOrderDetail;
 }
 
-/** Short-lived links to private evidence (the storage policy allows platform admins). */
-export async function signAdminFoodEvidence(path: string | null | undefined): Promise<string | null> {
-  if (!path) return null;
+export type AdminFoodEvidence =
+  | { status: "none" }
+  | { status: "ready"; url: string }
+  | { status: "error" };
+
+/**
+ * Short-lived links to private evidence (the storage policy allows platform
+ * admins). A failed link is reported separately from "no file", so staff
+ * never read a storage error as missing evidence.
+ */
+export async function signAdminFoodEvidence(path: string | null | undefined): Promise<AdminFoodEvidence> {
+  if (!path) return { status: "none" };
   const supabase = await createClient();
   const { data, error } = await supabase.storage.from("food-private").createSignedUrl(path, 600);
-  if (error) return null;
-  return data.signedUrl;
+  if (error || !data?.signedUrl) return { status: "error" };
+  return { status: "ready", url: data.signedUrl };
 }
 
 export const FOOD_ORDER_STATUS_LABEL: Record<string, string> = {

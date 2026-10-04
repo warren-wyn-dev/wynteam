@@ -530,6 +530,7 @@ function MerchantInner({
             onAction={(order) => void quickAction(order)}
             actedFrom={actedFrom}
             onOpenOrders={() => setTab("orders")}
+            onMessage={setMessage}
           />
         ) : null}
 
@@ -694,6 +695,7 @@ function HomePanel({
   onAction,
   actedFrom,
   onOpenOrders,
+  onMessage,
 }: {
   client: SupabaseClient;
   store: FoodStore;
@@ -708,12 +710,17 @@ function HomePanel({
   onAction: (order: FoodOrder) => void;
   actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
   onOpenOrders: () => void;
+  onMessage: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const toggleOpen = async () => {
     setBusy(true);
     try {
       await updateFoodStore(client, store.id, { is_open: !store.is_open });
+      onReload();
+    } catch (error) {
+      onMessage(merchantError(error));
+      // The store may have been suspended since this screen loaded.
       onReload();
     } finally { setBusy(false); }
   };
@@ -984,7 +991,7 @@ function StorePanel({
     try {
       await setMerchantStorePublished(client, store.id, !store.is_published);
       onReload();
-    } catch (error) { onMessage(merchantError(error)); }
+    } catch (error) { onMessage(merchantError(error)); onReload(); }
     finally { setBusy(false); }
   };
   return (
