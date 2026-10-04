@@ -1857,6 +1857,16 @@ Object.assign(EN_EXACT, {
   "เพิ่มข้อมูลจัดส่ง": "Add delivery information",
 });
 
+// WYN-213: public SEO metadata for WYNOS Food and WYNOS Merchant.
+Object.assign(EN_EXACT, {
+  "สั่งอาหารออนไลน์": "Order food online",
+  "บริการสั่งอาหารออนไลน์จาก WYNOS ค้นหาร้านอาหาร เลือกเมนู และสั่งอาหารผ่าน food.wynos.online": "WYNOS online food ordering. Find restaurants, choose menu items and order at food.wynos.online",
+  "ระบบร้านอาหาร WYNOS": "WYNOS restaurant system",
+  "ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS จัดการออเดอร์ เมนู ยอดขาย และการจัดส่งของ WYNOS Food": "WYNOS system for restaurants and merchants to manage orders, menus, sales and WYNOS Food delivery",
+  "สั่งอาหารออนไลน์กับ WYNOS Food ที่ food.wynos.online": "Order food online with WYNOS Food at food.wynos.online",
+  "ระบบสำหรับร้านอาหารและ Merchant ของ WYNOS ที่ merchant.wynos.online": "WYNOS restaurant and merchant system at merchant.wynos.online",
+});
+
 // WYNOS Merchant Campaign Center.
 Object.assign(EN_EXACT, {
   "ลด": "Save",
