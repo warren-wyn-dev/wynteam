@@ -372,3 +372,22 @@ test("WYN-205 Merchant finance page and the store's own promotions", () => {
   expect(app).toContain("<MerchantCampaignCenter client={client} store={store} menu={menu} onMessage={setMessage} />");
   expect(app).toContain('<ComingSoonPanel\n            icon="ads"');
 });
+
+test("WYN-206 WYNOS campaigns: Admin designs, stores join, hybrid funding is shown before joining", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const page = read("components/merchant/merchant-platform-campaigns.tsx");
+  const migration = read("../supabase/migrations_wynos_platform_campaigns_v1.sql");
+  const food = read("components/food/wynos-food-developer-app.tsx");
+
+  // Joined stores reuse the existing server pricing; WYNOS's share is snapshot per order.
+  expect(migration).toContain("platform_share_percent numeric(5,2) not null default 0");
+  expect(migration).toContain("create trigger food_order_campaigns_platform_share");
+  expect(migration).toContain("create trigger food_campaigns_platform_guard");
+  expect(migration).toContain("raise exception 'nothing to settle'");
+  // The store sees who pays what before it joins, and what WYNOS owes it.
+  expect(app).toContain("<MerchantPlatformCampaigns client={client} store={store} onMessage={setMessage} />");
+  expect(page).toContain("`ทุกออเดอร์ที่ใช้แคมเปญนี้ WYNOS ออกส่วนลดให้ ${Number(confirming.platform_share_percent)}% ร้านออก ${100 - Number(confirming.platform_share_percent)}%`");
+  expect(page).toContain("WYNOS จะโอนคืนร้าน");
+  // Customers see the campaign on the store.
+  expect(food).toContain("{`แคมเปญ WYNOS · ${name}`}");
+});

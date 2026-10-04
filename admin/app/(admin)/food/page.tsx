@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Ban, ReceiptText, ShoppingBag, Store, Wallet } from "lucide-react";
+import { Ban, Gift, ReceiptText, ShoppingBag, Store, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/admin/stat-card";
@@ -67,11 +67,16 @@ export default async function FoodStoresPage({
             />
             <button type="submit" className="h-11 rounded-md border px-4 text-sm font-medium hover:bg-accent">ค้นหา</button>
           </form>
-          {role === "admin" ? (
-            <Link href="/food/orders" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
-              <ShoppingBag className="size-4" /> ออเดอร์ทุกร้าน
+          <div className="flex flex-wrap gap-2">
+            <Link href="/food/campaigns" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
+              <Gift className="size-4" /> แคมเปญ WYNOS
             </Link>
-          ) : null}
+            {role === "admin" ? (
+              <Link href="/food/orders" className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-accent">
+                <ShoppingBag className="size-4" /> ออเดอร์ทุกร้าน
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         {stores.length === 0 ? (

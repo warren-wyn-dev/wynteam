@@ -269,6 +269,18 @@ export async function fetchFoodCustomerSnapshot(
   };
 }
 
+/**
+ * WYN-206: names of the WYNOS campaigns this store has joined and that are
+ * running now. Best effort: an older database without the RPC shows none.
+ */
+export async function fetchStorePlatformCampaigns(client: SupabaseClient, storeId: string): Promise<string[]> {
+  const { data, error } = await client.rpc("food_platform_campaign_badges");
+  if (error || !Array.isArray(data)) return [];
+  return (data as Array<{ store_id: string; campaign_name: string }>)
+    .filter((row) => row.store_id === storeId)
+    .map((row) => row.campaign_name);
+}
+
 export async function quoteFoodCustomerOrder(
   client: SupabaseClient,
   storeId: string,
