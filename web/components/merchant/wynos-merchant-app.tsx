@@ -1615,7 +1615,12 @@ function StoreEditor({
         <div className="wm-form-grid"><label>ค่าส่งเริ่มต้น<input type="number" min="0" inputMode="decimal" value={form.delivery_fee} onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })} /></label><label>ยอดขั้นต่ำ<input type="number" min="0" inputMode="decimal" value={form.minimum_order} onChange={(e) => setForm({ ...form, minimum_order: e.target.value })} /></label></div>
         {zoneReady ? <div className="wm-zone">
           <strong>ตำแหน่งร้านและระยะส่ง</strong>
-          <small>{pin ? `ปักหมุดแล้ว · ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}` : "ยังไม่ปักหมุด: ค่าส่งเป็นราคาเดียวและไม่จำกัดระยะ"}</small>
+          <small>{pin ? `ปักหมุดแล้ว · ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}` : "ยังไม่ปักหมุด: ร้านจะยังไม่ขึ้น WYNOS Maps"}</small>
+          <small>{pin
+            ? (store.is_published
+              ? "ร้านนี้ซิงก์ตำแหน่งไป WYNOS Maps อัตโนมัติเมื่อบันทึก"
+              : "เมื่อร้านเผยแพร่ หมุดร้านสีแดงจะขึ้น WYNOS Maps อัตโนมัติ")
+            : "ต้องปักหมุดร้านก่อนเผยแพร่และก่อนเปิดการจัดส่ง"}</small>
           <div className="wm-two-actions">
             <button className="wm-secondary" type="button" onClick={() => void pinStore()}>ใช้ตำแหน่งปัจจุบันเป็นร้าน</button>
             {pin ? <button className="wm-secondary" type="button" onClick={() => { setPin(null); setPinStatus("ล้างหมุดแล้ว อย่าลืมกดบันทึก"); }}>ล้างหมุด</button> : null}
