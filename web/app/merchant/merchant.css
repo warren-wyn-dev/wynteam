@@ -1,16 +1,39 @@
 /* WYNOS Merchant — production merchant PWA
-   WYNOS neutral design language + Merchant red identity. */
+   WYNOS neutral design language + Merchant red identity.
+   WYN-204: Merchant is light only (Founder: "แอปแค่โหมดสว่างพอ"), whatever
+   the phone or the WYN theme setting says. */
+.wm-force-light {
+  --wyn-bg: #ffffff;
+  --wyn-surface: #f5f5f5;
+  --wyn-text: #171717;
+  --wyn-text-secondary: #737373;
+  --wyn-text-muted: #9a9a9a;
+  --wyn-border: #e5e5e5;
+  --wyn-border-strong: #d4d4d4;
+  --wyn-focus-ring: rgba(10, 10, 10, 0.18);
+  --wyn-color-link: #0969da;
+  --wyn-color-link-vivid: #1d9bf0;
+  min-height: 100dvh;
+  background: #ffffff;
+  color: #171717;
+  color-scheme: light;
+}
+html:has(.wm-force-light),
+html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wyn-merchant {
   --wm-red: #e32636;
   --wm-red-strong: #c91d2c;
   --wm-red-soft: #fff1f2;
   --wm-red-border: #ffd8dc;
-  --wm-bg: var(--wyn-bg, #fff);
-  --wm-surface: var(--wyn-surface, #f5f5f5);
-  --wm-text: var(--wyn-text, #111);
-  --wm-secondary: var(--wyn-text-secondary, #737373);
-  --wm-muted: var(--wyn-text-muted, #9a9a9a);
-  --wm-border: var(--wyn-border, #e5e5e5);
+  --wm-bg: #fff;
+  --wm-surface: #f5f5f5;
+  --wm-text: #111;
+  --wm-secondary: #737373;
+  --wm-muted: #9a9a9a;
+  --wm-border: #e5e5e5;
+  /* WYN-204: text on tinted surfaces; both pass 4.5:1. */
+  --wm-success-text: #0b7a3b;
+  --wm-red-text: #b81828;
   min-height: 100dvh;
   max-width: 760px;
   margin: 0 auto;
@@ -32,15 +55,15 @@
   justify-items: center;
   gap: 14px;
   padding: 32px;
-  background: var(--wyn-bg, #fff);
-  color: var(--wyn-text, #111);
+  background: #fff;
+  color: #111;
   text-align: center;
 }
 .wm-loading strong { font-size: 20px; letter-spacing: -.3px; }
 .wm-loading strong b { color: #e32636; }
 .wm-loader,
 .wm-mini-loader {
-  border: 2px solid var(--wyn-border, #e5e5e5);
+  border: 2px solid #e5e5e5;
   border-top-color: #e32636;
   border-radius: 50%;
   animation: wm-spin .8s linear infinite;
@@ -49,9 +72,9 @@
 .wm-mini-loader { width: 21px; height: 21px; }
 @keyframes wm-spin { to { transform: rotate(360deg); } }
 .wm-blocked h1 { margin: 0; font-size: 22px; }
-.wm-blocked p { margin: 0 0 6px; color: var(--wyn-text-secondary, #737373); }
+.wm-blocked p { margin: 0 0 6px; color: #737373; }
 .wm-blocked-mark { width: 62px; height: 62px; display: grid; place-items: center; border-radius: 20px; background: #fff1f2; color: #e32636; }
-.wm-secondary-link { color: var(--wyn-text-secondary, #737373); font-size: 14px; text-decoration: none; }
+.wm-secondary-link { color: #737373; font-size: 14px; text-decoration: none; }
 
 .wm-header {
   position: sticky;
@@ -426,7 +449,7 @@
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .wm-nav > button {
   min-width: 0;
@@ -699,17 +722,17 @@
   padding: max(20px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 50% -10%, rgb(227 38 54 / 9%), transparent 34%),
-    var(--wyn-bg, #fff);
-  color: var(--wyn-text, #111);
+    #fff;
+  color: #111;
 }
 .wm-auth-card {
   width: min(100%, 500px);
   display: grid;
   gap: 20px;
   padding: 22px;
-  border: 1px solid var(--wyn-border, #e5e5e5);
+  border: 1px solid #e5e5e5;
   border-radius: 24px;
-  background: var(--wyn-bg, #fff);
+  background: #fff;
   box-shadow: 0 18px 54px rgb(0 0 0 / 7%);
 }
 .wm-auth-top {
@@ -728,10 +751,10 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: var(--wyn-text, #111);
+  color: #111;
   text-decoration: none;
 }
-.wm-auth-back:hover { background: var(--wyn-surface, #f5f5f5); }
+.wm-auth-back:hover { background: #f5f5f5; }
 .wm-auth-brand {
   display: flex;
   justify-content: center;
@@ -775,7 +798,7 @@
 .wm-auth-state p,
 .wm-application-status p {
   margin: 0;
-  color: var(--wyn-text-secondary, #737373);
+  color: #737373;
   font-size: 13px;
   line-height: 1.6;
 }
@@ -788,7 +811,7 @@
 .wm-auth-form label {
   display: grid;
   gap: 7px;
-  color: var(--wyn-text, #111);
+  color: #111;
   font-size: 12px;
   font-weight: 650;
 }
@@ -798,11 +821,11 @@
   width: 100%;
   min-height: 50px;
   padding: 0 14px;
-  border: 1px solid var(--wyn-border, #e5e5e5);
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   outline: none;
-  background: var(--wyn-bg, #fff);
-  color: var(--wyn-text, #111);
+  background: #fff;
+  color: #111;
   font: inherit;
   font-size: 14px;
   transition: border-color 120ms ease, box-shadow 120ms ease;
@@ -833,7 +856,7 @@
 .wm-auth-footnote {
   margin: 0;
   text-align: center;
-  color: var(--wyn-text-secondary, #737373);
+  color: #737373;
   font-size: 12px;
   line-height: 1.55;
 }
@@ -842,22 +865,22 @@
 .wm-auth-text-button {
   border: 0;
   background: transparent;
-  color: var(--wyn-text, #111);
+  color: #111;
   cursor: pointer;
 }
 .wm-auth-secondary {
   min-height: 48px;
   padding: 0 16px;
-  border: 1px solid var(--wyn-border, #e5e5e5);
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
-  background: var(--wyn-bg, #fff);
+  background: #fff;
   font-weight: 700;
 }
-.wm-auth-secondary:hover { background: var(--wyn-surface, #f5f5f5); }
+.wm-auth-secondary:hover { background: #f5f5f5; }
 .wm-auth-text-button {
   justify-self: center;
   font-size: 12px;
-  color: var(--wyn-text-secondary, #737373);
+  color: #737373;
 }
 .wm-auth-text-button--top { justify-self: end; width: 40px; }
 .wm-auth-error,
@@ -882,7 +905,7 @@
   place-content: center;
   justify-items: center;
   gap: 12px;
-  color: var(--wyn-text-secondary, #737373);
+  color: #737373;
   font-size: 13px;
 }
 .wm-auth-benefits {
@@ -890,13 +913,13 @@
   gap: 10px;
   padding: 14px;
   border-radius: 16px;
-  background: var(--wyn-surface, #f5f5f5);
+  background: #f5f5f5;
 }
 .wm-auth-benefits span {
   display: flex;
   align-items: center;
   gap: 9px;
-  color: var(--wyn-text, #111);
+  color: #111;
   font-size: 13px;
 }
 .wm-auth-benefits svg { color: #e32636; flex: 0 0 auto; }
@@ -926,11 +949,11 @@
   display: grid;
   gap: 3px;
   padding: 12px 13px;
-  border: 1px solid var(--wyn-border, #e5e5e5);
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
 }
 .wm-application-summary small {
-  color: var(--wyn-text-secondary, #737373);
+  color: #737373;
   font-size: 11px;
 }
 .wm-application-summary strong { font-size: 13px; }
@@ -1772,21 +1795,21 @@
 }
 
 /* WYN-196 store location and delivery radius */
-.wm-zone { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--wyn-border, #e5e5e5); border-radius: 12px; }
+.wm-zone { display: grid; gap: 8px; padding: 12px; border: 1px solid #e5e5e5; border-radius: 12px; }
 .wm-zone > strong { font-size: 14px; }
-.wm-zone > small, .wm-zone > p { margin: 0; color: var(--wyn-text-secondary, #737373); font-size: 12px; line-height: 1.4; }
+.wm-zone > small, .wm-zone > p { margin: 0; color: #737373; font-size: 12px; line-height: 1.4; }
 
 /* WYN-197: store place list */
 .wm-place-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.wm-place-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid var(--wyn-border, #e5e5e5); }
+.wm-place-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid #e5e5e5; }
 .wm-place-list li.is-off { opacity: .55; }
 .wm-place-list li > span:first-child { display: grid; gap: 2px; min-width: 0; }
 .wm-place-list strong { font-size: 13px; overflow-wrap: anywhere; }
-.wm-place-list small { color: var(--wyn-text-secondary, #737373); font-size: 11.5px; }
+.wm-place-list small { color: #737373; font-size: 11.5px; }
 .wm-place-actions { display: flex; flex-shrink: 0; gap: 4px; }
-.wm-place-actions button { min-height: 32px; padding: 0 10px; border: 1px solid var(--wyn-border, #e5e5e5); border-radius: 999px; background: transparent; color: inherit; font: inherit; font-size: 12px; }
+.wm-place-actions button { min-height: 32px; padding: 0 10px; border: 1px solid #e5e5e5; border-radius: 999px; background: transparent; color: inherit; font: inherit; font-size: 12px; }
 .wm-place-form { display: grid; gap: 8px; }
-.wm-place-form > small { color: var(--wyn-text-secondary, #737373); font-size: 12px; line-height: 1.4; }
+.wm-place-form > small { color: #737373; font-size: 12px; line-height: 1.4; }
 
 /* WYN-198: simpler, larger order flow (one main action per order, loud new-order alert) */
 .wm-order-card { padding: 14px 15px; gap: 11px; grid-template-columns: minmax(0, 1fr); }
@@ -1886,3 +1909,90 @@
   .wm-alert, .wm-alert-icon { animation: none; }
 }
 .wm-sheet:focus { outline: none; }
+
+/* WYN-204: Wynos home — one red "today" card, one row of 3D shortcuts,
+   orders to handle, then a store-readiness bar. Four bottom tabs with
+   "เพิ่มเติม" holding the rest. */
+.wm-hero {
+  position: relative;
+  margin: -18px -16px 0;
+  padding: 18px 16px 20px;
+  border-radius: 0 0 28px 28px;
+  background: linear-gradient(150deg, #ff4d5e 0%, #e32636 55%, #b8142a 100%);
+  color: #fff;
+  overflow: hidden;
+}
+.wm-hero::after { content: ""; position: absolute; right: -70px; top: -70px; width: 210px; height: 210px; border-radius: 50%; background: rgba(255, 255, 255, .08); pointer-events: none; }
+.wm-hero > * { position: relative; z-index: 1; }
+.wm-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.wm-hero-top > div { min-width: 0; }
+.wm-hero-top small { opacity: .85; font-size: 12.5px; }
+.wm-hero-top h1 { margin: 2px 0 0; overflow-wrap: anywhere; font-size: 23px; line-height: 1.25; letter-spacing: -.4px; }
+.wm-hero-edit { flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .2); color: #fff; display: grid; place-items: center; }
+.wm-hero-sales { margin-top: 14px; padding: 0; border: 0; background: transparent; color: #fff; display: grid; justify-items: start; gap: 2px; text-align: left; }
+.wm-hero-sales small { opacity: .88; font-size: 13px; }
+.wm-hero-sales strong { font-size: 38px; line-height: 1.1; letter-spacing: -1px; }
+.wm-hero-sales span { opacity: .9; display: inline-flex; align-items: center; gap: 2px; font-size: 12.5px; }
+.wm-open-switch {
+  width: 100%;
+  min-height: 60px;
+  margin-top: 16px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 18px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 8px 20px rgba(120, 0, 20, .25);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+.wm-open-switch > span:nth-child(2) { min-width: 0; flex: 1; display: grid; gap: 1px; }
+.wm-open-switch b { font-size: 15.5px; }
+.wm-open-switch small { color: #5f5f5f; font-size: 12px; }
+.wm-open-switch.is-open b { color: #0b7a3b; }
+.wm-open-switch .wm-switch.is-on { background: #12a150; }
+.wm-open-switch:disabled { opacity: .6; }
+.wm-open-dot { flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; background: #9a9a9a; box-shadow: 0 0 0 5px rgba(154, 154, 154, .18); }
+.wm-open-switch.is-open .wm-open-dot { background: #12a150; box-shadow: 0 0 0 5px rgba(18, 161, 80, .18); }
+.wm-hero-edit:active, .wm-open-switch:active, .wm-shortcuts > button:active { transform: scale(.97); }
+
+.wm-shortcuts { margin-top: 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.wm-shortcuts > button { position: relative; min-width: 0; min-height: 88px; padding: 4px 2px; border: 0; background: transparent; color: var(--wm-text); display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; }
+.wm-shortcut-badge { position: absolute; top: 0; left: calc(50% + 10px); min-width: 22px; height: 22px; padding: 0 6px; border: 2px solid var(--wm-bg); border-radius: 999px; background: var(--wm-red); color: #fff; display: grid; place-items: center; font-size: 11.5px; font-weight: 750; }
+
+.wm-ready { margin-top: 18px; border: 1px solid var(--wm-border); border-radius: 18px; background: var(--wm-surface); overflow: hidden; }
+.wm-ready-bar { width: 100%; padding: 14px 16px; border: 0; background: transparent; color: var(--wm-text); display: grid; gap: 9px; text-align: left; }
+.wm-ready-head { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; }
+.wm-ready-head b { color: var(--wm-red-text); }
+.wm-ready-track { height: 8px; border-radius: 999px; background: var(--wm-border); overflow: hidden; }
+.wm-ready-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff4d5e, #ffa31a, #22b45e, #2f8cf0, #8a5cf6); }
+.wm-ready-bar small { color: var(--wm-secondary); font-size: 12.5px; }
+.wm-ready ul { margin: 0; padding: 0 16px 12px; list-style: none; display: grid; gap: 4px; }
+.wm-ready li { min-height: 48px; display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+.wm-ready li > span:nth-child(2) { min-width: 0; flex: 1; }
+.wm-ready li.is-done > span:nth-child(2) { color: var(--wm-secondary); text-decoration: line-through; }
+.wm-ready li small { color: var(--wm-success-text); font-size: 12px; font-weight: 650; }
+.wm-ready li button { min-height: 44px; padding: 0 15px; border: 0; border-radius: 999px; background: var(--wm-red-soft); color: var(--wm-red-text); font-size: 12.5px; font-weight: 700; }
+.wm-check-mark { flex: 0 0 22px; width: 22px; height: 22px; border: 1.5px solid var(--wm-border); border-radius: 50%; display: grid; place-items: center; color: #fff; }
+.wm-ready li.is-done .wm-check-mark { border-color: #12a150; background: #12a150; }
+
+.wm-tile-icon { display: grid; place-items: center; line-height: 0; }
+.wm-icon-3d { display: block; overflow: visible; }
+
+.wm-back { min-height: 44px; margin: 4px 0 -4px -6px; padding: 0 6px; border: 0; background: transparent; color: var(--wm-secondary); display: inline-flex; align-items: center; gap: 2px; font-size: 14px; font-weight: 600; }
+
+.wm-store-card--link { width: 100%; border: 0; border-bottom: 1px solid var(--wm-border); background: transparent; color: var(--wm-text); display: flex; align-items: center; gap: 12px; text-align: left; }
+.wm-store-card--link > span:nth-child(2) { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.wm-store-card--link > svg { color: var(--wm-secondary); }
+
+.wm-service-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 6px; }
+.wm-service-grid > button { min-width: 0; min-height: 88px; padding: 4px 2px; border: 0; background: transparent; color: var(--wm-text); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font-size: 12.5px; line-height: 1.25; }
+
+@media (max-width: 370px) {
+  .wm-hero-sales strong { font-size: 32px; }
+  .wm-shortcuts > button { font-size: 12px; }
+  .wm-shortcuts .wm-icon-3d { width: 46px; height: 46px; }
+  .wm-service-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

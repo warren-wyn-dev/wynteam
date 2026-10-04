@@ -320,3 +320,35 @@ test("WYN-203 WYNOS Admin can suspend a store and see cross-store orders", () =>
   expect(merchant).toContain("disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}");
   expect(data).toContain('if (message.includes("store is suspended"))');
 });
+
+test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D shortcuts", () => {
+  const app = read("components/merchant/wynos-merchant-app.tsx");
+  const css = read("app/merchant/merchant.css");
+  const icons = read("components/merchant/merchant-3d-icons.tsx");
+
+  // One red "today" card: store, sales (opens reports) and the open switch.
+  expect(app).toContain('<section className="wm-hero">');
+  expect(app).toContain('<button className="wm-hero-sales" type="button" onClick={() => onOpenTab("reports")}>');
+  expect(app).toContain('className={`wm-open-switch ${store.is_open ? "is-open" : ""}`}');
+  expect(app).toContain('role="switch"');
+  // One row of Wynos's own 3D icons (SVG, no third-party artwork); the
+  // orders badge counts every unfinished order, not the 8 previewed.
+  expect(icons).toContain("export function MerchantIcon3D({ name, size = 44 }");
+  expect(app).toContain('<MerchantIcon3D name="orders" size={52} />รอจัดการ');
+  expect(app).toContain('{activeOrderCount ? <b className="wm-shortcut-badge">{activeOrderCount}</b> : null}');
+  // Readiness uses the publish rules (paired payment fields).
+  expect(app).toContain("done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
+  expect(app).toContain("{nextStep && !store.admin_suspended_at ? (");
+  // Four bottom tabs; reports, store settings and campaigns live under "เพิ่มเติม".
+  expect(app).toContain('label="รับออเดอร์"');
+  expect(app).toContain('<NavButton active={MORE_PAGES.has(tab)} label="เพิ่มเติม"');
+  expect(app).not.toContain('label="รายงาน"');
+  expect(css).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));\n}\n.wm-nav > button {");
+  // Light only: the layout pins light tokens whatever the phone or WYN theme says.
+  const layout = read("app/merchant/layout.tsx");
+  expect(layout).toContain('return <div className="wm-force-light">{children}</div>;');
+  expect(layout).toContain('colorScheme: "light",');
+  expect(css).toContain("html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }");
+  expect(css).not.toContain("prefers-color-scheme: dark");
+  expect(css).not.toContain("var(--wyn-");
+});

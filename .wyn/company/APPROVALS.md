@@ -357,3 +357,14 @@
 - Release: merge PR #831 (Admin and web auto-deploy), then dispatch `food-apply-wyn203.yml` with `APPLY-WYN-203`.
 - Rollback: revert the merge commit; the SQL rollback is in the workflow header.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-204 Wynos Merchant simple home, 3D icons and four tabs
+- Founder shared LINE MAN Merchant screenshots ("ชอบ LINE MAN มาก ดูใช้งานง่าย"). Founder then asked for "UX UI ไม่ซ้ำใคร เรียบง่าย ใช้งานง่าย ปุ่มไอคอน 3D สวยๆ" and said "ไอคอนโอเค". After comparing layouts: "ผมชอบดีไซน์เรียบๆ ใช้งานง่าย ดูแล้วเข้าใจ ไม่งง". After reviewing PR #832: **"อนุมัติ แอปแค่โหมดสว่างพอ"**.
+- Scope: web only.
+  - Wynos home: red "today" card, a row of 3D shortcuts, orders to handle, readiness bar.
+  - Wynos's own 3D SVG icon set.
+  - Four tabs: หน้าหลัก · รับออเดอร์ · เมนู · เพิ่มเติม.
+  - Merchant is light only.
+- Release: merge PR #832; the web auto-deploys.
+- Rollback: revert the merge commit or use Vercel Instant Rollback.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
