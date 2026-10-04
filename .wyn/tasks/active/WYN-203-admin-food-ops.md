@@ -1,6 +1,6 @@
 # Product Task — WYN-203 — WYNOS Admin: Food store and order operations
 
-Status: awaiting Founder approval (PR review, merge, production migration)
+Status: approved — releasing PR #831 and applying the migration
 Owner: AI Product Manager / AI Coding
 Date: 2026-10-04
 
