@@ -34,3 +34,5 @@ Remove the three host-aware rewrites and detach the three new project domains. E
 ## Deployment retry
 
 - 2026-10-04: no-op task update to trigger the production pipeline after the proxy fix was merged to main.
+
+- 2026-10-04: production trigger after Food + Merchant SEO metadata landed.
