@@ -1,6 +1,6 @@
 # Product Task — WYN-210 — Wynos Merchant finance page redesign
 
-Status: in review — awaiting Founder "อนุมัติ" for merge and production migration
+Status: approved — Founder "อนุมัติ" 2026-10-04; releasing PR #849 and applying the migration
 Owner: AI Product Manager / AI Design / AI Coding
 Date: 2026-10-04
 
