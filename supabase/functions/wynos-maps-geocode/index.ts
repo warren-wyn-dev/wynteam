@@ -1,10 +1,9 @@
 // Public fallback geocoder for WYNOS Maps.
 //
 // WYNOS-owned Places are queried before this function. When LocationIQ is not
-// configured, reverse geocoding may temporarily use the public OSM Nominatim
-// service with server-side caching and an app-wide <= 1 request/second gate.
-// Search never uses public Nominatim because its public usage policy forbids
-// autocomplete-style use.
+// configured, WYNOS temporarily falls back to the public Photon demo service
+// (OpenStreetMap data). Requests are rate-limited server-side and reverse
+// results are cached. This is a bridge until WYNOS self-hosted geocoding is live.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -32,8 +31,9 @@ const ALLOWED_ORIGINS = new Set([
 
 const MAX_QUERY_LENGTH = 200;
 const TIMEOUT_MS = 6500;
-const NOMINATIM_USER_AGENT = "WYNOSMaps/1.0 (+https://wynos.online/maps)";
-const NOMINATIM_REFERER = "https://wynos.online/maps";
+const PHOTON_BASE = "https://photon.komoot.io";
+const APP_USER_AGENT = "WYNOSMaps/1.0 (+https://wynos.online/maps)";
+const THAILAND_BBOX = "97.343,5.61,105.636,20.465";
 
 type LocationResult = {
   name: string;
@@ -43,7 +43,7 @@ type LocationResult = {
   place_id: string;
 };
 
-type ExternalPlace = {
+type LocationIqPlace = {
   place_id?: string | number;
   osm_type?: string;
   osm_id?: string | number;
@@ -52,6 +52,11 @@ type ExternalPlace = {
   name?: string;
   display_name?: string;
   address?: Record<string, unknown>;
+};
+
+type PhotonFeature = {
+  geometry?: { coordinates?: unknown[] };
+  properties?: Record<string, unknown>;
 };
 
 function corsHeaders(origin: string | null) {
@@ -66,10 +71,7 @@ function corsHeaders(origin: string | null) {
 function splitDisplayName(displayName: string) {
   const parts = displayName.split(",").map((part) => part.trim()).filter(Boolean);
   const [name, ...rest] = parts;
-  return {
-    name: name || displayName.trim(),
-    address: rest.length ? rest.join(", ") : null,
-  };
+  return { name: name || displayName.trim(), address: rest.length ? rest.join(", ") : null };
 }
 
 function bestAddressName(address: Record<string, unknown> | undefined) {
@@ -85,7 +87,7 @@ function bestAddressName(address: Record<string, unknown> | undefined) {
   return "";
 }
 
-function normalizePlace(raw: ExternalPlace): LocationResult | null {
+function normalizeLocationIq(raw: LocationIqPlace): LocationResult | null {
   const lat = Number(raw.lat);
   const lon = Number(raw.lon);
   const displayName = typeof raw.display_name === "string" ? raw.display_name.trim() : "";
@@ -105,6 +107,58 @@ function normalizePlace(raw: ExternalPlace): LocationResult | null {
     : `${raw.osm_type ?? "unknown"}:${raw.osm_id ?? ""}`;
 
   return { name, address, lat, lon, place_id: placeId };
+}
+
+function stringProp(props: Record<string, unknown>, key: string) {
+  const value = props[key];
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function haversineKm(aLat: number, aLon: number, bLat: number, bLon: number) {
+  const r = 6371;
+  const toRad = (value: number) => value * Math.PI / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLon = toRad(bLon - aLon);
+  const x = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * r * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function normalizePhoton(feature: PhotonFeature, requested?: { lat: number; lon: number }): LocationResult | null {
+  const coords = feature.geometry?.coordinates;
+  const props = feature.properties ?? {};
+  const lon = Number(Array.isArray(coords) ? coords[0] : NaN);
+  const lat = Number(Array.isArray(coords) ? coords[1] : NaN);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+  const featureName = stringProp(props, "name");
+  const street = stringProp(props, "street");
+  const locality = stringProp(props, "locality");
+  const district = stringProp(props, "district");
+  const city = stringProp(props, "city");
+  const county = stringProp(props, "county");
+  const state = stringProp(props, "state");
+  const postcode = stringProp(props, "postcode");
+  const country = stringProp(props, "country");
+
+  const distanceKm = requested ? haversineKm(requested.lat, requested.lon, lat, lon) : 0;
+  const fallbackArea = street || locality || district || city || county || state || country || "สถานที่";
+  // Photon reverse can return the nearest named POI even when it is several
+  // hundred metres away. Avoid presenting that POI as the exact pin location.
+  const name = requested && distanceKm > 0.20 ? fallbackArea : (featureName || fallbackArea);
+
+  const parts = [street, locality, district, city, county, state, postcode, country]
+    .filter((value, index, values) => value && value !== name && values.indexOf(value) === index);
+
+  const osmType = stringProp(props, "osm_type") || "unknown";
+  const osmId = props.osm_id == null ? "" : String(props.osm_id);
+  return {
+    name,
+    address: parts.length ? parts.join(", ") : null,
+    lat,
+    lon,
+    place_id: `${osmType}:${osmId}`,
+  };
 }
 
 async function sha256(value: string) {
@@ -143,6 +197,15 @@ async function reserveClient(req: Request) {
   return result.ok && result.data === true;
 }
 
+async function reservePhoton() {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const result = await serviceRpc("reserve_wynos_maps_photon_request", {});
+    if (result.ok && result.data === true) return true;
+    await new Promise((resolve) => setTimeout(resolve, 550));
+  }
+  return false;
+}
+
 function reverseCacheKey(lat: number, lon: number) {
   return `${lat.toFixed(4)},${lon.toFixed(4)}`;
 }
@@ -150,9 +213,7 @@ function reverseCacheKey(lat: number, lon: number) {
 async function reverseCacheGet(cacheKey: string): Promise<LocationResult | null> {
   const result = await serviceRpc("wynos_maps_reverse_cache_get", { p_cache_key: cacheKey });
   if (!result.ok || !result.data || typeof result.data !== "object") return null;
-  const row = result.data as {
-    name?: unknown; address?: unknown; lat?: unknown; lon?: unknown; place_id?: unknown;
-  };
+  const row = result.data as { name?: unknown; address?: unknown; lat?: unknown; lon?: unknown; place_id?: unknown };
   const lat = Number(row.lat);
   const lon = Number(row.lon);
   if (typeof row.name !== "string" || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -165,7 +226,7 @@ async function reverseCacheGet(cacheKey: string): Promise<LocationResult | null>
   };
 }
 
-async function reverseCachePut(cacheKey: string, place: LocationResult, provider: "osm" | "locationiq") {
+async function reverseCachePut(cacheKey: string, place: LocationResult, provider: "photon" | "locationiq") {
   await serviceRpc("wynos_maps_reverse_cache_put", {
     p_cache_key: cacheKey,
     p_latitude: place.lat,
@@ -175,15 +236,6 @@ async function reverseCachePut(cacheKey: string, place: LocationResult, provider
     p_external_place_id: place.place_id,
     p_provider: provider,
   });
-}
-
-async function reserveNominatim() {
-  const result = await serviceRpc("reserve_wynos_maps_nominatim_request", {});
-  return result.ok && result.data === true;
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function fetchJson(url: URL, headers: Record<string, string>) {
@@ -198,44 +250,63 @@ async function fetchJson(url: URL, headers: Record<string, string>) {
   }
 }
 
-async function locationIq(url: URL) {
-  return await fetchJson(url, { Accept: "application/json" });
+async function photon(url: URL) {
+  if (!(await reservePhoton())) throw new Error("photon busy");
+  return await fetchJson(url, {
+    Accept: "application/json",
+    "User-Agent": APP_USER_AGENT,
+  });
 }
 
-async function nominatimReverse(lat: number, lon: number) {
+function nearbyBbox(location: { lat: number; lon: number }, radiusKm = 80) {
+  const latDelta = radiusKm / 111;
+  const lonDelta = radiusKm / Math.max(20, 111 * Math.cos(location.lat * Math.PI / 180));
+  const minLon = Math.max(97.343, location.lon - lonDelta);
+  const minLat = Math.max(5.61, location.lat - latDelta);
+  const maxLon = Math.min(105.636, location.lon + lonDelta);
+  const maxLat = Math.min(20.465, location.lat + latDelta);
+  return `${minLon.toFixed(5)},${minLat.toFixed(5)},${maxLon.toFixed(5)},${maxLat.toFixed(5)}`;
+}
+
+async function photonSearch(query: string, location?: { lat: number; lon: number }) {
+  const url = new URL(`${PHOTON_BASE}/api`);
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "10");
+  url.searchParams.set("bbox", location ? nearbyBbox(location) : THAILAND_BBOX);
+  if (location) {
+    url.searchParams.set("lat", String(location.lat));
+    url.searchParams.set("lon", String(location.lon));
+  }
+
+  const raw = await photon(url) as { features?: PhotonFeature[] };
+  return Array.isArray(raw.features)
+    ? raw.features.flatMap((feature) => {
+      const place = normalizePhoton(feature);
+      return place ? [place] : [];
+    }).slice(0, 10)
+    : [];
+}
+
+async function photonReverse(lat: number, lon: number) {
   const cacheKey = reverseCacheKey(lat, lon);
   const cached = await reverseCacheGet(cacheKey);
   if (cached) return cached;
 
-  // Public Nominatim permits at most one request/second for the entire app.
-  // Re-check the cache while waiting in case another request already filled it.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (await reserveNominatim()) {
-      const url = new URL("https://nominatim.openstreetmap.org/reverse");
-      url.searchParams.set("lat", String(lat));
-      url.searchParams.set("lon", String(lon));
-      url.searchParams.set("format", "jsonv2");
-      url.searchParams.set("addressdetails", "1");
-      url.searchParams.set("namedetails", "1");
-      url.searchParams.set("zoom", "18");
-      url.searchParams.set("accept-language", "th,en");
+  const url = new URL(`${PHOTON_BASE}/reverse`);
+  url.searchParams.set("lat", String(lat));
+  url.searchParams.set("lon", String(lon));
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("radius", "10");
 
-      const raw = await fetchJson(url, {
-        Accept: "application/json",
-        "User-Agent": NOMINATIM_USER_AGENT,
-        Referer: NOMINATIM_REFERER,
-      });
-      const place = normalizePlace(raw as ExternalPlace);
-      if (place) await reverseCachePut(cacheKey, place, "osm");
-      return place;
-    }
+  const raw = await photon(url) as { features?: PhotonFeature[] };
+  const feature = Array.isArray(raw.features) ? raw.features[0] : null;
+  const place = feature ? normalizePhoton(feature, { lat, lon }) : null;
+  if (place) await reverseCachePut(cacheKey, place, "photon");
+  return place;
+}
 
-    await sleep(1050);
-    const filled = await reverseCacheGet(cacheKey);
-    if (filled) return filled;
-  }
-
-  return null;
+async function locationIq(url: URL) {
+  return await fetchJson(url, { Accept: "application/json" });
 }
 
 function json(origin: string | null, body: unknown, status = 200, provider = "none") {
@@ -278,22 +349,30 @@ Deno.serve(async (req) => {
     if (body.mode === "search") {
       const query = body.query?.trim() ?? "";
       if (!query || query.length > MAX_QUERY_LENGTH) return json(origin, { results: [] });
-      if (!LOCATIONIQ_API_KEY) return json(origin, { error: "Search geocoder not configured" }, 503);
 
-      const url = new URL("https://us1.locationiq.com/v1/search");
-      url.searchParams.set("key", LOCATIONIQ_API_KEY);
-      url.searchParams.set("q", query);
-      url.searchParams.set("format", "json");
-      url.searchParams.set("limit", "10");
-      url.searchParams.set("accept-language", "th,en");
-      url.searchParams.set("countrycodes", "th");
+      if (LOCATIONIQ_API_KEY) {
+        const url = new URL("https://us1.locationiq.com/v1/search");
+        url.searchParams.set("key", LOCATIONIQ_API_KEY);
+        url.searchParams.set("q", query);
+        url.searchParams.set("format", "json");
+        url.searchParams.set("limit", "10");
+        url.searchParams.set("accept-language", "th,en");
+        url.searchParams.set("countrycodes", "th");
+        const raw = await locationIq(url);
+        const rows = Array.isArray(raw) ? raw.flatMap((row) => {
+          const place = normalizeLocationIq(row as LocationIqPlace);
+          return place ? [place] : [];
+        }) : [];
+        return json(origin, { results: rows }, 200, "locationiq");
+      }
 
-      const raw = await locationIq(url);
-      const rows = Array.isArray(raw) ? raw.flatMap((row) => {
-        const place = normalizePlace(row as ExternalPlace);
-        return place ? [place] : [];
-      }) : [];
-      return json(origin, { results: rows }, 200, "locationiq");
+      const lat = Number(body.lat);
+      const lon = Number(body.lon);
+      const bias = Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
+        ? { lat, lon }
+        : undefined;
+      const rows = await photonSearch(query, bias);
+      return json(origin, { results: rows }, 200, "photon");
     }
 
     if (body.mode === "reverse") {
@@ -310,20 +389,19 @@ Deno.serve(async (req) => {
         url.searchParams.set("lon", String(lon));
         url.searchParams.set("format", "json");
         url.searchParams.set("accept-language", "th,en");
-
         const raw = await locationIq(url);
-        const place = normalizePlace(raw as ExternalPlace);
+        const place = normalizeLocationIq(raw as LocationIqPlace);
         if (place) await reverseCachePut(reverseCacheKey(lat, lon), place, "locationiq");
         return json(origin, { results: place ? [place] : [] }, 200, "locationiq");
       }
 
-      const place = await nominatimReverse(lat, lon);
-      if (!place) return json(origin, { error: "Reverse geocoder busy", results: [] }, 429, "osm");
-      return json(origin, { results: [place] }, 200, "osm");
+      const place = await photonReverse(lat, lon);
+      return json(origin, { results: place ? [place] : [] }, 200, "photon");
     }
 
     return json(origin, { error: "Bad request" }, 400);
-  } catch {
+  } catch (error) {
+    console.error("WYNOS Maps geocoder error", error instanceof Error ? error.message : String(error));
     return json(origin, { error: "Geocoder unavailable" }, 502);
   }
 });

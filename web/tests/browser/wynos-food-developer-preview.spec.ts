@@ -86,6 +86,7 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   const nearbySql = read("../supabase/migrations_wynos_maps_nearby_places_v1.sql");
   const reverseSql = read("../supabase/migrations_wynos_maps_reverse_place_v1.sql");
   const osmFallbackSql = read("../supabase/migrations_wynos_maps_osm_reverse_fallback_v1.sql");
+  const photonFallbackSql = read("../supabase/migrations_wynos_maps_photon_fallback_v1.sql");
   const publicGeocoder = read("../supabase/functions/wynos-maps-geocode/index.ts");
   const map = read("components/food/food-delivery-map-picker.tsx");
 
@@ -106,13 +107,17 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(reverseSql).toContain("create or replace function public.wynos_reverse_place");
   expect(reverseSql).toContain("reserve_wynos_maps_geocode_request");
   expect(osmFallbackSql).toContain("wynos_maps_reverse_cache");
-  expect(osmFallbackSql).toContain("reserve_wynos_maps_nominatim_request");
-  expect(publicGeocoder).toContain("https://nominatim.openstreetmap.org/reverse");
+  expect(osmFallbackSql).toContain("wynos_maps_reverse_cache");
+  expect(photonFallbackSql).toContain("reserve_wynos_maps_photon_request");
+  expect(publicGeocoder).toContain("https://photon.komoot.io");
+  expect(publicGeocoder).toContain("photonSearch");
+  expect(publicGeocoder).toContain("photonReverse");
+  expect(publicGeocoder).toContain("nearbyBbox");
   expect(publicGeocoder).toContain("WYNOSMaps/1.0");
-  expect(publicGeocoder).toContain("Search never uses public Nominatim");
   expect(publicGeocoder).toContain('X-WYNOS-Maps-Provider');
   expect(publicGeocoder).toContain("LOCATIONIQ_API_KEY");
-  expect(map).toContain("Address © OpenStreetMap contributors");
+  expect(map).toContain("Geocoding by Photon");
+  expect(map).toContain("© OpenStreetMap contributors");
   expect(nearbySql).toContain("create or replace function public.wynos_nearby_places");
   expect(nearbySql).toContain("to anon, authenticated");
   expect(map).toContain("fetchNearbyWynosPlaces");

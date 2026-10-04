@@ -414,7 +414,7 @@ export function FoodDeliveryMapPicker({
     setStatus("");
     try {
       let next = storeId ? (await searchStorePlaces(client, storeId, trimmed)) ?? [] : [];
-      if (!next.length) next = await searchFoodPlaces(client, trimmed);
+      if (!next.length) next = await searchFoodPlaces(client, trimmed, location);
       setResults(next);
       if (!next.length) setStatus("ไม่พบสถานที่ ลองพิมพ์ชื่อถนน หมู่บ้าน หอพัก หรือสถานที่ใกล้เคียง");
     } catch (error) {
@@ -435,6 +435,8 @@ export function FoodDeliveryMapPicker({
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
   const showOsmReverseAttribution =
     place?.source === "osm" || results.some((result) => result.source === "osm");
+  const showPhotonAttribution =
+    place?.source === "photon" || results.some((result) => result.source === "photon");
 
   return (
     <div className="wf-map-picker" role="dialog" aria-modal="true" aria-label="ปักหมุดตำแหน่งจัดส่ง">
@@ -574,6 +576,13 @@ export function FoodDeliveryMapPicker({
         ) : null}
         {showOsmReverseAttribution ? (
           <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Address © OpenStreetMap contributors</a>
+        ) : null}
+        {showPhotonAttribution ? (
+          <span className="wf-map-geocoder-credit">
+            <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Geocoding by Photon</a>
+            {" · "}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
+          </span>
         ) : null}
       </section>
     </div>

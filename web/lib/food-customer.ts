@@ -659,7 +659,7 @@ export type FoodPlace = {
   isOpen?: boolean | null;
   deliveryRadiusKm?: number | null;
   distanceKm?: number | null;
-  source?: "wynos" | "geo" | "legacy" | "osm" | "store";
+  source?: "wynos" | "geo" | "legacy" | "osm" | "photon" | "store";
 };
 
 function parsePlaceRows(rows: unknown[], source: FoodPlace["source"], limit = 12): FoodPlace[] {
@@ -755,11 +755,15 @@ export async function fetchNearbyWynosPlaces(
   return parsePlaceRows(Array.isArray(data) ? data : [], "wynos", 80);
 }
 
-async function searchWynosPlaces(client: SupabaseClient, query: string): Promise<FoodPlace[]> {
+async function searchWynosPlaces(
+  client: SupabaseClient,
+  query: string,
+  location?: FoodLocation | null,
+): Promise<FoodPlace[]> {
   const { data, error } = await client.rpc("wynos_search_places", {
     p_query: query.slice(0, 200),
-    p_latitude: null,
-    p_longitude: null,
+    p_latitude: location?.latitude ?? null,
+    p_longitude: location?.longitude ?? null,
   });
   if (error) {
     if (error.code === "PGRST202" || error.code === "42883") return [];
@@ -770,13 +774,18 @@ async function searchWynosPlaces(client: SupabaseClient, query: string): Promise
 
 async function invokePublicMapsGeocoder(
   client: SupabaseClient,
-  body: { mode: "search"; query: string } | { mode: "reverse"; lat: number; lon: number },
+  body:
+    | { mode: "search"; query: string; lat?: number; lon?: number }
+    | { mode: "reverse"; lat: number; lon: number },
 ): Promise<FoodPlace[] | null> {
   try {
     const { data, error } = await client.functions.invoke("wynos-maps-geocode", { body });
     if (error) return null;
     const provider = (data as { provider?: unknown } | null)?.provider;
-    const source: FoodPlace["source"] = provider === "osm" ? "osm" : "legacy";
+    const source: FoodPlace["source"] =
+      provider === "photon" ? "photon" :
+      provider === "osm" ? "osm" :
+      "legacy";
     return parseMapPlaces(data, source);
   } catch {
     return null;
@@ -815,11 +824,15 @@ async function reverseWynosMapsApi(location: FoodLocation): Promise<FoodPlace[] 
  * WYNOS Places is searched first. WYNOS Geo is next, and the legacy
  * location-search Edge Function remains only as a rollout fallback.
  */
-export async function searchFoodPlaces(client: SupabaseClient, query: string): Promise<FoodPlace[]> {
+export async function searchFoodPlaces(
+  client: SupabaseClient,
+  query: string,
+  location?: FoodLocation | null,
+): Promise<FoodPlace[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const ownPlaces = await searchWynosPlaces(client, trimmed);
+  const ownPlaces = await searchWynosPlaces(client, trimmed, location);
   if (ownPlaces.length) return ownPlaces;
 
   const wynosResults = await searchWynosMapsApi(trimmed);
@@ -828,6 +841,8 @@ export async function searchFoodPlaces(client: SupabaseClient, query: string): P
   const publicFallback = await invokePublicMapsGeocoder(client, {
     mode: "search",
     query: trimmed.slice(0, 200),
+    lat: location?.latitude,
+    lon: location?.longitude,
   });
   if (publicFallback?.length) return publicFallback;
 
