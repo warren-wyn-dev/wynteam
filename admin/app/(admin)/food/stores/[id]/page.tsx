@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { FoodStoreSuspensionActions, FoodTeamMemberToggle } from "@/components/admin/food-store-actions";
 import {
   FOOD_ORDER_STATUS_LABEL,
+  FOOD_READINESS_LABEL,
   FOOD_TEAM_ROLE_LABEL,
   fetchAdminFoodOrders,
   fetchAdminFoodStoreDetail,
@@ -64,6 +65,29 @@ export default async function FoodStoreDetailPage({
           </div>
           <Link href="/food/places?category=restaurant" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent">เปิด Places Manager</Link>
         </div>
+      </section>
+
+      <section className="rounded-xl border p-4 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium">พื้นที่ให้บริการ</p>
+          <Badge variant={store.in_service_area ? "ink-solid" : "destructive"}>{store.in_service_area ? "อยู่ในเขตมหาสารคาม" : "อยู่นอกเขต / ยังไม่ปักหมุด"}</Badge>
+        </div>
+        {store.latitude != null && store.longitude != null ? (
+          <p className="mt-1 text-muted-foreground">
+            หมุดร้าน {Number(store.latitude).toFixed(5)}, {Number(store.longitude).toFixed(5)}
+            {store.delivery_radius_km != null ? ` · ส่งได้ในรัศมี ${Number(store.delivery_radius_km)} กม.` : ""} ·{" "}
+            <a href={`https://www.google.com/maps?q=${store.latitude},${store.longitude}`} target="_blank" rel="noreferrer" className="underline">เปิดแผนที่</a>
+          </p>
+        ) : (
+          <p className="mt-1 text-muted-foreground">ร้านยังไม่ได้ปักหมุด จึงยังเปิดขายไม่ได้</p>
+        )}
+        {store.readiness_missing.length ? (
+          <p className="mt-2">
+            ยังขาดก่อนเปิดขาย: {store.readiness_missing.map((item) => FOOD_READINESS_LABEL[item] ?? item).join(" · ")}
+          </p>
+        ) : (
+          <p className="mt-2 text-muted-foreground">ข้อมูลร้านครบ พร้อมเปิดขาย</p>
+        )}
       </section>
 
       {suspended ? (

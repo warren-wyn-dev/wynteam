@@ -65,6 +65,12 @@ export type AdminFoodStoreDetail = {
   cancelled_30d: number;
   active_orders: number;
   team: AdminFoodTeamMember[];
+  /** WYN-214: store pin, delivery radius, WYN-211 service area, publish checklist. */
+  latitude: number | null;
+  longitude: number | null;
+  delivery_radius_km: number | null;
+  in_service_area: boolean;
+  readiness_missing: string[];
 };
 
 export type AdminFoodOrderStatusFilter =
@@ -74,7 +80,9 @@ export type AdminFoodOrderStatusFilter =
   | "ready_for_delivery"
   | "out_for_delivery"
   | "delivered"
-  | "cancelled";
+  | "cancelled"
+  | "refund_pending"
+  | "payment_review";
 
 export type AdminFoodOrder = {
   id: string;
@@ -186,6 +194,24 @@ export async function signAdminFoodEvidence(path: string | null | undefined): Pr
   if (error || !data?.signedUrl) return { status: "error" };
   return { status: "ready", url: data.signedUrl };
 }
+
+/** WYN-214: what a store still needs before it can publish (store readiness). */
+export const FOOD_READINESS_LABEL: Record<string, string> = {
+  name: "ชื่อร้าน",
+  phone: "เบอร์โทร",
+  address: "ที่อยู่",
+  business_hours: "เวลาเปิด–ปิด",
+  delivery_area: "พื้นที่จัดส่ง",
+  payment: "ช่องทางรับเงิน",
+  menu: "เมนูที่พร้อมขาย",
+  service_area: "ปักหมุดร้านในจังหวัดมหาสารคาม",
+};
+
+export const FOOD_REFUND_STATUS_LABEL: Record<string, string> = {
+  pending: "รอคืนเงิน",
+  failed: "คืนเงินไม่สำเร็จ",
+  refunded: "คืนเงินแล้ว",
+};
 
 export const FOOD_ORDER_STATUS_LABEL: Record<string, string> = {
   pending_acceptance: "รอร้านรับ",

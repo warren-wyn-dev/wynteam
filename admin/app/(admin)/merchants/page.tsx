@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { MerchantApplicationCard } from "@/components/admin/merchant-review-card";
 import {
+  MERCHANT_APPLICATION_LIMIT,
   fetchMerchantApplications,
   type MerchantApplicationStatus,
 } from "@/lib/admin-merchants";
@@ -54,6 +55,9 @@ export default async function MerchantApplicationsPage({
         </div>
       </section>
 
+      {applications.length >= MERCHANT_APPLICATION_LIMIT ? (
+        <p className="text-sm text-muted-foreground">{`แสดง ${MERCHANT_APPLICATION_LIMIT} คำขอล่าสุด`}</p>
+      ) : null}
       {applications.length === 0 ? (
         <div className="rounded-xl border border-dashed p-10 text-center">
           <p className="font-medium">ไม่มีคำขอในสถานะนี้</p>

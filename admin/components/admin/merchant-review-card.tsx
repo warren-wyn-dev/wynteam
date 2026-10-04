@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock3, ExternalLink, Store, XCircle } from "lucide-react";
@@ -59,6 +60,22 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+const MERCHANT_APPLICATION_STATUS_LABEL: Record<string, string> = {
+  pending: "รอตรวจ",
+  approved: "อนุมัติแล้ว",
+  rejected: "ปฏิเสธแล้ว",
+};
+
+/** WYN-214: server messages in Thai for the reviewer. */
+function merchantReviewError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? "");
+  if (message.includes("Only admins can review merchant applications")) return "เฉพาะ Admin เท่านั้นที่อนุมัติหรือปฏิเสธคำขอได้";
+  if (message.includes("Approved merchant applications are final")) return "คำขอนี้อนุมัติไปแล้ว เปลี่ยนไม่ได้";
+  if (message.includes("Rejection reason is required")) return "กรุณาใส่เหตุผลที่ปฏิเสธ";
+  if (message.includes("Merchant application not found")) return "ไม่พบคำขอนี้ อาจถูกลบไปแล้ว ลองรีเฟรช";
+  return fallback;
+}
+
 export function MerchantApplicationCard({
   application,
   role,
@@ -76,6 +93,9 @@ export function MerchantApplicationCard({
   const canReview = role === "admin" && application.status !== "approved";
 
   function approve() {
+    // WYN-214: approval is final and creates the store; confirm first.
+    const what = application.business_type === "food" ? "อนุมัติและเปิด Merchant ให้ร้านนี้" : "อนุมัติคำขอนี้";
+    if (!window.confirm(`${what}? อนุมัติแล้วย้อนกลับไม่ได้`)) return;
     setError(null);
     startTransition(async () => {
       try {
@@ -86,7 +106,7 @@ export function MerchantApplicationCard({
         setDetailsOpen(false);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "อนุมัติไม่สำเร็จ");
+        setError(merchantReviewError(err, "อนุมัติไม่สำเร็จ"));
       }
     });
   }
@@ -107,7 +127,7 @@ export function MerchantApplicationCard({
         setReason("");
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "ปฏิเสธคำขอไม่สำเร็จ");
+        setError(merchantReviewError(err, "ปฏิเสธคำขอไม่สำเร็จ"));
       }
     });
   }
@@ -157,7 +177,7 @@ export function MerchantApplicationCard({
             <Info className="sm:col-span-2" label="ที่อยู่ร้าน / ธุรกิจ" value={application.address} />
             <Info className="sm:col-span-2" label="ข้อมูลเพิ่มเติม" value={application.note || "-"} />
             <Info label="ส่งคำขอเมื่อ" value={formatDate(application.created_at)} />
-            <Info label="สถานะ" value={application.status} />
+            <Info label="สถานะ" value={MERCHANT_APPLICATION_STATUS_LABEL[application.status] ?? application.status} />
             {application.reviewed_at ? (
               <Info label="ตรวจสอบเมื่อ" value={formatDate(application.reviewed_at)} />
             ) : null}
@@ -172,7 +192,12 @@ export function MerchantApplicationCard({
           {application.status === "approved" ? (
             <div className="rounded-lg border bg-muted/35 p-3 text-sm">
               {application.merchant_access_enabled ? (
-                <p>บัญชีนี้มีสิทธิ์ Merchant แล้ว{application.food_store_id ? " และมี Food Store ที่ผูกกับคำขอนี้" : ""}</p>
+                <p>
+                  บัญชีนี้มีสิทธิ์ Merchant แล้ว
+                  {application.food_store_id ? (
+                    <> · <Link href={`/food/stores/${application.food_store_id}`} className="font-medium underline-offset-4 hover:underline">เปิดหน้าร้านใน Admin</Link></>
+                  ) : null}
+                </p>
               ) : (
                 <p>
                   คำขอได้รับอนุมัติแล้ว แต่ประเภทธุรกิจนี้ยังไม่มี Dashboard เฉพาะที่ provision อัตโนมัติ

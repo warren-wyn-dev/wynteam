@@ -24,13 +24,16 @@ export type AdminMerchantApplication = {
   merchant_access_enabled: boolean;
 };
 
+/** The RPC returns at most this many; the page says so when it is full. */
+export const MERCHANT_APPLICATION_LIMIT = 200;
+
 export async function fetchMerchantApplications(
   status?: MerchantApplicationStatus,
 ): Promise<AdminMerchantApplication[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_merchant_applications", {
     p_status: status ?? null,
-    p_limit: 200,
+    p_limit: MERCHANT_APPLICATION_LIMIT,
   });
 
   if (error) throw error;

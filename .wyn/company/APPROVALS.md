@@ -511,3 +511,20 @@
   3. Run `deploy-admin.yml`.
 - Rollback: previous definitions (listed in the workflow header); drop `food_ad_topups_slip_path_uidx`.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-214 WYNOS Admin Merchant polish (PR #877)
+
+- Source: the WYNOS Admin Merchant audit. Founder said "ทำต่อ", then "อนุมัติ".
+- Change:
+  - Store detail shows the service area, pin and readiness.
+  - New order filters: payments to review and refunds pending.
+  - Order detail shows discounts and refund details.
+  - Merchant approval asks for confirmation, and messages are in Thai.
+  - Lists say when they are cut off.
+  - Read-only RPC changes only.
+- Release:
+  1. Merge PR #877.
+  2. Dispatch `food-apply-wyn214.yml` with `APPLY-WYN-214`.
+  3. Run `deploy-admin.yml`.
+- Rollback: revert, then re-run both functions from `migrations_wynos_admin_food_ops_v1.sql`.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
