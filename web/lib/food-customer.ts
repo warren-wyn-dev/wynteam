@@ -576,15 +576,10 @@ export function currentFoodLocation(timeoutMs = 12000): Promise<FoodLocation> {
 
 export type FoodPlace = { name: string; address: string | null; latitude: number; longitude: number };
 
-/** WYN-196: place search through the existing location-search Edge Function. */
-export async function searchFoodPlaces(client: SupabaseClient, query: string): Promise<FoodPlace[]> {
-  const trimmed = query.trim();
-  if (!trimmed) return [];
-  const { data, error } = await client.functions.invoke("location-search", {
-    body: { mode: "search", query: trimmed.slice(0, 200) },
-  });
-  if (error) throw new Error("ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองใช้ตำแหน่งปัจจุบันแทน");
-  const results = Array.isArray((data as { results?: unknown })?.results) ? (data as { results: unknown[] }).results : [];
+function parseMapPlaces(payload: unknown): FoodPlace[] {
+  const results = Array.isArray((payload as { results?: unknown })?.results)
+    ? (payload as { results: unknown[] }).results
+    : [];
   return results.flatMap((row) => {
     const place = row as { name?: unknown; address?: unknown; lat?: unknown; lon?: unknown };
     const latitude = Number(place.lat);
@@ -599,26 +594,67 @@ export async function searchFoodPlaces(client: SupabaseClient, query: string): P
   }).slice(0, 8);
 }
 
+async function searchWynosMapsApi(query: string): Promise<FoodPlace[] | null> {
+  try {
+    const response = await fetch(`/api/maps/search?q=${encodeURIComponent(query.slice(0, 200))}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (response.status === 503) return null;
+    if (!response.ok) throw new Error("WYNOS Maps search unavailable");
+    return parseMapPlaces(await response.json());
+  } catch {
+    return null;
+  }
+}
 
-/** Reverse-geocode a delivery pin through the same server-side LocationIQ proxy. */
+async function reverseWynosMapsApi(location: FoodLocation): Promise<FoodPlace[] | null> {
+  try {
+    const response = await fetch(
+      `/api/maps/reverse?lat=${encodeURIComponent(String(location.latitude))}&lon=${encodeURIComponent(String(location.longitude))}`,
+      { headers: { Accept: "application/json" }, cache: "no-store" },
+    );
+    if (response.status === 503) return null;
+    if (!response.ok) throw new Error("WYNOS Maps reverse unavailable");
+    return parseMapPlaces(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Search WYNOS Geo first. During the self-hosted rollout only, fall back to the
+ * legacy location-search Edge Function so delivery pinning never goes down.
+ */
+export async function searchFoodPlaces(client: SupabaseClient, query: string): Promise<FoodPlace[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const wynosResults = await searchWynosMapsApi(trimmed);
+  if (wynosResults !== null) return wynosResults;
+
+  const { data, error } = await client.functions.invoke("location-search", {
+    body: { mode: "search", query: trimmed.slice(0, 200) },
+  });
+  if (error) throw new Error("ค้นหาสถานที่ไม่สำเร็จตอนนี้ ลองใช้ตำแหน่งปัจจุบันแทน");
+  return parseMapPlaces(data);
+}
+
+/**
+ * Reverse-geocode through WYNOS Geo first, with the legacy server-side proxy
+ * kept only as a rollout fallback until the Thailand geocoder is online.
+ */
 export async function reverseFoodPlace(client: SupabaseClient, location: FoodLocation): Promise<FoodPlace | null> {
+  const wynosResults = await reverseWynosMapsApi(location);
+  if (wynosResults !== null) return wynosResults[0] ?? null;
+
   const { data, error } = await client.functions.invoke("location-search", {
     body: { mode: "reverse", lat: location.latitude, lon: location.longitude },
   });
   if (error) return null;
-  const results = Array.isArray((data as { results?: unknown })?.results) ? (data as { results: unknown[] }).results : [];
-  const row = results[0] as { name?: unknown; address?: unknown; lat?: unknown; lon?: unknown } | undefined;
-  if (!row) return null;
-  const latitude = Number(row.lat);
-  const longitude = Number(row.lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-  return {
-    name: typeof row.name === "string" ? row.name : "",
-    address: typeof row.address === "string" ? row.address : null,
-    latitude,
-    longitude,
-  };
+  return parseMapPlaces(data)[0] ?? null;
 }
+
 
 /**
  * WYN-197: free place search over the store's own list (food_store_places).
