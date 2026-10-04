@@ -435,13 +435,9 @@ function MerchantInner({
   const todayOrders = useMemo(() => orders.filter((order) => sameLocalDay(order.created_at)), [orders]);
   const todayDelivered = useMemo(() => todayOrders.filter((order) => order.status === "delivered"), [todayOrders]);
   const todaySales = useMemo(() => todayDelivered.reduce((sum, order) => sum + Number(order.total), 0), [todayDelivered]);
-  // Every unfinished order counts (tile and nav badge); home previews 8.
+  // Every unfinished order counts on the "รับออเดอร์" nav badge.
   const activeOrderCount = useMemo(
     () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").length,
-    [orders],
-  );
-  const attentionOrders = useMemo(
-    () => orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled").slice(0, 8),
     [orders],
   );
   const filteredOrders = useMemo(() => orders.filter((order) => orderInFilter(order, orderFilter)), [orderFilter, orders]);
@@ -535,14 +531,9 @@ function MerchantInner({
             menu={menu}
             todayOrders={todayOrders}
             todaySales={todaySales}
-            attentionOrders={attentionOrders}
             installPrompt={installPrompt}
             onInstall={() => void install()}
             onReload={() => void load(true)}
-            onOrder={setSelectedOrder}
-            onAction={(order) => void quickAction(order)}
-            actedFrom={actedFrom}
-            onOpenOrders={() => setTab("orders")}
             onOpenTab={setTab}
             onEditStore={() => setStoreEditing(true)}
             onMessage={setMessage}
@@ -744,14 +735,9 @@ function HomePanel({
   menu,
   todayOrders,
   todaySales,
-  attentionOrders,
   installPrompt,
   onInstall,
   onReload,
-  onOrder,
-  onAction,
-  actedFrom,
-  onOpenOrders,
   onOpenTab,
   onEditStore,
   onMessage,
@@ -761,14 +747,9 @@ function HomePanel({
   menu: FoodMenuItem[];
   todayOrders: FoodOrder[];
   todaySales: number;
-  attentionOrders: FoodOrder[];
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
   onReload: () => void;
-  onOrder: (order: FoodOrder) => void;
-  onAction: (order: FoodOrder) => void;
-  actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
-  onOpenOrders: () => void;
   onOpenTab: (tab: MerchantTab) => void;
   onEditStore: () => void;
   onMessage: (message: string) => void;
@@ -842,17 +823,6 @@ function HomePanel({
         <button type="button" onClick={() => onOpenTab("promotions")}><MerchantIcon3D name="promotion" size={52} />โปรโมชั่น</button>
       </nav>
 
-      <section className="wm-section">
-        <div className="wm-section-title">
-          <h2>ต้องจัดการตอนนี้</h2>
-          <button type="button" onClick={onOpenOrders}>ดูทั้งหมด <ChevronRight size={15} /></button>
-        </div>
-        {attentionOrders.length ? (
-          <div className="wm-order-list">{attentionOrders.map((order) => <OrderCard key={order.id} order={order} onOpen={() => onOrder(order)} onAction={onAction} acting={actedFrom.get(order.id) === order.status} />)}</div>
-        ) : (
-          <div className="wm-empty wm-empty--compact"><PackageCheck size={34} strokeWidth={1.5} /><strong>จัดการครบแล้ว</strong><p>ยังไม่มีออเดอร์ที่ต้องดำเนินการ</p></div>
-        )}
-      </section>
 
       {nextStep && !store.admin_suspended_at ? (
         <section className={`wm-ready ${checklistOpen ? "is-open" : ""}`}>

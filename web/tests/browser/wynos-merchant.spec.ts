@@ -338,8 +338,10 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
   for (const shortcut of ['name="finance" size={52} />การเงิน', 'name="ads" size={52} />โฆษณา', 'name="campaign" size={52} />แคมเปญ', 'name="promotion" size={52} />โปรโมชั่น']) {
     expect(app).toContain(shortcut);
   }
-  // The nav badge counts every unfinished order, not the 8 previewed.
+  // The nav badge counts every unfinished order. Founder removed the
+  // "ต้องจัดการตอนนี้" list from home; orders live in "รับออเดอร์".
   expect(app).toContain("badge={activeOrderCount}");
+  expect(app).not.toContain("<h2>ต้องจัดการตอนนี้</h2>");
   // Readiness uses the publish rules (paired payment fields).
   expect(app).toContain("done: (filled(store.promptpay_name) && filled(store.promptpay_id)) || (filled(store.bank_account_name) && filled(store.bank_account_number)) || filled(store.payment_qr_path)");
   expect(app).toContain("{nextStep && !store.admin_suspended_at ? (");
