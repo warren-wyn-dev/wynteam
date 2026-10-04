@@ -53,6 +53,20 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      // WYNOS Maps service domains. They currently share this deployment so
+      // the public contract is stable before the heavy Thailand engines move
+      // to dedicated infrastructure.
+      { source: "/", has: [{ type: "host", value: "maps.wynos.online" }], destination: "/maps" },
+      { source: "/", has: [{ type: "host", value: "geo.wynos.online" }], destination: "/api/maps/health" },
+      { source: "/health", has: [{ type: "host", value: "geo.wynos.online" }], destination: "/api/maps/health" },
+      { source: "/search", has: [{ type: "host", value: "geo.wynos.online" }], destination: "/api/maps/search" },
+      { source: "/reverse", has: [{ type: "host", value: "geo.wynos.online" }], destination: "/api/maps/reverse" },
+      { source: "/", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/health" },
+      { source: "/health", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/health" },
+      { source: "/route", has: [{ type: "host", value: "routing.wynos.online" }], destination: "/api/maps/route" },
+
+      // WYNOS tile gateway. OpenFreeMap remains the temporary upstream while
+      // Thailand vector data is being moved to WYNOS-hosted storage.
       { source: "/planet/:path*", destination: "https://tiles.openfreemap.org/planet/:path*" },
       { source: "/sprites/:path*", destination: "https://tiles.openfreemap.org/sprites/:path*" },
       { source: "/fonts/:path*", destination: "https://tiles.openfreemap.org/fonts/:path*" },
