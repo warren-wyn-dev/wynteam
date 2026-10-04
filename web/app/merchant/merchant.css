@@ -2057,3 +2057,52 @@ html:has(.wm-force-light) body { background: #ffffff; color-scheme: light; }
 .wm-ads-topup .wm-field { display: grid; gap: 6px; font-size: 13px; }
 .wm-ads-topup .wm-field input { min-height: 48px; padding: 0 14px; border: 1px solid var(--wm-border); border-radius: 14px; font-size: 16px; }
 .wm-ads-slip { cursor: pointer; min-height: 48px; }
+
+/* WYN-210: finance summary for a period or a picked date range. */
+.wm-fin-periods { display: flex; flex-wrap: wrap; gap: 7px; }
+.wm-fin-periods button { min-height: 36px; padding: 0 13px; border: 1px solid var(--wm-border); border-radius: 999px; background: var(--wm-bg); color: var(--wm-text); display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+.wm-fin-periods button.is-active { border-color: var(--wm-red); background: var(--wm-red); color: #fff; font-weight: 650; }
+.wm-fin-range { margin: 8px 0 12px; color: var(--wm-secondary); font-size: 12px; }
+.wm-fin-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.wm-fin-kpi { min-width: 0; padding: 14px; border-radius: 18px; display: grid; gap: 3px; align-content: start; }
+.wm-fin-kpi small { font-size: 12.5px; }
+.wm-fin-kpi strong { font-size: 22px; line-height: 1.2; letter-spacing: -.5px; overflow-wrap: anywhere; }
+.wm-fin-kpi span { font-size: 11px; line-height: 1.4; }
+.wm-fin-kpi.is-sales { background: linear-gradient(150deg, #ff4d5e 0%, #e32636 55%, #b8142a 100%); color: #fff; }
+.wm-fin-kpi.is-sales small, .wm-fin-kpi.is-sales span { opacity: .92; }
+.wm-fin-kpi.is-income { border: 1px solid var(--wm-border); }
+.wm-fin-kpi.is-income small, .wm-fin-kpi.is-income span { color: var(--wm-secondary); }
+.wm-fin-kpi.is-income strong { color: var(--wm-success-text); }
+.wm-fin-card { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--wm-border); border-radius: 16px; }
+.wm-fin-card h2 { margin: 0 0 4px; font-size: 15px; }
+.wm-fin-line { min-height: 30px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13.5px; color: #444; }
+.wm-fin-line b { color: var(--wm-text); font-variant-numeric: tabular-nums; }
+.wm-fin-line b.is-minus { color: var(--wm-red-text); }
+.wm-fin-line.is-total { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--wm-border); color: var(--wm-text); font-weight: 700; font-size: 14px; }
+.wm-fin-line.is-total b.is-plus, .wm-fin-line b.is-plus { color: var(--wm-success-text); }
+.wm-fin-mini { margin-top: 10px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.wm-fin-mini span { padding: 10px 6px; border-radius: 14px; background: var(--wm-surface); display: grid; justify-items: center; gap: 2px; text-align: center; }
+.wm-fin-mini small { color: var(--wm-secondary); font-size: 11px; }
+.wm-fin-mini b { font-size: 15px; }
+.wm-fin-mini b.is-up { color: var(--wm-success-text); }
+.wm-fin-mini b.is-down { color: var(--wm-red-text); }
+.wm-fin-todo { display: grid; gap: 8px; }
+.wm-fin-todo button { min-height: 58px; padding: 10px 12px; border: 1px solid var(--wm-border); border-radius: 14px; background: var(--wm-bg); color: var(--wm-text); display: flex; align-items: center; gap: 8px; text-align: left; }
+.wm-fin-todo button.is-warning { border-color: var(--wm-red-border); background: var(--wm-red-soft); }
+.wm-fin-todo button > span { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.wm-fin-todo strong { font-size: 13.5px; }
+.wm-fin-todo small { color: var(--wm-secondary); font-size: 11.5px; }
+.wm-fin-todo b { font-size: 14px; }
+.wm-fin-download { margin-top: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.wm-fin-picker { display: grid; gap: 12px; }
+.wm-fin-month { display: flex; align-items: center; justify-content: space-between; }
+.wm-fin-month button { width: 40px; height: 40px; border: 1px solid var(--wm-border); border-radius: 50%; background: var(--wm-bg); color: var(--wm-text); display: grid; place-items: center; }
+.wm-fin-month button:disabled { opacity: .35; }
+.wm-fin-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px 0; text-align: center; }
+.wm-fin-calendar .is-head { padding-bottom: 4px; color: var(--wm-muted); font-size: 11px; }
+.wm-fin-calendar button { height: 42px; border: 0; background: transparent; color: var(--wm-text); font-size: 14px; }
+.wm-fin-calendar button:disabled { color: #cfcfcf; }
+.wm-fin-calendar button.is-inside { background: var(--wm-red-soft); }
+.wm-fin-calendar button.is-edge { border-radius: 12px; background: var(--wm-red); color: #fff; font-weight: 700; }
+.wm-fin-picker .wm-fin-range { margin: 0; text-align: center; }
+.wm-fin-picker .wm-money-note { margin: 0; text-align: center; }

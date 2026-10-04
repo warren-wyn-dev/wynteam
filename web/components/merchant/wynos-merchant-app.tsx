@@ -34,6 +34,7 @@ import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { MerchantAds } from "@/components/merchant/merchant-ads";
+import { MerchantFinance } from "@/components/merchant/merchant-finance";
 import { MerchantNavIcon } from "@/components/merchant/merchant-nav-icons";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
 import { MerchantPlatformCampaigns } from "@/components/merchant/merchant-platform-campaigns";
@@ -596,7 +597,7 @@ function MerchantInner({
 
         {tab === "reports" && store ? <ReportsPanel orders={orders} /> : null}
 
-        {tab === "finance" && store ? <FinancePanel store={store} orders={orders} onEditStore={() => setStoreEditing(true)} /> : null}
+        {tab === "finance" && store ? <MerchantFinance client={client} store={store} refreshKey={orders} onEditStore={() => setStoreEditing(true)} onOpenTab={setTab} /> : null}
 
         {tab === "promotions" && store ? (
           <>
@@ -1037,81 +1038,6 @@ function MenuPanel({
 }
 
 /** WYN-205: money in and out, from the orders already loaded in Merchant. */
-function FinancePanel({ store, orders, onEditStore }: { store: FoodStore; orders: FoodOrder[]; onEditStore: () => void }) {
-  const now = new Date();
-  const week = startOfWeek();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const paidAt = (order: FoodOrder) => order.paid_at ?? order.updated_at;
-  const sum = (rows: FoodOrder[]) => rows.reduce((total, row) => total + Number(row.total), 0);
-  const paid = orders.filter((order) => order.payment_status === "paid");
-  const today = paid.filter((order) => sameLocalDay(paidAt(order)));
-  const weekly = paid.filter((order) => new Date(paidAt(order)) >= week);
-  const monthly = paid.filter((order) => new Date(paidAt(order)) >= monthStart);
-  const waiting = orders.filter((order) => order.payment_status === "submitted");
-  const refunded = orders.filter((order) => order.payment_status === "refunded" || order.refund_status === "refunded");
-  // Refunds still to do: requested, or tried and failed (payment stays "paid").
-  const refundPending = orders.filter((order) => order.refund_status === "pending" || order.refund_status === "failed");
-  // When the money last moved for this order, so refunds of old orders still
-  // show up as recent activity at the right time.
-  const movedAt = (order: FoodOrder) =>
-    order.refunded_at ?? (order.refund_status !== "none" ? order.refund_requested_at : null) ?? order.paid_at ?? order.created_at;
-  const recent = orders
-    .filter((order) => order.payment_status === "paid" || order.payment_status === "submitted" || order.payment_status === "refunded" || order.refund_status !== "none")
-    .sort((a, b) => new Date(movedAt(b)).getTime() - new Date(movedAt(a)).getTime())
-    .slice(0, 20);
-  const last4 = (value: string | null) => {
-    const digits = (value ?? "").replace(/\D/g, "");
-    return digits ? `••••${digits.slice(-4)}` : "";
-  };
-  const channels = [
-    store.promptpay_id ? `PromptPay ${store.promptpay_name ?? ""} ${last4(store.promptpay_id)}`.trim() : null,
-    store.bank_account_number ? `${store.bank_name ?? "บัญชีธนาคาร"} ${last4(store.bank_account_number)}` : null,
-    store.payment_qr_path ? "QR รับเงิน" : null,
-  ].filter((value): value is string => Boolean(value));
-
-  return (
-    <>
-      <div className="wm-page-heading"><div><small>เงินเข้าร้าน</small><h1>การเงิน</h1></div></div>
-      <div className="wm-report-hero"><small>เงินเข้าวันนี้</small><strong>{money(sum(today))}</strong><span>{today.length} รายการยืนยันรับเงินแล้ว</span></div>
-      <div className="wm-metrics wm-metrics--reports">
-        <Metric label="สัปดาห์นี้" value={money(sum(weekly))} hint={`${weekly.length} รายการ`} />
-        <Metric label="เดือนนี้" value={money(sum(monthly))} hint={`${monthly.length} รายการ`} />
-        <Metric label="รอตรวจสลิป" value={money(sum(waiting))} hint={`${waiting.length} รายการ`} />
-        <Metric label="คืนเงินแล้ว" value={money(sum(refunded))} hint={refundPending.length ? `ต้องคืนอีก ${refundPending.length}` : `${refunded.length} รายการ`} />
-      </div>
-      <section className="wm-section">
-        <div className="wm-section-title"><h2>ช่องทางรับเงิน</h2><button type="button" onClick={onEditStore}>แก้ไข <ChevronRight size={15} /></button></div>
-        {channels.length ? (
-          <div className="wm-money-channels">{channels.map((channel) => <span key={channel}>{channel}</span>)}</div>
-        ) : (
-          <button className="wm-setup-banner" type="button" onClick={onEditStore}><CircleDollarSign size={22} /><span><strong>ยังไม่ได้ตั้งช่องทางรับเงิน</strong><small>ลูกค้าต้องมีช่องทางโอนก่อนสั่งได้</small></span></button>
-        )}
-      </section>
-      <section className="wm-section">
-        <div className="wm-section-title"><h2>รายการล่าสุด</h2></div>
-        {recent.length ? (
-          <div className="wm-money-list">
-            {recent.map((order) => {
-              const out = order.payment_status === "refunded" || order.refund_status === "refunded";
-              const failed = !out && order.refund_status === "failed";
-              const label = out ? "คืนเงินแล้ว" : failed ? "คืนเงินไม่สำเร็จ" : order.refund_status === "pending" ? "รอคืนเงิน" : order.payment_status === "submitted" ? "รอตรวจสลิป" : "รับเงินแล้ว";
-              return (
-                <div key={order.id} className={out ? "is-out" : failed ? "is-failed" : order.payment_status === "submitted" || order.refund_status === "pending" ? "is-waiting" : ""}>
-                  <span><strong>#{order.order_number}</strong><small>{label} · {shortTime(movedAt(order))}</small></span>
-                  <b>{out ? "−" : ""}{money(order.total)}</b>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="wm-empty wm-empty--compact"><CircleDollarSign size={34} strokeWidth={1.5} /><strong>ยังไม่มีรายการเงิน</strong></div>
-        )}
-        {orders.length >= 250 ? <p className="wm-money-note">คำนวณจาก 250 ออเดอร์ล่าสุด</p> : null}
-      </section>
-    </>
-  );
-}
-
 function ReportsPanel({ orders }: { orders: FoodOrder[] }) {
   const delivered = orders.filter((order) => order.status === "delivered");
   const now = new Date();
