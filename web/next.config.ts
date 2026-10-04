@@ -33,10 +33,31 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
 ];
 
+const mapTileHeaders = [
+  { key: "Access-Control-Allow-Origin", value: "*" },
+  { key: "Access-Control-Allow-Methods", value: "GET, HEAD, OPTIONS" },
+  { key: "Cache-Control", value: "public, s-maxage=86400, stale-while-revalidate=604800" },
+  { key: "X-WYNOS-Maps", value: "tiles-gateway-v1" },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/planet/:path*", headers: mapTileHeaders },
+      { source: "/sprites/:path*", headers: mapTileHeaders },
+      { source: "/fonts/:path*", headers: mapTileHeaders },
+      { source: "/natural_earth/:path*", headers: mapTileHeaders },
+    ];
+  },
+  async rewrites() {
+    return [
+      { source: "/planet/:path*", destination: "https://tiles.openfreemap.org/planet/:path*" },
+      { source: "/sprites/:path*", destination: "https://tiles.openfreemap.org/sprites/:path*" },
+      { source: "/fonts/:path*", destination: "https://tiles.openfreemap.org/fonts/:path*" },
+      { source: "/natural_earth/:path*", destination: "https://tiles.openfreemap.org/natural_earth/:path*" },
+    ];
   },
   // A wynos.online link tapped in LINE opens in LINE's own browser, which is
   // never signed in to WYNOS and where Google sign-in is refused. LINE opens
