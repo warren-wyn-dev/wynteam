@@ -8,13 +8,24 @@
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PUBLIC_API_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const LEGACY_PUBLIC_API_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const PUBLISHABLE_KEYS = (() => {
+  try {
+    const raw = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
+    if (!raw) return [] as string[];
+    return Object.values(JSON.parse(raw) as Record<string, string>).filter(Boolean);
+  } catch {
+    return [] as string[];
+  }
+})();
 const LOCATIONIQ_API_KEY = Deno.env.get("LOCATIONIQ_API_KEY");
 
 const ALLOWED_ORIGINS = new Set([
   "https://wynos.online",
   "https://www.wynos.online",
   "https://maps.wynos.online",
+  "https://food.wynos.online",
+  "https://merchant.wynos.online",
   "http://localhost:3000",
   "http://localhost:3001",
 ]);
@@ -139,10 +150,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(origin, { error: "Method not allowed" }, 405);
   if (origin && !ALLOWED_ORIGINS.has(origin)) return json(origin, { error: "Origin not allowed" }, 403);
 
-  const apiKey = req.headers.get("apikey");
-  if (!PUBLIC_API_KEY || !apiKey || apiKey !== PUBLIC_API_KEY) {
-    return json(origin, { error: "Unauthorized" }, 401);
-  }
+  const apiKey = req.headers.get("apikey") ?? "";
+  const validPublicKey = apiKey.length > 0
+    && (apiKey === LEGACY_PUBLIC_API_KEY || PUBLISHABLE_KEYS.includes(apiKey));
+  if (!validPublicKey) return json(origin, { error: "Unauthorized" }, 401);
   if (!LOCATIONIQ_API_KEY) return json(origin, { error: "Geocoder not configured" }, 503);
   if (!(await reserve(req))) return json(origin, { error: "Rate limited" }, 429);
 
