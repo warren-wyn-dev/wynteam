@@ -346,3 +346,14 @@
 - Scope: web only. Merge PR #829, then PR #830 (the web auto-deploys).
 - Rollback: revert the merge commits or use Vercel Instant Rollback.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-203 WYNOS Admin Food store and order operations
+- Founder: "ระบบหลังบ้าน WYNOS Admin เพิ่ม Merchant ยัง", then "เพิ่มระบบที่ยังไม่มี". After reviewing PR #831 and its security decisions: **"อนุมัติ"**.
+- Scope: Admin `/food` (overview, all stores, suspension, cross-store orders with slip and delivery photo, store team), Merchant suspended banner, and the migration `supabase/migrations_wynos_admin_food_ops_v1.sql`.
+- Security decisions accepted:
+  - Customer data and all changes are admin only, and moderators can read store data only.
+  - Platform admins get read access to `food-private`.
+  - Order views, suspensions and team changes are audited.
+- Release: merge PR #831 (Admin and web auto-deploy), then dispatch `food-apply-wyn203.yml` with `APPLY-WYN-203`.
+- Rollback: revert the merge commit; the SQL rollback is in the workflow header.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04

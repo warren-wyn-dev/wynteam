@@ -184,6 +184,7 @@
 .wm-setup-banner small,
 .wm-install-card small { color: var(--wm-secondary); font-size: 11.5px; line-height: 1.35; }
 .wm-install-card { border-color: var(--wm-border); background: var(--wm-bg); }
+.wm-suspended-banner small { overflow-wrap: anywhere; }
 
 .wm-section { margin-top: 25px; }
 .wm-section-title { min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }

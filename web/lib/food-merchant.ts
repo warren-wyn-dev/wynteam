@@ -33,6 +33,9 @@ export type FoodStore = {
   payment_qr_path: string | null;
   is_open: boolean;
   is_published: boolean;
+  /** WYN-203: set by WYNOS Admin; the store cannot open or publish while set. */
+  admin_suspended_at?: string | null;
+  admin_suspended_reason?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -443,5 +446,8 @@ export function paymentLabel(status: FoodOrder["payment_status"]) {
 }
 
 export function merchantError(error: unknown, fallback = "ดำเนินการไม่สำเร็จ") {
-  return errorMessage(error, fallback);
+  const message = errorMessage(error, fallback);
+  if (message.includes("store suspension can only be changed by WYNOS admin")) return "การระงับร้านเปลี่ยนได้โดยทีม WYNOS เท่านั้น";
+  if (message.includes("store is suspended")) return "ร้านถูกระงับโดยทีม WYNOS เปิดร้านหรือเผยแพร่ไม่ได้จนกว่าจะยกเลิกการระงับ";
+  return message;
 }

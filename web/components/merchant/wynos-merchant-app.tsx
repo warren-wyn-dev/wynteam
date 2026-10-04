@@ -530,6 +530,7 @@ function MerchantInner({
             onAction={(order) => void quickAction(order)}
             actedFrom={actedFrom}
             onOpenOrders={() => setTab("orders")}
+            onMessage={setMessage}
           />
         ) : null}
 
@@ -694,6 +695,7 @@ function HomePanel({
   onAction,
   actedFrom,
   onOpenOrders,
+  onMessage,
 }: {
   client: SupabaseClient;
   store: FoodStore;
@@ -708,12 +710,17 @@ function HomePanel({
   onAction: (order: FoodOrder) => void;
   actedFrom: ReadonlyMap<string, FoodOrder["status"]>;
   onOpenOrders: () => void;
+  onMessage: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const toggleOpen = async () => {
     setBusy(true);
     try {
       await updateFoodStore(client, store.id, { is_open: !store.is_open });
+      onReload();
+    } catch (error) {
+      onMessage(merchantError(error));
+      // The store may have been suspended since this screen loaded.
       onReload();
     } finally { setBusy(false); }
   };
@@ -733,7 +740,7 @@ function HomePanel({
         </span>
       </div>
 
-      <button className={`wm-open-toggle ${store.is_open ? "is-open" : ""}`} type="button" disabled={busy} onClick={() => void toggleOpen()}>
+      <button className={`wm-open-toggle ${store.is_open ? "is-open" : ""}`} type="button" disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}>
         <span>
           <strong>{store.is_open ? "กำลังเปิดรับออเดอร์" : "หยุดรับออเดอร์อยู่"}</strong>
           <small>{store.is_open ? "ลูกค้าสามารถสั่งอาหารได้" : "กดเพื่อเปิดร้านเมื่อพร้อม"}</small>
@@ -741,7 +748,12 @@ function HomePanel({
         <i><b /></i>
       </button>
 
-      {!store.is_published ? (
+      {store.admin_suspended_at ? (
+        <div className="wm-setup-banner wm-suspended-banner" role="alert">
+          <Store size={22} strokeWidth={1.7} />
+          <span><strong>ร้านถูกระงับโดยทีม WYNOS</strong><small>{store.admin_suspended_reason ? `เหตุผล: ${store.admin_suspended_reason}` : "ติดต่อทีม WYNOS เพื่อขอยกเลิกการระงับ"}</small></span>
+        </div>
+      ) : !store.is_published ? (
         <div className="wm-setup-banner">
           <Store size={22} strokeWidth={1.7} />
           <span><strong>ร้านยังไม่เผยแพร่</strong><small>ตั้งค่าข้อมูลร้านและช่องทางรับเงินก่อนเปิดให้ลูกค้าสั่ง</small></span>
@@ -979,7 +991,7 @@ function StorePanel({
     try {
       await setMerchantStorePublished(client, store.id, !store.is_published);
       onReload();
-    } catch (error) { onMessage(merchantError(error)); }
+    } catch (error) { onMessage(merchantError(error)); onReload(); }
     finally { setBusy(false); }
   };
   return (
@@ -991,7 +1003,7 @@ function StorePanel({
         <button type="button" onClick={onEdit}>แก้ไข</button>
       </section>
       <section className="wm-settings-list">
-        <button type="button" onClick={() => void togglePublished()} disabled={busy}>
+        <button type="button" onClick={() => void togglePublished()} disabled={busy || Boolean(store.admin_suspended_at)}>
           <span><strong>เผยแพร่ WYNOS Food</strong><small>{store.is_published ? "ลูกค้าเห็นร้านได้แล้ว" : "ร้านยังซ่อนจากลูกค้า"}</small></span>
           <span className={`wm-switch ${store.is_published ? "is-on" : ""}`}><i /></span>
         </button>

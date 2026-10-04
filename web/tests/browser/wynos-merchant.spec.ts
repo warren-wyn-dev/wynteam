@@ -302,3 +302,21 @@ test("WYN-201 Merchant and Food lists refresh with a pull-down gesture", () => {
   expect(food).toContain('<section className="wf-content" onTouchStart={pull.onTouchStart}');
   expect(read("lib/use-pull-to-refresh.ts")).toContain('[role="dialog"]');
 });
+
+test("WYN-203 WYNOS Admin can suspend a store and see cross-store orders", () => {
+  const migration = read("../supabase/migrations_wynos_admin_food_ops_v1.sql");
+  const merchant = read("components/merchant/wynos-merchant-app.tsx");
+  const data = read("lib/food-merchant.ts");
+
+  // Suspension is enforced in the database, not only hidden in the UI.
+  expect(migration).toContain("create trigger food_stores_guard_suspension");
+  expect(migration).toContain("create trigger food_orders_block_suspended_store");
+  expect(migration).toContain("raise exception 'store is not accepting orders'");
+  // Customer data and evidence are admin only, and every order view is audited.
+  expect(migration).toContain("'admin_food_order_viewed'");
+  expect(migration).toContain("revoke all on function public.admin_food_order_detail(uuid) from public, anon;");
+  // The store team sees why, and cannot reopen or publish while suspended.
+  expect(merchant).toContain("ร้านถูกระงับโดยทีม WYNOS");
+  expect(merchant).toContain("disabled={busy || Boolean(store.admin_suspended_at)} onClick={() => void toggleOpen()}");
+  expect(data).toContain('if (message.includes("store is suspended"))');
+});
