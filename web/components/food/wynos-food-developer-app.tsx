@@ -41,6 +41,7 @@ import {
   fetchFoodCustomerSnapshot,
   fetchFoodPromptPayQr,
   checkFoodServiceArea,
+  checkFoodDeliveryAvailability,
   currentFoodLocation,
   foodCustomerError,
   foodMoney,
@@ -85,6 +86,12 @@ const EMPTY_ADDRESS: FoodAddressDraft = {
   recipientPhone: "",
   address: "",
   deliveryNote: "",
+  placeId: null,
+  placeName: "",
+  buildingName: "",
+  floor: "",
+  room: "",
+  landmark: "",
   isDefault: true,
   location: null,
 };
@@ -660,6 +667,9 @@ function AccountPanel({
                 <strong>{address.label}{address.is_default ? " · ที่อยู่หลัก" : ""}</strong>
                 <small>{address.recipient_name} · {address.recipient_phone}</small>
                 <p>{address.address}</p>
+                {[address.place_name, address.building_name, address.floor ? `ชั้น ${address.floor}` : null, address.room ? `ห้อง ${address.room}` : null, address.landmark].filter(Boolean).length ? (
+                  <small>{[address.place_name, address.building_name, address.floor ? `ชั้น ${address.floor}` : null, address.room ? `ห้อง ${address.room}` : null, address.landmark].filter(Boolean).join(" · ")}</small>
+                ) : null}
                 <small className={addressLocation(address) ? "wf-location-ready" : "wf-location-missing"}>
                   {addressLocation(address) ? "ปักหมุดแล้ว" : "ยังไม่ได้ปักหมุดโลเคชั่น"}
                 </small>
@@ -825,7 +835,37 @@ function AddressEditor({
   busy: boolean;
 }) {
   const [form, setForm] = useState(draft);
+  const locationKey = form.location ? `${form.location.latitude},${form.location.longitude}` : "";
+  const [availabilityState, setAvailabilityState] = useState<{
+    key: string;
+    value: Awaited<ReturnType<typeof checkFoodDeliveryAvailability>>;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!storeId || !form.location) return;
+    let live = true;
+    const key = `${storeId}|${locationKey}`;
+    const point = form.location;
+    void checkFoodDeliveryAvailability(client, storeId, point)
+      .then((value) => { if (live) setAvailabilityState({ key, value }); })
+      .catch(() => { if (live) setAvailabilityState({ key, value: null }); });
+    return () => { live = false; };
+  }, [client, form.location, locationKey, storeId]);
+
+  const availabilityKey = storeId && locationKey ? `${storeId}|${locationKey}` : "";
+  const availability = availabilityState?.key === availabilityKey ? availabilityState.value : null;
   const complete = Boolean(form.recipientName.trim() && form.recipientPhone.trim() && form.address.trim() && form.location);
+  const deliveryMessage = !availability
+    ? ""
+    : availability.can_deliver
+      ? `ร้านนี้ส่งถึง · ${availability.distance_km == null ? "" : `${availability.distance_km.toFixed(1)} กม. · `}ค่าส่ง ${foodMoney(availability.delivery_fee ?? 0)}`
+      : availability.reason === "outside_delivery_area"
+        ? `อยู่นอกระยะจัดส่งของร้าน${availability.delivery_radius_km == null ? "" : ` · ร้านส่งได้ประมาณ ${availability.delivery_radius_km} กม.`}`
+        : availability.reason === "outside_service_area"
+          ? "ตำแหน่งนี้อยู่นอกพื้นที่ให้บริการของ WYNOS Food"
+          : availability.reason === "store_unavailable"
+            ? "ร้านนี้ยังไม่พร้อมรับการจัดส่ง"
+            : "กรุณาตรวจสอบตำแหน่งจัดส่ง";
   return (
     <Sheet title={form.id ? "แก้ไขข้อมูลจัดส่ง" : "เพิ่มข้อมูลจัดส่ง"} onClose={onClose}>
       <div className="wf-form">
@@ -841,10 +881,20 @@ function AddressEditor({
           onChange={(location, place) => setForm((current) => ({
             ...current,
             location,
-            address: current.address.trim() || !place ? current.address : [place.name, place.address].filter(Boolean).join(" "),
+            placeId: location ? place?.placeId ?? null : null,
+            placeName: location ? place?.name ?? "" : "",
+            address: place ? [place.name, place.address].filter(Boolean).join(" ") : current.address,
           }))}
         /> : null}
-        <label>รายละเอียดเพิ่มเติม<textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น อาคาร ชั้น ห้อง จุดสังเกต หรือโทรเมื่อถึง" /></label>
+        {form.placeName ? <div className="wf-form-note">WYNOS Place · {form.placeName}</div> : null}
+        {storeId && form.location && deliveryMessage ? (
+          <div className={availability?.can_deliver ? "wf-form-note" : "wf-inline-warning"}>{deliveryMessage}</div>
+        ) : null}
+        <label>ชื่ออาคาร / หมู่บ้าน<input value={form.buildingName} onChange={(event) => setForm({ ...form, buildingName: event.target.value })} placeholder="เช่น คอนโด A / หมู่บ้าน B" /></label>
+        <label>ชั้น<input value={form.floor} onChange={(event) => setForm({ ...form, floor: event.target.value })} placeholder="เช่น 5" /></label>
+        <label>ห้อง<input value={form.room} onChange={(event) => setForm({ ...form, room: event.target.value })} placeholder="เช่น 508" /></label>
+        <label>จุดสังเกต<textarea value={form.landmark} onChange={(event) => setForm({ ...form, landmark: event.target.value })} placeholder="เช่น ทางเข้าอยู่ข้างร้านสะดวกซื้อ" /></label>
+        <label>หมายเหตุถึงผู้จัดส่ง<textarea value={form.deliveryNote} onChange={(event) => setForm({ ...form, deliveryNote: event.target.value })} placeholder="เช่น โทรเมื่อถึง / ฝากไว้กับ รปภ." /></label>
         <label className="wf-check"><input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} /><span><strong>ใช้เป็นที่อยู่หลัก</strong><small>WYNOS Food จะเลือกข้อมูลนี้ให้อัตโนมัติตอน Checkout</small></span></label>
         {!form.location ? <div className="wf-inline-warning">กรุณาปักหมุดโลเคชั่นก่อนบันทึก เพื่อให้ร้านและผู้จัดส่งหาได้ถูกต้อง</div> : null}
         <button className="wf-primary wf-full" type="button" disabled={busy || !complete} onClick={() => onSave(form)}>{busy ? "กำลังบันทึก…" : "บันทึกข้อมูล WYNOS Food"}</button>
@@ -921,7 +971,7 @@ function CheckoutSheet({
             {addresses.map((row) => (
               <label key={row.id} className={addressId === row.id ? "is-active" : ""}>
                 <input type="radio" name="food-address" checked={addressId === row.id} onChange={() => setAddressId(row.id)} />
-                <span><strong>{row.label}</strong><small>{row.recipient_name} · {row.recipient_phone}</small><p>{row.address}</p></span>
+                <span><strong>{row.label}</strong><small>{row.recipient_name} · {row.recipient_phone}</small><p>{row.address}</p>{row.building_name || row.floor || row.room ? <small>{[row.building_name, row.floor ? `ชั้น ${row.floor}` : null, row.room ? `ห้อง ${row.room}` : null].filter(Boolean).join(" · ")}</small> : null}</span>
               </label>
             ))}
           </div>
@@ -1361,7 +1411,13 @@ function FoodCustomerInner({
     if (!store) return;
     setBusy(true);
     try {
-      const combinedNote = [address.delivery_note, note.trim()].filter(Boolean).join(" · ");
+      const structuredAddress = [
+        address.building_name ? `อาคาร/หมู่บ้าน ${address.building_name}` : "",
+        address.floor ? `ชั้น ${address.floor}` : "",
+        address.room ? `ห้อง ${address.room}` : "",
+        address.landmark ? `จุดสังเกต ${address.landmark}` : "",
+      ].filter(Boolean).join(" · ");
+      const combinedNote = [structuredAddress, address.delivery_note, note.trim()].filter(Boolean).join(" · ");
       const orderId = await createFoodCustomerOrder(client, store.id, {
         recipientName: address.recipient_name,
         recipientPhone: address.recipient_phone,
@@ -1451,6 +1507,12 @@ function FoodCustomerInner({
               recipientPhone: address.recipient_phone,
               address: address.address,
               deliveryNote: address.delivery_note ?? "",
+              placeId: address.place_id ?? null,
+              placeName: address.place_name ?? "",
+              buildingName: address.building_name ?? "",
+              floor: address.floor ?? "",
+              room: address.room ?? "",
+              landmark: address.landmark ?? "",
               isDefault: address.is_default,
               location: addressLocation(address),
             })}
