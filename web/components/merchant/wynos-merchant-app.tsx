@@ -33,6 +33,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { NewOrderAlert, previewMerchantOrderSound, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
 import {
@@ -63,6 +64,7 @@ import {
   type FoodStorePlace,
   type MenuDraft,
 } from "@/lib/food-merchant";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { currentFoodLocation, foodDistanceKm, foodMapsHref, parseFoodLocation, type FoodLocation } from "@/lib/food-customer";
 
 type MerchantTab = "home" | "orders" | "menu" | "reports" | "store";
@@ -470,6 +472,13 @@ function MerchantInner({
     return q ? menu.filter((item) => `${item.name} ${item.category}`.toLocaleLowerCase("th-TH").includes(q)) : menu;
   }, [menu, menuQuery]);
 
+  // WYN-201: pull down to refresh on the list tabs (forms and sheets are
+  // excluded by the hook: dialogs and inputs never start a pull).
+  const pull = usePullToRefresh({
+    enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports",
+    onRefresh: async () => { await load(true); },
+  });
+
   if (loading && access === null) return <MerchantLoading />;
   if (access === false) return <MerchantBlocked signOut={signOut} />;
 
@@ -504,7 +513,8 @@ function MerchantInner({
         </div>
       ) : null}
 
-      <section className="wm-content">
+      <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดตข้อมูลร้าน" />
+      <section className="wm-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
         {tab === "home" && store ? (
           <HomePanel
             client={client}

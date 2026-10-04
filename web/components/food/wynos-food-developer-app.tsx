@@ -29,6 +29,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DeveloperRouteGate } from "@/components/developer-route-gate";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import {
   cancelFoodCustomerOrder,
   createFoodCustomerOrder,
@@ -1200,6 +1202,9 @@ function FoodCustomerInner({
     setInstallPrompt(null);
   };
 
+  // WYN-201: pull down to refresh the store, menu and orders.
+  const pull = usePullToRefresh({ enabled: tab === "home" || tab === "orders", onRefresh: async () => { await load(true); } });
+
   if (!snapshot) return <FoodLoading />;
   if (!snapshot.developer) return <FoodDenied />;
 
@@ -1208,7 +1213,8 @@ function FoodCustomerInner({
       <FoodHeader onRefresh={() => void load(true)} refreshing={refreshing} />
       {message ? <div className="wf-toast" role="status"><span>{message}</span><button type="button" aria-label="ปิด" onClick={() => setMessage("")}><X size={16} /></button></div> : null}
 
-      <section className="wf-content">
+      <PullToRefreshIndicator pull={pull} topOffset="58px" refreshingLabel="กำลังอัปเดต WYNOS Food" />
+      <section className="wf-content" onTouchStart={pull.onTouchStart} onTouchMove={pull.onTouchMove} onTouchEnd={pull.onTouchEnd} onTouchCancel={pull.onTouchCancel}>
         {tab === "home" ? <HomePanel client={client} store={store} menu={menu} onItem={setSelectedItem} /> : null}
         {tab === "orders" ? <OrdersPanel orders={orders} onOrder={setSelectedOrder} /> : null}
         {tab === "cart" ? <CartPanel store={store} menu={menu} cart={cart} quote={quote} onCart={setCart} onCheckout={() => setCheckoutOpen(true)} /> : null}

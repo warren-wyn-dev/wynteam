@@ -340,3 +340,9 @@
 - Scope: web only. An original sound synthesized by `web/scripts/generate-merchant-order-sound.py` (no third-party audio), played in the new-order alert. Merge PR #828 (the web auto-deploys).
 - Rollback: revert the merge commit or use Vercel Instant Rollback.
 - สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
+### DECISION — [2026-10-04] WYN-201 pull to refresh in Merchant and Food; WYN-202 alert rings until the order is opened or accepted
+- Founder approved pull-to-refresh on list pages ("อนุมัติ"), asked "ดังจนกว่า จะกดรับออเดอร์ หรือ กดดูออเดอร์" for the alert, and after reviewing PRs #829 and #830: **"อนุญาต"**.
+- Scope: web only. Merge PR #829, then PR #830 (the web auto-deploys).
+- Rollback: revert the merge commits or use Vercel Instant Rollback.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04

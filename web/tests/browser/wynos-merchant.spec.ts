@@ -289,3 +289,15 @@ test("WYN-200 Merchant order alert uses Wynos's own generated sound", () => {
   expect(alert).toContain("playFallbackTones(context);");
   expect(app).toContain("previewMerchantOrderSound()");
 });
+
+test("WYN-201 Merchant and Food lists refresh with a pull-down gesture", () => {
+  const merchant = read("components/merchant/wynos-merchant-app.tsx");
+  const food = read("components/food/wynos-food-developer-app.tsx");
+
+  // The shared hook (same feel as the social app); lists only, never forms.
+  expect(merchant).toContain('enabled: tab === "home" || tab === "orders" || tab === "menu" || tab === "reports",');
+  expect(merchant).toContain('<section className="wm-content" onTouchStart={pull.onTouchStart}');
+  expect(food).toContain('usePullToRefresh({ enabled: tab === "home" || tab === "orders"');
+  expect(food).toContain('<section className="wf-content" onTouchStart={pull.onTouchStart}');
+  expect(read("lib/use-pull-to-refresh.ts")).toContain('[role="dialog"]');
+});
