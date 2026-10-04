@@ -52,6 +52,11 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("currentFoodLocation()");
   expect(map).toContain("searchFoodPlaces(client, trimmed)");
   expect(map).toContain("reverseFoodPlace(client, next)");
+  expect(map).toContain("กำลังค้นหาชื่อสถานที่…");
+  expect(map).toContain("ไม่พบชื่อสถานที่");
+  expect(map).toContain("wf-map-confirm-address");
+  expect(map).toContain("wf-map-confirm-coordinates");
+  expect(map).not.toContain("function placeText(");
   expect(map).toContain("autoLocate = false");
   expect(data).toContain('body: { mode: "reverse", lat: location.latitude, lon: location.longitude }');
 });
@@ -79,6 +84,8 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   const data = read("lib/food-customer.ts");
   const sql = read("../supabase/migrations_wynos_maps_places_saved_addresses_v1.sql");
   const nearbySql = read("../supabase/migrations_wynos_maps_nearby_places_v1.sql");
+  const reverseSql = read("../supabase/migrations_wynos_maps_reverse_place_v1.sql");
+  const publicGeocoder = read("../supabase/functions/wynos-maps-geocode/index.ts");
   const map = read("components/food/food-delivery-map-picker.tsx");
 
   expect(sql).toContain("create table if not exists public.wynos_places");
@@ -93,6 +100,12 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(data).toContain('client.rpc("food_upsert_customer_address_v2"');
   expect(data).toContain('client.rpc("food_delivery_availability"');
   expect(data).toContain('client.rpc("wynos_nearby_places"');
+  expect(data).toContain('client.rpc("wynos_reverse_place"');
+  expect(data).toContain('client.functions.invoke("wynos-maps-geocode"');
+  expect(reverseSql).toContain("create or replace function public.wynos_reverse_place");
+  expect(reverseSql).toContain("reserve_wynos_maps_geocode_request");
+  expect(publicGeocoder).toContain('X-WYNOS-Maps-Provider');
+  expect(publicGeocoder).toContain("LOCATIONIQ_API_KEY");
   expect(nearbySql).toContain("create or replace function public.wynos_nearby_places");
   expect(nearbySql).toContain("to anon, authenticated");
   expect(map).toContain("fetchNearbyWynosPlaces");
