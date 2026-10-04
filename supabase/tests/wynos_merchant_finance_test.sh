@@ -15,6 +15,9 @@ OWNER=00000000-0000-0000-0000-0000000000d1
 MANAGER=00000000-0000-0000-0000-0000000000d2
 RIDER=00000000-0000-0000-0000-0000000000d3
 STRANGER=00000000-0000-0000-0000-0000000000d9
+DEV=00000000-0000-0000-0000-0000000000d5
+LEGACY_OWNER=00000000-0000-0000-0000-0000000000d6
+LEGACY_RIDER=00000000-0000-0000-0000-0000000000d7
 ACCOUNT=00000000-0000-0000-0000-0000000000e1
 OTHER_ACCOUNT=00000000-0000-0000-0000-0000000000e2
 STORE=00000000-0000-0000-0000-0000000000f1
@@ -28,9 +31,17 @@ create table auth.users(id uuid primary key);
 create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('test.uid',true),'')::uuid \$\$;
 create table public.merchant_memberships(merchant_account_id uuid, user_id uuid, role text, active boolean default true, primary key (merchant_account_id, user_id));
 create table public.food_stores(id uuid primary key, merchant_account_id uuid);
+create table public.developer_accounts(user_id uuid primary key);
+create table public.food_staff(store_id uuid, user_id uuid, role text, active boolean default true);
+-- Same as production (merchant core completion): developers pass for any
+-- store and legacy food_staff pass for any role. The finance RPC must not
+-- rely on it.
 create function public.merchant_has_store_role(p_store_id uuid, p_roles text[] default null) returns boolean language sql stable security definer set search_path = '' as \$\$
-  select exists (select 1 from public.food_stores s join public.merchant_memberships m on m.merchant_account_id = s.merchant_account_id
-    where s.id = p_store_id and m.user_id = auth.uid() and m.active and (p_roles is null or m.role = any(p_roles))) \$\$;
+  select auth.uid() is not null and (
+    exists (select 1 from public.developer_accounts d where d.user_id = auth.uid())
+    or exists (select 1 from public.food_stores s join public.merchant_memberships m on m.merchant_account_id = s.merchant_account_id
+      where s.id = p_store_id and m.user_id = auth.uid() and m.active and (p_roles is null or m.role = any(p_roles)))
+    or exists (select 1 from public.food_staff fs where fs.store_id = p_store_id and fs.user_id = auth.uid() and fs.active)) \$\$;
 create table public.food_orders(id uuid primary key default gen_random_uuid(), store_id uuid, status text, payment_status text,
   refund_status text default 'none', subtotal numeric, delivery_fee numeric, total numeric,
   paid_at timestamptz, refunded_at timestamptz, created_at timestamptz default now(), updated_at timestamptz default now());
@@ -43,7 +54,9 @@ create function internal.food_platform_owed_rows(p_store_id uuid) returns table 
     and o.status = 'delivered' and o.payment_status <> 'refunded' \$\$;
 grant usage on schema public, auth, internal to authenticated, anon;
 
-insert into auth.users values ('$OWNER'), ('$MANAGER'), ('$RIDER'), ('$STRANGER');
+insert into auth.users values ('$OWNER'), ('$MANAGER'), ('$RIDER'), ('$STRANGER'), ('$DEV'), ('$LEGACY_OWNER'), ('$LEGACY_RIDER');
+insert into public.developer_accounts values ('$DEV');
+insert into public.food_staff values ('$STORE','$LEGACY_OWNER','owner',true), ('$STORE','$LEGACY_RIDER','delivery',true);
 insert into public.merchant_memberships values ('$ACCOUNT','$OWNER','owner',true), ('$ACCOUNT','$MANAGER','manager',true),
   ('$ACCOUNT','$RIDER','delivery',true), ('$OTHER_ACCOUNT','$STRANGER','owner',true);
 insert into public.food_stores values ('$STORE','$ACCOUNT'), ('$OTHER','$OTHER_ACCOUNT');
@@ -88,6 +101,9 @@ expect_fail "$RIDER" "select $S4" "delivery staff cannot read finance" "merchant
 expect_fail "$STRANGER" "select $S4" "another store's owner cannot read it" "merchant manager access required"
 expect_fail "" "select $S4" "signed-out users cannot read it" "merchant manager access required"
 expect_eq "$MANAGER" "select ($S4)->>'orders'" "3" "manager can read finance"
+expect_fail "$DEV" "select $S4" "a developer account cannot read a store it does not belong to" "merchant manager access required"
+expect_fail "$LEGACY_RIDER" "select $S4" "legacy delivery staff cannot read finance" "merchant manager access required"
+expect_eq "$LEGACY_OWNER" "select ($S4)->>'orders'" "3" "legacy store owner can read finance"
 expect_fail "$OWNER" "select public.merchant_finance_summary('$STORE','2026-10-05','2026-10-04')" "from after to is rejected" "invalid date range"
 expect_fail "$OWNER" "select public.merchant_finance_summary('$STORE','2025-01-01','2026-10-04')" "ranges over a year are rejected" "date range is too long"
 

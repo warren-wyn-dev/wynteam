@@ -38,28 +38,32 @@ Date: 2026-10-04
   - Sales are counted by `paid_at`, refunds by `refunded_at`, ads by `click_day`.
   - WYNOS share is counted for delivered, non-refunded orders.
   - Discounts are derived as `subtotal + delivery_fee − total`, so the lines always add up.
-- Access: the store's owner, admin or manager only.
+- Access: the store's owner, admin or manager only (legacy `food_staff`: owner only).
   - This is narrower than the old page, which any merchant role could open, because these are store finances.
+  - The check is written in the RPC instead of using `merchant_has_store_role()`, which lets every developer account into any store and ignores roles for legacy `food_staff` (Codex review on PR #849).
   - `security definer`, `stable`, no grant to anon. The range is limited to 366 days.
 - The numbers are no longer limited to the 250 most recent orders.
 - Pull to refresh reloads the summary.
+- **Staged rollout (WYN-125):** developer accounts see the new page. Every other store keeps the previous finance page, unchanged.
+  - Opening it to everyone needs the Founder's explicit go-ahead ("เปิดให้ทุกคน").
+- The calendar sheet moves focus in when it opens, closes on Escape, keeps Tab inside, and returns focus to "เลือกวัน" when it closes.
 
 ## Verification
 
 - `supabase/tests/wynos_merchant_finance_test.sh` passes. It covers:
-  - roles: manager can read; delivery staff, another store's owner and signed-out users cannot;
+  - roles: manager and legacy owner can read; delivery staff, legacy delivery staff, a developer account outside the store, another store's owner and signed-out users cannot. The test uses the production helper, including its broad branches;
   - Bangkok day boundaries;
   - every line, refunds, ads and WYNOS share; that the lines add up; the previous period;
   - daily rows, slips waiting, WYNOS owed before and after settlement;
   - empty ranges, invalid and too-long ranges, privileges.
-- Mutation checks confirmed the test fails when the income formula, the role list or the timezone is wrong.
+- Mutation checks confirmed the test fails when the income formula, the role list or the timezone is wrong, or when the check goes back to `merchant_has_store_role()`.
 - The workflow verification query was tested on a local database.
 - `tsc`, `eslint` and `test:i18n` pass. `wynos-merchant` and `food-developer-preview` specs: 108 passed.
 
 ## Release
 
 1. Merge the PR. Web auto-deploys.
-   - Until step 2 runs, the finance page shows "ระบบการเงินยังไม่เปิดใช้งาน".
+   - Until step 2 runs, developer accounts see "ระบบการเงินยังไม่เปิดใช้งาน"; everyone else is unaffected.
 2. Dispatch `food-apply-wyn210.yml` with `APPLY-WYN-210`.
 
 ## Rollback

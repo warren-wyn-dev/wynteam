@@ -2,7 +2,7 @@
 
 import { CalendarDays, ChevronLeft, ChevronRight, CircleDollarSign, Download, X } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { MerchantIcon3D } from "@/components/merchant/merchant-3d-icons";
 import { money, type FoodStore } from "@/lib/food-merchant";
@@ -218,6 +218,31 @@ function RangePicker({ initial, onClose, onPick }: { initial: DateRange | null; 
   const [start, setStart] = useState<string | null>(initial?.from ?? null);
   const [end, setEnd] = useState<string | null>(initial?.to ?? null);
   const [month, setMonth] = useState(() => `${(initial?.to ?? today).slice(0, 7)}-01`);
+  const sheetRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+
+  // Same focus handling as the app's Sheet: focus moves in on open and goes
+  // back to "เลือกวัน" on close; Escape closes and Tab stays inside.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    sheetRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); closeRef.current(); return; }
+      if (event.key !== "Tab" || !sheetRef.current) return;
+      const items = [...sheetRef.current.querySelectorAll<HTMLElement>("button:not(:disabled)")];
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === sheetRef.current)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
 
   const lead = (new Date(`${month}T12:00:00Z`).getUTCDay() + 6) % 7;
   // Days in the month: from the 1st to the day before next month's 1st.
@@ -239,7 +264,7 @@ function RangePicker({ initial, onClose, onPick }: { initial: DateRange | null; 
 
   return (
     <div className="wm-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="wm-sheet" role="dialog" aria-modal="true" aria-label="เลือกช่วงวันที่">
+      <section ref={sheetRef} tabIndex={-1} className="wm-sheet" role="dialog" aria-modal="true" aria-label="เลือกช่วงวันที่">
         <header><span /><h2>เลือกช่วงวันที่</h2><button type="button" aria-label="ปิด" onClick={onClose}><X size={20} /></button></header>
         <div className="wm-sheet-body wm-fin-picker">
           <div className="wm-fin-month">

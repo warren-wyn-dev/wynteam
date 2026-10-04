@@ -7,7 +7,8 @@ name: Food -- apply WYN-210 merchant finance summary
 # Behaviour test: supabase/tests/wynos_merchant_finance_test.sh.
 #
 # SAFETY: additive and read only. No table, column, policy or data changes.
-# Only the store's owner, admin or manager can call it, for their own store.
+# Only the store's owner, admin or manager can call it, for their own store
+# (developer accounts get no cross-store access).
 # ROLLBACK (Founder, SQL editor): drop function
 # public.merchant_finance_summary(uuid, date, date); the finance page then
 # shows "ระบบการเงินยังไม่เปิดใช้งาน" until the web change is reverted.
@@ -63,8 +64,10 @@ jobs:
               has_function_privilege('anon', 'public.merchant_finance_summary(uuid,date,date)', 'execute') as anon_can_call,
               has_function_privilege('authenticated', 'public.merchant_finance_summary(uuid,date,date)', 'execute') as members_can_call,
               (select pg_get_functiondef('public.merchant_finance_summary(uuid,date,date)'::regprocedure)
-                 like '%merchant_has_store_role(p_store_id, array[''owner'',''admin'',''manager''])%') as manager_only;" \
+                 like '%mm.role in (''owner'', ''admin'', ''manager'')%') as manager_only,
+              (select pg_get_functiondef('public.merchant_finance_summary(uuid,date,date)'::regprocedure)
+                 like '%merchant_has_store_role(p_store_id%') as uses_broad_helper;" \
             | tee result.json | jq .
-          jq -e '.[0].fn_ready == 1 and .[0].anon_can_call == false and .[0].members_can_call == true and .[0].manager_only == true' result.json >/dev/null \
+          jq -e '.[0].fn_ready == 1 and .[0].anon_can_call == false and .[0].members_can_call == true and .[0].manager_only == true and .[0].uses_broad_helper == false' result.json >/dev/null \
             || { echo "::error::Verification failed"; exit 1; }
           echo "WYN-210 finance summary is installed."

@@ -18,8 +18,8 @@
 --   the range (still counted after WYNOS has settled it).
 -- * income = net sales - ad spend + WYNOS share.
 --
--- Read only. Owner, admin and manager of the store only; no other store's
--- data is reachable.
+-- Read only. Owner, admin and manager of the store only (legacy food_staff:
+-- owner only); developer accounts get no cross-store access here.
 
 create or replace function public.merchant_finance_summary(p_store_id uuid, p_from date, p_to date)
 returns jsonb
@@ -34,7 +34,28 @@ declare
   v_prev_to date;
   v_result jsonb;
 begin
-  if not public.merchant_has_store_role(p_store_id, array['owner','admin','manager']) then
+  -- Checked here, not with merchant_has_store_role(): that helper also lets
+  -- every developer account into any store and ignores roles for legacy
+  -- food_staff rows. Money is for this store's managers only.
+  if (select auth.uid()) is null or not (
+    exists (
+      select 1
+      from public.food_stores s
+      join public.merchant_memberships mm on mm.merchant_account_id = s.merchant_account_id
+      where s.id = p_store_id
+        and mm.user_id = (select auth.uid())
+        and mm.active
+        and mm.role in ('owner', 'admin', 'manager')
+    )
+    or exists (
+      select 1
+      from public.food_staff fs
+      where fs.store_id = p_store_id
+        and fs.user_id = (select auth.uid())
+        and fs.active
+        and fs.role = 'owner'
+    )
+  ) then
     raise exception 'merchant manager access required';
   end if;
   if p_from is null or p_to is null or p_from > p_to then

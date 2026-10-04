@@ -369,12 +369,17 @@ test("WYN-204 Merchant home is a simple Wynos layout with four tabs and 3D short
 test("WYN-205 Merchant finance page and the store's own promotions", () => {
   const app = read("components/merchant/wynos-merchant-app.tsx");
 
-  // WYN-210 replaced the order-based finance panel with a server summary.
-  const finance = read("components/merchant/merchant-finance.tsx");
-  expect(app).not.toContain("function FinancePanel(");
-  // Payment channels are still masked to the last 4 digits.
-  expect(finance).toContain("const last4 = (value: string | null) => {");
-  expect(finance).toContain('const digits = (value ?? "").replace(/\\D/g, "");');
+  // Until the Founder opens WYN-210 to everyone, non-developer stores keep this page.
+  // Money comes from the store's own orders: paid, waiting for slip check, refunded.
+  expect(app).toContain("function FinancePanel(");
+  expect(app).toContain('const paid = orders.filter((order) => order.payment_status === "paid");');
+  expect(app).toContain('const waiting = orders.filter((order) => order.payment_status === "submitted");');
+  // Payment channels are masked to the last 4 digits.
+  expect(app).toContain("const last4 = (value: string | null) => {");
+  expect(app).toContain('const digits = (value ?? "").replace(/\\D/g, "");');
+  // Failed refunds are still to do; activity is ordered by when money moved.
+  expect(app).toContain('order.refund_status === "pending" || order.refund_status === "failed"');
+  expect(app).toContain(".sort((a, b) => new Date(movedAt(b)).getTime() - new Date(movedAt(a)).getTime())");
   // Dynamic promotion text is translated through EN_PATTERNS.
   const en = read("lib/i18n/en.ts");
   expect(en).toContain('["{0} โปรโมชั่นกำลังใช้งาน", "{0} active promotions"]');
@@ -474,12 +479,23 @@ test("WYN-210 finance: any period, net sales and income worked out on the server
   expect(page).toContain("<strong>เงินที่ WYNOS จะโอนให้ร้าน</strong>");
   // Numbers from an older range are never shown for the new one.
   expect(page).toContain("const current = summary && summary.from === range.from && summary.to === range.to ? summary : null;");
+  // Staged rollout (WYN-125): developers get the new page, everyone else the previous one.
+  expect(app).toContain("const isDeveloper = useIsDeveloperAccount(client, userId);");
+  expect(app).toContain("isDeveloper\n            ? <MerchantFinance client={client} store={store} refreshKey={orders}");
+  expect(app).toContain(": <FinancePanel store={store} orders={orders} onEditStore={() => setStoreEditing(true)} />");
+  // The calendar sheet takes focus, closes on Escape and keeps Tab inside.
+  expect(page).toContain('<section ref={sheetRef} tabIndex={-1} className="wm-sheet" role="dialog" aria-modal="true"');
+  expect(page).toContain('if (event.key === "Escape") { event.preventDefault(); closeRef.current(); return; }');
+  expect(page).toContain("return () => {\n      document.removeEventListener(\"keydown\", onKey);\n      if (opener?.isConnected) opener.focus();");
   // Pull to refresh still reloads the finance page.
   expect(app).toContain("refreshKey={orders}");
   // CSV opens in Excel with Thai (UTF-8 BOM) and carries a total row.
   expect(lib).toContain("return `\\uFEFF${");
   // Server: manager roles only, read only, Bangkok days, bounded range.
-  expect(migration).toContain("public.merchant_has_store_role(p_store_id, array['owner','admin','manager'])");
+  // Not merchant_has_store_role(): it lets developers into any store and ignores legacy staff roles.
+  expect(migration).toContain("and mm.role in ('owner', 'admin', 'manager')");
+  expect(migration).toContain("and fs.role = 'owner'");
+  expect(migration).not.toContain("merchant_has_store_role(p_store_id");
   expect(migration).toContain("paid_total - refunds - ad_spend + platform_funded as income");
   expect(migration).toContain("if v_days > 366 then");
   expect(migration).toContain("revoke all on function public.merchant_finance_summary(uuid, date, date) from public, anon;");
