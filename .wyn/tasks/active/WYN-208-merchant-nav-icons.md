@@ -1,6 +1,6 @@
 # Product Task — WYN-208 — Wynos Merchant bottom-bar icons
 
-Status: in review — awaiting Founder "อนุมัติ" to merge
+Status: approved — Founder "อนุมัติ" 2026-10-04; releasing PR #840
 Owner: AI Design / AI Coding
 Date: 2026-10-04
 
