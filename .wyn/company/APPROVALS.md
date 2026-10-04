@@ -424,6 +424,8 @@
 - Frontend only. No database, API or auth change.
 - Release: merge PR #840. Web auto-deploys.
 - Rollback: revert PR #840.
+- สถานะ: **อนุมัติแล้ว**. วันที่ 2026-10-04
+
 ### DECISION — [2026-10-04] WYN-209 Wynos Merchant app icon (PR #841)
 
 - Founder request:
