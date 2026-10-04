@@ -659,7 +659,7 @@ export type FoodPlace = {
   isOpen?: boolean | null;
   deliveryRadiusKm?: number | null;
   distanceKm?: number | null;
-  source?: "wynos" | "geo" | "legacy" | "store";
+  source?: "wynos" | "geo" | "legacy" | "osm" | "store";
 };
 
 function parsePlaceRows(rows: unknown[], source: FoodPlace["source"], limit = 12): FoodPlace[] {
@@ -775,7 +775,9 @@ async function invokePublicMapsGeocoder(
   try {
     const { data, error } = await client.functions.invoke("wynos-maps-geocode", { body });
     if (error) return null;
-    return parseMapPlaces(data, "legacy");
+    const provider = (data as { provider?: unknown } | null)?.provider;
+    const source: FoodPlace["source"] = provider === "osm" ? "osm" : "legacy";
+    return parseMapPlaces(data, source);
   } catch {
     return null;
   }

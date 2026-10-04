@@ -433,6 +433,8 @@ export function FoodDeliveryMapPicker({
 
   const showLegacySearchAttribution =
     place?.source === "legacy" || results.some((result) => result.source === "legacy");
+  const showOsmReverseAttribution =
+    place?.source === "osm" || results.some((result) => result.source === "osm");
 
   return (
     <div className="wf-map-picker" role="dialog" aria-modal="true" aria-label="ปักหมุดตำแหน่งจัดส่ง">
@@ -569,6 +571,9 @@ export function FoodDeliveryMapPicker({
         </button>
         {showLegacySearchAttribution ? (
           <a href="https://locationiq.com" target="_blank" rel="noreferrer">Search by LocationIQ.com</a>
+        ) : null}
+        {showOsmReverseAttribution ? (
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Address © OpenStreetMap contributors</a>
         ) : null}
       </section>
     </div>
