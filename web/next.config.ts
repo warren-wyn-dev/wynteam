@@ -53,6 +53,25 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      // WYN-211: keep the existing route implementations as the source of
+      // truth, while giving each WYNOS product a dedicated production entry
+      // domain. These exact-root rewrites intentionally leave /_next, public
+      // assets and existing /food, /merchant, /maps links untouched.
+      {
+        source: "/",
+        has: [{ type: "host", value: "food.wynos.online" }],
+        destination: "/food",
+      },
+      {
+        source: "/",
+        has: [{ type: "host", value: "merchant.wynos.online" }],
+        destination: "/merchant",
+      },
+      {
+        source: "/",
+        has: [{ type: "host", value: "maps.wynos.online" }],
+        destination: "/maps",
+      },
       { source: "/planet/:path*", destination: "https://tiles.openfreemap.org/planet/:path*" },
       { source: "/sprites/:path*", destination: "https://tiles.openfreemap.org/sprites/:path*" },
       { source: "/fonts/:path*", destination: "https://tiles.openfreemap.org/fonts/:path*" },
