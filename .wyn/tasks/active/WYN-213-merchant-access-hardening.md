@@ -1,6 +1,6 @@
 # Security Task — WYN-213 — Merchant access hardening
 
-Status: in review — Founder approved the work ("อนุมัติ"); awaiting "อนุมัติ" for merge and production migration
+Status: approved — Founder "อนุมัติ" 2026-10-04; releasing PR #874, applying the migration, deploying Admin
 Owner: AI QA & Security / AI Coding
 Date: 2026-10-04
 
