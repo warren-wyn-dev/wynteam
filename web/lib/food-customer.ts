@@ -666,6 +666,7 @@ function parsePlaceRows(rows: unknown[], source: FoodPlace["source"], limit = 12
   return rows.flatMap((row) => {
     const place = row as {
       place_id?: unknown;
+      placeId?: unknown;
       name?: unknown;
       address?: unknown;
       lat?: unknown;
@@ -684,7 +685,15 @@ function parsePlaceRows(rows: unknown[], source: FoodPlace["source"], limit = 12
     const longitude = Number(place.lon ?? place.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
     return [{
-      placeId: typeof place.place_id === "string" ? place.place_id : null,
+      placeId: typeof place.place_id === "string"
+        ? place.place_id
+        : typeof place.placeId === "string"
+          ? place.placeId
+          : place.place_id != null
+            ? String(place.place_id)
+            : place.placeId != null
+              ? String(place.placeId)
+              : null,
       name: typeof place.name === "string" ? place.name : "",
       address: typeof place.address === "string" ? place.address : null,
       latitude,
@@ -710,6 +719,22 @@ function parseMapPlaces(payload: unknown, source: FoodPlace["source"]): FoodPlac
     ? (payload as { results: unknown[] }).results
     : [];
   return parsePlaceRows(results, source);
+}
+
+async function reverseWynosPlace(
+  client: SupabaseClient,
+  location: FoodLocation,
+): Promise<FoodPlace | null> {
+  const { data, error } = await client.rpc("wynos_reverse_place", {
+    p_latitude: location.latitude,
+    p_longitude: location.longitude,
+    p_max_distance_km: 0.12,
+  });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    return null;
+  }
+  return parsePlaceRows(Array.isArray(data) ? data : [], "wynos", 1)[0] ?? null;
 }
 
 export async function fetchNearbyWynosPlaces(
@@ -741,6 +766,19 @@ async function searchWynosPlaces(client: SupabaseClient, query: string): Promise
     return [];
   }
   return parsePlaceRows(Array.isArray(data) ? data : [], "wynos");
+}
+
+async function invokePublicMapsGeocoder(
+  client: SupabaseClient,
+  body: { mode: "search"; query: string } | { mode: "reverse"; lat: number; lon: number },
+): Promise<FoodPlace[] | null> {
+  try {
+    const { data, error } = await client.functions.invoke("wynos-maps-geocode", { body });
+    if (error) return null;
+    return parseMapPlaces(data, "legacy");
+  } catch {
+    return null;
+  }
 }
 
 async function searchWynosMapsApi(query: string): Promise<FoodPlace[] | null> {
@@ -783,8 +821,15 @@ export async function searchFoodPlaces(client: SupabaseClient, query: string): P
   if (ownPlaces.length) return ownPlaces;
 
   const wynosResults = await searchWynosMapsApi(trimmed);
-  if (wynosResults !== null) return wynosResults;
+  if (wynosResults?.length) return wynosResults;
 
+  const publicFallback = await invokePublicMapsGeocoder(client, {
+    mode: "search",
+    query: trimmed.slice(0, 200),
+  });
+  if (publicFallback?.length) return publicFallback;
+
+  // Signed-in compatibility fallback for the older location-search function.
   const { data, error } = await client.functions.invoke("location-search", {
     body: { mode: "search", query: trimmed.slice(0, 200) },
   });
@@ -797,9 +842,20 @@ export async function searchFoodPlaces(client: SupabaseClient, query: string): P
  * kept only as a rollout fallback until the Thailand geocoder is online.
  */
 export async function reverseFoodPlace(client: SupabaseClient, location: FoodLocation): Promise<FoodPlace | null> {
-  const wynosResults = await reverseWynosMapsApi(location);
-  if (wynosResults !== null) return wynosResults[0] ?? null;
+  const ownPlace = await reverseWynosPlace(client, location);
+  if (ownPlace) return ownPlace;
 
+  const wynosResults = await reverseWynosMapsApi(location);
+  if (wynosResults?.length) return wynosResults[0];
+
+  const publicFallback = await invokePublicMapsGeocoder(client, {
+    mode: "reverse",
+    lat: location.latitude,
+    lon: location.longitude,
+  });
+  if (publicFallback?.length) return publicFallback[0];
+
+  // Signed-in compatibility fallback for the older location-search function.
   const { data, error } = await client.functions.invoke("location-search", {
     body: { mode: "reverse", lat: location.latitude, lon: location.longitude },
   });
