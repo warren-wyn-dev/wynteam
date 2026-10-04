@@ -118,6 +118,11 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(publicGeocoder).toContain("LOCATIONIQ_API_KEY");
   expect(map).toContain("Geocoding by Photon");
   expect(map).toContain("© OpenStreetMap contributors");
+  expect(map).toContain("wf-map-attribution-button");
+  expect(map).toContain("wf-map-attribution-panel");
+  expect(map).toContain("ข้อมูลแผนที่และแหล่งข้อมูล");
+  expect(map).toContain("attributionControl: false");
+  expect(map).not.toContain("wf-map-geocoder-credit");
   expect(nearbySql).toContain("create or replace function public.wynos_nearby_places");
   expect(nearbySql).toContain("to anon, authenticated");
   expect(map).toContain("fetchNearbyWynosPlaces");
