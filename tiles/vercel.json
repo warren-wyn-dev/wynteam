@@ -1,0 +1,97 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/planet/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, HEAD, OPTIONS"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=86400, stale-while-revalidate=604800"
+        },
+        {
+          "key": "X-WYNOS-Maps",
+          "value": "tiles-gateway-v1"
+        }
+      ]
+    },
+    {
+      "source": "/sprites/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=604800, stale-while-revalidate=2592000"
+        },
+        {
+          "key": "X-WYNOS-Maps",
+          "value": "tiles-gateway-v1"
+        }
+      ]
+    },
+    {
+      "source": "/fonts/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=2592000, stale-while-revalidate=2592000"
+        },
+        {
+          "key": "X-WYNOS-Maps",
+          "value": "tiles-gateway-v1"
+        }
+      ]
+    },
+    {
+      "source": "/natural_earth/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=2592000, stale-while-revalidate=2592000"
+        },
+        {
+          "key": "X-WYNOS-Maps",
+          "value": "tiles-gateway-v1"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/planet/:path*",
+      "destination": "https://tiles.openfreemap.org/planet/:path*"
+    },
+    {
+      "source": "/sprites/:path*",
+      "destination": "https://tiles.openfreemap.org/sprites/:path*"
+    },
+    {
+      "source": "/fonts/:path*",
+      "destination": "https://tiles.openfreemap.org/fonts/:path*"
+    },
+    {
+      "source": "/natural_earth/:path*",
+      "destination": "https://tiles.openfreemap.org/natural_earth/:path*"
+    }
+  ]
+}
