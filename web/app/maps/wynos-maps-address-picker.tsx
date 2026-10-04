@@ -2,7 +2,7 @@
 
 import { CheckCircle2, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { FoodDeliveryMapPicker } from "@/components/food/food-delivery-map-picker";
 import type { FoodLocation, FoodPlace } from "@/lib/food-customer";
@@ -16,36 +16,11 @@ type StoredPin = {
   savedAt: string;
 };
 
-function readStoredPin(): FoodLocation | null {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<StoredPin>;
-    const latitude = parsed.location?.latitude;
-    const longitude = parsed.location?.longitude;
-    if (typeof latitude !== "number" || typeof longitude !== "number") return null;
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-    return { latitude, longitude };
-  } catch {
-    return null;
-  }
-}
-
 export function WynosMapsAddressPicker() {
   const router = useRouter();
   const client = useMemo(() => getSupabaseBrowserClient(), []);
-  const [initialLocation, setInitialLocation] = useState<FoodLocation | null>(null);
-  const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<number | null>(null);
-
-  useEffect(() => {
-    setInitialLocation(readStoredPin());
-    setReady(true);
-    return () => {
-      if (savedTimer.current) window.clearTimeout(savedTimer.current);
-    };
-  }, []);
 
   const close = () => {
     if (window.history.length > 1) {
@@ -67,16 +42,6 @@ export function WynosMapsAddressPicker() {
     if (savedTimer.current) window.clearTimeout(savedTimer.current);
     savedTimer.current = window.setTimeout(() => setSaved(false), 2200);
   };
-
-  if (!ready) {
-    return (
-      <main className="wynos-maps-page wynos-maps-boot">
-        <MapPin size={32} />
-        <strong>WYNOS Maps</strong>
-        <span>กำลังเตรียมแผนที่…</span>
-      </main>
-    );
-  }
 
   if (!client) {
     return (
@@ -100,7 +65,7 @@ export function WynosMapsAddressPicker() {
       <FoodDeliveryMapPicker
         client={client}
         storeId={null}
-        initialLocation={initialLocation}
+        initialLocation={null}
         onClose={close}
         onConfirm={confirm}
       />
