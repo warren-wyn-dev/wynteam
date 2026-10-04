@@ -1,17 +1,16 @@
 "use client";
 
-import { BellRing, X } from "lucide-react";
+import { BellRing } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { money, type FoodOrder } from "@/lib/food-merchant";
 
 /**
  * WYN-198: a loud, full-screen alert for orders that need the store now.
- * The sound is generated with Web Audio (no audio file) and repeats until the
- * store opens or dismisses the order, for at most ALERT_MAX_MS.
+ * The sound (WYN-200, Wynos's own) repeats every ALERT_REPEAT_MS until the
+ * store opens the order or the order is accepted (WYN-202: no time limit).
  */
 const ALERT_REPEAT_MS = 2500;
-const ALERT_MAX_MS = 3 * 60 * 1000;
 
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
@@ -134,31 +133,23 @@ export function NewOrderAlert({
   count,
   soundReady,
   onOpen,
-  onDismiss,
 }: {
   order: FoodOrder;
   /** How many orders are waiting in the alert queue, this one included. */
   count: number;
   soundReady: boolean;
   onOpen: () => void;
-  onDismiss: () => void;
 }) {
   const openRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const dismissRef = useRef(onDismiss);
-  // Focus goes back only when the alert is dismissed; opening the order hands
-  // focus to the order sheet instead.
-  const restoreFocusRef = useRef(false);
-  useEffect(() => { dismissRef.current = () => { restoreFocusRef.current = true; onDismiss(); }; }, [onDismiss]);
 
-  // Modal for keyboard users: focus stays inside, Escape closes, and focus
-  // returns to where it was when the alert closes.
+  // WYN-202 (Founder): it rings until the store opens the order or the order
+  // is accepted, so there is no close button and Escape does nothing. Focus
+  // stays inside; opening the order hands focus to the order sheet.
   useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        dismissRef.current();
         return;
       }
       if (event.key !== "Tab" || !dialogRef.current) return;
@@ -176,27 +167,18 @@ export function NewOrderAlert({
       }
     };
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      if (restoreFocusRef.current && previous?.isConnected) previous.focus();
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
     openRef.current?.focus();
-    const startedAt = Date.now();
     const ring = () => {
       playChime();
       if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([300, 120, 300]);
     };
     ring();
-    const timer = window.setInterval(() => {
-      if (Date.now() - startedAt > ALERT_MAX_MS) {
-        window.clearInterval(timer);
-        return;
-      }
-      ring();
-    }, ALERT_REPEAT_MS);
+    // No time limit: rings until this alert unmounts (order opened or accepted).
+    const timer = window.setInterval(ring, ALERT_REPEAT_MS);
     return () => window.clearInterval(timer);
   }, [order.id]);
 
@@ -206,7 +188,6 @@ export function NewOrderAlert({
   return (
     <div ref={dialogRef} className="wm-alert-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="wm-alert-title">
       <section className="wm-alert">
-        <button className="wm-alert-close" type="button" aria-label="ปิด" onClick={() => dismissRef.current()}><X size={22} /></button>
         <span className="wm-alert-icon"><BellRing size={34} /></span>
         <h2 id="wm-alert-title">{slipWaiting ? "ลูกค้าโอนเงินแล้ว" : "ออเดอร์ใหม่"}</h2>
         <strong className="wm-alert-number">#{order.order_number}</strong>

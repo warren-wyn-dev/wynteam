@@ -612,7 +612,6 @@ function MerchantInner({
           count={alertQueue.length}
           soundReady={soundReady}
           onOpen={() => { markAlertSeen(alertOrder); setSelectedOrder(alertOrder); }}
-          onDismiss={() => markAlertSeen(alertOrder)}
         />
       ) : null}
 
