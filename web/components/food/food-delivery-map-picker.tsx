@@ -197,7 +197,7 @@ export function FoodDeliveryMapPicker({
     });
   };
 
-  const useCurrent = async () => {
+  const pickCurrentLocation = async () => {
     setWorking(true);
     setStatus("");
     try {
@@ -276,7 +276,7 @@ export function FoodDeliveryMapPicker({
         <div ref={mapNode} className="wf-map-canvas" />
         {!mapReady ? <div className="wf-map-loading">กำลังโหลดแผนที่…</div> : null}
         <div className="wf-map-center-pin" aria-hidden="true"><MapPin size={42} fill="currentColor" /></div>
-        <button className="wf-map-current" type="button" disabled={working} onClick={() => void useCurrent()}>
+        <button className="wf-map-current" type="button" disabled={working} onClick={() => void pickCurrentLocation()}>
           <LocateFixed size={19} /> <span>ตำแหน่งปัจจุบัน</span>
         </button>
       </div>
