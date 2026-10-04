@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { BellRing, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { previewMerchantOrderSound } from "@/components/merchant/merchant-order-alert";
 import {
   getPushAvailability,
   isCurrentDevicePushEnabled,
@@ -154,6 +155,7 @@ export function MerchantNotificationPrompt({
             <button ref={allowRef} className="wm-primary wm-full" type="button" disabled={busy} onClick={() => void allow()}>
               {busy ? "กำลังเปิด…" : "อนุญาตการแจ้งเตือน"}
             </button>
+            <button className="wm-secondary wm-full" type="button" onClick={() => void previewMerchantOrderSound()}>ลองฟังเสียงแจ้งเตือน</button>
             <button className="wm-secondary wm-full" type="button" onClick={close}>ไว้ทีหลัง</button>
           </>
         ) : (

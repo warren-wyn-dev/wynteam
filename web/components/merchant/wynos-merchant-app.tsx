@@ -3,6 +3,7 @@
 
 import {
   Bell,
+  BellRing,
   Check,
   ChevronRight,
   CircleDollarSign,
@@ -32,7 +33,7 @@ import { DeveloperRouteGate } from "@/components/developer-route-gate";
 import { MerchantCampaignCenter } from "@/components/merchant/merchant-campaign-center";
 import { MerchantStoreTools, RefundControls } from "@/components/merchant/merchant-core-panels";
 import { MerchantNotificationPrompt } from "@/components/merchant/merchant-notification-prompt";
-import { NewOrderAlert, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
+import { NewOrderAlert, previewMerchantOrderSound, useMerchantSoundUnlock } from "@/components/merchant/merchant-order-alert";
 import { MERCHANT_NOTIFICATION_TEST_RESULT_KEY, setMerchantStorePublished } from "@/lib/merchant-core";
 import {
   completeFoodDelivery,
@@ -987,6 +988,7 @@ function StorePanel({
         </button>
         <button type="button" onClick={onEdit}><span><strong>ข้อมูลร้านและการจัดส่ง</strong><small>เวลาเปิด · พื้นที่ส่ง · ค่าส่ง · ยอดขั้นต่ำ</small></span><ChevronRight size={19} /></button>
         <button type="button" onClick={onEdit}><span><strong>รับชำระเงิน</strong><small>PromptPay · บัญชีธนาคาร · QR</small></span><ChevronRight size={19} /></button>
+        <button type="button" onClick={() => void previewMerchantOrderSound().then((played) => { if (!played) onMessage("เปิดเสียงไม่ได้ ตรวจว่ามือถือไม่ได้ปิดเสียงอยู่"); })}><span><strong>เสียงแจ้งเตือนออเดอร์</strong><small>แตะเพื่อลองฟังเสียงของ Wynos Merchant</small></span><BellRing size={19} /></button>
         {installPrompt ? <button type="button" onClick={onInstall}><span><strong>ติดตั้งเป็นแอป</strong><small>เพิ่ม WYNOS Merchant ไว้บนหน้าจอหลัก</small></span><ChevronRight size={19} /></button> : null}
         <button type="button" onClick={onSignOut}><span><strong>ออกจากระบบ</strong><small>ออกจากบัญชี WYNOS บนอุปกรณ์นี้</small></span><ChevronRight size={19} /></button>
       </section>
