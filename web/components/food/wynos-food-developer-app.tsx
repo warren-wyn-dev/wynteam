@@ -1257,7 +1257,15 @@ function FoodCustomerInner({
   const storeKey = `wynos-food-store-v1:${userId}`;
   const [initialPickedStore] = useState(() => {
     if (typeof window === "undefined") return "";
-    try { return localStorage.getItem(storeKey) ?? ""; } catch { return ""; }
+    try {
+      const requested = new URLSearchParams(window.location.search).get("store")?.trim() ?? "";
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requested)) {
+        return requested;
+      }
+      return localStorage.getItem(storeKey) ?? "";
+    } catch {
+      return "";
+    }
   });
   const pickedStoreRef = useRef<string>(initialPickedStore);
   const [tab, setTab] = useState<FoodTab>("home");

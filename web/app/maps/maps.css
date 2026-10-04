@@ -52,9 +52,10 @@
 .wynos-maps-brand-rail {
   position: fixed;
   z-index: 172;
-  top: calc(env(safe-area-inset-top) + 7px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(env(safe-area-inset-top) + 132px);
+  right: 12px;
+  left: auto;
+  transform: none;
   height: 22px;
   padding: 0 9px;
   border: 1px solid #ededee;
@@ -147,7 +148,8 @@
 
 @media (max-width: 420px) {
   .wynos-maps-brand-rail {
-    top: calc(env(safe-area-inset-top) + 5px);
+    top: calc(env(safe-area-inset-top) + 128px);
+    right: 10px;
     height: 20px;
     font-size: 7.5px;
   }

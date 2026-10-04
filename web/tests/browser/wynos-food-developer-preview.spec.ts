@@ -52,6 +52,7 @@ test("WYNOS Food delivery address uses an interactive map pin flow", () => {
   expect(map).toContain("currentFoodLocation()");
   expect(map).toContain("searchFoodPlaces(client, trimmed)");
   expect(map).toContain("reverseFoodPlace(client, next)");
+  expect(map).toContain("autoLocate = false");
   expect(data).toContain('body: { mode: "reverse", lat: location.latitude, lon: location.longitude }');
 });
 
@@ -77,6 +78,8 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   const app = read("components/food/wynos-food-developer-app.tsx");
   const data = read("lib/food-customer.ts");
   const sql = read("../supabase/migrations_wynos_maps_places_saved_addresses_v1.sql");
+  const nearbySql = read("../supabase/migrations_wynos_maps_nearby_places_v1.sql");
+  const map = read("components/food/food-delivery-map-picker.tsx");
 
   expect(sql).toContain("create table if not exists public.wynos_places");
   expect(sql).toContain("alter table public.wynos_places enable row level security");
@@ -89,6 +92,13 @@ test("WYNOS Maps Places enriches saved addresses without exposing customer homes
   expect(data).toContain('client.rpc("wynos_search_store_places"');
   expect(data).toContain('client.rpc("food_upsert_customer_address_v2"');
   expect(data).toContain('client.rpc("food_delivery_availability"');
+  expect(data).toContain('client.rpc("wynos_nearby_places"');
+  expect(nearbySql).toContain("create or replace function public.wynos_nearby_places");
+  expect(nearbySql).toContain("to anon, authenticated");
+  expect(map).toContain("fetchNearbyWynosPlaces");
+  expect(map).toContain('"wf-map-place-marker is-food"');
+  expect(map).toContain("ดูร้านใน WYNOS Food");
+  expect(app).toContain('new URLSearchParams(window.location.search).get("store")');
   expect(app).toContain("ชื่ออาคาร / หมู่บ้าน");
   expect(app).toContain("หมายเหตุถึงผู้จัดส่ง");
   expect(app).toContain("WYNOS Place ·");

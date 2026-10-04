@@ -68,6 +68,7 @@ export function WynosMapsAddressPicker() {
         initialLocation={null}
         onClose={close}
         onConfirm={confirm}
+        autoLocate
       />
 
       {saved ? (
