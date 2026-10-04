@@ -4,6 +4,12 @@
  * in app/, components/ and lib/; add a line here when adding Thai UI text.
  */
 export const EN_EXACT: Record<string, string> = {
+  "WYNOS Maps · ปักหมุดที่อยู่": "WYNOS Maps · Pin an address",
+  "ปักหมุดตำแหน่งจัดส่งสำหรับ WYNOS Food": "Pin a delivery location for WYNOS Food",
+  "เปิด WYNOS Maps ไม่สำเร็จ": "Couldn’t open WYNOS Maps",
+  "ระบบแผนที่ยังเชื่อมต่อบริการตำแหน่งไม่ได้": "The map can’t connect to location services yet",
+  "กลับ WYNOS Food": "Back to WYNOS Food",
+  "บันทึกหมุดแล้ว": "Pin saved",
   "ออเดอร์จาก WYNOS Food": "Orders from WYNOS Food",
   "ทดสอบการแจ้งเตือน": "Test notifications",
   "ตรวจสอบ In-App, Realtime, Web Push และ Deep Link ของอุปกรณ์นี้": "Check In-App, Realtime, Web Push and Deep Link on this device",
